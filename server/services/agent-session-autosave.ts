@@ -24,7 +24,7 @@
  * All watchers poll every 60 seconds.
  */
 
-import { existsSync, statSync, readFileSync, writeFileSync, watch } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync, watch, readdirSync } from 'fs';
 import { join } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -36,6 +36,7 @@ import {
   extractTurns,
   buildDialogueChunk,
 } from './transcript-parser';
+import { reembedConversationMemory } from '../scripts/reembed-memory';
 
 const COMMIT_MSG_PATH  = join(WORKSPACE, '.local/.commit_message');
 const INSIGHTS_PATH    = join(WORKSPACE, '.local/.session_insights');
@@ -432,6 +433,164 @@ async function checkFlushTrigger(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Episode .md auto-sync — docs/episode-*.md → conversation_memories + re-embed
+// ---------------------------------------------------------------------------
+
+const DOCS_DIR = join(WORKSPACE, 'docs');
+const EPISODE_RE = /^episode-(\d+)\.md$/;
+
+// Per-file state: mtime and (once discovered) the DB memory ID
+const episodeMtimeMap = new Map<string, number>();   // filename → last seen mtime
+const episodeIdCache  = new Map<string, string>();   // filename → conversation_memories.id
+const episodeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Derive a human title from the filename, e.g. "episode-27.md" → "Episode 27" */
+function episodeTitleFromFilename(filename: string): string {
+  const m = EPISODE_RE.exec(filename);
+  return m ? `Episode ${parseInt(m[1], 10)}` : filename.replace('.md', '');
+}
+
+/** Derive a summary from the first few non-empty lines of the content. */
+function episodeSummaryFromContent(content: string): string {
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  return lines.slice(0, 5).join(' ').slice(0, 400);
+}
+
+/** Upsert the episode into conversation_memories and trigger a re-embed. */
+async function syncEpisodeFile(filename: string): Promise<void> {
+  const filePath = join(DOCS_DIR, filename);
+  if (!existsSync(filePath)) return;
+
+  let content: string;
+  try {
+    content = readFileSync(filePath, 'utf-8');
+  } catch {
+    return; // file briefly locked
+  }
+
+  const title   = episodeTitleFromFilename(filename);
+  const summary = episodeSummaryFromContent(content);
+  const db      = getUserDb();
+
+  try {
+    // Look up existing ID (cache it after first discovery)
+    let memoryId = episodeIdCache.get(filename);
+
+    if (!memoryId) {
+      const rows = await db.execute(sql`
+        SELECT id FROM conversation_memories
+        WHERE arc_name = 'HolaHola Episodes'
+          AND title = ${title}
+        LIMIT 1
+      `);
+      const row = (rows as any).rows?.[0] ?? (rows as any)[0];
+      if (row?.id) {
+        memoryId = row.id as string;
+        episodeIdCache.set(filename, memoryId);
+      }
+    }
+
+    if (memoryId) {
+      // Episode already in DB — update content + summary
+      await db.execute(sql`
+        UPDATE conversation_memories
+        SET content = ${content},
+            summary = ${summary}
+        WHERE id = ${memoryId}
+      `);
+      console.log(`[AgentAutosave] Episode synced (update): ${title} (${content.length} bytes)`);
+    } else {
+      // First time seeing this episode — insert it
+      const inserted = await db.execute(sql`
+        INSERT INTO conversation_memories
+          (id, title, summary, content, importance, entry_type, tags, arc_name)
+        VALUES (
+          gen_random_uuid(),
+          ${title},
+          ${summary},
+          ${content},
+          ${9},
+          'episode',
+          ARRAY['episode', 'auto-synced']::text[],
+          'HolaHola Episodes'
+        )
+        RETURNING id
+      `);
+      const newId = (inserted as any).rows?.[0]?.id ?? (inserted as any)[0]?.id;
+      if (newId) {
+        episodeIdCache.set(filename, newId as string);
+        memoryId = newId as string;
+        console.log(`[AgentAutosave] Episode synced (insert): ${title} id=${memoryId} (${content.length} bytes)`);
+      }
+    }
+
+    // Re-embed after upsert
+    if (memoryId) {
+      reembedConversationMemory(memoryId).catch((err: any) => {
+        console.error(`[AgentAutosave] Re-embed failed for ${title}:`, err?.message ?? err);
+      });
+    }
+  } catch (err: any) {
+    console.error(`[AgentAutosave] Episode sync error for ${filename}:`, err?.message ?? err);
+  }
+}
+
+/** Schedule a debounced sync for a specific episode file (2s debounce). */
+function scheduleEpisodeSync(filename: string): void {
+  const existing = episodeDebounce.get(filename);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    episodeDebounce.delete(filename);
+    syncEpisodeFile(filename).catch(() => { /* already logged */ });
+  }, 2000);
+  episodeDebounce.set(filename, timer);
+}
+
+/** Poll docs/ for new or changed episode-*.md files. */
+async function checkEpisodeFiles(): Promise<void> {
+  let files: string[];
+  try {
+    files = readdirSync(DOCS_DIR).filter(f => EPISODE_RE.test(f));
+  } catch {
+    return; // docs/ doesn't exist yet
+  }
+
+  for (const filename of files) {
+    const filePath = join(DOCS_DIR, filename);
+    try {
+      const mtime = statSync(filePath).mtimeMs;
+      const prev  = episodeMtimeMap.get(filename) ?? 0;
+      if (mtime !== prev) {
+        episodeMtimeMap.set(filename, mtime);
+        // prev === 0 means this file was not present at startup (seedEpisodeMtimes
+        // pre-populates all startup files). So this is a truly new episode file —
+        // sync it immediately just like a changed file.
+        const reason = prev === 0 ? 'new file detected' : 'change detected';
+        console.log(`[AgentAutosave] Episode ${reason}: ${filename} — syncing in 2s...`);
+        scheduleEpisodeSync(filename);
+      }
+    } catch { /* briefly locked */ }
+  }
+}
+
+/** Seed initial mtimes for all current episode files so restarts don't trigger mass re-embeds. */
+function seedEpisodeMtimes(): void {
+  let files: string[];
+  try {
+    files = readdirSync(DOCS_DIR).filter(f => EPISODE_RE.test(f));
+  } catch {
+    return;
+  }
+  for (const filename of files) {
+    const filePath = join(DOCS_DIR, filename);
+    try {
+      episodeMtimeMap.set(filename, statSync(filePath).mtimeMs);
+    } catch { /* ignore */ }
+  }
+  console.log(`[AgentAutosave] Seeded mtimes for ${files.length} episode file(s) in docs/.`);
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap + start
 // ---------------------------------------------------------------------------
 export function startAgentSessionAutosave(): void {
@@ -464,6 +623,9 @@ export function startAgentSessionAutosave(): void {
     try { flushTriggerLastMtime = statSync(FLUSH_TRIGGER_PATH).mtimeMs; } catch { /* ignore */ }
   }
 
+  // Seed episode mtimes so an existing set of .md files doesn't trigger mass re-embeds on restart
+  seedEpisodeMtimes();
+
   // --- Event-driven flush trigger (Layer 1) ---
   // fs.watch() on the .local/ directory fires within milliseconds when
   // .flush_transcript is created or modified — no poll latency.
@@ -480,6 +642,20 @@ export function startAgentSessionAutosave(): void {
     console.warn('[AgentAutosave] fs.watch() unavailable — falling back to poll-only flush detection:', err.message);
   }
 
+  // --- Event-driven episode watcher (Layer 1) ---
+  // fs.watch() on docs/ fires within milliseconds when any episode-*.md is saved.
+  try {
+    watch(DOCS_DIR, { persistent: false }, (eventType, filename) => {
+      if (filename && EPISODE_RE.test(filename)) {
+        console.log(`[AgentAutosave] docs/ event (${eventType}): ${filename} — scheduling episode sync.`);
+        scheduleEpisodeSync(filename);
+      }
+    });
+    console.log('[AgentAutosave] fs.watch() armed on docs/ for immediate episode-file detection.');
+  } catch (err: any) {
+    console.warn('[AgentAutosave] fs.watch() on docs/ unavailable — falling back to poll-only episode detection:', err.message);
+  }
+
   // --- Polling loop (Layer 2 + all other watchers) ---
   setInterval(async () => {
     await checkFlushTrigger(); // backup in case fs.watch missed the event
@@ -488,8 +664,9 @@ export function startAgentSessionAutosave(): void {
     await checkLucaReflection();
     await checkLucaQuestion();
     await checkLucaMoment();
+    await checkEpisodeFiles(); // catch any changes missed by fs.watch + detect new episode files
     await saveTranscriptChunk(); // periodic — captures conversation-only sessions too
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + periodic transcript capture every 20s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + docs/episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
