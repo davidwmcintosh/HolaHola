@@ -28,6 +28,10 @@ const CHECKS: Array<{ label: string; script: string }> = [
     label: 'Prequel Episode 2 — The Engine and the Drift',
     script: 'server/scripts/test-prequel-episode-2-db-sync.ts',
   },
+  {
+    label: 'Prequel Episode 3 — The Distance Covered',
+    script: 'server/scripts/test-prequel-episode-3-db-sync.ts',
+  },
 ];
 
 function runCheck(label: string, scriptPath: string): boolean {
