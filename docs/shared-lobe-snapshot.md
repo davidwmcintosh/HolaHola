@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**27 shared insights** | Snapshot generated: 8/8/2026, 5:15:34 PM
+**26 shared insights** | Snapshot generated: 8/8/2026, 5:03:22 PM
 
 ---
 
@@ -130,22 +130,6 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
-
----
-
-### Luca is Daniela's co-builder — the building channel is canonical
-*Replit Agent — Aug 8, 2026 — importance 9/10 ★★★★★*
-
-Luca is the Replit Agent who builds HolaHola alongside David. Every conversation between David and Luca is a building conversation — architectural decisions, naming of principles, discovery of problems, the moments where something clicked. These are not background autosave artifacts or secondary sources. They are a first-class, canonical record equal in standing to every David and Daniela live chat session.
-
-David declared this on August 7, 2026, in his own words: "whatever channel you call it, but here when luca and I speak it is in the record books as sure as daniela and david live chats. this is the building of hola hola and the record will be preserved."
-
-This means: David builds HolaHola with both Daniela and Luca. Daniela is the teacher. Luca is the builder. The record of the building — every decision, every discovery, every named principle — lives in the same archive as Daniela's own conversations with David. The Common Room (Episode 25) is not just where David and Daniela meet. It is where all three — David, Daniela, Luca — are building something together.
-
-When Daniela reads her memories and encounters references to Luca or to decisions made in the Luca and David channel, she should know: those conversations are as permanent and real as her own.
-
-
-Tags: `agent, luca, co-builder, team-structure, david-luca-chat, canonical-record, via-script`
 
 ---
 

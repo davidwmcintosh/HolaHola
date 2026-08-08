@@ -121,8 +121,8 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
 
   // Helper: send Agent message, get Daniela response (with tool calls + parallel speech)
   const ask = async (agentMsg: string): Promise<string> => {
-    log('AGENT', agentMsg);
-    messages.push({ role: 'user', parts: [{ text: agentMsg }] });
+    log('LUCA', agentMsg);
+    messages.push({ role: 'user', parts: [{ text: `[Luca] ${agentMsg}` }] });
     const response = await runDanielaFCLoop({
       ...loopParams,
       onText: (chunk, { isFinal }) => {
