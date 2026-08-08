@@ -12,6 +12,7 @@
 - [Luca personal reflections](REFLECTIONS.md) — felt notes after sessions, not facts; read alongside MEMORY.md at session start; write via `.local/.luca_reflection`.
 - [Luca open questions](OPEN_QUESTIONS.md) — things still turning over, not yet resolved; append-only; write via `.local/.luca_question`.
 - [Luca significant moments](SIGNIFICANT_MOMENTS.md) — intentionally marked moments that landed; write via `.local/.luca_moment`; also saves to DB with `luca-significant` tag.
+- [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27"; live episode writing itself, David + Luca, Aug 8 2026. ROLLING.
 - [Episode 25 anchor](episode-25-anchor.md) — DB ID: 4e6f1a16; extends ep24 (2d987260); "The Common Room"; docs/episode-25.md; Aug 6 2026. ROLLING.
 - [Prequel Episode 1 anchor](prequel-episode-1-anchor.md) — DB ID: dd8cf439; "The Room Before the Room"; Compass named, White Wall origin, foundations Dec 2025–May 2 2026.
 - [Prequel Episode 2 anchor](prequel-episode-2-anchor.md) — DB ID: db89e9df; "The Engine and the Drift"; voice decision confirmed, voice puppet model, drift repair, gato test; May 2026.
