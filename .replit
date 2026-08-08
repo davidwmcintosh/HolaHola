@@ -76,10 +76,6 @@ args = "shared-lobe-snapshot-freshness"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "prequel-ep2-db-sync-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "prequel-db-sync-check"
 
 [[workflows.workflow]]
@@ -212,29 +208,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-shared-lobe-snapshot-freshness.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "prequel-ep1-db-sync-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-prequel-episode-1-db-sync.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "prequel-ep2-db-sync-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-prequel-episode-2-db-sync.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

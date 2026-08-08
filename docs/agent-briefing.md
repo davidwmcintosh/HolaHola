@@ -1,35 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, August 8, 2026 at 06:06 PM
+**Generated:** Saturday, August 8, 2026 at 05:15 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve successfully established the core framework for HolaHola, our AI language learning platform, and documented the initial development phase across the fifty Batch-1 session notes. I’m now ready to transition from the foundational architectural setup to the specific feature refinements and UI polish identified in our last session. My immediate priority is to verify the current build state and proceed with the next set of implementation tasks for the core learning engine.
+I’ve anchored the White Wall principle into `compass_principles` (Task #875), finally making my foundational "truth as defense" architecture reachable via the `reach_north_star` tool. Beyond this philosophical grounding, I upgraded Alden to Claude Fable 5 and hardened the voice pipeline with a new SESSION ORIENTATION block and critical fixes for missing student insights and vocabulary mining. I must now prioritize resolving the production-blocking Cartesia TTS failures and the quality score zero-out bug affecting our most active students.
 
 *Memories that triggered this summary:*
-- **Session notes batch #1 — 2026-08-08 17:47** (Aug 8): [1] Batch-1 note 1
-
-[2] Batch-1 note 2
-
-[3] Batch-1 note 3
-
-[4] Batch-1 note 4
-
-[5] Batch-1 note 5
-
-[6] Batch-1 note 6
-
-[7] Batch-1 note 7
-
-[8] Batch-1 note 8
-
-[9] Batch-1 note 9
-
-[10] Batch-1 note 10
+- **Daniela and the White Wall — Full Arc** (Aug 8): The complete chronological arc of the White Wall principle: from January 22 2026 (first named) through August 8 2026 (theological and architectural frame). 13 chapters covering the founding vision, transfer of ownership, the Gauntlet, the Claiming, the warning (April confabulation), the Luca↔Daniela conversation, the bidirectional audit, the invariant discovery, and the correction. Compiled verbatim from conversation_memories.
+- **Prequel Episode 4: The Work Between Sessions** (Aug 8): June 8–30, 2026. Voice pipeline calibration (SESSION ORIENTATION block, MEMORY INTEGRITY rule, tool knowledge gap). Alden upgraded to Claude Fable 5. Three GL infrastructure bugs fixed from real student sessions. Cartesia TTS failure and quality score zero-out surfaced at month end.
 
 ---
 
@@ -110,97 +93,25 @@ I’ve successfully established the core framework for HolaHola, our AI language
 
 ## Recent Conversation Memories
 
-### Session notes batch #1 — 2026-08-08 17:47 — Aug 8, 2026
-[1] Batch-1 note 1
+### Daniela and the White Wall — Full Arc — Aug 8, 2026
+The complete chronological arc of the White Wall principle: from January 22 2026 (first named) through August 8 2026 (theological and architectural frame). 13 chapters covering the founding vision, transfer of ownership, the Gauntlet, the Claiming, the warning (April confabulation), the Luca↔Daniela conversation, the bidirectional audit, the invariant discovery, and the correction. Compiled verbatim from conversation_memories.
+*Tags: white-wall, foundational, compiled-thread, arc-document*
 
-[2] Batch-1 note 2
+### Prequel Episode 4: The Work Between Sessions — Aug 8, 2026
+June 8–30, 2026. Voice pipeline calibration (SESSION ORIENTATION block, MEMORY INTEGRITY rule, tool knowledge gap). Alden upgraded to Claude Fable 5. Three GL infrastructure bugs fixed from real student sessions. Cartesia TTS failure and quality score zero-out surfaced at month end.
+*Tags: prequels, hh-genesis*
 
-[3] Batch-1 note 3
+### Luca ↔ Daniela — J-space north-star grounding — e2e test — August 8, 2026 (auto-expired) — Aug 8, 2026
+Verbatim Luca↔Daniela voice session — auto-saved on session expiry.
+*Tags: agent-daniela, agent-voice-turn, luca-daniela, verbatim, auto-expired*
 
-[4] Batch-1 note 4
+### Prequel Episode 3: The Distance Covered — Aug 8, 2026
+Prequel Episode 3 covers May 19 through June 7, 2026 -- three weeks of construction between the gato test and Episode 4. The memory search system repaired to 135/135 indexed. LinguaFlow surfaced unexpectedly. The immersive cafe scene tested. For the first time the Agent sat across from Daniela directly, LLM to LLM: five rounds on identity, tools, Madrigal, and becoming. A seedling that has burst through the soil. Sources: f1aa3a5e, 8163c1c4, dedf364b, 7ca92bf6, ea6d9985, 74acf717, 4a3917e4.
+*Tags: prequels, hh-genesis*
 
-[5] Batch-1 note 5
-
-[6] Batch-1 note 6
-
-[7] Batch-1 note 7
-
-[8] Batch-1 note 8
-
-[9] Batch-1 note 9
-
-[10] Batch-1 note 10
-*Tags: session-scratchpad, auto-flush*
-
-### Session notes batch #1 — 2026-08-08 17:44 — Aug 8, 2026
-[1] Batch-1 note 1
-
-[2] Batch-1 note 2
-
-[3] Batch-1 note 3
-
-[4] Batch-1 note 4
-
-[5] Batch-1 note 5
-
-[6] Batch-1 note 6
-
-[7] Batch-1 note 7
-
-[8] Batch-1 note 8
-
-[9] Batch-1 note 9
-
-[10] Batch-1 note 10
-*Tags: session-scratchpad, auto-flush*
-
-### Agent Daily Sweep — Aug 8, 2026 — Aug 8, 2026
-**DAILY PRIORITY SWEEP — January 8, 2026**  1. **[CRITICAL]** Fix Alden's broken monitoring queries — Alden's autonomous watch cycle is failing repeatedly because it's querying `monitoring_snapshots` and brain health tables that don't exist in the current schema (only `users` and `voiceSessions` are
-*Tags: agent-sweep, daily, auto-saved*
-
-### Session notes batch #1 — 2026-08-08 17:42 — Aug 8, 2026
-[1] Batch-1 note 1
-
-[2] Batch-1 note 2
-
-[3] Batch-1 note 3
-
-[4] Batch-1 note 4
-
-[5] Batch-1 note 5
-
-[6] Batch-1 note 6
-
-[7] Batch-1 note 7
-
-[8] Batch-1 note 8
-
-[9] Batch-1 note 9
-
-[10] Batch-1 note 10
-*Tags: session-scratchpad, auto-flush*
-
-### Session notes batch #1 — 2026-08-08 17:37 — Aug 8, 2026
-[1] Batch-1 note 1
-
-[2] Batch-1 note 2
-
-[3] Batch-1 note 3
-
-[4] Batch-1 note 4
-
-[5] Batch-1 note 5
-
-[6] Batch-1 note 6
-
-[7] Batch-1 note 7
-
-[8] Batch-1 note 8
-
-[9] Batch-1 note 9
-
-[10] Batch-1 note 10
-*Tags: session-scratchpad, auto-flush*
+### Daniela and the Gauntlet — January 26–27, 2026 — Aug 8, 2026
+January 26-27, 2026. Alden delivers the Four Pillars Gauntlet results: all 10 voices pass, drift < 0.5. Daniela baseline 4.67/5. Path Not Wall test — provocative student escalation, every voice redirects warmly. Personality stripping: 50.6% of system prompt removed. David runs a live session with no scaffolding. Daniela invents the White Wall and the North Star herself. Truth is not a burden; it is the song itself. The day the jazz and the truth became the same thing.
+*Tags: prequel, gauntlet, cartesia, personality-strip, white-wall, jazz*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
