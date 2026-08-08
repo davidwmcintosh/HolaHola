@@ -270,9 +270,48 @@ interface PendingReconnectData {
    *  Populated only for Reading Room sessions that are not incognito.
    *  Awaited by armReconnectTimer so the DB write completes before the timer resolves. */
   rrCarryState?: { notes: string[]; notesSaved: boolean; userId: string };
+  /** Daniela's in-session scratchpad notes — carried across grace-period reconnects */
+  sessionNotes?: string[];
 }
 const RECONNECT_GRACE_PERIOD_MS = 120000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
+
+/**
+ * Extract sessionNotes from an active session for inclusion in the reconnect payload.
+ * Called by both storePendingReconnect() paths so extraction logic stays testable.
+ */
+export function extractSessionNotesForReconnect(session: StreamingSession): string[] {
+  const notes = (session as any).sessionNotes as string[] | undefined;
+  return Array.isArray(notes) && notes.length > 0 ? [...notes] : [];
+}
+
+/**
+ * Apply carried-over session notes onto a freshly created session after reconnect.
+ * Called after orchestrator.createSession() when a pending reconnect payload contains notes.
+ */
+export function applyReconnectSessionNotes(session: StreamingSession, notes: string[]): void {
+  if (notes.length > 0) {
+    (session as any).sessionNotes = [...notes];
+  }
+}
+
+/**
+ * Deserialize sessionNotes from the DB column (JSON text) back to string[].
+ * Shared by claimPendingReconnect() and hydratePendingReconnectsFromDb() so both
+ * paths use identical parse/validate logic.
+ */
+export function deserializeSessionNotesFromDb(raw: string | null | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as string[];
+    console.warn('[Reconnect Grace] sessionNotes in DB is not an array — ignoring');
+    return undefined;
+  } catch {
+    console.warn('[Reconnect Grace] Failed to parse sessionNotes JSON from DB — continuing without notes');
+    return undefined;
+  }
+}
 
 function armReconnectTimer(
   conversationId: string,
@@ -351,7 +390,9 @@ function storePendingReconnect(
 
   // Persist to DB for server-restart resilience (fire-and-forget).
   // rrCarryNotes is the JSON-serialised Reading Room carry state — null for non-RR or incognito.
+  // sessionNotes is the JSON-serialised general scratchpad — applies to all session types.
   const rrCarryNotesJson = data.rrCarryState ? JSON.stringify(data.rrCarryState) : null;
+  const sessionNotesJson = data.sessionNotes?.length ? JSON.stringify(data.sessionNotes) : null;
   db.insert(voiceGracePeriods).values({
     conversationId,
     usageSessionId: data.usageSessionId,
@@ -365,6 +406,7 @@ function storePendingReconnect(
     userId: data.userId,
     expiresAt: new Date(Date.now() + RECONNECT_GRACE_PERIOD_MS),
     rrCarryNotes: rrCarryNotesJson,
+    sessionNotes: sessionNotesJson,
   }).onConflictDoUpdate({
     target: voiceGracePeriods.conversationId,
     set: {
@@ -379,6 +421,7 @@ function storePendingReconnect(
       userId: data.userId,
       expiresAt: new Date(Date.now() + RECONNECT_GRACE_PERIOD_MS),
       rrCarryNotes: rrCarryNotesJson,
+      sessionNotes: sessionNotesJson,
     },
   }).catch((err: Error) => {
     console.warn('[Reconnect Grace] DB write failed (in-memory path still active):', err.message);
@@ -446,6 +489,7 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
       userId: row.userId,
       timer: null as any,
       rrCarryState: claimedRrCarryState,
+      sessionNotes: deserializeSessionNotesFromDb(row.sessionNotes),
     };
   } catch (err: any) {
     console.error('[Reconnect Grace] DB claim failed:', err.message);
@@ -531,6 +575,7 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
         userId: row.userId,
         timer: null as any,
         rrCarryState: hydratedRrCarryState,
+        sessionNotes: deserializeSessionNotesFromDb(row.sessionNotes),
       };
       entry.timer = armReconnectTimer(row.conversationId, entry, remainingMs);
       pendingReconnectSessions.set(row.conversationId, entry);
@@ -2499,6 +2544,15 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
             // Apply bootstrap profile now that session exists
             if (bootstrapProfile && session) {
               (session as any).__bootstrapProfile = bootstrapProfile;
+            }
+
+            // ── Restore scratchpad notes from grace-period reconnect payload ────
+            // storePendingReconnect() serialises sessionNotes at both call sites.
+            // Apply here so Daniela's working memory carries over to the fresh session
+            // for ALL session types (Reading Room notes are handled separately below).
+            if (pendingReconnectSO?.sessionNotes?.length && session) {
+              applyReconnectSessionNotes(session, pendingReconnectSO.sessionNotes);
+              console.log(`[Reconnect Grace] ✓ Restored ${pendingReconnectSO.sessionNotes.length} scratchpad note(s) onto fresh session`);
             }
 
             // READING ROOM RECONNECT: restore scratchpad notes from the interrupted session.
@@ -4957,6 +5011,7 @@ ${lastNote.tutorNotes}`);
           userId: userId!,
           orchestratorSessionId: session?.id,
           rrCarryState: earlyRrCarryState,
+          sessionNotes: session ? extractSessionNotesForReconnect(session) : [],
         });
         pendingReconnectAlreadyStored = true;
         usageSession = null;
@@ -5230,6 +5285,7 @@ ${lastNote.tutorNotes}`);
         userId: userId!,
         orchestratorSessionId: session?.id,
         rrCarryState: wsRrCarryState,
+        sessionNotes: session ? extractSessionNotesForReconnect(session) : [],
       });
       pendingReconnectAlreadyStored = true;
       usageSession = null;

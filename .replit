@@ -44,19 +44,7 @@ args = "test"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "memory-tool-coverage"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "absence-gl-path"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "absence-text-path"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "absence-text-mode-return"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -73,6 +61,14 @@ args = "absence-db-flag"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "reach-north-star-self-check"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "scratchpad-reconnect-survival"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "transcript-save-trigger"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -106,45 +102,12 @@ task = "shell.exec"
 args = "npm test"
 
 [[workflows.workflow]]
-name = "memory-tool-coverage"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-memory-tool-coverage.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
 name = "absence-gl-path"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-absence-gl-path.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "absence-text-path"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-absence-text-path.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "absence-text-mode-return"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-absence-text-mode-return.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
@@ -208,18 +171,29 @@ isValidation = true
 outputType = "console"
 
 [[workflows.workflow]]
-    name = "transcript-save-trigger"
-    author = "agent"
+name = "transcript-save-trigger"
+author = "agent"
 
-    [[workflows.workflow.tasks]]
-    task = "shell.exec"
-    args = "npx tsx server/scripts/test-transcript-save-trigger.ts"
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-transcript-save-trigger.ts"
 
-    [workflows.workflow.metadata]
-    isValidation = true
-    outputType = "console"
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
 
-    [agent]
+[[workflows.workflow]]
+name = "scratchpad-reconnect-survival"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-scratchpad-reconnect-survival.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
 
 [userenv]

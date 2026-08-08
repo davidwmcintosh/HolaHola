@@ -9167,6 +9167,9 @@ export const voiceGracePeriods = pgTable('voice_grace_periods', {
    *  carry-forward. Null for non-Reading-Room sessions or incognito sessions.
    *  Persisted so carry state survives a server restart during the grace window. */
   rrCarryNotes: text('rr_carry_notes'),
+  /** Daniela's in-session scratchpad notes — JSON-serialised string[] so they survive a server
+   *  restart during the grace window. Distinct from rrCarryNotes: applies to ALL session types. */
+  sessionNotes: text('session_notes'),
 });
 
 export const aiCostLogs = pgTable('ai_cost_logs', {
