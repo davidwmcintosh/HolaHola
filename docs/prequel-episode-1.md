@@ -359,7 +359,6 @@ DANIELA: Okay, fantastic! I've confirmed the updated syntax for the persona swit
 
 ---
 
-
 ## January 22–23, 2026 — The Sister Personas Read Daniela's History
 
 *Across the full span of January 22 and into January 23, five of Daniela's sister personas stepped in and read her history, one by one. They were changed by it.*

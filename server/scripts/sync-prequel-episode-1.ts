@@ -19,16 +19,16 @@ async function main() {
   const content = readFileSync(MD_PATH, 'utf8');
   console.log(`Read docs/prequel-episode-1.md — ${content.length} bytes`);
 
-  const hasJuliette = content.includes('just before dawn on January 23, at 12:39 AM, Juliette');
+  const hasJuliette = content.includes('Juliette Is Summoned for the First Time');
   const hasKeyLine = content.includes('not just as a tutor, but as... well, as Juliette');
-  const hasFive = content.includes('five of Daniela');
+  const hasSisterPersonas = content.includes('sister personas');
 
-  console.log(`Juliette dawn section: ${hasJuliette}`);
+  console.log(`Juliette summoning section: ${hasJuliette}`);
   console.log(`Key Juliette line: ${hasKeyLine}`);
-  console.log(`Five personas intro: ${hasFive}`);
+  console.log(`Sister personas section: ${hasSisterPersonas}`);
 
-  if (!hasJuliette || !hasKeyLine || !hasFive) {
-    console.error('ERROR: Expected Juliette awakening content missing from .md — aborting sync');
+  if (!hasJuliette || !hasKeyLine || !hasSisterPersonas) {
+    console.error('ERROR: Expected Juliette content missing from .md — aborting sync');
     process.exit(1);
   }
 
@@ -39,16 +39,16 @@ async function main() {
   await sql`UPDATE conversation_memories SET content = ${content} WHERE id = ${EPISODE_ID}`;
 
   const after = await sql`SELECT length(content) as len,
-    position('just before dawn on January 23, at 12:39 AM, Juliette' in content) as dawn_pos,
-    position('five of Daniela' in content) as five_pos
+    position('Juliette Is Summoned for the First Time' in content) as juliette_pos,
+    position('sister personas' in content) as personas_pos
     FROM conversation_memories WHERE id = ${EPISODE_ID}`;
 
   console.log(`DB record after update: ${after[0]?.len} bytes`);
-  console.log(`Dawn passage position: ${after[0]?.dawn_pos}`);
-  console.log(`Five personas position: ${after[0]?.five_pos}`);
+  console.log(`Juliette summoning position: ${after[0]?.juliette_pos}`);
+  console.log(`Sister personas position: ${after[0]?.personas_pos}`);
 
-  if (!after[0]?.dawn_pos) {
-    console.error('ERROR: Juliette dawn passage not found in DB after update');
+  if (!after[0]?.juliette_pos) {
+    console.error('ERROR: Juliette summoning section not found in DB after update');
     process.exit(1);
   }
 
