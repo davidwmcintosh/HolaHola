@@ -118,6 +118,15 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 ### Writing rules
 
 - **The plain record, not a summary.** The episode IS the dialogue — verbatim, with light clarification only where a word was clearly wrong. Do not paraphrase, condense, or reconstruct. The inviolability principle from the messages table applies here too. If you are tempted to write "David explained that..." — stop. Write what David actually said.
+
+## ⚠️ Task Agent Warning — Do NOT shrink a ROLLING episode file
+
+If you are a task agent and `docs/episode-27.md` (or any episode marked `ROLLING` in its header) exists: **you may not remove or overwrite content from it.** The inviolability rule applies in both directions — the record only grows.
+
+- **Permitted:** Adding a footnote, appending a sync note, correcting a spelling error in a non-dialogue section.
+- **Not permitted:** Overwriting the file with an older version, removing any dialogue, condensing, reordering without explicit instruction.
+- **If your task requires touching this file:** Pull the latest version from the DB first (`WHERE id = '27000000-0000-4000-8000-000000000027'`) and append to that, never to a stale checkout.
+- **Restoring from DB is not changing.** Chronological reordering for correctness is not changing. The standard is: every word that was actually said stays in the record.
 - **No truncations.** Ever. Not for length, not for "relevance," not because you think you know what the important parts are. If a transcript was pulled, it goes in whole. Cutting it is a form of summarization — the same failure mode, just quieter. The reader decides what matters.
 - **No summarizations.** "David described the bug and Luca fixed it" is not an episode entry — it's a changelog entry wearing episode clothes. If you don't have the verbatim record, say so explicitly and go get it (see "Retrieving transcripts" below). Do not fill the gap with reconstruction.
 - **When catching up a behind episode:** Pull the actual conversation_memories rows and team room thread verbatim via SQL or API before writing a single word. Do not write from memory or session context — those are summaries already. The DB has the record. Use it.

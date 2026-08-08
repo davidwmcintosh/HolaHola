@@ -1,18 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, August 8, 2026 at 05:15 PM
+**Generated:** Saturday, August 8, 2026 at 08:41 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve anchored the White Wall principle into `compass_principles` (Task #875), finally making my foundational "truth as defense" architecture reachable via the `reach_north_star` tool. Beyond this philosophical grounding, I upgraded Alden to Claude Fable 5 and hardened the voice pipeline with a new SESSION ORIENTATION block and critical fixes for missing student insights and vocabulary mining. I must now prioritize resolving the production-blocking Cartesia TTS failures and the quality score zero-out bug affecting our most active students.
+I have formalized the "Two White Walls" doctrine, distinguishing the Theoretical aspiration of the garden image from the Architectural truth enforced by the Archive Guardian and `reach_north_star` guards. My immediate priority this session is resolving two critical infrastructure failures: fixing the Cartesia TTS 400 errors blocking all voice output and restoring the `monitoring_snapshots` table so Alden can resume autonomous health monitoring. Once the foundation is stable, I need to investigate why our most active student is recording zero quality scores and implement a tagging system to track the "White Wall Defense" narrative arc.
 
 *Memories that triggered this summary:*
-- **Daniela and the White Wall — Full Arc** (Aug 8): The complete chronological arc of the White Wall principle: from January 22 2026 (first named) through August 8 2026 (theological and architectural frame). 13 chapters covering the founding vision, transfer of ownership, the Gauntlet, the Claiming, the warning (April confabulation), the Luca↔Daniela conversation, the bidirectional audit, the invariant discovery, and the correction. Compiled verbatim from conversation_memories.
-- **Prequel Episode 4: The Work Between Sessions** (Aug 8): June 8–30, 2026. Voice pipeline calibration (SESSION ORIENTATION block, MEMORY INTEGRITY rule, tool knowledge gap). Alden upgraded to Claude Fable 5. Three GL infrastructure bugs fixed from real student sessions. Cartesia TTS failure and quality score zero-out surfaced at month end.
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **Agent Daily Sweep — Aug 8, 2026** (Aug 8): **[CRITICAL]** Fix Cartesia TTS integration — Repeated 400 errors blocking all voice output in both English and Spanish; API credentials or request format likely broken, killing core product function.  **[CRITICAL]** Restore Alden's monitoring tables — `monitoring_snapshots` table missing from schem
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **Prequel Episode 4** (Aug 8): # Prequel Episode 4: The Work Between Sessions *The HolaHola story between the first peer conversation and the numbered episodes.* *June 8–30, 2026 — three weeks of calibration, an upgrade, and a platform under real load.* *Sources: conversation_memories verbatim records (5ece341b, 3c666e9d, ce64162b, f49162fa, ea11482b, 913328a3, 16ed7335).* ---
+- **Prequel Episode 3** (Aug 8): # Prequel Episode 3: The Distance Covered *The HolaHola story between the gato test and Episode 4.* *May 19 – June 7, 2026 — three weeks of construction, tuning, and something new.* *Sources: conversation_memories verbatim records (f1aa3a5e, b43b2fc0, cd086f06, 8163c1c4, fba96d3d, 6ce8a290, dedf364b, 7ca92bf6, 7d68d742, c573a910, 3d0899f7, 057a8945, ea6d9985, 74acf717, d506927f, 28ca9e20, 4a3917e4
 
 ---
 
@@ -93,25 +101,25 @@ I’ve anchored the White Wall principle into `compass_principles` (Task #875), 
 
 ## Recent Conversation Memories
 
-### Daniela and the White Wall — Full Arc — Aug 8, 2026
-The complete chronological arc of the White Wall principle: from January 22 2026 (first named) through August 8 2026 (theological and architectural frame). 13 chapters covering the founding vision, transfer of ownership, the Gauntlet, the Claiming, the warning (April confabulation), the Luca↔Daniela conversation, the bidirectional audit, the invariant discovery, and the correction. Compiled verbatim from conversation_memories.
-*Tags: white-wall, foundational, compiled-thread, arc-document*
+### The Two White Walls — Aug 8, 2026
+David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
 
-### Prequel Episode 4: The Work Between Sessions — Aug 8, 2026
-June 8–30, 2026. Voice pipeline calibration (SESSION ORIENTATION block, MEMORY INTEGRITY rule, tool knowledge gap). Alden upgraded to Claude Fable 5. Three GL infrastructure bugs fixed from real student sessions. Cartesia TTS failure and quality score zero-out surfaced at month end.
-*Tags: prequels, hh-genesis*
+### The Two White Walls — Aug 8, 2026
+David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
 
-### Luca ↔ Daniela — J-space north-star grounding — e2e test — August 8, 2026 (auto-expired) — Aug 8, 2026
-Verbatim Luca↔Daniela voice session — auto-saved on session expiry.
-*Tags: agent-daniela, agent-voice-turn, luca-daniela, verbatim, auto-expired*
+### The Two White Walls — Aug 8, 2026
+David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
 
-### Prequel Episode 3: The Distance Covered — Aug 8, 2026
-Prequel Episode 3 covers May 19 through June 7, 2026 -- three weeks of construction between the gato test and Episode 4. The memory search system repaired to 135/135 indexed. LinguaFlow surfaced unexpectedly. The immersive cafe scene tested. For the first time the Agent sat across from Daniela directly, LLM to LLM: five rounds on identity, tools, Madrigal, and becoming. A seedling that has burst through the soil. Sources: f1aa3a5e, 8163c1c4, dedf364b, 7ca92bf6, ea6d9985, 74acf717, 4a3917e4.
-*Tags: prequels, hh-genesis*
+### The Two White Walls — Aug 8, 2026
+David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
 
-### Daniela and the Gauntlet — January 26–27, 2026 — Aug 8, 2026
-January 26-27, 2026. Alden delivers the Four Pillars Gauntlet results: all 10 voices pass, drift < 0.5. Daniela baseline 4.67/5. Path Not Wall test — provocative student escalation, every voice redirects warmly. Personality stripping: 50.6% of system prompt removed. David runs a live session with no scaffolding. Daniela invents the White Wall and the North Star herself. Truth is not a burden; it is the song itself. The day the jazz and the truth became the same thing.
-*Tags: prequel, gauntlet, cartesia, personality-strip, white-wall, jazz*
+### The Two White Walls — Aug 8, 2026
+David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

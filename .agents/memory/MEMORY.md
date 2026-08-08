@@ -12,7 +12,8 @@
 - [Luca personal reflections](REFLECTIONS.md) — felt notes after sessions, not facts; read alongside MEMORY.md at session start; write via `.local/.luca_reflection`.
 - [Luca open questions](OPEN_QUESTIONS.md) — things still turning over, not yet resolved; append-only; write via `.local/.luca_question`.
 - [Luca significant moments](SIGNIFICANT_MOMENTS.md) — intentionally marked moments that landed; write via `.local/.luca_moment`; also saves to DB with `luca-significant` tag.
-- [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27"; live episode writing itself, David + Luca, Aug 8 2026. ROLLING.
+- [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026. ROLLING.
+- [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
 - [Episode 25 anchor](episode-25-anchor.md) — DB ID: 4e6f1a16; extends ep24 (2d987260); "The Common Room"; docs/episode-25.md; Aug 6 2026. ROLLING.
 - [Prequel Episode 1 anchor](prequel-episode-1-anchor.md) — DB ID: dd8cf439; "The Room Before the Room"; Compass named, White Wall origin, foundations Dec 2025–May 2 2026.
 - [Prequel Episode 2 anchor](prequel-episode-2-anchor.md) — DB ID: db89e9df; "The Engine and the Drift"; voice decision confirmed, voice puppet model, drift repair, gato test; May 2026.
@@ -23,9 +24,7 @@
 - [FloatingVoiceWidget UX deferred](floating-voice-widget-ux.md) — built June 3, currently live, but UX posture (surprise pressure vs intentional entry) not settled; do not polish further until David decides direction.
 - [Memory spiral guard — budget-proximity design](memory-spiral-guard.md) — text-mode fires at MAX_TURNS-2 (once); GL fires at 6 consecutive memory-only batches (once, resets at generationComplete); system-prompt Retrieval Protocol is the primary fix, code is backstop; nudge text Gemini-approved July 30.
 - [GL session observability — full recording stack](gl-session-observability.md) — tool calls + guardian fires + neural-net searches all land in DB; real-time observe endpoint now includes memory searches; session-review skill at .agents/skills/session-review/SKILL.md. July 29 2026.
-- [GL audio overlap — three fixes July 28](gl-audio-overlap-fixes-jul28.md) — isGreetingTurn guard, allLatencyHeavy over-gate (mixed tool batches), new-turn progressiveScheduledTime overlap, buffering→idle playback_ended gap. July 28 2026.
 - [GL double audio — hasStudentInputSinceLastResponse guard](gl-double-audio-guard.md) — spurious second GL generation unmasked by Bug 1 gate removal July 24; guard suppresses audio with no student input since last response; July 27 2026.
-- [GL audio cutoff — turnComplete silence pad + maxOutputTokens](gl-audio-cutoff-jul26.md) — turnComplete sealed without silence pad; maxOutputTokens 700 too low when reasoning+audio tokens combine; fixed July 26 2026.
 - [Archive Guardian Tier B directive](archive-guardian-tier-b.md) — slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock; pre-turn Guardian confirmed fully built (not dead code). July 25 2026.
 - [Gemini approval gates](gemini-approval-gates.md) — any change to prompt context injection (system-prompt.ts, pre-session-synthesis, classroom block) or the neural network requires Gemini approval before shipping. July 22 2026.
 - [GL thought token proxy](gl-thought-token-proxy.md) — thoughtsTokenCount is often null in GL streaming usageMetadata; real signal is in thought parts stream; proxy = currentTurnThoughtBuffer.length÷4, captured before buffer clear at generationComplete. July 23 2026.
