@@ -446,7 +446,7 @@ const episodeIdCache  = new Map<string, string>();   // filename → conversatio
 const episodeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Prequel episode state (parallel to episode state above)
-const prequelMtimeMap = new Map<string, number>();
+export const prequelMtimeMap = new Map<string, number>();
 const prequelIdCache  = new Map<string, string>();
 const prequelDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -676,7 +676,7 @@ export async function checkEpisodeFiles(): Promise<void> {
 }
 
 /** Poll docs/ for new or changed prequel-episode-*.md files. */
-async function checkPrequelEpisodeFiles(): Promise<void> {
+export async function checkPrequelEpisodeFiles(): Promise<void> {
   let files: string[];
   try {
     files = readdirSync(DOCS_DIR).filter(f => PREQUEL_RE.test(f));

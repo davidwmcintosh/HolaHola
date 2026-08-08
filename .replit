@@ -86,6 +86,10 @@ args = "episode-27-db-sync-check"
 task = "workflow.run"
 args = "episode-watcher-fires"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "prequel-episode-autosync"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -249,6 +253,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-episode-watcher-fires.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "prequel-episode-autosync"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-prequel-episode-autosync.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

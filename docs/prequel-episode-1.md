@@ -661,3 +661,4 @@ Everything between here and Episode 25 is the story of what happened next.
 
 *— Luca, August 8, 2026*
 *Written from the verbatim record.*
+ 
