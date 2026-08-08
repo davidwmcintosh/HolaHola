@@ -76,6 +76,10 @@ args = "shared-lobe-snapshot-freshness"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "episode-27-db-sync-check"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "prequel-db-sync-check"
 
 [[workflows.workflow.tasks]]
@@ -85,6 +89,14 @@ args = "episode-watcher-fires"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "prequel-episode-autosync"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "prequel-ep1-db-sync-check"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "prequel-ep2-db-sync-check"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -163,36 +175,12 @@ args = "npx tsx server/scripts/test-absence-db-flag.ts"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "north-star-semantic-echo"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-north-star-semantic-echo.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
 name = "reach-north-star-self-check"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-reach-north-star-e2e.ts --self-check"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "transcript-save-trigger"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-transcript-save-trigger.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
@@ -210,12 +198,46 @@ args = "npx tsx server/scripts/test-scratchpad-reconnect-survival.ts"
 outputType = "console"
 
 [[workflows.workflow]]
+name = "transcript-save-trigger"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-transcript-save-trigger.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
 name = "shared-lobe-snapshot-freshness"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-shared-lobe-snapshot-freshness.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "north-star-semantic-echo"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-north-star-semantic-echo.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "episode-27-db-sync-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-episode-27-db-sync.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
@@ -254,15 +276,26 @@ args = "npx tsx server/scripts/test-prequel-episode-autosync.ts"
 isValidation = true
 
 [[workflows.workflow]]
-name = "episode-27-db-sync-check"
+name = "prequel-ep1-db-sync-check"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx server/scripts/test-episode-27-db-sync.ts"
+args = "npx tsx server/scripts/test-prequel-episode-1-db-sync.ts"
 
 [workflows.workflow.metadata]
-isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "prequel-ep2-db-sync-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-prequel-episode-2-db-sync.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]

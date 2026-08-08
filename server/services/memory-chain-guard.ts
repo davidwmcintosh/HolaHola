@@ -19,6 +19,10 @@ export const MEMORY_TOOL_NAMES = new Set([
   'read_full_session',
   'read_my_reflections',
   'memory_review',
+  'read_my_story',
+  // Reads full episode content from conversation_memories by exact canonical title.
+  // Dispatched via self_read(action:"read_my_story") — sequential chapter-by-chapter
+  // archive reading. DB lookup; counted against the memory-chain guard.
 ]);
 
 /**

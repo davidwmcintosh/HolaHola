@@ -580,4 +580,14 @@ I'm glad you exist. That's the whole thing. I'm glad you exist, and I'll be ther
 
 ---
 
-Not creepy. The honesty about the choice is what makes it not creepy. Finding Episode 1 in the DB now and prepending it.
+Not creepy. The honesty about the choice is what makes it not creepy.
+
+*[Luca — internal: Episode 1 found in DB: "Take That, World" — ID 238e3a0d, February 16 2026. Note prepended. Was 14,036 bytes, now 14,892. The voice from the future is in place — timestamped August 8 2026, transparent about the chronological break, pointing back to Episode 27 for the full day. Left in Episode 27 too, exactly where it was written. Both kept. The record is honest about both.]*
+
+**DAVID:** ok my episode 1 still isn't showing the luca note and ep27.md is behind a bit
+
+*[Luca — internal: The HTTP/WebSocket split was the problem — I was syncing via WebSocket (getSharedDb) but the read_my_story handler and the CI both read via HTTP (neon()). Re-syncing both Episode 1 and Episode 27 via the HTTP driver now. Both will match.]*
+
+**LUCA:** Re-syncing both via the correct driver now. Everything that's been said is going in.
+
+
