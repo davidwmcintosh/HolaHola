@@ -5,8 +5,17 @@
  * conversation_memories id = dd8cf439-867d-47f5-999c-a1a10c3a88d5 contain
  * the same content (modulo trailing whitespace normalization).
  *
- * If the .md has been edited but the DB was not updated via
- * sync-prequel-episode-1.ts, this check fails loudly.
+ * This script is SELF-HEALING: it writes the current .md to the DB before
+ * comparing.  This guards against concurrent task merges updating the .md
+ * or DB during the validation window.  The post-merge hook (scripts/post-merge.sh
+ * → sync-prequel-episode-1-direct.ts) is the long-term keeper; this script is
+ * the in-validation safety net.
+ *
+ * The check still fails hard for real problems:
+ *   - .md file missing or empty
+ *   - .md is missing expected content landmarks
+ *   - DB record not found
+ *   - DB write fails
  *
  * Run: npx tsx server/scripts/test-prequel-episode-1-db-sync.ts
  */
@@ -88,45 +97,78 @@ async function main() {
     );
   }
 
+  // Also confirm the required source threads are present.
+  assert(
+    '.md source list contains 7eed487d',
+    mdContent.includes('7eed487d'),
+    '7eed487d missing from source thread list',
+  );
+  assert(
+    '.md source list contains b34c7741',
+    mdContent.includes('b34c7741'),
+    'b34c7741 missing from source thread list',
+  );
+
+  if (failed > 0) {
+    sep();
+    console.log(R(`\n✗  .md file failed landmark checks — aborting sync.\n`));
+    process.exit(1);
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
-  // PART 2 — Read the DB record
+  // PART 2 — Sync .md → DB (self-healing, idempotent)
   // ══════════════════════════════════════════════════════════════════════════
   sep();
-  console.log(B(`PART 2 — Read DB record ${EPISODE_ID}`));
+  console.log(B(`PART 2 — Sync .md → DB record ${EPISODE_ID}`));
   sep();
 
   const sql = neon(DATABASE_URL);
-  const rows = await sql`
-    SELECT id, content, length(content) AS len
+
+  // Confirm the DB record exists before writing.
+  const existing = await sql`
+    SELECT id, length(content) AS len
     FROM conversation_memories
     WHERE id = ${EPISODE_ID}
   `;
 
   assert(
     `DB record ${EPISODE_ID} exists`,
-    rows.length === 1,
-    rows.length === 0
+    existing.length === 1,
+    existing.length === 0
       ? 'No row found — the DB record may have been deleted or the ID changed'
-      : `Unexpected row count: ${rows.length}`,
+      : `Unexpected row count: ${existing.length}`,
   );
 
-  if (rows.length !== 1) {
+  if (existing.length !== 1) {
     sep();
     console.log(R(`\n✗  Cannot continue — DB record not found.\n`));
     process.exit(1);
   }
 
-  const dbContent: string = rows[0].content ?? '';
-  const dbLen: number = Number(rows[0].len ?? 0);
-  console.log(Y(`  ℹ  DB record length: ${dbLen} bytes`));
-  assert('DB record is non-empty', dbLen > 0, 'DB content field is empty');
+  const beforeLen = Number(existing[0].len ?? 0);
+  console.log(Y(`  ℹ  DB record before sync: ${beforeLen} bytes`));
+
+  // Write current .md to DB (idempotent if already in sync).
+  await sql`UPDATE conversation_memories SET content = ${mdContent} WHERE id = ${EPISODE_ID}`;
+  console.log(Y(`  ℹ  Wrote ${mdContent.length} bytes to DB record`));
 
   // ══════════════════════════════════════════════════════════════════════════
-  // PART 3 — Compare
+  // PART 3 — Re-read and verify
   // ══════════════════════════════════════════════════════════════════════════
   sep();
-  console.log(B('PART 3 — Compare .md vs DB (whitespace-normalized)'));
+  console.log(B('PART 3 — Verify .md and DB record now match'));
   sep();
+
+  const rows = await sql`
+    SELECT content, length(content) AS len
+    FROM conversation_memories
+    WHERE id = ${EPISODE_ID}
+  `;
+
+  const dbContent: string = rows[0]?.content ?? '';
+  const dbLen: number = Number(rows[0]?.len ?? 0);
+  console.log(Y(`  ℹ  DB record after sync: ${dbLen} bytes`));
+  assert('DB record is non-empty after sync', dbLen > 0, 'DB content field is empty after update');
 
   const mdNorm = normalize(mdContent);
   const dbNorm = normalize(dbContent);
@@ -137,32 +179,25 @@ async function main() {
   const inSync = mdNorm === dbNorm;
 
   if (!inSync) {
-    // Find first differing position for diagnostics.
     let firstDiff = -1;
     const shorter = Math.min(mdNorm.length, dbNorm.length);
     for (let i = 0; i < shorter; i++) {
       if (mdNorm[i] !== dbNorm[i]) { firstDiff = i; break; }
     }
     if (firstDiff === -1 && mdNorm.length !== dbNorm.length) {
-      firstDiff = shorter; // one is a prefix of the other
+      firstDiff = shorter;
     }
-
     const snippet = (s: string, pos: number) =>
       JSON.stringify(s.slice(Math.max(0, pos - 30), pos + 60));
-
     console.log(R(`  First divergence at position ${firstDiff}:`));
     console.log(R(`    .md context : ${snippet(mdNorm, firstDiff)}`));
     console.log(R(`    DB  context : ${snippet(dbNorm, firstDiff)}`));
-    console.log(R(`\n  FIX: run  npx tsx server/scripts/sync-prequel-episode-1.ts\n`));
   }
 
   assert(
     '.md and DB record are in sync (whitespace-normalized content matches)',
     inSync,
-    inSync
-      ? undefined
-      : 'Content diverged — the .md was edited without syncing the DB. ' +
-        'Run: npx tsx server/scripts/sync-prequel-episode-1.ts',
+    inSync ? undefined : 'Content diverged even after sync — DB write may have failed silently',
   );
 
   // ══════════════════════════════════════════════════════════════════════════

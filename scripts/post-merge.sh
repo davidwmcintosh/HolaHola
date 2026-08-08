@@ -22,3 +22,8 @@ bash "$SCRIPT_DIR/gemini-gate-check.sh"
 # ── Setup steps (run only after gate passes) ──────────────────────────────────
 npm install --legacy-peer-deps
 npm run db:push
+
+# ── Prequel Episode 1 DB sync ─────────────────────────────────────────────────
+# Keep docs/prequel-episode-1.md and DB record dd8cf439 in sync after every merge.
+# Idempotent: reads .md and writes its content to the DB verbatim.
+npx tsx server/scripts/sync-prequel-episode-1-direct.ts
