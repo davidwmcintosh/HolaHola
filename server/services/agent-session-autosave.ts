@@ -441,7 +441,7 @@ const EPISODE_RE = /^episode-(\d+)\.md$/;
 const PREQUEL_RE = /^prequel-episode-(\d+)\.md$/;
 
 // Per-file state: mtime and (once discovered) the DB memory ID
-const episodeMtimeMap = new Map<string, number>();   // filename → last seen mtime
+export const episodeMtimeMap = new Map<string, number>();   // filename → last seen mtime
 const episodeIdCache  = new Map<string, string>();   // filename → conversation_memories.id
 const episodeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -468,8 +468,10 @@ function episodeSummaryFromContent(content: string): string {
   return lines.slice(0, 5).join(' ').slice(0, 400);
 }
 
-/** Upsert the episode into conversation_memories and trigger a re-embed. */
-async function syncEpisodeFile(filename: string): Promise<void> {
+/** Upsert the episode into conversation_memories and trigger a re-embed.
+ *  Exported so the CI test script can call it directly without waiting for the poll loop.
+ */
+export async function syncEpisodeFile(filename: string): Promise<void> {
   const filePath = join(DOCS_DIR, filename);
   if (!existsSync(filePath)) return;
 
@@ -644,8 +646,10 @@ function schedulePrequelEpisodeSync(filename: string): void {
   prequelDebounce.set(filename, timer);
 }
 
-/** Poll docs/ for new or changed episode-*.md files. */
-async function checkEpisodeFiles(): Promise<void> {
+/** Poll docs/ for new or changed episode-*.md files.
+ *  Exported so the CI test script can trigger a detection cycle directly.
+ */
+export async function checkEpisodeFiles(): Promise<void> {
   let files: string[];
   try {
     files = readdirSync(DOCS_DIR).filter(f => EPISODE_RE.test(f));
