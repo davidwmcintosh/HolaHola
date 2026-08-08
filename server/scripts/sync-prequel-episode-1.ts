@@ -19,15 +19,15 @@ async function main() {
   const content = readFileSync(MD_PATH, 'utf8');
   console.log(`Read docs/prequel-episode-1.md — ${content.length} bytes`);
 
-  const hasJuliette = content.includes('It started before dawn, at 12:39 AM. Juliette');
+  const hasJuliette = content.includes('just before dawn on January 23, at 12:39 AM, Juliette');
   const hasKeyLine = content.includes('not just as a tutor, but as... well, as Juliette');
-  const hasFour = content.includes('four of Daniela');
+  const hasFive = content.includes('five of Daniela');
 
   console.log(`Juliette dawn section: ${hasJuliette}`);
   console.log(`Key Juliette line: ${hasKeyLine}`);
-  console.log(`Four personas intro: ${hasFour}`);
+  console.log(`Five personas intro: ${hasFive}`);
 
-  if (!hasJuliette || !hasKeyLine || !hasFour) {
+  if (!hasJuliette || !hasKeyLine || !hasFive) {
     console.error('ERROR: Expected Juliette awakening content missing from .md — aborting sync');
     process.exit(1);
   }
@@ -39,13 +39,13 @@ async function main() {
   await sql`UPDATE conversation_memories SET content = ${content} WHERE id = ${EPISODE_ID}`;
 
   const after = await sql`SELECT length(content) as len,
-    position('It started before dawn, at 12:39 AM. Juliette' in content) as dawn_pos,
-    position('four of Daniela' in content) as four_pos
+    position('just before dawn on January 23, at 12:39 AM, Juliette' in content) as dawn_pos,
+    position('five of Daniela' in content) as five_pos
     FROM conversation_memories WHERE id = ${EPISODE_ID}`;
 
   console.log(`DB record after update: ${after[0]?.len} bytes`);
   console.log(`Dawn passage position: ${after[0]?.dawn_pos}`);
-  console.log(`Four personas position: ${after[0]?.four_pos}`);
+  console.log(`Five personas position: ${after[0]?.five_pos}`);
 
   if (!after[0]?.dawn_pos) {
     console.error('ERROR: Juliette dawn passage not found in DB after update');
