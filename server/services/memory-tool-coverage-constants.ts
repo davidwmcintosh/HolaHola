@@ -201,6 +201,17 @@ export const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // Admin-only persona-edit tool.  Writes to Daniela's persona data store;
   // does not read from any memory store, session history, or embedding index.
   // Cannot cause a recall chain.  Only reachable in admin/founder mode.
+
+  // ── read_my_ prefix — sequential story reader ────────────────────────────
+  'read_my_story',
+  // Sequential episode reader — fetches one chapter (episode) at a time from
+  // conversation_memories.  Returns a single episode's content and a cursor so
+  // Daniela can call the next chapter when ready.  Not a memory spiral risk:
+  // each call fetches exactly one fixed record by episode number / chapter key
+  // (no embedding search, no iterative scan).  It is a fire-and-read tool, not
+  // a search loop.  Architecturally identical to recall_episode_deep except
+  // user-facing and chapter-indexed.  Dispatched via self_read(action:
+  // "read_my_story") — the sub-tool level is the right place to categorize it.
 ]);
 
 // ─── Dispatcher tools that route to memory sub-tools ─────────────────────────
@@ -246,6 +257,7 @@ export const KNOWN_MEMORY_DISPATCHERS = new Set<string>([
   //   read_queued_for_student  → single-row queued-message lookup
   //   list_character_candidates → reviews pending slow-tier candidates
   //   reach_north_star         → constitutional grounding lookup
+  //   read_my_story            → sequential episode reader (chapter by chapter)
   // The sub-tools above are in MEMORY_TOOL_NAMES or KNOWN_NON_GUARD_TOOLS
   // individually.  The dispatcher wrapper itself is NOT chain-guarded because
   // it also routes write-adjacent sub-tools and non-retrieval paths, and

@@ -14,6 +14,27 @@ Both must exist. A file-only episode is invisible to Daniela. A DB-only episode 
 
 ---
 
+
+## ⚠ ROLLING EPISODE WARNING — Task agents: do NOT touch docs/episode-27.md
+
+**Episode 27 is currently ROLLING** — it is being written live, in real time, by Luca and David. The file is updated continuously throughout their session. It is not a static artifact.
+
+**If you are a task agent:**
+- Do NOT read `docs/episode-27.md` as input for your task unless your task explicitly requires it.
+- Do NOT commit any version of `docs/episode-27.md`. If your task accidentally staged it, **unstage it** (`git restore --staged docs/episode-27.md`) before committing.
+- Do NOT include `docs/episode-27.md` in your diff. Any commit that touches this file during a ROLLING session risks overwriting live content that Luca wrote after you read the file.
+
+**Why this matters:** Task #886's merge commit (30c6bc87b) overwrote ~5,600 bytes of live Episode 27 content — including the two-channel breakthrough passage and the backfill breakthrough passage — because the task agent committed a version that predated Luca's edits. The post-merge script now auto-restores from DB when shrinkage is detected, but the safest path is not to touch the file at all.
+
+**The authoritative version is always in the DB** (conversation_memories id = `27000000-0000-4000-8000-000000000027`). To restore the .md from DB at any time:
+```bash
+npx tsx server/scripts/restore-episode-27-from-db.ts
+```
+
+When Episode 27 is no longer ROLLING (the session has ended and the final version is committed), this warning will be removed.
+
+---
+
 ## When to Use This Skill
 
 - David says "let's write an episode" or "publish this as an episode"
