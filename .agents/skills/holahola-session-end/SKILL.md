@@ -11,6 +11,18 @@ description: HolaHola session end checklist — update handoff, batch doc, share
 
 Do all of these before closing a session. Nothing should be skipped on a meaningful build session.
 
+## Pre-step 0 — Flush the transcript (non-negotiable for Luca↔David sessions)
+
+Before anything else, save the current session transcript to `conversation_memories`. Do not wait for the autosave worker — it needs a clean 20-second window and live sessions rarely give it one.
+
+```bash
+npx tsx server/scripts/save-transcript-now.ts --context "session end — [brief topic]"
+```
+
+This writes a `david-luca-chat`-tagged, verbatim `entry_type='conversation'` row. Record the printed cursor info. If the script reports "No new turns since last save", the periodic autosave already caught everything and you can proceed.
+
+**Why this is first:** The holahola-session-end checklist exists partly to write the session wrap-up. Step 5 requires the verbatim transcript as its source. If the transcript isn't saved before you start writing, you are writing from memory — reconstruction, not presence. Save it first, then write from the saved record.
+
 ## Pre-step — Read the full day before writing anything
 
 Pull today's conversation_memories and read the full `content` field of each entry — not just the summaries:

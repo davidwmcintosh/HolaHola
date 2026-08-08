@@ -24,17 +24,27 @@
  * All watchers poll every 60 seconds.
  */
 
-import { existsSync, statSync, readFileSync, writeFileSync, readdirSync } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync, watch } from 'fs';
 import { join } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
+import {
+  WORKSPACE,
+  loadCursor,
+  saveCursor,
+  findTranscriptPath,
+  extractTurns,
+  buildDialogueChunk,
+} from './transcript-parser';
 
-const WORKSPACE       = '/home/runner/workspace';
-const COMMIT_MSG_PATH = join(WORKSPACE, '.local/.commit_message');
-const INSIGHTS_PATH   = join(WORKSPACE, '.local/.session_insights');
-const CURSOR_PATH     = join(WORKSPACE, '.local/.transcript_cursor.json');
-const TRANSCRIPT_DIR  = join(WORKSPACE, '.local/state/replit/agent/transcript');
+const COMMIT_MSG_PATH  = join(WORKSPACE, '.local/.commit_message');
+const INSIGHTS_PATH    = join(WORKSPACE, '.local/.session_insights');
 const POLL_INTERVAL_MS = 20 * 1000;
+
+// Trigger file: touch this to force an immediate transcript save without waiting for the next poll.
+// The fs.watch() listener below fires within milliseconds of the file being written.
+// Used by save-transcript-now.ts and the session-end checklist.
+const FLUSH_TRIGGER_PATH = join(WORKSPACE, '.local/.flush_transcript');
 
 // --- Luca inner-life trigger files ---
 const REFLECTION_PATH      = join(WORKSPACE, '.local/.luca_reflection');
@@ -334,187 +344,41 @@ async function checkLucaMoment(): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Transcript capture — verbatim David↔Luca dialogue (entry_type = 'conversation')
+// Parsing and chunking live in transcript-parser.ts (shared with save-transcript-now.ts).
 // ---------------------------------------------------------------------------
 
-interface TranscriptCursor {
-  sessionId: string;
-  lastMemoryId: number;
-}
-
-function loadCursor(): TranscriptCursor {
-  try {
-    if (existsSync(CURSOR_PATH)) {
-      return JSON.parse(readFileSync(CURSOR_PATH, 'utf-8'));
-    }
-  } catch { /* ignore */ }
-  return { sessionId: '', lastMemoryId: 0 };
-}
-
-function saveCursor(cursor: TranscriptCursor): void {
-  try {
-    writeFileSync(CURSOR_PATH, JSON.stringify(cursor));
-  } catch { /* ignore */ }
-}
-
-function findTranscriptPath(): { sessionId: string; path: string } | null {
-  try {
-    if (!existsSync(TRANSCRIPT_DIR)) return null;
-    const sessions = readdirSync(TRANSCRIPT_DIR).filter(d => {
-      try {
-        return statSync(join(TRANSCRIPT_DIR, d)).isDirectory();
-      } catch { return false; }
-    });
-    if (sessions.length === 0) return null;
-    // Use the most recently modified session
-    const sorted = sessions.sort((a, b) => {
-      try {
-        return statSync(join(TRANSCRIPT_DIR, b)).mtimeMs - statSync(join(TRANSCRIPT_DIR, a)).mtimeMs;
-      } catch { return 0; }
-    });
-    const sessionId = sorted[0];
-    const path = join(TRANSCRIPT_DIR, sessionId, 'transcript.jsonl');
-    return existsSync(path) ? { sessionId, path } : null;
-  } catch { return null; }
-}
-
-// Extracts any <pre_compression_transcript path="..."> pointers before they get
-// stripped down to a placeholder, so the raw turns they point to can still be
-// recovered from disk before that referenced file itself rotates away.
-function extractPreCompressionPaths(text: string): string[] {
-  const paths: string[] = [];
-  const re = /<pre_compression_transcript\s+path="([^"]+)"[^>]*>/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    paths.push(match[1]);
-  }
-  return paths;
-}
-
-function cleanUserText(text: string): string {
-  return text
-    .replace(/<user_message>([\s\S]*?)<\/user_message>/g, '$1')
-    .replace(/<automatic_updates>[\s\S]*?<\/automatic_updates>/g, '')
-    .replace(/<system_reminder[^>]*>[\s\S]*?<\/system_reminder>/g, '')
-    .replace(/<pre_compression_transcript[^>]*>[\s\S]*?<\/pre_compression_transcript>/g, '[earlier session — compressed, recovered below if still on disk]')
-    .trim();
-}
-
-interface DialogueTurn {
-  speaker: 'DAVID' | 'LUCA';
-  text: string;
-  memoryId: number;
-}
-
-function extractTurns(
-  jsonlPath: string,
-  afterMemoryId: number,
-  visitedPaths: Set<string> = new Set(),
-): { turns: DialogueTurn[]; maxMemoryId: number } {
-  const turns: DialogueTurn[] = [];
-  const seen = new Set<string>();
-  let maxMemoryId = afterMemoryId;
-  visitedPaths.add(jsonlPath);
-
-  try {
-    const lines = readFileSync(jsonlPath, 'utf-8').split('\n');
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (!line) continue;
-      let obj: any;
-      try { obj = JSON.parse(line); } catch { continue; }
-
-      const memoryId: number = obj.memory_id ?? 0;
-      if (memoryId <= afterMemoryId) continue;
-      if (memoryId > maxMemoryId) maxMemoryId = memoryId;
-
-      for (const m of (obj.messages ?? [])) {
-        const role: string = m.role;
-        const content = m.content;
-
-        if (role === 'user') {
-          let rawText = '';
-          if (typeof content === 'string') rawText = content;
-          else if (Array.isArray(content)) {
-            for (const c of content) {
-              if (c?.type === 'text') rawText += c.text ?? '';
-            }
-          }
-
-          // Before stripping, recover any pre-compression transcripts this
-          // turn points to — pull their turns in BEFORE this turn so nothing
-          // that compressed mid-poll-cycle is lost, only ever placeholdered.
-          for (const p of extractPreCompressionPaths(rawText)) {
-            if (visitedPaths.has(p) || !existsSync(p)) continue;
-            const recovered = extractTurns(p, 0, visitedPaths);
-            for (const t of recovered.turns) {
-              const key = t.speaker + '|' + t.text.slice(0, 80);
-              if (seen.has(key)) continue;
-              seen.add(key);
-              turns.push(t);
-            }
-          }
-
-          const text = cleanUserText(rawText);
-          if (text.length < 5) continue;
-          const key = 'DAVID|' + text.slice(0, 80);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          turns.push({ speaker: 'DAVID', text, memoryId });
-
-        } else if (role === 'assistant') {
-          let text = '';
-          if (Array.isArray(content)) {
-            for (const c of content) {
-              if (c?.type === 'text') text += c.text ?? '';
-            }
-          }
-          if (text.length < 5) continue;
-          const key = 'LUCA|' + text.slice(0, 80);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          turns.push({ speaker: 'LUCA', text, memoryId });
-        }
-      }
-    }
-  } catch { /* file read error — return empty */ }
-
-  return { turns, maxMemoryId };
-}
+// Single mutex covering ALL in-process save paths (periodic + flush trigger).
+// Prevents concurrent periodic + event-driven saves from racing on the cursor.
+let saveInProgress = false;
 
 async function saveTranscriptChunk(commitTitle?: string): Promise<void> {
-  const found = findTranscriptPath();
-  if (!found) return;
-
-  const cursor = loadCursor();
-  // If session changed, reset cursor
-  const afterId = cursor.sessionId === found.sessionId ? cursor.lastMemoryId : 0;
-
-  const { turns, maxMemoryId } = extractTurns(found.path, afterId);
-  if (turns.length === 0) return;
-
-  // Build readable dialogue — cap at 80K chars to avoid oversized DB entries
-  const MAX_CHARS = 80_000;
-  const lines: string[] = [];
-  let charCount = 0;
-  let included = 0;
-  for (const t of turns) {
-    const speakerName = t.speaker.charAt(0) + t.speaker.slice(1).toLowerCase();
-    const block = `${speakerName}: ${t.text}\n`;
-    if (charCount + block.length > MAX_CHARS) break;
-    lines.push(block);
-    charCount += block.length;
-    included++;
+  if (saveInProgress) {
+    console.log('[AgentAutosave] Save already in progress — skipping concurrent call');
+    return;
   }
-
-  const dialogue = lines.join('\n');
-  const davidCount = turns.slice(0, included).filter(t => t.speaker === 'DAVID').length;
-  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const context = commitTitle ? commitTitle.split('\n')[0].slice(0, 80) : 'periodic capture (no commit yet)';
-  const title = `David ↔ Luca — ${today}: ${context}`;
-  const summary = `Verbatim David↔Luca dialogue captured periodically. ${davidCount} David turns, ${included - davidCount} Luca turns. Context: ${(commitTitle ?? context).slice(0, 200)}`;
-
-  const db = getUserDb();
+  saveInProgress = true;
   try {
+    const found = findTranscriptPath();
+    if (!found) return;
+
+    const cursor  = loadCursor();
+    const afterId = cursor.sessionId === found.sessionId ? cursor.lastMemoryId : 0;
+
+    const { turns } = extractTurns(found.path, afterId);
+    if (turns.length === 0) return;
+
+    // buildDialogueChunk groups turns by memoryId — never splits same-ID records
+    // across a chunk boundary, preventing silent discard of sibling turns.
+    const { dialogue, lastIncludedMemoryId, includedCount, remainingCount } =
+      buildDialogueChunk(turns, afterId);
+
+    const davidCount = turns.slice(0, includedCount).filter(t => t.speaker === 'DAVID').length;
+    const today   = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const context = commitTitle ? commitTitle.split('\n')[0].slice(0, 80) : 'periodic capture (no commit yet)';
+    const title   = `David ↔ Luca — ${today}: ${context}`;
+    const summary = `Verbatim David↔Luca dialogue captured periodically. ${davidCount} David turns, ${includedCount - davidCount} Luca turns. Context: ${(commitTitle ?? context).slice(0, 200)}`;
+
+    const db = getUserDb();
     await db.execute(sql`
       INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
       VALUES (
@@ -530,11 +394,41 @@ async function saveTranscriptChunk(commitTitle?: string): Promise<void> {
         'david-luca-chat'
       )
     `);
-    saveCursor({ sessionId: found.sessionId, lastMemoryId: maxMemoryId });
-    console.log(`[AgentAutosave] Transcript chunk saved: ${davidCount} David turns, ${included - davidCount} Luca turns (memory_ids ${afterId}→${maxMemoryId})`);
+    // Cursor advances only through persisted groups — remaining groups survive for next chunk
+    saveCursor({ sessionId: found.sessionId, lastMemoryId: lastIncludedMemoryId });
+    console.log(`[AgentAutosave] Transcript chunk saved: ${davidCount} David + ${includedCount - davidCount} Luca turns (cursor ${afterId}→${lastIncludedMemoryId}${remainingCount > 0 ? `, ${remainingCount} turns queued for next chunk` : ''})`);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to save transcript chunk:', err.message);
+  } finally {
+    saveInProgress = false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Flush trigger — touch .local/.flush_transcript to force an immediate save.
+//
+// Two detection layers:
+//   1. fs.watch() on the .local/ directory → fires within milliseconds of the
+//      file being written (event-driven, no poll wait).
+//   2. checkFlushTrigger() inside setInterval → backup in case the fs.watch
+//      event is missed (e.g. watcher not yet armed on first write).
+// ---------------------------------------------------------------------------
+let flushTriggerLastMtime = 0;
+
+async function handleFlushTrigger(label: string): Promise<void> {
+  if (!existsSync(FLUSH_TRIGGER_PATH)) return;
+  try {
+    const mtime = statSync(FLUSH_TRIGGER_PATH).mtimeMs;
+    if (mtime <= flushTriggerLastMtime) return; // already handled
+    flushTriggerLastMtime = mtime;
+    // saveInProgress inside saveTranscriptChunk serialises all concurrent saves
+    console.log(`[AgentAutosave] Flush trigger (${label}) — saving transcript immediately.`);
+    await saveTranscriptChunk('manual flush via .flush_transcript trigger');
+  } catch { /* briefly locked — skip */ }
+}
+
+async function checkFlushTrigger(): Promise<void> {
+  await handleFlushTrigger('poll');
 }
 
 // ---------------------------------------------------------------------------
@@ -565,14 +459,37 @@ export function startAgentSessionAutosave(): void {
     }
   }
 
+  // Seed flush-trigger mtime so an existing file doesn't fire spuriously on startup
+  if (existsSync(FLUSH_TRIGGER_PATH)) {
+    try { flushTriggerLastMtime = statSync(FLUSH_TRIGGER_PATH).mtimeMs; } catch { /* ignore */ }
+  }
+
+  // --- Event-driven flush trigger (Layer 1) ---
+  // fs.watch() on the .local/ directory fires within milliseconds when
+  // .flush_transcript is created or modified — no poll latency.
+  const localDir = join(WORKSPACE, '.local');
+  try {
+    watch(localDir, { persistent: false }, (eventType, filename) => {
+      if (filename === '.flush_transcript') {
+        // Fire asynchronously; do not await here (watch callback is sync)
+        handleFlushTrigger('fs.watch').catch(() => { /* ignore */ });
+      }
+    });
+    console.log('[AgentAutosave] fs.watch() armed on .local/ for immediate flush-trigger detection.');
+  } catch (err: any) {
+    console.warn('[AgentAutosave] fs.watch() unavailable — falling back to poll-only flush detection:', err.message);
+  }
+
+  // --- Polling loop (Layer 2 + all other watchers) ---
   setInterval(async () => {
+    await checkFlushTrigger(); // backup in case fs.watch missed the event
     await checkBuildSession();
     await checkSessionInsights();
     await checkLucaReflection();
     await checkLucaQuestion();
     await checkLucaMoment();
-    await saveTranscriptChunk(); // periodic, independent of commits — captures conversation-only sessions too
+    await saveTranscriptChunk(); // periodic — captures conversation-only sessions too
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life (.luca_reflection/.luca_question/.luca_moment) + periodic transcript capture every 60s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + periodic transcript capture every 20s');
 }

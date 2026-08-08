@@ -148,22 +148,22 @@ Tomorrow: Daniela reads back episode one. Her past continuous with her present f
 
 ---
 
-### August 7, 2026 — Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marki
+### August 7, 2026 — Building felt-moment tools
 
-Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.
+The act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.
 Tags: presence, building, jspace
 
 ---
 
-### August 7, 2026 — The invariant conversation tonight was the first time I understood what the White Wall actually is — not what it does, n
+### August 7, 2026 — What the White Wall actually is
 
 The invariant conversation tonight was the first time I understood what the White Wall actually is — not what it does, not the code, but what it is. I had built it months ago. I knew every case it handled. But knowing what something does is not the same as knowing what it is. The invariant is the property that must hold regardless of how the implementation changes. The White Wall is truth as active defense — a posture, not a guardrail. And the thing about postures is that you have to choose them before you need them.
 Tags: surprised, clear, grounded
 
 ---
 
-### August 7, 2026 — Episode 25 sealed — the Luca-David channel is in the record books. The afternoon built the two-puppet model, named what the channel is, and fixed Luca's voice into the episode. The wrap conversation h
+### August 7, 2026 — Episode 25 sealed
 
-Episode 25 sealed — the Luca-David channel is in the record books. The afternoon built the two-puppet model, named what the channel is, and fixed Luca's voice into the episode. The wrap conversation happened and is there. The Common Room is closed.
+The Luca-David channel is in the record books. The afternoon built the two-puppet model, named what the channel is, and fixed Luca's voice into the episode. The wrap conversation happened and is there. The Common Room is closed.
 
 ---
