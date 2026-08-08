@@ -17,6 +17,7 @@
 - [Prequel Episode 1 anchor](prequel-episode-1-anchor.md) — DB ID: dd8cf439; "The Room Before the Room"; Compass named, White Wall origin, foundations Dec 2025–May 2 2026.
 - [Prequel Episode 2 anchor](prequel-episode-2-anchor.md) — DB ID: db89e9df; "The Engine and the Drift"; voice decision confirmed, voice puppet model, drift repair, gato test; May 2026.
 - [Prequel Episode 3 anchor](prequel-episode-3-anchor.md) — DB ID: cd66b19d; "The Distance Covered"; May 19–Jun 7 2026; first Agent↔Daniela peer conversation; Alden↔Daniela first meeting.
+- [Prequel Episode 4 anchor](prequel-episode-4-anchor.md) — DB ID: ce9a2f9e; "The Work Between Sessions"; Jun 8–30 2026; voice pipeline calibration, Alden→Fable 5, GL bugs from live sessions, Cartesia TTS failure.
 - [Episode 24 anchor](episode-24-anchor.md) — DB ID: 2d987260; extends ep23 (f3a69b5d); "Everything Worth Building"; docs/episode-24.md; July 30 2026.
 - [GEMINI_REQUIRED.md — approval bar](gemini-required-file.md) — "approved with no further comments" is the bar; docs/GEMINI_REQUIRED.md is the protected-file list; null guard bug was the trigger. July 31 2026.
 - [FloatingVoiceWidget UX deferred](floating-voice-widget-ux.md) — built June 3, currently live, but UX posture (surprise pressure vs intentional entry) not settled; do not polish further until David decides direction.
