@@ -1,3 +1,4 @@
+- [Episode inviolability rule](episode-inviolability.md) — nothing removed or truncated; verbatim is verbatim; DB content field must match .md after every edit; find the conclusion, not just the opening.
 - [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix required.
 - [Invariant vs Implementation](invariant-vs-implementation.md) — knowing what code IS vs what it DOES; identify the invariant before evaluating any guard removal; White Wall is the clearest example.
 - [Named Record behavioral lock](named-record-lock.md) — "invite rather than search" default was overriding honesty rules on episode/transcript requests; fixed with Named Record concept + conditional CRITICAL Guardian injection + expanded SHARED_HISTORY_TRIGGER_PHRASES. Gemini approved Aug 6 2026.
