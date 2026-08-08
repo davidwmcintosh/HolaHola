@@ -66,7 +66,7 @@ async function main() {
         WHERE arc_name = 'HolaHola Episodes'
           AND entry_type = 'episode'
           AND title ~ ${titleRegex}
-        ORDER BY recorded_at DESC
+        ORDER BY importance DESC, recorded_at DESC
         LIMIT 1
       `);
     } catch (err: any) {
@@ -172,7 +172,7 @@ async function main() {
         WHERE arc_name = 'HolaHola Episodes'
           AND entry_type = 'episode'
           AND title ~ ${titleRegex}
-        ORDER BY recorded_at DESC
+        ORDER BY importance DESC, recorded_at DESC
         LIMIT 1
       `);
     } catch (err: any) {
