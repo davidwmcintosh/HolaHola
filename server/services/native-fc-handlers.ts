@@ -2736,6 +2736,166 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'RECALL_EPISODE_DEEP': {
+        const edTitle = fn.args.title as string | undefined;
+        if (!edTitle?.trim()) {
+          (session as any).episodeDeepReadStub = 'No episode title provided. Please call recall_episode_deep with a title or episode number.';
+          break;
+        }
+
+        console.log(`[Native Function→RecallEpisodeDeep] title="${edTitle.trim()}"`);
+
+        // Clear any existing queue before starting a new fetch — prevents mixing chunks from
+        // different episodes when Daniela calls this tool back-to-back (Gemini review fix).
+        (session as any).episodeReadQueue = [];
+
+        // Per-request generation token: captures which request "owns" the queue.
+        // The detached fetch checks this token before every enqueue — if a newer request
+        // has started (token incremented), stale results are discarded rather than mixed in.
+        const prevToken: number = (session as any).episodeReadTokenCounter ?? 0;
+        const thisToken = prevToken + 1;
+        (session as any).episodeReadTokenCounter = thisToken;
+
+        // Immediate stub — Daniela gets this via buildContinuationResponse so she can keep talking
+        (session as any).episodeDeepReadStub = `Reading "${edTitle.trim()}" — the full episode content will arrive in your context turn by turn starting next turn. Keep talking naturally.`;
+
+        // Background fetch — non-blocking, queues chunks into session.episodeReadQueue.
+        // Uses thisToken to guard against out-of-order completion from a prior call.
+        const edPromise = (async () => {
+          try {
+            const db = getSharedDb();
+            const searchTerm = edTitle.trim();
+
+            // Search conversation_memories for the episode by TITLE ONLY.
+            // arc_name is used only as an episodicity filter (is this an episode record?)
+            // — never as a match field. Matching on arc_name ('HolaHola Episodes') would
+            // select every episode when the search term happens to match the shared arc name.
+            const { sql: rawSql } = await import('drizzle-orm');
+            const edRows = await db.execute(rawSql`
+              SELECT id, title, content, arc_name, created_at
+              FROM conversation_memories
+              WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                AND title ILIKE ${`%${searchTerm}%`}
+              ORDER BY
+                CASE WHEN LOWER(title) = LOWER(${searchTerm}) THEN 0 ELSE 1 END,
+                created_at ASC
+              LIMIT 3
+            `);
+
+            let episodeRows = edRows.rows as Array<{ id: string; title: string; content: string; arc_name: string; created_at: string }>;
+
+            // Fallback: number-based search (e.g. "Episode 1" → extract "1", search in title).
+            // Only fires when title-match returned nothing — prevents episode-0 from matching
+            // "Episode 25" when both titles contain "Episode".
+            if (!episodeRows.length) {
+              const numMatch = searchTerm.match(/\d+/);
+              if (numMatch) {
+                const numRows = await db.execute(rawSql`
+                  SELECT id, title, content, arc_name, created_at
+                  FROM conversation_memories
+                  WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                    AND title ~ ${`(^|\\D)${numMatch[0]}(\\D|$)`}
+                  ORDER BY created_at ASC
+                  LIMIT 1
+                `);
+                episodeRows = numRows.rows as typeof episodeRows;
+              }
+            }
+
+            if (!episodeRows.length || !episodeRows[0].content) {
+              // Token guard: discard if a newer request has claimed the queue
+              if ((session as any).episodeReadTokenCounter !== thisToken) return;
+              if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
+              (session as any).episodeReadQueue.push({
+                label: searchTerm,
+                content: `No episode found matching "${searchTerm}". Try introspect() with a keyword to search across all conversation records.`,
+                chunkIndex: 1,
+                totalChunks: 1,
+                isFinal: true,
+              });
+              return;
+            }
+
+            const episode = episodeRows[0];
+            const fullContent = episode.content;
+            const episodeLabel = episode.title || searchTerm;
+
+            // Chunk at natural sentence boundaries — ~4000 chars per chunk, never mid-sentence
+            const CHUNK_SIZE = 4000;
+            const chunks: string[] = [];
+
+            if (fullContent.length <= CHUNK_SIZE) {
+              chunks.push(fullContent);
+            } else {
+              let remaining = fullContent;
+              while (remaining.length > 0) {
+                if (remaining.length <= CHUNK_SIZE) {
+                  chunks.push(remaining.trim());
+                  break;
+                }
+                // Find last sentence-end within CHUNK_SIZE window
+                const window = remaining.slice(0, CHUNK_SIZE + 300);
+                // Sentence break: period/!/?  followed by whitespace and capital letter
+                let breakIdx = -1;
+                const sentenceBreak = /[.!?]\s+(?=[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝ\u0400-\u04FF])/g;
+                let m: RegExpExecArray | null;
+                while ((m = sentenceBreak.exec(window)) !== null) {
+                  if (m.index + 2 <= CHUNK_SIZE) {
+                    breakIdx = m.index + 1; // include the punctuation character
+                  }
+                }
+                // Fallback: last newline before CHUNK_SIZE
+                if (breakIdx < 100) {
+                  const nlIdx = remaining.lastIndexOf('\n', CHUNK_SIZE);
+                  breakIdx = nlIdx > 100 ? nlIdx : CHUNK_SIZE;
+                }
+                chunks.push(remaining.slice(0, breakIdx + 1).trim());
+                remaining = remaining.slice(breakIdx + 1).trim();
+              }
+            }
+
+            // Token guard: discard all chunks if a newer request has claimed the queue.
+            // Prevents out-of-order completion from a prior call poisoning the current queue.
+            if ((session as any).episodeReadTokenCounter !== thisToken) {
+              console.log(`[RecallEpisodeDeep] Discarding stale fetch for "${episodeLabel}" (token mismatch — newer request owns the queue)`);
+              return;
+            }
+            // Store chunks in session queue
+            if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
+            for (let i = 0; i < chunks.length; i++) {
+              (session as any).episodeReadQueue.push({
+                label: episodeLabel,
+                content: chunks[i],
+                chunkIndex: i + 1,
+                totalChunks: chunks.length,
+                isFinal: i === chunks.length - 1,
+              });
+            }
+            console.log(`[RecallEpisodeDeep] Queued ${chunks.length} chunk(s) for "${episodeLabel}" (${fullContent.length} chars total)`);
+          } catch (err: any) {
+            console.error('[RecallEpisodeDeep] Fetch failed:', err.message);
+            // Token guard: only write error stub if this is still the active request
+            if ((session as any).episodeReadTokenCounter !== thisToken) return;
+            if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
+            (session as any).episodeReadQueue.push({
+              label: edTitle.trim(),
+              content: `Error fetching episode: ${err.message}. Try introspect() or recall() instead.`,
+              chunkIndex: 1,
+              totalChunks: 1,
+              isFinal: true,
+            });
+          }
+        })();
+
+        // Added to pendingMemoryLookupPromises (safe because recall_episode_deep is
+        // GL-excluded — this tool only runs in text-mode FC sessions where
+        // pendingMemoryLookupPromises is always awaited before functionResponseParts
+        // is built). Awaiting guarantees chunks are ready for injection on the same turn.
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(edPromise);
+        break;
+      }
+
       case 'MEMORY_LOOKUP': {
         const mlQuery = fn.args.query as string | undefined;
         if (mlQuery) {

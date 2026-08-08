@@ -102,6 +102,14 @@ export const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // Retrieves an image for visual description (image_vision_cache), not a
   // conversation or session memory record. Founder/Honesty mode only.
 
+  'recall_episode_deep',
+  // Session-enrichment buffer tool — fetches a full episode from conversation_memories
+  // as a truly detached background task (NOT awaited in pendingMemoryLookupPromises).
+  // Returns an immediate stub so Daniela keeps talking; chunks inject via Gap 11.
+  // The fetch is fire-and-forget and cannot form a recall chain: it runs once per
+  // call, queues into session.episodeReadQueue (cleared on each new call), and
+  // delivers one chunk per tool-response batch. Not a memory-spiral risk.
+
   // ── search_my_ prefix ───────────────────────────────────────────────────────
   'search_my_feelings',
   // J-space introspective tool — reads Daniela's own feelings table.

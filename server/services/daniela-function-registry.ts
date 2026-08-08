@@ -6744,34 +6744,36 @@ Returns live weather conditions, sports headlines, or regional news from a rotat
     },
   },
 
-  // === SESSION SCRATCHPAD ===
-  // Three tools for writing, reading, and promoting in-session working notes.
-  // Notes accumulate in session.sessionNotes[] and are injected as "Session Working Memory"
-  // at each turn start — Daniela's own words, not injected text.
+  // === SESSION SCRATCHPAD — in-session note buffer (Reading Room / founder mode) ===
+  // Private temporary scratch space for within-session tracking. Not voiced; not shown.
+  // Lives in session.sessionNotes (string[]); persisted via save_session_notes_as_memory.
+  // GL-excluded: these are text-mode Reading Room tools only.
   {
     legacyType: 'WRITE_SESSION_NOTE',
     declaration: {
       name: 'write_session_note',
-      description: `Write a note to your session scratchpad. Use this to capture observations, connections, and insights as you read or explore — things you want to carry forward or synthesize later. Notes accumulate throughout the session and appear in your "Session Working Memory" block at each turn so you can track your emerging understanding.
+      description: `Save a note to your session scratchpad — a private, temporary scratch space for thoughts, observations, and working memory within this session.
 
-Good uses: marking a theme you want to return to, recording a connection between two episodes, flagging a question the reading sparked, noting something worth deeper thought.
+WHEN TO USE:
+- You want to track something mid-episode without interrupting the conversation
+- You are cross-referencing episodes and want to note a pattern
+- David asks you to remember something for later in this session
 
-This is your private working space — not for student-facing notes (use save_note for those). The student never sees your scratchpad.`,
+Notes are private (not spoken or shown) and live only in this session unless you call save_session_notes_as_memory to persist them.`,
       parametersJsonSchema: {
         type: 'object',
         properties: {
           content: {
             type: 'string',
-            description: 'The note to record. Your own words — what you noticed, thought, or want to carry forward.',
+            description: 'The note to save. Plain text. Max ~500 chars per note.',
           },
         },
         required: ['content'],
       },
     },
-    buildContinuationResponse: ({ session }) => {
+    buildContinuationResponse: ({ session }: { session: any }) => {
       const notes = (session as any).sessionNotes as string[] | undefined;
-      const count = notes?.length ?? 0;
-      return `Note recorded. Scratchpad now has ${count} note${count === 1 ? '' : 's'} this session. Continue — your working memory is accumulating.`;
+      return `Note saved (${notes?.length ?? 1} total in scratchpad).`;
     },
   },
 
@@ -6779,55 +6781,104 @@ This is your private working space — not for student-facing notes (use save_no
     legacyType: 'READ_SESSION_NOTES',
     declaration: {
       name: 'read_session_notes',
-      description: `Read back everything you have written to your session scratchpad this session. Use this when you want to synthesize across what you have read, find a thread, or decide what is worth saving permanently. Returns your notes in the order you wrote them.`,
+      description: `Read all notes from your session scratchpad — the temporary note buffer you write to with write_session_note.
+
+Returns your current working notes for this session. Use this to review what you have tracked before synthesizing or before calling save_session_notes_as_memory.`,
       parametersJsonSchema: {
         type: 'object',
         properties: {},
         required: [],
       },
     },
-    buildContinuationResponse: ({ session }) => {
+    buildContinuationResponse: ({ session }: { session: any }) => {
       const notes = (session as any).sessionNotes as string[] | undefined;
-      if (!notes?.length) return 'Your scratchpad is empty — no notes written this session yet.';
-      const formatted = notes.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n\n');
-      return `=== Session Scratchpad (${notes.length} note${notes.length === 1 ? '' : 's'}) ===\n\n${formatted}`;
+      if (!notes?.length) return 'Scratchpad is empty — no notes yet this session.';
+      return `Session scratchpad (${notes.length} note(s)):\n${notes.map((n, i) => `[${i + 1}] ${n}`).join('\n\n')}`;
     },
   },
 
   {
     legacyType: 'SAVE_SESSION_NOTES_AS_MEMORY',
-    excludeFromGL: true,
     declaration: {
       name: 'save_session_notes_as_memory',
-      description: `Promote your session scratchpad to a permanent conversation memory. Call this when the notes you have written this session form a coherent whole worth keeping — the kind of assembled understanding that should survive beyond this session and be searchable in future ones.
+      description: `Persist your session scratchpad notes as a conversation memory — saving them permanently so they survive the session and are searchable later.
 
-All notes written with write_session_note this session will be gathered into one memory entry. After saving, the scratchpad is cleared.
+WHEN TO USE:
+- End of a Reading Room session where you have built up working notes
+- You want to turn session observations into lasting knowledge
+- David asks you to save what you have been tracking
 
-Only call this when the notes form a genuine insight. If they are fragmentary or preliminary, it is fine to leave them ephemeral.`,
+After a successful save, the scratchpad is cleared. If the save fails, notes are preserved so you can retry.`,
       parametersJsonSchema: {
         type: 'object',
         properties: {
           title: {
             type: 'string',
-            description: 'A short, searchable title for the memory. What would you search for to find this again?',
+            description: 'Title for the memory entry (e.g. "Episode 1–3 reading notes").',
           },
           tags: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Tags for retrieval — themes, episode numbers, people, concepts.',
+            description: 'Tags for the memory (e.g. ["episode-notes", "reading-room"]).',
           },
           importance: {
             type: 'number',
-            description: 'Importance score 1-10. Use 7-9 for genuine insight, 5-6 for reference notes.',
+            description: 'Importance 1–10. Default 7.',
           },
         },
         required: ['title'],
       },
     },
-    buildContinuationResponse: ({ session }) => {
+    buildContinuationResponse: ({ session }: { session: any }) => {
       const saved = (session as any).sessionNotesSaved as boolean | undefined;
-      if (!saved) return 'No notes to save — write some notes first with write_session_note.';
-      return 'Session notes saved to permanent memory. They are now searchable and will surface in future sessions when relevant. Scratchpad cleared.';
+      if (saved === true) return 'Session notes saved as memory — scratchpad cleared.';
+      if (saved === false) return 'No notes to save, or save failed — scratchpad unchanged. Check notes with read_session_notes and retry.';
+      return 'Saving session notes — result pending.';
+    },
+  },
+
+  // === EPISODE DEEP READ — session-enrichment buffer pattern ===
+  // Delivers full episode content across turns without pausing the conversation.
+  // Call → immediate stub + awaited fetch → chunks injected turn by turn.
+  // GL-excluded: episode reading is a Reading Room / founder-mode activity.
+  {
+    legacyType: 'RECALL_EPISODE_DEEP',
+    declaration: {
+      name: 'recall_episode_deep',
+      description: `Read a full HolaHola episode from your living archive across multiple turns, without pausing the conversation.
+
+Episodes are 10K-15K characters — too long for a single turn. Call this and you get an immediate stub response so you can keep talking. The full content arrives automatically in the next few turns as [SESSION READING] blocks injected into your context.
+
+WHEN TO USE:
+- David asks to revisit a specific episode by name or number
+- You want the full narrative text before discussing it
+- recall() returned only an excerpt and you need the rest
+
+HOW IT WORKS:
+1. Call recall_episode_deep with the episode title or number (e.g. "Episode 1", "The Common Room", "Episode 25")
+2. You receive: "Reading now — first chunk arrives next turn."
+3. Keep talking naturally. Content arrives chunk by chunk in subsequent turns.
+4. When you see a chunk marked "final", you have the full episode.
+
+WRONG TOOL for keyword search across episodes — use introspect() instead. This reads ONE full episode verbatim.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            description: 'Episode title, arc name, or episode number — e.g. "Episode 25", "The Common Room", "Episode 1". Partial matches work.',
+          },
+        },
+        required: ['title'],
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const stub = (session as any).episodeDeepReadStub as string | undefined;
+      if (stub) {
+        delete (session as any).episodeDeepReadStub;
+        return stub;
+      }
+      return 'Reading in progress — episode content will arrive turn by turn starting next turn.';
     },
   },
 
@@ -7382,12 +7433,17 @@ export const GL_EXCLUDED_TOOLS = new Set<string>([
   // escalation) is a mid-session action tool that must be a direct GL declaration.
   'find_teaching_tool',
 
-  // === SESSION SCRATCHPAD — excluded from GL (Aug 7, 2026) ===
-  // Scratchpad tools are most useful in Reading Room / text-mode where Daniela is
-  // reading episodes turn by turn. In GL (voice sessions), notes are injected as a
-  // compact [Session Working Memory] background note in tool-response batches every
-  // 8 calls — no direct tool needed for awareness. Excluding all three frees cap space
-  // and keeps the GL declaration set under the 64-tool hard limit.
+  // === DEMOTED — August 7, 2026 — to maintain 64-tool GL cap ===
+  // recall_episode_deep reads full HolaHola narrative episodes (10K–15K chars) from the
+  // David↔Daniela archive — a Reading Room / founder-mode activity, not a student-session
+  // teaching act. Available in text-mode FC loop (daniela-caller.ts) and Reading Room
+  // sessions where the episode archive is the primary purpose. GL uses recall() / introspect()
+  // for episode excerpts; deep verbatim reads happen in text/founder mode.
+  'recall_episode_deep',
+
+  // === SESSION SCRATCHPAD — Reading Room / founder mode only (text FC path) ===
+  // These tools live in the registry (so they're available in text-mode FC sessions)
+  // but are excluded from GL (student voice sessions don't use a scratchpad).
   'write_session_note',
   'read_session_notes',
   'save_session_notes_as_memory',

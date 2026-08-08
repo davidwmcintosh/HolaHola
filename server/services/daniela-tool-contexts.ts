@@ -75,6 +75,11 @@ export const TOOL_CONTEXT_TEAM_ROOM: string[] = [
   'introspect',
   'self_read',
   'self_write',
+  // Episode deep read + session scratchpad (Reading Room / founder mode)
+  'recall_episode_deep',
+  'write_session_note',
+  'read_session_notes',
+  'save_session_notes_as_memory',
 ];
 
 /**
@@ -108,6 +113,8 @@ export const TOOL_CONTEXT_FREE_DIALOGUE: string[] = [
   'introspect',
   'self_read',
   'self_write',
+  // Episode deep read — available in free dialogue (archive exploration sessions)
+  'recall_episode_deep',
 ];
 
 /**

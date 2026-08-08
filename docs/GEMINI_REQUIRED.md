@@ -81,5 +81,6 @@ If a task agent cannot run the loop (no direct API access), the task description
 | 2026-08-07 | Phantom-turn guard: prompt bullet + `validateMessageAlternation()` + `PhantomTurnError` throw | `docs/gemini-audit-2026-08-07.md` | Approved unconditionally (Round 2). Three required changes applied: role anchoring, tool placement check, throw on violation. |
 | 2026-08-07 | Two-language-puppet model: named both puppets + ACTFL weight dial in teaching session branch of `sessionLanguageAnchor` + `languageDirection` | `docs/gemini-audit-2026-08-07.md` | Approved unconditionally (Round 2). Three required changes applied: persona mask rename, hard-override removal, quoted term. |
 | 2026-08-07 | Founder mode classroom signal fix: MODE label, mode-aware identity anchor, relational workspace language framing | `docs/gemini-audit-2026-08-07.md` | Approved unconditionally (Round 2). Late prohibition block removed. Honesty mode deferred as Task #799. |
+| 2026-08-07 | `recall_episode_deep` tool + text-mode full-queue delivery (daniela-function-registry.ts, native-fc-handlers.ts, daniela-caller.ts, daniela-tool-contexts.ts) | `docs/gemini-audit-2026-08-07-episode-deep.md` | Approved unconditionally (Round 2). Two required changes applied: stale-queue clear on new request, `[INTERNAL ARCHIVE DATA]` label. |
 
 _Add a row for every approved change going forward._

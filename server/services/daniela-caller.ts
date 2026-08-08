@@ -558,6 +558,38 @@ export async function runDanielaFCLoop({
       textMemoryNudgeSent = false;
     }
 
+    // ── Episode deep-read full delivery (text-mode) ──────────────────────────
+    // recall_episode_deep is GL-excluded and runs only in text/Reading Room FC
+    // sessions. The handler uses pendingMemoryLookupPromises (awaited above), so
+    // ALL chunks are guaranteed ready by the time we reach here.
+    //
+    // Text mode has no streaming constraint — drain the entire queue in one
+    // injection appended to the last tool response. This guarantees the full
+    // episode enters model context on the same turn as the recall call, with no
+    // dependency on subsequent tool calls. The GL path (gemini-live-session.ts
+    // Gap 11) remains one-per-turn because voice sessions need the stub to
+    // return before the full content is ready.
+    const edTextQueue = (mockSession as any).episodeReadQueue as Array<{
+      label: string; content: string; chunkIndex: number; totalChunks: number; isFinal: boolean;
+    }> | undefined;
+    if (edTextQueue?.length && functionResponseParts.length > 0) {
+      const last = functionResponseParts[functionResponseParts.length - 1];
+      const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
+      const allChunks: string[] = [];
+      let episodeLabel = '';
+      let totalChunks = 0;
+      while (edTextQueue.length > 0) {
+        const chunk = edTextQueue.shift()!;
+        episodeLabel = chunk.label;
+        totalChunks = chunk.totalChunks;
+        allChunks.push(chunk.content);
+      }
+      const fullContent = allChunks.join('\n\n');
+      const header = `\n\n[INTERNAL ARCHIVE DATA - DO NOT VOCALIZE]\nSource: "${episodeLabel}" (${totalChunks} part(s) — full episode delivered)\nCONTENT:\n---\n`;
+      last.functionResponse.response.output[0].text = existing + header + fullContent + '\n---';
+      console.log(`[RecallEpisodeDeep/Text] Full episode delivered: "${episodeLabel}" — ${totalChunks} chunk(s), ${fullContent.length} chars total`);
+    }
+
     // ── Inject tool response turn ─────────────────────────────────────────────
     messages.push({ role: 'tool', parts: functionResponseParts });
 

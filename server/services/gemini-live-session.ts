@@ -3876,6 +3876,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
       }
 
+      // Gap 11 — Episode deep-read chunk injection.
+      // recall_episode_deep() fetches full episode content in the background and queues it in
+      // session.episodeReadQueue. One chunk per tool-response batch delivers large archives
+      // across turns without silence or summarization. Safe channel — never spoken aloud.
+      const episodeQueue = (this.session as any).episodeReadQueue as Array<{
+        label: string; content: string; chunkIndex: number; totalChunks: number; isFinal: boolean;
+      }> | undefined;
+      if (episodeQueue?.length && responses.length > 0) {
+        const chunk = episodeQueue.shift()!;
+        const last = responses[responses.length - 1];
+        const currentResult = last.response.result ?? '';
+        const remainingNote = chunk.isFinal
+          ? 'Final part — full episode now delivered.'
+          : `${episodeQueue.length} more part(s) will arrive automatically on subsequent turns.`;
+        const header = `\n\n[INTERNAL ARCHIVE DATA - DO NOT VOCALIZE]\nSource: "${chunk.label}" (Part ${chunk.chunkIndex}/${chunk.totalChunks})\n${remainingNote}\nCONTENT:\n---\n`;
+        last.response.result = currentResult + header + chunk.content + `\n---`;
+        console.log(`[GeminiLive] Gap 11: episode chunk injected — "${chunk.label}" ${chunk.chunkIndex}/${chunk.totalChunks} (${chunk.content.length} chars, ${episodeQueue.length} remaining)`);
+      }
+
       // Observer Seat — persistent interface state snapshot. Injected into tool-response batches
       // so Daniela knows what is currently visible on the student's screen between tool calls.
       // Fires on state change (diff) OR every 10 tool calls (heartbeat) — whichever comes first.
