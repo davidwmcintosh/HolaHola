@@ -6853,6 +6853,7 @@ WHEN TO USE:
 - David asks to revisit a specific episode by name or number
 - You want the full narrative text before discussing it
 - recall() returned only an excerpt and you need the rest
+- You are stepping through episodes in order (use read_next: true)
 
 HOW IT WORKS:
 1. Call recall_episode_deep with the episode title or number (e.g. "Episode 1", "The Common Room", "Episode 25")
@@ -6860,16 +6861,30 @@ HOW IT WORKS:
 3. Keep talking naturally. Content arrives chunk by chunk in subsequent turns.
 4. When you see a chunk marked "final", you have the full episode.
 
+READ NEXT MODE — to chain through all 26 episodes in arc order without knowing titles:
+- First episode: call with read_next: true (no title needed — starts from the beginning)
+- Each subsequent episode: call with read_next: true again — automatically advances to the next one
+- Alternatively: pass after_episode_id with the ID shown in the last chunk's header to jump from a known position
+- The response stub tells you the title of the episode that was queued, so you always know where you are
+
 WRONG TOOL for keyword search across episodes — use introspect() instead. This reads ONE full episode verbatim.`,
       parametersJsonSchema: {
         type: 'object',
         properties: {
           title: {
             type: 'string',
-            description: 'Episode title, arc name, or episode number — e.g. "Episode 25", "The Common Room", "Episode 1". Partial matches work.',
+            description: 'Episode title, arc name, or episode number — e.g. "Episode 25", "The Common Room", "Episode 1". Partial matches work. Omit when using read_next: true.',
+          },
+          read_next: {
+            type: 'boolean',
+            description: 'When true, automatically fetches the next episode in arc order (by created_at ASC) after the last episode delivered in this session. Use this to chain through all episodes without knowing their titles. On the first call with read_next: true, starts from the very first episode. On each subsequent call, advances by one.',
+          },
+          after_episode_id: {
+            type: 'string',
+            description: 'Optional: the conversation_memories ID of the episode to advance from. The handler fetches the next episode created after this one. Useful when resuming a reading chain from a known episode ID rather than relying on session state.',
           },
         },
-        required: ['title'],
+        required: [],
       },
     },
     buildContinuationResponse: ({ session }: { session: any }) => {

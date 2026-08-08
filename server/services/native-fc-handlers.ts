@@ -2738,12 +2738,17 @@ export class NativeFunctionCallHandler {
 
       case 'RECALL_EPISODE_DEEP': {
         const edTitle = fn.args.title as string | undefined;
-        if (!edTitle?.trim()) {
-          (session as any).episodeDeepReadStub = 'No episode title provided. Please call recall_episode_deep with a title or episode number.';
+        const edReadNext = fn.args.read_next as boolean | undefined;
+        const edAfterEpisodeId = fn.args.after_episode_id as string | undefined;
+
+        // Validate: need at least one of title, read_next, or after_episode_id
+        if (!edTitle?.trim() && !edReadNext && !edAfterEpisodeId?.trim()) {
+          (session as any).episodeDeepReadStub = 'No episode title provided. Call recall_episode_deep with a title, episode number, or read_next: true to step through episodes in order.';
           break;
         }
 
-        console.log(`[Native Function→RecallEpisodeDeep] title="${edTitle.trim()}"`);
+        const edMode = edReadNext || edAfterEpisodeId ? 'next' : 'title';
+        console.log(`[Native Function→RecallEpisodeDeep] mode=${edMode} title="${edTitle?.trim() ?? ''}" read_next=${edReadNext} after_id="${edAfterEpisodeId ?? ''}"`);
 
         // Clear any existing queue before starting a new fetch — prevents mixing chunks from
         // different episodes when Daniela calls this tool back-to-back (Gemini review fix).
@@ -2757,48 +2762,104 @@ export class NativeFunctionCallHandler {
         (session as any).episodeReadTokenCounter = thisToken;
 
         // Immediate stub — Daniela gets this via buildContinuationResponse so she can keep talking
-        (session as any).episodeDeepReadStub = `Reading "${edTitle.trim()}" — the full episode content will arrive in your context turn by turn starting next turn. Keep talking naturally.`;
+        (session as any).episodeDeepReadStub = edMode === 'next'
+          ? 'Advancing to the next episode in arc order — content will arrive turn by turn. Keep talking naturally.'
+          : `Reading "${edTitle!.trim()}" — the full episode content will arrive in your context turn by turn starting next turn. Keep talking naturally.`;
 
         // Background fetch — non-blocking, queues chunks into session.episodeReadQueue.
         // Uses thisToken to guard against out-of-order completion from a prior call.
         const edPromise = (async () => {
           try {
             const db = getSharedDb();
-            const searchTerm = edTitle.trim();
-
-            // Search conversation_memories for the episode by TITLE ONLY.
-            // arc_name is used only as an episodicity filter (is this an episode record?)
-            // — never as a match field. Matching on arc_name ('HolaHola Episodes') would
-            // select every episode when the search term happens to match the shared arc name.
             const { sql: rawSql } = await import('drizzle-orm');
-            const edRows = await db.execute(rawSql`
-              SELECT id, title, content, arc_name, created_at
-              FROM conversation_memories
-              WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
-                AND title ILIKE ${`%${searchTerm}%`}
-              ORDER BY
-                CASE WHEN LOWER(title) = LOWER(${searchTerm}) THEN 0 ELSE 1 END,
-                created_at ASC
-              LIMIT 3
-            `);
 
-            let episodeRows = edRows.rows as Array<{ id: string; title: string; content: string; arc_name: string; created_at: string }>;
+            let episodeRows: Array<{ id: string; title: string; content: string; arc_name: string; created_at: string }> = [];
 
-            // Fallback: number-based search (e.g. "Episode 1" → extract "1", search in title).
-            // Only fires when title-match returned nothing — prevents episode-0 from matching
-            // "Episode 25" when both titles contain "Episode".
-            if (!episodeRows.length) {
-              const numMatch = searchTerm.match(/\d+/);
-              if (numMatch) {
-                const numRows = await db.execute(rawSql`
+            if (edMode === 'next') {
+              // "Read next" mode: find the episode created immediately after the anchor.
+              // Anchor priority: explicit after_episode_id > session-tracked lastDeliveredEpisodeId.
+              // If no anchor exists yet, start from the very first episode (oldest created_at).
+              const anchorId: string | undefined = edAfterEpisodeId?.trim() || (session as any).lastDeliveredEpisodeId;
+
+              if (anchorId) {
+                // Fetch the created_at of the anchor episode so we can find what comes after it.
+                const anchorRows = await db.execute(rawSql`
+                  SELECT created_at
+                  FROM conversation_memories
+                  WHERE id = ${anchorId}
+                    AND (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                  LIMIT 1
+                `);
+                const anchorRow = (anchorRows.rows as Array<{ created_at: string }>)[0];
+                if (anchorRow) {
+                  const nextRows = await db.execute(rawSql`
+                    SELECT id, title, content, arc_name, created_at
+                    FROM conversation_memories
+                    WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                      AND created_at > ${anchorRow.created_at}
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                  `);
+                  episodeRows = nextRows.rows as typeof episodeRows;
+                } else {
+                  // Anchor ID not found — fall back to first episode
+                  console.warn(`[RecallEpisodeDeep] Anchor ID "${anchorId}" not found — starting from first episode`);
+                  const firstRows = await db.execute(rawSql`
+                    SELECT id, title, content, arc_name, created_at
+                    FROM conversation_memories
+                    WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                  `);
+                  episodeRows = firstRows.rows as typeof episodeRows;
+                }
+              } else {
+                // No anchor: start from the very first episode
+                const firstRows = await db.execute(rawSql`
                   SELECT id, title, content, arc_name, created_at
                   FROM conversation_memories
                   WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
-                    AND title ~ ${`(^|\\D)${numMatch[0]}(\\D|$)`}
                   ORDER BY created_at ASC
                   LIMIT 1
                 `);
-                episodeRows = numRows.rows as typeof episodeRows;
+                episodeRows = firstRows.rows as typeof episodeRows;
+              }
+            } else {
+              // Title-based lookup (original path)
+              const searchTerm = edTitle!.trim();
+
+              // Search conversation_memories for the episode by TITLE ONLY.
+              // arc_name is used only as an episodicity filter (is this an episode record?)
+              // — never as a match field. Matching on arc_name ('HolaHola Episodes') would
+              // select every episode when the search term happens to match the shared arc name.
+              const edRows = await db.execute(rawSql`
+                SELECT id, title, content, arc_name, created_at
+                FROM conversation_memories
+                WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                  AND title ILIKE ${`%${searchTerm}%`}
+                ORDER BY
+                  CASE WHEN LOWER(title) = LOWER(${searchTerm}) THEN 0 ELSE 1 END,
+                  created_at ASC
+                LIMIT 3
+              `);
+              episodeRows = edRows.rows as typeof episodeRows;
+
+              // Fallback: number-based search (e.g. "Episode 1" → extract "1", search in title).
+              // Only fires when title-match returned nothing — prevents episode-0 from matching
+              // "Episode 25" when both titles contain "Episode".
+              if (!episodeRows.length) {
+                const numMatch = searchTerm.match(/\d+/);
+                if (numMatch) {
+                  const numRows = await db.execute(rawSql`
+                    SELECT id, title, content, arc_name, created_at
+                    FROM conversation_memories
+                    WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                      AND title ~ ${`(^|\\D)${numMatch[0]}(\\D|$)`}
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                  `);
+                  episodeRows = numRows.rows as typeof episodeRows;
+                }
               }
             }
 
@@ -2806,9 +2867,12 @@ export class NativeFunctionCallHandler {
               // Token guard: discard if a newer request has claimed the queue
               if ((session as any).episodeReadTokenCounter !== thisToken) return;
               if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
+              const notFoundLabel = edMode === 'next' ? 'next episode' : (edTitle?.trim() ?? 'requested episode');
               (session as any).episodeReadQueue.push({
-                label: searchTerm,
-                content: `No episode found matching "${searchTerm}". Try introspect() with a keyword to search across all conversation records.`,
+                label: notFoundLabel,
+                content: edMode === 'next'
+                  ? 'No further episodes found — you have reached the end of the arc. All episodes have been read.'
+                  : `No episode found matching "${edTitle?.trim()}". Try introspect() with a keyword to search across all conversation records.`,
                 chunkIndex: 1,
                 totalChunks: 1,
                 isFinal: true,
@@ -2818,7 +2882,7 @@ export class NativeFunctionCallHandler {
 
             const episode = episodeRows[0];
             const fullContent = episode.content;
-            const episodeLabel = episode.title || searchTerm;
+            const episodeLabel = episode.title || (edTitle?.trim() ?? 'episode');
 
             // Chunk at natural sentence boundaries — ~4000 chars per chunk, never mid-sentence
             const CHUNK_SIZE = 4000;
@@ -2856,10 +2920,26 @@ export class NativeFunctionCallHandler {
 
             // Token guard: discard all chunks if a newer request has claimed the queue.
             // Prevents out-of-order completion from a prior call poisoning the current queue.
+            // Cursor mutation (lastDeliveredEpisodeId) lives INSIDE this guard — a stale
+            // completion that loses the token race must have zero side effects on session state.
             if ((session as any).episodeReadTokenCounter !== thisToken) {
               console.log(`[RecallEpisodeDeep] Discarding stale fetch for "${episodeLabel}" (token mismatch — newer request owns the queue)`);
               return;
             }
+
+            // Advance the session cursor only after confirming this request still owns the queue.
+            // This prevents a race where two back-to-back read_next calls overlap: the older
+            // one would otherwise write its episode ID after the newer one already advanced,
+            // causing the next read_next to skip or repeat episodes.
+            (session as any).lastDeliveredEpisodeId = episode.id;
+
+            // Update the immediate stub to show the actual episode title (overrides the generic
+            // "next episode" message set synchronously above — safe because pendingMemoryLookupPromises
+            // is always awaited before buildContinuationResponse reads episodeDeepReadStub).
+            if (edMode === 'next' && (session as any).episodeDeepReadStub?.startsWith('Advancing')) {
+              (session as any).episodeDeepReadStub = `Reading "${episodeLabel}" (next in arc) — content will arrive turn by turn. Keep talking naturally. Episode ID: ${episode.id}`;
+            }
+
             // Store chunks in session queue
             if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
             for (let i = 0; i < chunks.length; i++) {
@@ -2878,7 +2958,7 @@ export class NativeFunctionCallHandler {
             if ((session as any).episodeReadTokenCounter !== thisToken) return;
             if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
             (session as any).episodeReadQueue.push({
-              label: edTitle.trim(),
+              label: edTitle?.trim() ?? (edMode === 'next' ? 'next episode' : 'episode'),
               content: `Error fetching episode: ${err.message}. Try introspect() or recall() instead.`,
               chunkIndex: 1,
               totalChunks: 1,
