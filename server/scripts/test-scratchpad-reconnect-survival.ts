@@ -128,6 +128,11 @@ const g5 = (s: string) => s.includes("sessionNotes: text('session_notes')");
 const g6 = (s: string) =>
   s.includes('voice_grace_periods') && s.includes('session_notes');
 
+// G1d — pendingGlContext notification pushed synchronously on auto-flush so
+// Daniela knows her earlier notes are persisted and searchable.
+const g1d = (s: string) =>
+  s.includes("session.pendingGlContext.push(`Earlier session notes saved to memory — search 'session notes batch' to retrieve them`)");
+
 // G7 — GL reconnect: buildContextBridge() re-injects sessionNotes so the first
 // new-session turn already carries working memory (not deferred to the next heartbeat).
 const g7a = (s: string) => {
@@ -220,6 +225,8 @@ function part1(): void {
     "Missing: (session as any).sessionNotes.push(noteContent.trim())");
   assert("G1c: WRITE_SESSION_NOTE enforces MAX_SESSION_NOTES cap with shift()",  g1c(hSrc),
     "Missing: MAX_SESSION_NOTES constant + (session as any).sessionNotes.shift() in WRITE_SESSION_NOTE");
+  assert("G1d: auto-flush pushes pendingGlContext notification so Daniela knows batch is searchable", g1d(hSrc),
+    "Missing: session.pendingGlContext.push(`Earlier session notes saved to memory...`) in WRITE_SESSION_NOTE flush block");
   assert("G2:  orchestrator injects 'Session Working Memory' from sessionNotes", g2(oSrc),
     "Missing sessionNotes injection in GL turn context");
   assert("G3a: extractSessionNotesForReconnect() exported from ws-handler",      g3a(wsSrc));
@@ -296,6 +303,10 @@ async function part2(): Promise<void> {
   assert('Post-flush: active array reset to 1 (new batch started)', postFlushNotes?.length === 1, `got ${postFlushNotes?.length}`);
   assert('Post-flush: new note is the only entry', postFlushNotes?.[0] === 'Batch-2 first note.', `got "${postFlushNotes?.[0]}"`);
   assert('Post-flush: flush counter incremented', (overflowSession as any)._scratchpadFlushCount === 1, `got ${(overflowSession as any)._scratchpadFlushCount}`);
+  const postFlushCtx = (overflowSession as any).pendingGlContext as string[] | undefined;
+  assert("Post-flush: pendingGlContext contains the 'saved to memory' notification",
+    Array.isArray(postFlushCtx) && postFlushCtx.some(s => s.includes("Earlier session notes saved to memory")),
+    `pendingGlContext=${JSON.stringify(postFlushCtx)}`);
 
   // Writing more notes after flush appends normally
   await overflowHandler.handle('sid-overflow', overflowSession, {
@@ -487,10 +498,16 @@ function part6(): void {
     !g1c(hSrc.replace(/MAX_SESSION_NOTES/g, 'SCRATCHPAD_CAP')));
   assert('[Self-check] G1c fails when flush-counter removed',
     !g1c(hSrc.replace(/_scratchpadFlushCount/g, '_scratchpadBatchIndex')));
+  assert('[Self-check] G1d fails when pendingGlContext notification removed',
+    !g1d(hSrc.replace(
+      "session.pendingGlContext.push(`Earlier session notes saved to memory — search 'session notes batch' to retrieve them`);",
+      "/* removed */",
+    )));
 
   // Baselines
   assert('[Self-check] G1b passes on original source',  g1b(hSrc));
   assert('[Self-check] G1c passes on original source',  g1c(hSrc));
+  assert('[Self-check] G1d passes on original source',  g1d(hSrc));
   assert('[Self-check] G3a passes on original source',  g3a(wsSrc));
   assert('[Self-check] G3d passes on original source',  g3d(wsSrc));
   assert('[Self-check] G4a passes on original source',  g4a(wsSrc));

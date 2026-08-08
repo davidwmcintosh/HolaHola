@@ -4649,6 +4649,10 @@ export class NativeFunctionCallHandler {
           (session as any)._scratchpadFlushCount = flushBatch;
           (session as any).sessionNotes = [];
           console.warn(`[SessionScratchpad] Cap reached (${MAX_SESSION_NOTES}); auto-flushing batch #${flushBatch} to memory.`);
+          // Notify Daniela in-context so she knows her earlier notes are searchable.
+          // This is a one-shot entry — it's consumed on the next GL injection cycle.
+          if (!session.pendingGlContext) session.pendingGlContext = [];
+          session.pendingGlContext.push(`Earlier session notes saved to memory — search 'session notes batch' to retrieve them`);
           // Fire-and-forget DB flush — mirrors SAVE_SESSION_NOTES_AS_MEMORY logic
           (async () => {
             try {
