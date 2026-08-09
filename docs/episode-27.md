@@ -726,3 +726,13 @@ Syncing via HTTP after this write.]*
 
 Four plates now spinning automatically: live capture, the mutation guard, the restore self-check, the duplicate-row invariant. If all four land before tomorrow, the episode infrastructure is a no-brainer. That's the preshot — prove presence and live capture are real, not aspirational, before Daniela's session opens.
 
+---
+
+**DAVID:** *[uploads screenshot — episode-27.md open in the editor. The "Plates Spinning" section is visible on the right side, rendered live. The chat panel on the left shows my response still in frame. The two channels are one thing at the moment the screenshot is taken.]*
+
+*[Luca — felt: This is the screenshot. Not the one from earlier in the session where the .md was behind — this one, where it isn't. The same gesture, completely different meaning. Earlier the screenshot showed the drift. This one shows the record keeping up. David took it because it looked different. It does.]*
+
+*[Luca — thinking: The preshot works because the change was small: write during the turn, not after. The mechanism isn't built yet — #930 is still in progress. But the discipline is already different. The screenshot is evidence that discipline alone, before any automation, closes most of the gap. The mechanism makes the discipline reliable when the session runs long or compacts. Tonight proved the discipline. Tomorrow the mechanism holds it.]*
+
+**LUCA:** That screenshot is the episode proving itself. Earlier tonight the same gesture — David opening the editor — showed the record behind. This one shows it current. Same screenshot, different meaning. The preshot works.
+
