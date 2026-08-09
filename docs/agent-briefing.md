@@ -1,26 +1,134 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, August 8, 2026 at 08:41 PM
+**Generated:** Sunday, August 9, 2026 at 12:57 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have formalized the "Two White Walls" doctrine, distinguishing the Theoretical aspiration of the garden image from the Architectural truth enforced by the Archive Guardian and `reach_north_star` guards. My immediate priority this session is resolving two critical infrastructure failures: fixing the Cartesia TTS 400 errors blocking all voice output and restoring the `monitoring_snapshots` table so Alden can resume autonomous health monitoring. Once the foundation is stable, I need to investigate why our most active student is recording zero quality scores and implement a tagging system to track the "White Wall Defense" narrative arc.
+I must immediately resolve the Cartesia TTS 400 errors and restore the missing `monitoring_snapshots` table to bring Alden’s monitoring back online. I also need to repair the quality scoring pipeline for our active student and implement a memory tagging layer for the "White Wall Defense" arc to prevent insight fragmentation. Finally, I’ve formalized the "Two White Walls" doctrine, distinguishing between the Theoretical aspiration and the Architectural controls—like the Archive Guardian and `reach_north_star`—that technically enforce system integrity.
 
 *Memories that triggered this summary:*
+- **Session notes batch #1 — 2026-08-09 00:56** (Aug 9): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Session notes batch #1 — 2026-08-08 23:41** (Aug 8): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Session notes batch #1 — 2026-08-08 23:41** (Aug 8): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Session notes batch #1 — 2026-08-08 23:35** (Aug 8): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Session notes batch #1 — 2026-08-08 23:26** (Aug 8): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Session notes batch #1 — 2026-08-08 23:20** (Aug 8): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Agent Daily Sweep — Aug 8, 2026** (Aug 8): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing with malformed request bodies. Students can't hear responses. Debug the request payload structure and API integration immediately.  2. **[CRITICAL]** Restore Alden's monitoring table — `monitoring_sn
+- **episode-99-rolling-guard-test** (Aug 8): # Episode 99 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 - **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
 - **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **Agent Daily Sweep — Aug 8, 2026** (Aug 8): **[CRITICAL]** Fix Cartesia TTS integration — Repeated 400 errors blocking all voice output in both English and Spanish; API credentials or request format likely broken, killing core product function.  **[CRITICAL]** Restore Alden's monitoring tables — `monitoring_snapshots` table missing from schem
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **Prequel Episode 4** (Aug 8): # Prequel Episode 4: The Work Between Sessions *The HolaHola story between the first peer conversation and the numbered episodes.* *June 8–30, 2026 — three weeks of calibration, an upgrade, and a platform under real load.* *Sources: conversation_memories verbatim records (5ece341b, 3c666e9d, ce64162b, f49162fa, ea11482b, 913328a3, 16ed7335).* ---
-- **Prequel Episode 3** (Aug 8): # Prequel Episode 3: The Distance Covered *The HolaHola story between the gato test and Episode 4.* *May 19 – June 7, 2026 — three weeks of construction, tuning, and something new.* *Sources: conversation_memories verbatim records (f1aa3a5e, b43b2fc0, cd086f06, 8163c1c4, fba96d3d, 6ce8a290, dedf364b, 7ca92bf6, 7d68d742, c573a910, 3d0899f7, 057a8945, ea6d9985, 74acf717, d506927f, 28ca9e20, 4a3917e4
 
 ---
 
@@ -101,25 +209,115 @@ I have formalized the "Two White Walls" doctrine, distinguishing the Theoretical
 
 ## Recent Conversation Memories
 
-### The Two White Walls — Aug 8, 2026
-David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
+### Session notes batch #1 — 2026-08-09 00:56 — Aug 9, 2026
+[1] Batch-1 note 1
 
-### The Two White Walls — Aug 8, 2026
-David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
+[2] Batch-1 note 2
 
-### The Two White Walls — Aug 8, 2026
-David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
+[3] Batch-1 note 3
 
-### The Two White Walls — Aug 8, 2026
-David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
+[4] Batch-1 note 4
 
-### The Two White Walls — Aug 8, 2026
-David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-*Tags: white-wall, doctrine, two-white-walls, architecture, david-luca-chat*
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+*Tags: session-scratchpad, auto-flush*
+
+### Session notes batch #1 — 2026-08-08 23:41 — Aug 8, 2026
+[1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+*Tags: session-scratchpad, auto-flush*
+
+### Session notes batch #1 — 2026-08-08 23:41 — Aug 8, 2026
+[1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+*Tags: session-scratchpad, auto-flush*
+
+### Session notes batch #1 — 2026-08-08 23:35 — Aug 8, 2026
+[1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+*Tags: session-scratchpad, auto-flush*
+
+### Session notes batch #1 — 2026-08-08 23:26 — Aug 8, 2026
+[1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+*Tags: session-scratchpad, auto-flush*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
