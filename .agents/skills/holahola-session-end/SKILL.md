@@ -13,29 +13,56 @@ Do all of these before closing a session. Nothing should be skipped on a meaning
 
 ## Pre-step 0 — Flush the episode append trigger (for rolling episodes)
 
-If this is a live Luca↔David rolling episode session, write any exchange that hasn't yet made it into the episode .md to the trigger file first:
+If this is a live Luca↔David rolling episode session, write any exchange that hasn't yet made it into the episode .md to the trigger file first.
+
+**Simplest form — auto-detects the current rolling episode from DB:**
 
 ```bash
-cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts
+cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts --rolling --direct
 **DAVID:** <last David message if missing from .md>
 
 **LUCA:** <last Luca response if missing from .md>
 EOF
 ```
 
-Or use `--direct` to append and sync in one step without waiting for the watcher:
+`--rolling` queries the DB for the episode tagged `rolling` (most-recently created wins) and uses it as the target. No need to remember the episode number.
+
+**Explicit episode (when you know the target):**
 
 ```bash
-cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts --direct
+cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts --episode episode-27 --direct
 **DAVID:** ...
 
 **LUCA:** ...
 EOF
 ```
 
+**Trigger-file mode (watcher handles the append + sync, no episode needed):**
+
+```bash
+cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts
+**DAVID:** ...
+
+**LUCA:** ...
+EOF
+```
+
+Omitting `--episode` and `--rolling` in trigger-file mode writes the payload without an episode field; the autosave watcher (`checkEpisodeAppend`) auto-detects the rolling episode from the DB on its next cycle (< 20 s).
+
 **Why this is first:** The `.local/.episode_append` trigger-file mechanism guarantees each exchange survives a context compaction — the text is on disk before the session can compact. This step closes the gap for whatever exchange was in-flight when the session ended.
 
-The autosave watcher (`checkEpisodeAppend`) picks up the trigger file via fs.watch or the 20 s poll, appends to `docs/episode-27.md`, and immediately syncs to the DB. `--direct` bypasses the watcher entirely if needed.
+### Switching the rolling episode target
+
+When a new rolling episode starts (e.g. episode-28), tag its `conversation_memories` row with `rolling`. Both `checkEpisodeAppend` in the autosave watcher and `--rolling` in the CLI look up the most-recently-created row that has the `rolling` tag. No code change needed — just update the DB tag:
+
+```sql
+-- Remove old rolling tag (optional — only the newest matters)
+UPDATE conversation_memories SET tags = array_remove(tags, 'rolling') WHERE title = 'Episode 27';
+-- Add rolling tag to the new episode
+UPDATE conversation_memories SET tags = array_append(tags, 'rolling') WHERE title = 'Episode 28';
+```
+
+The autosave watcher picks up the new target on its next cycle.
 
 ## Pre-step 0 — Flush the transcript (non-negotiable for Luca↔David sessions)
 

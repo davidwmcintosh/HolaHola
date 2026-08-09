@@ -59,7 +59,7 @@ const MOMENTS_FILE         = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS
 // Luca writes the new exchange text here after each turn during a live rolling session.
 // The watcher appends it to the target episode .md and triggers immediate DB sync.
 // Format: JSON { exchange: string, episode?: string } or plain text (appended verbatim).
-// Default target episode: docs/episode-27.md (EP27_ID fixed row).
+// When "episode" is omitted the watcher auto-detects the current rolling episode from DB.
 const EPISODE_APPEND_PATH  = join(WORKSPACE, '.local/.episode_append');
 
 // --- Luca inner-life watcher state ---
@@ -371,10 +371,40 @@ async function checkLucaMoment(): Promise<void> {
 //   the append + sync atomically on its next cycle (< 20 s).
 // ---------------------------------------------------------------------------
 
-const EP27_DEFAULT_FILENAME = 'episode-27.md';
+/**
+ * Look up the currently-active rolling episode from the DB.
+ * Returns a filename like "episode-27.md", or null if none is found.
+ * Used when the .episode_append trigger file omits the "episode" field.
+ */
+async function getCurrentRollingEpisodeFilename(): Promise<string | null> {
+  try {
+    const db = getUserDb();
+    const rows = await db.execute(sql`
+      SELECT title FROM conversation_memories
+      WHERE arc_name = 'HolaHola Episodes'
+        AND 'rolling' = ANY(tags)
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const row = (rows as any).rows?.[0] ?? (rows as any)[0];
+    if (!row?.title) return null;
+    // Convert "Episode 27" → "episode-27.md"
+    const m = /^Episode (\d+)$/i.exec(row.title as string);
+    if (m) return `episode-${parseInt(m[1], 10)}.md`;
+    // Fallback: slugify the title
+    return (row.title as string).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '.md';
+  } catch (err: any) {
+    console.error('[AgentAutosave] Failed to look up rolling episode from DB:', err.message);
+    return null;
+  }
+}
 
-/** Parse the .episode_append trigger file. Returns { exchange, episodeFilename } or null. */
-function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: string } | null {
+/**
+ * Parse the .episode_append trigger file.
+ * Returns { exchange, episodeFilename } where episodeFilename is null when the
+ * caller did not specify an episode (the caller must look it up from the DB).
+ */
+function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: string | null } | null {
   raw = raw.trim();
   if (!raw || raw.length < 2) return null;
 
@@ -383,15 +413,18 @@ function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: s
       const p = JSON.parse(raw);
       const exchange = (p.exchange || '').trim();
       if (!exchange) return null;
-      // episode field may be "episode-27" or "episode-27.md" — normalise to filename
-      let episodeFilename: string = p.episode ?? EP27_DEFAULT_FILENAME;
-      if (!episodeFilename.endsWith('.md')) episodeFilename += '.md';
+      // episode field may be "episode-27" or "episode-27.md" — normalise to filename.
+      // When absent, return null so the caller auto-detects the active rolling episode.
+      let episodeFilename: string | null = null;
+      if (p.episode) {
+        episodeFilename = p.episode.endsWith('.md') ? p.episode : `${p.episode}.md`;
+      }
       return { exchange, episodeFilename };
     } catch { /* fall through to plain text */ }
   }
 
-  // Plain text: append verbatim, target episode-27.md
-  return { exchange: raw, episodeFilename: EP27_DEFAULT_FILENAME };
+  // Plain text: append verbatim, no episode specified → auto-detect from DB
+  return { exchange: raw, episodeFilename: null };
 }
 
 /** Append exchange text to an episode .md file and schedule an immediate DB sync. */
@@ -440,6 +473,17 @@ export async function checkEpisodeAppend(): Promise<void> {
     const parsed = parseEpisodeAppend(raw);
     if (!parsed) return;
 
+    // Resolve the target episode filename — either from the trigger JSON or from DB
+    let episodeFilename = parsed.episodeFilename;
+    if (!episodeFilename) {
+      episodeFilename = await getCurrentRollingEpisodeFilename();
+      if (!episodeFilename) {
+        console.warn('[AgentAutosave] Episode append: no episode specified and no rolling episode found in DB — skipping');
+        return;
+      }
+      console.log(`[AgentAutosave] Episode append: auto-detected rolling episode → ${episodeFilename}`);
+    }
+
     // Clear the trigger file immediately so a restart/double-poll can't re-append
     writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
     // Advance the mtime stamp to the cleared file so the next poll doesn't re-fire
@@ -447,8 +491,8 @@ export async function checkEpisodeAppend(): Promise<void> {
       episodeAppendLastMtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
     } catch { /* ignore */ }
 
-    console.log(`[AgentAutosave] Episode append trigger: "${parsed.exchange.slice(0, 60).replace(/\n/g, '↵')}…" → ${parsed.episodeFilename}`);
-    await appendExchangeToEpisode(parsed.exchange, parsed.episodeFilename);
+    console.log(`[AgentAutosave] Episode append trigger: "${parsed.exchange.slice(0, 60).replace(/\n/g, '↵')}…" → ${episodeFilename}`);
+    await appendExchangeToEpisode(parsed.exchange, episodeFilename);
   } catch { /* file briefly locked — skip */ }
 }
 

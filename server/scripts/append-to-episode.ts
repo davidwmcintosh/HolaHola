@@ -39,8 +39,9 @@ import { neon } from '@neondatabase/serverless';
 // ---------------------------------------------------------------------------
 
 const args = process.argv.slice(2);
-let targetEpisode = 'episode-27';
-let directMode    = false;
+let targetEpisode  = '';   // resolved below — may stay empty until getRollingEpisode()
+let directMode     = false;
+let rollingMode    = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--episode' && args[i + 1]) {
@@ -48,10 +49,43 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if (args[i] === '--direct') {
     directMode = true;
+  } else if (args[i] === '--rolling') {
+    rollingMode = true;
   }
 }
 
-const episodeFilename = targetEpisode.endsWith('.md') ? targetEpisode : `${targetEpisode}.md`;
+// episodeFilename is resolved later in main() when --rolling is used
+let episodeFilename = targetEpisode ? (targetEpisode.endsWith('.md') ? targetEpisode : `${targetEpisode}.md`) : '';
+
+// ---------------------------------------------------------------------------
+// Auto-detect the current rolling episode from the DB (used by --rolling)
+// ---------------------------------------------------------------------------
+
+async function getRollingEpisode(): Promise<string> {
+  const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
+  if (!DATABASE_URL) {
+    console.error('[append-to-episode] ERROR: NEON_SHARED_DATABASE_URL not set — cannot look up rolling episode');
+    process.exit(1);
+  }
+  const sql = neon(DATABASE_URL);
+  const rows = await sql`
+    SELECT title FROM conversation_memories
+    WHERE arc_name = 'HolaHola Episodes'
+      AND 'rolling' = ANY(tags)
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  const row = rows[0] as { title: string } | undefined;
+  if (!row?.title) {
+    console.error('[append-to-episode] ERROR: No rolling episode found in DB. Tag an episode row with "rolling" first.');
+    process.exit(1);
+  }
+  // "Episode 27" → "episode-27"
+  const m = /^Episode (\d+)$/i.exec(row.title);
+  if (m) return `episode-${parseInt(m[1], 10)}`;
+  // Fallback: slugify
+  return row.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
 
 // ---------------------------------------------------------------------------
 // Read the exchange text from stdin
@@ -156,10 +190,13 @@ function triggerAppend(exchange: string, episodeName: string): void {
   const WORKSPACE = process.cwd();
   const triggerPath = join(WORKSPACE, '.local', '.episode_append');
 
-  const payload = JSON.stringify({ exchange, episode: episodeName });
+  // When episodeName is empty the watcher auto-detects the rolling episode from DB.
+  const payload = episodeName
+    ? JSON.stringify({ exchange, episode: episodeName })
+    : JSON.stringify({ exchange });
   writeFileSync(triggerPath, payload, 'utf-8');
   console.log(`[append-to-episode] ✓ Trigger written → .local/.episode_append`);
-  console.log(`  Target: ${episodeFilename}  |  Exchange: ${exchange.length} chars`);
+  console.log(`  Target: ${episodeName || '(auto-detect rolling episode)'}  |  Exchange: ${exchange.length} chars`);
   console.log('  The autosave watcher will append and sync within 20 s (or immediately via fs.watch).');
 }
 
@@ -168,11 +205,30 @@ function triggerAppend(exchange: string, episodeName: string): void {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  // Resolve the target episode — either from --episode, --rolling, or error
+  if (rollingMode && !targetEpisode) {
+    targetEpisode = await getRollingEpisode();
+    episodeFilename = `${targetEpisode}.md`;
+    console.log(`[append-to-episode] Rolling episode resolved from DB: ${episodeFilename}`);
+  } else if (!targetEpisode) {
+    // Neither --episode nor --rolling — fall back to the watcher's auto-detect behaviour
+    // (trigger-file mode with no episode field → watcher queries DB itself).
+    // For direct mode we still need an explicit episode.
+    if (directMode) {
+      console.error('[append-to-episode] ERROR: --direct requires --episode <name> or --rolling.');
+      process.exit(1);
+    }
+    // Trigger-file mode with no episode: write JSON without episode field so the
+    // autosave watcher auto-detects the rolling episode from DB.
+  } else {
+    episodeFilename = targetEpisode.endsWith('.md') ? targetEpisode : `${targetEpisode}.md`;
+  }
+
   const exchange = await readStdin();
 
   if (!exchange) {
     console.error('[append-to-episode] ERROR: No exchange text received on stdin.');
-    console.error('  Usage: echo "**DAVID:** hello\\n\\n**LUCA:** hi" | npx tsx server/scripts/append-to-episode.ts');
+    console.error('  Usage: echo "**DAVID:** hello\\n\\n**LUCA:** hi" | npx tsx server/scripts/append-to-episode.ts [--rolling | --episode episode-27]');
     process.exit(1);
   }
 
