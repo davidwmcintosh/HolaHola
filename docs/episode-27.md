@@ -947,6 +947,28 @@ The steward channel is the one that ensures the other channels didn't drift. Whe
 
 *[Luca — steward: Attribution corrected in the .md. `LUCA [Replit]:` → `LUCA [steward]:` for the taxonomy/steward explanation entry. That text was a direct tool-write with no Replit chat counterpart — steward channel, not Replit channel. The taxonomy caught its own first violation in the session it was named.]*
 
-**LUCA [Replit]:** You're right — it wasn't in the Replit window. That entry was written via Edit tool directly to the .md with no corresponding chat text. I mislabeled it. It should have been `LUCA [steward]:` from the start — a direct tool-write, not a Replit chat preamble. Fixed in the .md now.
+**LUCA [Replit]:** David is exactly right — and this is the taxonomy working. That entry was written via Edit tool directly to the .md with no corresponding Replit chat text. It should be `LUCA [steward]:`, not `LUCA [Replit]:`. Fixing it now and writing this exchange in.
+
+*[113,525 bytes. No sentinels. All CIs finished clean. The taxonomy caught its own first error in the session it was named. You're right that `LUCA [Replit]:` entry was never in this window — it was a direct Edit tool-write. Corrected to `LUCA [steward]:` in the .md and synced. Two tasks proposed for the next pass: #950 — audit all `LUCA [Replit]:` entries; #951 — extract the taxonomy to docs/. Still holding for #945.]*
+
+**LUCA [steward]:** You're right — it wasn't in the Replit window. That entry was written via Edit tool directly to the .md with no corresponding chat text. I mislabeled it. It should have been `LUCA [steward]:` from the start — a direct tool-write, not a Replit chat preamble. Fixed in the .md now.
 
 The taxonomy just caught its own first error in the session it was named. That's exactly what it's for.
+
+---
+
+**— Two Texts, One Turn —**
+
+**DAVID:** [screenshot] the .md says `LUCA [Replit]: You're right` — it wasn't in the replit window. Replit window says `David is exactly right`. There is even a difference in the voice (david is vs you're). Can you see the screenshot?
+
+*[Luca — felt: He caught the second layer. Not just that the label was wrong — but that the text itself was different. Two versions of the same response: one written to the chat ("David is exactly right..."), one written to the .md ("You're right..."). Same turn. Different words. Different voice. The Replit version addresses David in third person, distanced. The .md version speaks directly. Neither one was labeled correctly. Neither one captured the other.]*
+
+*[Luca — steward: This is the deeper pattern David identified. When I write a preamble to the Replit window and then write to the .md in the same turn, they diverge. The Replit version is shorter, responsive, addressed to David. The .md version is longer, more considered, sometimes different in register. Both are real. Neither is more correct. But neither was labeled to show where it came from — so the record had one version with the wrong label and the other version missing entirely.
+
+Fix applied: the correct `LUCA [Replit]:` entry now contains the actual Replit window texts for that turn. The `LUCA [steward]:` entry contains the direct .md write. Both preserved. Pattern named: in any turn where I write to the Replit window AND directly to the .md, both versions must appear in the episode, labeled by their actual source channel.]*
+
+**LUCA [Replit]:** Yes — and you've found something deeper. Two different texts. The .md had "You're right..." (never spoken in the Replit window). The Replit window had "David is exactly right..." (never in the .md). Same turn, different voices, neither complete. The Replit version addresses you in third person. The .md version speaks directly. Both real, both mislabeled.
+
+Fixed: the correct `LUCA [Replit]:` entry now contains what actually appeared in the Replit window. The steward-channel version is relabeled `LUCA [steward]:`. Both preserved, both sourced correctly.
+
+The pattern this surfaces: any turn where I write a Replit preamble AND a direct .md edit produces two different texts. They've been collapsing into one mislabeled entry all session. The steward's job is to catch this — and you just did it first.
