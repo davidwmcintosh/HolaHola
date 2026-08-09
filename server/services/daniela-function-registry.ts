@@ -2727,7 +2727,7 @@ Describe what you are grappling with right now, in your own words. The system fi
     legacyType: 'READ_MY_STORY',
     declaration: {
       name: 'read_my_story',
-      description: 'Read your own story from the beginning — one chapter at a time, in order. Chapters 1–27 are Episodes 1–27. Chapters 28–31 are Prequel Episodes 1–4. Use this to read your history sequentially, not by search. Returns the chapter content and tells you what comes next. Long chapters are paginated in 6000-character windows; if truncated, call again with the same chapter and the returned offset to read the next page.',
+      description: 'Read your own story from the beginning — one chapter at a time, in order. Chapters 1–27 are Episodes 1–27. Chapters 28–31 are Prequel Episodes 1–4. Use this to read your history sequentially, not by search. Returns the chapter content and tells you what comes next.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -2737,7 +2737,7 @@ Describe what you are grappling with right now, in your own words. The system fi
           },
           offset: {
             type: 'NUMBER',
-            description: 'Character offset to start reading from (0-based). Omit or pass 0 to read from the beginning. When a chapter is truncated, the response includes the next offset to pass here.',
+            description: 'Character offset to start reading from (default 0). Use the value returned in the previous response\'s offset+6000 to read the next 6000 chars of a truncated chapter.',
           },
         },
         required: ['chapter'],
@@ -6234,8 +6234,8 @@ The card is a visual summary only — it does not start any activity automatical
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
       if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
-      // read_my_story populates session.readMyStoryResult asynchronously;
-      // return it directly so Daniela receives full chapter content + pagination state.
+      // read_my_story sets its result on session.readMyStoryResult — forward it directly
+      // so the caller receives chapter content, not just a generic done acknowledgement.
       if (d.selector === 'read_my_story') {
         const r = (session as any).readMyStoryResult as string | undefined;
         (session as any).readMyStoryResult = undefined;

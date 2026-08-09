@@ -59,9 +59,22 @@ function safeDelete(filePath: string): void {
 }
 
 async function cleanupDbRow(db: ReturnType<typeof getUserDb>, id: string): Promise<void> {
-  // Wait briefly for any outstanding async re-embed work to land before we delete,
-  // then remove all traces: the memory row + every embedding the re-embed created.
-  await sleep(1500);
+  // Delete the memory row FIRST so that any in-flight re-embed call that has not
+  // yet started its SELECT will find no row and exit without creating embeddings.
+  // If a re-embed call has already passed the SELECT it will finish writing
+  // embeddings within a short window — we wait for that window before removing.
+  try {
+    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${id}`);
+    console.log(`  Deleted test DB row: ${id}`);
+  } catch (err: any) {
+    console.warn(`  Warning: could not remove test DB row (id=${id}): ${err.message}`);
+  }
+
+  // Wait for any in-flight re-embed (OpenAI call + DB write) to complete.
+  // reembedOne() skips immediately when the memory row is missing, but if it
+  // passed the SELECT before we deleted, the embedding INSERT may still land.
+  // 6 s covers even a slow OpenAI batch call.
+  await sleep(6000);
 
   // Delete memory_embeddings rows: full-content (conversation_memory),
   // summary anchor (conversation_summary), and verbatim chunks (conversation_chunk
@@ -76,14 +89,6 @@ async function cleanupDbRow(db: ReturnType<typeof getUserDb>, id: string): Promi
     console.log(`  Deleted ${count} memory_embeddings row(s) for test id=${id}`);
   } catch (err: any) {
     console.warn(`  Warning: could not remove memory_embeddings (id=${id}): ${err.message}`);
-  }
-
-  // Delete the conversation_memories row itself.
-  try {
-    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${id}`);
-    console.log(`  Deleted test DB row: ${id}`);
-  } catch (err: any) {
-    console.warn(`  Warning: could not remove test DB row (id=${id}): ${err.message}`);
   }
 }
 

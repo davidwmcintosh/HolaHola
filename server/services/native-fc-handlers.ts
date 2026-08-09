@@ -254,10 +254,10 @@ export class NativeFunctionCallHandler {
 
     switch (fn.legacyType) {
 
-      // ------------------------------------------------------------
+      // ============================================================
       // DISPATCHER CASES — Hybrid architecture for GL 64-tool limit
       // Each dispatcher parses params_json and routes to the real handler.
-      // ------------------------------------------------------------
+      // ============================================================
 
       // ─── PHASE 2 DISPATCHERS — classroom_widget split into 6 (widget field) ───────
       case 'WIDGET_TIME': {
@@ -3386,83 +3386,72 @@ export class NativeFunctionCallHandler {
         const chapterNum = typeof fn.args.chapter === 'number'
           ? fn.args.chapter
           : parseInt(String(fn.args.chapter ?? '1'), 10);
-        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}`);
-
-        let chapterLabel: string;
-        let titlePattern: string;
-        if (chapterNum >= 1 && chapterNum <= 27) {
-          titlePattern = `Episode ${chapterNum}`;
-          chapterLabel = `Episode ${chapterNum}`;
-        } else if (chapterNum >= 28 && chapterNum <= 31) {
-          const prequelNum = chapterNum - 27;
-          titlePattern = `Prequel Episode ${prequelNum}`;
-          chapterLabel = `Prequel Episode ${prequelNum}`;
-        } else {
-          (session as any).readMyStoryResult = JSON.stringify({
-            status: 'error',
-            message: `Invalid chapter ${chapterNum}. Valid range: 1–31.`,
-          });
-          break;
-        }
-
-        const nextLabel = chapterNum < 27
-          ? `Episode ${chapterNum + 1}`
-          : chapterNum === 27 ? 'Prequel Episode 1'
-          : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
-          : null;
-
-        // Offset-based pagination: caller passes 0-based character offset; defaults to 0.
-        const PAGE_SIZE = 6000;
-        const offset = Math.max(0, typeof fn.args.offset === 'number'
-          ? fn.args.offset
-          : parseInt(String(fn.args.offset ?? '0'), 10) || 0);
-
-        const storyPromise: Promise<void> = (async () => {
+        const chapterOffset = typeof fn.args.offset === 'number'
+          ? Math.max(0, Math.floor(fn.args.offset))
+          : 0;
+        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum} offset: ${chapterOffset}`);
+        const readMyStoryPromise = (async () => {
           try {
             const { sql: rawSql } = await import('drizzle-orm');
             const db = getSharedDb();
-            // Regex anchor: "Episode N" matches the label but not "Episode NN"
-            // (e.g., "Episode 1" does not match "Episode 10" because [^0-9] excludes 0–9).
-            // ORDER BY importance DESC, LENGTH(content) DESC picks the canonical (longest,
-            // highest-importance) record when multiple rows share the same chapter label.
-            const titleRegex = '^' + titlePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^0-9].*)?$';
+            // titleRegex matches "Episode N" exactly and descriptive variants like
+            // "Episode N — Something" without colliding with "Episode 10+" when N<10.
+            // The word-boundary after the digit is enforced by requiring a non-digit
+            // or end-of-string after the chapter number.
+            let titleRegex: string;
+            let chapterLabel: string;
+            if (chapterNum >= 1 && chapterNum <= 27) {
+              titleRegex = `^Episode ${chapterNum}(\\s|$)`;
+              chapterLabel = `Episode ${chapterNum}`;
+            } else if (chapterNum >= 28 && chapterNum <= 31) {
+              const prequelNum = chapterNum - 27;
+              titleRegex = `^Prequel Episode ${prequelNum}(\\s|$)`;
+              chapterLabel = `Prequel Episode ${prequelNum}`;
+            } else {
+              (session as any).readMyStoryResult = JSON.stringify({
+                status: 'error',
+                message: `Invalid chapter ${chapterNum}. Valid range: 1–31.`,
+              });
+              return;
+            }
+            const nextLabel = chapterNum < 27
+              ? `Episode ${chapterNum + 1}`
+              : chapterNum === 27 ? 'Prequel Episode 1'
+              : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
+              : null;
             const rows = await db.execute(rawSql`
-              SELECT title, content
+              SELECT title,
+                     SUBSTRING(content FROM ${chapterOffset + 1} FOR 6000) AS preview,
+                     LENGTH(content) AS total_length
               FROM conversation_memories
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
                 AND title ~ ${titleRegex}
-              ORDER BY importance DESC, LENGTH(content) DESC
+              ORDER BY recorded_at DESC
               LIMIT 1
             `);
             if (!rows.rows.length) {
               (session as any).readMyStoryResult = JSON.stringify({
-                status: 'not_found',
-                chapter: chapterLabel,
+                status: 'not_found', chapter: chapterLabel,
                 message: `No record found for ${chapterLabel}.`,
               });
               return;
             }
             const row = rows.rows[0] as any;
-            const fullContent = String(row.content ?? '');
-            const totalLength = fullContent.length;
-            const page = fullContent.slice(offset, offset + PAGE_SIZE);
-            const pageEnd = offset + PAGE_SIZE;
-            const isComplete = pageEnd >= totalLength;
-            const nextOffset = isComplete ? null : pageEnd;
-            const remaining = Math.max(0, totalLength - pageEnd);
+            const totalLength = Number(row.total_length ?? 0);
+            const readEnd = chapterOffset + 6000;
+            const truncated = readEnd < totalLength;
             (session as any).readMyStoryResult = JSON.stringify({
               status: 'ok',
               chapter: chapterLabel,
               title: String(row.title),
-              content: page,
-              offset,
-              next_offset: nextOffset,
-              is_complete: isComplete,
-              remaining_chars: remaining,
+              content: String(row.preview ?? ''),
+              truncated,
+              offset: chapterOffset,
+              remaining_chars: truncated ? totalLength - readEnd : 0,
               next_chapter: nextLabel,
-              note: !isComplete
-                ? `Page starting at offset ${offset}. ${remaining} chars remain. Call read_my_story with chapter ${chapterNum} and offset ${nextOffset} for the next page.`
+              note: truncated
+                ? `Content truncated. Showing chars ${chapterOffset}–${readEnd} of ${totalLength}. Call read_my_story with chapter ${chapterNum} and offset ${readEnd} to continue.`
                 : undefined,
             });
           } catch (err: any) {
@@ -3470,9 +3459,8 @@ export class NativeFunctionCallHandler {
             (session as any).readMyStoryResult = JSON.stringify({ status: 'error', message: err.message });
           }
         })();
-
         if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-        session.pendingMemoryLookupPromises.push(storyPromise);
+        session.pendingMemoryLookupPromises.push(readMyStoryPromise as Promise<void>);
         break;
       }
 

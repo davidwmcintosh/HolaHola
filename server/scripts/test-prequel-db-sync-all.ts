@@ -36,14 +36,15 @@ const CHECKS: Array<{ label: string; script: string }> = [
     label: 'Prequel Episode 3 — The Distance Covered',
     script: 'server/scripts/test-prequel-episode-3-db-sync.ts',
   },
+  {
+    label: 'Prequel Episode 4 — The Work Between Sessions',
+    script: 'server/scripts/test-prequel-episode-4-db-sync.ts',
+  },
   // ── Main episodes (added here because Replit workflow slots are full) ──────
   {
     label: 'Episode 26',
     script: 'server/scripts/test-episode-26-db-sync.ts',
   },
-  // Episode 27 omitted: its .md was updated via a rebase merge; the DB record
-  // has not yet been synced (run insert-ep27-and-two-walls.ts to fix).
-  // Once synced, add it back here until a dedicated workflow slot opens.
 ];
 
 function runCheck(label: string, scriptPath: string): boolean {

@@ -2,13 +2,17 @@
  * Episode 27 Auto-Sync Watcher — polling version
  *
  * Polls docs/episode-27.md every 5s and upserts to conversation_memories
- * when the file size changes. Pure polling — no fs.watch (which doesn't fire
- * for programmatic agent edits in this environment).
+ * when the file's mtime or size changes. Pure polling — no fs.watch (which
+ * doesn't fire for programmatic agent edits in this environment).
+ *
+ * After a successful upsert the embeddings are refreshed in the background
+ * so semantic-search stays current even for same-size content edits.
  *
  *   nohup npx tsx server/scripts/sync-episode-27-watcher.ts >> /tmp/ep27-watcher.log 2>&1 &
  */
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
+import { reembedConversationMemory } from './reembed-memory';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,7 +20,8 @@ const EP27_FILE = path.join(process.cwd(), 'docs/episode-27.md');
 const EP27_ID   = '27000000-0000-4000-8000-000000000027';
 const POLL_MS   = 5_000;
 
-let lastSize = -1;
+let lastSize   = -1;
+let lastMtimeMs = -1;
 
 process.on('uncaughtException', (err) => {
   console.error('[EP27 Watcher] Uncaught exception:', err.message);
@@ -50,8 +55,12 @@ async function sync(reason: string): Promise<void> {
         SET content  = EXCLUDED.content,
             summary  = EXCLUDED.summary
     `);
-    lastSize = content.length;
+    lastSize    = content.length;
     console.log(`[EP27 Watcher] ✓ Synced (${reason}) — ${content.length} bytes — ${new Date().toLocaleTimeString()}`);
+    // Re-embed in the background so semantic search stays current.
+    reembedConversationMemory(EP27_ID).catch((e: Error) =>
+      console.error('[EP27 Watcher] Re-embed error:', e.message),
+    );
   } catch (e: any) {
     console.error('[EP27 Watcher] Sync error:', e.cause?.message ?? e.message);
   }
@@ -60,8 +69,10 @@ async function sync(reason: string): Promise<void> {
 async function poll(): Promise<void> {
   try {
     const stat = fs.statSync(EP27_FILE);
-    if (stat.size !== lastSize) {
-      console.log(`[EP27 Watcher] Size changed ${lastSize} → ${stat.size}, syncing…`);
+    // Trigger on any change: size OR mtime (catches same-length text replacements).
+    if (stat.size !== lastSize || stat.mtimeMs !== lastMtimeMs) {
+      console.log(`[EP27 Watcher] Change detected (size ${lastSize}→${stat.size}, mtime ${lastMtimeMs}→${stat.mtimeMs}), syncing…`);
+      lastMtimeMs = stat.mtimeMs;
       await sync('poll');
     }
   } catch (e: any) {

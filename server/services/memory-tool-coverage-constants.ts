@@ -247,7 +247,7 @@ export const KNOWN_MEMORY_DISPATCHERS = new Set<string>([
   //   read_queued_for_student  → single-row queued-message lookup
   //   list_character_candidates → reviews pending slow-tier candidates
   //   reach_north_star         → constitutional grounding lookup
-  //   read_my_story            → sequential episode reader (chapter by chapter)
+  //   read_my_story            → sequential episode reader (chapter by chapter, in MEMORY_TOOL_NAMES)
   // The sub-tools above are in MEMORY_TOOL_NAMES or KNOWN_NON_GUARD_TOOLS
   // individually.  The dispatcher wrapper itself is NOT chain-guarded because
   // it also routes write-adjacent sub-tools and non-retrieval paths, and
