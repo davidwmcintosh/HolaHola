@@ -25,6 +25,7 @@ run test-prequel-episode-2-db-sync.ts
 run test-prequel-episode-3-db-sync.ts
 run test-prequel-episode-4-db-sync.ts
 run test-read-my-story-self-check.ts
+run test-rolling-episode-no-rolling-tag.ts
 
 echo ""
 echo "=== test-episode-append-trigger.ts --self-check-concurrent ==="
