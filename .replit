@@ -70,6 +70,10 @@ args = "consolidated-ci"
 task = "workflow.run"
 args = "episode-append-trigger-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "team-room-episode-hook-ci"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -178,6 +182,17 @@ args = "npx tsx server/scripts/test-episode-append-trigger.ts"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "team-room-episode-hook-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-team-room-episode-hook.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]

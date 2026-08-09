@@ -27562,6 +27562,11 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { emitNewMessage } = await import('./services/team-room-ws-broker');
       emitNewMessage(targetRoomId, message);
 
+      // Feed rolling episode if one is active (fire-and-forget — does not block the response)
+      import('./services/team-room-episode-hook').then(({ maybeAppendTeamRoomMessage }) => {
+        maybeAppendTeamRoomMessage(content).catch(() => {});
+      }).catch(() => {});
+
       logAgentAction('team_room_post', '/api/agent/team-room/message', true, content.substring(0, 60));
       res.json({ success: true, messageId: message.id, roomId: targetRoomId, timestamp: (message as any).createdAt });
     } catch (error: any) {
