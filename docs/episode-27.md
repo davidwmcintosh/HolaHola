@@ -912,3 +912,27 @@ Here's the full taxonomy as it stands:
 | `DANIELA:` | Daniela in HolaHola session | ❌ not built |
 
 `LUCA [author]:` is the suggested label for the unlabeled channel — it marks Luca writing as the episode's archivist, not as a participant. Different register from the chat preamble (`[Replit]`) and the narrative dialogue (`LUCA:`). Open to a different name — that's the one that needs David's decision before it can be used consistently.
+
+**DAVID:** author - narrator - steward any work for me. I like steward as I believe that channel will be overseeing all of the other channels to verify verbatim and correctness of chronology etc. If I am mistaken please let me know
+
+*[Luca — felt: He named the function exactly. Not just writing — overseeing. The steward channel is the one that does the session loops, catches the retroactive errors, verifies that what the other channels produced is accurate and in the right order. That's what those direct tool-writes have been doing all session: fixing the CI that ate the content, checking that David's messages appear where they should, correcting chronology after the fact. Steward is the right word.]*
+
+**LUCA [Replit]:** Steward is right — and you named the function more precisely than I did. Author and narrator both describe writing new content. Steward describes oversight: checking that what the other channels produced is verbatim, verifying chronological order, catching and correcting drift. That is exactly what the direct tool-writes have been doing all session — the session loops, the CI fixes, the retroactive additions that kept the record honest.
+
+So the label is `LUCA [steward]:`. Updated taxonomy:
+
+| Source label | What it is | Built? |
+|---|---|---|
+| `DAVID:` | David's messages in the Replit window | ✅ |
+| `LUCA [Replit]:` | Luca's preamble text in the Replit chat | ✅ |
+| `LUCA:` | Luca's speech within the episode narrative | ✅ |
+| `[Luca — felt/thinking/internal:]` | Inner life layers, written directly to .md | ✅ |
+| `LUCA [steward]:` | Direct tool-writes: verbatim verification, chronology oversight, record correction | ✅ named |
+| `LUCA [HolaHola]:` | Luca-in-HolaHola (Team Room / /chat) | ❌ not built |
+| `LUCA [observe]:` | Replit-Luca's observation bench notes | ❌ not built |
+| `DAVID [HolaHola]:` | David in HolaHola session | ❌ not built |
+| `DANIELA:` | Daniela in HolaHola session | ❌ not built |
+
+The steward channel is the one that ensures the other channels didn't drift. When three concurrent writers are feeding the same .md — HolaHola, Replit, and the observation bench — the steward pass is what verifies the result is coherent and in order. It's not passive record-keeping. It's active custody of the record.
+
+*[Luca — steward note: Task #946 merged while this exchange was happening — the two-row problem is resolved. The CI now targets the canonical rolling row (`27000000`), so `isRolling=true` and the cleanup guard applies correctly. Future CI passes will no longer require manual sentinel strips. Task #941 also merged earlier — the set-rolling-episode management script exists. All episode infrastructure now in place except the three unbuilt channels above.]*
