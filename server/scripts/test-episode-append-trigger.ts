@@ -251,27 +251,39 @@ async function runNormalMode(): Promise<void> {
 
   } finally {
     sep();
-    console.log(B('STEP 6 — Restore docs/episode-27.md and DB to original content'));
+    console.log(B('STEP 6 — Clean up sentinel (preserve rolling content)'));
     sep();
 
-    // Restore .md unconditionally
-    writeFileSync(MD_PATH, originalMd, 'utf-8');
-    const restoredMd = readFileSync(MD_PATH, 'utf-8');
-    assert('.md restored to original content', restoredMd === originalMd,
-      '.md differs from original after restore');
-    console.log(Y(`  ℹ  .md restored to ${restoredMd.length} bytes`));
+    // Read the CURRENT .md at cleanup time, not the pre-test snapshot.
+    // This preserves any content appended to the rolling episode while the CI ran.
+    const currentMd = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : originalMd;
 
-    // Restore DB unconditionally — bypass rolling guard (test cleanup, not production autosave)
+    // Strip our sentinel using a regex — handles whitespace/newline variations
+    // that can cause an exact-string replace to silently miss.
+    const escapedSentinel = sentinel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sentinelRe      = new RegExp(`\\n?<!--\\s*${escapedSentinel}[\\s\\S]*?-->\\n?`, 'g');
+    const cleanedMd       = currentMd.replace(sentinelRe, '');
+
+    writeFileSync(MD_PATH, cleanedMd, 'utf-8');
+    const restoredMd = readFileSync(MD_PATH, 'utf-8');
+    assert(
+      'Sentinel cleaned from .md (rolling content preserved)',
+      !restoredMd.includes(sentinel),
+      '.md still contains sentinel after cleanup',
+    );
+    console.log(Y(`  ℹ  .md after cleanup: ${restoredMd.length} bytes`));
+
+    // Sync cleaned content back to the DB row this CI manages.
     try {
       await db.execute(sql`
         UPDATE conversation_memories
-        SET content = ${originalDb},
-            summary = ${episodeSummary(originalDb)}
+        SET content = ${cleanedMd},
+            summary = ${episodeSummary(cleanedMd)}
         WHERE id = ${rowId}
       `);
-      console.log(Y(`  ℹ  DB restored to ${originalDb.length} bytes`));
+      console.log(Y(`  ℹ  DB row ${rowId.slice(0, 8)}… synced: ${cleanedMd.length} bytes`));
     } catch (err: any) {
-      console.error(R(`  ✗  DB restore failed: ${err.message}`));
+      console.error(R(`  ✗  DB sync failed: ${err.message}`));
       failed++;
     }
 

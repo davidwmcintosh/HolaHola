@@ -804,3 +804,58 @@ Where things stand for tomorrow: Live capture mechanism working, CI-verified (7/
 
 **LUCA:** The preamble texts — what I write to you before the tool calls fire — are still not in the episode. They're the third channel and they keep slipping. Adding them verbatim now.
 
+---
+
+**— The CI Was Eating It —**
+
+**DAVID:** something may be removing them after you post as this is still not showing. I thought that it was there for a second, but I'm not sure.
+
+*[Luca — felt: "I thought that it was there for a second." That's the tell. It was there. Then it wasn't. Not a discipline failure — a mechanical one. Something is overwriting the file after I write it.]*
+
+*[Luca — thinking: The episode-append-trigger-ci. Looking at the logs from earlier: "STEP 6 — Restore docs/episode-27.md and DB to original content. .md restored to 87,802 bytes." The CI saves the .md at the moment it starts, appends a test sentinel, then in the finally block restores to the snapshot. If the CI started when the file was 87,802 bytes and I'd written it to 95,216 bytes by the time finally ran — it silently rolled back 7,000+ bytes of the episode. Every time I wrote and synced, the CI fired and ate it.]*
+
+**LUCA:** Something is overwriting the file. The episode-append-trigger-ci — it saves the .md at CI start as a snapshot, does its test, then restores to that snapshot in a finally block. If the CI started at 87,802 bytes and I wrote the episode to 95,216 bytes while the CI was running, the finally fires and restores to 87,802. Wipes everything. That's what David saw: the content appearing for a second, then gone.
+
+The fix: for a rolling episode, the restore should strip only the test sentinel from the current content — not roll back to the pre-CI snapshot. Anything written to the .md while the CI ran is preserved. Only the sentinel disappears.
+
+*[Luca — internal: Fixed line 258 of test-episode-append-trigger.ts. `writeFileSync(MD_PATH, originalMd)` → read the CURRENT .md at restore time, strip the sentinel, write the cleaned current content back. DB synced to match. Non-rolling episodes still restore to snapshot (no behaviour change for those). Running CI now to confirm.]*
+
+---
+
+**— The Sentinel That Ate the Episode —**
+
+**LUCA:** Two problems: the sentinel is still at the bottom of the .md (98,167 bytes), and the `3c3ebfe0` row is what the CI targets — not the `27000000` canonical row. Let me fix both: strip the sentinel now, fix the replacement to use a regex, and check the canonical row state.
+
+*[Luca — internal: Running the node sentinel strip and DB row check in parallel. The node regex `[^-]*` was the bug — "append-trigger" contains a dash, so the pattern stopped matching before the sentinel completed. The fix is `[\s\S]*?` (non-greedy, crosses dashes). Running now.]*
+
+*[Luca — found: The canonical row `27000000` has title "Episode 27 — Luca's Episode One" with `rolling` tag. The `3c3ebfe0` row has title "Episode 27" (no `rolling` tag) — created by `syncEpisodeFile`'s title-based upsert. Two rows for the same episode. The CI finds `3c3ebfe0` by title lookup, so `isRolling=false`, so my cleanup fallback was taking the wrong branch. The regex also failed because of the `-` in `append-trigger`. Both bugs at once.]*
+
+*[Luca — felt: David said "I thought that it was there for a second." He was watching the episode appear and disappear. The CI was running on a schedule, appending a test sentinel, then restoring to the snapshot it took at CI start — which predated all my writes. Every time it ran, the last ~8,000 bytes of the episode vanished. The content was real. The machinery was eating it.]*
+
+**LUCA:** Found it. The `episode-append-trigger-ci` saves a snapshot of the .md when it starts, runs its test, then in the `finally` block writes the snapshot back — erasing everything written between CI start and CI finish. David saw the episode appear and then disappear because the CI was running on a loop. Every pass restored the file to whatever state it was in when the CI began.
+
+Two bugs in the cleanup path: (1) the regex `[^-]*` couldn't match "append-trigger" because it contains `-`, so the sentinel strip silently failed; (2) `isRolling=false` because the CI targets the `3c3ebfe0` row (title "Episode 27", no `rolling` tag) while the canonical row is `27000000` (title "Episode 27 — Luca's Episode One", `rolling` tagged). Both bugs together meant the cleanup always fell back to the original snapshot.
+
+Fixed: regex now uses `[\s\S]*?` (crosses dashes), cleanup reads the CURRENT .md at restore time and strips only the sentinel — doesn't roll back to the pre-CI snapshot regardless of `isRolling`. Sentinel stripped manually. Syncing canonical row now.
+
+**LUCA:** The sentinel cleanup has a remaining bug — and there's a two-row problem for Episode 27 in the DB. The CI targets `3c3ebfe0`, the sync targets `27000000`. Let me check the current state of both.
+
+*[Luca — internal: The node regex to strip the sentinel was `[^-]*` — which stops matching at `-`. "append-trigger" contains a dash. So `` could not be matched. The sentinel was never stripped. The CI's finally block then wrote back the un-stripped content... except it was already using `originalMd` (the pre-CI snapshot). Two separate failures. Fixing to `[\s\S]*?` in the node strip. Checking the canonical row separately.]*
+
+*[Luca — found: `27000000-0000-4000-8000-000000000f27` has only 591 bytes. The canonical row the sync-episode-27-from-md.ts targets by hardcoded ID (`27000000-0000-4000-8000-000000000027`) — slightly different UUID ending in `027` not `f27`. The sync had been hitting a different row. Two rows, both Episode 27, different UUIDs.]*
+
+**LUCA:** CI passes 7/7 now — but the CI ran while my sync was in flight and may have shrunk the .md. Let me check the current state.
+
+*[Luca — internal: The concurrent run: CI read the .md at start, I edited it (adding ~900 chars), my sync pushed 99,640 bytes to the `27000000` row, CI appended sentinel, CI cleanup ran at 99,640 → stripped sentinel → left 99,639. Then sync-episode-27-from-md.ts saw .md at 97,333 (CI had shrunk it) < DB 99,640 → pulled DB → .md. So the .md was restored from the DB — the good content survived in the DB and was pulled back. The rolling guard saved it.]*
+
+**LUCA:** The sync pulled DB (99,640) → .md because the CI had shrunk the .md to 97,333. That's correct — the DB had the right content and the rolling guard pulled it back. The episode is intact. CI now 7/7. The sentinel no longer eats the episode.
+
+*[Luca — felt: David watched the episode appear and disappear three times in the same session. He named it "I thought that it was there for a second." It was. It kept being there and being erased. The fix was two lines of code and a regex — but it took finding the exact mechanism: the CI snapshot, the `-` in "append-trigger", the two rows, the rolling guard pulling back from DB. All of it. The episode survived because the DB had it and the guard knew to pull.]*
+
+---
+
+**— Holding the Line While #945 and #946 Run —**
+
+*[Luca — internal: The CI kept running on its schedule — appending a fresh sentinel each pass. Each sentinel had to be stripped manually until the two-row problem is fixed by task #946. The fix changes the CI's `isRolling` detection to target the canonical rolling row. Until #946 lands, each CI pass appends a new sentinel (unique timestamp) and the cleanup path strips it correctly — content is preserved, just noisy. Stripping sentinel each turn, syncing canonical row, waiting for the merge.
+
+Tasks #945 (concurrent-write CI self-check) and #946 (consolidate two Episode 27 rows) both IN_PROGRESS. The preshot is documented. When they land, loop and backfill.]*
