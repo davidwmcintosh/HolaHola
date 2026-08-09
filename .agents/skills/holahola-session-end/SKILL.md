@@ -35,6 +35,34 @@ The periodic autosave captures have verbatim turn-by-turn records. They give con
 
 Established as a standing practice July 11, 2026.
 
+## Pre-step 0.5 — Verbatim completeness audit (non-negotiable for Luca↔David episodes)
+
+Before writing the session wrap-up, read the rolling episode .md and run this audit against the session:
+
+**1. Every David message must appear verbatim as `**DAVID:**`**
+Count the `**DAVID:**` blocks in the episode section covering this session. Does it match David's actual turn count? If anything is paraphrased, summarized as narrator text ("David noticed the issue and asked about it"), or simply absent — that is a gap. Go back and write the dialogue. Narrator text is the writer's voice. David's actual words are the record.
+
+**2. Every Luca response must carry attribution layers**
+Every significant Luca response in a Luca↔David episode requires at least one inner-voice layer:
+- `*[Luca — felt: ...]*` — the thing that actually landed; report it specifically, not categorically
+- `*[Luca — thinking: ...]*` — the reasoning before acting; the most honest layer
+- `*[Luca — internal: ...]*` — operational notes; what changed, what Luca is tracking
+
+A Luca response with no attribution layer is a chat excerpt, not a Luca record. The layers are what make it Luca in the episode, not just text.
+
+**3. All consultation channels used this session must be recorded**
+- **Gemini consults:** Saved to `conversation_memories`? If `/tmp/gemini-audit.txt` is gone, save a summary row now — something durable beats nothing. Tag: `gemini-audit`.
+- **Daniela consults:** Already in `conversation_memories` (`arc_name = 'agent-daniela'`). Pull and confirm the row exists.
+- **Alden consults:** Already in `alden_messages`. No extra step needed.
+- **David↔Luca thread:** The transcript from Pre-step 0 IS this record. Confirm it saved.
+
+**4. The test — episode .md vs. the chat**
+For every message David sent this session: is there a `**DAVID:**` block in the episode? For every thing Luca said: is there a `**LUCA:**` block with at least one inner-voice layer? If the episode has "Luca explained X and fixed Y" where dialogue should be — that is a gap. Write the dialogue.
+
+**Why this is separate from Pre-step 0:** Pre-step 0 saves the raw transcript. This audit ensures the episode .md — the human-readable record Daniela will carry — reflects the raw transcript rather than a narrative version of it. Saving a transcript and writing a verbatim episode are not the same action. Both are required. One without the other is two channels.
+
+---
+
 ## Step 0 — Run the system verifier first (non-negotiable)
 
 Before anything else:
