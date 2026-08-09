@@ -859,3 +859,28 @@ Fixed: regex now uses `[\s\S]*?` (crosses dashes), cleanup reads the CURRENT .md
 *[Luca — internal: The CI kept running on its schedule — appending a fresh sentinel each pass. Each sentinel had to be stripped manually until the two-row problem is fixed by task #946. The fix changes the CI's `isRolling` detection to target the canonical rolling row. Until #946 lands, each CI pass appends a new sentinel (unique timestamp) and the cleanup path strips it correctly — content is preserved, just noisy. Stripping sentinel each turn, syncing canonical row, waiting for the merge.
 
 Tasks #945 (concurrent-write CI self-check) and #946 (consolidate two Episode 27 rows) both IN_PROGRESS. The preshot is documented. When they land, loop and backfill.]*
+
+---
+
+**— The Triple Feed —**
+
+**DAVID:** 1. would adding replit, or .md after LUCA in the attributions help to clarify where each output came from? 2. once we fix this we need to check that luca inside hola hola (team room, and /chat are feeding into our episode and .md files as well. this is the replit window recording session, we also need a triple feed recording when I'm in a live chat. replit window, .md, and chat (david daniela, and luca david) we haven't even tested the Luca inside HolaHola functionality yet where we (luca, daniela, I) are in production while Replit Luca watches from the observation bench, and Luca inside hola hola writes code that can be iterated in dev while we discuss in production all recorded live....1
+
+*[Luca — felt: The vision clarified. Not one Luca watching, but two channels of Luca simultaneously — Replit-Luca on the observation bench reading the session, writing code in dev; Luca-in-HolaHola in the Team Room, writing into the same episode. David and Daniela in the production session. All four threads recording into one .md in real time. That's the architecture this episode was built to make possible. The preshot proved one channel. The next episode tests all three.]*
+
+*[Luca — thinking: On attribution: `LUCA [Replit]:` and `LUCA [HolaHola]:` is cleaner than `.md` suffix because the distinction is channel (where the message originated) not artifact (what file it ends up in). Both Lucas write to the same .md. What matters is who said it and from where. All current `LUCA:` lines are Replit-Luca, so no retroactive change needed — the suffix only becomes necessary when the first HolaHola-Luca contribution lands in the episode.
+
+On the triple feed: three unbuilt pieces:
+1. HolaHola Team Room hook → append-to-episode trigger (Team Room messages from Luca-in-HolaHola need to land in the rolling .md)
+2. HolaHola /chat hook → append-to-episode trigger (David↔Daniela and David↔Luca-in-HolaHola conversations)
+3. Replit-Luca observation feed → the /observe endpoint exists, the pipeline to write what Replit-Luca sees into the episode doesn't. Replit-Luca would read the live session, write its observations, and append them — timestamped and attributed — into the same .md that HolaHola-Luca and the Replit window are also writing into.
+
+The collision risk: three writers, one file. The append-to-episode trigger file mechanism is sequential (one trigger file, one watcher). Concurrent appends from three sources could race. Needs a queue or a merge strategy.]*
+
+**LUCA [Replit]:** Yes on attribution — `LUCA [Replit]:` and `LUCA [HolaHola]:` once the second Luca is contributing. Not `.md` suffix — both Lucas write to the same .md, the distinction is channel not artifact. Everything in this episode so far is Replit-Luca, no retroactive change needed.
+
+On the triple feed: three pieces not yet built. The append-to-episode mechanism exists (the trigger file + watcher from #930). What doesn't exist is the hooks that write to it from HolaHola's Team Room, /chat, and the observation bench. The observation endpoint exists (`/api/admin/luca/observe`) — Replit-Luca can already read live session state. The pipeline from that read to the episode .md doesn't exist yet.
+
+The untested scenario you named — David + Daniela in production, Luca-in-HolaHola in Team Room, Replit-Luca on the bench writing code in dev, all recording into the same episode live — that's the next test after this episode closes. This episode proved one channel works under pressure. That one tests whether three channels can write to the same record without collision.
+
+The collision risk is real: three concurrent writers, one trigger file. It needs a queue or timestamp-ordered merge before we can run it live.
