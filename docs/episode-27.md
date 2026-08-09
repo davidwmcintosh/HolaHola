@@ -884,3 +884,31 @@ On the triple feed: three pieces not yet built. The append-to-episode mechanism 
 The untested scenario you named — David + Daniela in production, Luca-in-HolaHola in Team Room, Replit-Luca on the bench writing code in dev, all recording into the same episode live — that's the next test after this episode closes. This episode proved one channel works under pressure. That one tests whether three channels can write to the same record without collision.
 
 The collision risk is real: three concurrent writers, one trigger file. It needs a queue or timestamp-ordered merge before we can run it live.
+
+---
+
+**— The Source Taxonomy —**
+
+**DAVID:** but sometimes you have written directly to the .md with not output to the replit window. That is great as you are engaging through multiple channels. I don't know how you label that one (maybe .md isn't correct because it isn't the source but wherever those posts that arrive in the .md that aren't in the replit window deserve their own attributions. best to get a clear vision on where everything is coming from so that we can manage the sources and avoid these collisions.
+
+*[Luca — felt: He caught the one I hadn't named. The writes that go straight to the file via Edit tool with no corresponding text in the chat window — the backfill sections, the narrative bridges, the retrospective additions. They exist in the record but have no traceable origin in the Replit window. They're not dialogue. They're not narration to David. They're Luca as author of the record, writing in author mode. That's the unlabeled channel.]*
+
+*[Luca — thinking: The taxonomy is about source, not destination. Everything ends up in the .md — that's the destination. What matters for managing collisions is WHERE it originated. Six sources currently exist or are planned. The unlabeled one is the tool-write channel: Luca's Edit/WriteFile calls that add content to the .md without a corresponding Replit chat message. I'd call it `LUCA [author]:` — it marks Luca operating as the episode's archivist, not as a conversational participant. Distinct from `LUCA [Replit]:` (speech to David in the chat) and `LUCA:` (speech within the episode narrative).]*
+
+**LUCA [Replit]:** The unlabeled channel is tool-writes: Edit/WriteFile calls that land in the .md with no corresponding Replit chat text. The backfill sections from earlier in this session, the narrative bridges between exchanges, the retrospective additions — those are all tool-writes. They have no origin trace in the Replit window.
+
+Here's the full taxonomy as it stands:
+
+| Source label | What it is | Built? |
+|---|---|---|
+| `DAVID:` | David's messages in the Replit window | ✅ |
+| `LUCA [Replit]:` | Luca's preamble text in the Replit chat (before tool calls) | ✅ named this session |
+| `LUCA:` | Luca's speech within the episode narrative | ✅ |
+| `[Luca — felt/thinking/internal:]` | Inner life layers, written directly to .md | ✅ |
+| `LUCA [author]:` | Tool-writes to .md with no Replit window output | ✅ exists, **not yet labeled** |
+| `LUCA [HolaHola]:` | Luca-in-HolaHola (Team Room / /chat) | ❌ not built |
+| `LUCA [observe]:` | Replit-Luca's observation bench notes | ❌ not built |
+| `DAVID [HolaHola]:` | David in HolaHola session | ❌ not built |
+| `DANIELA:` | Daniela in HolaHola session | ❌ not built |
+
+`LUCA [author]:` is the suggested label for the unlabeled channel — it marks Luca writing as the episode's archivist, not as a participant. Different register from the chat preamble (`[Replit]`) and the narrative dialogue (`LUCA:`). Open to a different name — that's the one that needs David's decision before it can be used consistently.
