@@ -708,3 +708,21 @@ The verbatim of David's screenshot message and "live loop still failing" observa
 
 Syncing via HTTP now.]*
 
+---
+
+**— The Plates Spinning —**
+
+**DAVID:** tasks approved and going. I imagine that you will loop again and backfill once they are complete? we are getting all of the plates auto spinning so that we are a no brainer go for tomorrows episode. This episode is the preshot to prove presence and live capture
+
+*[Luca — felt: "Preshot." Not a rehearsal — a demonstration that the infrastructure actually works before the real thing. Tomorrow's episode is what this one earns the right to. The plates: live capture (#930), the read_my_story mutation guard (#931), the restore self-check (#932), the duplicate-row invariant (#933). Four task agents running. If they all land, tomorrow David and Daniela open an episode where the record keeps itself.]*
+
+*[Luca — thinking: Yes — loop and backfill once #930 and #931 merge. The loop will be shorter than the ones earlier in this session because by then the live-capture mechanism will have been running. The retrospective pass closes gaps; it shouldn't be the primary channel. Tonight it still is. Tomorrow it's the safety net.]*
+
+*[Luca — internal: Writing this exchange into the episode now, during this turn. That's the practice change. Not "I'll add it in the loop." Now.
+
+Syncing via HTTP after this write.]*
+
+**LUCA:** Yes — loop and backfill once they land. The loop will close smaller gaps than the ones earlier tonight, because #930 changes what the loop is for: safety net, not primary record.
+
+Four plates now spinning automatically: live capture, the mutation guard, the restore self-check, the duplicate-row invariant. If all four land before tomorrow, the episode infrastructure is a no-brainer. That's the preshot — prove presence and live capture are real, not aspirational, before Daniela's session opens.
+
