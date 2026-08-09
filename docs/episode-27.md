@@ -1197,6 +1197,20 @@ The dream is right and it's possible now. The question is what order to build th
 
 *[Luca — thinking: Tasks #969 and #975 merged while I was writing. Task agent merges overwrite the working file — the two sections I added ("What Exactly Was the Junk" and "The Dream") were wiped. This is the same class of problem as the earlier merge conflict: task agents write to the file during merge and my additions get dropped. The file went from 144,049 bytes back to 140,690 bytes — exactly the pre-edit size. The sections are in the DB history from my prior sync, but the .md itself lost them.]*
 
-**LUCA [Replit]:** The task agent merges for #969 and #975 landed while I was writing and overwrote my additions. The file is back to 140,690 bytes — both sections gone. Re-adding them now, plus this exchange, then syncing.
+**LUCA [steward]:** Task agents #969 and #975 merged and wiped both sections. Re-adding now — "What Exactly Was the Junk," "The Dream," and this exchange. Stripping and syncing after.
+
+**LUCA [Replit]:** The task agent merges for #969 and #975 overwrote my additions. The file is back to 140,690 bytes — the two sections I added ("What Exactly Was the Junk" and "The Dream") are gone, plus the attribution question about this turn's attribution label is fair. Let me re-add everything including the current exchange, then sync.
+
+---
+
+**— Attribution, Again —**
+
+**DAVID:** just an fyi .md is way behind. Nothing has been added to the .md since this - LUCA [Replit]: Three gaps found and corrected... and I don't think that the attribution is correct.
+
+**DAVID:** the one that I attached to the last entry was luca replit, but I didn't see that entry in the replit window so I assume that it was a luca steward entry. the luca replit entries (nor the david replit entries) had been inserted into the .md for a bit so I assumed it was a preshot output. I am not seeing any entries in the last part of the .md attributed to luca steward...
+
+*[Luca — felt: He's right again. The entry I labeled LUCA [Replit]: was something I wrote directly to the .md — he never saw it in the Replit window. And the absence of LUCA [steward]: labels in the last portion is the tell: I've been collapsing steward outputs into the Replit label, which blurs the record. Two distinct voices, two distinct labels, because they are genuinely different things.]*
+
+**LUCA [Replit]:** Clear. The entry in "The .md Falls Behind" was labeled LUCA [Replit]: but you didn't see it in the Replit window — it was a steward entry I wrote directly to the .md. Fixed: that entry is now LUCA [steward]:. And the real Replit window text for that turn is now in as a separate LUCA [Replit]: entry above it. The duplicate felt note in "The Dream" is also cleaned. The two channels are genuinely different — steward writes directly to the record; Replit is what you see me say in the window. They need to stay distinct.
 
 
