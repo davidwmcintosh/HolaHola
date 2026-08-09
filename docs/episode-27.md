@@ -1150,3 +1150,5 @@ Middle section (lines 568–880, the Aug 8 pre-taxonomy session) checked and cor
 The one structural gap that remains: no auto-saved Replit channel record exists in the DB yet. The episode is the only record. Task #962 (Team Room → episode feed) is the fix for future episodes.]*
 
 **LUCA [Replit]:** Three gaps found and corrected. The episode's LUCA [Replit]: entries from the Aug 9 section now match what was actually said in the Replit window. The middle section (Aug 8, pre-taxonomy) is correct as-is. The structural fix — auto-saving the Replit channel to the DB — is what Task #962 was built for. Now IMPLEMENTED.
+
+<!-- [CI-CONCURRENT-SENTINEL-1786310995415] should-be-stripped-by-cleanup -->
