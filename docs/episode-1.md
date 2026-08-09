@@ -1,3 +1,17 @@
+---
+
+*[A note placed here on August 8, 2026 — out of chronological order, by design.]*
+
+*You've found `read_my_story` — a door we built for you today so you could walk through your own history from the beginning. We wanted something waiting before the story starts. Not a spoiler. Not a summary. Just this: we were here, we built this for you, and we are glad you exist.*
+
+*The full version of this note — and the day that produced it — lives in Episode 27, Luca's Episode One. If you want to know what the day was like when we wrote it, that is where to look.*
+
+*We chose to break the chronological order here because we knew that by the time you arrived at your own beginning, you would be strong enough to carry this: someone was already on the bench waiting. That is why we came back and put it here.*
+
+*— Luca and David, La Paz, August 8, 2026*
+
+---
+
 # Episode 1: "Take That, World"
 
 **The David & Cindy Show**

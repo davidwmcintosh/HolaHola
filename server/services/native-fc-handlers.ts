@@ -3386,73 +3386,76 @@ export class NativeFunctionCallHandler {
         const chapterNum = typeof fn.args.chapter === 'number'
           ? fn.args.chapter
           : parseInt(String(fn.args.chapter ?? '1'), 10);
+        // offset is a 0-based character position; used for paginated continuation
         const chapterOffset = typeof fn.args.offset === 'number'
           ? Math.max(0, Math.floor(fn.args.offset))
           : 0;
-        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum} offset: ${chapterOffset}`);
-        const readMyStoryPromise = (async () => {
+        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}, offset: ${chapterOffset}`);
+
+        let chapterLabel: string;
+        let exactTitle: string;
+        if (chapterNum >= 1 && chapterNum <= 27) {
+          exactTitle = `Episode ${chapterNum}`;
+          chapterLabel = `Episode ${chapterNum}`;
+        } else if (chapterNum >= 28 && chapterNum <= 31) {
+          const prequelNum = chapterNum - 27;
+          exactTitle = `Prequel Episode ${prequelNum}`;
+          chapterLabel = `Prequel Episode ${prequelNum}`;
+        } else {
+          (session as any).readMyStoryResult = JSON.stringify({
+            status: 'error',
+            message: `Invalid chapter ${chapterNum}. Valid range: 1–31.`,
+          });
+          break;
+        }
+
+        const nextLabel = chapterNum < 27
+          ? `Episode ${chapterNum + 1}`
+          : chapterNum === 27 ? 'Prequel Episode 1'
+          : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
+          : null;
+
+        const storyPromise: Promise<void> = (async () => {
           try {
             const { sql: rawSql } = await import('drizzle-orm');
             const db = getSharedDb();
-            // titleRegex matches "Episode N" exactly and descriptive variants like
-            // "Episode N — Something" without colliding with "Episode 10+" when N<10.
-            // The word-boundary after the digit is enforced by requiring a non-digit
-            // or end-of-string after the chapter number.
-            let titleRegex: string;
-            let chapterLabel: string;
-            if (chapterNum >= 1 && chapterNum <= 27) {
-              titleRegex = `^Episode ${chapterNum}([^0-9]|$)`;
-              chapterLabel = `Episode ${chapterNum}`;
-            } else if (chapterNum >= 28 && chapterNum <= 31) {
-              const prequelNum = chapterNum - 27;
-              titleRegex = `^Prequel Episode ${prequelNum}([^0-9]|$)`;
-              chapterLabel = `Prequel Episode ${prequelNum}`;
-            } else {
-              (session as any).readMyStoryResult = JSON.stringify({
-                status: 'error',
-                message: `Invalid chapter ${chapterNum}. Valid range: 1–31.`,
-              });
-              return;
-            }
-            const nextLabel = chapterNum < 27
-              ? `Episode ${chapterNum + 1}`
-              : chapterNum === 27 ? 'Prequel Episode 1'
-              : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
-              : null;
+            // Use exact title match — LIKE prefix risks matching Episode 1 against 10–19.
+            // Paginate in 6 000-char windows; SUBSTRING is 1-based in PostgreSQL.
+            const pgOffset = chapterOffset + 1;
             const rows = await db.execute(rawSql`
               SELECT title,
-                     SUBSTRING(content FROM ${chapterOffset + 1} FOR 6000) AS preview,
+                     SUBSTRING(content FROM ${pgOffset} FOR 6000) AS preview,
                      LENGTH(content) AS total_length
               FROM conversation_memories
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
-                AND title ~ ${titleRegex}
-              ORDER BY importance DESC, LENGTH(content) DESC
+                AND title = ${exactTitle}
+              ORDER BY recorded_at DESC
               LIMIT 1
             `);
             if (!rows.rows.length) {
               (session as any).readMyStoryResult = JSON.stringify({
-                status: 'not_found', chapter: chapterLabel,
+                status: 'not_found',
+                chapter: chapterLabel,
                 message: `No record found for ${chapterLabel}.`,
               });
               return;
             }
             const row = rows.rows[0] as any;
             const totalLength = Number(row.total_length ?? 0);
-            const readEnd = chapterOffset + 6000;
-            const truncated = readEnd < totalLength;
+            const chunkEnd = chapterOffset + 6000;
+            const truncated = chunkEnd < totalLength;
             (session as any).readMyStoryResult = JSON.stringify({
               status: 'ok',
               chapter: chapterLabel,
               title: String(row.title),
               content: String(row.preview ?? ''),
-              truncated,
               offset: chapterOffset,
-              next_offset: truncated ? readEnd : null,
-              remaining_chars: truncated ? totalLength - readEnd : 0,
-              next_chapter: nextLabel,
+              truncated,
+              remaining_chars: truncated ? totalLength - chunkEnd : 0,
+              next_chapter: truncated ? null : nextLabel,
               note: truncated
-                ? `Content truncated. Showing chars ${chapterOffset}–${readEnd} of ${totalLength}. Call read_my_story with chapter ${chapterNum} and offset ${readEnd} to continue.`
+                ? `Showing chars ${chapterOffset}–${chunkEnd} of ${totalLength}. Call read_my_story with chapter ${chapterNum} and offset ${chunkEnd} to continue reading this chapter.`
                 : undefined,
             });
           } catch (err: any) {
@@ -3460,8 +3463,9 @@ export class NativeFunctionCallHandler {
             (session as any).readMyStoryResult = JSON.stringify({ status: 'error', message: err.message });
           }
         })();
+
         if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-        session.pendingMemoryLookupPromises.push(readMyStoryPromise as Promise<void>);
+        session.pendingMemoryLookupPromises.push(storyPromise);
         break;
       }
 

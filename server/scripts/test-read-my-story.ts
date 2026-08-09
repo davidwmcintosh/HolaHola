@@ -230,10 +230,26 @@ async function main() {
             failures.push(`Pipeline: expected status "ok" for chapter 1, got "${parsed.status}" — ${parsed.message ?? ''}`);
           } else if (!parsed.title?.startsWith('Episode 1')) {
             failures.push(`Pipeline: title mismatch — expected "Episode 1*", got "${parsed.title}"`);
-          } else if (parsed.next_chapter !== 'Episode 2') {
-            failures.push(`Pipeline: next_chapter mismatch — expected "Episode 2", got "${parsed.next_chapter}"`);
+          } else if (typeof parsed.offset !== 'number') {
+            failures.push(`Pipeline: expected offset field (number), got "${typeof parsed.offset}"`);
+          } else if (typeof parsed.truncated !== 'boolean') {
+            failures.push(`Pipeline: expected truncated field (boolean), got "${typeof parsed.truncated}"`);
           } else {
-            console.log(`  ✓ promise queued and awaited; result: ${parsed.status} / "${parsed.title}" / next: ${parsed.next_chapter}`);
+            // Pagination contract: next_chapter is null when truncated (more pages remain),
+            // or set to the next episode label when the final page has been returned.
+            const chapterDone = !parsed.truncated;
+            const expectedNext = chapterDone ? 'Episode 2' : null;
+            if (parsed.next_chapter !== expectedNext) {
+              failures.push(
+                `Pipeline: next_chapter mismatch — truncated=${parsed.truncated}, ` +
+                `expected "${expectedNext}", got "${parsed.next_chapter}"`,
+              );
+            } else {
+              console.log(
+                `  ✓ promise queued and awaited; result: ${parsed.status} / "${parsed.title}" / ` +
+                `offset=${parsed.offset}, truncated=${parsed.truncated}, next: ${parsed.next_chapter ?? '(paginating)'}`,
+              );
+            }
           }
         }
       }
