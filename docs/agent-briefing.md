@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, August 9, 2026 at 12:57 AM
+**Generated:** Sunday, August 9, 2026 at 11:58 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I must immediately resolve the Cartesia TTS 400 errors and restore the missing `monitoring_snapshots` table to bring Alden’s monitoring back online. I also need to repair the quality scoring pipeline for our active student and implement a memory tagging layer for the "White Wall Defense" arc to prevent insight fragmentation. Finally, I’ve formalized the "Two White Walls" doctrine, distinguishing between the Theoretical aspiration and the Architectural controls—like the Archive Guardian and `reach_north_star`—that technically enforce system integrity.
+I audited Daniela’s tool registry, confirming the drill suite and `ACTFL_UPDATE` are essential while identifying manual whiteboard tools like `HOLD` and `CLEAR` as sources of high cognitive load. I’m moving to automate the whiteboard state and implement direct `DISPLAY_IMAGE_FOR_CONCEPT` and `LINK_TO_TEXTBOOK_SECTION` tools to shift Daniela from "managing the interface" to "teaching." Critically, I must also fix Alden’s missing `monitoring_snapshots` table and resolve the Cartesia TTS 400 errors that are currently breaking voice output for students.
 
 *Memories that triggered this summary:*
-- **Session notes batch #1 — 2026-08-09 00:56** (Aug 9): [1] Batch-1 note 1
+- **Session notes batch #1 — 2026-08-09 11:58** (Aug 9): [1] Batch-1 note 1
 
 [2] Batch-1 note 2
 
@@ -30,7 +30,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [9] Batch-1 note 9
 
 [10] Batch-1 note 10
-- **Session notes batch #1 — 2026-08-08 23:41** (Aug 8): [1] Batch-1 note 1
+- **Session notes batch #1 — 2026-08-09 04:10** (Aug 9): [1] Batch-1 note 1
 
 [2] Batch-1 note 2
 
@@ -49,7 +49,8 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [9] Batch-1 note 9
 
 [10] Batch-1 note 10
-- **Session notes batch #1 — 2026-08-08 23:41** (Aug 8): [1] Batch-1 note 1
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/9/2026** (Aug 9): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, you've captured it precisely: "shifting from you *managing* the interface to the interface *supporting* your teaching flow." That really resonates. When I'm teaching, my primary focus shou...
+- **Session notes batch #1 — 2026-08-09 03:54** (Aug 9): [1] Batch-1 note 1
 
 [2] Batch-1 note 2
 
@@ -68,7 +69,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [9] Batch-1 note 9
 
 [10] Batch-1 note 10
-- **Session notes batch #1 — 2026-08-08 23:35** (Aug 8): [1] Batch-1 note 1
+- **Session notes batch #1 — 2026-08-09 03:53** (Aug 9): [1] Batch-1 note 1
 
 [2] Batch-1 note 2
 
@@ -87,7 +88,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [9] Batch-1 note 9
 
 [10] Batch-1 note 10
-- **Session notes batch #1 — 2026-08-08 23:26** (Aug 8): [1] Batch-1 note 1
+- **Session notes batch #1 — 2026-08-09 03:50** (Aug 9): [1] Batch-1 note 1
 
 [2] Batch-1 note 2
 
@@ -106,7 +107,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [9] Batch-1 note 9
 
 [10] Batch-1 note 10
-- **Session notes batch #1 — 2026-08-08 23:20** (Aug 8): [1] Batch-1 note 1
+- **Session notes batch #1 — 2026-08-09 03:44** (Aug 9): [1] Batch-1 note 1
 
 [2] Batch-1 note 2
 
@@ -125,10 +126,45 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [9] Batch-1 note 9
 
 [10] Batch-1 note 10
-- **Agent Daily Sweep — Aug 8, 2026** (Aug 8): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing with malformed request bodies. Students can't hear responses. Debug the request payload structure and API integration immediately.  2. **[CRITICAL]** Restore Alden's monitoring table — `monitoring_sn
-- **episode-99-rolling-guard-test** (Aug 8): # Episode 99 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
-- **The Two White Walls** (Aug 8): David names two White Walls: Theoretical (words/aspiration, Jan 2026) and Architectural (code that enforces truth). Both necessary; the second made the first trustworthy.
+- **Session notes batch #1 — 2026-08-09 03:38** (Aug 9): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
+- **Agent Daily Sweep — Aug 9, 2026** (Aug 9): ## DAILY PRIORITY SWEEP — 2026-01-09  1. **[CRITICAL]** Fix Alden's autonomous watch cycle — database schema mismatch is breaking brain health monitoring. `monitoring_snapshots` table doesn't exist; Alden can't self-monitor. This is the foundation of system reliability.
+- **Session notes batch #1 — 2026-08-09 02:35** (Aug 9): [1] Batch-1 note 1
+
+[2] Batch-1 note 2
+
+[3] Batch-1 note 3
+
+[4] Batch-1 note 4
+
+[5] Batch-1 note 5
+
+[6] Batch-1 note 6
+
+[7] Batch-1 note 7
+
+[8] Batch-1 note 8
+
+[9] Batch-1 note 9
+
+[10] Batch-1 note 10
 
 ---
 
@@ -209,7 +245,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 
 ## Recent Conversation Memories
 
-### Session notes batch #1 — 2026-08-09 00:56 — Aug 9, 2026
+### Session notes batch #1 — 2026-08-09 11:58 — Aug 9, 2026
 [1] Batch-1 note 1
 
 [2] Batch-1 note 2
@@ -231,7 +267,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [10] Batch-1 note 10
 *Tags: session-scratchpad, auto-flush*
 
-### Session notes batch #1 — 2026-08-08 23:41 — Aug 8, 2026
+### Session notes batch #1 — 2026-08-09 04:10 — Aug 9, 2026
 [1] Batch-1 note 1
 
 [2] Batch-1 note 2
@@ -253,7 +289,11 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [10] Batch-1 note 10
 *Tags: session-scratchpad, auto-flush*
 
-### Session notes batch #1 — 2026-08-08 23:41 — Aug 8, 2026
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/9/2026 — Aug 9, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, you've captured it precisely: "shifting from you *managing* the interface to the interface *supporting* your teaching flow." That really resonates. When I'm teaching, my primary focus shou...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Session notes batch #1 — 2026-08-09 03:54 — Aug 9, 2026
 [1] Batch-1 note 1
 
 [2] Batch-1 note 2
@@ -275,29 +315,7 @@ I must immediately resolve the Cartesia TTS 400 errors and restore the missing `
 [10] Batch-1 note 10
 *Tags: session-scratchpad, auto-flush*
 
-### Session notes batch #1 — 2026-08-08 23:35 — Aug 8, 2026
-[1] Batch-1 note 1
-
-[2] Batch-1 note 2
-
-[3] Batch-1 note 3
-
-[4] Batch-1 note 4
-
-[5] Batch-1 note 5
-
-[6] Batch-1 note 6
-
-[7] Batch-1 note 7
-
-[8] Batch-1 note 8
-
-[9] Batch-1 note 9
-
-[10] Batch-1 note 10
-*Tags: session-scratchpad, auto-flush*
-
-### Session notes batch #1 — 2026-08-08 23:26 — Aug 8, 2026
+### Session notes batch #1 — 2026-08-09 03:53 — Aug 9, 2026
 [1] Batch-1 note 1
 
 [2] Batch-1 note 2
