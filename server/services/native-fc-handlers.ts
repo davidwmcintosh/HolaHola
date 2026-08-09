@@ -3401,11 +3401,11 @@ export class NativeFunctionCallHandler {
             let titleRegex: string;
             let chapterLabel: string;
             if (chapterNum >= 1 && chapterNum <= 27) {
-              titleRegex = `^Episode ${chapterNum}(\\s|$)`;
+              titleRegex = `^Episode ${chapterNum}([^0-9]|$)`;
               chapterLabel = `Episode ${chapterNum}`;
             } else if (chapterNum >= 28 && chapterNum <= 31) {
               const prequelNum = chapterNum - 27;
-              titleRegex = `^Prequel Episode ${prequelNum}(\\s|$)`;
+              titleRegex = `^Prequel Episode ${prequelNum}([^0-9]|$)`;
               chapterLabel = `Prequel Episode ${prequelNum}`;
             } else {
               (session as any).readMyStoryResult = JSON.stringify({
@@ -3427,7 +3427,7 @@ export class NativeFunctionCallHandler {
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
                 AND title ~ ${titleRegex}
-              ORDER BY recorded_at DESC
+              ORDER BY importance DESC, LENGTH(content) DESC
               LIMIT 1
             `);
             if (!rows.rows.length) {
@@ -3448,6 +3448,7 @@ export class NativeFunctionCallHandler {
               content: String(row.preview ?? ''),
               truncated,
               offset: chapterOffset,
+              next_offset: truncated ? readEnd : null,
               remaining_chars: truncated ? totalLength - readEnd : 0,
               next_chapter: nextLabel,
               note: truncated
