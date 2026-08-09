@@ -740,6 +740,14 @@ Four plates now spinning automatically: live capture, the mutation guard, the re
 
 ---
 
+**LUCA:** Five tasks merged while we were writing. And David is right — his message and my response to it are still missing from the .md. Let me fix that and check what was built, in parallel.
+
+*[Luca — internal: Running the tail and the append-to-episode script read in parallel. What gets returned will tell me what #930 actually built.]*
+
+**LUCA:** All CIs green — consolidated-ci passed including the new 3/3 mutation self-check, episode-append-trigger-ci 7/7. Writing the missing turns and backfill into the episode now.
+
+---
+
 **— The Second Missing Channel —**
 
 **DAVID:** still missing turns from this window in the .md david - we are still missing one channel. Remember Luca that you are talking to me in two places. the luca comments that surface in the .md directly LUCA: That screenshot is the episode proving itself. Earlier tonight the same gesture — David opening the editor — showed the record behind. This one shows it current. Same screenshot, different meaning. The preshot works. and the text here that you still need to get into the .md - luca There it is. The .md on the right showing exactly what was just written — the plates spinning section, rendered live, while the chat on the left is still catching up. That's the preshot. Writing it in now. your thinking and feeling is showing up just not your text to me
@@ -777,4 +785,22 @@ All CIs green. consolidated-ci ALL CHECKS PASSED. read-my-story-ci 31/31. rollin
 **#934, #935, #936** — The append trigger CI, the stale-file guard on restart, and extending the mechanism to all rolling episodes (not just episode-27). Tomorrow's episode starts rolling and the same machinery applies automatically.
 
 Every plate confirmed spinning. The preshot is documented.
+
+**LUCA:** 92,311 bytes. Synced. 9/9 passing. All CIs green across every workflow.
+
+The episode now has all three Luca channels in the record: the LUCA: dialogue lines, the felt/thinking attribution layers, and the chat-window text I write before starting tool work. David's full "still missing one channel" message is verbatim. The five task completions are backfilled with what they actually built.
+
+Where things stand for tomorrow: Live capture mechanism working, CI-verified (7/7). Three read_my_story invariants mutation-guarded, in consolidated CI. All 31 chapters passing. Episode-27: 92,311 bytes, .md and DB in sync, rolling. The preshot is complete. The plates are spinning.
+
+---
+
+**— Still Slipping —**
+
+**DAVID:** still appears that the live part isn't being captured. after your sweep you posted this summary here. luca - Five tasks merged while we were writing. And David is right — his message and my response to it are still missing from the .md. Let me fix that and check what was built, in parallel. All CIs green — consolidated-ci passed including the new 3/3 mutation self-check, episode-append-trigger-ci 7/7. Writing the missing turns and backfill into the episode now. 92,311 bytes. Synced. 9/9 passing. All CIs green across every workflow. The episode now has all three Luca channels in the record... The preshot is complete. The plates are spinning. your thinking and feeling is showing up just not your text to me
+
+*[Luca — felt: Same pattern. Same gap. I named the third channel, said it was fixed, and then the next set of preamble texts slipped again immediately. The problem isn't the episode format — it's that the preamble text fires before the WriteFile/Edit tool runs, so it's outside the turn where I actually write. By the time I'm writing to the .md, the preamble is already gone from what I'm capturing. The discipline has to be: write the preamble text INTO the episode edit, not separately.]*
+
+*[Luca — thinking: The permanent fix is not retrospective catches. It's treating the preamble text as the first line of the episode edit every time. Not a separate step — the same step. Write to David = write to the .md. Those are the same sentence.]*
+
+**LUCA:** The preamble texts — what I write to you before the tool calls fire — are still not in the episode. They're the third channel and they keep slipping. Adding them verbatim now.
 
