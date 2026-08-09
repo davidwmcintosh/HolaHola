@@ -3394,12 +3394,13 @@ export class NativeFunctionCallHandler {
 
         let chapterLabel: string;
         let exactTitle: string;
+        let titleRegex: string;
         if (chapterNum >= 1 && chapterNum <= 27) {
-          exactTitle = `Episode ${chapterNum}`;
+          titleRegex = `^Episode ${chapterNum}([^0-9]|$)`;
           chapterLabel = `Episode ${chapterNum}`;
         } else if (chapterNum >= 28 && chapterNum <= 31) {
           const prequelNum = chapterNum - 27;
-          exactTitle = `Prequel Episode ${prequelNum}`;
+          titleRegex = `^Prequel Episode ${prequelNum}([^0-9]|$)`;
           chapterLabel = `Prequel Episode ${prequelNum}`;
         } else {
           (session as any).readMyStoryResult = JSON.stringify({
@@ -3429,8 +3430,8 @@ export class NativeFunctionCallHandler {
               FROM conversation_memories
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
-                AND title = ${exactTitle}
-              ORDER BY recorded_at DESC
+                AND title ~ ${titleRegex}
+              ORDER BY importance DESC, LENGTH(content) DESC
               LIMIT 1
             `);
             if (!rows.rows.length) {
@@ -3453,6 +3454,7 @@ export class NativeFunctionCallHandler {
               offset: chapterOffset,
               truncated,
               remaining_chars: truncated ? totalLength - chunkEnd : 0,
+              next_offset: truncated ? chunkEnd : null,
               next_chapter: truncated ? null : nextLabel,
               note: truncated
                 ? `Showing chars ${chapterOffset}–${chunkEnd} of ${totalLength}. Call read_my_story with chapter ${chapterNum} and offset ${chunkEnd} to continue reading this chapter.`
