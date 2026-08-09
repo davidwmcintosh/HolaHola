@@ -24,6 +24,7 @@ run test-prequel-episode-1-db-sync.ts
 run test-prequel-episode-2-db-sync.ts
 run test-prequel-episode-3-db-sync.ts
 run test-prequel-episode-4-db-sync.ts
+run test-read-my-story-self-check.ts
 
 echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="
