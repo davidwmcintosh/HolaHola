@@ -25384,6 +25384,16 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
       if (lucaLine?.trim()) agentSession.conversationTranscript.push(`Luca: ${lucaLine.trim()}`);
       if (danielaText) agentSession.conversationTranscript.push(`Daniela: ${danielaText}`);
 
+      // Channel 3 of the triple-feed episode capture: append this Luca↔Daniela exchange
+      // to the rolling episode via the .episode_append trigger file (fire-and-forget).
+      if (lucaLine?.trim()) {
+        import('./services/chat-episode-hook').then(({ maybeAppendChatMessage }) => {
+          maybeAppendChatMessage(lucaLine, danielaText).catch((e: any) => {
+            console.warn('[Agent Voice Turn] chat-episode-hook non-fatal:', e?.message);
+          });
+        }).catch(() => { /* non-fatal if import fails */ });
+      }
+
       // If this is the final turn, save the full session to conversation_memories
       let savedMemoryId: string | null = null;
       if (endSession && agentSession.conversationTranscript.length > 0) {

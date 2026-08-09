@@ -33,6 +33,7 @@ npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
 
 run test-episode-append-corrupted-json.ts
 run test-team-room-episode-hook.ts
+run test-chat-episode-hook.ts
 
 echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="

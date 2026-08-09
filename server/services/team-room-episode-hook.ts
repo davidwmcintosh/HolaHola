@@ -47,8 +47,11 @@ const CACHE_TTL_MS = 60_000; // 1 minute
  * Look up the current rolling episode from the DB.
  * Returns the episode name without .md suffix (e.g. "episode-27"), or null.
  * Cached for 60 s so rapid Team Room messages share one DB query.
+ *
+ * Exported so sibling hooks (chat-episode-hook, etc.) can reuse the same
+ * shared cache without duplicating the DB query or the cache state.
  */
-async function getRollingEpisodeName(): Promise<string | null> {
+export async function getRollingEpisodeName(): Promise<string | null> {
   const now = Date.now();
   if (_cache && now < _cache.expiresAt) return _cache.name;
 
