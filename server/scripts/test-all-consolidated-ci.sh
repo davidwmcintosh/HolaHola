@@ -31,5 +31,7 @@ echo ""
 echo "=== test-episode-append-trigger.ts --self-check-concurrent ==="
 npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
 
+run test-episode-append-corrupted-json.ts
+
 echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="

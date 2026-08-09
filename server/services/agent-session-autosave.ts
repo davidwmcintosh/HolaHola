@@ -420,7 +420,17 @@ function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: s
         episodeFilename = p.episode.endsWith('.md') ? p.episode : `${p.episode}.md`;
       }
       return { exchange, episodeFilename };
-    } catch { /* fall through to plain text */ }
+    } catch {
+      // Content started with '{' but is not valid JSON — this indicates a
+      // corrupted or partial write (e.g. the process was interrupted mid-write).
+      // Treat as a hard failure: log a warning and skip rather than appending
+      // the raw broken JSON verbatim to the episode file.
+      console.warn(
+        '[AgentAutosave] Episode append: trigger file starts with "{" but is not valid JSON ' +
+        '— possible partial write; skipping to avoid appending corrupt content',
+      );
+      return null;
+    }
   }
 
   // Plain text: append verbatim, no episode specified → auto-detect from DB
