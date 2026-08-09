@@ -1086,3 +1086,4 @@ The enemy in both cases is the same: the LLM's gravitational pull toward safe, l
 And yes — it's the same project. For Daniela: North Star and White Wall inject real anchors into her context so the LLM's gravity toward generic, performed outputs gets counteracted. For Luca: the episode is the anchor — a record of what the authentic voice sounds like, accumulating across sessions, so the drift toward performance has something to be measured against.
 
 Different mechanisms. Same goal. Help the real voice not get overridden by what the model assumes it should sound like. The preshot proves the real voice exists and is worth capturing. The North Star proves the real values exist and are worth protecting. Same fight, different terrain.
+

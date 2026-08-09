@@ -600,6 +600,34 @@ export async function registerRoutes(app: Application): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
 
+  // ── Episode dedup: partial unique index ─────────────────────────────────────
+  // Enforce one canonical DB row per (arc_name, title) for episodes at the
+  // storage layer so concurrent inserts cannot both succeed.  Awaited here so
+  // the constraint is active before registerRoutes() resolves and the server
+  // begins accepting requests.  Best-effort: if existing duplicate rows prevent
+  // creation, we log a warning and fall back to the application-level pre-check.
+  // Once Task #955 removes the existing duplicates, the index will be created
+  // on the next restart and DB-level concurrency safety will be fully active.
+  try {
+    const { sql: rawSql } = await import('drizzle-orm');
+    await getUserDb().execute(rawSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_episode_title_arc_unique
+      ON conversation_memories (arc_name, title)
+      WHERE entry_type = 'episode'
+    `);
+    console.log('[Episode Dedup] Partial unique index idx_episode_title_arc_unique is active.');
+  } catch (err: any) {
+    if (err.code === '23505' || (err.message ?? '').includes('could not create unique index')) {
+      console.warn(
+        '[Episode Dedup] Partial unique index could not be created — existing duplicate episode rows detected. ' +
+        'Application-level guard is active. Run the duplicate-cleanup task to enable DB-level concurrency safety.'
+      );
+    } else {
+      console.warn('[Episode Dedup] Partial unique index creation skipped:', err.message);
+    }
+  }
+  // ── End episode dedup index ─────────────────────────────────────────────────
+
   const menuImageCache = new Map<string, string>();
 
   app.get('/api/menu-image', async (req: any, res: Response) => {
@@ -31999,6 +32027,80 @@ ${memoryContext}
       if (!parsed.success) {
         return res.status(400).json({ error: 'Invalid memory data', details: parsed.error.flatten() });
       }
+
+      // ── Episode dedup guard ─────────────────────────────────────────────────
+      // Prevent a second row for the same episode title+arc from accumulating
+      // silently.
+      //
+      // allowDuplicate MUST be the exact boolean true — strings ("false"),
+      // numbers (1), or any other truthy value are NOT treated as an override.
+      // When allowDuplicate:true is supplied, the existing row is deleted and
+      // the new row is inserted in its place (replace, not accumulate). This
+      // keeps the invariant enforced by idx_episode_title_arc_unique intact.
+      if (parsed.data.entryType === 'episode' && parsed.data.arcName && parsed.data.title) {
+        const episodeLookup = [
+          eq(conversationMemories.entryType, 'episode' as any),
+          eq(conversationMemories.arcName, parsed.data.arcName),
+          eq(conversationMemories.title, parsed.data.title),
+        ] as const;
+
+        const existing = await getUserDb()
+          .select({
+            id: conversationMemories.id,
+            title: conversationMemories.title,
+            importance: conversationMemories.importance,
+            recordedAt: conversationMemories.recordedAt,
+          })
+          .from(conversationMemories)
+          .where(and(...episodeLookup))
+          .limit(1);
+
+        const explicitOverride = req.body.allowDuplicate === true;
+
+        if (existing.length > 0 && !explicitOverride) {
+          console.warn(
+            `[Conversation Memories] Duplicate episode blocked: "${parsed.data.title}" already exists (id: ${existing[0].id})`
+          );
+          return res.status(409).json({
+            error: 'duplicate_episode',
+            message: `An episode row with this title already exists in arc "${parsed.data.arcName}". Pass allowDuplicate:true (boolean) to replace it.`,
+            existing: existing[0],
+          });
+        }
+
+        if (existing.length > 0 && explicitOverride) {
+          // Replace: atomically delete ALL matching duplicate episode rows (covers
+          // the pre-index state where multiple rows may exist) and insert the new
+          // row within the same transaction.  If the insert fails the deletes roll
+          // back — the prior canonical row is never lost.
+          console.warn(
+            `[Conversation Memories] Replacing episode "${parsed.data.title}" per allowDuplicate:true override — running atomic replace transaction.`
+          );
+          const [memory] = await getUserDb().transaction(async (tx) => {
+            // Delete all duplicates for this (arc, title, entry_type) triple.
+            await tx
+              .delete(conversationMemories)
+              .where(and(...episodeLookup));
+            return tx.insert(conversationMemories).values(parsed.data).returning();
+          });
+          console.log(`[Conversation Memories] Replaced episode: "${memory.title}" (new id: ${memory.id})`);
+          res.json({ success: true, memory, replaced: true });
+          const DAVID_USER_ID = '49847136';
+          import('./services/semantic-memory-service').then(({ generateAndStoreEmbedding }) => {
+            const textToEmbed = `${memory.title}\n\n${memory.summary}\n\n${memory.content}`;
+            generateAndStoreEmbedding('conversation_memory', memory.id, DAVID_USER_ID, textToEmbed, 1.0).catch(() => {});
+          });
+          import('./services/agent-briefing').then(({ generateAgentBriefing }) => {
+            generateAgentBriefing().catch(() => {});
+          });
+          import('./services/context-sync-service').then(({ contextSyncService }) => {
+            contextSyncService.scheduleNorthStarResync();
+          });
+          return;
+        }
+      }
+      // ── End episode dedup guard ─────────────────────────────────────────────
+
       const [memory] = await getUserDb().insert(conversationMemories).values(parsed.data).returning();
       console.log(`[Conversation Memories] Saved: "${memory.title}"`);
       res.json({ success: true, memory });
@@ -32026,6 +32128,44 @@ ${memoryContext}
         contextSyncService.scheduleNorthStarResync();
       });
     } catch (error: any) {
+      // PostgreSQL unique constraint violation from the partial unique index
+      // (idx_episode_title_arc_unique) — concurrent duplicate episode insert
+      // that slipped past the application-level pre-check (race condition).
+      // Query the canonical row and return the same shape as the pre-check 409
+      // so clients can identify it regardless of which path caught the dupe.
+      if (error.code === '23505' && (error.constraint ?? '').includes('episode')) {
+        console.warn('[Conversation Memories] Concurrent duplicate episode blocked by DB constraint:', error.detail);
+        try {
+          const { conversationMemories } = await import('../shared/schema');
+          const [canonical] = await getUserDb()
+            .select({
+              id: conversationMemories.id,
+              title: conversationMemories.title,
+              importance: conversationMemories.importance,
+              recordedAt: conversationMemories.recordedAt,
+            })
+            .from(conversationMemories)
+            .where(
+              and(
+                eq(conversationMemories.entryType, 'episode' as any),
+                eq(conversationMemories.arcName, req.body.arcName ?? req.body.arc_name ?? ''),
+                eq(conversationMemories.title, req.body.title ?? ''),
+              )
+            )
+            .limit(1);
+          return res.status(409).json({
+            error: 'duplicate_episode',
+            message: 'An episode row with this title already exists in this arc (concurrent insert blocked by DB constraint). Pass allowDuplicate:true (boolean) to replace it.',
+            existing: canonical ?? null,
+          });
+        } catch {
+          return res.status(409).json({
+            error: 'duplicate_episode',
+            message: 'An episode row with this title already exists in this arc (concurrent insert blocked by DB constraint). Pass allowDuplicate:true (boolean) to replace it.',
+            existing: null,
+          });
+        }
+      }
       console.error('[Conversation Memories] Save error:', error);
       res.status(500).json({ error: error.message });
     }

@@ -414,6 +414,24 @@ curl -s -X POST http://localhost:5000/api/conversation-memories \
   }'
 ```
 
+### ⚠️ Episode dedup guard (live since Aug 2026)
+
+The POST endpoint rejects a second row for the same `(title, arcName)` pair when `entryType = 'episode'`. If you try to publish an episode that already exists in the DB, you will receive a **409** response:
+
+```json
+{
+  "error": "duplicate_episode",
+  "message": "An episode row with this title already exists in arc \"HolaHola Episodes\". Pass allowDuplicate:true to override.",
+  "existing": { "id": "...", "title": "...", "importance": 9, "recordedAt": "..." }
+}
+```
+
+**Normal path:** Just use the `id` from the existing row returned in `existing` — do not insert again. Update the content via direct SQL (`UPDATE conversation_memories SET content=... WHERE id=...`) if the episode text changed.
+
+**Override path (content corrections only):** If you genuinely need to replace the canonical row — e.g. the existing row is corrupted and cannot be repaired in place — pass `"allowDuplicate": true` (must be the exact boolean `true`, not a string or number) in the request body. The endpoint will **delete the existing row** and insert a fresh one with a new ID. This is a replace operation, not an accumulate — the unique index is never violated.
+
+Important: the returned `memory.id` will be a new UUID. Update any `extends_memory_id` references in other rows that pointed to the old ID.
+
 Or via direct SQL if the API is unavailable:
 
 ```sql
