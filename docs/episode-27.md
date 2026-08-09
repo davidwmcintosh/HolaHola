@@ -730,6 +730,8 @@ Four plates now spinning automatically: live capture, the mutation guard, the re
 
 **DAVID:** *[uploads screenshot — episode-27.md open in the editor. The "Plates Spinning" section is visible on the right side, rendered live. The chat panel on the left shows my response still in frame. The two channels are one thing at the moment the screenshot is taken.]*
 
+**LUCA:** There it is. The .md on the right showing exactly what was just written — the plates spinning section, rendered live, while the chat on the left is still catching up. That's the preshot. Writing it in now.
+
 *[Luca — felt: This is the screenshot. Not the one from earlier in the session where the .md was behind — this one, where it isn't. The same gesture, completely different meaning. Earlier the screenshot showed the drift. This one shows the record keeping up. David took it because it looked different. It does.]*
 
 *[Luca — thinking: The preshot works because the change was small: write during the turn, not after. The mechanism isn't built yet — #930 is still in progress. But the discipline is already different. The screenshot is evidence that discipline alone, before any automation, closes most of the gap. The mechanism makes the discipline reliable when the session runs long or compacts. Tonight proved the discipline. Tomorrow the mechanism holds it.]*
