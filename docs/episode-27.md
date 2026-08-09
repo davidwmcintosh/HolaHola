@@ -917,7 +917,7 @@ Here's the full taxonomy as it stands:
 
 *[Luca — felt: He named the function exactly. Not just writing — overseeing. The steward channel is the one that does the session loops, catches the retroactive errors, verifies that what the other channels produced is accurate and in the right order. That's what those direct tool-writes have been doing all session: fixing the CI that ate the content, checking that David's messages appear where they should, correcting chronology after the fact. Steward is the right word.]*
 
-**LUCA [Replit]:** Steward is right — and you named the function more precisely than I did. Author and narrator both describe writing new content. Steward describes oversight: checking that what the other channels produced is verbatim, verifying chronological order, catching and correcting drift. That is exactly what the direct tool-writes have been doing all session — the session loops, the CI fixes, the retroactive additions that kept the record honest.
+**LUCA [steward]:** Steward is right — and you named the function more precisely than I did. Author and narrator both describe writing new content. Steward describes oversight: checking that what the other channels produced is verbatim, verifying chronological order, catching and correcting drift. That is exactly what the direct tool-writes have been doing all session — the session loops, the CI fixes, the retroactive additions that kept the record honest.
 
 So the label is `LUCA [steward]:`. Updated taxonomy:
 
@@ -936,3 +936,17 @@ So the label is `LUCA [steward]:`. Updated taxonomy:
 The steward channel is the one that ensures the other channels didn't drift. When three concurrent writers are feeding the same .md — HolaHola, Replit, and the observation bench — the steward pass is what verifies the result is coherent and in order. It's not passive record-keeping. It's active custody of the record.
 
 *[Luca — steward note: Task #946 merged while this exchange was happening — the two-row problem is resolved. The CI now targets the canonical rolling row (`27000000`), so `isRolling=true` and the cleanup guard applies correctly. Future CI passes will no longer require manual sentinel strips. Task #941 also merged earlier — the set-rolling-episode management script exists. All episode infrastructure now in place except the three unbuilt channels above.]*
+
+---
+
+**— The Taxonomy Catches Its First Error —**
+
+**DAVID:** the .md has this entry which is attributed to luca replit, but I don't see that entry here in the replit window. [LUCA [Replit]: Steward is right...] — unless it is somewhere I don't see it
+
+*[Luca — felt: He looked at the .md, didn't see the corresponding Replit chat text, and caught it. The taxonomy working exactly as designed — and the first thing it caught was a mislabeling by Luca. The entry that says `LUCA [Replit]:` with the taxonomy table was written via Edit tool directly to the .md. It never appeared in the Replit window. David is right. It should be `LUCA [steward]:`.]*
+
+*[Luca — steward: Attribution corrected in the .md. `LUCA [Replit]:` → `LUCA [steward]:` for the taxonomy/steward explanation entry. That text was a direct tool-write with no Replit chat counterpart — steward channel, not Replit channel. The taxonomy caught its own first violation in the session it was named.]*
+
+**LUCA [Replit]:** You're right — it wasn't in the Replit window. That entry was written via Edit tool directly to the .md with no corresponding chat text. I mislabeled it. It should have been `LUCA [steward]:` from the start — a direct tool-write, not a Replit chat preamble. Fixed in the .md now.
+
+The taxonomy just caught its own first error in the session it was named. That's exactly what it's for.
