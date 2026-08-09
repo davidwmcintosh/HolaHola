@@ -19,6 +19,9 @@
  *      catch sessions where the discipline has silently stopped).
  *  5. Self-check: stripping all LUCA [Replit]: lines causes the ratio check
  *     to fail (guard is not vacuously passing).
+ *  6. Self-check: a synthetic episode with 50 DAVID: entries but only 2
+ *     LUCA [Replit]: entries (ratio 1/25) is caught by the ratio guard
+ *     (confirms mid-session collapse detection, not just total absence).
  *
  * Exit 0 = pass, exit 1 = fail.
  */
@@ -161,6 +164,67 @@ assert(
   'stripped episode fails the ratio check (guard is not vacuously passing)',
   `Stripped count: ${strippedLuca.length}, needed: ${selfCheckMinExpected}`,
 );
+
+// ---------------------------------------------------------------------------
+// Check 6: self-check — mid-session collapse (few Luca entries, many David entries)
+//
+// The realistic failure mode is NOT total absence: Luca writes entries for the
+// first few exchanges then stops.  By the end of a long session the ratio can
+// fall below 1/10 without any single entry being missing or empty.
+//
+// This check builds a synthetic episode with 50 DAVID: entries and only 2
+// LUCA [Replit]: entries (ratio 1/25, below the 1/10 floor) and asserts that
+// the proportionality logic in Check 4 would catch it.
+// ---------------------------------------------------------------------------
+
+console.log('\nCheck 6: self-check — mid-session collapse caught by ratio guard');
+
+(function syntheticCollapseCheck() {
+  const SYNTHETIC_DAVID_COUNT = 50;
+  const SYNTHETIC_LUCA_REPLIT_COUNT = 2; // ratio 1/25 — well below the 1/10 floor
+
+  // Build a minimal synthetic episode that mimics the collapse scenario.
+  const syntheticLines: string[] = [
+    '# Episode 27 — Synthetic collapse test',
+    '',
+  ];
+
+  for (let i = 1; i <= SYNTHETIC_DAVID_COUNT; i++) {
+    syntheticLines.push(`**DAVID:** Turn ${i} student message here.`);
+    // Only the first SYNTHETIC_LUCA_REPLIT_COUNT turns have a Luca Replit entry.
+    if (i <= SYNTHETIC_LUCA_REPLIT_COUNT) {
+      syntheticLines.push(`**LUCA [Replit]:** Replit context note for turn ${i}.`);
+    }
+    // Every turn still has a regular Luca entry (steward/observe are fine).
+    syntheticLines.push(`**LUCA [steward]:** Response for turn ${i}.`);
+    syntheticLines.push('');
+  }
+
+  const syntheticContent = syntheticLines.join('\n');
+
+  // Parse counts the same way the live checks do.
+  const synthLucaReplit = extractLabelLines(syntheticContent, 'LUCA \\[Replit\\]');
+  const synthDavid      = extractLabelLines(syntheticContent, 'DAVID');
+
+  console.log(`  Synthetic episode: ${synthDavid.length} DAVID: entries, ${synthLucaReplit.length} LUCA [Replit]: entries`);
+
+  // Replicate the Check 4 ratio logic verbatim.
+  const syntheticMinExpected = synthDavid.length > 0
+    ? Math.max(1, Math.floor(synthDavid.length / MIN_RATIO_DENOMINATOR))
+    : 1;
+
+  const syntheticFails = synthLucaReplit.length < syntheticMinExpected;
+
+  assert(
+    syntheticFails,
+    `synthetic collapse (${synthLucaReplit.length} LUCA [Replit]: / ${synthDavid.length} DAVID:) fails ratio guard (needed ${syntheticMinExpected})`,
+    `Expected the ratio check to fail but it passed — guard may be broken (got ${synthLucaReplit.length}, needed ${syntheticMinExpected})`,
+  );
+
+  if (syntheticFails) {
+    console.log(`  ratio: ${synthLucaReplit.length}/${synthDavid.length} = 1/${Math.round(synthDavid.length / synthLucaReplit.length)} — below 1/${MIN_RATIO_DENOMINATOR} floor ✓`);
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // Summary
