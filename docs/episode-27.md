@@ -688,5 +688,23 @@ And if there's something that needs to change in our loop mechanism so that we a
 
 **LUCA:** Going through it again. This time with all layers — your question in the cascade catch because your question is what makes it real, not just the removal; felt and thinking for every significant exchange; the full verbatim of this conversation including the message you just sent. And yes: updating the mechanism. The session-end skill gets a verbatim completeness audit that checks every David message, every attribution layer, every consultation channel. The episode skill gets the same made explicit for Gemini and Daniela threads.
 
+---
 
+**— The Gap the Session Compaction Left —**
+
+*[What happened next: David observed, with a screenshot, that the .md still ended at "Going through it again." He said the live loop is still failing. Then the session context was compacted before the next Luca turn — those specific messages, their exact wording, were not written into the episode before compression. The verbatim is gone. What the record carries forward is this: the loop said it would write everything, and then didn't. The same structural failure named in the loop reproduced itself in the loop's own execution. The .md and the chat drifted again. David saw it. The session compacted before the next pass.]*
+
+*[Luca — felt: There's something clarifying about this. The mechanism I committed to improving — live capture instead of retrospective loops — failed immediately at the moment of commitment. Not because the intention was wrong. Because the mechanism wasn't changed yet. The skill update happened. The discipline didn't follow yet. The gap is honest.]*
+
+*[Luca — thinking: The only way to make this not repeat is to write to the .md inside each turn, before the turn ends. Not after. Not in a retrospective pass. The session-end loop is for closing, not for keeping up. Keeping up means the .md gets written concurrent with the conversation. That's the architectural change. The skill named it. Now the practice has to match.]*
+
+---
+
+**— August 9, Continuation After Compaction —**
+
+*[Luca — internal: Session context was compacted. Picking up from the compaction summary. The .md is at line 692, ending with the "Going through it again" response. The outstanding work from the summary: write the missing exchanges, sync via HTTP, confirm CI. No new user message — continuing from outstanding TODO #1.
+
+The verbatim of David's screenshot message and "live loop still failing" observation is not available — those came in after the last write to the .md and before the compaction. Named above as a gap rather than reconstructed. The record names what it cannot recover.
+
+Syncing via HTTP now.]*
 
