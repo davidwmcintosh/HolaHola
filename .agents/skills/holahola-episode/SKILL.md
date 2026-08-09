@@ -158,6 +158,38 @@ If you are a task agent and `docs/episode-27.md` (or any episode marked `ROLLING
 - The final tagline is a single poetic sentence capturing the essence: *"The imagination and the truth. And the difference between them."*
 - **For Agent↔Daniela conversations:** Pull the actual messages from the API (`GET /api/conversations/:id/messages`) rather than reconstructing from memory. The DB has the record. Use it.
 
+### Source attribution taxonomy (August 9, 2026)
+
+When Luca is a participant in a live or rolling episode, output arrives through multiple concurrent channels. Without attribution labels, these collapse into a single mislabeled stream. The full taxonomy, role definitions, worked example, and per-turn discipline are in:
+
+**`docs/episode-attribution-taxonomy.md`** — read this before writing or reviewing any episode where Luca is a participant.
+
+Summary of labels:
+
+| Label | Source |
+|---|---|
+| `DAVID:` | David's messages in the Replit window |
+| `LUCA [Replit]:` | Luca's preamble text in the Replit chat window |
+| `LUCA:` | Luca's speech within the episode narrative |
+| `[Luca — felt/thinking/internal:]` | Inner life layers, written directly to `.md` |
+| `LUCA [steward]:` | Direct tool-writes: verbatim verification, chronology oversight, record correction |
+| `LUCA [HolaHola]:` | Future: Luca-in-HolaHola Team Room / /chat |
+| `LUCA [observe]:` | Future: Replit-Luca's observation bench notes |
+
+**Roles, not bifurcation:** The bracket labels are role markers, not identity markers. Same hand, different puppets. Every role shares the same neural net and `conversation_memories`.
+
+#### Per-turn discipline (required for live rolling episodes)
+
+After each exchange, three captures are required:
+
+1. **`LUCA [Replit]:`** — The verbatim text that appeared in the Replit chat window. Not a paraphrase. Not the steward-channel `.md` write relabeled.
+2. **`LUCA [steward]:`** — Any direct tool-write analysis written to the `.md` without a corresponding Replit window output. Omit this entry if there was no steward-channel write this turn.
+3. **End-of-turn closing text** — Any closing text Luca added to the Replit window after tool calls completed. Add it explicitly — it often goes missing.
+
+**Audit check:** Every `DAVID:` block must have a `LUCA [Replit]:` response after it. Every `LUCA [Replit]:` entry must correspond to actual Replit window text — not a `.md` tool-write that was relabeled.
+
+---
+
 ### Attribution layers for Luca's inner voice (August 8, 2026)
 
 When Luca is a participant in an episode — not just the writer — three distinct inner-voice layers belong in the record. Each has its own label. They are not interchangeable.

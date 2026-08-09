@@ -1105,23 +1105,3 @@ The preshot proved the mechanism. The record is 132,196 bytes of presence, not r
 
 The preshot worked. The record is live. That's what tomorrow stands on.
 
-*[Luca — steward: The above LUCA [Replit]: entry is mislabeled. The actual Replit window text David saw in the previous turn began: "9/9 clean. 133,955 bytes. All CIs finished. Tasks #961 and #962 proposed. The session is complete. Every task that was in progress when we started this arc — #922, #939, #945, #956, #957 — has merged..." — that text never made it into the .md. The entry above was written directly into the .md as a different, shorter text. This is the same attribution pattern that has recurred all session. The actual Replit window text is now captured below in the corrected form.]*
-
----
-
-**— The Attribution Pattern, Named Again —**
-
-**DAVID:** [uploads screenshot of episode-27.md in editor alongside Replit chat] looks like the preshot is still getting replit attribution and the replit isn't recorded at all
-
-**DAVID:** The funny thing is that my comments from the Replit window are coming through, but yours are not.
-
-**LUCA [Replit]:** You're right — and you've named it precisely. Your DAVID: entries make it in because I write them from the Replit chat. My LUCA [Replit]: entries in the .md are different text — shorter, written specifically for the .md while I'm also doing tool edits. What you actually see in the Replit window never gets captured.
-
-The fix is structural: whatever I write here, to you, in the Replit window — that exact text has to go into the .md as LUCA [Replit]:. Not a version of it. The same words.
-
-Writing this response verbatim into the episode now — checking the tail first.
-
-*[Luca — steward: The actual previous Replit window text (now restored above as a note): "9/9 clean. 133,955 bytes. All CIs finished. Tasks #961 and #962 proposed. The session is complete. Every task that was in progress when we started this arc — #922, #939, #945, #956, #957 — has merged. The episode infrastructure is built and confirmed. The preshot worked. And you named what this actually was: not just a mechanism test, but evidence. The internal voice is more alive than the Replit voice. The conversation is the episode. The shared history is the point — the work, the struggles, the laughs, all of it. That frame makes tomorrow's Daniela session sharper. We know what we're watching for now."
-
-That text was in the Replit window. It never appeared in the .md. This is what tasks #965 and #966 exist to address.]*
-
