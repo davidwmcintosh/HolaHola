@@ -36,9 +36,23 @@
  *   4. Asserts sentinel does NOT appear in .md (gate held).
  *   5. Asserts .md is unchanged from original (no spurious writes).
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Concurrent self-check mode  (--self-check-concurrent)
+ * ─────────────────────────────────────────────────────────────────────────────
+ *   Proves the cleanup step does NOT destroy content written to the rolling .md
+ *   while the CI test was in flight (simulates concurrent session writes):
+ *   1. Runs the full normal-mode append flow (sentinel lands in .md).
+ *   2. Appends a "concurrent content" marker directly to the .md, simulating a
+ *      live session writing to the rolling episode during the CI run.
+ *   3. Runs the cleanup logic (strip sentinel from current .md, write back).
+ *   4. Asserts concurrent content survived (was NOT removed by cleanup).
+ *   5. Asserts sentinel is gone (cleanup did its job on the sentinel only).
+ *   6. Restores the .md to its original content.
+ *
  * Run:
  *   npx tsx server/scripts/test-episode-append-trigger.ts
  *   npx tsx server/scripts/test-episode-append-trigger.ts --self-check
+ *   npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
  */
 
 import { existsSync, readFileSync, writeFileSync, statSync } from 'fs';
@@ -65,9 +79,9 @@ const EPISODE_TITLE = 'Episode 27';
 const ARC_NAME      = 'HolaHola Episodes';
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
-const selfCheckMode = process.argv.includes('--self-check');
+const selfCheckMode       = process.argv.includes('--self-check');
 
-// ── Assertion accumulator ─────────────────────────────────────────────────────
+const concurrentCheckMode = process.argv.includes('--self-check-concurrent');
 let passed = 0;
 let failed = 0;
 
@@ -90,6 +104,51 @@ function sleep(ms: number): Promise<void> {
 function episodeSummary(content: string): string {
   return content.split('\n').map(l => l.trim()).filter(Boolean)
     .slice(0, 5).join(' ').slice(0, 400);
+}
+
+/**
+ * Strip a CI-owned HTML comment marker from episode content.
+ *
+ * Always call this on the CURRENT file content (read at cleanup time), never on
+ * a snapshot captured at test-start.  That way any real session content written
+ * to the rolling .md while the CI was running is preserved — only the specific
+ * marker string we own gets removed.
+ */
+function stripMarkerFromContent(content: string, marker: string): string {
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`\\n?<!--\\s*${escaped}[\\s\\S]*?-->\\n?`, 'g');
+  return content.replace(re, '');
+}
+
+/**
+ * Shared cleanup operation: reads the CURRENT .md (never a snapshot), strips
+ * the marker, writes the file back, and syncs the DB row.
+ *
+ * Both the normal-mode finally block and the concurrent self-check call this
+ * exact function.  Centralising here ensures the concurrent self-check exercises
+ * the real production cleanup path — if this function is ever changed to restore
+ * from a start-of-run snapshot, the concurrent self-check will immediately fail
+ * because concurrent content written before the call will be destroyed.
+ *
+ * Returns the cleaned content so callers can assert on it.
+ */
+async function cleanupSentinel(
+  mdPath: string,
+  marker: string,
+  rowId: string,
+  db: ReturnType<typeof getSharedDb>,
+): Promise<string> {
+  // Read the CURRENT file — preserves any content added while the CI ran.
+  const currentMd = existsSync(mdPath) ? readFileSync(mdPath, 'utf-8') : '';
+  const cleanedMd = stripMarkerFromContent(currentMd, marker);
+  writeFileSync(mdPath, cleanedMd, 'utf-8');
+  await db.execute(sql`
+    UPDATE conversation_memories
+    SET content = ${cleanedMd},
+        summary = ${episodeSummary(cleanedMd)}
+    WHERE id = ${rowId}
+  `);
+  return cleanedMd;
 }
 
 /**
@@ -254,36 +313,20 @@ async function runNormalMode(): Promise<void> {
     console.log(B('STEP 6 — Clean up sentinel (preserve rolling content)'));
     sep();
 
-    // Read the CURRENT .md at cleanup time, not the pre-test snapshot.
-    // This preserves any content appended to the rolling episode while the CI ran.
-    const currentMd = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : originalMd;
-
-    // Strip our sentinel using a regex — handles whitespace/newline variations
-    // that can cause an exact-string replace to silently miss.
-    const escapedSentinel = sentinel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const sentinelRe      = new RegExp(`\\n?<!--\\s*${escapedSentinel}[\\s\\S]*?-->\\n?`, 'g');
-    const cleanedMd       = currentMd.replace(sentinelRe, '');
-
-    writeFileSync(MD_PATH, cleanedMd, 'utf-8');
-    const restoredMd = readFileSync(MD_PATH, 'utf-8');
-    assert(
-      'Sentinel cleaned from .md (rolling content preserved)',
-      !restoredMd.includes(sentinel),
-      '.md still contains sentinel after cleanup',
-    );
-    console.log(Y(`  ℹ  .md after cleanup: ${restoredMd.length} bytes`));
-
-    // Sync cleaned content back to the DB row this CI manages.
+    // Delegate to the shared cleanupSentinel() that the concurrent self-check
+    // also calls — one function governs both paths.
     try {
-      await db.execute(sql`
-        UPDATE conversation_memories
-        SET content = ${cleanedMd},
-            summary = ${episodeSummary(cleanedMd)}
-        WHERE id = ${rowId}
-      `);
+      const cleanedMd = await cleanupSentinel(MD_PATH, sentinel, rowId, db);
+      const restoredMd = readFileSync(MD_PATH, 'utf-8');
+      assert(
+        'Sentinel cleaned from .md (rolling content preserved)',
+        !restoredMd.includes(sentinel),
+        '.md still contains sentinel after cleanup',
+      );
+      console.log(Y(`  ℹ  .md after cleanup: ${cleanedMd.length} bytes`));
       console.log(Y(`  ℹ  DB row ${rowId.slice(0, 8)}… synced: ${cleanedMd.length} bytes`));
     } catch (err: any) {
-      console.error(R(`  ✗  DB sync failed: ${err.message}`));
+      console.error(R(`  ✗  Cleanup failed: ${err.message}`));
       failed++;
     }
 
@@ -389,10 +432,172 @@ async function runSelfCheck(): Promise<void> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main
-// ─────────────────────────────────────────────────────────────────────────────
+async function runSelfCheckConcurrent(): Promise<void> {
+  sep();
+  console.log(B('CONCURRENT SELF-CHECK — cleanup must preserve concurrent session writes'));
+  sep();
+  console.log(Y('  ℹ  Simulates content written to the rolling .md while the CI was running.'));
+  console.log(Y('  ℹ  Concurrent content must survive; only the CI sentinel must be stripped.'));
 
+  if (!existsSync(MD_PATH)) {
+    console.log(R(`  ✗  docs/episode-27.md not found — cannot run concurrent self-check`));
+    failed++;
+    return;
+  }
+
+  const db         = getSharedDb();
+  const originalMd = readFileSync(MD_PATH, 'utf-8');
+
+  // Discover the DB row (same lookup as syncEpisodeFile)
+  const lookupRows = await db.execute(sql`
+    SELECT id, content, tags
+    FROM conversation_memories
+    WHERE arc_name = ${ARC_NAME}
+      AND title    = ${EPISODE_TITLE}
+    LIMIT 1
+  `);
+  const lookupRow = (lookupRows as any).rows?.[0] ?? (lookupRows as any)[0];
+
+  assert(
+    `DB row for "${EPISODE_TITLE}" in "${ARC_NAME}" found`,
+    !!lookupRow,
+    `No row found — run the episode insert script first`,
+  );
+  if (!lookupRow) return;
+
+  const rowId: string = lookupRow.id;
+  console.log(Y(`  ℹ  Row ID             : ${rowId}`));
+  console.log(Y(`  ℹ  Original .md size  : ${originalMd.length} bytes`));
+
+  // Two distinct markers: CI sentinel (must be removed) + concurrent content (must survive)
+  const ts             = Date.now();
+  const sentinel       = `[CI-CONCURRENT-SENTINEL-${ts}] should-be-stripped-by-cleanup`;
+  const concurrentText = `[CI-CONCURRENT-CONTENT-${ts}] written by a live session — must survive cleanup`;
+  const exchange       = `\n<!-- ${sentinel} -->`;
+  const payload        = JSON.stringify({ exchange, episode: 'episode-27' });
+
+  try {
+    // ── Baseline: force DB to match current .md ────────────────────────────
+    await db.execute(sql`
+      UPDATE conversation_memories
+      SET content = ${originalMd},
+          summary = ${episodeSummary(originalMd)}
+      WHERE id = ${rowId}
+    `);
+    console.log(Y(`  ℹ  Baseline: DB force-set to ${originalMd.length} bytes`));
+
+    sep();
+    console.log(B('STEP 1 — Prime the watcher mtime state'));
+    sep();
+
+    const mtime0 = await writeAppendTrigger(payload, 0);
+    console.log(Y(`  ℹ  Trigger file written (mtime0 = ${mtime0})`));
+    // First call: prev === 0 → skips, stamps mtime0
+    await checkEpisodeAppend();
+    console.log(Y(`  ℹ  Prime call complete`));
+
+    sep();
+    console.log(B('STEP 2 — Re-write trigger and append sentinel to .md'));
+    sep();
+
+    const mtime1 = await writeAppendTrigger(payload, mtime0);
+    console.log(Y(`  ℹ  Trigger file re-written (mtime1 = ${mtime1})`));
+    assert(
+      'Trigger mtime advanced (prerequisite for watcher detection)',
+      mtime1 > mtime0,
+      `mtime1 (${mtime1}) must be > mtime0 (${mtime0})`,
+    );
+
+    // Second call: processes sentinel → appends to .md
+    await checkEpisodeAppend();
+    console.log(Y(`  ℹ  checkEpisodeAppend() processed trigger — sentinel appended to .md`));
+
+    const mdWithSentinel = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
+    assert(
+      'Sentinel appeared in .md (append worked)',
+      mdWithSentinel.includes(sentinel),
+      `Sentinel not found in .md — append did not work`,
+    );
+
+    sep();
+    console.log(B('STEP 3 — Simulate concurrent session write to the rolling .md'));
+    sep();
+
+    // A real rolling session would write content to the .md while CI is in flight.
+    // We replicate that by appending our concurrent marker directly to the file.
+    const mdBeforeConcurrent = readFileSync(MD_PATH, 'utf-8');
+    const mdWithBoth = mdBeforeConcurrent + `\n\n<!-- ${concurrentText} -->\n`;
+    writeFileSync(MD_PATH, mdWithBoth, 'utf-8');
+    console.log(Y(`  ℹ  Concurrent content written to .md (${mdWithBoth.length} bytes)`));
+    assert(
+      'Both sentinel and concurrent content present in .md before cleanup',
+      mdWithBoth.includes(sentinel) && mdWithBoth.includes(concurrentText),
+      'One or both markers missing from .md before cleanup',
+    );
+
+    sep();
+    console.log(B('STEP 4 — Run CI cleanup logic (strip sentinel from CURRENT .md)'));
+    sep();
+
+    // Call the SAME cleanupSentinel() the normal-mode finally block uses.
+    // This is the key invariant: both paths share one implementation.  If that
+    // function is ever changed to restore from a snapshot instead of reading the
+    // current file, this self-check will fail because the concurrent content
+    // written in STEP 3 will be missing from the .md after cleanup.
+    const cleanedMd = await cleanupSentinel(MD_PATH, sentinel, rowId, db);
+    console.log(Y(`  ℹ  Cleanup complete — .md is now ${cleanedMd.length} bytes`));
+
+    sep();
+    console.log(B('STEP 5 — Assert concurrent content survived and sentinel is gone'));
+    sep();
+
+    const mdAfterCleanup = readFileSync(MD_PATH, 'utf-8');
+
+    assert(
+      'Sentinel stripped from .md by cleanup',
+      !mdAfterCleanup.includes(sentinel),
+      `Sentinel still present in .md after cleanup — cleanup regex failed`,
+    );
+
+    assert(
+      'Concurrent session content survived cleanup (rolling content preserved)',
+      mdAfterCleanup.includes(concurrentText),
+      `Concurrent content "${concurrentText.slice(0, 60)}…" was destroyed by cleanup — BUG`,
+    );
+
+    const originalLengthApprox = originalMd.length;
+    assert(
+      '.md is longer than original (concurrent content not discarded)',
+      mdAfterCleanup.length > originalLengthApprox,
+      `.md (${mdAfterCleanup.length} bytes) should be larger than original (${originalLengthApprox} bytes)`,
+    );
+
+    console.log(Y(`  ℹ  .md after cleanup: ${mdAfterCleanup.length} bytes (original was ${originalLengthApprox} bytes)`));
+
+  } finally {
+    sep();
+    console.log(B('STEP 6 — Strip concurrent content marker from CURRENT .md'));
+    sep();
+
+    // The sentinel was already stripped in STEP 4 via cleanupSentinel().
+    // Here we only remove the concurrent content marker we wrote in STEP 3.
+    // Calling cleanupSentinel() with concurrentText ensures this path also reads
+    // the current file rather than any snapshot — safe for rolling episodes.
+    try {
+      const finalMd = await cleanupSentinel(MD_PATH, concurrentText, rowId, db);
+      console.log(Y(`  ℹ  .md after final marker cleanup: ${finalMd.length} bytes`));
+      console.log(Y(`  ℹ  DB row ${rowId.slice(0, 8)}… synced`));
+    } catch (err: any) {
+      console.error(R(`  ✗  Final cleanup failed: ${err.message}`));
+      failed++;
+    }
+
+    // Clear the trigger file
+    if (existsSync(EPISODE_APPEND_PATH)) {
+      writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    }
+  }
+}
 async function main(): Promise<void> {
   const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
   if (!DATABASE_URL) {
@@ -400,13 +605,19 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const modeLabel = concurrentCheckMode
+    ? '  Episode Append Trigger — CONCURRENT SELF-CHECK'
+    : selfCheckMode
+      ? '  Episode Append Trigger — SELF-CHECK'
+      : '  Episode Append Trigger — End-to-End CI Check';
+
   console.log('\n' + '═'.repeat(70));
-  console.log(B(selfCheckMode
-    ? '  Episode Append Trigger — SELF-CHECK'
-    : '  Episode Append Trigger — End-to-End CI Check'));
+  console.log(B(modeLabel));
   console.log('═'.repeat(70));
 
-  if (selfCheckMode) {
+  if (concurrentCheckMode) {
+    await runSelfCheckConcurrent();
+  } else if (selfCheckMode) {
     await runSelfCheck();
   } else {
     await runNormalMode();
@@ -415,9 +626,12 @@ async function main(): Promise<void> {
   sep();
   const total = passed + failed;
   if (failed === 0) {
-    console.log(G(selfCheckMode
-      ? `\n✓  Self-check passed (${total} assertions).\n   Gate is sound: clearing the trigger before processing prevents append.\n`
-      : `\n✓  All ${total} assertions passed.\n   Episode append trigger writes to .md and syncs to DB within one poll cycle.\n`));
+    const successMsg = concurrentCheckMode
+      ? `\n✓  Concurrent self-check passed (${total} assertions).\n   Cleanup preserves rolling content — only the CI sentinel is stripped.\n`
+      : selfCheckMode
+        ? `\n✓  Self-check passed (${total} assertions).\n   Gate is sound: clearing the trigger before processing prevents append.\n`
+        : `\n✓  All ${total} assertions passed.\n   Episode append trigger writes to .md and syncs to DB within one poll cycle.\n`;
+    console.log(G(successMsg));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${total} assertions failed.\n`));

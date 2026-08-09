@@ -27,4 +27,8 @@ run test-prequel-episode-4-db-sync.ts
 run test-read-my-story-self-check.ts
 
 echo ""
+echo "=== test-episode-append-trigger.ts --self-check-concurrent ==="
+npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
+
+echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="
