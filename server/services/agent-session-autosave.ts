@@ -930,14 +930,34 @@ export function startAgentSessionAutosave(): void {
 
   // Seed inner-life watcher mtimes so first poll doesn't re-fire on existing files
   for (const [path, setMtime] of [
-    [REFLECTION_PATH,      (m: number) => { reflectionLastMtime = m; }] as const,
-    [QUESTION_PATH,        (m: number) => { questionLastMtime = m; }] as const,
-    [MOMENT_PATH,          (m: number) => { momentLastMtime = m; }] as const,
-    [EPISODE_APPEND_PATH,  (m: number) => { episodeAppendLastMtime = m; }] as const,
+    [REFLECTION_PATH,  (m: number) => { reflectionLastMtime = m; }] as const,
+    [QUESTION_PATH,    (m: number) => { questionLastMtime = m; }] as const,
+    [MOMENT_PATH,      (m: number) => { momentLastMtime = m; }] as const,
   ]) {
     if (existsSync(path)) {
       try { setMtime(statSync(path).mtimeMs); } catch { /* ignore */ }
     }
+  }
+
+  // Episode-append startup guard: if the trigger file has leftover non-empty content
+  // from a prior session, clear it before arming the watcher.  Seeding the mtime alone
+  // is not enough — the content-hash approach requires us to know the prior hash, which
+  // we don't have across restarts.  Clearing is safe because the prior session's watcher
+  // already processed (or should have processed) the content; if it didn't, the content
+  // is stale relative to the current session anyway.
+  if (existsSync(EPISODE_APPEND_PATH)) {
+    try {
+      const staleContent = readFileSync(EPISODE_APPEND_PATH, 'utf-8').trim();
+      if (staleContent.length > 0) {
+        console.warn(
+          '[AgentAutosave] Stale .episode_append content detected at startup — clearing to prevent re-append.',
+          `(${staleContent.length} bytes discarded)`,
+        );
+        writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+      }
+      // Seed mtime from the (now possibly cleared) file
+      episodeAppendLastMtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    } catch { /* ignore */ }
   }
 
   // Seed flush-trigger mtime so an existing file doesn't fire spuriously on startup
