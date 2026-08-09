@@ -442,8 +442,9 @@ const PREQUEL_RE = /^prequel-episode-(\d+)\.md$/;
 
 // Per-file state: mtime and (once discovered) the DB memory ID
 export const episodeMtimeMap = new Map<string, number>();   // filename → last seen mtime
-const episodeIdCache  = new Map<string, string>();   // filename → conversation_memories.id
-const episodeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+const episodeIdCache      = new Map<string, string>();    // filename → conversation_memories.id
+const episodeRollingCache = new Map<string, boolean>();   // filename → has 'rolling' tag
+const episodeDebounce     = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Prequel episode state (parallel to episode state above)
 export const prequelMtimeMap = new Map<string, number>();
@@ -490,9 +491,12 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
     // Look up existing ID (cache it after first discovery)
     let memoryId = episodeIdCache.get(filename);
 
+    // Initialise from the persistent cache; updated below on first DB lookup.
+    let isRolling = episodeRollingCache.get(filename) ?? false;
+
     if (!memoryId) {
       const rows = await db.execute(sql`
-        SELECT id FROM conversation_memories
+        SELECT id, tags FROM conversation_memories
         WHERE arc_name = 'HolaHola Episodes'
           AND title = ${title}
         LIMIT 1
@@ -501,18 +505,39 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       if (row?.id) {
         memoryId = row.id as string;
         episodeIdCache.set(filename, memoryId);
+        const tags: string[] = row.tags ?? [];
+        isRolling = Array.isArray(tags) && tags.includes('rolling');
+        // Persist so every subsequent autosave uses the correct guard.
+        episodeRollingCache.set(filename, isRolling);
       }
     }
 
     if (memoryId) {
-      // Episode already in DB — update content + summary
-      await db.execute(sql`
-        UPDATE conversation_memories
-        SET content = ${content},
-            summary = ${summary}
-        WHERE id = ${memoryId}
-      `);
-      console.log(`[AgentAutosave] Episode synced (update): ${title} (${content.length} bytes)`);
+      // Episode already in DB — update content + summary.
+      // For ROLLING episodes use a max-length guard: only overwrite content when
+      // the incoming file is at least as long as the existing DB record.  This
+      // prevents a concurrent/stale writer (other task merge, old autosave snapshot)
+      // from shrinking a growing episode and erasing appended cascade content.
+      if (isRolling) {
+        await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = CASE
+                WHEN LENGTH(${content}) >= LENGTH(content)
+                THEN ${content}
+                ELSE content
+              END,
+              summary = ${summary}
+          WHERE id = ${memoryId}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = ${content},
+              summary = ${summary}
+          WHERE id = ${memoryId}
+        `);
+      }
+      console.log(`[AgentAutosave] Episode synced (update${isRolling ? ', rolling-guard' : ''}): ${title} (${content.length} bytes)`);
     } else {
       // First time seeing this episode — insert it
       const inserted = await db.execute(sql`

@@ -202,16 +202,6 @@ export const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // does not read from any memory store, session history, or embedding index.
   // Cannot cause a recall chain.  Only reachable in admin/founder mode.
 
-  // ── read_my_ prefix — sequential story reader ────────────────────────────
-  'read_my_story',
-  // Sequential episode reader — fetches one chapter (episode) at a time from
-  // conversation_memories.  Returns a single episode's content and a cursor so
-  // Daniela can call the next chapter when ready.  Not a memory spiral risk:
-  // each call fetches exactly one fixed record by episode number / chapter key
-  // (no embedding search, no iterative scan).  It is a fire-and-read tool, not
-  // a search loop.  Architecturally identical to recall_episode_deep except
-  // user-facing and chapter-indexed.  Dispatched via self_read(action:
-  // "read_my_story") — the sub-tool level is the right place to categorize it.
 ]);
 
 // ─── Dispatcher tools that route to memory sub-tools ─────────────────────────

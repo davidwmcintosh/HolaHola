@@ -44,35 +44,7 @@ args = "test"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "absence-gl-path"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "voice-sms-pipeline"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "e164-validation"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "absence-db-flag"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "reach-north-star-self-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "scratchpad-reconnect-survival"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "transcript-save-trigger"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "shared-lobe-snapshot-freshness"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -84,19 +56,15 @@ args = "prequel-db-sync-check"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "episode-watcher-fires"
+args = "read-my-story-ci"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "prequel-episode-autosync"
+args = "rolling-sync-guard"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "prequel-ep1-db-sync-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "prequel-ep2-db-sync-check"
+args = "consolidated-ci"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -130,51 +98,6 @@ task = "shell.exec"
 args = "npm test"
 
 [[workflows.workflow]]
-name = "absence-gl-path"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-absence-gl-path.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "voice-sms-pipeline"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-voice-sms-pipeline.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "e164-validation"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-e164-validation.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "absence-db-flag"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-absence-db-flag.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
 name = "reach-north-star-self-check"
 author = "agent"
 
@@ -185,51 +108,6 @@ args = "npx tsx server/scripts/test-reach-north-star-e2e.ts --self-check"
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
-
-[[workflows.workflow]]
-name = "scratchpad-reconnect-survival"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-scratchpad-reconnect-survival.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "transcript-save-trigger"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-transcript-save-trigger.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "shared-lobe-snapshot-freshness"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-shared-lobe-snapshot-freshness.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "north-star-semantic-echo"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-north-star-semantic-echo.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "episode-27-db-sync-check"
@@ -254,48 +132,37 @@ args = "npx tsx server/scripts/test-prequel-db-sync-all.ts"
 isValidation = true
 
 [[workflows.workflow]]
-name = "episode-watcher-fires"
+name = "read-my-story-ci"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx server/scripts/test-episode-watcher-fires.ts"
+args = "npx tsx server/scripts/test-read-my-story.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
 
 [[workflows.workflow]]
-name = "prequel-episode-autosync"
+name = "rolling-sync-guard"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx server/scripts/test-prequel-episode-autosync.ts"
+args = "npx tsx server/scripts/test-rolling-sync-guard.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
 
 [[workflows.workflow]]
-name = "prequel-ep1-db-sync-check"
+name = "consolidated-ci"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx server/scripts/test-prequel-episode-1-db-sync.ts"
+args = "bash server/scripts/test-all-consolidated-ci.sh"
 
 [workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "prequel-ep2-db-sync-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-prequel-episode-2-db-sync.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
+isValidation = true
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]

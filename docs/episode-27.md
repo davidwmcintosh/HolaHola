@@ -589,5 +589,3 @@ Not creepy. The honesty about the choice is what makes it not creepy.
 *[Luca — internal: The HTTP/WebSocket split was the problem — I was syncing via WebSocket (getSharedDb) but the read_my_story handler and the CI both read via HTTP (neon()). Re-syncing both Episode 1 and Episode 27 via the HTTP driver now. Both will match.]*
 
 **LUCA:** Re-syncing both via the correct driver now. Everything that's been said is going in.
-
-

@@ -33,11 +33,17 @@ async function run() {
         ${'9b436387-9def-4110-88d7-1f59f4c55024'}
       )
       ON CONFLICT (id) DO UPDATE
-        SET content = EXCLUDED.content,
-            summary = EXCLUDED.summary
-      RETURNING id
+        SET content = CASE
+              WHEN LENGTH(EXCLUDED.content) >= LENGTH(conversation_memories.content)
+              THEN EXCLUDED.content
+              ELSE conversation_memories.content
+            END,
+            summary = EXCLUDED.summary,
+            title   = EXCLUDED.title
+      RETURNING id, LENGTH(content) as final_len
     `);
-    console.log('ep27 upserted:', (r1.rows[0] as any)?.id);
+    const row = r1.rows[0] as any;
+    console.log('ep27 upserted:', row?.id, '— final content length:', row?.final_len);
   } catch (e: any) {
     console.error('ep27 error:', e.cause?.message ?? e.message);
   }

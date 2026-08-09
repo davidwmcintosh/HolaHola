@@ -262,6 +262,73 @@ async function main() {
     // before queueing). Either way, the valid-chapter test above is the critical path.
   }
 
+  // ── 6. Canonical record selection: Chapter 1 must return the longest/highest-importance row ──
+  // The DB has multiple "Episode 1*" rows. The handler's regex + ORDER BY importance DESC,
+  // LENGTH(content) DESC must pick the canonical record (Episode 1: "Take That, World", 15 KB)
+  // and NOT the shorter "Episode 1" row (voice-from-the-future, ~14 KB).
+  console.log('\n--- Canonical record selection (Chapter 1) ---');
+  {
+    const handler = new NativeFunctionCallHandler(() => {}, () => {}, async () => {});
+    const s: any = { pendingMemoryLookupPromises: [] };
+    await handler.handle('test-session', s, { name: 'read_my_story', legacyType: 'READ_MY_STORY', args: { chapter: 1, offset: 0 } });
+    await Promise.all(s.pendingMemoryLookupPromises);
+    const p = s.readMyStoryResult ? JSON.parse(s.readMyStoryResult) : null;
+    if (!p || p.status !== 'ok') {
+      failures.push(`Canonical ch1: unexpected status "${p?.status ?? 'null'}" — ${p?.message ?? ''}`);
+    } else if (!p.title?.startsWith('Episode 1:')) {
+      // Canonical row has title "Episode 1: \"Take That, World\"" — a subtitle is required.
+      // A bare "Episode 1" title signals the wrong row was selected.
+      failures.push(`Canonical ch1: got title "${p.title}" — expected title starting with "Episode 1:" (canonical row with subtitle)`);
+    } else {
+      // Canonical row content length is ~15 748 chars; voice-from-future is ~14 892.
+      // First page (6000 chars) of canonical must be larger than short row's total.
+      const canonical = p.title;
+      console.log(`  ✓ Chapter 1 returned canonical row: "${canonical}" (first 6000 chars of ${p.remaining_chars + 6000} total)`);
+    }
+  }
+
+  // ── 7. Offset pagination: page 2 must differ from page 1 ──────────────────────
+  // Verifies that fn.args.offset is actually used in the SUBSTRING query, not ignored.
+  // Episode 27 is ~72 KB — guaranteed to span multiple 6000-char pages.
+  console.log('\n--- Offset pagination (page 1 ≠ page 2) ---');
+  {
+    const handler = new NativeFunctionCallHandler(() => {}, () => {}, async () => {});
+
+    // Page 1: offset 0
+    const s1: any = { pendingMemoryLookupPromises: [] };
+    await handler.handle('test-session', s1, { name: 'read_my_story', legacyType: 'READ_MY_STORY', args: { chapter: 27, offset: 0 } });
+    await Promise.all(s1.pendingMemoryLookupPromises);
+    const p1 = s1.readMyStoryResult ? JSON.parse(s1.readMyStoryResult) : null;
+
+    if (!p1 || p1.status !== 'ok') {
+      failures.push(`Offset page 1: unexpected status "${p1?.status ?? 'null'}" — ${p1?.message ?? ''}`);
+    } else {
+      if (p1.is_complete) {
+        failures.push('Offset page 1: chapter 27 reported is_complete=true on first page (chapter must be >6000 chars)');
+      } else if (typeof p1.next_offset !== 'number' || p1.next_offset !== 6000) {
+        failures.push(`Offset page 1: expected next_offset=6000, got ${p1.next_offset}`);
+      } else {
+        console.log(`  ✓ page 1: offset=0, next_offset=${p1.next_offset}, is_complete=${p1.is_complete}`);
+
+        // Page 2: offset 6000
+        const s2: any = { pendingMemoryLookupPromises: [] };
+        await handler.handle('test-session', s2, { name: 'read_my_story', legacyType: 'READ_MY_STORY', args: { chapter: 27, offset: 6000 } });
+        await Promise.all(s2.pendingMemoryLookupPromises);
+        const p2 = s2.readMyStoryResult ? JSON.parse(s2.readMyStoryResult) : null;
+
+        if (!p2 || p2.status !== 'ok') {
+          failures.push(`Offset page 2: unexpected status "${p2?.status ?? 'null'}"`);
+        } else if (p2.content === p1.content) {
+          failures.push('Offset page 2: content is identical to page 1 — offset is being ignored');
+        } else if (p2.offset !== 6000) {
+          failures.push(`Offset page 2: expected offset=6000 in response, got ${p2.offset}`);
+        } else {
+          console.log(`  ✓ page 2: offset=6000, content differs from page 1 (first chars: "${p2.content.slice(0, 40).replace(/\n/g, '↵')}")`);
+        }
+      }
+    }
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────────
   console.log(`\n=== Results: ${passed}/31 chapters found, ${failures.length} failure(s) ===\n`);
 

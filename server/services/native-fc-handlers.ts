@@ -254,10 +254,10 @@ export class NativeFunctionCallHandler {
 
     switch (fn.legacyType) {
 
-      // ============================================================
+      // ------------------------------------------------------------
       // DISPATCHER CASES — Hybrid architecture for GL 64-tool limit
       // Each dispatcher parses params_json and routes to the real handler.
-      // ============================================================
+      // ------------------------------------------------------------
 
       // ─── PHASE 2 DISPATCHERS — classroom_widget split into 6 (widget field) ───────
       case 'WIDGET_TIME': {
@@ -3389,13 +3389,13 @@ export class NativeFunctionCallHandler {
         console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}`);
 
         let chapterLabel: string;
-        let exactTitle: string;
+        let titlePattern: string;
         if (chapterNum >= 1 && chapterNum <= 27) {
-          exactTitle = `Episode ${chapterNum}`;
+          titlePattern = `Episode ${chapterNum}`;
           chapterLabel = `Episode ${chapterNum}`;
         } else if (chapterNum >= 28 && chapterNum <= 31) {
           const prequelNum = chapterNum - 27;
-          exactTitle = `Prequel Episode ${prequelNum}`;
+          titlePattern = `Prequel Episode ${prequelNum}`;
           chapterLabel = `Prequel Episode ${prequelNum}`;
         } else {
           (session as any).readMyStoryResult = JSON.stringify({
@@ -3411,18 +3411,28 @@ export class NativeFunctionCallHandler {
           : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
           : null;
 
+        // Offset-based pagination: caller passes 0-based character offset; defaults to 0.
+        const PAGE_SIZE = 6000;
+        const offset = Math.max(0, typeof fn.args.offset === 'number'
+          ? fn.args.offset
+          : parseInt(String(fn.args.offset ?? '0'), 10) || 0);
+
         const storyPromise: Promise<void> = (async () => {
           try {
             const { sql: rawSql } = await import('drizzle-orm');
             const db = getSharedDb();
-            // Use exact title match — LIKE prefix risks matching Episode 1 against 10–19.
+            // Regex anchor: "Episode N" matches the label but not "Episode NN"
+            // (e.g., "Episode 1" does not match "Episode 10" because [^0-9] excludes 0–9).
+            // ORDER BY importance DESC, LENGTH(content) DESC picks the canonical (longest,
+            // highest-importance) record when multiple rows share the same chapter label.
+            const titleRegex = '^' + titlePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^0-9].*)?$';
             const rows = await db.execute(rawSql`
               SELECT title, content
               FROM conversation_memories
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
-                AND title = ${exactTitle}
-              ORDER BY recorded_at DESC
+                AND title ~ ${titleRegex}
+              ORDER BY importance DESC, LENGTH(content) DESC
               LIMIT 1
             `);
             if (!rows.rows.length) {
@@ -3434,12 +3444,26 @@ export class NativeFunctionCallHandler {
               return;
             }
             const row = rows.rows[0] as any;
+            const fullContent = String(row.content ?? '');
+            const totalLength = fullContent.length;
+            const page = fullContent.slice(offset, offset + PAGE_SIZE);
+            const pageEnd = offset + PAGE_SIZE;
+            const isComplete = pageEnd >= totalLength;
+            const nextOffset = isComplete ? null : pageEnd;
+            const remaining = Math.max(0, totalLength - pageEnd);
             (session as any).readMyStoryResult = JSON.stringify({
               status: 'ok',
               chapter: chapterLabel,
               title: String(row.title),
-              content: String(row.content ?? ''),
+              content: page,
+              offset,
+              next_offset: nextOffset,
+              is_complete: isComplete,
+              remaining_chars: remaining,
               next_chapter: nextLabel,
+              note: !isComplete
+                ? `Page starting at offset ${offset}. ${remaining} chars remain. Call read_my_story with chapter ${chapterNum} and offset ${nextOffset} for the next page.`
+                : undefined,
             });
           } catch (err: any) {
             console.error('[Native Function→ReadMyStory] Error:', err.message);
