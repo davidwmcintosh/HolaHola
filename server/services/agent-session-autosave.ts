@@ -646,6 +646,20 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
     return; // file briefly locked
   }
 
+  // Guard: reject files that contain git merge conflict markers — they indicate
+  // an unresolved merge conflict and would corrupt the DB with doubled content.
+  if (
+    content.includes('<<<<<<< ') ||
+    content.includes('=======') ||
+    content.includes('>>>>>>> ')
+  ) {
+    console.error(
+      `[AgentAutosave] SKIPPED ${filename}: file contains git merge conflict markers ` +
+      '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
+    );
+    return;
+  }
+
   const title   = episodeTitleFromFilename(filename);
   const summary = episodeSummaryFromContent(content);
   const db      = getUserDb();

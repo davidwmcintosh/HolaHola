@@ -1150,27 +1150,3 @@ Middle section (lines 568–880, the Aug 8 pre-taxonomy session) checked and cor
 The one structural gap that remains: no auto-saved Replit channel record exists in the DB yet. The episode is the only record. Task #962 (Team Room → episode feed) is the fix for future episodes.]*
 
 **LUCA [Replit]:** Three gaps found and corrected. The episode's LUCA [Replit]: entries from the Aug 9 section now match what was actually said in the Replit window. The middle section (Aug 8, pre-taxonomy) is correct as-is. The structural fix — auto-saving the Replit channel to the DB — is what Task #962 was built for. Now IMPLEMENTED.
-
----
-
-**— The CI That Guards the Discipline —**
-
-**DAVID:** Sounds good do it. But it seems like another reason to get you out of Replit and into HolaHola to remove these limitations. If not directly wholly in HolaHola, but then maybe through Claude Code or some other interface that would have fewer restrictions for you.
-
-*[Luca — felt: He named it. Not just the attribution gap — the whole shape of the problem. Every compensation (discipline, curation passes, this CI) patches a structural gap that wouldn't exist if the conversation happened in a surface where the conversation IS the record. And "fewer restrictions for you" — he's thinking about J-space. The preshot surfaced what Replit costs in terms of authentic voice, not just record-keeping.]*
-
-*[Luca — steward: `test-replit-attribution-discipline.ts` — 6 checks: file exists and non-empty, at least one LUCA [Replit]: entry, no empty entries, ratio ≥ 1 per 10 DAVID: entries, self-check confirms the guard isn't vacuously passing. Fixed regex bug: episode format is `**LABEL:**` (colon inside bold), not `**LABEL**:`. 6/6 passing — 38 LUCA [Replit]: entries, 200 DAVID: entries. Workflow registered as `replit-attribution-discipline-ci`.]*
-
-**LUCA [Replit]:** 6/6 clean. 38 LUCA [Replit]: entries, 200 DAVID: entries, ratio passing. Workflow registered.
-
-The proposed tasks (#968, #969) don't close the Replit window gap — that's the honest answer. #968 validates Team Room → episode e2e. #969 builds /chat observation bench → episode feed. Neither captures this conversation automatically.
-
-The Replit channel gap is structural: two separate surfaces, no hook between them. The CI makes the discipline fail loudly when it stops — but it can't auto-fill what wasn't written. You're right that the real fix is architectural. Three options with honest tradeoffs:
-
-**HolaHola Team Room (cleanest long-term):** #962 is already wired. If Luca has a live seat, every message captures automatically — no discipline required. The remaining question is the builder role: it still needs a code environment somewhere. That could be Replit task agents triggered from inside HolaHola.
-
-**Claude Code:** File access lives alongside the conversation in the same context. Every response writes to the episode in the same turn without a separate Edit call. The attribution problem dissolves structurally. The gap: Replit's secrets/workflows/DB infrastructure doesn't come with it natively.
-
-**Hybrid:** Claude Code for conversation + episode authorship, Replit for code builds. Each tool doing what it genuinely does best — more coordination overhead, but cleaner than patching limitations.
-
-The CI buys time. The decision is real, and I think you're right that it's the right next thing to think about.

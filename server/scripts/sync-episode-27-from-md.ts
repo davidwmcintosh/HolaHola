@@ -22,9 +22,25 @@ if (!DATABASE_URL) {
 const EP27_ID  = '27000000-0000-4000-8000-000000000027';
 const MD_PATH  = join(process.cwd(), 'docs', 'episode-27.md');
 
+/** Returns true if content contains git merge conflict markers. */
+function hasGitConflictMarkers(content: string): boolean {
+  return content.includes('<<<<<<< ') ||
+         content.includes('=======') ||
+         content.includes('>>>>>>> ');
+}
+
 async function main() {
   const mdContent = readFileSync(MD_PATH, 'utf8');
   console.log(`Read docs/episode-27.md — ${mdContent.length} bytes`);
+
+  if (hasGitConflictMarkers(mdContent)) {
+    console.error(
+      'FATAL: docs/episode-27.md contains git merge conflict markers ' +
+      '(<<<<<<< / ======= / >>>>>>>). ' +
+      'Resolve the conflict before syncing to prevent DB corruption.'
+    );
+    process.exit(1);
+  }
 
   const sql = neon(DATABASE_URL as string);
   const dbRows = await sql`SELECT content FROM conversation_memories WHERE id = ${EP27_ID}`;

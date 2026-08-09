@@ -36,6 +36,20 @@ process.on('unhandledRejection', (reason) => {
 async function sync(reason: string): Promise<void> {
   try {
     const content = fs.readFileSync(EP27_FILE, 'utf8');
+
+    // Guard: reject files that contain git merge conflict markers.
+    if (
+      content.includes('<<<<<<< ') ||
+      content.includes('=======') ||
+      content.includes('>>>>>>> ')
+    ) {
+      console.error(
+        '[EP27 Watcher] SKIPPED: episode-27.md contains git merge conflict markers ' +
+        '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
+      );
+      return;
+    }
+
     const db = getSharedDb();
     await db.execute(sql`
       INSERT INTO conversation_memories
