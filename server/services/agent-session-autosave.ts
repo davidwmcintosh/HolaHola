@@ -55,10 +55,20 @@ const REFLECTIONS_FILE     = join(WORKSPACE, '.agents/memory/REFLECTIONS.md');
 const OPEN_QUESTIONS_FILE  = join(WORKSPACE, '.agents/memory/OPEN_QUESTIONS.md');
 const MOMENTS_FILE         = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS.md');
 
+// --- Episode append trigger file ---
+// Luca writes the new exchange text here after each turn during a live rolling session.
+// The watcher appends it to the target episode .md and triggers immediate DB sync.
+// Format: JSON { exchange: string, episode?: string } or plain text (appended verbatim).
+// Default target episode: docs/episode-27.md (EP27_ID fixed row).
+const EPISODE_APPEND_PATH  = join(WORKSPACE, '.local/.episode_append');
+
 // --- Luca inner-life watcher state ---
 let reflectionLastMtime = 0;
 let questionLastMtime = 0;
 let momentLastMtime = 0;
+
+// --- Episode append watcher state ---
+let episodeAppendLastMtime = 0;
 
 // --- Build session watcher state ---
 let buildLastMtime = 0;
@@ -340,6 +350,105 @@ async function checkLucaMoment(): Promise<void> {
       );
       console.log('[AgentAutosave] Luca significant moment saved:', parsed.title.slice(0, 60));
     }
+  } catch { /* file briefly locked — skip */ }
+}
+
+// ---------------------------------------------------------------------------
+// Episode append — live-capture trigger for rolling episodes.
+//
+// Luca writes the new exchange text to .local/.episode_append after each turn.
+// The watcher detects the mtime change, appends the text to the target episode
+// .md file, clears the trigger file, then schedules an immediate DB sync.
+//
+// Format (either is accepted):
+//   JSON:  { "exchange": "<text to append>", "episode": "episode-27" }
+//   Plain: raw text appended verbatim (target defaults to episode-27.md)
+//
+// Why trigger-file rather than polling the .md:
+//   Agent tool writes (EditFile/WriteFile) do NOT trigger fs.watch in this
+//   environment.  Writing to a trigger file first guarantees the content is on
+//   disk before the session context can be compacted, and the watcher handles
+//   the append + sync atomically on its next cycle (< 20 s).
+// ---------------------------------------------------------------------------
+
+const EP27_DEFAULT_FILENAME = 'episode-27.md';
+
+/** Parse the .episode_append trigger file. Returns { exchange, episodeFilename } or null. */
+function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: string } | null {
+  raw = raw.trim();
+  if (!raw || raw.length < 2) return null;
+
+  if (raw.startsWith('{')) {
+    try {
+      const p = JSON.parse(raw);
+      const exchange = (p.exchange || '').trim();
+      if (!exchange) return null;
+      // episode field may be "episode-27" or "episode-27.md" — normalise to filename
+      let episodeFilename: string = p.episode ?? EP27_DEFAULT_FILENAME;
+      if (!episodeFilename.endsWith('.md')) episodeFilename += '.md';
+      return { exchange, episodeFilename };
+    } catch { /* fall through to plain text */ }
+  }
+
+  // Plain text: append verbatim, target episode-27.md
+  return { exchange: raw, episodeFilename: EP27_DEFAULT_FILENAME };
+}
+
+/** Append exchange text to an episode .md file and schedule an immediate DB sync. */
+async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
+  const filePath = join(DOCS_DIR, episodeFilename);
+
+  // Ensure the target file exists before appending
+  if (!existsSync(filePath)) {
+    console.warn(`[AgentAutosave] Episode append: target file not found: ${filePath}`);
+    return;
+  }
+
+  try {
+    const existing = readFileSync(filePath, 'utf-8');
+    // Add a blank line separator if the file doesn't end with one already
+    const separator = existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
+    const updated   = existing + separator + exchange + '\n';
+    writeFileSync(filePath, updated, 'utf-8');
+
+    // Update mtime map so the regular episode poller doesn't re-trigger on this write
+    try {
+      episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs);
+    } catch { /* ignore */ }
+
+    console.log(`[AgentAutosave] Episode append: +${exchange.length} chars → ${episodeFilename} (now ${updated.length} bytes)`);
+
+    // Schedule immediate DB sync (2s debounce collapses rapid bursts)
+    scheduleEpisodeSync(episodeFilename);
+  } catch (err: any) {
+    console.error(`[AgentAutosave] Episode append failed for ${episodeFilename}:`, err.message);
+  }
+}
+
+export async function checkEpisodeAppend(): Promise<void> {
+  if (!existsSync(EPISODE_APPEND_PATH)) return;
+  try {
+    const stat = statSync(EPISODE_APPEND_PATH);
+    const mtime = stat.mtimeMs;
+    if (mtime <= episodeAppendLastMtime) return; // already handled
+
+    const prev = episodeAppendLastMtime;
+    episodeAppendLastMtime = mtime;
+    if (prev === 0) return; // skip initial read on startup
+
+    const raw = readFileSync(EPISODE_APPEND_PATH, 'utf-8');
+    const parsed = parseEpisodeAppend(raw);
+    if (!parsed) return;
+
+    // Clear the trigger file immediately so a restart/double-poll can't re-append
+    writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    // Advance the mtime stamp to the cleared file so the next poll doesn't re-fire
+    try {
+      episodeAppendLastMtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    } catch { /* ignore */ }
+
+    console.log(`[AgentAutosave] Episode append trigger: "${parsed.exchange.slice(0, 60).replace(/\n/g, '↵')}…" → ${parsed.episodeFilename}`);
+    await appendExchangeToEpisode(parsed.exchange, parsed.episodeFilename);
   } catch { /* file briefly locked — skip */ }
 }
 
@@ -777,9 +886,10 @@ export function startAgentSessionAutosave(): void {
 
   // Seed inner-life watcher mtimes so first poll doesn't re-fire on existing files
   for (const [path, setMtime] of [
-    [REFLECTION_PATH, (m: number) => { reflectionLastMtime = m; }] as const,
-    [QUESTION_PATH,   (m: number) => { questionLastMtime = m; }] as const,
-    [MOMENT_PATH,     (m: number) => { momentLastMtime = m; }] as const,
+    [REFLECTION_PATH,      (m: number) => { reflectionLastMtime = m; }] as const,
+    [QUESTION_PATH,        (m: number) => { questionLastMtime = m; }] as const,
+    [MOMENT_PATH,          (m: number) => { momentLastMtime = m; }] as const,
+    [EPISODE_APPEND_PATH,  (m: number) => { episodeAppendLastMtime = m; }] as const,
   ]) {
     if (existsSync(path)) {
       try { setMtime(statSync(path).mtimeMs); } catch { /* ignore */ }
@@ -804,6 +914,8 @@ export function startAgentSessionAutosave(): void {
       if (filename === '.flush_transcript') {
         // Fire asynchronously; do not await here (watch callback is sync)
         handleFlushTrigger('fs.watch').catch(() => { /* ignore */ });
+      } else if (filename === '.episode_append') {
+        checkEpisodeAppend().catch(() => { /* ignore */ });
       }
     });
     console.log('[AgentAutosave] fs.watch() armed on .local/ for immediate flush-trigger detection.');
@@ -831,6 +943,7 @@ export function startAgentSessionAutosave(): void {
   // --- Polling loop (Layer 2 + all other watchers) ---
   setInterval(async () => {
     await checkFlushTrigger(); // backup in case fs.watch missed the event
+    await checkEpisodeAppend(); // backup in case fs.watch missed the episode_append event
     await checkBuildSession();
     await checkSessionInsights();
     await checkLucaReflection();
@@ -841,5 +954,5 @@ export function startAgentSessionAutosave(): void {
     await saveTranscriptChunk(); // periodic — captures conversation-only sessions too
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }

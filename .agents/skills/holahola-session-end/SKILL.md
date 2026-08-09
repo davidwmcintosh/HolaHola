@@ -11,6 +11,32 @@ description: HolaHola session end checklist — update handoff, batch doc, share
 
 Do all of these before closing a session. Nothing should be skipped on a meaningful build session.
 
+## Pre-step 0 — Flush the episode append trigger (for rolling episodes)
+
+If this is a live Luca↔David rolling episode session, write any exchange that hasn't yet made it into the episode .md to the trigger file first:
+
+```bash
+cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts
+**DAVID:** <last David message if missing from .md>
+
+**LUCA:** <last Luca response if missing from .md>
+EOF
+```
+
+Or use `--direct` to append and sync in one step without waiting for the watcher:
+
+```bash
+cat <<'EOF' | npx tsx server/scripts/append-to-episode.ts --direct
+**DAVID:** ...
+
+**LUCA:** ...
+EOF
+```
+
+**Why this is first:** The `.local/.episode_append` trigger-file mechanism guarantees each exchange survives a context compaction — the text is on disk before the session can compact. This step closes the gap for whatever exchange was in-flight when the session ended.
+
+The autosave watcher (`checkEpisodeAppend`) picks up the trigger file via fs.watch or the 20 s poll, appends to `docs/episode-27.md`, and immediately syncs to the DB. `--direct` bypasses the watcher entirely if needed.
+
 ## Pre-step 0 — Flush the transcript (non-negotiable for Luca↔David sessions)
 
 Before anything else, save the current session transcript to `conversation_memories`. Do not wait for the autosave worker — it needs a clean 20-second window and live sessions rarely give it one.
