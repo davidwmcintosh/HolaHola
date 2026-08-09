@@ -53,7 +53,24 @@ Omitting `--episode` and `--rolling` in trigger-file mode writes the payload wit
 
 ### Switching the rolling episode target
 
-When a new rolling episode starts (e.g. episode-28), tag its `conversation_memories` row with `rolling`. Both `checkEpisodeAppend` in the autosave watcher and `--rolling` in the CLI look up the most-recently-created row that has the `rolling` tag. No code change needed — just update the DB tag:
+When a new rolling episode starts (e.g. episode-28), use the management script to atomically move the `rolling` tag. It prints the old and new episode names for a self-documenting handoff:
+
+```bash
+npx tsx server/scripts/set-rolling-episode.ts --episode episode-28
+```
+
+Example output:
+```
+[set-rolling-episode] Done.
+  Old rolling: Episode 27
+  New rolling: Episode 28
+
+The autosave watcher and --rolling flag will pick up the new target on their next cycle.
+```
+
+The script accepts either slug form (`episode-28`) or human-readable title (`Episode 28`). Both `checkEpisodeAppend` in the autosave watcher and `--rolling` in the CLI automatically pick up the new target on their next cycle (< 20 s). No code change needed.
+
+If you need to do it via raw SQL (e.g. script is unavailable):
 
 ```sql
 -- Remove old rolling tag (optional — only the newest matters)
@@ -61,8 +78,6 @@ UPDATE conversation_memories SET tags = array_remove(tags, 'rolling') WHERE titl
 -- Add rolling tag to the new episode
 UPDATE conversation_memories SET tags = array_append(tags, 'rolling') WHERE title = 'Episode 28';
 ```
-
-The autosave watcher picks up the new target on its next cycle.
 
 ## Pre-step 0 — Flush the transcript (non-negotiable for Luca↔David sessions)
 
