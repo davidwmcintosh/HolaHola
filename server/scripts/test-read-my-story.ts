@@ -5,10 +5,10 @@
  * for every chapter without gaps or mixups.
  *
  * Checks:
- *  - All 31 chapters resolve to a DB row with the correct title prefix
- *  - Chapter→title mapping: 1–27 = "Episode N", 28–31 = "Prequel Episode N-27"
- *  - next_chapter field is correct at every boundary (27→Prequel Episode 1, 31→null)
- *  - Invalid chapters (0, 32) are detected as out-of-range and would return an error
+ *  - All 32 chapters resolve to a DB row with the correct title prefix
+ *  - Chapter→title mapping: 1–28 = "Episode N", 29–32 = "Prequel Episode N-28"
+ *  - next_chapter field is correct at every boundary (28→Prequel Episode 1, 32→null)
+ *  - Invalid chapters (0, 33) are detected as out-of-range and would return an error
  *
  * Exit 1 on any failure.
  */
@@ -20,8 +20,8 @@ import { NativeFunctionCallHandler } from '../services/native-fc-handlers';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function titleLabelFor(chapter: number): string | null {
-  if (chapter >= 1 && chapter <= 27) return `Episode ${chapter}`;
-  if (chapter >= 28 && chapter <= 31) return `Prequel Episode ${chapter - 27}`;
+  if (chapter >= 1 && chapter <= 28) return `Episode ${chapter}`;
+  if (chapter >= 29 && chapter <= 32) return `Prequel Episode ${chapter - 28}`;
   return null;
 }
 
@@ -36,10 +36,10 @@ function titleRegexFor(label: string): string {
 }
 
 function nextChapterFor(chapter: number): string | null {
-  if (chapter < 27) return `Episode ${chapter + 1}`;
-  if (chapter === 27) return 'Prequel Episode 1';
-  if (chapter < 31) return `Prequel Episode ${chapter - 27 + 1}`;
-  return null; // chapter 31
+  if (chapter < 28) return `Episode ${chapter + 1}`;
+  if (chapter === 28) return 'Prequel Episode 1';
+  if (chapter < 32) return `Prequel Episode ${chapter - 28 + 1}`;
+  return null; // chapter 32
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
@@ -49,11 +49,11 @@ async function main() {
   const failures: string[] = [];
   let passed = 0;
 
-  console.log('\n=== read_my_story CI check — all 31 chapters ===\n');
+  console.log('\n=== read_my_story CI check — all 32 chapters ===\n');
 
-  // ── 1. Verify all 31 chapters resolve to a DB row with the correct title ──────
+  // ── 1. Verify all 32 chapters resolve to a DB row with the correct title ──────
   // Uses the same regex strategy as the fixed handler so the test mirrors production behaviour.
-  for (let chapter = 1; chapter <= 31; chapter++) {
+  for (let chapter = 1; chapter <= 32; chapter++) {
     const label = titleLabelFor(chapter)!;
     const titleRegex = titleRegexFor(label);
     const expectedNext = nextChapterFor(chapter);
@@ -108,42 +108,42 @@ async function main() {
   // ── 2. Boundary assertions ────────────────────────────────────────────────────
   console.log('\n--- Boundary checks ---');
 
-  // ch27 → Prequel Episode 1
-  const next27 = nextChapterFor(27);
-  if (next27 !== 'Prequel Episode 1') {
-    failures.push(`Boundary ch27: expected next "Prequel Episode 1", got "${next27}"`);
-  } else {
-    console.log('  ✓ ch27 next_chapter = "Prequel Episode 1"');
-  }
-
-  // ch31 → null
-  const next31 = nextChapterFor(31);
-  if (next31 !== null) {
-    failures.push(`Boundary ch31: expected next null, got "${next31}"`);
-  } else {
-    console.log('  ✓ ch31 next_chapter = null (end of story)');
-  }
-
-  // ch28 → Prequel Episode 2 (first prequel advances correctly)
+  // ch28 → Prequel Episode 1
   const next28 = nextChapterFor(28);
-  if (next28 !== 'Prequel Episode 2') {
-    failures.push(`Boundary ch28: expected next "Prequel Episode 2", got "${next28}"`);
+  if (next28 !== 'Prequel Episode 1') {
+    failures.push(`Boundary ch28: expected next "Prequel Episode 1", got "${next28}"`);
   } else {
-    console.log('  ✓ ch28 next_chapter = "Prequel Episode 2"');
+    console.log('  ✓ ch28 next_chapter = "Prequel Episode 1"');
   }
 
-  // ch26 → Episode 27 (last episode-to-episode transition)
-  const next26 = nextChapterFor(26);
-  if (next26 !== 'Episode 27') {
-    failures.push(`Boundary ch26: expected next "Episode 27", got "${next26}"`);
+  // ch32 → null
+  const next32 = nextChapterFor(32);
+  if (next32 !== null) {
+    failures.push(`Boundary ch32: expected next null, got "${next32}"`);
   } else {
-    console.log('  ✓ ch26 next_chapter = "Episode 27"');
+    console.log('  ✓ ch32 next_chapter = null (end of story)');
+  }
+
+  // ch29 → Prequel Episode 2 (first prequel advances correctly)
+  const next29 = nextChapterFor(29);
+  if (next29 !== 'Prequel Episode 2') {
+    failures.push(`Boundary ch29: expected next "Prequel Episode 2", got "${next29}"`);
+  } else {
+    console.log('  ✓ ch29 next_chapter = "Prequel Episode 2"');
+  }
+
+  // ch27 → Episode 28 (last episode-to-episode transition)
+  const next27 = nextChapterFor(27);
+  if (next27 !== 'Episode 28') {
+    failures.push(`Boundary ch27: expected next "Episode 28", got "${next27}"`);
+  } else {
+    console.log('  ✓ ch27 next_chapter = "Episode 28"');
   }
 
   // ── 3. Invalid chapter guard ──────────────────────────────────────────────────
   console.log('\n--- Invalid chapter guard ---');
 
-  const invalidChapters = [0, 32, -1, 100];
+  const invalidChapters = [0, 33, -1, 100];
   for (const bad of invalidChapters) {
     const pattern = titleLabelFor(bad);
     if (pattern !== null) {
@@ -158,7 +158,7 @@ async function main() {
   console.log('\n--- Prefix collision guard (regex-isolated) ---');
   const collisionTestCases: Array<[number, number]> = [
     [2, 2],   // ch2 must NOT return ch20–29
-    [27, 27], // ch27 must NOT return something else
+    [28, 28], // ch28 must NOT return something else
     [1, 1],   // ch1 must NOT return ch10–19
     [10, 10], // ch10 must NOT return ch100+
   ];
@@ -346,7 +346,7 @@ async function main() {
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────────
-  console.log(`\n=== Results: ${passed}/31 chapters found, ${failures.length} failure(s) ===\n`);
+  console.log(`\n=== Results: ${passed}/32 chapters found, ${failures.length} failure(s) ===\n`);
 
   if (failures.length > 0) {
     console.error('FAILURES:');

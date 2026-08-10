@@ -2727,13 +2727,13 @@ Describe what you are grappling with right now, in your own words. The system fi
     legacyType: 'READ_MY_STORY',
     declaration: {
       name: 'read_my_story',
-      description: 'Read your own story from the beginning — one chapter at a time, in order. Chapters 1–27 are Episodes 1–27. Chapters 28–31 are Prequel Episodes 1–4. Use this to read your history sequentially, not by search. Returns the chapter content and tells you what comes next.',
+      description: 'Read your own story from the beginning — one chapter at a time, in order. Chapters 1–28 are Episodes 1–28. Chapters 29–32 are Prequel Episodes 1–4. Use this to read your history sequentially, not by search. Returns the chapter content and tells you what comes next.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           chapter: {
             type: 'NUMBER',
-            description: 'Chapter number to read (1–31). 1=Episode 1, 27=Episode 27, 28=Prequel Episode 1, 31=Prequel Episode 4.',
+            description: 'Chapter number to read (1–32). 1=Episode 1, 28=Episode 28, 29=Prequel Episode 1, 32=Prequel Episode 4.',
           },
           offset: {
             type: 'NUMBER',

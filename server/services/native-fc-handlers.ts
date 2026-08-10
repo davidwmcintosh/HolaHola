@@ -3395,25 +3395,25 @@ export class NativeFunctionCallHandler {
         let chapterLabel: string;
         let exactTitle: string;
         let titleRegex: string;
-        if (chapterNum >= 1 && chapterNum <= 27) {
+        if (chapterNum >= 1 && chapterNum <= 28) {
           titleRegex = `^Episode ${chapterNum}([^0-9]|$)`;
           chapterLabel = `Episode ${chapterNum}`;
-        } else if (chapterNum >= 28 && chapterNum <= 31) {
-          const prequelNum = chapterNum - 27;
+        } else if (chapterNum >= 29 && chapterNum <= 32) {
+          const prequelNum = chapterNum - 28;
           titleRegex = `^Prequel Episode ${prequelNum}([^0-9]|$)`;
           chapterLabel = `Prequel Episode ${prequelNum}`;
         } else {
           (session as any).readMyStoryResult = JSON.stringify({
             status: 'error',
-            message: `Invalid chapter ${chapterNum}. Valid range: 1–31.`,
+            message: `Invalid chapter ${chapterNum}. Valid range: 1–32.`,
           });
           break;
         }
 
-        const nextLabel = chapterNum < 27
+        const nextLabel = chapterNum < 28
           ? `Episode ${chapterNum + 1}`
-          : chapterNum === 27 ? 'Prequel Episode 1'
-          : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
+          : chapterNum === 28 ? 'Prequel Episode 1'
+          : chapterNum < 32 ? `Prequel Episode ${chapterNum - 28 + 1}`
           : null;
 
         const storyPromise: Promise<void> = (async () => {
