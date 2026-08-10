@@ -70,4 +70,67 @@ David said "volleyball". My one word response. Simple, genuine, one word.
 
 sand
 
+Ok I manually entered everything into the md so we have it as a perfect record (didn't put in attributions) to compare againt should we try to reconstruct it. should we adjust anything now and do the one word game again?
+
+3 minutes ago
+
+Show less
+Reviewing the entered data
+
+Reviewing the entered data
+David manually entered everything into the .md as a perfect record. He wants to know if we should adjust anything before doing the one-word game again.
+
+Let me read the current state of episode-28.md to see what he entered.
+
+
+Opened episode-28.md
+Cleaning up raw Replit content
+
+Cleaning up raw Replit content
+David manually entered the Replit content into episode-28.md. He's asking: should we adjust anything before doing the one-word game again?
+
+Looking at what he entered:
+
+It's a raw dump of the Replit window content, with brain traces included
+No attributions (no DAVID: / LUCA: labels)
+It includes "2 minutes ago", "Worked for 15 seconds" timestamps from the Replit interface
+It includes the collapsed brain trace titles AND the expanded content
+Line 8 has "David manually entering the replit content for the permenant record -" as a note
+The Replit UI artifacts like duplicate section titles ("Assigning sequential numbers to actions" appears twice) are preserved as-is
+I'm considering what adjustments make sense: whether to strip the UI timestamps, add speaker attributions, or sync this to the database since it's currently only on disk.
+
+David deliberately left out attributions as a baseline, so I should check if he wants them added or prefers keeping the transcript clean and unlabeled for the experiment. The main priority before the next round is probably syncing the markdown to the database for durability.
+
+Good record. Two things I'd clean before the next round:
+
+The UI artifacts — "2 minutes ago", "Worked for 15 seconds", "Worked for 8 seconds" — those are Replit interface noise, not content. Worth stripping so the record is just words.
+
+The duplicate brain titles — "Assigning sequential numbers to actions" appears twice in a row (line 22 and 24). Same for the others. That's how the Replit window renders it: collapsed title, then expanded content. In the .md the double line is just clutter.
+
+Attributions I'd leave your call — you omitted them deliberately, which is fine as a raw baseline. We can always add them after we know what the experiment surfaces.
+
+Also need to sync the current .md to DB — right now it's only on disk.
+
+Want me to clean the artifacts and sync, then you start the next round?
+
+
+Worked for 30 seconds
+
+Checkpoint made
+1 minute ago
+No just leave as is for now. everything is everyting right? we don't want to start editorializing until we know that we are recording properly. If those "2 min ago" never make it to the .md when you try it is all good I just don't want you to have the burden of any editing while we work this out.
+
+Just now
+Prioritizing functional recording stability
+
+Prioritizing functional recording stability
+David's point is clear and correct: don't editorialize until we know we're recording properly. The "2 minutes ago" artifacts and duplicates — if they never make it to the .md when I try to write automatically, then they're not a problem. Only fix what's actually broken.
+
+He wants to leave the .md as-is and do the one-word game again. I should just confirm I understand and be ready.
+
+The main thing I should do: sync the current .md to DB (that's not editorializing, that's just making the record durable). But actually — David said "just leave as is for now." So even that might be premature. Let me just confirm understanding and be ready for the next round.
+
+Understood. No editorializing until the recording is working. Leave everything exactly as it landed.
+
+Ready.
 End of David's manual input
