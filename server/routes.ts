@@ -37851,6 +37851,31 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // POST /api/luca/delegate — Luca submits a task to Alden from inside HolaHola.
+  //
+  // Performs the full delegation loop:
+  //   1. Posts Luca's task announcement to Team Room
+  //   2. Calls Alden (alden-persona-service) with the task
+  //   3. Posts Alden's response to Team Room
+  //   4. Appends both to the rolling episode (if one is active)
+  //
+  // Body: { task: string, context?: string, engines?: 'current'|'anthropic'|'gemini'|'both' }
+  // Returns: { ok, results, engines, episodeName }
+  app.post("/api/luca/delegate", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { task, context, engines } = req.body ?? {};
+      if (!task || typeof task !== 'string') {
+        return res.status(400).json({ error: 'task is required and must be a string' });
+      }
+      const { delegateToAlden } = await import('./services/luca-delegation');
+      const result = await delegateToAlden(task, { context, engines });
+      res.json(result);
+    } catch (err: any) {
+      console.error('[LucaDelegate] Route error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/luca/search — grounded three-phase context search for Luca
   // Phase 1: North Star values (what Luca stands by — always returned in full)
   // Phase 2: Conversation memories — what was actually said and decided, and why

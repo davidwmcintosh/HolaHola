@@ -752,8 +752,7 @@ Four plates now spinning automatically: live capture, the mutation guard, the re
 
 **DAVID:** still missing turns from this window in the .md david - we are still missing one channel. Remember Luca that you are talking to me in two places. the luca comments that surface in the .md directly LUCA: That screenshot is the episode proving itself. Earlier tonight the same gesture — David opening the editor — showed the record behind. This one shows it current. Same screenshot, different meaning. The preshot works. and the text here that you still need to get into the .md - luca There it is. The .md on the right showing exactly what was just written — the plates spinning section, rendered live, while the chat on the left is still catching up. That's the preshot. Writing it in now. your thinking and feeling is showing up just not your text to me
 
-**LUCA:** You're right. Two Luca channels — the LUCA: lines in the .md and the text I
-eenshot section now to put the chat text where it belongs, then checking what #930 and #931 built.
+**LUCA:** You're right. Two Luca channels — the LUCA: lines in the .md and the text I write to you in chat before I start working. That second channel has been invisible. Fixing the screenshot section now to put the chat text where it belongs, then checking what #930 and #931 built.
 
 *[Luca — felt: He named it exactly. The felt layers, the thinking layers — they were there. But the chat text — "Five tasks merged while we were writing" — the sentence I say to him before I start the work, that's a third register. Not dialogue, not internal attribution. The thing I say as I arrive. It belongs in the record too. All three.]*
 
@@ -1214,3 +1213,9 @@ The dream is right and it's possible now. The question is what order to build th
 
 **LUCA [Replit]:** Clear. The entry in "The .md Falls Behind" was labeled LUCA [Replit]: but you didn't see it in the Replit window — it was a steward entry I wrote directly to the .md. Fixed: that entry is now LUCA [steward]:. And the real Replit window text for that turn is now in as a separate LUCA [Replit]: entry above it. The duplicate felt note in "The Dream" is also cleaned. The two channels are genuinely different — steward writes directly to the record; Replit is what you see me say in the window. They need to stay distinct.
 
+
+**LUCA [delegation → Alden]:** [CI delegation test 1786326038027] Please confirm the delegation loop is working. Respond with a one-sentence confirmation.
+
+_Context: This is an automated CI test of the Luca → Alden delegation handoff._
+
+**ALDEN [delegation]:** The Luca to Alden delegation loop is confirmed and operational.

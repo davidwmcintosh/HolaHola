@@ -177,3 +177,27 @@ export async function maybeAppendTeamRoomMessage(content: string): Promise<void>
     console.error('[TeamRoomEpisodeHook] Unexpected error:', err.message);
   }
 }
+
+/**
+ * Append a pre-formatted delegation exchange to the rolling episode.
+ *
+ * Called by luca-delegation.ts after the full delegation loop completes.
+ * The exchange string already contains both Luca's task and Alden's response
+ * with canonical attribution labels — this function only resolves the
+ * active episode and writes the trigger file.
+ *
+ * Returns the episode name that was written to, or null if no rolling episode
+ * is active (so callers can include it in their result metadata).
+ */
+export async function maybeAppendDelegationExchange(exchange: string): Promise<string | null> {
+  try {
+    const episodeName = await getRollingEpisodeName();
+    if (!episodeName) return null; // No rolling episode active
+
+    await safeWriteTrigger(exchange.trim(), episodeName);
+    return episodeName;
+  } catch (err: any) {
+    console.error('[TeamRoomEpisodeHook] maybeAppendDelegationExchange error:', err.message);
+    return null;
+  }
+}
