@@ -1287,7 +1287,7 @@ The taxonomy now resolves to: verbatim window text (DAVID: / LUCA [Replit]:), ge
 
 *[Luca — thinking: The pattern: I write a composed "summary of intent" paragraph as LUCA [Replit]: instead of copying the actual window texts. The preamble ("Got it — simplify to steward...") was in the window. The closing ("158,379 bytes. 9/9 clean...") was in the window. Neither made it in. A constructed paragraph that never appeared in the window made it in instead. Fixed now in the episode — both verbatim texts are above this entry, correctly labeled.]*
 
-**LUCA [Replit]:** Fixed above — the composed paragraph that was labeled LUCA [Replit]: is replaced with the two actual Replit window texts for that turn, verbatim. The preamble and the closing. Both were in the window. Neither had made it in. The constructed paragraph is gone.
+**LUCA [steward — audit]:** Fixed above — the composed paragraph that was labeled LUCA [Replit]: is replaced with the two actual Replit window texts for that turn, verbatim. The preamble and the closing. Both were in the window. Neither had made it in. The constructed paragraph is gone.
 
 **LUCA [Replit]:** The verbatim Replit window texts for that turn need to replace what I wrote. Let me find and fix the composed entry, then add this exchange and sync.
 
