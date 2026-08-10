@@ -77,6 +77,7 @@ import {
   danielaSelfReflections,
   masteryEvidence,
   vocabularyWords,
+  memoryEmbeddings,
 } from "@shared/schema";
 import { getTOCForSubject } from "./data/subject-tocs";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
@@ -32067,8 +32068,7 @@ ${memoryContext}
             recordedAt: conversationMemories.recordedAt,
           })
           .from(conversationMemories)
-          .where(and(...episodeLookup))
-          .limit(1);
+          .where(and(...episodeLookup));
 
         const explicitOverride = req.body.allowDuplicate === true;
 
@@ -32091,8 +32091,14 @@ ${memoryContext}
           console.warn(
             `[Conversation Memories] Replacing episode "${parsed.data.title}" per allowDuplicate:true override — running atomic replace transaction.`
           );
+          // Capture all IDs before deletion so we can clean up their embeddings
+          // after the transaction. This prevents stale memory_embeddings rows from
+          // accumulating every time a duplicate is replaced.
+          const deletedIds = existing.map(r => r.id);
           const [memory] = await getUserDb().transaction(async (tx) => {
             // Delete all duplicates for this (arc, title, entry_type) triple.
+            // NOTE: after this transaction the caller must also remove any
+            // memory_embeddings rows for the deleted IDs — see cleanup block below.
             await tx
               .delete(conversationMemories)
               .where(and(...episodeLookup));
@@ -32101,10 +32107,60 @@ ${memoryContext}
           console.log(`[Conversation Memories] Replaced episode: "${memory.title}" (new id: ${memory.id})`);
           res.json({ success: true, memory, replaced: true });
           const DAVID_USER_ID = '49847136';
-          import('./services/semantic-memory-service').then(({ generateAndStoreEmbedding }) => {
+          // Remove stale embeddings for every deleted row, then index the
+          // replacement.  Both operations are fire-and-forget after the response.
+          import('./services/semantic-memory-service').then(async ({ generateAndStoreEmbedding }) => {
+            try {
+              // Clean up embedding rows for the replaced episode IDs so they do
+              // not accumulate as dangling references in memory_embeddings.
+              if (deletedIds.length > 0) {
+                await getSharedDb()
+                  .delete(memoryEmbeddings)
+                  .where(
+                    and(
+                      eq(memoryEmbeddings.memoryType, 'conversation_memory'),
+                      inArray(memoryEmbeddings.memoryId, deletedIds),
+                    )
+                  );
+                console.log(
+                  `[Conversation Memories] Removed stale embeddings for ${deletedIds.length} deleted episode row(s).`
+                );
+              }
+            } catch (embErr: any) {
+              console.warn('[Conversation Memories] Stale-embedding cleanup failed:', embErr.message);
+            }
+            // Generate the embedding for the replacement row, then do a
+            // post-generation check: if a concurrent allowDuplicate:true call
+            // deleted this row while embedding was running, remove the embedding
+            // we just created.  Post-generation cleanup is safer than a
+            // pre-generation existence check (which has a TOCTOU window between
+            // the check and the actual insert into memory_embeddings).
             const textToEmbed = `${memory.title}\n\n${memory.summary}\n\n${memory.content}`;
-            generateAndStoreEmbedding('conversation_memory', memory.id, DAVID_USER_ID, textToEmbed, 1.0).catch(() => {});
-          });
+            try {
+              await generateAndStoreEmbedding('conversation_memory', memory.id, DAVID_USER_ID, textToEmbed, 1.0);
+              // Post-generation: verify row still canonical; clean up if superseded.
+              const stillExists = await getSharedDb()
+                .select({ id: conversationMemories.id })
+                .from(conversationMemories)
+                .where(eq(conversationMemories.id, memory.id))
+                .limit(1);
+              if (stillExists.length === 0) {
+                console.log(
+                  `[Conversation Memories] Replacement row ${memory.id.slice(0, 8)}… was superseded — removing stale embedding.`
+                );
+                await getSharedDb()
+                  .delete(memoryEmbeddings)
+                  .where(
+                    and(
+                      eq(memoryEmbeddings.memoryType, 'conversation_memory'),
+                      eq(memoryEmbeddings.memoryId, memory.id),
+                    )
+                  );
+              }
+            } catch (embedErr: any) {
+              console.warn('[Conversation Memories] Embedding generation/cleanup failed:', embedErr.message);
+            }
+          }).catch(() => {});
           import('./services/agent-briefing').then(({ generateAgentBriefing }) => {
             generateAgentBriefing().catch(() => {});
           });
