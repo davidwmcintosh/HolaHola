@@ -82,6 +82,10 @@ args = "chat-episode-hook-ci"
 task = "workflow.run"
 args = "replit-attribution-discipline-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "team-room-e2e-ci"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -220,6 +224,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-replit-attribution-discipline.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "team-room-e2e-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-team-room-e2e.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
