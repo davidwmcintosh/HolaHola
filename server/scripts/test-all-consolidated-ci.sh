@@ -37,4 +37,8 @@ run test-chat-episode-hook.ts
 run test-delegation-race-episode.ts
 
 echo ""
+echo "=== test-merge-ours-guard.ts (proves merge=ours blocks task-agent stale overwrites) ==="
+npx tsx server/scripts/test-merge-ours-guard.ts
+
+echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="

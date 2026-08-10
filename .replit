@@ -86,9 +86,20 @@ args = "replit-attribution-discipline-ci"
 task = "workflow.run"
 args = "chat-episode-hook-e2e-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "merge-ours-guard-ci"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+# Register the built-in "ours" merge driver so that docs/episode-27.md merge=ours
+# in .gitattributes takes effect before any subsequent git merge.  Logging the
+# outcome (success or warning) makes failures visible without aborting the server.
+args = "git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect episode-27.md' >&2"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -235,6 +246,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-chat-episode-hook-e2e.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "merge-ours-guard-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-merge-ours-guard.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

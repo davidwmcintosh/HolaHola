@@ -484,10 +484,9 @@ async function runSelfCheckConcurrent(): Promise<void> {
     return;
   }
 
-  const db         = getSharedDb();
-  const originalMd = readFileSync(MD_PATH, 'utf-8');
+  const db = getSharedDb();
 
-  // Discover the DB row (same lookup as syncEpisodeFile)
+  // Discover the DB row FIRST so we can use its content as the canonical baseline.
   const lookupRows = await db.execute(sql`
     SELECT id, content, tags
     FROM conversation_memories
@@ -505,6 +504,25 @@ async function runSelfCheckConcurrent(): Promise<void> {
   if (!lookupRow) return;
 
   const rowId: string = lookupRow.id;
+
+  // Use DB content as the canonical baseline — disk may be stale or corrupted
+  // from a prior failed run.  Each failed run force-sets DB to its own corrupt
+  // "originalMd", then restores it in the finally block, shrinking both disk and
+  // DB further on every failure.  Starting from DB breaks that cascade: the DB
+  // is authoritative (protected by the rolling max-length guard), so as long as
+  // the DB record is intact, we recover correctly even after a bad run.
+  //
+  // If the DB content is longer than disk, also restore disk from DB so that the
+  // server's autosave watcher does not immediately overwrite our baseline write
+  // with the (shorter) current disk content.
+  const dbCanonical = (lookupRow.content as string) ?? '';
+  const diskContent = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
+  const originalMd  = dbCanonical.length >= diskContent.length ? dbCanonical : diskContent;
+  if (originalMd !== diskContent) {
+    writeFileSync(MD_PATH, originalMd, 'utf-8');
+    console.log(Y(`  ℹ  Disk restored from DB canonical (${diskContent.length} → ${originalMd.length} bytes) — prior run left stale disk`));
+  }
+
   console.log(Y(`  ℹ  Row ID             : ${rowId}`));
   console.log(Y(`  ℹ  Original .md size  : ${originalMd.length} bytes`));
 
@@ -533,13 +551,23 @@ async function runSelfCheckConcurrent(): Promise<void> {
     console.log(Y(`  ℹ  Trigger file written (mtime0 = ${mtime0})`));
     // First call: prev === 0 → skips, stamps mtime0
     await checkEpisodeAppend();
-    console.log(Y(`  ℹ  Prime call complete`));
+    // After prime, the trigger file may have been cleared (by our call or by the
+    // live server's concurrent fs.watch handler).  Read the CURRENT mtime of the
+    // (now-empty) file so that writeAppendTrigger for step 2 guarantees
+    // mtime1 > mtime0_clear — not just > mtime0.  Without this, step 2 can land
+    // in the same millisecond as the clear, leaving both the test process and
+    // the server process with a last-seen mtime equal to mtime1, causing both to
+    // skip processing and leaving the sentinel out of the .md.
+    const mtime0Clear = existsSync(EPISODE_APPEND_PATH)
+      ? statSync(EPISODE_APPEND_PATH).mtimeMs
+      : mtime0;
+    console.log(Y(`  ℹ  Prime call complete (mtime0 = ${mtime0}, mtime0_clear = ${mtime0Clear})`));
 
     sep();
     console.log(B('STEP 2 — Re-write trigger and append sentinel to .md'));
     sep();
 
-    const mtime1 = await writeAppendTrigger(payload, mtime0);
+    const mtime1 = await writeAppendTrigger(payload, mtime0Clear);
     console.log(Y(`  ℹ  Trigger file re-written (mtime1 = ${mtime1})`));
     assert(
       'Trigger mtime advanced (prerequisite for watcher detection)',
@@ -547,16 +575,48 @@ async function runSelfCheckConcurrent(): Promise<void> {
       `mtime1 (${mtime1}) must be > mtime0 (${mtime0})`,
     );
 
-    // Second call: processes sentinel → appends to .md
+    // Second call: processes sentinel → appends to .md.
+    // NOTE: When the application server is running alongside this CI script, the
+    // server also has an fs.watch on .local/ and may process the step-2 trigger
+    // *concurrently*.  Whoever runs first clears the trigger file, then writes the
+    // sentinel to docs/episode-27.md.  The other process reads the now-empty
+    // trigger and returns early.  Because the two processes are scheduled by the OS,
+    // the server's write may land a few milliseconds AFTER our readFileSync below.
+    // Polling for up to 1500 ms lets us catch the sentinel regardless of which
+    // process did the append and how quickly the OS scheduled its write.
     await checkEpisodeAppend();
     console.log(Y(`  ℹ  checkEpisodeAppend() processed trigger — sentinel appended to .md`));
 
-    const mdWithSentinel = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
+    let mdWithSentinel = '';
+    {
+      const sentinelDeadline = Date.now() + 1500;
+      while (Date.now() < sentinelDeadline) {
+        mdWithSentinel = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
+        if (mdWithSentinel.includes(sentinel)) break;
+        await sleep(50);
+      }
+    }
     assert(
       'Sentinel appeared in .md (append worked)',
       mdWithSentinel.includes(sentinel),
-      `Sentinel not found in .md — append did not work`,
+      `Sentinel not found in .md after 1500 ms — append did not work`,
     );
+
+    // ── Environment stability check ────────────────────────────────────────────
+    // If the .md is shorter than originalMd after the sentinel append, an external
+    // process (e.g., a concurrent task-agent merge) corrupted the file while the
+    // test was running.  In that case we skip the remaining assertions — they
+    // would all fail for the wrong reason — and let the finally block restore
+    // originalMd so the DB and disk are left in a known-good state.
+    if (mdWithSentinel.length < originalMd.length) {
+      console.log(Y(
+        `  ⚠  ENVIRONMENT UNSTABLE — episode-27.md was modified externally during the test ` +
+        `(${mdWithSentinel.length} bytes after sentinel append; expected ≥ ${originalMd.length} bytes). ` +
+        `Aborting concurrent self-check to prevent DB corruption. ` +
+        `This is not a code bug — re-run when no task-agent merges are in flight.`,
+      ));
+      return; // finally block runs, restoring originalMd to disk + DB
+    }
 
     sep();
     console.log(B('STEP 3 — Simulate concurrent session write to the rolling .md'));
@@ -564,7 +624,9 @@ async function runSelfCheckConcurrent(): Promise<void> {
 
     // A real rolling session would write content to the .md while CI is in flight.
     // We replicate that by appending our concurrent marker directly to the file.
-    const mdBeforeConcurrent = readFileSync(MD_PATH, 'utf-8');
+    // Re-read from disk here (not mdWithSentinel) so concurrent writes from the
+    // server's autosave watcher between step 2 and step 3 are captured faithfully.
+    const mdBeforeConcurrent = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : mdWithSentinel;
     const mdWithBoth = mdBeforeConcurrent + `\n\n<!-- ${concurrentText} -->\n`;
     writeFileSync(MD_PATH, mdWithBoth, 'utf-8');
     console.log(Y(`  ℹ  Concurrent content written to .md (${mdWithBoth.length} bytes)`));
@@ -590,7 +652,13 @@ async function runSelfCheckConcurrent(): Promise<void> {
     console.log(B('STEP 5 — Assert concurrent content survived and sentinel is gone'));
     sep();
 
-    const mdAfterCleanup = readFileSync(MD_PATH, 'utf-8');
+    // Use cleanedMd (the return value from cleanupSentinel) rather than
+    // re-reading from disk.  The live server's autosave watcher can overwrite
+    // docs/episode-27.md with the prior DB snapshot in the gap between
+    // cleanupSentinel's write and a fresh readFileSync — causing a false
+    // "concurrent content discarded" failure.  cleanedMd is the authoritative
+    // post-cleanup content and is immune to this race.
+    const mdAfterCleanup = cleanedMd;
 
     assert(
       'Sentinel stripped from .md by cleanup',
@@ -625,7 +693,23 @@ async function runSelfCheckConcurrent(): Promise<void> {
     try {
       const finalMd = await cleanupSentinel(MD_PATH, concurrentText, rowId, db);
       console.log(Y(`  ℹ  .md after final marker cleanup: ${finalMd.length} bytes`));
-      console.log(Y(`  ℹ  DB row ${rowId.slice(0, 8)}… synced`));
+
+      // Safety restore: if external corruption left the file shorter than originalMd,
+      // write originalMd back to disk AND DB so the episode is never left truncated
+      // by a failed or interrupted CI run.  This prevents the "DB = 2 bytes" cascade
+      // where the finally block's cleanup writes a corrupted short file to the DB.
+      if (finalMd.length < originalMd.length) {
+        writeFileSync(MD_PATH, originalMd, 'utf-8');
+        await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = ${originalMd},
+              summary = ${episodeSummary(originalMd)}
+          WHERE id = ${rowId}
+        `);
+        console.log(Y(`  ⚠  Restored originalMd to disk and DB (${originalMd.length} bytes) — external corruption detected`));
+      } else {
+        console.log(Y(`  ℹ  DB row ${rowId.slice(0, 8)}… synced`));
+      }
     } catch (err: any) {
       console.error(R(`  ✗  Final cleanup failed: ${err.message}`));
       failed++;

@@ -19,6 +19,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$SCRIPT_DIR/gemini-gate-check.sh"
 
+# ── Git merge-driver config ───────────────────────────────────────────────────
+# Register the built-in "ours" merge driver so that the docs/episode-27.md
+# merge=ours attribute in .gitattributes takes effect on the NEXT merge.
+# Running this idempotently on every post-merge ensures the driver is always
+# configured, even in a fresh clone or a new Replit workspace.
+#
+# Effect: when git merges a branch that contains a stale docs/episode-27.md,
+# it keeps the receiving branch's (main's) version unconditionally.
+# ─────────────────────────────────────────────────────────────────────────────
+git config merge.ours.driver true
+
 # ── Setup steps (run only after gate passes) ──────────────────────────────────
 npm install --legacy-peer-deps
 npm run db:push
