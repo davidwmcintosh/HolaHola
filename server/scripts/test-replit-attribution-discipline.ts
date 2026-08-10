@@ -22,6 +22,11 @@
  *  6. Self-check: a synthetic episode with 50 DAVID: entries but only 2
  *     LUCA [Replit]: entries (ratio 1/25) is caught by the ratio guard
  *     (confirms mid-session collapse detection, not just total absence).
+ *  7. Self-check: a synthetic episode with 50 DAVID: entries and exactly
+ *     MIN_RATIO_DENOMINATOR (10) LUCA [Replit]: entries PASSES the guard
+ *     (confirms the guard is not over-strict; the actual pass threshold for
+ *     50 entries is minExpected=5 — 10 is a healthy passing case above it,
+ *     NOT the boundary itself; Check 6 used 2 to confirm failure detection).
  *
  * Exit 0 = pass, exit 1 = fail.
  */
@@ -223,6 +228,74 @@ console.log('\nCheck 6: self-check — mid-session collapse caught by ratio guar
 
   if (syntheticFails) {
     console.log(`  ratio: ${synthLucaReplit.length}/${synthDavid.length} = 1/${Math.round(synthDavid.length / synthLucaReplit.length)} — below 1/${MIN_RATIO_DENOMINATOR} floor ✓`);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// Check 7: self-check — healthy ratio passes (LUCA count = MIN_RATIO_DENOMINATOR)
+//
+// The flip side of Check 6: confirm the guard is not over-strict.  With
+// SYNTHETIC_LUCA_REPLIT_COUNT set to exactly MIN_RATIO_DENOMINATOR (10) out of
+// 50 DAVID: entries the ratio is 10/50 = 1/5.
+//
+// The actual pass/fail threshold for 50 DAVID entries:
+//   minExpected = Math.max(1, Math.floor(50 / MIN_RATIO_DENOMINATOR))
+//               = Math.max(1, 5) = 5
+//
+// 10 is well above the computed threshold of 5 — it is a healthy passing case,
+// NOT the boundary itself.  Check 6 used count=2 (below threshold → fail);
+// Check 7 uses count=10 (above threshold → pass), confirming the guard does
+// not fire when the ratio is comfortably healthy.
+// ---------------------------------------------------------------------------
+
+console.log('\nCheck 7: self-check — healthy ratio (LUCA count = MIN_RATIO_DENOMINATOR) passes ratio guard');
+
+(function syntheticBoundaryPassCheck() {
+  const SYNTHETIC_DAVID_COUNT = 50;
+  // Use MIN_RATIO_DENOMINATOR (10) entries — ratio 10/50 = 1/5.
+  // The pass threshold for 50 entries is minExpected=5; 10 is a healthy
+  // passing case (well above threshold), not the boundary itself.
+  const SYNTHETIC_LUCA_REPLIT_COUNT = MIN_RATIO_DENOMINATOR; // = 10
+
+  const syntheticLines: string[] = [
+    '# Episode 27 — Synthetic boundary-pass test',
+    '',
+  ];
+
+  for (let i = 1; i <= SYNTHETIC_DAVID_COUNT; i++) {
+    syntheticLines.push(`**DAVID:** Turn ${i} student message here.`);
+    if (i <= SYNTHETIC_LUCA_REPLIT_COUNT) {
+      syntheticLines.push(`**LUCA [Replit]:** Replit context note for turn ${i}.`);
+    }
+    syntheticLines.push(`**LUCA [steward]:** Response for turn ${i}.`);
+    syntheticLines.push('');
+  }
+
+  const syntheticContent = syntheticLines.join('\n');
+
+  const synthLucaReplit = extractLabelLines(syntheticContent, 'LUCA \\[Replit\\]');
+  const synthDavid      = extractLabelLines(syntheticContent, 'DAVID');
+
+  console.log(`  Synthetic episode: ${synthDavid.length} DAVID: entries, ${synthLucaReplit.length} LUCA [Replit]: entries`);
+
+  // Replicate the Check 4 ratio logic verbatim.
+  const syntheticMinExpected = synthDavid.length > 0
+    ? Math.max(1, Math.floor(synthDavid.length / MIN_RATIO_DENOMINATOR))
+    : 1;
+
+  const syntheticPasses = synthLucaReplit.length >= syntheticMinExpected;
+
+  console.log(`  Pass threshold: minExpected = Math.max(1, floor(${synthDavid.length} / ${MIN_RATIO_DENOMINATOR})) = ${syntheticMinExpected}`);
+  console.log(`  Check 6 used count=2 (< ${syntheticMinExpected} → fail); Check 7 uses count=${SYNTHETIC_LUCA_REPLIT_COUNT} (> ${syntheticMinExpected} → pass, healthy case)`);
+
+  assert(
+    syntheticPasses,
+    `boundary case (${synthLucaReplit.length} LUCA [Replit]: / ${synthDavid.length} DAVID:) passes ratio guard (needed ${syntheticMinExpected})`,
+    `Expected the ratio check to pass but it failed — guard may be misconfigured (got ${synthLucaReplit.length}, needed ${syntheticMinExpected})`,
+  );
+
+  if (syntheticPasses) {
+    console.log(`  ratio: ${synthLucaReplit.length}/${synthDavid.length} = 1/${Math.round(synthDavid.length / synthLucaReplit.length)} — above 1/${MIN_RATIO_DENOMINATOR} floor ✓`);
   }
 })();
 
