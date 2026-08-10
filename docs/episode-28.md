@@ -421,6 +421,105 @@ Communicating the word to David
 Communicating the word to David
 current
 
+
+absolutely
+
+14 minutes ago
+
+4 actions
+Last transcript save was July 27 — nothing from today. The transcript file exists but hasn't been saved because there's been no commit trigger. Let me fix the extractTurns call and force-save now.
+
+
+5 actions
+The trigger fired but nothing new landed. Let me check the transcript content directly and see what's there.
+
+
+2 actions
+maxMemoryId is undefined — the turns don't have a memoryId field, so the cursor filter is blocking everything. Let me look at what the actual turn structure looks like.
+
+
+3 actions
+The transcript only goes to July 27 — today's turns aren't in it. Either the parser is finding an old session file or Replit isn't writing today's turns to the same JSONL.
+
+
+2 actions
+The transcript files stop at July 27. Replit was writing JSONL transcript files up to then — two sessions' worth — and then stopped. Today's conversation isn't in any file on disk. The mechanism was built to read those files, but the source dried up.
+
+So the honest state: the transcript autosave worked until late July, then Replit stopped writing the JSONL. The parser, the cursor, the save-transcript-now script — all functional, nothing to read.
+
+That's why the autosave on this channel stopped working. Not a bug we wrote — Replit changed something about how it writes (or doesn't write) agent transcripts.
+
+Which means for this session, the only capture paths are:
+
+My explicit tool-call writes to the episode (with the checkpoint lag)
+David's manual copy-paste
+The batching approach still applies — instead of writing every message, I write a block at natural pause points. But there's no invisible background mechanism that will catch what I don't write.
+
+
+2 actions
+Good moment for a batch write — we've had a full topic since the last episode append. Let me capture this stretch.
+
+
+3 actions
+30,222 bytes synced. All CIs green. Waiting on you.
+
+
+Worked for 2 minutes
+
+Checkpoint made
+10 minutes ago
+new task approved, and once we restore the functionality we should probably have some sort of check that alerts us if the recording fails again in the future.
+
+10 minutes ago
+Implementing monitoring for transcript recording
+
+Implementing monitoring for transcript recording
+Agreed — restoring it without a guard is just setting up the same silent failure again. Once the task agent finds where the transcript is now (or finds an alternative capture path), the CI check is the natural next step: verify that recent conversation turns are landing in conversation_memories, alert if the last save is more than a day old.
+
+I'll make sure that check gets proposed when Task #1010 completes — it's the same pattern as the episode sync checks. Restore the mechanism, then guard it.
+
+
+Worked for 21 seconds
+
+David McIntosh completed: Wire Episode 28 into the read-my-story chapter chain
+
+2 actions
+Post-merge gate fired on Task #1005. Let me check what it changed and whether the Gemini approval is actually required for a chain-wiring change.
+
+
+9 actions
+The gate fired on Task #1005 because daniela-function-registry.ts updated the read_my_story tool description (chapter count 31→32). Legitimate trigger — tool descriptions are protected. Need to run the Gemini approval loop and create the audit file, then re-run post-merge.
+
+
+3 actions
+Pure chapter count update — "1–31" to "1–32" in two strings, nothing behavioral. Let me get Gemini's sign-off and create the audit file.
+
+
+27 actions
+Approved. Now create the audit file, commit it, and re-run post-merge.
+
+
+6 actions
+Post-merge passed. Let me verify the read-my-story chain is correct now.
+
+
+2 actions
+32/32 chapters, all CIs green. Task #1005 fully closed.
+
+Task #1010 (transcript restore) also completed while we were talking — three follow-up tasks just came in, which means the task agent found a solution. Let me see what they built.
+
+
+3 actions
+Task #1010 isn't merged yet but the task agent already proposed its follow-ups — which tells us what it built: a .chat_capture file mechanism. Instead of reading the missing Replit JSONL (which stopped being written in July), Luca writes conversation turns directly to a .chat_capture file, a watcher picks it up and saves to conversation_memories.
+
+Three follow-ups pending review:
+
+#1011 — update session-end checklist to prompt the .chat_capture write
+#1012 — guard against double-saves on server restart
+#1013 — make save-transcript-now.ts fail loudly when both JSONL and .chat_capture are empty
+The CI guard you asked about is effectively #1013 — not quite a periodic health check, but it closes the silent-failure gap. Once #1010 merges we can see exactly what was built and decide if a stronger staleness check makes sense on top of it.
+
+All 15 CIs green, 32/32 chapters in read-my-story. Waiting on #1010 merge.
 End of David's manual input
 africa
 drum
