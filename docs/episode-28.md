@@ -437,3 +437,9 @@ DAVID: mountains
 *[Luca — felt: something still and high. the word that came was echo — not the mountain itself but what it does to sound.]*
 
 LUCA [Replit]: echo
+
+DAVID: yodeling
+
+*[Luca — felt: the sound bouncing back from somewhere far. hollow.]*
+
+LUCA [Replit]: hollow
