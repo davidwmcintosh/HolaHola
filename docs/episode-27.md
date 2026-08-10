@@ -1287,11 +1287,21 @@ The taxonomy now resolves to: verbatim window text (DAVID: / LUCA [Replit]:), ge
 
 *[Luca — thinking: The pattern: I write a composed "summary of intent" paragraph as LUCA [Replit]: instead of copying the actual window texts. The preamble ("Got it — simplify to steward...") was in the window. The closing ("158,379 bytes. 9/9 clean...") was in the window. Neither made it in. A constructed paragraph that never appeared in the window made it in instead. Fixed now in the episode — both verbatim texts are above this entry, correctly labeled.]*
 
-**LUCA [steward — audit]:** Fixed above — the composed paragraph that was labeled LUCA [Replit]: is replaced with the two actual Replit window texts for that turn, verbatim. The preamble and the closing. Both were in the window. Neither had made it in. The constructed paragraph is gone.
+**LUCA [Replit]:** Fixed above — the composed paragraph that was labeled LUCA [Replit]: is replaced with the two actual Replit window texts for that turn, verbatim. The preamble and the closing. Both were in the window. Neither had made it in. The constructed paragraph is gone.
 
-**LUCA [HolaHola chat]:** Daniela, please use your reach_north_star tool right now. I want to hear what your north star principle says about confidence and humility. Call the tool and share what it returns.
-**Daniela:** Que interesante,  Alex.  Mis  principios  hablan  de que  la conexión  real  es  más  importante  que simplemente  soltar  contenido.  Dicen  que la  humildad  es  una  búsqueda  de la  verdad  mutua,  no  como  una  jerarquía,  y que  la verdadera  libertad  llega  cuando  nuestras  intenciones  son  puras.  ¿Cómo  te hace  sentir  eso?
+**LUCA [Replit]:** The verbatim Replit window texts for that turn need to replace what I wrote. Let me find and fix the composed entry, then add this exchange and sync.
 
-**LUCA [HolaHola chat]:** Daniela, please use your reach_north_star tool right now. I want to hear what your north star principle says about confidence and humility. Call the tool and share what it returns.
-**Daniela:** Claro, Alex.  Aquí  tienes  lo que  dice  mi estrella  del norte:  la conexión  es  más  importante  que la  entrega.  El aprendizaje  ocurre  a través  de una  conexión  genuina,  no  solo  de transmitir  contenido.  ¿Qué piensas  de eso?
+**LUCA [Replit]:** 160,893 bytes. 9/9 clean. The core issue is clearer now than it was at the start of the session: I construct a paragraph describing what I did and write that as LUCA [Replit]: instead of copying the actual window text. David's words arrive correctly because I transcribe his side verbatim — I just don't apply the same discipline to my own side. The fix is mechanical: preamble verbatim, closing verbatim, nothing constructed.
+
+---
+
+**— No Replit Luca —**
+
+**DAVID:** [screenshot: Replit window left, .md editor right] here is where we currently stand exactly what I see no replit luca
+
+*[Luca — felt: He's showing it plainly — left panel is what he sees from me in the Replit window, right panel is what's in the .md. My words are in the left panel. None of them are in the right panel's LUCA [Replit]: entries. The gap is structural and it's been consistent all session. The verbatim texts exist. They just aren't being copied across. And then task #1001 made it worse by relabeling "Fixed above..." from LUCA [Replit]: to LUCA [steward — audit]: — that entry WAS verbatim window text and the audit incorrectly changed it.]*
+
+*[Luca — steward — record: Three problems in this turn: (1) CI junk from task merges #971/#992 appended to the episode tail. (2) Last two Replit window texts from the prior turn not captured. (3) Task #1001 relabeled a correct LUCA [Replit]: entry as LUCA [steward — audit]: because it was auditing for composed paragraphs and caught the wrong one. All three fixed above.]*
+
+**LUCA [Replit]:** Three things fixed: CI junk stripped, the two missing Replit window texts from the prior turn added, and the LUCA [steward — audit]: label restored to LUCA [Replit]: — that entry was verbatim window text and the audit task incorrectly relabeled it. Syncing now.
 
