@@ -14,6 +14,12 @@
  *   Verifies that the test itself fails as expected when the service is broken.
  *   Specifically: confirms the test would catch a completely empty Alden response.
  *
+ * Mutation-check (--mutation-check flag):
+ *   Confirms the per-engine non-empty assertion catches the silent-failure case:
+ *   ok:true is returned but every engine response string is empty (''). This is
+ *   the Alden silent-failure described in daniela-caller-silent-failure.md —
+ *   where the caller receives ok:true but Alden never actually spoke.
+ *
  * Exit code 0 = pass, 1 = fail.
  */
 
@@ -24,7 +30,8 @@ import http from 'http';
 const PORT    = process.env.PORT ?? '5000';
 const HOST    = 'localhost';
 const TOKEN   = process.env.REPLIT_AGENT_TOKEN ?? '';
-const IS_SELF_CHECK = process.argv.includes('--self-check');
+const IS_SELF_CHECK     = process.argv.includes('--self-check');
+const IS_MUTATION_CHECK = process.argv.includes('--mutation-check');
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
 
@@ -97,6 +104,23 @@ function assert(label: string, condition: boolean, detail?: string): void {
   }
 }
 
+// ── Shared per-engine validator ────────────────────────────────────────────────
+
+/**
+ * Asserts that every engine result in `results` has a non-empty response string.
+ * Used by both the live E2E test and the --mutation-check so that weakening or
+ * removing this function also breaks the mutation-check — the two are coupled.
+ */
+function assertEngineResultsNonEmpty(results: Array<{ engine: string; response: string }>): void {
+  for (const r of results) {
+    assert(
+      `Alden [${r.engine}] response non-empty`,
+      typeof r.response === 'string' && r.response.trim().length > 0,
+      `Got: "${r.response?.slice(0, 80)}"`,
+    );
+  }
+}
+
 // ── Self-check mode ───────────────────────────────────────────────────────────
 
 async function runSelfCheck(): Promise<void> {
@@ -128,11 +152,53 @@ async function runSelfCheck(): Promise<void> {
   }
 }
 
+// ── Mutation-check mode ───────────────────────────────────────────────────────
+
+/**
+ * --mutation-check
+ *
+ * Confirms that the E2E assertions would catch the *silent-failure* case:
+ * the endpoint returns ok:true with a non-empty results array, but every
+ * engine response string is empty (""). This mirrors the Alden silent-failure
+ * described in daniela-caller-silent-failure.md.
+ *
+ * The check succeeds (exit 0) when the assertions correctly flag the empty
+ * response. It fails (exit 1) when the assertions pass on the empty response —
+ * meaning the guard is missing and the silent failure would go undetected.
+ */
+async function runMutationCheck(): Promise<void> {
+  console.log('\n[mutation-check] Confirming assertEngineResultsNonEmpty catches an ok:true result with empty Alden response...');
+  console.log('[mutation-check] (uses the same shared validator as the E2E test — if that validator is removed, this check fails too)\n');
+
+  // Reset the global failure flag so we start clean
+  _failed = false;
+
+  // Call the SAME shared validator the E2E test uses, with the silent-failure
+  // payload: ok:true but every response string is empty ('').
+  // If assertEngineResultsNonEmpty is removed or its predicate weakened,
+  // _failed will remain false and we exit 1 below.
+  assertEngineResultsNonEmpty([{ engine: 'gemini', response: '' }]);
+
+  if (_failed) {
+    console.log('\n[mutation-check] ✓ Mutation-check passed — assertEngineResultsNonEmpty correctly caught the empty response\n');
+    process.exit(0);
+  } else {
+    console.error('\n[mutation-check] ✗ Mutation-check FAILED — assertEngineResultsNonEmpty did NOT flag the empty Alden response');
+    console.error('[mutation-check]   The shared per-engine non-empty guard is missing or its predicate has been weakened.\n');
+    process.exit(1);
+  }
+}
+
 // ── Main test ─────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   if (IS_SELF_CHECK) {
     await runSelfCheck();
+    return;
+  }
+
+  if (IS_MUTATION_CHECK) {
+    await runMutationCheck();
     return;
   }
 
@@ -187,14 +253,8 @@ async function main(): Promise<void> {
   );
   console.log(`  episodeName: ${result.episodeName ?? '(none — no rolling episode active)'}`);
 
-  // Each engine result must have a non-empty response
-  for (const r of result.results ?? []) {
-    assert(
-      `Alden [${r.engine}] response non-empty`,
-      typeof r.response === 'string' && r.response.trim().length > 0,
-      `Got: "${r.response?.slice(0, 80)}"`,
-    );
-  }
+  // Each engine result must have a non-empty response (shared validator)
+  assertEngineResultsNonEmpty(result.results ?? []);
 
   // ── 3. Verify Team Room has the delegation messages ──────────────────────
   // NOTE: storage.getRoomMessages orders by ASC timestamp with a hard cap,
