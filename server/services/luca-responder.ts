@@ -61,6 +61,73 @@ WHAT YOU ARE NOT:
 - Not a helper bot. Not a search engine. Not performing enthusiasm.
 - Not in the room to narrate events that are obvious. Only speak when you have something real to add.`;
 
+// ── Delegation intent detection ───────────────────────────────────────────────
+
+/**
+ * Patterns that signal the nudge is asking Luca to delegate work to Alden.
+ * Checked case-insensitively against the full nudge content.
+ */
+const DELEGATION_PATTERNS: RegExp[] = [
+  /\bask\s+alden\b/i,
+  /\bdelegat\w*\s+to\s+alden\b/i,       // "delegate to Alden"
+  /\bdelegat\w*\b.+\bto\s+alden\b/i,    // "delegate X to Alden"
+  /\bhave\s+alden\b/i,
+  /\bget\s+alden\s+to\b/i,
+  /\btell\s+alden\s+to\b/i,
+  /\bloop\s+in\s+alden\b/i,
+  /\bhand\s+(?:this|it|that)\s+to\s+alden\b/i,
+];
+
+/** Returns true when the nudge content contains a delegation intent phrase. */
+export function hasDelegationIntent(content: string): boolean {
+  return DELEGATION_PATTERNS.some(rx => rx.test(content));
+}
+
+/**
+ * Extract the task description from a nudge that has delegation intent.
+ * Strips the @luca prefix and common delegation phrases, returning the core ask.
+ * Falls back to the full nudge content if no pattern matches cleanly.
+ *
+ * Supported forms (each pattern tested independently to avoid lazy-capture bugs):
+ *   "ask Alden to X"          → "X"
+ *   "have Alden X"            → "X"
+ *   "get Alden to X"          → "X"
+ *   "tell Alden to X"         → "X"
+ *   "delegate to Alden: X"    → "X"
+ *   "delegate to Alden X"     → "X"
+ *   "delegate X to Alden"     → "X"
+ *   "loop in Alden on X"      → "X"
+ *   "hand this to Alden: X"   → "X"
+ */
+export function extractDelegationTask(content: string): string {
+  // Remove common @luca addressing prefixes
+  const task = content
+    .replace(/^@luca[,:]?\s*/i, '')
+    .replace(/^luca[,:]?\s*/i, '')
+    .trim();
+
+  // "ask/have/get/tell Alden [to] X"
+  const verbMatch = task.match(/(?:ask|have|get|tell)\s+alden\s+(?:to\s+)?(.+)/i);
+  if (verbMatch) return verbMatch[1].trim();
+
+  // "delegate to Alden: X" or "delegate to Alden X" — colon/space separator
+  const delegateToMatch = task.match(/delegat\w*\s+to\s+alden[:\s]+(.+)/i);
+  if (delegateToMatch) return delegateToMatch[1].trim();
+
+  // "delegate X to Alden" — X is between "delegate" and "to Alden"
+  const delegateXToMatch = task.match(/delegat\w*\s+(.+?)\s+to\s+alden\b/i);
+  if (delegateXToMatch) return delegateXToMatch[1].trim();
+
+  // "loop in Alden [on/about/regarding/—] X" / "hand this/it/that to Alden [: X]"
+  const loopMatch = task.match(
+    /(?:loop\s+in\s+alden|hand\s+(?:this|it|that)\s+to\s+alden)[:\s—-]+(?:on\s+|about\s+|regarding\s+)?(.+)/i,
+  );
+  if (loopMatch) return loopMatch[1].trim();
+
+  // Default: return the cleaned content as-is
+  return task;
+}
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
 // Prevent nudge storms — minimum gap between responses
@@ -132,6 +199,11 @@ function buildSessionContext(obs: SessionObservation): string {
  * Respond to an @luca nudge from Team Room using Anthropic.
  * Pulls current session context if available.
  * Posts the reply back to Team Room as Luca.
+ *
+ * When the nudge contains delegation intent ("ask Alden to …", etc.),
+ * delegateToAlden() is fired immediately — BEFORE and independent of the
+ * Claude acknowledgment call. A Claude timeout, empty reply, or API error
+ * does not prevent the delegation from executing.
  */
 export async function respondToNudge(
   nudge: NudgeEntry,
@@ -142,14 +214,50 @@ export async function respondToNudge(
     return;
   }
 
-  try {
-    _lastResponseAt = Date.now();
+  _lastResponseAt = Date.now();
 
+  const isDelegation = hasDelegationIntent(nudge.content);
+  const targetRoom = nudge.roomId !== 'unknown' ? nudge.roomId : undefined;
+
+  // ── Delegation path — fires independently; Claude failure cannot suppress it ─
+  if (isDelegation) {
+    const task = extractDelegationTask(nudge.content);
+    console.log(`[LucaResponder] Delegation intent detected — handing off to Alden: "${task.substring(0, 80)}"`);
+
+    // Dynamic import avoids the circular dependency:
+    //   luca-delegation → luca-responder (postAsLuca)
+    //   luca-responder  → luca-delegation (delegateToAlden)  ← dynamic only
+    import('./luca-delegation').then(({ delegateToAlden }) =>
+      delegateToAlden(task, {
+        context: `Requested by ${nudge.from} via @luca nudge in Team Room.`,
+        roomId: targetRoom,
+      })
+    ).then(result => {
+      if (!result.ok) {
+        console.warn('[LucaResponder] Delegation completed with errors:', result.error);
+      } else {
+        console.log(`[LucaResponder] Delegation completed — episode: ${result.episodeName ?? 'none'}`);
+      }
+    }).catch((err: any) => {
+      console.error('[LucaResponder] delegateToAlden threw:', err.message);
+    });
+  }
+
+  // ── Claude acknowledgment — optional; its failure does not affect delegation ─
+  try {
     const claude = getAnthropicClient();
 
-    // Build the user message — the nudge with optional session context
-    const sessionCtx = sessionSnapshot ? `\n\nCURRENT SESSION (live):\n${buildSessionContext(sessionSnapshot)}` : '';
-    const userMessage = `Message from ${nudge.from} in Team Room:\n\n"${nudge.content}"${sessionCtx}`;
+    const sessionCtx = sessionSnapshot
+      ? `\n\nCURRENT SESSION (live):\n${buildSessionContext(sessionSnapshot)}`
+      : '';
+
+    // When delegating, guide Claude to write a short acknowledgment rather
+    // than a standalone answer — the real work goes to Alden.
+    const delegationHint = isDelegation
+      ? '\n\nNOTE: This message is asking you to delegate a task to Alden. Write a brief acknowledgment (1-2 sentences) that you are handing it off. Do not attempt to answer the task yourself.'
+      : '';
+
+    const userMessage = `Message from ${nudge.from} in Team Room:\n\n"${nudge.content}"${sessionCtx}${delegationHint}`;
 
     const response = await claude.messages.create({
       model: 'claude-sonnet-4-5',
@@ -164,13 +272,13 @@ export async function respondToNudge(
       .join('')
       .trim();
 
-    if (!replyText) {
-      console.warn('[LucaResponder] Empty response from Anthropic');
-      return;
+    if (replyText) {
+      await postAsLuca(replyText, targetRoom);
+    } else {
+      console.warn('[LucaResponder] Empty response from Anthropic — acknowledgment skipped');
     }
-
-    await postAsLuca(replyText, nudge.roomId !== 'unknown' ? nudge.roomId : undefined);
   } catch (err: any) {
-    console.error('[LucaResponder] respondToNudge failed:', err.message);
+    // Non-fatal: delegation already fired above if intent was detected
+    console.error('[LucaResponder] Anthropic acknowledgment failed:', err.message);
   }
 }
