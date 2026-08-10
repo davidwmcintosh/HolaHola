@@ -51,9 +51,45 @@
  *   npx tsx server/scripts/test-chat-episode-hook-e2e.ts --self-check
  */
 
-import { existsSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, statSync, openSync, closeSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { maybeAppendChatMessage } from '../services/chat-episode-hook';
+
+// ── Episode-file CI lockfile (prevents concurrent runs from racing) ────────────
+// Both episode-append-trigger-ci and chat-episode-hook-e2e-ci modify the real
+// docs/episode-27.md and the DB row.  A shared lockfile ensures they never run
+// at the same time.  Stale locks (> 10 min) are cleared automatically.
+const EPISODE_CI_LOCK = '/tmp/.episode-27-ci.lock';
+function acquireEpisodeCiLock(): void {
+  const MAX_WAIT_MS = 90_000;
+  const POLL_MS     = 2_000;
+  const STALE_MS    = 10 * 60 * 1000;
+  const deadline    = Date.now() + MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const fd = openSync(EPISODE_CI_LOCK, 'wx');
+      writeFileSync(fd, String(process.pid));
+      closeSync(fd);
+      return;
+    } catch {
+      try {
+        const st = statSync(EPISODE_CI_LOCK);
+        if (Date.now() - st.mtimeMs > STALE_MS) {
+          unlinkSync(EPISODE_CI_LOCK);
+          continue;
+        }
+      } catch { /* file was removed between our check and stat */ }
+      const wait = Math.min(POLL_MS, deadline - Date.now());
+      if (wait <= 0) break;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+    }
+  }
+  console.error('\x1b[31mFATAL: could not acquire episode CI lockfile after 90s — another CI may be stuck\x1b[0m');
+  process.exit(1);
+}
+function releaseEpisodeCiLock(): void {
+  try { unlinkSync(EPISODE_CI_LOCK); } catch { /* already gone */ }
+}
 import { checkEpisodeAppend, syncEpisodeFile } from '../services/agent-session-autosave';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { getSharedDb } from '../db';
@@ -289,9 +325,21 @@ async function runNormalMode(): Promise<void> {
     console.log(B('STEP 3 — Process trigger via checkEpisodeAppend() → append to .md'));
     sep();
 
-    // Second call: prev = mtime0cleared ≠ 0, mtime1 > prev → processes sentinel.
+    // The autosave worker in the server process watches .episode_append independently.
+    // It may race with the CI's own checkEpisodeAppend() call on appendExchangeToEpisode
+    // (both use writeFileSync which briefly truncates the file to 0 before writing).
+    // Sleep 3s so the server's watcher finishes its write before we read the .md.
+    // If the server already processed the trigger and cleared it, our checkEpisodeAppend
+    // will find the trigger empty and skip — which is correct; the sentinel is already
+    // in the .md from the server's write.
+    console.log(Y('  ℹ  Waiting 3s for server watcher to process trigger first…'));
+    await sleep(3000);
+
+    // Second call: prev = mtime0cleared ≠ 0; if server already cleared trigger,
+    // mtime is now the server-clear mtime which may be > prev; we read empty → skip.
+    // If server hasn't run yet, we process the trigger ourselves (normal path).
     await checkEpisodeAppend();
-    console.log(Y(`  ℹ  checkEpisodeAppend() processed the trigger`));
+    console.log(Y(`  ℹ  checkEpisodeAppend() processed the trigger (or found already cleared)`));
 
     const mdAfter = readFileSync(MD_PATH, 'utf-8');
     assert(
@@ -488,6 +536,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Acquire the shared episode-CI lockfile so this run does not race with
+  // episode-append-trigger-ci (both write to the real docs/episode-27.md).
+  acquireEpisodeCiLock();
+  try {
+
   const modeLabel = selfCheckMode
     ? '  Chat Episode Hook — SELF-CHECK (empty lucaText gate)'
     : '  Chat Episode Hook — End-to-End CI Check';
@@ -500,6 +553,10 @@ async function main(): Promise<void> {
     await runSelfCheck();
   } else {
     await runNormalMode();
+  }
+
+  } finally {
+    releaseEpisodeCiLock();
   }
 
   sep();

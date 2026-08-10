@@ -55,8 +55,47 @@
  *   npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
  */
 
-import { existsSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, statSync, openSync, closeSync, unlinkSync } from 'fs';
 import { join } from 'path';
+
+// ── Episode-file CI lockfile (prevents concurrent runs from racing) ────────────
+// Both episode-append-trigger-ci and chat-episode-hook-e2e-ci modify the real
+// docs/episode-27.md and the DB row.  A shared lockfile ensures they never run
+// at the same time.  Stale locks (> 10 min) are cleared automatically.
+const EPISODE_CI_LOCK = '/tmp/.episode-27-ci.lock';
+function acquireEpisodeCiLock(): void {
+  const MAX_WAIT_MS = 90_000;   // wait up to 90s for the other CI to finish
+  const POLL_MS     = 2_000;
+  const STALE_MS    = 10 * 60 * 1000;
+  const deadline    = Date.now() + MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      // O_EXCL — fails atomically if file already exists
+      const fd = openSync(EPISODE_CI_LOCK, 'wx');
+      writeFileSync(fd, String(process.pid));
+      closeSync(fd);
+      return; // lock acquired
+    } catch {
+      // Check whether the existing lock is stale
+      try {
+        const st = statSync(EPISODE_CI_LOCK);
+        if (Date.now() - st.mtimeMs > STALE_MS) {
+          unlinkSync(EPISODE_CI_LOCK);
+          continue; // retry immediately
+        }
+      } catch { /* file was removed between our check and stat — retry */ }
+      // Another CI is still running — wait and retry
+      const wait = Math.min(POLL_MS, deadline - Date.now());
+      if (wait <= 0) break;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+    }
+  }
+  console.error('\x1b[31mFATAL: could not acquire episode CI lockfile after 90s — another CI may be stuck\x1b[0m');
+  process.exit(1);
+}
+function releaseEpisodeCiLock(): void {
+  try { unlinkSync(EPISODE_CI_LOCK); } catch { /* already gone */ }
+}
 import { checkEpisodeAppend, syncEpisodeFile } from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -605,6 +644,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Acquire the shared episode-CI lockfile so this run does not race with
+  // chat-episode-hook-e2e-ci (both write to the real docs/episode-27.md).
+  acquireEpisodeCiLock();
+  try {
+
   const modeLabel = concurrentCheckMode
     ? '  Episode Append Trigger — CONCURRENT SELF-CHECK'
     : selfCheckMode
@@ -621,6 +665,10 @@ async function main(): Promise<void> {
     await runSelfCheck();
   } else {
     await runNormalMode();
+  }
+
+  } finally {
+    releaseEpisodeCiLock();
   }
 
   sep();
