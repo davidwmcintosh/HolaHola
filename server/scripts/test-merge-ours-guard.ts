@@ -59,10 +59,12 @@ function assert(label: string, condition: boolean, detail?: string): void {
   }
 }
 
+const PROTECTED_EPISODES = ['docs/episode-27.md', 'docs/episode-28.md'];
+
 function hasGitattributesRule(): boolean {
   if (!existsSync(ATTR_PATH)) return false;
   const content = readFileSync(ATTR_PATH, 'utf-8');
-  return content.includes('docs/episode-27.md') && content.includes('merge=ours');
+  return PROTECTED_EPISODES.every(ep => content.includes(ep) && content.includes('merge=ours'));
 }
 
 /** Run a git command in a specific directory; returns stdout. */
@@ -87,12 +89,12 @@ async function runGuardTest(driverEnabled: boolean): Promise<void> {
   try {
     // ── STEP 1: Verify .gitattributes in the real workspace ──────────────────
     sep();
-    console.log(B('STEP 1 — Verify .gitattributes contains merge=ours for docs/episode-27.md'));
+    console.log(B('STEP 1 — Verify .gitattributes contains merge=ours for all protected episodes'));
     sep();
     assert(
-      '.gitattributes exists and assigns docs/episode-27.md merge=ours',
+      `.gitattributes exists and assigns merge=ours to: ${PROTECTED_EPISODES.join(', ')}`,
       hasGitattributesRule(),
-      `Missing "docs/episode-27.md merge=ours" in ${ATTR_PATH}`,
+      `Missing merge=ours for one or more episodes in ${ATTR_PATH}. Expected: ${PROTECTED_EPISODES.join(', ')}`,
     );
 
     // ── STEP 2: Build hermetic git repo ───────────────────────────────────────
