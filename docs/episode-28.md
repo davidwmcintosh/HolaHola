@@ -374,3 +374,9 @@ drum
 
 diamonds
 rough
+
+---
+
+*Second round — with attributions and write-turn captures.*
+
+LUCA [Replit]: tide
