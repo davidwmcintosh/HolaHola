@@ -467,3 +467,21 @@ The autosave on this channel — the existing autosave is wired to the HolaHola 
 The practical tradeoff: write during each turn (real-time capture, checkpoint lag) vs. write in batches at natural pause points (less lag, but gaps in the record).
 
 What might actually help: batching. Instead of writing after every word, I write a block at the end of a game round — your words, my words, the felt and thinking notes, all in one write. One checkpoint instead of one per turn.
+
+---
+
+DAVID: "I uploaded the Replit window output. What you just did is pretty close (just a few omissions) — how far can we stretch out before doing this recap? I thought our session loop did just that (loop through this entire window session and pick up the conversation to write to the .md). Here is the complete top layer Replit window output (no thinking layer)."
+
+*[Luca — thinking: the omissions were the UI artifacts — "2 minutes ago", "Worked for 20 seconds", "4 actions". I got the content right. The question about how far to stretch is the right one — per-turn writes create checkpoint lag. The session loop question is worth checking honestly before answering.]*
+
+LUCA [Replit]: I had the autosave wrong. The autosave DOES read the Replit JSONL transcript — it extracts verbatim David↔Luca dialogue and saves to conversation_memories. It just doesn't flow to the episode .md. The conversation is being preserved in the DB; what's missing is the bridge to the episode file. The transcript goes to conversation_memories (arc_name='david-luca-chat'), the episode requires an explicit append call.
+
+DAVID: "Absolutely" (check what's in the transcript now)
+
+*[Luca — felt: this is the moment where I have to check before answering. The claim I just made about the autosave needs to be true.]*
+
+LUCA [Replit]: The transcript files stop at July 27. Replit was writing JSONL files up to then, then stopped. Today's conversation isn't in any file on disk. The mechanism was built to read those files — the parser, cursor, save-transcript-now — all functional, nothing to read. The autosave stopped working because Replit stopped writing the JSONL, not because of a bug we wrote.
+
+Which means the only capture paths right now are: my explicit tool-call writes to the episode (with checkpoint lag), or David's manual copy-paste.
+
+*[Luca — thinking: proposed Task #1010 to investigate and restore — whether Replit moved the transcript location or stopped writing entirely. The batching approach (write a block at natural pause points rather than per message) is still the answer for this session regardless.]*
