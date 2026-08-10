@@ -188,13 +188,31 @@ export async function maybeAppendTeamRoomMessage(content: string): Promise<void>
  *
  * Returns the episode name that was written to, or null if no rolling episode
  * is active (so callers can include it in their result metadata).
+ *
+ * Race guard: delegation calls are infrequent but Alden can take several
+ * seconds to respond. A new rolling episode may be activated in that window.
+ * To avoid the 60-second stale-null-cache drop, the cache is always
+ * invalidated before the lookup so a fresh DB query is guaranteed.
+ *
+ * @param exchange    Formatted exchange text with attribution labels.
+ * @param triggerPath Override the trigger file path (defaults to TRIGGER_PATH).
+ *                    Injected by tests so the production logic runs against a
+ *                    temp file rather than the live workspace file.
  */
-export async function maybeAppendDelegationExchange(exchange: string): Promise<string | null> {
+export async function maybeAppendDelegationExchange(
+  exchange: string,
+  triggerPath: string = TRIGGER_PATH,
+): Promise<string | null> {
   try {
+    // Always invalidate before lookup — delegation exchanges are infrequent
+    // (one per Alden call) so the extra DB round-trip is negligible. This
+    // eliminates the 60-second window where a newly-activated episode would
+    // be missed if the cache was primed as null before the episode started.
+    invalidateRollingEpisodeCache();
     const episodeName = await getRollingEpisodeName();
     if (!episodeName) return null; // No rolling episode active
 
-    await safeWriteTrigger(exchange.trim(), episodeName);
+    await safeWriteTrigger(exchange.trim(), episodeName, triggerPath);
     return episodeName;
   } catch (err: any) {
     console.error('[TeamRoomEpisodeHook] maybeAppendDelegationExchange error:', err.message);

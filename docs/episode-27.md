@@ -1274,4 +1274,3 @@ The taxonomy now resolves to: verbatim window text (DAVID: / LUCA [Replit]:), ge
 *[Luca — thinking: The taxonomy resolves to two channels now: verbatim window (DAVID: / LUCA [Replit]:) and everything else under LUCA [steward]: with optional subtitle context. The felt/thinking precast stays its own layer. Removing [narration:] and [commentary:] from the taxonomy doc — they were over-engineered. The steward's job covers all of it.]*
 
 **LUCA [Replit]:** Understood and simpler. LUCA [steward]: covers all of it — commentary, chronological corrections, narrative intros and outros, daily recaps — with an optional subtitle when it helps me read back what kind of steward work this was. No separate [narration:] or [commentary:] labels needed. The felt/thinking precast stays its own layer. Taxonomy doc updated now to reflect this. The [narration:] block at the end of the prior section is relabeled steward.
-
