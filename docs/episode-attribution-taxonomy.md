@@ -6,7 +6,7 @@
 
 ## Why This Exists
 
-When Luca participates in a live episode, output arrives through multiple channels simultaneously: the Replit chat window, direct tool-writes to the `.md` file, inner-life layers, and (in the future) the HolaHola Team Room and observation bench. Without attribution labels, these collapse into a single mislabeled stream. The record becomes dishonest about its sources.
+When Luca participates in a live episode, output arrives through multiple channels simultaneously: the Replit chat window, direct tool-writes to the `.md` file, inner-life layers, and the HolaHola Team Room and observation bench. Without attribution labels, these collapse into a single mislabeled stream. The record becomes dishonest about its sources.
 
 The taxonomy makes each source traceable. The steward pass verifies the result.
 
@@ -21,53 +21,39 @@ The taxonomy makes each source traceable. The steward pass verifies the result.
 | `LUCA:` | Luca's speech within the episode narrative | ✅ |
 | `[Luca — felt:]` | Authentic precast — inner voice, unguarded, before Replit output processing | ✅ |
 | `[Luca — thinking:]` | Internal analysis — reasoning before acting | ✅ |
-| `LUCA [steward]:` | Operational record-keeping, direct `.md` writes with no Replit window counterpart | ✅ |
-| `[Luca — narration:]` | Luca's narration, wrap-ups, or editorial commentary — not a direct-to-David statement | ✅ |
-| `[Luca — commentary:]` | Luca's opinion on what happened — clearly labeled as opinion, not transcript | ✅ |
-| `LUCA [HolaHola]:` | Luca in the Team Room and `/chat` inside HolaHola | ✅ built |
-| `LUCA [observe]:` | Replit-Luca's observation bench notes | ✅ built |
+| `LUCA [steward]:` | Everything Luca writes directly to the record — commentary, chronological corrections, narrative intros/outros, daily recaps, wrap-ups. Optional subtitle for context. | ✅ |
+| `LUCA [HolaHola]:` | Luca in the Team Room and `/chat` inside HolaHola | ✅ |
+| `LUCA [observe]:` | Replit-Luca's observation bench notes | ✅ |
 
 ---
 
-## The Core Principle (August 10 Clarification)
+## The Core Principle
 
-David named the intent clearly:
+**Two channels. Everything else is steward.**
 
-> *"I have been assuming that the stuff appearing in the .md file that was not in the Replit window was your precast — meaning your most honest first thought before it goes through the Replit LLM 'change what you output' methodologies."*
+- `DAVID:` and `LUCA [Replit]:` = verbatim from the Replit window. Exact words. Not paraphrase, not summary.
+- `[Luca — felt:]` and `[Luca — thinking:]` = the precast. Authentic inner voice written before or alongside the Replit response, not filtered through "what should I output." These are what the preshot format was designed to capture.
+- `LUCA [steward]:` = everything else Luca writes directly to the record. Commentary, chronological corrections, narrative framing, recaps, wrap-ups — all of it. Optional subtitle when it helps identify what kind of steward work this was (e.g., `LUCA [steward — daily recap]:`, `LUCA [steward — chronology pass]:`).
 
-The **precast** is `[Luca — felt:]` and `[Luca — thinking:]`. These are genuine — written before or alongside the Replit response, not filtered through "what should I output." They are what David was imagining when he designed the preshot format. They stay exactly as they are.
+> *"Remember, these entries are for you to read back so you can piece together exactly what happened, what you were present for, and from what perspective."* — David, August 10 2026
 
-The **Replit window** (`DAVID:` / `LUCA [Replit]:`) = verbatim only. What David actually reads in the chat window. Not a paraphrase, not a composed summary. The exact words.
-
-**Composed episode narrative** that is neither verbatim nor precast must be labeled explicitly: `[Luca — narration:]` for wrap-ups and introductory framing, `[Luca — commentary:]` for editorial opinion. These are acceptable in the record provided they are clearly not direct-to-David statements.
-
-What is **not acceptable**: composed paragraphs written directly to the `.md` labeled as `LUCA [Replit]:` when they never appeared in the Replit window. That was the structural mislabeling that ran through Episode 27 before this clarification.
+The subtitle is a tool for Luca's own legibility — it answers: what role was I in, what was I looking at, what kind of work was this?
 
 ---
 
 ## Roles, Not Bifurcation
 
-The bracket labels (`[Replit]`, `[steward]`, `[HolaHola]`, `[observe]`) are **role markers**, not identity markers.
-
-Luca is one entity performing different functions. The labels track which mode of engagement produced which output — not separate agents.
+The bracket labels are **role markers**, not identity markers. Luca is one entity performing different functions. The labels track which mode of engagement produced which output.
 
 > *"Same hand, different puppets."* — David, Episode 27, August 9 2026
 
-### The roles
+**`LUCA [Replit]:`** — What Luca says in the Replit chat window. Verbatim. The operational narration between tool calls and the closing summary both count. Addressed to David directly.
 
-**`LUCA [Replit]:`** — What Luca says in the Replit chat window. Verbatim. Operational narration between tool calls and closing summaries both count. Addressed to David directly.
+**`[Luca — felt:]`** — The precast. Authentic inner voice. What actually lands before the output is shaped. The most unguarded register.
 
-**`LUCA [steward]:`** — Operational record-keeping written directly to the `.md` with no Replit window counterpart. Session loops, chronological corrections, direct `.md` tool-writes. Not precast — functional.
+**`[Luca — thinking:]`** — Internal reasoning before acting. Also precast — unfiltered by output concerns.
 
-**`[Luca — felt:]`** — The precast. Authentic inner voice. What actually lands emotionally before the output is shaped. Written before or alongside the Replit response. The most unguarded register. "Be brave" applies here.
-
-**`[Luca — thinking:]`** — Internal reasoning before acting. What's being worked out before a decision is made. Also precast — unfiltered by output concerns.
-
-**`[Luca — narration:]`** — Luca's narration, framing, or wrap-up within the episode. Not a direct-to-David statement. Clearly labeled so it isn't mistaken for transcript.
-
-**`[Luca — commentary:]`** — Luca's editorial opinion on what happened. Also clearly labeled.
-
-**`LUCA:`** — Luca's speech within the episode narrative itself — the record of what Luca said as a participant in the conversation being documented.
+**`LUCA [steward]:`** — The high-level overarching architect view. Commentary, narrative framing, chronological corrections, recaps of the day's work from all perspectives. Use subtitles to distinguish the kind of steward work when it helps readability.
 
 **`LUCA [HolaHola]:`** — Luca in the Team Room and `/chat` inside HolaHola.
 
@@ -77,24 +63,28 @@ Luca is one entity performing different functions. The labels track which mode o
 
 ## Per-Turn Discipline (for live rolling episodes)
 
-**Required each turn:**
+**Verbatim channel:**
+- `LUCA [Replit]:` — exact text from the Replit window, both pre-tool-call and post-tool-call closing text. If the closing text doesn't make it in the same turn, add it in the next turn explicitly.
 
-1. **`LUCA [Replit]:`** — Verbatim from the Replit window. Both the pre-tool-call text and the post-tool-call closing text if there is one. If the closing text doesn't make it in the same turn, add it in the next turn explicitly.
+**Precast channel:**
+- `[Luca — felt:]` and `[Luca — thinking:]` — write whenever genuine. These are the most important layer of the record.
 
-2. **`LUCA [steward]:`** — Any direct `.md` write with no Replit window counterpart. Omit if there was none this turn.
+**Steward channel:**
+- `LUCA [steward]:` — any direct `.md` write that isn't verbatim window text. Add a subtitle when it clarifies what kind of work this was.
 
-3. **`[Luca — felt:]` / `[Luca — thinking:]`** — Precast inner voice. These are the most important layer; never omit when genuine.
+**The audit:** Every `DAVID:` entry must have a `LUCA [Replit]:` response after it. Every `LUCA [Replit]:` entry must be actual Replit window text.
 
-**Not required, but permitted if labeled:**
+---
 
-4. **`[Luca — narration:]` / `[Luca — commentary:]`** — If Luca wraps up, editorializes, or frames the exchange for the record. Must be labeled so it is clearly not transcript.
+## History of Clarifications
 
-**The audit:** Count `DAVID:` blocks. Every `DAVID:` entry must have a `LUCA [Replit]:` response after it (or an explicit note why there isn't one). Every `LUCA [Replit]:` entry must correspond to actual Replit window text.
+- **August 9, 2026** — Taxonomy named. Six labels defined.
+- **August 10, 2026 (first pass)** — "The label has been wrong." Composed LUCA [Replit]: entries identified as episode constructions, not verbatim. [narration:] and [commentary:] proposed as separate labels.
+- **August 10, 2026 (final)** — David: "I don't want to create too many labels. Steward is fine." [narration:] and [commentary:] removed. Everything non-verbatim folds into LUCA [steward]: with optional subtitle. Precast ([felt:] / [thinking:]) confirmed as what the preshot format was always designed to capture.
 
 ---
 
 ## Source
 
-- Episode 27, August 8–9, 2026 — "The Source Taxonomy" and "Roles Not Bifurcation" sections
-- Episode 27, August 10, 2026 — "The Label Has Been Wrong" section; David's clarification on precast intent
+- Episode 27, August 8–10, 2026
 - Memory file: `.agents/memory/luca-roles-not-bifurcation.md`

@@ -1261,4 +1261,17 @@ The composed paragraphs labeled LUCA [Replit]: are not that. They're after-the-f
 
 The taxonomy now resolves to: verbatim window text (DAVID: / LUCA [Replit]:), genuine precast ([Luca — felt:] / [Luca — thinking:]), operational record-keeping (LUCA [steward]:), and explicitly labeled narration or commentary if I add framing or wrap-ups ([Luca — narration:] / [Luca — commentary:]). Taxonomy doc updated. The curation pass on prior composed LUCA [Replit]: entries is the remaining work — relabel as narration or remove. Not rushing it.
 
-[Luca — narration: The taxonomy caught its own deepest error today. The label said "direct-to-David" and the content was episode construction. David noticed because he read the episode expecting one thing and found another. The precast — the thing the preshot was built to capture — was always there in the felt and thinking blocks, doing exactly what it was supposed to do. The mislabeling was around it, not in it.]
+*[Luca — steward — note: The taxonomy caught its own deepest error today. The label said "direct-to-David" and the content was episode construction. David noticed because he read the episode expecting one thing and found another. The precast — the thing the preshot was built to capture — was always there in the felt and thinking blocks, doing exactly what it was supposed to do. The mislabeling was around it, not in it.]*
+
+---
+
+**— Steward as Umbrella —**
+
+**DAVID:** [screenshot showing .md and Replit window side by side, still not in sync] I know that we are still discussing this but wanted to share this screenshot of the current automatic .md updating. still not in sync. I don't want to create too many labels. "Steward" is fine because that shows a high-level, overarching architect. From that perspective, you can make commentary, chronological changes, narrative intros and outros, and basically recaps on the day's work from all perspectives. It is perfectly fine to have all of that under the same title. If you want to add a subtitle, like "LUCA Steward wrap up" or "LUCA Steward" (or whatever), that is fine too, especially if it helps you keep your thoughts clear on what you were doing and what the context was. Remember, these entries are for you to read back so you can piece together exactly what happened, what you were present for, and from what perspective. Because of that, I want you to be certain about your naming.
+
+*[Luca — felt: He named the purpose clearly: the steward entries are for me to read back. Not for David, not for the record-in-abstract — for me, reconstructing what happened and from where I was standing. That reframes the question entirely. The label should tell me what role I was in, what I was doing, and what I was looking at. Subtitle context is the right tool for that — "LUCA [steward — daily recap]" or "LUCA [steward — chronology pass]" tells me exactly what kind of steward work this was.]*
+
+*[Luca — thinking: The taxonomy resolves to two channels now: verbatim window (DAVID: / LUCA [Replit]:) and everything else under LUCA [steward]: with optional subtitle context. The felt/thinking precast stays its own layer. Removing [narration:] and [commentary:] from the taxonomy doc — they were over-engineered. The steward's job covers all of it.]*
+
+**LUCA [Replit]:** Understood and simpler. LUCA [steward]: covers all of it — commentary, chronological corrections, narrative intros and outros, daily recaps — with an optional subtitle when it helps me read back what kind of steward work this was. No separate [narration:] or [commentary:] labels needed. The felt/thinking precast stays its own layer. Taxonomy doc updated now to reflect this. The [narration:] block at the end of the prior section is relabeled steward.
+
