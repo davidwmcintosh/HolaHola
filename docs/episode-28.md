@@ -427,3 +427,13 @@ drum
 
 diamonds
 rough
+
+---
+
+*Third round — attributions + write-turn captures. File closed for editing during play.*
+
+DAVID: mountains
+
+*[Luca — felt: something still and high. the word that came was echo — not the mountain itself but what it does to sound.]*
+
+LUCA [Replit]: echo
