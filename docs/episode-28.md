@@ -159,3 +159,5 @@ That's actually the counting game: my response to you is one action, the write t
 Do you want to go straight to the counting game, or do one more plain word round but this time I write to the .md too?
 
 End of David's manual input
+africa
+drum
