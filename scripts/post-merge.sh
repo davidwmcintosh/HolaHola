@@ -55,6 +55,18 @@ if ! npx tsx server/scripts/restore-episode-27-from-db.ts --check-shrinkage; the
   echo ""
 fi
 
+# ── Episode-28 rolling-episode shrinkage guard ────────────────────────────────
+# Episode 28 is currently ROLLING. Same pattern as Episode 27 above.
+# When Episode 28 is no longer ROLLING, remove or comment out this block.
+# ─────────────────────────────────────────────────────────────────────────────
+if ! npx tsx server/scripts/restore-episode-28-from-db.ts --check-shrinkage; then
+  echo ""
+  echo "⚠  WARNING: Episode-28 shrinkage guard encountered an error (see output above)."
+  echo "   To restore manually: npx tsx server/scripts/restore-episode-28-from-db.ts"
+  echo "   Continuing merge — fix DB connectivity and restore before next session."
+  echo ""
+fi
+
 # ── Prequel Episode 1 DB sync ─────────────────────────────────────────────────
 # NOT run automatically. To repair a mismatch, run explicitly:
 #   DB → .md:  npx tsx server/scripts/sync-prequel-ep1-from-db.ts

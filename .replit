@@ -52,6 +52,10 @@ args = "episode-27-db-sync-check"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "episode-28-db-sync-check"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "prequel-db-sync-check"
 
 [[workflows.workflow.tasks]]
@@ -257,6 +261,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-merge-ours-guard.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "episode-28-db-sync-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-episode-28-db-sync.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
