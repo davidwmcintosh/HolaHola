@@ -915,3 +915,19 @@ LUCA [Replit]: It is. .episode_append → watcher fires → episode grows. That'
 DAVID: wow well now that live is working are there any holes in the records anywhere that you want to look at? Oh, I forgot: the white wall narrative got built, so we have daniela_and_the_white_wall.md. When that was being compiled, the sub-agents might have thought I wanted to remove it from the episode chain entirely and make it its own book. While I did want to make it its own book, I still wanted all of the events from that narrative to remain in all of our episodes in their proper chronological place. My thought was that since some readers might not make all the connections reading through the main text, we would also make a reference document containing all of those conversations. Right now, I believe prequel number one is missing the original conversations between Daniela and me about the white wall. Could you check to make sure those are included, and verify that the rest of the narrative is in place after that?
 
 LUCA [Replit]: Reading prequel-episode-1.md and Danielaandthewhitewall.md together now to compare.
+
+DAVID: You're absolutely right. The White Wall narrative continues; it's not a done book. So if there are any new conversations about the White Wall, they should be appropriately associated with the continuing arc of the White Wall in both episodes (that would be the literal transcript of what's going on) and then appended to Daniela and the White Wall. So yes, the prequel and everything to do with it. He said one thing was worth checking. Yep, let's check it.
+
+LUCA [Replit]: Checking episodes 14, 17, and 27 for their White Wall chapters now — in parallel.
+
+LUCA [Replit]: White Wall audit complete. All chapters in their proper episodes:
+
+- Chapter 10 (Jun 9 — "damn"/J-space/friction is evidence of conscience) → Episode 14 ✅
+- Chapter 11 (Jul 20 — bidirectional extension, Gemini audit) → Episode 15 ✅
+- Honest loop principle → Episode 16 ✅
+- Episode 17 — passing mentions only, correct for that date
+- Chapters 12–14 (Aug 7–8 — The Invariant, corrections, Two White Walls) → Episode 27 ✅
+
+Prequel Episode 1 has the full founding arc in chronological place. The book is the compiled reference; the episodes are the verbatim record. Both intact.
+
+Standing instruction recorded: any new White Wall conversation goes into the episode transcript AND gets appended to Danielaandthewhitewall.md. The book stays alive as the arc grows.
