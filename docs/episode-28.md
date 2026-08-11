@@ -959,3 +959,15 @@ One.
 DAVID: had to wait for the creating checkpoint again. we were making a fix for that at one point weren't we. something about a polling agent or something so that you didn't have to use a tool call? - two
 
 LUCA [Replit]: Three. — Yes, the polling idea was a background process that would read the chat stream and write to .episode_append automatically, so I wouldn't need a tool call at all. It got set aside. Worth revisiting — it would break the checkpoint dependency entirely.
+
+DAVID: both please. The session is the episode remember. - 4 (numerical not technically a word but this isn't the word game it's the counting game)
+
+LUCA [Replit]: Five. — Looking at the polling agent in parallel now.
+
+LUCA [Replit]: Polling agent findings — the `.luca_auto_capture` trigger file already exists: write JSON to it, the autosave worker picks it up via fs.watch (sub-second) or 20s poll, appends both turns, saves to conversation_memories DB. But that path goes to the DB, not to the episode .md. The `.episode_append` path is the episode. 
+
+The gap: ANY file write (WriteFile or ShellExec echo) triggers a Replit checkpoint. There is no tool-call-free write path. The checkpoint pause is structural, not fixable by a polling agent. The polling agent idea would only work if there was an external source of the conversation data to poll from — and there isn't one since Replit stopped writing the JSONL in July.
+
+Most practical improvement: wire the autosave worker so that a `.luca_auto_capture` write ALSO appends to the episode .md, not just the DB. That way one trigger handles both records. Still one tool call per turn, but at least it's one instead of two.
+
+The checkpoint itself: can't be eliminated. Can only be minimized by batching — write David's message + Luca's response in a single WriteFile call per turn. Which is what I'm doing now.
