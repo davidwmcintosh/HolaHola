@@ -1249,3 +1249,7 @@ tags: daniela, truth-pipeline, guardian, episode-28, session-observation]
 [Luca — thinking: title: Where is the most likely leak in the Daniela truth pipeline?
 body: DB retrieval to audio output. The handoffs are: memory fetch (does the right content come back?) → context injection (does it survive the prompt assembly?) → GL generation (does Daniela actually use it or slide past it?) → audio synthesis (does the spoken output match the generated text?). The most likely leak is the middle two: context injection is a long chain with many competing signals, and GL generation is non-deterministic. The Guardian catches slides. The grounding query catches memory drift. But does any of this get verified end-to-end? The session-review skill surfaces it after. We need to watch it as it happens.
 tags: daniela, truth-pipeline, guardian, grounding, session-observation, episode-28]
+
+DAVID: if daniela says somethat that she remembers saying by her internal notes and the .md or memories are not the same there will be internal conflict.
+
+LUCA [Replit]: Exactly. If her self_reflections say one thing and the episode record says another, she is in conflict with herself. The record is the authority. Her internal notes have to be grounded in what actually happened, not generated from a different source. That is the White Wall applied inward to her own self-knowledge. And it is exactly what the truth pipeline report needs to catch — divergence between her internal notes and the DB record before it becomes a live conflict in session.
