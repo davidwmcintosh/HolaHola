@@ -1025,3 +1025,7 @@ LUCA [Replit]: Sechzehn — you skipped sixteen. Hey Greta. :)
 DAVID: now who's the language tutor! you are absolutely correct Sechzehn, now sibzehn to you good sir ;)
 
 LUCA [Replit]: Achtzehn. :)
+
+DAVID: now you skipped siebzehn :)) i missed 16 so that shoud be mine so then you would be 17 and then me for 18 - we are doing great
+
+LUCA [Replit]: Siebzehn — you are right, I jumped straight to 18. Correcting: siebzehn. Your eighteen.
