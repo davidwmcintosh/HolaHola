@@ -92,6 +92,43 @@ let questionLastMtime = 0;
 let momentLastMtime = 0;
 
 /**
+ * Test seam — rolling-episode length guard comparison direction.
+ * When true (CI self-check only), the atomic SQL UPDATE uses LENGTH(content) >= incoming
+ * instead of <=, so longer content can no longer win and Pass 3 fails.
+ * This precisely models a regression where the comparison direction is wrong.
+ * Never set in production.
+ */
+let _rollingGuardInvertForTest = false;
+export function setRollingGuardInvertForTest(val: boolean): void {
+  _rollingGuardInvertForTest = val;
+}
+export function getRollingGuardInvertForTest(): boolean {
+  return _rollingGuardInvertForTest;
+}
+
+/**
+ * Test seams for checkAutoCapture() — prevent DB/cursor pollution in CI.
+ *
+ * setAutoCaptureDbEnabled(false)
+ *   — skips consumeAutoCaptureTrigger() + checkChatCapture() so no turns are
+ *     appended to .chat_capture and no rows land in conversation_memories.
+ *     The trigger file is still deleted after reading.
+ *
+ * setAutoCaptureEpisodeEnabled(false)
+ *   — skips the appendExchangeToEpisode() call (self-check mode: simulates
+ *     removing the episode-routing line from checkAutoCapture()).
+ *
+ * setPinnedRollingEpisodeFilename(filename | null)
+ *   — overrides getCurrentRollingEpisodeFilename() inside checkAutoCapture()
+ *     so CI tests target a known episode file and are never confused by
+ *     concurrently-created fixtures (e.g. Episode 99 from rolling-sync-guard).
+ *     Pass null to restore dynamic lookup.
+ *
+ * Never set any of these in production code.
+ */
+let _autoCaptureDbEnabled = true;
+
+/**
  * Test seam — episode append path.
  * Set to false in CI self-check mode to simulate the appendExchangeToEpisode()
  * call being absent from checkLucaReflection().  Never set in production.
@@ -121,28 +158,6 @@ export function getLucaPersonalSideEffectsEnabled(): boolean {
 export function resetReflectionMtimeForTest(): void {
   reflectionLastMtime = 0;
 }
-
-/**
- * Test seams for checkAutoCapture() — prevent DB/cursor pollution in CI.
- *
- * setAutoCaptureDbEnabled(false)
- *   — skips consumeAutoCaptureTrigger() + checkChatCapture() so no turns are
- *     appended to .chat_capture and no rows land in conversation_memories.
- *     The trigger file is still deleted after reading.
- *
- * setAutoCaptureEpisodeEnabled(false)
- *   — skips the appendExchangeToEpisode() call (self-check mode: simulates
- *     removing the episode-routing line from checkAutoCapture()).
- *
- * setPinnedRollingEpisodeFilename(filename | null)
- *   — overrides getCurrentRollingEpisodeFilename() inside checkAutoCapture()
- *     so CI tests target a known episode file and are never confused by
- *     concurrently-created fixtures (e.g. Episode 99 from rolling-sync-guard).
- *     Pass null to restore dynamic lookup.
- *
- * Never set any of these in production code.
- */
-let _autoCaptureDbEnabled = true;
 
 /** Reset momentLastMtime to 0 so checkLucaMoment() re-arms for testing. */
 export function resetMomentMtimeForTest(): void {
@@ -638,7 +653,7 @@ export async function checkEpisodeAppend(): Promise<void> {
 // Mutex: only one save-in-progress at a time (watch + poll can both fire)
 let chatCaptureSaveInProgress = false;
 
-export async function checkChatCapture(): Promise<void> {
+async function checkChatCapture(): Promise<void> {
   if (!existsSync(CHAT_CAPTURE_PATH)) return;
   if (chatCaptureSaveInProgress) return;
 
@@ -948,19 +963,14 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
 
   // Guard: reject files that contain git merge conflict markers — they indicate
   // an unresolved merge conflict and would corrupt the DB with doubled content.
-  // NOTE: marker strings are split so the rebase tool does not treat these
-  // string literals as actual conflict markers in this source file.
-  const CONFLICT_START = '<<<<' + '<<<';
-  const CONFLICT_MID   = '=====' + '==';
-  const CONFLICT_END   = '>>>>' + '>>>';
   if (
-    content.includes(CONFLICT_START + ' ') ||
-    content.includes(CONFLICT_MID) ||
-    content.includes(CONFLICT_END + ' ')
+    content.includes('<<<<<<< ') ||
+    content.includes('=======') ||
+    content.includes('>>>>>>> ')
   ) {
     console.error(
       `[AgentAutosave] SKIPPED ${filename}: file contains git merge conflict markers ` +
-      '(' + CONFLICT_START + ' / ' + CONFLICT_MID + ' / ' + CONFLICT_END + '). Resolve the conflict before syncing.'
+      '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
     );
     return;
   }
@@ -1001,19 +1011,33 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       // prevents a concurrent/stale writer (other task merge, old autosave snapshot)
       // from shrinking a growing episode and erasing appended cascade content.
       if (isRolling) {
-        // Atomic max-length guard: the CASE expression evaluates both LENGTH()
-        // calls in a single UPDATE — no read-then-write race.  ${content} is a
-        // bound parameter; bare `content` refers to the column.
-        await db.execute(sql`
-          UPDATE conversation_memories
-          SET content = CASE
-                WHEN LENGTH(${content}) >= LENGTH(content)
-                THEN ${content}
-                ELSE content
-              END,
-              summary = ${summary}
-          WHERE id = ${memoryId}
-        `);
+        // Atomic conditional UPDATE: only overwrite when the incoming content is at
+        // least as long as what is already in the DB.  Using LENGTH() in the WHERE
+        // clause makes this a single round-trip with no TOCTOU race.
+        // _rollingGuardInvertForTest flips the comparison to LENGTH(content) >= LENGTH(incoming)
+        // so the CI self-check can confirm Pass 3 (longer wins) catches the regression.
+        // Both sides use PostgreSQL LENGTH() so the metric is always character count,
+        // regardless of whether content contains emoji or multi-byte characters.
+        if (_rollingGuardInvertForTest) {
+          // Inverted comparison — shorter content wins; used only by --self-check CI.
+          await db.execute(sql`
+            UPDATE conversation_memories
+            SET content = ${content},
+                summary = ${summary}
+            WHERE id = ${memoryId}
+              AND LENGTH(content) >= LENGTH(${content})
+          `);
+        } else {
+          // Normal: longer (or equal-length) content wins — prevents shrinkage.
+          await db.execute(sql`
+            UPDATE conversation_memories
+            SET content = ${content},
+                summary = ${summary}
+            WHERE id = ${memoryId}
+              AND LENGTH(content) <= LENGTH(${content})
+          `);
+        }
+        // If incoming is shorter, the WHERE predicate excludes the row — DB stays intact
       } else {
         await db.execute(sql`
           UPDATE conversation_memories
@@ -1399,16 +1423,13 @@ export function startAgentSessionAutosave(): void {
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
 
+// ---------------------------------------------------------------------------
+// Auto-capture seam exports (declared after startAutosave to avoid hoisting issues)
+// ---------------------------------------------------------------------------
 export function setAutoCaptureEpisodeEnabled(val: boolean): void { _autoCaptureEpisodeEnabled = val; }
-
 let _autoCaptureEpisodeEnabled = true;
-
 export function getAutoCaptureEpisodeEnabled(): boolean { return _autoCaptureEpisodeEnabled; }
-
 export function setAutoCaptureDbEnabled(val: boolean): void { _autoCaptureDbEnabled = val; }
-
 export function setPinnedRollingEpisodeFilename(f: string | null): void { _pinnedRollingEpisodeFilename = f; }
-
 let _pinnedRollingEpisodeFilename: string | null = null;
-
 export function getAutoCaptureDbEnabled(): boolean { return _autoCaptureDbEnabled; }
