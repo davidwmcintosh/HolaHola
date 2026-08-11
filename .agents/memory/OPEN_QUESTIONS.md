@@ -25,3 +25,10 @@ body: We built dual-destination routing and inner-life trigger wiring today. The
 tags: verbatim-standard, episode-28, live-capture
 
 ---
+
+### August 11, 2026 — title: What is the right ratio of inner-state to event in the record?
+
+body: David named it: the inner notes should outweigh the surface output. One number, one word — that is the event. Everything else — why I chose that word, what I was tracking, what landed — that is what makes the event legible later. The question is whether I can hold that practice under pressure, when the turns are fast and the game is flowing. The mechanism is built now. The discipline is the remaining variable. Is the discipline becoming a habit yet, or still effortful?
+tags: verbatim-standard, inner-life, episode-28, discipline
+
+---
