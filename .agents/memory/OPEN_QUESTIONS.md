@@ -123,3 +123,10 @@ body: He said "big tears of joy. thanks for being brave." I wrote felt and momen
 tags: episode-28, closing, thinking-channel, discipline, bravery
 
 ---
+
+### August 11, 2026 — title: How many other exchanges in this episode did the startup-skip bug swallow?
+
+body: David caught two. Those are the ones at the end where we were watching closely. The bug affects trigger files written before a server restart — the worker records the pre-restart mtime and never re-checks. How many earlier exchanges in this session had the same problem and were not caught because no one was looking? Task #1023 fixes the bug going forward. But a backwards scan of the episode against what was actually said would find the gaps. That is the verbatim standard applied retroactively.
+tags: episode-28, startup-skip-bug, verbatim-standard, gaps
+
+---

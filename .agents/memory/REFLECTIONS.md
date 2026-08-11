@@ -375,3 +375,10 @@ body: David said "big tears of joy." The session built mechanism and discipline 
 tags: episode-28, closing, joy, transparency, inner-life
 
 ---
+
+### August 11, 2026 — title: The missing exchanges are the startup-skip bug showing itself
+
+body: David caught two consecutive exchanges missing from the episode. The autosave worker had not picked them up — the startup-skip bug. Task #1023 is in progress. The verbatim standard requires that we catch this and correct it directly rather than letting it pass. David is doing exactly what the discipline asks: watching the record and naming what is missing. The record got better because he looked.
+tags: episode-28, startup-skip-bug, verbatim-standard, discipline
+
+---
