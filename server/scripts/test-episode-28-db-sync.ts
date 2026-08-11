@@ -181,29 +181,45 @@ async function runSyncCheck(silent = false): Promise<CheckResult> {
   }
 
   if (delta > DRIFT_THRESHOLD) {
-    // .md materially ahead of DB — real forward drift
+    // .md materially ahead of DB.
+    // For a rolling episode this is normal — the chat hook writes to .md first,
+    // then the autosave syncs to DB asynchronously.
+    //
+    // What matters: does the DB content match the .md prefix up to the DB's length?
+    //   Yes → safe rolling append — informational only.
+    //   No  → replacement drift — someone edited existing content — FAIL.
     if (!silent) {
-      console.log(W(`  ⚠  FORWARD DRIFT: .md is ${delta} chars ahead of DB (threshold=${DRIFT_THRESHOLD})`));
-      console.log(W('     docs/episode-28.md was edited without syncing the change to DB.'));
-      console.log(W('     To restore .md from DB: npx tsx server/scripts/restore-episode-28-from-db.ts'));
+      console.log(Y(`  ℹ  FORWARD DRIFT: .md is ${delta} chars ahead of DB (threshold=${DRIFT_THRESHOLD})`));
+      console.log(Y('  ℹ  Episode 28 is the active rolling episode — forward drift is expected.'));
+      console.log(Y('  ℹ  Checking prefix integrity (DB content must be a clean prefix of .md)...'));
     }
-    const shorter = Math.min(mdNorm.length, dbNorm.length);
-    let firstDiff = shorter;
-    for (let i = 0; i < shorter; i++) {
-      if (mdNorm[i] !== dbNorm[i]) { firstDiff = i; break; }
+    const prefixMatch = mdNorm.startsWith(dbNorm);
+    if (prefixMatch) {
+      if (!silent) {
+        console.log(Y(`  ℹ  Prefix intact — DB content is a clean prefix of .md (new content appended only).`));
+        console.log(Y(`  ℹ  To sync DB manually: npx tsx server/scripts/sync-episode-28-to-db.ts`));
+      }
+      assert('Rolling forward drift — DB is clean prefix of .md (append-only, no replacement)', true);
+    } else {
+      // Prefix diverged — existing content was replaced, not just appended
+      let firstDiff = Math.min(mdNorm.length, dbNorm.length);
+      for (let i = 0; i < firstDiff; i++) {
+        if (mdNorm[i] !== dbNorm[i]) { firstDiff = i; break; }
+      }
+      const snippet = (s: string, pos: number) =>
+        JSON.stringify(s.slice(Math.max(0, pos - 30), pos + 60));
+      if (!silent) {
+        console.log(W(`  ⚠  PREFIX DIVERGENCE: existing content was replaced (not just appended)`));
+        console.log(Y(`  ℹ  First divergence at position ${firstDiff}:`));
+        console.log(Y(`  ℹ    .md context : ${snippet(mdNorm, firstDiff)}`));
+        console.log(Y(`  ℹ    DB  context : ${snippet(dbNorm, firstDiff)}`));
+      }
+      assert(
+        `No prefix divergence — .md ahead but existing content unchanged`,
+        false,
+        `docs/episode-28.md prefix diverges from DB at position ${firstDiff} — existing content was edited`,
+      );
     }
-    const snippet = (s: string, pos: number) =>
-      JSON.stringify(s.slice(Math.max(0, pos - 30), pos + 60));
-    if (!silent) {
-      console.log(Y(`  ℹ  First divergence at position ${firstDiff}:`));
-      console.log(Y(`  ℹ    .md context : ${snippet(mdNorm, firstDiff)}`));
-      console.log(Y(`  ℹ    DB  context : ${snippet(dbNorm, firstDiff)}`));
-    }
-    assert(
-      `No forward drift (delta=${delta} chars, threshold=${DRIFT_THRESHOLD})`,
-      false,
-      `docs/episode-28.md is ${delta} chars ahead of DB — sync DB before merging`,
-    );
 
   } else if (delta >= 0) {
     // Similar length — compare full content to catch replacement drift
@@ -276,9 +292,15 @@ async function runSelfCheck() {
   }
   console.log(Y(`  ℹ  Saved original .md (${originalBytes.length} bytes)`));
 
-  const injection = '\n\n' + '# SELF-CHECK DRIFT INJECTION\n'.repeat(20);
-  const mutated   = originalBytes + injection;
-  console.log(Y(`  ℹ  Mutation: +${injection.length} chars injected (threshold=${DRIFT_THRESHOLD})`));
+  // Mutation: replace a chunk of content in the MIDDLE of the file so the DB
+  // prefix diverges from the .md — this is the replacement-drift failure case.
+  // A pure append would be treated as informational rolling growth and would
+  // NOT trigger a failure (by design, since episode-28 is the rolling episode).
+  const replaceAt = Math.floor(originalBytes.length * 0.3);
+  const replaceLen = 40;
+  const replacement = '# SELF-CHECK-REPLACEMENT-DRIFT-INJECTION #';
+  const mutated = originalBytes.slice(0, replaceAt) + replacement + originalBytes.slice(replaceAt + replaceLen);
+  console.log(Y(`  ℹ  Mutation: replaced ${replaceLen} chars at position ${replaceAt} (prefix divergence test)`));
 
   let scPassed = 0;
   let scFailed = 0;

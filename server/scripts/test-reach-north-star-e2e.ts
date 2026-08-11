@@ -418,6 +418,7 @@ async function runPartC(): Promise<void> {
           studentText,
           topicHint: 'J-space north-star grounding — e2e test',
           endSession: attempt === TRIGGER_PROMPTS.length - 1,
+          noEpisode: true,   // CI smoke test — do not write to episode narrative
         }),
       });
     } catch (err: any) {

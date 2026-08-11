@@ -25002,7 +25002,8 @@ Current conversation context:
   //                 transcript, visualEvents, toolCallsSummary }
   app.post("/api/admin/agent-voice-turn", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel, watchId, studentText,
-            endSession = false, memoryTitle, memoryTags, topicHint } = req.body;
+            endSession = false, memoryTitle, memoryTags, topicHint,
+            noEpisode = false } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
     const MODEL = (requestedModel && ['gemini-3.1-flash-live-preview','gemini-2.5-flash-native-audio-preview-12-2025'].includes(requestedModel))
@@ -25387,7 +25388,8 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
 
       // Channel 3 of the triple-feed episode capture: append this Luca↔Daniela exchange
       // to the rolling episode via the .episode_append trigger file (fire-and-forget).
-      if (lucaLine?.trim()) {
+      // Skipped when noEpisode=true so CI smoke tests don't pollute the episode narrative.
+      if (lucaLine?.trim() && !noEpisode) {
         import('./services/chat-episode-hook').then(({ maybeAppendChatMessage }) => {
           maybeAppendChatMessage(lucaLine, danielaText).catch((e: any) => {
             console.warn('[Agent Voice Turn] chat-episode-hook non-fatal:', e?.message);

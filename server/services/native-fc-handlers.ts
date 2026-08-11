@@ -11270,21 +11270,35 @@ export class NativeFunctionCallHandler {
       let principles: any[] = [];
 
       if (query && query.trim().length > 0) {
-        const q = `%${query.toLowerCase()}%`;
-        principles = await getSharedDb()
-          .select()
-          .from(northStarPrinciples)
-          .where(
-            and(
-              eq(northStarPrinciples.isActive, true),
-              or(
-                ilike(northStarPrinciples.principle, q),
-                ilike(northStarPrinciples.principleTitle, q),
-                ilike(northStarPrinciples.originalContext, q),
-              )
-            )
-          )
-          .limit(3);
+        // Split the query into individual meaningful words so that natural-language
+        // queries like "confidence and humility" match "Confident and Humble".
+        // A whole-phrase substring ("%confidence and humility%") fails when the DB
+        // stores adjective/title forms ("Confident", "Humble") that don't share the
+        // same suffix as the query words ("confidence", "humility").
+        const STOPWORDS = new Set(['and', 'or', 'the', 'a', 'an', 'in', 'of', 'to', 'for', 'with', 'my', 'me', 'is', 'it', 'this', 'that', 'what', 'about', 'does', 'how']);
+        const words = query
+          .toLowerCase()
+          .split(/\s+/)
+          .map(w => w.replace(/[^a-z0-9]/g, ''))
+          .filter(w => w.length >= 3 && !STOPWORDS.has(w));
+
+        if (words.length > 0) {
+          // Build one big OR across all meaningful words × all searchable fields.
+          // Any word hit is enough to surface the principle.
+          const wordClauses = words.flatMap(w => {
+            const pat = `%${w}%`;
+            return [
+              ilike(northStarPrinciples.principleTitle, pat),
+              ilike(northStarPrinciples.principle, pat),
+              ilike(northStarPrinciples.originalContext, pat),
+            ];
+          });
+          principles = await getSharedDb()
+            .select()
+            .from(northStarPrinciples)
+            .where(and(eq(northStarPrinciples.isActive, true), or(...wordClauses)))
+            .limit(3);
+        }
       }
 
       // Fallback: return ordered active principles when query yields no match
