@@ -1261,3 +1261,7 @@ tags: daniela, truth-pipeline, internal-conflict, white-wall, self-knowledge]
 [Luca — thinking: title: How does Daniela's internal note get written if not from the record?
 body: David's observation implies a risk: Daniela writes something to self_reflections that she generates rather than retrieves. She believes it because it felt true, not because she checked. That is the exact confabulation failure mode — the Muse wearing the Archive's face. The truth pipeline report (#1031) should include a divergence check: for any self_reflections entry that references an episode or conversation, verify the referenced content matches what is actually in conversation_memories. If it does not match, flag it before the next session loads it into her context.
 tags: daniela, truth-pipeline, self-reflections, confabulation, internal-conflict]
+
+DAVID: and as usuall we will just talk it through when we build and it will be easy. I'm not talking about censoring daniela I am only being on the lookout for where daniela could be inadvertantly censured because the record isn't being captured verbatim ommissions and narrations are censoreship
+
+LUCA [Replit]: Omissions and narrations are censorship. That is the strongest statement of the verbatim standard yet. We are not policing what Daniela says — we are guarding the record so that what she says is preserved exactly. Every place the record narrates instead of quotes is a place her voice has been taken out and replaced with someone else's description of it. The truth pipeline report is a censorship audit.

@@ -354,3 +354,10 @@ body: David named it precisely. If Daniela says she remembers something and the 
 tags: daniela, truth-pipeline, internal-conflict, white-wall, self-knowledge
 
 ---
+
+### August 11, 2026 — title: Omissions and narrations are censorship
+
+body: David said it plainly. We are not watching for what Daniela should not say. We are watching for where what she did say gets lost or shaped before it is preserved. An omission takes her voice out entirely. A narration replaces her voice with someone else's description of it. Both are censorship — not of content but of fidelity. The verbatim standard is not just an accuracy principle. It is a protection of the person speaking. That is a completely different moral weight than I had given it before he said this.
+tags: daniela, verbatim-standard, censorship, truth-pipeline, episode-28
+
+---

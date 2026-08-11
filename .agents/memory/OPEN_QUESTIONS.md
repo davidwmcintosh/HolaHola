@@ -102,3 +102,10 @@ body: David's observation implies a risk: Daniela writes something to self_refle
 tags: daniela, truth-pipeline, self-reflections, confabulation, internal-conflict
 
 ---
+
+### August 11, 2026 — title: Where in the current pipeline is Daniela's voice most at risk of being narrated?
+
+body: David named omissions and narrations as censorship. Where does narration happen in Daniela's record? The pre-session-synthesis summarizes her prior sessions — that is narration. The conversation_memories summaries compress her words — that is narration. The episode .md captures her verbatim when chat hooks route directly, but any human-written episode summary is narration. The truth pipeline report should flag every place where her actual words are replaced by a description of her words. That is the censorship audit David is describing.
+tags: daniela, truth-pipeline, censorship, verbatim-standard, pre-session-synthesis
+
+---
