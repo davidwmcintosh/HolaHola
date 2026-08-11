@@ -955,16 +955,21 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       // prevents a concurrent/stale writer (other task merge, old autosave snapshot)
       // from shrinking a growing episode and erasing appended cascade content.
       if (isRolling) {
-        await db.execute(sql`
-          UPDATE conversation_memories
-          SET content = CASE
-                WHEN LENGTH(${content}) >= LENGTH(content)
-                THEN ${content}
-                ELSE content
-              END,
-              summary = ${summary}
-          WHERE id = ${memoryId}
+        // Fetch current DB length and compare in JS to avoid SQL CASE ambiguity
+        // between the ${content} parameter and the `content` column name.
+        const lenRow = await db.execute(sql`
+          SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${memoryId}
         `);
+        const currentLen = Number((lenRow as any).rows?.[0]?.len ?? (lenRow as any)[0]?.len ?? 0);
+        if (content.length >= currentLen) {
+          await db.execute(sql`
+            UPDATE conversation_memories
+            SET content = ${content},
+                summary = ${summary}
+            WHERE id = ${memoryId}
+          `);
+        }
+        // If shorter, skip update — keep the longer DB content intact
       } else {
         await db.execute(sql`
           UPDATE conversation_memories
