@@ -391,6 +391,17 @@ async function runPartC(): Promise<void> {
   const authed = await ensureCookie();
   if (!authed) return; // auth failure already added to FAIL_REASONS
 
+  // Save rolling episode files before Part C so that any chat-episode-hook
+  // writes triggered by the agent-voice-turn calls (which go through the real
+  // GL pipeline) are cleaned up after the test.
+  const EP28_PATH = path.join(process.cwd(), 'docs', 'episode-28.md');
+  const EP27_PATH = path.join(process.cwd(), 'docs', 'episode-27.md');
+  let ep28Before: string | null = null;
+  let ep27Before: string | null = null;
+  try { ep28Before = fs.readFileSync(EP28_PATH, 'utf8'); } catch { /* file may not exist */ }
+  try { ep27Before = fs.readFileSync(EP27_PATH, 'utf8'); } catch { /* file may not exist */ }
+
+  try {
   for (let attempt = 0; attempt < TRIGGER_PROMPTS.length; attempt++) {
     const { studentText, label } = TRIGGER_PROMPTS[attempt];
     console.log(`  Attempt ${attempt + 1}/${TRIGGER_PROMPTS.length}: ${label}`);
@@ -452,6 +463,17 @@ async function runPartC(): Promise<void> {
     '     GL is non-deterministic — Daniela chose different response paths.\n' +
     '     Parts A+B have already verified the handler and function-response format.\n',
   );
+  } finally {
+    // Restore rolling episode files to pre-Part-C content so that any
+    // chat-episode-hook writes from the GL sessions don't pollute the
+    // rolling episode and cause episode-28-db-sync-check to fail.
+    if (ep28Before !== null) {
+      try { fs.writeFileSync(EP28_PATH, ep28Before, 'utf8'); } catch { /* ignore */ }
+    }
+    if (ep27Before !== null) {
+      try { fs.writeFileSync(EP27_PATH, ep27Before, 'utf8'); } catch { /* ignore */ }
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

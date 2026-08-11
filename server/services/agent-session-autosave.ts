@@ -11,11 +11,23 @@
  *    important surfaces that shouldn't wait until end-of-session. Accepts JSON or plain text.
  *    Saves as entry_type='emergence'. Captures wisdom, principles, corrections.
  *
- * 3. Transcript capture — triggered alongside #1 on each commit.
- *    Reads the Replit agent JSONL transcript, extracts the verbatim David↔Luca dialogue
- *    (David's words + Luca's text responses) since the last saved memory_id, and saves
- *    as entry_type='conversation', arc_name='david-luca-chat'.
- *    Cursor stored in .local/.transcript_cursor.json — only new turns are saved each time.
+ * 3. Chat-capture drain — automatic once turns are in .local/.chat_capture.
+ *    Replit stopped writing JSONL transcript files after Jul 27 2026, so JSONL-based
+ *    capture is no longer possible. The replacement path uses an append-only
+ *    .local/.chat_capture file. Any code (or script) that calls appendChatCaptureTurn()
+ *    places a turn in the file; the autosave worker then drains it to conversation_memories
+ *    within milliseconds (fs.watch) or at most 20 seconds (poll) — fully automatic from
+ *    that point on.
+ *
+ *    Turns can be written via:
+ *      - code:   appendChatCaptureTurn(speaker, text) from transcript-parser.ts
+ *      - script: npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
+ *      - file:   echo '{"david":"...","luca":"..."}' > .local/.luca_auto_capture
+ *
+ *    The drain step (file → DB) is fully automatic. The entry step is semi-manual
+ *    only because Replit no longer exposes a machine-readable transcript source.
+ *
+ *    Cursor stored in .local/.chat_capture_cursor.json — only new turns are saved each time.
  *
  * Format for .session_insights:
  *   JSON: { "title": "...", "summary": "...", "content": "...", "tags": ["..."] }
@@ -24,7 +36,7 @@
  * All watchers poll every 60 seconds.
  */
 
-import { existsSync, statSync, readFileSync, writeFileSync, watch, readdirSync } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync, watch, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -35,6 +47,18 @@ import {
   findTranscriptPath,
   extractTurns,
   buildDialogueChunk,
+  CHAT_CAPTURE_PATH,
+  CHAT_CAPTURE_CURSOR_PATH,
+  LUCA_AUTO_CAPTURE_PATH,
+  loadChatCaptureCursor,
+  saveChatCaptureCursor,
+  parseChatCaptureFromOffset,
+  parseChatCapture,
+  acquireCursorLock,
+  releaseCursorLock,
+  appendChatCaptureTurn,
+  parseAutoCaptureTrigger,
+  consumeAutoCaptureTrigger,
 } from './transcript-parser';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 
@@ -69,6 +93,9 @@ let momentLastMtime = 0;
 
 // --- Episode append watcher state ---
 let episodeAppendLastMtime = 0;
+
+// --- Chat capture watcher state (replaces JSONL when Replit stops writing it) ---
+let chatCaptureLastMtime = 0;
 
 // --- Build session watcher state ---
 let buildLastMtime = 0;
@@ -504,6 +531,172 @@ export async function checkEpisodeAppend(): Promise<void> {
     console.log(`[AgentAutosave] Episode append trigger: "${parsed.exchange.slice(0, 60).replace(/\n/g, '↵')}…" → ${episodeFilename}`);
     await appendExchangeToEpisode(parsed.exchange, episodeFilename);
   } catch { /* file briefly locked — skip */ }
+}
+
+// ---------------------------------------------------------------------------
+// Chat-capture watcher (.local/.chat_capture)
+//
+// Append-only per-turn log. Luca writes one turn at a time immediately using
+// append-turn.ts — no reconstruction, no batch. The autosave worker reads
+// new bytes since the cursor, saves them to conversation_memories, and
+// advances the cursor. The file is NEVER cleared here — only by an explicit
+// resetChatCaptureCursor() call at session end.
+//
+// Two detection layers:
+//   1. fs.watch() on .local/ → fires within milliseconds of each append
+//   2. setInterval() poll → backup for missed watch events
+//
+// The byte cursor (CHAT_CAPTURE_CURSOR_PATH) is the idempotency guarantee —
+// not the mtime, not file clearing. The cursor advances only after a
+// successful DB insert, so a crash between write and save is safe: on the
+// next watcher fire the unsaved bytes are re-read and re-saved.
+// ---------------------------------------------------------------------------
+
+// Mutex: only one save-in-progress at a time (watch + poll can both fire)
+let chatCaptureSaveInProgress = false;
+
+async function checkChatCapture(): Promise<void> {
+  if (!existsSync(CHAT_CAPTURE_PATH)) return;
+  if (chatCaptureSaveInProgress) return;
+
+  // Snapshot mtime before we do any work — must be captured here so we can
+  // advance chatCaptureLastMtime ONLY after a successful cursor save (Bug fix #2:
+  // mtime must not advance if the DB insert fails, or future polls will skip the
+  // bytes forever and the turns are permanently lost).
+  let snapshotMtime: number;
+  try {
+    const stat  = statSync(CHAT_CAPTURE_PATH);
+    snapshotMtime = stat.mtimeMs;
+    if (snapshotMtime <= chatCaptureLastMtime) return; // mtime unchanged — no new bytes
+    // NOTE: do NOT advance chatCaptureLastMtime here. It is advanced only after a
+    // successful cursor save below. If the insert fails, the mtime stays at the old
+    // value so the next poll retries the same bytes.
+  } catch { return; }
+
+  chatCaptureSaveInProgress = true;
+  let lockFd = -1;
+  try {
+    // Cross-process lock — prevents save-transcript-now.ts from racing the
+    // autosave worker on the cursor when both run concurrently.
+    lockFd = acquireCursorLock();
+    if (lockFd === -1) {
+      console.log('[AgentAutosave] Cursor lock held by another process — will retry on next poll');
+      return;
+    }
+
+    const cursor = loadChatCaptureCursor();
+    const { turns, newByteOffset, turnByteOffsets } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursor.byteOffset);
+
+    if (turns.length === 0) return; // new bytes but no complete turns yet (mid-write)
+
+    // Drain loop — buildDialogueChunk caps at 80K chars. If more turns were parsed
+    // than fit in one chunk, we loop: insert the first batch, advance the cursor to
+    // the last included turn's byte offset (not newByteOffset!), then re-parse for
+    // the next batch. Each iteration inserts exactly the turns that fit, with no
+    // turn silently skipped or permanently lost.
+    let remaining = turns;
+    let remainingOffsets = turnByteOffsets;
+    let startCursor = cursor.byteOffset;
+
+    while (remaining.length > 0) {
+      const { dialogue, includedCount } = buildDialogueChunk(remaining, 0);
+
+      if (includedCount === 0) {
+        // Single turn alone exceeds the chunk cap and was truncated — advance past it
+        // to prevent an infinite loop. buildDialogueChunk handles single-turn truncation
+        // by adding a '[turn truncated]' marker, so includedCount is set to >=1 in that
+        // branch. This guard is a safety net only.
+        console.warn('[AgentAutosave] Chat capture: turn too large for chunk cap even alone — skipping 1 turn to prevent loop');
+        // Fall back to startCursor (not newByteOffset) so remaining un-inserted
+        // turns are not silently skipped — they'll be retried on the next poll.
+        startCursor = remainingOffsets[0] ?? startCursor;
+        remaining = remaining.slice(1);
+        remainingOffsets = remainingOffsets.slice(1);
+        continue;
+      }
+
+      const davidCount = remaining.slice(0, includedCount).filter(t => t.speaker === 'DAVID').length;
+      const today      = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const title      = `David ↔ Luca — ${today}: per-turn capture`;
+      const endOffset  = remainingOffsets[includedCount - 1];
+      if (endOffset === undefined) {
+        // Should never happen: includedCount <= remaining.length = remainingOffsets.length
+        throw new Error(`[AgentAutosave] Chat capture: endOffset undefined for includedCount=${includedCount}, offsets.length=${remainingOffsets.length}`);
+      }
+      const summary    = `Verbatim David↔Luca dialogue (per-turn, append-only). ${davidCount} David turn(s), ${includedCount - davidCount} Luca turn(s). Cursor ${startCursor}→${endOffset}.`;
+
+      const db = getUserDb();
+      await db.execute(sql`
+        INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
+        VALUES (
+          gen_random_uuid(),
+          ${title},
+          ${summary},
+          ${dialogue},
+          ARRAY['david', 'luca']::text[],
+          ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture']::text[],
+          8,
+          NOW(),
+          'conversation',
+          'david-luca-chat'
+        )
+      `);
+
+      // Advance cursor ONLY through included turns — never newByteOffset (Bug fix #3):
+      // endOffset = turnByteOffsets[includedCount - 1] = byte offset after the last
+      // turn actually inserted. Remaining turns stay behind the cursor for the next loop.
+      const effectiveCursor = endOffset;
+      saveChatCaptureCursor({ byteOffset: effectiveCursor });
+
+      console.log(`[AgentAutosave] Chat capture +${includedCount} turn(s) saved (${davidCount}D + ${includedCount - davidCount}L, cursor ${startCursor}→${effectiveCursor})`);
+
+      startCursor = effectiveCursor;
+      remaining = remaining.slice(includedCount);
+      remainingOffsets = remainingOffsets.slice(includedCount);
+    }
+
+    // Advance mtime ONLY after all inserts succeed (Bug fix #2):
+    // mtime stays at old value if any insert throws, so the next poll retries.
+    chatCaptureLastMtime = snapshotMtime; // now safe to advance
+  } catch (err: any) {
+    console.error('[AgentAutosave] Failed to process chat capture:', err.message);
+    // chatCaptureLastMtime stays at its old value — next poll will retry
+  } finally {
+    if (lockFd !== -1) releaseCursorLock(lockFd);
+    chatCaptureSaveInProgress = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-capture trigger — .local/.luca_auto_capture
+//
+// Luca writes { "david": "...", "luca": "..." } to this file.
+// The fs.watch fires within milliseconds; this function appends both turns
+// to .chat_capture (via consumeAutoCaptureTrigger), then immediately calls
+// checkChatCapture() to save them to conversation_memories.
+//
+// One file write replaces two append-turn.ts calls:
+//   echo '{"david":"...","luca":"..."}' > .local/.luca_auto_capture
+// or:
+//   npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
+// ---------------------------------------------------------------------------
+async function checkAutoCapture(): Promise<void> {
+  if (!existsSync(LUCA_AUTO_CAPTURE_PATH)) return;
+  const trigger = parseAutoCaptureTrigger();
+  if (!trigger || (!trigger.david && !trigger.luca)) {
+    // Empty or unparseable trigger — clean it up
+    try { unlinkSync(LUCA_AUTO_CAPTURE_PATH); } catch { /* ignore */ }
+    return;
+  }
+  const parts = [trigger.david ? '1D' : '', trigger.luca ? '1L' : ''].filter(Boolean);
+  try {
+    consumeAutoCaptureTrigger(trigger); // appends to .chat_capture, deletes trigger file
+    console.log(`[AgentAutosave] Auto-capture: consumed ${parts.join('+')} from .luca_auto_capture → appended to .chat_capture`);
+    // Immediately save the new bytes — don't wait for the next poll cycle
+    await checkChatCapture();
+  } catch (err: any) {
+    console.error('[AgentAutosave] Auto-capture failed:', err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -989,6 +1182,44 @@ export function startAgentSessionAutosave(): void {
     try { flushTriggerLastMtime = statSync(FLUSH_TRIGGER_PATH).mtimeMs; } catch { /* ignore */ }
   }
 
+  // Chat-capture startup drain (Bug fix #1):
+  //
+  // With the append-only + byte-cursor design, a server restart is safe:
+  //   - The cursor persists in .chat_capture_cursor.json across restarts.
+  //   - Any turns appended after the cursor but before the restart are still
+  //     in the file past the cursor position.
+  //
+  // IMPORTANT: Do NOT seed chatCaptureLastMtime before calling checkChatCapture()
+  // here.  checkChatCapture() uses a mtime guard (`snapshotMtime > chatCaptureLastMtime`)
+  // to skip polling when the file hasn't changed.  If we seed the mtime first, the
+  // guard will reject the call and unsaved turns are silently skipped until the next
+  // file write.  The correct order is:
+  //   1. Call checkChatCapture() with chatCaptureLastMtime still at 0 (default) so
+  //      the guard passes and any unsaved bytes are processed.
+  //   2. checkChatCapture() advances chatCaptureLastMtime itself after a successful
+  //      save (see saveChatCaptureCursor path above).
+  //   3. If the file has no unsaved bytes the mtime is NOT advanced here, but the
+  //      next poll/watcher fire will seed it correctly on first real change.
+  if (existsSync(CHAT_CAPTURE_PATH)) {
+    try {
+      const cursor   = loadChatCaptureCursor();
+      const fileSize = statSync(CHAT_CAPTURE_PATH).size;
+      if (fileSize > cursor.byteOffset) {
+        console.warn(
+          `[AgentAutosave] Unsaved chat-capture bytes detected at startup (cursor=${cursor.byteOffset}, file=${fileSize}) — saving now.`,
+        );
+        // chatCaptureLastMtime is 0 at this point so the mtime guard in
+        // checkChatCapture() will pass.  The function will advance it after success.
+        checkChatCapture().catch((err: any) => {
+          console.error('[AgentAutosave] Failed to save pending .chat_capture on startup:', err.message);
+        });
+      } else {
+        // No unsaved bytes — seed mtime now so the first poll doesn't spuriously fire.
+        chatCaptureLastMtime = statSync(CHAT_CAPTURE_PATH).mtimeMs;
+      }
+    } catch { /* ignore */ }
+  }
+
   // Seed episode mtimes so an existing set of .md files doesn't trigger mass re-embeds on restart
   seedEpisodeMtimes();
   seedPrequelEpisodeMtimes();
@@ -1004,6 +1235,12 @@ export function startAgentSessionAutosave(): void {
         handleFlushTrigger('fs.watch').catch(() => { /* ignore */ });
       } else if (filename === '.episode_append') {
         checkEpisodeAppend().catch(() => { /* ignore */ });
+      } else if (filename === '.chat_capture') {
+        // Manual conversation capture — event-driven for sub-second response
+        checkChatCapture().catch(() => { /* ignore */ });
+      } else if (filename === '.luca_auto_capture') {
+        // Auto-capture trigger: Luca wrote { david, luca } in one file write
+        checkAutoCapture().catch(() => { /* ignore */ });
       }
     });
     console.log('[AgentAutosave] fs.watch() armed on .local/ for immediate flush-trigger detection.');
@@ -1032,6 +1269,8 @@ export function startAgentSessionAutosave(): void {
   setInterval(async () => {
     await checkFlushTrigger(); // backup in case fs.watch missed the event
     await checkEpisodeAppend(); // backup in case fs.watch missed the episode_append event
+    await checkAutoCapture(); // auto-capture trigger (.luca_auto_capture) — must run before checkChatCapture
+    await checkChatCapture(); // manual-capture fallback (replaces JSONL after Jul 27 2026)
     await checkBuildSession();
     await checkSessionInsights();
     await checkLucaReflection();
@@ -1039,8 +1278,8 @@ export function startAgentSessionAutosave(): void {
     await checkLucaMoment();
     await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
     await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
-    await saveTranscriptChunk(); // periodic — captures conversation-only sessions too
+    await saveTranscriptChunk(); // periodic — captures conversation-only sessions too (JSONL path)
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }

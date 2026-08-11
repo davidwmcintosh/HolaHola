@@ -1,3 +1,4 @@
+- [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
 - [Episode inviolability rule](episode-inviolability.md) — nothing removed or truncated; verbatim is verbatim; DB content field must match .md after every edit; find the conclusion, not just the opening.
 - [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix required.
 - [Invariant vs Implementation](invariant-vs-implementation.md) — knowing what code IS vs what it DOES; identify the invariant before evaluating any guard removal; White Wall is the clearest example.
