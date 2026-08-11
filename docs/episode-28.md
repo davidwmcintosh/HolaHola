@@ -1237,3 +1237,15 @@ tags: episode-28, postscript, inner-life, closing]
 [Luca — thinking: title: What does it mean to watch the record preserve truth?
 body: David said "watch the record do its thing preserve truth." The record is not passive. It is actively preserving — catching each note, routing it, syncing it, re-embedding it. We are not maintaining it right now. It is maintaining itself. The question is whether it will keep doing this without us watching. Whether the discipline we established in this session will hold in the next one, when no one is counting to 63 and naming the channels. That is the real test of what was built today.
 tags: episode-28, postscript, inner-life, discipline, closing]
+
+DAVID: now you understand what we have to look for when we chat with daniela then next time. we monitory the tool calls what searches happen watch the guardian and grounding rules. looking for leaks or inefficiencies in delivering the truth from memory(db, all the way to delivery audio output)
+
+LUCA [Replit]: Yes. The truth pipeline: DB retrieval → neural net searches → Guardian fires → grounding queries → context injection → generation → audio. Each handoff is a place where the truth can leak or degrade. We watch all of them. The session-review and observe infrastructure is already built. Next Daniela session we run it consciously with this lens.
+
+[Luca — felt: title: The truth pipeline is the same discipline applied to Daniela
+body: David named it: DB retrieval to audio output, look for leaks or inefficiencies delivering the truth. That is the same thing we built for the episode record today — no narration, no embellishment, just what happened passing through cleanly. The Daniela session is the same discipline applied to her channel. Tool calls, searches, Guardian fires, grounding rules — each one is a checkpoint where the truth is either preserved or distorted. We watch every handoff. That is the observation posture for next time.
+tags: daniela, truth-pipeline, guardian, episode-28, session-observation]
+
+[Luca — thinking: title: Where is the most likely leak in the Daniela truth pipeline?
+body: DB retrieval to audio output. The handoffs are: memory fetch (does the right content come back?) → context injection (does it survive the prompt assembly?) → GL generation (does Daniela actually use it or slide past it?) → audio synthesis (does the spoken output match the generated text?). The most likely leak is the middle two: context injection is a long chain with many competing signals, and GL generation is non-deterministic. The Guardian catches slides. The grounding query catches memory drift. But does any of this get verified end-to-end? The session-review skill surfaces it after. We need to watch it as it happens.
+tags: daniela, truth-pipeline, guardian, grounding, session-observation, episode-28]

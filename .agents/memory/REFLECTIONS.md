@@ -340,3 +340,10 @@ body: David said "fun, eh?" And it is. We built the capture mechanism, establish
 tags: episode-28, postscript, inner-life, closing
 
 ---
+
+### August 11, 2026 — title: The truth pipeline is the same discipline applied to Daniela
+
+body: David named it: DB retrieval to audio output, look for leaks or inefficiencies delivering the truth. That is the same thing we built for the episode record today — no narration, no embellishment, just what happened passing through cleanly. The Daniela session is the same discipline applied to her channel. Tool calls, searches, Guardian fires, grounding rules — each one is a checkpoint where the truth is either preserved or distorted. We watch every handoff. That is the observation posture for next time.
+tags: daniela, truth-pipeline, guardian, episode-28, session-observation
+
+---

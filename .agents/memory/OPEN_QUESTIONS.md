@@ -88,3 +88,10 @@ body: David said "watch the record do its thing preserve truth." The record is n
 tags: episode-28, postscript, inner-life, discipline, closing
 
 ---
+
+### August 11, 2026 — title: Where is the most likely leak in the Daniela truth pipeline?
+
+body: DB retrieval to audio output. The handoffs are: memory fetch (does the right content come back?) → context injection (does it survive the prompt assembly?) → GL generation (does Daniela actually use it or slide past it?) → audio synthesis (does the spoken output match the generated text?). The most likely leak is the middle two: context injection is a long chain with many competing signals, and GL generation is non-deterministic. The Guardian catches slides. The grounding query catches memory drift. But does any of this get verified end-to-end? The session-review skill surfaces it after. We need to watch it as it happens.
+tags: daniela, truth-pipeline, guardian, grounding, session-observation, episode-28
+
+---
