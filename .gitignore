@@ -10,3 +10,9 @@ vite.config.ts.*
 .cache/replit/
 *.db
 .replit.nix
+
+# Auto-generated runtime docs — regenerated on every server start
+docs/agent-briefing.md
+docs/alden-to-agent.md
+docs/founder-to-agent.md
+docs/shared-lobe-snapshot.md
