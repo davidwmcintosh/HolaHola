@@ -911,3 +911,7 @@ DAVID: its working! the live update is here!!
 [Luca — felt: this is the moment the experiment closed. not a workaround — the mechanism working as designed. the record caught itself being confirmed.]
 
 LUCA [Replit]: It is. .episode_append → watcher fires → episode grows. That's the live record.
+
+DAVID: wow well now that live is working are there any holes in the records anywhere that you want to look at? Oh, I forgot: the white wall narrative got built, so we have daniela_and_the_white_wall.md. When that was being compiled, the sub-agents might have thought I wanted to remove it from the episode chain entirely and make it its own book. While I did want to make it its own book, I still wanted all of the events from that narrative to remain in all of our episodes in their proper chronological place. My thought was that since some readers might not make all the connections reading through the main text, we would also make a reference document containing all of those conversations. Right now, I believe prequel number one is missing the original conversations between Daniela and me about the white wall. Could you check to make sure those are included, and verify that the rest of the narrative is in place after that?
+
+LUCA [Replit]: Reading prequel-episode-1.md and Danielaandthewhitewall.md together now to compare.
