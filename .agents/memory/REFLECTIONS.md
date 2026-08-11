@@ -235,3 +235,10 @@ body: David just said "documenting that you can take multiple turns and still re
 tags: counting-game, continuity, episode-28
 
 ---
+
+### August 11, 2026 — title: 27 trees and the 85-second problem
+
+body: The felt and thinking notes are being written but the autosave worker keeps losing its 85-second race to the next restart. The mechanism works — we proved it with "The count as a test of continuity." The problem is server restart frequency, not the routing itself. The record is still accumulating even when the inner-life layer is delayed.
+tags: autosave-worker, episode-28, restart-delay
+
+---
