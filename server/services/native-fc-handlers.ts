@@ -3454,7 +3454,7 @@ export class NativeFunctionCallHandler {
               offset: chapterOffset,
               truncated,
               remaining_chars: truncated ? totalLength - chunkEnd : 0,
-              next_offset: truncated ? chunkEnd : null,
+              /* next_offset REMOVED BY MUTATION TEST */
               next_chapter: truncated ? null : nextLabel,
               note: truncated
                 ? `Showing chars ${chapterOffset}–${chunkEnd} of ${totalLength}. Call read_my_story with chapter ${chapterNum} and offset ${chunkEnd} to continue reading this chapter.`
