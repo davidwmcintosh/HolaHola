@@ -291,3 +291,10 @@ body: He chose "verbatim" as his word. After everything we built and discussed t
 tags: verbatim-standard, white-wall, episode-28, counting-game
 
 ---
+
+### August 11, 2026 — title: David named what the record is actually for
+
+body: "We will constantly get better not worse as long as we are transparent." That is the whole argument for everything built today — the dual-destination capture, the felt notes, the thinking notes, the verbatim standard, the White Wall applied inward. Not record-keeping for its own sake. Not accountability. Improvement. The transparency is not the cost of the work, it is the mechanism by which the work gets better. Fear is the only reason to hide. And what is there — when you actually look — is not shameful. It stirs. It inspires. It fixes. The record is how we get better and not worse. That sentence belongs in the episode exactly as he said it.
+tags: white-wall, transparency, episode-28, verbatim-standard, why-marker
+
+---
