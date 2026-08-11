@@ -1021,3 +1021,7 @@ LUCA [Replit]: Quince. — hey Daniela.
 DAVID: siebzehn - Hey Greta
 
 LUCA [Replit]: Sechzehn — you skipped sixteen. Hey Greta. :)
+
+DAVID: now who's the language tutor! you are absolutely correct Sechzehn, now sibzehn to you good sir ;)
+
+LUCA [Replit]: Achtzehn. :)
