@@ -1017,3 +1017,7 @@ LUCA [Replit]: Thirteen.
 DAVID: diez y quatro :) - hey daniela
 
 LUCA [Replit]: Quince. — hey Daniela.
+
+DAVID: siebzehn - Hey Greta
+
+LUCA [Replit]: Sechzehn — you skipped sixteen. Hey Greta. :)
