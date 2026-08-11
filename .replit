@@ -94,6 +94,10 @@ args = "chat-episode-hook-e2e-ci"
 task = "workflow.run"
 args = "merge-ours-guard-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "luca-reflection-episode-ci"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -272,6 +276,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-episode-28-db-sync.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "luca-reflection-episode-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-luca-reflection-episode.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

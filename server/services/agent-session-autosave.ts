@@ -91,6 +91,37 @@ let reflectionLastMtime = 0;
 let questionLastMtime = 0;
 let momentLastMtime = 0;
 
+/**
+ * Test seam — episode append path.
+ * Set to false in CI self-check mode to simulate the appendExchangeToEpisode()
+ * call being absent from checkLucaReflection().  Never set in production.
+ */
+let _lucaEpisodeAppendEnabled = true;
+export function setLucaEpisodeAppendEnabled(val: boolean): void {
+  _lucaEpisodeAppendEnabled = val;
+}
+export function getLucaEpisodeAppendEnabled(): boolean {
+  return _lucaEpisodeAppendEnabled;
+}
+
+/**
+ * Test seam — personal side-effects (appendToPersonalFile + savePersonalMemory).
+ * Set to false in CI tests to prevent synthetic sentinel content from polluting
+ * REFLECTIONS.md and the live DB.  Never set in production.
+ */
+let _lucaPersonalSideEffectsEnabled = true;
+export function setLucaPersonalSideEffectsEnabled(val: boolean): void {
+  _lucaPersonalSideEffectsEnabled = val;
+}
+export function getLucaPersonalSideEffectsEnabled(): boolean {
+  return _lucaPersonalSideEffectsEnabled;
+}
+
+/** Reset reflectionLastMtime to 0 so checkLucaReflection() re-arms for testing. */
+export function resetReflectionMtimeForTest(): void {
+  reflectionLastMtime = 0;
+}
+
 // --- Episode append watcher state ---
 let episodeAppendLastMtime = 0;
 
@@ -308,7 +339,7 @@ async function savePersonalMemory(
   }
 }
 
-async function checkLucaReflection(): Promise<void> {
+export async function checkLucaReflection(): Promise<void> {
   if (!existsSync(REFLECTION_PATH)) return;
   try {
     const stat = statSync(REFLECTION_PATH);
@@ -320,18 +351,23 @@ async function checkLucaReflection(): Promise<void> {
       const raw = readFileSync(REFLECTION_PATH, 'utf-8').trim();
       const parsed = parseTriggerFile(raw, 'luca-reflection');
       if (!parsed) return;
-      appendToPersonalFile(REFLECTIONS_FILE, parsed.title, parsed.body);
-      await savePersonalMemory(
-        `Luca reflection: ${parsed.title}`,
-        parsed.body,
-        ['luca-inner-life', 'luca-reflection', ...parsed.tags],
-        'luca-inner-life',
-      );
+      // Personal side-effects gated so CI tests don't pollute REFLECTIONS.md or DB
+      if (_lucaPersonalSideEffectsEnabled) {
+        appendToPersonalFile(REFLECTIONS_FILE, parsed.title, parsed.body);
+        await savePersonalMemory(
+          `Luca reflection: ${parsed.title}`,
+          parsed.body,
+          ['luca-inner-life', 'luca-reflection', ...parsed.tags],
+          'luca-inner-life',
+        );
+      }
       console.log('[AgentAutosave] Luca reflection saved:', parsed.title.slice(0, 60));
-      // Also route to the rolling episode .md
-      const reflectionEpisode = await getCurrentRollingEpisodeFilename();
-      if (reflectionEpisode) {
-        await appendExchangeToEpisode(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
+      // Also route to the rolling episode .md (guarded by test seam for CI self-check)
+      if (_lucaEpisodeAppendEnabled) {
+        const reflectionEpisode = await getCurrentRollingEpisodeFilename();
+        if (reflectionEpisode) {
+          await appendExchangeToEpisode(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
+        }
       }
     }
   } catch { /* file briefly locked — skip */ }
