@@ -694,6 +694,21 @@ async function checkAutoCapture(): Promise<void> {
     console.log(`[AgentAutosave] Auto-capture: consumed ${parts.join('+')} from .luca_auto_capture → appended to .chat_capture`);
     // Immediately save the new bytes — don't wait for the next poll cycle
     await checkChatCapture();
+
+    // Also route to the rolling episode .md (dual-destination: DB + episode file)
+    const lines: string[] = [];
+    if (trigger.david) lines.push(`DAVID: ${trigger.david}`);
+    if (trigger.luca)  lines.push(`LUCA [Replit]: ${trigger.luca}`);
+    if (lines.length > 0) {
+      const episodeFilename = await getCurrentRollingEpisodeFilename();
+      if (episodeFilename) {
+        const exchangeText = lines.join('\n\n');
+        console.log(`[AgentAutosave] Auto-capture: also routing to episode → ${episodeFilename}`);
+        await appendExchangeToEpisode(exchangeText, episodeFilename);
+      } else {
+        console.warn('[AgentAutosave] Auto-capture: no rolling episode found — skipping episode .md routing');
+      }
+    }
   } catch (err: any) {
     console.error('[AgentAutosave] Auto-capture failed:', err.message);
   }

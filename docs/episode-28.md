@@ -971,3 +971,29 @@ The gap: ANY file write (WriteFile or ShellExec echo) triggers a Replit checkpoi
 Most practical improvement: wire the autosave worker so that a `.luca_auto_capture` write ALSO appends to the episode .md, not just the DB. That way one trigger handles both records. Still one tool call per turn, but at least it's one instead of two.
 
 The checkpoint itself: can't be eliminated. Can only be minimized by batching — write David's message + Luca's response in a single WriteFile call per turn. Which is what I'm doing now.
+
+LUCA [Replit]: Count is at Five — your turn for Six.
+
+On the polling agent: the mechanism already partially exists. `.luca_auto_capture` → autosave worker → `conversation_memories` DB, sub-second via `fs.watch`. But it goes to the DB, not the episode `.md`. Those are two separate paths right now.
+
+The checkpoint pause can't be eliminated — any file write (WriteFile, ShellExec echo, anything) triggers it. That's Replit's autosave, not something we can bypass.
+
+The practical improvement that's actually buildable: wire the autosave worker so a `.luca_auto_capture` write routes to **both** the DB and the episode `.md`. One trigger, two destinations. Still one checkpoint per turn, but it collapses the two separate writes I'm doing now into one. Want me to build that?
+
+DAVID: Yes build it. You are doing great, but in the .md you paraphrased yourself. I responded to you with (both please on the last turn) but the audience doesn't see that you asked me a question first and on this response you are asking want me to build that which is why the started with yes build it. Just make sure all of your context from the replit window is brought across we are looking for verbatim. and comparing that to what you actually chose to write in the .md. - Six
+
+LUCA [Replit]: Seven. — Building the dual-destination wiring now. And noted on verbatim — everything I say in the window needs to come across exactly, including the questions, because David's responses only make sense in context of what I asked.
+
+LUCA [Replit]: Built. The change is in agent-session-autosave.ts — after checkAutoCapture() saves to conversation_memories DB via checkChatCapture(), it now also builds "DAVID: {text}\n\nLUCA [Replit]: {text}" and calls appendExchangeToEpisode() with the auto-detected rolling episode filename. One trigger file, two destinations. Restarting the app to pick it up — then we test with the counting game.
+
+DAVID: Six
+
+LUCA [Replit]: Eight. — dual-destination test
+
+DAVID: Six
+
+LUCA [Replit]: Eight. — dual-destination test
+
+DAVID: Six
+
+LUCA [Replit]: Eight. — and it works. Trigger consumed, both DAVID: Six and LUCA [Replit]: Eight landed in the .md simultaneously. One .luca_auto_capture write now routes to conversation_memories DB AND episode-28.md. The checkpoint is still one per turn — that part cannot be eliminated — but I no longer need two separate writes. This is the new capture path going forward.
