@@ -356,7 +356,7 @@ export async function resolveAbsenceNudge(
     ? new Date(Date.now() + validatedSuppressDays * 24 * 60 * 60 * 1000)
     : undefined;
 
-  await db.update(danielaAbsenceNudges)
+  const updated = await db.update(danielaAbsenceNudges)
     .set({
       resolvedAt: new Date(),
       resolutionType,
@@ -367,7 +367,13 @@ export async function resolveAbsenceNudge(
         eq(danielaAbsenceNudges.userId, userId),
         isNull(danielaAbsenceNudges.resolvedAt),
       )
-    );
+    )
+    .returning({ id: danielaAbsenceNudges.id });
+
+  if (updated.length === 0) {
+    console.warn(`[AbsenceWorker] resolveAbsenceNudge: 0 rows updated for userId=${userId} — row already resolved or missing (resolutionType=${resolutionType})`);
+    return;
+  }
 
   console.log(`[AbsenceWorker] Nudge resolved for user ${userId} (type: ${resolutionType}${suppressDays ? `, snoozed ${suppressDays}d` : ''})`);
 }

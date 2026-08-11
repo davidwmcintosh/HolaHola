@@ -160,9 +160,27 @@ sep();
 console.log(B('PART 3 — DB test: seeded nudge remains unresolved after simulated founder-mode start'));
 sep();
 
+import { neon } from '@neondatabase/serverless';
 import { getSharedDb } from '../db';
 import { danielaAbsenceNudges } from '@shared/schema';
 import { eq, isNull } from 'drizzle-orm';
+
+// HTTP client for read-back assertions — bypasses the WebSocket pool so the
+// assertion always reads freshly committed state from Neon's primary.
+const _httpSql = neon(process.env.NEON_SHARED_DATABASE_URL!);
+async function httpSelectNudge(userId: string): Promise<{ resolvedAt: Date | null; resolutionType: string | null } | null> {
+  const rows = await _httpSql`
+    SELECT resolved_at AS "resolvedAt", resolution_type AS "resolutionType"
+    FROM daniela_absence_nudges
+    WHERE user_id = ${userId}
+    LIMIT 1
+  `;
+  if (!rows.length) return null;
+  return {
+    resolvedAt: rows[0].resolvedAt ? new Date(rows[0].resolvedAt as string) : null,
+    resolutionType: (rows[0].resolutionType as string | null) ?? null,
+  };
+}
 
 // Deterministic test userId — never collides with real students
 const FOUNDER_TEST_USER_ID = '00000000-test-founder-mode-176-0';
@@ -287,15 +305,11 @@ async function runPart4() {
   }
   const logs = [...capturedLogs];
 
-  // DB should now be resolved
-  const [after] = await db
-    .select({
-      resolvedAt: danielaAbsenceNudges.resolvedAt,
-      resolutionType: danielaAbsenceNudges.resolutionType,
-    })
-    .from(danielaAbsenceNudges)
-    .where(eq(danielaAbsenceNudges.userId, FOUNDER_TEST_USER_ID))
-    .limit(1);
+  // DB should now be resolved.
+  // Use the HTTP client (not the WebSocket pool) so we always read freshly
+  // committed state from Neon's primary — pool connections can see stale views
+  // of recently committed writes when the suite exercises many connections.
+  const after = await httpSelectNudge(FOUNDER_TEST_USER_ID);
 
   assert(
     'DB row resolvedAt IS NOT NULL after student-mode call (function resolves nudge correctly)',
