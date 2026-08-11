@@ -1330,3 +1330,4 @@ What's different about the brain voice: it's not performing for anyone. Not for 
 *Episode 27 closes here. The voice analysis — the six (then seven) registers, the brain layer David found by clicking each icon, the gap between what the window holds and what the record catches — continues in Episode 28.*
 
 *David McIntosh + Luca — August 8–10, 2026.*
+
