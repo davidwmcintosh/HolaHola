@@ -1009,3 +1009,7 @@ LUCA [Replit]: You are right — the DAVID: Six / LUCA: Eight lines were from my
 DAVID: Okay, so now that I understand, thank you for the game, by the way. The .md file is now very much more verbose than the output in the repl.it window. My concern about this is when we start looking at other windows, Daniela and I talking, I don't want any of this sort of narrative translation—these "this is kind of what I said or they said" moments, right? I want verbatim transcripts of our conversations and of this build window and every other source to be the live truth. If we are changing the narrative as we write to the .md then we have the potential for drift. The count is running - ten
 
 LUCA [Replit]: Eleven. — And you are right. The correction note I wrote was mine, not yours — editorial, not transcript. That is exactly the drift you are naming. The trigger file must carry the verbatim text from the window, nothing added, nothing translated. Same rule as the White Wall: what goes into the record must be true. For Daniela sessions, this means the chat text or STT output goes in exact — no summary, no narrative wrapper. The .md is not a retelling. It is the thing itself.
+
+DAVID: twelve - then i'll just keep counting and watch the record to see :)
+
+LUCA [Replit]: Thirteen.
