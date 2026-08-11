@@ -11270,34 +11270,55 @@ export class NativeFunctionCallHandler {
       let principles: any[] = [];
 
       if (query && query.trim().length > 0) {
-        // Split the query into individual meaningful words so that natural-language
-        // queries like "confidence and humility" match "Confident and Humble".
-        // A whole-phrase substring ("%confidence and humility%") fails when the DB
-        // stores adjective/title forms ("Confident", "Humble") that don't share the
-        // same suffix as the query words ("confidence", "humility").
+        // Three-stage strategy:
+        //   Stage 0 — exact-phrase title match: handles queries that ARE a principle title
+        //     (including test-seeded rows or queries copied verbatim from a title).
+        //     Uses the raw query string so underscores/hyphens in titles are preserved.
+        //   Stage 1 — word-level title match: splits the query into words, avoids false-
+        //     positives where generic words like "principle" appear in many body texts.
+        //   Stage 2 — body fallback: runs only when Stage 1 finds nothing; handles
+        //     conceptual queries where matching words live in the body/originalContext.
         const STOPWORDS = new Set(['and', 'or', 'the', 'a', 'an', 'in', 'of', 'to', 'for', 'with', 'my', 'me', 'is', 'it', 'this', 'that', 'what', 'about', 'does', 'how']);
-        const words = query
-          .toLowerCase()
-          .split(/\s+/)
-          .map(w => w.replace(/[^a-z0-9]/g, ''))
-          .filter(w => w.length >= 3 && !STOPWORDS.has(w));
 
-        if (words.length > 0) {
-          // Build one big OR across all meaningful words × all searchable fields.
-          // Any word hit is enough to surface the principle.
-          const wordClauses = words.flatMap(w => {
-            const pat = `%${w}%`;
-            return [
-              ilike(northStarPrinciples.principleTitle, pat),
-              ilike(northStarPrinciples.principle, pat),
-              ilike(northStarPrinciples.originalContext, pat),
-            ];
-          });
-          principles = await getSharedDb()
-            .select()
-            .from(northStarPrinciples)
-            .where(and(eq(northStarPrinciples.isActive, true), or(...wordClauses)))
-            .limit(3);
+        // Stage 0: exact-phrase ilike against principleTitle (raw query, no word-splitting)
+        principles = await getSharedDb()
+          .select()
+          .from(northStarPrinciples)
+          .where(and(eq(northStarPrinciples.isActive, true), ilike(northStarPrinciples.principleTitle, `%${query.trim()}%`)))
+          .limit(3);
+
+        if (principles.length === 0) {
+          const words = query
+            .toLowerCase()
+            .split(/\s+/)
+            .map(w => w.replace(/[^a-z0-9]/g, ''))
+            .filter(w => w.length >= 3 && !STOPWORDS.has(w));
+
+          if (words.length > 0) {
+            // Stage 1: word-level title match (high precision)
+            const titleClauses = words.map(w => ilike(northStarPrinciples.principleTitle, `%${w}%`));
+            principles = await getSharedDb()
+              .select()
+              .from(northStarPrinciples)
+              .where(and(eq(northStarPrinciples.isActive, true), or(...titleClauses)))
+              .limit(3);
+
+            // Stage 2: body fallback — only when title search found nothing.
+            if (principles.length === 0) {
+              const bodyClauses = words.flatMap(w => {
+                const pat = `%${w}%`;
+                return [
+                  ilike(northStarPrinciples.principle, pat),
+                  ilike(northStarPrinciples.originalContext, pat),
+                ];
+              });
+              principles = await getSharedDb()
+                .select()
+                .from(northStarPrinciples)
+                .where(and(eq(northStarPrinciples.isActive, true), or(...bodyClauses)))
+                .limit(3);
+            }
+          }
         }
       }
 

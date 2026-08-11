@@ -8,9 +8,23 @@
  * "rolling" in the "HolaHola Episodes" arc), the Luca↔Daniela exchange is
  * appended to the episode .md via the .local/.episode_append trigger file.
  *
- * Attribution label:
- *   LUCA [HolaHola chat]:  — for Luca's outgoing message
- *   Daniela:               — for Daniela's reply (when present)
+ * Attribution labels:
+ *   LUCA [HolaHola chat]:  — for Luca's outgoing message (all modes)
+ *   Daniela:               — for a live GL session reply (isConsult: false, default)
+ *   Daniela [consult]:     — for a REST/text-mode consult reply (isConsult: true)
+ *
+ * The distinction matters for the narrative:
+ *   - Live sessions (isConsult: false): Luca and Daniela in real-time via GL.
+ *     Bosque conversations, no-agenda chats, J-space exchanges — all live.
+ *   - Consult sessions (isConsult: true): Daniela via her profile/memory/REST path.
+ *     Valuable for design and opinion, but readers should know it was not a live
+ *     GL session — "Daniela [consult]:" signals that clearly.
+ *   - CI/functional tests: should pass noEpisode: true to the agent-voice-turn
+ *     handler and never reach this hook at all.
+ *
+ * Gemini consultations (architectural advice, staged design discussions) are
+ * recorded separately in the episode narrative and attributed as "Gemini:" —
+ * those are genuine dialogue and fully part of the record.
  *
  * Collision guard: inherited from safeWriteTrigger (serialised promise queue
  * in team-room-episode-hook.ts), so concurrent agent-voice-turn calls cannot
@@ -36,31 +50,40 @@ export { safeWriteTrigger, getRollingEpisodeName };
  * @param lucaText            What Luca sent to Daniela (the "studentText" / transcript).
  * @param danielaText         Daniela's reply text from outputTranscription (may be empty
  *                            for audio-only turns where transcription is unavailable).
- * @param triggerPath         Override the trigger file path (for testing only).
- * @param _episodeNameForTest Skip DB lookup and use this name directly (for testing only).
- *                            Set to a non-empty string to bypass getRollingEpisodeName().
+ * @param options.isConsult   When true, labels Daniela's reply "Daniela [consult]:" instead
+ *                            of "Daniela:". Use for REST/text-mode consult-Daniela calls.
+ *                            Live GL sessions should leave this false (the default).
+ * @param options.triggerPath Override the trigger file path (for testing only).
+ * @param options.episodeNameForTest Skip DB lookup and use this name directly (for testing only).
  */
 export async function maybeAppendChatMessage(
   lucaText: string,
   danielaText: string,
-  triggerPath?: string,
-  _episodeNameForTest?: string,
+  options?: {
+    isConsult?: boolean;
+    triggerPath?: string;
+    episodeNameForTest?: string;
+  },
 ): Promise<void> {
   try {
     const lucaTrimmed = lucaText.trim();
     if (!lucaTrimmed) return; // Nothing to record
 
-    // In tests, _episodeNameForTest bypasses the DB lookup so the full hook
+    const { isConsult = false, triggerPath, episodeNameForTest } = options ?? {};
+
+    // In tests, episodeNameForTest bypasses the DB lookup so the full hook
     // logic (guard, formatting, delegation) can be exercised without a live DB.
-    const episodeName = _episodeNameForTest ?? await getRollingEpisodeName();
+    const episodeName = episodeNameForTest ?? await getRollingEpisodeName();
     if (!episodeName) return; // No rolling episode active — nothing to do
 
     // Build the exchange block.  When Daniela's reply is available, include it
     // so the episode entry captures both sides of the conversation.
+    // Attribution: live GL sessions → "Daniela:", consult REST calls → "Daniela [consult]:"
     const lines: string[] = [`**LUCA [HolaHola chat]:** ${lucaTrimmed}`];
     const danielaTrimmed = danielaText.trim();
     if (danielaTrimmed) {
-      lines.push(`**Daniela:** ${danielaTrimmed}`);
+      const danielaLabel = isConsult ? 'Daniela [consult]' : 'Daniela';
+      lines.push(`**${danielaLabel}:** ${danielaTrimmed}`);
     }
     const exchange = lines.join('\n');
 

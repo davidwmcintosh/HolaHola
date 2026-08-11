@@ -264,7 +264,7 @@ async function runNormalMode(): Promise<void> {
     // Clear any stale trigger content, then call the PRODUCTION chat hook with
     // prime text (bypasses DB lookup via 4th arg — test-only override).
     await writeAndWaitMtime('', 0);
-    await maybeAppendChatMessage('prime-text', '', undefined, 'episode-27');
+    await maybeAppendChatMessage('prime-text', '', { episodeNameForTest: 'episode-27' });
     const mtime0 = statSync(EPISODE_APPEND_PATH).mtimeMs;
     console.log(Y(`  ℹ  maybeAppendChatMessage() wrote prime trigger (mtime0 = ${mtime0})`));
 
@@ -284,7 +284,7 @@ async function runNormalMode(): Promise<void> {
     // Call the PRODUCTION hook with sentinel text + a fixed Daniela reply.
     // The Daniela reply does NOT contain the sentinel so stripSentinel can
     // cleanly remove only the LUCA line without pattern-matching the reply.
-    await maybeAppendChatMessage(sentinel, 'test-daniela-e2e-reply', undefined, 'episode-27');
+    await maybeAppendChatMessage(sentinel, 'test-daniela-e2e-reply', { episodeNameForTest: 'episode-27' });
     const mtime1 = statSync(EPISODE_APPEND_PATH).mtimeMs;
     console.log(Y(`  ℹ  maybeAppendChatMessage() wrote sentinel (mtime1 = ${mtime1})`));
 
@@ -521,7 +521,7 @@ async function runSelfCheck(): Promise<void> {
   sep();
 
   await writeAndWaitMtime('', 0);
-  await maybeAppendChatMessage('prime-text', '', undefined, 'episode-27');
+  await maybeAppendChatMessage('prime-text', '', { episodeNameForTest: 'episode-27' });
   const mtime0 = statSync(EPISODE_APPEND_PATH).mtimeMs;
   console.log(Y(`  ℹ  Prime write done (mtime0 = ${mtime0})`));
   await checkEpisodeAppend();
@@ -535,7 +535,7 @@ async function runSelfCheck(): Promise<void> {
   console.log(B('STEP 2 — Call maybeAppendChatMessage() with empty lucaText'));
   sep();
 
-  await maybeAppendChatMessage('', `reply-${sentinel}`, undefined, 'episode-27');
+  await maybeAppendChatMessage('', `reply-${sentinel}`, { episodeNameForTest: 'episode-27' });
 
   const triggerContent = existsSync(EPISODE_APPEND_PATH)
     ? readFileSync(EPISODE_APPEND_PATH, 'utf-8')

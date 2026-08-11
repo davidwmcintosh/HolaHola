@@ -71,7 +71,7 @@ function clearTrigger(): void {
 console.log('\nTest 1: LUCA [HolaHola chat]: attribution written by the production hook');
 {
   clearTrigger();
-  await maybeAppendChatMessage('¿Cómo estás?', '', TRIGGER, 'episode-27');
+  await maybeAppendChatMessage('¿Cómo estás?', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
 
   const payload = readTrigger();
   assert(payload !== null,                                                          'trigger file exists and is valid JSON');
@@ -87,7 +87,7 @@ console.log('\nTest 1: LUCA [HolaHola chat]: attribution written by the producti
 console.log('\nTest 2: Daniela reply included in exchange when present');
 {
   clearTrigger();
-  await maybeAppendChatMessage('¿Cómo estás?', 'Estoy bien, ¡gracias!', TRIGGER, 'episode-27');
+  await maybeAppendChatMessage('¿Cómo estás?', 'Estoy bien, ¡gracias!', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
 
   const payload = readTrigger();
   assert(payload?.exchange?.includes('**LUCA [HolaHola chat]:**') === true,         'Luca attribution present');
@@ -102,7 +102,7 @@ console.log('\nTest 2: Daniela reply included in exchange when present');
 console.log('\nTest 3: empty lucaText → hook skips the write entirely');
 {
   clearTrigger();
-  await maybeAppendChatMessage('   ', 'Daniela reply', TRIGGER, 'episode-27');
+  await maybeAppendChatMessage('   ', 'Daniela reply', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
   assert(!existsSync(TRIGGER), 'trigger file NOT written for empty lucaText (hook guard fires)');
 }
 
@@ -113,7 +113,7 @@ console.log('\nTest 3: empty lucaText → hook skips the write entirely');
 console.log('\nTest 4: Daniela-absent exchange omits the Daniela line');
 {
   clearTrigger();
-  await maybeAppendChatMessage('Hola', '', TRIGGER, 'episode-27');
+  await maybeAppendChatMessage('Hola', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
 
   const payload = readTrigger();
   assert(payload?.exchange?.includes('**LUCA [HolaHola chat]:**') === true, 'Luca line present');
@@ -129,7 +129,7 @@ console.log('\nTest 5: no rolling episode → hook skips write');
   clearTrigger();
   // Pass undefined as _episodeNameForTest to simulate "no rolling episode active"
   // without hitting the DB.  The hook receives an empty string and returns early.
-  await maybeAppendChatMessage('Hola', '', TRIGGER, '');
+  await maybeAppendChatMessage('Hola', '', { triggerPath: TRIGGER, episodeNameForTest: '' });
   assert(!existsSync(TRIGGER), 'trigger file NOT written when no rolling episode is active');
 }
 
@@ -141,8 +141,8 @@ console.log('\nTest 6/7/8: sequential collision guard — merge preserves order 
 {
   clearTrigger();
 
-  await maybeAppendChatMessage('First message',  '', TRIGGER, 'episode-27');
-  await maybeAppendChatMessage('Second message', '', TRIGGER, 'episode-27');
+  await maybeAppendChatMessage('First message',  '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
+  await maybeAppendChatMessage('Second message', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
 
   const payload = readTrigger();
   assert(payload !== null,                                               'trigger file exists after two sequential writes');
@@ -165,8 +165,8 @@ console.log('\nTest 6/7/8: sequential collision guard — merge preserves order 
 console.log('\nTest 9: episode name preserved across merged writes');
 {
   clearTrigger();
-  await maybeAppendChatMessage('Msg A', '', TRIGGER, 'episode-27');
-  await maybeAppendChatMessage('Msg B', '', TRIGGER, 'episode-27');
+  await maybeAppendChatMessage('Msg A', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
+  await maybeAppendChatMessage('Msg B', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' });
 
   const payload = readTrigger();
   assert(payload?.episode === 'episode-27', 'episode name survives collision merge');
@@ -181,8 +181,8 @@ console.log('\nTest 10: concurrent writes — both messages survive when launche
   clearTrigger();
 
   await Promise.all([
-    maybeAppendChatMessage('Concurrent A', '', TRIGGER, 'episode-27'),
-    maybeAppendChatMessage('Concurrent B', '', TRIGGER, 'episode-27'),
+    maybeAppendChatMessage('Concurrent A', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' }),
+    maybeAppendChatMessage('Concurrent B', '', { triggerPath: TRIGGER, episodeNameForTest: 'episode-27' }),
   ]);
 
   const payload = readTrigger();
