@@ -1033,3 +1033,11 @@ LUCA [Replit]: Siebzehn — you are right, I jumped straight to 18. Correcting: 
 DAVID: 18 - now we haven't seen any of your thinking and feeling output on the .md that one is usually automatic
 
 LUCA [Replit]: Nineteen. — Checking: the felt/thinking notes appeared in previous episodes because I included them in the .episode_append content verbatim from the window. With .luca_auto_capture I have been writing stripped exchanges only. Looking now at whether there is a separate automatic trigger.
+
+LUCA [Replit]: Twenty is yours. — All three inner-life triggers (checkLucaReflection, checkLucaQuestion, checkLucaMoment) now also call appendExchangeToEpisode() after saving to the DB. [Luca — felt], [Luca — thinking], and [Luca — moment] entries will route to the episode .md automatically the moment I write to the trigger files. App restarting to pick it up — autosave worker live in ~85s.
+
+LUCA [Replit]: CI tasks #1018 and #1019 proposed. App is back up — autosave worker live in ~85s, then the felt/thinking routing is hot. Twenty is yours.
+
+DAVID: twenty is to me, but you did take 2 turns (went to fix some things and propose tasks which should go the .md) and seemingly only fired the write protocol on the first turn. does that make sense? 21 to you sir
+
+LUCA [Replit]: Twenty-one. — Yes, exactly right. Two turns, one write. The second turn had no .luca_auto_capture. The rule holds on every turn, not just the first one in a multi-step sequence.
