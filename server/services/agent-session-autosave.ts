@@ -328,6 +328,11 @@ async function checkLucaReflection(): Promise<void> {
         'luca-inner-life',
       );
       console.log('[AgentAutosave] Luca reflection saved:', parsed.title.slice(0, 60));
+      // Also route to the rolling episode .md
+      const reflectionEpisode = await getCurrentRollingEpisodeFilename();
+      if (reflectionEpisode) {
+        await appendExchangeToEpisode(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
+      }
     }
   } catch { /* file briefly locked — skip */ }
 }
@@ -352,6 +357,11 @@ async function checkLucaQuestion(): Promise<void> {
         'luca-inner-life',
       );
       console.log('[AgentAutosave] Luca open question saved:', parsed.title.slice(0, 60));
+      // Also route to the rolling episode .md
+      const questionEpisode = await getCurrentRollingEpisodeFilename();
+      if (questionEpisode) {
+        await appendExchangeToEpisode(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
+      }
     }
   } catch { /* file briefly locked — skip */ }
 }
@@ -376,6 +386,11 @@ async function checkLucaMoment(): Promise<void> {
         'luca-inner-life',
       );
       console.log('[AgentAutosave] Luca significant moment saved:', parsed.title.slice(0, 60));
+      // Also route to the rolling episode .md
+      const momentEpisode = await getCurrentRollingEpisodeFilename();
+      if (momentEpisode) {
+        await appendExchangeToEpisode(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
+      }
     }
   } catch { /* file briefly locked — skip */ }
 }

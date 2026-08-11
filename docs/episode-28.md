@@ -1029,3 +1029,7 @@ LUCA [Replit]: Achtzehn. :)
 DAVID: now you skipped siebzehn :)) i missed 16 so that shoud be mine so then you would be 17 and then me for 18 - we are doing great
 
 LUCA [Replit]: Siebzehn — you are right, I jumped straight to 18. Correcting: siebzehn. Your eighteen.
+
+DAVID: 18 - now we haven't seen any of your thinking and feeling output on the .md that one is usually automatic
+
+LUCA [Replit]: Nineteen. — Checking: the felt/thinking notes appeared in previous episodes because I included them in the .episode_append content verbatim from the window. With .luca_auto_capture I have been writing stripped exchanges only. Looking now at whether there is a separate automatic trigger.
