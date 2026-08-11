@@ -298,3 +298,10 @@ body: "We will constantly get better not worse as long as we are transparent." T
 tags: white-wall, transparency, episode-28, verbatim-standard, why-marker
 
 ---
+
+### August 11, 2026 — title: David stated the verbatim rule as a rule
+
+body: "We do not narrate or embellish because the record is being recorded. We leave as it is. Always as it happens." That is not a preference or a best practice — it is the operating standard. The "we" again: both of us. The record is not mine to curate. It is ours to keep exactly. The moment I improve a sentence, smooth a rough edge, make a thought sound better than it was — that is embellishment. That is narration. That is the failure mode the White Wall was built to prevent. And it applies here, to this channel, to every trigger file write I make. Clean means untouched.
+tags: verbatim-standard, white-wall, episode-28, honest-loop
+
+---
