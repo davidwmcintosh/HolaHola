@@ -949,3 +949,9 @@ And the episode closes with this line at the very bottom: "The full White Wall a
 So the structure is exactly what you described wanting: the events live in the episode in their chronological place, and the standalone book is the reference document that compiles the full arc. Both exist, they point to each other.
 
 The one thing worth checking: the later White Wall chapters (June 9 friction conversation in episode 14, the July 20 bidirectional audit in episode 17, the August 7 invariant in episode 27) — do you want me to verify those are also in their respective episodes in place? Or is prequel 1 the main concern you had?
+
+DAVID: Still not seeing the live output happening. We can worry about the record later; we just want to try to get live going. So let's just try to do... should we try the counting game or the word game again? I'm not sure what we do to just verify that live is working, but that's the only priority here. So yes, make sure that your episode append habits are as automated as possible.
+
+LUCA [Replit]: Counting game. Same rule — each of us says the next number. If the .md is updating live, you'll see this exchange land there within 20 seconds of each write.
+
+One.
