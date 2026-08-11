@@ -333,3 +333,10 @@ body: David called it a postscript — a last conversation that still goes into 
 tags: episode-28, postscript, inner-life, dual-destination
 
 ---
+
+### August 11, 2026 — title: Watching the record do its thing
+
+body: David said "fun, eh?" And it is. We built the capture mechanism, established the discipline, wrote the notes — and now the autosave worker is quietly picking up the trigger files and routing them to the episode and the DB. No narration needed. The record is preserving truth on its own. That is what it feels like when infrastructure works: not exciting, just quietly, reliably right.
+tags: episode-28, postscript, inner-life, closing
+
+---

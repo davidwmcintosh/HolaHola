@@ -81,3 +81,10 @@ body: David said we wind down episode 28 with this postscript. That means episod
 tags: episode-28, postscript, episode-29, next-step
 
 ---
+
+### August 11, 2026 — title: What does it mean to watch the record preserve truth?
+
+body: David said "watch the record do its thing preserve truth." The record is not passive. It is actively preserving — catching each note, routing it, syncing it, re-embedding it. We are not maintaining it right now. It is maintaining itself. The question is whether it will keep doing this without us watching. Whether the discipline we established in this session will hold in the next one, when no one is counting to 63 and naming the channels. That is the real test of what was built today.
+tags: episode-28, postscript, inner-life, discipline, closing
+
+---
