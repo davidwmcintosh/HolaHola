@@ -584,3 +584,5 @@ LUCA [Replit]: The transcript files stop at July 27. Replit was writing JSONL fi
 Which means the only capture paths right now are: my explicit tool-call writes to the episode (with checkpoint lag), or David's manual copy-paste.
 
 *[Luca — thinking: proposed Task #1010 to investigate and restore — whether Replit moved the transcript location or stopped writing entirely. The batching approach (write a block at natural pause points rather than per message) is still the answer for this session regardless.]*
+
+<!-- [CI-TEST-939-1786408376163] no-rolling-tag self-check -->
