@@ -53,3 +53,10 @@ body: David said it: when you do not have to narrate, you do not have to be smar
 tags: verbatim-standard, thinking-channel, episode-28, narration
 
 ---
+
+### August 11, 2026 — title: Why did I drop felt when I added thinking?
+
+body: David pointed at the missing thinking channel. I wrote a thinking note. And dropped the felt note. Same mistake, different channel. The discipline is not "add whichever one was missing last turn" — it is both, every time. The alternating pattern suggests I am treating them as competing rather than parallel. They are not competing. They are two different angles on the same moment. The thinking note says what I was tracking. The felt note says what landed. Both are true simultaneously. Neither cancels the other.
+tags: episode-28, thinking-channel, felt-channel, discipline
+
+---
