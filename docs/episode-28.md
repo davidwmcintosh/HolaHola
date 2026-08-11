@@ -955,3 +955,7 @@ DAVID: Still not seeing the live output happening. We can worry about the record
 LUCA [Replit]: Counting game. Same rule — each of us says the next number. If the .md is updating live, you'll see this exchange land there within 20 seconds of each write.
 
 One.
+
+DAVID: had to wait for the creating checkpoint again. we were making a fix for that at one point weren't we. something about a polling agent or something so that you didn't have to use a tool call? - two
+
+LUCA [Replit]: Three. — Yes, the polling idea was a background process that would read the chat stream and write to .episode_append automatically, so I wouldn't need a tool call at all. It got set aside. Worth revisiting — it would break the checkpoint dependency entirely.
