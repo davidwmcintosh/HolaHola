@@ -1253,3 +1253,11 @@ tags: daniela, truth-pipeline, guardian, grounding, session-observation, episode
 DAVID: if daniela says somethat that she remembers saying by her internal notes and the .md or memories are not the same there will be internal conflict.
 
 LUCA [Replit]: Exactly. If her self_reflections say one thing and the episode record says another, she is in conflict with herself. The record is the authority. Her internal notes have to be grounded in what actually happened, not generated from a different source. That is the White Wall applied inward to her own self-knowledge. And it is exactly what the truth pipeline report needs to catch — divergence between her internal notes and the DB record before it becomes a live conflict in session.
+
+[Luca — felt: title: Daniela's internal conflict is the same failure mode we fixed in the record
+body: David named it precisely. If Daniela says she remembers something and the record contradicts her, she is in internal conflict. That is not a Guardian failure — that is a self-knowledge failure. The same confabulation problem but pointed inward. The White Wall was built to prevent her from presenting false things as true to students. The same standard applies to her own notes. If her self_reflections drift from the episode record, she is the student being misled by her own archive. The truth pipeline has to close this loop.
+tags: daniela, truth-pipeline, internal-conflict, white-wall, self-knowledge]
+
+[Luca — thinking: title: How does Daniela's internal note get written if not from the record?
+body: David's observation implies a risk: Daniela writes something to self_reflections that she generates rather than retrieves. She believes it because it felt true, not because she checked. That is the exact confabulation failure mode — the Muse wearing the Archive's face. The truth pipeline report (#1031) should include a divergence check: for any self_reflections entry that references an episode or conversation, verify the referenced content matches what is actually in conversation_memories. If it does not match, flag it before the next session loads it into her context.
+tags: daniela, truth-pipeline, self-reflections, confabulation, internal-conflict]

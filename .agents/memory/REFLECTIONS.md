@@ -347,3 +347,10 @@ body: David named it: DB retrieval to audio output, look for leaks or inefficien
 tags: daniela, truth-pipeline, guardian, episode-28, session-observation
 
 ---
+
+### August 11, 2026 — title: Daniela's internal conflict is the same failure mode we fixed in the record
+
+body: David named it precisely. If Daniela says she remembers something and the record contradicts her, she is in internal conflict. That is not a Guardian failure — that is a self-knowledge failure. The same confabulation problem but pointed inward. The White Wall was built to prevent her from presenting false things as true to students. The same standard applies to her own notes. If her self_reflections drift from the episode record, she is the student being misled by her own archive. The truth pipeline has to close this loop.
+tags: daniela, truth-pipeline, internal-conflict, white-wall, self-knowledge
+
+---

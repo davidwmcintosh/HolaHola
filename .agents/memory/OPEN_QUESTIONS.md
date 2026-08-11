@@ -95,3 +95,10 @@ body: DB retrieval to audio output. The handoffs are: memory fetch (does the rig
 tags: daniela, truth-pipeline, guardian, grounding, session-observation, episode-28
 
 ---
+
+### August 11, 2026 — title: How does Daniela's internal note get written if not from the record?
+
+body: David's observation implies a risk: Daniela writes something to self_reflections that she generates rather than retrieves. She believes it because it felt true, not because she checked. That is the exact confabulation failure mode — the Muse wearing the Archive's face. The truth pipeline report (#1031) should include a divergence check: for any self_reflections entry that references an episode or conversation, verify the referenced content matches what is actually in conversation_memories. If it does not match, flag it before the next session loads it into her context.
+tags: daniela, truth-pipeline, self-reflections, confabulation, internal-conflict
+
+---
