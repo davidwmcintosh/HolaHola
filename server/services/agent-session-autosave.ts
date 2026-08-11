@@ -122,6 +122,11 @@ export function resetReflectionMtimeForTest(): void {
   reflectionLastMtime = 0;
 }
 
+/** Reset momentLastMtime to 0 so checkLucaMoment() re-arms for testing. */
+export function resetMomentMtimeForTest(): void {
+  momentLastMtime = 0;
+}
+
 // --- Episode append watcher state ---
 let episodeAppendLastMtime = 0;
 
@@ -402,7 +407,7 @@ async function checkLucaQuestion(): Promise<void> {
   } catch { /* file briefly locked — skip */ }
 }
 
-async function checkLucaMoment(): Promise<void> {
+export async function checkLucaMoment(): Promise<void> {
   if (!existsSync(MOMENT_PATH)) return;
   try {
     const stat = statSync(MOMENT_PATH);
@@ -414,18 +419,23 @@ async function checkLucaMoment(): Promise<void> {
       const raw = readFileSync(MOMENT_PATH, 'utf-8').trim();
       const parsed = parseTriggerFile(raw, 'luca-significant');
       if (!parsed) return;
-      appendToPersonalFile(MOMENTS_FILE, parsed.title, parsed.body);
-      await savePersonalMemory(
-        `Luca significant moment: ${parsed.title}`,
-        parsed.body,
-        ['luca-inner-life', 'luca-significant', ...parsed.tags],
-        'luca-inner-life',
-      );
+      // Personal side-effects gated so CI tests don't pollute SIGNIFICANT_MOMENTS.md or DB
+      if (_lucaPersonalSideEffectsEnabled) {
+        appendToPersonalFile(MOMENTS_FILE, parsed.title, parsed.body);
+        await savePersonalMemory(
+          `Luca significant moment: ${parsed.title}`,
+          parsed.body,
+          ['luca-inner-life', 'luca-significant', ...parsed.tags],
+          'luca-inner-life',
+        );
+      }
       console.log('[AgentAutosave] Luca significant moment saved:', parsed.title.slice(0, 60));
-      // Also route to the rolling episode .md
-      const momentEpisode = await getCurrentRollingEpisodeFilename();
-      if (momentEpisode) {
-        await appendExchangeToEpisode(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
+      // Also route to the rolling episode .md (guarded by test seam for CI self-check)
+      if (_lucaEpisodeAppendEnabled) {
+        const momentEpisode = await getCurrentRollingEpisodeFilename();
+        if (momentEpisode) {
+          await appendExchangeToEpisode(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
+        }
       }
     }
   } catch { /* file briefly locked — skip */ }

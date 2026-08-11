@@ -98,6 +98,10 @@ args = "merge-ours-guard-ci"
 task = "workflow.run"
 args = "luca-reflection-episode-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "luca-moment-episode-ci"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -287,6 +291,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-luca-reflection-episode.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "luca-moment-episode-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-luca-moment-episode.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
