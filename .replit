@@ -102,6 +102,10 @@ args = "luca-reflection-episode-ci"
 task = "workflow.run"
 args = "luca-moment-episode-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "luca-auto-capture-episode-ci"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -302,6 +306,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-luca-moment-episode.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "luca-auto-capture-episode-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

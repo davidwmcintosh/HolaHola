@@ -122,6 +122,28 @@ export function resetReflectionMtimeForTest(): void {
   reflectionLastMtime = 0;
 }
 
+/**
+ * Test seams for checkAutoCapture() — prevent DB/cursor pollution in CI.
+ *
+ * setAutoCaptureDbEnabled(false)
+ *   — skips consumeAutoCaptureTrigger() + checkChatCapture() so no turns are
+ *     appended to .chat_capture and no rows land in conversation_memories.
+ *     The trigger file is still deleted after reading.
+ *
+ * setAutoCaptureEpisodeEnabled(false)
+ *   — skips the appendExchangeToEpisode() call (self-check mode: simulates
+ *     removing the episode-routing line from checkAutoCapture()).
+ *
+ * setPinnedRollingEpisodeFilename(filename | null)
+ *   — overrides getCurrentRollingEpisodeFilename() inside checkAutoCapture()
+ *     so CI tests target a known episode file and are never confused by
+ *     concurrently-created fixtures (e.g. Episode 99 from rolling-sync-guard).
+ *     Pass null to restore dynamic lookup.
+ *
+ * Never set any of these in production code.
+ */
+let _autoCaptureDbEnabled = true;
+
 /** Reset momentLastMtime to 0 so checkLucaMoment() re-arms for testing. */
 export function resetMomentMtimeForTest(): void {
   momentLastMtime = 0;
@@ -616,7 +638,7 @@ export async function checkEpisodeAppend(): Promise<void> {
 // Mutex: only one save-in-progress at a time (watch + poll can both fire)
 let chatCaptureSaveInProgress = false;
 
-async function checkChatCapture(): Promise<void> {
+export async function checkChatCapture(): Promise<void> {
   if (!existsSync(CHAT_CAPTURE_PATH)) return;
   if (chatCaptureSaveInProgress) return;
 
@@ -741,7 +763,7 @@ async function checkChatCapture(): Promise<void> {
 // or:
 //   npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
 // ---------------------------------------------------------------------------
-async function checkAutoCapture(): Promise<void> {
+export async function checkAutoCapture(): Promise<void> {
   if (!existsSync(LUCA_AUTO_CAPTURE_PATH)) return;
   const trigger = parseAutoCaptureTrigger();
   if (!trigger || (!trigger.david && !trigger.luca)) {
@@ -751,23 +773,32 @@ async function checkAutoCapture(): Promise<void> {
   }
   const parts = [trigger.david ? '1D' : '', trigger.luca ? '1L' : ''].filter(Boolean);
   try {
-    consumeAutoCaptureTrigger(trigger); // appends to .chat_capture, deletes trigger file
-    console.log(`[AgentAutosave] Auto-capture: consumed ${parts.join('+')} from .luca_auto_capture → appended to .chat_capture`);
-    // Immediately save the new bytes — don't wait for the next poll cycle
-    await checkChatCapture();
+    if (_autoCaptureDbEnabled) {
+      consumeAutoCaptureTrigger(trigger); // appends to .chat_capture, deletes trigger file
+      console.log(`[AgentAutosave] Auto-capture: consumed ${parts.join('+')} from .luca_auto_capture → appended to .chat_capture`);
+      // Immediately save the new bytes — don't wait for the next poll cycle
+      await checkChatCapture();
+    } else {
+      // Test mode: delete trigger without appending to .chat_capture (no cursor advancement,
+      // no conversation_memories write).  Seam set by CI via setAutoCaptureDbEnabled(false).
+      try { unlinkSync(LUCA_AUTO_CAPTURE_PATH); } catch { /* ignore */ }
+      console.log(`[AgentAutosave] Auto-capture (test mode): read ${parts.join('+')} — DB path skipped`);
+    }
 
-    // Also route to the rolling episode .md (dual-destination: DB + episode file)
-    const lines: string[] = [];
-    if (trigger.david) lines.push(`DAVID: ${trigger.david}`);
-    if (trigger.luca)  lines.push(`LUCA [Replit]: ${trigger.luca}`);
-    if (lines.length > 0) {
-      const episodeFilename = await getCurrentRollingEpisodeFilename();
-      if (episodeFilename) {
-        const exchangeText = lines.join('\n\n');
-        console.log(`[AgentAutosave] Auto-capture: also routing to episode → ${episodeFilename}`);
-        await appendExchangeToEpisode(exchangeText, episodeFilename);
-      } else {
-        console.warn('[AgentAutosave] Auto-capture: no rolling episode found — skipping episode .md routing');
+    if (_autoCaptureEpisodeEnabled) {
+      // Also route to the rolling episode .md (dual-destination: DB + episode file)
+      const lines: string[] = [];
+      if (trigger.david) lines.push(`DAVID: ${trigger.david}`);
+      if (trigger.luca)  lines.push(`LUCA [Replit]: ${trigger.luca}`);
+      if (lines.length > 0) {
+        const episodeFilename = _pinnedRollingEpisodeFilename ?? await getCurrentRollingEpisodeFilename();
+        if (episodeFilename) {
+          const exchangeText = lines.join('\n\n');
+          console.log(`[AgentAutosave] Auto-capture: also routing to episode → ${episodeFilename}`);
+          await appendExchangeToEpisode(exchangeText, episodeFilename);
+        } else {
+          console.warn('[AgentAutosave] Auto-capture: no rolling episode found — skipping episode .md routing');
+        }
       }
     }
   } catch (err: any) {
@@ -917,14 +948,19 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
 
   // Guard: reject files that contain git merge conflict markers — they indicate
   // an unresolved merge conflict and would corrupt the DB with doubled content.
+  // NOTE: marker strings are split so the rebase tool does not treat these
+  // string literals as actual conflict markers in this source file.
+  const CONFLICT_START = '<<<<' + '<<<';
+  const CONFLICT_MID   = '=====' + '==';
+  const CONFLICT_END   = '>>>>' + '>>>';
   if (
-    content.includes('<<<<<<< ') ||
-    content.includes('=======') ||
-    content.includes('>>>>>>> ')
+    content.includes(CONFLICT_START + ' ') ||
+    content.includes(CONFLICT_MID) ||
+    content.includes(CONFLICT_END + ' ')
   ) {
     console.error(
       `[AgentAutosave] SKIPPED ${filename}: file contains git merge conflict markers ` +
-      '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
+      '(' + CONFLICT_START + ' / ' + CONFLICT_MID + ' / ' + CONFLICT_END + '). Resolve the conflict before syncing.'
     );
     return;
   }
@@ -965,21 +1001,19 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       // prevents a concurrent/stale writer (other task merge, old autosave snapshot)
       // from shrinking a growing episode and erasing appended cascade content.
       if (isRolling) {
-        // Fetch current DB length and compare in JS to avoid SQL CASE ambiguity
-        // between the ${content} parameter and the `content` column name.
-        const lenRow = await db.execute(sql`
-          SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${memoryId}
+        // Atomic max-length guard: the CASE expression evaluates both LENGTH()
+        // calls in a single UPDATE — no read-then-write race.  ${content} is a
+        // bound parameter; bare `content` refers to the column.
+        await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = CASE
+                WHEN LENGTH(${content}) >= LENGTH(content)
+                THEN ${content}
+                ELSE content
+              END,
+              summary = ${summary}
+          WHERE id = ${memoryId}
         `);
-        const currentLen = Number((lenRow as any).rows?.[0]?.len ?? (lenRow as any)[0]?.len ?? 0);
-        if (content.length >= currentLen) {
-          await db.execute(sql`
-            UPDATE conversation_memories
-            SET content = ${content},
-                summary = ${summary}
-            WHERE id = ${memoryId}
-          `);
-        }
-        // If shorter, skip update — keep the longer DB content intact
       } else {
         await db.execute(sql`
           UPDATE conversation_memories
@@ -1364,3 +1398,17 @@ export function startAgentSessionAutosave(): void {
 
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
+
+export function setAutoCaptureEpisodeEnabled(val: boolean): void { _autoCaptureEpisodeEnabled = val; }
+
+let _autoCaptureEpisodeEnabled = true;
+
+export function getAutoCaptureEpisodeEnabled(): boolean { return _autoCaptureEpisodeEnabled; }
+
+export function setAutoCaptureDbEnabled(val: boolean): void { _autoCaptureDbEnabled = val; }
+
+export function setPinnedRollingEpisodeFilename(f: string | null): void { _pinnedRollingEpisodeFilename = f; }
+
+let _pinnedRollingEpisodeFilename: string | null = null;
+
+export function getAutoCaptureDbEnabled(): boolean { return _autoCaptureDbEnabled; }

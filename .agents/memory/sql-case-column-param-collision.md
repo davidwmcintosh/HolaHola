@@ -1,32 +1,26 @@
 ---
-name: SQL CASE expression — column/parameter name collision
-description: A SQL CASE expression inside a Drizzle UPDATE failed silently when the column name matched the parameter variable name.
+name: SQL CASE expression — Drizzle parameter vs column disambiguation
+description: A Drizzle sql`...` CASE expression is safe when an interpolated ${variable} and a bare column share the same name — they resolve to different things.
 ---
 
 ## The rule
-When writing a Drizzle `sql\`...\`` UPDATE with a CASE expression, never use a bare column name that is identical to the JS variable holding the parameter. The SQL parser resolves the ambiguity by treating both as the parameter (or the column), causing the CASE condition to always evaluate incorrectly.
+In a Drizzle `sql\`...\`` template, `${content}` is a **bound parameter** and bare `content` is the **SQL column reference**. They are not ambiguous — the SQL engine distinguishes them correctly. The atomic CASE WHEN pattern is safe and preferred over a JS read-then-write sequence.
 
-## What broke
+## Correct atomic pattern
 ```sql
 UPDATE conversation_memories
 SET content = CASE
       WHEN LENGTH(${content}) >= LENGTH(content)
       THEN ${content}
       ELSE content
-    END
+    END,
+    summary = ${summary}
+WHERE id = ${memoryId}
 ```
-`LENGTH(content)` was supposed to be the DB column length, but Drizzle resolved it to the parameter — making the comparison always `true` or `false` regardless of DB state. Result: "longer wins" pass always failed silently.
+`LENGTH(${content})` → length of the incoming JS string (bound parameter).
+`LENGTH(content)` → length of the existing DB column value.
+Both evaluate correctly in a single round-trip with no concurrency window.
 
-**Why:** The rolling-guard uses a monotonic max-length rule: shorter syncs must not shrink a rolling episode. The CASE expression was the guard. When it misfired, Pass 3 (longer content should overwrite) stopped working.
+**Why:** A read-then-write alternative (SELECT length, then conditional UPDATE) introduces a TOCTOU race: two concurrent writers can both read the old length and then both write, allowing a shorter stale write to overwrite a longer committed one. The atomic CASE expression eliminates this window.
 
-## Fix
-Move the comparison to JS — fetch current DB length first, compare, then issue a plain UPDATE only if new content is longer:
-```typescript
-const lenRow = await db.execute(sql`SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${memoryId}`);
-const currentLen = Number((lenRow as any).rows?.[0]?.len ?? ...);
-if (content.length >= currentLen) {
-  await db.execute(sql`UPDATE ... SET content = ${content} ...`);
-}
-```
-
-**How to apply:** Any time a Drizzle SQL CASE expression references both a `${variable}` and a bare column name that are spelled the same, lift the comparison to JS instead.
+**How to apply:** When writing a monotonic-guard UPDATE (e.g. "only overwrite if new value is larger/newer"), use a SQL CASE expression inside the UPDATE rather than a SELECT + conditional UPDATE. Drizzle's interpolation disambiguates parameters from column names correctly.
