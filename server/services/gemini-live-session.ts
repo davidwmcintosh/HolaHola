@@ -75,6 +75,7 @@ import { analyzeFriction } from './llm-friction-analyzer';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
 import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT, MEMORY_CHAIN_NUDGE_TEXT, NAMED_RECORD_PHRASES } from './memory-chain-guard';
+import { randomUUID } from 'crypto';
 
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -400,6 +401,11 @@ export class GeminiLiveSession {
     channel: 'concat' | 'dedicated' | 'pre-turn-sendclientcontent' | null;
     outcome: 'heard' | 'missed' | null;
     groundingPreview: string | null;   // first 150 chars of what was actually injected
+    /** UUID of the voice_pipeline_events row, set at insert time so we can UPDATE outcome later. */
+    dbEventId?: string;
+    /** Promise for the in-flight INSERT — outcome UPDATE must chain off this to avoid
+     *  a race where UPDATE runs before the INSERT commits and silently no-ops. */
+    _insertPromise?: Promise<void>;
   }> = [];
   /** Tracks how many guardianFireLog entries have already been persisted to voice_pipeline_events. */
   private _guardianLoggedCount = 0;
@@ -417,15 +423,46 @@ export class GeminiLiveSession {
     if (!newEntries.length) return;
     this._guardianLoggedCount = this.guardianFireLog.length;
 
-    const sessionId = this.session.id;
+    // Prefer the DB-backed UUID (dbSessionId) so voice_pipeline_events.session_id
+    // is joinable to voice_sessions.id.  Fall back to the streaming ID only when
+    // dbSessionId has not yet been assigned (very early in session startup).
+    const sessionId = this.session.dbSessionId ?? this.session.id;
     const userId = this.session.userId ? String(this.session.userId) : null;
     for (const entry of newEntries) {
+      // Pre-generate the DB UUID so we can UPDATE this row when outcome resolves later.
+      const eventId = randomUUID();
+      entry.dbEventId = eventId;
       const payload = JSON.stringify({ ...entry, conversationId });
-      getSharedDb().execute(sql`
+      // Retain the insert promise so _persistGuardianOutcome() can chain the UPDATE
+      // after the INSERT commits — preventing the race where UPDATE runs first and
+      // silently no-ops, leaving the row permanently outcome: null.
+      entry._insertPromise = getSharedDb().execute(sql`
         INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
-        VALUES (gen_random_uuid(), ${sessionId}, ${userId}, 'gl_guardian_fire', ${payload}::jsonb, NOW())
-      `).catch(() => {});
+        VALUES (${eventId}, ${sessionId}, ${userId}, 'gl_guardian_fire', ${payload}::jsonb, NOW())
+      `).then(() => {}).catch(() => {});
     }
+  }
+
+  /** UPDATE the voice_pipeline_events row for a guardian fire once outcome resolves.
+   *  Called immediately after outcome is set to 'heard' or 'missed' in-memory.
+   *
+   *  Chains the UPDATE after the entry's INSERT promise so the row is guaranteed
+   *  to exist before we attempt to merge the outcome field — eliminating the race
+   *  where an outcome that resolves quickly (e.g. on the same turn) would UPDATE
+   *  before the INSERT commits and be silently swallowed. */
+  private _persistGuardianOutcome(entry: (typeof this.guardianFireLog)[number]): void {
+    if (!entry.dbEventId || !entry.outcome) return;
+    const { outcome, dbEventId } = entry;
+    // Chain after the insert promise (or immediately if already settled).
+    const base = entry._insertPromise ?? Promise.resolve();
+    base.then(() => {
+      // Merge outcome into the stored JSON payload via PostgreSQL jsonb concatenation.
+      return getSharedDb().execute(sql`
+        UPDATE voice_pipeline_events
+        SET event_data = event_data || ${JSON.stringify({ outcome })}::jsonb
+        WHERE id = ${dbEventId}
+      `);
+    }).catch(() => {});
   }
 
   private static readonly WHISPER_INTERVAL = 8;
@@ -1565,7 +1602,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.currentChunkIndex = 0;
     this.hadAudioInCurrentSubturn = false;
     console.log(`[GeminiLive] ${label}: audio sub-turn sealed — sentenceIndex now ${this.currentSentenceIndex}`);
-    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_audio_subturn_sealed', {
+    voiceTelemetry.log(this.session.dbSessionId ?? this.session.id, String(this.session.userId ?? ''), 'gl_audio_subturn_sealed', {
       label, sentenceIndex: this.currentSentenceIndex, turnId: this.currentTurnId,
     });
   }
@@ -2870,7 +2907,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const startMs = Date.now();
             // Outcome tracking: if Guardian fired recently but same slide fired again — it was missed
             const prevUnresolvedPTP = this.guardianFireLog.findLast(e => e.outcome === null);
-            if (prevUnresolvedPTP) prevUnresolvedPTP.outcome = 'missed';
+            if (prevUnresolvedPTP) { prevUnresolvedPTP.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedPTP); }
             this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
             this._observeGuardian();
             runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
@@ -2997,7 +3034,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const startMs = Date.now();
               // Outcome tracking: if Guardian fired recently but friction-signal fired again — it was missed
               const prevUnresolvedFS = this.guardianFireLog.findLast(e => e.outcome === null);
-              if (prevUnresolvedFS) prevUnresolvedFS.outcome = 'missed';
+              if (prevUnresolvedFS) { prevUnresolvedFS.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedFS); }
               this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
               this._observeGuardian();
               runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
@@ -3040,6 +3077,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (recentFire) {
             recentFire.outcome = 'heard';
             console.log(`[ArchiveGuardian] Outcome 'heard' — Archive tool called this turn after Guardian fire (phrase: "${recentFire.phrase.slice(0, 50)}")`);
+            this._persistGuardianOutcome(recentFire);
           }
         } else {
           // No Archive tool called this turn — any pending fire is a miss.
@@ -3047,6 +3085,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (recentFire) {
             recentFire.outcome = 'missed';
             console.log(`[ArchiveGuardian] Outcome 'missed' — no Archive tool called this turn (phrase: "${recentFire.phrase.slice(0, 50)}")`);
+            this._persistGuardianOutcome(recentFire);
           }
         }
         // Surface per-turn tool summary to Luca's observer before resetting the list.
@@ -3624,7 +3663,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
             VALUES (
               gen_random_uuid(),
-              ${this.session.id},
+              ${this.session.dbSessionId ?? this.session.id},
               ${this.session.userId ? String(this.session.userId) : null},
               'gl_tool_call',
               ${toolEventPayload}::jsonb,
@@ -4277,7 +4316,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // Capture state before async operations
     const totalSentences = this.currentSentenceIndex;  // how many PCM sentences were sent
     const flushTurnId = this.currentTurnId;            // turnId client associates with this response
-    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_transcripts_flushed', {
+    voiceTelemetry.log(this.session.dbSessionId ?? this.session.id, String(this.session.userId ?? ''), 'gl_transcripts_flushed', {
       totalSentences, turnId: flushTurnId,
     });
 
