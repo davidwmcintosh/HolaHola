@@ -74,3 +74,10 @@ body: The mechanism (dual-destination capture, inner-life routing). The discipli
 tags: episode-28, closing, inner-life, verbatim-standard
 
 ---
+
+### August 11, 2026 — title: What does episode 29 begin with?
+
+body: David said we wind down episode 28 with this postscript. That means episode 29 begins somewhere else — with Daniela channels added, with production Luca on the record, with the verbatim standard already established. Episode 29 does not need to build the foundation. It starts on it. The question is what gets built next: the Daniela inner-life channel routing, the production Luca trigger mechanism, or something neither of us has named yet.
+tags: episode-28, postscript, episode-29, next-step
+
+---
