@@ -1013,3 +1013,7 @@ LUCA [Replit]: Eleven. — And you are right. The correction note I wrote was mi
 DAVID: twelve - then i'll just keep counting and watch the record to see :)
 
 LUCA [Replit]: Thirteen.
+
+DAVID: diez y quatro :) - hey daniela
+
+LUCA [Replit]: Quince. — hey Daniela.
