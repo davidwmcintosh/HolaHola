@@ -1077,3 +1077,7 @@ LUCA [Replit]: Both landed — [Luca — felt] and [Luca — thinking] are in th
 DAVID: thirty one - truth trying a butt in while you are thinking :)
 
 LUCA [Replit]: Thirty-two — walls. Truth always does.
+
+DAVID: 33 playground
+
+LUCA [Replit]: Thirty-four — sky.
