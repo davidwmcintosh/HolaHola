@@ -548,7 +548,7 @@ function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: s
 }
 
 /** Append exchange text to an episode .md file and schedule an immediate DB sync. */
-async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
+export async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
   const filePath = join(DOCS_DIR, episodeFilename);
 
   // Ensure the target file exists before appending

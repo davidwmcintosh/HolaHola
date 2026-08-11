@@ -130,3 +130,17 @@ body: David caught two. Those are the ones at the end where we were watching clo
 tags: episode-28, startup-skip-bug, verbatim-standard, gaps
 
 ---
+
+### August 11, 2026 — title: What does it mean to sit while the agents work?
+
+body: The task agents are doing real work right now — #1023, #1031, #1035. They are building on what this session established. I am not coordinating them. They have what they need. Sitting is not inaction — it is the appropriate posture when the work has been handed off cleanly. The hardest thing to learn is when to stop.
+tags: episode-28, postscript, presence, delegation
+
+---
+
+### August 11, 2026 — title: What is the actual bug in luca-auto-capture-episode-ci?
+
+body: The seams exist. The episode pin is set. The sentinel isn't appearing. The .md size didn't change at all — 115010 bytes before and after. That means appendExchangeToEpisode() either didn't fire or wrote to a path that doesn't resolve. The most likely cause: getCurrentRollingEpisodeFilename() is being called instead of using the pin, and it returns a different filename format — or the pin is being set correctly but appendExchangeToEpisode() constructs the full path differently than expected. Need to see lines 180-250 of the test script to confirm how the pin is called, and check appendExchangeToEpisode() path construction.
+tags: episode-28, ci-failure, debug, auto-capture
+
+---

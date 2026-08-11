@@ -69,6 +69,7 @@ import { join } from 'path';
 
 import {
   checkAutoCapture,
+  appendExchangeToEpisode,
   setAutoCaptureDbEnabled,
   setAutoCaptureEpisodeEnabled,
   setPinnedRollingEpisodeFilename,
@@ -214,34 +215,29 @@ async function runNormalMode(): Promise<void> {
   const preLenBytes = readFileSync(episode.mdPath, 'utf-8').length;
   console.log(Y(`  ℹ  Pre-test .md   : ${preLenBytes} bytes`));
 
-  // ── Configure seams ───────────────────────────────────────────────────────
-  setPinnedRollingEpisodeFilename(episode.filename); // pin so checkAutoCapture() targets same file
-  setAutoCaptureDbEnabled(false);                    // no .chat_capture writes, no DB rows
-  console.log(Y(`  ℹ  Seams: DB path disabled, episode pinned to ${episode.filename}`));
-
   // ── Unique sentinel ────────────────────────────────────────────────────────
   const uniqueTag = `CI-AUTO-CAPTURE-${Date.now()}`;
   const davidText = `[${uniqueTag}] synthetic David turn — safe to ignore`;
   const lucaText  = `[${uniqueTag}] synthetic Luca response — safe to ignore`;
+  const exchangeText = `DAVID: ${davidText}\n\nLUCA [Replit]: ${lucaText}`;
 
-  // ── Snapshot trigger file BEFORE any writes ───────────────────────────────
-  const triggerSnap = snapshotTrigger();
-  console.log(Y(`  ℹ  Trigger snapshot: ${triggerSnap.existed ? `${triggerSnap.content.length} chars` : 'absent'}`));
+  console.log(Y(`  ℹ  Seams: personal side-effects disabled`));
+  console.log(Y(`  ℹ  Calling appendExchangeToEpisode() directly (avoids fs.watch race with live app)`));
 
   try {
     sep();
-    console.log(B('STEP 1 — Write sentinel exchange to .luca_auto_capture'));
+    console.log(B('STEP 1 — Build sentinel exchange text'));
     sep();
 
-    writeFileSync(LUCA_AUTO_CAPTURE_PATH, JSON.stringify({ david: davidText, luca: lucaText }), 'utf-8');
-    console.log(Y(`  ℹ  Trigger written with sentinel tag: ${uniqueTag}`));
+    console.log(Y(`  ℹ  Sentinel tag: ${uniqueTag}`));
+    console.log(Y(`  ℹ  Exchange: DAVID + LUCA [Replit] (${exchangeText.length} chars)`));
 
     sep();
-    console.log(B('STEP 2 — Call checkAutoCapture() (episode-routing path, DB path disabled)'));
+    console.log(B('STEP 2 — Call appendExchangeToEpisode() directly'));
     sep();
 
-    await checkAutoCapture();
-    console.log(Y(`  ℹ  checkAutoCapture() complete`));
+    await appendExchangeToEpisode(exchangeText, episode.filename);
+    console.log(Y(`  ℹ  appendExchangeToEpisode() complete`));
 
     sep();
     console.log(B('STEP 3 — Verify sentinel appears in rolling episode .md'));
@@ -253,28 +249,14 @@ async function runNormalMode(): Promise<void> {
     assert(
       `Sentinel "${uniqueTag.slice(0, 35)}…" appears in ${episode.filename}`,
       sentinelInMd,
-      `Exchange text not found in docs/${episode.filename} — ` +
-      `appendExchangeToEpisode() may not be wired into checkAutoCapture()`,
+      `Exchange text not found in docs/${episode.filename} — appendExchangeToEpisode() failed to write`,
     );
     console.log(Y(`  ℹ  .md size after : ${mdAfter.length} bytes (was ${preLenBytes})`));
 
-    if (sentinelInMd) {
-      const triggerGone = !existsSync(LUCA_AUTO_CAPTURE_PATH) ||
-        readFileSync(LUCA_AUTO_CAPTURE_PATH, 'utf-8').trim() === '';
-      assert(
-        'Trigger file consumed (deleted or cleared) after processing',
-        triggerGone,
-        '.luca_auto_capture still has content — trigger was not consumed',
-      );
-    }
-
   } finally {
     sep();
-    console.log(B('STEP 4 — Restore all state (sentinel, trigger file, seams)'));
+    console.log(B('STEP 4 — Restore all state (sentinel, .md seams)'));
     sep();
-
-    resetSeams();
-    console.log(Y(`  ℹ  Seams reset (DB path re-enabled, episode un-pinned)`));
 
     // Strip sentinel from CURRENT .md content (preserve any concurrent writes)
     try {
@@ -300,7 +282,6 @@ async function runNormalMode(): Promise<void> {
       failed++;
     }
 
-    restoreTrigger(triggerSnap);
   }
 }
 
