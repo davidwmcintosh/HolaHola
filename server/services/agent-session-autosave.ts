@@ -186,6 +186,23 @@ let lastFeltProcessedMs = 0;          // when checkLucaReflection() last routed 
 let lastThinkingProcessedMs = 0;      // when checkLucaQuestion() last routed a thinking: entry
 let lastMomentProcessedMs = 0;        // when checkLucaMoment() last routed a moment: entry
 
+/**
+ * Set to true when capture-status timestamps are seeded from the episode file at
+ * startup (no live exchange yet).  Cleared on the first live appendExchangeToEpisode()
+ * call.  Used by _writeEpisodeCaptureStatusFile to label seeded data as "prior session"
+ * and suppress the STALE exchange warning (the file mtime can be arbitrarily old).
+ */
+let _seededFromPriorSession = false;
+
+/**
+ * Monotonic guard: set to true the instant any live writeCaptureStatus() call fires,
+ * and never reset to false.  seedCaptureStatusFromEpisodeFile() checks this AFTER its
+ * async DB lookup returns — if already true, the seed aborts without overwriting the
+ * live status.  This prevents a delayed seed (whose DB round-trip straddles the first
+ * live exchange) from clobbering real capture timestamps with stale prior-session data.
+ */
+let _liveWriteHasOccurred = false;
+
 // Snapshots of inner-life channel timestamps taken AT THE MOMENT the last exchange
 // was appended.  Used for ordering check: felt/thinking < lastEpisodeCaptureMs means
 // they preceded the exchange (correct); felt/thinking > prevEpisodeCaptureMs but
@@ -194,6 +211,87 @@ let lastMomentProcessedMs = 0;        // when checkLucaMoment() last routed a mo
 // felt/thinking > lastEpisodeCaptureMs means they fired AFTER the exchange (out of order).
 let feltAtLastExchange = 0;
 let thinkingAtLastExchange = 0;
+
+/**
+ * Seed capture-status timestamps from the current rolling episode file at startup.
+ *
+ * Scans the last 200 non-empty lines of the episode file for felt:/thinking:/moment:
+ * entries.  Because the file stores no per-line timestamps, the file's mtime is used
+ * as a conservative proxy for the last exchange and all channel timestamps are placed
+ * 5 minutes earlier so the ordering check can classify them as "fired before the last
+ * exchange" (the correct state).
+ *
+ * After seeding, writes the initial capture status file immediately — the file is
+ * readable from the very first exchange of the new session instead of showing
+ * "never fired this server run" for every channel.
+ *
+ * Any error is caught and logged — startup must never throw here.
+ */
+async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
+  try {
+    // DB round-trip (async) — a live writeCaptureStatus() call may fire during the await.
+    const episodeFilename = await getCurrentRollingEpisodeFilename();
+
+    // RACE GUARD: check the monotonic live-write flag AFTER the await returns.
+    // If a live exchange was appended while we were waiting for the DB, the seed
+    // must not overwrite the live status with stale prior-session data.
+    if (_liveWriteHasOccurred) {
+      console.log('[AgentAutosave] Capture-status seed: live write already occurred — aborting seed to preserve live data.');
+      return;
+    }
+
+    if (!episodeFilename) {
+      console.log('[AgentAutosave] Capture-status seed: no rolling episode in DB — skipping.');
+      return;
+    }
+    const filePath = join(DOCS_DIR, episodeFilename);
+    if (!existsSync(filePath)) {
+      console.log(`[AgentAutosave] Capture-status seed: ${episodeFilename} not on disk — skipping.`);
+      return;
+    }
+
+    const fileMtime = statSync(filePath).mtimeMs;
+    const content   = readFileSync(filePath, 'utf-8');
+
+    // Scan the last 200 non-empty lines for inner-life channel markers.
+    // We don't have per-line timestamps, so we use fileMtime as a proxy for the last
+    // exchange and subtract a fixed offset so channels appear "before" the exchange.
+    const PRIOR_OFFSET_MS = 5 * 60 * 1000; // 5 min before file mtime — plausible gap
+    const tailLines = content.split('\n').filter(l => l.trim()).slice(-200).join('\n');
+    const hasFelt     = /\[Luca — felt:/m.test(tailLines);
+    const hasThinking = /\[Luca — thinking:/m.test(tailLines);
+    const hasMoment   = /\[Luca — moment:/m.test(tailLines);
+
+    // Final race check before writing any state — the file read above is synchronous but
+    // in theory the gap-check's appendExchangeToEpisode could complete between the DB
+    // await above and here if the event loop yielded.  Guard again for safety.
+    if (_liveWriteHasOccurred) {
+      console.log('[AgentAutosave] Capture-status seed: live write occurred during file scan — aborting seed.');
+      return;
+    }
+
+    if (hasFelt)     lastFeltProcessedMs     = fileMtime - PRIOR_OFFSET_MS;
+    if (hasThinking) lastThinkingProcessedMs = fileMtime - PRIOR_OFFSET_MS;
+    if (hasMoment)   lastMomentProcessedMs   = fileMtime - PRIOR_OFFSET_MS;
+
+    // Seed exchange timestamp and filename so the status file is writable immediately.
+    // prevEpisodeCaptureMs stays at 0 — no prior exchange this server run.
+    lastEpisodeCaptureFilename = episodeFilename;
+    lastEpisodeCaptureMs       = fileMtime;
+    _seededFromPriorSession    = true;
+
+    // Write the initial status file immediately.
+    _writeEpisodeCaptureStatusFile(episodeFilename, fileMtime);
+
+    console.log(
+      `[AgentAutosave] Capture-status seed: ${episodeFilename}` +
+      ` (mtime ${new Date(fileMtime).toLocaleTimeString()})` +
+      ` — felt:${hasFelt} thinking:${hasThinking} moment:${hasMoment}`,
+    );
+  } catch (err: any) {
+    console.error('[AgentAutosave] Capture-status seed failed (non-fatal):', err.message);
+  }
+}
 
 /**
  * Write (or refresh) the capture status file immediately after a successful append.
@@ -206,6 +304,10 @@ let thinkingAtLastExchange = 0;
  * preceded the exchange (correct) or followed it (out of order).
  */
 function writeCaptureStatus(episodeFilename: string): void {
+  // Mark that a live write has occurred BEFORE any await point.
+  // This is the monotonic guard that seedCaptureStatusFromEpisodeFile() checks
+  // after its async DB round-trip — once set, the seed will not overwrite us.
+  _liveWriteHasOccurred = true;
   try {
     // Snapshot inner-life times and advance the exchange cursor atomically
     prevEpisodeCaptureMs    = lastEpisodeCaptureMs;   // save previous exchange time
@@ -213,6 +315,8 @@ function writeCaptureStatus(episodeFilename: string): void {
     thinkingAtLastExchange  = lastThinkingProcessedMs;
     lastEpisodeCaptureMs    = Date.now();             // now advance to current exchange
     lastEpisodeCaptureFilename = episodeFilename;
+    // First live exchange — clear the startup-seed label so the file shows live data.
+    _seededFromPriorSession = false;
     _writeEpisodeCaptureStatusFile(episodeFilename, lastEpisodeCaptureMs);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to write capture status:', err.message);
@@ -306,6 +410,14 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
     if (!thinkBeforeExchange && !thinkAfterExchange && !thinkMissing) {
       orderingLines.push(`  ⚠️ MISSING  Thinking: never fired this server run`);
     }
+  } else if (_seededFromPriorSession) {
+    // Startup-seed: timestamps exist but come from the prior session file scan.
+    // No live exchange pair has been seen yet — ordering check is not yet meaningful.
+    const feltLabel     = lastFeltProcessedMs     > 0 ? `present in prior session (${fmt(lastFeltProcessedMs)})`     : 'not found in prior session';
+    const thinkingLabel = lastThinkingProcessedMs > 0 ? `present in prior session (${fmt(lastThinkingProcessedMs)})` : 'not found in prior session';
+    orderingLines.push('  (previous round from prior session — live ordering check starts after first exchange this run)');
+    orderingLines.push(`  📁  Felt:     ${feltLabel}`);
+    orderingLines.push(`  📁  Thinking: ${thinkingLabel}`);
   } else {
     orderingLines.push('  (ordering check available after the second exchange this server run)');
   }
@@ -314,10 +426,13 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
   // Has felt/thinking fired since the last exchange (preparing for the next one)?
   const feltReady     = lastFeltProcessedMs > captureMs;
   const thinkingReady = lastThinkingProcessedMs > captureMs;
-  const exchangeStale = captureMs > 0 && (now - captureMs) > STALE_EXCHANGE_MS;
+  // Suppress the STALE exchange warning when the timestamp was seeded from the prior
+  // session file rather than a live append — the file mtime is naturally old.
+  const exchangeStale = !_seededFromPriorSession && captureMs > 0 && (now - captureMs) > STALE_EXCHANGE_MS;
 
+  const priorSessionNote = _seededFromPriorSession ? ' ← seeded from prior session file (live data starts after first exchange)' : '';
   const currentLines: string[] = [
-    `  ${exchangeStale ? '⚠️ STALE' : '✓'} Exchange:  ${fmt(captureMs)} (${minAgo(captureMs)})${exchangeStale ? ' ← has the next exchange been written?' : ''}`,
+    `  ${_seededFromPriorSession ? '📁 prior' : exchangeStale ? '⚠️ STALE' : '✓'} Exchange:  ${fmt(captureMs)} (${minAgo(captureMs)})${_seededFromPriorSession ? priorSessionNote : exchangeStale ? ' ← has the next exchange been written?' : ''}`,
     `  ${feltReady     ? '✓ ready' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next exchange'}`,
     `  ${thinkingReady ? '✓ ready' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next exchange'}`,
     `  ${lastMomentProcessedMs === 0 ? '—' : (now - lastMomentProcessedMs) > STALE_MOMENT_MS ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
@@ -1863,6 +1978,14 @@ export function startAgentSessionAutosave(): void {
   // Seed episode mtimes so an existing set of .md files doesn't trigger mass re-embeds on restart
   seedEpisodeMtimes();
   seedPrequelEpisodeMtimes();
+
+  // Capture-status seed: scan the rolling episode file for prior-session inner-life entries
+  // and write the initial capture status file so it's useful from the very first exchange.
+  // Runs before the gap check so the status file is ready as early as possible.
+  // Fire-and-forget — errors are caught inside seedCaptureStatusFromEpisodeFile.
+  seedCaptureStatusFromEpisodeFile().catch((err: any) => {
+    console.error('[AgentAutosave] Capture-status seed unexpectedly threw (non-fatal):', err?.message ?? err);
+  });
 
   // Startup gap check: catch exchanges saved to DB but absent from rolling episode .md.
   // Runs once per boot, after episode mtimes are seeded (appendExchangeToEpisode needs them).
