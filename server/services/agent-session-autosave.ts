@@ -36,7 +36,7 @@
  * All watchers poll every 60 seconds.
  */
 
-import { existsSync, statSync, readFileSync, writeFileSync, watch, readdirSync, unlinkSync } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, watch, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -562,35 +562,86 @@ function parseEpisodeAppend(raw: string): { exchange: string; episodeFilename: s
   return { exchange: raw, episodeFilename: null };
 }
 
-/** Append exchange text to an episode .md file and schedule an immediate DB sync. */
+// ---------------------------------------------------------------------------
+// Per-filename mutex for episode .md writes.
+//
+// Node.js is single-threaded but async code (multiple awaiting callers) can
+// interleave at any await point.  Without serialisation two callers that both
+// reach appendExchangeToEpisode concurrently will both read the same file
+// content, compute the same tail, and one overwrite will silently discard the
+// other's content.
+//
+// The mutex chains Promises per filename so that each caller waits for the
+// previous one to finish before it begins — guaranteeing strictly sequential
+// access to the file, regardless of how many coroutines are in flight.
+//
+// Exported so CI sentinel cleanup (read-strip-write) can serialize behind the
+// same lock.
+// ---------------------------------------------------------------------------
+const _episodeFileLocks = new Map<string, Promise<void>>();
+
+export async function withEpisodeFileLock<T>(filename: string, fn: () => T | Promise<T>): Promise<T> {
+  // Grab the current tail of the promise chain for this filename (or a
+  // resolved promise if nobody holds the lock yet).
+  const prior = _episodeFileLocks.get(filename) ?? Promise.resolve();
+
+  // Create a promise that we resolve when our critical section is done.
+  // The new tail is: prior → (our slot).  Future callers will wait for slot.
+  let release!: () => void;
+  const slot = new Promise<void>(r => { release = r; });
+  _episodeFileLocks.set(filename, prior.then(() => slot));
+
+  // Wait for our turn.
+  await prior;
+  try {
+    return await fn();
+  } finally {
+    release();
+    // Clean up the map when no more callers are pending for this filename.
+    // (If another caller already replaced the tail, leave it alone.)
+    if (_episodeFileLocks.get(filename) === prior.then(() => slot)) {
+      _episodeFileLocks.delete(filename);
+    }
+  }
+}
+
+/** Append exchange text to an episode .md file and schedule an immediate DB sync.
+ *
+ * Uses fs.appendFileSync (atomic at the OS level) inside a per-filename in-process
+ * mutex so that two concurrent async callers never race on the same file.
+ * The old read-modify-write pattern was unsafe: two callers reading the same
+ * snapshot would silently discard each other's content on write.
+ */
 export async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
   const filePath = join(DOCS_DIR, episodeFilename);
 
-  // Ensure the target file exists before appending
+  // Ensure the target file exists before appending (check outside lock — cheap, safe)
   if (!existsSync(filePath)) {
     console.warn(`[AgentAutosave] Episode append: target file not found: ${filePath}`);
     return;
   }
 
-  try {
-    const existing = readFileSync(filePath, 'utf-8');
-    // Add a blank line separator if the file doesn't end with one already
-    const separator = existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
-    const updated   = existing + separator + exchange + '\n';
-    writeFileSync(filePath, updated, 'utf-8');
-
-    // Update mtime map so the regular episode poller doesn't re-trigger on this write
+  await withEpisodeFileLock(episodeFilename, () => {
     try {
-      episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs);
-    } catch { /* ignore */ }
+      // appendFileSync is atomic: the OS guarantees the write either fully
+      // lands or does not; no partial-write interleaving between processes.
+      // Prepend '\n' so there is always a newline before the new block,
+      // regardless of whether the file already ends with one.
+      appendFileSync(filePath, '\n' + exchange + '\n', 'utf-8');
 
-    console.log(`[AgentAutosave] Episode append: +${exchange.length} chars → ${episodeFilename} (now ${updated.length} bytes)`);
+      // Update mtime map so the regular episode poller doesn't re-trigger on this write
+      try {
+        episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs);
+      } catch { /* ignore */ }
 
-    // Schedule immediate DB sync (2s debounce collapses rapid bursts)
-    scheduleEpisodeSync(episodeFilename);
-  } catch (err: any) {
-    console.error(`[AgentAutosave] Episode append failed for ${episodeFilename}:`, err.message);
-  }
+      console.log(`[AgentAutosave] Episode append: +${exchange.length} chars → ${episodeFilename}`);
+
+      // Schedule immediate DB sync (2s debounce collapses rapid bursts)
+      scheduleEpisodeSync(episodeFilename);
+    } catch (err: any) {
+      console.error(`[AgentAutosave] Episode append failed for ${episodeFilename}:`, err.message);
+    }
+  });
 }
 
 export async function checkEpisodeAppend(): Promise<void> {

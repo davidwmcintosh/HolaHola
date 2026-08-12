@@ -61,6 +61,7 @@ import {
   getLucaEpisodeAppendEnabled,
   setLucaPersonalSideEffectsEnabled,
   getLucaPersonalSideEffectsEnabled,
+  withEpisodeFileLock,
 } from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -259,18 +260,23 @@ async function runNormalMode(): Promise<void> {
     console.log(B('STEP 4 — Restore all state (sentinel, trigger file, seams)'));
     sep();
 
-    // Strip sentinel from .md (read CURRENT file to preserve any concurrent writes)
+    // Strip sentinel from .md — serialized behind the same per-filename mutex
+    // used by appendExchangeToEpisode to prevent a concurrent append from
+    // racing this read-strip-write and having its content silently overwritten.
     try {
       if (existsSync(mdPath)) {
-        const currentMd = readFileSync(mdPath, 'utf-8');
-        const cleanedMd = stripMomentSentinel(currentMd, sentinelTitle);
-        writeFileSync(mdPath, cleanedMd, 'utf-8');
+        await withEpisodeFileLock(episodeFilename, () => {
+          const currentMd = readFileSync(mdPath, 'utf-8');
+          const cleanedMd = stripMomentSentinel(currentMd, sentinelTitle);
+          writeFileSync(mdPath, cleanedMd, 'utf-8');
+        });
         assert(
           'Sentinel stripped from .md (rolling content preserved)',
           !readFileSync(mdPath, 'utf-8').includes(sentinelTitle),
           '.md still contains sentinel title after cleanup',
         );
-        console.log(Y(`  ℹ  .md after cleanup: ${cleanedMd.length} chars`));
+        const cleanedSize = existsSync(mdPath) ? readFileSync(mdPath, 'utf-8').length : 0;
+        console.log(Y(`  ℹ  .md after cleanup: ${cleanedSize} chars`));
       }
     } catch (err: any) {
       console.error(R(`  ✗  .md cleanup failed: ${err.message}`));
