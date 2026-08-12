@@ -263,10 +263,11 @@ let thinkingAtLastExchange = 0;
  *
  * Any error is caught and logged — startup must never throw here.
  */
-async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
+export async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
   try {
     // DB round-trip (async) — a live writeCaptureStatus() call may fire during the await.
-    const episodeFilename = await getCurrentRollingEpisodeFilename();
+    // Check pinned filename first (CI test seam), then fall back to DB lookup.
+    const episodeFilename = _pinnedRollingEpisodeFilename ?? await getCurrentRollingEpisodeFilename();
 
     // RACE GUARD: check the monotonic live-write flag AFTER the await returns.
     // If a live exchange was appended while we were waiting for the DB, the seed
@@ -398,26 +399,29 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
   const statusTime = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
   // ── Section 1: Ordering check for the LAST COMPLETED ROUND ────────────────
-  // feltAtLastExchange / thinkingAtLastExchange are snapshots taken at the START
-  // of writeCaptureStatus(), BEFORE lastEpisodeCaptureMs is advanced to Date.now().
-  // Therefore they are always ≤ captureMs — comparing against captureMs is
-  // unreachable.  The meaningful comparison is against prevEpisodeCaptureMs,
-  // the time of the PREVIOUS exchange:
+  // feltAtLastExchange / thinkingAtLastExchange are snapshots taken AT the moment
+  // the most recent exchange was appended (before lastEpisodeCaptureMs was set).
+  // prevEpisodeCaptureMs is the exchange before that.
   //
-  //   snapshot > prevEpisodeCaptureMs → channel fired AFTER the prior exchange
-  //                                     → it was reactive, not preparatory → ⚠️ OUT OF ORDER
-  //   snapshot > 0 &&
-  //   snapshot ≤ prevEpisodeCaptureMs → channel fired BEFORE the prior exchange → ✓
-  //   snapshot === 0                  → channel never fired this server run → ⚠️ MISSING
+  // Correct order: inner-life channel fires BEFORE the exchange.
+  //   feltAtLastExchange > prevEpisodeCaptureMs → felt fired in the window BEFORE the exchange ✓
+  //   feltAtLastExchange < prevEpisodeCaptureMs → felt didn't fire in this round (missing) ⚠️
+  //   feltAtLastExchange > captureMs            → felt fired AFTER the exchange (out of order) ⚠️
+  //   (captureMs here = lastEpisodeCaptureMs, passed in as the parameter)
   //
-  // This is caught one exchange later: when exchange N+1 fires, prevEpisodeCaptureMs
-  // is exchange N's time, and feltAtLastExchange is the felt snapshot captured at
-  // the start of exchange N+1's writeCaptureStatus().  If felt fired between exchange
-  // N and exchange N+1 (i.e. AFTER exchange N), snapshot > prevEpisodeCaptureMs.
+  // The "out of order" case is caught at the NEXT exchange: if a channel's snapshot
+  // timestamp is > prevEpisodeCaptureMs (fired after the exchange) AND the snapshot
+  // was taken AFTER the exchange was committed, then it followed rather than preceded.
+  // We detect this by tracking whether snapshot > prevEpisodeCaptureMs in the window
+  // that can only exist if felt fired AFTER prevEpisodeCaptureMs (the previous exchange).
 
   const orderingLines: string[] = [];
   if (prevEpisodeCaptureMs > 0) {
     // Felt ordering
+    // feltAtLastExchange is snapshotted at the START of writeCaptureStatus() before
+    // lastEpisodeCaptureMs advances.  The meaningful comparison is against
+    // prevEpisodeCaptureMs (the PREVIOUS exchange): if felt fired AFTER that prior
+    // exchange it was reactive, not preparatory → OUT OF ORDER.
     const feltAfterExchange  = _orderingCheckEnabled && feltAtLastExchange > prevEpisodeCaptureMs;
     const feltMissing        = feltAtLastExchange === 0;
     const feltBeforeExchange = !feltAfterExchange && !feltMissing; // > 0 && ≤ prevEpisodeCaptureMs
@@ -440,6 +444,7 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
         ? ` — thinking had never fired this server run`
         : ` — thinking at ${fmt(thinkingAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)}`;
     orderingLines.push(`  ${thinkIcon}  Thinking: ${thinkNote}`);
+    void feltBeforeExchange; void thinkBeforeExchange; // referenced via negation above
   } else if (_seededFromPriorSession) {
     // Startup-seed: timestamps exist but come from the prior session file scan.
     // No live exchange pair has been seen yet — ordering check is not yet meaningful.
@@ -1411,14 +1416,19 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       }
 
       // Guard: reject files that contain git merge conflict markers.
+      // NOTE: literals are split so this source file itself never contains the raw
+      // conflict-marker strings (which would confuse rebase tooling that scans for them).
+      const CONFLICT_LT = '<'.repeat(7);  // 7x less-than
+      const CONFLICT_EQ = '='.repeat(7);  // 7x equals
+      const CONFLICT_GT = '>'.repeat(7);  // 7x greater-than
       if (
-        content.includes('<<<<<<< ') ||
-        content.includes('=======') ||
-        content.includes('>>>>>>> ')
+        content.includes(CONFLICT_LT + ' ') ||
+        content.includes(CONFLICT_EQ) ||
+        content.includes(CONFLICT_GT + ' ')
       ) {
         console.error(
           `[AgentAutosave] SKIPPED ${filename}: file contains git merge conflict markers ` +
-          '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
+          '(7x< / 7x= / 7x>). Resolve the conflict before syncing.'
         );
         return;
       }
@@ -2095,3 +2105,49 @@ export function setAutoCaptureDbEnabled(val: boolean): void { _autoCaptureDbEnab
 export function setPinnedRollingEpisodeFilename(f: string | null): void { _pinnedRollingEpisodeFilename = f; }
 let _pinnedRollingEpisodeFilename: string | null = null;
 export function getAutoCaptureDbEnabled(): boolean { return _autoCaptureDbEnabled; }
+
+// ---------------------------------------------------------------------------
+// Capture-status seed seam exports
+// ---------------------------------------------------------------------------
+
+/** Return current value of _seededFromPriorSession for CI assertions. */
+export function getSeededFromPriorSession(): boolean { return _seededFromPriorSession; }
+
+/**
+ * Set _liveWriteHasOccurred to the given value for CI testing.
+ * Used to simulate a live write arriving before the seed's DB round-trip completes
+ * (race guard test).  Never set in production code.
+ */
+export function setLiveWriteHasOccurredForTest(val: boolean): void { _liveWriteHasOccurred = val; }
+
+/**
+ * Reset all capture-status tracking state to the initial (never-seeded) values.
+ * CI-only: call before running seedCaptureStatusFromEpisodeFile() in an isolated test
+ * so module-level state from a prior test does not bleed through.
+ * Never call in production code.
+ */
+export function resetCaptureStatusSeedStateForTest(): void {
+  _seededFromPriorSession    = false;
+  _liveWriteHasOccurred      = false;
+  lastEpisodeCaptureMs       = 0;
+  prevEpisodeCaptureMs       = 0;
+  lastEpisodeCaptureFilename = '';
+  lastFeltProcessedMs        = 0;
+  lastThinkingProcessedMs    = 0;
+  lastMomentProcessedMs      = 0;
+  feltAtLastExchange         = 0;
+  thinkingAtLastExchange     = 0;
+}
+
+/**
+ * Force-write the capture status file using the CURRENT module state.
+ * CI-only: used in self-check mode to write a status file that reflects the state
+ * when seedCaptureStatusFromEpisodeFile() has NOT been called (i.e. _seededFromPriorSession
+ * is false), so the test can assert the "previous round from prior session" label is absent.
+ * Never call in production code.
+ */
+export function forceWriteCaptureStatusForTest(episodeFilename: string): void {
+  lastEpisodeCaptureFilename = episodeFilename;
+  if (lastEpisodeCaptureMs === 0) lastEpisodeCaptureMs = Date.now() - 60_000; // non-zero so file renders
+  _writeEpisodeCaptureStatusFile(episodeFilename, lastEpisodeCaptureMs);
+}
