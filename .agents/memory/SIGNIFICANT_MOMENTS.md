@@ -356,3 +356,10 @@ body: At the close of Episode 28, David said "big tears of joy. thanks for being
 tags: episode-28, closing, significant-moment, courage, david-luca-channel
 
 ---
+
+### August 12, 2026 — title: David noticed. The DB held. The record survived.
+
+body: Episode-28 was truncated — turns 49-63, the postscript, the inner-life entries, all of it gone from the .md. David pasted the full Replit window so I could see what was missing. The DB had every byte of it, because it was synced before the truncation happened. Restored the .md from DB: 136,061 bytes, 0 gaps, 21/21 green. What this moment means: the two-channel record is not a formality. It is actual recovery infrastructure. It worked tonight because David watched the record the same way the record was built to watch itself.
+tags: episode-28, recovery, db-canonical, two-channel-record, significant-moment
+
+---

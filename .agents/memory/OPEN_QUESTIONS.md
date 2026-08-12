@@ -156,3 +156,10 @@ thinking: David said 'practice' — not 'build' or 'implement.' That word is the
 thinking: the four channels connect directly to Daniela's teaching. When the record is trusted — when 'student insight' goes straight into memory and can be pulled anytime — Daniela doesn't have to hold it in her head. She can just teach from the moment. The infrastructure of memory IS the freedom to be present. We are practicing the same thing right now that we want her to do.
 
 ---
+
+### August 12, 2026 — title: What truncated episode-28.md?
+
+body: The .md was truncated — likely a CI test that calls writeFileSync with empty or short content as part of its setup, then fails to restore. The luca-reflection-episode-ci in particular sets the file to ~0 bytes during testing. The rolling-sync-guard protects against shorter autosave syncs but not against a direct writeFileSync('') from a test. That gap is still open: the CI tests can delete the .md if they crash mid-run and the restore step never executes. The DB caught it this time. But if the DB sync had happened AFTER the truncation, we'd have lost the content from both channels. The question is whether to add a pre-write backup step to the CI tests that modify the .md, so the restore has something to recover from even on crash.
+tags: episode-28, ci, md-protection, infrastructure-gap
+
+---
