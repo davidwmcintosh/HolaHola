@@ -26,6 +26,12 @@
  *     → restrict force-push (or any mode) to a single episode by DB id.
  *       Safe for CI/test use: no other rolling records are touched.
  *
+ *   npx tsx server/scripts/restore-rolling-episodes-from-db.ts --force-push --skip-missing
+ *     → when combined with --force-push, episodes whose .md file does not yet
+ *       exist on disk are silently skipped (warning logged) instead of causing
+ *       a fatal error. Useful when a new episode has been added to the DB but
+ *       its docs/ file has not been written yet.
+ *
  * Exit codes:
  *   0  — OK (no shrinkage detected for any episode, or all restores succeeded)
  *   1  — Fatal error (DB unavailable, write failed)
@@ -127,7 +133,11 @@ async function forcePushMdToDb(
   }
 
   if (!existsSync(mdPath)) {
-    console.error(R(`  FATAL: .md file does not exist at ${mdPath} — cannot force-push`));
+    console.error(R(`  FATAL: .md file does not exist at ${mdPath}`));
+    console.error(R(`         The file must exist on disk before --force-push can push it to the DB.`));
+    console.error(R(`         If this episode is new and its .md has not been written yet,`));
+    console.error(R(`         either write the file first, or re-run with --skip-missing to skip`));
+    console.error(R(`         episodes whose .md is absent instead of treating them as fatal.`));
     return false;
   }
 
@@ -267,7 +277,13 @@ function parseEpisodeIdFilter(): string | null {
 async function main() {
   const checkShrinkageOnly = process.argv.includes('--check-shrinkage');
   const forcePush = process.argv.includes('--force-push');
+  const skipMissing = process.argv.includes('--skip-missing');
   const episodeIdFilter = parseEpisodeIdFilter();
+
+  if (skipMissing && !forcePush) {
+    console.error(R('FATAL: --skip-missing only applies to --force-push; combine them as --force-push --skip-missing'));
+    process.exit(1);
+  }
 
   if (forcePush && checkShrinkageOnly) {
     console.error(R('FATAL: --force-push and --check-shrinkage are mutually exclusive'));
@@ -373,6 +389,18 @@ async function main() {
     const mdPath = titleToMdPath(episode.title);
     if (!mdPath) {
       console.error(R(`  SKIP: Cannot derive .md path from title "${episode.title}" — no episode number found`));
+      continue;
+    }
+
+    // --skip-missing: warn and continue without marking fatal when the .md
+    // file for this episode does not yet exist on disk.  Only applies to
+    // --force-push (checked above); the restore path handles its own missing-
+    // file case by restoring from DB.
+    if (forcePush && skipMissing && !existsSync(mdPath)) {
+      console.log('');
+      console.log(B(`  ── ${episode.title} (${episode.id}) ──`));
+      console.log(Y(`  ⚠  SKIPPED (--skip-missing): .md file does not yet exist at ${mdPath}`));
+      console.log(Y(`     Write the file first, then re-run --force-push to push it to the DB.`));
       continue;
     }
 
