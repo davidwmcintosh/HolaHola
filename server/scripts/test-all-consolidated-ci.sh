@@ -66,6 +66,10 @@ run test-luca-reflection-episode.ts
 run test-luca-moment-episode.ts
 run test-luca-auto-capture-episode.ts
 
+echo ""
+echo "=== test-prior-session-label-clears.ts --self-check (flag-clear line removed regression) ==="
+npx tsx server/scripts/test-prior-session-label-clears.ts --self-check
+
 # ── Restore any episode .md files that CI append/strip probes left dirty ──────
 # Some CI self-check scripts (e.g. test-episode-append-trigger --self-check-concurrent)
 # append a sentinel to the rolling episode and strip it afterward, but may leave
