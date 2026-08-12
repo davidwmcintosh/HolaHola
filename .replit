@@ -113,7 +113,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "(git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2); (npx tsx server/scripts/restore-episode-28-from-db.ts --check-shrinkage || echo '[ep28-restore] WARNING: shrinkage check failed — continuing' >&2); npm run dev"
+args = "(git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2); (npx tsx server/scripts/restore-rolling-episodes-from-db.ts --check-shrinkage || echo '[rolling-restore] WARNING: shrinkage check failed — continuing' >&2); npm run dev"
 
 [[workflows.workflow]]
 name = "typecheck"

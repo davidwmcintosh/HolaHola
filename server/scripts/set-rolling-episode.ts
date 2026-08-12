@@ -227,10 +227,19 @@ async function main(): Promise<void> {
         AND 'rolling' = ANY(tags)
     `);
 
-    // Step B: add rolling to the verified target
+    // Step B: add rolling + rolling-protected to the verified target.
+    // 'rolling-protected' is a permanent tag that is NEVER removed — it marks
+    // every episode that has ever been the rolling episode so the startup
+    // shrinkage guard can find and protect them even after they are superseded.
     await tx.execute(sql`
       UPDATE conversation_memories
-      SET tags = array_append(tags, 'rolling')
+      SET tags = array_append(
+                   CASE WHEN 'rolling-protected' = ANY(tags)
+                        THEN tags
+                        ELSE array_append(tags, 'rolling-protected')
+                   END,
+                   'rolling'
+                 )
       WHERE id = ${target.id}
     `);
   });
