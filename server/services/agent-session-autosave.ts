@@ -1459,9 +1459,10 @@ export async function runStartupGapCheck(): Promise<void> {
         !r.content.includes('[CI-SELF-CHECK-AUTO-CAPTURE-'),
     );
 
+    // NOTE: do NOT return early when realRows.length === 0 — Phase 2 (inner-life)
+    // must always run regardless of per-turn row count.
     if (realRows.length === 0) {
-      console.log('[AgentAutosave] Startup gap check: no per-turn rows in last 24h — nothing to check.');
-      return;
+      console.log('[AgentAutosave] Startup gap check: no per-turn rows in window — skipping Phase 1.');
     }
 
     // 3. Find gaps and patch them ──────────────────────────────────────────
@@ -1490,6 +1491,79 @@ export async function runStartupGapCheck(): Promise<void> {
       console.log(
         `[AgentAutosave] Startup gap check: ${episodeFilename} is complete — no gaps (${realRows.length} row(s) checked).`,
       );
+    }
+
+    // ── Phase 2: inner-life rows (felt / thinking / moment) ─────────────────
+    // Same window as the per-turn check above — rows saved since the episode
+    // was created (or the last 24h when episode created_at is unavailable).
+    const innerLifeResult = episodeStart
+      ? await db.execute(sql`
+          SELECT id, title, content, tags, created_at
+          FROM conversation_memories
+          WHERE arc_name = 'luca-inner-life'
+            AND 'luca-inner-life' = ANY(tags)
+            AND created_at >= ${episodeStart}::timestamptz
+          ORDER BY created_at ASC
+        `)
+      : await db.execute(sql`
+          SELECT id, title, content, tags, created_at
+          FROM conversation_memories
+          WHERE arc_name = 'luca-inner-life'
+            AND 'luca-inner-life' = ANY(tags)
+            AND created_at >= NOW() - INTERVAL '24 hours'
+          ORDER BY created_at ASC
+        `);
+
+    const innerRows: Array<{ id: string; title: string; content: string; tags: string[]; created_at: string }> =
+      (((innerLifeResult as any).rows ?? (innerLifeResult as any)) as any[]);
+
+    if (innerRows.length === 0) {
+      console.log('[AgentAutosave] Startup gap check (inner-life): no inner-life rows in window — nothing to check.');
+    } else {
+      let innerPatched = 0;
+      for (const row of innerRows) {
+        // Derive the channel from tags: luca-reflection → felt, luca-question → thinking, otherwise → moment
+        const tags: string[] = Array.isArray(row.tags) ? row.tags : [];
+        const channel = tags.includes('luca-reflection') ? 'felt'
+          : tags.includes('luca-question') ? 'thinking' : 'moment';
+
+        // The DB title is stored as "Luca reflection: X", "Luca open question: X", or
+        // "Luca significant moment: X".  Strip that prefix to recover the raw title text
+        // that was written into the episode .md as "[Luca — felt: X\nbody]".
+        const rawTitle = (row.title ?? '')
+          .replace(/^Luca reflection:\s*/i, '')
+          .replace(/^Luca open question:\s*/i, '')
+          .replace(/^Luca significant moment:\s*/i, '');
+
+        // Match key: first 40 normalised chars of the raw title (shorter window than
+        // per-turn rows because inner-life titles can be brief).
+        const titleKey = normForGap(rawTitle).slice(0, 40);
+        if (!titleKey || mdNorm.includes(titleKey)) continue; // present or empty title
+
+        // Missing — reconstruct and append
+        const block = `[Luca — ${channel}: ${rawTitle}\n${row.content}]`;
+        console.warn(
+          `[AgentAutosave] Startup gap check: inner-life entry absent from ${episodeFilename} — patching.`,
+          `(id: ${row.id}, channel: ${channel}, at: ${row.created_at})`,
+        );
+        await appendExchangeToEpisode(block.trim(), episodeFilename);
+        // Refresh the normalised .md so subsequent rows see the patched content.
+        try {
+          mdRaw  = readFileSync(episodePath, 'utf-8');
+          mdNorm = normForGap(mdRaw);
+        } catch { /* ignore transient read error */ }
+        innerPatched++;
+      }
+
+      if (innerPatched > 0) {
+        console.log(
+          `[AgentAutosave] Startup gap check (inner-life): patched ${innerPatched} gap(s) in ${episodeFilename}.`,
+        );
+      } else {
+        console.log(
+          `[AgentAutosave] Startup gap check (inner-life): all ${innerRows.length} inner-life row(s) present — no gaps.`,
+        );
+      }
     }
   } catch (err: any) {
     console.error('[AgentAutosave] Startup gap check failed (non-fatal):', err.message);

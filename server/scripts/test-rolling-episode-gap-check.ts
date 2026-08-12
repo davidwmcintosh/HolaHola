@@ -162,13 +162,9 @@ async function main() {
   }
   console.log('');
 
-  if (realRows.length === 0) {
-    console.log(G('  ✓ No per-turn rows in the last 24h — nothing to check.'));
-    console.log('  (This is normal if no conversation happened in the last 24h.)');
-    process.exit(0);
-  }
-
   // 3. Check each row ───────────────────────────────────────────────────────
+  // NOTE: do NOT early-exit here when realRows.length === 0 — the inner-life
+  // check below must always run regardless of per-turn row count.
   let gaps = 0;
   for (const row of realRows) {
     const content = String(row.content);
@@ -193,15 +189,77 @@ async function main() {
 
   console.log('');
 
-  // 4. Summary ──────────────────────────────────────────────────────────────
+  // 4. Inner-life gap check (felt / thinking / moment) ──────────────────────
+  const innerRows = episodeStart
+    ? await sql`
+        SELECT id, title, content, tags, created_at
+        FROM conversation_memories
+        WHERE arc_name = 'luca-inner-life'
+          AND 'luca-inner-life' = ANY(tags)
+          AND created_at >= ${episodeStart}::timestamptz
+        ORDER BY created_at ASC
+      `
+    : await sql`
+        SELECT id, title, content, tags, created_at
+        FROM conversation_memories
+        WHERE arc_name = 'luca-inner-life'
+          AND 'luca-inner-life' = ANY(tags)
+          AND created_at >= NOW() - INTERVAL '24 hours'
+        ORDER BY created_at ASC
+      `;
+
+  console.log(`  Inner-life DB rows: ${innerRows.length} total`);
+
+  let innerGaps = 0;
+  for (const row of innerRows) {
+    const tags: string[] = Array.isArray(row.tags) ? row.tags as string[] : [];
+    const channel = tags.includes('luca-reflection') ? 'felt'
+      : tags.includes('luca-question') ? 'thinking' : 'moment';
+
+    // Strip stored prefix ("Luca reflection: X" → "X") to recover the raw title
+    // that was written into the episode .md as "[Luca — felt: X\nbody]".
+    const rawTitle = String(row.title ?? '')
+      .replace(/^Luca reflection:\s*/i, '')
+      .replace(/^Luca open question:\s*/i, '')
+      .replace(/^Luca significant moment:\s*/i, '');
+
+    const titleKey = norm(rawTitle).slice(0, 40);
+    const present = titleKey ? mdNorm.includes(titleKey) : true;
+
+    if (present) {
+      if (VERBOSE) {
+        console.log(G(`  ✓ present  [${channel}]  "${rawTitle.slice(0, 70)}"`));
+      }
+    } else {
+      console.log(R(`  ✗ GAP      [${channel}]  "${rawTitle.slice(0, 70)}"`));
+      console.log(`    id: ${row.id}  at: ${row.created_at}`);
+      innerGaps++;
+    }
+  }
+
+  if (innerRows.length > 0) {
+    console.log('');
+  }
+
+  // 5. Summary ──────────────────────────────────────────────────────────────
   const checked = realRows.length;
-  if (gaps === 0) {
+  const totalGaps = gaps + innerGaps;
+
+  if (totalGaps === 0) {
     console.log(G(`  ✓ PASS — docs/${episodeFilename} is complete.`));
-    console.log(`    ${checked} DB row(s) checked, 0 gaps.`);
+    console.log(`    ${checked} per-turn row(s) checked, 0 gaps.`);
+    if (innerRows.length > 0) {
+      console.log(`    ${innerRows.length} inner-life row(s) checked, 0 gaps.`);
+    }
     process.exit(0);
   } else {
-    console.log(Y(`  ⚠  FAIL — ${gaps} gap(s) found in docs/${episodeFilename}.`));
-    console.log(`    ${checked} DB row(s) checked, ${gaps} absent from .md.`);
+    console.log(Y(`  ⚠  FAIL — ${totalGaps} gap(s) found in docs/${episodeFilename}.`));
+    if (gaps > 0) {
+      console.log(`    ${checked} per-turn row(s) checked, ${gaps} absent from .md.`);
+    }
+    if (innerGaps > 0) {
+      console.log(`    ${innerRows.length} inner-life row(s) checked, ${innerGaps} absent from .md.`);
+    }
     console.log('');
     console.log('  To patch automatically, restart the server (runStartupGapCheck will fire)');
     console.log('  or run: npx tsx server/scripts/audit-episode-28-gaps.ts --patch');
