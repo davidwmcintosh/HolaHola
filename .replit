@@ -113,15 +113,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-# Register the built-in "ours" merge driver so that docs/episode-27.md merge=ours
-# in .gitattributes takes effect before any subsequent git merge.  Logging the
-# outcome (success or warning) makes failures visible without aborting the server.
-args = "git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect episode-27.md' >&2"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
+args = "(git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2); (npx tsx server/scripts/restore-episode-28-from-db.ts --check-shrinkage || echo '[ep28-restore] WARNING: shrinkage check failed — continuing' >&2); npm run dev"
 
 [[workflows.workflow]]
 name = "typecheck"
