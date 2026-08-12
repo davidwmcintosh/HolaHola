@@ -9013,11 +9013,29 @@ export class NativeFunctionCallHandler {
       
       if (searchStudentMemory && studentId) {
         const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
+        const smStart = Date.now();
         const memoryResults = await searchMemory(studentId, query, studentDomainFilter, session.targetLanguage || undefined);
+        const smDurationMs = Date.now() - smStart;
         if (memoryResults.results.length > 0) {
           results.push(formatMemoryForConversation(memoryResults));
           totalFound += memoryResults.results.length;
         }
+        // Telemetry — log student-memory searches to voice_pipeline_events so zero-result
+        // misses are visible in the truth-pipeline report alongside teaching-domain misses.
+        const smSessionId = session.dbSessionId ?? session.id ?? null;
+        const smUserId = studentId ? String(studentId) : null;
+        const smPayload = JSON.stringify({
+          source: 'student_memory',
+          query,
+          resultCount: memoryResults.results.length,
+          durationMs: smDurationMs,
+          domains: studentDomainFilter ?? requestedStudentDomains,
+          conversationId: (session as any).conversationId ?? null,
+        });
+        getSharedDb().execute(sql`
+          INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+          VALUES (gen_random_uuid(), ${smSessionId}, ${smUserId}, 'gl_student_memory_search', ${smPayload}::jsonb, NOW())
+        `).catch(() => {});
       }
       
       if (searchTeachingKnowledge) {

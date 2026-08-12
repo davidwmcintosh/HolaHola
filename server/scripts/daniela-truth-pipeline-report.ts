@@ -49,7 +49,7 @@ const sep  = (char = '─', w = 80) => console.log(char.repeat(w));
 const sep2 = () => sep('═');
 
 // ─── Unified timeline event ────────────────────────────────────────────────────
-type EventKind = 'tool_call' | 'guardian_fire' | 'memory_search' | 'message' | 'audio_subturn' | 'audio_flush';
+type EventKind = 'tool_call' | 'guardian_fire' | 'memory_search' | 'student_memory_search' | 'message' | 'audio_subturn' | 'audio_flush';
 
 interface TimelineEvent {
   kind: EventKind;
@@ -200,6 +200,21 @@ async function main() {
     ORDER BY created_at ASC
   `;
 
+  // Student-memory search events (written by searchMemory telemetry patch)
+  const fetchStudentMemory = sql`
+    SELECT
+      id, created_at,
+      event_data->>'query'                    AS query,
+      (event_data->>'resultCount')::int        AS result_count,
+      (event_data->>'durationMs')::int         AS duration_ms,
+      event_data->'domains'                    AS domains_json,
+      event_data->>'conversationId'            AS conversation_id
+    FROM voice_pipeline_events
+    WHERE event_type = 'gl_student_memory_search'
+      AND session_id = ${sessionId}
+    ORDER BY created_at ASC
+  `;
+
   // Fallback: query by conversationId embedded in JSONB (old streaming-ID scheme,
   // where voice_pipeline_events.session_id held the transient "stream_*" ID).
   // Only gl_tool_call and gl_guardian_fire embed conversationId in their payload.
@@ -303,8 +318,8 @@ async function main() {
     ORDER BY created_at ASC
   `;
 
-  const [bySessionId, byConversationId, memoryRows, messageRows, latencyRows] = await Promise.all([
-    fetchBySessionId, fetchByConversationId, fetchMemory, fetchMessages, fetchLatency,
+  const [bySessionId, byConversationId, memoryRows, messageRows, latencyRows, studentMemoryRows] = await Promise.all([
+    fetchBySessionId, fetchByConversationId, fetchMemory, fetchMessages, fetchLatency, fetchStudentMemory,
   ]);
 
   // Merge and deduplicate pipeline events (prefer bySessionId which is authoritative)
@@ -381,6 +396,9 @@ async function main() {
   for (const r of memoryRows as any[]) {
     timeline.push({ kind: 'memory_search', ts: new Date(r.created_at), payload: r });
   }
+  for (const r of studentMemoryRows as any[]) {
+    timeline.push({ kind: 'student_memory_search', ts: new Date(r.created_at), payload: r });
+  }
   for (const r of guardianRows as any[]) {
     timeline.push({ kind: 'guardian_fire', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
   }
@@ -449,6 +467,23 @@ async function main() {
           ['error', p.error_pattern_count], ['situational', p.situational_pattern_count],
         ].filter(([, v]) => Number(v) > 0).map(([l, v]) => `${l}:${v}`).join('  ');
         if (domainBreakdown) console.log(`           breakdown: ${DIM(domainBreakdown)}`);
+        break;
+      }
+
+      case 'student_memory_search': {
+        const p = ev.payload;
+        const hits = Number(p.result_count ?? 0);
+        const dur  = p.duration_ms ? `${p.duration_ms}ms` : '?ms';
+        const hitsLabel = hits === 0 ? R('0 results ⚠') : G(`${hits} results`);
+        let domainsStr = '';
+        try {
+          const d = typeof p.domains_json === 'string' ? JSON.parse(p.domains_json) : p.domains_json;
+          if (Array.isArray(d) && d.length > 0) domainsStr = (d as string[]).join(', ');
+        } catch { /* ignore */ }
+        console.log(`${tsLabel} ${C('👤 STU-MEM')}    ${turnLabel}`);
+        console.log(`           query:   ${Y(trunc(p.query as string, 200))}`);
+        if (domainsStr) console.log(`           domains: ${domainsStr}`);
+        console.log(`           ${hitsLabel}  ${DIM(dur)}`);
         break;
       }
 
@@ -534,18 +569,37 @@ async function main() {
   console.log(BOLD(B('  SECTION SUMMARIES')));
   sep2();
 
-  // 1. Memory searches
-  console.log(BOLD('\n  1. MEMORY SEARCHES (neural-net teaching domain)'));
+  // 1. Memory searches (teaching + student)
+  console.log(BOLD('\n  1. MEMORY SEARCHES'));
   sep('─', 60);
+
+  console.log(BOLD('  a) Teaching-domain (neural-net):'));
   if ((memoryRows as any[]).length === 0) {
-    console.log(DIM('  No teaching-domain searches recorded.'));
-    console.log(DIM('  Student-memory lookups appear as gl_tool_call result previews — see section 4.'));
+    console.log(DIM('     No teaching-domain searches recorded.'));
   } else {
     (memoryRows as any[]).forEach((r: any, i: number) => {
       const hits = Number(r.result_count ?? 0);
       const label = hits === 0 ? R('⚠  0 results') : G(`${hits} results`);
       console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${r.search_duration_ms ?? '?'}ms`);
       console.log(`      query: ${Y(trunc(r.query, 180))}`);
+    });
+  }
+
+  console.log(BOLD('\n  b) Student-memory (personal facts):'));
+  if ((studentMemoryRows as any[]).length === 0) {
+    console.log(DIM('     No student-memory searches recorded for this session.'));
+    console.log(DIM('     (These appear after the Aug 2026 searchMemory telemetry patch.)'));
+  } else {
+    (studentMemoryRows as any[]).forEach((r: any, i: number) => {
+      const hits = Number(r.result_count ?? 0);
+      const label = hits === 0 ? R('⚠  0 results — MISS') : G(`${hits} results`);
+      let domainsStr = '';
+      try {
+        const d = typeof r.domains_json === 'string' ? JSON.parse(r.domains_json) : r.domains_json;
+        if (Array.isArray(d) && d.length > 0) domainsStr = `  domains: ${(d as string[]).join(', ')}`;
+      } catch { /* ignore */ }
+      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${r.duration_ms ?? '?'}ms${domainsStr}`);
+      console.log(`      query: ${Y(trunc(r.query as string, 180))}`);
     });
   }
 
@@ -690,6 +744,12 @@ async function main() {
     issues.push(R(`${zeroHitSearches.length} teaching-domain search(es) returned 0 results — Daniela got nothing back from the neural net.`));
   }
 
+  const zeroHitStudentSearches = (studentMemoryRows as any[]).filter(r => Number(r.result_count ?? 0) === 0);
+  if (zeroHitStudentSearches.length > 0) {
+    const queries = zeroHitStudentSearches.map((r: any) => `"${trunc(r.query as string, 60)}"`).join(', ');
+    issues.push(R(`${zeroHitStudentSearches.length} student-memory search(es) returned 0 results — Daniela asked about the student but got nothing back: ${queries}`));
+  }
+
   const missedFires = (guardianRows as any[]).filter(r => r.gf_outcome === 'missed');
   if (missedFires.length > 0) {
     issues.push(R(`${missedFires.length} guardian fire(s) MISSED — Daniela made a memory assertion without archive backup: ${missedFires.map(r => `"${trunc(r.gf_phrase ?? '?', 60)}"`).join(', ')}`));
@@ -712,7 +772,11 @@ async function main() {
   }
 
   if ((memoryRows as any[]).length === 0) {
-    notes.push(Y('No teaching-domain memory searches logged — Daniela relied on context-window knowledge, or only student-memory searches were made (visible in gl_tool_call result previews above).'));
+    notes.push(Y('No teaching-domain memory searches logged — Daniela relied on context-window knowledge only, or no memory_lookup tool was called this session.'));
+  }
+
+  if ((studentMemoryRows as any[]).length === 0) {
+    notes.push(DIM('No student-memory searches logged — either no memory_lookup was called, or this session predates the Aug 2026 searchMemory telemetry patch.'));
   }
 
   if (!hasAudioTelemetry) {
@@ -738,8 +802,8 @@ async function main() {
   }
 
   sep();
-  const totalEvents = pipelineEvents.length + (memoryRows as any[]).length + (messageRows as any[]).length;
-  console.log(DIM(`  Events: ${toolRows.length} tool calls · ${guardianRows.length} guardian fires · ${memoryRows.length} memory searches · ${audioSubRows.length} audio sub-turns · ${audioFlushRows.length} audio flushes · ${(messageRows as any[]).length} messages`));
+  const totalEvents = pipelineEvents.length + (memoryRows as any[]).length + (studentMemoryRows as any[]).length + (messageRows as any[]).length;
+  console.log(DIM(`  Events: ${toolRows.length} tool calls · ${guardianRows.length} guardian fires · ${(memoryRows as any[]).length} teaching-mem searches · ${(studentMemoryRows as any[]).length} student-mem searches · ${audioSubRows.length} audio sub-turns · ${audioFlushRows.length} audio flushes · ${(messageRows as any[]).length} messages`));
   console.log(DIM(`  Total:  ${totalEvents} events in timeline`));
   sep2();
 }
