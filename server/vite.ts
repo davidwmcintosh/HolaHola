@@ -68,7 +68,10 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // When built via esbuild to dist/index.js, import.meta.dirname = dist/ → dist/public ✓
+  // When run directly via tsx server/index.ts, import.meta.dirname = server/ → server/public ✗
+  // Use process.cwd()/dist/public as the canonical path so both modes work.
+  const distPath = path.resolve(process.cwd(), "dist", "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

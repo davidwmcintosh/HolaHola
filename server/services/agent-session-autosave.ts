@@ -206,6 +206,15 @@ export function writeEpisodeCaptureStatusFileForTest(episodeFilename: string, ca
   _writeCaptureStatusFile(episodeFilename, captureMs);
 }
 
+/**
+ * Calls _writeCaptureStatusFile(null, 0) — the no-episode code path.
+ * Used by test-capture-status-db-only.ts to confirm the DB ordering check
+ * renders correctly even when no rolling episode is active.
+ */
+export function writeCaptureStatusDbOnlyForTest(): void {
+  _writeCaptureStatusFile(null, 0);
+}
+
 // --- Capture status writer ---
 // Written to .local/episode-capture-status.md after every appendExchangeToEpisode()
 // call and updated on each poll cycle.  Gives Luca a glanceable "did I capture the

@@ -185,6 +185,7 @@ group_body_episode_28() {
 
 group_body_luca_inner_life() {
   run test-capture-status-seed.ts
+  run test-capture-status-db-only.ts
   run test-luca-reflection-episode.ts
   run test-luca-moment-episode.ts
   run test-luca-auto-capture-episode.ts

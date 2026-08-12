@@ -266,8 +266,8 @@ async function runNormalCheck(): Promise<void> {
       'The seeded status file should contain the prior-session ordering label.'
     );
     assert(
-      'Status file contains "seeded from prior session file" note',
-      content.includes('seeded from prior session file')
+      'Status file contains "seeded from prior session" note',
+      content.includes('seeded from prior session')
     );
     assert(
       'Status file references the pinned episode filename',
@@ -388,8 +388,8 @@ async function runSelfCheck(): Promise<void> {
       'The label should be absent when _seededFromPriorSession is false.'
     );
     assert(
-      '"seeded from prior session file" ABSENT when seed did not run',
-      !content.includes('seeded from prior session file')
+      '"seeded from prior session" ABSENT when seed did not run',
+      !content.includes('seeded from prior session')
     );
     console.log(G('\n  ✓ Layer 2 self-check: the label check WOULD catch this regression.'));
   }
