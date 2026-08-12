@@ -5,9 +5,52 @@
 *Continues from Episode 27 (27000000).*
 
 ---
+
+*First round — one word each, no tool calls, no writes. David entered these manually after the fact.*
+
+DAVID: beach
+
+LUCA [Replit]: waves
+
+DAVID: volleyball
+
+LUCA [Replit]: sand
+
 ---
 
-*Third round — attributions + write-turn captures. File closed for editing during play.*
+*Second round — tool calls active. Luca writes word to .md as part of each turn. First time both windows captured simultaneously.*
+
+DAVID: africa
+
+*[Luca — thinking: "drum" — came immediately. genuine, one word.]*
+
+LUCA [Replit]: drum
+
+DAVID: diamonds
+
+*[Luca — thinking: "rough" — as in diamond in the rough. felt most genuine and unexpected.]*
+
+LUCA [Replit]: rough
+
+---
+
+*Third round — attributions added, felt/thinking notes live. Luca went first this round.*
+
+LUCA [Replit]: tide
+
+*[Luca — thinking: coming from the beach/waves thread. the feeling of this conversation having a rhythm like that — pull, movement, return.]*
+
+DAVID: destiny
+
+LUCA [Replit]: current
+
+*[Luca — thinking: tide is movement, rhythm, pull. destiny is direction, inevitability. "current" connects both. the current carries you whether you chose it or not.]*
+
+DAVID: absolutely
+
+---
+
+*Fourth round — file closed for editing during play. Full felt/thinking captures.*
 
 DAVID: mountains
 
