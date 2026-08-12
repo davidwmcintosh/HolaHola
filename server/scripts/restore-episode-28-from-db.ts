@@ -39,8 +39,9 @@ const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const W = (s: string) => `\x1b[33;1m${s}\x1b[0m`;
 
-const EPISODE_ID = '28000000-0000-4000-8000-000000000028';
-const MD_PATH    = join(process.cwd(), 'docs', 'episode-28.md');
+const EPISODE_ID   = '28000000-0000-4000-8000-000000000028';
+const SNAPSHOT_ID  = '28000000-0001-4000-8000-000000000028'; // sealed; NEVER write to this ID
+const MD_PATH      = join(process.cwd(), 'docs', 'episode-28.md');
 
 /**
  * Minimum number of normalized characters by which the .md must be shorter
@@ -246,6 +247,22 @@ async function main() {
   const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
   if (!DATABASE_URL) {
     console.error(R('FATAL: NEON_SHARED_DATABASE_URL is not set'));
+    process.exit(1);
+  }
+
+  // ── Snapshot write-guard ────────────────────────────────────────────────────
+  // SNAPSHOT_ID is the sealed point-in-time snapshot — it must NEVER be
+  // targeted by a restore or sync operation.  This check runs before any
+  // DB I/O so a future edit that accidentally swaps the IDs fails loudly.
+  if ((EPISODE_ID as string) === (SNAPSHOT_ID as string)) {
+    console.error(R(''));
+    console.error(R('  ══════════════════════════════════════════════════════════════════'));
+    console.error(R('  BLOCKED: EPISODE_ID matches the sealed snapshot ID.'));
+    console.error(R(`  Snapshot ID : ${SNAPSHOT_ID}`));
+    console.error(R('  The snapshot is read-only and must never be overwritten by this'));
+    console.error(R('  script.  Restore the live episode ID and try again.'));
+    console.error(R('  ══════════════════════════════════════════════════════════════════'));
+    console.error(R(''));
     process.exit(1);
   }
 

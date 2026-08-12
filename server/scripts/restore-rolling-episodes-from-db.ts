@@ -50,6 +50,16 @@ const SHRINKAGE_THRESHOLD = 200;
 
 const ARC_NAME = 'HolaHola Episodes';
 
+/**
+ * The sealed Episode 28 snapshot ID. This ID must NEVER be targeted by any
+ * write operation in this script. If forcePushMdToDb or checkAndRestore are
+ * ever called with this ID, the operation is immediately rejected with a
+ * logged warning. The snapshot lives in a separate arc ('HolaHola Episode
+ * Snapshots') so it will not appear in the rolling-episode discovery query,
+ * but the guard here provides defense-in-depth for the force-push path.
+ */
+const SNAPSHOT_WRITE_GUARD_ID = '28000000-0001-4000-8000-000000000028';
+
 /** Returns true if content contains git merge conflict markers. */
 function hasGitConflictMarkers(content: string): boolean {
   return content.includes('<<<<<<< ') ||
@@ -104,6 +114,17 @@ async function forcePushMdToDb(
 
   console.log('');
   console.log(B(`  ── ${title} (${id}) ──`));
+
+  // ── Snapshot write-guard ───────────────────────────────────────────────────
+  // The sealed snapshot MUST NOT be overwritten by force-push or any other
+  // write path.  Reject immediately and log a clear warning.
+  if (id === SNAPSHOT_WRITE_GUARD_ID) {
+    console.error(`\x1b[31m  BLOCKED: forcePushMdToDb was called with the sealed snapshot ID.\x1b[0m`);
+    console.error(`\x1b[31m  Snapshot ID : ${SNAPSHOT_WRITE_GUARD_ID}\x1b[0m`);
+    console.error(`\x1b[31m  The snapshot is read-only and must never be overwritten.\x1b[0m`);
+    console.error(`\x1b[31m  Skipping this episode — no DB write was performed.\x1b[0m`);
+    return false;
+  }
 
   if (!existsSync(mdPath)) {
     console.error(R(`  FATAL: .md file does not exist at ${mdPath} — cannot force-push`));
@@ -167,6 +188,18 @@ async function checkAndRestore(
 
   console.log('');
   console.log(B(`  ── ${title} (${id}) ──`));
+
+  // ── Snapshot write-guard ───────────────────────────────────────────────────
+  // Defensive check: the sealed snapshot must not be overwritten even via the
+  // restore path.  The discovery query filters by arc so this ID should never
+  // arrive here, but defense-in-depth requires an explicit rejection.
+  if (id === SNAPSHOT_WRITE_GUARD_ID) {
+    console.error(`\x1b[31m  BLOCKED: checkAndRestore was called with the sealed snapshot ID.\x1b[0m`);
+    console.error(`\x1b[31m  Snapshot ID : ${SNAPSHOT_WRITE_GUARD_ID}\x1b[0m`);
+    console.error(`\x1b[31m  The snapshot must never be overwritten by restore operations.\x1b[0m`);
+    console.error(`\x1b[31m  Skipping this episode — no file write was performed.\x1b[0m`);
+    return false;
+  }
 
   if (!dbContent) {
     console.error(R(`  FATAL: DB content field is empty for ${title} — cannot restore`));

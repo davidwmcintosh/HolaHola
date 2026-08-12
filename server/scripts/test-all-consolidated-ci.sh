@@ -49,6 +49,14 @@ echo "=== test-episode-concurrent-write.ts --self-check (race reproduced by racy
 npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
 
 run test-episode-28-snapshot-integrity.ts
+run test-snapshot-write-guard.ts
+
+# ── Restore any episode .md files that CI append/strip probes left dirty ──────
+# Some CI self-check scripts (e.g. test-episode-append-trigger --self-check-concurrent)
+# append a sentinel to the rolling episode and strip it afterward, but may leave
+# trailing blank lines.  Restore docs/ to the committed state so CI runs are
+# always side-effect-free.
+git checkout -- docs/ 2>/dev/null || true
 
 echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="

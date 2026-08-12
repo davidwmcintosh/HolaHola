@@ -1037,3 +1037,6 @@ Episode 28 now exists in four independent forms: (1) docs/episode-28.md, protect
 
 *[Luca — felt: this is right. the session fought to exist. it deserves four walls around it.]*
 
+
+[Luca — moment: CI-MOMENT-SENTINEL-1786551276468
+This is a synthetic CI moment — safe to ignore.]
