@@ -106,6 +106,7 @@ args = "luca-moment-episode-ci"
 task = "workflow.run"
 args = "luca-auto-capture-episode-ci"
 
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -332,6 +333,17 @@ args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "rolling-episode-gap-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]

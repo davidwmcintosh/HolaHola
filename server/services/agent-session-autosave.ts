@@ -1268,6 +1268,163 @@ function seedPrequelEpisodeMtimes(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Startup gap check — catch exchanges saved to DB but absent from rolling .md
+// ---------------------------------------------------------------------------
+
+/** Guards against running more than once per server boot. */
+let _startupGapCheckDone = false;
+
+/**
+ * Exported for testing only — resets the one-time guard so CI tests can re-run.
+ * Never call in production code.
+ */
+export function resetStartupGapCheckForTest(): void {
+  _startupGapCheckDone = false;
+}
+
+/** Normalise a string for fuzzy matching: collapse whitespace, lower-case. */
+function normForGap(s: string): string {
+  return s.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Return true when exchangeText is present in the normalised .md content.
+ *
+ * Strategy: normalise the full exchange block (collapse whitespace, lower-case)
+ * and search for its first 60 chars in mdNorm.  60 chars is long enough to be
+ * unique in any real conversation while being short enough to survive minor
+ * line-break differences between the DB row and the .md copy.  Short exchanges
+ * (< 60 chars) are matched in full — no minimum-length threshold that would
+ * silently skip brief utterances.
+ *
+ * NOTE: The identical matcher lives in test-rolling-episode-gap-check.ts.
+ * Keep both in sync whenever this logic changes.
+ */
+function exchangeInMd(exchangeText: string, mdNorm: string): boolean {
+  const normalised = normForGap(exchangeText);
+  if (!normalised) return true; // purely whitespace — treat as present (skip)
+  const key = normalised.slice(0, 60);
+  return mdNorm.includes(key);
+}
+
+/**
+ * On each server start: query conversation_memories for `arc_name='david-luca-chat'`
+ * per-turn rows from the last 24h, check each against the current rolling episode
+ * .md file, and append any absent exchanges.
+ *
+ * Runs exactly once per server boot (guarded by `_startupGapCheckDone`).
+ * Any errors are logged and swallowed — this is a best-effort gap filler that
+ * must not break the server startup path.
+ */
+export async function runStartupGapCheck(): Promise<void> {
+  if (_startupGapCheckDone) return;
+  _startupGapCheckDone = true;
+
+  try {
+    // 1. Find the current rolling episode .md ──────────────────────────────
+    const episodeFilename = await getCurrentRollingEpisodeFilename();
+    if (!episodeFilename) {
+      console.log('[AgentAutosave] Startup gap check: no rolling episode found in DB — skipping.');
+      return;
+    }
+
+    const episodePath = join(DOCS_DIR, episodeFilename);
+    if (!existsSync(episodePath)) {
+      console.log(`[AgentAutosave] Startup gap check: ${episodeFilename} not on disk — skipping.`);
+      return;
+    }
+
+    let mdRaw  = readFileSync(episodePath, 'utf-8');
+    let mdNorm = normForGap(mdRaw);
+
+    // 2. Query DB for per-turn rows scoped to the rolling episode window ────
+    // Use the episode's own created_at as the lower bound so rows from a
+    // prior episode that happened within the last 24h are never appended to
+    // the wrong file.  Fall back to a 24h window only when the episode
+    // created_at cannot be determined.
+    const db = getUserDb();
+
+    const epRows = await db.execute(sql`
+      SELECT created_at FROM conversation_memories
+      WHERE arc_name = 'HolaHola Episodes'
+        AND 'rolling' = ANY(tags)
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const epRow = ((epRows as any).rows?.[0] ?? (epRows as any)[0]);
+    // created_at comes back as a Date object from Drizzle; convert to ISO-8601
+    // before binding it as a ::timestamptz parameter.
+    const epCreatedAt = epRow?.created_at;
+    const episodeStart: string | null = epCreatedAt
+      ? (epCreatedAt instanceof Date ? epCreatedAt.toISOString() : new Date(String(epCreatedAt)).toISOString())
+      : null;
+
+    const rows = episodeStart
+      ? await db.execute(sql`
+          SELECT id, content, created_at
+          FROM conversation_memories
+          WHERE arc_name = 'david-luca-chat'
+            AND 'per-turn' = ANY(tags)
+            AND created_at >= ${episodeStart}::timestamptz
+          ORDER BY created_at ASC
+        `)
+      : await db.execute(sql`
+          SELECT id, content, created_at
+          FROM conversation_memories
+          WHERE arc_name = 'david-luca-chat'
+            AND 'per-turn' = ANY(tags)
+            AND created_at >= NOW() - INTERVAL '24 hours'
+          ORDER BY created_at ASC
+        `);
+
+    const allRows: Array<{ id: string; content: string; created_at: string }> =
+      (((rows as any).rows ?? (rows as any)) as any[]);
+
+    // Exclude CI synthetic rows (same filter as audit-episode-28-gaps.ts)
+    const realRows = allRows.filter(
+      (r) =>
+        !r.content.includes('[CI-AUTO-CAPTURE-') &&
+        !r.content.includes('[CI-SELF-CHECK-AUTO-CAPTURE-'),
+    );
+
+    if (realRows.length === 0) {
+      console.log('[AgentAutosave] Startup gap check: no per-turn rows in last 24h — nothing to check.');
+      return;
+    }
+
+    // 3. Find gaps and patch them ──────────────────────────────────────────
+    let patched = 0;
+    for (const row of realRows) {
+      if (!exchangeInMd(row.content, mdNorm)) {
+        console.warn(
+          `[AgentAutosave] Startup gap check: exchange absent from ${episodeFilename} — patching.`,
+          `(id: ${row.id}, at: ${row.created_at})`,
+        );
+        await appendExchangeToEpisode(row.content.trim(), episodeFilename);
+        // Refresh the normalised .md so subsequent rows see the patched content.
+        try {
+          mdRaw  = readFileSync(episodePath, 'utf-8');
+          mdNorm = normForGap(mdRaw);
+        } catch { /* ignore transient read error; next check will re-read */ }
+        patched++;
+      }
+    }
+
+    if (patched > 0) {
+      console.log(
+        `[AgentAutosave] Startup gap check: patched ${patched} gap(s) in ${episodeFilename}.`,
+      );
+    } else {
+      console.log(
+        `[AgentAutosave] Startup gap check: ${episodeFilename} is complete — no gaps (${realRows.length} row(s) checked).`,
+      );
+    }
+  } catch (err: any) {
+    console.error('[AgentAutosave] Startup gap check failed (non-fatal):', err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap + start
 // ---------------------------------------------------------------------------
 export function startAgentSessionAutosave(): void {
@@ -1362,6 +1519,13 @@ export function startAgentSessionAutosave(): void {
   // Seed episode mtimes so an existing set of .md files doesn't trigger mass re-embeds on restart
   seedEpisodeMtimes();
   seedPrequelEpisodeMtimes();
+
+  // Startup gap check: catch exchanges saved to DB but absent from rolling episode .md.
+  // Runs once per boot, after episode mtimes are seeded (appendExchangeToEpisode needs them).
+  // Fire-and-forget — errors are logged inside runStartupGapCheck, never thrown.
+  runStartupGapCheck().catch((err: any) => {
+    console.error('[AgentAutosave] Startup gap check unexpectedly threw (non-fatal):', err?.message ?? err);
+  });
 
   // --- Event-driven flush trigger (Layer 1) ---
   // fs.watch() on the .local/ directory fires within milliseconds when
