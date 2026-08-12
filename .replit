@@ -337,6 +337,18 @@ args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts"
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "episode-28-startup-shrinkage-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/restore-episode-28-from-db.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
 
