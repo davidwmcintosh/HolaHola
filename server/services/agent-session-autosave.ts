@@ -164,6 +164,97 @@ export function resetMomentMtimeForTest(): void {
   momentLastMtime = 0;
 }
 
+// --- Capture status writer ---
+// Written to .local/episode-capture-status.md after every appendExchangeToEpisode()
+// call and updated on each poll cycle.  Gives Luca a glanceable "did I capture the
+// last exchange?" check without relying on memory alone.
+const CAPTURE_STATUS_PATH = join(WORKSPACE, '.local/episode-capture-status.md');
+let lastEpisodeCaptureMs = 0;          // ms-since-epoch of the most recent successful append
+let lastEpisodeCaptureFilename = '';   // which episode file was last written to
+
+/**
+ * Write (or refresh) the capture status file immediately after a successful append.
+ * Also updates the lastEpisodeCapture* tracking variables used by the stale-check.
+ */
+function writeCaptureStatus(episodeFilename: string): void {
+  try {
+    lastEpisodeCaptureMs = Date.now();
+    lastEpisodeCaptureFilename = episodeFilename;
+    _writeEpisodeCaptureStatusFile(episodeFilename, lastEpisodeCaptureMs);
+  } catch (err: any) {
+    console.error('[AgentAutosave] Failed to write capture status:', err.message);
+  }
+}
+
+/**
+ * Re-check staleness and refresh the status file on each poll cycle.
+ * No-ops if no episode has been appended to during this server run.
+ */
+function writeCaptureStatusStaleCheck(): void {
+  if (!lastEpisodeCaptureFilename) return; // no append seen this server run
+  try {
+    _writeEpisodeCaptureStatusFile(lastEpisodeCaptureFilename, lastEpisodeCaptureMs);
+  } catch (err: any) {
+    console.error('[AgentAutosave] Failed to refresh capture status (stale check):', err.message);
+  }
+}
+
+/** Internal: build and write the status file. */
+function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: number): void {
+  const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+  const filePath = join(DOCS_DIR, episodeFilename);
+
+  let lineCount = 0;
+  let byteCount = 0;
+  let lastLines: string[] = [];
+
+  if (existsSync(filePath)) {
+    try {
+      const stat = statSync(filePath);
+      byteCount = stat.size;
+      const content = readFileSync(filePath, 'utf-8');
+      const lines = content.split('\n');
+      lineCount = lines.length;
+      lastLines = lines.filter(l => l.trim()).slice(-5);
+    } catch { /* file briefly locked — use zeros */ }
+  }
+
+  const now = Date.now();
+  const minAgo = Math.floor((now - captureMs) / 60000);
+  const captureTime = new Date(captureMs).toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit', second: '2-digit',
+  });
+  const statusTime = new Date(now).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit',
+  });
+
+  const isStale = (now - captureMs) > STALE_THRESHOLD_MS;
+  const staleLine = isStale
+    ? `\n⚠️  STALE — ${minAgo} minute(s) since last episode write. Has the last exchange been captured?`
+    : `\n✓  Current — last capture was ${minAgo === 0 ? '<1' : minAgo} minute(s) ago.`;
+
+  const lines: string[] = [
+    '# Episode Capture Status',
+    '',
+    `**Rolling episode:** ${episodeFilename}`,
+    `**Status checked:** ${statusTime}`,
+    `**Last capture:** ${captureTime} (${minAgo === 0 ? '<1' : minAgo} min ago)`,
+    `**File size:** ${lineCount.toLocaleString()} lines / ${byteCount.toLocaleString()} bytes`,
+    '',
+    '**Last 5 non-empty lines of episode file:**',
+    ...lastLines.map(l => `> ${l.length > 120 ? l.slice(0, 120) + '…' : l}`),
+    '',
+    '---',
+    staleLine,
+    '',
+    '_Updated automatically after each episode append and on each 20s poll cycle._',
+    '_To check manually: read `.local/episode-capture-status.md`_',
+  ];
+
+  writeFileSync(CAPTURE_STATUS_PATH, lines.join('\n'), 'utf-8');
+}
+
 // --- Episode append watcher state ---
 let episodeAppendLastMtime = 0;
 
@@ -635,6 +726,9 @@ export async function appendExchangeToEpisode(exchange: string, episodeFilename:
       } catch { /* ignore */ }
 
       console.log(`[AgentAutosave] Episode append: +${exchange.length} chars → ${episodeFilename}`);
+
+      // Update capture status file so Luca can verify the last exchange was written
+      writeCaptureStatus(episodeFilename);
 
       // Schedule immediate DB sync (2s debounce collapses rapid bursts)
       scheduleEpisodeSync(episodeFilename);
@@ -1728,6 +1822,7 @@ export function startAgentSessionAutosave(): void {
     await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
     await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
     await saveTranscriptChunk(); // periodic — captures conversation-only sessions too (JSONL path)
+    writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if >10 min since last append
   }, POLL_INTERVAL_MS);
 
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');

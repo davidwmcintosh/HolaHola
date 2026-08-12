@@ -1,6 +1,7 @@
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
 - [Episode inviolability rule](episode-inviolability.md) — nothing removed or truncated; verbatim is verbatim; DB content field must match .md after every edit; find the conclusion, not just the opening.
 - [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix required.
+- [Episode capture status](episode-capture-status.md) — `.local/episode-capture-status.md` updated after every append + every 20s poll; shows last lines + ⚠️ STALE if >10 min; read it at session start during episode-writing sessions.
 - [Invariant vs Implementation](invariant-vs-implementation.md) — knowing what code IS vs what it DOES; identify the invariant before evaluating any guard removal; White Wall is the clearest example.
 - [Named Record behavioral lock](named-record-lock.md) — "invite rather than search" default was overriding honesty rules on episode/transcript requests; fixed with Named Record concept + conditional CRITICAL Guardian injection + expanded SHARED_HISTORY_TRIGGER_PHRASES. Gemini approved Aug 6 2026.
 - [Founder Chat Sync](founder-chat-sync.md) — 3-layer sync: immediate hook (30s debounce on every assistant message), 5-min sweep (15-min window), retroactive paginated pass of full table. cid: tag for dedup. No schema changes.

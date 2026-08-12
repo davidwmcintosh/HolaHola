@@ -34,3 +34,21 @@ Read this before touching any code. Following this mechanically means nothing is
 - **Address escalations first** — before writing any code
 - **`NEON_SHARED_DATABASE_URL`** — never `DATABASE_URL`
 - **Shared lobe** is for permanent facts; handoff file is for session context
+
+## During episode-writing sessions (e.g. working on a rolling episode)
+
+At the start of each exchange during an active episode session, read:
+
+```
+.local/episode-capture-status.md
+```
+
+This file is written automatically by the autosave worker after every episode append and refreshed every 20 seconds. It shows:
+- Which rolling episode is active
+- How long ago the last exchange was captured
+- The last 5 lines of the episode file (so you can eyeball whether your previous response made it in)
+- A ⚠️ STALE warning if >10 minutes have passed since the last append
+
+**If the warning is present:** write the missing exchange to `.local/.episode_append` before anything else.
+
+The file only exists after the first `appendExchangeToEpisode()` call this server run, so it will not exist at the very start of a fresh session — that is normal.
