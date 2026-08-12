@@ -95,7 +95,11 @@ for f in "${PROTECTED_EXACT[@]}"; do
 done
 
 for frag in "${PROTECTED_FRAGMENTS[@]}"; do
-  if echo "$CHANGED_FILES" | grep -qF "$frag"; then
+  # Filter out test scripts before checking fragments — a test script whose
+  # filename mentions a protected concept (e.g. "unified-recall") is not
+  # itself a protected context-injection file and should never trigger the gate.
+  CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E 'server/scripts/test-|scripts/test-')
+  if echo "$CANDIDATE_FILES" | grep -qF "$frag"; then
     PROTECTED_HITS+=("[path containing: $frag]")
   fi
 done
