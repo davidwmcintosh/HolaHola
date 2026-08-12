@@ -211,6 +211,18 @@ isValidation = true
 outputType = "console"
 
 [[workflows.workflow]]
+name = "capture-status-db-only-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-capture-status-db-only.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
 name = "episode-28-snapshot-write-guard-ci"
 author = "agent"
 

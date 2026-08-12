@@ -202,7 +202,7 @@ export function setLastThinkingProcessedForTest(ms: number): void       { lastTh
  * Public surface of _writeCaptureStatusFile() for CI tests.
  * Writes to .local/episode-capture-status.md exactly as the real path does.
  */
-export function writeEpisodeCaptureStatusFileForTest(episodeFilename: string, captureMs: number): void {
+export function writeEpisodeCaptureStatusFileForTest(episodeFilename: string | null, captureMs: number): void {
   _writeCaptureStatusFile(episodeFilename, captureMs);
 }
 
@@ -400,16 +400,36 @@ function writeCaptureStatusStaleCheck(): void {
 }
 
 /**
+ * Test seam — advance step of markReplitOutputFromChatCapture().
+ * When false (CI self-check only), the cursor-advance block is skipped:
+ * prevReplitOutputMs / feltAtLastReplitOutput / thinkingAtLastReplitOutput are
+ * NOT updated and lastReplitOutputMs is NOT advanced.  This precisely models
+ * a regression where the function body is a no-op.
+ * The status-file refresh still runs so the test can read a fresh file.
+ * Never set in production.
+ */
+let _chatCaptureAdvanceEnabled = true;
+export function setChatCaptureAdvanceEnabledForTest(val: boolean): void {
+  _chatCaptureAdvanceEnabled = val;
+}
+
+/**
  * Called from checkChatCapture() after Luca turns are successfully saved to DB.
  * Advances the DB-output anchor (lastReplitOutputMs) and refreshes the status file
  * so the ordering/readiness check runs even when no rolling episode is active.
+ *
+ * Exported so CI can call through the real function rather than manually
+ * injecting its internal state.  Use setChatCaptureAdvanceEnabledForTest(false)
+ * in self-check mode to simulate a no-op regression.
  */
-function markReplitOutputFromChatCapture(): void {
+export function markReplitOutputFromChatCapture(): void {
   _liveWriteHasOccurred = true;
-  prevReplitOutputMs         = lastReplitOutputMs;
-  feltAtLastReplitOutput     = lastFeltProcessedMs;
-  thinkingAtLastReplitOutput = lastThinkingProcessedMs;
-  lastReplitOutputMs         = Date.now();
+  if (_chatCaptureAdvanceEnabled) {
+    prevReplitOutputMs         = lastReplitOutputMs;
+    feltAtLastReplitOutput     = lastFeltProcessedMs;
+    thinkingAtLastReplitOutput = lastThinkingProcessedMs;
+    lastReplitOutputMs         = Date.now();
+  }
   if (!_skipSeededFlagClearForTest) {
     _seededFromPriorSession = false;
   }
