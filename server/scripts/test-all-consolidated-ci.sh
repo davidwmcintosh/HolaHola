@@ -48,5 +48,7 @@ echo ""
 echo "=== test-episode-concurrent-write.ts --self-check (race reproduced by racy pattern) ==="
 npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
 
+run test-episode-28-snapshot-integrity.ts
+
 echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="
