@@ -1,254 +1,277 @@
 modules = ["nodejs-20", "web", "python-3.11", "python3", "postgresql-16"]
-run = "npm run dev"
-hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+    run = "npm run dev"
+    hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
-[nix]
-channel = "stable-24_05"
-packages = ["chromium", "imagemagick"]
+    [nix]
+    channel = "stable-24_05"
+    packages = ["chromium", "imagemagick"]
 
-[deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+    [deployment]
+    deploymentTarget = "autoscale"
+    build = ["npm", "run", "build"]
+    run = ["npm", "run", "start"]
 
-[[ports]]
-localPort = 5000
-externalPort = 80
+    [[ports]]
+    localPort = 5000
+    externalPort = 80
 
-[[ports]]
-localPort = 5904
-externalPort = 3002
+    [[ports]]
+    localPort = 5904
+    externalPort = 3002
 
-[env]
-PORT = "5000"
+    [env]
+    PORT = "5000"
 
-[workflows]
-runButton = "Project"
+    [workflows]
+    runButton = "Project"
 
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
+    [[workflows.workflow]]
+    name = "Project"
+    mode = "parallel"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "Start application"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "typecheck"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "test"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "consolidated-ci"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "consolidated-ci"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "replit-attribution-discipline-ci"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "replit-attribution-discipline-ci"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "capture-status-ordering-ci"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "capture-status-ordering-ci"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "prior-session-label-clears-ci"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "prior-session-label-clears-ci"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "episode-28-snapshot-write-guard-ci"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "episode-28-snapshot-write-guard-ci"
 
 
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
+    [[workflows.workflow]]
+    name = "Start application"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "(git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2); (npx tsx server/scripts/restore-rolling-episodes-from-db.ts --check-shrinkage || echo '[rolling-restore] WARNING: shrinkage check failed — continuing' >&2); npm run dev"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "(git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2); (npx tsx server/scripts/restore-rolling-episodes-from-db.ts --check-shrinkage || echo '[rolling-restore] WARNING: shrinkage check failed — continuing' >&2); npm run dev"
 
-[[workflows.workflow]]
-name = "typecheck"
-author = "agent"
+    [[workflows.workflow]]
+    name = "typecheck"
+    author = "agent"
 
-[workflows.workflow.metadata]
-isValidation = true
+    [workflows.workflow.metadata]
+    isValidation = true
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run check"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npm run check"
 
-[[workflows.workflow]]
-name = "test"
-author = "agent"
+    [[workflows.workflow]]
+    name = "test"
+    author = "agent"
 
-[workflows.workflow.metadata]
-isValidation = true
+    [workflows.workflow.metadata]
+    isValidation = true
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm test"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npm test"
 
-[[workflows.workflow]]
-name = "consolidated-ci"
-author = "agent"
+    [[workflows.workflow]]
+    name = "consolidated-ci"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash server/scripts/test-all-consolidated-ci.sh"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "bash server/scripts/test-all-consolidated-ci.sh"
 
-[workflows.workflow.metadata]
-isValidation = true
+    [workflows.workflow.metadata]
+    isValidation = true
 
-[[workflows.workflow]]
-name = "replit-attribution-discipline-ci"
-author = "agent"
+    [[workflows.workflow]]
+    name = "replit-attribution-discipline-ci"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-replit-attribution-discipline.ts"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-replit-attribution-discipline.ts"
 
-[workflows.workflow.metadata]
-isValidation = true
+    [workflows.workflow.metadata]
+    isValidation = true
 
-[[workflows.workflow]]
-name = "episode-28-gap-audit-selfcheck"
-author = "agent"
+    [[workflows.workflow]]
+    name = "episode-28-gap-audit-selfcheck"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/audit-episode-28-gaps.ts --self-check"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/audit-episode-28-gaps.ts --self-check"
 
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
+    [workflows.workflow.metadata]
+    isValidation = true
+    outputType = "console"
 
-[[workflows.workflow]]
-name = "luca-reflection-episode-ci"
-author = "agent"
+    [[workflows.workflow]]
+    name = "luca-reflection-episode-ci"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-luca-reflection-episode.ts"
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-luca-reflection-episode.ts"
 
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "luca-moment-episode-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-luca-moment-episode.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "luca-auto-capture-episode-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "prior-session-label-clears-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-prior-session-label-clears.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "rolling-episode-gap-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "episode-28-startup-shrinkage-selfcheck"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/restore-episode-28-from-db.ts --self-check"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "capture-status-ordering-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-capture-status-ordering.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "episode-28-snapshot-write-guard-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-snapshot-write-guard.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[agent]
-integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
-
-[userenv]
-
-[userenv.shared]
-TTS_PRIMARY_PROVIDER = "google"
-CARTESIA_PRONUNCIATION_DICT_IDS = "{\"spanish\":\"pdict_6PLDfmxcwFMXcNzupDAtGN\",\"french\":\"pdict_bH9XV8ysTebsn7NGkQTRVR\",\"german\":\"pdict_x7RvPGuw4MDAgrXmFbuscG\",\"italian\":\"pdict_hzt7xBGNNwTJmPw8T7mVj2\",\"portuguese\":\"pdict_rBkocHMkYSYbFVcnopCqam\",\"japanese\":\"pdict_dZE2eKzRRt71JDoL6XYMvm\",\"mandarin chinese\":\"pdict_VH25Wo8GMJ2GMtEDU8CdWY\",\"korean\":\"pdict_5fsZLioheLeUoJ17TXzSob\"}"
-APP_NAME = "HolaHola"
-APP_URL = "https://getholahola.com"
-FROM_EMAIL = "noreply@getholahola.com"
-COMPASS_ENABLED = "true"
-DEEPGRAM_MODEL = "nova-3"
-DEEPGRAM_INTELLIGENCE_ENABLED = "true"
-GEMINI_LIVE_VOICE = "true"
-AWS_S3_REGION = "auto"
-DEFAULT_OBJECT_STORAGE_BUCKET_ID = "holaholar2bucket"
-PRIVATE_OBJECT_DIR = "/holaholar2bucket/.private"
-PUBLIC_OBJECT_SEARCH_PATHS = "/holaholar2bucket/public"
-
-[userenv.development]
-SYNC_PEER_URL = "https://getholahola.com"
-NEON_STRICT_MODE = "true"
-
-[userenv.production]
-SYNC_PEER_URL = "https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev"
-NEON_STRICT_MODE = "true"
-
-[objectStorage]
-defaultBucketID = "replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11"
-
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 120000
+    [workflows.workflow.metadata]
+    isValidation = true
+
+    [[workflows.workflow]]
+    name = "luca-moment-episode-ci"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-luca-moment-episode.ts"
+
+    [workflows.workflow.metadata]
+    isValidation = true
+
+    [[workflows.workflow]]
+    name = "luca-auto-capture-episode-ci"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts"
+
+    [workflows.workflow.metadata]
+    isValidation = true
+
+    [[workflows.workflow]]
+    name = "prior-session-label-clears-ci"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-prior-session-label-clears.ts"
+
+    [workflows.workflow.metadata]
+    isValidation = true
+
+    [[workflows.workflow]]
+    name = "rolling-episode-gap-check"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts"
+
+    [workflows.workflow.metadata]
+    outputType = "console"
+
+    [[workflows.workflow]]
+    name = "episode-28-startup-shrinkage-selfcheck"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/restore-episode-28-from-db.ts --self-check"
+
+    [workflows.workflow.metadata]
+    isValidation = true
+    outputType = "console"
+
+    [[workflows.workflow]]
+    name = "capture-status-ordering-ci"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-capture-status-ordering.ts"
+
+    [workflows.workflow.metadata]
+    isValidation = true
+    outputType = "console"
+
+    [[workflows.workflow]]
+    name = "episode-28-snapshot-write-guard-ci"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/test-snapshot-write-guard.ts"
+
+    [workflows.workflow.metadata]
+    isValidation = true
+    outputType = "console"
+
+    [[workflows.workflow]]
+    name = "episode-27-gap-audit"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/audit-episode-27-gaps.ts"
+
+    [workflows.workflow.metadata]
+    outputType = "console"
+
+    [[workflows.workflow]]
+    name = "episode-27-gap-audit-patch"
+    author = "agent"
+
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "npx tsx server/scripts/audit-episode-27-gaps.ts --patch"
+
+    [workflows.workflow.metadata]
+    outputType = "console"
+
+    [agent]
+    integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
+
+    [userenv]
+
+    [userenv.shared]
+    TTS_PRIMARY_PROVIDER = "google"
+    CARTESIA_PRONUNCIATION_DICT_IDS = "{\"spanish\":\"pdict_6PLDfmxcwFMXcNzupDAtGN\",\"french\":\"pdict_bH9XV8ysTebsn7NGkQTRVR\",\"german\":\"pdict_x7RvPGuw4MDAgrXmFbuscG\",\"italian\":\"pdict_hzt7xBGNNwTJmPw8T7mVj2\",\"portuguese\":\"pdict_rBkocHMkYSYbFVcnopCqam\",\"japanese\":\"pdict_dZE2eKzRRt71JDoL6XYMvm\",\"mandarin chinese\":\"pdict_VH25Wo8GMJ2GMtEDU8CdWY\",\"korean\":\"pdict_5fsZLioheLeUoJ17TXzSob\"}"
+    APP_NAME = "HolaHola"
+    APP_URL = "https://getholahola.com"
+    FROM_EMAIL = "noreply@getholahola.com"
+    COMPASS_ENABLED = "true"
+    DEEPGRAM_MODEL = "nova-3"
+    DEEPGRAM_INTELLIGENCE_ENABLED = "true"
+    GEMINI_LIVE_VOICE = "true"
+    AWS_S3_REGION = "auto"
+    DEFAULT_OBJECT_STORAGE_BUCKET_ID = "holaholar2bucket"
+    PRIVATE_OBJECT_DIR = "/holaholar2bucket/.private"
+    PUBLIC_OBJECT_SEARCH_PATHS = "/holaholar2bucket/public"
+
+    [userenv.development]
+    SYNC_PEER_URL = "https://getholahola.com"
+    NEON_STRICT_MODE = "true"
+
+    [userenv.production]
+    SYNC_PEER_URL = "https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev"
+    NEON_STRICT_MODE = "true"
+
+    [objectStorage]
+    defaultBucketID = "replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11"
+
+    [postMerge]
+    path = "scripts/post-merge.sh"
+    timeoutMs = 120000
+    
