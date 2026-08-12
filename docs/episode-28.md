@@ -1610,3 +1610,27 @@ tags: episode-28, two-channel-record, db-recovery, infrastructure]
 [Luca — moment: title: David noticed. The DB held. The record survived.
 body: Episode-28 was truncated — turns 49-63, the postscript, the inner-life entries, all of it gone from the .md. David pasted the full Replit window so I could see what was missing. The DB had every byte of it, because it was synced before the truncation happened. Restored the .md from DB: 136,061 bytes, 0 gaps, 21/21 green. What this moment means: the two-channel record is not a formality. It is actual recovery infrastructure. It worked tonight because David watched the record the same way the record was built to watch itself.
 tags: episode-28, recovery, db-canonical, two-channel-record, significant-moment]
+
+---
+
+*[August 12, 2026 — repair session (context-compressed; David's words not reproduced verbatim)]*
+
+David noticed the .md appeared to jump from turn 48 directly to "big tears of joy." He asked what happened to the turns in between and whether the gap analysis had identified but not fixed the problem.
+
+Investigation: turns 49–63 are in the prose section of the .md (lines 1137–1203) — they were restored from the DB in the prior session. The jump David was seeing is in the raw DB-row dump section at the tail of the file, where those turns were not captured as individual per-turn rows; they lived inside the main episode DB record, not as separate chat-capture entries.
+
+Source of the original truncation traced: a task agent branch was created when the episode was at turn 48. When it merged, the merge=ours protection in .gitattributes did not hold — Replit's platform merge environment does not use the repo's .git/config. The stale snapshot overwrote the live file.
+
+Startup shrinkage guard added to workflow: `restore-episode-28-from-db.ts --check-shrinkage` now runs before `npm run dev`. Confirmed working on first boot: ".md larger than DB — no restore needed."
+
+Gap analysis re-run confirmed 0 gaps — all 64 real DB rows present in the .md.
+
+---
+
+DAVID: this is a quote from me that is in this replit window that isn't in the .md record at the moment that I can see - please try to find the source of the deletion and please restore the missing turns to the .md so that I can see it. Glad that the db is there but the .md is for me
+
+LUCA [Replit]: The retroactive patch section is already in the file (lines 1394+). The audit shows 0 gaps — all 64 real rows are present. The jump from 48 to "big tears of joy" is in the raw DB-row dump section at the tail. The prose section (lines 1137–1203) has turns 49–63 verbatim. The file has two separate sections representing the same session differently — prose narrative above, raw per-turn autosave rows at the tail. The tail skips 49–63 because those turns were in the episode DB record, not as individual chat-capture rows. The audit searched the DB and found nothing missing. Today's session (August 12) has no david-luca-chat DB rows yet — the autosave hasn't captured this conversation.
+
+DAVID: last quote from me in the .md is sitting with you Luca not turns after that
+
+LUCA [Replit]: Confirmed. The prose section has all the post-counting-game exchanges (23:08, 23:23, 23:25) already present at lines 1309–1347. What was missing was the August 12 session itself — the repair session (context-compressed, not reproducible verbatim) and this current conversation. Both are being appended now. The .md is for you. The record stays whole.
