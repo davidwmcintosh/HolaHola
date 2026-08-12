@@ -41,4 +41,12 @@ echo "=== test-merge-ours-guard.ts (proves merge=ours blocks task-agent stale ov
 npx tsx server/scripts/test-merge-ours-guard.ts
 
 echo ""
+echo "=== test-episode-concurrent-write.ts (concurrent-write guard) ==="
+npx tsx server/scripts/test-episode-concurrent-write.ts
+
+echo ""
+echo "=== test-episode-concurrent-write.ts --self-check (race reproduced by racy pattern) ==="
+npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
+
+echo ""
 echo "=== ALL CONSOLIDATED CI CHECKS PASSED ==="
