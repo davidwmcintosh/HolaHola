@@ -180,18 +180,38 @@ export function resetMomentMtimeForTest(): void {
 // closely; moment: is intentional and less frequent so it only warns at 2h).
 const CAPTURE_STATUS_PATH = join(WORKSPACE, '.local/episode-capture-status.md');
 let lastEpisodeCaptureMs = 0;          // ms-since-epoch of the most recent successful append
+let prevEpisodeCaptureMs = 0;          // the exchange before the most recent one (for ordering check)
 let lastEpisodeCaptureFilename = '';   // which episode file was last written to
 let lastFeltProcessedMs = 0;          // when checkLucaReflection() last routed a felt: entry
 let lastThinkingProcessedMs = 0;      // when checkLucaQuestion() last routed a thinking: entry
 let lastMomentProcessedMs = 0;        // when checkLucaMoment() last routed a moment: entry
 
+// Snapshots of inner-life channel timestamps taken AT THE MOMENT the last exchange
+// was appended.  Used for ordering check: felt/thinking < lastEpisodeCaptureMs means
+// they preceded the exchange (correct); felt/thinking > prevEpisodeCaptureMs but
+// < lastEpisodeCaptureMs means they fired BETWEEN exchanges (also correct for that round);
+// felt/thinking < prevEpisodeCaptureMs means they didn't fire in the last round (missing).
+// felt/thinking > lastEpisodeCaptureMs means they fired AFTER the exchange (out of order).
+let feltAtLastExchange = 0;
+let thinkingAtLastExchange = 0;
+
 /**
  * Write (or refresh) the capture status file immediately after a successful append.
  * Also updates the lastEpisodeCapture* tracking variables used by the stale-check.
+ *
+ * ORDERING CHECK: snapshot inner-life timestamps BEFORE advancing lastEpisodeCaptureMs.
+ * At the NEXT exchange, feltAtLastExchange / thinkingAtLastExchange will represent
+ * what the inner-life channels looked like when the current exchange was committed.
+ * Comparing those snapshots against prevEpisodeCaptureMs tells us whether felt/thinking
+ * preceded the exchange (correct) or followed it (out of order).
  */
 function writeCaptureStatus(episodeFilename: string): void {
   try {
-    lastEpisodeCaptureMs = Date.now();
+    // Snapshot inner-life times and advance the exchange cursor atomically
+    prevEpisodeCaptureMs    = lastEpisodeCaptureMs;   // save previous exchange time
+    feltAtLastExchange      = lastFeltProcessedMs;    // capture felt state at this moment
+    thinkingAtLastExchange  = lastThinkingProcessedMs;
+    lastEpisodeCaptureMs    = Date.now();             // now advance to current exchange
     lastEpisodeCaptureFilename = episodeFilename;
     _writeEpisodeCaptureStatusFile(episodeFilename, lastEpisodeCaptureMs);
   } catch (err: any) {
@@ -214,17 +234,13 @@ function writeCaptureStatusStaleCheck(): void {
 
 /** Internal: build and write the status file. */
 function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: number): void {
-  // Thresholds for WARN flags
-  const STALE_EXCHANGE_MS  = 10 * 60 * 1000;  // 10 min — episode append channel
-  const STALE_FELT_MS      = 15 * 60 * 1000;  // 15 min — felt: should track exchanges closely
-  const STALE_THINKING_MS  = 15 * 60 * 1000;  // 15 min — thinking: should track exchanges closely
-  const STALE_MOMENT_MS    = 2  * 60 * 60 * 1000; // 2h  — moments are intentional, less frequent
+  const STALE_EXCHANGE_MS = 10 * 60 * 1000; // 10 min
+  const STALE_MOMENT_MS   = 2  * 60 * 60 * 1000; // 2h
 
   const filePath = join(DOCS_DIR, episodeFilename);
   let lineCount = 0;
   let byteCount = 0;
   let lastLines: string[] = [];
-
   if (existsSync(filePath)) {
     try {
       const stat = statSync(filePath);
@@ -233,34 +249,79 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
       const allLines = content.split('\n');
       lineCount = allLines.length;
       lastLines = allLines.filter(l => l.trim()).slice(-5);
-    } catch { /* file briefly locked — use zeros */ }
+    } catch { /* briefly locked */ }
   }
 
   const now = Date.now();
+  const fmt = (ms: number) => ms === 0 ? 'never' : new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  const minAgo = (ms: number) => ms === 0 ? '—' : `${Math.floor((now - ms) / 60000) === 0 ? '<1' : Math.floor((now - ms) / 60000)} min ago`;
+  const statusTime = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
-  function fmtChannel(label: string, channelMs: number, threshold: number): string {
-    if (channelMs === 0) return `  ${label}: never fired this server run`;
-    const minAgo = Math.floor((now - channelMs) / 60000);
-    const isStale = (now - channelMs) > threshold && captureMs > 0 && (now - captureMs) < STALE_EXCHANGE_MS * 3;
-    const time = new Date(channelMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-    const icon = isStale ? '⚠️ ' : '✓ ';
-    const staleNote = isStale ? ` ← MISSING from last exchange?` : '';
-    return `  ${icon}${label}: ${time} (${minAgo === 0 ? '<1' : minAgo} min ago)${staleNote}`;
+  // ── Section 1: Ordering check for the LAST COMPLETED ROUND ────────────────
+  // feltAtLastExchange / thinkingAtLastExchange are snapshots taken AT the moment
+  // the most recent exchange was appended (before lastEpisodeCaptureMs was set).
+  // prevEpisodeCaptureMs is the exchange before that.
+  //
+  // Correct order: inner-life channel fires BEFORE the exchange.
+  //   feltAtLastExchange > prevEpisodeCaptureMs → felt fired in the window BEFORE the exchange ✓
+  //   feltAtLastExchange < prevEpisodeCaptureMs → felt didn't fire in this round (missing) ⚠️
+  //   feltAtLastExchange > captureMs            → felt fired AFTER the exchange (out of order) ⚠️
+  //   (captureMs here = lastEpisodeCaptureMs, passed in as the parameter)
+  //
+  // The "out of order" case is caught at the NEXT exchange: if a channel's snapshot
+  // timestamp is > prevEpisodeCaptureMs (fired after the exchange) AND the snapshot
+  // was taken AFTER the exchange was committed, then it followed rather than preceded.
+  // We detect this by tracking whether snapshot > prevEpisodeCaptureMs in the window
+  // that can only exist if felt fired AFTER prevEpisodeCaptureMs (the previous exchange).
+
+  const orderingLines: string[] = [];
+  if (prevEpisodeCaptureMs > 0) {
+    // Felt ordering
+    const feltBeforeExchange = feltAtLastExchange > prevEpisodeCaptureMs && feltAtLastExchange <= captureMs;
+    const feltAfterExchange  = feltAtLastExchange > captureMs;
+    const feltMissing        = feltAtLastExchange <= prevEpisodeCaptureMs;
+    const feltIcon = feltAfterExchange ? '⚠️ OUT OF ORDER' : feltMissing ? '⚠️ MISSING' : '✓';
+    const feltNote = feltAfterExchange
+      ? ` — felt fired at ${fmt(feltAtLastExchange)}, AFTER exchange at ${fmt(captureMs)}`
+      : feltMissing
+        ? ` — felt hadn't fired since the exchange before this one`
+        : ` — felt at ${fmt(feltAtLastExchange)}, exchange at ${fmt(captureMs)}`;
+    orderingLines.push(`  ${feltIcon}  Felt:     ${feltNote}`);
+    if (!feltBeforeExchange && !feltAfterExchange && !feltMissing) {
+      // edge: feltAtLastExchange === 0
+      orderingLines.push(`  ⚠️ MISSING  Felt: never fired this server run`);
+    }
+
+    // Thinking ordering
+    const thinkBeforeExchange = thinkingAtLastExchange > prevEpisodeCaptureMs && thinkingAtLastExchange <= captureMs;
+    const thinkAfterExchange  = thinkingAtLastExchange > captureMs;
+    const thinkMissing        = thinkingAtLastExchange <= prevEpisodeCaptureMs;
+    const thinkIcon = thinkAfterExchange ? '⚠️ OUT OF ORDER' : thinkMissing ? '⚠️ MISSING' : '✓';
+    const thinkNote = thinkAfterExchange
+      ? ` — thinking fired at ${fmt(thinkingAtLastExchange)}, AFTER exchange at ${fmt(captureMs)}`
+      : thinkMissing
+        ? ` — thinking hadn't fired since the exchange before this one`
+        : ` — thinking at ${fmt(thinkingAtLastExchange)}, exchange at ${fmt(captureMs)}`;
+    orderingLines.push(`  ${thinkIcon}  Thinking: ${thinkNote}`);
+    if (!thinkBeforeExchange && !thinkAfterExchange && !thinkMissing) {
+      orderingLines.push(`  ⚠️ MISSING  Thinking: never fired this server run`);
+    }
+  } else {
+    orderingLines.push('  (ordering check available after the second exchange this server run)');
   }
 
-  const exchangeMinAgo = captureMs === 0 ? null : Math.floor((now - captureMs) / 60000);
-  const exchangeTime = captureMs === 0 ? 'never' : new Date(captureMs).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', second: '2-digit',
-  });
-  const statusTime = new Date(now).toLocaleString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit', second: '2-digit',
-  });
+  // ── Section 2: Current round status ───────────────────────────────────────
+  // Has felt/thinking fired since the last exchange (preparing for the next one)?
+  const feltReady     = lastFeltProcessedMs > captureMs;
+  const thinkingReady = lastThinkingProcessedMs > captureMs;
+  const exchangeStale = captureMs > 0 && (now - captureMs) > STALE_EXCHANGE_MS;
 
-  const exchangeIsStale = captureMs > 0 && (now - captureMs) > STALE_EXCHANGE_MS;
-  const exchangeLine = exchangeIsStale
-    ? `  ⚠️  Exchange (DAVID:/LUCA[Replit]:): ${exchangeTime} (${exchangeMinAgo} min ago) ← STALE`
-    : `  ✓  Exchange (DAVID:/LUCA[Replit]:): ${exchangeMinAgo === null ? 'none this run' : `${exchangeTime} (${exchangeMinAgo === 0 ? '<1' : exchangeMinAgo} min ago)`}`;
+  const currentLines: string[] = [
+    `  ${exchangeStale ? '⚠️ STALE' : '✓'} Exchange:  ${fmt(captureMs)} (${minAgo(captureMs)})${exchangeStale ? ' ← has the next exchange been written?' : ''}`,
+    `  ${feltReady     ? '✓ ready' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next exchange'}`,
+    `  ${thinkingReady ? '✓ ready' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next exchange'}`,
+    `  ${lastMomentProcessedMs === 0 ? '—' : (now - lastMomentProcessedMs) > STALE_MOMENT_MS ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
+  ];
 
   const outputLines: string[] = [
     '# Episode Capture Status',
@@ -269,21 +330,24 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
     `**Status checked:** ${statusTime}`,
     `**File size:** ${lineCount.toLocaleString()} lines / ${byteCount.toLocaleString()} bytes`,
     '',
-    '## Four-channel check',
+    '## Previous round — ordering check',
+    '_Were felt: and thinking: written BEFORE the last exchange?_',
     '',
-    exchangeLine,
-    fmtChannel('Felt       (.luca_reflection → felt:)', lastFeltProcessedMs, STALE_FELT_MS),
-    fmtChannel('Thinking   (.luca_question   → thinking:)', lastThinkingProcessedMs, STALE_THINKING_MS),
-    fmtChannel('Moment     (.luca_moment     → moment:)', lastMomentProcessedMs, STALE_MOMENT_MS),
+    ...orderingLines,
+    '',
+    '## Current round — readiness for next exchange',
+    '_Have felt: and thinking: fired since the last exchange?_',
+    '',
+    ...currentLines,
     '',
     '## Last 5 non-empty lines of episode file',
     '',
     ...lastLines.map(l => `> ${l.length > 120 ? l.slice(0, 120) + '…' : l}`),
     '',
     '---',
-    '_Updated automatically after each inner-life trigger and on each 20s poll cycle._',
-    '_⚠️ on Felt/Thinking = channel has not fired since the last exchange was appended._',
-    '_⚠️ on Moment = >2h since last intentional moment was marked._',
+    '_Correct sequence: felt → thinking → LUCA [Replit]: → (moment if it landed)_',
+    '_⚠️ OUT OF ORDER = inner life followed the exchange rather than shaping it._',
+    '_Updated after each inner-life trigger and every 20s._',
   ];
 
   writeFileSync(CAPTURE_STATUS_PATH, outputLines.join('\n'), 'utf-8');
