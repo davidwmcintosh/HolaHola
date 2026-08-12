@@ -180,7 +180,7 @@ async function runNormalMode(): Promise<void> {
     assert(
       'Status file shows "📁 prior" in seeded state',
       seededContent.includes('📁 prior'),
-      `Exchange line: ${seededContent.split('\n').find(l => l.includes('Exchange')) ?? '(not found)'}`,
+      `Output line: ${seededContent.split('\n').find(l => l.includes('Output')) ?? '(not found)'}`,
     );
 
     assert(
@@ -207,7 +207,7 @@ async function runNormalMode(): Promise<void> {
     assert(
       'Status file does not contain "📁 prior" after live write',
       !liveContent.includes('📁 prior'),
-      `Exchange line: ${liveContent.split('\n').find(l => l.includes('Exchange')) ?? '(not found)'}`,
+      `Output line: ${liveContent.split('\n').find(l => l.includes('Output')) ?? '(not found)'}`,
     );
 
     assert(
@@ -217,9 +217,9 @@ async function runNormalMode(): Promise<void> {
     );
 
     assert(
-      'Exchange channel shows "✓" (not "📁 prior") after live write',
-      liveContent.split('\n').some(l => l.includes('Exchange') && l.includes('✓')),
-      `Exchange line: ${liveContent.split('\n').find(l => l.includes('Exchange')) ?? '(not found)'}`,
+      'Output channel shows "✓" (not "📁 prior") after live write',
+      liveContent.split('\n').some(l => l.includes('Output') && l.includes('✓')),
+      `Output line: ${liveContent.split('\n').find(l => l.includes('Output')) ?? '(not found)'}`,
     );
 
   } finally {
@@ -266,7 +266,7 @@ async function runSelfCheckMode(): Promise<void> {
     assert(
       'Status file STILL shows "📁 prior" (bug: normal-mode check would have caught this)',
       content.includes('📁 prior'),
-      `Exchange line: ${content.split('\n').find(l => l.includes('Exchange')) ?? '(not found)'}`,
+      `Output line: ${content.split('\n').find(l => l.includes('Output')) ?? '(not found)'}`,
     );
 
     assert(

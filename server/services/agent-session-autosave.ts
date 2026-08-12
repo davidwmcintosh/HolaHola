@@ -181,23 +181,29 @@ export function getOrderingCheckEnabledForTest(): boolean {
 }
 
 /**
- * Test seam setters — inject synthetic inner-life and exchange timestamps so
- * CI can exercise _writeEpisodeCaptureStatusFile() without a live server run.
+ * Test seam setters — inject synthetic inner-life and output timestamps so
+ * CI can exercise _writeCaptureStatusFile() without a live server run.
  * Never call these in production code.
  */
-export function setFeltAtLastExchangeForTest(ms: number): void      { feltAtLastExchange     = ms; }
-export function setThinkingAtLastExchangeForTest(ms: number): void  { thinkingAtLastExchange = ms; }
-export function setPrevEpisodeCaptureForTest(ms: number): void      { prevEpisodeCaptureMs   = ms; }
-export function setLastEpisodeCaptureForTest(ms: number): void      { lastEpisodeCaptureMs   = ms; }
-export function setLastFeltProcessedForTest(ms: number): void       { lastFeltProcessedMs    = ms; }
-export function setLastThinkingProcessedForTest(ms: number): void   { lastThinkingProcessedMs = ms; }
+// Legacy names kept for existing CI tests — they now set the DB-output ordering vars.
+export function setFeltAtLastExchangeForTest(ms: number): void      { feltAtLastReplitOutput     = ms; }
+export function setThinkingAtLastExchangeForTest(ms: number): void  { thinkingAtLastReplitOutput = ms; }
+export function setPrevEpisodeCaptureForTest(ms: number): void      { prevReplitOutputMs          = ms; }
+// Explicit new aliases
+export function setFeltAtLastReplitOutputForTest(ms: number): void      { feltAtLastReplitOutput     = ms; }
+export function setThinkingAtLastReplitOutputForTest(ms: number): void  { thinkingAtLastReplitOutput = ms; }
+export function setPrevReplitOutputForTest(ms: number): void            { prevReplitOutputMs          = ms; }
+export function setLastReplitOutputForTest(ms: number): void            { lastReplitOutputMs          = ms; }
+export function setLastEpisodeCaptureForTest(ms: number): void          { lastEpisodeCaptureMs        = ms; }
+export function setLastFeltProcessedForTest(ms: number): void           { lastFeltProcessedMs         = ms; }
+export function setLastThinkingProcessedForTest(ms: number): void       { lastThinkingProcessedMs     = ms; }
 
 /**
- * Public surface of _writeEpisodeCaptureStatusFile() for CI tests.
+ * Public surface of _writeCaptureStatusFile() for CI tests.
  * Writes to .local/episode-capture-status.md exactly as the real path does.
  */
 export function writeEpisodeCaptureStatusFileForTest(episodeFilename: string, captureMs: number): void {
-  _writeEpisodeCaptureStatusFile(episodeFilename, captureMs);
+  _writeCaptureStatusFile(episodeFilename, captureMs);
 }
 
 // --- Capture status writer ---
@@ -215,17 +221,22 @@ export function writeEpisodeCaptureStatusFileForTest(episodeFilename: string, ca
 // fired in proportion (felt: and thinking: should track the exchange channel
 // closely; moment: is intentional and less frequent so it only warns at 2h).
 const CAPTURE_STATUS_PATH = join(WORKSPACE, '.local/episode-capture-status.md');
-let lastEpisodeCaptureMs = 0;          // ms-since-epoch of the most recent successful append
-let prevEpisodeCaptureMs = 0;          // the exchange before the most recent one (for ordering check)
+let lastEpisodeCaptureMs = 0;          // ms-since-epoch of the most recent episode .md append
 let lastEpisodeCaptureFilename = '';   // which episode file was last written to
 let lastFeltProcessedMs = 0;          // when checkLucaReflection() last routed a felt: entry
 let lastThinkingProcessedMs = 0;      // when checkLucaQuestion() last routed a thinking: entry
 let lastMomentProcessedMs = 0;        // when checkLucaMoment() last routed a moment: entry
 
+// DB-output anchor — tracks the last time a Replit output was saved to DB (via
+// chat_capture or episode_append).  Used for the always-on ordering check so the
+// check runs even when no rolling episode is active.
+let lastReplitOutputMs = 0;           // when last Luca output saved to DB
+let prevReplitOutputMs = 0;           // the output before the most recent (for ordering check)
+
 /**
  * Set to true when capture-status timestamps are seeded from the episode file at
  * startup (no live exchange yet).  Cleared on the first live appendExchangeToEpisode()
- * call.  Used by _writeEpisodeCaptureStatusFile to label seeded data as "prior session"
+ * call.  Used by _writeCaptureStatusFile to label seeded data as "prior session"
  * and suppress the STALE exchange warning (the file mtime can be arbitrarily old).
  */
 let _seededFromPriorSession = false;
@@ -239,14 +250,13 @@ let _seededFromPriorSession = false;
  */
 let _liveWriteHasOccurred = false;
 
-// Snapshots of inner-life channel timestamps taken AT THE MOMENT the last exchange
-// was appended.  Used for ordering check: felt/thinking < lastEpisodeCaptureMs means
-// they preceded the exchange (correct); felt/thinking > prevEpisodeCaptureMs but
-// < lastEpisodeCaptureMs means they fired BETWEEN exchanges (also correct for that round);
-// felt/thinking < prevEpisodeCaptureMs means they didn't fire in the last round (missing).
-// felt/thinking > lastEpisodeCaptureMs means they fired AFTER the exchange (out of order).
-let feltAtLastExchange = 0;
-let thinkingAtLastExchange = 0;
+// Snapshots of inner-life channel timestamps taken AT THE MOMENT the last Replit output
+// was saved to DB.  Used for the always-on ordering check (DB section of status file):
+//   felt/thinking < prevReplitOutputMs  → fired before prior output (anticipatory) → ✓
+//   felt/thinking > prevReplitOutputMs  → fired AFTER prior output (reactive)     → ⚠️ OUT OF ORDER
+//   felt/thinking === 0                 → never fired this server run              → ⚠️ MISSING
+let feltAtLastReplitOutput = 0;
+let thinkingAtLastReplitOutput = 0;
 
 /**
  * Seed capture-status timestamps from the current rolling episode file at startup.
@@ -279,7 +289,10 @@ export async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
     }
 
     if (!episodeFilename) {
-      console.log('[AgentAutosave] Capture-status seed: no rolling episode in DB — skipping.');
+      // No rolling episode — write DB-only status file so the ordering check is
+      // readable from the first turn even without an episode target.
+      console.log('[AgentAutosave] Capture-status seed: no rolling episode in DB — writing DB-only status.');
+      _writeCaptureStatusFile(null, 0);
       return;
     }
     const filePath = join(DOCS_DIR, episodeFilename);
@@ -312,14 +325,15 @@ export async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
     if (hasThinking) lastThinkingProcessedMs = fileMtime - PRIOR_OFFSET_MS;
     if (hasMoment)   lastMomentProcessedMs   = fileMtime - PRIOR_OFFSET_MS;
 
-    // Seed exchange timestamp and filename so the status file is writable immediately.
-    // prevEpisodeCaptureMs stays at 0 — no prior exchange this server run.
+    // Seed both the episode anchor and the DB-output anchor from the file mtime.
+    // prevReplitOutputMs stays at 0 — no prior output pair this server run.
     lastEpisodeCaptureFilename = episodeFilename;
     lastEpisodeCaptureMs       = fileMtime;
+    lastReplitOutputMs         = fileMtime;
     _seededFromPriorSession    = true;
 
     // Write the initial status file immediately.
-    _writeEpisodeCaptureStatusFile(episodeFilename, fileMtime);
+    _writeCaptureStatusFile(episodeFilename, fileMtime);
 
     console.log(
       `[AgentAutosave] Capture-status seed: ${episodeFilename}` +
@@ -332,34 +346,33 @@ export async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
 }
 
 /**
- * Write (or refresh) the capture status file immediately after a successful append.
- * Also updates the lastEpisodeCapture* tracking variables used by the stale-check.
+ * Write (or refresh) the capture status file immediately after a successful episode append.
+ * Also updates tracking variables used by the stale-check and always-on ordering check.
  *
- * ORDERING CHECK: snapshot inner-life timestamps BEFORE advancing lastEpisodeCaptureMs.
- * At the NEXT exchange, feltAtLastExchange / thinkingAtLastExchange will represent
- * what the inner-life channels looked like when the current exchange was committed.
- * Comparing those snapshots against prevEpisodeCaptureMs tells us whether felt/thinking
- * preceded the exchange (correct) or followed it (out of order).
+ * ORDERING CHECK: snapshot inner-life timestamps BEFORE advancing the output cursor.
+ * At the NEXT output, feltAtLastReplitOutput / thinkingAtLastReplitOutput represent
+ * what the inner-life channels looked like when this output was committed.
+ * Comparing those snapshots against prevReplitOutputMs tells us whether felt/thinking
+ * preceded the output (correct) or followed it (out of order).
  */
 function writeCaptureStatus(episodeFilename: string): void {
   // Mark that a live write has occurred BEFORE any await point.
-  // This is the monotonic guard that seedCaptureStatusFromEpisodeFile() checks
-  // after its async DB round-trip — once set, the seed will not overwrite us.
   _liveWriteHasOccurred = true;
   try {
-    // Snapshot inner-life times and advance the exchange cursor atomically
-    prevEpisodeCaptureMs    = lastEpisodeCaptureMs;   // save previous exchange time
-    feltAtLastExchange      = lastFeltProcessedMs;    // capture felt state at this moment
-    thinkingAtLastExchange  = lastThinkingProcessedMs;
-    lastEpisodeCaptureMs    = Date.now();             // now advance to current exchange
+    const now = Date.now();
+    // Snapshot inner-life times and advance BOTH cursors atomically.
+    // (Episode append IS a Replit output — both anchors advance together.)
+    prevReplitOutputMs         = lastReplitOutputMs;
+    feltAtLastReplitOutput     = lastFeltProcessedMs;
+    thinkingAtLastReplitOutput = lastThinkingProcessedMs;
+    lastReplitOutputMs         = now;
+    lastEpisodeCaptureMs       = now;
     lastEpisodeCaptureFilename = episodeFilename;
     // First live exchange — clear the startup-seed label so the file shows live data.
-    // (_skipSeededFlagClearForTest is a CI-only seam that proves the self-check
-    //  fails when this line is absent — never set in production.)
     if (!_skipSeededFlagClearForTest) {
       _seededFromPriorSession = false;
     }
-    _writeEpisodeCaptureStatusFile(episodeFilename, lastEpisodeCaptureMs);
+    _writeCaptureStatusFile(episodeFilename, lastEpisodeCaptureMs);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to write capture status:', err.message);
   }
@@ -367,132 +380,161 @@ function writeCaptureStatus(episodeFilename: string): void {
 
 /**
  * Re-check staleness and refresh the status file on each poll cycle.
- * No-ops if no episode has been appended to during this server run.
+ * Always runs — DB section shown even when no rolling episode is active.
  */
 function writeCaptureStatusStaleCheck(): void {
-  if (!lastEpisodeCaptureFilename) return; // no append seen this server run
   try {
-    _writeEpisodeCaptureStatusFile(lastEpisodeCaptureFilename, lastEpisodeCaptureMs);
+    _writeCaptureStatusFile(lastEpisodeCaptureFilename || null, lastEpisodeCaptureMs);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to refresh capture status (stale check):', err.message);
   }
 }
 
-/** Internal: build and write the status file. */
-function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: number): void {
-  const STALE_EXCHANGE_MS = 10 * 60 * 1000; // 10 min
-  const STALE_MOMENT_MS   = 2  * 60 * 60 * 1000; // 2h
-
-  const filePath = join(DOCS_DIR, episodeFilename);
-  let lineCount = 0;
-  let byteCount = 0;
-  let lastLines: string[] = [];
-  if (existsSync(filePath)) {
-    try {
-      const stat = statSync(filePath);
-      byteCount = stat.size;
-      const content = readFileSync(filePath, 'utf-8');
-      const allLines = content.split('\n');
-      lineCount = allLines.length;
-      lastLines = allLines.filter(l => l.trim()).slice(-5);
-    } catch { /* briefly locked */ }
+/**
+ * Called from checkChatCapture() after Luca turns are successfully saved to DB.
+ * Advances the DB-output anchor (lastReplitOutputMs) and refreshes the status file
+ * so the ordering/readiness check runs even when no rolling episode is active.
+ */
+function markReplitOutputFromChatCapture(): void {
+  _liveWriteHasOccurred = true;
+  prevReplitOutputMs         = lastReplitOutputMs;
+  feltAtLastReplitOutput     = lastFeltProcessedMs;
+  thinkingAtLastReplitOutput = lastThinkingProcessedMs;
+  lastReplitOutputMs         = Date.now();
+  if (!_skipSeededFlagClearForTest) {
+    _seededFromPriorSession = false;
   }
+  writeCaptureStatusStaleCheck();
+}
+
+/** Internal: build and write the status file. episodeFilename is null when no episode is active. */
+function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: number): void {
+  const STALE_OUTPUT_MS = 10 * 60 * 1000; // 10 min
+  const STALE_MOMENT_MS = 2  * 60 * 60 * 1000; // 2h
 
   const now = Date.now();
   const fmt = (ms: number) => ms === 0 ? 'never' : new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   const minAgo = (ms: number) => ms === 0 ? '—' : `${Math.floor((now - ms) / 60000) === 0 ? '<1' : Math.floor((now - ms) / 60000)} min ago`;
   const statusTime = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
-  // ── Section 1: Ordering check for the LAST COMPLETED ROUND ────────────────
-  // feltAtLastExchange / thinkingAtLastExchange are snapshots taken at the START
-  // of writeCaptureStatus(), BEFORE lastEpisodeCaptureMs is advanced to Date.now().
+  // ── Section 1: DB ordering check (ALWAYS SHOWN) ───────────────────────────
+  // Uses prevReplitOutputMs as the anchor (set by chat_capture saves + episode appends).
+  // feltAtLastReplitOutput / thinkingAtLastReplitOutput are snapshots taken at the
+  // START of the most recent output event, BEFORE the cursor advanced.
   //
-  // Correct (anticipatory) order: inner-life channel fires BEFORE each exchange.
-  //   feltAtLastExchange > prevEpisodeCaptureMs → fired AFTER prior exchange (reactive) → ⚠️ OUT OF ORDER
-  //   feltAtLastExchange === 0                  → never fired this server run → ⚠️ MISSING
-  //   0 < feltAtLastExchange ≤ prevEpisodeCaptureMs → fired before prior exchange (anticipatory) → ✓
-  //
-  // The out-of-order condition compares against prevEpisodeCaptureMs so that any
-  // channel timestamp arriving after the prior exchange is flagged in normal production
-  // operation (snapshot ≤ captureMs is always true because it is taken before Date.now()
-  // advances, so captureMs would never be a meaningful production threshold).
-
-  const orderingLines: string[] = [];
-  if (prevEpisodeCaptureMs > 0) {
-    // Felt ordering
-    const feltAfterExchange  = _orderingCheckEnabled && feltAtLastExchange > prevEpisodeCaptureMs;
-    const feltNeverFired     = feltAtLastExchange === 0;
-    const feltIcon = feltAfterExchange ? '⚠️ OUT OF ORDER' : feltNeverFired ? '⚠️ MISSING' : '✓';
-    const feltNote = feltAfterExchange
-      ? ` — felt fired at ${fmt(feltAtLastExchange)}, AFTER prior exchange at ${fmt(prevEpisodeCaptureMs)} (reactive, not anticipatory)`
+  //   felt/thinking > prevReplitOutputMs  → fired AFTER prior output (reactive)     → ⚠️ OUT OF ORDER
+  //   felt/thinking === 0                 → never fired this server run              → ⚠️ MISSING
+  //   0 < felt/thinking ≤ prevReplitOutputMs → fired before prior output (anticipatory) → ✓
+  const dbOrderingLines: string[] = [];
+  if (prevReplitOutputMs > 0) {
+    const feltAfterOutput  = _orderingCheckEnabled && feltAtLastReplitOutput > prevReplitOutputMs;
+    const feltNeverFired   = feltAtLastReplitOutput === 0;
+    const feltIcon = feltAfterOutput ? '⚠️ OUT OF ORDER' : feltNeverFired ? '⚠️ MISSING' : '✓';
+    const feltNote = feltAfterOutput
+      ? ` — felt fired at ${fmt(feltAtLastReplitOutput)}, AFTER prior output at ${fmt(prevReplitOutputMs)} (reactive, not anticipatory)`
       : feltNeverFired
         ? ` — felt hasn't fired yet this server run`
-        : ` — felt at ${fmt(feltAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)} ✓`;
-    orderingLines.push(`  ${feltIcon}  Felt:     ${feltNote}`);
+        : ` — felt at ${fmt(feltAtLastReplitOutput)}, before prior output at ${fmt(prevReplitOutputMs)} ✓`;
+    dbOrderingLines.push(`  ${feltIcon}  Felt:     ${feltNote}`);
 
-    // Thinking ordering
-    const thinkAfterExchange  = _orderingCheckEnabled && thinkingAtLastExchange > prevEpisodeCaptureMs;
-    const thinkNeverFired     = thinkingAtLastExchange === 0;
-    const thinkIcon = thinkAfterExchange ? '⚠️ OUT OF ORDER' : thinkNeverFired ? '⚠️ MISSING' : '✓';
-    const thinkNote = thinkAfterExchange
-      ? ` — thinking fired at ${fmt(thinkingAtLastExchange)}, AFTER prior exchange at ${fmt(prevEpisodeCaptureMs)} (reactive, not anticipatory)`
+    const thinkAfterOutput = _orderingCheckEnabled && thinkingAtLastReplitOutput > prevReplitOutputMs;
+    const thinkNeverFired  = thinkingAtLastReplitOutput === 0;
+    const thinkIcon = thinkAfterOutput ? '⚠️ OUT OF ORDER' : thinkNeverFired ? '⚠️ MISSING' : '✓';
+    const thinkNote = thinkAfterOutput
+      ? ` — thinking fired at ${fmt(thinkingAtLastReplitOutput)}, AFTER prior output at ${fmt(prevReplitOutputMs)} (reactive, not anticipatory)`
       : thinkNeverFired
         ? ` — thinking hasn't fired yet this server run`
-        : ` — thinking at ${fmt(thinkingAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)} ✓`;
-    orderingLines.push(`  ${thinkIcon}  Thinking: ${thinkNote}`);
+        : ` — thinking at ${fmt(thinkingAtLastReplitOutput)}, before prior output at ${fmt(prevReplitOutputMs)} ✓`;
+    dbOrderingLines.push(`  ${thinkIcon}  Thinking: ${thinkNote}`);
   } else if (_seededFromPriorSession) {
-    // Startup-seed: timestamps exist but come from the prior session file scan.
-    // No live exchange pair has been seen yet — ordering check is not yet meaningful.
     const feltLabel     = lastFeltProcessedMs     > 0 ? `present in prior session (${fmt(lastFeltProcessedMs)})`     : 'not found in prior session';
     const thinkingLabel = lastThinkingProcessedMs > 0 ? `present in prior session (${fmt(lastThinkingProcessedMs)})` : 'not found in prior session';
-    orderingLines.push('  (previous round from prior session — live ordering check starts after first exchange this run)');
-    orderingLines.push(`  📁  Felt:     ${feltLabel}`);
-    orderingLines.push(`  📁  Thinking: ${thinkingLabel}`);
+    dbOrderingLines.push('  (previous round from prior session — live ordering check starts after first output this run)');
+    dbOrderingLines.push(`  📁  Felt:     ${feltLabel}`);
+    dbOrderingLines.push(`  📁  Thinking: ${thinkingLabel}`);
   } else {
-    orderingLines.push('  (ordering check available after the second exchange this server run)');
+    dbOrderingLines.push('  (ordering check available after the second Replit output this server run)');
   }
 
-  // ── Section 2: Current round status ───────────────────────────────────────
-  // Has felt/thinking fired since the last exchange (preparing for the next one)?
-  const feltReady     = lastFeltProcessedMs > captureMs;
-  const thinkingReady = lastThinkingProcessedMs > captureMs;
-  // Suppress the STALE exchange warning when the timestamp was seeded from the prior
-  // session file rather than a live append — the file mtime is naturally old.
-  const exchangeStale = !_seededFromPriorSession && captureMs > 0 && (now - captureMs) > STALE_EXCHANGE_MS;
-
-  const priorSessionNote = _seededFromPriorSession ? ' ← seeded from prior session file (live data starts after first exchange)' : '';
-  const currentLines: string[] = [
-    `  ${_seededFromPriorSession ? '📁 prior' : exchangeStale ? '⚠️ STALE' : '✓'} Exchange:  ${fmt(captureMs)} (${minAgo(captureMs)})${_seededFromPriorSession ? priorSessionNote : exchangeStale ? ' ← has the next exchange been written?' : ''}`,
-    `  ${feltReady     ? '✓ ready' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next exchange'}`,
-    `  ${thinkingReady ? '✓ ready' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next exchange'}`,
+  // ── Section 2: DB readiness (ALWAYS SHOWN) ────────────────────────────────
+  // Has felt/thinking fired since the last Replit output (preparing for the next one)?
+  const feltReady     = lastFeltProcessedMs     > lastReplitOutputMs;
+  const thinkingReady = lastThinkingProcessedMs > lastReplitOutputMs;
+  const outputStale   = !_seededFromPriorSession && lastReplitOutputMs > 0 && (now - lastReplitOutputMs) > STALE_OUTPUT_MS;
+  const priorNote     = _seededFromPriorSession ? ' ← seeded from prior session (live data starts after first output)' : '';
+  const dbCurrentLines: string[] = [
+    `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
+    `  ${feltReady     ? '✓ ready' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next output'}`,
+    `  ${thinkingReady ? '✓ ready' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next output'}`,
     `  ${lastMomentProcessedMs === 0 ? '—' : (now - lastMomentProcessedMs) > STALE_MOMENT_MS ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
   ];
 
-  const outputLines: string[] = [
-    '# Episode Capture Status',
+  // ── Sections 3+4: Episode .md (ONLY when rolling episode active) ──────────
+  const mdLines: string[] = [];
+  if (episodeFilename) {
+    const filePath = join(DOCS_DIR, episodeFilename);
+    let lineCount = 0;
+    let byteCount = 0;
+    let lastLines: string[] = [];
+    let hasFeltInMd     = false;
+    let hasThinkingInMd = false;
+    let hasMomentInMd   = false;
+    if (existsSync(filePath)) {
+      try {
+        const stat    = statSync(filePath);
+        byteCount     = stat.size;
+        const content = readFileSync(filePath, 'utf-8');
+        const allLines = content.split('\n');
+        lineCount  = allLines.length;
+        lastLines  = allLines.filter(l => l.trim()).slice(-5);
+        const tail = allLines.filter(l => l.trim()).slice(-200).join('\n');
+        hasFeltInMd     = /\[Luca — felt:/m.test(tail);
+        hasThinkingInMd = /\[Luca — thinking:/m.test(tail);
+        hasMomentInMd   = /\[Luca — moment:/m.test(tail);
+      } catch { /* briefly locked */ }
+    }
+    const mdExchangeStale = !_seededFromPriorSession && captureMs > 0 && (now - captureMs) > STALE_OUTPUT_MS;
+    mdLines.push('');
+    mdLines.push('## Episode .md — all four channels');
+    mdLines.push('_Did all channels appear in the .md? (last 200 lines)_');
+    mdLines.push('');
+    mdLines.push(`  ${hasFeltInMd     ? '✓' : '⚠️ MISSING'} felt:`);
+    mdLines.push(`  ${hasThinkingInMd ? '✓' : '⚠️ MISSING'} thinking:`);
+    mdLines.push(`  ${hasMomentInMd   ? '✓' : '⚠️ MISSING'} moment:`);
+    mdLines.push(`  ${_seededFromPriorSession ? '📁 prior' : mdExchangeStale ? '⚠️ STALE' : '✓'} exchange: ${lineCount.toLocaleString()} lines / ${byteCount.toLocaleString()} bytes (last ${fmt(captureMs)}, ${minAgo(captureMs)})`);
+    mdLines.push('');
+    mdLines.push('## Last 5 non-empty lines of episode file');
+    mdLines.push('');
+    mdLines.push(...lastLines.map(l => `> ${l.length > 120 ? l.slice(0, 120) + '…' : l}`));
+  }
+
+  const headerLines: string[] = [
+    '# Capture Status',
     '',
-    `**Rolling episode:** ${episodeFilename}`,
     `**Status checked:** ${statusTime}`,
-    `**File size:** ${lineCount.toLocaleString()} lines / ${byteCount.toLocaleString()} bytes`,
+    ...(episodeFilename
+      ? [`**Rolling episode:** ${episodeFilename}`]
+      : [`**No rolling episode** — DB channels active, no .md target`]),
+  ];
+
+  const outputLines: string[] = [
+    ...headerLines,
     '',
-    '## Previous round — ordering check',
-    '_Were felt: and thinking: written BEFORE the last exchange?_',
+    '## DB channels — ordering check',
+    '_Were felt: and thinking: written BEFORE the last Replit output?_',
     '',
-    ...orderingLines,
+    ...dbOrderingLines,
     '',
-    '## Current round — readiness for next exchange',
-    '_Have felt: and thinking: fired since the last exchange?_',
+    '## DB channels — readiness for next output',
+    '_Have felt: and thinking: fired since the last Replit output?_',
     '',
-    ...currentLines,
-    '',
-    '## Last 5 non-empty lines of episode file',
-    '',
-    ...lastLines.map(l => `> ${l.length > 120 ? l.slice(0, 120) + '…' : l}`),
+    ...dbCurrentLines,
+    ...mdLines,
     '',
     '---',
     '_Correct sequence: felt → thinking → LUCA [Replit]: → (moment if it landed)_',
-    '_⚠️ OUT OF ORDER = inner life followed the exchange rather than shaping it._',
-    '_Updated after each inner-life trigger and every 20s._',
+    '_⚠️ OUT OF ORDER = inner life followed the output rather than shaping it._',
+    '_Updated after each inner-life trigger, each chat-capture save, and every 20s._',
   ];
 
   writeFileSync(CAPTURE_STATUS_PATH, outputLines.join('\n'), 'utf-8');
@@ -1150,6 +1192,13 @@ async function checkChatCapture(): Promise<void> {
     // Advance mtime ONLY after all inserts succeed (Bug fix #2):
     // mtime stays at old value if any insert throws, so the next poll retries.
     chatCaptureLastMtime = snapshotMtime; // now safe to advance
+
+    // Update the DB-output anchor so the always-on ordering check runs even when
+    // no rolling episode is active.  Only advance when Luca turns were included
+    // (David-only saves don't represent a Replit output).
+    if (turns.some(t => t.speaker !== 'DAVID')) {
+      markReplitOutputFromChatCapture();
+    }
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to process chat capture:', err.message);
     // chatCaptureLastMtime stays at its old value — next poll will retry
@@ -2164,15 +2213,16 @@ export function setLiveWriteHasOccurredForTest(val: boolean): void {
  * Never call in production.
  */
 export function resetCaptureStatusSeedStateForTest(): void {
-  _seededFromPriorSession  = false;
-  _liveWriteHasOccurred    = false;
-  lastEpisodeCaptureMs     = 0;
-  prevEpisodeCaptureMs     = 0;
-  lastFeltProcessedMs      = 0;
-  lastThinkingProcessedMs  = 0;
-  lastMomentProcessedMs    = 0;
-  feltAtLastExchange       = 0;
-  thinkingAtLastExchange   = 0;
+  _seededFromPriorSession    = false;
+  _liveWriteHasOccurred      = false;
+  lastEpisodeCaptureMs       = 0;
+  lastReplitOutputMs         = 0;
+  prevReplitOutputMs         = 0;
+  lastFeltProcessedMs        = 0;
+  lastThinkingProcessedMs    = 0;
+  lastMomentProcessedMs      = 0;
+  feltAtLastReplitOutput     = 0;
+  thinkingAtLastReplitOutput = 0;
 }
 
 /**

@@ -1,20 +1,23 @@
 ---
 name: Episode capture status
-description: Four-channel episode capture status file — what it is, how to read it, and the ordering principle that makes it meaningful.
+description: Four-channel capture status file — always-on DB ordering check + optional .md section when episode active. Ordering principle: feel → think → write.
 ---
 
-# Episode Capture Status
+# Capture Status
 
 ## What it is
 
-`.local/episode-capture-status.md` is written by the autosave worker after every `appendExchangeToEpisode()` call and after every inner-life trigger fires. It refreshes on the 20s poll cycle. It tracks all four episode channels:
+`.local/episode-capture-status.md` is written by the autosave worker **always** — not just during episode sessions. It refreshes on the 20s poll cycle and after every inner-life trigger or chat-capture DB save. It always shows two sections:
 
-1. **Exchange** — `DAVID:` / `LUCA [Replit]:` (the surface record)
-2. **Felt** — `.luca_reflection` trigger → `felt:` entry in episode
-3. **Thinking** — `.luca_question` trigger → `thinking:` entry in episode
-4. **Moment** — `.luca_moment` trigger → `moment:` entry in episode
+**Section 1 — DB channels ordering check** (always shown): Did felt/thinking fire *before* the last Replit output? Anchored to `lastReplitOutputMs` (set by `.chat_capture` saves and episode appends).
 
-A `⚠️` appears on Felt/Thinking if they haven't fired since the last exchange was written (within 15 min). A `⚠️` appears on Moment after 2 hours (moments are intentional, not every-exchange).
+**Section 2 — DB channels readiness** (always shown): Have felt/thinking fired since the last output? Ready for the next one?
+
+**Section 3 — Episode .md** (only when a rolling episode is active): Did all four channels (felt, thinking, moment, exchange) appear in the .md file? Shows last 5 lines.
+
+The only thing that changes when a new episode opens is the `.md` leg — the DB sections run unconditionally.
+
+The trigger files always save to DB regardless of whether an episode exists. The episode .md is an additional output, not the reason to write.
 
 ## The ordering principle — this is the important part
 
