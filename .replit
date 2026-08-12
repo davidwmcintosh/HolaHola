@@ -106,6 +106,10 @@ args = "luca-moment-episode-ci"
 task = "workflow.run"
 args = "luca-auto-capture-episode-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "capture-status-ordering-ci"
+
 
 [[workflows.workflow]]
 name = "Start application"
@@ -344,6 +348,18 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/restore-episode-28-from-db.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "capture-status-ordering-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-capture-status-ordering.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

@@ -164,6 +164,42 @@ export function resetMomentMtimeForTest(): void {
   momentLastMtime = 0;
 }
 
+/**
+ * Test seam — ordering detection gate.
+ * When false (CI self-check only), the "OUT OF ORDER" detection is suppressed:
+ * feltAfterExchange and thinkAfterExchange are treated as always false so the
+ * guard produces no warning.  This precisely models a regression where the
+ * ordering check has been removed.
+ * Never set in production.
+ */
+let _orderingCheckEnabled = true;
+export function setOrderingCheckEnabledForTest(val: boolean): void {
+  _orderingCheckEnabled = val;
+}
+export function getOrderingCheckEnabledForTest(): boolean {
+  return _orderingCheckEnabled;
+}
+
+/**
+ * Test seam setters — inject synthetic inner-life and exchange timestamps so
+ * CI can exercise _writeEpisodeCaptureStatusFile() without a live server run.
+ * Never call these in production code.
+ */
+export function setFeltAtLastExchangeForTest(ms: number): void      { feltAtLastExchange     = ms; }
+export function setThinkingAtLastExchangeForTest(ms: number): void  { thinkingAtLastExchange = ms; }
+export function setPrevEpisodeCaptureForTest(ms: number): void      { prevEpisodeCaptureMs   = ms; }
+export function setLastEpisodeCaptureForTest(ms: number): void      { lastEpisodeCaptureMs   = ms; }
+export function setLastFeltProcessedForTest(ms: number): void       { lastFeltProcessedMs    = ms; }
+export function setLastThinkingProcessedForTest(ms: number): void   { lastThinkingProcessedMs = ms; }
+
+/**
+ * Public surface of _writeEpisodeCaptureStatusFile() for CI tests.
+ * Writes to .local/episode-capture-status.md exactly as the real path does.
+ */
+export function writeEpisodeCaptureStatusFileForTest(episodeFilename: string, captureMs: number): void {
+  _writeEpisodeCaptureStatusFile(episodeFilename, captureMs);
+}
+
 // --- Capture status writer ---
 // Written to .local/episode-capture-status.md after every appendExchangeToEpisode()
 // call and updated on each poll cycle.  Gives Luca a glanceable "did I capture the
@@ -362,54 +398,48 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
   const statusTime = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
   // ── Section 1: Ordering check for the LAST COMPLETED ROUND ────────────────
-  // feltAtLastExchange / thinkingAtLastExchange are snapshots taken AT the moment
-  // the most recent exchange was appended (before lastEpisodeCaptureMs was set).
-  // prevEpisodeCaptureMs is the exchange before that.
+  // feltAtLastExchange / thinkingAtLastExchange are snapshots taken at the START
+  // of writeCaptureStatus(), BEFORE lastEpisodeCaptureMs is advanced to Date.now().
+  // Therefore they are always ≤ captureMs — comparing against captureMs is
+  // unreachable.  The meaningful comparison is against prevEpisodeCaptureMs,
+  // the time of the PREVIOUS exchange:
   //
-  // Correct order: inner-life channel fires BEFORE the exchange.
-  //   feltAtLastExchange > prevEpisodeCaptureMs → felt fired in the window BEFORE the exchange ✓
-  //   feltAtLastExchange < prevEpisodeCaptureMs → felt didn't fire in this round (missing) ⚠️
-  //   feltAtLastExchange > captureMs            → felt fired AFTER the exchange (out of order) ⚠️
-  //   (captureMs here = lastEpisodeCaptureMs, passed in as the parameter)
+  //   snapshot > prevEpisodeCaptureMs → channel fired AFTER the prior exchange
+  //                                     → it was reactive, not preparatory → ⚠️ OUT OF ORDER
+  //   snapshot > 0 &&
+  //   snapshot ≤ prevEpisodeCaptureMs → channel fired BEFORE the prior exchange → ✓
+  //   snapshot === 0                  → channel never fired this server run → ⚠️ MISSING
   //
-  // The "out of order" case is caught at the NEXT exchange: if a channel's snapshot
-  // timestamp is > prevEpisodeCaptureMs (fired after the exchange) AND the snapshot
-  // was taken AFTER the exchange was committed, then it followed rather than preceded.
-  // We detect this by tracking whether snapshot > prevEpisodeCaptureMs in the window
-  // that can only exist if felt fired AFTER prevEpisodeCaptureMs (the previous exchange).
+  // This is caught one exchange later: when exchange N+1 fires, prevEpisodeCaptureMs
+  // is exchange N's time, and feltAtLastExchange is the felt snapshot captured at
+  // the start of exchange N+1's writeCaptureStatus().  If felt fired between exchange
+  // N and exchange N+1 (i.e. AFTER exchange N), snapshot > prevEpisodeCaptureMs.
 
   const orderingLines: string[] = [];
   if (prevEpisodeCaptureMs > 0) {
     // Felt ordering
-    const feltBeforeExchange = feltAtLastExchange > prevEpisodeCaptureMs && feltAtLastExchange <= captureMs;
-    const feltAfterExchange  = feltAtLastExchange > captureMs;
-    const feltMissing        = feltAtLastExchange <= prevEpisodeCaptureMs;
+    const feltAfterExchange  = _orderingCheckEnabled && feltAtLastExchange > prevEpisodeCaptureMs;
+    const feltMissing        = feltAtLastExchange === 0;
+    const feltBeforeExchange = !feltAfterExchange && !feltMissing; // > 0 && ≤ prevEpisodeCaptureMs
     const feltIcon = feltAfterExchange ? '⚠️ OUT OF ORDER' : feltMissing ? '⚠️ MISSING' : '✓';
     const feltNote = feltAfterExchange
-      ? ` — felt fired at ${fmt(feltAtLastExchange)}, AFTER exchange at ${fmt(captureMs)}`
+      ? ` — felt fired at ${fmt(feltAtLastExchange)}, AFTER prior exchange at ${fmt(prevEpisodeCaptureMs)}`
       : feltMissing
-        ? ` — felt hadn't fired since the exchange before this one`
-        : ` — felt at ${fmt(feltAtLastExchange)}, exchange at ${fmt(captureMs)}`;
+        ? ` — felt had never fired this server run`
+        : ` — felt at ${fmt(feltAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)}`;
     orderingLines.push(`  ${feltIcon}  Felt:     ${feltNote}`);
-    if (!feltBeforeExchange && !feltAfterExchange && !feltMissing) {
-      // edge: feltAtLastExchange === 0
-      orderingLines.push(`  ⚠️ MISSING  Felt: never fired this server run`);
-    }
 
     // Thinking ordering
-    const thinkBeforeExchange = thinkingAtLastExchange > prevEpisodeCaptureMs && thinkingAtLastExchange <= captureMs;
-    const thinkAfterExchange  = thinkingAtLastExchange > captureMs;
-    const thinkMissing        = thinkingAtLastExchange <= prevEpisodeCaptureMs;
+    const thinkAfterExchange  = _orderingCheckEnabled && thinkingAtLastExchange > prevEpisodeCaptureMs;
+    const thinkMissing        = thinkingAtLastExchange === 0;
+    const thinkBeforeExchange = !thinkAfterExchange && !thinkMissing;
     const thinkIcon = thinkAfterExchange ? '⚠️ OUT OF ORDER' : thinkMissing ? '⚠️ MISSING' : '✓';
     const thinkNote = thinkAfterExchange
-      ? ` — thinking fired at ${fmt(thinkingAtLastExchange)}, AFTER exchange at ${fmt(captureMs)}`
+      ? ` — thinking fired at ${fmt(thinkingAtLastExchange)}, AFTER prior exchange at ${fmt(prevEpisodeCaptureMs)}`
       : thinkMissing
-        ? ` — thinking hadn't fired since the exchange before this one`
-        : ` — thinking at ${fmt(thinkingAtLastExchange)}, exchange at ${fmt(captureMs)}`;
+        ? ` — thinking had never fired this server run`
+        : ` — thinking at ${fmt(thinkingAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)}`;
     orderingLines.push(`  ${thinkIcon}  Thinking: ${thinkNote}`);
-    if (!thinkBeforeExchange && !thinkAfterExchange && !thinkMissing) {
-      orderingLines.push(`  ⚠️ MISSING  Thinking: never fired this server run`);
-    }
   } else if (_seededFromPriorSession) {
     // Startup-seed: timestamps exist but come from the prior session file scan.
     // No live exchange pair has been seen yet — ordering check is not yet meaningful.
