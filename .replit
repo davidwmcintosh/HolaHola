@@ -62,6 +62,10 @@ externalPort = 3002
     task = "workflow.run"
     args = "episode-28-snapshot-write-guard-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "episode-28-startup-shrinkage-selfcheck"
+
 
     [[workflows.workflow]]
     name = "Start application"
