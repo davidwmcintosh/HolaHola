@@ -208,7 +208,8 @@ async function main() {
       (event_data->>'resultCount')::int        AS result_count,
       (event_data->>'durationMs')::int         AS duration_ms,
       event_data->'domains'                    AS domains_json,
-      event_data->>'conversationId'            AS conversation_id
+      event_data->>'conversationId'            AS conversation_id,
+      event_data->>'source'                    AS source
     FROM voice_pipeline_events
     WHERE event_type = 'gl_student_memory_search'
       AND session_id = ${sessionId}
@@ -475,12 +476,13 @@ async function main() {
         const hits = Number(p.result_count ?? 0);
         const dur  = p.duration_ms ? `${p.duration_ms}ms` : '?ms';
         const hitsLabel = hits === 0 ? R('0 results ⚠') : G(`${hits} results`);
+        const srcLabel = (p.source as string) || 'student_memory';
         let domainsStr = '';
         try {
           const d = typeof p.domains_json === 'string' ? JSON.parse(p.domains_json) : p.domains_json;
           if (Array.isArray(d) && d.length > 0) domainsStr = (d as string[]).join(', ');
         } catch { /* ignore */ }
-        console.log(`${tsLabel} ${C('👤 STU-MEM')}    ${turnLabel}`);
+        console.log(`${tsLabel} ${C('👤 STU-MEM')}    ${turnLabel}  ${DIM(`source:${srcLabel}`)}`);
         console.log(`           query:   ${Y(trunc(p.query as string, 200))}`);
         if (domainsStr) console.log(`           domains: ${domainsStr}`);
         console.log(`           ${hitsLabel}  ${DIM(dur)}`);
@@ -593,12 +595,13 @@ async function main() {
     (studentMemoryRows as any[]).forEach((r: any, i: number) => {
       const hits = Number(r.result_count ?? 0);
       const label = hits === 0 ? R('⚠  0 results — MISS') : G(`${hits} results`);
+      const srcLabel = (r.source as string) || 'student_memory';
       let domainsStr = '';
       try {
         const d = typeof r.domains_json === 'string' ? JSON.parse(r.domains_json) : r.domains_json;
         if (Array.isArray(d) && d.length > 0) domainsStr = `  domains: ${(d as string[]).join(', ')}`;
       } catch { /* ignore */ }
-      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${r.duration_ms ?? '?'}ms${domainsStr}`);
+      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${r.duration_ms ?? '?'}ms  source:${srcLabel}${domainsStr}`);
       console.log(`      query: ${Y(trunc(r.query as string, 180))}`);
     });
   }
@@ -744,10 +747,19 @@ async function main() {
     issues.push(R(`${zeroHitSearches.length} teaching-domain search(es) returned 0 results — Daniela got nothing back from the neural net.`));
   }
 
-  const zeroHitStudentSearches = (studentMemoryRows as any[]).filter(r => Number(r.result_count ?? 0) === 0);
-  if (zeroHitStudentSearches.length > 0) {
-    const queries = zeroHitStudentSearches.map((r: any) => `"${trunc(r.query as string, 60)}"`).join(', ');
-    issues.push(R(`${zeroHitStudentSearches.length} student-memory search(es) returned 0 results — Daniela asked about the student but got nothing back: ${queries}`));
+  // Break out zero-result student-memory misses per source so unified_recall and
+  // search_learner_history misses are identified separately in the diagnosis section.
+  const zeroHitStudentBySource = new Map<string, any[]>();
+  for (const r of studentMemoryRows as any[]) {
+    if (Number(r.result_count ?? 0) === 0) {
+      const src = (r.source as string) || 'student_memory';
+      if (!zeroHitStudentBySource.has(src)) zeroHitStudentBySource.set(src, []);
+      zeroHitStudentBySource.get(src)!.push(r);
+    }
+  }
+  for (const [src, rows] of zeroHitStudentBySource) {
+    const queries = rows.map((r: any) => `"${trunc(r.query as string, 60)}"`).join(', ');
+    issues.push(R(`${rows.length} ${src} search(es) returned 0 results — Daniela asked about the student but got nothing back: ${queries}`));
   }
 
   const missedFires = (guardianRows as any[]).filter(r => r.gf_outcome === 'missed');
