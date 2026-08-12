@@ -9312,10 +9312,28 @@ export class NativeFunctionCallHandler {
       (async () => {
         try {
           const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+          const urArm1Start = Date.now();
           const result = await Promise.race([
             searchMemory(studentId, query, undefined, session.targetLanguage || undefined),
             new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),
           ]);
+          const urArm1DurationMs = Date.now() - urArm1Start;
+          // Telemetry — log this student-memory search so zero-result misses are visible
+          // in the truth-pipeline report alongside memory_lookup misses.
+          const urArm1SessionId = (session as any).dbSessionId ?? session.id ?? null;
+          const urArm1UserId = studentId ? String(studentId) : null;
+          const urArm1Payload = JSON.stringify({
+            source: 'unified_recall',
+            query,
+            resultCount: result.results.length,
+            durationMs: urArm1DurationMs,
+            domains: [],
+            conversationId: (session as any).conversationId ?? null,
+          });
+          getSharedDb().execute(sql`
+            INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+            VALUES (gen_random_uuid(), ${urArm1SessionId}, ${urArm1UserId}, 'gl_student_memory_search', ${urArm1Payload}::jsonb, NOW())
+          `).catch(() => {});
           return result.results.length > 0 ? formatMemoryForConversation(result) : null;
         } catch (err: any) {
           console.warn(`[UnifiedRecall] Structured arm failed: ${err.message}`);
@@ -9753,7 +9771,25 @@ export class NativeFunctionCallHandler {
         if (topTerms.length >= 2) {
           const associativeQuery = topTerms.join(' ');
           const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+          const assocStart = Date.now();
           const assocResult = await searchMemory(studentId, associativeQuery, undefined, session.targetLanguage || undefined);
+          const assocDurationMs = Date.now() - assocStart;
+          // Telemetry — log this associative-chaining student-memory search so zero-result
+          // misses are visible in the truth-pipeline report (source: 'search_learner_history').
+          const assocSessionId = (session as any).dbSessionId ?? session.id ?? null;
+          const assocUserId = studentId ? String(studentId) : null;
+          const assocPayload = JSON.stringify({
+            source: 'search_learner_history',
+            query: associativeQuery,
+            resultCount: assocResult.results.length,
+            durationMs: assocDurationMs,
+            domains: [],
+            conversationId: (session as any).conversationId ?? null,
+          });
+          getSharedDb().execute(sql`
+            INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+            VALUES (gen_random_uuid(), ${assocSessionId}, ${assocUserId}, 'gl_student_memory_search', ${assocPayload}::jsonb, NOW())
+          `).catch(() => {});
           if (assocResult.results.length > 0) {
             const assocText = formatMemoryForConversation(assocResult);
             // Only add if not largely duplicating structured arm
