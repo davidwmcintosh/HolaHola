@@ -46,8 +46,9 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const sep = () => console.log('\n' + '─'.repeat(72));
 
-const PATCH   = process.argv.includes('--patch');
-const VERBOSE = process.argv.includes('--verbose');
+const PATCH      = process.argv.includes('--patch');
+const VERBOSE    = process.argv.includes('--verbose');
+const SELF_CHECK = process.argv.includes('--self-check');
 
 const MD_PATH = join(process.cwd(), 'docs', 'episode-28.md');
 
@@ -118,6 +119,156 @@ function isInMd(text: string, mdNorm: string, len = 60): boolean {
   const key = matchKey(text, len);
   if (!key) return true; // empty turn — skip
   return mdNorm.includes(key);
+}
+
+// ── Self-check ────────────────────────────────────────────────────────────────
+//
+// Verifies the gap detector has teeth:
+//   1. Reads .md and queries DB for real rows in the episode-28 window.
+//   2. Finds a row whose turns ARE all present in the .md (a "known present" row).
+//   3. Strips that row's first-turn match key from mdNorm *in memory* (no disk writes).
+//   4. Runs isInMd() with the mutated content — asserts ≥1 gap is now detected.
+//   5. Confirms the .md file on disk is untouched.
+//   6. Confirms the exchange IS present in the original mdNorm (baseline sanity).
+//   7. Falls back to a pure synthetic in-memory check if DB has no present rows
+//      (e.g. all rows were CI rows, or no rows in the window yet).
+
+async function runSelfCheck() {
+  sep();
+  console.log(B('SELF-CHECK MODE — verifying the gap detector has teeth (in-memory only)'));
+  sep();
+
+  let scPassed = 0;
+  let scFailed = 0;
+
+  function scAssert(label: string, ok: boolean, detail?: string) {
+    if (ok) { console.log(`  ${G('✓')} ${label}`); scPassed++; }
+    else     { console.log(`  ${R('✗')} ${label}${detail ? `\n       ${detail}` : ''}`); scFailed++; }
+  }
+
+  // 1. Read .md ─────────────────────────────────────────────────────────────
+  if (!existsSync(MD_PATH)) {
+    console.error(R('FATAL: docs/episode-28.md not found'));
+    process.exit(1);
+  }
+  const mdRaw = readFileSync(MD_PATH, 'utf-8');
+  const mdNorm = norm(mdRaw);
+  console.log(Y(`  ℹ  Read docs/episode-28.md — ${mdRaw.length} bytes`));
+
+  // 2. Query DB ─────────────────────────────────────────────────────────────
+  const sql = neon(process.env.DATABASE_URL!);
+  const START = '2026-08-09T22:00:00Z';
+  const END   = '2026-08-12T06:00:00Z';
+
+  console.log(Y('  ℹ  Querying DB for per-turn chat-capture rows…'));
+  const rows = await sql`
+    SELECT id, title, content, created_at, tags
+    FROM conversation_memories
+    WHERE arc_name = 'david-luca-chat'
+      AND 'per-turn' = ANY(tags)
+      AND created_at >= ${START}::timestamptz
+      AND created_at <= ${END}::timestamptz
+    ORDER BY created_at ASC
+  `;
+
+  const isCiRow = (content: string) =>
+    content.includes('[CI-AUTO-CAPTURE-') ||
+    content.includes('[CI-SELF-CHECK-AUTO-CAPTURE-');
+  const realRows = (rows as any[]).filter(r => !isCiRow(r.content as string));
+  console.log(Y(`  ℹ  Found ${realRows.length} real per-turn rows in window`));
+
+  // 3. Find a row that IS present in the .md ────────────────────────────────
+  let targetTurns: Turn[] | null = null;
+  let targetRowId: string | null = null;
+
+  for (const row of realRows) {
+    const turns = parseContent(row.content as string);
+    if (turns.length > 0 && turns.every(t => isInMd(t.text, mdNorm))) {
+      targetTurns = turns;
+      targetRowId = row.id as string;
+      break;
+    }
+  }
+
+  let usingSynthetic = false;
+
+  if (!targetTurns) {
+    // No real DB row found with all turns present in the .md.
+    // Fall back to a pure in-memory synthetic check so the self-check still
+    // has meaningful teeth: we construct a fake mdNorm containing a known
+    // string, verify isInMd finds it, then verify isInMd misses it after removal.
+    console.log(Y('  ℹ  No present DB row found — using synthetic in-memory fixture'));
+    usingSynthetic = true;
+
+    const syntheticPhrase = 'self-check synthetic exchange: the quick brown fox jumped over the lazy dog';
+    const fakeMdNorm = `episode-28 test content\n${syntheticPhrase}\nsome other content here`;
+    const fakeTurn: Turn = { speaker: 'David', text: syntheticPhrase };
+
+    // Baseline: synthetic turn IS present in fakeMdNorm
+    const baselineFound = isInMd(fakeTurn.text, fakeMdNorm);
+    scAssert('Synthetic baseline: isInMd() finds known phrase in fake mdNorm', baselineFound,
+      'isInMd() returned false even with the phrase present — matcher is broken');
+
+    // Mutate: remove the phrase from fakeMdNorm
+    const key = matchKey(fakeTurn.text, 60);
+    const keyIdx = fakeMdNorm.indexOf(key);
+    scAssert('Self-check setup: match key located in fake mdNorm', keyIdx !== -1,
+      `matchKey not found in fake mdNorm — key="${key}"`);
+
+    if (keyIdx !== -1) {
+      const mutated = fakeMdNorm.slice(0, keyIdx) + '[SC-REMOVED]' + fakeMdNorm.slice(keyIdx + key.length);
+      const gapDetected = !isInMd(fakeTurn.text, mutated);
+      scAssert('Gap detector fires when synthetic phrase removed from fake mdNorm', gapDetected,
+        'isInMd() still returned true after key removal — gap detection is broken');
+    }
+  } else {
+    console.log(Y(`  ℹ  Using DB row ${targetRowId} as gap-introduction target`));
+    console.log(Y(`  ℹ  Row has ${targetTurns.length} turn(s); all confirmed present in .md`));
+
+    // 4. Baseline: all turns are present ─────────────────────────────────────
+    const allPresent = targetTurns.every(t => isInMd(t.text, mdNorm));
+    scAssert('Baseline: all turns of target row ARE present in original .md', allPresent,
+      'One or more turns not found — row selection logic is wrong');
+
+    // 5. Strip the first turn's match key from mdNorm (in memory) ─────────────
+    const firstTurn = targetTurns[0];
+    const key = matchKey(firstTurn.text, 60);
+    const keyIdx = mdNorm.indexOf(key);
+    scAssert('Self-check setup: match key located in mdNorm', keyIdx !== -1,
+      `matchKey not found in mdNorm — key="${key}"`);
+
+    if (keyIdx !== -1) {
+      // Replace ALL occurrences of the key so the turn cannot be found via any
+      // repeated passage (e.g. a quote or summary that contains the same text).
+      const mutatedMdNorm = mdNorm.split(key).join('[SC-REMOVED]');
+
+      // 6. Run isInMd with the mutated mdNorm — should detect gap ─────────────
+      const gapDetected = !isInMd(firstTurn.text, mutatedMdNorm);
+      scAssert('Gap detector fires when exchange stripped from .md (in-memory)', gapDetected,
+        `isInMd() still returned true after all occurrences removed — gap detection is broken`);
+
+      // 7. At least one turn detected as a gap in full-row check ────────────────
+      const anyGap = targetTurns.some(t => !isInMd(t.text, mutatedMdNorm));
+      scAssert('At least one turn of target row detected as a gap after in-memory removal', anyGap,
+        'No turn was flagged as missing — the detector has no teeth');
+    }
+  }
+
+  // 8. Confirm .md file on disk is untouched ────────────────────────────────
+  const diskBytes = readFileSync(MD_PATH, 'utf-8');
+  scAssert('.md file on disk is unchanged (all mutations were in-memory only)', diskBytes === mdRaw,
+    `Disk bytes differ — unexpected write occurred (original=${mdRaw.length}, disk=${diskBytes.length})`);
+
+  sep();
+  const all = scPassed + scFailed;
+  if (scFailed === 0) {
+    const mode = usingSynthetic ? 'synthetic fixture' : 'real DB row';
+    console.log(G(`\n✓  Self-check complete (${mode}) — ${all}/${all} assertions confirmed. Guard has teeth.\n`));
+    process.exit(0);
+  } else {
+    console.log(R(`\n✗  Self-check: ${scFailed} of ${all} assertions failed.\n`));
+    process.exit(1);
+  }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -377,4 +528,8 @@ async function main() {
   process.exit(totalGaps > 0 ? 2 : 0);
 }
 
-main().catch(e => { console.error(R('FATAL: ' + e.message)); process.exit(1); });
+if (SELF_CHECK) {
+  runSelfCheck().catch(e => { console.error(R('FATAL: ' + e.message)); process.exit(1); });
+} else {
+  main().catch(e => { console.error(R('FATAL: ' + e.message)); process.exit(1); });
+}
