@@ -25,7 +25,13 @@ run test-prequel-episode-2-db-sync.ts
 run test-prequel-episode-3-db-sync.ts
 run test-prequel-episode-4-db-sync.ts
 run test-read-my-story-self-check.ts
+run test-read-my-story.ts
 run test-rolling-episode-no-rolling-tag.ts
+run test-rolling-sync-guard.ts
+
+echo ""
+echo "=== test-reach-north-star-e2e.ts --self-check ==="
+npx tsx server/scripts/test-reach-north-star-e2e.ts --self-check
 
 echo ""
 echo "=== test-episode-append-trigger.ts --self-check-concurrent ==="
@@ -34,6 +40,7 @@ npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
 run test-episode-append-corrupted-json.ts
 run test-team-room-episode-hook.ts
 run test-chat-episode-hook.ts
+run test-chat-episode-hook-e2e.ts
 run test-delegation-race-episode.ts
 
 echo ""
@@ -48,10 +55,16 @@ echo ""
 echo "=== test-episode-concurrent-write.ts --self-check (race reproduced by racy pattern) ==="
 npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
 
+run test-episode-27-db-sync.ts
+run test-episode-28-db-sync.ts
+run test-prequel-db-sync-all.ts
 run test-episode-28-snapshot-integrity.ts
 run test-snapshot-write-guard.ts
 run test-capture-status-seed.ts
 run test-prior-session-label-clears.ts
+run test-luca-reflection-episode.ts
+run test-luca-moment-episode.ts
+run test-luca-auto-capture-episode.ts
 
 # ── Restore any episode .md files that CI append/strip probes left dirty ──────
 # Some CI self-check scripts (e.g. test-episode-append-trigger --self-check-concurrent)

@@ -44,67 +44,11 @@ args = "test"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "reach-north-star-self-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "episode-27-db-sync-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "episode-28-db-sync-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "prequel-db-sync-check"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "read-my-story-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "rolling-sync-guard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "consolidated-ci"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "episode-append-trigger-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "team-room-episode-hook-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "chat-episode-hook-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "replit-attribution-discipline-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "chat-episode-hook-e2e-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "merge-ours-guard-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "luca-reflection-episode-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "luca-moment-episode-ci"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "luca-auto-capture-episode-ci"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -113,6 +57,10 @@ args = "capture-status-ordering-ci"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "prior-session-label-clears-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "episode-28-snapshot-write-guard-ci"
 
 
 [[workflows.workflow]]
@@ -146,62 +94,6 @@ task = "shell.exec"
 args = "npm test"
 
 [[workflows.workflow]]
-name = "reach-north-star-self-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-reach-north-star-e2e.ts --self-check"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "episode-27-db-sync-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-episode-27-db-sync.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "prequel-db-sync-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-prequel-db-sync-all.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "read-my-story-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-read-my-story.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "rolling-sync-guard"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-rolling-sync-guard.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
 name = "consolidated-ci"
 author = "agent"
 
@@ -213,78 +105,12 @@ args = "bash server/scripts/test-all-consolidated-ci.sh"
 isValidation = true
 
 [[workflows.workflow]]
-name = "episode-append-trigger-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-episode-append-trigger.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "team-room-episode-hook-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-team-room-episode-hook.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "chat-episode-hook-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-chat-episode-hook.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
 name = "replit-attribution-discipline-ci"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-replit-attribution-discipline.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "chat-episode-hook-e2e-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-chat-episode-hook-e2e.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "merge-ours-guard-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-merge-ours-guard.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "episode-28-db-sync-check"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-episode-28-db-sync.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
@@ -375,6 +201,18 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-capture-status-ordering.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "episode-28-snapshot-write-guard-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-snapshot-write-guard.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

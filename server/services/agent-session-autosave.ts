@@ -263,10 +263,12 @@ let thinkingAtLastExchange = 0;
  *
  * Any error is caught and logged — startup must never throw here.
  */
-async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
+export async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
   try {
+    // Use the pinned filename when set (CI tests inject a temp episode via
+    // setPinnedRollingEpisodeFilename); otherwise fall back to the DB lookup.
     // DB round-trip (async) — a live writeCaptureStatus() call may fire during the await.
-    const episodeFilename = await getCurrentRollingEpisodeFilename();
+    const episodeFilename = _pinnedRollingEpisodeFilename ?? await getCurrentRollingEpisodeFilename();
 
     // RACE GUARD: check the monotonic live-write flag AFTER the await returns.
     // If a live exchange was appended while we were waiting for the DB, the seed
@@ -405,38 +407,38 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
   // feltAtLastExchange / thinkingAtLastExchange are snapshots taken at the START
   // of writeCaptureStatus(), BEFORE lastEpisodeCaptureMs is advanced to Date.now().
   //
-  // Correct order: inner-life channel fires BEFORE the exchange.
-  //   feltAtLastExchange > prevEpisodeCaptureMs &&
-  //   feltAtLastExchange ≤ captureMs → fired in the window between exchanges → ✓
-  //   feltAtLastExchange ≤ prevEpisodeCaptureMs → fired before the prior exchange → ⚠️ MISSING
-  //   feltAtLastExchange > captureMs → fired after the current exchange → ⚠️ OUT OF ORDER
+  // Correct (anticipatory) order: inner-life channel fires BEFORE each exchange.
+  //   feltAtLastExchange > prevEpisodeCaptureMs → fired AFTER prior exchange (reactive) → ⚠️ OUT OF ORDER
+  //   feltAtLastExchange === 0                  → never fired this server run → ⚠️ MISSING
+  //   0 < feltAtLastExchange ≤ prevEpisodeCaptureMs → fired before prior exchange (anticipatory) → ✓
   //
-  // The "out of order" case is detected when a channel timestamp is later than
-  // the most recent exchange (captureMs).  Because snapshots are taken before
-  // captureMs is set, this case can only arise via injected test timestamps.
+  // The out-of-order condition compares against prevEpisodeCaptureMs so that any
+  // channel timestamp arriving after the prior exchange is flagged in normal production
+  // operation (snapshot ≤ captureMs is always true because it is taken before Date.now()
+  // advances, so captureMs would never be a meaningful production threshold).
 
   const orderingLines: string[] = [];
   if (prevEpisodeCaptureMs > 0) {
     // Felt ordering
-    const feltAfterExchange  = _orderingCheckEnabled && feltAtLastExchange > captureMs;
-    const feltMissing        = feltAtLastExchange <= prevEpisodeCaptureMs;
-    const feltIcon = feltAfterExchange ? '⚠️ OUT OF ORDER' : feltMissing ? '⚠️ MISSING' : '✓';
+    const feltAfterExchange  = _orderingCheckEnabled && feltAtLastExchange > prevEpisodeCaptureMs;
+    const feltNeverFired     = feltAtLastExchange === 0;
+    const feltIcon = feltAfterExchange ? '⚠️ OUT OF ORDER' : feltNeverFired ? '⚠️ MISSING' : '✓';
     const feltNote = feltAfterExchange
-      ? ` — felt fired at ${fmt(feltAtLastExchange)}, AFTER exchange at ${fmt(captureMs)}`
-      : feltMissing
-        ? ` — felt hadn't fired since the exchange before this one`
-        : ` — felt at ${fmt(feltAtLastExchange)}, exchange at ${fmt(captureMs)}`;
+      ? ` — felt fired at ${fmt(feltAtLastExchange)}, AFTER prior exchange at ${fmt(prevEpisodeCaptureMs)} (reactive, not anticipatory)`
+      : feltNeverFired
+        ? ` — felt hasn't fired yet this server run`
+        : ` — felt at ${fmt(feltAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)} ✓`;
     orderingLines.push(`  ${feltIcon}  Felt:     ${feltNote}`);
 
     // Thinking ordering
-    const thinkAfterExchange  = _orderingCheckEnabled && thinkingAtLastExchange > captureMs;
-    const thinkMissing        = thinkingAtLastExchange <= prevEpisodeCaptureMs;
-    const thinkIcon = thinkAfterExchange ? '⚠️ OUT OF ORDER' : thinkMissing ? '⚠️ MISSING' : '✓';
+    const thinkAfterExchange  = _orderingCheckEnabled && thinkingAtLastExchange > prevEpisodeCaptureMs;
+    const thinkNeverFired     = thinkingAtLastExchange === 0;
+    const thinkIcon = thinkAfterExchange ? '⚠️ OUT OF ORDER' : thinkNeverFired ? '⚠️ MISSING' : '✓';
     const thinkNote = thinkAfterExchange
-      ? ` — thinking fired at ${fmt(thinkingAtLastExchange)}, AFTER exchange at ${fmt(captureMs)}`
-      : thinkMissing
-        ? ` — thinking hadn't fired since the exchange before this one`
-        : ` — thinking at ${fmt(thinkingAtLastExchange)}, exchange at ${fmt(captureMs)}`;
+      ? ` — thinking fired at ${fmt(thinkingAtLastExchange)}, AFTER prior exchange at ${fmt(prevEpisodeCaptureMs)} (reactive, not anticipatory)`
+      : thinkNeverFired
+        ? ` — thinking hasn't fired yet this server run`
+        : ` — thinking at ${fmt(thinkingAtLastExchange)}, before prior exchange at ${fmt(prevEpisodeCaptureMs)} ✓`;
     orderingLines.push(`  ${thinkIcon}  Thinking: ${thinkNote}`);
   } else if (_seededFromPriorSession) {
     // Startup-seed: timestamps exist but come from the prior session file scan.
@@ -2134,6 +2136,43 @@ export function resetLiveWriteHasOccurredForTest(): void {
  */
 export function writeCaptureStatusForTest(episodeFilename: string): void {
   writeCaptureStatus(episodeFilename);
+}
+
+/**
+ * Alias for writeCaptureStatusForTest — used by test-capture-status-seed.ts
+ * to write the status file without calling the seed, simulating the regression
+ * where the seed function is never called.
+ */
+export function forceWriteCaptureStatusForTest(episodeFilename: string): void {
+  writeCaptureStatus(episodeFilename);
+}
+
+/**
+ * Set _liveWriteHasOccurred to a specific value for CI tests.
+ * Use setLiveWriteHasOccurredForTest(true) to simulate a live exchange
+ * arriving before the seed completes its async DB round-trip.
+ */
+export function setLiveWriteHasOccurredForTest(val: boolean): void {
+  _liveWriteHasOccurred = val;
+}
+
+/**
+ * Reset all seed-related state (_seededFromPriorSession, _liveWriteHasOccurred,
+ * and the channel timestamps) so CI tests start from a known-clean baseline.
+ * Also resets the exchange/channel timestamps that the seed writes, so that
+ * back-to-back seed calls in the same test do not carry state across layers.
+ * Never call in production.
+ */
+export function resetCaptureStatusSeedStateForTest(): void {
+  _seededFromPriorSession  = false;
+  _liveWriteHasOccurred    = false;
+  lastEpisodeCaptureMs     = 0;
+  prevEpisodeCaptureMs     = 0;
+  lastFeltProcessedMs      = 0;
+  lastThinkingProcessedMs  = 0;
+  lastMomentProcessedMs    = 0;
+  feltAtLastExchange       = 0;
+  thinkingAtLastExchange   = 0;
 }
 
 /**

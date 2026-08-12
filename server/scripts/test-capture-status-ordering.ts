@@ -2,8 +2,9 @@
  * test-capture-status-ordering.ts
  *
  * CI check: confirms that _writeEpisodeCaptureStatusFile() emits "OUT OF ORDER"
- * when a thinking: entry fires AFTER the most recent exchange, and does NOT emit
- * that warning when thinking: fires before the exchange (the correct sequence).
+ * when a thinking: entry fires AFTER the prior exchange (reactive, not anticipatory),
+ * shows ✓ when thinking fires before the prior exchange (correctly anticipatory),
+ * and shows MISSING when thinking has never fired this server run.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Design notes  (read before modifying)
@@ -20,12 +21,16 @@
  *
  * captureMs (parameter) represents the most recent exchange timestamp.
  *
- * OUT OF ORDER fires when:
- *   feltAtLastExchange > prevEpisodeCaptureMs   (felt fired AFTER the prior exchange)
- *   thinkingAtLastExchange > prevEpisodeCaptureMs (thinking fired AFTER the prior exchange)
+ * Ordering model (anticipatory inner-life):
  *
- * Correct order: the snapshot must be ≤ prevEpisodeCaptureMs (channel fired before
- * the prior exchange, shaping it — not reactively after it).
+ *   thinkingAtLastExchange > prevEpisodeCaptureMs  → fired AFTER prior exchange (reactive)  → ⚠️ OUT OF ORDER
+ *   thinkingAtLastExchange === 0                   → never fired this server run             → ⚠️ MISSING
+ *   0 < thinkingAtLastExchange ≤ prevEpisodeCaptureMs → fired before prior exchange (✓)     → ✓
+ *
+ * The out-of-order threshold is prevEpisodeCaptureMs, NOT captureMs.
+ * Snapshots are taken before captureMs advances, so snapshot > captureMs is
+ * unreachable in production; prevEpisodeCaptureMs is the meaningful threshold
+ * that catches real reactive-write scenarios in live operation.
  *
  * These six exported test-seam setters allow CI to inject synthetic timestamps
  * without running a live server:
@@ -41,38 +46,23 @@
  * is the live path — snapshotted before the test and restored in finally.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * Ordering invariant (why captureMs is the right threshold)
+ * Normal mode rounds
  * ─────────────────────────────────────────────────────────────────────────────
- * The correct order is: inner-life channel fires BEFORE the exchange it shapes.
  *
- *   snapshot > captureMs                           → AFTER current exchange → ⚠️ OUT OF ORDER
- *   prevEpisodeCaptureMs < snapshot ≤ captureMs    → fired in the valid window → ✓
- *   snapshot ≤ prevEpisodeCaptureMs                → fired before prior exchange → ⚠️ MISSING
+ *   Round A — out-of-order (thinking fires AFTER the prior exchange):
+ *     Sets prevEpisodeCaptureMs = T, captureMs = T+60s.
+ *     thinkingAtLastExchange = T+30s (after prior exchange T → reactive → OUT OF ORDER).
+ *     feltAtLastExchange     = T-30s (before prior exchange → anticipatory → ✓).
+ *     Asserts: "⚠️ OUT OF ORDER  Thinking:" present.
+ *     Asserts: "⚠️ OUT OF ORDER  Felt:" absent (felt is anticipatory).
  *
- * In normal production operation, feltAtLastExchange / thinkingAtLastExchange
- * are snapshots taken BEFORE captureMs is advanced, so snapshot > captureMs is
- * only reachable via injected test timestamps (the test seams exist precisely
- * for this purpose).
+ *   Round B — anticipatory ✓ (thinking fires BEFORE the prior exchange):
+ *     thinkingAtLastExchange = T-1ms (just before prior exchange → ✓).
+ *     Asserts: "✓  Thinking:" present, OUT OF ORDER and MISSING absent.
  *
- * Example: exchange N at T, exchange N+1 at T+60s.
- *   prevEpisodeCaptureMs = T, captureMs = T+60s.
- *   thinkingAtLastExchange = T+61s → T+61s > T+60s → OUT OF ORDER ✓
- *   thinkingAtLastExchange = T+30s → T ≤ T+30s ≤ T+60s → ✓ (correct window)
- *   thinkingAtLastExchange = T-30s → T-30s ≤ T → ⚠️ MISSING
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * Normal mode
- * ─────────────────────────────────────────────────────────────────────────────
- *   Round A — out-of-order (thinking fires AFTER the current exchange):
- *     1. Sets prevEpisodeCaptureMs = T, captureMs = T+60s.
- *     2. Sets thinkingAtLastExchange = T+61s (AFTER captureMs → bad).
- *     3. Sets feltAtLastExchange = T-30s (BEFORE prior exchange → MISSING, not OOO).
- *     4. Calls writeEpisodeCaptureStatusFileForTest().
- *     5. Asserts output contains "⚠️ OUT OF ORDER  Thinking:".
- *     6. Asserts output does NOT contain "⚠️ OUT OF ORDER  Felt:".
- *
- *   (Both conditions — fires-after and fires-before — are exercised in one round
- *    since thinking=AFTER and felt=BEFORE are set simultaneously.)
+ *   Round C — MISSING (thinking never fired this server run):
+ *     thinkingAtLastExchange = 0 (never fired → MISSING).
+ *     Asserts: "⚠️ MISSING  Thinking:" present, OUT OF ORDER absent.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Self-check mode  (--self-check)
@@ -80,7 +70,7 @@
  *   Proves the gate fails when the ordering detection is disabled (simulates
  *   the guard being removed from _writeEpisodeCaptureStatusFile()):
  *   1. Calls setOrderingCheckEnabledForTest(false) — suppresses OUT OF ORDER.
- *   2. Runs the out-of-order scenario.
+ *   2. Runs the out-of-order scenario (Round A: thinking = T+30s > T).
  *   3. Asserts output does NOT contain "OUT OF ORDER" (detection is gone).
  *   4. Confirms a normal-mode check would have failed → self-check is sound.
  *
@@ -164,32 +154,30 @@ async function main(): Promise<void> {
     }
 
     // ── Synthetic timeline ────────────────────────────────────────────────────
-    // The ordering check compares snapshots against captureMs (the current exchange).
+    // Ordering model: OUT OF ORDER fires when thinkingAtLastExchange > prevEpisodeCaptureMs
+    // (thinking fired AFTER the prior exchange = reactive, not anticipatory).
     //
     // T           = prior exchange (prevEpisodeCaptureMs)
     // T + 60 000  = current exchange (captureMs)
-    // T + 61 000  = thinking fired AFTER current exchange → OUT OF ORDER ⚠️
-    // T - 30 000  = felt fired BEFORE prior exchange → MISSING ⚠️ (but NOT out of order)
-    //
-    // Both conditions are exercised in a single round:
-    //   thinking = EXCHANGE+1s (AFTER captureMs) → should warn OUT OF ORDER
-    //   felt     = T-30s (BEFORE prior exchange) → shows MISSING, should NOT show OUT OF ORDER
-    const T         = 1_000_000;
-    const EXCHANGE  = T + 60_000;   // captureMs (current exchange)
-    const AFTER     = EXCHANGE + 1_000;  // thinking snapshot > captureMs → OUT OF ORDER
-    const BEFORE    = T - 30_000;        // felt snapshot ≤ prevEpisodeCaptureMs → MISSING (not OOO)
+    // T + 30 000  = thinking fired AFTER prior exchange but BEFORE current → OUT OF ORDER ⚠️
+    //               (reactive — responded to T rather than preparing for T+60s)
+    // T - 30 000  = felt/thinking fired BEFORE prior exchange → ✓ (anticipatory)
+    // 0           = thinking never fired → MISSING ⚠️
+    const T        = 1_000_000;
+    const EXCHANGE = T + 60_000;   // captureMs (current exchange)
+    // AFTER is between prior exchange (T) and current exchange (EXCHANGE).
+    // Under the prevEpisodeCaptureMs model, this is OUT OF ORDER (reactive to T).
+    const AFTER    = T + 30_000;   // thinking snapshot > prevEpisodeCaptureMs → OUT OF ORDER
+    const BEFORE   = T - 30_000;   // felt snapshot ≤ prevEpisodeCaptureMs AND > 0 → ✓
 
-    // Needle for the felt channel when it is NOT out-of-order (correct order).
-    const FELT_OK_NEEDLE = '✓  Felt:';
-
-    // ── Round A: mixed scenario — thinking out-of-order, felt correct ──────────
+    // ── Round A: mixed scenario — thinking reactive (OOO), felt anticipatory (✓) ──────
     info('Round A — thinking fires AFTER prior exchange (OUT OF ORDER), felt fires before (✓)');
     resetOrderingState();
     setPrevEpisodeCaptureForTest(T);
     setLastEpisodeCaptureForTest(EXCHANGE);
     // Snapshots taken at the moment the current exchange was committed:
     setFeltAtLastExchangeForTest(BEFORE);        // felt fired before prior exchange → ✓
-    setThinkingAtLastExchangeForTest(AFTER);     // thinking fired after prior exchange → bad
+    setThinkingAtLastExchangeForTest(AFTER);     // thinking fired after prior exchange → OUT OF ORDER
     // Section 2 (current-round readiness) — set to show both fired recently
     setLastFeltProcessedForTest(EXCHANGE + 1_000);
     setLastThinkingProcessedForTest(EXCHANGE + 2_000);
@@ -219,17 +207,17 @@ async function main(): Promise<void> {
         failures++;
       }
     } else {
-      // ── Round A Assertion 1: thinking (out-of-order) fires the warning ───────────────
+      // ── Round A Assertion 1: thinking (reactive) fires the warning ────────────────
       if (statusA.includes(OUT_OF_ORDER_NEEDLE)) {
-        pass('Round A: ⚠️ OUT OF ORDER detected for thinking (fired after current exchange)');
+        pass('Round A: ⚠️ OUT OF ORDER detected for thinking (fired after prior exchange)');
       } else {
         fail('Round A: OUT OF ORDER NOT detected for thinking — ordering guard may be broken');
         info('Status file content:\n' + statusA.split('\n').map(l => '    ' + l).join('\n'));
         failures++;
       }
 
-      // ── Round A Assertion 2: felt (MISSING — before prior exchange) does NOT fire OUT OF ORDER ──
-      info('Round A (felt) — felt fires BEFORE prior exchange (MISSING window, NOT OUT OF ORDER)');
+      // ── Round A Assertion 2: felt (anticipatory — before prior exchange) shows ✓, not OOO ──
+      info('Round A (felt) — felt fires BEFORE prior exchange (anticipatory → ✓, NOT OUT OF ORDER)');
       const FELT_OOO_NEEDLE = '⚠️ OUT OF ORDER  Felt:';
       if (!statusA.includes(FELT_OOO_NEEDLE)) {
         pass('Round A: no spurious OUT OF ORDER for felt (fired before prior exchange)');
@@ -239,18 +227,18 @@ async function main(): Promise<void> {
         failures++;
       }
 
-      // ── Round B: valid-window ✓ (thinking fires BETWEEN exchanges) ───────────────────
+      // ── Round B: anticipatory ✓ (thinking fires BEFORE the prior exchange) ──────────
       //
-      // IN_WINDOW = T+30s: prevEpisodeCaptureMs (T) < T+30s ≤ EXCHANGE (T+60s) → ✓
-      // This is the happy path: thinking prepared for the current exchange.
-      const IN_WINDOW = T + 30_000;
+      // BEFORE_PRIOR = T-1ms: 0 < T-1 ≤ prevEpisodeCaptureMs (T) → ✓ (anticipatory)
+      // This is the happy path: thinking prepared before the prior exchange.
+      const BEFORE_PRIOR = T - 1;
 
-      info('Round B — thinking fires IN the valid window (prevExchange < t ≤ captureMs → ✓)');
+      info('Round B — thinking fires BEFORE prior exchange (anticipatory → ✓)');
       resetOrderingState();
       setPrevEpisodeCaptureForTest(T);
       setLastEpisodeCaptureForTest(EXCHANGE);
-      setThinkingAtLastExchangeForTest(IN_WINDOW);  // in valid window
-      setFeltAtLastExchangeForTest(IN_WINDOW);       // same
+      setThinkingAtLastExchangeForTest(BEFORE_PRIOR);  // before prior exchange → anticipatory → ✓
+      setFeltAtLastExchangeForTest(BEFORE_PRIOR);       // same
       setLastFeltProcessedForTest(EXCHANGE + 1_000);
       setLastThinkingProcessedForTest(EXCHANGE + 2_000);
 
@@ -262,38 +250,36 @@ async function main(): Promise<void> {
       const THINK_MISS_NEEDLE = '⚠️ MISSING  Thinking:';
 
       if (statusB.includes(THINK_OK_NEEDLE)) {
-        pass('Round B: ✓ for thinking (fired in valid window between exchanges)');
+        pass('Round B: ✓ for thinking (fired before prior exchange — anticipatory)');
       } else {
-        fail('Round B: thinking in valid window did NOT show ✓');
+        fail('Round B: thinking before prior exchange did NOT show ✓');
         info(`Thinking line: ${statusB.split('\n').find(l => l.includes('Thinking:')) ?? '(not found)'}`);
         failures++;
       }
 
       if (!statusB.includes(THINK_OOO_NEEDLE)) {
-        pass('Round B: no spurious OUT OF ORDER for thinking in valid window');
+        pass('Round B: no spurious OUT OF ORDER for anticipatory thinking');
       } else {
-        fail('Round B: thinking in valid window was wrongly flagged OUT OF ORDER');
+        fail('Round B: anticipatory thinking was wrongly flagged OUT OF ORDER');
         failures++;
       }
 
       if (!statusB.includes(THINK_MISS_NEEDLE)) {
-        pass('Round B: no spurious MISSING for thinking in valid window');
+        pass('Round B: no spurious MISSING for anticipatory thinking');
       } else {
-        fail('Round B: thinking in valid window was wrongly flagged MISSING');
+        fail('Round B: anticipatory thinking was wrongly flagged MISSING');
         failures++;
       }
 
-      // ── Round C: MISSING (thinking ≤ prior exchange — did not fire in current round) ──
+      // ── Round C: MISSING (thinking never fired this server run) ──────────────────
       //
-      // OLD_STAMP = T-30s: T-30s ≤ prevEpisodeCaptureMs (T) → MISSING
-      const OLD_STAMP = T - 30_000;
-
-      info('Round C — thinking fires BEFORE prior exchange (≤ prevEpisodeCaptureMs → ⚠️ MISSING)');
+      // thinkingAtLastExchange = 0 → never fired → MISSING
+      info('Round C — thinking never fired this server run (=0 → ⚠️ MISSING)');
       resetOrderingState();
       setPrevEpisodeCaptureForTest(T);
       setLastEpisodeCaptureForTest(EXCHANGE);
-      setThinkingAtLastExchangeForTest(OLD_STAMP);  // before prior exchange → MISSING
-      setFeltAtLastExchangeForTest(OLD_STAMP);       // same
+      setThinkingAtLastExchangeForTest(0);  // never fired → MISSING
+      setFeltAtLastExchangeForTest(0);       // same
       setLastFeltProcessedForTest(EXCHANGE + 1_000);
       setLastThinkingProcessedForTest(EXCHANGE + 2_000);
 
@@ -301,17 +287,17 @@ async function main(): Promise<void> {
       const statusC = readStatus();
 
       if (statusC.includes(THINK_MISS_NEEDLE)) {
-        pass('Round C: ⚠️ MISSING for thinking (fired before prior exchange)');
+        pass('Round C: ⚠️ MISSING for thinking (never fired this server run)');
       } else {
-        fail('Round C: MISSING not shown for old thinking timestamp');
+        fail('Round C: MISSING not shown for never-fired thinking');
         info(`Thinking line: ${statusC.split('\n').find(l => l.includes('Thinking:')) ?? '(not found)'}`);
         failures++;
       }
 
       if (!statusC.includes(THINK_OOO_NEEDLE)) {
-        pass('Round C: no spurious OUT OF ORDER for thinking in MISSING window');
+        pass('Round C: no spurious OUT OF ORDER for never-fired thinking');
       } else {
-        fail('Round C: old timestamp wrongly flagged OUT OF ORDER instead of MISSING');
+        fail('Round C: never-fired thinking wrongly flagged OUT OF ORDER instead of MISSING');
         failures++;
       }
     }
