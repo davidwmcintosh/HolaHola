@@ -151,6 +151,43 @@ async function main() {
 
   const sql = neon(DATABASE_URL);
 
+  // ── Backfill: stamp rolling-protected on any historically-rolling episodes ──
+  // set-rolling-episode.ts now stamps 'rolling-protected' on demoted rows
+  // BEFORE removing 'rolling', but older handoffs (e.g. the Episode 27 →
+  // Episode 28 promotion) ran before that step was added and left Episode 27
+  // with neither tag.  This idempotent UPDATE catches any such gaps so the
+  // discovery query below finds them.
+  //
+  // The title list covers every episode known to have been the rolling one
+  // before the step-A0 protection was introduced.  It is safe to re-run on
+  // every startup because the CASE guard makes it a no-op for rows that
+  // already have the tag.
+  const knownHistoricalRollingTitles = ['Episode 27'];
+  for (const historicalTitle of knownHistoricalRollingTitles) {
+    try {
+      const backfillResult = await sql`
+        UPDATE conversation_memories
+        SET tags = CASE WHEN 'rolling-protected' = ANY(tags)
+                        THEN tags
+                        ELSE array_append(tags, 'rolling-protected')
+                   END
+        WHERE arc_name = ${ARC_NAME}
+          AND title    = ${historicalTitle}
+          AND NOT ('rolling-protected' = ANY(tags))
+        RETURNING id
+      `;
+      if (backfillResult.length > 0) {
+        console.log(
+          Y(`[rolling-restore] Backfilled rolling-protected on "${historicalTitle}" ` +
+            `(id: ${(backfillResult[0] as any).id})`),
+        );
+      }
+    } catch (err: any) {
+      // Non-fatal — if the backfill fails we still attempt the main restore.
+      console.error(Y(`[rolling-restore] Backfill warning for "${historicalTitle}": ${err?.message ?? err}`));
+    }
+  }
+
   // ── Discover all rolling episodes in the arc ────────────────────────────────
   // Query for EITHER 'rolling' (current) OR 'rolling-protected' (all episodes
   // that have ever been rolling). 'rolling-protected' is a permanent tag added

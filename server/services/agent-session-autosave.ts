@@ -1005,39 +1005,17 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
   const filePath = join(DOCS_DIR, filename);
   if (!existsSync(filePath)) return;
 
-  let content: string;
-  try {
-    content = readFileSync(filePath, 'utf-8');
-  } catch {
-    return; // file briefly locked
-  }
+  const title = episodeTitleFromFilename(filename);
+  const db    = getUserDb();
 
-  // Guard: reject files that contain git merge conflict markers — they indicate
-  // an unresolved merge conflict and would corrupt the DB with doubled content.
-  if (
-    content.includes('<<<<<<< ') ||
-    content.includes('=======') ||
-    content.includes('>>>>>>> ')
-  ) {
-    console.error(
-      `[AgentAutosave] SKIPPED ${filename}: file contains git merge conflict markers ` +
-      '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
-    );
-    return;
-  }
+  // ── ID / rolling-status lookup (outside the file lock) ──────────────────
+  // These are cheap cached reads that do not depend on file-content ordering,
+  // so there is no benefit to holding the file lock across a DB round-trip.
+  let memoryId = episodeIdCache.get(filename);
+  let isRolling = episodeRollingCache.get(filename) ?? false;
 
-  const title   = episodeTitleFromFilename(filename);
-  const summary = episodeSummaryFromContent(content);
-  const db      = getUserDb();
-
-  try {
-    // Look up existing ID (cache it after first discovery)
-    let memoryId = episodeIdCache.get(filename);
-
-    // Initialise from the persistent cache; updated below on first DB lookup.
-    let isRolling = episodeRollingCache.get(filename) ?? false;
-
-    if (!memoryId) {
+  if (!memoryId) {
+    try {
       const rows = await db.execute(sql`
         SELECT id, tags FROM conversation_memories
         WHERE arc_name = 'HolaHola Episodes'
@@ -1050,87 +1028,130 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
         episodeIdCache.set(filename, memoryId);
         const tags: string[] = row.tags ?? [];
         isRolling = Array.isArray(tags) && tags.includes('rolling');
-        // Persist so every subsequent autosave uses the correct guard.
         episodeRollingCache.set(filename, isRolling);
       }
+    } catch (err: any) {
+      console.error(`[AgentAutosave] Episode sync: ID lookup failed for ${filename}:`, err?.message ?? err);
+      return;
     }
+  }
 
-    if (memoryId) {
-      // Episode already in DB — update content + summary.
-      // For ROLLING episodes use a max-length guard: only overwrite content when
-      // the incoming file is at least as long as the existing DB record.  This
-      // prevents a concurrent/stale writer (other task merge, old autosave snapshot)
-      // from shrinking a growing episode and erasing appended cascade content.
-      if (isRolling) {
-        // Atomic conditional UPDATE: only overwrite when the incoming content is at
-        // least as long as what is already in the DB.  Using LENGTH() in the WHERE
-        // clause makes this a single round-trip with no TOCTOU race.
-        // _rollingGuardInvertForTest flips the comparison to LENGTH(content) >= LENGTH(incoming)
-        // so the CI self-check can confirm Pass 3 (longer wins) catches the regression.
-        // Both sides use PostgreSQL LENGTH() so the metric is always character count,
-        // regardless of whether content contains emoji or multi-byte characters.
-        if (_rollingGuardInvertForTest) {
-          // Inverted comparison — shorter content wins; used only by --self-check CI.
-          await db.execute(sql`
-            UPDATE conversation_memories
-            SET content = ${content},
-                summary = ${summary}
-            WHERE id = ${memoryId}
-              AND LENGTH(content) >= LENGTH(${content})
-          `);
+  // ── Serialised snapshot → upsert (inside the file lock) ─────────────────
+  //
+  // Holding the file lock across both the readFileSync and the DB upsert
+  // ensures that no concurrent appendExchangeToEpisode() can land between
+  // our read and our write.  Without this, the following race is possible:
+  //
+  //   Sync-A  reads file  → gets stale snapshot (S_old)
+  //   Append  appends     → file is now S_new (longer)
+  //   Sync-B  reads file  → gets S_new
+  //   Sync-B  upserts DB  → DB = S_new
+  //   Sync-A  upserts DB  → DB = S_old  ← stale write lands AFTER newer one
+  //
+  // By serialising read + upsert under the same per-filename mutex, at most
+  // one snapshot-to-upsert pipeline is in flight at any moment, so no stale
+  // write can overleap a newer one (the rolling-guard also blocks shrinkage
+  // at the DB level as a second defence).
+  //
+  // The re-embed fires after the lock is released — it is fire-and-forget
+  // and does not affect content ordering.
+  let memoryIdForReembed: string | undefined;
+
+  try {
+    await withEpisodeFileLock(filename, async () => {
+      // Read the file inside the lock.
+      let content: string;
+      try {
+        content = readFileSync(filePath, 'utf-8');
+      } catch {
+        return; // file briefly locked — skip this cycle
+      }
+
+      // Guard: reject files that contain git merge conflict markers.
+      if (
+        content.includes('<<<<<<< ') ||
+        content.includes('=======') ||
+        content.includes('>>>>>>> ')
+      ) {
+        console.error(
+          `[AgentAutosave] SKIPPED ${filename}: file contains git merge conflict markers ` +
+          '(<<<<<<< / ======= / >>>>>>>). Resolve the conflict before syncing.'
+        );
+        return;
+      }
+
+      const summary = episodeSummaryFromContent(content);
+
+      // DB upsert inside the same lock — no append can land between read and write.
+      if (memoryId) {
+        if (isRolling) {
+          // Atomic conditional UPDATE: only overwrite when the incoming content is at
+          // least as long as what is already in the DB.  Using LENGTH() in the WHERE
+          // clause makes this a single round-trip with no TOCTOU race.
+          // _rollingGuardInvertForTest flips the comparison to LENGTH(content) >= LENGTH(incoming)
+          // so the CI self-check can confirm Pass 3 (longer wins) catches the regression.
+          if (_rollingGuardInvertForTest) {
+            await db.execute(sql`
+              UPDATE conversation_memories
+              SET content = ${content},
+                  summary = ${summary}
+              WHERE id = ${memoryId}
+                AND LENGTH(content) >= LENGTH(${content})
+            `);
+          } else {
+            await db.execute(sql`
+              UPDATE conversation_memories
+              SET content = ${content},
+                  summary = ${summary}
+              WHERE id = ${memoryId}
+                AND LENGTH(content) <= LENGTH(${content})
+            `);
+          }
         } else {
-          // Normal: longer (or equal-length) content wins — prevents shrinkage.
           await db.execute(sql`
             UPDATE conversation_memories
             SET content = ${content},
                 summary = ${summary}
             WHERE id = ${memoryId}
-              AND LENGTH(content) <= LENGTH(${content})
           `);
         }
-        // If incoming is shorter, the WHERE predicate excludes the row — DB stays intact
+        console.log(`[AgentAutosave] Episode synced (update${isRolling ? ', rolling-guard' : ''}): ${title} (${content.length} bytes)`);
+        memoryIdForReembed = memoryId;
       } else {
-        await db.execute(sql`
-          UPDATE conversation_memories
-          SET content = ${content},
-              summary = ${summary}
-          WHERE id = ${memoryId}
+        // First time seeing this episode — insert it.
+        const inserted = await db.execute(sql`
+          INSERT INTO conversation_memories
+            (id, title, summary, content, importance, entry_type, tags, arc_name)
+          VALUES (
+            gen_random_uuid(),
+            ${title},
+            ${summary},
+            ${content},
+            ${9},
+            'episode',
+            ARRAY['episode', 'auto-synced']::text[],
+            'HolaHola Episodes'
+          )
+          RETURNING id
         `);
+        const newId = (inserted as any).rows?.[0]?.id ?? (inserted as any)[0]?.id;
+        if (newId) {
+          episodeIdCache.set(filename, newId as string);
+          memoryId = newId as string;
+          memoryIdForReembed = memoryId;
+          console.log(`[AgentAutosave] Episode synced (insert): ${title} id=${memoryId} (${content.length} bytes)`);
+        }
       }
-      console.log(`[AgentAutosave] Episode synced (update${isRolling ? ', rolling-guard' : ''}): ${title} (${content.length} bytes)`);
-    } else {
-      // First time seeing this episode — insert it
-      const inserted = await db.execute(sql`
-        INSERT INTO conversation_memories
-          (id, title, summary, content, importance, entry_type, tags, arc_name)
-        VALUES (
-          gen_random_uuid(),
-          ${title},
-          ${summary},
-          ${content},
-          ${9},
-          'episode',
-          ARRAY['episode', 'auto-synced']::text[],
-          'HolaHola Episodes'
-        )
-        RETURNING id
-      `);
-      const newId = (inserted as any).rows?.[0]?.id ?? (inserted as any)[0]?.id;
-      if (newId) {
-        episodeIdCache.set(filename, newId as string);
-        memoryId = newId as string;
-        console.log(`[AgentAutosave] Episode synced (insert): ${title} id=${memoryId} (${content.length} bytes)`);
-      }
-    }
-
-    // Re-embed after upsert
-    if (memoryId) {
-      reembedConversationMemory(memoryId).catch((err: any) => {
-        console.error(`[AgentAutosave] Re-embed failed for ${title}:`, err?.message ?? err);
-      });
-    }
+    });
   } catch (err: any) {
     console.error(`[AgentAutosave] Episode sync error for ${filename}:`, err?.message ?? err);
+  }
+
+  // Re-embed after the lock is released — fire-and-forget, no ordering requirement.
+  if (memoryIdForReembed) {
+    reembedConversationMemory(memoryIdForReembed).catch((err: any) => {
+      console.error(`[AgentAutosave] Re-embed failed for ${title}:`, err?.message ?? err);
+    });
   }
 }
 

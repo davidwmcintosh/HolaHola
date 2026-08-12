@@ -215,10 +215,28 @@ async function main(): Promise<void> {
   const currentTitles = (currentRows.rows as Array<{ title: string }>).map(r => r.title);
 
   // ── 3. Atomic swap inside a single transaction ───────────────────────────
-  //       Step A: clear 'rolling' from ALL arc rows (not just the newest)
-  //       Step B: add 'rolling' to the target
-  //    If step B throws (e.g. DB error), step A is rolled back automatically.
+  //       Step A0: stamp 'rolling-protected' on ALL currently-rolling rows
+  //                BEFORE removing 'rolling' from them, so that demoted
+  //                episodes are still discoverable by the startup restore
+  //                script (which queries for rolling OR rolling-protected).
+  //       Step A:  clear 'rolling' from ALL arc rows (not just the newest)
+  //       Step B:  add 'rolling' + 'rolling-protected' to the target
+  //    If step B throws (e.g. DB error), steps A0/A are rolled back automatically.
   await db.transaction(async (tx) => {
+    // Step A0: permanently protect every episode that is currently rolling
+    // before we strip the 'rolling' tag.  This is idempotent — if
+    // 'rolling-protected' is already present the CASE expression leaves tags
+    // unchanged, so re-running the script never creates duplicate tags.
+    await tx.execute(sql`
+      UPDATE conversation_memories
+      SET tags = CASE WHEN 'rolling-protected' = ANY(tags)
+                      THEN tags
+                      ELSE array_append(tags, 'rolling-protected')
+                 END
+      WHERE arc_name = 'HolaHola Episodes'
+        AND 'rolling' = ANY(tags)
+    `);
+
     // Step A: clear rolling from every HolaHola episode that currently has it
     await tx.execute(sql`
       UPDATE conversation_memories

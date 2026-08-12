@@ -40,6 +40,7 @@ import { sql } from 'drizzle-orm';
 import {
   appendExchangeToEpisode,
   withEpisodeFileLock,
+  syncEpisodeFile,
 } from '../services/agent-session-autosave';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -200,6 +201,169 @@ async function runNormalMode(): Promise<void> {
       }
     } catch (err: any) {
       console.error(R(`  ✗  Cleanup failed: ${err.message}`));
+      failed++;
+    }
+  }
+
+  // ── STEP 4 — Concurrent append + syncEpisodeFile: DB must match .md ─────
+  //
+  // Proves that wrapping syncEpisodeFile's read+upsert in withEpisodeFileLock
+  // prevents a stale snapshot from reaching the DB when an append is in flight.
+  //
+  // Mechanism (deterministic — no timing assumptions):
+  //   1. Capture exact pre-test .md content and DB content (for clean restore).
+  //   2. Grab the per-filename lock (simulating appendExchangeToEpisode in flight).
+  //   3. While holding that lock, write the sentinel to .md via appendFileSync.
+  //   4. SIMULTANEOUSLY start syncEpisodeFile — it tries to acquire the same lock
+  //      and queues behind step 2 (withEpisodeFileLock is a promise chain).
+  //   5. Release the lock (step 2 resolves).
+  //   6. syncEpisodeFile acquires the lock, reads .md with sentinel already on disk,
+  //      and pushes it to the DB — sentinel is now in DB.
+  //   7. Assert sentinel appears in DB immediately (no extra sync cycle needed).
+  //
+  // Cleanup uses a direct SQL UPDATE (bypassing the rolling max-length guard)
+  // to restore the exact pre-test DB content, then verifies both .md and DB
+  // are free of the sentinel before exiting.
+  // ──────────────────────────────────────────────────────────────────────────
+  sep();
+  console.log(B('STEP 4 — Concurrent append (lock-held) + syncEpisodeFile: DB must match .md'));
+  console.log(Y('  withEpisodeFileLock spanning read+upsert forces sync to wait for the append.'));
+  sep();
+
+  const ts4    = Date.now();
+  const id4    = `${ts4}-DB`;
+  const entry4 = `[CI-CONCURRENT-${id4}\nSentinel DB — concurrent append+sync test]`;
+
+  // Capture pre-test snapshots before the test mutates anything.
+  // mdBefore4 is the .md content — the source of truth we restore to.
+  // dbSnap4Id is the DB row ID needed for the direct SQL restore in cleanup.
+  // We intentionally do NOT use the pre-test DB content as the restore target:
+  // the DB may lag the .md from previous runs, so we use the .md as the baseline.
+  const mdBefore4 = readFileSync(mdPath, 'utf-8');
+  const dbSnap4Rows = await db.execute(sql`
+    SELECT id FROM conversation_memories
+    WHERE arc_name = ${ARC_NAME}
+      AND title    = ${rawTitle}
+    LIMIT 1
+  `);
+  const dbSnap4Row = (dbSnap4Rows as any).rows?.[0] ?? (dbSnap4Rows as any)[0];
+  const dbSnap4Id  = (dbSnap4Row?.id ?? '') as string;
+
+  assert('Pre-test DB row found for episode', !!dbSnap4Id, 'Cannot run STEP 4 without a DB row to restore');
+
+  try {
+    if (!dbSnap4Id) {
+      console.log(Y('  ⚠  Skipping STEP 4 body — no pre-test DB row found'));
+    } else {
+      // Step 2–3: Grab lock synchronously; write sentinel inside the callback.
+      // appendDone resolves only after the lock callback returns (sentinel on disk).
+      const appendDone = withEpisodeFileLock(episodeFilename, () => {
+        appendFileSync(mdPath, '\n' + entry4 + '\n', 'utf-8');
+      });
+
+      // Step 4: Start sync — it queues behind appendDone's lock.
+      // Both promises are in flight before any await (true concurrency in the event loop).
+      const syncPromise = syncEpisodeFile(episodeFilename);
+
+      // Steps 5–6: Wait for append to release the lock, then for sync to complete.
+      await appendDone;
+      await syncPromise;
+
+      // Step 7a: Verify .md contains the sentinel.
+      const mdAfter4 = readFileSync(mdPath, 'utf-8');
+      assert(
+        `Sentinel (${id4}) present in .md after locked append`,
+        mdAfter4.includes(`CI-CONCURRENT-${id4}`),
+        'Sentinel missing from .md — appendFileSync inside lock failed',
+      );
+
+      // Step 7b: Verify sentinel is in DB immediately — no extra sync needed.
+      // syncEpisodeFile held the lock across read+upsert, so the DB reflects
+      // the post-append file without any race gap.
+      const dbRows4 = await db.execute(sql`
+        SELECT content FROM conversation_memories
+        WHERE id = ${dbSnap4Id}
+        LIMIT 1
+      `);
+      const dbRow4     = (dbRows4 as any).rows?.[0] ?? (dbRows4 as any)[0];
+      const dbContent4 = (dbRow4?.content ?? '') as string;
+
+      assert(
+        `Sentinel (${id4}) present in DB immediately after concurrent sync`,
+        dbContent4.includes(`CI-CONCURRENT-${id4}`),
+        'Sentinel missing from DB — syncEpisodeFile read before the lock was released ' +
+        '(withEpisodeFileLock must span both readFileSync and the DB upsert in syncEpisodeFile)',
+      );
+      assert(
+        'DB content length matches post-append .md (sync captured the full file)',
+        dbContent4.length === mdAfter4.length,
+        `DB length (${dbContent4.length}) != post-append .md length (${mdAfter4.length}); ` +
+        'sync may have read a pre-append snapshot',
+      );
+
+      console.log(Y(`  ℹ  .md after step 4: ${mdAfter4.length} chars, DB: ${dbContent4.length} chars`));
+    }
+
+  } finally {
+    sep();
+    console.log(B('STEP 4 cleanup — restore exact pre-test content in .md and DB'));
+    console.log(Y('  Direct SQL UPDATE bypasses the rolling max-length guard,'));
+    console.log(Y('  ensuring CI leaves no sentinel in the canonical DB row.'));
+    sep();
+
+    try {
+      // 1. Restore .md to exact pre-test content (inside the file lock).
+      if (existsSync(mdPath)) {
+        await withEpisodeFileLock(episodeFilename, () => {
+          writeFileSync(mdPath, mdBefore4, 'utf-8');
+        });
+        const afterMdClean4 = readFileSync(mdPath, 'utf-8');
+        assert(
+          'STEP 4 sentinel absent from .md after restore',
+          !afterMdClean4.includes(`CI-CONCURRENT-${id4}`),
+          '.md still contains sentinel after writeFileSync restore',
+        );
+        assert(
+          '.md exactly matches pre-test snapshot',
+          afterMdClean4 === mdBefore4,
+          `.md length after restore: ${afterMdClean4.length} (expected ${mdBefore4.length})`,
+        );
+        console.log(Y(`  ℹ  .md restored: ${afterMdClean4.length} chars (was ${mdBefore4.length})`));
+      }
+
+      // 2. Restore DB to match the pre-test .md content via direct SQL UPDATE.
+      //    Using mdBefore4 (the .md source of truth) rather than the pre-test
+      //    DB content ensures any pre-existing DB/file divergence is also fixed.
+      //    This bypasses syncEpisodeFile and the rolling max-length guard, which
+      //    would otherwise reject the shorter (sentinel-free) write and leave
+      //    the sentinel permanently in the canonical DB row.
+      if (dbSnap4Id) {
+        await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = ${mdBefore4}
+          WHERE id    = ${dbSnap4Id}
+        `);
+        const afterDbClean4Rows = await db.execute(sql`
+          SELECT content FROM conversation_memories
+          WHERE id = ${dbSnap4Id}
+          LIMIT 1
+        `);
+        const afterDbClean4Row     = (afterDbClean4Rows as any).rows?.[0] ?? (afterDbClean4Rows as any)[0];
+        const afterDbClean4Content = (afterDbClean4Row?.content ?? '') as string;
+        assert(
+          'STEP 4 sentinel absent from DB after restore',
+          !afterDbClean4Content.includes(`CI-CONCURRENT-${id4}`),
+          'DB still contains sentinel after direct SQL restore',
+        );
+        assert(
+          'DB content matches pre-test .md snapshot after restore',
+          afterDbClean4Content === mdBefore4,
+          `DB length after restore: ${afterDbClean4Content.length} (expected ${mdBefore4.length})`,
+        );
+        console.log(Y(`  ℹ  DB restored to match .md: ${afterDbClean4Content.length} chars`));
+      }
+    } catch (err: any) {
+      console.error(R(`  ✗  STEP 4 cleanup failed: ${err.message}`));
       failed++;
     }
   }
