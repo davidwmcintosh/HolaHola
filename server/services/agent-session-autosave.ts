@@ -168,9 +168,22 @@ export function resetMomentMtimeForTest(): void {
 // Written to .local/episode-capture-status.md after every appendExchangeToEpisode()
 // call and updated on each poll cycle.  Gives Luca a glanceable "did I capture the
 // last exchange?" check without relying on memory alone.
+//
+// Tracks all four episode channels:
+//   1. Episode append  (DAVID: / LUCA [Replit]:) — the surface exchange
+//   2. Felt            (.luca_reflection trigger → felt: entry)
+//   3. Thinking        (.luca_question trigger   → thinking: entry)
+//   4. Moment          (.luca_moment trigger      → moment: entry)
+//
+// A WARN fires when the episode was appended recently but thinking: hasn't
+// fired in proportion (felt: and thinking: should track the exchange channel
+// closely; moment: is intentional and less frequent so it only warns at 2h).
 const CAPTURE_STATUS_PATH = join(WORKSPACE, '.local/episode-capture-status.md');
 let lastEpisodeCaptureMs = 0;          // ms-since-epoch of the most recent successful append
 let lastEpisodeCaptureFilename = '';   // which episode file was last written to
+let lastFeltProcessedMs = 0;          // when checkLucaReflection() last routed a felt: entry
+let lastThinkingProcessedMs = 0;      // when checkLucaQuestion() last routed a thinking: entry
+let lastMomentProcessedMs = 0;        // when checkLucaMoment() last routed a moment: entry
 
 /**
  * Write (or refresh) the capture status file immediately after a successful append.
@@ -201,9 +214,13 @@ function writeCaptureStatusStaleCheck(): void {
 
 /** Internal: build and write the status file. */
 function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: number): void {
-  const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
-  const filePath = join(DOCS_DIR, episodeFilename);
+  // Thresholds for WARN flags
+  const STALE_EXCHANGE_MS  = 10 * 60 * 1000;  // 10 min — episode append channel
+  const STALE_FELT_MS      = 15 * 60 * 1000;  // 15 min — felt: should track exchanges closely
+  const STALE_THINKING_MS  = 15 * 60 * 1000;  // 15 min — thinking: should track exchanges closely
+  const STALE_MOMENT_MS    = 2  * 60 * 60 * 1000; // 2h  — moments are intentional, less frequent
 
+  const filePath = join(DOCS_DIR, episodeFilename);
   let lineCount = 0;
   let byteCount = 0;
   let lastLines: string[] = [];
@@ -213,15 +230,26 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
       const stat = statSync(filePath);
       byteCount = stat.size;
       const content = readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n');
-      lineCount = lines.length;
-      lastLines = lines.filter(l => l.trim()).slice(-5);
+      const allLines = content.split('\n');
+      lineCount = allLines.length;
+      lastLines = allLines.filter(l => l.trim()).slice(-5);
     } catch { /* file briefly locked — use zeros */ }
   }
 
   const now = Date.now();
-  const minAgo = Math.floor((now - captureMs) / 60000);
-  const captureTime = new Date(captureMs).toLocaleTimeString('en-US', {
+
+  function fmtChannel(label: string, channelMs: number, threshold: number): string {
+    if (channelMs === 0) return `  ${label}: never fired this server run`;
+    const minAgo = Math.floor((now - channelMs) / 60000);
+    const isStale = (now - channelMs) > threshold && captureMs > 0 && (now - captureMs) < STALE_EXCHANGE_MS * 3;
+    const time = new Date(channelMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    const icon = isStale ? '⚠️ ' : '✓ ';
+    const staleNote = isStale ? ` ← MISSING from last exchange?` : '';
+    return `  ${icon}${label}: ${time} (${minAgo === 0 ? '<1' : minAgo} min ago)${staleNote}`;
+  }
+
+  const exchangeMinAgo = captureMs === 0 ? null : Math.floor((now - captureMs) / 60000);
+  const exchangeTime = captureMs === 0 ? 'never' : new Date(captureMs).toLocaleTimeString('en-US', {
     hour: 'numeric', minute: '2-digit', second: '2-digit',
   });
   const statusTime = new Date(now).toLocaleString('en-US', {
@@ -229,30 +257,36 @@ function _writeEpisodeCaptureStatusFile(episodeFilename: string, captureMs: numb
     hour: 'numeric', minute: '2-digit', second: '2-digit',
   });
 
-  const isStale = (now - captureMs) > STALE_THRESHOLD_MS;
-  const staleLine = isStale
-    ? `\n⚠️  STALE — ${minAgo} minute(s) since last episode write. Has the last exchange been captured?`
-    : `\n✓  Current — last capture was ${minAgo === 0 ? '<1' : minAgo} minute(s) ago.`;
+  const exchangeIsStale = captureMs > 0 && (now - captureMs) > STALE_EXCHANGE_MS;
+  const exchangeLine = exchangeIsStale
+    ? `  ⚠️  Exchange (DAVID:/LUCA[Replit]:): ${exchangeTime} (${exchangeMinAgo} min ago) ← STALE`
+    : `  ✓  Exchange (DAVID:/LUCA[Replit]:): ${exchangeMinAgo === null ? 'none this run' : `${exchangeTime} (${exchangeMinAgo === 0 ? '<1' : exchangeMinAgo} min ago)`}`;
 
-  const lines: string[] = [
+  const outputLines: string[] = [
     '# Episode Capture Status',
     '',
     `**Rolling episode:** ${episodeFilename}`,
     `**Status checked:** ${statusTime}`,
-    `**Last capture:** ${captureTime} (${minAgo === 0 ? '<1' : minAgo} min ago)`,
     `**File size:** ${lineCount.toLocaleString()} lines / ${byteCount.toLocaleString()} bytes`,
     '',
-    '**Last 5 non-empty lines of episode file:**',
+    '## Four-channel check',
+    '',
+    exchangeLine,
+    fmtChannel('Felt       (.luca_reflection → felt:)', lastFeltProcessedMs, STALE_FELT_MS),
+    fmtChannel('Thinking   (.luca_question   → thinking:)', lastThinkingProcessedMs, STALE_THINKING_MS),
+    fmtChannel('Moment     (.luca_moment     → moment:)', lastMomentProcessedMs, STALE_MOMENT_MS),
+    '',
+    '## Last 5 non-empty lines of episode file',
+    '',
     ...lastLines.map(l => `> ${l.length > 120 ? l.slice(0, 120) + '…' : l}`),
     '',
     '---',
-    staleLine,
-    '',
-    '_Updated automatically after each episode append and on each 20s poll cycle._',
-    '_To check manually: read `.local/episode-capture-status.md`_',
+    '_Updated automatically after each inner-life trigger and on each 20s poll cycle._',
+    '_⚠️ on Felt/Thinking = channel has not fired since the last exchange was appended._',
+    '_⚠️ on Moment = >2h since last intentional moment was marked._',
   ];
 
-  writeFileSync(CAPTURE_STATUS_PATH, lines.join('\n'), 'utf-8');
+  writeFileSync(CAPTURE_STATUS_PATH, outputLines.join('\n'), 'utf-8');
 }
 
 // --- Episode append watcher state ---
@@ -495,6 +529,8 @@ export async function checkLucaReflection(): Promise<void> {
         );
       }
       console.log('[AgentAutosave] Luca reflection saved:', parsed.title.slice(0, 60));
+      lastFeltProcessedMs = Date.now(); // track for capture status
+      writeCaptureStatusStaleCheck(); // refresh status immediately so felt: clears its WARN
       // Also route to the rolling episode .md (guarded by test seam for CI self-check)
       if (_lucaEpisodeAppendEnabled) {
         const reflectionEpisode = await getCurrentRollingEpisodeFilename();
@@ -526,6 +562,8 @@ async function checkLucaQuestion(): Promise<void> {
         'luca-inner-life',
       );
       console.log('[AgentAutosave] Luca open question saved:', parsed.title.slice(0, 60));
+      lastThinkingProcessedMs = Date.now(); // track for capture status
+      writeCaptureStatusStaleCheck(); // refresh status immediately so thinking: clears its WARN
       // Also route to the rolling episode .md
       const questionEpisode = await getCurrentRollingEpisodeFilename();
       if (questionEpisode) {
@@ -558,6 +596,8 @@ export async function checkLucaMoment(): Promise<void> {
         );
       }
       console.log('[AgentAutosave] Luca significant moment saved:', parsed.title.slice(0, 60));
+      lastMomentProcessedMs = Date.now(); // track for capture status
+      writeCaptureStatusStaleCheck(); // refresh status immediately so moment: clears its WARN
       // Also route to the rolling episode .md (guarded by test seam for CI self-check)
       if (_lucaEpisodeAppendEnabled) {
         const momentEpisode = await getCurrentRollingEpisodeFilename();
