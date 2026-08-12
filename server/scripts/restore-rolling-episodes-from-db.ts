@@ -16,6 +16,16 @@
  *     → only restores when .md is shorter than DB by > SHRINKAGE_THRESHOLD
  *       characters (normalized). Exits 0 in both cases. Used at startup.
  *
+ *   npx tsx server/scripts/restore-rolling-episodes-from-db.ts --force-push
+ *     → unconditionally push ALL rolling .md files → DB, bypassing the
+ *       length/shrinkage guard. Use after an intentional editorial edit that
+ *       makes the .md shorter than the DB (e.g. removing a raw dump section).
+ *       Cannot be combined with --check-shrinkage.
+ *
+ *   npx tsx server/scripts/restore-rolling-episodes-from-db.ts --force-push --episode-id=<uuid>
+ *     → restrict force-push (or any mode) to a single episode by DB id.
+ *       Safe for CI/test use: no other rolling records are touched.
+ *
  * Exit codes:
  *   0  — OK (no shrinkage detected for any episode, or all restores succeeded)
  *   1  — Fatal error (DB unavailable, write failed)
@@ -39,6 +49,13 @@ const W = (s: string) => `\x1b[33;1m${s}\x1b[0m`;
 const SHRINKAGE_THRESHOLD = 200;
 
 const ARC_NAME = 'HolaHola Episodes';
+
+/** Returns true if content contains git merge conflict markers. */
+function hasGitConflictMarkers(content: string): boolean {
+  return content.includes('<<<<<<< ') ||
+         content.includes('=======') ||
+         content.includes('>>>>>>> ');
+}
 
 /** Normalize for length comparison (same logic as the CI sync check). */
 function normalize(s: string): string {
@@ -71,6 +88,74 @@ interface EpisodeRow {
   id: string;
   title: string;
   content: string;
+}
+
+// NeonQueryFunction<false,false> (the concrete return type of neon()) is not
+// assignable to ReturnType<typeof neon> due to the overload signature. Use a
+// minimal structural type that covers the tagged-template call we actually make.
+type NeonSqlFn = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>;
+
+async function forcePushMdToDb(
+  sql: NeonSqlFn,
+  episode: EpisodeRow,
+  mdPath: string,
+): Promise<boolean> {
+  const { id, title, content: dbContent } = episode;
+
+  console.log('');
+  console.log(B(`  ── ${title} (${id}) ──`));
+
+  if (!existsSync(mdPath)) {
+    console.error(R(`  FATAL: .md file does not exist at ${mdPath} — cannot force-push`));
+    return false;
+  }
+
+  let mdContent: string;
+  try {
+    mdContent = readFileSync(mdPath, 'utf8');
+  } catch (err: any) {
+    console.error(R(`  FATAL: Could not read ${mdPath}: ${err?.message ?? err}`));
+    return false;
+  }
+
+  // Reject content with unresolved git conflict markers — same guard as in
+  // sync-episode-28-from-md.ts, applied here before any DB write.
+  if (hasGitConflictMarkers(mdContent)) {
+    console.error(R(
+      `  FATAL: ${mdPath} contains git merge conflict markers ` +
+      `(<<<<<<< / ======= / >>>>>>>). ` +
+      `Resolve the conflict before force-pushing to prevent DB corruption.`
+    ));
+    return false;
+  }
+
+  const dbNorm = normalize(dbContent ?? '');
+  const mdNorm = normalize(mdContent);
+
+  console.log(Y(`  ℹ  DB record: ${(dbContent ?? '').length} raw bytes / ${dbNorm.length} normalized chars`));
+  console.log(Y(`  ℹ  .md file : ${mdContent.length} raw bytes / ${mdNorm.length} normalized chars`));
+
+  if (mdContent.length >= (dbContent ?? '').length) {
+    console.log(Y(`  ℹ  .md is already longer or equal — force-push is a no-op here, but proceeding anyway`));
+  } else {
+    console.log(W(`  ⚠  FORCE-PUSH: .md is shorter than DB by ${(dbContent ?? '').length - mdContent.length} bytes`));
+    console.log(W(`     Bypassing length guard — pushing .md → DB unconditionally`));
+  }
+
+  try {
+    await sql`UPDATE conversation_memories SET content = ${mdContent} WHERE id = ${id}`;
+    console.log(B(''));
+    console.log(B('  ══════════════════════════════════════════════════════════════════'));
+    console.log(B(`  FORCE-PUSHED: ${mdPath} → DB`));
+    console.log(B(`  DB id   : ${id}`));
+    console.log(B(`  Size    : ${mdContent.length} bytes (DB now matches .md)`));
+    console.log(B('  ══════════════════════════════════════════════════════════════════'));
+    console.log('');
+    return true;
+  } catch (err: any) {
+    console.error(R(`  FATAL: DB update failed for ${title}: ${err?.message ?? err}`));
+    return false;
+  }
 }
 
 async function checkAndRestore(
@@ -140,8 +225,21 @@ async function checkAndRestore(
   }
 }
 
+/** Parse --episode-id=<uuid> from argv, returns null if not provided. */
+function parseEpisodeIdFilter(): string | null {
+  const arg = process.argv.find(a => a.startsWith('--episode-id='));
+  return arg ? arg.slice('--episode-id='.length).trim() : null;
+}
+
 async function main() {
   const checkShrinkageOnly = process.argv.includes('--check-shrinkage');
+  const forcePush = process.argv.includes('--force-push');
+  const episodeIdFilter = parseEpisodeIdFilter();
+
+  if (forcePush && checkShrinkageOnly) {
+    console.error(R('FATAL: --force-push and --check-shrinkage are mutually exclusive'));
+    process.exit(1);
+  }
 
   const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
   if (!DATABASE_URL) {
@@ -150,6 +248,16 @@ async function main() {
   }
 
   const sql = neon(DATABASE_URL);
+
+  if (forcePush) {
+    if (episodeIdFilter) {
+      console.log(W(`[rolling-restore] --force-push mode: restricted to episode id ${episodeIdFilter}`));
+    } else {
+      console.log(W('[rolling-restore] --force-push mode: pushing ALL rolling .md files → DB (bypassing length guard)'));
+      console.log(W('[rolling-restore] Use this ONLY for intentional editorial edits that shorten the .md'));
+    }
+    console.log('');
+  }
 
   // ── Backfill: stamp rolling-protected on any historically-rolling episodes ──
   // set-rolling-episode.ts now stamps 'rolling-protected' on demoted rows
@@ -209,11 +317,20 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(B(`[rolling-restore] Found ${rows.length} rolling episode(s) to check.`));
+  const filteredRows = episodeIdFilter
+    ? rows.filter(r => (r.id as string) === episodeIdFilter)
+    : rows;
+
+  if (episodeIdFilter && filteredRows.length === 0) {
+    console.error(R(`[rolling-restore] No rolling episode found with id "${episodeIdFilter}" — nothing to do.`));
+    process.exit(1);
+  }
+
+  console.log(B(`[rolling-restore] Found ${rows.length} rolling episode(s); processing ${filteredRows.length}.`));
 
   let anyFatal = false;
 
-  for (const row of rows) {
+  for (const row of filteredRows) {
     const episode: EpisodeRow = {
       id: row.id as string,
       title: row.title as string,
@@ -226,7 +343,9 @@ async function main() {
       continue;
     }
 
-    const ok = await checkAndRestore(episode, mdPath, checkShrinkageOnly);
+    const ok = forcePush
+      ? await forcePushMdToDb(sql, episode, mdPath)
+      : await checkAndRestore(episode, mdPath, checkShrinkageOnly);
     if (!ok) anyFatal = true;
   }
 

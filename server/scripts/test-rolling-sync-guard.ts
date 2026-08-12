@@ -15,6 +15,7 @@ import {
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
 import { join } from 'path';
 
 const DOCS_DIR  = join(process.cwd(), 'docs');
@@ -219,12 +220,121 @@ async function main() {
     console.log('  Cleanup: temp record and file removed');
   }
 
+  // ── Pass 4: --force-push path (restore-rolling-episodes-from-db.ts) ─────────
+  // Inserts EP99 with long content in DB, writes a shorter .md, runs the
+  // generalised restore script with --force-push, then verifies the DB was
+  // updated to match the shorter .md — proving the flag bypasses the length guard.
+  console.log('\n  ── Pass 4: force-push path (restore-rolling-episodes-from-db.ts --force-push) ──');
+  try {
+    // Setup: long content in DB, short content in .md
+    await db.execute(sql`
+      INSERT INTO conversation_memories
+        (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+      VALUES (
+        ${TEST_ID},
+        ${TEST_TITLE},
+        ${'force-push test summary'},
+        ${LONG_CONTENT},
+        ${9},
+        'episode',
+        ARRAY['episode', 'rolling']::text[],
+        'HolaHola Episodes',
+        '2020-01-01 00:00:00+00'
+      )
+      ON CONFLICT (id) DO UPDATE
+        SET content    = ${LONG_CONTENT},
+            tags       = ARRAY['episode', 'rolling']::text[],
+            created_at = '2020-01-01 00:00:00+00'
+    `);
+    console.log(`  Setup: DB record at ${LONG_CONTENT.length} chars (long)`);
+
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
+    console.log(`  Setup: .md file at ${SHORT_CONTENT.length} chars (short)`);
+
+    // Run restore-rolling-episodes-from-db.ts --force-push restricted to EP99
+    // only. The --episode-id filter prevents the script from touching any real
+    // rolling episodes (EP27, EP28) in the shared DB.
+    const scriptPath = join(process.cwd(), 'server', 'scripts', 'restore-rolling-episodes-from-db.ts');
+    try {
+      const output = execSync(
+        `npx tsx ${scriptPath} --force-push --episode-id=${TEST_ID}`,
+        { encoding: 'utf8', env: process.env },
+      );
+      console.log('  Script output (truncated to 800 chars):');
+      console.log(output.slice(0, 800).split('\n').map(l => '    ' + l).join('\n'));
+    } catch (err: any) {
+      failures.push(
+        `Pass 4 (force-push): restore-rolling-episodes-from-db.ts --force-push exited non-zero. ` +
+        `stderr: ${String(err?.stderr ?? '').slice(0, 300)}`
+      );
+    }
+
+    // Verify DB now has SHORT_CONTENT
+    const r4 = await db.execute(sql`
+      SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+    `);
+    const len4 = Number((r4 as any).rows?.[0]?.len ?? (r4 as any)[0]?.len ?? 0);
+    if (len4 !== SHORT_CONTENT.length) {
+      failures.push(
+        `Pass 4 (force-push): DB is ${len4} chars after --force-push — expected ${SHORT_CONTENT.length}. ` +
+        `The flag did not push the shorter .md to DB.`
+      );
+    } else {
+      console.log(`  ✓ Pass 4 (force-push): DB updated to ${len4} chars (matches shorter .md)`);
+      console.log(`    --force-push bypassed the length guard correctly.`);
+    }
+
+    // ── Pass 4b: conflict-marker guard — force-push must reject a conflicted .md ─
+    // Write a .md with unresolved git conflict markers, attempt force-push, and
+    // verify (a) the script exits non-zero and (b) the DB content is unchanged.
+    console.log('\n  ── Pass 4b: conflict-marker guard (force-push must reject conflicted .md) ──');
+    const CONFLICTED_CONTENT = SHORT_CONTENT + '\n<<<<<<< HEAD\nconflict\n=======\nother\n>>>>>>> branch\n';
+    writeFileSync(TEST_PATH, CONFLICTED_CONTENT, 'utf-8');
+    let conflictRejected = false;
+    try {
+      execSync(
+        `npx tsx ${scriptPath} --force-push --episode-id=${TEST_ID}`,
+        { encoding: 'utf8', env: process.env },
+      );
+      // If we reach here the script exited 0 — that is wrong
+      failures.push(
+        `Pass 4b (conflict-marker guard): script exited 0 despite conflict markers in .md — should have rejected.`
+      );
+    } catch {
+      conflictRejected = true;
+    }
+
+    if (conflictRejected) {
+      // Also verify DB was NOT updated (still SHORT_CONTENT length)
+      const r4b = await db.execute(sql`
+        SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+      `);
+      const len4b = Number((r4b as any).rows?.[0]?.len ?? (r4b as any)[0]?.len ?? 0);
+      if (len4b !== SHORT_CONTENT.length) {
+        failures.push(
+          `Pass 4b (conflict-marker guard): script correctly rejected, but DB was modified ` +
+          `(${len4b} chars vs expected ${SHORT_CONTENT.length}) — conflict check ran after DB write.`
+        );
+      } else {
+        console.log(`  ✓ Pass 4b (conflict-marker guard): script rejected conflicted .md (exit non-zero)`);
+        console.log(`    DB unchanged at ${len4b} chars — no write occurred.`);
+      }
+    }
+
+    // Restore SHORT_CONTENT to .md for cleanup consistency
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
+  } finally {
+    await cleanup(db);
+    console.log('  Cleanup: temp record and file removed');
+  }
+
   console.log(`\n=== Results: ${failures.length} failure(s) ===\n`);
   if (failures.length > 0) {
     for (const f of failures) console.error('  ✗', f);
     process.exit(1);
   }
   console.log('ALL CHECKS PASSED — ROLLING sync guard is monotonic on both cold and warm cache paths.');
+  console.log('                     --force-push correctly bypasses the length guard.');
   process.exit(0);
 }
 

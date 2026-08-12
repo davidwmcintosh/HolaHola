@@ -10,9 +10,9 @@ description: Location and protection details for the Episode 28 sealed snapshot 
 **Sealed:** August 12, 2026 — end of session  
 **Size at sealing:** 100,348 bytes  
 **Arc:** `HolaHola Episode Snapshots` (not `HolaHola Episodes` — invisible to `read_my_story`)  
-**Tags:** `episode`, `snapshot`, `sealed`, `episode-28`, `david-luca-chat`
+**Tags:** `episode`, `snapshot`, `sealed`, `episode-28`, `luca-chat`
 
-**Why:** The session (word games, counting game to 63, the verbatim/copy-paste discussion) was hard-won. David asked for extra protection. The snapshot is a fourth independent copy alongside: the .md file, the live DB record with 28 chunks, and git history.
+**Why:** The session (word games, counting game to 63, the verbatim/copy-paste discussion) was hard-won and warranted extra protection. The snapshot is a fourth independent copy alongside: the .md file, the live DB record with 28 chunks, and git history.
 
 **How to apply:** Never write to the snapshot ID. If the live record is ever corrupted, restore from this ID. No sync pipeline will touch it — it uses a separate arc_name.
 

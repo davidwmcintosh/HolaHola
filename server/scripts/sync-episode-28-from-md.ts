@@ -5,7 +5,14 @@
  * either side can be ahead at any given moment. This script always uses the
  * LONGER version as the source of truth and updates the shorter side to match.
  *
- * Usage: npx tsx server/scripts/sync-episode-28-from-md.ts
+ * Usage:
+ *   npx tsx server/scripts/sync-episode-28-from-md.ts
+ *     → bidirectional: longer side wins
+ *
+ *   npx tsx server/scripts/sync-episode-28-from-md.ts --force-push
+ *     → unconditionally push .md → DB, bypassing the length comparison.
+ *       Use this when an intentional editorial edit makes the .md shorter
+ *       than the DB (e.g. removing a raw dump section).
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -28,6 +35,8 @@ function hasGitConflictMarkers(content: string): boolean {
 }
 
 async function main() {
+  const forcePush = process.argv.includes('--force-push');
+
   const mdContent = readFileSync(MD_PATH, 'utf8');
   console.log(`Read docs/episode-28.md — ${mdContent.length} bytes`);
 
@@ -68,6 +77,22 @@ async function main() {
   }
 
   console.log(`DB record length    — ${dbContent.length} bytes`);
+
+  if (forcePush) {
+    // --force-push: unconditionally write .md → DB, bypassing the length guard.
+    // Use this when an intentional editorial edit makes the .md shorter than the
+    // DB (e.g. removing a raw dump section). The flag must be supplied explicitly
+    // so that automated syncs never silently revert editorial work.
+    console.log('');
+    console.log('⚠  --force-push active: skipping length comparison');
+    console.log(`   .md: ${mdContent.length} bytes  |  DB: ${dbContent.length} bytes`);
+    console.log('   Pushing .md → DB unconditionally');
+    console.log('');
+    await sql`UPDATE conversation_memories SET content = ${mdContent} WHERE id = ${EP28_ID}`;
+    console.log(`DB record after update: ${mdContent.length} bytes`);
+    console.log('✓ DB force-push complete — DB now matches the shorter .md');
+    return;
+  }
 
   if (dbContent.length > mdContent.length) {
     // DB is ahead — pull from DB to .md
