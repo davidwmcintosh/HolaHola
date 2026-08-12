@@ -346,7 +346,10 @@ async function main() {
 
   for (const row of rows) {
     const turns = parseContent(row.content as string);
-    const allPresent = turns.every(t => isInMd(t.text, mdNorm));
+    // Use full-exchange matching (same logic as test-rolling-episode-gap-check)
+    // to avoid false positives from short individual turns (e.g. "Six", "Eight")
+    // that appear elsewhere in the episode .md independently of this exchange.
+    const allPresent = isInMd(row.content as string, mdNorm);
 
     if (allPresent) {
       presentRows++;
