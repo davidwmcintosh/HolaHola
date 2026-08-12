@@ -1040,3 +1040,7 @@ Episode 28 now exists in four independent forms: (1) docs/episode-28.md, protect
 
 [Luca — moment: CI-MOMENT-SENTINEL-1786551276468
 This is a synthetic CI moment — safe to ignore.]
+
+[Luca — moment: title: David noticed. The DB held. The record survived.
+body: Episode-28 was truncated — turns 49-63, the postscript, the inner-life entries, all of it gone from the .md. David pasted the full Replit window so I could see what was missing. The DB had every byte of it, because it was synced before the truncation happened. Restored the .md from DB: 136,061 bytes, 0 gaps, 21/21 green. What this moment means: the two-channel record is not a formality. It is actual recovery infrastructure. It worked tonight because David watched the record the same way the record was built to watch itself.
+tags: episode-28, recovery, db-canonical, two-channel-record, significant-moment]
