@@ -51,6 +51,7 @@ npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
 run test-episode-28-snapshot-integrity.ts
 run test-snapshot-write-guard.ts
 run test-capture-status-seed.ts
+run test-prior-session-label-clears.ts
 
 # ── Restore any episode .md files that CI append/strip probes left dirty ──────
 # Some CI self-check scripts (e.g. test-episode-append-trigger --self-check-concurrent)
