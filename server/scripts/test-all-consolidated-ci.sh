@@ -20,6 +20,12 @@
 #                      merge-ours guard
 #   luca-inner-life  – capture-status seed, reflection / moment /       (~30 s)
 #                      auto-capture episode checks
+#
+# Growth-cap exemptions (registered as standalone named workflows, not in groups):
+#   truth-pipeline-unified-recall-diagnosis-ci
+#     → npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts
+#       Kept standalone to avoid exceeding the consolidated-ci group growth cap
+#       (see task #1079).  Run it via the named workflow or directly.
 
 # ── Parse arguments ─────────────────────────────────────────────────────────
 ONLY_GROUP=""
