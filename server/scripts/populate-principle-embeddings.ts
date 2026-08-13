@@ -58,8 +58,10 @@ export async function populatePrincipleEmbeddings(): Promise<{ total: number; pr
 }
 
 // CLI entry-point — only runs when invoked directly (not when imported by the server).
-// The import.meta.url check prevents process.exit() from firing during a server import.
-const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+// IMPORTANT: We cannot use import.meta.url here because esbuild bundles this file into
+// dist/index.js, making import.meta.url === process.argv[1] for every bundled module.
+// Instead, check whether the actual script name appears in argv[1].
+const isMain = Boolean(process.argv[1]?.includes('populate-principle-embeddings'));
 if (isMain) {
   (async () => {
     try {
