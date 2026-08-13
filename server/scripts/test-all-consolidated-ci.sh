@@ -195,6 +195,11 @@ group_body_luca_inner_life() {
   run test-luca-reflection-episode.ts
   run test-luca-moment-episode.ts
   run test-luca-auto-capture-episode.ts
+  run test-health-check-probe-guard.ts
+
+  echo ""
+  echo "  --- test-health-check-probe-guard.ts --self-check (ua==='' branch removed regression) ---"
+  npx tsx server/scripts/test-health-check-probe-guard.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────

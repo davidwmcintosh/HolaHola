@@ -20,6 +20,7 @@ import { memoryRecoveryWorker } from "./services/memory-recovery-worker";
 import { supportPersonaService } from "./services/support-persona-service";
 import { warmupNeonPool } from "./neon-db";
 import { runProxyStartupChecks } from "./services/proxy-startup-check";
+import { healthProbeGuardMiddleware } from "./health-probe-guard";
 
 const app = express();
 
@@ -62,23 +63,9 @@ app.get('/health', (req, res) => {
 // CRITICAL: Deployment platform health-probes hit '/' — intercept them BEFORE any
 // middleware that touches the filesystem or the session, so '/' always returns 200
 // immediately at startup and prevents the healthcheck death spiral.
-// Replit's metasidecar may send no User-Agent or a non-Google UA, so we catch broadly:
-// any GET / or /health from a local IP, or any request whose UA contains a known probe
-// pattern, or any request with no UA at all (probers often omit it).
-app.use((req, res, next) => {
-  if (req.method !== 'GET') return next();
-  const ua = (req.get('user-agent') || '').trim();
-  const isProbe =
-    ua === '' ||                            // no UA — most infra probers
-    ua.startsWith('GoogleHC') ||            // Google Cloud Run
-    ua.startsWith('Go-http-client') ||      // raw Go net/http (Replit metasidecar)
-    ua.toLowerCase().includes('health') ||  // generic health-checker UA
-    ua.toLowerCase().includes('kube-probe'); // Kubernetes liveness probes
-  if (isProbe) {
-    return res.status(200).send('OK');
-  }
-  next();
-});
+// Restricted to GET / only (GET /health is handled above); see health-probe-guard.ts
+// for the canonical UA-detection predicate and CI contract.
+app.use(healthProbeGuardMiddleware);
 
 // NOTE: Heavy background workers (Hive, MemoryRecovery, Sofia) are started AFTER
 // server.listen() to ensure fast health check response for Cloud Run deployments
