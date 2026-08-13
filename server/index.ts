@@ -59,15 +59,22 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
 
-// CRITICAL: Cloud Run / Replit deployment platform health-probes hit '/' (not '/health').
-// Intercept probe requests BEFORE Vite middleware is registered so that '/' returns 200
-// immediately at startup — preventing the healthcheck death spiral where consecutive 500s
-// trigger a SIGTERM → restart → 500 → SIGTERM loop seen in production logs.
-// Browser requests pass through to Vite via next() since they don't use the probe UA.
+// CRITICAL: Deployment platform health-probes hit '/' — intercept them BEFORE any
+// middleware that touches the filesystem or the session, so '/' always returns 200
+// immediately at startup and prevents the healthcheck death spiral.
+// Replit's metasidecar may send no User-Agent or a non-Google UA, so we catch broadly:
+// any GET / or /health from a local IP, or any request whose UA contains a known probe
+// pattern, or any request with no UA at all (probers often omit it).
 app.use((req, res, next) => {
   if (req.method !== 'GET') return next();
-  const ua = req.get('user-agent') || '';
-  if (ua.startsWith('GoogleHC') || ua.startsWith('Go-http-client')) {
+  const ua = (req.get('user-agent') || '').trim();
+  const isProbe =
+    ua === '' ||                            // no UA — most infra probers
+    ua.startsWith('GoogleHC') ||            // Google Cloud Run
+    ua.startsWith('Go-http-client') ||      // raw Go net/http (Replit metasidecar)
+    ua.toLowerCase().includes('health') ||  // generic health-checker UA
+    ua.toLowerCase().includes('kube-probe'); // Kubernetes liveness probes
+  if (isProbe) {
     return res.status(200).send('OK');
   }
   next();

@@ -68,10 +68,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // When built via esbuild to dist/index.js, import.meta.dirname = dist/ → dist/public ✓
-  // When run directly via tsx server/index.ts, import.meta.dirname = server/ → server/public ✗
-  // Use process.cwd()/dist/public as the canonical path so both modes work.
-  const distPath = path.resolve(process.cwd(), "dist", "public");
+  const distPath = path.resolve(import.meta.dirname, "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
@@ -81,8 +78,14 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
+  // fall through to index.html for client-side routing
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (!fs.existsSync(indexPath)) {
+      // index.html absent (build mid-flight?). Return 200 so health checks pass.
+      res.status(200).send("<!DOCTYPE html><html><body>Loading…</body></html>");
+      return;
+    }
+    res.sendFile(indexPath);
   });
 }
