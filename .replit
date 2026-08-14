@@ -291,6 +291,18 @@ args = "npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts"
 isValidation = true
 outputType = "console"
 
+[[workflows.workflow]]
+name = "capture-status-stale-escalation-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-capture-status-stale-escalation.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
 

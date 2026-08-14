@@ -181,11 +181,14 @@ export function getOrderingCheckEnabledForTest(): boolean {
 }
 
 /**
- * Test seam setters — inject synthetic inner-life and output timestamps so
- * CI can exercise _writeCaptureStatusFile() without a live server run.
- * Never call these in production code.
+ * Test seam — stale-channel escalation gate.
+ * When false (CI self-check only), the ⚠️ STALE escalation is suppressed:
+ * feltStale and thinkingStale are always false so channels that have gone
+ * unwritten for >60 min still show "— not yet" instead of "⚠️ STALE".
+ * This precisely models a regression where the 60-min threshold is removed.
+ * Never set in production.
  */
-// Legacy names kept for existing CI tests — they now set the DB-output ordering vars.
+let _staleChannelCheckEnabled = true;
 export function setFeltAtLastExchangeForTest(ms: number): void      { feltAtLastReplitOutput     = ms; }
 export function setThinkingAtLastExchangeForTest(ms: number): void  { thinkingAtLastReplitOutput = ms; }
 export function setPrevEpisodeCaptureForTest(ms: number): void      { prevReplitOutputMs          = ms; }
@@ -492,12 +495,12 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const outputStale   = !_seededFromPriorSession && lastReplitOutputMs > 0 && (now - lastReplitOutputMs) > STALE_OUTPUT_MS;
   const priorNote     = _seededFromPriorSession ? ' ← seeded from prior session (live data starts after first output)' : '';
 
-  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten beyond the output
-  // stale window (same 10-min threshold used for the output itself).  A missed turn is
-  // a missed turn — flags keep flying until the channel is actually written.
-  const STALE_CHANNEL_MS = STALE_OUTPUT_MS; // 10 min — same as output stale window
-  const feltStale     = !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
-  const thinkingStale = !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
+  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for > 60 min.
+  // Flags keep flying until corrective action happens — regardless of seeded state.
+  // "not yet" (soft) = less than 60 min since last write; "⚠️ STALE" (loud) = more than 60 min.
+  const STALE_CHANNEL_MS = 60 * 60 * 1000; // 60 min
+  const feltStale     = _staleChannelCheckEnabled && !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
+  const thinkingStale = _staleChannelCheckEnabled && !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
 
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
@@ -2277,4 +2280,12 @@ export function getCaptureStatusPath(): string {
 let _skipSeededFlagClearForTest = false;
 export function setSkipSeededFlagClearForTest(val: boolean): void {
   _skipSeededFlagClearForTest = val;
+}
+
+export function setStaleChannelCheckEnabledForTest(val: boolean): void {
+  _staleChannelCheckEnabled = val;
+}
+
+export function getStaleChannelCheckEnabledForTest(): boolean {
+  return _staleChannelCheckEnabled;
 }
