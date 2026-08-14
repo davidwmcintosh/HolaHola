@@ -42,9 +42,35 @@ When Episode 27 is no longer ROLLING (the session has ended and the final versio
 - The Agent wants to record a session that should be carried forward permanently into Daniela's living context
 - A new episode should link chronologically to a previous one
 
+---
+
+## The DB-First Writing Process
+
+Episodes are written in three steps:
+
+**Step 1 — Write to DB** (auto-capture, already running)
+Conversation content lands in `conversation_memories` continuously. Every Luca↔David exchange, every Daniela↔David session, every consultation is saved there. This step is already done before you open the episode file.
+
+**Step 2 — Retrieve from DB**
+Before writing a word of dialogue into the `.md` file, pull the verbatim content from `conversation_memories` using the retrieval script. The DB has the record. Use it.
+
+**Step 3 — Write narrative directly**
+Luca writes the following directly into the `.md` file (not retrieved from DB):
+- Section headings
+- Scene-setting italics (brief, present-tense, observational)
+- Narrative intros and transitions between sections
+- Felt / thinking / moment close blocks
+- Commentary, opinions, analysis
+
+Everything else — every word of actual dialogue — is retrieved from DB and pasted verbatim. Typing dialogue from memory is reconstruction, even when the memory is recent.
+
+**The split in one sentence:** DB → .md for dialogue. Luca → .md directly for framing.
+
+---
+
 ## Critical — if you wrote it, you save it
 
-If the Agent writes an episode narrative and presents it to David (via `present_asset` or any other delivery), the DB save (Step 3) is **mandatory in that same action** — not a separate step, not something to do later. The moment the .md leaves the Agent's hands, both artifacts must already exist.
+If the Agent writes an episode narrative and presents it to David (via `present_asset` or any other delivery), the DB save (Step 4) is **mandatory in that same action** — not a separate step, not something to do later. The moment the .md leaves the Agent's hands, both artifacts must already exist.
 
 A file-only episode is invisible to Daniela. This gap was discovered July 11, 2026: Episode 12 was written by the Agent, handed to David, and the DB row was never created. David had to bring the file back a day later for it to be saved. Do not repeat this.
 
@@ -65,7 +91,35 @@ The next episode is N+1. The title should capture the **emotional or conceptual 
 
 ---
 
-## Step 2 — Write the `.md` File
+## Step 2 — Retrieve Conversational Content from the Database
+
+Before writing a single word of dialogue, pull the verbatim records from `conversation_memories` using the retrieval script:
+
+```bash
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --date YYYY-MM-DD \
+  --tags "founder-chat,david-luca-chat" \
+  --out /tmp/episode-N-dialogue.md
+```
+
+Review the output. Each block is verbatim DB content, formatted and ready to paste into the episode `.md`. Do not retype it, paraphrase it, or reconstruct it from session memory.
+
+**Common tag combinations:**
+
+| Conversation type | Tags to pass |
+|---|---|
+| Luca↔David building sessions | `david-luca-chat` |
+| Daniela↔David live chat | `founder-chat` or `daniela-chat` |
+| Combined (both in one episode) | `david-luca-chat,founder-chat` |
+| Specific episode arc | `episode-N` |
+
+**If the retrieval script is unavailable** (sibling task not yet merged), fall back to the SQL queries in the "Retrieving transcripts" section of Step 3. The rule is the same: paste verbatim, do not retype.
+
+**If a section has no DB record:** Say so explicitly in the episode file — `*"The record for this section was not captured."*` — and go get the record before continuing. Do not fill the gap with reconstruction.
+
+---
+
+## Step 3 — Write the `.md` File
 
 **Canonical location: `docs/episode-N.md` — directly in `docs/`, NOT in any subdirectory.**
 
@@ -136,8 +190,24 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 *[One-line thematic tagline for this episode]*
 ```
 
+### What Luca writes directly vs. what is retrieved
+
+**Retrieved from DB → pasted verbatim into .md** (never retyped):
+- All dialogue blocks — every word a participant actually said
+- Content from `conversation_memories` pulled in Step 2
+
+**Luca writes directly into .md** (narrative license intact):
+- Section headings that name the emotional/conceptual movement
+- Scene-setting italics — brief, present-tense, observational beats between dialogue
+- Narrative intros and transitions between sections
+- Felt / thinking / internal / moment close blocks
+- Commentary, interpretive notes, opinions
+
+This is the mechanism that makes the verbatim standard reliable. Typing dialogue from memory is reconstruction, even when the memory is recent. The retrieval script exists to enforce this distinction without slowing the writing down.
+
 ### Writing rules
 
+- **Dialogue comes from the DB, not from memory.** Run Step 2 before writing Step 3. Every dialogue block should have a source row in `conversation_memories` that you retrieved and pasted. If you don't have it, say so and get it.
 - **The plain record, not a summary.** The episode IS the dialogue — verbatim, with light clarification only where a word was clearly wrong. Do not paraphrase, condense, or reconstruct. The inviolability principle from the messages table applies here too. If you are tempted to write "David explained that..." — stop. Write what David actually said.
 
 ## ⚠️ Task Agent Warning — Do NOT shrink a ROLLING episode file
@@ -314,7 +384,7 @@ If a transcript is not in any of these places, say so explicitly in the episode:
 
 ---
 
-## Step 2.5 — Interweaving Consultation Threads (Director's Cut)
+## Step 3.5 — Interweaving Consultation Threads (Director's Cut)
 
 For episodes where Luca stepped away to consult Alden, Gemini, or Daniela, the narrative can show the actual exchange rather than summarizing it. The reader sees the full causality: the question that sent Luca away, what was said, and what came back.
 
@@ -395,7 +465,7 @@ Add a consultation thread section only when the consultation visibly changed som
 
 ---
 
-## Step 3 — Save to the Database
+## Step 4 — Save to the Database
 
 Use the `conversation_memories` table. This is what Daniela reads. The fields that matter most:
 
@@ -480,7 +550,7 @@ Record the returned `id` — it becomes the `extends_memory_id` for Episode N+1.
 
 ---
 
-## Step 4 — Verify Both Exist
+## Step 5 — Verify Both Exist
 
 After publishing:
 
@@ -500,7 +570,7 @@ LIMIT 3;
 
 ---
 
-## Step 5 — Tell David
+## Step 6 — Tell David
 
 After publishing, tell David:
 - The episode number and title
