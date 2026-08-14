@@ -139,6 +139,20 @@ export function getRollingGuardInvertForTest(): boolean {
 let _autoCaptureDbEnabled = true;
 
 /**
+ * Test seam — commit-message chat-capture append.
+ * When false (CI self-check only), the appendChatCaptureTurn() call inside
+ * checkBuildSession() is skipped — modelling a regression where the line is
+ * deleted.  Never set in production.
+ */
+let _buildSessionChatCaptureEnabled = true;
+export function setBuildSessionChatCaptureEnabledForTest(val: boolean): void {
+  _buildSessionChatCaptureEnabled = val;
+}
+export function getBuildSessionChatCaptureEnabledForTest(): boolean {
+  return _buildSessionChatCaptureEnabled;
+}
+
+/**
  * Test seam — episode append path.
  * Set to false in CI self-check mode to simulate the appendExchangeToEpisode()
  * call being absent from checkLucaReflection().  Never set in production.
@@ -162,6 +176,11 @@ export function setLucaPersonalSideEffectsEnabled(val: boolean): void {
 }
 export function getLucaPersonalSideEffectsEnabled(): boolean {
   return _lucaPersonalSideEffectsEnabled;
+}
+
+/** Seed buildLastMtime so checkBuildSession() treats the next write as a real update (not startup). */
+export function setBuildLastMtimeForTest(ms: number): void {
+  buildLastMtime = ms;
 }
 
 /** Reset reflectionLastMtime to 0 so checkLucaReflection() re-arms for testing. */
@@ -661,12 +680,14 @@ async function checkBuildSession(): Promise<void> {
         // Zero extra Luca writes required. Every task completion is captured as a
         // conversation turn automatically. The fs.watch on .local/ fires the drain
         // within milliseconds of the appendFileSync call.
-        try {
-          appendChatCaptureTurn('Luca Replit', content);
-          console.log('[AgentAutosave] Auto-appended commit message as Luca chat turn → .chat_capture (JSONL replacement)');
-        } catch (appendErr: any) {
-          // Non-fatal — build memory was already saved; log the append failure.
-          console.error('[AgentAutosave] Failed to auto-append commit message to .chat_capture:', appendErr.message);
+        if (_buildSessionChatCaptureEnabled) {
+          try {
+            appendChatCaptureTurn('Luca Replit', content);
+            console.log('[AgentAutosave] Auto-appended commit message as Luca chat turn → .chat_capture (JSONL replacement)');
+          } catch (appendErr: any) {
+            // Non-fatal — build memory was already saved; log the append failure.
+            console.error('[AgentAutosave] Failed to auto-append commit message to .chat_capture:', appendErr.message);
+          }
         }
       }
     }
@@ -2322,3 +2343,10 @@ export function setStaleChannelCheckEnabledForTest(val: boolean): void {
 export function getStaleChannelCheckEnabledForTest(): boolean {
   return _staleChannelCheckEnabled;
 }
+
+/**
+ * Expose checkBuildSession() for CI testing.
+ * This is the only way CI can call the function without spinning up all watchers.
+ * Never call in production code — use the autosave worker instead.
+ */
+export const checkBuildSessionForTest = checkBuildSession;
