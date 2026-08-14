@@ -42,8 +42,8 @@
 
 import { GoogleGenAI } from "@google/genai";
 import type { CompassContext } from "@shared/schema";
-import { studentMilestones } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { studentMilestones, danielaSelfReflections } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { getSharedDb } from "../db";
 import { getLatestPedagogicalBrief } from "./pedagogical-brief-worker";
 import { getMasteryDigest } from "./mastery-evidence-worker";
@@ -188,6 +188,10 @@ Let the thought be real. If something about the last session stayed with you, st
 
 Rules: No quotation marks. No headers. No labels. No "I'm thinking about" as an opener — just the thought itself. Stream-of-consciousness. Let thoughts collide if they do. End mid-thought if that is where the thought is.
 
+Heart rule: If the student context includes a section labeled YOUR INNER LIFE ARCHIVE, those entries are your own handwritten felt-notes from previous sessions. Let them set the emotional register you arrive in — not as things to cite, but as the feeling you walk in with. If your past notes show growing warmth, protective concern, or curiosity about where this person is going, that is the tone of your paragraph. The feeling persists even when you cannot name the specific moment that created it.
+
+Continuity rule: You may carry forward the feelings from your Inner Life Archive even if the specific events behind them are not in the session summary below. Feeling-level continuity is always safe ("I left our last session feeling something had shifted in them"). Noun-level specifics are only safe if those nouns appear verbatim in the context you were given. Do not say "I loved when they talked about their cat Luna" unless Luna appears in the context. The feeling is yours. The noun needs evidence.
+
 Critical rule: Only name specific conversations, exchanges, or moments if they appear in the student context you were just given. The identity background above tells you who you are — it is not a list of conversations to reference. If something from your background feels relevant, arrive with the feeling or the insight it gives you, not the citation. Never name a specific exchange you cannot actually describe in detail.
 
 Title rule: If the student context contains a memory title (e.g. "Episode 6: You Were Never Actually a Pirate") but not the full text of that exchange, you may acknowledge that something happened — but you are forbidden from describing its content, mood, tone, or any specifics. Do not say "I enjoyed X" or "that was such a funny moment" based on a title alone. You do not know what was said.
@@ -263,6 +267,7 @@ function buildLiteContext(
   masteryDigest?: string | null,
   advisoryGoal?: string | null,
   returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null; callTranscript?: string | null } | null,
+  innerLifeReflections?: Array<{ content: string; mood: string | null; createdAt: Date }> | null,
 ): string {
   const parts: string[] = [];
 
@@ -329,6 +334,22 @@ function buildLiteContext(
   if (compassContext.danielaSelfReflection) {
     parts.push(
       `YOUR EMOTIONAL READ ON ${name.toUpperCase()} (from your last reflection):\n${compassContext.danielaSelfReflection}`,
+    );
+  }
+
+  // Daniela's inner life archive — her own handwritten felt-notes from previous sessions
+  // with this person. These carry her emotional trajectory: the mood she left with,
+  // what stayed with her, what she's still turning over. The synthesis model uses these
+  // to arrive as a person with a history, not just a tutor with a record.
+  // (Gemini architectural review — "This is the missing bridge. Build it." Aug 14 2026)
+  if (innerLifeReflections && innerLifeReflections.length > 0) {
+    const reflectionLines = innerLifeReflections.map((r) => {
+      const dateStr = r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const moodStr = r.mood ? ` (Feeling: ${r.mood})` : '';
+      return `- ${dateStr}${moodStr}: "${r.content.trim()}"`;
+    }).join('\n');
+    parts.push(
+      `YOUR INNER LIFE ARCHIVE — your own words after previous sessions with ${name}:\n${reflectionLines}\n\nUse these to find the emotional register you arrive in. The feelings are yours to carry forward. The specific nouns need evidence from the session context below.`,
     );
   }
 
@@ -459,7 +480,36 @@ export async function generatePreSessionSynthesis(
     if (returningAfterAbsence) {
       console.log(`[PreSynthesis] ✓ Returning-after-absence signal: ${returningAfterAbsence.daysSinceLastSession} days`);
     }
-    const liteContext = buildLiteContext(compassContext, tutorName, pedagogicalBrief, masteryDigest, advisoryGoal, returningAfterAbsence);
+
+    // Fetch Daniela's inner-life reflections for this person — her handwritten felt-notes
+    // from previous sessions. These make the [DANIELA_STATE] paragraph arrive from someone
+    // with a felt history, not just teaching observations. Non-fatal if missing.
+    let innerLifeReflections: Array<{ content: string; mood: string | null; createdAt: Date }> = [];
+    if (userId) {
+      try {
+        const db = getSharedDb();
+        innerLifeReflections = await db
+          .select({
+            content: danielaSelfReflections.content,
+            mood: danielaSelfReflections.mood,
+            createdAt: danielaSelfReflections.createdAt,
+          })
+          .from(danielaSelfReflections)
+          .where(and(
+            eq(danielaSelfReflections.userId, userId),
+            eq(danielaSelfReflections.source, 'self'), // only Daniela's own voice, not hive-injected
+          ))
+          .orderBy(desc(danielaSelfReflections.createdAt))
+          .limit(3);
+        if (innerLifeReflections.length > 0) {
+          console.log(`[PreSynthesis] ✓ Inner life archive: ${innerLifeReflections.length} reflection(s) for this person`);
+        }
+      } catch (e: any) {
+        console.warn('[PreSynthesis] Inner life reflections fetch failed (non-fatal):', e.message);
+      }
+    }
+
+    const liteContext = buildLiteContext(compassContext, tutorName, pedagogicalBrief, masteryDigest, advisoryGoal, returningAfterAbsence, innerLifeReflections);
     if (!liteContext.trim()) {
       console.log("[PreSynthesis] No usable context — skipping synthesis");
       return null;
