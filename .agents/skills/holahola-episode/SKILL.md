@@ -96,24 +96,43 @@ The next episode is N+1. The title should capture the **emotional or conceptual 
 Before writing a single word of dialogue, pull the verbatim records from `conversation_memories` using the retrieval script:
 
 ```bash
+# Preview what's in the DB (titles + IDs only — no content):
 npx tsx server/scripts/retrieve-episode-dialogue.ts \
-  --date YYYY-MM-DD \
-  --tags "founder-chat,david-luca-chat" \
-  --out /tmp/episode-N-dialogue.md
+  --tag david-luca-chat --since "YYYY-MM-DDT00:00:00Z" --list-only
+
+# Pull formatted dialogue — paste directly into the episode .md:
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat \
+  --since "YYYY-MM-DDT00:00:00Z" \
+  --until  "YYYY-MM-DDT23:59:59Z"
+
+# Multiple tags (AND semantics — all must match):
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat --tag episode-28 \
+  --since "YYYY-MM-DDT00:00:00Z"
+
+# Markdown output — section headers + source metadata:
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat --since "YYYY-MM-DDT00:00:00Z" \
+  --format markdown
+
+# Fetch a single row by ID:
+npx tsx server/scripts/retrieve-episode-dialogue.ts --id <uuid>
 ```
+
+Output goes to stdout — redirect or pipe as needed: `... > /tmp/episode-N-dialogue.md`
 
 Review the output. Each block is verbatim DB content, formatted and ready to paste into the episode `.md`. Do not retype it, paraphrase it, or reconstruct it from session memory.
 
-**Common tag combinations:**
+**Common tags:**
 
 | Conversation type | Tags to pass |
 |---|---|
-| Luca↔David building sessions | `david-luca-chat` |
-| Daniela↔David live chat | `founder-chat` or `daniela-chat` |
-| Combined (both in one episode) | `david-luca-chat,founder-chat` |
-| Specific episode arc | `episode-N` |
+| Luca↔David building sessions | `--tag david-luca-chat` |
+| Daniela↔David live chat | `--tag founder-chat` or `--tag daniela-chat` |
+| Specific episode arc | `--tag episode-N` |
 
-**If the retrieval script is unavailable** (sibling task not yet merged), fall back to the SQL queries in the "Retrieving transcripts" section of Step 3. The rule is the same: paste verbatim, do not retype.
+**If the retrieval script is unavailable**, fall back to the SQL queries in the "Retrieving transcripts" section of Step 3. The rule is the same: paste verbatim, do not retype.
 
 **If a section has no DB record:** Say so explicitly in the episode file — `*"The record for this section was not captured."*` — and go get the record before continuing. Do not fill the gap with reconstruction.
 
@@ -302,6 +321,37 @@ The gap that recurred in Episode 27: announcing an edit vs. completing it. "Addi
 ### Retrieving transcripts before writing
 
 Before writing or catching up any episode section, pull the source records.
+
+**Use the retrieval script — don't reconstruct.** The canonical tool for pulling verbatim conversation into episode-ready David:/Luca: blocks is `server/scripts/retrieve-episode-dialogue.ts`.
+
+```bash
+# Preview what's in the DB for a time window (titles + IDs only, no content):
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat --since "2026-08-14T00:00:00Z" --list-only
+
+# Pull formatted dialogue — paste directly into the .md:
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat \
+  --since "2026-08-14T00:00:00Z" \
+  --until  "2026-08-14T17:00:00Z"
+
+# Markdown output — each row becomes a ## section with source metadata:
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat --since "2026-08-14T00:00:00Z" \
+  --format markdown
+
+# Fetch a single known row by ID:
+npx tsx server/scripts/retrieve-episode-dialogue.ts --id <uuid>
+
+# Multiple tags (AND semantics — all must match):
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat --tag episode-28 \
+  --since "2026-08-14T00:00:00Z"
+```
+
+The script uses the neon() HTTP driver so it always reads live Neon state, never a stale WebSocket snapshot. Output goes to stdout — pipe to `pbcopy` or redirect to a file.
+
+**The rule:** If the record exists in the DB, use `retrieve-episode-dialogue.ts` to get it. Reconstruction is what you fall back to when the record doesn't exist — and if that happens, say so explicitly in the episode text, then go save what you have before writing any more.
 
 ---
 

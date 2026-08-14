@@ -1,227 +1,340 @@
 /**
  * retrieve-episode-dialogue.ts
  *
- * Retrieve verbatim conversation_memories rows for an episode date + tag
- * combination and write them to an output file ready for pasting into the
- * episode .md.
+ * Pulls verbatim conversation from conversation_memories into episode-ready
+ * David:/Luca: dialogue blocks.  Luca retrieves instead of reconstructs.
  *
- * Usage
- * ─────
+ * Usage:
  *   npx tsx server/scripts/retrieve-episode-dialogue.ts \
- *     --date YYYY-MM-DD \
- *     --tags "david-luca-chat,founder-chat" \
- *     --out /tmp/episode-N-dialogue.md
+ *     --tag david-luca-chat \
+ *     --since "2026-08-14T00:00:00Z" \
+ *     --until  "2026-08-14T17:00:00Z"
  *
- * Options
- * ───────
- *   --date   ISO date (YYYY-MM-DD). Required.
- *   --tags   Comma-separated list of tags. At least one must match. Required.
- *   --out    Output file path. Defaults to /tmp/episode-dialogue.md.
- *   --limit  Max rows to return (default 100).
+ *   # multiple tags (all must match — AND semantics):
+ *   npx tsx server/scripts/retrieve-episode-dialogue.ts \
+ *     --tag david-luca-chat --tag episode-28 \
+ *     --since "2026-08-14T00:00:00Z"
+ *
+ *   # markdown output — each row becomes a ## section with source metadata:
+ *   npx tsx server/scripts/retrieve-episode-dialogue.ts \
+ *     --tag david-luca-chat --since "2026-08-14T00:00:00Z" \
+ *     --format markdown
+ *
+ *   # limit results:
+ *   npx tsx server/scripts/retrieve-episode-dialogue.ts \
+ *     --tag david-luca-chat --since "2026-08-14T00:00:00Z" --limit 5
+ *
+ *   # show only the titles/IDs (preview mode, no content):
+ *   npx tsx server/scripts/retrieve-episode-dialogue.ts \
+ *     --tag david-luca-chat --since "2026-08-14T00:00:00Z" --list-only
+ *
+ *   # fetch a single row by ID:
+ *   npx tsx server/scripts/retrieve-episode-dialogue.ts --id <uuid>
+ *
+ * Content is emitted verbatim — the bytes stored in the DB, unchanged.
+ * Output goes to stdout — pipe to pbcopy, a file, or paste directly into .md.
  *
  * Exit codes
  * ──────────
- *   0  — one or more records found and written to --out
+ *   0  — one or more records found; output written to stdout
  *   1  — fatal error (missing args, DB unavailable, unexpected failure)
- *   2  — NO records found for the given date/tag combination (loud failure)
+ *   2  — NO records found for the given tags/time window (loud failure)
  *
  * The exit-2 loud failure is intentional and load-bearing: it prevents Luca
  * from silently proceeding to write dialogue from memory when the DB has no
- * matching records.  A silent empty output would be indistinguishable from a
- * successful zero-row query, and the holahola-episode skill's DB-first process
- * depends on this script failing loudly so Luca knows to stop.
+ * matching records.  The holahola-episode skill's DB-first process depends on
+ * this script failing loudly so Luca knows to stop and check the DB first.
  *
- * Uses neon() HTTP driver per episode-sync-http rule.
+ * Uses neon() HTTP driver per episode-sync-http rule — always reads the
+ * authoritative state from Neon regardless of local WebSocket pool state.
  */
 
 import { neon } from '@neondatabase/serverless';
-import { writeFileSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
 
-// ── Colours ───────────────────────────────────────────────────────────────
-const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
-const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
-const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
-const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
-const BOLD = (s: string) => `\x1b[1m${s}\x1b[0m`;
+// ---------------------------------------------------------------------------
+// DB connection (HTTP driver — one-shot queries, no persistent pool)
+// ---------------------------------------------------------------------------
 
-function sep() { console.log('─'.repeat(70)); }
-
-// ── Argument parsing ──────────────────────────────────────────────────────
-
-function parseArgs(): { date: string; tags: string[]; out: string; limit: number } {
-  const argv = process.argv.slice(2);
-  let date = '';
-  let tagsRaw = '';
-  let out = '/tmp/episode-dialogue.md';
-  let limit = 100;
-
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--date' && argv[i + 1]) { date = argv[++i]; continue; }
-    if (argv[i] === '--tags' && argv[i + 1]) { tagsRaw = argv[++i]; continue; }
-    if (argv[i] === '--out' && argv[i + 1]) { out = argv[++i]; continue; }
-    if (argv[i] === '--limit' && argv[i + 1]) { limit = parseInt(argv[++i], 10); continue; }
-  }
-
-  if (!date) {
-    console.error(R('FATAL: --date YYYY-MM-DD is required'));
+function buildSql() {
+  const url = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!url) {
+    process.stderr.write(
+      '[retrieve-episode-dialogue] FATAL: NEON_SHARED_DATABASE_URL is not set.\n',
+    );
     process.exit(1);
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    console.error(R(`FATAL: --date must be YYYY-MM-DD, got: ${date}`));
-    process.exit(1);
-  }
-  if (!tagsRaw) {
-    console.error(R('FATAL: --tags "tag1,tag2" is required'));
-    process.exit(1);
-  }
-
-  const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
-  if (tags.length === 0) {
-    console.error(R('FATAL: --tags must include at least one non-empty tag'));
-    process.exit(1);
-  }
-
-  return { date, tags, out, limit };
+  return neon(url);
 }
 
-// ── Formatting helpers ────────────────────────────────────────────────────
+// Module-level singleton — avoids passing the sql function through every helper
+// call and eliminates the NeonQueryFunction<false,false> vs <boolean,boolean>
+// parameter-type mismatch that arises when it's typed at the call-site.
+const sql = buildSql();
 
-function formatRow(row: {
+// ---------------------------------------------------------------------------
+// Args
+// ---------------------------------------------------------------------------
+
+function parseArgs(argv: string[]) {
+  const args = argv.slice(2);
+
+  const tags: string[] = [];
+  let since    = '';
+  let until    = '';
+  let format   = 'plain';   // 'plain' | 'markdown'
+  let limit    = 50;
+  let listOnly = false;
+  let id       = '';
+
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '--tag':
+        if (args[i + 1]) tags.push(args[++i]);
+        break;
+      case '--since':
+        if (args[i + 1]) since = args[++i];
+        break;
+      case '--until':
+        if (args[i + 1]) until = args[++i];
+        break;
+      case '--format':
+        if (args[i + 1]) format = args[++i];
+        break;
+      case '--limit':
+        if (args[i + 1]) limit = parseInt(args[++i], 10);
+        break;
+      case '--list-only':
+        listOnly = true;
+        break;
+      case '--id':
+        if (args[i + 1]) id = args[++i];
+        break;
+      default:
+        // ignore unknown flags
+    }
+  }
+
+  return { tags, since, until, format, limit, listOnly, id };
+}
+
+// ---------------------------------------------------------------------------
+// Query helpers
+// ---------------------------------------------------------------------------
+
+interface MemoryRow {
   id: string;
-  title: string | null;
-  content: string | null;
-  recorded_at: Date | string | null;
+  title: string;
+  content: string;
+  recorded_at: string | Date;
   tags: string[] | null;
-  participants: string | null;
-}): string {
-  const lines: string[] = [];
-  lines.push(`<!-- DB id: ${row.id} -->`);
-  if (row.title) lines.push(`<!-- title: ${row.title} -->`);
-  if (row.recorded_at) lines.push(`<!-- recorded_at: ${row.recorded_at} -->`);
-  if (row.participants) lines.push(`<!-- participants: ${row.participants} -->`);
-  if (row.tags && row.tags.length > 0) lines.push(`<!-- tags: ${row.tags.join(', ')} -->`);
-  lines.push('');
-  lines.push(row.content ?? '*(content is empty)*');
-  lines.push('');
-  return lines.join('\n');
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────
+async function fetchById(id: string): Promise<MemoryRow[]> {
+  const rows = await sql`
+    SELECT id, title, content, recorded_at, tags
+    FROM conversation_memories
+    WHERE id = ${id}
+  `;
+  return rows as unknown as MemoryRow[];
+}
 
-async function main() {
-  const { date, tags, out, limit } = parseArgs();
-
-  console.log(B('\n══ Episode Dialogue Retrieval ══\n'));
-  sep();
-  console.log(`  Date    : ${date}`);
-  console.log(`  Tags    : ${tags.join(', ')}`);
-  console.log(`  Out     : ${out}`);
-  console.log(`  Limit   : ${limit}`);
-  sep();
-  console.log('');
-
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
-  if (!dbUrl) {
-    console.error(R('FATAL: NEON_SHARED_DATABASE_URL is not set.'));
-    console.error(R('       Do not fall back to DATABASE_URL — the shared DB is the only authoritative source.'));
-    process.exit(1);
-  }
-
-  const sql = neon(dbUrl);
-
-  let rows: Array<{
-    id: string;
-    title: string | null;
-    content: string | null;
-    recorded_at: Date | string | null;
-    tags: string[] | null;
-    participants: string | null;
-  }>;
-
-  try {
-    // Use ANY(ARRAY[...]) to match rows whose tags overlap with the requested set.
-    // This mirrors the pattern used throughout the codebase (tags && ARRAY[...]).
-    rows = (await sql`
-      SELECT id, title, content, recorded_at, tags, participants
+async function fetchByTagsAndRange(
+  tags: string[],
+  since: string,
+  until: string,
+  limit: number,
+): Promise<MemoryRow[]> {
+  // Filter and order by recorded_at — the event time of the conversation, not the
+  // DB insertion time (created_at).  Backfilled or manually-inserted records may
+  // have a created_at that differs from when the conversation actually happened;
+  // recorded_at is the canonical episode timestamp.
+  // tags @> array means all supplied tags must be present (AND semantics).
+  if (since && until) {
+    const rows = await sql`
+      SELECT id, title, content, recorded_at, tags
       FROM conversation_memories
-      WHERE recorded_at::date = ${date}::date
-        AND tags && ${tags}
+      WHERE tags @> ${tags as unknown as string[]}
+        AND recorded_at >= ${since}::timestamptz
+        AND recorded_at <= ${until}::timestamptz
       ORDER BY recorded_at ASC
       LIMIT ${limit}
-    `) as typeof rows;
-  } catch (err: any) {
-    console.error(R(`FATAL: DB query failed — ${err?.message ?? err}`));
-    console.error(err?.stack ?? '');
+    `;
+    return rows as unknown as MemoryRow[];
+  }
+
+  if (since) {
+    const rows = await sql`
+      SELECT id, title, content, recorded_at, tags
+      FROM conversation_memories
+      WHERE tags @> ${tags as unknown as string[]}
+        AND recorded_at >= ${since}::timestamptz
+      ORDER BY recorded_at ASC
+      LIMIT ${limit}
+    `;
+    return rows as unknown as MemoryRow[];
+  }
+
+  if (until) {
+    const rows = await sql`
+      SELECT id, title, content, recorded_at, tags
+      FROM conversation_memories
+      WHERE tags @> ${tags as unknown as string[]}
+        AND recorded_at <= ${until}::timestamptz
+      ORDER BY recorded_at ASC
+      LIMIT ${limit}
+    `;
+    return rows as unknown as MemoryRow[];
+  }
+
+  // No time filter
+  const rows = await sql`
+    SELECT id, title, content, recorded_at, tags
+    FROM conversation_memories
+    WHERE tags @> ${tags as unknown as string[]}
+    ORDER BY recorded_at ASC
+    LIMIT ${limit}
+  `;
+  return rows as unknown as MemoryRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+
+function isoDate(d: string | Date): string {
+  const ts = typeof d === 'string' ? d : (d as Date).toISOString();
+  return ts.slice(0, 19).replace('T', ' ') + ' UTC';
+}
+
+/**
+ * Plain output: verbatim content, one row after another.
+ * Each row is preceded by a one-line divider showing title + ID + timestamp
+ * so the reader knows which DB entry produced each block.
+ * The content bytes are emitted exactly as stored — no trimming, no blank-line
+ * collapsing, no other modification.
+ */
+function formatPlain(rows: MemoryRow[]): string {
+  const parts: string[] = [];
+  for (const row of rows) {
+    const header = `--- ${row.title} [${row.id}] ${isoDate(row.recorded_at)} ---`;
+    parts.push(`${header}\n\n${row.content}`);
+  }
+  return parts.join('\n\n\n');
+}
+
+/**
+ * Markdown output: each DB row becomes a level-2 section.
+ *
+ *   ## <title>
+ *   *Source: id=… | timestamp | tags: …*
+ *
+ *   > <content verbatim as a blockquote>
+ *
+ * The blockquote prefix ("> ") preserves the content exactly while giving it
+ * visible episode context in any Markdown renderer.  Drop the blockquote
+ * markers before pasting dialogue into the episode narrative itself.
+ */
+function formatMarkdown(rows: MemoryRow[]): string {
+  const parts: string[] = [];
+  for (const row of rows) {
+    const ts     = isoDate(row.recorded_at);
+    const tagStr = (row.tags ?? []).join(', ') || '—';
+    const header = `## ${row.title}`;
+    const meta   = `*Source: id=${row.id} | ${ts} | tags: ${tagStr}*`;
+    // Wrap each line of verbatim content in a blockquote marker
+    const quoted = row.content
+      .split('\n')
+      .map(line => `> ${line}`)
+      .join('\n');
+    parts.push(`${header}\n\n${meta}\n\n${quoted}`);
+  }
+  return parts.join('\n\n---\n\n');
+}
+
+/**
+ * List-only output: id | recorded_at | title — no content.
+ * Use this first to identify which rows you want before pulling the full text.
+ */
+function formatList(rows: MemoryRow[]): string {
+  if (rows.length === 0) return '(no results)';
+  return rows.map(r => `${r.id}  ${isoDate(r.recorded_at)}  ${r.title}`).join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const { tags, since, until, format, limit, listOnly, id } = parseArgs(process.argv);
+
+  // Validate args
+  if (!id && tags.length === 0) {
+    process.stderr.write(
+      '[retrieve-episode-dialogue] ERROR: Provide --tag <tag> (one or more) or --id <uuid>.\n\n' +
+      'Examples:\n' +
+      '  npx tsx server/scripts/retrieve-episode-dialogue.ts \\\n' +
+      '    --tag david-luca-chat --since "2026-08-14T00:00:00Z"\n\n' +
+      '  npx tsx server/scripts/retrieve-episode-dialogue.ts --id <uuid>\n',
+    );
     process.exit(1);
   }
 
-  // ── Loud failure when no records match ────────────────────────────────
+  const validFormats = ['plain', 'markdown'];
+  if (!validFormats.includes(format)) {
+    process.stderr.write(
+      `[retrieve-episode-dialogue] ERROR: --format must be one of: ${validFormats.join(', ')}\n`,
+    );
+    process.exit(1);
+  }
+
+  // Fetch
+  let rows: MemoryRow[];
+
+  if (id) {
+    process.stderr.write(`[retrieve-episode-dialogue] Fetching id=${id}…\n`);
+    rows = await fetchById(id);
+  } else {
+    const timeDesc =
+      [since && `since ${since}`, until && `until ${until}`].filter(Boolean).join(', ') ||
+      'no time filter';
+    process.stderr.write(
+      `[retrieve-episode-dialogue] Querying tags=[${tags.join(', ')}] ${timeDesc} limit=${limit}…\n`,
+    );
+    rows = await fetchByTagsAndRange(tags, since, until, limit);
+  }
+
+  process.stderr.write(`[retrieve-episode-dialogue] Found ${rows.length} row(s).\n`);
 
   if (rows.length === 0) {
-    console.error('');
-    console.error(R('╔══════════════════════════════════════════════════════════════════╗'));
-    console.error(R('║                  NO RECORDS FOUND — STOPPING                    ║'));
-    console.error(R('╚══════════════════════════════════════════════════════════════════╝'));
-    console.error('');
-    console.error(Y(`  Query  : date = ${date}, tags ∩ [${tags.join(', ')}]`));
-    console.error(Y('  Result : 0 rows'));
-    console.error('');
-    console.error(BOLD('  ⛔  Do NOT proceed to write dialogue from memory.'));
-    console.error('');
-    console.error('  The holahola-episode skill\'s DB-first process requires verbatim');
-    console.error('  source records before any dialogue is written to the .md file.');
-    console.error('  If the conversation happened today, check:');
-    console.error('    1. Was the autosave worker running? (waits ≥60s after last message)');
-    console.error('    2. Were the correct tags applied when the memory was saved?');
-    console.error('    3. Is the date correct? (check recorded_at in the DB directly)');
-    console.error('');
-    console.error('  Retrieve options:');
-    console.error('    - Widen the date range by querying the DB directly:');
-    console.error('        SELECT id, title, recorded_at, tags FROM conversation_memories');
-    console.error('        WHERE tags && \'{david-luca-chat}\' ORDER BY recorded_at DESC LIMIT 10;');
-    console.error('    - Save the live session manually before writing:');
-    console.error('        POST /api/conversation-memories (see holahola-episode SKILL.md)');
-    console.error('');
+    process.stderr.write(
+      '[retrieve-episode-dialogue] EXIT 2 — no rows matched. Do NOT reconstruct from memory.\n\n' +
+      '  Retrieve options:\n' +
+      '    - Widen the time range (--since / --until)\n' +
+      '    - Check available rows by querying the DB directly:\n' +
+      '        SELECT id, title, recorded_at, tags FROM conversation_memories\n' +
+      (tags.length > 0
+        ? `        WHERE tags && '{${tags[0]}}' ORDER BY recorded_at DESC LIMIT 10;\n`
+        : '') +
+      '    - Save the live session manually before writing:\n' +
+      '        POST /api/conversation-memories (see holahola-episode SKILL.md)\n',
+    );
     process.exit(2);
   }
 
-  // ── Write output ──────────────────────────────────────────────────────
-
-  const blocks: string[] = [];
-  blocks.push(`# Episode Dialogue — ${date}\n`);
-  blocks.push(`*Tags: ${tags.join(', ')} | Rows: ${rows.length}*\n`);
-  blocks.push('---\n');
-
-  for (const row of rows) {
-    blocks.push(formatRow(row));
-    blocks.push('\n---\n');
+  // Format and emit — all output to stdout, status messages to stderr
+  let output: string;
+  if (listOnly) {
+    output = formatList(rows);
+  } else if (format === 'markdown') {
+    output = formatMarkdown(rows);
+  } else {
+    output = formatPlain(rows);
   }
 
-  const output = blocks.join('\n');
-
-  try {
-    mkdirSync(dirname(out), { recursive: true });
-    writeFileSync(out, output, 'utf8');
-  } catch (err: any) {
-    console.error(R(`FATAL: could not write output file ${out} — ${err?.message ?? err}`));
-    process.exit(1);
-  }
-
-  console.log(G(`✓ Found ${rows.length} row(s) matching date=${date} tags=[${tags.join(', ')}]`));
-  console.log('');
-  for (const row of rows) {
-    const preview = (row.content ?? '').slice(0, 80).replace(/\n/g, ' ');
-    console.log(`  ${B(row.id.slice(0, 8))}  ${row.title ?? '(no title)'}  |  "${preview}${preview.length >= 80 ? '…' : ''}"`);
-  }
-  console.log('');
-  console.log(G(`✓ Written to: ${out}`));
-  console.log('');
-  process.exit(0);
+  process.stdout.write(output + '\n');
 }
 
-main().catch((err: any) => {
-  console.error(R(`\nFATAL (unhandled): ${err?.message ?? err}`));
-  console.error(err?.stack ?? '');
+main().catch(err => {
+  process.stderr.write(`[retrieve-episode-dialogue] FATAL: ${(err as Error).message ?? err}\n`);
   process.exit(1);
 });

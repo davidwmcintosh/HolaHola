@@ -203,6 +203,10 @@ async function main(): Promise<void> {
 
   const { ai: ai2, callCount: callCount2, newCacheName: newName2 } = buildMockAi();
 
+  // Round 2 calls getOrCreateSynthesisCache() which may persist a mock cache
+  // name to the registry file on disk.  Back up the registry before and restore
+  // it afterwards so the test leaves no side effects for subsequent processes.
+  backupRegistry();
   try {
     // Inject stale in-process state: cached name, wrong hash, not expired, registry already loaded.
     _setSynthesisCacheStateForTest(STALE_CACHE_NAME, STALE_HASH, FAR_FUTURE, true);
@@ -240,6 +244,7 @@ async function main(): Promise<void> {
       console.log(G(`✓ Round 2c: _synthesisCacheName holds new cache name "${newName2}".`));
     }
   } finally {
+    restoreRegistry();
     _resetSynthesisCacheTestSeams();
   }
 
