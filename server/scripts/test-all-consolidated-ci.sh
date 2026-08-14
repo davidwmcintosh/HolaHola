@@ -208,6 +208,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-inner-life-reaches-synthesis.ts --self-check (hermetic: inject-removed regression) ---"
   npx tsx server/scripts/test-inner-life-reaches-synthesis.ts --self-check
+
+  echo ""
+  echo "  --- test-capture-status-moment-stale-ci.ts (moment: channel escalates to ⚠️ after 2h) ---"
+  run test-capture-status-moment-stale-ci.ts
+
+  echo ""
+  echo "  --- test-capture-status-moment-stale-ci.ts --self-check (STALE_MOMENT_MS removed regression) ---"
+  npx tsx server/scripts/test-capture-status-moment-stale-ci.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────

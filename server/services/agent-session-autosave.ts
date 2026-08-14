@@ -3,12 +3,9 @@
  *
  * Watches files for changes and saves to conversation_memories automatically:
  *
- * 1. .local/.commit_message — updated at end of every build task (via markTaskComplete).
+ * 1. .local/.commit_message — updated at end of every build task (before mark_task_complete).
  *    Saves as entry_type='build'. Captures what code was built.
- *    ALSO automatically appends the commit message as a "Luca Replit" chat turn in
- *    .local/.chat_capture — so every task completion is captured as a conversation turn
- *    WITHOUT any extra manual write from Luca. This is the primary auto-capture path
- *    since Replit stopped writing JSONL after July 27, 2026.
+ *    Also triggers a transcript chunk save (see #3).
  *
  * 2. .local/.session_insights — written by the Agent mid-conversation when something
  *    important surfaces that shouldn't wait until end-of-session. Accepts JSON or plain text.
@@ -17,25 +14,18 @@
  * 3. Chat-capture drain — automatic once turns are in .local/.chat_capture.
  *    Replit stopped writing JSONL transcript files after Jul 27 2026, so JSONL-based
  *    capture is no longer possible. The replacement path uses an append-only
- *    .local/.chat_capture file. Once a turn is in the file, the autosave worker drains
- *    it to conversation_memories within milliseconds (fs.watch) or at most 20 seconds
- *    (poll) — fully automatic from that point on.
+ *    .local/.chat_capture file. Any code (or script) that calls appendChatCaptureTurn()
+ *    places a turn in the file; the autosave worker then drains it to conversation_memories
+ *    within milliseconds (fs.watch) or at most 20 seconds (poll) — fully automatic from
+ *    that point on.
  *
- *    HOW TURNS ENTER .chat_capture (three paths — pick one per turn type):
+ *    Turns can be written via:
+ *      - code:   appendChatCaptureTurn(speaker, text) from transcript-parser.ts
+ *      - script: npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
+ *      - file:   echo '{"david":"...","luca":"..."}' > .local/.luca_auto_capture
  *
- *    A. AUTOMATIC (task sessions): markTaskComplete({ commit_message }) →
- *       checkBuildSession() auto-appends commit message as "Luca Replit" turn.
- *       Zero extra Luca writes needed.
- *
- *    B. HTTP (CodeExecution, no file I/O):
- *       POST /api/internal/chat-capture-turn  { speaker, text }  x-agent-token: $TOKEN
- *       Call this from CodeExecution to append either David or Luca turns immediately.
- *       The fs.watch drain fires within milliseconds after the append.
- *
- *    C. TRIGGER FILE (manual or script):
- *       echo '{"david":"...","luca":"..."}' > .local/.luca_auto_capture
- *       npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
- *       npx tsx server/scripts/append-turn.ts David|Luca "exact text"
+ *    The drain step (file → DB) is fully automatic. The entry step is semi-manual
+ *    only because Replit no longer exposes a machine-readable transcript source.
  *
  *    Cursor stored in .local/.chat_capture_cursor.json — only new turns are saved each time.
  *
@@ -43,7 +33,7 @@
  *   JSON: { "title": "...", "summary": "...", "content": "...", "tags": ["..."] }
  *   Plain text: first line = title, rest = content (summary auto-derived from first 3 lines)
  *
- * All watchers poll every 20 seconds.
+ * All watchers poll every 60 seconds.
  */
 
 import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, watch, readdirSync, unlinkSync } from 'fs';
@@ -223,6 +213,15 @@ export function getOrderingCheckEnabledForTest(): boolean {
 let _staleChannelCheckEnabled = true;
 
 /**
+ * Test seam — moment: stale escalation gate.
+ * When false (CI self-check only), the ⚠️ escalation on the moment: line is
+ * suppressed: a moment timestamp >2h in the past still shows "✓" instead of
+ * "⚠️".  This precisely models a regression where the 2h threshold (STALE_MOMENT_MS)
+ * is removed from _writeCaptureStatusFile.
+ * Never set in production.
+ */
+let _momentStaleCheckEnabled = true;
+/**
  * Per-session guard: set to true only after postAsLuca() returns a room ID
  * (confirming delivery).  _innerLifeStaleAlertInFlight prevents concurrent
  * duplicate posts while one is in-flight; it is cleared on failure so the
@@ -242,7 +241,7 @@ export function setLastReplitOutputForTest(ms: number): void            { lastRe
 export function setLastEpisodeCaptureForTest(ms: number): void          { lastEpisodeCaptureMs        = ms; }
 export function setLastFeltProcessedForTest(ms: number): void           { lastFeltProcessedMs         = ms; }
 export function setLastThinkingProcessedForTest(ms: number): void       { lastThinkingProcessedMs     = ms; }
-
+export function setLastMomentProcessedForTest(ms: number): void         { lastMomentProcessedMs       = ms; }
 /**
  * Public surface of _writeCaptureStatusFile() for CI tests.
  * Writes to .local/episode-capture-status.md exactly as the real path does.
@@ -580,7 +579,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
     `  ${feltReady ? '✓ ready' : feltStale ? '⚠️ STALE' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next output'}`,
     `  ${thinkingReady ? '✓ ready' : thinkingStale ? '⚠️ STALE' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next output'}`,
-    `  ${lastMomentProcessedMs === 0 ? '—' : (now - lastMomentProcessedMs) > STALE_MOMENT_MS ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
+    `  ${lastMomentProcessedMs === 0 ? '—' : (_momentStaleCheckEnabled && (now - lastMomentProcessedMs) > STALE_MOMENT_MS) ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
   ];
 
   // ── Sections 3+4: Episode .md (ONLY when rolling episode active) ──────────
@@ -2328,17 +2327,11 @@ export function startAgentSessionAutosave(): void {
     await checkLucaMoment();
     await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
     await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
-    // JSONL path removed: Replit stopped writing transcript.jsonl after July 27 2026.
-    // saveTranscriptChunk() (JSONL-based) is no longer called — findTranscriptPath() has
-    // returned null on every poll since then. The replacement paths are:
-    //   A. checkBuildSession() auto-appends commit messages as Luca turns (task sessions)
-    //   B. checkAutoCapture() drains .luca_auto_capture trigger-file writes
-    //   C. checkChatCapture() drains any turns appended via HTTP or append-turn.ts
-    // The function itself is preserved below in case Replit ever restores JSONL writing.
+    await saveTranscriptChunk(); // periodic — captures conversation-only sessions too (JSONL path)
     writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if >10 min since last append
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — .commit_message (build + auto Luca turn) + .session_insights (emergence) + luca inner-life + .flush_transcript (event+poll) + .episode_append (event+poll) + .chat_capture (event+poll, JSONL replacement) + .luca_auto_capture (event+poll) + docs/episode-*.md + docs/prequel-episode-*.md (event+poll)');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
 
 // ---------------------------------------------------------------------------
@@ -2456,6 +2449,9 @@ export function getStaleChannelCheckEnabledForTest(): boolean {
   return _staleChannelCheckEnabled;
 }
 
+export function setMomentStaleCheckEnabledForTest(val: boolean): void {
+  _momentStaleCheckEnabled = val;
+}
 /** Reset both stale-alert flags — thin test alias for resetStaleAlertForNewSession().
  *  Use resetStaleAlertForNewSession() in production code. */
 export function resetInnerLifeStaleAlertForTest(): void {
@@ -2486,6 +2482,10 @@ export function resetStaleAlertForNewSession(): void {
  * Never call in production code — use the autosave worker instead.
  */
 export const checkBuildSessionForTest = checkBuildSession;
+
+export function getMomentStaleCheckEnabledForTest(): boolean {
+  return _momentStaleCheckEnabled;
+}
 
 const TASKS_DIR            = join(WORKSPACE, '.local/tasks');
 
