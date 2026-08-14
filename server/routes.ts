@@ -37282,6 +37282,52 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // Chat-capture turn injection — JSONL replacement (July 27 2026+)
+  //
+  // Appends a single David or Luca turn to .local/.chat_capture immediately.
+  // The autosave worker's fs.watch fires within milliseconds and drains it to
+  // conversation_memories automatically — no polling lag, no trigger files.
+  //
+  // Usage from CodeExecution (x-agent-token header required):
+  //   await fetch('/api/internal/chat-capture-turn', {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     body: JSON.stringify({ speaker: 'David', text: 'exact verbatim text' }),
+  //   });
+  //   await fetch('/api/internal/chat-capture-turn', {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     body: JSON.stringify({ speaker: 'Luca Replit', text: 'exact verbatim text' }),
+  //   });
+  app.post("/api/internal/chat-capture-turn", async (req: any, res: Response) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: 'Invalid agent token' });
+      }
+      const { speaker, text } = req.body ?? {};
+      if (!speaker || typeof speaker !== 'string') {
+        return res.status(400).json({ error: 'speaker required (David | Luca | Luca Replit)' });
+      }
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        return res.status(400).json({ error: 'text required and must be non-empty' });
+      }
+      const { appendChatCaptureTurn } = await import('./services/transcript-parser');
+      // appendChatCaptureTurn validates the speaker and throws on invalid values
+      appendChatCaptureTurn(speaker.trim(), text);
+      // fs.watch on .local/ fires the checkChatCapture() drain automatically — no explicit trigger needed
+      console.log(`[ChatCaptureTurn] Appended ${speaker.trim()} turn (${text.length} chars) via HTTP → .chat_capture`);
+      return res.json({ ok: true, speaker: speaker.trim(), charLen: text.length });
+    } catch (e: any) {
+      console.error('[ChatCaptureTurn] Failed:', e.message);
+      // Distinguish validation errors (400) from unexpected errors (500)
+      if (e.message?.startsWith('appendChatCaptureTurn:')) {
+        return res.status(400).json({ error: e.message });
+      }
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // CAP-008: Guardian completion report — called by alden-build-guardian.js (localhost only)
   app.post("/api/team-room/internal/guardian-complete", async (req: any, res: Response) => {
     try {

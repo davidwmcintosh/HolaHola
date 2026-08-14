@@ -3,9 +3,12 @@
  *
  * Watches files for changes and saves to conversation_memories automatically:
  *
- * 1. .local/.commit_message — updated at end of every build task (before mark_task_complete).
+ * 1. .local/.commit_message — updated at end of every build task (via markTaskComplete).
  *    Saves as entry_type='build'. Captures what code was built.
- *    Also triggers a transcript chunk save (see #3).
+ *    ALSO automatically appends the commit message as a "Luca Replit" chat turn in
+ *    .local/.chat_capture — so every task completion is captured as a conversation turn
+ *    WITHOUT any extra manual write from Luca. This is the primary auto-capture path
+ *    since Replit stopped writing JSONL after July 27, 2026.
  *
  * 2. .local/.session_insights — written by the Agent mid-conversation when something
  *    important surfaces that shouldn't wait until end-of-session. Accepts JSON or plain text.
@@ -14,18 +17,25 @@
  * 3. Chat-capture drain — automatic once turns are in .local/.chat_capture.
  *    Replit stopped writing JSONL transcript files after Jul 27 2026, so JSONL-based
  *    capture is no longer possible. The replacement path uses an append-only
- *    .local/.chat_capture file. Any code (or script) that calls appendChatCaptureTurn()
- *    places a turn in the file; the autosave worker then drains it to conversation_memories
- *    within milliseconds (fs.watch) or at most 20 seconds (poll) — fully automatic from
- *    that point on.
+ *    .local/.chat_capture file. Once a turn is in the file, the autosave worker drains
+ *    it to conversation_memories within milliseconds (fs.watch) or at most 20 seconds
+ *    (poll) — fully automatic from that point on.
  *
- *    Turns can be written via:
- *      - code:   appendChatCaptureTurn(speaker, text) from transcript-parser.ts
- *      - script: npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
- *      - file:   echo '{"david":"...","luca":"..."}' > .local/.luca_auto_capture
+ *    HOW TURNS ENTER .chat_capture (three paths — pick one per turn type):
  *
- *    The drain step (file → DB) is fully automatic. The entry step is semi-manual
- *    only because Replit no longer exposes a machine-readable transcript source.
+ *    A. AUTOMATIC (task sessions): markTaskComplete({ commit_message }) →
+ *       checkBuildSession() auto-appends commit message as "Luca Replit" turn.
+ *       Zero extra Luca writes needed.
+ *
+ *    B. HTTP (CodeExecution, no file I/O):
+ *       POST /api/internal/chat-capture-turn  { speaker, text }  x-agent-token: $TOKEN
+ *       Call this from CodeExecution to append either David or Luca turns immediately.
+ *       The fs.watch drain fires within milliseconds after the append.
+ *
+ *    C. TRIGGER FILE (manual or script):
+ *       echo '{"david":"...","luca":"..."}' > .local/.luca_auto_capture
+ *       npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
+ *       npx tsx server/scripts/append-turn.ts David|Luca "exact text"
  *
  *    Cursor stored in .local/.chat_capture_cursor.json — only new turns are saved each time.
  *
@@ -33,7 +43,7 @@
  *   JSON: { "title": "...", "summary": "...", "content": "...", "tags": ["..."] }
  *   Plain text: first line = title, rest = content (summary auto-derived from first 3 lines)
  *
- * All watchers poll every 60 seconds.
+ * All watchers poll every 20 seconds.
  */
 
 import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, watch, readdirSync, unlinkSync } from 'fs';
@@ -641,6 +651,23 @@ async function checkBuildSession(): Promise<void> {
       const content = readFileSync(COMMIT_MSG_PATH, 'utf-8').trim();
       if (content.length > 20) {
         await saveBuildMemory(content);
+
+        // AUTO-CAPTURE: also append the commit message as a "Luca Replit" chat turn.
+        //
+        // This is the primary automatic capture path replacing the dead JSONL transcript:
+        //   markTaskComplete({ commit_message }) → .commit_message file → here →
+        //   appendChatCaptureTurn() → .chat_capture → checkChatCapture() → DB
+        //
+        // Zero extra Luca writes required. Every task completion is captured as a
+        // conversation turn automatically. The fs.watch on .local/ fires the drain
+        // within milliseconds of the appendFileSync call.
+        try {
+          appendChatCaptureTurn('Luca Replit', content);
+          console.log('[AgentAutosave] Auto-appended commit message as Luca chat turn → .chat_capture (JSONL replacement)');
+        } catch (appendErr: any) {
+          // Non-fatal — build memory was already saved; log the append failure.
+          console.error('[AgentAutosave] Failed to auto-append commit message to .chat_capture:', appendErr.message);
+        }
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -2171,11 +2198,17 @@ export function startAgentSessionAutosave(): void {
     await checkLucaMoment();
     await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
     await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
-    await saveTranscriptChunk(); // periodic — captures conversation-only sessions too (JSONL path)
+    // JSONL path removed: Replit stopped writing transcript.jsonl after July 27 2026.
+    // saveTranscriptChunk() (JSONL-based) is no longer called — findTranscriptPath() has
+    // returned null on every poll since then. The replacement paths are:
+    //   A. checkBuildSession() auto-appends commit messages as Luca turns (task sessions)
+    //   B. checkAutoCapture() drains .luca_auto_capture trigger-file writes
+    //   C. checkChatCapture() drains any turns appended via HTTP or append-turn.ts
+    // The function itself is preserved below in case Replit ever restores JSONL writing.
     writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if >10 min since last append
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
+  console.log('[AgentAutosave] Started — .commit_message (build + auto Luca turn) + .session_insights (emergence) + luca inner-life + .flush_transcript (event+poll) + .episode_append (event+poll) + .chat_capture (event+poll, JSONL replacement) + .luca_auto_capture (event+poll) + docs/episode-*.md + docs/prequel-episode-*.md (event+poll)');
 }
 
 // ---------------------------------------------------------------------------
