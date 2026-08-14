@@ -127,6 +127,56 @@ let _synthesisCacheFailedAt = 0; // memoize failures so we don't hammer the API
 let _synthesisCacheContentHash: string | null = null; // identity hash used when cache was created
 let _persistedRegistryLoaded = false; // guard: only read file once per process
 
+// ---------------------------------------------------------------------------
+// Test-only seams — not used in production; toggled by CI scripts only.
+// ---------------------------------------------------------------------------
+
+/** @internal Set to false in CI self-check to simulate the hash-guard being removed. */
+let _hashGuardEnabledForTest = true;
+
+/** @internal Inject arbitrary in-process cache state for testing. */
+export function _setSynthesisCacheStateForTest(
+  cacheName: string | null,
+  contentHash: string | null,
+  expiresAt: number,
+  registryLoaded: boolean,
+): void {
+  _synthesisCacheName = cacheName;
+  _synthesisCacheContentHash = contentHash;
+  _synthesisCacheExpiresAt = expiresAt;
+  _persistedRegistryLoaded = registryLoaded;
+  _synthesisCacheCreating = false;
+  _synthesisCacheFailedAt = 0;
+}
+
+/** @internal Read the current in-process cache name for test assertions. */
+export function _getSynthesisCacheNameForTest(): string | null {
+  return _synthesisCacheName;
+}
+
+/** @internal Enable or disable the Step-2 hash-comparison guard for CI self-check. */
+export function _setHashGuardEnabledForTest(enabled: boolean): void {
+  _hashGuardEnabledForTest = enabled;
+}
+
+/** @internal Enable or disable the Step-1 persisted-registry identity check for CI self-check. */
+let _persistedHashGuardEnabledForTest = true;
+export function _setPersistedHashGuardEnabledForTest(enabled: boolean): void {
+  _persistedHashGuardEnabledForTest = enabled;
+}
+
+/** @internal Reset all test seams to production defaults. */
+export function _resetSynthesisCacheTestSeams(): void {
+  _synthesisCacheName = null;
+  _synthesisCacheContentHash = null;
+  _synthesisCacheExpiresAt = 0;
+  _persistedRegistryLoaded = false;
+  _synthesisCacheCreating = false;
+  _synthesisCacheFailedAt = 0;
+  _hashGuardEnabledForTest = true;
+  _persistedHashGuardEnabledForTest = true;
+}
+
 /**
  * Daniela's static identity block — cached on Google's REST API servers.
  *
@@ -281,14 +331,15 @@ const SYNTHESIS_IDENTITY_HASH = createHash("sha256")
  * This means any edit to DANIELA_SYNTHESIS_IDENTITY automatically busts the cache on the
  * next server start, regardless of the 55-min Google TTL.
  */
-async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null> {
+export async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null> {
   // ── Step 1: warm in-memory state from the persisted registry (once per process) ──
   if (!_persistedRegistryLoaded && !_synthesisCacheCreating) {
     _persistedRegistryLoaded = true;
     const persisted = readPersistedCacheRegistry();
     if (persisted) {
-      if (persisted.identityHash !== SYNTHESIS_IDENTITY_HASH) {
+      if (_persistedHashGuardEnabledForTest && persisted.identityHash !== SYNTHESIS_IDENTITY_HASH) {
         // Identity changed between deploys — persisted cache is stale; discard it.
+        // _persistedHashGuardEnabledForTest is always true in production; only set false by CI self-check.
         console.log(
           `[PreSynthesis] Persisted cache has stale identity ` +
           `(stored hash ${persisted.identityHash} ≠ current ${SYNTHESIS_IDENTITY_HASH}) — ` +
@@ -312,7 +363,8 @@ async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null
   }
 
   // ── Step 2: in-process guard (defensive; covers dynamic identity loading in future) ──
-  if (_synthesisCacheName && _synthesisCacheContentHash !== SYNTHESIS_IDENTITY_HASH) {
+  // _hashGuardEnabledForTest is always true in production; only set false by CI self-check.
+  if (_hashGuardEnabledForTest && _synthesisCacheName && _synthesisCacheContentHash !== SYNTHESIS_IDENTITY_HASH) {
     console.log(
       `[PreSynthesis] In-process identity hash mismatch ` +
       `(${_synthesisCacheContentHash} → ${SYNTHESIS_IDENTITY_HASH}) — invalidating cache`

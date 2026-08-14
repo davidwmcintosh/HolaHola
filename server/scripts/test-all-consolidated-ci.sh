@@ -216,6 +216,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-capture-status-moment-stale-ci.ts --self-check (STALE_MOMENT_MS removed regression) ---"
   npx tsx server/scripts/test-capture-status-moment-stale-ci.ts --self-check
+
+  echo ""
+  echo "  --- test-synthesis-cache-identity-invalidation.ts (hash mismatch clears stale cache) ---"
+  run test-synthesis-cache-identity-invalidation.ts
+
+  echo ""
+  echo "  --- test-synthesis-cache-identity-invalidation.ts --self-check (guard-removed regression) ---"
+  npx tsx server/scripts/test-synthesis-cache-identity-invalidation.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────
