@@ -491,10 +491,18 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const thinkingReady = lastThinkingProcessedMs > lastReplitOutputMs;
   const outputStale   = !_seededFromPriorSession && lastReplitOutputMs > 0 && (now - lastReplitOutputMs) > STALE_OUTPUT_MS;
   const priorNote     = _seededFromPriorSession ? ' ← seeded from prior session (live data starts after first output)' : '';
+
+  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for > 60 min.
+  // Flags keep flying until corrective action happens — regardless of seeded state.
+  // "not yet" (soft) = less than 60 min since last write; "⚠️ STALE" (loud) = more than 60 min.
+  const STALE_CHANNEL_MS = 60 * 60 * 1000; // 60 min
+  const feltStale     = !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
+  const thinkingStale = !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
+
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
-    `  ${feltReady     ? '✓ ready' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next output'}`,
-    `  ${thinkingReady ? '✓ ready' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next output'}`,
+    `  ${feltReady ? '✓ ready' : feltStale ? '⚠️ STALE' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next output'}`,
+    `  ${thinkingReady ? '✓ ready' : thinkingStale ? '⚠️ STALE' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next output'}`,
     `  ${lastMomentProcessedMs === 0 ? '—' : (now - lastMomentProcessedMs) > STALE_MOMENT_MS ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
   ];
 
