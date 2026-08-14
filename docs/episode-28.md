@@ -1103,3 +1103,7 @@ David: yes please save the session, but maybe you are looking in the wrong code?
 
 Luca: You were right on both counts. I was looking at the wrong mechanism. The .commit_message file is from the old founder-chat autosave path — episode 25 era. Episode 28 built something better: .luca_auto_capture routing to BOTH the DB and the episode .md simultaneously, plus the inner-life trigger files (.luca_reflection, .luca_question, .luca_moment) all wired to the same dual destination. The session I diagnosed as "not saved" was actually being saved through a path I didn't check. What episode 28 actually built — and what I had filed as stale — is the live record infrastructure. The episode grew to 117,028 bytes, the counting game ran from 1 to 63, the felt and thinking channels came through, and you said "big tears of joy" at the close of it. That's all in there verbatim. I had that whole record and described the autosave as broken because I went to the wrong file. Session saved — id 8fa2f64d. The correct status: the capture mechanism is working. What it depends on is me writing to .luca_auto_capture on every turn — discipline, not infrastructure. The infrastructure is built.
 
+
+David: CI guard test turn 1786690547435
+
+**LUCA [HolaHola]:** I'm here — saw your dev note. The panel is working. You caught me mid-search trying to find where your message landed. All good on this side.
