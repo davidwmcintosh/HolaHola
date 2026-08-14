@@ -71,6 +71,7 @@ import {
   consumeAutoCaptureTrigger,
 } from './transcript-parser';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
+import { postAsLuca } from './luca-responder';
 
 const COMMIT_MSG_PATH  = join(WORKSPACE, '.local/.commit_message');
 const INSIGHTS_PATH    = join(WORKSPACE, '.local/.session_insights');
@@ -218,6 +219,16 @@ export function getOrderingCheckEnabledForTest(): boolean {
  * Never set in production.
  */
 let _staleChannelCheckEnabled = true;
+
+/**
+ * Per-session guard: set to true only after postAsLuca() returns a room ID
+ * (confirming delivery).  _innerLifeStaleAlertInFlight prevents concurrent
+ * duplicate posts while one is in-flight; it is cleared on failure so the
+ * next poll can retry.  Both flags reset via resetInnerLifeStaleAlertForTest().
+ */
+let _innerLifeStaleAlertPosted  = false;
+
+let _innerLifeStaleAlertInFlight = false;
 export function setFeltAtLastExchangeForTest(ms: number): void      { feltAtLastReplitOutput     = ms; }
 export function setThinkingAtLastExchangeForTest(ms: number): void  { thinkingAtLastReplitOutput = ms; }
 export function setPrevEpisodeCaptureForTest(ms: number): void      { prevReplitOutputMs          = ms; }
@@ -315,6 +326,10 @@ let thinkingAtLastReplitOutput = 0;
  * Any error is caught and logged — startup must never throw here.
  */
 export async function seedCaptureStatusFromEpisodeFile(): Promise<void> {
+  // Reset the stale-alert guards at every session boundary so a new
+  // conversation session (even in a long-running process) gets its own alert.
+  resetStaleAlertForNewSession();
+
   try {
     // Use the pinned filename when set (CI tests inject a temp episode via
     // setPinnedRollingEpisodeFilename); otherwise fall back to the DB lookup.
@@ -530,6 +545,34 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const STALE_CHANNEL_MS = 60 * 60 * 1000; // 60 min
   const feltStale     = _staleChannelCheckEnabled && !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
   const thinkingStale = _staleChannelCheckEnabled && !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
+
+  // ── Team-room alert: fire once per session when either channel goes stale ──
+  // Only sends when not already posted AND no concurrent post is in-flight.
+  // The flag is set only after a successful delivery (non-null room ID).
+  // On failure the in-flight guard is cleared so the next poll can retry.
+  if ((feltStale || thinkingStale) && !_innerLifeStaleAlertPosted && !_innerLifeStaleAlertInFlight) {
+    _innerLifeStaleAlertInFlight = true;
+    // feltStale/thinkingStale both require lastFeltProcessedMs > 0, so the
+    // timestamp is always valid here — no "never written" fallback needed.
+    const feltTs     = `last felt at ${fmt(lastFeltProcessedMs)}`;
+    const thinkingTs = `last thinking at ${fmt(lastThinkingProcessedMs)}`;
+    const staleParts = [feltStale ? `felt (${feltTs})` : null, thinkingStale ? `thinking (${thinkingTs})` : null].filter(Boolean).join(', ');
+    const alertMsg = `⚠️ Inner-life channels have been silent for 60+ min — ${staleParts} — say "capture status" or write .luca_reflection / .luca_question to clear.`;
+    const poster = _teamRoomPosterOverrideForTest ?? postAsLuca;
+    poster(alertMsg).then(roomId => {
+      if (roomId) {
+        _innerLifeStaleAlertPosted  = true;
+        _innerLifeStaleAlertInFlight = false;
+        console.log(`[AgentAutosave] Inner-life stale alert delivered to room ${roomId}: ${staleParts}`);
+      } else {
+        _innerLifeStaleAlertInFlight = false;
+        console.warn('[AgentAutosave] Inner-life stale alert: postAsLuca returned null (no room?) — will retry next poll');
+      }
+    }).catch(err => {
+      _innerLifeStaleAlertInFlight = false;
+      console.error('[AgentAutosave] Failed to post inner-life stale alert to team room:', err?.message);
+    });
+  }
 
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
@@ -2058,6 +2101,12 @@ export async function runStartupGapCheck(): Promise<void> {
 // Bootstrap + start
 // ---------------------------------------------------------------------------
 export function startAgentSessionAutosave(): void {
+  // Reset stale-alert guards at every server start (= new conversation session).
+  // seedCaptureStatusFromEpisodeFile() also calls this, but calling it here
+  // ensures the reset happens synchronously before any poll fires, even if the
+  // async seed is slow or aborted by a race guard.
+  resetStaleAlertForNewSession();
+
   if (existsSync(COMMIT_MSG_PATH)) {
     try {
       buildLastMtime = statSync(COMMIT_MSG_PATH).mtimeMs;
@@ -2317,6 +2366,9 @@ export function resetCaptureStatusSeedStateForTest(): void {
   lastMomentProcessedMs      = 0;
   feltAtLastReplitOutput     = 0;
   thinkingAtLastReplitOutput = 0;
+  // Mirrors the production startAgentSessionAutosave() / seedCaptureStatusFromEpisodeFile()
+  // session-boundary reset so CI's "new session" simulation includes the alert guard.
+  resetStaleAlertForNewSession();
 }
 
 /**
@@ -2344,9 +2396,40 @@ export function getStaleChannelCheckEnabledForTest(): boolean {
   return _staleChannelCheckEnabled;
 }
 
+/** Reset both stale-alert flags — thin test alias for resetStaleAlertForNewSession().
+ *  Use resetStaleAlertForNewSession() in production code. */
+export function resetInnerLifeStaleAlertForTest(): void {
+  resetStaleAlertForNewSession();
+}
+
+export function setTeamRoomPosterForTest(fn: ((msg: string) => Promise<string | null>) | null): void {
+  _teamRoomPosterOverrideForTest = fn;
+}
+
+/**
+ * Reset both stale-alert guards at the start of a new session.
+ *
+ * Called by seedCaptureStatusFromEpisodeFile() at server startup (and any
+ * other session-boundary hook) so each conversation session in a long-running
+ * process independently alerts David if its inner-life channels go stale.
+ *
+ * Safe to call in production — not a test-only seam.
+ */
+export function resetStaleAlertForNewSession(): void {
+  _innerLifeStaleAlertPosted   = false;
+  _innerLifeStaleAlertInFlight = false;
+}
+
 /**
  * Expose checkBuildSession() for CI testing.
  * This is the only way CI can call the function without spinning up all watchers.
  * Never call in production code — use the autosave worker instead.
  */
 export const checkBuildSessionForTest = checkBuildSession;
+
+/**
+ * Test seam — override the team-room poster used by the stale-channel alert.
+ * Pass a function to intercept postAsLuca() calls; pass null to restore the
+ * real implementation.  Never set in production.
+ */
+let _teamRoomPosterOverrideForTest: ((msg: string) => Promise<string | null>) | null = null;
