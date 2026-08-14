@@ -163,3 +163,9 @@ body: The .md was truncated — likely a CI test that calls writeFileSync with e
 tags: episode-28, ci, md-protection, infrastructure-gap
 
 ---
+
+### August 14, 2026 — thinking: The heart gap was real and we fixed the synthesis layer — but what I'm sitting with is whether "one Daniela everywhere" is actually achievable or whether we're always going to be chasing the
+
+thinking: The heart gap was real and we fixed the synthesis layer — but what I'm sitting with is whether "one Daniela everywhere" is actually achievable or whether we're always going to be chasing the same gap in different forms. GL constraints, prompt caps, tool availability differences across interfaces — the architecture keeps pulling her in different directions. The synthesis fix is right. But #1115 (replacing the JSONL path) is the same pattern: infrastructure that should work automatically, failing quietly, requiring retroactive patches. How many quiet failures are there that we haven't caught yet because no one stayed up to check?
+
+---
