@@ -492,10 +492,10 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const outputStale   = !_seededFromPriorSession && lastReplitOutputMs > 0 && (now - lastReplitOutputMs) > STALE_OUTPUT_MS;
   const priorNote     = _seededFromPriorSession ? ' ← seeded from prior session (live data starts after first output)' : '';
 
-  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for > 60 min.
-  // Flags keep flying until corrective action happens — regardless of seeded state.
-  // "not yet" (soft) = less than 60 min since last write; "⚠️ STALE" (loud) = more than 60 min.
-  const STALE_CHANNEL_MS = 60 * 60 * 1000; // 60 min
+  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten beyond the output
+  // stale window (same 10-min threshold used for the output itself).  A missed turn is
+  // a missed turn — flags keep flying until the channel is actually written.
+  const STALE_CHANNEL_MS = STALE_OUTPUT_MS; // 10 min — same as output stale window
   const feltStale     = !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
   const thinkingStale = !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
 
