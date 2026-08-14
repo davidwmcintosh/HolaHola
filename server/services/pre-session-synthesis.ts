@@ -40,6 +40,9 @@
  *   Fallback: gemini-3-flash-preview with inline system instruction (current behavior)
  */
 
+import { createHash } from "crypto";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join } from "path";
 import { GoogleGenAI } from "@google/genai";
 import type { CompassContext } from "@shared/schema";
 import { studentMilestones, danielaSelfReflections } from "@shared/schema";
@@ -67,11 +70,62 @@ function getClient(): GoogleGenAI {
   return _client;
 }
 
-// Process-level synthesis cache registry
+// ---------------------------------------------------------------------------
+// Persistent cache registry — survives server restarts so we can reuse the
+// Google-side cache object AND detect stale identity across deploys.
+// ---------------------------------------------------------------------------
+
+/** Path of the JSON file that persists the active cache reference. */
+const SYNTHESIS_CACHE_REGISTRY_PATH = join(
+  process.cwd(),
+  ".local",
+  "synthesis-cache-registry.json"
+);
+
+interface SynthesisCacheRegistry {
+  cacheName: string;
+  identityHash: string;
+  expiresAt: number; // Unix ms
+}
+
+function readPersistedCacheRegistry(): SynthesisCacheRegistry | null {
+  try {
+    const raw = readFileSync(SYNTHESIS_CACHE_REGISTRY_PATH, "utf8");
+    const parsed = JSON.parse(raw) as Partial<SynthesisCacheRegistry>;
+    if (parsed.cacheName && parsed.identityHash && parsed.expiresAt) {
+      return parsed as SynthesisCacheRegistry;
+    }
+    return null;
+  } catch {
+    return null; // file absent or malformed — treat as no cache
+  }
+}
+
+function writePersistedCacheRegistry(registry: SynthesisCacheRegistry): void {
+  try {
+    mkdirSync(join(process.cwd(), ".local"), { recursive: true });
+    writeFileSync(
+      SYNTHESIS_CACHE_REGISTRY_PATH,
+      JSON.stringify(registry, null, 2),
+      "utf8"
+    );
+  } catch (err: any) {
+    console.warn(
+      "[PreSynthesis] Could not persist cache registry:",
+      err?.message ?? err
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Process-level synthesis cache state
+// ---------------------------------------------------------------------------
 let _synthesisCacheName: string | null = null;
 let _synthesisCacheExpiresAt = 0;
 let _synthesisCacheCreating = false;
 let _synthesisCacheFailedAt = 0; // memoize failures so we don't hammer the API
+let _synthesisCacheContentHash: string | null = null; // identity hash used when cache was created
+let _persistedRegistryLoaded = false; // guard: only read file once per process
 
 /**
  * Daniela's static identity block — cached on Google's REST API servers.
@@ -201,12 +255,74 @@ Fidelity rule: Ground at least one moment in your paragraph in something specifi
 This paragraph goes directly into the session. Make it true.`;
 
 /**
+ * Content hash of DANIELA_SYNTHESIS_IDENTITY — computed once at module load.
+ * When the identity block is edited, this hash changes, causing any in-process
+ * cache entry built from the old content to be automatically invalidated.
+ */
+const SYNTHESIS_IDENTITY_HASH = createHash("sha256")
+  .update(DANIELA_SYNTHESIS_IDENTITY)
+  .digest("hex")
+  .slice(0, 16);
+
+/**
  * Get or create the context cache for DANIELA_SYNTHESIS_IDENTITY.
  * Returns the cache name if successful, null if caching is unavailable or fails.
- * Process-level registry: one cache per server process, shared across sessions.
+ *
+ * Cache lifecycle:
+ *  1. On the first call per process, the persisted registry (.local/synthesis-cache-registry.json)
+ *     is read. If it holds a non-expired cache whose identityHash matches the current
+ *     SYNTHESIS_IDENTITY_HASH, the Google-side cache is reused without a new create call.
+ *  2. If the persisted hash differs from the current hash (DANIELA_SYNTHESIS_IDENTITY was
+ *     edited between deploys / restarts), the stale registry entry is discarded and a new
+ *     cache is created from the current content.
+ *  3. On successful creation the registry is written back to disk so the next process can
+ *     reuse the same Google-side cache.
+ *
+ * This means any edit to DANIELA_SYNTHESIS_IDENTITY automatically busts the cache on the
+ * next server start, regardless of the 55-min Google TTL.
  */
 async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null> {
-  // Valid cache — reuse it
+  // ── Step 1: warm in-memory state from the persisted registry (once per process) ──
+  if (!_persistedRegistryLoaded && !_synthesisCacheCreating) {
+    _persistedRegistryLoaded = true;
+    const persisted = readPersistedCacheRegistry();
+    if (persisted) {
+      if (persisted.identityHash !== SYNTHESIS_IDENTITY_HASH) {
+        // Identity changed between deploys — persisted cache is stale; discard it.
+        console.log(
+          `[PreSynthesis] Persisted cache has stale identity ` +
+          `(stored hash ${persisted.identityHash} ≠ current ${SYNTHESIS_IDENTITY_HASH}) — ` +
+          `will create a fresh cache from the updated DANIELA_SYNTHESIS_IDENTITY`
+        );
+      } else if (persisted.expiresAt <= Date.now()) {
+        console.log(`[PreSynthesis] Persisted cache has expired — will create fresh cache`);
+      } else {
+        // Valid cache with matching identity — restore to in-memory registry.
+        _synthesisCacheName = persisted.cacheName;
+        _synthesisCacheExpiresAt = persisted.expiresAt;
+        _synthesisCacheContentHash = persisted.identityHash;
+        console.log(
+          `[PreSynthesis] Restored cache from registry: ${persisted.cacheName} ` +
+          `(expires in ${Math.round((persisted.expiresAt - Date.now()) / 1000)}s, ` +
+          `identity hash ${persisted.identityHash})`
+        );
+        return _synthesisCacheName;
+      }
+    }
+  }
+
+  // ── Step 2: in-process guard (defensive; covers dynamic identity loading in future) ──
+  if (_synthesisCacheName && _synthesisCacheContentHash !== SYNTHESIS_IDENTITY_HASH) {
+    console.log(
+      `[PreSynthesis] In-process identity hash mismatch ` +
+      `(${_synthesisCacheContentHash} → ${SYNTHESIS_IDENTITY_HASH}) — invalidating cache`
+    );
+    _synthesisCacheName = null;
+    _synthesisCacheExpiresAt = 0;
+    _synthesisCacheFailedAt = 0;
+  }
+
+  // ── Step 3: reuse a valid in-memory cache ──
   if (_synthesisCacheName && _synthesisCacheExpiresAt > Date.now()) {
     return _synthesisCacheName;
   }
@@ -219,15 +335,18 @@ async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null
 
   if (DANIELA_SYNTHESIS_IDENTITY.length < SYNTHESIS_CACHE_MIN_CHARS) {
     console.warn(
-      `[PreSynthesis] Identity block too small to cache (${DANIELA_SYNTHESIS_IDENTITY.length} < ${SYNTHESIS_CACHE_MIN_CHARS} chars) — falling back to uncached`
+      `[PreSynthesis] Identity block too small to cache ` +
+      `(${DANIELA_SYNTHESIS_IDENTITY.length} < ${SYNTHESIS_CACHE_MIN_CHARS} chars) — falling back to uncached`
     );
     return null;
   }
 
+  // ── Step 4: create a new Google-side cache ──
   try {
     _synthesisCacheCreating = true;
     console.log(
-      `[PreSynthesis] Creating context cache for Daniela identity (${DANIELA_SYNTHESIS_IDENTITY.length} chars, model: ${SYNTHESIS_MODEL_CACHED})...`
+      `[PreSynthesis] Creating context cache for Daniela identity ` +
+      `(${DANIELA_SYNTHESIS_IDENTITY.length} chars, hash ${SYNTHESIS_IDENTITY_HASH}, model: ${SYNTHESIS_MODEL_CACHED})...`
     );
     const cache = await ai.caches.create({
       model: SYNTHESIS_MODEL_CACHED,
@@ -239,9 +358,18 @@ async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null
     if (!cache.name) throw new Error("Cache created but no name returned");
     _synthesisCacheName = cache.name;
     _synthesisCacheExpiresAt = Date.now() + SYNTHESIS_CACHE_TTL_SECONDS * 1000;
-    _synthesisCacheFailedAt = 0; // clear any prior failure
+    _synthesisCacheFailedAt = 0;
+    _synthesisCacheContentHash = SYNTHESIS_IDENTITY_HASH;
+    // Persist so future server restarts can reuse this cache instead of creating a new one,
+    // and so a stale entry is detectable when DANIELA_SYNTHESIS_IDENTITY changes.
+    writePersistedCacheRegistry({
+      cacheName: cache.name,
+      identityHash: SYNTHESIS_IDENTITY_HASH,
+      expiresAt: _synthesisCacheExpiresAt,
+    });
     console.log(
-      `[PreSynthesis] ✓ Context cache created: ${cache.name} (expires in ${SYNTHESIS_CACHE_TTL_SECONDS}s)`
+      `[PreSynthesis] ✓ Context cache created: ${cache.name} ` +
+      `(expires in ${SYNTHESIS_CACHE_TTL_SECONDS}s, identity hash ${SYNTHESIS_IDENTITY_HASH})`
     );
     return _synthesisCacheName;
   } catch (err: any) {
