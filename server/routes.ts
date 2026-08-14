@@ -37328,6 +37328,52 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // Stage David's task description for atomic David→Luca capture when markTaskComplete fires.
+  //
+  // Call this from CodeExecution right before markTaskComplete({ task_ref, commit_message }).
+  // The endpoint validates the task file exists, then writes the task_ref to
+  // .local/.task_ref_pending.  When markTaskComplete writes .commit_message, checkBuildSession()
+  // reads the pending file and appends David→Luca as a single synchronous batch — so both turns
+  // land in the same .chat_capture drain and produce ONE conversation_memories entry, not two.
+  //
+  // Usage from CodeExecution (x-agent-token header required):
+  //   await fetch('/api/internal/task-capture-start', {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     body: JSON.stringify({ task_ref: '1121' }),
+  //   });
+  //   // immediately call markTaskComplete(...) — the pending file is consumed by checkBuildSession
+  app.post("/api/internal/task-capture-start", async (req: any, res: Response) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: 'Invalid agent token' });
+      }
+      const { task_ref } = req.body ?? {};
+      if (!task_ref || typeof task_ref !== 'string') {
+        return res.status(400).json({ error: 'task_ref required (string task reference number)' });
+      }
+      const ref = task_ref.trim();
+      const { _loadTaskDescriptionText, TASK_REF_PENDING_PATH } = await import('./services/agent-session-autosave');
+      const { writeFileSync } = await import('fs');
+
+      // Validate: ensure the task file exists and can produce a David turn before staging.
+      const davidText = _loadTaskDescriptionText(ref);
+      if (!davidText) {
+        return res.status(404).json({ error: `Task file not found or empty for ref=${ref}` });
+      }
+
+      // Stage: write task_ref to the companion file.  checkBuildSession() reads this when
+      // .commit_message changes and appends David→Luca synchronously (one drain batch).
+      writeFileSync(TASK_REF_PENDING_PATH, ref, 'utf-8');
+      console.log(`[TaskCaptureStart] Staged task_ref=${ref} → .task_ref_pending (${davidText.length} chars preview)`);
+      return res.json({ ok: true, task_ref: ref, charLen: davidText.length, staged: true });
+    } catch (e: any) {
+      console.error('[TaskCaptureStart] Failed:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // CAP-008: Guardian completion report — called by alden-build-guardian.js (localhost only)
   app.post("/api/team-room/internal/guardian-complete", async (req: any, res: Response) => {
     try {

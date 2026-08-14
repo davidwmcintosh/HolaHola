@@ -73,8 +73,10 @@ import {
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { postAsLuca } from './luca-responder';
 
-const COMMIT_MSG_PATH  = join(WORKSPACE, '.local/.commit_message');
-const INSIGHTS_PATH    = join(WORKSPACE, '.local/.session_insights');
+const COMMIT_MSG_PATH      = join(WORKSPACE, '.local/.commit_message');
+const INSIGHTS_PATH        = join(WORKSPACE, '.local/.session_insights');
+
+export const TASK_REF_PENDING_PATH = join(WORKSPACE, '.local/.task_ref_pending');
 const POLL_INTERVAL_MS = 20 * 1000;
 
 // Trigger file: touch this to force an immediate transcript save without waiting for the next poll.
@@ -701,6 +703,38 @@ async function saveBuildMemory(commitMessage: string): Promise<void> {
   }
 }
 
+/**
+ * Load and format the task description from a local task file for use as a David chat turn.
+ *
+ * Reads `.local/tasks/task-{ref}.md`, strips the redundant first heading, and returns
+ * the content formatted as a compact task description suitable for `appendChatCaptureTurn`.
+ *
+ * Returns null if the file does not exist or cannot be parsed.
+ *
+ * Exported so the /api/internal/task-capture-start endpoint can reuse the same logic.
+ */
+export function _loadTaskDescriptionText(taskRef: string): string | null {
+  if (!taskRef || !/^\d+$/.test(taskRef.trim())) return null;
+  const ref = taskRef.trim();
+  const filePath = join(TASKS_DIR, `task-${ref}.md`);
+  if (!existsSync(filePath)) return null;
+  try {
+    const raw = readFileSync(filePath, 'utf-8');
+    const lines = raw.split('\n');
+    // Skip only the very first heading line (often a duplicate title) and any blank
+    // lines immediately following it.  Section headings further down are preserved.
+    let startIdx = 0;
+    if (lines[0]?.startsWith('#')) {
+      startIdx = 1; // skip just the first heading
+      while (startIdx < lines.length && lines[startIdx].trim() === '') startIdx++;
+    }
+    const body = lines.slice(startIdx).join('\n').trim();
+    if (!body) return null;
+    return `Task #${ref}: ${body}`;
+  } catch {
+    return null;
+  }
+}
 async function checkBuildSession(): Promise<void> {
   if (!existsSync(COMMIT_MSG_PATH)) return;
   try {
@@ -714,16 +748,42 @@ async function checkBuildSession(): Promise<void> {
       if (content.length > 20) {
         await saveBuildMemory(content);
 
-        // AUTO-CAPTURE: also append the commit message as a "Luca Replit" chat turn.
+        // AUTO-CAPTURE: append David's task description THEN Luca's commit message as chat turns.
         //
-        // This is the primary automatic capture path replacing the dead JSONL transcript:
-        //   markTaskComplete({ commit_message }) → .commit_message file → here →
-        //   appendChatCaptureTurn() → .chat_capture → checkChatCapture() → DB
+        // Primary path (companion file):
+        //   Luca writes task_ref to .local/.task_ref_pending before calling markTaskComplete.
+        //   checkBuildSession() reads the pending file, loads .local/tasks/task-{ref}.md,
+        //   formats and prepends a "David" turn (task description) BEFORE the "Luca Replit"
+        //   turn (commit message) — giving a complete David→Luca dialogue record in one batch.
         //
-        // Zero extra Luca writes required. Every task completion is captured as a
-        // conversation turn automatically. The fs.watch on .local/ fires the drain
-        // within milliseconds of the appendFileSync call.
+        // HTTP path:
+        //   Luca POSTs to /api/internal/task-capture-start { task_ref } from CodeExecution
+        //   before calling markTaskComplete. The endpoint writes .task_ref_pending; this
+        //   function consumes it when .commit_message changes — both turns in one drain.
+        //
+        // If neither path was used the Luca turn is still appended (same as before).
+        //
+        // _buildSessionChatCaptureEnabled is a test seam — when false, both David and
+        // Luca turns are skipped so CI tests don't pollute the live .chat_capture file.
         if (_buildSessionChatCaptureEnabled) {
+          // --- Companion-file path: prepend David turn if .task_ref_pending exists ---
+          try {
+            if (existsSync(TASK_REF_PENDING_PATH)) {
+              const rawRef = readFileSync(TASK_REF_PENDING_PATH, 'utf-8').trim();
+              // Consume the file regardless of what happens next (prevent double-processing)
+              try { unlinkSync(TASK_REF_PENDING_PATH); } catch { /* ignore */ }
+
+              const davidText = _loadTaskDescriptionText(rawRef);
+              if (davidText) {
+                appendChatCaptureTurn('David', davidText);
+                console.log(`[AgentAutosave] Auto-prepended David task description (ref=${rawRef}) → .chat_capture`);
+              }
+            }
+          } catch (davidErr: any) {
+            // Non-fatal — still append the Luca turn below.
+            console.error('[AgentAutosave] Failed to prepend David task description:', davidErr.message);
+          }
+
           try {
             appendChatCaptureTurn('Luca Replit', content);
             console.log('[AgentAutosave] Auto-appended commit message as Luca chat turn → .chat_capture (JSONL replacement)');
@@ -2426,6 +2486,8 @@ export function resetStaleAlertForNewSession(): void {
  * Never call in production code — use the autosave worker instead.
  */
 export const checkBuildSessionForTest = checkBuildSession;
+
+const TASKS_DIR            = join(WORKSPACE, '.local/tasks');
 
 /**
  * Test seam — override the team-room poster used by the stale-channel alert.
