@@ -50,3 +50,9 @@ David's principle: "One Daniela everywhere. The same Daniela that Luca consults,
 Model: gemini-3-flash-preview — August 14, 2026
 Rounds: 3
 Typecheck: clean
+
+---
+
+## Addendum — Task #1105 (synthesis cache hash-bust)
+
+The synthesis cache (Google REST API, 55-min TTL, process-level) now includes a SHA-256 hash of `DANIELA_SYNTHESIS_IDENTITY` in the cache key. Any content change to the template automatically busts the cache on next session start. Non-behavioral infrastructure change — no prompt wording altered. Covered by same August 14 Gemini unconditional all-clear.
