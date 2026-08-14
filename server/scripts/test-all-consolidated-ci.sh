@@ -229,6 +229,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-synthesis-cache-identity-invalidation.ts --self-check (guard-removed regression) ---"
   npx tsx server/scripts/test-synthesis-cache-identity-invalidation.ts --self-check
+
+  echo ""
+  echo "  --- test-build-session-dedup.ts (same commit message captured exactly once) ---"
+  run test-build-session-dedup.ts
+
+  echo ""
+  echo "  --- test-build-session-dedup.ts --self-check (dedup guard removed → 2 turns appear) ---"
+  npx tsx server/scripts/test-build-session-dedup.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────

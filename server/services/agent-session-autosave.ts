@@ -146,6 +146,78 @@ export function getBuildSessionChatCaptureEnabledForTest(): boolean {
 }
 
 /**
+ * Test seam — content-level dedup guard inside checkBuildSession().
+ * When false (CI self-check only), the `content === buildLastSavedContent`
+ * check is bypassed so that calling checkBuildSession() twice with the same
+ * commit message appends a second turn to .chat_capture.  This lets the
+ * dedup CI test confirm that removing the guard causes a duplicate.
+ * Never set in production.
+ */
+let _buildSessionDedupEnabled = true;
+
+/**
+ * Test seam — DB write inside saveBuildMemory().
+ * When false (CI tests only), the INSERT INTO conversation_memories is
+ * skipped entirely so no synthetic build rows land in the live database.
+ * The dedup-guard and chat-capture logic still execute normally.
+ * Never set in production.
+ */
+let _buildSessionDbEnabled = true;
+export function setBuildSessionDbEnabledForTest(val: boolean): void {
+  _buildSessionDbEnabled = val;
+}
+export function getBuildSessionDbEnabledForTest(): boolean {
+  return _buildSessionDbEnabled;
+}
+
+/**
+ * Test seam — capture file path override for checkBuildSession().
+ * When non-null, appendChatCaptureTurn() inside checkBuildSession() writes
+ * to this path instead of the live .local/.chat_capture.  Set this to a
+ * temp file in CI tests so sentinel turns never pollute the live capture
+ * file or trigger the autosave worker to append to a rolling episode .md.
+ * Never set in production.
+ */
+let _chatCapturePathOverrideForTest: string | null = null;
+export function setChatCapturePathOverrideForTest(path: string | null): void {
+  _chatCapturePathOverrideForTest = path;
+}
+export function getChatCapturePathOverrideForTest(): string | null {
+  return _chatCapturePathOverrideForTest;
+}
+
+/**
+ * Test seam — commit-message file path override for checkBuildSession().
+ * When non-null, checkBuildSession() reads from this path instead of the
+ * live .local/.commit_message.  Use a temp file in CI tests so the live
+ * autosave server process (which watches the real file) never observes the
+ * sentinel write — preventing it from inserting DB rows or appending to the
+ * live .chat_capture via its own separate watcher.
+ * Never set in production.
+ */
+let _commitMsgPathOverrideForTest: string | null = null;
+export function setCommitMsgPathOverrideForTest(path: string | null): void {
+  _commitMsgPathOverrideForTest = path;
+}
+export function getCommitMsgPathOverrideForTest(): string | null {
+  return _commitMsgPathOverrideForTest;
+}
+
+/**
+ * Test seam — task-ref-pending file path override for checkBuildSession().
+ * When non-null, checkBuildSession() checks/reads/unlinks this path instead
+ * of the live .local/.task_ref_pending.  Use a non-existent temp path in CI
+ * tests so the test never consumes a live pending David-task marker.
+ * Never set in production.
+ */
+let _taskRefPendingPathOverrideForTest: string | null = null;
+export function setTaskRefPendingPathOverrideForTest(path: string | null): void {
+  _taskRefPendingPathOverrideForTest = path;
+}
+export function getTaskRefPendingPathOverrideForTest(): string | null {
+  return _taskRefPendingPathOverrideForTest;
+}
+/**
  * Test seam — episode append path.
  * Set to false in CI self-check mode to simulate the appendExchangeToEpisode()
  * call being absent from checkLucaReflection().  Never set in production.
@@ -674,6 +746,12 @@ async function saveBuildMemory(commitMessage: string): Promise<void> {
   if (commitMessage === buildLastSavedContent) return;
   buildLastSavedContent = commitMessage;
 
+  // Skip DB write when the CI test seam is disabled.
+  if (!_buildSessionDbEnabled) {
+    console.log('[AgentAutosave] (CI: DB write skipped by _buildSessionDbEnabled=false)');
+    return;
+  }
+
   const db = getUserDb();
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const lines = commitMessage.trim().split('\n');
@@ -735,16 +813,31 @@ export function _loadTaskDescriptionText(taskRef: string): string | null {
   }
 }
 async function checkBuildSession(): Promise<void> {
-  if (!existsSync(COMMIT_MSG_PATH)) return;
+  // Use the CI path override when set; the live server always uses COMMIT_MSG_PATH.
+  const commitMsgPath = _commitMsgPathOverrideForTest ?? COMMIT_MSG_PATH;
+  if (!existsSync(commitMsgPath)) return;
   try {
-    const stat = statSync(COMMIT_MSG_PATH);
+    const stat = statSync(commitMsgPath);
     const mtime = stat.mtimeMs;
     if (mtime > buildLastMtime) {
       const prev = buildLastMtime;
       buildLastMtime = mtime;
       if (prev === 0) return; // skip initial read on startup
-      const content = readFileSync(COMMIT_MSG_PATH, 'utf-8').trim();
+      const content = readFileSync(commitMsgPath, 'utf-8').trim();
       if (content.length > 20) {
+        // DEDUP GUARD: skip both the DB insert and the chat-capture turn if
+        // we already processed this exact content.  Guards against re-triggering
+        // when the file is rewritten with identical bytes (e.g. two rapid
+        // markTaskComplete calls with the same commit message).
+        //
+        // _buildSessionDedupEnabled is a CI test seam: set it to false in
+        // self-check mode to simulate removing this guard and confirm a second
+        // call produces a duplicate .chat_capture turn.
+        if (_buildSessionDedupEnabled && content === buildLastSavedContent) {
+          console.log('[AgentAutosave] Skipping duplicate commit message (same content as last saved)');
+          return;
+        }
+
         await saveBuildMemory(content);
 
         // AUTO-CAPTURE: append David's task description THEN Luca's commit message as chat turns.
@@ -765,16 +858,22 @@ async function checkBuildSession(): Promise<void> {
         // _buildSessionChatCaptureEnabled is a test seam — when false, both David and
         // Luca turns are skipped so CI tests don't pollute the live .chat_capture file.
         if (_buildSessionChatCaptureEnabled) {
+          // Resolve the capture file path — use the CI override when set so
+          // test runs never write sentinel content to the live .chat_capture.
+          const capturePath = _chatCapturePathOverrideForTest ?? undefined;
+
           // --- Companion-file path: prepend David turn if .task_ref_pending exists ---
+          // Use the CI path override when set so tests never consume the live pending file.
+          const taskRefPendingPath = _taskRefPendingPathOverrideForTest ?? TASK_REF_PENDING_PATH;
           try {
-            if (existsSync(TASK_REF_PENDING_PATH)) {
-              const rawRef = readFileSync(TASK_REF_PENDING_PATH, 'utf-8').trim();
+            if (existsSync(taskRefPendingPath)) {
+              const rawRef = readFileSync(taskRefPendingPath, 'utf-8').trim();
               // Consume the file regardless of what happens next (prevent double-processing)
-              try { unlinkSync(TASK_REF_PENDING_PATH); } catch { /* ignore */ }
+              try { unlinkSync(taskRefPendingPath); } catch { /* ignore */ }
 
               const davidText = _loadTaskDescriptionText(rawRef);
               if (davidText) {
-                appendChatCaptureTurn('David', davidText);
+                appendChatCaptureTurn('David', davidText, capturePath);
                 console.log(`[AgentAutosave] Auto-prepended David task description (ref=${rawRef}) → .chat_capture`);
               }
             }
@@ -784,7 +883,7 @@ async function checkBuildSession(): Promise<void> {
           }
 
           try {
-            appendChatCaptureTurn('Luca Replit', content);
+            appendChatCaptureTurn('Luca Replit', content, capturePath);
             console.log('[AgentAutosave] Auto-appended commit message as Luca chat turn → .chat_capture (JSONL replacement)');
           } catch (appendErr: any) {
             // Non-fatal — build memory was already saved; log the append failure.
@@ -2495,3 +2594,11 @@ const TASKS_DIR            = join(WORKSPACE, '.local/tasks');
  * real implementation.  Never set in production.
  */
 let _teamRoomPosterOverrideForTest: ((msg: string) => Promise<string | null>) | null = null;
+
+export function getBuildSessionDedupEnabledForTest(): boolean {
+  return _buildSessionDedupEnabled;
+}
+
+export function setBuildSessionDedupEnabledForTest(val: boolean): void {
+  _buildSessionDedupEnabled = val;
+}
