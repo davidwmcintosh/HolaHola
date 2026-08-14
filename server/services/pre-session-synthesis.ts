@@ -260,7 +260,7 @@ async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null
  * Build the "lite" context string — only the fields that matter for
  * an inner monologue. Skips all procedure docs, dispatcher maps, etc.
  */
-function buildLiteContext(
+export function buildLiteContext(
   compassContext: CompassContext,
   tutorName: string,
   pedagogicalBrief?: { brief: string; focusArea: string | null; struggledWith: string | null; notedProgress: string | null } | null,

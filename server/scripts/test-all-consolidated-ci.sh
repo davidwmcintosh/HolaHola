@@ -200,6 +200,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-health-check-probe-guard.ts --self-check (ua==='' branch removed regression) ---"
   npx tsx server/scripts/test-health-check-probe-guard.ts --self-check
+
+  echo ""
+  echo "  --- test-inner-life-reaches-synthesis.ts (inner-life archive reaches [DANIELA_STATE]) ---"
+  run test-inner-life-reaches-synthesis.ts
+
+  echo ""
+  echo "  --- test-inner-life-reaches-synthesis.ts --self-check (hermetic: inject-removed regression) ---"
+  npx tsx server/scripts/test-inner-life-reaches-synthesis.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────
