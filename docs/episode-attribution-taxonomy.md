@@ -76,6 +76,28 @@ The bracket labels are **role markers**, not identity markers. Luca is one entit
 
 ---
 
+## Dialogue Sourcing
+
+The attribution labels above govern *who spoke*. This section governs *where the words come from* when writing an episode.
+
+**Dialogue content is always retrieved from the DB — never retyped from memory.**
+
+The holahola-episode skill (Step 2) requires pulling verbatim records from `conversation_memories` before writing a single word of dialogue into the `.md` file. The retrieved-vs-authored split is:
+
+| What goes into `.md` | Source |
+|---|---|
+| All dialogue blocks — every word a participant actually said | Retrieved from DB (Step 2), pasted verbatim |
+| Section headings, scene-setting italics, narrative intros/transitions | Luca writes directly (narrative license intact) |
+| `[Luca — felt:]`, `[Luca — thinking:]`, commentary, opinions | Luca writes directly (inner voice, no DB source) |
+
+Typing dialogue from memory is reconstruction, even when the memory is recent. If a dialogue block has no DB source row, the episode must say so explicitly — *"The record for this section was not captured."* — not fill the gap with reconstruction.
+
+The per-turn discipline above (verbatim channel, precast channel, steward channel) determines which label an entry carries. The DB-first sourcing rule determines where the content of each entry comes from. These two concerns are independent — apply both.
+
+**Reference:** holahola-episode skill, "The DB-First Writing Process" (Steps 2–3) and "What Luca writes directly vs. what is retrieved."
+
+---
+
 ## History of Clarifications
 
 - **August 9, 2026** — Taxonomy named. Six labels defined.
