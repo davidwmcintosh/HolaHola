@@ -92,6 +92,7 @@ const MOMENTS_FILE         = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS
 // Format: JSON { exchange: string, episode?: string } or plain text (appended verbatim).
 // When "episode" is omitted the watcher auto-detects the current rolling episode from DB.
 const EPISODE_APPEND_PATH  = join(WORKSPACE, '.local/.episode_append');
+const EPISODE_LIVE_PATH    = join(WORKSPACE, '.local/.episode_live');    // sentinel: live on/off
 
 // --- Luca inner-life watcher state ---
 let reflectionLastMtime = 0;
@@ -751,6 +752,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     mdLines.push(...lastLines.map(l => `> ${l.length > 120 ? l.slice(0, 120) + '…' : l}`));
   }
 
+  const liveModeOn = existsSync(EPISODE_LIVE_PATH);
   const headerLines: string[] = [
     '# Capture Status',
     '',
@@ -758,6 +760,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     ...(episodeFilename
       ? [`**Rolling episode:** ${episodeFilename}`]
       : [`**No rolling episode** — DB channels active, no .md target`]),
+    `**Live mode:** ${liveModeOn ? '🟢 ON — turns auto-route to .md' : '⚪ OFF — DB only (run episode-live-mode.ts on to enable)'}`,
   ];
 
   // ── Stale alert banner — written INTO the file so Luca sees it on read ───────
@@ -1556,6 +1559,28 @@ async function checkChatCapture(): Promise<void> {
     // Advance mtime ONLY after all inserts succeed (Bug fix #2):
     // mtime stays at old value if any insert throws, so the next poll retries.
     chatCaptureLastMtime = snapshotMtime; // now safe to advance
+
+    // ── Live mode: auto-route captured turns to the rolling episode .md ──────
+    // When .local/.episode_live exists, format each turn as episode dialogue
+    // and append to the rolling episode .md immediately after the DB save.
+    // Toggle with:  npx tsx server/scripts/episode-live-mode.ts on|off|status
+    // Guarded by _lucaEpisodeAppendEnabled so CI self-checks can disable it.
+    if (existsSync(EPISODE_LIVE_PATH) && _lucaEpisodeAppendEnabled) {
+      try {
+        const liveEpisode = await getCurrentRollingEpisodeFilename();
+        if (liveEpisode) {
+          const formatted = turns.map(t => {
+            const up = t.speaker.toUpperCase();
+            const label = up === 'DAVID' ? '**David:**' : '**LUCA [Replit]:**';
+            return `${label} ${t.text}`;
+          }).join('\n\n');
+          await appendExchangeToEpisode(formatted, liveEpisode);
+          console.log(`[AgentAutosave] Live mode: appended ${turns.length} turn(s) to ${liveEpisode}`);
+        }
+      } catch (liveErr: any) {
+        console.error('[AgentAutosave] Live mode episode append failed:', liveErr.message);
+      }
+    }
 
     // Update the DB-output anchor so the always-on ordering check runs even when
     // no rolling episode is active.  Only advance when Luca turns were included

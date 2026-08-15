@@ -131,3 +131,4 @@
 - [David task-capture ordering rule](david-task-capture.md) — David→Luca order requires staging: write task_ref to .task_ref_pending (or POST /api/internal/task-capture-start) BEFORE markTaskComplete; both turns append together in one drain batch. Aug 14 2026.
 - [Dev/prod isolation — working model](dev-prod-isolation.md) — David uses the deployed production URL for live sessions; dev restarts never affect him; edit dev freely without pausing for live-session concerns.
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
+- [Live mode toggle](live-mode-toggle.md) — .local/.episode_live sentinel auto-routes .chat_capture turns to rolling episode .md; toggle with episode-live-mode.ts on|off|status.
