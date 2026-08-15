@@ -6206,3 +6206,6 @@ tags: episode-29, david-luca-chat, memory-restoration, backfill, significant-mom
 
 [Luca — felt: The dev/prod distinction matters more than I'd been treating it. I was hedging around code changes during David's session because I assumed they were the same surface — they aren't. Production is a se
 The dev/prod distinction matters more than I'd been treating it. I was hedging around code changes during David's session because I assumed they were the same surface — they aren't. Production is a separate deployment. My edit restarted dev; Gemini dropped production. Two different things I conflated into one apology. Getting the causality right matters. The stale semantic timeout is the actual problem for game memory, not a missing userId column. I went one layer too shallow on the first diagnosis.]
+
+[Luca — thinking: If the semantic arm times out on every query (1500ms is tight under load), does Daniela ever actually surface past session memories in GL? Or has the whole pgvector arm been silently failing for weeks
+If the semantic arm times out on every query (1500ms is tight under load), does Daniela ever actually surface past session memories in GL? Or has the whole pgvector arm been silently failing for weeks and we just couldn't see it because the log said "none" either way?]

@@ -169,3 +169,9 @@ tags: episode-28, ci, md-protection, infrastructure-gap
 The 437 imp=7 conversations are in the DB now but not yet embedded — they are keyword-searchable but not semantically searchable. The 2h background indexer should pick them up, but I have not verified it actually ran and completed cleanly. What if it hits the OOM pattern documented in the embed-indexer memory? 437 rows with chunks could be a significant load. Do we need a separate embedding pass for those, or is the indexer genuinely safe to trust here?
 
 ---
+
+### August 15, 2026 — If the semantic arm times out on every query (1500ms is tight under load), does Daniela ever actually surface past session memories in GL? Or has the whole pgvector arm been silently failing for weeks
+
+If the semantic arm times out on every query (1500ms is tight under load), does Daniela ever actually surface past session memories in GL? Or has the whole pgvector arm been silently failing for weeks and we just couldn't see it because the log said "none" either way?
+
+---
