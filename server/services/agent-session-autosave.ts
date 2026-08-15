@@ -252,6 +252,27 @@ export function resetMomentMtimeForTest(): void {
 }
 
 /**
+ * Test seam — set reflectionLastMtime to an arbitrary value so CI can prime
+ * the mtime guard without waiting for a real file-write cycle.
+ * Setting to a value > 0 ensures the NEXT write triggers processing (not skipped
+ * as "initial read" when prev===0).
+ * Never call in production.
+ */
+export function setReflectionLastMtimeForTest(ms: number): void {
+  reflectionLastMtime = ms;
+}
+
+/**
+ * Test seam — override the reflection trigger file path inside checkLucaReflection().
+ * When set, checkLucaReflection() reads/stats this path instead of the live
+ * .local/.luca_reflection so the test can write to an isolated temp file and the
+ * running server's watcher never sees the sentinel.
+ * Pass null to restore the default path.
+ * Never call in production.
+ */
+let _reflectionPathOverrideForTest: string | null = null;
+
+/**
  * Test seam — no-episode-row early-return guard in appendInnerLifeToEpisodeDb().
  * When false (CI self-check only), the `if (!memoryId)` early-return block is
  * skipped so the function proceeds past the guard (reaching a DB error inside
@@ -1202,6 +1223,13 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
 
   await withEpisodeFileLock(episodeFilename, async () => {
     try {
+      // _innerLifeDbUpdateEnabled is false only in self-check CI mode —
+      // it precisely models a regression where the UPDATE line is removed.
+      if (!_innerLifeDbUpdateEnabled) {
+        console.log('[AgentAutosave] Inner-life DB update skipped (test seam: _innerLifeDbUpdateEnabled=false)');
+        return;
+      }
+
       // 1. Append text to the episode's DB content field (DB is primary)
       await db.execute(sql`
         UPDATE conversation_memories
@@ -1222,10 +1250,14 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
         try { episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs); } catch { /* ignore */ }
         console.log(`[AgentAutosave] Inner-life DB-first append: +${text.length} chars → ${episodeFilename}`);
         writeCaptureStatus(episodeFilename);
-        // Re-embed so episode chunks reflect the new content
-        reembedConversationMemory(memoryId as string).catch((err: any) => {
-          console.error(`[AgentAutosave] Re-embed failed for ${episodeFilename}:`, err?.message ?? err);
-        });
+        // Re-embed so episode chunks reflect the new content.
+        // _innerLifeReembedEnabled is false in CI tests to prevent fixture rows
+        // from generating orphaned memory_embeddings records.
+        if (_innerLifeReembedEnabled) {
+          reembedConversationMemory(memoryId as string).catch((err: any) => {
+            console.error(`[AgentAutosave] Re-embed failed for ${episodeFilename}:`, err?.message ?? err);
+          });
+        }
       }
     } catch (err: any) {
       console.error(`[AgentAutosave] Inner-life DB-first append failed for ${episodeFilename}:`, err?.message ?? err);
@@ -1234,15 +1266,18 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
 }
 
 export async function checkLucaReflection(): Promise<void> {
-  if (!existsSync(REFLECTION_PATH)) return;
+  // _reflectionPathOverrideForTest lets CI use an isolated temp trigger file
+  // so the running server's watcher never sees the sentinel.
+  const triggerPath = _reflectionPathOverrideForTest ?? REFLECTION_PATH;
+  if (!existsSync(triggerPath)) return;
   try {
-    const stat = statSync(REFLECTION_PATH);
+    const stat = statSync(triggerPath);
     const mtime = stat.mtimeMs;
     if (mtime > reflectionLastMtime) {
       const prev = reflectionLastMtime;
       reflectionLastMtime = mtime;
       if (prev === 0) return; // skip initial read
-      const raw = readFileSync(REFLECTION_PATH, 'utf-8').trim();
+      const raw = readFileSync(triggerPath, 'utf-8').trim();
       const parsed = parseTriggerFile(raw, 'luca-reflection');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute REFLECTIONS.md or DB
@@ -1259,7 +1294,9 @@ export async function checkLucaReflection(): Promise<void> {
       lastFeltProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so felt: clears its WARN
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
-      const reflectionEpisode = await getCurrentRollingEpisodeFilename();
+      // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode
+      // instead of querying the live rolling episode from DB.
+      const reflectionEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
       if (reflectionEpisode) {
         await appendInnerLifeToEpisodeDb(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
       }
@@ -1290,7 +1327,8 @@ async function checkLucaQuestion(): Promise<void> {
       lastThinkingProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so thinking: clears its WARN
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
-      const questionEpisode = await getCurrentRollingEpisodeFilename();
+      // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode.
+      const questionEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
       if (questionEpisode) {
         await appendInnerLifeToEpisodeDb(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
       }
@@ -1324,7 +1362,8 @@ export async function checkLucaMoment(): Promise<void> {
       lastMomentProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so moment: clears its WARN
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
-      const momentEpisode = await getCurrentRollingEpisodeFilename();
+      // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode.
+      const momentEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
       if (momentEpisode) {
         await appendInnerLifeToEpisodeDb(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
       }
@@ -2818,4 +2857,66 @@ export function getBuildSessionDedupEnabledForTest(): boolean {
 
 export function setBuildSessionDedupEnabledForTest(val: boolean): void {
   _buildSessionDedupEnabled = val;
+}
+
+export function setInnerLifeDbUpdateEnabled(val: boolean): void {
+  _innerLifeDbUpdateEnabled = val;
+}
+
+export function getInnerLifeDbUpdateEnabled(): boolean {
+  return _innerLifeDbUpdateEnabled;
+}
+
+/**
+ * Test seam — re-embed gate inside appendInnerLifeToEpisodeDb().
+ * When false (CI tests only), the reembedConversationMemory() call is skipped
+ * so no memory_embeddings rows are created for fixture episodes and no external
+ * embedding API calls are made.
+ * Never set in production.
+ */
+let _innerLifeReembedEnabled = true;
+
+/**
+ * Test seam — DB UPDATE gate inside appendInnerLifeToEpisodeDb().
+ * When false (self-check only), the UPDATE conversation_memories step is skipped
+ * entirely so the DB content never changes — modelling a regression where that
+ * line is removed.  The SELECT/writeFileSync path is also suppressed (it would
+ * read stale content and write nothing useful without the UPDATE).
+ * Never set in production.
+ */
+let _innerLifeDbUpdateEnabled = true;
+
+/**
+ * Test seam — override the rolling-episode lookup inside checkLucaReflection(),
+ * checkLucaQuestion(), and checkLucaMoment().
+ * When set, all three handlers use this filename directly instead of calling
+ * getCurrentRollingEpisodeFilename() — so CI can target a hermetic fixture
+ * episode without touching the live rolling episode row.
+ * Pass null to restore the dynamic DB lookup.
+ * Never call in production.
+ */
+let _innerLifeRollingEpisodeOverride: string | null = null;
+
+export function getReflectionPathOverrideForTest(): string | null {
+  return _reflectionPathOverrideForTest;
+}
+
+export function setInnerLifeRollingEpisodeOverride(filename: string | null): void {
+  _innerLifeRollingEpisodeOverride = filename;
+}
+
+export function setReflectionPathOverrideForTest(path: string | null): void {
+  _reflectionPathOverrideForTest = path;
+}
+
+export function getInnerLifeRollingEpisodeOverride(): string | null {
+  return _innerLifeRollingEpisodeOverride;
+}
+
+export function setInnerLifeReembedEnabled(val: boolean): void {
+  _innerLifeReembedEnabled = val;
+}
+
+export function getInnerLifeReembedEnabled(): boolean {
+  return _innerLifeReembedEnabled;
 }

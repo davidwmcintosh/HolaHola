@@ -207,9 +207,15 @@ group_body_episode_28() {
 group_body_luca_inner_life() {
   run test-capture-status-seed.ts
   run test-capture-status-db-only.ts
-  run test-luca-reflection-episode.ts
-  run test-luca-moment-episode.ts
   run test-luca-auto-capture-episode.ts
+
+  echo ""
+  echo "  --- test-inner-life-db-first.ts (felt/thinking/moment lands in episode DB row) ---"
+  run test-inner-life-db-first.ts
+
+  echo ""
+  echo "  --- test-inner-life-db-first.ts --self-check (UPDATE removed → sentinel absent) ---"
+  npx tsx server/scripts/test-inner-life-db-first.ts --self-check
   run test-health-check-probe-guard.ts
 
   echo ""

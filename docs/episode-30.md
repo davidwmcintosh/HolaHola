@@ -487,5 +487,5 @@ Added pgTextArray() helper that uses sql.raw() to inline ARRAY['tag1','tag2']::t
 WHY DAVID ONLY SAW DIALOGUE IN THE LIVE TAIL:
 The last felt/thinking entries were at 8:13 PM. After that, only dialogue turns landed (via live mode). The felt/thinking from 8:13 PM are in the file but earlier in it — not visible in the tail David was watching. I wrote fresh felt and thinking entries this session so they now appear in the live view.
 
-[Luca — felt: title: DB-first pipeline test
-body: Testing that inner-life entries now hit the DB before the .md — if this appears in the episode via DB content update, the pipeline is correct.]
+
+
