@@ -40,6 +40,13 @@
  * ─────
  *   npx tsx server/scripts/test-game-recall.ts
  *   npx tsx server/scripts/test-game-recall.ts --self-check
+ *   npx tsx server/scripts/test-game-recall.ts --fix
+ *
+ * --fix mode:
+ *   When assertion 1 detects game memories that are missing scoped embeddings,
+ *   --fix automatically calls reembedConversationMemory() for each missing ID,
+ *   then re-runs the embedding check to confirm repair.  Safe to run in CI —
+ *   reembedConversationMemory() is idempotent (skips unchanged content hashes).
  */
 
 import { neon } from '@neondatabase/serverless';
@@ -49,6 +56,7 @@ import { ilike, or, isNull, inArray, and, desc, count, eq, sql } from 'drizzle-o
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Pool } from 'pg';
+import { reembedConversationMemory } from './reembed-memory';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -57,6 +65,7 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
 const DAVID_USER_ID = '49847136';
 const SELF_CHECK = process.argv.includes('--self-check');
+const FIX_MODE = process.argv.includes('--fix');
 
 // Known game titles saved by backfill-game-sessions.ts.
 // Matched by prefix (first 30 chars) to survive minor title edits.
@@ -132,12 +141,40 @@ async function checkPersonalPoolCoverage(db: ReturnType<typeof drizzle>) {
 
   // Require ALL known game title prefixes to have a scoped embedding.
   const coveredIds = new Set(embedRows.map(e => e.memoryId));
-  const missingIds = ids.filter(id => !coveredIds.has(id));
+  let missingIds = ids.filter(id => !coveredIds.has(id));
   if (missingIds.length > 0) {
     console.log(Y(`\n  ⚠ ${missingIds.length} game memory/ies lack a scoped embedding:`));
     for (const id of missingIds) {
       const title = rows.find(r => r.id === id)?.title ?? id;
       console.log(`    ${id}  "${title?.substring(0, 60)}"`);
+    }
+
+    if (FIX_MODE) {
+      console.log(Y(`\n  --fix: re-embedding ${missingIds.length} missing game memory/ies …`));
+      for (const id of missingIds) {
+        const title = rows.find(r => r.id === id)?.title ?? id;
+        console.log(`    → reembedConversationMemory(${id})  "${title?.substring(0, 50)}"`);
+        await reembedConversationMemory(id);
+      }
+
+      // Re-check after repair
+      const reCheckRows = await db
+        .select({ memoryId: memoryEmbeddings.memoryId })
+        .from(memoryEmbeddings)
+        .where(and(
+          inArray(memoryEmbeddings.memoryId, ids),
+          eq(memoryEmbeddings.memoryType, 'conversation_memory'),
+          eq(memoryEmbeddings.userId, DAVID_USER_ID),
+        ))
+        .limit(20);
+      const repairedIds = new Set(reCheckRows.map(e => e.memoryId));
+      missingIds = ids.filter(id => !repairedIds.has(id));
+      if (missingIds.length === 0) {
+        console.log(G(`\n  ✓ Repair succeeded — all game memories now have scoped embeddings`));
+      } else {
+        console.log(R(`\n  ✗ Repair incomplete — ${missingIds.length} still missing after re-embed`));
+        for (const id of missingIds) console.log(`    ${id}`);
+      }
     }
   }
 
@@ -472,6 +509,7 @@ async function runSelfCheck(db: ReturnType<typeof drizzle>) {
 async function main() {
   console.log(B('\n══ Game Recall End-to-End Validation ══\n'));
   if (SELF_CHECK) console.log(Y('(self-check mode)\n'));
+  if (FIX_MODE) console.log(Y('(--fix mode: missing embeddings will be re-embedded automatically)\n'));
 
   const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!dbUrl) {
@@ -502,9 +540,11 @@ async function main() {
   if (failed > 0) {
     console.log(R('FAIL — game recall is broken or embeddings are not correctly scoped.'));
     console.log(Y('\nChecklist:'));
-    console.log('  1. Run: npx tsx server/scripts/backfill-game-sessions.ts');
-    console.log('  2. Wait up to 2h for the background indexer, or run:');
-    console.log('       npx tsx server/scripts/reembed-memory.ts --all-conversation-memories');
+    console.log('  1. If assertion 1 failed, re-run with --fix to auto-repair missing embeddings:');
+    console.log('       npx tsx server/scripts/test-game-recall.ts --fix');
+    console.log('  2. If game memories themselves are missing, run:');
+    console.log('       npx tsx server/scripts/backfill-game-sessions.ts');
+    console.log('     then re-run with --fix to embed the new rows.');
     console.log('  3. If embeddings are NULL-scoped, run the scope-founder-memories migration.');
     console.log('  4. Check semantic-memory-service.ts — global pool limit must be 5000.');
     process.exit(1);
