@@ -873,6 +873,7 @@ export class StreamingVoiceClient {
   private greetingTimer: ReturnType<typeof setTimeout> | null = null;
   private greetingRetried = false;
   private lastGreetingParams: { userName?: string; isResumed?: boolean; scenarioSlug?: string } | null = null;
+  private isGeminiLiveSession = false;
 
   /**
    * Request AI-generated personalized greeting
@@ -895,20 +896,25 @@ export class StreamingVoiceClient {
 
     if (this.greetingTimer) clearTimeout(this.greetingTimer);
     this.greetingRetried = false;
-    this.greetingTimer = setTimeout(() => {
-      if (this.greetingRetried) return;
-      this.greetingRetried = true;
-      console.warn('[StreamingVoice] Greeting delivery timeout (8s) — re-requesting greeting');
-      if (this.isReady()) {
-        this.socket!.emit('message', {
-          type: 'request_greeting',
-          userName,
-          isResumed,
-          scenarioSlug,
-          isRetry: true,
-        });
-      }
-    }, 8000);
+    // GL sessions: the server-side one-shot guard (geminiLiveGreetingSent) already blocks duplicate
+    // request_greeting, and the server's own silent-greeting auto-retry (max 2) is the sanctioned
+    // recovery path.  Firing a client retry only adds blocked duplicate requests and log noise.
+    if (!this.isGeminiLiveSession) {
+      this.greetingTimer = setTimeout(() => {
+        if (this.greetingRetried) return;
+        this.greetingRetried = true;
+        console.warn('[StreamingVoice] Greeting delivery timeout (8s) — re-requesting greeting');
+        if (this.isReady()) {
+          this.socket!.emit('message', {
+            type: 'request_greeting',
+            userName,
+            isResumed,
+            scenarioSlug,
+            isRetry: true,
+          });
+        }
+      }, 8000);
+    }
   }
 
   private clearGreetingTimer(): void {
@@ -1540,8 +1546,9 @@ export class StreamingVoiceClient {
     }
   }
   
-  private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number }): void {
+  private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number; isGeminiLive?: boolean }): void {
     this.sessionId = message.sessionId;
+    this.isGeminiLiveSession = !!message.isGeminiLive;
     
     // Wire up telemetry emitter with session ID
     telemetryEmitter.setSessionId(message.sessionId);
@@ -1742,15 +1749,17 @@ export class StreamingVoiceClient {
     // Transition back to 'ready' so client can send more audio
     this.setState('ready');
 
-    // GREETING FAST-RETRY: If GL returns a silent empty turn (sentences=0) while we're
-    // still in the greeting window (greetingTimer is active, retry not yet fired), don't
-    // wait the full 8 seconds — retry after 1.5s so the student isn't left in silence.
-    if (message.totalSentences === 0 && this.greetingTimer && !this.greetingRetried) {
+    // GREETING FAST-RETRY (legacy pipeline only): If the orchestrator returns a silent empty
+    // turn (sentences=0) while we're still in the greeting window (greetingTimer is active,
+    // retry not yet fired), don't wait the full 8 seconds — retry after 1.5s.
+    // GL sessions skip this: the server-side one-shot guard blocks duplicate request_greeting
+    // and the server's own silent-greeting auto-retry (max 2) is the sanctioned recovery path.
+    if (!this.isGeminiLiveSession && message.totalSentences === 0 && this.greetingTimer && !this.greetingRetried) {
       clearTimeout(this.greetingTimer);
       this.greetingTimer = null;
       this.greetingRetried = true;
       const params = this.lastGreetingParams;
-      console.warn('[StreamingVoice] GL returned empty greeting turn (sentences=0) — fast retry in 1.5s');
+      console.warn('[StreamingVoice] Empty greeting turn (sentences=0) — fast retry in 1.5s');
       setTimeout(() => {
         if (this.isReady() && params) {
           this.socket!.emit('message', {

@@ -3658,6 +3658,7 @@ ${lastNote.tutorNotes}`);
               type: 'session_started',
               sessionId: session.id,
               timestamp: Date.now(),
+              isGeminiLive: !!geminiLiveSession,
             }));
             console.log(`[Streaming Voice] session_started sent via Socket.io for ${session.id}`);
           } catch (err: any) {
