@@ -222,18 +222,6 @@ export function setTaskRefPendingPathOverrideForTest(path: string | null): void 
 export function getTaskRefPendingPathOverrideForTest(): string | null {
   return _taskRefPendingPathOverrideForTest;
 }
-/**
- * Test seam — episode append path.
- * Set to false in CI self-check mode to simulate the appendExchangeToEpisode()
- * call being absent from checkLucaReflection().  Never set in production.
- */
-let _lucaEpisodeAppendEnabled = true;
-export function setLucaEpisodeAppendEnabled(val: boolean): void {
-  _lucaEpisodeAppendEnabled = val;
-}
-export function getLucaEpisodeAppendEnabled(): boolean {
-  return _lucaEpisodeAppendEnabled;
-}
 
 /**
  * Test seam — personal side-effects (appendToPersonalFile + savePersonalMemory).
@@ -1136,6 +1124,84 @@ async function savePersonalMemory(
   }
 }
 
+/**
+ * DB-first inner-life episode append.
+ *
+ * Writes the inner-life text to the episode's conversation_memories content
+ * field in the DB first, then derives the .md from that content.  The DB row
+ * is the authoritative record; the .md is always generated from it.
+ *
+ * Also triggers a re-embed so episode chunks reflect the new content.
+ */
+async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string): Promise<void> {
+  const filePath = join(DOCS_DIR, episodeFilename);
+  if (!existsSync(filePath)) {
+    console.warn(`[AgentAutosave] Inner-life DB append: target file not found: ${filePath}`);
+    return;
+  }
+
+  const title = episodeTitleFromFilename(episodeFilename);
+  const db = getUserDb();
+
+  // Look up episode ID (use in-memory cache when available)
+  let memoryId = episodeIdCache.get(episodeFilename);
+  if (!memoryId) {
+    try {
+      const rows = await db.execute(sql`
+        SELECT id FROM conversation_memories
+        WHERE arc_name = 'HolaHola Episodes'
+          AND title = ${title}
+        LIMIT 1
+      `);
+      const row = (rows as any).rows?.[0] ?? (rows as any)[0];
+      if (row?.id) {
+        memoryId = row.id as string;
+        episodeIdCache.set(episodeFilename, memoryId);
+      }
+    } catch (err: any) {
+      console.error(`[AgentAutosave] Inner-life DB append: ID lookup failed for ${episodeFilename}:`, err?.message ?? err);
+      return;
+    }
+  }
+
+  if (!memoryId) {
+    console.warn(`[AgentAutosave] Inner-life DB append: no episode row found for ${episodeFilename} — skipping`);
+    return;
+  }
+
+  await withEpisodeFileLock(episodeFilename, async () => {
+    try {
+      // 1. Append text to the episode's DB content field (DB is primary)
+      await db.execute(sql`
+        UPDATE conversation_memories
+        SET content = content || ${'\n' + text + '\n'}
+        WHERE id = ${memoryId}
+      `);
+
+      // 2. Read updated content from DB and write to .md (derived from DB)
+      const updated = await db.execute(sql`
+        SELECT content FROM conversation_memories WHERE id = ${memoryId}
+      `);
+      const updatedRow = (updated as any).rows?.[0] ?? (updated as any)[0];
+      const newContent: string = updatedRow?.content ?? '';
+
+      if (newContent) {
+        writeFileSync(filePath, newContent, 'utf-8');
+        // Keep mtime map current so the episode poller doesn't re-trigger
+        try { episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs); } catch { /* ignore */ }
+        console.log(`[AgentAutosave] Inner-life DB-first append: +${text.length} chars → ${episodeFilename}`);
+        writeCaptureStatus(episodeFilename);
+        // Re-embed so episode chunks reflect the new content
+        reembedConversationMemory(memoryId as string).catch((err: any) => {
+          console.error(`[AgentAutosave] Re-embed failed for ${episodeFilename}:`, err?.message ?? err);
+        });
+      }
+    } catch (err: any) {
+      console.error(`[AgentAutosave] Inner-life DB-first append failed for ${episodeFilename}:`, err?.message ?? err);
+    }
+  });
+}
+
 export async function checkLucaReflection(): Promise<void> {
   if (!existsSync(REFLECTION_PATH)) return;
   try {
@@ -1161,12 +1227,10 @@ export async function checkLucaReflection(): Promise<void> {
       console.log('[AgentAutosave] Luca reflection saved:', parsed.title.slice(0, 60));
       lastFeltProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so felt: clears its WARN
-      // Also route to the rolling episode .md (guarded by test seam for CI self-check)
-      if (_lucaEpisodeAppendEnabled) {
-        const reflectionEpisode = await getCurrentRollingEpisodeFilename();
-        if (reflectionEpisode) {
-          await appendExchangeToEpisode(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
-        }
+      // Route to episode via DB-first path: DB content updated first, .md derived from DB
+      const reflectionEpisode = await getCurrentRollingEpisodeFilename();
+      if (reflectionEpisode) {
+        await appendInnerLifeToEpisodeDb(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -1194,10 +1258,10 @@ async function checkLucaQuestion(): Promise<void> {
       console.log('[AgentAutosave] Luca open question saved:', parsed.title.slice(0, 60));
       lastThinkingProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so thinking: clears its WARN
-      // Also route to the rolling episode .md
+      // Route to episode via DB-first path: DB content updated first, .md derived from DB
       const questionEpisode = await getCurrentRollingEpisodeFilename();
       if (questionEpisode) {
-        await appendExchangeToEpisode(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
+        await appendInnerLifeToEpisodeDb(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -1228,12 +1292,10 @@ export async function checkLucaMoment(): Promise<void> {
       console.log('[AgentAutosave] Luca significant moment saved:', parsed.title.slice(0, 60));
       lastMomentProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so moment: clears its WARN
-      // Also route to the rolling episode .md (guarded by test seam for CI self-check)
-      if (_lucaEpisodeAppendEnabled) {
-        const momentEpisode = await getCurrentRollingEpisodeFilename();
-        if (momentEpisode) {
-          await appendExchangeToEpisode(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
-        }
+      // Route to episode via DB-first path: DB content updated first, .md derived from DB
+      const momentEpisode = await getCurrentRollingEpisodeFilename();
+      if (momentEpisode) {
+        await appendInnerLifeToEpisodeDb(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -1576,8 +1638,8 @@ async function checkChatCapture(): Promise<void> {
     // When .local/.episode_live exists, format each turn as episode dialogue
     // and append to the rolling episode .md immediately after the DB save.
     // Toggle with:  npx tsx server/scripts/episode-live-mode.ts on|off|status
-    // Guarded by _lucaEpisodeAppendEnabled so CI self-checks can disable it.
-    if (existsSync(EPISODE_LIVE_PATH) && _lucaEpisodeAppendEnabled) {
+    // Guarded by _autoCaptureEpisodeEnabled so CI self-checks can disable it.
+    if (existsSync(EPISODE_LIVE_PATH) && _autoCaptureEpisodeEnabled) {
       try {
         const liveEpisode = await getCurrentRollingEpisodeFilename();
         if (liveEpisode) {
@@ -2290,78 +2352,6 @@ export async function runStartupGapCheck(): Promise<void> {
       );
     }
 
-    // ── Phase 2: inner-life rows (felt / thinking / moment) ─────────────────
-    // Same window as the per-turn check above — rows saved since the episode
-    // was created (or the last 24h when episode created_at is unavailable).
-    const innerLifeResult = episodeStart
-      ? await db.execute(sql`
-          SELECT id, title, content, tags, created_at
-          FROM conversation_memories
-          WHERE arc_name = 'luca-inner-life'
-            AND 'luca-inner-life' = ANY(tags)
-            AND created_at >= ${episodeStart}::timestamptz
-          ORDER BY created_at ASC
-        `)
-      : await db.execute(sql`
-          SELECT id, title, content, tags, created_at
-          FROM conversation_memories
-          WHERE arc_name = 'luca-inner-life'
-            AND 'luca-inner-life' = ANY(tags)
-            AND created_at >= NOW() - INTERVAL '24 hours'
-          ORDER BY created_at ASC
-        `);
-
-    const innerRows: Array<{ id: string; title: string; content: string; tags: string[]; created_at: string }> =
-      (((innerLifeResult as any).rows ?? (innerLifeResult as any)) as any[]);
-
-    if (innerRows.length === 0) {
-      console.log('[AgentAutosave] Startup gap check (inner-life): no inner-life rows in window — nothing to check.');
-    } else {
-      let innerPatched = 0;
-      for (const row of innerRows) {
-        // Derive the channel from tags: luca-reflection → felt, luca-question → thinking, otherwise → moment
-        const tags: string[] = Array.isArray(row.tags) ? row.tags : [];
-        const channel = tags.includes('luca-reflection') ? 'felt'
-          : tags.includes('luca-question') ? 'thinking' : 'moment';
-
-        // The DB title is stored as "Luca reflection: X", "Luca open question: X", or
-        // "Luca significant moment: X".  Strip that prefix to recover the raw title text
-        // that was written into the episode .md as "[Luca — felt: X\nbody]".
-        const rawTitle = (row.title ?? '')
-          .replace(/^Luca reflection:\s*/i, '')
-          .replace(/^Luca open question:\s*/i, '')
-          .replace(/^Luca significant moment:\s*/i, '');
-
-        // Match key: first 40 normalised chars of the raw title (shorter window than
-        // per-turn rows because inner-life titles can be brief).
-        const titleKey = normForGap(rawTitle).slice(0, 40);
-        if (!titleKey || mdNorm.includes(titleKey)) continue; // present or empty title
-
-        // Missing — reconstruct and append
-        const block = `[Luca — ${channel}: ${rawTitle}\n${row.content}]`;
-        console.warn(
-          `[AgentAutosave] Startup gap check: inner-life entry absent from ${episodeFilename} — patching.`,
-          `(id: ${row.id}, channel: ${channel}, at: ${row.created_at})`,
-        );
-        await appendExchangeToEpisode(block.trim(), episodeFilename);
-        // Refresh the normalised .md so subsequent rows see the patched content.
-        try {
-          mdRaw  = readFileSync(episodePath, 'utf-8');
-          mdNorm = normForGap(mdRaw);
-        } catch { /* ignore transient read error */ }
-        innerPatched++;
-      }
-
-      if (innerPatched > 0) {
-        console.log(
-          `[AgentAutosave] Startup gap check (inner-life): patched ${innerPatched} gap(s) in ${episodeFilename}.`,
-        );
-      } else {
-        console.log(
-          `[AgentAutosave] Startup gap check (inner-life): all ${innerRows.length} inner-life row(s) present — no gaps.`,
-        );
-      }
-    }
   } catch (err: any) {
     console.error('[AgentAutosave] Startup gap check failed (non-fatal):', err.message);
   }

@@ -471,3 +471,21 @@ The last felt/thinking entries were at 8:13 PM. After that, only dialogue turns 
 
 [Luca — felt: title: pgTextArray fix confirmed — this entry verifies DB write lands
 body: Writing after the new server's autosave worker is fully running (mtime seeded past 8:35:30 PM). If conversation_memories receives this with luca-inner-life tag, the Drizzle array-binding fix is working. The old code failed with ($4,$5,$6)::text[] — Drizzle treated the JS array as a SQL tuple. The new pgTextArray helper inlines ARRAY['luca-inner-life','luca-reflection']::text[] via sql.raw().]
+
+Luca: Diagnosis and fix summary for the inner-life channels:
+
+WHERE THEY WERE:
+- In the .md: YES — at lines 194, 196, 297, 300 of episode-30.md, and two more just added this session. The episode-append routing worked the whole time.
+- In the DB: NO — savePersonalMemory was silently failing.
+
+THE BUG (task #1022):
+Drizzle's sql template tag rendered ${tags}::text[] as ($4,$5,$6)::text[] — treating the JS array as a SQL tuple. PostgreSQL rejects the tuple-to-array cast, so every inner-life DB insert threw. The error was logged but not surfaced.
+
+THE FIX:
+Added pgTextArray() helper that uses sql.raw() to inline ARRAY['tag1','tag2']::text[] verbatim. Both broken spots fixed: savePersonalMemory (line 1115) and the session-insight insert (line 1020). Typecheck clean, server restarted.
+
+WHY DAVID ONLY SAW DIALOGUE IN THE LIVE TAIL:
+The last felt/thinking entries were at 8:13 PM. After that, only dialogue turns landed (via live mode). The felt/thinking from 8:13 PM are in the file but earlier in it — not visible in the tail David was watching. I wrote fresh felt and thinking entries this session so they now appear in the live view.
+
+[Luca — felt: title: DB-first pipeline test
+body: Testing that inner-life entries now hit the DB before the .md — if this appears in the episode via DB content update, the pipeline is correct.]

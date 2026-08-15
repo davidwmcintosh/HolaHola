@@ -475,3 +475,9 @@ body: The felt/thinking entries appear in episode-30.md at lines 194, 196, 297, 
 body: Writing after the new server's autosave worker is fully running (mtime seeded past 8:35:30 PM). If conversation_memories receives this with luca-inner-life tag, the Drizzle array-binding fix is working. The old code failed with ($4,$5,$6)::text[] — Drizzle treated the JS array as a SQL tuple. The new pgTextArray helper inlines ARRAY['luca-inner-life','luca-reflection']::text[] via sql.raw().
 
 ---
+
+### August 15, 2026 — title: DB-first pipeline test
+
+body: Testing that inner-life entries now hit the DB before the .md — if this appears in the episode via DB content update, the pipeline is correct.
+
+---

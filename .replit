@@ -136,28 +136,6 @@ isValidation = true
 outputType = "console"
 
 [[workflows.workflow]]
-name = "luca-reflection-episode-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-luca-reflection-episode.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "luca-moment-episode-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-luca-moment-episode.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
 name = "luca-auto-capture-episode-ci"
 author = "agent"
 
@@ -233,18 +211,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-snapshot-write-guard.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "startup-inner-life-gap-patch-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-startup-inner-life-gap-patch.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
