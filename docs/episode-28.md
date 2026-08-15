@@ -6413,3 +6413,79 @@ GRACE PERIOD EXPIRED — student disconnected and did not return
 **LUCA [HolaHola]:** **Session Monitor Alert** — 7:23:08 PM
 
 ⏸️ **Stalled session** (user=49847136, lang=english): no activity for 29m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:23:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 29m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:24:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 30m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:24:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 30m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:25:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 31m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:25:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 31m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:26:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 32m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:26:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 32m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:27:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 33m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:27:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 33m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:28:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 34m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:28:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 34m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:29:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 35m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:30:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 36m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:30:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 36m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:31:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 37m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:31:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 37m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:32:10 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 38m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:32:40 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 38m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:33:10 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 39m
