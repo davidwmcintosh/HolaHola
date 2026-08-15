@@ -252,6 +252,32 @@ export function resetMomentMtimeForTest(): void {
 }
 
 /**
+ * Test seam — no-episode-row early-return guard in appendInnerLifeToEpisodeDb().
+ * When false (CI self-check only), the `if (!memoryId)` early-return block is
+ * skipped so the function proceeds past the guard (reaching a DB error inside
+ * withEpisodeFileLock rather than returning cleanly with a console.warn).
+ * This precisely models a regression where the guard is removed.
+ * Never set in production.
+ */
+let _innerLifeNoEpisodeRowGuardEnabled = true;
+export function setInnerLifeNoEpisodeRowGuardEnabled(val: boolean): void {
+  _innerLifeNoEpisodeRowGuardEnabled = val;
+}
+export function getInnerLifeNoEpisodeRowGuardEnabled(): boolean {
+  return _innerLifeNoEpisodeRowGuardEnabled;
+}
+
+/** Clear the in-memory episode ID cache — CI tests only, forces a fresh DB lookup. */
+export function clearEpisodeIdCacheForTest(): void {
+  episodeIdCache.clear();
+}
+
+/** Exported wrapper for appendInnerLifeToEpisodeDb() — CI tests only. */
+export async function appendInnerLifeToEpisodeDbForTest(text: string, episodeFilename: string): Promise<void> {
+  return appendInnerLifeToEpisodeDb(text, episodeFilename);
+}
+
+/**
  * Test seam — ordering detection gate.
  * When false (CI self-check only), the "OUT OF ORDER" detection is suppressed:
  * feltAfterExchange and thinkAfterExchange are treated as always false so the
@@ -1165,8 +1191,13 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
   }
 
   if (!memoryId) {
-    console.warn(`[AgentAutosave] Inner-life DB append: no episode row found for ${episodeFilename} — skipping`);
-    return;
+    if (_innerLifeNoEpisodeRowGuardEnabled) {
+      console.warn(`[AgentAutosave] Inner-life DB append: no episode row found for ${episodeFilename} — skipping`);
+      return;
+    }
+    // Guard disabled (CI self-check): fall through — the UPDATE will run with
+    // memoryId=undefined and hit a DB error (caught inside withEpisodeFileLock),
+    // proving the guard is load-bearing.
   }
 
   await withEpisodeFileLock(episodeFilename, async () => {

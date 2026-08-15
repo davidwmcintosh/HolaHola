@@ -346,6 +346,18 @@ path = "scripts/post-merge.sh"
 timeoutMs = 120000
 
 [[workflows.workflow]]
+name = "inner-life-no-episode-row-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-inner-life-no-episode-row.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
 name = "gl-reconnected-recovery-ci"
 author = "agent"
 
