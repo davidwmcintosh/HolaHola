@@ -280,6 +280,10 @@ export async function semanticSearch(
       .limit(8000),
 
     // Global (userId IS NULL): only safe types unless collaboration explicitly requested
+    // Cap raised from 1000 → 5000: the global pool now holds 73K+ embeddings across
+    // conversation_memory / conversation_summary / conversation_chunk alone; 1000 rows
+    // sorted by strength was silently cutting older high-importance memories (e.g. game
+    // sessions, early David-Daniela conversations) before cosine scoring even ran.
     globalTypes.length > 0
       ? db
         .select(EMBED_SELECT)
@@ -289,7 +293,7 @@ export async function semanticSearch(
           inArray(memoryEmbeddings.memoryType, globalTypes),
         ))
         .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength))
-        .limit(1000)
+        .limit(5000)
       : Promise.resolve([]),
   ]);
 
@@ -401,7 +405,7 @@ export async function semanticSearchByVector(
           inArray(memoryEmbeddings.memoryType, globalTypes),
         ))
         .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength))
-        .limit(1000)
+        .limit(5000)
       : Promise.resolve([]),
   ]);
 
@@ -496,7 +500,7 @@ export async function findConnectedMemories(
         isNull(memoryEmbeddings.userId),
         inArray(memoryEmbeddings.memoryType, GLOBAL_RECALL_TYPES),
       ))
-      .limit(1000),
+      .limit(5000),
   ]);
 
   const rows = [...userRows, ...globalRows].filter(r => r.memoryId !== sourceMemoryId);
