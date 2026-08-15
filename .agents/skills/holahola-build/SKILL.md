@@ -86,3 +86,23 @@ This checks every critical invariant: DB tables exist, seeded data has rows, cur
 - Duplicate curriculum paths that create ambiguous routing
 
 **If you added a new critical invariant this session** (new table, new worker, new seeded dataset), add a check for it to `server/scripts/verify-system-health.ts` before running verification. The verifier should always be ahead of the work.
+
+## markTaskComplete — Required CodeExecution Pattern
+
+**Every `markTaskComplete` call must be preceded by writing the task ref to `.task_ref_pending`.**
+
+This enables automatic David-turn capture: `checkBuildSession()` reads the file when `.commit_message` changes, loads the task description from `.local/tasks/task-{ref}.md`, and prepends it as a David turn before the Luca commit-message turn in `conversation_memories`. Without it, the record is one-sided.
+
+```javascript
+// In the final CodeExecution block — BEFORE markTaskComplete
+const fs = await import('node:fs');
+fs.writeFileSync('/home/runner/workspace/.local/.task_ref_pending', '<TASK_REF>');
+// then immediately call:
+await markTaskComplete({ task_ref: '<TASK_REF>', commit_message: '...' });
+```
+
+Replace `<TASK_REF>` with the assigned task number (e.g. `'1126'`).
+
+**Alternative:** `POST /api/internal/task-capture-start` with `{ task_ref }` achieves the same result but requires an HTTP call. The file write is simpler and preferred.
+
+See `.agents/memory/david-task-capture.md` for full details.
