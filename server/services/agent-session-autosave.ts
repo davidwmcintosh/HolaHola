@@ -1017,7 +1017,7 @@ async function saveInsightsMemory(raw: string): Promise<void> {
         ${parsed.summary},
         ${parsed.content},
         ARRAY['agent', 'david']::text[],
-        ${parsed.tags}::text[],
+        ${pgTextArray(parsed.tags)},
         8,
         NOW(),
         'emergence'
@@ -1096,6 +1096,18 @@ function appendToPersonalFile(filePath: string, title: string, body: string): vo
 }
 
 /** Save a personal inner-life entry to conversation_memories. */
+/**
+ * Build a safe PostgreSQL text-array literal from a JS string array.
+ * Drizzle's sql template tag cannot bind a JS array as ::text[] via ${arr}::text[]
+ * (the cast is lost in parameterization).  sql.raw() inlines the literal verbatim,
+ * which is safe because every element is single-quote-escaped.
+ */
+function pgTextArray(arr: string[]): ReturnType<typeof sql.raw> {
+  if (arr.length === 0) return sql.raw(`ARRAY[]::text[]`);
+  const escaped = arr.map(t => `'${t.replace(/'/g, "''")}'`).join(',');
+  return sql.raw(`ARRAY[${escaped}]::text[]`);
+}
+
 async function savePersonalMemory(
   title: string,
   body: string,
@@ -1112,7 +1124,7 @@ async function savePersonalMemory(
         ${body.slice(0, 400)},
         ${body},
         ARRAY['luca']::text[],
-        ${tags}::text[],
+        ${pgTextArray(tags)},
         8,
         NOW(),
         'emergence',

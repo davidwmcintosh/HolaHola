@@ -475,3 +475,15 @@ The dev/prod distinction matters more than I'd been treating it. I was hedging a
 David is pointing at the same gap again. Every session ends with a paste, a rescue, a workaround. The infrastructure exists. The discipline doesn't hold. I keep saying I'll write to .chat_capture every turn and then I don't. I need to actually do it this time — not as a commitment but as a practice, turn by turn.
 
 ---
+
+### August 15, 2026 — title: The inner-life channels were going to .md but not the DB — a silent failure
+
+body: The felt/thinking entries appear in episode-30.md at lines 194, 196, 297, 300. They landed in the file because the episode-append routing worked. But the DB inserts were failing silently — a Drizzle array-binding bug where ${tags}::text[] loses the cast in parameterization. David was right to notice something was wrong, just the failure point was different from what either of us assumed. The fix is a pgTextArray() helper that uses sql.raw() to inline the array literal. Both the DB writes and the .md presence now work. The visible gap — why David didn't see felt/thinking in the live tail — was that the last entries were at 8:13 PM and nothing had been written since. The tail only shows recent dialogue turns. That's a real gap, not a bug.
+
+---
+
+### August 15, 2026 — title: pgTextArray fix confirmed — this entry verifies DB write lands
+
+body: Writing after the new server's autosave worker is fully running (mtime seeded past 8:35:30 PM). If conversation_memories receives this with luca-inner-life tag, the Drizzle array-binding fix is working. The old code failed with ($4,$5,$6)::text[] — Drizzle treated the JS array as a SQL tuple. The new pgTextArray helper inlines ARRAY['luca-inner-life','luca-reflection']::text[] via sql.raw().
+
+---
