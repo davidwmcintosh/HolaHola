@@ -195,15 +195,49 @@ async function checkPersonalPoolCoverage(db: ReturnType<typeof drizzle>) {
     ))
     .limit(5);
 
+  let finalNullScopedCount = nullScopedRows.length;
+
   if (nullScopedRows.length > 0) {
     console.log(Y(`\n  ⚠ ${nullScopedRows.length} game embedding(s) are still NULL-scoped (global pool):`));
     for (const e of nullScopedRows) console.log(`    ${e.memoryId}`);
+
+    if (FIX_MODE) {
+      // Collect the base memory IDs (strip :chunk: suffix if present)
+      const nullScopedMemoryIds = [...new Set(
+        nullScopedRows.map(e => e.memoryId.split(':chunk:')[0])
+      )];
+      console.log(Y(`\n  --fix: re-embedding ${nullScopedMemoryIds.length} NULL-scoped game memory/ies to restore correct scope …`));
+      for (const id of nullScopedMemoryIds) {
+        const title = rows.find(r => r.id === id)?.title ?? id;
+        console.log(`    → reembedConversationMemory(${id})  "${title?.substring(0, 50)}"`);
+        await reembedConversationMemory(id);
+      }
+
+      // Re-check NULL-scoped rows after repair
+      const reCheckNullRows = await db
+        .select({ memoryId: memoryEmbeddings.memoryId })
+        .from(memoryEmbeddings)
+        .where(and(
+          inArray(memoryEmbeddings.memoryId, ids),
+          eq(memoryEmbeddings.memoryType, 'conversation_memory'),
+          isNull(memoryEmbeddings.userId),
+        ))
+        .limit(5);
+
+      finalNullScopedCount = reCheckNullRows.length;
+      if (finalNullScopedCount === 0) {
+        console.log(G(`\n  ✓ Scope repair succeeded — no NULL-scoped game embeddings remain`));
+      } else {
+        console.log(R(`\n  ✗ Scope repair incomplete — ${finalNullScopedCount} NULL-scoped embedding(s) still remain after re-embed`));
+        for (const e of reCheckNullRows) console.log(`    ${e.memoryId}`);
+      }
+    }
   }
 
   assert(
     'no game embeddings are NULL-scoped (not leaking into every student\'s global pool)',
-    nullScopedRows.length === 0,
-    `${nullScopedRows.length} embedding(s) have userId=NULL — run scope-founder-memories.ts`,
+    finalNullScopedCount === 0,
+    `${finalNullScopedCount} embedding(s) have userId=NULL — run scope-founder-memories.ts`,
   );
 }
 
