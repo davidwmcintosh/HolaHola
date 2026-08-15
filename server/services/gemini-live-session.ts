@@ -319,6 +319,15 @@ export class GeminiLiveSession {
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private pendingGreetingTrigger: string | null = null;
   private pendingGreetingSilent = false; // true = prime audio on setupComplete but don't speak
+  // ONE-SHOT GREETING GUARD (triple-repeat greeting fix, Aug 2026): once a greeting trigger
+  // has been dispatched (spoken, buffered, or silent-prime) for this GL session, every further
+  // external sendGreetingTrigger call is BLOCKED. Three retry paths (client 8s timer, client
+  // fast-retry on empty turn, server silent-greeting auto-retry) could each re-fire the greeting;
+  // greetingPhaseActive clears at first audio/turnComplete so late retries slipped past it and
+  // produced the triple-repeat greeting (third repeat: transcript flushes but audio suppressed
+  // by hasStudentInputSinceLastResponse). Only the internal silent-greeting auto-retry — which
+  // has verified NO audio was produced — may bypass via opts.internalRetry.
+  private greetingTriggerFired = false;
   private identityThreads: Array<{ title: string; content: string }> = [];
   /** Accumulates thought Part text during a model turn (includeThoughts:true). Flushed to
    *  the pedagogical supervisor at generationComplete, then cleared. Never sent to client. */
@@ -1479,14 +1488,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Send a greeting trigger to Gemini Live to start the conversation.
    * Called from the `request_greeting` WS handler instead of orchestrator.processGreetingRequest().
    */
-  sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string, recentContext?: string, studentProfile?: string): void {
+  sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string, recentContext?: string, studentProfile?: string, opts?: { internalRetry?: boolean }): void {
     if (!this.liveSession || this.isStopped) return;
+    // ONE-SHOT GREETING GUARD: a greeting trigger may fire at most ONCE per GL session open.
+    // Blocks all external duplicates (client 8s retry timer, client fast-retry on empty turn,
+    // reconnect-scope resets of the ws-handler geminiLiveGreetingSent flag). Only the internal
+    // silent-greeting auto-retry (verified no audio produced) passes opts.internalRetry.
+    if (this.greetingTriggerFired && !opts?.internalRetry) {
+      console.log('[GeminiLive] sendGreetingTrigger BLOCKED — one-shot guard: greeting already fired this GL session (only the internal silent-greeting retry may re-fire)');
+      voiceTelemetry.log(String(this.session.dbSessionId || this.session.id), String(this.session.userId ?? ''), 'gl_greeting_duplicate_blocked', { turnId: this.currentTurnId });
+      return;
+    }
     // DOUBLE-AUDIO GUARD: if a greeting was already triggered via pendingGreetingTrigger
     // (fired at setupComplete), greetingPhaseActive is already true — skip the duplicate.
     if (this.greetingPhaseActive) {
       console.log('[GeminiLive] sendGreetingTrigger: greeting already in progress — skipping duplicate (prevents double audio)');
       return;
     }
+    // Mark the one-shot guard armed for every dispatch path below (buffered, silent prime, spoken).
+    this.greetingTriggerFired = true;
     // Store params so silent-greeting auto-retry can reuse them without the caller's closure.
     this.lastGreetingParams = { userName, isResumed, scenarioSlug, recentContext, studentProfile };
     const name = userName ? `, my name is ${userName}` : '';
@@ -1951,6 +1971,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // Block mic audio until GL sends its first response chunk.
               this.greetingPhaseActive = true;
               this.isGreetingTurn = true;
+              // Arm the one-shot greeting guard: the greeting fired via the buffered
+              // setupComplete path, so any later external sendGreetingTrigger is a duplicate.
+              this.greetingTriggerFired = true;
               if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
               this.greetingWatchdogTimer = setTimeout(() => {
                 this.greetingWatchdogTimer = null;
@@ -2769,7 +2792,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             }
             const p = this.lastGreetingParams;
             console.warn(`[GeminiLive] Firing greeting retry #${attempt}`);
-            this.sendGreetingTrigger(p.userName, p.isResumed, p.scenarioSlug, p.recentContext, p.studentProfile);
+            this.sendGreetingTrigger(p.userName, p.isResumed, p.scenarioSlug, p.recentContext, p.studentProfile, { internalRetry: true });
           }, 1500);
         } else if (isSilentGreeting && this.greetingRetryCount >= 2) {
           // All retries exhausted — student never heard a greeting. File a flare.
