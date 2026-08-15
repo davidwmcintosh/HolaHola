@@ -764,23 +764,34 @@ async function postCycleStragglerCheck(): Promise<void> {
  *
  * Count-only — no embedding work — to avoid heap pressure near boot.
  */
-function scheduleStartupLivenessCheck(): void {
-  setTimeout(async () => {
-    try {
-      const count = await countUnembeddedConversationMemories();
-      if (count > 0) {
-        console.warn(
-          `[EmbedIndexer] ⚠ STARTUP LIVENESS CHECK (4h): ${count} conversation_memories row(s) ` +
-          `still have no embedding after two indexer cycles. ` +
-          `Run: npx tsx server/scripts/test-backfill-embeddings-complete.ts --patch`
-        );
-      } else {
-        console.log('[EmbedIndexer] ✓ Startup liveness check (4h): all conversation_memories rows embedded.');
-      }
-    } catch (err: any) {
-      console.warn('[EmbedIndexer] Startup liveness check failed (non-fatal):', err.message);
+/**
+ * Inner body of the startup liveness check — extracted so CI can inject a
+ * mock countFn (e.g. one that throws) without waiting 4h.
+ *
+ * @param countFn  Defaults to the real countUnembeddedConversationMemories.
+ *                 Pass a stub in tests.
+ */
+export async function runStartupLivenessCheckInner(
+  countFn: () => Promise<number> = countUnembeddedConversationMemories,
+): Promise<void> {
+  try {
+    const count = await countFn();
+    if (count > 0) {
+      console.warn(
+        `[EmbedIndexer] ⚠ STARTUP LIVENESS CHECK (4h): ${count} conversation_memories row(s) ` +
+        `still have no embedding after two indexer cycles. ` +
+        `Run: npx tsx server/scripts/test-backfill-embeddings-complete.ts --patch`
+      );
+    } else {
+      console.log('[EmbedIndexer] ✓ Startup liveness check (4h): all conversation_memories rows embedded.');
     }
-  }, FOUR_HOURS_MS);
+  } catch (err: any) {
+    console.warn('[EmbedIndexer] Startup liveness check failed (non-fatal):', err.message);
+  }
+}
+
+function scheduleStartupLivenessCheck(): void {
+  setTimeout(() => runStartupLivenessCheckInner(), FOUR_HOURS_MS);
 }
 
 export async function runIndexer(): Promise<void> {
