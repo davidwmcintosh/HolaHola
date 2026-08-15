@@ -508,6 +508,11 @@ export class GeminiLiveSession {
   // greetingPhaseActive is done, so GL multi-chunk greetings are never suppressed.
   // Prevents spurious second GL generation (unmasked by Bug 1 gate removal July 24 2026).
   private hasStudentInputSinceLastResponse = true;
+  // Ghost-turn tracing: records the most recent mid-session sendClientContent injection
+  // (text turn, heartbeat directive, pre-turn guardian, etc.). When a ghost turn is
+  // suppressed in _doFlushTranscripts, this identifies WHICH injection triggered the
+  // spurious GL generation cycle — pinning the root cause in logs + telemetry.
+  private lastClientContentInjection: { label: string; at: number } | null = null;
   // Double-generation guard — part 2: tracks whether response_complete has already been
   // flushed to the client for the current turn. Once flushed, any new GL audio arriving
   // without new student input is definitively spurious (covers the case where the second
@@ -1701,6 +1706,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           turns: [{ role: 'user', parts: [{ text: msg }] }],
           turnComplete: true,
         });
+        // Ghost-turn tracing: heartbeat directives trigger a new GL generation cycle.
+        this.lastClientContentInjection = { label: 'heartbeat-directive', at: Date.now() };
         // Null ONLY on successful send — if the WebSocket throws, retry on the next 5s tick.
         this.pendingDirectiveText = null;
         console.log(`[GeminiLive] Heartbeat: silence-delivered directive (${silenceMs}ms silence): ${directive.slice(0, 80)}...`);
@@ -1710,19 +1717,30 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     }, 5000);
   }
 
-  sendTextTurn(text: string): void {
+  sendTextTurn(text: string, opts?: { label?: string; isStudentInput?: boolean }): void {
     if (!this.liveSession || this.isStopped) return;
     // System Whisper (Gemini audit 2026-06-17 + review correction):
     // DO NOT prepend to student speech — Gemini review flagged this as a "read-aloud" failure risk
     // (GL may speak the reminder aloud if thinking phase is bypassed or prompt is misread).
     // Instead the whisper is injected via the next tool response (pendingSystemWhisper flag),
     // which is a safe channel the model sees but never speaks. See tool response assembly below.
+    const label = opts?.label ?? 'text-turn';
     try {
       this.liveSession.sendClientContent({
         turns: [{ role: 'user', parts: [{ text }] }],
         turnComplete: true,
       });
-      console.log(`[GeminiLive] Text turn sent (${text.length} chars): "${text.slice(0, 80)}"`);
+      // Ghost-turn tracing: every turnComplete:true injection starts a new GL generation
+      // cycle. Record the source so a suppressed ghost turn can name its trigger.
+      this.lastClientContentInjection = { label, at: Date.now() };
+      // Real student input (PTT transcript, prop tap) must open the double-generation
+      // guard so the triggered response's audio is NOT suppressed. Directive/system
+      // injections intentionally leave the flag false — any generation they trigger
+      // is a ghost turn (audio suppressed + flush skipped).
+      if (opts?.isStudentInput) {
+        this.hasStudentInputSinceLastResponse = true;
+      }
+      console.log(`[GeminiLive] Text turn sent (${label}, ${text.length} chars): "${text.slice(0, 80)}"`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send text turn:', err);
     }
@@ -2548,6 +2566,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   turns: [{ role: 'user', parts: [{ text: whisperFinal }] }],
                   turnComplete: false,
                 });
+                // Ghost-turn tracing: turnComplete:false should NOT start a generation,
+                // but record it anyway — if a ghost turn follows, this names the suspect.
+                this.lastClientContentInjection = { label: 'pre-turn-guardian-emotional', at: Date.now() };
                 // Update the pre-turn fire log entry with delivery details.
                 const preTurnEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.charsInjected === null);
                 if (preTurnEntry) {
@@ -4313,6 +4334,38 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
   }
 
   private async _doFlushTranscripts(): Promise<void> {
+    // ── GHOST TURN GUARD ─────────────────────────────────────────────────────
+    // A generation cycle that produced 0 audio sentences with NO student input since
+    // the last response is a spurious second GL generation — typically triggered by a
+    // mid-session sendClientContent injection (pedagogical/tension directive, heartbeat)
+    // arriving after the real turn completed. The double-generation audio guard already
+    // suppressed its audio; without this guard the flush still fired, emitting a
+    // 0-sentence response_complete and bumping the turnId (the "ghost Daniela response").
+    // Skip the flush entirely: no response_complete, no turnId bump, no exchange count.
+    // Real 0-audio turns (student spoke but GL answered text-only / audio failed) pass
+    // through because hasStudentInputSinceLastResponse or pendingInputTranscript is set.
+    if (
+      this.currentSentenceIndex === 0 &&
+      !this.hasStudentInputSinceLastResponse &&
+      !this.pendingInputTranscript.trim() &&
+      !this.greetingPhaseActive
+    ) {
+      const inj = this.lastClientContentInjection;
+      const injNote = inj ? `"${inj.label}" ${Date.now() - inj.at}ms ago` : 'none recorded';
+      console.warn(`[GeminiLive] GHOST TURN suppressed — 0 sentences, no student input (turnId: ${this.currentTurnId}); likely trigger injection: ${injNote}`);
+      voiceTelemetry.log(this.session.dbSessionId ?? this.session.id, String(this.session.userId ?? ''), 'gl_ghost_turn_suppressed', {
+        turnId: this.currentTurnId,
+        injectionLabel: inj?.label ?? null,
+        injectionAgeMs: inj ? Date.now() - inj.at : null,
+      });
+      // Discard the ghost's transcript so it can't bleed into the next real turn,
+      // and reset per-generation state without advancing the turn.
+      this.pendingOutputTranscript = '';
+      this.usingOutputTranscription = false;
+      this.generationStartedThisTurn = false;
+      return;
+    }
+
     // Capture state before async operations
     const totalSentences = this.currentSentenceIndex;  // how many PCM sentences were sent
     const flushTurnId = this.currentTurnId;            // turnId client associates with this response

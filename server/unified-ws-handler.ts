@@ -3870,7 +3870,7 @@ ${lastNote.tutorNotes}`);
               pendingSpeculativeTranscript = null;
               pendingSpeculativeWordCount = 0;
               console.log(`[GeminiLive PTT] Routing via text turn (${transcript.length} chars): "${transcript.slice(0, 80)}"`);
-              geminiLiveSession.sendTextTurn(transcript);
+              geminiLiveSession.sendTextTurn(transcript, { label: 'ptt-transcript', isStudentInput: true });
               // Tension + GOAP: evaluate async → combine world event + pedagogical directive
               if (session && (session as any).sceneCanvas) {
                 const glSnapTension = geminiLiveSession;
@@ -3882,7 +3882,7 @@ ${lastNote.tutorNotes}`);
                     const madrigalLink: string | undefined = (session as any).pendingMadrigalLink ?? undefined;
                     if ((session as any).pendingMadrigalLink) (session as any).pendingMadrigalLink = null;
                     const combined = [worldEvent, directive, shaper, madrigalLink].filter(Boolean).join(' ');
-                    if (combined) glSnapTension.sendTextTurn(combined);
+                    if (combined) glSnapTension.sendTextTurn(combined, { label: 'tension-goap-directive' });
                   })
                   .catch(() => {});
               }
@@ -3968,7 +3968,7 @@ ${lastNote.tutorNotes}`);
             const contextText = `*(the student examines the ${tapLabel}${tapNative ? ` — ${tapNative}` : ''})*`;
             console.log(`[PropTap] Injecting context: "${contextText}"`);
             if (geminiLiveSession) {
-              geminiLiveSession.sendTextTurn(contextText);
+              geminiLiveSession.sendTextTurn(contextText, { label: 'prop-tap', isStudentInput: true });
             } else if (session) {
               orchestrator.processOpenMicTranscript(session.id, contextText, 1.0);
             }
@@ -4679,7 +4679,7 @@ ${lastNote.tutorNotes}`);
                 // Gap 6: score student pulse on every real GL utterance
                 if (session) updateStudentPulse(session, finalTranscript);
                 console.log(`[GeminiLive PTT] Routing transcript via text turn (${finalWordCount} words): "${finalTranscript.slice(0, 80)}"`);
-                glSessionSnap.sendTextTurn(finalTranscript);
+                glSessionSnap.sendTextTurn(finalTranscript, { label: 'ptt-transcript', isStudentInput: true });
                 // Tension + GOAP: evaluate async → combine world event + pedagogical directive
                 if (session && (session as any).sceneCanvas) {
                   const glForTension = glSessionSnap;
@@ -4691,7 +4691,7 @@ ${lastNote.tutorNotes}`);
                       const madrigalLink: string | undefined = (session as any).pendingMadrigalLink ?? undefined;
                       if ((session as any).pendingMadrigalLink) (session as any).pendingMadrigalLink = null;
                       const combined = [worldEvent, directive, shaper, madrigalLink].filter(Boolean).join(' ');
-                      if (combined) glForTension.sendTextTurn(combined);
+                      if (combined) glForTension.sendTextTurn(combined, { label: 'tension-goap-directive' });
                     })
                     .catch(() => {});
                 }
@@ -4701,7 +4701,7 @@ ${lastNote.tutorNotes}`);
                 if (session && (session as any).sceneCanvas) {
                   const { directive: quietDirective, mutations: quietMutations } = selectPedagogicalDirective(session, true);
                   fireCanvasMutations(session, quietMutations, ws, false);
-                  if (quietDirective) glSessionSnap.sendTextTurn(quietDirective);
+                  if (quietDirective) glSessionSnap.sendTextTurn(quietDirective, { label: 'quiet-directive' });
                 }
               }
             } else if (finalTranscript && finalWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
