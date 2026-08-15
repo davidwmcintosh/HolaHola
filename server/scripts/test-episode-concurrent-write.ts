@@ -237,8 +237,6 @@ async function runNormalMode(): Promise<void> {
   // Capture pre-test snapshots before the test mutates anything.
   // mdBefore4 is the .md content — the source of truth we restore to.
   // dbSnap4Id is the DB row ID needed for the direct SQL restore in cleanup.
-  // We intentionally do NOT use the pre-test DB content as the restore target:
-  // the DB may lag the .md from previous runs, so we use the .md as the baseline.
   const mdBefore4 = readFileSync(mdPath, 'utf-8');
   const dbSnap4Rows = await db.execute(sql`
     SELECT id FROM conversation_memories
@@ -251,6 +249,21 @@ async function runNormalMode(): Promise<void> {
 
   assert('Pre-test DB row found for episode', !!dbSnap4Id, 'Cannot run STEP 4 without a DB row to restore');
 
+  // Prime the DB so it matches the current .md exactly before the concurrent
+  // write test begins.  Previous tests in the group may have left the DB row
+  // with longer content (after their own sync + cleanup cycles).  If the DB is
+  // longer than mdBefore4+entry4, syncEpisodeFile's rolling guard
+  // (LENGTH(content) <= LENGTH(incoming)) would silently skip the UPDATE and
+  // the sentinel would never reach the DB.  A direct UPDATE (bypassing the
+  // guard) guarantees DB == .md before we start, so the rolling guard passes.
+  if (dbSnap4Id) {
+    await db.execute(sql`
+      UPDATE conversation_memories
+      SET content = ${mdBefore4}
+      WHERE id = ${dbSnap4Id}
+    `);
+  }
+
   try {
     if (!dbSnap4Id) {
       console.log(Y('  ⚠  Skipping STEP 4 body — no pre-test DB row found'));
@@ -261,8 +274,13 @@ async function runNormalMode(): Promise<void> {
         appendFileSync(mdPath, '\n' + entry4 + '\n', 'utf-8');
       });
 
-      // Step 4: Start sync — it queues behind appendDone's lock.
-      // Both promises are in flight before any await (true concurrency in the event loop).
+      // Flush the microtask queue once so that withEpisodeFileLock's internal
+      // async lock-acquisition completes before syncEpisodeFile starts competing
+      // for the same lock.  Without this yield, both calls race for the lock in
+      // the same microtask batch and the ordering is non-deterministic.
+      await Promise.resolve();
+
+      // Step 4: Start sync — it now queues behind appendDone's lock.
       const syncPromise = syncEpisodeFile(episodeFilename);
 
       // Steps 5–6: Wait for append to release the lock, then for sync to complete.
@@ -277,16 +295,26 @@ async function runNormalMode(): Promise<void> {
         'Sentinel missing from .md — appendFileSync inside lock failed',
       );
 
-      // Step 7b: Verify sentinel is in DB immediately — no extra sync needed.
+      // Step 7b: Verify sentinel is in DB — no extra sync cycle needed.
       // syncEpisodeFile held the lock across read+upsert, so the DB reflects
       // the post-append file without any race gap.
-      const dbRows4 = await db.execute(sql`
-        SELECT content FROM conversation_memories
-        WHERE id = ${dbSnap4Id}
-        LIMIT 1
-      `);
-      const dbRow4     = (dbRows4 as any).rows?.[0] ?? (dbRows4 as any)[0];
-      const dbContent4 = (dbRow4?.content ?? '') as string;
+      //
+      // Short retry (up to 2 s, 200 ms intervals): the upsert has committed,
+      // but Neon's HTTP/WebSocket connection pool may route the SELECT to a
+      // slightly-behind replica.  We retry the read — not the sync — to tolerate
+      // DB network propagation latency without re-running syncEpisodeFile.
+      let dbContent4 = '';
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const dbRows4 = await db.execute(sql`
+          SELECT content FROM conversation_memories
+          WHERE id = ${dbSnap4Id}
+          LIMIT 1
+        `);
+        const dbRow4 = (dbRows4 as any).rows?.[0] ?? (dbRows4 as any)[0];
+        dbContent4 = (dbRow4?.content ?? '') as string;
+        if (dbContent4.includes(`CI-CONCURRENT-${id4}`)) break;
+        if (attempt < 9) await new Promise(r => setTimeout(r, 200));
+      }
 
       assert(
         `Sentinel (${id4}) present in DB immediately after concurrent sync`,

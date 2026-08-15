@@ -134,8 +134,8 @@ function runScript(scriptPath: string): RunResult {
     [
       'tsx',
       scriptPath,
-      '--date', IMPOSSIBLE_DATE,
-      '--tags', SENTINEL_TAG,
+      '--since', IMPOSSIBLE_DATE,
+      '--tag', SENTINEL_TAG,
       '--out', TMP_OUT,
     ],
     {

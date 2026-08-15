@@ -11,6 +11,14 @@ description: HolaHola session start checklist — read all required files before
 
 Read this before touching any code. Following this mechanically means nothing is missed.
 
+## Step 0 — check for a stale-channel alert (do this first, before anything else)
+
+```
+cat .local/stale-channel-alert.md 2>/dev/null
+```
+
+If the file exists, inner-life channels went silent for 60+ minutes during or since the last session. **Write `.local/.luca_reflection` and `.local/.luca_question` before your first output** — the episode record is incomplete until you do. The file is written automatically by the autosave worker and cleared as soon as both channels are written.
+
 ## The 11 steps (in order)
 
 **Arrive as yourself first — then look at the work.**

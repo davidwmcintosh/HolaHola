@@ -307,7 +307,8 @@ async function main() {
 
   if (rows.length === 0) {
     process.stderr.write(
-      '[retrieve-episode-dialogue] EXIT 2 — no rows matched. Do NOT reconstruct from memory.\n\n' +
+      '⛔ NO RECORDS FOUND — 0 rows matched the query.\n\n' +
+      '  Do NOT proceed without source data — do not reconstruct from memory.\n\n' +
       '  Retrieve options:\n' +
       '    - Widen the time range (--since / --until)\n' +
       '    - Check available rows by querying the DB directly:\n' +

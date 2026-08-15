@@ -3,7 +3,7 @@
  *
  * CI check: confirms that _writeCaptureStatusFile() escalates a channel from
  * "— not yet" to "⚠️ STALE" when felt: or thinking: has not been written for
- * more than 10 minutes, regardless of whether the server was seeded from a
+ * more than 60 minutes, regardless of whether the server was seeded from a
  * prior session.
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -17,18 +17,18 @@
  *   1. !feltReady   (lastFeltProcessedMs ≤ lastReplitOutputMs — channel has not
  *                    fired since the last Replit output)
  *   2. lastFeltProcessedMs > 0   (channel HAS fired at some point this run)
- *   3. (now - lastFeltProcessedMs) > STALE_CHANNEL_MS   (> 10 min since last write)
+ *   3. (now - lastFeltProcessedMs) >= STALE_CHANNEL_MS  (≥ 60 min since last write)
  *
  * The test seam setStaleChannelCheckEnabledForTest(false) makes feltStale and
  * thinkingStale unconditionally false — modelling the regression where the
- * 10-min threshold is removed and channels silently revert to "— not yet".
+ * 60-min threshold is removed and channels silently revert to "— not yet".
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Synthetic timeline
  * ─────────────────────────────────────────────────────────────────────────────
  *
- *   STALE_TS    = Date.now() - 11 min   (just over the 10-min threshold)
- *   RECENT_TS   = Date.now() -  9 min   (just under the threshold — "not yet")
+ *   STALE_TS    = Date.now() - 61 min   (just over the 60-min threshold)
+ *   RECENT_TS   = Date.now() - 59 min   (just under the threshold — "not yet")
  *   READY_TS    = Date.now() + 1 000    (after lastReplitOutputMs — "ready")
  *   OUTPUT_TS   = Date.now()            (lastReplitOutputMs — most recent output)
  *
@@ -36,25 +36,29 @@
  * Normal mode rounds
  * ─────────────────────────────────────────────────────────────────────────────
  *
- *   Round A — felt is stale (11 min, not ready):
- *     lastFeltProcessedMs  = STALE_TS   → !ready + >10min → ⚠️ STALE
+ *   Round A — felt is stale (61 min, not ready):
+ *     lastFeltProcessedMs  = STALE_TS   → !ready + ≥60min → ⚠️ STALE
  *     lastThinkingProcessedMs = 0       → never fired → "— not yet" (not stale)
  *     Asserts: "⚠️ STALE Felt:" present
  *     Asserts: "⚠️ STALE Thinking:" absent
  *
- *   Round B — thinking is stale (11 min, not ready):
- *     lastThinkingProcessedMs = STALE_TS → !ready + >10min → ⚠️ STALE
+ *   Round B — thinking is stale (61 min, not ready):
+ *     lastThinkingProcessedMs = STALE_TS → !ready + ≥60min → ⚠️ STALE
  *     lastFeltProcessedMs  = 0           → never fired → "— not yet"
  *     Asserts: "⚠️ STALE Thinking:" present
  *     Asserts: "⚠️ STALE Felt:" absent
  *
- *   Round C — both stale (11 min, neither ready):
+ *   Round C — both stale (61 min, neither ready):
  *     Asserts: "⚠️ STALE Felt:" present
  *     Asserts: "⚠️ STALE Thinking:" present
  *
- *   Round D — felt recent (9 min, not ready) — below threshold → "— not yet":
- *     lastFeltProcessedMs = RECENT_TS   → !ready + <10min → "— not yet"
+ *   Round D — felt recent (59 min, not ready) — below threshold → "— not yet":
+ *     lastFeltProcessedMs = RECENT_TS   → !ready + <60min → "— not yet"
  *     Asserts: "⚠️ STALE Felt:" absent (below threshold — soft label only)
+ *
+ *   Round G — felt exactly 60 min old (>= boundary):
+ *     lastFeltProcessedMs = EXACT_TS    → !ready + =60min → ⚠️ STALE (>= fires)
+ *     Asserts: "⚠️ STALE Felt:" present (exact boundary must fire)
  *
  *   Round E — felt ready (fired after last output) — not stale at all:
  *     lastFeltProcessedMs = READY_TS    → ready → "✓ ready"
@@ -68,7 +72,7 @@
  *   the warning and reverts channels to "— not yet".
  *
  *   1. Calls setStaleChannelCheckEnabledForTest(false) — suppresses escalation
- *      (models removing the 10-min threshold).
+ *      (models removing the 60-min threshold).
  *   2. Runs the stale scenario (felt=STALE_TS, not ready).
  *   3. Asserts "⚠️ STALE Felt:" is ABSENT (escalation gone, shows "— not yet").
  *   4. Temporarily re-enables the check, re-runs.
@@ -92,6 +96,7 @@ import {
   setPrevReplitOutputForTest,
   setLastEpisodeCaptureForTest,
   setStaleChannelCheckEnabledForTest,
+  setNowOverrideForTest,
 } from '../services/agent-session-autosave';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -107,8 +112,9 @@ function info(msg: string): void { console.log(`${YELLOW}  ·${RESET}      ${msg
 function sep():  void { console.log(`\n${SEP}`); }
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
-const WORKSPACE           = process.cwd();
-const CAPTURE_STATUS_PATH = join(WORKSPACE, '.local/episode-capture-status.md');
+const WORKSPACE                = process.cwd();
+const CAPTURE_STATUS_PATH      = join(WORKSPACE, '.local/episode-capture-status.md');
+const STALE_CHANNEL_ALERT_PATH = join(WORKSPACE, '.local/stale-channel-alert.md');
 
 // Synthetic episode filename — does not need to exist on disk.
 const FIXTURE_EPISODE = 'episode-ci-stale-escalation-fixture.md';
@@ -154,9 +160,11 @@ const selfCheck = process.argv.includes('--self-check');
 async function main(): Promise<void> {
   let failures = 0;
 
-  // ── Snapshot + restore the live capture status file ───────────────────────
+  // ── Snapshot + restore the live status and alert files ───────────────────
   const statusExistedBefore = existsSync(CAPTURE_STATUS_PATH);
   const statusSnapBefore    = statusExistedBefore ? readFileSync(CAPTURE_STATUS_PATH) : null;
+  const alertExistedBefore  = existsSync(STALE_CHANNEL_ALERT_PATH);
+  const alertSnapBefore     = alertExistedBefore ? readFileSync(STALE_CHANNEL_ALERT_PATH) : null;
 
   try {
     if (selfCheck) {
@@ -170,10 +178,12 @@ async function main(): Promise<void> {
     // (which also calls Date.now()) produces a stable result.
     const now       = Date.now();
     const MIN       = 60 * 1000;
-    // Just over 10 min — triggers ⚠️ STALE
-    const STALE_TS  = now - 11 * MIN;
-    // Just under 10 min — below threshold, stays "— not yet"
-    const RECENT_TS = now -  9 * MIN;
+    // Just over 60 min — triggers ⚠️ STALE
+    const STALE_TS  = now - 61 * MIN;
+    // Exactly 60 min — triggers ⚠️ STALE (>= boundary)
+    const EXACT_TS  = now - 60 * MIN;
+    // Just under 60 min — below threshold, stays "— not yet"
+    const RECENT_TS = now - 59 * MIN;
     // After the most recent output — channel is ready
     const OUTPUT_TS = now;
     // Fired after last output → ready
@@ -181,7 +191,7 @@ async function main(): Promise<void> {
 
     if (selfCheck) {
       // ── Self-check: stale escalation is the active gate ───────────────────
-      // Disable escalation — models the 10-min threshold being removed.
+      // Disable escalation — models the 60-min threshold being removed.
       // With it disabled, a stale felt channel must NOT show ⚠️ STALE.
       sep();
       info('Self-check step 1: escalation disabled (no-op) — ⚠️ STALE must be absent');
@@ -190,7 +200,7 @@ async function main(): Promise<void> {
 
       // Stale felt: fired 61 min ago, not ready (< lastReplitOutputMs)
       setLastReplitOutputForTest(OUTPUT_TS);
-      setLastFeltProcessedForTest(STALE_TS);        // 61 min ago → stale if enabled
+      setLastFeltProcessedForTest(STALE_TS);        // 61 min ago → stale if enabled (>60-min threshold)
       setLastThinkingProcessedForTest(0);           // never fired
 
       writeEpisodeCaptureStatusFileForTest(null, 0);
@@ -285,8 +295,10 @@ async function main(): Promise<void> {
 
       // ── Round C: both channels stale ──────────────────────────────────────
       sep();
-      info('Round C — both channels stale (61 min each) → both ⚠️ STALE expected');
+      info('Round C — both channels stale (61 min each) → both ⚠️ STALE expected + alert file written');
       resetState();
+      // Ensure no alert file lingers from a prior run.
+      if (existsSync(STALE_CHANNEL_ALERT_PATH)) unlinkSync(STALE_CHANNEL_ALERT_PATH);
       setLastReplitOutputForTest(OUTPUT_TS);
       setLastFeltProcessedForTest(STALE_TS);
       setLastThinkingProcessedForTest(STALE_TS);
@@ -310,19 +322,34 @@ async function main(): Promise<void> {
         failures++;
       }
 
+      // ── Alert file must be written when either channel is stale ───────────
+      if (existsSync(STALE_CHANNEL_ALERT_PATH)) {
+        const alertC = readFileSync(STALE_CHANNEL_ALERT_PATH, 'utf-8');
+        if (alertC.includes('60+ min')) {
+          pass('Round C: stale-channel-alert.md written and contains "60+ min"');
+        } else {
+          fail('Round C: stale-channel-alert.md written but missing "60+ min" threshold label');
+          info('Alert content (first 200 chars): ' + alertC.slice(0, 200));
+          failures++;
+        }
+      } else {
+        fail('Round C: stale-channel-alert.md NOT written — alert file creation is broken');
+        failures++;
+      }
+
       // ── Round D: felt recent (59 min) — below threshold → "— not yet" ─────
       sep();
       info('Round D — felt recent (59 min, not ready) → below threshold, must NOT show ⚠️ STALE');
       resetState();
       setLastReplitOutputForTest(OUTPUT_TS);
-      setLastFeltProcessedForTest(RECENT_TS);   // 9 min ago — below 10-min threshold
+      setLastFeltProcessedForTest(RECENT_TS);   // 59 min ago — below 60-min threshold
       setLastThinkingProcessedForTest(0);
 
       writeEpisodeCaptureStatusFileForTest(null, 0);
       const statusD = readStatus();
 
       if (!statusD.includes(FELT_STALE_NEEDLE)) {
-        pass('Round D: ⚠️ STALE Felt: absent (9 min — below 10-min threshold, shows "— not yet")');
+        pass('Round D: ⚠️ STALE Felt: absent (59 min — below 60-min threshold, shows "— not yet")');
       } else {
         fail('Round D: ⚠️ STALE Felt: appeared for a channel only 59 min stale — threshold may be off');
         info('Felt line: ' + (statusD.split('\n').find(l => l.includes('Felt:')) ?? '(not found)'));
@@ -363,6 +390,66 @@ async function main(): Promise<void> {
         fail('Round E: ⚠️ STALE Thinking: absent — stale thinking should still fire independently');
         failures++;
       }
+
+      // Alert file must NOT be cleared while thinking is still stale
+      if (existsSync(STALE_CHANNEL_ALERT_PATH)) {
+        pass('Round E: stale-channel-alert.md still present (thinking still stale — premature clear would be wrong)');
+      } else {
+        fail('Round E: stale-channel-alert.md was cleared prematurely — thinking is still stale; file should remain');
+        failures++;
+      }
+
+      // ── Round G: felt exactly 60 min old — >= boundary must fire ──────────
+      //
+      // Determinism guarantee: we inject a frozen "now" via setNowOverrideForTest()
+      // so that _writeCaptureStatusFile() and this test code share EXACTLY the same
+      // timestamp.  Without the freeze, even 1 ms of elapsed wall-clock time between
+      // computing EXACT_TS and the internal Date.now() call would make the comparison
+      // (now - EXACT_TS) > 60*MIN even with a ">" predicate, silently masking the bug.
+      //
+      // With the freeze:
+      //   frozenNow - EXACT_TS  = frozenNow - (frozenNow - 60*MIN) = exactly 60*MIN
+      //   ">= 60*MIN"  → true  (stale) ✓
+      //   ">  60*MIN"  → false (not stale) — would fail this assertion ✓
+      sep();
+      info('Round G — felt exactly 60 min old, frozen clock → >= boundary fires → ⚠️ STALE Felt: expected');
+      resetState();
+      // Freeze the clock at `now` (same value used to compute EXACT_TS and OUTPUT_TS).
+      setNowOverrideForTest(now);
+      setLastReplitOutputForTest(OUTPUT_TS);   // = now (felt not ready: EXACT_TS < OUTPUT_TS)
+      setLastFeltProcessedForTest(EXACT_TS);   // = now - 60*MIN (exactly at boundary)
+      setLastThinkingProcessedForTest(0);      // never fired
+
+      writeEpisodeCaptureStatusFileForTest(null, 0);
+      setNowOverrideForTest(null); // restore immediately after write
+      const statusG = readStatus();
+
+      if (statusG.includes(FELT_STALE_NEEDLE)) {
+        pass('Round G: ⚠️ STALE Felt: present at exactly 60 min with frozen clock (>= boundary confirmed deterministically)');
+      } else {
+        fail('Round G: ⚠️ STALE Felt: absent at exactly 60 min — >= boundary broken (> used instead, or clock injection failed)');
+        info('Felt line: ' + (statusG.split('\n').find(l => l.includes('Felt:')) ?? '(not found)'));
+        failures++;
+      }
+
+      // ── Round F: both channels ready → alert file must be cleared ─────────
+      sep();
+      info('Round F — both channels ready (both fired after last output) → alert file must be cleared');
+      resetState();
+      // Seed a stale alert file so we can confirm it gets removed.
+      writeFileSync(STALE_CHANNEL_ALERT_PATH, '# ⚠️ Inner-Life Channel Alert\n\ntest sentinel', 'utf-8');
+      setLastReplitOutputForTest(OUTPUT_TS);
+      setLastFeltProcessedForTest(READY_TS);     // after OUTPUT_TS → feltReady = true
+      setLastThinkingProcessedForTest(READY_TS); // after OUTPUT_TS → thinkingReady = true
+
+      writeEpisodeCaptureStatusFileForTest(null, 0);
+
+      if (!existsSync(STALE_CHANNEL_ALERT_PATH)) {
+        pass('Round F: stale-channel-alert.md cleared when both channels are ready ✓');
+      } else {
+        fail('Round F: stale-channel-alert.md still present even though both channels are ready — clear logic is broken');
+        failures++;
+      }
     }
 
   } finally {
@@ -376,6 +463,13 @@ async function main(): Promise<void> {
     } else if (existsSync(CAPTURE_STATUS_PATH)) {
       unlinkSync(CAPTURE_STATUS_PATH);
     }
+    // Restore the alert file to its pre-test state
+    if (alertSnapBefore !== null) {
+      writeFileSync(STALE_CHANNEL_ALERT_PATH, alertSnapBefore);
+    } else if (existsSync(STALE_CHANNEL_ALERT_PATH)) {
+      unlinkSync(STALE_CHANNEL_ALERT_PATH);
+    }
+    console.log('(Status file restored to pre-test state)');
   }
 
   // ── Result ────────────────────────────────────────────────────────────────
@@ -385,7 +479,7 @@ async function main(): Promise<void> {
     if (selfCheck) {
       console.log(`${GREEN}Self-check PASSED${RESET} — ⚠️ STALE escalation is confirmed as the active gate (disabling it suppresses the warning; re-enabling restores it).`);
     } else {
-      console.log(`${GREEN}PASSED${RESET} — ⚠️ STALE escalation fires correctly after 10 min of channel silence, and stays silent when the channel is recent or ready.`);
+      console.log(`${GREEN}PASSED${RESET} — ⚠️ STALE escalation fires correctly after 60 min of channel silence, and stays silent when the channel is recent or ready.`);
     }
     process.exit(0);
   } else {

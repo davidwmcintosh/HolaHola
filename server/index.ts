@@ -580,6 +580,17 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
 
+    // Early boot: write stale-channel alert if inner-life channels went silent
+    // while the service was down.  Synchronous, no DB, runs BEFORE the 85s
+    // delayed worker block so Luca sees the alert at her very first session
+    // turn even after a cold restart.
+    try {
+      const { seedStaleChannelAlertAtBoot } = await import('./services/agent-session-autosave');
+      seedStaleChannelAlertAtBoot();
+    } catch (err: any) {
+      console.warn('[Boot] seedStaleChannelAlertAtBoot failed (non-fatal):', err?.message ?? err);
+    }
+
     // Log which object-storage backend is active and probe credentials.
     // On failure, post a founder-visible alert to the Express Lane so the
     // broken configuration is caught immediately rather than silently.

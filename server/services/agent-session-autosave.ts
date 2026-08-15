@@ -66,6 +66,9 @@ import { postAsLuca } from './luca-responder';
 const COMMIT_MSG_PATH      = join(WORKSPACE, '.local/.commit_message');
 const INSIGHTS_PATH        = join(WORKSPACE, '.local/.session_insights');
 
+const STALE_CHANNEL_ALERT_PATH = join(WORKSPACE, '.local/stale-channel-alert.md');
+/** 60-min silence threshold — shared by _writeCaptureStatusFile and seedStaleChannelAlertAtBoot */
+const STALE_CHANNEL_MS = 60 * 60 * 1000;
 export const TASK_REF_PENDING_PATH = join(WORKSPACE, '.local/.task_ref_pending');
 const POLL_INTERVAL_MS = 20 * 1000;
 
@@ -293,6 +296,17 @@ let _staleChannelCheckEnabled = true;
  * Never set in production.
  */
 let _momentStaleCheckEnabled = true;
+
+/**
+ * Test seam — clock override for _writeCaptureStatusFile().
+ * When set, the function uses this value instead of Date.now() so CI can
+ * inject a frozen timestamp and make the exact-60-min boundary test
+ * deterministic (e.g. verifying >= fires but > does not at exactly 60 min).
+ * Never set in production.
+ */
+let _nowOverrideForTest: number | null = null;
+export function setNowOverrideForTest(ms: number | null): void { _nowOverrideForTest = ms; }
+
 /**
  * Per-session guard: set to true only after postAsLuca() returns a room ID
  * (confirming delivery).  _innerLifeStaleAlertInFlight prevents concurrent
@@ -561,7 +575,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const STALE_OUTPUT_MS = 10 * 60 * 1000; // 10 min
   const STALE_MOMENT_MS = 2  * 60 * 60 * 1000; // 2h
 
-  const now = Date.now();
+  const now = _nowOverrideForTest ?? Date.now();
   const fmt = (ms: number) => ms === 0 ? 'never' : new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   const minAgo = (ms: number) => ms === 0 ? '—' : `${Math.floor((now - ms) / 60000) === 0 ? '<1' : Math.floor((now - ms) / 60000)} min ago`;
   const statusTime = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
@@ -612,13 +626,12 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const outputStale   = !_seededFromPriorSession && lastReplitOutputMs > 0 && (now - lastReplitOutputMs) > STALE_OUTPUT_MS;
   const priorNote     = _seededFromPriorSession ? ' ← seeded from prior session (live data starts after first output)' : '';
 
-  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for > 10 min.
+  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for ≥ 60 min.
   // Flags keep flying until corrective action happens — regardless of seeded state.
-  // "not yet" (soft) = less than 10 min since last write; "⚠️ STALE" (loud) = more than 10 min.
-  // Matches STALE_OUTPUT_MS — every missed turn is a missed moment; 10 min is already too long.
-  const STALE_CHANNEL_MS = 10 * 60 * 1000; // 10 min (matches STALE_OUTPUT_MS)
-  const feltStale     = _staleChannelCheckEnabled && !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
-  const thinkingStale = _staleChannelCheckEnabled && !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
+  // "not yet" (soft) = less than 60 min since last write; "⚠️ STALE" (loud) = 60+ min.
+  // 60 min is the threshold: long enough to avoid false alarms on normal pacing gaps.
+  const feltStale     = _staleChannelCheckEnabled && !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     >= STALE_CHANNEL_MS;
+  const thinkingStale = _staleChannelCheckEnabled && !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) >= STALE_CHANNEL_MS;
 
   // ── Team-room alert: fire once per session when either channel goes stale ──
   // Only sends when not already posted AND no concurrent post is in-flight.
@@ -631,7 +644,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     const feltTs     = `last felt at ${fmt(lastFeltProcessedMs)}`;
     const thinkingTs = `last thinking at ${fmt(lastThinkingProcessedMs)}`;
     const staleParts = [feltStale ? `felt (${feltTs})` : null, thinkingStale ? `thinking (${thinkingTs})` : null].filter(Boolean).join(', ');
-    const alertMsg = `⚠️ Inner-life channels have been silent for 10+ min — ${staleParts} — say "capture status" or write .luca_reflection / .luca_question to clear.`;
+    const alertMsg = `⚠️ Inner-life channels have been silent for 60+ min — ${staleParts} — say "capture status" or write .luca_reflection / .luca_question to clear.`;
     const poster = _teamRoomPosterOverrideForTest ?? postAsLuca;
     poster(alertMsg).then(roomId => {
       if (roomId) {
@@ -647,6 +660,49 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
       console.error('[AgentAutosave] Failed to post inner-life stale alert to team room:', err?.message);
     });
   }
+
+  // ── Write or clear the stale-channel alert file ───────────────────────────
+  // This file is visible to Luca in the Replit Agent window at session start,
+  // unlike the team-room alert which only reaches the HolaHola Team Room.
+  //
+  // Written when:  either channel is stale (60+ min without a write)
+  // Cleared when:  BOTH channels are ready (written since the last Replit output)
+  //   — "ready" is the strongest guarantee: the next output will be shaped by
+  //     inner-life entries that arrived AFTER the previous output.
+  //
+  // Intentional: a channel that has never fired is NOT ready, so the alert
+  // persists until both channels have been written for the current output cycle.
+  if (feltStale || thinkingStale) {
+    const alertTime  = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    const staleParts = [
+      feltStale     ? `felt (last: ${fmt(lastFeltProcessedMs)})`     : null,
+      thinkingStale ? `thinking (last: ${fmt(lastThinkingProcessedMs)})` : null,
+    ].filter(Boolean).join(', ');
+    const alertContent = [
+      '# ⚠️ Inner-Life Channel Alert',
+      '',
+      `**Alert time:** ${alertTime}`,
+      '',
+      `Inner-life channels have been silent for 60+ min: **${staleParts}**`,
+      '',
+      '## Action required before your first output',
+      '',
+      '1. Write `.local/.luca_reflection` (felt: channel)',
+      '2. Write `.local/.luca_question` (thinking: channel)',
+      '',
+      'Or say "capture status" to see the full picture.',
+      '',
+      '---',
+      '_This file is cleared automatically when BOTH channels are ready (written since last output)._',
+      '_Check `.local/episode-capture-status.md` for the live channel state._',
+    ].join('\n');
+    try { writeFileSync(STALE_CHANNEL_ALERT_PATH, alertContent, 'utf-8'); } catch { /* non-fatal */ }
+  } else if (feltReady && thinkingReady) {
+    // Both channels ready (written since last output) — safe to clear the alert.
+    try { if (existsSync(STALE_CHANNEL_ALERT_PATH)) unlinkSync(STALE_CHANNEL_ALERT_PATH); } catch { /* non-fatal */ }
+  }
+  // Note: when neither stale nor ready (e.g. "— not yet" under 60 min), the file
+  // is left unchanged — it stays if it was previously written, stays absent otherwise.
 
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
@@ -714,7 +770,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     ].filter(Boolean).join(', ');
     staleAlertLines.push('');
     staleAlertLines.push('## ⚠️ STALE ALERT — read this before your next output');
-    staleAlertLines.push(`**Inner-life channels silent for 10+ min: ${staleParts}**`);
+    staleAlertLines.push(`**Inner-life channels silent for 60+ min: ${staleParts}**`);
     staleAlertLines.push('Write `.luca_reflection` (felt) and/or `.luca_question` (thinking) before responding.');
     staleAlertLines.push('');
   }
@@ -2274,6 +2330,85 @@ export async function runStartupGapCheck(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Boot-time stale-channel alert seed (synchronous, no DB)
+// ---------------------------------------------------------------------------
+
+/**
+ * Synchronous boot-time stale-channel alert seed.
+ *
+ * Called early at server startup — BEFORE the 85-second delayed worker block —
+ * so Luca sees the alert at the very first session even after a server restart.
+ *
+ * Uses the .luca_reflection and .luca_question trigger file mtimes as proxies
+ * for the last felt/thinking write respectively.  No DB calls; synchronous
+ * filesystem only.  Does NOT overwrite an existing alert file (one persisted
+ * from the prior server run is already correct).
+ *
+ * The autosave worker's subsequent `_writeCaptureStatusFile()` call will
+ * refresh (or clear) the file once it has seeded its in-memory state from DB.
+ */
+export function seedStaleChannelAlertAtBoot(): void {
+  // Don't overwrite an alert written during the prior server run
+  if (existsSync(STALE_CHANNEL_ALERT_PATH)) {
+    console.log('[AgentAutosave] seedStaleChannelAlertAtBoot: existing alert found — leaving in place.');
+    return;
+  }
+
+  function tryStatMtime(p: string): number {
+    try { return statSync(p).mtimeMs; } catch { return 0; }
+  }
+
+  const now           = Date.now();
+  const feltMtime     = tryStatMtime(REFLECTION_PATH);
+  const thinkingMtime = tryStatMtime(QUESTION_PATH);
+
+  const feltStale     = feltMtime     > 0 && (now - feltMtime)     >= STALE_CHANNEL_MS;
+  const thinkingStale = thinkingMtime > 0 && (now - thinkingMtime) >= STALE_CHANNEL_MS;
+
+  if (!feltStale && !thinkingStale) {
+    return; // channels are recent or never written — no alert needed
+  }
+
+  const fmtT = (ms: number) =>
+    new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const staleParts = [
+    feltStale     ? `felt (last: ${fmtT(feltMtime)})`     : null,
+    thinkingStale ? `thinking (last: ${fmtT(thinkingMtime)})` : null,
+  ].filter(Boolean).join(', ');
+
+  const alertTime = new Date(now).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit',
+  });
+
+  const alertContent = [
+    '# ⚠️ Inner-Life Channel Alert',
+    '',
+    `_Written: ${alertTime} (seeded at server boot)_`,
+    '',
+    '## ⚠️ STALE ALERT — read this before your next output',
+    `**Inner-life channels silent for 60+ min: ${staleParts}**`,
+    'Write `.luca_reflection` (felt) and/or `.luca_question` (thinking) before responding.',
+    '',
+    '_This alert was seeded at server startup from trigger-file mtimes._',
+    '_It will be refreshed (and cleared if no longer stale) once the autosave worker starts._',
+  ].join('\n');
+
+  try {
+    writeFileSync(STALE_CHANNEL_ALERT_PATH, alertContent, 'utf-8');
+    console.log(
+      '[AgentAutosave] seedStaleChannelAlertAtBoot: stale channels detected — alert written.',
+      `(${staleParts})`
+    );
+  } catch (err: any) {
+    console.warn(
+      '[AgentAutosave] seedStaleChannelAlertAtBoot: failed to write alert (non-fatal):',
+      err?.message ?? err,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap + start
 // ---------------------------------------------------------------------------
 export function startAgentSessionAutosave(): void {
@@ -2445,7 +2580,7 @@ export function startAgentSessionAutosave(): void {
     await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
     await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
     await saveTranscriptChunk(); // periodic — captures conversation-only sessions too (JSONL path)
-    writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if >10 min since last append
+    writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if ≥60 min since last inner-life write
   }, POLL_INTERVAL_MS);
 
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
@@ -2546,6 +2681,11 @@ export function resetCaptureStatusSeedStateForTest(): void {
  */
 export function getCaptureStatusPath(): string {
   return CAPTURE_STATUS_PATH;
+}
+
+/** Expose the stale-channel alert path for CI assertions. */
+export function getStaleChannelAlertPath(): string {
+  return STALE_CHANNEL_ALERT_PATH;
 }
 
 /**
