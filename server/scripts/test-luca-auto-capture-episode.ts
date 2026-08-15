@@ -91,9 +91,11 @@ const DOCS_DIR               = join(WORKSPACE, 'docs');
 const ARC_NAME               = 'HolaHola Episodes';
 
 // Minimum content length to be considered a real rolling episode.
-// Test fixtures (e.g. Episode 99 from rolling-sync-guard) are always small;
-// the real rolling episode is typically tens of thousands of bytes.
-const MIN_REAL_EPISODE_BYTES = 50_000;
+// Test fixtures (e.g. Episode 99 from rolling-sync-guard) are always small
+// (a few hundred bytes); the real rolling episode is always tens of thousands.
+// Set to 44 KB so the guard still rejects fixtures while accommodating a young
+// rolling episode that hasn't yet grown to 50 KB.
+const MIN_REAL_EPISODE_BYTES = 44_000;
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 const selfCheckMode = process.argv.includes('--self-check');

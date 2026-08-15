@@ -262,17 +262,6 @@ args = "npx tsx server/scripts/audit-episode-27-gaps.ts"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "episode-27-gap-audit-patch"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/audit-episode-27-gaps.ts --patch"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
 name = "session-truth-pipeline"
 author = "agent"
 

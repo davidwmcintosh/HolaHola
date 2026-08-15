@@ -252,10 +252,10 @@ export class NativeFunctionCallHandler {
 
     switch (fn.legacyType) {
 
-      // ============================================================
+      // ------------------------------------------------------------
       // DISPATCHER CASES — Hybrid architecture for GL 64-tool limit
       // Each dispatcher parses params_json and routes to the real handler.
-      // ============================================================
+      // ------------------------------------------------------------
 
       // ─── PHASE 2 DISPATCHERS — classroom_widget split into 6 (widget field) ───────
       case 'WIDGET_TIME': {
@@ -9424,6 +9424,8 @@ export class NativeFunctionCallHandler {
       // e.g. "music" surfaces memories about "jazz", "rhythm", "improvisation"
       // semanticSearch uses pgvector (WebSocket pool) — gated by 3000ms timeout so a pool drop
       // can't stall Promise.all. Hydration uses HTTP transport, runs in parallel across hits.
+      // IMPORTANT: timeout rejection uses the 'semantic-arm-timeout' marker so the catch block
+      // can distinguish a real timeout from a vector search that returned zero results ("genuinely empty").
       (async () => {
         try {
           const { semanticSearch } = await import('./semantic-memory-service');
@@ -9434,11 +9436,14 @@ export class NativeFunctionCallHandler {
               arm4Timer = setTimeout(() => {
                 arm4TimedOut = true;
                 console.warn(`[UnifiedRecall] Arm 4 (semantic) timed out after 3000ms for query="${query.substring(0, 50)}"`);
-                reject(new Error('timeout'));
+                reject(new Error('semantic-arm-timeout'));
               }, 3000);
             }),
           ]).finally(() => clearTimeout(arm4Timer));
-          if (hits.length === 0) return null;
+          if (hits.length === 0) {
+            console.log(`[UnifiedRecall] Semantic arm: genuinely empty — no vector matches for query`);
+            return null;
+          }
 
           // Pre-deduplicate conversation hits before parallel hydration — two hits for the same
           // conversation_memory would otherwise both pass the seenConvMemIds check in parallel.
@@ -9542,8 +9547,12 @@ export class NativeFunctionCallHandler {
           }
           return lines.length > 0 ? lines.join('\n') : null;
         } catch (err: any) {
-          // Semantic search is optional enrichment — fail silently
-          if (!err.message?.includes('no embeddings')) {
+          // Distinguish timeout (pool congestion, fixable) from other failures (bugs).
+          // The 'semantic-arm-timeout' marker in the rejection message makes this testable
+          // without parsing human-readable text that could change.
+          if (err.message?.includes('semantic-arm-timeout')) {
+            console.warn(`[UnifiedRecall] Semantic arm timed out after 3000ms — pgvector pool may be congested`);
+          } else if (!err.message?.includes('no embeddings')) {
             console.warn(`[UnifiedRecall] Semantic arm failed: ${err.message}`);
           }
           return null;

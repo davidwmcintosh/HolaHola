@@ -255,6 +255,14 @@ group_body_memory_recall() {
   echo ""
   echo "  --- test-game-recall.ts --self-check (guards fail correctly under regression) ---"
   npx tsx server/scripts/test-game-recall.ts --self-check
+
+  echo ""
+  echo "  --- test-semantic-arm-timeout.ts (Arm 4 timeout distinct from genuinely-empty) ---"
+  run test-semantic-arm-timeout.ts
+
+  echo ""
+  echo "  --- test-semantic-arm-timeout.ts --self-check (4 independent mutations) ---"
+  npx tsx server/scripts/test-semantic-arm-timeout.ts --self-check
 }
 
 group_body_backfill_integrity() {
