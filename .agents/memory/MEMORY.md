@@ -129,3 +129,4 @@
 - [Capture-status stale escalation](capture-status-stale-escalation.md) — ⚠️ STALE fires at ≥10 min (not 60); alert routes to .local/stale-channel-alert.md; CI constants: STALE=11min, EXACT=10min, RECENT=9min. Aug 15 2026.
 - [esbuild isMain guard](esbuild-ismain-guard.md) — import.meta.url === process.argv[1] is always true inside a bundle; use argv[1]?.includes(scriptName) instead or the CLI IIFE fires at every server boot and calls process.exit(). Aug 13 2026.
 - [David task-capture ordering rule](david-task-capture.md) — David→Luca order requires staging: write task_ref to .task_ref_pending (or POST /api/internal/task-capture-start) BEFORE markTaskComplete; both turns append together in one drain batch. Aug 14 2026.
+- [Dev/prod isolation — working model](dev-prod-isolation.md) — David uses the deployed production URL for live sessions; dev restarts never affect him; edit dev freely without pausing for live-session concerns.

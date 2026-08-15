@@ -9810,7 +9810,7 @@ export class NativeFunctionCallHandler {
     if (!session.recallResults) session.recallResults = {};
     session.recallResults[query] = combined;
 
-    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticText ? 'found' : 'none'}, current-session: ${currentSessionText ? 'found' : 'none (no conversationId or 0 messages)'}`);
+    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticText ? 'found' : 'none'}, memories: ${memoriesText ? 'found' : 'none'}, current-session: ${currentSessionText ? 'found' : 'none (no conversationId or 0 messages)'}`);
   }
 
   private async triggerLyraExtractionForThreads(
