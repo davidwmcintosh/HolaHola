@@ -66,25 +66,37 @@ function buildSql() {
   return neon(url);
 }
 
-// Module-level singleton — avoids passing the sql function through every helper
-// call and eliminates the NeonQueryFunction<false,false> vs <boolean,boolean>
-// parameter-type mismatch that arises when it's typed at the call-site.
-const sql = buildSql();
+// Lazy singleton — created on first use so the module can be safely imported
+// in test scripts without requiring NEON_SHARED_DATABASE_URL to be set.
+let _sql: ReturnType<typeof buildSql> | null = null;
+function getSql(): ReturnType<typeof buildSql> {
+  if (!_sql) _sql = buildSql();
+  return _sql;
+}
 
 // ---------------------------------------------------------------------------
 // Args
 // ---------------------------------------------------------------------------
 
 function parseArgs(argv: string[]) {
-  const args = argv.slice(2);
+  // Normalize --key=value into separate ['--key', 'value'] tokens so both forms
+  // (--buffer-minutes 30  and  --buffer-minutes=30) are handled uniformly.
+  const args = argv.slice(2).flatMap(arg => {
+    const eqIdx = arg.indexOf('=');
+    if (eqIdx > 2 && arg.startsWith('--')) {
+      return [arg.slice(0, eqIdx), arg.slice(eqIdx + 1)];
+    }
+    return [arg];
+  });
 
   const tags: string[] = [];
-  let since    = '';
-  let until    = '';
-  let format   = 'plain';   // 'plain' | 'markdown'
-  let limit    = 50;
-  let listOnly = false;
-  let id       = '';
+  let since         = '';
+  let until         = '';
+  let format        = 'plain';   // 'plain' | 'markdown'
+  let limit         = 50;
+  let listOnly      = false;
+  let id            = '';
+  let bufferMinutes = 0;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -110,12 +122,15 @@ function parseArgs(argv: string[]) {
       case '--id':
         if (args[i + 1]) id = args[++i];
         break;
+      case '--buffer-minutes':
+        if (args[i + 1]) bufferMinutes = parseInt(args[++i], 10);
+        break;
       default:
         // ignore unknown flags
     }
   }
 
-  return { tags, since, until, format, limit, listOnly, id };
+  return { tags, since, until, format, limit, listOnly, id, bufferMinutes };
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +146,7 @@ interface MemoryRow {
 }
 
 async function fetchById(id: string): Promise<MemoryRow[]> {
+  const sql = getSql();
   const rows = await sql`
     SELECT id, title, content, recorded_at, tags
     FROM conversation_memories
@@ -145,6 +161,7 @@ async function fetchByTagsAndRange(
   until: string,
   limit: number,
 ): Promise<MemoryRow[]> {
+  const sql = getSql();
   // Filter and order by recorded_at — the event time of the conversation, not the
   // DB insertion time (created_at).  Backfilled or manually-inserted records may
   // have a created_at that differs from when the conversation actually happened;
@@ -265,8 +282,34 @@ function formatList(rows: MemoryRow[]): string {
 // Main
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Boundary-proximity helpers
+// ---------------------------------------------------------------------------
+
+/** Return epoch-ms for a timestamptz string, or null if empty/invalid. */
+function toMs(ts: string | Date | undefined | null): number | null {
+  if (!ts) return null;
+  const ms = new Date(ts as string).getTime();
+  return isNaN(ms) ? null : ms;
+}
+
+/**
+ * Adjust an ISO timestamp string by +/- minutes.
+ * Returns the adjusted ISO string, or the original if it was empty.
+ */
+function shiftIso(ts: string, deltaMinutes: number): string {
+  if (!ts) return ts;
+  const ms = new Date(ts).getTime();
+  if (isNaN(ms)) return ts;
+  return new Date(ms + deltaMinutes * 60_000).toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
 async function main() {
-  const { tags, since, until, format, limit, listOnly, id } = parseArgs(process.argv);
+  const { tags, since, until, format, limit, listOnly, id, bufferMinutes } = parseArgs(process.argv);
 
   // Validate args
   if (!id && tags.length === 0) {
@@ -288,6 +331,19 @@ async function main() {
     process.exit(1);
   }
 
+  // Apply --buffer-minutes: expand the query window symmetrically and note it
+  const effectiveSince = bufferMinutes > 0 && since ? shiftIso(since, -bufferMinutes) : since;
+  const effectiveUntil = bufferMinutes > 0 && until ? shiftIso(until, +bufferMinutes) : until;
+  if (bufferMinutes > 0 && (since || until)) {
+    process.stderr.write(
+      `[retrieve-episode-dialogue] --buffer-minutes=${bufferMinutes}: ` +
+      `expanded window ` +
+      (since ? `since ${since} → ${effectiveSince} ` : '') +
+      (until ? `until ${until} → ${effectiveUntil}` : '') +
+      '\n',
+    );
+  }
+
   // Fetch
   let rows: MemoryRow[];
 
@@ -296,12 +352,12 @@ async function main() {
     rows = await fetchById(id);
   } else {
     const timeDesc =
-      [since && `since ${since}`, until && `until ${until}`].filter(Boolean).join(', ') ||
-      'no time filter';
+      [effectiveSince && `since ${effectiveSince}`, effectiveUntil && `until ${effectiveUntil}`]
+        .filter(Boolean).join(', ') || 'no time filter';
     process.stderr.write(
       `[retrieve-episode-dialogue] Querying tags=[${tags.join(', ')}] ${timeDesc} limit=${limit}…\n`,
     );
-    rows = await fetchByTagsAndRange(tags, since, until, limit);
+    rows = await fetchByTagsAndRange(tags, effectiveSince, effectiveUntil, limit);
   }
 
   process.stderr.write(`[retrieve-episode-dialogue] Found ${rows.length} row(s).\n`);
@@ -313,6 +369,7 @@ async function main() {
       '   Do NOT reconstruct from memory.\n\n' +
       '  Retrieve options:\n' +
       '    - Widen the time range (--since / --until)\n' +
+      '    - Use --buffer-minutes=30 to auto-expand the window by 30 min on each side\n' +
       '    - Check available rows by querying the DB directly:\n' +
       '        SELECT id, title, recorded_at, tags FROM conversation_memories\n' +
       (tags.length > 0
@@ -322,6 +379,32 @@ async function main() {
       '        POST /api/conversation-memories (see holahola-episode SKILL.md)\n',
     );
     process.exit(2);
+  }
+
+  // Boundary-proximity check: warn if any row's recorded_at is within 30 min of
+  // the ORIGINAL --since / --until boundaries (before any buffer expansion).
+  // A row near a boundary is a signal that the session may span midnight and
+  // sibling rows outside the window might be missing.
+  const BOUNDARY_WARN_MS = 30 * 60_000; // 30 minutes
+  const sinceMs = toMs(since);
+  const untilMs = toMs(until);
+
+  for (const row of rows) {
+    const recordedMs = toMs(row.recorded_at);
+    if (recordedMs === null) continue;
+
+    if (sinceMs !== null && Math.abs(recordedMs - sinceMs) <= BOUNDARY_WARN_MS) {
+      process.stderr.write(
+        `⚠ Row ${row.id} recorded_at=${isoDate(row.recorded_at)} is within 30 min of --since boundary` +
+        ' — consider widening the window\n',
+      );
+    }
+    if (untilMs !== null && Math.abs(recordedMs - untilMs) <= BOUNDARY_WARN_MS) {
+      process.stderr.write(
+        `⚠ Row ${row.id} recorded_at=${isoDate(row.recorded_at)} is within 30 min of --until boundary` +
+        ' — consider widening the window\n',
+      );
+    }
   }
 
   // Format and emit — all output to stdout, status messages to stderr
@@ -337,7 +420,20 @@ async function main() {
   process.stdout.write(output + '\n');
 }
 
-main().catch(err => {
-  process.stderr.write(`[retrieve-episode-dialogue] FATAL: ${(err as Error).message ?? err}\n`);
-  process.exit(1);
-});
+// ---------------------------------------------------------------------------
+// Exports (pure helpers — safe to import without DB access)
+// ---------------------------------------------------------------------------
+
+export { parseArgs, toMs, shiftIso };
+
+// ---------------------------------------------------------------------------
+// Entry point — guarded so the module can be imported by tests without
+// triggering a real DB query or process.exit() call.
+// ---------------------------------------------------------------------------
+
+if (process.argv[1]?.includes('retrieve-episode-dialogue')) {
+  main().catch(err => {
+    process.stderr.write(`[retrieve-episode-dialogue] FATAL: ${(err as Error).message ?? err}\n`);
+    process.exit(1);
+  });
+}
