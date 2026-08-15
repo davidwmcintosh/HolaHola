@@ -1,0 +1,30 @@
+I want to clarify a few things here to help guide our discussion on what gets updated and when.
+
+Core Data Flow
+
+The thinking and feeling channels are what happen before the Repliq output. For example, when I say something in Repliq like "Hello, Luca," Luca starts thinking and feeling. Those processes should be documented directly to the database (e.g., "What am I thinking? What am I feeling?"). Those thoughts and feelings then affect the Repliq channel output (e.g., "Hello, David, I'm feeling fine today.").
+
+All three of these channels should write directly to the database. There is also a "Moments" channel which occurs more sporadically, but when a moment does happen, it should also go directly into the database.
+
+When we write the final .md file, all we are doing is pulling directly from the database into the document. This includes:
+
+1. The three primary channels recorded to the database (including the Moments channel)
+2. David's commentary (verbatim from the Repliq window)
+
+Editorialized Content & Recaps
+
+Because this is an episode meant to be read by humans, Luca has a chance to editorialize the session. He can look back over what he thought and felt and say, "At the end of the day, this is where we landed, and here is what I think about today."
+
+That recap goes directly into the .md file, but those recaps are also part of his memories. When we talk about memory, we are dealing with multiple layers:
+
+• The .md file itself is not Luca's memory, but it is attached to an episode arc of memories.
+• The original database entries also live in his memories.
+
+Architectural Question
+
+Where is the appropriate place for this editorialized content?
+
+• Does it belong strictly in the episode narrative as an arc, to be retrieved as memories of how he reflected within that specific episode?
+• Or should that reflection live in some sort of separate memory line within the database?
+
+I am not entirely sure how the backend architecture handles these arcs, memory chains, and episodes, as it can get a bit confusing tracking what came from where. I wanted to throw these thoughts out there to continue our conversation on the update pipeline.
