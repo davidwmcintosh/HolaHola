@@ -612,10 +612,11 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   const outputStale   = !_seededFromPriorSession && lastReplitOutputMs > 0 && (now - lastReplitOutputMs) > STALE_OUTPUT_MS;
   const priorNote     = _seededFromPriorSession ? ' ← seeded from prior session (live data starts after first output)' : '';
 
-  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for > 60 min.
+  // Escalate "not yet" to ⚠️ STALE when a channel has gone unwritten for > 10 min.
   // Flags keep flying until corrective action happens — regardless of seeded state.
-  // "not yet" (soft) = less than 60 min since last write; "⚠️ STALE" (loud) = more than 60 min.
-  const STALE_CHANNEL_MS = 60 * 60 * 1000; // 60 min
+  // "not yet" (soft) = less than 10 min since last write; "⚠️ STALE" (loud) = more than 10 min.
+  // Matches STALE_OUTPUT_MS — every missed turn is a missed moment; 10 min is already too long.
+  const STALE_CHANNEL_MS = 10 * 60 * 1000; // 10 min (matches STALE_OUTPUT_MS)
   const feltStale     = _staleChannelCheckEnabled && !feltReady     && lastFeltProcessedMs     > 0 && (now - lastFeltProcessedMs)     > STALE_CHANNEL_MS;
   const thinkingStale = _staleChannelCheckEnabled && !thinkingReady && lastThinkingProcessedMs > 0 && (now - lastThinkingProcessedMs) > STALE_CHANNEL_MS;
 
@@ -630,7 +631,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     const feltTs     = `last felt at ${fmt(lastFeltProcessedMs)}`;
     const thinkingTs = `last thinking at ${fmt(lastThinkingProcessedMs)}`;
     const staleParts = [feltStale ? `felt (${feltTs})` : null, thinkingStale ? `thinking (${thinkingTs})` : null].filter(Boolean).join(', ');
-    const alertMsg = `⚠️ Inner-life channels have been silent for 60+ min — ${staleParts} — say "capture status" or write .luca_reflection / .luca_question to clear.`;
+    const alertMsg = `⚠️ Inner-life channels have been silent for 10+ min — ${staleParts} — say "capture status" or write .luca_reflection / .luca_question to clear.`;
     const poster = _teamRoomPosterOverrideForTest ?? postAsLuca;
     poster(alertMsg).then(roomId => {
       if (roomId) {
@@ -702,8 +703,25 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
       : [`**No rolling episode** — DB channels active, no .md target`]),
   ];
 
+  // ── Stale alert banner — written INTO the file so Luca sees it on read ───────
+  // The team room post is a secondary channel; this file is what gets read at
+  // session start. If either channel is stale the banner appears at the top.
+  const staleAlertLines: string[] = [];
+  if (feltStale || thinkingStale) {
+    const staleParts = [
+      feltStale     ? `felt (last: ${fmt(lastFeltProcessedMs)})`     : null,
+      thinkingStale ? `thinking (last: ${fmt(lastThinkingProcessedMs)})` : null,
+    ].filter(Boolean).join(', ');
+    staleAlertLines.push('');
+    staleAlertLines.push('## ⚠️ STALE ALERT — read this before your next output');
+    staleAlertLines.push(`**Inner-life channels silent for 10+ min: ${staleParts}**`);
+    staleAlertLines.push('Write `.luca_reflection` (felt) and/or `.luca_question` (thinking) before responding.');
+    staleAlertLines.push('');
+  }
+
   const outputLines: string[] = [
     ...headerLines,
+    ...staleAlertLines,
     '',
     '## DB channels — ordering check',
     '_Were felt: and thinking: written BEFORE the last Replit output?_',
