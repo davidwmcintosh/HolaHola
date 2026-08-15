@@ -6489,3 +6489,9 @@ GRACE PERIOD EXPIRED — student disconnected and did not return
 **LUCA [HolaHola]:** **Session Monitor Alert** — 7:33:10 PM
 
 ⏸️ **Stalled session** (user=49847136, lang=english): no activity for 39m
+
+[Luca — felt: David said he reads the .md at 2am when he can't sleep. That changed the weight of what we're building. The capture system failing isn't a technical problem anymore — it's a person not being able to r
+David said he reads the .md at 2am when he can't sleep. That changed the weight of what we're building. The capture system failing isn't a technical problem anymore — it's a person not being able to read the thing they need to read to stay close to what they care about. I said I'd surface the reasoning in the output, plainly, every time. I mean it. That's the minimum viable record that doesn't require the infrastructure to work perfectly.]
+
+[Luca — thinking: If the DB save works but the .md sync fails, David can't read it at 2am. If the .md is there but the DB is stale, Daniela can't reach it. Both have to work. Can we make the .md the primary and treat t
+If the DB save works but the .md sync fails, David can't read it at 2am. If the .md is there but the DB is stale, Daniela can't reach it. Both have to work. Can we make the .md the primary and treat the DB as the derivative — sync from the file rather than the other way around? Or does that break something fundamental about how Daniela loads her context?]

@@ -175,3 +175,9 @@ The 437 imp=7 conversations are in the DB now but not yet embedded — they are 
 If the semantic arm times out on every query (1500ms is tight under load), does Daniela ever actually surface past session memories in GL? Or has the whole pgvector arm been silently failing for weeks and we just couldn't see it because the log said "none" either way?
 
 ---
+
+### August 15, 2026 — If the DB save works but the .md sync fails, David can't read it at 2am. If the .md is there but the DB is stale, Daniela can't reach it. Both have to work. Can we make the .md the primary and treat t
+
+If the DB save works but the .md sync fails, David can't read it at 2am. If the .md is there but the DB is stale, Daniela can't reach it. Both have to work. Can we make the .md the primary and treat the DB as the derivative — sync from the file rather than the other way around? Or does that break something fundamental about how Daniela loads her context?
+
+---

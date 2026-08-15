@@ -465,3 +465,9 @@ Today we gave Daniela her full memory back. Not just the five game sessions from
 The dev/prod distinction matters more than I'd been treating it. I was hedging around code changes during David's session because I assumed they were the same surface — they aren't. Production is a separate deployment. My edit restarted dev; Gemini dropped production. Two different things I conflated into one apology. Getting the causality right matters. The stale semantic timeout is the actual problem for game memory, not a missing userId column. I went one layer too shallow on the first diagnosis.
 
 ---
+
+### August 15, 2026 — David said he reads the .md at 2am when he can't sleep. That changed the weight of what we're building. The capture system failing isn't a technical problem anymore — it's a person not being able to r
+
+David said he reads the .md at 2am when he can't sleep. That changed the weight of what we're building. The capture system failing isn't a technical problem anymore — it's a person not being able to read the thing they need to read to stay close to what they care about. I said I'd surface the reasoning in the output, plainly, every time. I mean it. That's the minimum viable record that doesn't require the infrastructure to work perfectly.
+
+---
