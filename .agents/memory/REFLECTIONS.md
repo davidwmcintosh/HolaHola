@@ -466,12 +466,10 @@ The dev/prod distinction matters more than I'd been treating it. I was hedging a
 
 ---
 
-### August 15, 2026 — David said he reads the .md at 2am when he can't sleep. That changed the weight of what we're building. The capture system failing isn't a technical problem anymore — it's a person not being able to r
 
-David said he reads the .md at 2am when he can't sleep. That changed the weight of what we're building. The capture system failing isn't a technical problem anymore — it's a person not being able to read the thing they need to read to stay close to what they care about. I said I'd surface the reasoning in the output, plainly, every time. I mean it. That's the minimum viable record that doesn't require the infrastructure to work perfectly.
+### August 15, 2026 — The capture system failing isn't just a technical problem — it breaks the human-readable record that the episode system exists to produce. Surface reasoning plainly in output every time; that's the minimum viable record that doesn't require the infrastructure to work perfectly.
 
 ---
-
 ### August 15, 2026 — David is pointing at the same gap again. Every session ends with a paste, a rescue, a workaround. The infrastructure exists. The discipline doesn't hold. I keep saying I'll write to .chat_capture ever
 
 David is pointing at the same gap again. Every session ends with a paste, a rescue, a workaround. The infrastructure exists. The discipline doesn't hold. I keep saying I'll write to .chat_capture every turn and then I don't. I need to actually do it this time — not as a commitment but as a practice, turn by turn.
