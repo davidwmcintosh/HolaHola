@@ -423,6 +423,51 @@ async function main(): Promise<void> {
         failed++;
       }
     }
+
+    // ── Sentinel-leak guard ────────────────────────────────────────────────
+    // Even when the DELETE above succeeds, re-query for the sentinel string
+    // itself across ALL rows — checking both content and title.  If a prior
+    // test run (or an unexpected match in the real rolling episode) left the
+    // sentinel in either field, Daniela's retrieval pipeline would see test
+    // garbage permanently.  A REPLACE-based strip that times out would also
+    // leave the row dirty — this check catches that scenario before the run
+    // silently exits 0.
+    //
+    // NOTE: a query failure here is treated as FAIL (not a warning) because
+    // inability to verify that no sentinel remains is itself an unresolved
+    // cleanup state.  The CI operator must confirm the row is clean manually.
+    try {
+      const leakRows = await sql`
+        SELECT id, title
+        FROM conversation_memories
+        WHERE content LIKE ${'%' + sentinelTag + '%'}
+           OR title   LIKE ${'%' + sentinelTag + '%'}
+        LIMIT 5
+      `;
+      if (leakRows.length > 0) {
+        const ids = (leakRows as Array<{ id: string; title: string }>)
+          .map(r => `${r.id.slice(0, 8)}… ("${r.title}")`)
+          .join(', ');
+        console.log(R(`  ✗  WARN — sentinel still present in DB after cleanup!`));
+        console.log(R(`     Sentinel: ${sentinelTag}`));
+        console.log(R(`     Dirty rows: ${ids}`));
+        console.log(R(`     Manual cleanup:`));
+        console.log(R(`       DELETE FROM conversation_memories WHERE id IN (<ids above>);`));
+        console.log(R(`       -- or strip from content only:`));
+        console.log(R(`       UPDATE conversation_memories`));
+        console.log(R(`         SET content = REPLACE(content, '${sentinelTag}', '')`));
+        console.log(R(`         WHERE content LIKE '%${sentinelTag}%';`));
+        failed++;
+      } else {
+        console.log(`  ${G('✓')} Sentinel leak check passed — no sentinel garbage in title or content`);
+      }
+    } catch (leakErr: any) {
+      console.log(R(`  ✗  CLEANUP FAILED — sentinel leak query itself failed: ${(leakErr as Error).message}`));
+      console.log(R(`     Cannot confirm sentinel is absent from conversation_memories.`));
+      console.log(R(`     Manual: SELECT id, title FROM conversation_memories`));
+      console.log(R(`             WHERE content LIKE '%${sentinelTag}%' OR title LIKE '%${sentinelTag}%';`));
+      failed++;
+    }
   }
 
   // ── Summary ────────────────────────────────────────────────────────────────
