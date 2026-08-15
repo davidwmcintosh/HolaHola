@@ -301,7 +301,12 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
 
   // conversation_memories — full narrative memories of meaningful sessions
   // These are the richest memories: full transcripts, breakthrough moments, the podcast.
-  // No userId scoping — these are global shared history between David and Daniela.
+  //
+  // Scoping rule:
+  //   - Memories tagged 'founder-chat' or 'founder-private' contain verbatim David-Daniela
+  //     conversations and must be scoped to DAVID_USER_ID so they appear only in his personal
+  //     embedding pool and never leak into other students' global recall context.
+  //   - All other memories remain globally scoped (userId = null).
   //
   // Two embeddings per entry:
   //   1. conversation_memory  — title + summary + full content (summary first so it survives token truncation)
@@ -311,6 +316,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   // appear prominently in the distilled summary but get diluted in the full-transcript vector.
   // Semantic search now hits both vectors, so a targeted query ("toy") finds the summary anchor
   // even when the full-content vector misses it.
+  const FOUNDER_USER_ID = '49847136'; // David — owner of founder-scoped conversation memories
   try {
     const db = getSharedDb();
 
@@ -324,6 +330,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         title: conversationMemories.title,
         summary: conversationMemories.summary,
         importance: conversationMemories.importance,
+        tags: conversationMemories.tags,
       })
       .from(conversationMemories)
       .where(sql`
@@ -338,9 +345,13 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       const rowTitle = r.title;
       const rowSummary = r.summary;
       const strength = Math.min(1.0, (r.importance ?? 7) / 10);
+      const rowTags = r.tags ?? [];
+      const rowUserId = (rowTags.includes('founder-chat') || rowTags.includes('founder-private'))
+        ? FOUNDER_USER_ID
+        : null;
       targets.push({
         id: rowId,
-        userId: null,
+        userId: rowUserId,
         content: '',
         // Content is fetched lazily in runIndexer() — one at a time to avoid OOM.
         // Summary goes BEFORE content so keyword-rich anchor survives token truncation.
@@ -366,6 +377,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         title: conversationMemories.title,
         summary: conversationMemories.summary,
         importance: conversationMemories.importance,
+        tags: conversationMemories.tags,
       })
       .from(conversationMemories)
       .where(sql`
@@ -379,9 +391,12 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       .limit(200);
     for (const r of summaryRows) {
       const summaryContent = [r.title, r.summary].filter(Boolean).join('\n\n');
+      const summaryTags = r.tags ?? [];
+      const summaryUserId = (summaryTags.includes('founder-chat') || summaryTags.includes('founder-private'))
+        ? FOUNDER_USER_ID : null;
       targets.push({
         id: r.id,
-        userId: null,
+        userId: summaryUserId,
         content: summaryContent,
         memoryType: 'conversation_summary',
         initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
@@ -405,6 +420,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         id: conversationMemories.id,
         title: conversationMemories.title,
         importance: conversationMemories.importance,
+        tags: conversationMemories.tags,
       })
       .from(conversationMemories)
       .where(sql`
@@ -428,6 +444,9 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
 
       const chunks = splitIntoChunks(content);
       const total = chunks.length;
+      const chunkTags = r.tags ?? [];
+      const chunkUserId = (chunkTags.includes('founder-chat') || chunkTags.includes('founder-private'))
+        ? FOUNDER_USER_ID : null;
 
       // Fetch existing chunks for this conversation only (targeted, not all chunks)
       const existingForThis = new Set(
@@ -444,7 +463,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         const chunkContent = `[Memory: ${r.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
         targets.push({
           id: chunkId,
-          userId: null,
+          userId: chunkUserId,
           content: chunkContent,
           memoryType: 'conversation_chunk',
           initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
@@ -557,10 +576,58 @@ async function archiveUnindexedConversations(): Promise<number> {
   return archived;
 }
 
+/**
+ * Correct userId scope for any existing founder-chat / founder-private embeddings
+ * that were stored with userId=NULL (global pool).
+ *
+ * Why this runs every indexer cycle:
+ *   collectUnindexedMemories() only selects rows with NO embedding yet.  A
+ *   NULL-scoped founder embedding that already exists is never selected as a
+ *   target, so generateAndStoreEmbedding()'s userId-correction path (hash-match
+ *   early return with userId update) cannot fire for it.  This explicit pass
+ *   catches those already-indexed rows and corrects their scope directly — no
+ *   re-embedding needed since only userId changes.
+ */
+async function correctFounderEmbeddingScopes(): Promise<void> {
+  const FOUNDER_USER_ID_SCOPE = '49847136'; // David
+  try {
+    const db = getSharedDb();
+    // Direct SQL: join memory_embeddings → conversation_memories via SPLIT_PART for chunk IDs.
+    // Covers conversation_memory, conversation_summary, and conversation_chunk rows.
+    const result = await db.execute(sql`
+      UPDATE memory_embeddings me
+      SET user_id = ${FOUNDER_USER_ID_SCOPE}
+      FROM conversation_memories cm
+      WHERE me.user_id IS NULL
+        AND me.memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
+        AND cm.id = SPLIT_PART(me.memory_id, ':chunk:', 1)
+        AND (
+          cm.tags @> ARRAY['founder-chat']::text[]
+          OR cm.tags @> ARRAY['founder-private']::text[]
+        )
+    `);
+    const rowCount = (result as any)?.rowCount ?? (result as any)?.count ?? 0;
+    if (Number(rowCount) > 0) {
+      console.log(`[EmbedIndexer] Corrected ${rowCount} NULL-scoped founder embedding(s) → userId=${FOUNDER_USER_ID_SCOPE}`);
+    }
+  } catch (err: any) {
+    // Treat scope-correction failure as a security failure: a failed correction
+    // leaves founder-tagged embeddings in the global pool where any student's
+    // semanticSearch() can surface them.  Rethrow so runIndexer() surfaces the
+    // error rather than silently completing with a privacy regression in place.
+    throw new Error(`[EmbedIndexer] correctFounderEmbeddingScopes failed — scope integrity cannot be guaranteed: ${err.message}`);
+  }
+}
+
 export async function runIndexer(): Promise<void> {
   // Step 0: promote any un-archived conversations into conversation_memories
   // (up to 30 per run — drains the backlog incrementally and picks up new sessions)
   await archiveUnindexedConversations();
+
+  // Step 0b: correct any NULL-scoped founder embeddings left by previous indexer runs
+  // (already-indexed rows are not selected by collectUnindexedMemories, so this
+  //  explicit pass is the only way to propagate scoping fixes to existing data)
+  await correctFounderEmbeddingScopes();
 
   const targets = await collectUnindexedMemories();
 

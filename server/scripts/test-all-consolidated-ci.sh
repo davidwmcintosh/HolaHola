@@ -20,6 +20,8 @@
 #                      merge-ours guard
 #   luca-inner-life  – capture-status seed, reflection / moment /       (~30 s)
 #                      auto-capture episode checks
+#   memory-recall    – game-session embedding coverage + global pool     (~10 s)
+#                      depth guard + keyword arm
 #
 # Growth-cap exemptions (registered as standalone named workflows, not in groups):
 #   truth-pipeline-unified-recall-diagnosis-ci
@@ -42,7 +44,7 @@ for arg in "$@"; do
   esac
 done
 
-VALID_GROUPS="absence sms-voice session north-star episode-sync episode-28 luca-inner-life"
+VALID_GROUPS="absence sms-voice session north-star episode-sync episode-28 luca-inner-life memory-recall"
 
 if [[ -n "$ONLY_GROUP" && $SELF_TEST -eq 1 ]]; then
   echo "--self-test and --only cannot be combined (self-test uses synthetic groups that are not in VALID_GROUPS)" >&2
@@ -237,6 +239,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-build-session-dedup.ts --self-check (dedup guard removed → 2 turns appear) ---"
   npx tsx server/scripts/test-build-session-dedup.ts --self-check
+}
+
+group_body_memory_recall() {
+  run test-game-recall.ts
+
+  echo ""
+  echo "  --- test-game-recall.ts --self-check (guards fail correctly under regression) ---"
+  npx tsx server/scripts/test-game-recall.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────

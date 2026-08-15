@@ -106,7 +106,7 @@ export async function generateAndStoreEmbedding(
 
   // Check if already up-to-date
   const existing = await db
-    .select({ contentHash: memoryEmbeddings.contentHash })
+    .select({ contentHash: memoryEmbeddings.contentHash, userId: memoryEmbeddings.userId })
     .from(memoryEmbeddings)
     .where(and(
       eq(memoryEmbeddings.memoryType, memoryType),
@@ -115,16 +115,30 @@ export async function generateAndStoreEmbedding(
     .limit(1);
 
   if (existing.length > 0 && existing[0].contentHash === hash) {
-    return false; // Already fresh
+    // Hash matches — content unchanged. Still check if userId needs correcting.
+    // This ensures a scoping fix (e.g. NULL→DAVID_USER_ID for founder-chat memories)
+    // propagates on the next indexer cycle without waiting for content to change.
+    const existingUserId = existing[0].userId;
+    const userIdMismatch = existingUserId !== userId;
+    if (userIdMismatch) {
+      await db
+        .update(memoryEmbeddings)
+        .set({ userId })
+        .where(and(
+          eq(memoryEmbeddings.memoryType, memoryType),
+          eq(memoryEmbeddings.memoryId, memoryId),
+        ));
+    }
+    return false; // Content unchanged (no re-embed needed)
   }
 
   const embedding = await embedText(content);
 
   if (existing.length > 0) {
-    // Update stale embedding
+    // Update stale embedding — include userId so scoping corrections always persist
     await db
       .update(memoryEmbeddings)
-      .set({ embedding, contentHash: hash, createdAt: new Date() })
+      .set({ embedding, contentHash: hash, userId, createdAt: new Date() })
       .where(and(
         eq(memoryEmbeddings.memoryType, memoryType),
         eq(memoryEmbeddings.memoryId, memoryId),

@@ -22,6 +22,23 @@ import { generateAndStoreEmbedding } from '../services/semantic-memory-service';
 import { splitIntoChunks, reformatSpeakerHeaders } from '../services/memory-embedding-indexer';
 import { sql, eq, and } from 'drizzle-orm';
 
+// David's userId — embeddings for founder-chat/founder-private memories must be
+// scoped to this ID so they stay in his personal recall pool and cannot be
+// surfaced by other students' semanticSearch queries.
+const FOUNDER_USER_ID = '49847136';
+
+/**
+ * Derive the correct userId for a conversation_memory embedding.
+ * founder-chat and founder-private memories MUST use FOUNDER_USER_ID (never null).
+ * null = global pool, visible to every student via semanticSearch.
+ */
+function resolveUserId(tags: string[] | null): string | null {
+  if (!tags) return null;
+  return (tags.includes('founder-chat') || tags.includes('founder-private'))
+    ? FOUNDER_USER_ID
+    : null;
+}
+
 export async function reembedConversationMemory(id: string): Promise<void> { return reembedOne(id); }
 
 async function reembedOne(id: string): Promise<void> {
@@ -34,6 +51,7 @@ async function reembedOne(id: string): Promise<void> {
       summary: conversationMemories.summary,
       content: conversationMemories.content,
       importance: conversationMemories.importance,
+      tags: conversationMemories.tags,
     })
     .from(conversationMemories)
     .where(eq(conversationMemories.id, id))
@@ -46,17 +64,19 @@ async function reembedOne(id: string): Promise<void> {
   }
 
   const strength = Math.min(1.0, (row.importance ?? 7) / 10);
+  // Derive userId from tags — founder conversations must stay in the personal pool
+  const userId = resolveUserId(row.tags ?? []);
 
   // Arm A: full-content embedding
   const fullContent = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
-  const fullChanged = await generateAndStoreEmbedding('conversation_memory', row.id, null, fullContent, strength);
-  console.log(`[conversation_memory] ${id} -> ${fullChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
+  const fullChanged = await generateAndStoreEmbedding('conversation_memory', row.id, userId, fullContent, strength);
+  console.log(`[conversation_memory] ${id} userId=${userId ?? 'null'} -> ${fullChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
 
   // Arm B: summary anchor
   if (row.summary && row.summary.length > 10) {
     const summaryContent = [row.title, row.summary].filter(Boolean).join('\n\n');
-    const summaryChanged = await generateAndStoreEmbedding('conversation_summary', row.id, null, summaryContent, strength);
-    console.log(`[conversation_summary] ${id} -> ${summaryChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
+    const summaryChanged = await generateAndStoreEmbedding('conversation_summary', row.id, userId, summaryContent, strength);
+    console.log(`[conversation_summary] ${id} userId=${userId ?? 'null'} -> ${summaryChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
   }
 
   // Arm C: verbatim chunks
@@ -67,8 +87,8 @@ async function reembedOne(id: string): Promise<void> {
     const chunkId = `${row.id}:chunk:${i}`;
     const chunkContent = `[Memory: ${row.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
     try {
-      const chunkChanged = await generateAndStoreEmbedding('conversation_chunk', chunkId, null, chunkContent, strength);
-      console.log(`[conversation_chunk ${i + 1}/${total}] ${id} -> ${chunkChanged ? 'RE-EMBEDDED' : 'unchanged'}`);
+      const chunkChanged = await generateAndStoreEmbedding('conversation_chunk', chunkId, userId, chunkContent, strength);
+      console.log(`[conversation_chunk ${i + 1}/${total}] ${id} userId=${userId ?? 'null'} -> ${chunkChanged ? 'RE-EMBEDDED' : 'unchanged'}`);
     } catch (err: any) {
       console.error(`[ERROR chunk ${i + 1}/${total}] ${id} -> ${err?.message ?? err}`);
     }
