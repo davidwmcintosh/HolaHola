@@ -1,7 +1,7 @@
 /**
  * test-inner-life-db-first.ts
  *
- * CI check: confirms that a felt/thinking/moment entry lands in the episode
+ * CI check: confirms that felt/thinking/moment entries land in the episode
  * conversation_memories DB row — not just the .md file.
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -15,7 +15,14 @@
  *
  * If step 1 silently fails (episode row not found, DB error caught internally),
  * the .md is never updated and the entry is lost.  This test catches that
- * regression by querying the DB directly after checkLucaReflection() fires.
+ * regression by querying the DB directly after each trigger function fires.
+ *
+ * Three trigger paths are exercised — each calls appendInnerLifeToEpisodeDb()
+ * via a different handler, with different parseTriggerFile tag and mtime guard:
+ *
+ *   Path A — felt:     checkLucaReflection()   tag=luca-reflection   block=[Luca — felt: …]
+ *   Path B — thinking: checkLucaQuestion()      tag=luca-question     block=[Luca — thinking: …]
+ *   Path C — moment:   checkLucaMoment()        tag=luca-significant  block=[Luca — moment: …]
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Hermetic isolation — what this test touches
@@ -24,14 +31,14 @@
  * OWNED (created + destroyed each run):
  *   - A fresh conversation_memories fixture row (INSERTed, DELETEd in finally)
  *   - A matching docs/episode-NNNNN.md fixture file (created, unlinked in finally)
- *   - A temp trigger file in /tmp/ (created, unlinked in finally)
+ *   - Three temp trigger files in /tmp/ (created, unlinked in finally)
  *
  * SNAPSHOTTED + RESTORED:
  *   - .local/episode-capture-status.md
  *   - .local/stale-channel-alert.md
  *
  * NEVER TOUCHED:
- *   - .local/.luca_reflection  (live trigger — never read or written)
+ *   - .local/.luca_reflection / .luca_question / .luca_moment  (live triggers)
  *   - The real rolling episode row/file
  *   - memory_embeddings  (re-embed gated off via seam)
  *
@@ -44,7 +51,9 @@
  *   JSON:       { "title": "…", "content": "…" } → clean field extraction
  *
  * This test uses JSON so the stored entry exactly matches the expected sentinel:
- *   Stored: [Luca — felt: <sentinelTitle>\n<sentinelBody>]
+ *   felt:     [Luca — felt: <sentinelTitle>\n<sentinelBody>]
+ *   thinking: [Luca — thinking: <sentinelTitle>\n<sentinelBody>]
+ *   moment:   [Luca — moment: <sentinelTitle>\n<sentinelBody>]
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Test seams used (all from agent-session-autosave.ts)
@@ -53,18 +62,27 @@
  *   setReflectionPathOverrideForTest(path | null)
  *     Redirects checkLucaReflection() to the temp trigger in /tmp/.
  *
+ *   setQuestionPathOverrideForTest(path | null)
+ *     Redirects checkLucaQuestion() to the temp trigger in /tmp/.
+ *
+ *   setMomentPathOverrideForTest(path | null)
+ *     Redirects checkLucaMoment() to the temp trigger in /tmp/.
+ *
  *   setInnerLifeRollingEpisodeOverride(filename | null)
  *     Pins all inner-life handlers to the fixture episode filename.
  *
  *   setLucaPersonalSideEffectsEnabled(false)
- *     Skips REFLECTIONS.md write and personal-memory INSERT.
+ *     Skips REFLECTIONS.md / OPEN_QUESTIONS.md / MOMENTS.md writes and
+ *     personal-memory INSERTs.
  *
  *   setInnerLifeReembedEnabled(false)
  *     Suppresses reembedConversationMemory() so no memory_embeddings rows
  *     are created for the fixture episode and no external API calls are made.
  *
  *   setReflectionLastMtimeForTest(past_ms)
- *     Primes reflectionLastMtime > 0 so the first write is processed
+ *   setQuestionLastMtimeForTest(past_ms)
+ *   setMomentLastMtimeForTest(past_ms)
+ *     Prime each mtime guard > 0 so the first write is processed
  *     (not skipped as the "initial read" when prev===0).
  *
  *   setInnerLifeDbUpdateEnabled(false)   [self-check only]
@@ -81,17 +99,17 @@
  *   1. Pre-run cleanup of any stale fixture rows from prior crashed runs.
  *   2. INSERTs fixture episode row; creates fixture .md.
  *   3. Snapshots status files.
- *   4. Sets up seams; writes JSON sentinel to /tmp/ trigger.
- *   5. Calls checkLucaReflection().
- *   6. Queries fixture DB row: confirms sentinel in content.
- *   7. Confirms fixture .md also has sentinel.
- *   8. Finally: restores status files, DELETEs fixture row, unlinks files.
+ *   4–7.  felt: path   — set seams, write trigger, call checkLucaReflection(), verify DB + .md
+ *   8–11. thinking: path — set seams, write trigger, call checkLucaQuestion(), verify DB + .md
+ *   12–15. moment: path — set seams, write trigger, call checkLucaMoment(), verify DB + .md
+ *   Finally: restores status files, DELETEs fixture row, unlinks files.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Self-check mode  (--self-check)
  * ─────────────────────────────────────────────────────────────────────────────
- *   Sets setInnerLifeDbUpdateEnabled(false) before triggering.
- *   Asserts sentinel is NOT in fixture row content (UPDATE was bypassed).
+ *   Sets setInnerLifeDbUpdateEnabled(false) before any trigger fires.
+ *   Asserts sentinel is NOT in fixture row content after each path.
+ *   Covers all three paths (felt/thinking/moment) in one run.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Exit codes
@@ -114,11 +132,17 @@ import { neon } from '@neondatabase/serverless';
 
 import {
   checkLucaReflection,
+  checkLucaQuestion,
+  checkLucaMoment,
   setLucaPersonalSideEffectsEnabled,
   setReflectionLastMtimeForTest,
+  setQuestionLastMtimeForTest,
+  setMomentLastMtimeForTest,
   setInnerLifeDbUpdateEnabled,
   setInnerLifeReembedEnabled,
   setReflectionPathOverrideForTest,
+  setQuestionPathOverrideForTest,
+  setMomentPathOverrideForTest,
   setInnerLifeRollingEpisodeOverride,
 } from '../services/agent-session-autosave';
 
@@ -196,14 +220,27 @@ function restoreFile(path: string, snap: FileSnapshot, label: string): void {
   }
 }
 
+// ── Sentinel helpers ──────────────────────────────────────────────────────────
+interface PathPass {
+  label: string;
+  tag: string;       // parseTriggerFile tag (luca-reflection / luca-question / luca-significant)
+  prefix: string;    // stored block prefix: "felt" | "thinking" | "moment"
+  triggerSuffix: string; // temp file suffix to avoid path collisions
+  trigger: () => Promise<void>;
+  setPathOverride: (p: string | null) => void;
+  setMtime: (ms: number) => void;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   const mode = selfCheckMode ? 'SELF-CHECK' : 'NORMAL';
   console.log(B(`\n━━━  test-inner-life-db-first  [${mode}]  ━━━`));
   console.log(D('  Confirms felt/thinking/moment entries land in the episode DB row'));
   console.log(D('  before the .md is written (DB-first pipeline).\n'));
-  console.log(D('  Fully hermetic: fixture episode row + temp trigger. Live episode'));
-  console.log(D('  and .luca_reflection never touched. Re-embed gated off.\n'));
+  console.log(D('  Three trigger paths exercised: felt (checkLucaReflection),'));
+  console.log(D('  thinking (checkLucaQuestion), moment (checkLucaMoment).\n'));
+  console.log(D('  Fully hermetic: fixture episode row + temp triggers. Live episode'));
+  console.log(D('  and live trigger files never touched. Re-embed gated off.\n'));
 
   // ── Precondition: DB config must be present (hard FAIL, not skip) ─────────
   const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -214,18 +251,11 @@ async function main(): Promise<void> {
   }
   const sql = neon(dbUrl);
 
-  // ── Sentinel ──────────────────────────────────────────────────────────────
-  const sentinelTag   = `CI-INNER-LIFE-DB-FIRST-${Date.now()}`;
-  const sentinelTitle = `test: DB-first sentinel ${sentinelTag}`;
-  const sentinelBody  = `Sentinel body ${sentinelTag}`;
-  const sentinelBlock = `[Luca — felt: ${sentinelTitle}\n${sentinelBody}]`;
-  const triggerJson   = JSON.stringify({ title: sentinelTitle, content: sentinelBody });
-  const tmpTriggerPath = join(tmpdir(), `.test-luca-reflection-${Date.now()}.json`);
+  // ── Base sentinel tag (per-run unique) ────────────────────────────────────
+  const runTag = `CI-INNER-LIFE-DB-FIRST-${Date.now()}`;
 
   console.log(D(`  Fixture:       ${FIXTURE_FILE}  (title="${FIXTURE_TITLE}")`));
-  console.log(D(`  Sentinel tag:  ${sentinelTag}`));
-  console.log(D(`  Stored block:  ${sentinelBlock.replace(/\n/g, '\\n')}`));
-  console.log(D(`  Trigger path:  ${tmpTriggerPath}\n`));
+  console.log(D(`  Run tag:       ${runTag}\n`));
 
   // ── Snapshot status files before anything runs ────────────────────────────
   const captureStatusSnap = snapshotFile(CAPTURE_STATUS_PATH);
@@ -233,13 +263,11 @@ async function main(): Promise<void> {
 
   let fixtureRowId = '';
 
+  // Collect temp trigger paths so we can clean them all in finally.
+  const tmpTriggerPaths: string[] = [];
+
   try {
     // ── Step 0: pre-run stale-fixture cleanup ─────────────────────────────
-    // Each fixture row is tagged with FIXTURE_TAG (only this script uses it).
-    // If a prior crashed run left a tagged row, delete it now to prevent
-    // appendInnerLifeToEpisodeDb() from finding the wrong row by title.
-    // This is tag-scoped, not a broad numeric range, so concurrent runs
-    // on the same DB only clean up each other's stale rows — never real data.
     sep();
     console.log(B('Step 0: pre-run stale-fixture cleanup'));
     try {
@@ -286,92 +314,157 @@ async function main(): Promise<void> {
     writeFileSync(FIXTURE_MD_PATH, `# ${FIXTURE_TITLE}\n\nCI fixture — inner-life DB-first test\n`, 'utf-8');
     console.log(`  ${G('✓')} Created ${FIXTURE_MD_PATH}`);
 
-    // ── Step 3: configure test seams ─────────────────────────────────────
+    // ── Step 3: configure shared seams ───────────────────────────────────
     sep();
-    console.log(B('Step 3: configure test seams'));
-    setReflectionPathOverrideForTest(tmpTriggerPath);    // temp trigger, not live file
-    setInnerLifeRollingEpisodeOverride(FIXTURE_FILE);    // pin to fixture episode
-    setLucaPersonalSideEffectsEnabled(false);            // no REFLECTIONS.md / personal-memory
-    setInnerLifeReembedEnabled(false);                   // no memory_embeddings rows for fixture
-    setReflectionLastMtimeForTest(Date.now() - 5000);    // prime mtime guard (prev > 0)
+    console.log(B('Step 3: configure shared test seams'));
+    setInnerLifeRollingEpisodeOverride(FIXTURE_FILE);   // pin to fixture episode
+    setLucaPersonalSideEffectsEnabled(false);            // no personal-file / personal-memory
+    setInnerLifeReembedEnabled(false);                   // no memory_embeddings rows
 
     if (selfCheckMode) {
       setInnerLifeDbUpdateEnabled(false);
-      console.log(Y('  [self-check] UPDATE seam disabled — modelling regression'));
+      console.log(Y('  [self-check] UPDATE seam disabled — modelling DB-write regression'));
     }
-    console.log(`  ${G('✓')} All seams configured`);
+    console.log(`  ${G('✓')} Shared seams configured`);
 
-    // ── Step 4: write JSON sentinel to temp trigger ───────────────────────
-    sep();
-    console.log(B('Step 4: write JSON sentinel to temp trigger file'));
-    writeFileSync(tmpTriggerPath, triggerJson, 'utf-8');
-    console.log(`  ${G('✓')} Sentinel written to /tmp/ (${triggerJson.length} chars, JSON)`);
+    // ── Define the three paths to exercise ───────────────────────────────
+    const paths: PathPass[] = [
+      {
+        label:         'felt (checkLucaReflection)',
+        tag:           'luca-reflection',
+        prefix:        'felt',
+        triggerSuffix: 'reflection',
+        trigger:       checkLucaReflection,
+        setPathOverride: setReflectionPathOverrideForTest,
+        setMtime:      setReflectionLastMtimeForTest,
+      },
+      {
+        label:         'thinking (checkLucaQuestion)',
+        tag:           'luca-question',
+        prefix:        'thinking',
+        triggerSuffix: 'question',
+        trigger:       checkLucaQuestion,
+        setPathOverride: setQuestionPathOverrideForTest,
+        setMtime:      setQuestionLastMtimeForTest,
+      },
+      {
+        label:         'moment (checkLucaMoment)',
+        tag:           'luca-significant',
+        prefix:        'moment',
+        triggerSuffix: 'moment',
+        trigger:       checkLucaMoment,
+        setPathOverride: setMomentPathOverrideForTest,
+        setMtime:      setMomentLastMtimeForTest,
+      },
+    ];
 
-    // ── Step 5: fire checkLucaReflection() ───────────────────────────────
-    sep();
-    console.log(B('Step 5: call checkLucaReflection()'));
-    await checkLucaReflection();
-    console.log(`  ${G('✓')} checkLucaReflection() completed`);
+    // ── Exercise each path (Steps 4–N) ────────────────────────────────────
+    let stepBase = 4;
 
-    // ── Step 6: query fixture DB row for sentinel ─────────────────────────
-    sep();
-    console.log(B('Step 6: query fixture DB row for sentinel'));
-    const dbRows = await sql`
-      SELECT content LIKE ${'%' + sentinelTag + '%'} AS has_sentinel
-      FROM conversation_memories
-      WHERE id = ${fixtureRowId}
-    `;
-    const dbRow = dbRows[0] as { has_sentinel: boolean } | undefined;
+    for (const p of paths) {
+      const sentinelTag   = `${runTag}-${p.prefix.toUpperCase()}`;
+      const sentinelTitle = `test: DB-first sentinel ${sentinelTag}`;
+      const sentinelBody  = `Sentinel body ${sentinelTag}`;
+      const triggerJson   = JSON.stringify({ title: sentinelTitle, content: sentinelBody });
+      const tmpTriggerPath = join(tmpdir(), `.test-luca-${p.triggerSuffix}-${Date.now()}.json`);
+      tmpTriggerPaths.push(tmpTriggerPath);
 
-    if (!dbRow) {
-      assert('Fixture row still exists in DB', false, `id=${fixtureRowId} not found`);
-    } else {
-      const hasSentinel = Boolean(dbRow.has_sentinel);
-      if (selfCheckMode) {
-        assert(
-          '[self-check] Sentinel absent from fixture DB row (UPDATE seam disabled correctly)',
-          !hasSentinel,
-          hasSentinel ? 'Sentinel found even though UPDATE was disabled — seam not working' : '',
-        );
-        if (!hasSentinel) {
-          console.log(`\n  ${G('✓')} Self-check confirmed: removing the UPDATE causes the`);
-          console.log(`  ${G('✓')} normal-mode DB assertion to fail — the guard is sound.`);
-        }
-      } else {
-        assert(
-          'Sentinel appears in fixture conversation_memories.content (DB-first write succeeded)',
-          hasSentinel,
-          hasSentinel ? '' :
-            `Sentinel "${sentinelTag}" not in fixture DB content. ` +
-            `appendInnerLifeToEpisodeDb() may have silently failed.`,
-        );
-      }
-    }
+      const expectedBlock = `[Luca — ${p.prefix}: ${sentinelTitle}\n${sentinelBody}]`;
 
-    // ── Step 7: verify fixture .md (normal mode only) ─────────────────────
-    if (!selfCheckMode) {
       sep();
-      console.log(B('Step 7: verify fixture .md reflects DB content'));
-      if (existsSync(FIXTURE_MD_PATH)) {
-        const mdContent = readFileSync(FIXTURE_MD_PATH, 'utf-8');
-        assert(
-          'Sentinel appears in fixture .md (written from DB content)',
-          mdContent.includes(sentinelTag),
-          mdContent.includes(sentinelTag) ? '' : 'Sentinel not in fixture .md — .md not updated from DB.',
-        );
+      console.log(B(`Steps ${stepBase}–${stepBase + 3}: PATH — ${p.label}`));
+      console.log(D(`  Sentinel:  ${sentinelTag}`));
+      console.log(D(`  Block:     ${expectedBlock.replace(/\n/g, '\\n')}`));
+
+      // Set up path override + prime mtime guard
+      p.setPathOverride(tmpTriggerPath);
+      p.setMtime(Date.now() - 5000); // prime guard: prev > 0
+
+      // Write sentinel trigger
+      writeFileSync(tmpTriggerPath, triggerJson, 'utf-8');
+      console.log(`  ${G('✓')} [Step ${stepBase}] Seams set, trigger written`);
+
+      // Fire the trigger function
+      await p.trigger();
+      console.log(`  ${G('✓')} [Step ${stepBase + 1}] ${p.trigger.name ?? 'trigger'}() completed`);
+
+      // Clear path override immediately after use so the next path uses its own
+      p.setPathOverride(null);
+      p.setMtime(0);
+
+      // Query DB for sentinel
+      const dbRows = await sql`
+        SELECT content LIKE ${'%' + sentinelTag + '%'} AS has_sentinel
+        FROM conversation_memories
+        WHERE id = ${fixtureRowId}
+      `;
+      const dbRow = dbRows[0] as { has_sentinel: boolean } | undefined;
+
+      if (!dbRow) {
+        assert(`[Step ${stepBase + 2}] Fixture row still exists in DB (${p.label})`, false, `id=${fixtureRowId} not found`);
       } else {
-        assert('Fixture .md still exists on disk', false, `File gone: ${FIXTURE_MD_PATH}`);
+        const hasSentinel = Boolean(dbRow.has_sentinel);
+        if (selfCheckMode) {
+          assert(
+            `[self-check / Step ${stepBase + 2}] Sentinel absent from DB (${p.label}) — UPDATE seam disabled correctly`,
+            !hasSentinel,
+            hasSentinel ? `Sentinel found even though UPDATE was disabled — seam not working` : '',
+          );
+          if (!hasSentinel) {
+            console.log(`  ${G('✓')} Self-check confirmed for ${p.label}: sentinel absent → DB guard is sound`);
+          }
+        } else {
+          assert(
+            `[Step ${stepBase + 2}] Sentinel in conversation_memories.content — DB-first write succeeded (${p.label})`,
+            hasSentinel,
+            hasSentinel ? '' :
+              `Sentinel "${sentinelTag}" not in fixture DB content. ` +
+              `appendInnerLifeToEpisodeDb() may have silently failed for the ${p.prefix}: path.`,
+          );
+        }
+      }
+
+      // Verify .md (normal mode only)
+      if (!selfCheckMode) {
+        if (existsSync(FIXTURE_MD_PATH)) {
+          const mdContent = readFileSync(FIXTURE_MD_PATH, 'utf-8');
+          assert(
+            `[Step ${stepBase + 3}] Sentinel in fixture .md — written from DB content (${p.label})`,
+            mdContent.includes(sentinelTag),
+            mdContent.includes(sentinelTag) ? '' :
+              `Sentinel not in fixture .md — .md not updated from DB for ${p.prefix}: path.`,
+          );
+        } else {
+          assert(`[Step ${stepBase + 3}] Fixture .md still exists on disk (${p.label})`, false, `File gone: ${FIXTURE_MD_PATH}`);
+        }
+      }
+
+      stepBase += 4;
+    }
+
+    // Self-check summary
+    if (selfCheckMode) {
+      sep();
+      const allAbsent = failed === 0;
+      if (allAbsent) {
+        console.log(G('\n  ✓ Self-check confirmed for all three paths (felt/thinking/moment):'));
+        console.log(G('  ✓ Disabling the DB UPDATE causes all three normal-mode DB assertions to fail.'));
+        console.log(G('  ✓ The guard is sound across all inner-life trigger paths.\n'));
       }
     }
 
   } finally {
     // ── Restore seams ──────────────────────────────────────────────────────
     setReflectionPathOverrideForTest(null);
+    setQuestionPathOverrideForTest(null);
+    setMomentPathOverrideForTest(null);
+    setReflectionLastMtimeForTest(0);
+    setQuestionLastMtimeForTest(0);
+    setMomentLastMtimeForTest(0);
     setInnerLifeRollingEpisodeOverride(null);
     setLucaPersonalSideEffectsEnabled(true);
     setInnerLifeReembedEnabled(true);
     setInnerLifeDbUpdateEnabled(true);
-    setReflectionLastMtimeForTest(0);
 
     sep();
     console.log(B('Cleanup'));
@@ -380,16 +473,18 @@ async function main(): Promise<void> {
     restoreFile(CAPTURE_STATUS_PATH, captureStatusSnap, 'episode-capture-status.md');
     restoreFile(STALE_ALERT_PATH,    staleAlertSnap,    'stale-channel-alert.md');
 
-    // ── Delete temp trigger file ───────────────────────────────────────────
-    try {
-      if (existsSync(tmpTriggerPath)) {
-        unlinkSync(tmpTriggerPath);
-        if (existsSync(tmpTriggerPath)) throw new Error('File still present after unlink');
-        console.log(`  ${G('✓')} Temp trigger file deleted`);
+    // ── Delete temp trigger files ──────────────────────────────────────────
+    for (const tmpPath of tmpTriggerPaths) {
+      try {
+        if (existsSync(tmpPath)) {
+          unlinkSync(tmpPath);
+          if (existsSync(tmpPath)) throw new Error('File still present after unlink');
+          console.log(`  ${G('✓')} Temp trigger deleted: ${tmpPath.split('/').pop()}`);
+        }
+      } catch (e: any) {
+        console.log(R(`  ✗  CLEANUP FAILED — could not delete temp trigger: ${e.message}`));
+        failed++;
       }
-    } catch (e: any) {
-      console.log(R(`  ✗  CLEANUP FAILED — could not delete temp trigger: ${e.message}`));
-      failed++;
     }
 
     // ── Delete fixture .md ─────────────────────────────────────────────────

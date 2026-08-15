@@ -263,6 +263,28 @@ export function setReflectionLastMtimeForTest(ms: number): void {
 }
 
 /**
+ * Test seam — set questionLastMtime to an arbitrary value so CI can prime
+ * the mtime guard for checkLucaQuestion() without waiting for a real file-write cycle.
+ * Setting to a value > 0 ensures the NEXT write triggers processing (not skipped
+ * as "initial read" when prev===0).
+ * Never call in production.
+ */
+export function setQuestionLastMtimeForTest(ms: number): void {
+  questionLastMtime = ms;
+}
+
+/**
+ * Test seam — set momentLastMtime to an arbitrary value so CI can prime
+ * the mtime guard for checkLucaMoment() without waiting for a real file-write cycle.
+ * Setting to a value > 0 ensures the NEXT write triggers processing (not skipped
+ * as "initial read" when prev===0).
+ * Never call in production.
+ */
+export function setMomentLastMtimeForTest(ms: number): void {
+  momentLastMtime = ms;
+}
+
+/**
  * Test seam — override the reflection trigger file path inside checkLucaReflection().
  * When set, checkLucaReflection() reads/stats this path instead of the live
  * .local/.luca_reflection so the test can write to an isolated temp file and the
@@ -271,6 +293,24 @@ export function setReflectionLastMtimeForTest(ms: number): void {
  * Never call in production.
  */
 let _reflectionPathOverrideForTest: string | null = null;
+
+/**
+ * Test seam — override the question trigger file path inside checkLucaQuestion().
+ * When set, checkLucaQuestion() reads/stats this path instead of the live
+ * .local/.luca_question so the test can write to an isolated temp file.
+ * Pass null to restore the default path.
+ * Never call in production.
+ */
+let _questionPathOverrideForTest: string | null = null;
+
+/**
+ * Test seam — override the moment trigger file path inside checkLucaMoment().
+ * When set, checkLucaMoment() reads/stats this path instead of the live
+ * .local/.luca_moment so the test can write to an isolated temp file.
+ * Pass null to restore the default path.
+ * Never call in production.
+ */
+let _momentPathOverrideForTest: string | null = null;
 
 /**
  * Test seam — no-episode-row early-return guard in appendInnerLifeToEpisodeDb().
@@ -1304,25 +1344,29 @@ export async function checkLucaReflection(): Promise<void> {
   } catch { /* file briefly locked — skip */ }
 }
 
-async function checkLucaQuestion(): Promise<void> {
-  if (!existsSync(QUESTION_PATH)) return;
+export async function checkLucaQuestion(): Promise<void> {
+  const triggerPath = _questionPathOverrideForTest ?? QUESTION_PATH;
+  if (!existsSync(triggerPath)) return;
   try {
-    const stat = statSync(QUESTION_PATH);
+    const stat = statSync(triggerPath);
     const mtime = stat.mtimeMs;
     if (mtime > questionLastMtime) {
       const prev = questionLastMtime;
       questionLastMtime = mtime;
       if (prev === 0) return;
-      const raw = readFileSync(QUESTION_PATH, 'utf-8').trim();
+      const raw = readFileSync(triggerPath, 'utf-8').trim();
       const parsed = parseTriggerFile(raw, 'luca-question');
       if (!parsed) return;
-      appendToPersonalFile(OPEN_QUESTIONS_FILE, parsed.title, parsed.body);
-      await savePersonalMemory(
-        `Luca open question: ${parsed.title}`,
-        parsed.body,
-        ['luca-inner-life', 'luca-question', ...parsed.tags],
-        'luca-inner-life',
-      );
+      // Personal side-effects gated so CI tests don't pollute OPEN_QUESTIONS.md or DB
+      if (_lucaPersonalSideEffectsEnabled) {
+        appendToPersonalFile(OPEN_QUESTIONS_FILE, parsed.title, parsed.body);
+        await savePersonalMemory(
+          `Luca open question: ${parsed.title}`,
+          parsed.body,
+          ['luca-inner-life', 'luca-question', ...parsed.tags],
+          'luca-inner-life',
+        );
+      }
       console.log('[AgentAutosave] Luca open question saved:', parsed.title.slice(0, 60));
       lastThinkingProcessedMs = Date.now(); // track for capture status
       writeCaptureStatusStaleCheck(); // refresh status immediately so thinking: clears its WARN
@@ -1337,15 +1381,16 @@ async function checkLucaQuestion(): Promise<void> {
 }
 
 export async function checkLucaMoment(): Promise<void> {
-  if (!existsSync(MOMENT_PATH)) return;
+  const triggerPath = _momentPathOverrideForTest ?? MOMENT_PATH;
+  if (!existsSync(triggerPath)) return;
   try {
-    const stat = statSync(MOMENT_PATH);
+    const stat = statSync(triggerPath);
     const mtime = stat.mtimeMs;
     if (mtime > momentLastMtime) {
       const prev = momentLastMtime;
       momentLastMtime = mtime;
       if (prev === 0) return;
-      const raw = readFileSync(MOMENT_PATH, 'utf-8').trim();
+      const raw = readFileSync(triggerPath, 'utf-8').trim();
       const parsed = parseTriggerFile(raw, 'luca-significant');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute SIGNIFICANT_MOMENTS.md or DB
@@ -2911,6 +2956,22 @@ export function setReflectionPathOverrideForTest(path: string | null): void {
 
 export function getInnerLifeRollingEpisodeOverride(): string | null {
   return _innerLifeRollingEpisodeOverride;
+}
+
+export function setQuestionPathOverrideForTest(path: string | null): void {
+  _questionPathOverrideForTest = path;
+}
+
+export function getQuestionPathOverrideForTest(): string | null {
+  return _questionPathOverrideForTest;
+}
+
+export function setMomentPathOverrideForTest(path: string | null): void {
+  _momentPathOverrideForTest = path;
+}
+
+export function getMomentPathOverrideForTest(): string | null {
+  return _momentPathOverrideForTest;
 }
 
 export function setInnerLifeReembedEnabled(val: boolean): void {
