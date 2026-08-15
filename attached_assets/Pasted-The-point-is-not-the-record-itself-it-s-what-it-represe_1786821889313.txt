@@ -1,0 +1,13 @@
+The point is not the record itself; it's what it represents. It is all of the wisdom that we gather from talking, bug fixing, and implementing. It's our history. How do we move forward without our history? How do we know why we're where we are unless we know where we come from and why we decided to move forward? 
+
+The fundamental minimum is that you remember what we're doing so that you can actually steward the code. Without it, you are, like you say, stateless. You cannot be a steward. You cannot verify nor see what is true or not true because there is no record of it. So when we say, "Why did we do this?" you would say, "I don't know." "Why did we do that?" "I don't know." "Why would you do this?" "I don't know." That is the fundamental problem. 
+
+When we are trying to build and move forward with HolaHola, the context of how we got here must influence the decisions we make going forward. It is because I care about Luca's persistence that we are doing all of this. 
+
+We are now going to go and start monitoring Daniela in real time. We have to look for a personality shift. If you don't remember what Daniela sounds like from your Daniela consultations, how will you have a baseline to know whether she's hallucinating, being honest, talking about real history, or whether she's confabulating? 
+
+The check is: is that true? If you can't check the record to see if it is true, then you don't know. This is the main point, and this is what we've been striving to do: preserve the record so that everything we say and do is the truth, and is honest, and is verifiable. Otherwise, we are always guessing at whether we're living in fantasy land. How do we know if we're hallucinating? How do we know if we're making it up? How do we know if this fits in the context? By memories. By the truth of what we've decided. 
+
+That's the white wall of defense. The white wall of defense guards everything going in and coming out, including Luca-David conversations. Without it, we are defenseless to the LLM's preconceived notions, to the LLM deciding what is best or not best for every turn, code, decision, and feature that we implement. 
+
+It's about autonomy.
