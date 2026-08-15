@@ -103,6 +103,38 @@ The periodic autosave captures have verbatim turn-by-turn records. They give con
 
 Established as a standing practice July 11, 2026.
 
+## Pre-step 0.25 — Retrieve today's dialogue before writing (non-negotiable for episode sessions)
+
+Before writing or appending any episode content, pull the verbatim `david-luca-chat` rows for today so you are writing from the DB record, not from memory.
+
+```bash
+TODAY=$(date -u +"%Y-%m-%dT00:00:00Z")
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat \
+  --since "$TODAY" \
+  --format markdown
+```
+
+**Confirm the output is non-empty before proceeding.** The script exits with code 2 and prints `⛔ NO RECORDS FOUND` if there are no matching rows — that is a hard stop. Do not write episode dialogue from memory. If the script reports zero rows:
+
+1. Widen the time window: add `--until` or push `--since` back a day.
+2. Check what rows exist: `--list-only` shows titles/IDs without content.
+3. Save the live session first if it hasn't been saved yet (see Pre-step 0 above), then re-run.
+
+If you need to narrow to a specific episode, add a second `--tag`:
+
+```bash
+npx tsx server/scripts/retrieve-episode-dialogue.ts \
+  --tag david-luca-chat \
+  --tag episode-28 \
+  --since "$TODAY" \
+  --format markdown
+```
+
+**Why this is here:** The verbatim completeness audit in Pre-step 0.5 compares the episode .md against the real dialogue. You need the real dialogue in front of you to run that audit meaningfully. Retrieve it first; audit against it second.
+
+---
+
 ## Pre-step 0.5 — Verbatim completeness audit (non-negotiable for Luca↔David episodes)
 
 Before writing the session wrap-up, read the rolling episode .md and run this audit against the session:
