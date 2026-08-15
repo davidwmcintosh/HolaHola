@@ -59,6 +59,7 @@ export interface StreamingVoiceState {
   metrics: StreamingMetrics | null;
   activeCharacter: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null;
   serverRestarting: boolean;  // True when server sent SIGTERM — deploy rotation in progress
+  glDisconnectedForRetry: boolean;  // True when GL retries exhausted — student can tap to retry
 }
 
 /**
@@ -214,6 +215,7 @@ export interface UseStreamingVoiceReturn {
   sendVideoFrame: (base64Jpeg: string, source: string) => void;
   sendToggleIncognito: (enabled: boolean) => void;
   forceResetProcessing: () => void;
+  retryGlSession: () => void;
   microAckPlaying: boolean;
 }
 
@@ -243,6 +245,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Micro-ack: short ack clip played immediately after user stops speaking
   const [microAckPlaying, setMicroAckPlaying] = useState(false);
   const [serverRestarting, setServerRestarting] = useState(false);
+  const [glDisconnectedForRetry, setGlDisconnectedForRetry] = useState(false);
   const microAckPlayingRef = useRef(false);
   const microAckMsgBufferRef = useRef<StreamingAudioChunkMessage[]>([]);
   const microAckFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1763,6 +1766,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // reconnecting indicator (driven by connectionState === 'reconnecting')
     // instead of a hard error popup while the server rebuilds the GL session.
     setError(null);
+    // Clear the retry prompt — the student already tapped or the server is auto-reconnecting.
+    setGlDisconnectedForRetry(false);
     setGlobalPlaybackState('thinking');
     sessionConfigRef.current?.onReconnecting?.();
   }, []);
@@ -1777,6 +1782,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleGlReconnected = useCallback((_message: { type: string }) => {
     console.log('[StreamingVoice] gl_reconnected — GL session restored, resuming without reload');
     setError(null);
+    setGlDisconnectedForRetry(false);
     setIsProcessingRef.current(false);
     responseCompleteRef.current = false;
     pendingAudioCountRef.current = 0;
@@ -2085,6 +2091,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop detection
       clientRef.current.on('transcript', handleTranscript);  // Gemini Live final user transcript
       clientRef.current.on('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
+      clientRef.current.on('voiceError', handleVoiceError);  // GL exhausted retries or non-retriable error
       clientRef.current.on('reconnected', handleReconnected);  // Successful reconnection after drop
       clientRef.current.on('glReconnecting', handleGlReconnecting);  // GL 1008 reconnect — context bridge loading
       clientRef.current.on('glReconnected', handleGlReconnected);  // GL 1008 reconnect succeeded — resume without reload
@@ -2217,6 +2224,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop
       clientRef.current.off('transcript', handleTranscript);  // Gemini Live final user transcript
       clientRef.current.off('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
+      clientRef.current.off('voiceError', handleVoiceError);  // GL exhausted retries or non-retriable error
       clientRef.current.off('reconnected', handleReconnected);  // Successful reconnection
       clientRef.current.off('glReconnecting', handleGlReconnecting);  // GL 1008 context bridge
       clientRef.current.off('glReconnected', handleGlReconnected);  // GL 1008 reconnect succeeded
@@ -2509,6 +2517,22 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
 
+  /**
+   * Tracks which voice errors arrived so GL-disconnect retry state can be set.
+   * Only GEMINI_LIVE_DISCONNECTED (non-recoverable, retries exhausted) arms the
+   * one-tap retry prompt. Other error codes are left to their existing handlers.
+   */
+  const handleVoiceError = useCallback((event: { code: string; message: string; recoverable: boolean }) => {
+    if (event.code === 'GEMINI_LIVE_DISCONNECTED' && !event.recoverable) {
+      setGlDisconnectedForRetry(true);
+    }
+  }, []);
+
+  const retryGlSession = useCallback(() => {
+    setGlDisconnectedForRetry(false);
+    clientRef.current?.retryGlSession();
+  }, []);
+
   const forceResetProcessing = useCallback(() => {
     console.warn('[StreamingVoice] forceResetProcessing called — clearing all audio and processing state');
     setIsProcessing(false);
@@ -2561,6 +2585,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       error,
       metrics,
       serverRestarting,
+      glDisconnectedForRetry,
     },
     subtitles,
     connect,
@@ -2585,6 +2610,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendVoiceOverride,
     sendVideoFrame,
     forceResetProcessing,
+    retryGlSession,
     microAckPlaying,
   };
 }

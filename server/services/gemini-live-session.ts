@@ -1869,6 +1869,115 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     console.log(`[GeminiLive] Session stopped — sessionId: ${this.session.id}`);
   }
 
+  /**
+   * One-tap retry — student-initiated restart after all auto-reconnect attempts fail.
+   * Resets the attempt counter, resets per-session state, and calls start() again
+   * with a fresh Context Bridge so Daniela resumes naturally.
+   *
+   * Called when the client sends gl_retry_start after receiving GEMINI_LIVE_DISCONNECTED.
+   */
+  async retryConnection(): Promise<void> {
+    if (this.isStopped) {
+      console.warn('[GeminiLive] retryConnection() called on stopped session — ignoring');
+      return;
+    }
+    console.log('[GeminiLive] retryConnection() — student-initiated retry after exhausted attempts');
+
+    // Capture handle/tool-call state BEFORE resetting — mirrors the auto-reconnect path.
+    // If we had a resumption handle AND there were in-flight tool calls, GL may resume in
+    // "waiting for tool response" state after reconnect. We send synthetic responses to
+    // unblock it, exactly as the automatic reconnect path does (see onclose handler above).
+    const hadHandle = !!this.session.geminiLiveResumptionHandle;
+    const staleFunctionCallIds = [...this.pendingFunctionCallIds];
+    this.pendingFunctionCallIds = [];
+
+    // Reset auto-reconnect counter so the new attempt cycle starts fresh.
+    this.reconnectAttempts = 0;
+
+    // Reset all per-session flags (mirrors the reset block in the auto-reconnect path).
+    this.isStarted = false;
+    this.isSetupComplete = false;
+    this.liveSession = null;
+    this.currentTurnId = 0;
+    this.currentSentenceIndex = 0;
+    this.currentChunkIndex = 0;
+    this.lastSentenceStartSentIndex = -1;
+    this.hadAudioInCurrentSubturn = false;
+    this.transcriptClosed = false;
+    this.afterGenerationComplete = false;
+    this.isGenerationDone = false;
+    this.pendingPlaybackEndedLift = false;
+    this.usingOutputTranscription = false;
+    this.firstAudioSentThisTurn = false;
+    this.processingPendingSentThisTurn = false;
+    this.generationStartedThisTurn = false;
+    this.greetingPhaseActive = false;
+    this.isTutorGeneratingAudio = false;
+    this.hasStudentInputSinceLastResponse = false;
+    this.responseFlushedToClient = false;
+    if (this.playbackGateSafetyTimeout) {
+      clearTimeout(this.playbackGateSafetyTimeout);
+      this.playbackGateSafetyTimeout = null;
+    }
+    if (this.greetingWatchdogTimer) {
+      clearTimeout(this.greetingWatchdogTimer);
+      this.greetingWatchdogTimer = null;
+    }
+    this.pendingInputTranscript = '';
+    this.pendingInputSaved = false;
+    this.pendingOutputTranscript = '';
+    if (this.transcriptFlushTimer) {
+      clearTimeout(this.transcriptFlushTimer);
+      this.transcriptFlushTimer = null;
+    }
+
+    // Tell the client we're reconnecting so it shows a spinner.
+    this.sendWsMessage(this.session.ws, {
+      type: 'gl_reconnecting',
+      attempt: 1,
+      maxAttempts: 1,
+      delayMs: 0,
+    });
+
+    try {
+      const contextBridge = this.buildContextBridge();
+      const reconnectPrompt = contextBridge
+        ? `${this.lastSystemPrompt}\n\n${contextBridge}`
+        : this.lastSystemPrompt;
+      await this.start(reconnectPrompt, this.lastTools);
+      console.log('[GeminiLive] retryConnection() — GL session re-established successfully');
+
+      // Tool Call Deadlock fix: mirrors the auto-reconnect path exactly.
+      // If we resumed with a handle and there were in-flight tool calls, GL is now
+      // silently waiting for those responses. Send synthetic error responses to unblock it.
+      const sessionForUnblock = this.liveSession as Session | null;
+      if (hadHandle && staleFunctionCallIds.length > 0 && sessionForUnblock) {
+        try {
+          const syntheticResponses: Array<{ id: string; name: string; response: GLToolResponsePayload }> =
+            staleFunctionCallIds.map(id => ({
+              id,
+              name: 'unknown',
+              response: { result: 'Session interrupted — tool response lost. Please continue naturally.' } satisfies GLToolResponsePayload,
+            }));
+          sessionForUnblock.sendToolResponse({ functionResponses: syntheticResponses });
+          console.log(`[GeminiLive] retryConnection() — sent ${staleFunctionCallIds.length} synthetic tool response(s) to unblock GL`);
+        } catch (unblockErr) {
+          console.warn('[GeminiLive] retryConnection() — failed to send synthetic tool responses:', unblockErr);
+        }
+      }
+
+      this.sendWsMessage(this.session.ws, { type: 'gl_reconnected' });
+    } catch (err: any) {
+      console.error('[GeminiLive] retryConnection() — failed to re-establish GL session:', err?.message);
+      this.sendWsMessage(this.session.ws, {
+        type: 'voice_error',
+        code: 'GEMINI_LIVE_DISCONNECTED',
+        message: 'Daniela\'s voice session disconnected',
+        recoverable: false,
+      });
+    }
+  }
+
   private async handleServerMessage(msg: LiveServerMessage): Promise<void> {
     // ── Diagnostic: log the top-level keys of every message ─────────────────
     const msgKeys = Object.keys(msg).filter(k => (msg as any)[k] != null);

@@ -4901,6 +4901,21 @@ ${lastNote.tutorNotes}`);
           break;
         }
 
+        case 'gl_retry_start': {
+          // Student-initiated one-tap retry after all GL auto-reconnect attempts failed.
+          // Resets the attempt counter server-side and re-establishes the GL session
+          // with a fresh Context Bridge so Daniela resumes naturally.
+          if (geminiLiveSession) {
+            console.log('[GeminiLive] gl_retry_start received — student retrying after exhausted reconnects');
+            geminiLiveSession.retryConnection().catch(err =>
+              console.error('[GeminiLive] gl_retry_start: retryConnection() threw unexpectedly:', err?.message)
+            );
+          } else {
+            console.warn('[GeminiLive] gl_retry_start received but no active GL session to retry');
+          }
+          break;
+        }
+
         case 'set_input_mode': {
           const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
           currentInputMode = modeMessage.inputMode;

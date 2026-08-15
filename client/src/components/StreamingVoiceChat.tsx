@@ -33,6 +33,7 @@ import { usePlaybackState, getGlobalPlaybackState, setGlobalPlaybackState } from
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { VoiceInputContext } from "@/contexts/VoiceInputContext";
 import { useDanielaSession } from "@/contexts/DanielaSessionContext";
@@ -1020,7 +1021,57 @@ export function StreamingVoiceChat({
       }
     };
   }, [streamingVoice.state.serverRestarting, toast, navigate, homeRoute]);
-  
+
+  // One-tap retry when all GL reconnect attempts are exhausted.
+  // Shows a persistent toast with a "Tap to reconnect" action so the student
+  // does not need to reload the page — the existing socket is reused.
+  const glRetryToastRef = useRef<{ id: string; dismiss: () => void } | null>(null);
+  useEffect(() => {
+    if (!useStreamingMode) return;
+
+    if (streamingVoice.state.glDisconnectedForRetry) {
+      // Dismiss any stale reconnect progress toast first.
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
+      // Only show one retry toast at a time.
+      if (!glRetryToastRef.current) {
+        const handle = toast({
+          title: "Voice session disconnected",
+          description: "The connection to Daniela was lost.",
+          duration: 60000,
+          action: (
+            <ToastAction
+              altText="Tap to reconnect"
+              onClick={() => {
+                glRetryToastRef.current?.dismiss();
+                glRetryToastRef.current = null;
+                streamingVoice.retryGlSession();
+              }}
+            >
+              Tap to reconnect
+            </ToastAction>
+          ),
+        });
+        glRetryToastRef.current = handle;
+      }
+    } else {
+      // Retry succeeded or state was reset — dismiss the prompt.
+      if (glRetryToastRef.current) {
+        glRetryToastRef.current.dismiss();
+        glRetryToastRef.current = null;
+      }
+    }
+
+    return () => {
+      if (glRetryToastRef.current) {
+        glRetryToastRef.current.dismiss();
+        glRetryToastRef.current = null;
+      }
+    };
+  }, [streamingVoice.state.glDisconnectedForRetry, streamingVoice.retryGlSession, useStreamingMode, toast]);
+
   // Separate cleanup effect for unmount only
   useEffect(() => {
     return () => {

@@ -809,6 +809,24 @@ export class StreamingVoiceClient {
       this.socket.emit('message', { type: 'stop_streaming' });
     }
   }
+
+  /**
+   * Student-initiated one-tap retry after all GL auto-reconnect attempts are exhausted.
+   * Sends gl_retry_start to the server which resets the attempt counter and re-establishes
+   * the GL session with a fresh Context Bridge so Daniela resumes naturally.
+   * Clears intentionalDisconnect so the session can recover fully.
+   */
+  retryGlSession(): void {
+    if (!this.socket?.connected) {
+      console.warn('[StreamingVoice] retryGlSession: socket not connected — cannot retry');
+      return;
+    }
+    console.log('[StreamingVoice] retryGlSession — sending gl_retry_start to server');
+    // Allow future reconnect attempts again (this flag was set when the error arrived).
+    this.intentionalDisconnect = false;
+    this.setState('reconnecting');
+    this.socket.emit('message', { type: 'gl_retry_start' });
+  }
   
   /**
    * Set input mode (push-to-talk or open-mic)
