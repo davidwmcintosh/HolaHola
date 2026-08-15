@@ -339,6 +339,15 @@ export async function appendInnerLifeToEpisodeDbForTest(text: string, episodeFil
 }
 
 /**
+ * Test seam — reembed throw injection for appendInnerLifeToEpisodeDb().
+ * When true (CI only), the reembedConversationMemory() call inside
+ * appendInnerLifeToEpisodeDb() throws a synthetic error instead of running,
+ * letting the CI confirm that a reembed failure is truly fire-and-forget:
+ * the .md is still written and the function still returns without throwing.
+ * Never set in production.
+ */
+let _reembedShouldThrowForTest = false;
+/**
  * Test seam — ordering detection gate.
  * When false (CI self-check only), the "OUT OF ORDER" detection is suppressed:
  * feltAfterExchange and thinkAfterExchange are treated as always false so the
@@ -1286,15 +1295,21 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
 
       if (newContent) {
         writeFileSync(filePath, newContent, 'utf-8');
+        _innerLifeFileWriteCount++;
         // Keep mtime map current so the episode poller doesn't re-trigger
         try { episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs); } catch { /* ignore */ }
         console.log(`[AgentAutosave] Inner-life DB-first append: +${text.length} chars → ${episodeFilename}`);
         writeCaptureStatus(episodeFilename);
         // Re-embed so episode chunks reflect the new content.
+        // Fire-and-forget: a reembed failure must never prevent the .md write
+        // from being reported as successful or cause callers to retry the append.
         // _innerLifeReembedEnabled is false in CI tests to prevent fixture rows
         // from generating orphaned memory_embeddings records.
         if (_innerLifeReembedEnabled) {
-          reembedConversationMemory(memoryId as string).catch((err: any) => {
+          const reembedPromise = _reembedShouldThrowForTest
+            ? Promise.reject(new Error('[CI-test] Synthetic reembed failure'))
+            : reembedConversationMemory(memoryId as string);
+          reembedPromise.catch((err: any) => {
             console.error(`[AgentAutosave] Re-embed failed for ${episodeFilename}:`, err?.message ?? err);
           });
         }
@@ -2980,4 +2995,29 @@ export function setInnerLifeReembedEnabled(val: boolean): void {
 
 export function getInnerLifeReembedEnabled(): boolean {
   return _innerLifeReembedEnabled;
+}
+
+export function setReembedShouldThrowForTest(val: boolean): void {
+  _reembedShouldThrowForTest = val;
+}
+
+export function resetInnerLifeFileWriteCountForTest(): void {
+  _innerLifeFileWriteCount = 0;
+}
+
+/**
+ * Test seam — write counter for appendInnerLifeToEpisodeDb().
+ * Incremented each time writeFileSync is called inside the function's
+ * success path.  CI tests read this to confirm the .md is written exactly
+ * once per call even when reembed throws.
+ * Never relied upon in production.
+ */
+let _innerLifeFileWriteCount = 0;
+
+export function getReembedShouldThrowForTest(): boolean {
+  return _reembedShouldThrowForTest;
+}
+
+export function getInnerLifeFileWriteCountForTest(): number {
+  return _innerLifeFileWriteCount;
 }

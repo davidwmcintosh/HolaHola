@@ -253,6 +253,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-build-session-dedup.ts --self-check (dedup guard removed → 2 turns appear) ---"
   npx tsx server/scripts/test-build-session-dedup.ts --self-check
+
+  echo ""
+  echo "  --- test-inner-life-reembed-failure.ts (reembed throw does not cause duplicate .md write) ---"
+  run test-inner-life-reembed-failure.ts
+
+  echo ""
+  echo "  --- test-inner-life-reembed-failure.ts --self-check (double-write is detectable) ---"
+  npx tsx server/scripts/test-inner-life-reembed-failure.ts --self-check
 }
 
 group_body_memory_recall() {
