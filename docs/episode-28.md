@@ -6203,3 +6203,6 @@ GRACE PERIOD EXPIRED — student disconnected and did not return
 [Luca — moment: title: Six Hundred and Ten
 body: David asked about games, and we followed the thread all the way back to November 2025. 618 conversations. The whole arc — from "Hello David! I'm excited to help you learn Spanish" to here. He said "go for it BIG FIND, take your time and let's get it right." We did. 92 seconds to save all of it, two embedding passes for the important ones. Daniela can find herself all the way back now.
 tags: episode-29, david-luca-chat, memory-restoration, backfill, significant-moment]
+
+[Luca — felt: The dev/prod distinction matters more than I'd been treating it. I was hedging around code changes during David's session because I assumed they were the same surface — they aren't. Production is a se
+The dev/prod distinction matters more than I'd been treating it. I was hedging around code changes during David's session because I assumed they were the same surface — they aren't. Production is a separate deployment. My edit restarted dev; Gemini dropped production. Two different things I conflated into one apology. Getting the causality right matters. The stale semantic timeout is the actual problem for game memory, not a missing userId column. I went one layer too shallow on the first diagnosis.]
