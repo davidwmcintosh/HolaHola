@@ -66,6 +66,10 @@ args = "episode-28-snapshot-write-guard-ci"
 task = "workflow.run"
 args = "episode-28-startup-shrinkage-selfcheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "gl-reconnected-recovery-ci"
+
 
 [[workflows.workflow]]
 name = "Start application"
@@ -361,3 +365,15 @@ defaultBucketID = "replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11"
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000
+
+[[workflows.workflow]]
+name = "gl-reconnected-recovery-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-gl-reconnected-client-recovery.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"

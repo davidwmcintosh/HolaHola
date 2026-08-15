@@ -1503,6 +1503,22 @@ export function StreamingVoiceChat({
               setOpenMicState('silence_issue');
             }
           },
+          onGlReconnected: () => {
+            // GL-only reconnect (e.g. Gemini 1008 drop): the Socket.io connection to the
+            // client never dropped and the server rebuilt the GL session with a Context
+            // Bridge — no greeting or recorder reset needed. Just clear any stale
+            // "connection failed" error UI so the student can keep talking.
+            console.log('[StreamingVoice] GL session restored (socket intact) — clearing error state');
+            setError(null);
+            setAvatarState('idle');
+            isAwaitingResponseRef.current = false;
+            isProcessingRef.current = false;
+            setIsProcessing(false);
+            // Restore open-mic readiness so the mic loop resumes listening immediately.
+            if (inputModeRef.current === 'open-mic') {
+              setOpenMicState('idle');
+            }
+          },
           onReconnected: () => {
             console.log('[StreamingVoice] Connection restored after drop — resetting UI state for fresh start');
 
@@ -3602,6 +3618,20 @@ export function StreamingVoiceChat({
                 console.warn(`[OPEN MIC] Silence loop (reconnect): ${emptyCount} empties`);
                 if (emptyCount >= 8 && inputModeRef.current === 'open-mic') {
                   setOpenMicState('silence_issue');
+                }
+              },
+              onGlReconnected: () => {
+                // GL-only reconnect (reconnect context): socket intact, GL session rebuilt
+                // server-side with Context Bridge. Clear stale error UI only.
+                console.log('[StreamingVoice] GL session restored (socket intact, reconnect context) — clearing error state');
+                setError(null);
+                setAvatarState('idle');
+                isAwaitingResponseRef.current = false;
+                isProcessingRef.current = false;
+                setIsProcessing(false);
+                // Restore open-mic readiness so the mic loop resumes listening immediately.
+                if (inputModeRef.current === 'open-mic') {
+                  setOpenMicState('idle');
                 }
               },
               onReconnected: () => {
