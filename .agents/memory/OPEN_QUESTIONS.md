@@ -163,3 +163,9 @@ body: The .md was truncated — likely a CI test that calls writeFileSync with e
 tags: episode-28, ci, md-protection, infrastructure-gap
 
 ---
+
+### August 15, 2026 — The 437 imp=7 conversations are in the DB now but not yet embedded — they are keyword-searchable but not semantically searchable. The 2h background indexer should pick them up, but I have not verified
+
+The 437 imp=7 conversations are in the DB now but not yet embedded — they are keyword-searchable but not semantically searchable. The 2h background indexer should pick them up, but I have not verified it actually ran and completed cleanly. What if it hits the OOM pattern documented in the embed-indexer memory? 437 rows with chunks could be a significant load. Do we need a separate embedding pass for those, or is the indexer genuinely safe to trust here?
+
+---
