@@ -99,13 +99,20 @@ async function run(): Promise<void> {
   // Capture the original guard state so we can restore it in finally.
   const originalGuard = getInnerLifeNoEpisodeRowGuardEnabled();
 
-  // Intercept console.warn to capture log output.
+  // Intercept console.warn and console.error to capture log output.
   const warnLogs: string[] = [];
-  const originalWarn = console.warn;
+  const errorLogs: string[] = [];
+  const originalWarn  = console.warn;
+  const originalError = console.error;
   console.warn = (...args: unknown[]) => {
     const line = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ');
     warnLogs.push(line);
     originalWarn(...args);
+  };
+  console.error = (...args: unknown[]) => {
+    const line = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ');
+    errorLogs.push(line);
+    originalError(...args);
   };
 
   let threw        = false;
@@ -140,7 +147,8 @@ async function run(): Promise<void> {
     }
   } finally {
     // Restore interceptors and seams.
-    console.warn = originalWarn;
+    console.warn  = originalWarn;
+    console.error = originalError;
     setInnerLifeNoEpisodeRowGuardEnabled(originalGuard);
 
     // Remove the synthetic file.
@@ -163,6 +171,23 @@ async function run(): Promise<void> {
       pass('Function did not throw (error caught inside withEpisodeFileLock) ✓');
     } else {
       fail('Function threw — unexpected');
+      failures++;
+    }
+
+    // ── Critical: prove the code truly fell through to the DB call ────────────
+    // When the guard is disabled the function must reach withEpisodeFileLock and
+    // attempt an UPDATE with memoryId=undefined, producing an "Inner-life DB-first
+    // append failed" error log.  If this line is absent the guard is not load-bearing
+    // (the code must have returned early for a different reason) and the self-check
+    // was passing vacuously.
+    const dbErrorAppeared = errorLogs.some(l => l.includes('Inner-life DB-first append failed'));
+    if (dbErrorAppeared) {
+      pass('DB error "Inner-life DB-first append failed" appeared — code fell through to the DB call ✓');
+    } else {
+      fail(
+        'Expected DB error not found.  Code did not reach the DB call when guard was disabled.\n' +
+        `  Captured errors:\n    ${errorLogs.join('\n    ') || '(none)'}`,
+      );
       failures++;
     }
   } else {
