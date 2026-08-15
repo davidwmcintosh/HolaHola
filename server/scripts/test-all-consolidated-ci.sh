@@ -179,6 +179,12 @@ group_body_episode_sync() {
   echo "  --- test-retrieve-episode-dialogue-no-match.ts --self-check (silent-exit-0 stub catches regression) ---"
   npx tsx server/scripts/test-retrieve-episode-dialogue-no-match.ts --self-check
 
+  run test-retrieve-episode-dialogue-no-match-by-id.ts
+
+  echo ""
+  echo "  --- test-retrieve-episode-dialogue-no-match-by-id.ts --self-check (--id silent-exit-0 stub catches regression) ---"
+  npx tsx server/scripts/test-retrieve-episode-dialogue-no-match-by-id.ts --self-check
+
   echo ""
   echo "  --- test-episode-concurrent-write.ts (concurrent-write guard) ---"
   npx tsx server/scripts/test-episode-concurrent-write.ts
