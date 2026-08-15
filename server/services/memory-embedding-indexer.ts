@@ -30,6 +30,12 @@ import {
 } from '@shared/schema';
 import { eq, notExists, sql } from 'drizzle-orm';
 import { generateAndStoreEmbedding } from './semantic-memory-service';
+import { neon } from '@neondatabase/serverless';
+import {
+  countUnembeddedConversationMemories as countUnembeddedViaHttp,
+  getTopUnembeddedConversationMemoryIds as getTopUnembeddedViaHttp,
+  runPostCycleWarning,
+} from './straggler-detector';
 
 const BATCH_SIZE = 10;
 const BATCH_PAUSE_MS = 600;
@@ -626,41 +632,30 @@ const STRAGGLER_PATCH_PAUSE_MS = 800;
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
 /**
+ * Returns a neon() HTTP SQL tag for the straggler check.
+ * The straggler check is periodic monitoring (runs every 2h) — HTTP latency
+ * is acceptable, and using the same driver as CI ensures consistent results.
+ */
+function getStragglerSql() {
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL ?? '';
+  return neon(dbUrl);
+}
+/**
  * Counts how many conversation_memories rows have no embedding of any type.
  * Core liveness signal: > 0 after a cycle means the indexer left rows dark.
+ * Delegates to straggler-detector.ts so the SQL is canonical and shared with CI.
  */
 async function countUnembeddedConversationMemories(): Promise<number> {
-  const db = getSharedDb();
-  const result = await db.execute(sql`
-    SELECT COUNT(*)::int AS cnt
-    FROM conversation_memories cm
-    WHERE NOT EXISTS (
-      SELECT 1 FROM memory_embeddings me
-      WHERE me.memory_id = cm.id::text
-         OR me.memory_id LIKE (cm.id::text || ':chunk:%')
-    )
-  `);
-  return Number((result.rows[0] as any)?.cnt ?? 0);
+  return countUnembeddedViaHttp(getStragglerSql());
 }
 
 /**
  * Returns the top `limit` conversation_memory IDs that have no embedding.
  * Ordered by highest importance first so critical memories are patched first.
+ * Delegates to straggler-detector.ts so the SQL is canonical and shared with CI.
  */
 async function getTopUnembeddedConversationMemoryIds(limit: number): Promise<string[]> {
-  const db = getSharedDb();
-  const result = await db.execute(sql`
-    SELECT cm.id
-    FROM conversation_memories cm
-    WHERE NOT EXISTS (
-      SELECT 1 FROM memory_embeddings me
-      WHERE me.memory_id = cm.id::text
-         OR me.memory_id LIKE (cm.id::text || ':chunk:%')
-    )
-    ORDER BY cm.importance DESC NULLS LAST, cm.created_at DESC
-    LIMIT ${limit}
-  `);
-  return (result.rows as Array<{ id: string }>).map(r => r.id);
+  return getTopUnembeddedViaHttp(getStragglerSql(), limit);
 }
 
 /**
@@ -676,17 +671,19 @@ async function getTopUnembeddedConversationMemoryIds(limit: number): Promise<str
  */
 async function postCycleStragglerCheck(): Promise<void> {
   try {
-    const totalCount = await countUnembeddedConversationMemories();
-    if (totalCount === 0) {
+    // runPostCycleWarning() is exported from straggler-detector.ts so CI scripts can call
+    // it with a capture logger and assert warned === true after injecting a dark row.
+    // This makes the warning branch directly testable without importing the full indexer.
+    const { count: totalCount, warned } = await runPostCycleWarning(
+      getStragglerSql(),
+      console.warn,
+    );
+    if (!warned) {
       console.log('[EmbedIndexer] ✓ Straggler check: all conversation_memories rows are embedded.');
       return;
     }
 
-    // Surface the gap — this is the primary deliverable: make the OOM visible.
-    console.warn(
-      `[EmbedIndexer] ⚠ WARNING: ${totalCount} conversation_memories row(s) still have no ` +
-      `embedding after this cycle (likely left dark by a previous OOM or rate-limit failure).`
-    );
+    // Supplementary context line — runPostCycleWarning already logged the ⚠ WARNING above.
     console.warn(
       `[EmbedIndexer] To manually patch all missing rows run: ` +
       `npx tsx server/scripts/test-backfill-embeddings-complete.ts --patch`

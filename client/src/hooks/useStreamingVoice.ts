@@ -1964,6 +1964,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Tracks which voice errors arrived so GL-disconnect retry state can be set.
+   * Only GEMINI_LIVE_DISCONNECTED (non-recoverable, retries exhausted) arms the
+   * one-tap retry prompt. Other error codes are left to their existing handlers.
+   * Declared before connect() so connect()'s listener registration is not a forward reference.
+   */
+  const handleVoiceError = useCallback((event: { code: string; message: string; recoverable: boolean }) => {
+    if (event.code === 'GEMINI_LIVE_DISCONNECTED' && !event.recoverable) {
+      setGlDisconnectedForRetry(true);
+    }
+  }, []);
+
+  /**
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
@@ -2514,17 +2526,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const sendVideoFrame = useCallback((base64Jpeg: string, source: string) => {
     if (clientRef.current) {
       (clientRef.current as any).sendVideoFrame(base64Jpeg, source);
-    }
-  }, []);
-
-  /**
-   * Tracks which voice errors arrived so GL-disconnect retry state can be set.
-   * Only GEMINI_LIVE_DISCONNECTED (non-recoverable, retries exhausted) arms the
-   * one-tap retry prompt. Other error codes are left to their existing handlers.
-   */
-  const handleVoiceError = useCallback((event: { code: string; message: string; recoverable: boolean }) => {
-    if (event.code === 'GEMINI_LIVE_DISCONNECTED' && !event.recoverable) {
-      setGlDisconnectedForRetry(true);
     }
   }, []);
 

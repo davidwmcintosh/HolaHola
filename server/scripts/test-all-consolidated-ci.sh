@@ -280,6 +280,10 @@ group_body_backfill_integrity() {
   echo ""
   echo "  --- test-backfill-embeddings-complete.ts --self-check (mutation: fake ID triggers MISSING) ---"
   npx tsx server/scripts/test-backfill-embeddings-complete.ts --self-check
+
+  echo ""
+  echo "  --- test-straggler-check-ci.ts (mutation: dark row raises count, detector is live) ---"
+  npx tsx server/scripts/test-straggler-check-ci.ts
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────
