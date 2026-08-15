@@ -142,8 +142,6 @@ export class NativeFunctionCallHandler {
   ) {}
 
   /**
-   * Unified dispatcher sub-tool router — used by all 17 Phase 2 dispatcher cases.
-   *
    * Phase 1 fix (June 13 2026):
    *  - Validates params_json via parseDispatcherParams discriminated union (no more silent {})
    *  - Tracks consecutive failures per dispatcher via session._dispatchFailures
@@ -9307,6 +9305,7 @@ export class NativeFunctionCallHandler {
        .replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     // Fire all search arms in parallel — no sequential waiting
+    let arm4TimedOut = false;
     const [structuredText, threadText, expressLaneText, semanticText, memoriesText, imageText, currentSessionText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
@@ -9423,15 +9422,22 @@ export class NativeFunctionCallHandler {
 
       // Arm 4: Semantic similarity search — finds conceptually related memories without keyword match
       // e.g. "music" surfaces memories about "jazz", "rhythm", "improvisation"
-      // semanticSearch uses pgvector (WebSocket pool) — gated by 1500ms timeout so a pool drop
+      // semanticSearch uses pgvector (WebSocket pool) — gated by 3000ms timeout so a pool drop
       // can't stall Promise.all. Hydration uses HTTP transport, runs in parallel across hits.
       (async () => {
         try {
           const { semanticSearch } = await import('./semantic-memory-service');
+          let arm4Timer: ReturnType<typeof setTimeout> | undefined;
           const hits = await Promise.race([
             semanticSearch(studentId, query, 5),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),
-          ]);
+            new Promise<never>((_, reject) => {
+              arm4Timer = setTimeout(() => {
+                arm4TimedOut = true;
+                console.warn(`[UnifiedRecall] Arm 4 (semantic) timed out after 3000ms for query="${query.substring(0, 50)}"`);
+                reject(new Error('timeout'));
+              }, 3000);
+            }),
+          ]).finally(() => clearTimeout(arm4Timer));
           if (hits.length === 0) return null;
 
           // Pre-deduplicate conversation hits before parallel hydration — two hits for the same
@@ -9813,7 +9819,8 @@ export class NativeFunctionCallHandler {
     if (!session.recallResults) session.recallResults = {};
     session.recallResults[query] = combined;
 
-    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticText ? 'found' : 'none'}, memories: ${memoriesText ? 'found' : 'none'}, current-session: ${currentSessionText ? 'found' : 'none (no conversationId or 0 messages)'}`);
+    const semanticStatus = semanticText ? 'found' : arm4TimedOut ? 'TIMEOUT (>3000ms)' : 'none';
+    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticStatus}, memories: ${memoriesText ? 'found' : 'none'}, current-session: ${currentSessionText ? 'found' : 'none (no conversationId or 0 messages)'}`);
   }
 
   private async triggerLyraExtractionForThreads(
