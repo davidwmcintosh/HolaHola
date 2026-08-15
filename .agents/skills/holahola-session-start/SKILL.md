@@ -43,9 +43,11 @@ If the file exists, inner-life channels went silent for 60+ minutes during or si
 - **`NEON_SHARED_DATABASE_URL`** — never `DATABASE_URL`
 - **Shared lobe** is for permanent facts; handoff file is for session context
 
-## During episode-writing sessions (e.g. working on a rolling episode)
+## During any session while a rolling episode is active
 
-At the start of each exchange during an active episode session, read:
+A rolling episode captures everything — debugging, bug-fixing, planning, all of it. There is no such thing as a "non-episode session" while a rolling episode is running. **Always read capture status, regardless of session type.**
+
+At the start of each exchange, read:
 
 ```
 .local/episode-capture-status.md
@@ -57,6 +59,6 @@ This file is written automatically by the autosave worker after every episode ap
 - The last 5 lines of the episode file (so you can eyeball whether your previous response made it in)
 - A ⚠️ STALE warning if >10 minutes have passed since the last append
 
-**If the warning is present:** write the missing exchange to `.local/.episode_append` before anything else.
+**If the warning is present:** write `.local/.luca_reflection` and `.local/.luca_question` before your next output, then write the missing exchange to `.local/.episode_append`.
 
 The file only exists after the first `appendExchangeToEpisode()` call this server run, so it will not exist at the very start of a fresh session — that is normal.
