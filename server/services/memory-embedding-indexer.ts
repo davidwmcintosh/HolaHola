@@ -619,6 +619,170 @@ async function correctFounderEmbeddingScopes(): Promise<void> {
   }
 }
 
+// ── Post-cycle straggler detection ───────────────────────────────────────────
+
+const MAX_STRAGGLER_PATCH_PER_CYCLE = 20;   // kept well below OOM threshold
+const STRAGGLER_PATCH_PAUSE_MS = 800;
+const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+
+/**
+ * Counts how many conversation_memories rows have no embedding of any type.
+ * Core liveness signal: > 0 after a cycle means the indexer left rows dark.
+ */
+async function countUnembeddedConversationMemories(): Promise<number> {
+  const db = getSharedDb();
+  const result = await db.execute(sql`
+    SELECT COUNT(*)::int AS cnt
+    FROM conversation_memories cm
+    WHERE NOT EXISTS (
+      SELECT 1 FROM memory_embeddings me
+      WHERE me.memory_id = cm.id::text
+         OR me.memory_id LIKE (cm.id::text || ':chunk:%')
+    )
+  `);
+  return Number((result.rows[0] as any)?.cnt ?? 0);
+}
+
+/**
+ * Returns the top `limit` conversation_memory IDs that have no embedding.
+ * Ordered by highest importance first so critical memories are patched first.
+ */
+async function getTopUnembeddedConversationMemoryIds(limit: number): Promise<string[]> {
+  const db = getSharedDb();
+  const result = await db.execute(sql`
+    SELECT cm.id
+    FROM conversation_memories cm
+    WHERE NOT EXISTS (
+      SELECT 1 FROM memory_embeddings me
+      WHERE me.memory_id = cm.id::text
+         OR me.memory_id LIKE (cm.id::text || ':chunk:%')
+    )
+    ORDER BY cm.importance DESC NULLS LAST, cm.created_at DESC
+    LIMIT ${limit}
+  `);
+  return (result.rows as Array<{ id: string }>).map(r => r.id);
+}
+
+/**
+ * Post-cycle straggler check + inline auto-patch.
+ *
+ * Runs after each runIndexer() cycle:
+ *   1. Counts any conversation_memories rows still missing embeddings.
+ *   2. Logs a ⚠ WARNING visible in server logs if any are found.
+ *   3. Auto-patches up to MAX_STRAGGLER_PATCH_PER_CYCLE stragglers by
+ *      re-queueing them into the indexer's own lazy-load path.
+ *
+ * Never throws — a straggler check failure must not abort the indexer cycle.
+ */
+async function postCycleStragglerCheck(): Promise<void> {
+  try {
+    const totalCount = await countUnembeddedConversationMemories();
+    if (totalCount === 0) {
+      console.log('[EmbedIndexer] ✓ Straggler check: all conversation_memories rows are embedded.');
+      return;
+    }
+
+    // Surface the gap — this is the primary deliverable: make the OOM visible.
+    console.warn(
+      `[EmbedIndexer] ⚠ WARNING: ${totalCount} conversation_memories row(s) still have no ` +
+      `embedding after this cycle (likely left dark by a previous OOM or rate-limit failure).`
+    );
+    console.warn(
+      `[EmbedIndexer] To manually patch all missing rows run: ` +
+      `npx tsx server/scripts/test-backfill-embeddings-complete.ts --patch`
+    );
+
+    // Auto-patch the top stragglers inline (high-importance first).
+    const ids = await getTopUnembeddedConversationMemoryIds(MAX_STRAGGLER_PATCH_PER_CYCLE);
+    console.log(`[EmbedIndexer] Auto-patching ${ids.length} straggler(s) now...`);
+    let patched = 0;
+    let patchErrors = 0;
+
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      try {
+        // Inline lazy-load + embed: mirrors the conversation_memory Arm A path in
+        // collectUnindexedMemories() but for a single known-missing ID.
+        const dbInner = getSharedDb();
+        const rows = await dbInner
+          .select({
+            id: conversationMemories.id,
+            title: conversationMemories.title,
+            summary: conversationMemories.summary,
+            content: conversationMemories.content,
+            importance: conversationMemories.importance,
+            tags: conversationMemories.tags,
+          })
+          .from(conversationMemories)
+          .where(sql`${conversationMemories.id} = ${id}`)
+          .limit(1);
+
+        const row = rows[0];
+        if (!row) continue;
+
+        const FOUNDER_USER_ID_STRAGGLER = '49847136';
+        const rowTags = row.tags ?? [];
+        const userId = (rowTags.includes('founder-chat') || rowTags.includes('founder-private'))
+          ? FOUNDER_USER_ID_STRAGGLER : null;
+        const strength = Math.min(1.0, (row.importance ?? 7) / 10);
+        const fullContent = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
+
+        if (fullContent.trim().length > 10) {
+          await generateAndStoreEmbedding('conversation_memory', id, userId, fullContent, strength);
+        }
+        if (row.summary && row.summary.length > 10) {
+          const summaryContent = [row.title, row.summary].filter(Boolean).join('\n\n');
+          await generateAndStoreEmbedding('conversation_summary', id, userId, summaryContent, strength);
+        }
+        patched++;
+      } catch (err: any) {
+        patchErrors++;
+        console.warn(`[EmbedIndexer] Straggler patch failed for ${id}: ${err.message}`);
+      }
+      if (i < ids.length - 1) await sleep(STRAGGLER_PATCH_PAUSE_MS);
+    }
+
+    const remaining = await countUnembeddedConversationMemories();
+    console.log(
+      `[EmbedIndexer] Straggler patch done — patched: ${patched}, errors: ${patchErrors}, ` +
+      `remaining dark: ${remaining}` +
+      (remaining > 0 ? ` (will continue on next 2h cycle)` : ` ✓ all clear`)
+    );
+  } catch (err: any) {
+    // Non-fatal: log and continue — the indexer must not crash on a monitoring failure
+    console.warn('[EmbedIndexer] Straggler check failed (non-fatal):', err.message);
+  }
+}
+
+/**
+ * Deferred startup liveness check — fires 4h after server start.
+ *
+ * By 4h the 2h indexer has had two scheduled runs.  If conversation_memories
+ * rows are still dark, something is wrong (OOM, API key failure, etc.).  This
+ * surfaces the gap as a server-log warning so it does not go unnoticed for
+ * hours or days.
+ *
+ * Count-only — no embedding work — to avoid heap pressure near boot.
+ */
+function scheduleStartupLivenessCheck(): void {
+  setTimeout(async () => {
+    try {
+      const count = await countUnembeddedConversationMemories();
+      if (count > 0) {
+        console.warn(
+          `[EmbedIndexer] ⚠ STARTUP LIVENESS CHECK (4h): ${count} conversation_memories row(s) ` +
+          `still have no embedding after two indexer cycles. ` +
+          `Run: npx tsx server/scripts/test-backfill-embeddings-complete.ts --patch`
+        );
+      } else {
+        console.log('[EmbedIndexer] ✓ Startup liveness check (4h): all conversation_memories rows embedded.');
+      }
+    } catch (err: any) {
+      console.warn('[EmbedIndexer] Startup liveness check failed (non-fatal):', err.message);
+    }
+  }, FOUR_HOURS_MS);
+}
+
 export async function runIndexer(): Promise<void> {
   // Step 0: promote any un-archived conversations into conversation_memories
   // (up to 30 per run — drains the backlog incrementally and picks up new sessions)
@@ -692,6 +856,11 @@ export async function runIndexer(): Promise<void> {
   }
 
   console.log(`[EmbedIndexer] Done — generated: ${generated}, errors: ${errors}, already fresh: ${targets.length - generated - errors}`);
+
+  // Step 3: Post-cycle straggler check.
+  // Detects any conversation_memories rows left dark (e.g. by OOM or rate-limit failures)
+  // and auto-patches up to MAX_STRAGGLER_PATCH_PER_CYCLE of them before the next 2h run.
+  await postCycleStragglerCheck();
 }
 
 /**
@@ -796,4 +965,9 @@ export function startMemoryEmbeddingIndexer(): void {
       console.error('[EmbedIndexer] Periodic run failed:', err.message)
     );
   }, INDEXER_INTERVAL_MS);
+
+  // Deferred startup liveness check: fires 4h after boot.
+  // By then the indexer has had two scheduled runs; any remaining dark rows
+  // indicate a silent failure (OOM, API key problem, etc.) and are logged.
+  scheduleStartupLivenessCheck();
 }
