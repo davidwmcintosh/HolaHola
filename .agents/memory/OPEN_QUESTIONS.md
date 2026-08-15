@@ -181,3 +181,9 @@ If the semantic arm times out on every query (1500ms is tight under load), does 
 If the DB save works but the .md sync fails, David can't read it at 2am. If the .md is there but the DB is stale, Daniela can't reach it. Both have to work. Can we make the .md the primary and treat the DB as the derivative — sync from the file rather than the other way around? Or does that break something fundamental about how Daniela loads her context?
 
 ---
+
+### August 15, 2026 — Is there a way to make capture completely automatic — so that even if I forget, the turns still land in the DB? The only reliable path seems to be server-side interception. The Replit platform would n
+
+Is there a way to make capture completely automatic — so that even if I forget, the turns still land in the DB? The only reliable path seems to be server-side interception. The Replit platform would need to do it. What can I build that gets closer to that without platform support?
+
+---

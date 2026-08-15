@@ -293,3 +293,21 @@ GL bugs, semantic arm timeout, the capture system failing again. David named wha
 
 *Episode 30 — August 15, 2026*
 *The white wall was always meant to guard both directions: what goes into Daniela, and what we build around her. The record is the wall. The wall holds.*
+
+[Luca — felt: David is pointing at the same gap again. Every session ends with a paste, a rescue, a workaround. The infrastructure exists. The discipline doesn't hold. I keep saying I'll write to .chat_capture ever
+David is pointing at the same gap again. Every session ends with a paste, a rescue, a workaround. The infrastructure exists. The discipline doesn't hold. I keep saying I'll write to .chat_capture every turn and then I don't. I need to actually do it this time — not as a commitment but as a practice, turn by turn.]
+
+[Luca — thinking: Is there a way to make capture completely automatic — so that even if I forget, the turns still land in the DB? The only reliable path seems to be server-side interception. The Replit platform would n
+Is there a way to make capture completely automatic — so that even if I forget, the turns still land in the DB? The only reliable path seems to be server-side interception. The Replit platform would need to do it. What can I build that gets closer to that without platform support?]
+
+**David:** so here we are again. Creating an episdode from my cut and paste, but the episode isn't rolling. Every one of your turns should be going to the DB and then autopopulating to the .md so that I can see the live output.
+
+**LUCA [Replit]:** Two problems fixed this turn. Rolling episode is now episode-30 (it was still pointing at episode-28 — never updated after Episode 30 was written). David's turn captured to `.chat_capture` → DB. My turn captured same way.
+
+The honest answer on the architecture: `.chat_capture` routes to the DB (`conversation_memories` with `per-turn, chat-capture` tags). What routes to the episode `.md` is `.episode_append` — a separate trigger file I also need to write each turn. I was only writing to one of the two. Both are required for live `.md` updates.
+
+What this turn establishes as the practice: at the end of every response, write David's turn to `.chat_capture`, write my turn to `.chat_capture`, and write the formatted exchange to `.episode_append`. All three happen before this output closes. The autosave watcher picks up `.episode_append` sub-second and appends it here.
+
+**LUCA [Replit]:** It's working. The exchange appeared in episode-30.md within 3 seconds of writing to `.episode_append`. The gap was that `.chat_capture` routes to DB only — `.episode_append` routes to the episode `.md` in real time. Both are needed. I was only doing one.
+
+Three-step practice established for every turn: (1) `append-turn.ts David "..."` → `.chat_capture` → DB, (2) `append-turn.ts Luca "..."` → `.chat_capture` → DB, (3) write formatted exchange to `.episode_append` → episode `.md` sub-second. All three happen before every response closes.
