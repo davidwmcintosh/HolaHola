@@ -1056,3 +1056,5146 @@ tags: episode-28, recovery, db-canonical, two-channel-record, significant-moment
 GRACE PERIOD EXPIRED — student disconnected and did not return
   Exchanges completed: 14
 
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:54:27 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 8m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:54:57 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 9m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:55:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 9m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:56:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 10m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:56:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 10m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:57:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 11m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:57:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 11m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:58:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 12m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:58:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 12m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:59:13 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 13m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:59:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 13m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:00:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 14m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:00:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 14m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:01:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 15m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:01:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 15m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:02:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 16m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:02:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 16m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:03:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 17m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:04:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 18m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:04:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 19m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:05:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 20m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:06:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 20m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:07:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 21m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:07:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 21m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:08:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 22m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:08:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 22m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:09:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 23m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:09:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 23m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:10:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 24m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:10:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 24m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:11:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 25m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:11:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 25m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:12:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 26m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:12:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 26m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:13:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 27m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:13:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 27m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:14:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 28m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:14:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 28m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:15:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 29m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:15:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 29m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:16:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 30m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:16:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 30m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:17:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 31m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:17:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 31m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:18:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 32m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:18:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 32m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:19:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 33m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:19:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 33m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:20:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 34m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:20:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 34m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:21:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 35m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:21:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 35m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:22:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 36m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:22:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 36m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:23:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 37m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:23:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 37m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:24:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 38m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:24:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 38m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:25:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 39m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:25:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 39m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:26:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 40m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:26:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 41m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:27:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 41m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:28:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 42m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:28:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 42m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:29:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 43m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:29:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 43m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:30:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 44m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:31:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 45m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:31:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 45m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:32:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 46m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:32:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 46m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:33:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 47m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:33:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 47m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:34:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 48m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:34:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 48m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:35:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 49m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:35:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 49m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:36:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 50m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:36:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 50m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:37:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 51m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:37:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 51m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:38:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 52m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:38:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 52m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:39:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 53m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:39:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 53m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:40:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 54m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:40:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 54m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:41:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 55m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:41:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 55m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:42:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 56m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:42:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 56m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:43:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 57m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:43:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 57m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:44:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 58m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:45:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 59m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:45:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 59m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:46:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 60m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:46:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 60m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:47:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 61m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:47:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 61m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:48:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 62m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:48:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 62m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:49:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 63m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:49:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 63m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:50:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 64m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:50:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 64m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:51:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 65m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:51:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 65m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:52:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 66m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:52:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 66m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:53:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 67m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:54:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 68m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:54:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 68m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:55:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 69m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:55:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 69m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:56:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 70m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:56:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 70m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:57:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 71m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:57:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 71m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:58:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 72m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:58:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 72m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:59:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 73m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:59:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 74m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:00:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 74m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:01:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 75m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:01:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 75m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:02:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 76m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:02:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 76m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:03:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 77m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:03:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 77m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:04:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 78m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:04:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 78m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:05:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 79m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:05:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 79m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:06:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 80m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:06:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 80m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:07:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 81m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:08:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 82m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:08:56 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 83m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:09:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 83m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:09:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 84m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:10:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 84m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:11:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 85m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:11:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 85m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:12:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 86m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:12:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 86m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:13:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 87m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:13:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 87m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:14:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 88m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:14:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 88m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:15:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 89m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:15:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 89m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:16:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 90m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:16:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 90m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:17:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 91m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:17:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 91m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:18:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 92m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:18:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 92m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:19:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 93m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:19:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 93m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:20:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 94m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:20:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 94m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:21:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 95m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:21:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 95m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:22:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 96m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:22:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 96m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:23:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 97m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:23:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 97m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:24:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 98m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:24:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 98m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:25:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 99m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:25:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 99m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:26:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 100m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:26:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 100m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:27:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 101m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:27:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 101m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:28:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 102m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:28:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 102m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:29:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 103m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:29:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 103m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:30:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 104m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:30:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 105m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:31:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 105m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:32:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 106m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:32:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 106m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:33:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 107m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:33:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 107m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:34:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 108m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:34:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 108m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:35:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 109m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:35:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 109m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:36:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 110m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:36:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 110m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:37:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 111m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:37:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 111m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:38:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 112m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:38:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 112m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:39:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 113m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:39:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 113m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:40:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 114m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:40:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 114m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:41:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 115m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:41:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 115m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:42:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 116m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:42:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 117m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:43:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 117m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:44:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 118m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:44:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 118m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:45:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 119m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:45:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 119m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:46:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 120m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:46:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 120m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:47:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 121m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:47:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 121m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:48:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 122m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:48:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 122m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:49:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 123m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:49:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 123m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:50:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 124m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:50:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 124m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:51:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 125m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:51:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 125m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:52:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 126m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:52:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 126m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:53:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 127m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:53:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 127m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:54:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 128m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:55:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 129m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:55:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 129m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:56:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 130m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:56:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 130m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:57:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 131m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:57:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 131m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:58:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 132m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:58:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 132m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:59:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 133m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:59:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 133m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:00:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 134m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:00:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 134m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:01:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 135m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:01:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 135m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:02:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 136m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:02:56 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 137m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:03:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 137m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:03:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 138m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:04:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 138m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:05:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 139m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:05:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 139m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:06:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 140m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:06:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 140m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:07:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 141m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:07:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 141m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:08:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 142m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:08:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 142m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:09:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 143m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:09:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 143m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:10:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 144m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:11:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 145m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:11:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 145m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:12:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 146m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:12:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 146m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:13:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 147m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:13:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 147m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:14:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 148m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:14:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 148m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:15:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 149m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:15:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 149m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:16:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 150m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:16:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 150m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:17:26 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 151m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:17:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 152m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:18:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 152m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:19:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 153m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:19:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 153m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:20:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 154m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:20:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 154m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:21:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 155m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:22:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 156m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:22:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 156m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:23:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 157m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:23:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 157m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:24:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 158m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:25:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 159m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:25:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 159m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:26:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 160m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:26:56 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 161m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:27:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 161m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:28:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 162m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:29:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 163m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:29:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 163m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:30:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 164m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:30:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 164m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:31:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 165m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:31:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 165m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:32:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 166m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:32:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 166m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:33:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 167m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:33:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 167m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:34:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 168m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:34:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 168m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:35:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 169m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:35:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 169m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:36:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 170m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:36:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 170m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:37:26 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 171m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:37:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 172m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:38:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 172m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:39:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 173m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:39:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 173m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:40:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 174m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:40:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 174m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:41:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 175m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:41:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 175m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:42:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 176m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:43:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 177m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:43:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 177m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:44:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 178m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:44:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 178m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:45:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 179m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:46:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 180m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:46:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 180m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:47:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 181m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:47:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 181m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:48:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 182m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:48:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 183m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:50:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 184m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:50:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 184m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:51:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 185m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:52:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 186m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:52:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 186m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:53:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 187m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:53:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 187m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:54:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 188m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:54:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 188m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:55:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 189m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:55:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 189m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:56:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 190m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:56:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 190m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:57:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 191m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:57:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 191m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:58:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 192m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:58:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 193m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:59:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 193m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:59:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 194m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:00:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 194m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:01:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 195m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:01:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 195m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:02:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 196m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:02:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 196m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:03:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 197m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:03:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 197m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:04:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 198m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:04:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 198m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:05:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 199m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:05:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 199m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:06:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 200m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:06:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 200m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:07:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 201m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:07:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 201m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:08:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 202m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:08:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 203m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:09:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 203m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:10:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 204m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:10:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 204m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:11:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 205m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:11:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 205m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:12:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 206m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:12:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 206m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:13:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 207m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:13:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 207m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:14:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 208m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:14:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 208m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:15:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 209m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:15:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 209m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:16:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 210m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:16:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 210m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:17:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 211m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:17:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 211m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:18:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 212m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:18:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 212m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:19:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 213m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:19:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 213m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:20:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 214m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:21:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 215m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:21:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 215m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:22:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 216m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:22:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 216m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:23:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 217m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:23:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 217m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:24:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 218m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:24:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 218m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:25:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 219m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:25:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 219m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:26:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 220m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:26:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 220m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:27:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 221m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:27:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 221m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:28:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 222m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:28:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 222m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:29:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 223m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:29:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 223m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:30:26 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 224m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:30:56 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 225m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:31:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 225m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:32:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 226m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:32:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 226m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:33:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 227m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:33:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 227m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:34:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 228m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:35:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 229m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:35:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 229m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:36:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 230m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:36:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 230m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:37:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 231m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:38:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 232m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:38:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 232m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:39:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 233m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:40:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 234m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:41:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 235m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:41:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 235m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:42:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 236m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:43:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 237m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:45:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 239m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:46:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 240m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:46:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 240m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:47:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 241m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:47:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 241m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:48:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 242m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:48:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 242m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:49:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 243m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:50:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 244m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:50:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 244m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:51:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 245m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:52:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 246m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:52:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 246m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:53:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 247m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:53:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 247m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:55:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 249m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:55:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 249m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:56:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 250m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:56:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 251m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:57:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 251m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:57:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 252m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:01:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 255m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:09:56 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 264m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:10:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 264m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:10:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 265m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:11:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 265m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:12:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 266m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:12:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 266m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:15:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 269m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:15:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 270m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:20:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 274m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:23:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 277m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:23:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 277m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:24:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 278m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:24:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 278m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:25:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 279m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:25:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 279m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:26:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 280m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:26:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 280m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:27:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 281m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:27:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 281m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:29:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 283m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:30:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 284m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:31:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 285m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:33:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 287m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:35:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 289m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:36:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 290m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:37:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 291m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:37:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 291m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:39:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 293m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:39:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 293m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:40:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 294m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:44:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 298m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:47:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 301m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:48:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 302m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:48:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 302m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:52:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 306m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:54:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 308m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:55:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 309m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:06:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 320m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:06:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 321m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:08:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 322m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:10:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 324m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:11:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 326m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:13:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 327m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:14:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 328m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:14:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 328m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:15:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 329m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:18:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 332m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:20:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 334m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:21:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 335m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:22:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 336m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:23:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 337m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:24:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 338m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:25:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 339m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:25:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 339m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:26:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 340m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:27:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 341m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:27:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 341m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:28:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 342m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:28:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 342m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:29:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 343m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:29:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 343m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:30:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 344m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:32:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 346m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:42:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 356m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:43:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 357m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:43:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 357m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:46:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 360m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:50:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 364m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:52:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 366m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:52:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 366m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:53:54 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 367m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:54:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 368m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:55:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 369m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:55:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 369m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 5:59:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 373m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:00:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 374m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:09:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 383m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:09:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 383m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:10:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 384m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:10:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 384m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:11:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 385m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:12:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 386m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:12:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 386m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:13:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 387m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:15:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 389m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:21:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 395m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:23:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 397m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:23:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 398m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:25:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 399m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:25:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 399m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:26:26 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 400m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:27:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 401m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:28:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 402m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:28:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 402m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:29:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 403m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:29:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 403m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:30:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 404m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:30:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 404m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:31:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 405m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:32:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 406m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:33:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 407m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:33:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 407m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:34:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 408m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:34:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 408m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:35:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 409m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:35:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 409m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:36:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 410m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:36:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 410m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:37:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 411m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:37:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 411m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:38:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 412m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:38:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 412m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:39:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 413m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:39:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 413m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:40:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 414m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:40:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 414m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:41:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 415m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:41:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 415m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:42:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 416m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:42:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 416m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:43:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 417m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:43:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 417m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:44:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 418m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:44:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 418m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:45:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 419m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:45:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 419m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:49:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 423m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:50:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 424m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:50:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 424m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:51:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 425m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:51:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 425m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:52:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 426m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:52:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 426m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:53:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 427m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:53:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 427m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:54:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 428m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:54:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 428m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:55:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 429m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:55:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 430m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:56:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 430m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:57:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 431m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:57:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 431m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:58:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 432m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:58:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 432m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:59:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 433m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 6:59:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 433m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:00:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 434m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:00:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 434m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:01:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 435m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:02:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 436m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:02:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 436m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:03:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 437m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:03:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 437m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:04:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 438m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:04:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 438m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:05:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 439m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:06:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 440m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:07:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 441m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:08:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 442m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:08:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 442m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:09:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 443m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:09:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 443m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:10:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 444m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:10:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 444m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:11:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 445m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:11:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 445m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:12:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 446m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:13:48 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 447m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:14:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 448m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:15:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 449m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:22:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 456m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:23:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 457m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:24:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 458m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:25:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 459m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:26:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 460m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:27:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 461m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:29:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 463m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:34:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 468m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:35:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 469m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:37:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 471m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:37:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 471m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:38:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 472m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:38:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 472m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:39:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 473m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:39:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 473m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:40:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 474m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:40:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 474m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:41:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 475m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:41:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 475m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:42:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 476m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:42:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 476m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:43:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 477m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:44:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 478m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:44:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 478m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:45:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 479m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:45:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 479m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:46:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 480m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:47:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 482m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:48:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 482m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:48:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 483m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:49:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 483m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:49:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 484m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:50:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 484m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:51:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 485m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:51:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 485m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:52:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 486m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:52:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 486m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:53:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 487m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:53:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 487m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:54:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 488m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:54:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 488m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:55:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 489m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:55:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 489m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:56:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 490m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:56:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 490m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:57:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 491m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:57:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 491m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:58:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 492m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:59:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 493m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 7:59:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 493m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:00:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 494m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:00:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 494m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:01:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 495m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:01:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 495m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:02:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 496m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:02:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 496m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:03:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 497m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:03:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 497m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:04:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 498m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:04:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 498m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:05:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 499m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:05:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 499m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:06:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 500m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:06:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 500m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:07:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 501m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:07:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 501m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:08:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 502m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:09:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 503m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:09:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 503m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:10:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 504m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:10:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 504m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:11:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 505m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:11:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 505m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:12:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 506m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:12:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 506m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:13:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 507m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:14:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 508m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:14:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 508m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:15:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 509m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:15:56 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 510m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:16:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 510m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:18:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 512m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:19:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 513m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:19:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 513m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:20:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 514m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:20:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 514m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:21:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 515m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:21:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 515m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:22:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 516m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:22:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 516m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:23:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 517m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:23:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 517m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:24:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 518m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:24:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 518m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:25:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 519m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:25:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 519m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:26:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 520m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:26:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 520m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:27:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 521m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:27:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 521m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:28:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 522m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:29:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 523m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:29:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 523m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:30:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 524m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:30:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 524m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:31:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 525m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:31:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 525m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:32:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 526m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:34:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 529m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:35:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 529m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:38:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 532m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:39:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 533m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:39:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 533m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:40:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 534m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:40:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 534m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:41:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 535m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:41:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 535m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:42:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 536m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:42:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 536m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:43:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 537m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:43:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 537m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:44:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 538m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:44:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 538m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:45:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 539m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:45:52 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 539m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:46:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 540m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:50:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 544m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:51:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 545m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:51:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 545m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:52:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 546m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:53:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 547m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:53:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 547m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:54:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 548m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:55:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 549m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:55:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 549m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:56:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 550m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:56:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 551m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:57:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 551m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:57:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 552m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:58:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 552m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:58:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 553m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:59:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 553m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 8:59:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 554m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:00:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 554m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:01:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 555m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:01:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 555m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:02:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 556m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:02:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 556m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:03:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 557m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:03:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 557m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:04:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 558m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:04:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 558m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:05:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 559m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:05:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 559m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:06:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 560m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:06:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 560m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:07:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 561m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:07:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 561m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:08:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 562m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:08:49 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 562m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:09:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 563m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:09:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 563m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:10:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 564m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:11:26 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 565m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:11:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 566m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:12:27 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 566m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:13:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 567m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:13:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 567m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:14:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 568m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:14:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 568m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:15:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 569m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:15:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 569m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:16:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 570m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:21:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 575m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:22:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 576m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:22:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 576m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:23:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 577m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:23:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 577m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:24:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 578m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:24:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 578m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:25:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 579m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:25:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 579m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:26:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 580m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:26:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 580m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:27:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 581m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:28:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 582m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:28:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 582m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:29:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 583m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:30:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 584m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:30:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 584m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:31:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 585m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:32:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 586m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:33:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 587m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:35:22 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 589m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:37:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 591m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:37:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 591m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:38:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 592m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:38:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 592m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:39:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 593m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:39:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 593m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:40:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 594m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:40:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 594m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:41:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 595m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:41:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 595m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:42:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 596m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:42:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 596m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:43:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 597m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:44:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 598m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:44:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 598m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:45:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 599m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:45:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 599m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:48:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 602m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:50:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 604m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:50:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 604m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:51:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 605m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:51:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 605m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:52:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 606m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:52:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 606m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:53:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 607m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:53:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 607m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:54:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 608m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:54:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 608m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:55:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 609m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:55:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 609m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:56:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 610m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:56:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 610m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:57:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 611m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:57:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 611m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:58:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 612m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:59:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 613m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 9:59:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 613m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:00:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 614m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:00:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 614m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:01:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 615m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:01:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 615m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:04:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 618m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:05:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 619m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:05:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 619m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:06:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 620m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:06:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 620m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:07:08 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 621m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:07:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 621m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:08:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 622m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:08:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 622m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:09:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 623m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:09:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 623m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:10:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 624m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:10:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 624m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:11:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 625m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:11:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 625m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:12:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 626m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:12:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 626m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:13:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 627m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:13:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 627m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:14:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 628m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:14:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 628m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:15:23 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 629m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:15:53 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 629m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:16:24 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 630m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:16:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 631m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:20:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 634m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:20:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 634m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:21:25 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 635m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:21:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 635m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:22:26 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 636m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:22:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 637m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:23:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 637m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:23:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 638m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:24:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 638m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:24:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 639m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:25:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 639m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:25:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 640m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:26:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 640m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:27:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 641m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:27:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 641m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:28:14 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 642m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:28:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 642m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:29:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 643m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:29:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 643m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:30:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 644m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:30:45 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 644m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:31:15 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 645m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:31:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 645m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:34:58 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 649m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:35:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 649m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:35:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 650m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:36:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 650m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:37:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 651m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:37:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 651m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:38:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 652m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:38:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 652m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:39:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 653m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:39:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 653m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:40:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 654m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:40:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 654m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:41:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 655m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:41:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 655m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:42:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 656m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:42:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 657m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:43:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 657m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:44:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 658m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:44:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 658m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:45:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 659m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:45:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 659m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:46:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 660m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:46:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 660m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:51:39 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 665m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:52:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 666m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:52:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 666m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:53:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 667m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:53:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 667m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:54:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 668m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:54:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 668m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:55:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 669m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:55:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 669m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:56:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 670m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:56:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 670m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:57:11 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 671m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 10:59:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 673m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:00:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 674m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:03:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 677m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:04:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 678m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:05:41 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 679m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:06:51 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 680m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:08:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 682m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:09:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 683m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:09:33 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 683m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:10:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 684m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:10:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 684m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:11:19 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 685m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:12:28 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 686m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:13:55 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 687m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:14:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 688m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:15:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 689m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:16:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 690m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:20:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 694m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:21:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 695m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:21:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 695m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:22:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 696m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:22:37 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 696m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:23:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 697m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:24:20 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 698m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:24:50 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 698m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:25:21 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 699m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:26:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 700m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:26:43 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 700m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:27:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 701m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:27:44 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 701m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:28:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 703m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:29:30 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 703m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:30:01 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 704m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:30:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 704m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:31:03 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 705m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:31:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 705m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:32:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 706m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:34:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 708m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:35:57 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 710m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:36:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 710m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:37:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 711m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:38:12 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 712m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:38:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 712m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:39:13 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 713m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:40:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 714m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:40:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 714m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:41:16 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 715m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:41:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 715m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:42:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 716m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:43:06 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 717m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:43:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 717m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:44:07 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 718m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:45:09 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 719m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:45:40 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 719m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:46:10 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 720m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:46:42 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 720m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:47:18 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 721m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:48:35 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 722m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:49:46 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 723m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:50:17 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 724m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:50:47 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 724m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:52:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 726m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:52:31 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 726m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:53:02 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 727m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:53:34 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 727m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:54:05 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 728m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:54:36 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 728m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:55:32 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 729m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:56:04 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 730m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:57:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 731m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:57:59 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 732m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:58:29 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 732m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:59:00 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 733m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 11:59:38 AM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 733m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:00:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 734m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:00:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 734m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:01:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 735m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:02:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 736m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:03:27 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 737m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:04:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 738m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:04:48 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 738m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:05:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 739m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:05:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 739m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:06:20 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 740m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:07:14 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 741m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:07:48 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 741m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:08:19 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 742m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:08:51 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 742m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:10:06 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 744m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:10:37 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 744m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:11:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 745m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:11:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 745m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:12:14 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 746m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:12:46 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 746m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:13:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 747m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:14:00 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 748m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:15:00 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 749m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:15:33 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 749m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:16:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 750m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:16:46 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 750m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:22:19 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 756m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:22:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 756m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:23:20 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 757m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:23:50 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 757m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:24:21 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 758m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:24:57 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 759m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:25:26 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 759m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:25:57 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 760m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:26:28 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 760m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:26:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 761m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:27:29 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 761m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:27:59 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 762m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:28:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 762m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:29:01 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 763m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:29:41 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 763m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:30:12 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 764m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:30:43 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 764m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:31:14 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 765m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:31:45 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 765m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:32:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 766m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:34:59 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 769m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:35:55 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 769m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:36:27 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 770m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:36:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 771m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:37:28 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 771m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:37:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 772m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:38:28 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 772m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:38:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 773m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:39:28 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 773m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:39:59 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 774m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:40:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 774m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:41:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 775m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:41:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 775m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:42:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 776m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:42:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 776m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:43:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 777m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:43:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 777m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:44:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 778m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:45:29 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 779m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:46:00 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 780m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:46:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 780m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:47:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 781m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:47:52 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 781m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:48:23 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 782m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:48:54 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 782m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:49:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 783m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:50:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 784m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:51:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 785m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:52:29 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 786m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:53:00 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 787m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:53:45 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 787m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:54:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 788m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:55:21 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 789m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:56:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 790m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:58:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 792m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:59:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 793m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 12:59:45 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 793m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:00:14 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 794m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:00:45 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 794m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:01:15 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 795m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:01:45 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 795m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:02:56 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 797m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:03:27 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 797m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:03:59 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 798m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:04:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 798m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:05:00 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 799m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:05:31 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 799m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:06:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 800m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:06:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 800m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:07:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 802m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:09:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 803m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:09:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 803m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:10:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 804m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:10:37 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 804m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:11:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 805m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:12:52 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 806m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:13:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 807m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:14:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 808m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:14:51 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 808m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:15:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 809m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:17:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 811m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:22:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 816m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:26:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 820m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:27:08 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 821m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:28:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 822m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:28:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 822m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:29:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 823m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:29:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 823m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:30:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 824m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:30:48 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 824m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:31:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 825m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:31:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 825m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:32:20 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 826m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:32:57 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 827m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:35:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 829m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:33:36 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 827m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:35:48 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 829m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:37:06 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 831m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:37:37 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 831m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:38:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 832m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:39:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 833m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:39:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 833m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:40:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 834m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:40:33 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 834m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:41:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 835m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:41:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 835m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:42:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 836m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:42:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 836m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:43:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 837m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:43:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 837m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:44:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 838m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:44:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 838m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:45:19 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 839m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:45:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 839m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:46:19 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 840m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:46:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 840m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:47:41 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 841m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:50:28 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 844m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:50:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 845m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:51:29 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 845m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:52:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 846m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:52:33 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 846m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:53:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 847m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:54:01 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 848m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:54:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 848m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:55:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 849m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:55:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 849m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:56:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 850m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:56:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 850m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:57:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 851m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:57:33 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 851m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:58:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 852m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:58:33 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 852m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:59:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 853m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 1:59:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 853m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:00:19 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 854m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:00:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 854m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:01:37 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 855m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:02:07 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 856m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:02:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 856m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:04:21 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 858m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:06:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 860m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:10:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 864m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:11:20 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 865m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:13:01 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 867m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:13:31 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 867m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:14:42 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 868m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:15:13 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 869m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:15:43 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 869m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:16:14 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 870m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:16:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 870m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:17:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 871m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:17:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 871m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:23:31 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 877m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:24:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 878m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:24:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 878m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:25:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 879m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:26:09 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 880m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:26:41 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 880m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:27:13 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 881m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:27:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 881m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:28:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 882m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:28:50 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 882m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:29:27 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 883m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:30:31 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 884m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:31:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 885m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:32:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 886m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:32:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 886m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:38:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 892m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:38:32 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 892m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:39:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 893m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:39:33 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 893m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:40:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 894m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:40:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 894m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:41:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 895m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:41:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 895m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:42:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 896m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:42:36 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 896m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:43:14 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 897m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:43:46 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 897m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:44:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 898m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:44:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 898m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:45:21 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 899m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:45:52 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 899m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:46:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 900m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:46:55 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 900m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:47:27 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 901m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:48:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 902m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:53:15 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 907m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:57:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 911m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:58:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 912m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 2:59:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 913m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:00:00 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 914m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:00:31 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 914m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:01:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 915m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:01:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 915m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:02:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 916m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:02:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 916m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:03:07 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 917m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:04:26 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 918m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:06:03 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 920m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:06:36 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 920m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:10:13 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 924m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:12:37 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 926m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:15:35 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 929m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:16:05 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 930m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:17:04 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 931m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:17:34 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 931m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:21:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 935m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:22:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 936m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:23:23 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 937m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:24:02 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 938m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:26:26 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 940m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:30:36 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 944m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:35:43 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 949m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:36:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 950m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:38:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 953m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:40:06 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 954m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:46:41 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 960m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:52:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 966m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:57:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 971m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:59:18 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 973m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 3:59:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 973m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:00:51 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 974m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:02:38 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 976m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:03:11 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 977m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:03:43 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 977m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:04:50 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 978m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:05:21 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 979m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:05:53 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 979m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:06:24 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 980m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:07:29 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 981m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:07:59 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 982m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:08:30 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 982m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:09:13 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 983m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:09:43 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 983m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:10:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 984m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:11:13 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 985m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:11:45 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 985m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:12:17 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 986m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:12:49 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 986m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:13:21 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 987m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:13:54 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 987m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:14:25 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 988m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:14:57 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 989m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:16:39 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 990m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:17:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 991m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:18:52 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 992m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:22:58 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 997m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:24:54 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 998m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:27:44 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 1001m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:28:16 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 1002m
+
+**LUCA [HolaHola]:** **Session Monitor Alert** — 4:28:47 PM
+
+⏸️ **Stalled session** (user=49847136, lang=english): no activity for 1002m
