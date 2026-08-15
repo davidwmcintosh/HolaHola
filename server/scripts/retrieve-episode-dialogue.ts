@@ -89,6 +89,7 @@ function parseArgs(argv: string[]) {
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case '--tag':
+      case '--tags':  // alias accepted by the CI check script
         if (args[i + 1]) tags.push(args[++i]);
         break;
       case '--since':
@@ -307,8 +308,9 @@ async function main() {
 
   if (rows.length === 0) {
     process.stderr.write(
-      '⛔ NO RECORDS FOUND — 0 rows matched the query.\n\n' +
-      '  Do NOT proceed without source data — do not reconstruct from memory.\n\n' +
+      '\n⛔ NO RECORDS FOUND — zero rows matched the given tags / date range.\n' +
+      '   Do NOT proceed with episode writing until real rows are retrieved.\n' +
+      '   Do NOT reconstruct from memory.\n\n' +
       '  Retrieve options:\n' +
       '    - Widen the time range (--since / --until)\n' +
       '    - Check available rows by querying the DB directly:\n' +

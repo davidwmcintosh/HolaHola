@@ -9,19 +9,21 @@
 #   bash server/scripts/test-all-consolidated-ci.sh --self-test   # verify failure propagation
 #
 # Available groups:
-#   absence          – absence-path and DB-flag checks                  (~15 s)
-#   sms-voice        – E.164 validation and voice/SMS pipeline          (~20 s)
-#   session          – scratchpad, transcript, shared-lobe,             (~30 s)
-#                      prior-session label clears + self-check
-#   north-star       – semantic echo + reach-north-star e2e self-check  (~20 s)
-#   episode-sync     – watcher, prequel sync, rolling guards, append,   (~90 s)
-#                      hooks, concurrent-write, read-my-story
-#   episode-28       – snapshot integrity, write guard, db-sync,        (~30 s)
-#                      merge-ours guard
-#   luca-inner-life  – capture-status seed, reflection / moment /       (~30 s)
-#                      auto-capture episode checks
-#   memory-recall    – game-session embedding coverage + global pool     (~10 s)
-#                      depth guard + keyword arm
+#   absence            – absence-path and DB-flag checks                  (~15 s)
+#   sms-voice          – E.164 validation and voice/SMS pipeline          (~20 s)
+#   session            – scratchpad, transcript, shared-lobe,             (~30 s)
+#                        prior-session label clears + self-check
+#   north-star         – semantic echo + reach-north-star e2e self-check  (~20 s)
+#   episode-sync       – watcher, prequel sync, rolling guards, append,   (~90 s)
+#                        hooks, concurrent-write, read-my-story
+#   episode-28         – snapshot integrity, write guard, db-sync,        (~30 s)
+#                        merge-ours guard
+#   luca-inner-life    – capture-status seed, reflection / moment /       (~30 s)
+#                        auto-capture episode checks
+#   memory-recall      – game-session embedding coverage + global pool     (~10 s)
+#                        depth guard + keyword arm
+#   backfill-integrity – confirms all backfill-cid:* conversation_memories (~10 s)
+#                        have at least one embedding; fails if cohort < 618
 #
 # Growth-cap exemptions (registered as standalone named workflows, not in groups):
 #   truth-pipeline-unified-recall-diagnosis-ci
@@ -44,7 +46,7 @@ for arg in "$@"; do
   esac
 done
 
-VALID_GROUPS="absence sms-voice session north-star episode-sync episode-28 luca-inner-life memory-recall"
+VALID_GROUPS="absence sms-voice session north-star episode-sync episode-28 luca-inner-life memory-recall backfill-integrity"
 
 if [[ -n "$ONLY_GROUP" && $SELF_TEST -eq 1 ]]; then
   echo "--self-test and --only cannot be combined (self-test uses synthetic groups that are not in VALID_GROUPS)" >&2
@@ -247,6 +249,17 @@ group_body_memory_recall() {
   echo ""
   echo "  --- test-game-recall.ts --self-check (guards fail correctly under regression) ---"
   npx tsx server/scripts/test-game-recall.ts --self-check
+}
+
+group_body_backfill_integrity() {
+  # Non-mutating check only (no --patch).  Verifies that all backfill-cid:*
+  # conversation_memories rows have at least one entry in memory_embeddings.
+  # Fails if cohort < 618 (exact known count — guards against tag drift / wrong DB).
+  run test-backfill-embeddings-complete.ts
+
+  echo ""
+  echo "  --- test-backfill-embeddings-complete.ts --self-check (mutation: fake ID triggers MISSING) ---"
+  npx tsx server/scripts/test-backfill-embeddings-complete.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────

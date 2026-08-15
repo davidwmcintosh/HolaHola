@@ -3396,6 +3396,9 @@ export class NativeFunctionCallHandler {
         let exactTitle: string;
         let titleRegex: string;
         if (chapterNum >= 1 && chapterNum <= 28) {
+          // Use ([^0-9]|$) — not (\s|$) — because \s inside a JS template
+          // literal becomes a literal 's' (unrecognized escape), so PostgreSQL
+          // would receive "(s|$)" and miss titles like "Episode 1: subtitle".
           titleRegex = `^Episode ${chapterNum}([^0-9]|$)`;
           chapterLabel = `Episode ${chapterNum}`;
         } else if (chapterNum >= 29 && chapterNum <= 32) {

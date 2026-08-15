@@ -98,19 +98,17 @@ function mutateOrderBy(original: string): string {
 }
 
 /**
- * Mutation 2 — swap the digit-boundary regex `([^0-9]|$)` → `(\\s|$)`.
- * With `(\\s|$)`, a title like "Episode 1: Take That, World" no longer matches
- * (colon is not whitespace), so the canonical row is missed and the CI's
+ * Mutation 2 — corrupt the digit-boundary regex `([^0-9]|$)` → `([0-9]|$)`.
+ * With `([0-9]|$)`, a title like "Episode 1: Take That, World" no longer
+ * matches (colon is not a digit), so the canonical row is missed and the CI's
  * canonical-record check (#6) and/or row-not-found check (#1) fails.
  *
- * The pattern appears twice (once for Episodes 1–27, once for Prequel Episodes).
+ * The pattern appears twice in the handler (once for Episodes 1–28, once for
+ * Prequel Episodes 1–4).
  */
 function mutateRegex(original: string): string {
-  // Pattern inside the handler looks like: `([^0-9]|$)` (inside a template literal)
-  const TARGET = /\(\[A-Z\^0-9\]\|\\$\)/g;  // won't match — use literal string instead
-
-  const LITERAL_TARGET = '([^0-9]|$)';
-  const LITERAL_REPLACEMENT = '(\\s|$)';
+  const LITERAL_TARGET      = '([^0-9]|$)';
+  const LITERAL_REPLACEMENT = '([0-9]|$)';  // corrupt: only digits match — breaks all real titles
 
   if (!original.includes(LITERAL_TARGET)) {
     throw new Error(`Regex mutation target "${LITERAL_TARGET}" not found in handler.`);
@@ -174,7 +172,7 @@ async function main() {
   console.log('');
 
   // ── 2. Regex mutation ─────────────────────────────────────────────────────
-  console.log('--- Mutation 2: regex ([^0-9]|$) → (\\s|$) (should break canonical row selection) ---');
+  console.log('--- Mutation 2: regex ([^0-9]|$) → ([0-9]|$) (should break canonical row selection) ---');
   {
     let mutated: string;
     try {
@@ -193,7 +191,7 @@ async function main() {
     }
 
     if (!failedAsExpected) {
-      selfCheckFailures.push('Mutation 2: CI did not fail when regex was changed to (\\s|$)');
+      selfCheckFailures.push('Mutation 2: CI did not fail when regex was changed to ([0-9]|$)');
     }
 
     const passedAfterRestore = runCiExpectPass('regex restored');
