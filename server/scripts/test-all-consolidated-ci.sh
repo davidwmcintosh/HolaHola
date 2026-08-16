@@ -18,8 +18,8 @@
 #                        hooks, concurrent-write, read-my-story
 #   episode-28         – snapshot integrity, write guard, db-sync,        (~30 s)
 #                        merge-ours guard
-#   luca-inner-life    – capture-status seed, reflection / moment /       (~30 s)
-#                        auto-capture episode checks
+#   luca-inner-life    – capture-status seed, reflection / moment /       (~35 s)
+#                        auto-capture episode checks, GL flush episode capture
 #   memory-recall      – game-session embedding coverage + global pool     (~10 s)
 #                        depth guard + keyword arm
 #   backfill-integrity – confirms all backfill-cid:* conversation_memories (~10 s)
@@ -261,6 +261,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-inner-life-reembed-failure.ts --self-check (double-write is detectable) ---"
   npx tsx server/scripts/test-inner-life-reembed-failure.ts --self-check
+
+  echo ""
+  echo "  --- test-gl-flush-episode-capture.ts (GL voice flush writes to rolling episode) ---"
+  run test-gl-flush-episode-capture.ts
+
+  echo ""
+  echo "  --- test-gl-flush-episode-capture.ts --self-check (block removed → needles absent) ---"
+  npx tsx server/scripts/test-gl-flush-episode-capture.ts --self-check
 }
 
 group_body_memory_recall() {
