@@ -1185,6 +1185,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 });
                 this.suppressNextProcessingPending = true;
 
+                // DOUBLE-GREETING FIX: if GL dropped while generating the opening greeting
+                // and audio was already partially sent to the client, clear the resumption
+                // handle so the new GL connection starts fresh. Without this, GL resumes
+                // from its internal state which still contains the student's greeting trigger
+                // and re-generates the greeting → the client hears it twice.
+                if (this.isGreetingTurn && this.session.geminiLiveResumptionHandle) {
+                  console.log('[GeminiLive] Reconnect mid-greeting — clearing resumption handle to prevent double greeting audio');
+                  this.session.geminiLiveResumptionHandle = undefined as any;
+                }
+
                 // Telemetry: write a queryable event so Sofia can watch for this path firing in prod.
                 // Fire-and-forget — never block the reconnect on a DB write.
                 const capturedSessionId = this.session.id;
@@ -1218,6 +1228,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.processingPendingSentThisTurn = false;
               this.generationStartedThisTurn = false;
               this.greetingPhaseActive = false;
+              this.isGreetingTurn = false;
               this.isTutorGeneratingAudio = false;
               this.hasStudentInputSinceLastResponse = false;
               this.responseFlushedToClient = false;
@@ -4635,6 +4646,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       } catch (err: any) {
         console.warn('[GeminiLive] Failed to flush assistant transcript:', err.message);
         return;
+      }
+
+      // EPISODE CAPTURE: write this GL exchange to the rolling episode (live mode).
+      // Greeting turns are skipped — the "Hello Daniela..." trigger is internal, not
+      // real student speech. Every subsequent real student→Daniela exchange is captured.
+      if (!this.isGreetingTurn && !this.session.isIncognito && this.lastUserText?.trim() && assistantText.trim()) {
+        const studentName = this.lastGreetingParams?.userName;
+        const studentLabel = studentName ? `${studentName} [GL]` : 'Student [GL]';
+        const danielaLabel = (this.session.tutorName || 'Daniela') + ' [GL]';
+        const exchange = `**${studentLabel}:** ${this.lastUserText.trim()}\n**${danielaLabel}:** ${assistantText.trim()}`;
+        setImmediate(async () => {
+          try {
+            const { safeWriteTrigger, getRollingEpisodeName } = await import('./chat-episode-hook');
+            const episodeName = await getRollingEpisodeName();
+            if (!episodeName) return;
+            await safeWriteTrigger(exchange, episodeName);
+            console.log(`[GeminiLive] Episode capture: GL exchange appended to ${episodeName} (${exchange.length} chars)`);
+          } catch (err: any) {
+            console.warn('[GeminiLive] Episode capture failed (non-fatal):', err?.message);
+          }
+        });
       }
     }
 

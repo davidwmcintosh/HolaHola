@@ -535,8 +535,8 @@ async function main(): Promise<void> {
       const leakRows = await sql`
         SELECT id, title
         FROM conversation_memories
-        WHERE content LIKE ${'%' + sentinelTag + '%'}
-           OR title   LIKE ${'%' + sentinelTag + '%'}
+        WHERE content LIKE ${'%' + runTag + '%'}
+           OR title   LIKE ${'%' + runTag + '%'}
         LIMIT 5
       `;
       if (leakRows.length > 0) {
@@ -544,14 +544,14 @@ async function main(): Promise<void> {
           .map(r => `${r.id.slice(0, 8)}… ("${r.title}")`)
           .join(', ');
         console.log(R(`  ✗  WARN — sentinel still present in DB after cleanup!`));
-        console.log(R(`     Sentinel: ${sentinelTag}`));
+        console.log(R(`     Run tag: ${runTag}`));
         console.log(R(`     Dirty rows: ${ids}`));
         console.log(R(`     Manual cleanup:`));
         console.log(R(`       DELETE FROM conversation_memories WHERE id IN (<ids above>);`));
         console.log(R(`       -- or strip from content only:`));
         console.log(R(`       UPDATE conversation_memories`));
-        console.log(R(`         SET content = REPLACE(content, '${sentinelTag}', '')`));
-        console.log(R(`         WHERE content LIKE '%${sentinelTag}%';`));
+        console.log(R(`         SET content = REPLACE(content, '${runTag}', '')`));
+        console.log(R(`         WHERE content LIKE '%${runTag}%';`));
         failed++;
       } else {
         console.log(`  ${G('✓')} Sentinel leak check passed — no sentinel garbage in title or content`);
@@ -560,7 +560,7 @@ async function main(): Promise<void> {
       console.log(R(`  ✗  CLEANUP FAILED — sentinel leak query itself failed: ${(leakErr as Error).message}`));
       console.log(R(`     Cannot confirm sentinel is absent from conversation_memories.`));
       console.log(R(`     Manual: SELECT id, title FROM conversation_memories`));
-      console.log(R(`             WHERE content LIKE '%${sentinelTag}%' OR title LIKE '%${sentinelTag}%';`));
+      console.log(R(`             WHERE content LIKE '%${runTag}%' OR title LIKE '%${runTag}%';`));
       failed++;
     }
   }
