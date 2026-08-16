@@ -12,7 +12,8 @@
 #   absence            – absence-path and DB-flag checks                  (~15 s)
 #   sms-voice          – E.164 validation and voice/SMS pipeline          (~20 s)
 #   session            – scratchpad, transcript, shared-lobe,             (~30 s)
-#                        prior-session label clears + self-check
+#                        prior-session label clears + self-check,
+#                        double-greeting reconnect guard + self-check
 #   north-star         – semantic echo + reach-north-star e2e self-check  (~20 s)
 #   episode-sync       – watcher, prequel sync, rolling guards, append,   (~90 s)
 #                        hooks, concurrent-write, read-my-story
@@ -140,6 +141,12 @@ group_body_session() {
   echo ""
   echo "  --- test-prior-session-label-clears.ts --self-check (flag-clear line removed regression) ---"
   npx tsx server/scripts/test-prior-session-label-clears.ts --self-check
+
+  run test-double-greeting-reconnect-guard.ts
+
+  echo ""
+  echo "  --- test-double-greeting-reconnect-guard.ts --self-check (guard removed regression) ---"
+  npx tsx server/scripts/test-double-greeting-reconnect-guard.ts --self-check
 }
 
 group_body_north_star() {
