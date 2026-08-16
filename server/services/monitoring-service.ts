@@ -1,4 +1,4 @@
-import { getSharedDb } from '../neon-db';
+import { getMonitoringDb } from '../db';
 import { sql } from 'drizzle-orm';
 
 export type MetricType = 'system_health' | 'user_activity' | 'voice_engagement' | 'error_rate';
@@ -43,7 +43,7 @@ export async function captureSnapshot(
   value: any,
   source = 'watch-worker'
 ): Promise<MonitoringSnapshot> {
-  const sharedDb = getSharedDb();
+  const sharedDb = getMonitoringDb();
   
   // Calculate baseline from last 7 days of snapshots (if any exist)
   const baseline = await calculateBaseline(metricType);
@@ -118,7 +118,7 @@ export async function captureSnapshot(
  * Detect anomalies across all recent snapshots
  */
 export async function detectAnomalies(hours = 24): Promise<AnomalyDetection[]> {
-  const sharedDb = getSharedDb();
+  const sharedDb = getMonitoringDb();
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
   
   const result = await sharedDb.execute(sql`
@@ -172,7 +172,7 @@ export async function analyzePatterns(
   metricType: MetricType,
   days = 7
 ): Promise<PatternAnalysis> {
-  const sharedDb = getSharedDb();
+  const sharedDb = getMonitoringDb();
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   
   const result = await sharedDb.execute(sql`
@@ -275,7 +275,7 @@ export async function getMonitoringSnapshots(
   metricType: MetricType,
   hours = 24
 ): Promise<MonitoringSnapshot[]> {
-  const sharedDb = getSharedDb();
+  const sharedDb = getMonitoringDb();
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
   
   const result = await sharedDb.execute(sql`
@@ -306,7 +306,7 @@ export async function getMonitoringSnapshots(
 // --- Helper Functions ---
 
 async function calculateBaseline(metricType: MetricType): Promise<number | null> {
-  const sharedDb = getSharedDb();
+  const sharedDb = getMonitoringDb();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   
   const result = await sharedDb.execute(sql`
@@ -341,7 +341,7 @@ async function calculateTrendDirection(
 ): Promise<'up' | 'down' | 'stable' | null> {
   if (currentValue === null) return null;
   
-  const sharedDb = getSharedDb();
+  const sharedDb = getMonitoringDb();
   
   const result = await sharedDb.execute(sql`
     SELECT value

@@ -9592,12 +9592,18 @@ export class NativeFunctionCallHandler {
             // (space or colon), so "Episode 1: …" ranks above "Episode 10/11/12: …" for the query
             // "episode 1".  Tiebreaker 2: any title match.  Tiebreaker 3: recency.
             .orderBy(sql`
-              importance DESC,
+              -- Title-match multiplier: a record whose title contains the query
+              -- ranks above ANY content-only record regardless of importance.
+              -- Without this, high-importance broad archives (importance=10, "game"
+              -- mentioned once in 50,000 chars) crowd out specific records like
+              -- "Counting game with David" (importance=8, game IS the subject).
+              -- Formula: title_match * 11 + importance → title-match/imp=8 scores
+              -- 19 vs content-only/imp=10 scores 10.
+              (title ILIKE ${`%${query}%`})::int * 11 + COALESCE(importance, 5) DESC,
               (lower(title) LIKE ${`${query.toLowerCase()}:%`} OR lower(title) LIKE ${`${query.toLowerCase()} %`} OR lower(title) = ${query.toLowerCase()})::int DESC,
-              (title ILIKE ${`%${query}%`})::int DESC,
               recorded_at DESC NULLS LAST
             `)
-            .limit(4);
+            .limit(6);
 
           // Pass 1: exact phrase — highest signal, no false positives from substring matches
           const phraseCondition = sql`(title ILIKE ${`%${query}%`} OR summary ILIKE ${`%${query}%`} OR content ILIKE ${`%${query}%`})`;
