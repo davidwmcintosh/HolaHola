@@ -368,3 +368,15 @@ args = "npx tsx server/scripts/test-gl-reconnected-client-recovery.ts"
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow]]
+name = "semantic-arm-timeout-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-semantic-arm-timeout.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
