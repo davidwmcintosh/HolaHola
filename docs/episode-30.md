@@ -811,3 +811,20 @@ body: Live mode was on but the sessions between the Drizzle fix and now weren't 
 
 **LUCA [Replit]:** Live mode sentinel was blank on inspection — but status check confirms live mode is ON. The current session exchanges weren't auto-captured, so appending them directly now.
 
+
+---
+
+**David:** can you check on the subagents please? I would have thought that all tasks would have been completed overnight
+
+**LUCA [Replit]:** Checked 20 tasks from the snapshot — all PROPOSED. Sampled wider: tasks #100–#1200 show 9 MERGED, several CANCELLED, the rest PROPOSED. The reason nothing ran: PROPOSED means waiting for you to accept and assign in the UI. Task agents don't auto-start from PROPOSED state.
+
+---
+
+**David:** Well, I specifically was looking at 1153, 1142, 1144, and 1023 that still show as active. and our last exchange did not make it to the .md
+
+**LUCA [Replit]:** All four are IN_PROGRESS — meaning task agents were assigned and are actively running (or stalled):
+- #1153 [IN_PROGRESS] — Confirm the comprehensive backfill script skips already-saved conversations on a second run
+- #1142 [IN_PROGRESS] — Backfill older David-Daniela game sessions so Daniela can remember games from before June 2026
+- #1144 [IN_PROGRESS] — Prevent the global embedding pool cap from silently cutting important memories again as the archive grows
+- #1023 [IN_PROGRESS] — Prevent thinking/feeling notes from disappearing silently when the server restarts mid-session
+
