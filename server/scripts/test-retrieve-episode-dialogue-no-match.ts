@@ -88,13 +88,18 @@ const SENTINEL_TAG = 'ci-no-match-sentinel-xyzzy-1134';
 // Temporary output path checked in assertions.
 const TMP_OUT = '/tmp/test-retrieve-episode-no-match-output.md';
 // Path to the stub used only in self-check Phase A.
-const STUB_PATH = '/tmp/test-retrieve-episode-stub-silent-1134.ts';
+// NOTE: written as .cjs (CommonJS) and run with `node` directly so it does not
+// need tsx to compile — avoids tsx /tmp startup latency that causes exit -1 and
+// makes assertion 4 ("output file NOT created") pass against a broken stub.
+const STUB_PATH = '/tmp/test-retrieve-episode-stub-silent-1134.cjs';
 
 const REAL_SCRIPT = join(process.cwd(), 'server/scripts/retrieve-episode-dialogue.ts');
 
 // Expected markers in the script's stderr output.
+// These must match the actual text emitted by retrieve-episode-dialogue.ts
+// when rows.length === 0 (the exit-2 branch at line ~309 of that file).
 const NEEDLE_BANNER = 'NO RECORDS FOUND';
-const NEEDLE_GUARD  = 'Do NOT proceed';
+const NEEDLE_GUARD  = 'Do NOT reconstruct from memory';
 const EXPECTED_EXIT_CODE = 2;
 
 // ── Broken stub (self-check Phase A) ─────────────────────────────────────
@@ -103,13 +108,17 @@ const EXPECTED_EXIT_CODE = 2;
 // and creates an empty output file when no records match — i.e. it has NO
 // loud-failure behavior at all.  Every assertion in runAssertions() must
 // FAIL against this stub.
+//
+// Written as CommonJS so it can be executed with `node` directly — no tsx
+// compilation step needed.  tsx running a .ts file from /tmp can time out
+// (exit -1) before writing any file, causing assertion 4 to silently pass
+// (the file is never written), turning it into an undetected blind spot.
 
 const SILENT_STUB_SOURCE = `
-import { writeFileSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
-
 // Silently broken stub — exits 0 with empty output file, no banner, no guard.
 // Used only by the self-check to prove CI assertions detect the regression.
+const { writeFileSync, mkdirSync } = require('fs');
+const { dirname } = require('path');
 
 const argv = process.argv.slice(2);
 let out = '/tmp/episode-dialogue.md';
@@ -121,10 +130,11 @@ writeFileSync(out, '', 'utf8');
 process.exit(0);
 `;
 
-// ── Run helper ────────────────────────────────────────────────────────────
+// ── Run helpers ───────────────────────────────────────────────────────────
 
 interface RunResult { exitCode: number; stdout: string; stderr: string; }
 
+/** Run a real TypeScript script via npx tsx. */
 function runScript(scriptPath: string): RunResult {
   // Clean up any leftover output file before each run.
   if (existsSync(TMP_OUT)) unlinkSync(TMP_OUT);
@@ -135,12 +145,49 @@ function runScript(scriptPath: string): RunResult {
       'tsx',
       scriptPath,
       '--since', IMPOSSIBLE_DATE,
-      '--tag', SENTINEL_TAG,
-      '--out', TMP_OUT,
+      '--until', IMPOSSIBLE_DATE,
+      '--tag',   SENTINEL_TAG,
+      '--out',   TMP_OUT,
     ],
     {
       encoding: 'utf8',
-      timeout: 30_000,
+      // 60s: tsx compilation + DB query can take >30s when other CI tests have
+      // loaded the shared DB connection pool.  30s was consistently hitting the
+      // timeout when running inside the full consolidated-ci.sh suite.
+      timeout: 60_000,
+      env: { ...process.env },
+    }
+  );
+
+  return {
+    exitCode: result.status ?? -1,
+    stdout:   result.stdout ?? '',
+    stderr:   result.stderr ?? '',
+  };
+}
+
+/**
+ * Run the self-check stub via `node` directly (no tsx compilation).
+ * The stub is a .cjs file — CommonJS syntax, runs immediately without tsx.
+ * Using `node` avoids tsx startup latency in /tmp that can cause the stub to
+ * time out (exit -1) before writing any file, which would make assertion 4
+ * ("output file NOT created") silently pass against a broken stub.
+ */
+function runStub(stubPath: string): RunResult {
+  if (existsSync(TMP_OUT)) unlinkSync(TMP_OUT);
+
+  const result = spawnSync(
+    'node',
+    [
+      stubPath,
+      '--since', IMPOSSIBLE_DATE,
+      '--until', IMPOSSIBLE_DATE,
+      '--tag',   SENTINEL_TAG,
+      '--out',   TMP_OUT,
+    ],
+    {
+      encoding: 'utf8',
+      timeout: 10_000,
       env: { ...process.env },
     }
   );
@@ -245,7 +292,7 @@ async function main() {
 
     console.log('');
     info('Running CI assertions against the broken stub...\n');
-    const runA = runScript(STUB_PATH);
+    const runA = runStub(STUB_PATH);
 
     const resA = runAssertions(runA);
     let phaseAOk = true;

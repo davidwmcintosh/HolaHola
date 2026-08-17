@@ -224,6 +224,7 @@ group_body_luca_inner_life() {
   echo "  --- test-inner-life-db-first.ts --self-check (UPDATE removed → sentinel absent) ---"
   npx tsx server/scripts/test-inner-life-db-first.ts --self-check
   run test-health-check-probe-guard.ts
+  run test-backfill-scoping.ts
 
   echo ""
   echo "  --- test-health-check-probe-guard.ts --self-check (ua==='' branch removed regression) ---"
@@ -279,6 +280,12 @@ group_body_luca_inner_life() {
 }
 
 group_body_memory_recall() {
+  # Pre-step: re-scope any NULL-scoped founder embeddings the background indexer
+  # may have created since the last correctFounderEmbeddingScopes() run.
+  # This is idempotent — safe to run every time the group executes.
+  echo "  --- scope-founder-memories.ts (pre-step: ensure no NULL-scoped founder embeddings) ---"
+  npx tsx server/scripts/scope-founder-memories.ts
+
   run test-game-recall.ts
 
   echo ""

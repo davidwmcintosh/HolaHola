@@ -3,14 +3,21 @@
  *
  * Idempotent migration: scopes all memory_embeddings rows for
  * founder-chat / founder-private tagged conversation_memories from
- * userId=NULL (global pool) to userId=DAVID_USER_ID (personal pool).
+ * userId=NULL (global pool) to the per-founder userId (personal pool).
  *
  * WHY this is needed:
- *   The embedding indexer creates new embeddings with userId=null for
- *   all conversation_memories.  founder-chat/founder-private memories
- *   contain verbatim David–Daniela conversations that must NEVER be
- *   surfaced in other students' recall context.  Leaving them NULL-scoped
- *   means any student query can hydrate private founder conversations.
+ *   founder-chat/founder-private memories contain verbatim conversations
+ *   that must NEVER be surfaced in other users' recall context.  Leaving
+ *   them NULL-scoped means any student query can hydrate private founder
+ *   conversations.
+ *
+ * OWNER RESOLUTION:
+ *   Each conversation_memories row carries an explicit 'owner:USER_ID' tag
+ *   set by founder-chat-sync on INSERT/UPDATE (introduced Aug 2026).  This
+ *   migration uses COALESCE(owner_tag, LEGACY_DAVID_USER_ID) so:
+ *     - New rows: scoped to the actual conversation owner (multi-founder safe)
+ *     - Legacy rows (no owner tag): scoped to DAVID_USER_ID — safe because
+ *       David is the only founder whose conversations existed before the tag.
  *
  * SAFE to run repeatedly — UPDATE WHERE user_id IS NULL is idempotent.
  *
@@ -31,7 +38,9 @@
 import { neon } from '@neondatabase/serverless';
 
 const DRY_RUN = process.argv.includes('--dry-run');
-const DAVID_USER_ID = '49847136';
+// Legacy fallback: only used for rows without an 'owner:USER_ID' tag.
+// Historic rows are safe to assign to David; all new rows carry an explicit tag.
+const LEGACY_DAVID_USER_ID = '49847136';
 
 export async function scopeFounderMemories(opts?: { dryRun?: boolean }): Promise<number> {
   const dryRun = opts?.dryRun ?? DRY_RUN;
@@ -67,9 +76,19 @@ export async function scopeFounderMemories(opts?: { dryRun?: boolean }): Promise
 
   // Covers conversation_memory, conversation_summary, and conversation_chunk IDs.
   // chunk IDs have format "<parent-uuid>:chunk:<n>"; SPLIT_PART handles both forms.
+  // Uses 'owner:USER_ID' tag when present; falls back to LEGACY_DAVID_USER_ID for
+  // pre-tag rows (safe — only David's convs existed before the tag was introduced).
   await sql`
     UPDATE memory_embeddings me
-    SET user_id = ${DAVID_USER_ID}
+    SET user_id = COALESCE(
+      (
+        SELECT REPLACE(tag, 'owner:', '')
+        FROM unnest(cm.tags) AS tag
+        WHERE tag LIKE 'owner:%'
+        LIMIT 1
+      ),
+      ${LEGACY_DAVID_USER_ID}
+    )
     FROM conversation_memories cm
     WHERE me.user_id IS NULL
       AND me.memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
@@ -97,7 +116,7 @@ export async function scopeFounderMemories(opts?: { dryRun?: boolean }): Promise
     throw new Error(`Migration incomplete: ${remaining} NULL-scoped founder embedding(s) still remain`);
   }
 
-  console.log(`[scope-founder-memories] Updated ${count} row(s). All founder embeddings now scoped to userId=${DAVID_USER_ID}.`);
+  console.log(`[scope-founder-memories] Updated ${count} row(s). All founder embeddings now owner-scoped (owner tag or legacy David fallback).`);
   return count;
 }
 

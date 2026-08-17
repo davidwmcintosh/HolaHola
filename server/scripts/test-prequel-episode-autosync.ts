@@ -202,6 +202,12 @@ async function main() {
   console.log(G('╔══════════════════════════════════════════════════════════════════════╗'));
   console.log(G('║  ✓  PASS — prequel watcher fires and updates conversation_memories  ║'));
   console.log(G('╚══════════════════════════════════════════════════════════════════════╝\n'));
+
+  // Force exit so the Node.js event loop does not wait for the background
+  // re-embed task (OpenAI HTTP + DB write) that was triggered by
+  // schedulePrequelEpisodeSync(). Without this, the process can hang for up
+  // to 2 minutes waiting for in-flight async work to drain.
+  process.exit(0);
 }
 
 main().catch((err) => {

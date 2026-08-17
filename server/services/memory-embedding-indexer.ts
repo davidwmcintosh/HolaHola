@@ -41,7 +41,7 @@ const BATCH_SIZE = 10;
 const BATCH_PAUSE_MS = 600;
 const INDEXER_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
-// Chunking constants — ~1000 tokens per chunk, ~200 token overlap
+const DAVID_USER_ID = '49847136';
 const CHUNK_CHARS = 4500;
 const OVERLAP_CHARS = 900;
 
@@ -141,7 +141,7 @@ export function splitIntoChunks(text: string, chunkSize: number = CHUNK_CHARS, o
   return chunks;
 }
 
-interface IndexTarget {
+export interface IndexTarget {
   id: string;
   userId: string | null;
   content: string;
@@ -152,7 +152,7 @@ interface IndexTarget {
   initialStrength?: number;
 }
 
-async function collectUnindexedMemories(): Promise<IndexTarget[]> {
+export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   const db = getSharedDb();
   const targets: IndexTarget[] = [];
 
@@ -308,11 +308,10 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   // conversation_memories — full narrative memories of meaningful sessions
   // These are the richest memories: full transcripts, breakthrough moments, the podcast.
   //
-  // Scoping rule:
-  //   - Memories tagged 'founder-chat' or 'founder-private' contain verbatim David-Daniela
-  //     conversations and must be scoped to DAVID_USER_ID so they appear only in his personal
-  //     embedding pool and never leak into other students' global recall context.
-  //   - All other memories remain globally scoped (userId = null).
+  // Ownership: rows tagged with 'founder-chat' or 'backfill-cid:*' are private
+  // David-Daniela transcripts and are embedded under David's userId so they do not
+  // appear in every student session via GLOBAL_RECALL_TYPES. All other rows are
+  // embedded globally (userId = null) so Daniela can access them in any session.
   //
   // Two embeddings per entry:
   //   1. conversation_memory  — title + summary + full content (summary first so it survives token truncation)
@@ -322,7 +321,6 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   // appear prominently in the distilled summary but get diluted in the full-transcript vector.
   // Semantic search now hits both vectors, so a targeted query ("toy") finds the summary anchor
   // even when the full-content vector misses it.
-  const FOUNDER_USER_ID = '49847136'; // David — owner of founder-scoped conversation memories
   try {
     const db = getSharedDb();
 
@@ -351,13 +349,10 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       const rowTitle = r.title;
       const rowSummary = r.summary;
       const strength = Math.min(1.0, (r.importance ?? 7) / 10);
-      const rowTags = r.tags ?? [];
-      const rowUserId = (rowTags.includes('founder-chat') || rowTags.includes('founder-private'))
-        ? FOUNDER_USER_ID
-        : null;
+      const embeddingUserId = deriveConvMemoryOwner(r.tags as string[] | null);
       targets.push({
         id: rowId,
-        userId: rowUserId,
+        userId: embeddingUserId,
         content: '',
         // Content is fetched lazily in runIndexer() — one at a time to avoid OOM.
         // Summary goes BEFORE content so keyword-rich anchor survives token truncation.
@@ -397,12 +392,9 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       .limit(200);
     for (const r of summaryRows) {
       const summaryContent = [r.title, r.summary].filter(Boolean).join('\n\n');
-      const summaryTags = r.tags ?? [];
-      const summaryUserId = (summaryTags.includes('founder-chat') || summaryTags.includes('founder-private'))
-        ? FOUNDER_USER_ID : null;
       targets.push({
         id: r.id,
-        userId: summaryUserId,
+        userId: deriveConvMemoryOwner(r.tags as string[] | null),
         content: summaryContent,
         memoryType: 'conversation_summary',
         initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
@@ -450,9 +442,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
 
       const chunks = splitIntoChunks(content);
       const total = chunks.length;
-      const chunkTags = r.tags ?? [];
-      const chunkUserId = (chunkTags.includes('founder-chat') || chunkTags.includes('founder-private'))
-        ? FOUNDER_USER_ID : null;
+      const chunkOwner = deriveConvMemoryOwner(r.tags as string[] | null);
 
       // Fetch existing chunks for this conversation only (targeted, not all chunks)
       const existingForThis = new Set(
@@ -469,7 +459,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         const chunkContent = `[Memory: ${r.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
         targets.push({
           id: chunkId,
-          userId: chunkUserId,
+          userId: chunkOwner,
           content: chunkContent,
           memoryType: 'conversation_chunk',
           initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
@@ -595,14 +585,28 @@ async function archiveUnindexedConversations(): Promise<number> {
  *   re-embedding needed since only userId changes.
  */
 async function correctFounderEmbeddingScopes(): Promise<void> {
-  const FOUNDER_USER_ID_SCOPE = '49847136'; // David
+  // Legacy fallback: rows created before the 'owner:USER_ID' tag was introduced
+  // (Aug 2026) have no explicit owner; David is the only founder whose conversations
+  // existed at that time, so DAVID_USER_ID is the safe legacy default.
+  const LEGACY_OWNER = DAVID_USER_ID;
   try {
     const db = getSharedDb();
     // Direct SQL: join memory_embeddings → conversation_memories via SPLIT_PART for chunk IDs.
     // Covers conversation_memory, conversation_summary, and conversation_chunk rows.
-    const result = await db.execute(sql`
+    // Uses the explicit 'owner:USER_ID' tag when present; falls back to LEGACY_OWNER
+    // for historic rows that pre-date the tag.
+    const { sql: rawSql } = await import('drizzle-orm');
+    const result = await db.execute(rawSql`
       UPDATE memory_embeddings me
-      SET user_id = ${FOUNDER_USER_ID_SCOPE}
+      SET user_id = COALESCE(
+        (
+          SELECT REPLACE(tag, 'owner:', '')
+          FROM unnest(cm.tags) AS tag
+          WHERE tag LIKE 'owner:%'
+          LIMIT 1
+        ),
+        ${LEGACY_OWNER}
+      )
       FROM conversation_memories cm
       WHERE me.user_id IS NULL
         AND me.memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
@@ -614,7 +618,7 @@ async function correctFounderEmbeddingScopes(): Promise<void> {
     `);
     const rowCount = (result as any)?.rowCount ?? (result as any)?.count ?? 0;
     if (Number(rowCount) > 0) {
-      console.log(`[EmbedIndexer] Corrected ${rowCount} NULL-scoped founder embedding(s) → userId=${FOUNDER_USER_ID_SCOPE}`);
+      console.log(`[EmbedIndexer] Corrected ${rowCount} NULL-scoped founder embedding(s) (owner tag or legacy fallback)`);
     }
   } catch (err: any) {
     // Treat scope-correction failure as a security failure: a failed correction
@@ -978,4 +982,34 @@ export function startMemoryEmbeddingIndexer(): void {
   // By then the indexer has had two scheduled runs; any remaining dark rows
   // indicate a silent failure (OOM, API key problem, etc.) and are logged.
   scheduleStartupLivenessCheck();
+}
+
+/**
+ * Derives the embedding owner for a conversation_memory row from its tags.
+ *
+ * Priority order:
+ *   1. `owner:USER_ID` tag — explicit per-founder owner set by founder-chat-sync
+ *      on INSERT/UPDATE.  Takes precedence so multi-founder deployments scope
+ *      each founder's transcripts to the correct personal pool.
+ *   2. `backfill-cid:*` tag — rows written by the David-specific game-session
+ *      backfill; always owned by David.
+ *   3. Anything else → null (globally scoped shared teaching resource).
+ *
+ * NOTE: `founder-chat` alone is NOT sufficient to infer ownership; it identifies
+ * the row as a private transcript but not WHICH founder owns it.  Rows without
+ * an explicit `owner:*` tag are only safe to assign to David because David is
+ * currently the only user whose conversations have been synced — future founders
+ * will always have the `owner:*` tag (added by founder-chat-sync ≥ Aug 2026).
+ *
+ * Exported for use by the integration test (test-backfill-scoping.ts).
+ */
+export function deriveConvMemoryOwner(tags: string[] | null | undefined): string | null {
+  if (!tags) return null;
+  // 1. Explicit owner tag wins — set by founder-chat-sync for every row it writes.
+  const ownerTag = tags.find(t => t.startsWith('owner:'));
+  if (ownerTag) return ownerTag.slice('owner:'.length);
+  // 2. backfill-cid:* rows are David-specific by construction.
+  if (tags.some(t => t.startsWith('backfill-cid:'))) return DAVID_USER_ID;
+  // 3. No ownership information — globally scoped.
+  return null;
 }

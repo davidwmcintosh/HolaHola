@@ -26,6 +26,12 @@
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 
+// Fallback owner for legacy rows created before the 'owner:USER_ID' tag was
+// introduced.  New rows carry an explicit 'owner:USER_ID' tag derived from the
+// actual conversation's user_id column, so this constant is only needed for the
+// rare case where we cannot determine the owner from context.
+const LEGACY_DAVID_USER_ID = '49847136';
+
 const SWEEP_INTERVAL_MS     =  5 * 60 * 1000; // every 5 minutes
 const SWEEP_INITIAL_DELAY   =  3 * 60 * 1000; // 3 min after boot
 const RETROACTIVE_DELAY_MS  =  5 * 60 * 1000; // 5 min after boot
@@ -124,6 +130,7 @@ function buildTags(conv: {
   language: string;
   topic: string | null;
   message_count: number;
+  user_id: string;
 }): string[] {
   const tags = [
     'founder-chat',
@@ -131,6 +138,9 @@ function buildTags(conv: {
     conv.language,
     `cid:${conv.id}`,
     `msgcount:${conv.message_count}`,
+    // Explicit owner tag — deriveConvMemoryOwner() reads this to scope embeddings
+    // to the correct founder's personal pool rather than guessing from 'founder-chat'.
+    `owner:${conv.user_id}`,
     SANITIZER_VERSION,
   ];
   if (conv.topic) tags.push(conv.topic.toLowerCase().slice(0, 40));
@@ -141,6 +151,7 @@ function buildTags(conv: {
 
 async function syncConversation(conv: {
   id: string;
+  user_id: string;
   title: string | null;
   topic: string | null;
   language: string;
@@ -193,7 +204,7 @@ async function syncConversation(conv: {
         tags    = ARRAY[${tags.map(t => `'${t.replace(/'/g, "''")}'`).join(', ')}]
       WHERE id = '${row.id}'
     `));
-    reembedAsync(row.id);
+    reembedAsync(row.id, conv.user_id);
     return 'updated';
   }
 
@@ -214,13 +225,13 @@ async function syncConversation(conv: {
     RETURNING id
   `));
   const newId = (insertResult.rows[0] as { id: string })?.id;
-  if (newId) reembedAsync(newId);
+  if (newId) reembedAsync(newId, conv.user_id);
   return 'saved';
 }
 
-function reembedAsync(id: string): void {
+function reembedAsync(id: string, userId: string | null = null): void {
   import('../scripts/reembed-memory')
-    .then(mod => mod.reembedConversationMemory(id))
+    .then(mod => mod.reembedConversationMemory(id, userId))
     .catch(() => { /* non-fatal */ });
 }
 
@@ -258,7 +269,7 @@ export function notifyConversationUpdated(conversationId: string): void {
       const idList = founderIds.map(id => `'${id}'`).join(', ');
       const db = getUserDb();
       const result = await db.execute(sql.raw(`
-        SELECT id, title, topic, language, message_count, created_at, last_message_at
+        SELECT id, user_id, title, topic, language, message_count, created_at, last_message_at
         FROM conversations
         WHERE id = '${conversationId.replace(/'/g, "''")}' AND user_id IN (${idList})
         LIMIT 1
@@ -266,7 +277,7 @@ export function notifyConversationUpdated(conversationId: string): void {
       if (!result.rows.length) return; // not a founder conversation — skip
 
       const conv = result.rows[0] as {
-        id: string; title: string | null; topic: string | null;
+        id: string; user_id: string; title: string | null; topic: string | null;
         language: string; message_count: number;
         created_at: string; last_message_at: string | null;
       };
@@ -294,7 +305,7 @@ async function runSweep(): Promise<void> {
     const idList = founderIds.map(id => `'${id}'`).join(', ');
     const db = getUserDb();
     const result = await db.execute(sql.raw(`
-      SELECT id, title, topic, language, message_count, created_at, last_message_at
+      SELECT id, user_id, title, topic, language, message_count, created_at, last_message_at
       FROM conversations
       WHERE user_id IN (${idList})
         AND message_count >= 2
@@ -307,7 +318,7 @@ async function runSweep(): Promise<void> {
     `));
 
     const convs = result.rows as Array<{
-      id: string; title: string | null; topic: string | null;
+      id: string; user_id: string; title: string | null; topic: string | null;
       language: string; message_count: number;
       created_at: string; last_message_at: string | null;
     }>;
@@ -351,7 +362,7 @@ async function runRetroactivePass(): Promise<void> {
 
     while (true) {
       const batch = await db.execute(sql.raw(`
-        SELECT id, title, topic, language, message_count, created_at, last_message_at
+        SELECT id, user_id, title, topic, language, message_count, created_at, last_message_at
         FROM conversations
         WHERE user_id IN (${idList}) AND message_count >= 2
         ORDER BY created_at ASC
@@ -359,7 +370,7 @@ async function runRetroactivePass(): Promise<void> {
       `));
 
       const convs = batch.rows as Array<{
-        id: string; title: string | null; topic: string | null;
+        id: string; user_id: string; title: string | null; topic: string | null;
         language: string; message_count: number;
         created_at: string; last_message_at: string | null;
       }>;
