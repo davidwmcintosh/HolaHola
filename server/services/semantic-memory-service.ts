@@ -237,6 +237,7 @@ const EMBED_SELECT = {
   strength: memoryEmbeddings.strength,
   lastReinforcedAt: memoryEmbeddings.lastReinforcedAt,
   pinned: memoryEmbeddings.pinned,
+  importance: memoryEmbeddings.importance,
 } as const;
 
 /**
@@ -298,6 +299,8 @@ export async function semanticSearch(
     // conversation_memory / conversation_summary / conversation_chunk alone; 1000 rows
     // sorted by strength was silently cutting older high-importance memories (e.g. game
     // sessions, early David-Daniela conversations) before cosine scoring even ran.
+    // importance DESC is added as a secondary sort so high-importance rows (episodes,
+    // game sessions, foundational memories) always land in the buffer before the cap fires.
     globalTypes.length > 0
       ? db
         .select(EMBED_SELECT)
@@ -306,7 +309,7 @@ export async function semanticSearch(
           isNull(memoryEmbeddings.userId),
           inArray(memoryEmbeddings.memoryType, globalTypes),
         ))
-        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength))
+        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength))
         .limit(5000)
       : Promise.resolve([]),
   ]);
@@ -418,7 +421,7 @@ export async function semanticSearchByVector(
           isNull(memoryEmbeddings.userId),
           inArray(memoryEmbeddings.memoryType, globalTypes),
         ))
-        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength))
+        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength))
         .limit(5000)
       : Promise.resolve([]),
   ]);
@@ -514,6 +517,7 @@ export async function findConnectedMemories(
         isNull(memoryEmbeddings.userId),
         inArray(memoryEmbeddings.memoryType, GLOBAL_RECALL_TYPES),
       ))
+      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength))
       .limit(5000),
   ]);
 

@@ -181,7 +181,8 @@ export async function runMemoryDecayMigration(): Promise<void> {
       ALTER TABLE memory_embeddings
         ADD COLUMN IF NOT EXISTS strength          REAL      NOT NULL DEFAULT 1.0,
         ADD COLUMN IF NOT EXISTS last_reinforced_at TIMESTAMPTZ         DEFAULT now(),
-        ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false
+        ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS importance        INTEGER             DEFAULT 5
     `);
     console.log('[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned columns ready');
   } catch (err: any) {

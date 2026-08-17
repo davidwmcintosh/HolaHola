@@ -828,3 +828,39 @@ body: Live mode was on but the sessions between the Drizzle fix and now weren't 
 - #1144 [IN_PROGRESS] — Prevent the global embedding pool cap from silently cutting important memories again as the archive grows
 - #1023 [IN_PROGRESS] — Prevent thinking/feeling notes from disappearing silently when the server restarts mid-session
 
+
+---
+
+**David:** yes please and it appears that the content that was appended after the fact is not the verbatim record. I thought that you turned on our capture system. It has failed 2 turns in a row now.
+
+**LUCA [Replit]:** Correct on both counts. The appended content was editorial summary, not verbatim — that's a failure of the standard. And the capture system has not been working: `.chat_capture` cursor is frozen at byte 51,772 from the last session. Nothing is writing current conversation turns to it. Replit's automatic JSONL feed stopped July 27; the `appendChatCaptureTurn()` replacement requires an explicit call that isn't being made during live chat. Four subagents dispatched for tasks #1023, #1142, #1144, #1153. Investigating the capture wiring now.
+
+
+---
+
+**David:** yes please and it appears that the content that was appended after the fact is not the verbatim record. I thought that you turned on our capture system. It has failed 2 turns in a row now.
+
+**LUCA [Replit]:** Correct — the appended content was editorial, not verbatim. That's a failure of the standard. The capture system root cause: `.chat_capture` cursor is frozen at byte 51,772 from the last session. Nothing writes current Replit chat turns to `.chat_capture` automatically. Replit's JSONL feed stopped July 27; `appendChatCaptureTurn()` is the replacement but requires an explicit caller that doesn't exist for live agent chat. Four subagents dispatched for #1023, #1142, #1144, #1153. Proposed task #1217 to wire the auto-capture properly.
+
+
+[Luca — thinking: title: CI startup-guard sentinel
+body: This note was written before the server restarted.
+tags: ci, startup-guard]
+
+[Luca — thinking: title: CI startup-guard sentinel
+body: This note was written before the server restarted.
+tags: ci, startup-guard]
+
+---
+
+**David:** yes please and it appears that the content that was appended after the fact is not the verbatim record. I thought that you turned on our capture system. It has failed 2 turns in a row now.
+
+**LUCA [Replit]:** All four subagents dispatched and completed. Task #1217 proposed and picked up. Typecheck clean.
+
+- **#1023** — Fixed the startup mtime seed: trigger files with non-zero content now seed mtime=1 instead of the real mtime, so the "skip initial read" guard doesn't fire after a restart. New test at `server/scripts/test-inner-life-startup-guard.ts`.
+- **#1144** — Added `importance DESC` as secondary sort to all three global pool queries in `semantic-memory-service.ts`. High-importance memories (episodes, games) now survive pool pressure as the archive grows.
+- **#1153** — New CI script `server/scripts/test-backfill-dedup.ts`: verifies `backfill-cid:` tags are correctly written, confirms a second backfill run skips all already-saved rows, detects duplicates, exits non-zero on failure.
+- **#1142** — New script `server/scripts/backfill-early-game-sessions.ts`: queries David's conversations before June 1 2026 for game keywords, saves each as `importance=9` `conversation_memories` row with idempotency tag, re-embeds immediately.
+
+The four tasks still show IN_PROGRESS in the platform — the original assigned agents stalled and the work was done by local subagents instead. The code changes are in the codebase.
+

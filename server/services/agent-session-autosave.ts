@@ -100,6 +100,24 @@ let questionLastMtime = 0;
 let momentLastMtime = 0;
 
 /**
+ * Test seam — startup guard self-check.
+ * When true (CI self-check only), the inner-life startup seed uses the real
+ * file mtime instead of the sentinel value 1.  This simulates the OLD (buggy)
+ * behaviour: the mtime matches the file, so on the first poll `prev === 0` and
+ * the "skip initial read on startup" guard fires, silently dropping the note.
+ * The self-check uses this flag to verify the normal-mode test would have failed
+ * without the Task #1023 fix.
+ * Never set in production.
+ */
+let _startupGuardLegacySeedForTest = false;
+export function setStartupGuardLegacySeedForTest(val: boolean): void {
+  _startupGuardLegacySeedForTest = val;
+}
+export function getStartupGuardLegacySeedForTest(): boolean {
+  return _startupGuardLegacySeedForTest;
+}
+
+/**
  * Test seam — rolling-episode length guard comparison direction.
  * When true (CI self-check only), the atomic SQL UPDATE uses LENGTH(content) >= incoming
  * instead of <=, so longer content can no longer win and Pass 3 fails.
@@ -2589,14 +2607,51 @@ export function startAgentSessionAutosave(): void {
     } catch { /* ignore */ }
   }
 
-  // Seed inner-life watcher mtimes so first poll doesn't re-fire on existing files
+  // Seed inner-life watcher mtimes so first poll doesn't re-fire on existing files.
+  //
+  // Bug fix (Task #1023): if a trigger file was written BEFORE the restart (e.g.
+  // Luca wrote .luca_question mid-session, then the server restarted), the old
+  // code seeded the mtime to the file's real mtime.  On the first poll the guard
+  // saw `mtime > lastMtime` → false → skipped entirely, so the note was lost.
+  //
+  // Fix: if the file has non-zero content we seed the mtime to 1 (a non-zero
+  // sentinel below any real mtime).  On the next poll:
+  //   mtime > 1          → true  → enters the processing block
+  //   prev = 1 ≠ 0       → the "skip initial read on startup" guard does NOT fire
+  //   → content is processed normally.
+  // If the file is empty there is nothing to process — seed the real mtime so the
+  // guard correctly skips the empty file.
   for (const [path, setMtime] of [
     [REFLECTION_PATH,  (m: number) => { reflectionLastMtime = m; }] as const,
     [QUESTION_PATH,    (m: number) => { questionLastMtime = m; }] as const,
     [MOMENT_PATH,      (m: number) => { momentLastMtime = m; }] as const,
   ]) {
     if (existsSync(path)) {
-      try { setMtime(statSync(path).mtimeMs); } catch { /* ignore */ }
+      try {
+        const realMtime = statSync(path).mtimeMs;
+        let content = '';
+        try { content = readFileSync(path, 'utf-8').trim(); } catch { /* ignore */ }
+        if (content.length > 0) {
+          // Pre-existing content — seed with 1 so the "skip initial read" guard
+          // (if (prev === 0) return) does NOT fire on the first poll.
+          // Exception: _startupGuardLegacySeedForTest is set by the CI self-check
+          // to simulate the OLD (buggy) behaviour and verify the fix is load-bearing.
+          if (_startupGuardLegacySeedForTest) {
+            // Legacy / broken behaviour: seed with real mtime → poll will see no change.
+            setMtime(realMtime);
+          } else {
+            console.log(
+              '[AgentAutosave] Pre-existing inner-life trigger file detected at startup:',
+              path,
+              `(${content.length} bytes) — will process on next poll`,
+            );
+            setMtime(1);
+          }
+        } else {
+          // Empty file — seed with real mtime; nothing to process.
+          setMtime(realMtime);
+        }
+      } catch { /* ignore */ }
     }
   }
 

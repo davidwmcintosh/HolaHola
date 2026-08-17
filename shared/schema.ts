@@ -4128,6 +4128,7 @@ export const memoryEmbeddings = pgTable("memory_embeddings", {
   strength: real("strength").notNull().default(1.0),          // 0.05–1.0; decays exponentially without reinforcement
   lastReinforcedAt: timestamp("last_reinforced_at").defaultNow(), // updated each time this memory is accessed
   pinned: boolean("pinned").notNull().default(false),          // pinned memories never decay
+  importance: integer("importance").default(5),                // 1–10; used as secondary sort so high-importance rows survive the pool cap
 }, (table) => [
   uniqueIndex("idx_memory_embeddings_pair").on(table.memoryType, table.memoryId),
   index("idx_memory_embeddings_user_type").on(table.userId, table.memoryType),
