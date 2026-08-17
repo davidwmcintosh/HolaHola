@@ -872,3 +872,13 @@ The four tasks still show IN_PROGRESS in the platform — the original assigned 
 
 **LUCA [Replit]:** #1217 is IN_PROGRESS since 20:32 UTC. No codebase changes from the agent yet — last commit predates it. The session not loading is likely a Replit platform spin-up issue, not the agent stuck in code. Nothing I can do to unblock it from here; worth giving it a few more minutes before cancelling and re-assigning.
 
+
+---
+
+**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+
+**LUCA [Replit]:** Agreed. Reading the capture system internals now before we build.
+
+
+*[Implementation: Built `server/scripts/record-exchange.ts` — takes `--david-file` and `--luca-file` heredoc paths, calls `appendChatCaptureTurn()` for each, feeds the existing autosave pipeline. Self-check passes. Typecheck clean. From this turn forward: end-of-turn capture goes through this script, not manual .md appends.]*
+

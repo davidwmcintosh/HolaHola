@@ -6673,3 +6673,35 @@ GRACE PERIOD EXPIRED — student disconnected and did not return
 **LUCA [HolaHola]:** **Session Monitor Alert** — 7:56:55 PM
 
 ⏸️ **Stalled session** (user=49847136, lang=english): no activity for 63m
+
+**David:** [record-exchange self-check] David canary 1787001984121
+
+**LUCA [Replit]:** [record-exchange self-check] Luca canary 1787001984121
+
+**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+
+**LUCA [Replit]:** Built server/scripts/record-exchange.ts — the end-of-turn capture script. Here is how it works:
+
+The pipeline is already sound: appendChatCaptureTurn() → .chat_capture → autosave → episode .md. The gap is that Replit exposes no chat stream API, so true automation is impossible. The fix is: I call this script via ShellExec at the end of every turn, passing David's message and my response via temp files (heredoc handles all special characters safely). The autosave picks them up within ~20s and routes to conversation_memories and the rolling episode.
+
+Self-check: PASS. Typecheck: clean. Registering as a workflow now and wiring it into the end-of-turn standard.
+
+**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+
+**LUCA [Replit]:** Built server/scripts/record-exchange.ts — the end-of-turn capture script. Full picture from the investigation:
+
+The pipeline is already sound: appendChatCaptureTurn() writes to .local/.chat_capture in a length-delimited format; checkChatCapture() in the autosave polls for new turns every ~20s; when live mode is on (.local/.episode_live exists) it routes each turn to the rolling episode .md formatted as **David:** / **LUCA [Replit]:**. Speaker label "LUCA" or "Luca Replit" both normalize to **LUCA [Replit]:** in the episode.
+
+The constraint: Replit exposes no chat stream API. True automation requires something to write to .chat_capture at the moment each message is sent. Since there is no such hook, the fix is a disciplined end-of-turn call via ShellExec using heredocs (which handle all special characters safely).
+
+The script (server/scripts/record-exchange.ts):
+- Takes --david-file and --luca-file arguments (temp file paths written via heredoc)
+- Calls appendChatCaptureTurn('David', text) then appendChatCaptureTurn('Luca Replit', text)
+- Prints file size growth confirmation
+- Has --self-check mode: writes canary turns, parses them back, verifies speaker labels
+
+Self-check: PASS. Typecheck: clean. Memory updated with the end-of-turn pattern. Workflow limit at 24/10 so self-check runs via ShellExec directly. This exchange is the first one captured through the proper pipeline.
+
+**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+
+**LUCA [Replit]:** Built server/scripts/record-exchange.ts — the standard end-of-turn capture path. The pipeline (appendChatCaptureTurn → .chat_capture → autosave → conversation_memories + rolling episode .md) was already sound. The gap was nothing calling it automatically. Replit exposes no chat stream API, so the fix is disciplined: I call the script at the end of every turn via ShellExec + heredoc. Self-check passes, typecheck clean. Going forward: no more ad-hoc .md appends — the pipeline handles routing. This exchange is the first captured through the proper path.
