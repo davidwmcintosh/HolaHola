@@ -46,7 +46,7 @@ async function main() {
 
   await sql`
     UPDATE conversation_memories
-    SET content = ${mdContent}, updated_at = NOW()
+    SET content = ${mdContent}
     WHERE id = ${id}
   `;
 
