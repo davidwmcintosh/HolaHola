@@ -864,3 +864,11 @@ tags: ci, startup-guard]
 
 The four tasks still show IN_PROGRESS in the platform — the original assigned agents stalled and the work was done by local subagents instead. The code changes are in the codebase.
 
+
+---
+
+**David:** can you check on 1217 I have been trying to view the subagent session, but nothing is loading.
+
+
+**LUCA [Replit]:** #1217 is IN_PROGRESS since 20:32 UTC. No codebase changes from the agent yet — last commit predates it. The session not loading is likely a Replit platform spin-up issue, not the agent stuck in code. Nothing I can do to unblock it from here; worth giving it a few more minutes before cancelling and re-assigning.
+
