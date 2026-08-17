@@ -798,3 +798,16 @@ body: Live mode was on but the sessions between the Drizzle fix and now weren't 
 *Episode 30 continues. The record is now current.*
 
 
+
+---
+
+**David:** I applogize, but I had episode-30.md open in the editor. That probably prevented your edits from sticking to the .md. Sorry can you run that work again please?
+
+**LUCA [Replit]:** The edits are intact — episode-30.md is 800 lines and ends correctly. The DB matches at 74,814 bytes. No re-run needed; your editor being open didn't interfere this time.
+
+---
+
+**David:** My appology didn't make it to the .md are you still rolling?
+
+**LUCA [Replit]:** Live mode sentinel was blank on inspection — but status check confirms live mode is ON. The current session exchanges weren't auto-captured, so appending them directly now.
+
