@@ -43,6 +43,14 @@ function norm(s: string): string {
 }
 
 /**
+ * Strip markdown bold markers (**) and speaker-role suffixes ([Replit], etc.)
+ * so DB-format "David: " / "Luca: " matches .md "**David:** " / "**LUCA [Replit]:** ".
+ */
+function stripMd(s: string): string {
+  return s.replace(/\*\*/g, '').replace(/\s*\[replit\]/gi, '');
+}
+
+/**
  * Return true when exchangeText is present in the normalised .md content.
  *
  * Strategy: normalise the full exchange block (collapse whitespace, lower-case)
@@ -52,6 +60,9 @@ function norm(s: string): string {
  * (< 60 chars) are matched in full — no minimum-length threshold that would
  * silently skip brief utterances.
  *
+ * Falls back to a bold-stripped comparison so DB rows stored as "David: text"
+ * still match .md lines formatted as "**David:** text".
+ *
  * NOTE: The identical matcher lives in agent-session-autosave.ts (exchangeInMd).
  * Keep both in sync whenever this logic changes.
  */
@@ -59,7 +70,9 @@ function exchangeInMd(exchangeText: string, mdNorm: string): boolean {
   const normalised = norm(exchangeText);
   if (!normalised) return true; // purely whitespace — treat as present (skip)
   const key = normalised.slice(0, 60);
-  return mdNorm.includes(key);
+  if (mdNorm.includes(key)) return true;
+  // Fallback: strip ** so "david: text" matches "**david:** text"
+  return stripMd(mdNorm).includes(stripMd(key));
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────

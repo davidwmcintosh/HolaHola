@@ -6962,3 +6962,9 @@ David asked me to be brave twice in one session. Both times the gap he found was
 Two "gaps" still show in the checker for today's per-turn rows (2bc0f5cd and 84cce0da). These are false positives — grep confirms both exchanges ARE in the .md. The mismatch: the DB stores these rows as "David: text" (no markdown bold), but the .md has "**David:** text". The checker's needle "david: " can't match "**david:** " because the ** sits between the colon and the space. Known checker bug — the gap check was designed for an older DB content format. Worth a one-line fix next session.
 
 Session state: episode-28.md complete, autosave running, capture-watchdog running, 24 workflows (1 slot free). Good wrap point.
+
+**David:** if it is a one line fix then shouldn't we hit while it's fresh? and please check the .md as it appears behind again.
+
+**LUCA [Replit]:** Gap checker fixed in both test-rolling-episode-gap-check.ts and agent-session-autosave.ts. Two-phase fallback: (1) direct match, (2) strip-bold-and-role-label match. The strip function removes ** and [replit] from both sides before comparing, so "David: text" / "Luca: text" (DB format) matches "**David:** text" / "**LUCA [Replit]:** text" (.md format). Typecheck clean. Gap check: ✓ PASS — 92 per-turn + 14 inner-life, 0 gaps.
+
+Episode .md is 350KB on disk vs 340KB in the last logged DB sync. That 10KB delta is capture turns autosave appended to the .md after the gap check ran — those writes go to DB and .md in sync, so they'll always pass the next check. No manual sync needed.
