@@ -280,37 +280,35 @@ if (args.includes('--self-check-4ch')) {
 } else if (args.includes('--self-check')) {
   runSelfCheck().catch(e => { console.error(e); process.exit(1); });
 } else {
-  const davidIdx = args.indexOf('--david-file');
-  const lucaIdx  = args.indexOf('--luca-file');
+  const lucaOnly  = args.includes('--luca-only');
+  const davidIdx  = args.indexOf('--david-file');
+  const lucaIdx   = args.indexOf('--luca-file');
 
-  if (davidIdx === -1 || lucaIdx === -1) {
+  // --luca-only: David's turn is already captured by the normal pipeline;
+  // only write Luca's channels to avoid double-writing David's side.
+  if (!lucaOnly && (davidIdx === -1 || lucaIdx === -1)) {
     console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> [--feeling-file <path>] [--thinking-file <path>] [--moment-file <path>]');
+    console.error('       npx tsx server/scripts/record-exchange.ts --luca-only --luca-file <path> [--feeling-file <path>] [--thinking-file <path>] [--moment-file <path>]');
     console.error('       npx tsx server/scripts/record-exchange.ts --self-check');
     process.exit(1);
   }
-
-  const davidFile = args[davidIdx + 1];
-  const lucaFile  = args[lucaIdx  + 1];
-
-  if (!existsSync(davidFile)) {
-    console.error(`[record-exchange] ERROR: --david-file not found: ${davidFile}`);
+  if (lucaOnly && lucaIdx === -1) {
+    console.error('[record-exchange] ERROR: --luca-only requires --luca-file');
     process.exit(1);
   }
+
+  const lucaFile  = args[lucaIdx  + 1];
+
   if (!existsSync(lucaFile)) {
     console.error(`[record-exchange] ERROR: --luca-file not found: ${lucaFile}`);
     process.exit(1);
   }
 
-  const davidText   = readFileSync(davidFile, 'utf-8').trimEnd();
-  const lucaMain    = readFileSync(lucaFile,  'utf-8').trimEnd();
+  const lucaMain    = readFileSync(lucaFile, 'utf-8').trimEnd();
   const lucaFeeling = readOptionalFile('--feeling-file',  args);
   const lucaThink   = readOptionalFile('--thinking-file', args);
   const lucaMoment  = readOptionalFile('--moment-file',   args);
 
-  if (!davidText) {
-    console.error('[record-exchange] ERROR: --david-file is empty');
-    process.exit(1);
-  }
   if (!lucaMain) {
     console.error('[record-exchange] ERROR: --luca-file is empty');
     process.exit(1);
@@ -325,14 +323,33 @@ if (args.includes('--self-check-4ch')) {
 
   const sizeBefore = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
 
-  appendChatCaptureTurn('David', davidText);
-  appendChatCaptureTurn('Luca Replit', lucaText);
-
-  const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
-
-  const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
-  console.log(`[record-exchange] ✓ Exchange written to .chat_capture (${sizeBefore}B → ${sizeAfter}B)`);
-  console.log(`  David: ${davidText.length} chars`);
-  console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
-  console.log('  Autosave will route to conversation_memories + episode within ~20s.');
+  if (!lucaOnly) {
+    const davidFile = args[davidIdx + 1];
+    if (!existsSync(davidFile)) {
+      console.error(`[record-exchange] ERROR: --david-file not found: ${davidFile}`);
+      process.exit(1);
+    }
+    const davidText = readFileSync(davidFile, 'utf-8').trimEnd();
+    if (!davidText) {
+      console.error('[record-exchange] ERROR: --david-file is empty');
+      process.exit(1);
+    }
+    appendChatCaptureTurn('David', davidText);
+    const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    appendChatCaptureTurn('Luca Replit', lucaText);
+    const sizeFinal = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
+    console.log(`[record-exchange] ✓ Exchange written to .chat_capture (${sizeBefore}B → ${sizeFinal}B)`);
+    console.log(`  David: ${davidText.length} chars`);
+    console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
+    console.log('  Autosave will route to conversation_memories + episode within ~20s.');
+  } else {
+    appendChatCaptureTurn('Luca Replit', lucaText);
+    const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
+    console.log(`[record-exchange] ✓ Luca turn written to .chat_capture (${sizeBefore}B → ${sizeAfter}B) [luca-only]`);
+    console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
+    console.log('  David turn already captured by autosave pipeline.');
+    console.log('  Autosave will route to conversation_memories + episode within ~20s.');
+  }
 }

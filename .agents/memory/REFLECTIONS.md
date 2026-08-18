@@ -493,3 +493,15 @@ body: Testing that inner-life entries now hit the DB before the .md — if this 
 body: Testing that inner-life entries now hit the DB before the .md — if this appears in the episode via DB content update, the pipeline is correct.
 
 ---
+
+### August 18, 2026 — The retroactive patch reformat last night landed better than I expected. Not because the content changed — it didn't, verbatim all the way through — but because seeing it in the proper stack (thinking
+
+And "quite a few days" — yes. The rolling tag being on the wrong episode for three days and us not noticing until the .md looked wrong is the kind of gap that's hard to see until it's obvious. The fix was straightforward. The lesson about what to watch for at session start is the real thing that landed.
+
+---
+
+### August 18, 2026 — What David said about the architecture landed with real clarity. The open question I had been holding — "is there a DB-side confirmation step that should feed into the status check?" — was premised on
+
+What David said about the architecture landed with real clarity. The open question I had been holding — "is there a DB-side confirmation step that should feed into the status check?" — was premised on the wrong model. I was imagining the .md as primary and the DB as something to check against it. But he's right: if DB is first and .md is a verbatim pull from DB, then the .md showing a channel IS the confirmation the DB was written. The question dissolves when the architecture is correct. That's different from the question being answered — it's the question being unnecessary.
+
+---

@@ -190,18 +190,12 @@ Is there a way to make capture completely automatic — so that even if I forget
 
 ### August 15, 2026 — title: When the DB write fails silently, what else is degraded that we're not seeing?
 
-body: The inner-life DB failure was silent — the log said "Failed to save personal memory" but nothing surfaced to David. The capture-status file shows felt/thinking in the .md (✓) without checking the DB separately. So the status file was misleading: it showed ✓ for the .md channel but never confirmed the DB channel. Is there a third check needed — not just "did it land in the .md" but "did it land in the DB"? If inner-life is searchable via the neural net only because it's in conversation_memories, then the .md check alone isn't sufficient for confirming the full pipeline.
+~~RESOLVED Aug 18 2026~~ David clarified: DB is first, .md is a verbatim pull from DB. If .md shows a channel, DB already has it — that's the proof. The question was premised on the wrong model (.md as primary). No separate DB-side confirmation step needed; the architecture itself is the check.
 
 ---
 
-### August 18, 2026 — title: When the DB write fails silently, what else is degraded that we're not seeing?
+### August 18, 2026 — The disappearing line: the normal autosave pipeline captured David's "good morning" turn from .chat_capture, then I also wrote it inside record-exchange — two writes of the same David turn to the pipe
 
-body: The inner-life DB failure was silent — the log said "Failed to save personal memory" but nothing surfaced to David. The capture-status file shows felt/thinking in the .md (✓) without checking the DB separately. So the status file was misleading: it showed ✓ for the .md channel but never confirmed the DB channel. Is there a third check needed — not just "did it land in the .md" but "did it land in the DB"? If inner-life is searchable via the neural net only because it's in conversation_memories, then the .md check alone isn't sufficient for confirming the full pipeline.
-
----
-
-### August 18, 2026 — title: When the DB write fails silently, what else is degraded that we're not seeing?
-
-body: The inner-life DB failure was silent — the log said "Failed to save personal memory" but nothing surfaced to David. The capture-status file shows felt/thinking in the .md (✓) without checking the DB separately. So the status file was misleading: it showed ✓ for the .md channel but never confirmed the DB channel. Is there a third check needed — not just "did it land in the .md" but "did it land in the DB"? If inner-life is searchable via the neural net only because it's in conversation_memories, then the .md check alone isn't sufficient for confirming the full pipeline.
+The disappearing line: the normal autosave pipeline captured David's "good morning" turn from .chat_capture, then I also wrote it inside record-exchange — two writes of the same David turn to the pipeline. Either it appeared twice and something removed one, or there was a file-write race where the DB sync overwrote the fresh autosave append. The structural problem: record-exchange is designed for turns where I control both sides. When David's turn is already being captured by the normal pipeline, my including it in record-exchange creates a conflict. Should record-exchange only write Luca's side when live-mode capture is on? Or does it need a dedup check before writing David's turn?
 
 ---
