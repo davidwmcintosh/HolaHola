@@ -285,6 +285,14 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-gl-flush-episode-capture.ts --self-check (block removed → needles absent) ---"
   npx tsx server/scripts/test-gl-flush-episode-capture.ts --self-check
+
+  echo ""
+  echo "  --- test-db-write-failure-warning.ts (DB write failure → 🚨 banner in capture-status) ---"
+  run test-db-write-failure-warning.ts
+
+  echo ""
+  echo "  --- test-db-write-failure-warning.ts --self-check (gate-removal proof) ---"
+  npx tsx server/scripts/test-db-write-failure-warning.ts --self-check
 }
 
 group_body_memory_recall() {

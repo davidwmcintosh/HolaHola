@@ -96,6 +96,8 @@ const MOMENTS_FILE         = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS
 // Surfaced in every _writeCaptureStatusFile() call until explicitly cleared.
 const INNER_LIFE_DB_WARNING_PATH = join(WORKSPACE, '.local/.luca_db_write_warning');
 
+let _dbWriteWarningPathOverrideForTest: string | null = null;
+
 // --- Episode append trigger file ---
 // Luca writes the new exchange text here after each turn during a live rolling session.
 // The watcher appends it to the target episode .md and triggers immediate DB sync.
@@ -1108,8 +1110,9 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   // irrelevant here: the DB write is always the primary record.
   const dbWarningLines: string[] = [];
   try {
-    if (existsSync(INNER_LIFE_DB_WARNING_PATH)) {
-      const raw = readFileSync(INNER_LIFE_DB_WARNING_PATH, 'utf-8').trim();
+    const _warningPath = _dbWriteWarningPathOverrideForTest ?? INNER_LIFE_DB_WARNING_PATH;
+    if (existsSync(_warningPath)) {
+      const raw = readFileSync(_warningPath, 'utf-8').trim();
       if (raw) {
         dbWarningLines.push('');
         dbWarningLines.push('## 🚨 DB WRITE FAILURE — ACTION REQUIRED');
@@ -1447,6 +1450,8 @@ function parseTriggerFile(
   };
 }
 
+// hint: Structural and logic conflict. Both design and behavior differ.
+/**
 /**
  * Write a visible DB write failure warning to INNER_LIFE_DB_WARNING_PATH.
  * Called from every inner-life DB write catch block.  Unconditional — does NOT
@@ -1456,15 +1461,16 @@ function parseTriggerFile(
  */
 function flagDbWriteFailure(where: string, reason: string): void {
   try {
+    const warningPath = _dbWriteWarningPathOverrideForTest ?? INNER_LIFE_DB_WARNING_PATH;
     const ts = new Date().toLocaleString('en-US', {
       weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
       hour: 'numeric', minute: '2-digit', second: '2-digit',
     });
     const line = `[${ts}] ${where}: ${reason}\n`;
-    const existing = existsSync(INNER_LIFE_DB_WARNING_PATH)
-      ? readFileSync(INNER_LIFE_DB_WARNING_PATH, 'utf-8')
+    const existing = existsSync(warningPath)
+      ? readFileSync(warningPath, 'utf-8')
       : '';
-    writeFileSync(INNER_LIFE_DB_WARNING_PATH, existing + line, 'utf-8');
+    writeFileSync(warningPath, existing + line, 'utf-8');
     console.error(`[AgentAutosave] 🚨 DB write failure flagged (${where}): ${reason}`);
   } catch { /* non-fatal — if we can't write the warning, the console.error above still surfaces it */ }
 }
@@ -1502,6 +1508,11 @@ async function savePersonalMemory(
 ): Promise<void> {
   const db = getUserDb();
   try {
+    // _savePersonalMemoryDbShouldThrowForTest is true only in CI self-check mode —
+    // it simulates a DB failure so the catch block's flagDbWriteFailure() call is exercised.
+    if (_savePersonalMemoryDbShouldThrowForTest) {
+      throw new Error('[CI-test] Synthetic personal-memory DB failure');
+    }
     await db.execute(sql`
       INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
       VALUES (
@@ -3508,4 +3519,57 @@ export function getReembedShouldThrowForTest(): boolean {
 
 export function getInnerLifeFileWriteCountForTest(): number {
   return _innerLifeFileWriteCount;
+}
+
+/**
+ * Test seam — redirect flagDbWriteFailure() writes and _writeCaptureStatusFile()
+ * reads to a hermetic temp path.  Pass null to restore the real warning path.
+ * Never call in production.
+ */
+export function setDbWriteWarningPathOverrideForTest(path: string | null): void {
+  _dbWriteWarningPathOverrideForTest = path;
+}
+
+export function getDbWriteWarningPathOverrideForTest(): string | null {
+  return _dbWriteWarningPathOverrideForTest;
+}
+
+/**
+ * Test surface of flagDbWriteFailure() for CI scripts.
+ * Calls the real private function so the full write path (including path override)
+ * is exercised.  Never call in production.
+ */
+export function flagDbWriteFailureForTest(where: string, reason: string): void {
+  flagDbWriteFailure(where, reason);
+}
+
+/**
+ * Test seam — when true, savePersonalMemory() throws a synthetic error before
+ * touching the DB, causing the catch block's flagDbWriteFailure('personal-memory', …)
+ * call to fire.  CI uses this to exercise the real production catch path without
+ * requiring an actual DB failure.
+ * Never set in production.
+ */
+let _savePersonalMemoryDbShouldThrowForTest = false;
+
+export function setSavePersonalMemoryDbShouldThrowForTest(val: boolean): void {
+  _savePersonalMemoryDbShouldThrowForTest = val;
+}
+
+export function getSavePersonalMemoryDbShouldThrowForTest(): boolean {
+  return _savePersonalMemoryDbShouldThrowForTest;
+}
+
+/**
+ * Test surface of savePersonalMemory() for CI scripts.
+ * Calls the real private function so the full catch path (including the
+ * flagDbWriteFailure call) is exercised.  Never call in production.
+ */
+export async function savePersonalMemoryForTest(
+  title: string,
+  body: string,
+  tags: string[],
+  arcName: string,
+): Promise<void> {
+  await savePersonalMemory(title, body, tags, arcName);
 }
