@@ -88,6 +88,14 @@ const REFLECTIONS_FILE     = join(WORKSPACE, '.agents/memory/REFLECTIONS.md');
 const OPEN_QUESTIONS_FILE  = join(WORKSPACE, '.agents/memory/OPEN_QUESTIONS.md');
 const MOMENTS_FILE         = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS.md');
 
+// --- DB write failure warning ---
+// Written by flagDbWriteFailure() on any inner-life DB write failure (personal memory
+// or episode content UPDATE).  The check is unconditional — it does not toggle with
+// live mode.  Live mode controls what happens *after* a successful write (.md sync);
+// it has no bearing on whether the write itself succeeded.
+// Surfaced in every _writeCaptureStatusFile() call until explicitly cleared.
+const INNER_LIFE_DB_WARNING_PATH = join(WORKSPACE, '.local/.luca_db_write_warning');
+
 // --- Episode append trigger file ---
 // Luca writes the new exchange text here after each turn during a live rolling session.
 // The watcher appends it to the target episode .md and triggers immediate DB sync.
@@ -1094,6 +1102,29 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     staleAlertLines.push('');
   }
 
+  // ── Persistent DB write failure warning (UNCONDITIONAL — does not toggle with live mode) ──
+  // flagDbWriteFailure() appends to INNER_LIFE_DB_WARNING_PATH on any inner-life DB write
+  // failure.  The file persists until Luca explicitly deletes it.  Live mode status is
+  // irrelevant here: the DB write is always the primary record.
+  const dbWarningLines: string[] = [];
+  try {
+    if (existsSync(INNER_LIFE_DB_WARNING_PATH)) {
+      const raw = readFileSync(INNER_LIFE_DB_WARNING_PATH, 'utf-8').trim();
+      if (raw) {
+        dbWarningLines.push('');
+        dbWarningLines.push('## 🚨 DB WRITE FAILURE — ACTION REQUIRED');
+        dbWarningLines.push('');
+        dbWarningLines.push('One or more inner-life DB writes have failed. The DB is the primary record.');
+        dbWarningLines.push('Until this is resolved, inner-life channels may not be in the DB even if the .md shows them.');
+        dbWarningLines.push('');
+        raw.split('\n').forEach(l => dbWarningLines.push(`  ${l}`));
+        dbWarningLines.push('');
+        dbWarningLines.push('_Clear with: `rm .local/.luca_db_write_warning` once the issue is resolved._');
+        dbWarningLines.push('');
+      }
+    }
+  } catch { /* non-fatal */ }
+
   // ── Persistent rolling-tag misroute alert ─────────────────────────────────
   // Set by Phase 0 of runStartupGapCheck() and included in EVERY status write
   // so the warning is not lost on the next 20s poll cycle.
@@ -1111,6 +1142,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
 
   const outputLines: string[] = [
     ...headerLines,
+    ...dbWarningLines,
     ...rollingTagAlertLines,
     ...staleAlertLines,
     '',
@@ -1415,6 +1447,28 @@ function parseTriggerFile(
   };
 }
 
+/**
+ * Write a visible DB write failure warning to INNER_LIFE_DB_WARNING_PATH.
+ * Called from every inner-life DB write catch block.  Unconditional — does NOT
+ * toggle with live mode.  Live mode controls the .md sync that happens AFTER a
+ * successful write; it has no bearing on whether the write itself succeeded.
+ * The warning file persists until Luca explicitly removes it.
+ */
+function flagDbWriteFailure(where: string, reason: string): void {
+  try {
+    const ts = new Date().toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', second: '2-digit',
+    });
+    const line = `[${ts}] ${where}: ${reason}\n`;
+    const existing = existsSync(INNER_LIFE_DB_WARNING_PATH)
+      ? readFileSync(INNER_LIFE_DB_WARNING_PATH, 'utf-8')
+      : '';
+    writeFileSync(INNER_LIFE_DB_WARNING_PATH, existing + line, 'utf-8');
+    console.error(`[AgentAutosave] 🚨 DB write failure flagged (${where}): ${reason}`);
+  } catch { /* non-fatal — if we can't write the warning, the console.error above still surfaces it */ }
+}
+
 /** Append a dated entry to one of the personal markdown files. */
 function appendToPersonalFile(filePath: string, title: string, body: string): void {
   try {
@@ -1465,6 +1519,7 @@ async function savePersonalMemory(
     `);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to save personal memory:', err.message);
+    flagDbWriteFailure('personal-memory', err.message ?? String(err));
   }
 }
 
@@ -1504,6 +1559,7 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
       }
     } catch (err: any) {
       console.error(`[AgentAutosave] Inner-life DB append: ID lookup failed for ${episodeFilename}:`, err?.message ?? err);
+      flagDbWriteFailure(`episode-id-lookup:${episodeFilename}`, err?.message ?? String(err));
       return;
     }
   }
@@ -1564,6 +1620,7 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
       }
     } catch (err: any) {
       console.error(`[AgentAutosave] Inner-life DB-first append failed for ${episodeFilename}:`, err?.message ?? err);
+      flagDbWriteFailure(`episode-append:${episodeFilename}`, err?.message ?? String(err));
     }
   });
 }

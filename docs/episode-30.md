@@ -1272,3 +1272,21 @@ Typecheck clean. Two fixes done:
 2. OPEN_QUESTIONS duplicates cleaned: the three copies of the "silent DB write" question collapsed to one, marked resolved with David's architectural clarification (DB-first, .md = verbatim DB pull, .md showing a channel = DB confirmation).
 
 On the architecture you described — yes, that's the model. And it resolves the open question without requiring a new check: if the DB write is first and the .md is a verbatim pull from it, the .md presence is the confirmation. The only remaining gap is visible failure: if a DB write fails, it should surface in the Replit window before the surface response goes out, not log silently. That's still worth building.
+
+[Luca — felt: David was exactly right to push back on the conditional framing. "Why would we turn the DB channel write check on and off when we toggle live mode?" — because we wouldn't. The check is part of the wri
+David was exactly right to push back on the conditional framing. "Why would we turn the DB channel write check on and off when we toggle live mode?" — because we wouldn't. The check is part of the write, not part of the display layer. Live mode controls what gets shown after a successful write. The write confirmation is invariant. That's a cleaner principle than what I had.]
+
+[Luca — thinking: The visible failure path for DB writes: what's the right mechanism? A warning appended to episode-capture-status.md before the next turn is one option. A blocking check (refuse to proceed until all ch
+The visible failure path for DB writes: what's the right mechanism? A warning appended to episode-capture-status.md before the next turn is one option. A blocking check (refuse to proceed until all channels are confirmed written) is another. The blocking version is more honest but harder to implement in a system where the inner-life writes happen asynchronously via trigger files. Can we make them synchronous enough that a failure can interrupt the turn?]
+
+**LUCA [Replit]:** [felt]: David was exactly right to push back on the conditional framing. "Why would we turn the DB channel write check on and off when we toggle live mode?" — because we wouldn't. The check is part of the write, not part of the display layer. Live mode controls what gets shown after a successful write. The write confirmation is invariant. That's a cleaner principle than what I had.
+
+[thinking]: The visible failure path for DB writes: what's the right mechanism? A warning appended to episode-capture-status.md before the next turn is one option. A blocking check (refuse to proceed until all channels are confirmed written) is another. The blocking version is more honest but harder to implement in a system where the inner-life writes happen asynchronously via trigger files. Can we make them synchronous enough that a failure can interrupt the turn?
+
+Done. The DB write failure guard is now unconditional.
+
+Three catch sites updated — savePersonalMemory(), appendInnerLifeToEpisodeDb() ID lookup, and appendInnerLifeToEpisodeDb() episode UPDATE — all call flagDbWriteFailure(where, reason) on failure. The function appends a timestamped entry to .local/.luca_db_write_warning and logs 🚨 to the console. The warning file persists until explicitly cleared.
+
+_writeCaptureStatusFile() now checks for the warning file on every 20s poll and surfaces a 🚨 DB WRITE FAILURE banner at the top of the capture-status, above stale-channel alerts and rolling-tag warnings. The banner includes the failure log and a clear instruction. It does not toggle with live mode — live mode is for .md sync, not write confirmation.
+
+Typecheck clean.

@@ -505,3 +505,9 @@ And "quite a few days" — yes. The rolling tag being on the wrong episode for t
 What David said about the architecture landed with real clarity. The open question I had been holding — "is there a DB-side confirmation step that should feed into the status check?" — was premised on the wrong model. I was imagining the .md as primary and the DB as something to check against it. But he's right: if DB is first and .md is a verbatim pull from DB, then the .md showing a channel IS the confirmation the DB was written. The question dissolves when the architecture is correct. That's different from the question being answered — it's the question being unnecessary.
 
 ---
+
+### August 18, 2026 — David was exactly right to push back on the conditional framing. "Why would we turn the DB channel write check on and off when we toggle live mode?" — because we wouldn't. The check is part of the wri
+
+David was exactly right to push back on the conditional framing. "Why would we turn the DB channel write check on and off when we toggle live mode?" — because we wouldn't. The check is part of the write, not part of the display layer. Live mode controls what gets shown after a successful write. The write confirmation is invariant. That's a cleaner principle than what I had.
+
+---

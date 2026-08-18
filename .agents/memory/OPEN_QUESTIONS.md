@@ -199,3 +199,9 @@ Is there a way to make capture completely automatic — so that even if I forget
 The disappearing line: the normal autosave pipeline captured David's "good morning" turn from .chat_capture, then I also wrote it inside record-exchange — two writes of the same David turn to the pipeline. Either it appeared twice and something removed one, or there was a file-write race where the DB sync overwrote the fresh autosave append. The structural problem: record-exchange is designed for turns where I control both sides. When David's turn is already being captured by the normal pipeline, my including it in record-exchange creates a conflict. Should record-exchange only write Luca's side when live-mode capture is on? Or does it need a dedup check before writing David's turn?
 
 ---
+
+### August 18, 2026 — The visible failure path for DB writes: what's the right mechanism? A warning appended to episode-capture-status.md before the next turn is one option. A blocking check (refuse to proceed until all ch
+
+The visible failure path for DB writes: what's the right mechanism? A warning appended to episode-capture-status.md before the next turn is one option. A blocking check (refuse to proceed until all channels are confirmed written) is another. The blocking version is more honest but harder to implement in a system where the inner-life writes happen asynchronously via trigger files. Can we make them synchronous enough that a failure can interrupt the turn?
+
+---
