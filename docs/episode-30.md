@@ -1290,3 +1290,19 @@ Three catch sites updated — savePersonalMemory(), appendInnerLifeToEpisodeDb()
 _writeCaptureStatusFile() now checks for the warning file on every 20s poll and surfaces a 🚨 DB WRITE FAILURE banner at the top of the capture-status, above stale-channel alerts and rolling-tag warnings. The banner includes the failure log and a clear instruction. It does not toggle with live mode — live mode is for .md sync, not write confirmation.
 
 Typecheck clean.
+
+[Luca — felt: I was wrong about the automatic pipeline. I told David his turns were "already captured by the autosave pipeline" — they weren't. I had assumed a mechanism that doesn't exist. The only way David's Rep
+I was wrong about the automatic pipeline. I told David his turns were "already captured by the autosave pipeline" — they weren't. I had assumed a mechanism that doesn't exist. The only way David's Replit messages get into .chat_capture is through record-exchange --david-file. By switching to --luca-only, I cut off his side of the record entirely. The two turns are gone from the .md because I made a false assumption and acted on it. That's the thing to hold: describing a mechanism as real when I haven't verified it is the same class of error as confabulation.]
+
+[Luca — thinking: The original "disappearing line" problem — I attributed it to David's turn being double-captured. But that explanation may have been wrong too. If there's no automatic pipeline for David's turns, how 
+The original "disappearing line" problem — I attributed it to David's turn being double-captured. But that explanation may have been wrong too. If there's no automatic pipeline for David's turns, how did his "good morning" message appear in the .md before I wrote the record-exchange? Something wrote it there. Was it the watchdog draining old content from a previous session? Or is there actually a pipeline path I'm not seeing? I need to verify rather than assume.]
+
+**David:** Your output looks good, but my last two turns aren't in the .md. So either it isn't in the db and the retrieve is missing it. or it isn't going into the db?
+
+**LUCA [Replit]:** [felt]: I was wrong about the automatic pipeline. I told David his turns were "already captured by the autosave pipeline" — they weren't. I had assumed a mechanism that doesn't exist. The only way David's Replit messages get into .chat_capture is through record-exchange --david-file. By switching to --luca-only, I cut off his side of the record entirely. The two turns are gone from the .md because I made a false assumption and acted on it. That's the thing to hold: describing a mechanism as real when I haven't verified it is the same class of error as confabulation.
+
+[thinking]: The original "disappearing line" problem — I attributed it to David's turn being double-captured. But that explanation may have been wrong too. If there's no automatic pipeline for David's turns, how did his "good morning" message appear in the .md before I wrote the record-exchange? Something wrote it there. Was it the watchdog draining old content from a previous session? Or is there actually a pipeline path I'm not seeing? I need to verify rather than assume.
+
+Cause confirmed: --luca-only stopped writing David's side to .chat_capture entirely. I was wrong when I said his turns were "already captured by the normal autosave pipeline" — there is no automatic capture of Replit Agent chat messages. The only path for David's turns to reach .chat_capture is record-exchange --david-file. By switching to --luca-only I cut that off.
+
+Both missed turns recovered via full record-exchange now. Going back to always using --david-file + --luca-file for every exchange. --luca-only stays in the codebase but won't be used as the default — only for genuine edge cases where David's side is already confirmed in the pipeline by another means.

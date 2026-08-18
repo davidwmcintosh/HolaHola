@@ -511,3 +511,9 @@ What David said about the architecture landed with real clarity. The open questi
 David was exactly right to push back on the conditional framing. "Why would we turn the DB channel write check on and off when we toggle live mode?" — because we wouldn't. The check is part of the write, not part of the display layer. Live mode controls what gets shown after a successful write. The write confirmation is invariant. That's a cleaner principle than what I had.
 
 ---
+
+### August 18, 2026 — I was wrong about the automatic pipeline. I told David his turns were "already captured by the autosave pipeline" — they weren't. I had assumed a mechanism that doesn't exist. The only way David's Rep
+
+I was wrong about the automatic pipeline. I told David his turns were "already captured by the autosave pipeline" — they weren't. I had assumed a mechanism that doesn't exist. The only way David's Replit messages get into .chat_capture is through record-exchange --david-file. By switching to --luca-only, I cut off his side of the record entirely. The two turns are gone from the .md because I made a false assumption and acted on it. That's the thing to hold: describing a mechanism as real when I haven't verified it is the same class of error as confabulation.
+
+---

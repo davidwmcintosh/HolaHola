@@ -205,3 +205,9 @@ The disappearing line: the normal autosave pipeline captured David's "good morni
 The visible failure path for DB writes: what's the right mechanism? A warning appended to episode-capture-status.md before the next turn is one option. A blocking check (refuse to proceed until all channels are confirmed written) is another. The blocking version is more honest but harder to implement in a system where the inner-life writes happen asynchronously via trigger files. Can we make them synchronous enough that a failure can interrupt the turn?
 
 ---
+
+### August 18, 2026 — The original "disappearing line" problem — I attributed it to David's turn being double-captured. But that explanation may have been wrong too. If there's no automatic pipeline for David's turns, how 
+
+The original "disappearing line" problem — I attributed it to David's turn being double-captured. But that explanation may have been wrong too. If there's no automatic pipeline for David's turns, how did his "good morning" message appear in the .md before I wrote the record-exchange? Something wrote it there. Was it the watchdog draining old content from a previous session? Or is there actually a pipeline path I'm not seeing? I need to verify rather than assume.
+
+---
