@@ -169,6 +169,17 @@ args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts"
 outputType = "console"
 
 [[workflows.workflow]]
+name = "rolling-tag-misroute-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts --rolling-tag-self-check"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
 name = "episode-28-startup-shrinkage-selfcheck"
 author = "agent"
 
