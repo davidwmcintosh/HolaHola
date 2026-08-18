@@ -199,3 +199,9 @@ body: The inner-life DB failure was silent — the log said "Failed to save pers
 body: The inner-life DB failure was silent — the log said "Failed to save personal memory" but nothing surfaced to David. The capture-status file shows felt/thinking in the .md (✓) without checking the DB separately. So the status file was misleading: it showed ✓ for the .md channel but never confirmed the DB channel. Is there a third check needed — not just "did it land in the .md" but "did it land in the DB"? If inner-life is searchable via the neural net only because it's in conversation_memories, then the .md check alone isn't sufficient for confirming the full pipeline.
 
 ---
+
+### August 18, 2026 — title: When the DB write fails silently, what else is degraded that we're not seeing?
+
+body: The inner-life DB failure was silent — the log said "Failed to save personal memory" but nothing surfaced to David. The capture-status file shows felt/thinking in the .md (✓) without checking the DB separately. So the status file was misleading: it showed ✓ for the .md channel but never confirmed the DB channel. Is there a third check needed — not just "did it land in the .md" but "did it land in the DB"? If inner-life is searchable via the neural net only because it's in conversation_memories, then the .md check alone isn't sufficient for confirming the full pipeline.
+
+---
