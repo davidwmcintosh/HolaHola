@@ -97,6 +97,7 @@ function parseArgs(argv: string[]) {
   let listOnly      = false;
   let id            = '';
   let bufferMinutes = 0;
+  let out           = '';        // optional output file path (--out)
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -110,6 +111,15 @@ function parseArgs(argv: string[]) {
       case '--until':
         if (args[i + 1]) until = args[++i];
         break;
+      case '--date': {
+        // --date YYYY-MM-DD: shorthand that sets since/until to cover that calendar day (UTC)
+        if (args[i + 1]) {
+          const d = args[++i];
+          since = `${d}T00:00:00Z`;
+          until = `${d}T23:59:59Z`;
+        }
+        break;
+      }
       case '--format':
         if (args[i + 1]) format = args[++i];
         break;
@@ -125,12 +135,15 @@ function parseArgs(argv: string[]) {
       case '--buffer-minutes':
         if (args[i + 1]) bufferMinutes = parseInt(args[++i], 10);
         break;
+      case '--out':
+        if (args[i + 1]) out = args[++i];
+        break;
       default:
         // ignore unknown flags
     }
   }
 
-  return { tags, since, until, format, limit, listOnly, id, bufferMinutes };
+  return { tags, since, until, format, limit, listOnly, id, bufferMinutes, out };
 }
 
 // ---------------------------------------------------------------------------
@@ -309,7 +322,7 @@ function shiftIso(ts: string, deltaMinutes: number): string {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { tags, since, until, format, limit, listOnly, id, bufferMinutes } = parseArgs(process.argv);
+  const { tags, since, until, format, limit, listOnly, id, bufferMinutes, out } = parseArgs(process.argv);
 
   // Validate args
   if (!id && tags.length === 0) {
@@ -368,7 +381,7 @@ async function main() {
       '   Do NOT proceed with episode writing until real rows are retrieved.\n' +
       '   Do NOT reconstruct from memory.\n\n' +
       '  Retrieve options:\n' +
-      '    - Widen the time range (--since / --until)\n' +
+      '    - Widen the time range (--since / --until / --date)\n' +
       '    - Use --buffer-minutes=30 to auto-expand the window by 30 min on each side\n' +
       '    - Check available rows by querying the DB directly:\n' +
       '        SELECT id, title, recorded_at, tags FROM conversation_memories\n' +
@@ -407,7 +420,7 @@ async function main() {
     }
   }
 
-  // Format and emit — all output to stdout, status messages to stderr
+  // Format and emit — all output to stdout (or --out file if provided), status messages to stderr
   let output: string;
   if (listOnly) {
     output = formatList(rows);
@@ -417,7 +430,15 @@ async function main() {
     output = formatPlain(rows);
   }
 
-  process.stdout.write(output + '\n');
+  if (out) {
+    const { writeFileSync, mkdirSync } = await import('fs');
+    const { dirname } = await import('path');
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, output + '\n', 'utf8');
+    process.stderr.write(`[retrieve-episode-dialogue] Output written to ${out}\n`);
+  } else {
+    process.stdout.write(output + '\n');
+  }
 }
 
 // ---------------------------------------------------------------------------

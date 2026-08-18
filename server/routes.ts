@@ -32108,10 +32108,11 @@ ${memoryContext}
           });
           console.log(`[Conversation Memories] Replaced episode: "${memory.title}" (new id: ${memory.id})`);
           res.json({ success: true, memory, replaced: true });
-          const DAVID_USER_ID = '49847136';
           // Remove stale embeddings for every deleted row, then index the
-          // replacement.  Both operations are fire-and-forget after the response.
-          import('./services/semantic-memory-service').then(async ({ generateAndStoreEmbedding }) => {
+          // replacement using data-derived ownership (reembedConversationMemory
+          // resolves the correct userId from the cid: tag, or null for non-founder
+          // global memories — never uses a hard-coded administrator ID).
+          Promise.resolve().then(async () => {
             try {
               // Clean up embedding rows for the replaced episode IDs so they do
               // not accumulate as dangling references in memory_embeddings.
@@ -32131,15 +32132,13 @@ ${memoryContext}
             } catch (embErr: any) {
               console.warn('[Conversation Memories] Stale-embedding cleanup failed:', embErr.message);
             }
-            // Generate the embedding for the replacement row, then do a
-            // post-generation check: if a concurrent allowDuplicate:true call
-            // deleted this row while embedding was running, remove the embedding
-            // we just created.  Post-generation cleanup is safer than a
-            // pre-generation existence check (which has a TOCTOU window between
-            // the check and the actual insert into memory_embeddings).
-            const textToEmbed = `${memory.title}\n\n${memory.summary}\n\n${memory.content}`;
+            // Generate the embedding for the replacement row with data-derived
+            // ownership, then do a post-generation check: if a concurrent
+            // allowDuplicate:true call deleted this row while embedding was
+            // running, remove the embedding we just created.
             try {
-              await generateAndStoreEmbedding('conversation_memory', memory.id, DAVID_USER_ID, textToEmbed, 1.0);
+              const { reembedConversationMemory } = await import('./scripts/reembed-memory');
+              await reembedConversationMemory(memory.id);
               // Post-generation: verify row still canonical; clean up if superseded.
               const stillExists = await getSharedDb()
                 .select({ id: conversationMemories.id })
@@ -32177,14 +32176,13 @@ ${memoryContext}
       const [memory] = await getUserDb().insert(conversationMemories).values(parsed.data).returning();
       console.log(`[Conversation Memories] Saved: "${memory.title}"`);
       res.json({ success: true, memory });
-      // Fire-and-forget: index the new memory in the embedding index so semantic search
-      // (used by read_full_memory in Gemini Live) can find it immediately.
-      // All conversation memories are Agent↔David, so always index under David's userId.
-      const DAVID_USER_ID = '49847136';
-      import('./services/semantic-memory-service').then(({ generateAndStoreEmbedding }) => {
-        const textToEmbed = `${memory.title}\n\n${memory.summary}\n\n${memory.content}`;
-        generateAndStoreEmbedding('conversation_memory', memory.id, DAVID_USER_ID, textToEmbed, 1.0)
-          .then(indexed => console.log(`[Conversation Memories] Embedding ${indexed ? 'stored' : 'already fresh'} for "${memory.title}"`))
+      // Fire-and-forget: index the new memory using data-derived ownership.
+      // reembedConversationMemory resolves the correct userId via cid: tag
+      // (for founder-tagged rows), or null for non-founder global memories
+      // (episodes, teaching notes, etc.) — never uses a hard-coded user ID.
+      import('./scripts/reembed-memory').then(({ reembedConversationMemory }) => {
+        reembedConversationMemory(memory.id)
+          .then(() => console.log(`[Conversation Memories] Embedding stored for "${memory.title}"`))
           .catch(err => console.warn('[Conversation Memories] Embedding failed:', err.message));
       });
       // Regenerate the briefing immediately so the new memory is in the Agent's room

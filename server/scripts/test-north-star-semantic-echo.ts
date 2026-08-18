@@ -29,7 +29,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getSharedDb } from '../db';
-import { northStarPrinciples, conversationMemories, memoryEmbeddings } from '@shared/schema';
+import { northStarPrinciples, conversationMemories, memoryEmbeddings, users } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { hashContent, embedText } from '../services/semantic-memory-service';
 import { NativeFunctionCallHandler } from '../services/native-fc-handlers';
@@ -58,12 +58,16 @@ function assert(label: string, condition: boolean, detail?: string) {
 
 // ── Deterministic test identifiers ────────────────────────────────────────────
 // Use a stable prefix so cleanup can find leftover rows from crashed runs.
-// NOTE: memory_embeddings.userId has a FK → users.id so test embeddings are
-// inserted with userId = null (globally visible). semanticSearch includes global
-// rows (userId IS NULL) when the type is in GLOBAL_RECALL_TYPES, and
-// 'conversation_memory' is in that list. The session.userId can be any non-empty
-// string — it is only used as a query parameter, not looked up in users.
-const TEST_SESSION_USER = 'ci-semantic-echo-fake-user';
+// NOTE: memory_embeddings.userId has a FK → users.id so test embeddings cannot
+// use an arbitrary fake userId (violates FK constraint).  We create one real
+// test user (CI_TEST_USER) in the `users` table at the start of the main IIFE
+// and delete it at the end.  All conversation_memory embeddings are stored under
+// that userId (user-scoped); semanticSearch's user-pool query finds them when
+// the session userId matches.  conversation_memory is intentionally excluded
+// from GLOBAL_RECALL_TYPES (private-transcript access-control boundary), so
+// storing embeddings under an owned userId is both correct and required.
+const CI_TEST_USER = 'ci-north-star-echo-test-user-0001';
+const TEST_SESSION_USER = CI_TEST_USER; // kept for backward compat with session calls
 const UNIQUE_SUFFIX  = `xzq9-semantic-echo-ci`;
 // The principle title must NOT appear in any conversation_memory title/arc_name.
 // We use a UUID-like suffix that cannot plausibly exist in real data.
@@ -242,18 +246,17 @@ async function runPart2() {
     `got ${principleEmbedding.length}`,
   );
 
-  // Insert into memory_embeddings with userId = null (globally visible).
-  // memory_embeddings.userId has a FK → users.id so a fake userId would violate
-  // the constraint. With userId = null the row appears in semanticSearch's
-  // global query (userId IS NULL, type in GLOBAL_RECALL_TYPES) — and
-  // 'conversation_memory' is in that list, so the search will find it.
+  // Store under CI_TEST_USER (user-scoped) so semanticSearch's user-pool query
+  // finds this row when the session's userId matches.  conversation_memory is
+  // excluded from GLOBAL_RECALL_TYPES for access-control reasons, so user-scoped
+  // storage is both required and semantically correct.
   const contentHash = hashContent(memContent);
   await db
     .insert(memoryEmbeddings)
     .values({
       memoryType: 'conversation_memory',
       memoryId:   seedMem.id,
-      userId:     null,
+      userId:     CI_TEST_USER,
       embedding:  principleEmbedding,
       contentHash,
       strength:   1.0,
@@ -358,7 +361,7 @@ async function runPart3() {
     .values({
       memoryType: 'conversation_memory',
       memoryId:   seedMem.id,
-      userId:     null,          // globally visible; avoids FK constraint on users.id
+      userId:     CI_TEST_USER,  // user-scoped; conversation_memory excluded from global pool
       embedding:  fakeLowSimEmbedding,
       contentHash,
       strength:   1.0,
@@ -368,7 +371,7 @@ async function runPart3() {
 
   // ── 4. Call processReachNorthStar ─────────────────────────────────────────
   const handler = makeHandler();
-  const session = makeSession('ci-low-sim-fake-user', 'ci-test-low-sim-conv');
+  const session = makeSession(CI_TEST_USER, 'ci-test-low-sim-conv');
 
   await (handler as any).processReachNorthStar(session, LOW_SIM_TITLE, 'brief');
 
@@ -541,7 +544,7 @@ async function runPart5() {
     .values({
       memoryType: 'conversation_memory',
       memoryId:   seedMem.id,
-      userId:     null,   // globally visible; avoids FK constraint
+      userId:     CI_TEST_USER,  // user-scoped; conversation_memory excluded from global pool
       embedding:  shortEmbedding,
       contentHash: shortContentHash,
       strength:   1.0,
@@ -550,12 +553,12 @@ async function runPart5() {
     .onConflictDoNothing();
 
   // ── 4. DISCRIMINATING CHECK: prove the candidate IS findable ─────────────
-  // A direct semanticSearchByVector call with the same embedding confirms the
-  // candidate sits above the 0.70 threshold. If this step fails, the test
-  // setup is broken — not the guard.
+  // A direct semanticSearchByVector call with the same embedding and the same
+  // userId as the stored embedding confirms the candidate sits above the 0.70
+  // threshold via the user pool. If this step fails, the test setup is broken.
   const { semanticSearchByVector } = await import('../services/semantic-memory-service');
   const probeResults = await semanticSearchByVector(
-    'ci-short-principle-probe',
+    CI_TEST_USER,
     shortEmbedding,
     5,
     ['conversation_memory'],
@@ -897,12 +900,14 @@ async function runPart9() {
     }
 
     // Store the probe vector as the conversation_memory embedding (candidate).
+    // Use CI_TEST_USER (user-scoped) — conversation_memory is excluded from
+    // the global pool for access-control reasons.
     await db
       .insert(memoryEmbeddings)
       .values({
         memoryType:  'conversation_memory',
         memoryId:    seedWsLongMem.id,
-        userId:      null,
+        userId:      CI_TEST_USER,
         embedding:   wsLongEmb,
         contentHash: hashContent(wsLongProbeText),
         strength:    1.0,
@@ -932,7 +937,7 @@ async function runPart9() {
     // Discriminating probe: candidate IS findable above 0.70 via the probe vector.
     // This confirms that IF Phase B ran (old guard), it WOULD produce "A Recent Echo".
     const { semanticSearchByVector: ssv2 } = await import('../services/semantic-memory-service');
-    const wsLongProbe = await ssv2('ci-ws-long-probe', wsLongEmb, 5, ['conversation_memory']);
+    const wsLongProbe = await ssv2(CI_TEST_USER, wsLongEmb, 5, ['conversation_memory']);
     const wsLongFound = wsLongProbe.some(
       r => String(r.memoryId) === String(seedWsLongMem.id) && r.similarity > 0.70,
     );
@@ -1184,7 +1189,7 @@ async function runPart8() {
     .values({
       memoryType:  'conversation_memory',
       memoryId:    seedMem.id,
-      userId:      null,
+      userId:      CI_TEST_USER,  // user-scoped; Phase B finds via user pool when session userId matches
       embedding:   p8Embedding,
       contentHash: p8ContentHash,
       strength:    1.0,
@@ -1194,7 +1199,7 @@ async function runPart8() {
 
   // ── 5. Call processReachNorthStar — Phase B runs (length 11 > 10) ─────────
   const handler = makeHandler();
-  const session = makeSession('ci-p8-fake-user', 'ci-p8-test-conv');
+  const session = makeSession(CI_TEST_USER, 'ci-p8-test-conv');
 
   await (handler as any).processReachNorthStar(session, SHORT_P8_TITLE, 'brief');
 
@@ -1233,6 +1238,23 @@ async function runPart8() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 (async () => {
+  const db = getSharedDb();
+
+  // ── Create a real test user so memory_embeddings FK constraint is satisfied ──
+  // conversation_memory embeddings are stored user-scoped (not userId=null) because
+  // that type is excluded from GLOBAL_RECALL_TYPES for access-control reasons.
+  // The user is deleted in the finally block; ON DELETE CASCADE removes embeddings.
+  try {
+    await db.execute(sql`
+      INSERT INTO users (id, role)
+      VALUES (${CI_TEST_USER}, 'student')
+      ON CONFLICT (id) DO NOTHING
+    `);
+  } catch (err: any) {
+    console.error(R(`\nFailed to create CI test user: ${err?.message ?? err}`));
+    process.exit(1);
+  }
+
   try {
     runPart1();
     await runPart2();
@@ -1247,6 +1269,11 @@ async function runPart8() {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) console.error(err.stack);
     process.exit(1);
+  } finally {
+    // Best-effort cleanup of the test user row (cascades to memory_embeddings).
+    try {
+      await db.delete(users).where(eq(users.id, CI_TEST_USER));
+    } catch { /* non-fatal */ }
   }
 
   sep();

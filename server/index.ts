@@ -568,6 +568,34 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // ── Pre-listen schema migrations (FAIL-CLOSED) ───────────────────────────────
+  // Run before server.listen() so the schema is complete before any request is
+  // served — the server is not yet bound to a port, so no recall query can race
+  // these migrations.  Both operations are idempotent and fast (ADD COLUMN IF
+  // NOT EXISTS is near-instant on an already-migrated schema).
+  // Errors propagate to the top-level starter so the process aborts before
+  // accepting traffic — a recall query against a missing importance column would
+  // fail at runtime and is far worse than a clean startup abort.
+  const { runMemoryDecayMigration } = await import('./services/memory-decay-service');
+  await runMemoryDecayMigration();
+
+  // Quarantine any null-scoped founder-tagged embeddings BEFORE accepting
+  // traffic — ensures no recall query can surface private transcripts in the
+  // global pool during startup.  Runs after runMemoryDecayMigration so the
+  // importance column is guaranteed to exist.
+  // FAIL CLOSED: if correction fails, abort startup rather than serve traffic
+  // with an unsecured embedding pool.  A transient DB error here is a security
+  // signal — better to restart cleanly than to expose founder transcripts globally.
+  try {
+    const { correctFounderEmbeddingScopes } = await import('./services/memory-embedding-indexer');
+    await correctFounderEmbeddingScopes();
+    console.log('[Boot] Founder embedding scope correction complete');
+  } catch (err: any) {
+    console.error('[Boot] CRITICAL: correctFounderEmbeddingScopes failed —', err?.message ?? err,
+      '— aborting startup to prevent founder transcript disclosure in the global recall pool');
+    throw err; // Fail closed: do not serve traffic with an unsecured embedding pool
+  }
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
@@ -942,15 +970,6 @@ app.use((req, res, next) => {
       startDanielaConsultAutosave();
     }, 85000);
 
-    // +50s: Memory Decay Migration — idempotent ALTER TABLE that adds strength/
-    // last_reinforced_at/pinned columns to memory_embeddings. Safe to run every boot.
-    setTimeout(async () => {
-      const { runMemoryDecayMigration } = await import('./services/memory-decay-service');
-      runMemoryDecayMigration().catch((err: Error) =>
-        console.warn('[MemoryDecay] Migration skipped:', err.message)
-      );
-    }, 50000);
-
     // +55s: Learning Goals Migration — idempotent CREATE TABLE IF NOT EXISTS for
     // learning_goals table. Tracks outcome-based goals + capability arcs for
     // self-directed students and business travelers. Safe to run every boot.
@@ -960,6 +979,7 @@ app.use((req, res, next) => {
         console.warn('[LearningGoals] Migration skipped:', err.message)
       );
     }, 55000);
+
 
     // +95s: Memory Embedding Indexer — generates Gemini text-embedding-004 vectors
     // for all memory records (student_insights, hive_snapshots, personal_facts, growth_memories)

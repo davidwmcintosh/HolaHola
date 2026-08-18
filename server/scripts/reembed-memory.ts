@@ -16,65 +16,77 @@
  * content hash hasn't changed, and orphaned chunk embeddings (from a memory
  * that got shorter) are cleaned up automatically.
  */
-import { getSharedDb } from '../db';
+import { getSharedDb, getUserDb } from '../db';
 import { conversationMemories, memoryEmbeddings } from '@shared/schema';
 import { generateAndStoreEmbedding } from '../services/semantic-memory-service';
 import { splitIntoChunks, reformatSpeakerHeaders } from '../services/memory-embedding-indexer';
 import { sql, eq, and, isNull } from 'drizzle-orm';
 
-// Legacy fallback userId — used for founder-chat/founder-private rows that were
-// created before the 'owner:USER_ID' tag was introduced (Aug 2026).  Historic
-// rows are safe to assign to David; new rows carry an explicit owner tag.
-const LEGACY_FOUNDER_USER_ID = '49847136';
-
 /**
- * Derive the correct userId for a conversation_memory embedding from the row's
- * tags.  Priority rules (same as deriveConvMemoryOwner in memory-embedding-indexer):
+ * Resolve the correct userId for a founder-tagged conversation_memory row.
  *
- *   1. 'owner:USER_ID' tag — explicit per-founder ownership; multi-founder safe.
- *      A second founder's private conversation tagged 'owner:OTHER_ID' routes to
- *      that ID, NOT to David.
+ * Priority rules:
+ *   1. Explicit `owner:USER_ID` tag — set by founder-chat-sync on INSERT/UPDATE.
+ *      Multi-founder safe: each founder's transcripts route to their own pool.
+ *   2. `cid:<conversationId>` or `backfill-cid:<conversationId>` tag — looks up
+ *      conversations.user_id to derive the actual owner without any hard-coded ID.
+ *   3. Founder-tagged with no cid:/owner: — owner unresolvable; returns null as
+ *      a signal to the caller to SKIP embedding (not null-scope the embedding).
  *
- *   2. 'backfill-cid:*' tag — David-specific game-session backfill rows.
+ * Returns null for non-founder rows (globally scoped shared resource).
  *
- *   3. 'founder-chat' or 'founder-private' without an owner tag — legacy rows
- *      from before the owner tag was introduced.  Falls back to David because
- *      he was the only founder whose conversations existed at that time.
- *
- *   4. Everything else → null (globally scoped shared resource).
- *
- * This is used as a fallback when the caller does not provide an explicit userId.
- * Callers that already know the owner (backfill scripts, founder-chat-sync.ts)
- * should pass the userId explicitly rather than relying on this derivation.
+ * NOTE: This is async because cid: lookups hit the database.  Callers that already
+ * know the owner (founder-chat-sync, backfill scripts) should pass userId explicitly
+ * so this resolver is never called for their writes.
  */
-function resolveUserIdFromTags(tags: string[] | null): string | null {
-  if (!tags) return null;
+async function resolveFounderUserId(tags: string[]): Promise<{ userId: string | null; skip: boolean }> {
   // 1. Explicit owner tag — works for any founder, not just David.
   const ownerTag = tags.find(t => t.startsWith('owner:'));
-  if (ownerTag) return ownerTag.slice('owner:'.length);
-  // 2. backfill-cid rows are David-specific by construction.
-  if (tags.some(t => t.startsWith('backfill-cid:'))) return LEGACY_FOUNDER_USER_ID;
-  // 3. Legacy founder rows without an explicit owner tag.
-  if (tags.includes('founder-chat') || tags.includes('founder-private')) {
-    return LEGACY_FOUNDER_USER_ID;
+  if (ownerTag) return { userId: ownerTag.slice('owner:'.length), skip: false };
+
+  // 2. cid: or backfill-cid: tag — look up actual owner in conversations table.
+  const cidTag = tags.find(t => t.startsWith('cid:') || t.startsWith('backfill-cid:'));
+  if (cidTag) {
+    const convId = cidTag.startsWith('backfill-cid:')
+      ? cidTag.slice('backfill-cid:'.length)
+      : cidTag.slice('cid:'.length);
+    try {
+      const userDb = getUserDb();
+      const result = await userDb.execute(
+        sql.raw(`SELECT user_id FROM conversations WHERE id = '${convId.replace(/'/g, "''")}' LIMIT 1`),
+      );
+      const convRow = ((result as any).rows ?? [])[0];
+      if (convRow?.user_id) {
+        return { userId: convRow.user_id as string, skip: false };
+      }
+      // cid: present but conversation row missing — cannot resolve, must skip.
+      console.warn(`[reembed-memory] cid: ${convId} found but no conversations row — skipping to prevent null-scope disclosure`);
+      return { userId: null, skip: true };
+    } catch (err: any) {
+      console.warn(`[reembed-memory] Owner lookup failed for cid: ${convId} — skipping: ${err?.message ?? err}`);
+      return { userId: null, skip: true };
+    }
   }
-  return null;
+
+  // 3. Founder-tagged but no cid:/owner: — owner unresolvable; must skip.
+  return { userId: null, skip: true };
 }
 
 /**
- * Reembed a conversation_memory row with optional userId scoping.
+ * Force re-embed a conversation_memory row and all derived arms.
  *
- * Pass `userId` to scope embeddings so they only appear in that user's
- * semantic recall — preventing private transcripts from surfacing in
- * every session via GLOBAL_RECALL_TYPES. Pass null (default) to let the
- * function auto-detect ownership from the row's tags: rows with 'founder-chat'
- * or 'founder-private' are automatically scoped to FOUNDER_USER_ID.
+ * @param id       conversation_memories.id to re-embed
+ * @param userId   Optional owning user ID.  Pass the founder/owner's userId for
+ *                 private transcripts so the embedding is user-scoped (visible
+ *                 only to that user's session via the user-pool query arm).
+ *                 Pass undefined or null for genuinely global memories (episodes,
+ *                 Daniela teaching notes) that should be globally visible.
  */
-export async function reembedConversationMemory(id: string, userId: string | null = null): Promise<void> {
-  return reembedOne(id, userId);
+export async function reembedConversationMemory(id: string, userId?: string | null): Promise<void> {
+  return reembedOne(id, userId ?? null);
 }
 
-async function reembedOne(id: string, userId: string | null): Promise<void> {
+async function reembedOne(id: string, userId: string | null = null): Promise<void> {
   const db = getSharedDb();
 
   const rows = await db
@@ -96,11 +108,33 @@ async function reembedOne(id: string, userId: string | null): Promise<void> {
     return;
   }
 
-  const strength = Math.min(1.0, (row.importance ?? 7) / 10);
+  const importance = row.importance ?? 7;
+  const strength = Math.min(1.0, importance / 10);
 
-  // If the caller did not provide an explicit userId, auto-detect from tags.
-  // Explicit caller-provided userId always takes precedence.
-  const effectiveUserId = userId ?? resolveUserIdFromTags(row.tags as string[] | null);
+  // Determine effectiveUserId:
+  // - Explicit caller-supplied userId always wins (e.g. founder-chat-sync knows the owner).
+  // - Otherwise, derive from tags: owner: tag → direct, cid:/backfill-cid: → async DB lookup.
+  // - Founder-tagged with no resolvable owner → skip (prevent null-scoped global disclosure).
+  let effectiveUserId: string | null;
+  if (userId !== null) {
+    effectiveUserId = userId;
+  } else {
+    const tags = (row.tags as string[] | null) ?? [];
+    const isFounderPrivate = tags.includes('founder-chat') || tags.includes('founder-private');
+    if (isFounderPrivate) {
+      const resolved = await resolveFounderUserId(tags);
+      if (resolved.skip) {
+        console.warn(
+          `[SKIP] ${id} — founder-tagged memory has no resolvable owner. ` +
+          `Embedding skipped to prevent global disclosure. Add cid:<conversationId> tag and re-run.`,
+        );
+        return;
+      }
+      effectiveUserId = resolved.userId;
+    } else {
+      effectiveUserId = null; // Non-founder row: globally scoped (correct for episodes, teaching notes, etc.)
+    }
+  }
 
   // When scoping to a userId, delete any pre-existing null-scoped (global)
   // embeddings for this row before creating user-scoped ones.  Without this
@@ -128,15 +162,17 @@ async function reembedOne(id: string, userId: string | null): Promise<void> {
     console.log(`[cleanup] removed null-scoped embeddings for ${id} (scoping to userId=${effectiveUserId})`);
   }
 
-  // Arm A: full-content embedding
+  // Arm A: full-content embedding — stored under userId (user-scoped if private, null if global)
+  // Pass importance so memory_embeddings.importance is populated from conversation_memories.importance,
+  // enabling the importance-first ORDER BY in the global pool queries to work correctly.
   const fullContent = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
-  const fullChanged = await generateAndStoreEmbedding('conversation_memory', row.id, effectiveUserId, fullContent, strength);
+  const fullChanged = await generateAndStoreEmbedding('conversation_memory', row.id, effectiveUserId, fullContent, strength, importance);
   console.log(`[conversation_memory] ${id} -> ${fullChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
 
   // Arm B: summary anchor
   if (row.summary && row.summary.length > 10) {
     const summaryContent = [row.title, row.summary].filter(Boolean).join('\n\n');
-    const summaryChanged = await generateAndStoreEmbedding('conversation_summary', row.id, effectiveUserId, summaryContent, strength);
+    const summaryChanged = await generateAndStoreEmbedding('conversation_summary', row.id, effectiveUserId, summaryContent, strength, importance);
     console.log(`[conversation_summary] ${id} -> ${summaryChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
   }
 
@@ -149,7 +185,7 @@ async function reembedOne(id: string, userId: string | null): Promise<void> {
     const chunkId = `${row.id}:chunk:${i}`;
     const chunkContent = `[Memory: ${row.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
     try {
-      const chunkChanged = await generateAndStoreEmbedding('conversation_chunk', chunkId, effectiveUserId, chunkContent, strength);
+      const chunkChanged = await generateAndStoreEmbedding('conversation_chunk', chunkId, effectiveUserId, chunkContent, strength, importance);
       console.log(`[conversation_chunk ${i + 1}/${total}] ${id} -> ${chunkChanged ? 'RE-EMBEDDED' : 'unchanged'}`);
     } catch (err: any) {
       const msg = `chunk ${i + 1}/${total}: ${err?.message ?? err}`;
@@ -217,3 +253,4 @@ if (isEntryPoint) {
     process.exit(1);
   });
 }
+

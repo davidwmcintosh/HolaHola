@@ -176,17 +176,15 @@ export async function pruneDecayedMemories(ageDays: number = 365): Promise<numbe
  */
 export async function runMemoryDecayMigration(): Promise<void> {
   const db = getSharedDb();
-  try {
-    await db.execute(sql`
-      ALTER TABLE memory_embeddings
-        ADD COLUMN IF NOT EXISTS strength          REAL      NOT NULL DEFAULT 1.0,
-        ADD COLUMN IF NOT EXISTS last_reinforced_at TIMESTAMPTZ         DEFAULT now(),
-        ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false,
-        ADD COLUMN IF NOT EXISTS importance        INTEGER             DEFAULT 5
-    `);
-    console.log('[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned columns ready');
-  } catch (err: any) {
-    // Columns already exist in some environments — not a fatal error
-    console.warn('[MemoryDecay] Migration note:', err.message);
-  }
+  // ADD COLUMN IF NOT EXISTS is idempotent — does not throw when columns already exist.
+  // Any failure here is a real error (DB unreachable, permission denied) that must
+  // propagate to the caller so the process can fail-close before serving traffic.
+  await db.execute(sql`
+    ALTER TABLE memory_embeddings
+      ADD COLUMN IF NOT EXISTS strength          REAL      NOT NULL DEFAULT 1.0,
+      ADD COLUMN IF NOT EXISTS last_reinforced_at TIMESTAMPTZ         DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS importance        INTEGER             DEFAULT 5
+  `);
+  console.log('[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned/importance columns ready');
 }

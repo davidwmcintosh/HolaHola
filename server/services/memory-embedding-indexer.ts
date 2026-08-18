@@ -17,7 +17,7 @@
  * Gemini text-embedding-004 free tier: 1500 RPM, well within budget.
  */
 
-import { getSharedDb } from '../db';
+import { getSharedDb, getUserDb } from '../db';
 import {
   studentInsights,
   hiveSnapshots,
@@ -150,6 +150,10 @@ export interface IndexTarget {
   contentLoader?: () => Promise<string>;
   memoryType: string;
   initialStrength?: number;
+  // Source importance from conversation_memories.importance (1–10).
+  // Passed to generateAndStoreEmbedding so memory_embeddings.importance reflects the
+  // original row priority and the importance-first global pool ORDER BY is data-derived.
+  importance?: number;
 }
 
 export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
@@ -308,10 +312,11 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   // conversation_memories — full narrative memories of meaningful sessions
   // These are the richest memories: full transcripts, breakthrough moments, the podcast.
   //
-  // Ownership: rows tagged with 'founder-chat' or 'backfill-cid:*' are private
-  // David-Daniela transcripts and are embedded under David's userId so they do not
-  // appear in every student session via GLOBAL_RECALL_TYPES. All other rows are
-  // embedded globally (userId = null) so Daniela can access them in any session.
+  // Scoping rule:
+  //   - Memories tagged 'founder-chat' or 'founder-private' contain verbatim David-Daniela
+  //     conversations and must be scoped to DAVID_USER_ID so they appear only in his personal
+  //     embedding pool and never leak into other students' global recall context.
+  //   - All other memories remain globally scoped (userId = null).
   //
   // Two embeddings per entry:
   //   1. conversation_memory  — title + summary + full content (summary first so it survives token truncation)
@@ -344,32 +349,6 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         )
       `)
       .limit(200);
-    for (const r of fullRows) {
-      const rowId = r.id;
-      const rowTitle = r.title;
-      const rowSummary = r.summary;
-      const strength = Math.min(1.0, (r.importance ?? 7) / 10);
-      const embeddingUserId = deriveConvMemoryOwner(r.tags as string[] | null);
-      targets.push({
-        id: rowId,
-        userId: embeddingUserId,
-        content: '',
-        // Content is fetched lazily in runIndexer() — one at a time to avoid OOM.
-        // Summary goes BEFORE content so keyword-rich anchor survives token truncation.
-        contentLoader: async () => {
-          const dbInner = getSharedDb();
-          const row = await dbInner
-            .select({ content: conversationMemories.content })
-            .from(conversationMemories)
-            .where(sql`${conversationMemories.id} = ${rowId}`)
-            .limit(1);
-          const fullContent = row[0]?.content ?? '';
-          return [rowTitle, rowSummary, fullContent].filter(Boolean).join('\n\n');
-        },
-        memoryType: 'conversation_memory',
-        initialStrength: strength,
-      });
-    }
 
     // Arm B: summary-only anchor embeddings — sharp, keyword-rich, never truncated
     const summaryRows = await db
@@ -390,16 +369,6 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         AND length(${conversationMemories.summary}) > 10
       `)
       .limit(200);
-    for (const r of summaryRows) {
-      const summaryContent = [r.title, r.summary].filter(Boolean).join('\n\n');
-      targets.push({
-        id: r.id,
-        userId: deriveConvMemoryOwner(r.tags as string[] | null),
-        content: summaryContent,
-        memoryType: 'conversation_summary',
-        initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
-      });
-    }
 
     // Arm C: verbatim content chunks — the heart of the fix.
     // For conversations longer than CHUNK_CHARS, the full transcript is sliced into
@@ -431,6 +400,152 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       `)
       .limit(20);
 
+    // ── Batch-resolve actual owner for every founder-tagged row ──────────────
+    // Instead of using a hard-coded administrator ID, extract the conversationId
+    // from each row's cid: tag and look up conversations.user_id in a single
+    // batch query.  A row with no matching conversation row is left null-scoped
+    // (which is safe — null means globally visible, not leaked to a specific wrong user).
+    const convOwnerMap = new Map<string, string>(); // conversationId → userId
+    {
+      const convIdsToLookup = new Set<string>();
+      for (const rowSet of [fullRows, summaryRows, unchunkedIds]) {
+        for (const r of rowSet) {
+          const tags = r.tags ?? [];
+          if (tags.includes('founder-chat') || tags.includes('founder-private')) {
+            // Support both cid: (standard) and backfill-cid: (game-session backfill rows)
+            const cidTag = tags.find(t => t.startsWith('cid:') || t.startsWith('backfill-cid:'));
+            if (cidTag) {
+              const convId = cidTag.startsWith('backfill-cid:')
+                ? cidTag.slice('backfill-cid:'.length)
+                : cidTag.slice('cid:'.length);
+              convIdsToLookup.add(convId);
+            }
+          }
+        }
+      }
+      if (convIdsToLookup.size > 0) {
+        try {
+          const userDb = getUserDb();
+          const idList = [...convIdsToLookup]
+            .map(id => `'${id.replace(/'/g, "''")}'`)
+            .join(', ');
+          const convRows = await userDb.execute(
+            sql.raw(`SELECT id, user_id FROM conversations WHERE id IN (${idList})`),
+          );
+          for (const row of ((convRows as any).rows ?? [])) {
+            if (row.id && row.user_id) convOwnerMap.set(row.id as string, row.user_id as string);
+          }
+        } catch (lookupErr: any) {
+          console.warn(
+            '[EmbedIndexer] owner lookup failed — founder embeddings will be null-scoped:',
+            lookupErr.message,
+          );
+        }
+      }
+    }
+
+    // Returns the owning userId for founder-tagged rows, or null for all others.
+    // Handles both cid: (standard) and backfill-cid: (game-session backfill) tags.
+    const resolveOwner = (tags: string[]): string | null => {
+      if (!tags.includes('founder-chat') && !tags.includes('founder-private')) return null;
+      // 1. Explicit owner: tag — multi-founder safe; takes precedence over all other rules.
+      //    Rows tagged owner:USER_ID don't need a cid: tag.
+      const ownerTag = tags.find(t => t.startsWith('owner:'));
+      if (ownerTag) return ownerTag.slice('owner:'.length);
+      // 2. Standard cid: → data-derived lookup ONLY; no hard-coded fallback.
+      //    These rows can belong to any founder, so we must never assign a wrong user.
+      //    Unresolvable cid: rows return null → skip-guard prevents global disclosure.
+      const cidTag = tags.find(t => t.startsWith('cid:'));
+      if (cidTag) {
+        const convId = cidTag.slice('cid:'.length);
+        return convOwnerMap.get(convId) ?? null;
+      }
+      // 3. backfill-cid: rows are David-specific by construction (seeded only by
+      //    backfill-all-david-conversations.ts and backfill-game-sessions.ts).
+      //    For real rows convOwnerMap will carry David's actual user_id.
+      //    Fall back to DAVID_USER_ID when convOwnerMap misses (e.g. CI test fixtures
+      //    with synthetic conv IDs, or rows whose conversation was later deleted).
+      const backfillTag = tags.find(t => t.startsWith('backfill-cid:'));
+      if (backfillTag) {
+        const convId = backfillTag.slice('backfill-cid:'.length);
+        return convOwnerMap.get(convId) ?? DAVID_USER_ID;
+      }
+      // 4. Founder-tagged but no owner:/cid:/backfill-cid: → unresolvable; skip guard
+      //    will prevent creating a null-scoped global embedding.
+      return null;
+    };
+
+    // Helper: is this row founder-private?
+    const isFounderTagged = (tags: string[]): boolean =>
+      tags.includes('founder-chat') || tags.includes('founder-private');
+
+    // Process Arm A
+    for (const r of fullRows) {
+      const rowId = r.id;
+      const rowTitle = r.title;
+      const rowSummary = r.summary;
+      const rowImportance = r.importance ?? 7;
+      const strength = Math.min(1.0, rowImportance / 10);
+      const tags = r.tags ?? [];
+      const rowUserId = resolveOwner(tags);
+
+      // Skip founder-tagged rows whose owner cannot be resolved — a null-scoped
+      // founder embedding would expose private transcripts in the global pool.
+      if (isFounderTagged(tags) && rowUserId === null) {
+        console.warn(
+          `[EmbedIndexer] Skipping Arm A for ${rowId} — founder-tagged but owner unresolvable (no cid: tag). ` +
+          `Add cid:<conversationId> tag to enable embedding.`,
+        );
+        continue;
+      }
+
+      targets.push({
+        id: rowId,
+        userId: rowUserId,
+        content: '',
+        // Content is fetched lazily in runIndexer() — one at a time to avoid OOM.
+        // Summary goes BEFORE content so keyword-rich anchor survives token truncation.
+        contentLoader: async () => {
+          const dbInner = getSharedDb();
+          const row = await dbInner
+            .select({ content: conversationMemories.content })
+            .from(conversationMemories)
+            .where(sql`${conversationMemories.id} = ${rowId}`)
+            .limit(1);
+          const fullContent = row[0]?.content ?? '';
+          return [rowTitle, rowSummary, fullContent].filter(Boolean).join('\n\n');
+        },
+        memoryType: 'conversation_memory',
+        initialStrength: strength,
+        importance: rowImportance,
+      });
+    }
+
+    // Process Arm B
+    for (const r of summaryRows) {
+      const tags = r.tags ?? [];
+      const summaryUserId = resolveOwner(tags);
+
+      // Skip unresolvable founder-tagged rows (same rule as Arm A).
+      if (isFounderTagged(tags) && summaryUserId === null) {
+        console.warn(
+          `[EmbedIndexer] Skipping Arm B for ${r.id} — founder-tagged but owner unresolvable (no cid: tag).`,
+        );
+        continue;
+      }
+
+      const summaryContent = [r.title, r.summary].filter(Boolean).join('\n\n');
+      targets.push({
+        id: r.id,
+        userId: summaryUserId,
+        content: summaryContent,
+        memoryType: 'conversation_summary',
+        initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
+        importance: r.importance ?? 7,
+      });
+    }
+
+    // Process Arm C
     for (const r of unchunkedIds) {
       const contentRow = await db
         .select({ content: conversationMemories.content })
@@ -440,9 +555,20 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       const content = contentRow[0]?.content;
       if (!content) continue;
 
+      const chunkTags = r.tags ?? [];
+      const chunkUserId = resolveOwner(chunkTags);
+
+      // Skip unresolvable founder-tagged rows (same rule as Arms A and B).
+      if (isFounderTagged(chunkTags) && chunkUserId === null) {
+        console.warn(
+          `[EmbedIndexer] Skipping Arm C for ${r.id} — founder-tagged but owner unresolvable (no cid: tag).`,
+        );
+        continue;
+      }
+
       const chunks = splitIntoChunks(content);
       const total = chunks.length;
-      const chunkOwner = deriveConvMemoryOwner(r.tags as string[] | null);
+      const chunkImportance = r.importance ?? 7;
 
       // Fetch existing chunks for this conversation only (targeted, not all chunks)
       const existingForThis = new Set(
@@ -459,10 +585,11 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         const chunkContent = `[Memory: ${r.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
         targets.push({
           id: chunkId,
-          userId: chunkOwner,
+          userId: chunkUserId,
           content: chunkContent,
           memoryType: 'conversation_chunk',
-          initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
+          initialStrength: Math.min(1.0, chunkImportance / 10),
+          importance: chunkImportance,
         });
       }
     }
@@ -584,41 +711,109 @@ async function archiveUnindexedConversations(): Promise<number> {
  *   catches those already-indexed rows and corrects their scope directly — no
  *   re-embedding needed since only userId changes.
  */
-async function correctFounderEmbeddingScopes(): Promise<void> {
-  // Legacy fallback: rows created before the 'owner:USER_ID' tag was introduced
-  // (Aug 2026) have no explicit owner; David is the only founder whose conversations
-  // existed at that time, so DAVID_USER_ID is the safe legacy default.
-  const LEGACY_OWNER = DAVID_USER_ID;
+export async function correctFounderEmbeddingScopes(): Promise<void> {
   try {
-    const db = getSharedDb();
-    // Direct SQL: join memory_embeddings → conversation_memories via SPLIT_PART for chunk IDs.
-    // Covers conversation_memory, conversation_summary, and conversation_chunk rows.
-    // Uses the explicit 'owner:USER_ID' tag when present; falls back to LEGACY_OWNER
-    // for historic rows that pre-date the tag.
-    const { sql: rawSql } = await import('drizzle-orm');
-    const result = await db.execute(rawSql`
-      UPDATE memory_embeddings me
-      SET user_id = COALESCE(
-        (
-          SELECT REPLACE(tag, 'owner:', '')
-          FROM unnest(cm.tags) AS tag
-          WHERE tag LIKE 'owner:%'
-          LIMIT 1
-        ),
-        ${LEGACY_OWNER}
-      )
+    const sharedDb = getSharedDb();
+
+    // Find all conversation_memories tagged founder-chat/founder-private that have
+    // null-scoped embeddings needing correction.
+    const cmResult = await sharedDb.execute(sql`
+      SELECT DISTINCT cm.id, cm.tags
       FROM conversation_memories cm
-      WHERE me.user_id IS NULL
-        AND me.memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
-        AND cm.id = SPLIT_PART(me.memory_id, ':chunk:', 1)
-        AND (
-          cm.tags @> ARRAY['founder-chat']::text[]
-          OR cm.tags @> ARRAY['founder-private']::text[]
-        )
+      WHERE (
+        cm.tags @> ARRAY['founder-chat']::text[]
+        OR cm.tags @> ARRAY['founder-private']::text[]
+      )
+      AND EXISTS (
+        SELECT 1 FROM memory_embeddings me
+        WHERE me.user_id IS NULL
+          AND me.memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
+          AND SPLIT_PART(me.memory_id, ':chunk:', 1) = cm.id::text
+      )
     `);
-    const rowCount = (result as any)?.rowCount ?? (result as any)?.count ?? 0;
-    if (Number(rowCount) > 0) {
-      console.log(`[EmbedIndexer] Corrected ${rowCount} NULL-scoped founder embedding(s) (owner tag or legacy fallback)`);
+    const cmRows = (cmResult as any).rows ?? [];
+    if (!cmRows.length) return;
+
+    // Batch-resolve actual owner for each conversation via cid: / backfill-cid: tag
+    // → conversations.user_id.  backfill-cid: tags are used by game-session backfill
+    // rows that pre-date the cid: convention; both forms are handled identically.
+    const convOwnerMap = new Map<string, string>(); // conversationId → userId
+    const convIdsToLookup = new Set<string>();
+    for (const row of cmRows) {
+      const tags = (row.tags ?? []) as string[];
+      const cidTag = tags.find(t => t.startsWith('cid:') || t.startsWith('backfill-cid:'));
+      if (cidTag) {
+        const convId = cidTag.startsWith('backfill-cid:')
+          ? cidTag.slice('backfill-cid:'.length)
+          : cidTag.slice('cid:'.length);
+        convIdsToLookup.add(convId);
+      }
+    }
+    if (convIdsToLookup.size > 0) {
+      const userDb = getUserDb();
+      const idList = [...convIdsToLookup]
+        .map(id => `'${id.replace(/'/g, "''")}'`)
+        .join(', ');
+      const convRows = await userDb.execute(
+        sql.raw(`SELECT id, user_id FROM conversations WHERE id IN (${idList})`),
+      );
+      for (const row of ((convRows as any).rows ?? [])) {
+        if (row.id && row.user_id) convOwnerMap.set(row.id as string, row.user_id as string);
+      }
+    }
+
+    // Update or delete null-scoped embeddings, one conversation at a time.
+    // - Resolved owner: UPDATE user_id to the actual owner (user-scoped, safe).
+    // - Unresolvable owner: DELETE the null-scoped embedding entirely.
+    //   A null-scoped embedding for a founder-tagged row is a privacy breach:
+    //   it appears in every student's semantic recall pool.  Deleting it quarantines
+    //   the private content until the row is re-embedded with the correct cid: tag.
+    let corrected = 0;
+    let quarantined = 0;
+    for (const row of cmRows) {
+      const tags = (row.tags ?? []) as string[];
+      const cidTag = tags.find(t => t.startsWith('cid:') || t.startsWith('backfill-cid:'));
+      const convId = cidTag
+        ? (cidTag.startsWith('backfill-cid:') ? cidTag.slice('backfill-cid:'.length) : cidTag.slice('cid:'.length))
+        : undefined;
+      const ownerId = convId ? convOwnerMap.get(convId) : undefined;
+      const memId = row.id as string;
+
+      if (ownerId) {
+        // Resolved: update to the actual owner
+        const updateResult = await sharedDb.execute(sql`
+          UPDATE memory_embeddings
+          SET user_id = ${ownerId}
+          WHERE user_id IS NULL
+            AND memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
+            AND SPLIT_PART(memory_id, ':chunk:', 1) = ${memId}
+        `);
+        corrected += (updateResult as any).rowCount ?? 0;
+      } else {
+        // Unresolvable: DELETE to prevent global disclosure
+        // (no cid: or backfill-cid: tag, or conversation row missing from DB)
+        const deleteResult = await sharedDb.execute(sql`
+          DELETE FROM memory_embeddings
+          WHERE user_id IS NULL
+            AND memory_type IN ('conversation_memory', 'conversation_summary', 'conversation_chunk')
+            AND SPLIT_PART(memory_id, ':chunk:', 1) = ${memId}
+        `);
+        const deleted = (deleteResult as any).rowCount ?? 0;
+        if (deleted > 0) {
+          console.warn(
+            `[EmbedIndexer] QUARANTINE: deleted ${deleted} null-scoped embedding(s) for founder-tagged row ${memId} ` +
+            `(no cid: tag or conversation not found). Add cid:<conversationId> tag and re-run indexer to restore.`,
+          );
+          quarantined += deleted;
+        }
+      }
+    }
+
+    if (corrected > 0) {
+      console.log(`[EmbedIndexer] Corrected ${corrected} NULL-scoped founder embedding(s) → actual owner userId`);
+    }
+    if (quarantined > 0) {
+      console.warn(`[EmbedIndexer] Quarantined ${quarantined} unresolvable founder embedding(s) — add cid: tags to restore`);
     }
   } catch (err: any) {
     // Treat scope-correction failure as a security failure: a failed correction
@@ -663,6 +858,94 @@ async function getTopUnembeddedConversationMemoryIds(limit: number): Promise<str
 }
 
 /**
+ * Patch a single straggler conversation_memory row.
+ *
+ * Exported so CI regression tests can call it directly without running the
+ * full 2-hour indexer cycle.
+ *
+ * Ownership rules (identical to Arms A/B/C):
+ *   - founder-tagged row with valid cid: → embed under the resolved userId
+ *   - founder-tagged row with no cid: or unresolvable cid: → SKIP (do not create a global embedding)
+ *   - non-founder row → embed with userId=null (globally accessible — correct for episodes etc.)
+ *
+ * Returns:
+ *   'patched'   — embedding(s) written successfully
+ *   'skipped'   — row was founder-tagged with unresolvable owner; no embedding written
+ *   'not_found' — no row exists for the given id
+ */
+export async function patchSingleStraggler(id: string): Promise<'patched' | 'skipped' | 'not_found'> {
+  const dbInner = getSharedDb();
+  const rows = await dbInner
+    .select({
+      id: conversationMemories.id,
+      title: conversationMemories.title,
+      summary: conversationMemories.summary,
+      content: conversationMemories.content,
+      importance: conversationMemories.importance,
+      tags: conversationMemories.tags,
+    })
+    .from(conversationMemories)
+    .where(sql`${conversationMemories.id} = ${id}`)
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return 'not_found';
+
+  // Data-derived ownership: resolve userId via cid: tag → conversations.user_id,
+  // mirroring the Arms A/B/C logic.  NEVER use a hard-coded administrator ID.
+  const rowTags = row.tags ?? [];
+  let userId: string | null;
+  if (rowTags.includes('founder-chat') || rowTags.includes('founder-private')) {
+    // Recognize both cid: (standard) and backfill-cid: (backfill-all-david-conversations.ts).
+    const cidTag = rowTags.find((t: string) => t.startsWith('cid:') || t.startsWith('backfill-cid:'));
+    if (!cidTag) {
+      // Founder-tagged but no cid:/backfill-cid: — owner unresolvable; skip to prevent global disclosure.
+      console.log(
+        `[EmbedIndexer] Straggler: skipping ${id} — founder-tagged but no cid:/backfill-cid: tag. ` +
+        `Add cid:<conversationId> to enable embedding.`,
+      );
+      return 'skipped';
+    }
+    const convId = cidTag.startsWith('backfill-cid:') ? cidTag.slice('backfill-cid:'.length) : cidTag.slice('cid:'.length);
+    let resolvedUserId: string | undefined;
+    try {
+      const userDb = getUserDb();
+      const convRows = await userDb.execute(
+        sql.raw(`SELECT user_id FROM conversations WHERE id = '${convId.replace(/'/g, "''")}' LIMIT 1`),
+      );
+      const convRow = ((convRows as any).rows ?? [])[0];
+      resolvedUserId = convRow?.user_id as string | undefined;
+    } catch (lookupErr: any) {
+      console.warn(`[EmbedIndexer] Straggler owner lookup failed for ${id}: ${lookupErr.message} — skipping`);
+      return 'skipped';
+    }
+    if (!resolvedUserId) {
+      // cid: present but conversation not found — skip rather than embed globally.
+      console.log(
+        `[EmbedIndexer] Straggler: skipping ${id} — cid:${convId} not found in conversations. ` +
+        `Row will remain dark until conversation record exists.`,
+      );
+      return 'skipped';
+    }
+    userId = resolvedUserId;
+  } else {
+    userId = null; // non-founder row: null scope (correct for general memories)
+  }
+
+  const importance = row.importance ?? 7;
+  const strength = Math.min(1.0, importance / 10);
+  const fullContent = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
+
+  if (fullContent.trim().length > 10) {
+    await generateAndStoreEmbedding('conversation_memory', id, userId, fullContent, strength, importance);
+  }
+  if (row.summary && row.summary.length > 10) {
+    const summaryContent = [row.title, row.summary].filter(Boolean).join('\n\n');
+    await generateAndStoreEmbedding('conversation_summary', id, userId, summaryContent, strength, importance);
+  }
+  return 'patched';
+}
+/**
  * Post-cycle straggler check + inline auto-patch.
  *
  * Runs after each runIndexer() cycle:
@@ -702,40 +985,9 @@ async function postCycleStragglerCheck(): Promise<void> {
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       try {
-        // Inline lazy-load + embed: mirrors the conversation_memory Arm A path in
-        // collectUnindexedMemories() but for a single known-missing ID.
-        const dbInner = getSharedDb();
-        const rows = await dbInner
-          .select({
-            id: conversationMemories.id,
-            title: conversationMemories.title,
-            summary: conversationMemories.summary,
-            content: conversationMemories.content,
-            importance: conversationMemories.importance,
-            tags: conversationMemories.tags,
-          })
-          .from(conversationMemories)
-          .where(sql`${conversationMemories.id} = ${id}`)
-          .limit(1);
-
-        const row = rows[0];
-        if (!row) continue;
-
-        const FOUNDER_USER_ID_STRAGGLER = '49847136';
-        const rowTags = row.tags ?? [];
-        const userId = (rowTags.includes('founder-chat') || rowTags.includes('founder-private'))
-          ? FOUNDER_USER_ID_STRAGGLER : null;
-        const strength = Math.min(1.0, (row.importance ?? 7) / 10);
-        const fullContent = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
-
-        if (fullContent.trim().length > 10) {
-          await generateAndStoreEmbedding('conversation_memory', id, userId, fullContent, strength);
-        }
-        if (row.summary && row.summary.length > 10) {
-          const summaryContent = [row.title, row.summary].filter(Boolean).join('\n\n');
-          await generateAndStoreEmbedding('conversation_summary', id, userId, summaryContent, strength);
-        }
-        patched++;
+        const outcome = await patchSingleStraggler(id);
+        if (outcome === 'patched') patched++;
+        // 'skipped' and 'not_found' are non-error outcomes — no patchErrors increment.
       } catch (err: any) {
         patchErrors++;
         console.warn(`[EmbedIndexer] Straggler patch failed for ${id}: ${err.message}`);
@@ -829,7 +1081,7 @@ export async function runIndexer(): Promise<void> {
         try {
           const content = t.contentLoader ? await t.contentLoader() : t.content;
           if (!content || content.trim().length <= 10) continue;
-          const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, content, t.initialStrength);
+          const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, content, t.initialStrength, t.importance);
           if (isNew) generated++;
         } catch (err: any) {
           errors++;
@@ -846,7 +1098,7 @@ export async function runIndexer(): Promise<void> {
       await Promise.all(
         batch.map(async (t) => {
           try {
-            const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength);
+            const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength, t.importance);
             if (isNew) generated++;
           } catch (err: any) {
             errors++;
@@ -956,7 +1208,7 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
   let indexed = 0;
   for (const t of targets) {
     try {
-      const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength);
+      const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength, t.importance);
       if (isNew) indexed++;
     } catch (err: any) {
       console.warn(`[PostSessionIndex] Failed to embed ${t.memoryType}/${t.id}:`, err.message);

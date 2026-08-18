@@ -19,7 +19,7 @@
 import { createHash } from 'crypto';
 import { getSharedDb } from '../db';
 import { memoryEmbeddings, learnerPersonalFacts } from '@shared/schema';
-import { eq, and, or, isNull, inArray, desc } from 'drizzle-orm';
+import { eq, and, isNull, inArray, desc } from 'drizzle-orm';
 import { computeDecayMultiplier } from './memory-decay-service';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
@@ -100,6 +100,7 @@ export async function generateAndStoreEmbedding(
   userId: string | null,
   content: string,
   initialStrength?: number,
+  importance?: number,
 ): Promise<boolean> {
   const db = getSharedDb();
   const hash = hashContent(content);
@@ -116,14 +117,17 @@ export async function generateAndStoreEmbedding(
 
   if (existing.length > 0 && existing[0].contentHash === hash) {
     // Hash matches — content unchanged. Still check if userId needs correcting.
-    // This ensures a scoping fix (e.g. NULL→DAVID_USER_ID for founder-chat memories)
+    // This ensures a scoping fix (e.g. NULL→ownerUserId for founder-chat memories)
     // propagates on the next indexer cycle without waiting for content to change.
     const existingUserId = existing[0].userId;
     const userIdMismatch = existingUserId !== userId;
-    if (userIdMismatch) {
+    if (userIdMismatch || importance !== undefined) {
+      const patch: Record<string, unknown> = {};
+      if (userIdMismatch) patch.userId = userId;
+      if (importance !== undefined) patch.importance = importance;
       await db
         .update(memoryEmbeddings)
-        .set({ userId })
+        .set(patch as any)
         .where(and(
           eq(memoryEmbeddings.memoryType, memoryType),
           eq(memoryEmbeddings.memoryId, memoryId),
@@ -135,16 +139,19 @@ export async function generateAndStoreEmbedding(
   const embedding = await embedText(content);
 
   if (existing.length > 0) {
-    // Update stale embedding — include userId so scoping corrections always persist
+    // Update stale embedding — include userId and importance so they are always in sync
     await db
       .update(memoryEmbeddings)
-      .set({ embedding, contentHash: hash, userId, createdAt: new Date() })
+      .set({
+        embedding, contentHash: hash, userId, createdAt: new Date(),
+        ...(importance !== undefined ? { importance } : {}),
+      })
       .where(and(
         eq(memoryEmbeddings.memoryType, memoryType),
         eq(memoryEmbeddings.memoryId, memoryId),
       ));
   } else {
-    // Insert new — use initialStrength if provided (confidence calibration)
+    // Insert new — use initialStrength and importance if provided
     await db.insert(memoryEmbeddings).values({
       memoryType,
       memoryId,
@@ -152,6 +159,7 @@ export async function generateAndStoreEmbedding(
       embedding,
       contentHash: hash,
       strength: Math.min(1.0, Math.max(0.05, initialStrength ?? 1.0)),
+      importance: importance ?? 5,
     });
   }
   return true;
@@ -224,11 +232,20 @@ export async function getCachedPrincipleEmbedding(
 // of Hive messages that are only relevant for Express Lane / Hive-specific searches.
 // Including it in every student memory recall loaded ~356MB of JSONB per call, causing
 // the 10-second memory lookup delays observed in voice sessions.
-// conversation_summary = sharp title+summary-only anchor per conversation_memory.
-// conversation_chunk   = verbatim transcript slice (~1000 tokens) — every part of every
-//   long conversation gets its own embedding so no moment is lost to token truncation.
-const GLOBAL_RECALL_TYPES = ['daniela_tool', 'hive_snapshot', 'conversation_memory', 'conversation_summary', 'conversation_chunk', 'growth_memory', 'goal_capability', 'teaching_skill'];
-
+//
+// Access-control model for conversation_memory / conversation_summary / conversation_chunk:
+//   - Genuinely global memories (episodes, Daniela teaching notes, team decisions) are
+//     stored with userId=NULL and are globally accessible — this is correct and intentional.
+//   - Private conversations (e.g. founder ↔ Daniela chat transcripts) MUST be stored with
+//     the owning founder's userId so they appear ONLY in that user's recall pool (not the
+//     global pool). The write path in reembedConversationMemory() accepts a userId parameter
+//     for this purpose. The founder-chat-sync service passes David's userId when triggering
+//     re-embeds, ensuring new transcripts are user-scoped from the moment they are indexed.
+// Existing null-scoped private rows can be migrated with migrate-private-conversation-embeddings.ts.
+const GLOBAL_RECALL_TYPES = [
+  'daniela_tool', 'hive_snapshot', 'growth_memory', 'goal_capability', 'teaching_skill',
+  'conversation_memory', 'conversation_summary', 'conversation_chunk',
+];
 const EMBED_SELECT = {
   memoryType: memoryEmbeddings.memoryType,
   memoryId: memoryEmbeddings.memoryId,
@@ -268,11 +285,16 @@ export async function semanticSearch(
     ? inArray(memoryEmbeddings.memoryType, memoryTypes)
     : undefined;
 
-  // Global types: use explicit list when provided, otherwise use safe defaults
-  // (excludes collaboration_message unless caller specifically asked for it)
-  const globalTypes = memoryTypes && memoryTypes.length > 0
+  // Global types: use explicit list when provided, otherwise use safe defaults.
+  // Non-bypassable intersection with GLOBAL_RECALL_TYPES: even if a caller
+  // explicitly requests conversation_memory / conversation_summary /
+  // conversation_chunk, those types are stripped from the global (userId IS NULL)
+  // query.  Private transcripts stored globally (userId=NULL) must never be
+  // reachable from another user's session — caller intent does not override this.
+  const globalTypes = (memoryTypes && memoryTypes.length > 0
     ? (wantsCollabMessages ? memoryTypes : memoryTypes.filter(t => t !== 'collaboration_message'))
-    : GLOBAL_RECALL_TYPES;
+    : GLOBAL_RECALL_TYPES
+  ).filter(t => GLOBAL_RECALL_TYPES.includes(t));
 
   // Run both queries in parallel
   const [userRows, globalRows] = await Promise.all([
@@ -294,13 +316,22 @@ export async function semanticSearch(
       .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.lastReinforcedAt), desc(memoryEmbeddings.strength))
       .limit(8000),
 
-    // Global (userId IS NULL): only safe types unless collaboration explicitly requested
+    // Global (userId IS NULL): only safe types unless collaboration explicitly requested.
     // Cap raised from 1000 → 5000: the global pool now holds 73K+ embeddings across
     // conversation_memory / conversation_summary / conversation_chunk alone; 1000 rows
     // sorted by strength was silently cutting older high-importance memories (e.g. game
     // sessions, early David-Daniela conversations) before cosine scoring even ran.
-    // importance DESC is added as a secondary sort so high-importance rows (episodes,
-    // game sessions, foundational memories) always land in the buffer before the cap fires.
+    //
+    // Privacy: the userId IS NULL predicate is the ownership guard. NULL scope = globally
+    // accessible; userId-scoped = private to that user only. correctFounderEmbeddingScopes()
+    // runs at boot to ensure all founder-tagged rows carry the correct userId before any
+    // recall query runs — so no strength/importance filter is needed here and none is applied.
+    // Strength ≥ X is NOT a privacy signal: the most important private transcripts would
+    // pass such a filter. Trust the userId column, not content metadata.
+    //
+    // Sort order: pinned → importance DESC → strength DESC → lastReinforcedAt DESC.
+    // importance DESC ensures high-importance rows always land in the buffer before
+    // the cap fires; strength and recency break ties within the same importance tier.
     globalTypes.length > 0
       ? db
         .select(EMBED_SELECT)
@@ -309,7 +340,7 @@ export async function semanticSearch(
           isNull(memoryEmbeddings.userId),
           inArray(memoryEmbeddings.memoryType, globalTypes),
         ))
-        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength))
+        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
         .limit(5000)
       : Promise.resolve([]),
   ]);
@@ -397,9 +428,15 @@ export async function semanticSearchByVector(
     ? inArray(memoryEmbeddings.memoryType, memoryTypes)
     : undefined;
 
-  const globalTypes = memoryTypes && memoryTypes.length > 0
+  // Global types: non-bypassable intersection with GLOBAL_RECALL_TYPES — even if a
+  // caller explicitly requests conversation_memory / conversation_summary /
+  // conversation_chunk, those are stripped from the global (userId IS NULL) query.
+  // Private transcripts stored globally (userId=NULL) must never be reachable from
+  // another user's session — caller intent does not override this.
+  const globalTypes = (memoryTypes && memoryTypes.length > 0
     ? (wantsCollabMessages ? memoryTypes : memoryTypes.filter(t => t !== 'collaboration_message'))
-    : GLOBAL_RECALL_TYPES;
+    : GLOBAL_RECALL_TYPES
+  ).filter(t => GLOBAL_RECALL_TYPES.includes(t));
 
   const [userRows, globalRows] = await Promise.all([
     db
@@ -413,6 +450,8 @@ export async function semanticSearchByVector(
       .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.lastReinforcedAt), desc(memoryEmbeddings.strength))
       .limit(8000),
 
+    // Global pool: userId IS NULL is the only ownership guard — same model as semanticSearch.
+    // correctFounderEmbeddingScopes() runs at boot to scope private rows before any query runs.
     globalTypes.length > 0
       ? db
         .select(EMBED_SELECT)
@@ -421,7 +460,9 @@ export async function semanticSearchByVector(
           isNull(memoryEmbeddings.userId),
           inArray(memoryEmbeddings.memoryType, globalTypes),
         ))
-        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength))
+        // pinned → importance → strength → recency: importance ensures high-value memories
+        // always enter the 5000-row buffer; strength and recency break ties within the same tier.
+        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
         .limit(5000)
       : Promise.resolve([]),
   ]);
@@ -511,13 +552,17 @@ export async function findConnectedMemories(
       .where(eq(memoryEmbeddings.userId, userId))
       .orderBy(desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
       .limit(8000),
+    // Global pool: userId IS NULL is the ownership guard — mirrors semanticSearch/semanticSearchByVector.
+    // No strength filter: correctFounderEmbeddingScopes() at boot ensures private rows are user-scoped.
     db.select(EMBED_SELECT)
       .from(memoryEmbeddings)
       .where(and(
         isNull(memoryEmbeddings.userId),
         inArray(memoryEmbeddings.memoryType, GLOBAL_RECALL_TYPES),
       ))
-      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength))
+      // pinned → importance → strength → recency: mirrors the main search functions so the
+      // 5000-row cap always includes high-importance global memories before lower-value content.
+      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.importance), desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
       .limit(5000),
   ]);
 

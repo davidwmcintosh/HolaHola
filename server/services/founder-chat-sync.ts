@@ -130,7 +130,7 @@ function buildTags(conv: {
   language: string;
   topic: string | null;
   message_count: number;
-  user_id: string;
+  user_id: string | null;
 }): string[] {
   const tags = [
     'founder-chat',
@@ -138,11 +138,12 @@ function buildTags(conv: {
     conv.language,
     `cid:${conv.id}`,
     `msgcount:${conv.message_count}`,
-    // Explicit owner tag — deriveConvMemoryOwner() reads this to scope embeddings
-    // to the correct founder's personal pool rather than guessing from 'founder-chat'.
-    `owner:${conv.user_id}`,
     SANITIZER_VERSION,
   ];
+  // Explicit owner tag — deriveConvMemoryOwner() reads this to scope embeddings
+  // to the correct founder's personal pool rather than guessing from 'founder-chat'.
+  // Omitted when user_id is null (edge case; correctFounderEmbeddingScopes will quarantine).
+  if (conv.user_id) tags.push(`owner:${conv.user_id}`);
   if (conv.topic) tags.push(conv.topic.toLowerCase().slice(0, 40));
   return tags;
 }
@@ -151,7 +152,7 @@ function buildTags(conv: {
 
 async function syncConversation(conv: {
   id: string;
-  user_id: string;
+  user_id: string | null;  // Owning founder's userId — passed to reembedAsync for user-scoped embedding
   title: string | null;
   topic: string | null;
   language: string;
@@ -204,7 +205,7 @@ async function syncConversation(conv: {
         tags    = ARRAY[${tags.map(t => `'${t.replace(/'/g, "''")}'`).join(', ')}]
       WHERE id = '${row.id}'
     `));
-    reembedAsync(row.id, conv.user_id);
+    reembedAsync(row.id, conv.user_id ?? null);
     return 'updated';
   }
 
@@ -225,11 +226,12 @@ async function syncConversation(conv: {
     RETURNING id
   `));
   const newId = (insertResult.rows[0] as { id: string })?.id;
-  if (newId) reembedAsync(newId, conv.user_id);
+  if (newId) reembedAsync(newId, conv.user_id ?? null);
   return 'saved';
 }
-
-function reembedAsync(id: string, userId: string | null = null): void {
+function reembedAsync(id: string, userId: string | null): void {
+  // Embed under the conversation's owning userId so the embedding is user-scoped
+  // (accessible only to that user's session) rather than globally visible.
   import('../scripts/reembed-memory')
     .then(mod => mod.reembedConversationMemory(id, userId))
     .catch(() => { /* non-fatal */ });
@@ -277,7 +279,7 @@ export function notifyConversationUpdated(conversationId: string): void {
       if (!result.rows.length) return; // not a founder conversation — skip
 
       const conv = result.rows[0] as {
-        id: string; user_id: string; title: string | null; topic: string | null;
+        id: string; user_id: string | null; title: string | null; topic: string | null;
         language: string; message_count: number;
         created_at: string; last_message_at: string | null;
       };
@@ -318,7 +320,7 @@ async function runSweep(): Promise<void> {
     `));
 
     const convs = result.rows as Array<{
-      id: string; user_id: string; title: string | null; topic: string | null;
+      id: string; user_id: string | null; title: string | null; topic: string | null;
       language: string; message_count: number;
       created_at: string; last_message_at: string | null;
     }>;
@@ -370,7 +372,7 @@ async function runRetroactivePass(): Promise<void> {
       `));
 
       const convs = batch.rows as Array<{
-        id: string; user_id: string; title: string | null; topic: string | null;
+        id: string; user_id: string | null; title: string | null; topic: string | null;
         language: string; message_count: number;
         created_at: string; last_message_at: string | null;
       }>;
