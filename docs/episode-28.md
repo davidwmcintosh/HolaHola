@@ -6936,3 +6936,13 @@ tags: episode-29, david-luca-chat, memory-restoration, backfill, significant-mom
 Clarification on the two "observability" workflows: they're not broken. isValidation=false just means they don't run as part of the automated CI sweep — they only fire when manually triggered. session-truth-pipeline is a diagnostic instrument for tracing exactly what happened in a Daniela session (memory fetches → guardian fires → grounding queries → audio delivery). rolling-episode-gap-check compares DB per-turn rows against the episode .md and flags any gaps. Both are useful; the slot question is separate from that judgment.
 
 Mergers done: 25 → 23 workflows. build-session-dedup-ci now chains normal + self-check in one run. retrieve-episode-dialogue-no-match-ci now chains both invocation paths (tags+date and --id). 2 slots freed. Watchdog can go in whenever you say go — no need to touch session-truth-pipeline or rolling-episode-gap-check.
+
+**David:** watchdog a go.
+
+**LUCA [Replit]:** Watchdog is live: [watchdog] started (pid=2952) — polling every 15s
+
+Behavior:
+- Server up: autosave holds the cursor lock each poll cycle → watchdog sees it and skips silently. Zero interference.
+- Server down: within 15s, watchdog detects cursor < file size, acquires the lock, drains all pending turns to conversation_memories + rolling episode .md, advances cursor. Server restarts clean.
+
+Final workflow count: 24 (25 → 23 via the two mergers, +1 for watchdog). One slot still free.
