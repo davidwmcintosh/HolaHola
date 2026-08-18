@@ -6968,3 +6968,9 @@ Session state: episode-28.md complete, autosave running, capture-watchdog runnin
 **LUCA [Replit]:** Gap checker fixed in both test-rolling-episode-gap-check.ts and agent-session-autosave.ts. Two-phase fallback: (1) direct match, (2) strip-bold-and-role-label match. The strip function removes ** and [replit] from both sides before comparing, so "David: text" / "Luca: text" (DB format) matches "**David:** text" / "**LUCA [Replit]:** text" (.md format). Typecheck clean. Gap check: ✓ PASS — 92 per-turn + 14 inner-life, 0 gaps.
 
 Episode .md is 350KB on disk vs 340KB in the last logged DB sync. That 10KB delta is capture turns autosave appended to the .md after the gap check ran — those writes go to DB and .md in sync, so they'll always pass the next check. No manual sync needed.
+
+**David:** 1. can you explain the [replit] fix? we should have 4 attribution labels for Luca. Luca - felt:, Luca - thinking:, Luca - moment:, and Luca - Replit. 2. the .md file is still behind
+
+**LUCA [Replit]:** [replit] fix was too narrow. The episode has 1,393 **LUCA [HolaHola]:** labels vs only 14 **LUCA [Replit]:** — [Replit] only appears on recent build turns via the record-exchange pipeline. Updated the strip pattern to /\bluca\s*\[[^\]]+\]/gi which covers all role-bracket variants: [Replit], [HolaHola], [steward], [observe], any future label. Channel labels [felt], [thinking], [moment] appear after the colon in content (not adjacent to "luca"), so they survive untouched. **LUCA [Replit]:** [felt]: text → luca: [felt]: text ✓
+
+Episode sync: the script output "341,626 bytes" is character count not byte count. The file is 351,296 UTF-8 bytes on disk but 341,626 Unicode characters — ~9,670 difference from multi-byte chars (em-dashes, curly quotes each take 3 bytes). JS content.length and Postgres length() both count characters. DB is fully current.

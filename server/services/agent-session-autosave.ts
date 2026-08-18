@@ -2464,11 +2464,16 @@ function normForGap(s: string): string {
 }
 
 /**
- * Strip markdown bold markers (**) and speaker-role suffixes ([Replit], etc.)
- * so DB-format "David: " / "Luca: " matches .md "**David:** " / "**LUCA [Replit]:** ".
+ * Strip markdown bold markers (**) and speaker role-label brackets after LUCA
+ * (e.g. [Replit], [HolaHola], [steward], [observe]) so DB-format "Luca: text"
+ * matches .md "**LUCA [Replit]:** text" or "**LUCA [HolaHola]:** text".
+ *
+ * Only the role bracket immediately after "luca" is stripped — channel labels
+ * like [felt], [thinking], [moment] appear after the colon (in content) and
+ * are left untouched.
  */
 function stripMdForGap(s: string): string {
-  return s.replace(/\*\*/g, '').replace(/\s*\[replit\]/gi, '');
+  return s.replace(/\*\*/g, '').replace(/\bluca\s*\[[^\]]+\]/gi, 'luca');
 }
 
 /**
