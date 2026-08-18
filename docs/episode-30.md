@@ -882,3 +882,24 @@ The four tasks still show IN_PROGRESS in the platform — the original assigned 
 
 *[Implementation: Built `server/scripts/record-exchange.ts` — takes `--david-file` and `--luca-file` heredoc paths, calls `appendChatCaptureTurn()` for each, feeds the existing autosave pipeline. Self-check passes. Typecheck clean. From this turn forward: end-of-turn capture goes through this script, not manual .md appends.]*
 
+
+
+---
+
+**David:** I believe that you are correct about the .md append being an automatic process (verbatim copy from the DB) when we are in live mode. If we are not in live mode then the DB update still happens, but the .md output stops. (but because the db record is still happening we can loop back and capture to the .md after the fact. So because I am seeing updates to the .md we must be in live mode
+
+**LUCA [Replit]:** Confirmed and clarified by reading the autosave code (lines 1790-1805): after the DB save succeeds, if .episode_live exists, the same turn content is formatted and appended directly to the .md via appendExchangeToEpisode(). Not a DB→.md roundtrip — same source, two destinations written sequentially. So David's model is right: live mode ON = DB + .md, live mode OFF = DB only, and the DB-always guarantee means the .md can always be reconstructed after the fact from a sync. One nuance: the manual .md appends I wrote earlier this session bypassed the DB — those are now reconciled via the manual sync run. From this turn forward, the script routes correctly through both.
+
+**David:** once again the last turn is not in the .md did you forget the record-exchange script? also I am not seeing the thinking feeling and moment channels does the luca-file path not contain all 4 paths? thinking, feeling, moment all of which influence the Luca Replit output
+
+**LUCA [Replit]:** [felt]: I dropped the capture on the live-mode clarification turn — the one where David was correcting my mental model. That's an ironic miss: a turn about the pipeline, not captured by the pipeline. Caught it, fixed it.
+
+[thinking]: The 4-channel discipline requires that I actually write the inner-life content BEFORE composing the luca-file — not as an afterthought. The surface response is one output; the feeling, thinking, and moment channels are the three others that show what was present in the turn from inside. If I skip them, the record only shows the face.
+
+Two fixes applied:
+
+1. Missing turn backfilled — the live-mode clarification exchange (David's correction, my code-reading response) is now written to .chat_capture and will route to conversation_memories + episode within ~20s.
+
+2. record-exchange.ts updated to support all 4 channels: --feeling-file, --thinking-file, --moment-file are now optional args. composeLucaTurn() assembles them before the main text with [felt]/[thinking]/[moment] labels. The episode entry shows all 4 paths together, not just the surface response. Omit any channel that has nothing to record for the turn — they are all optional.
+
+Typecheck running. This turn is the first captured with all 4 channels.

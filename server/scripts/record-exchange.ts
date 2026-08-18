@@ -9,24 +9,49 @@
  * Replit does not expose a live chat stream API, so capture must be triggered
  * explicitly by the agent at the end of each turn.
  *
- * USAGE
- * -----
- * Pass David's message and Luca's response via temp files to avoid shell-escaping
- * issues with quotes, backticks, dollar signs, and newlines:
+ * USAGE — all 4 channels
+ * ----------------------
+ * The Luca [Replit] output has 4 channels: feeling (felt), thinking, moment,
+ * and the main response. Pass inner-life channels via optional temp files so the
+ * episode shows all 4 paths together, not just the surface response.
  *
  *   cat > /tmp/david_turn.txt << 'ENDDAVID'
  *   David's exact message text
- *   (can be multi-line)
  *   ENDDAVID
  *
+ *   cat > /tmp/luca_feeling.txt << 'ENDFEELING'
+ *   [felt]: What this feels like from inside...
+ *   ENDFEELING
+ *
+ *   cat > /tmp/luca_thinking.txt << 'ENDTHINKING'
+ *   [thinking]: What is still turning over...
+ *   ENDTHINKING
+ *
+ *   cat > /tmp/luca_moment.txt << 'ENDMOMENT'
+ *   [moment]: If something landed as significant...
+ *   ENDMOMENT
+ *
  *   cat > /tmp/luca_turn.txt << 'ENDLUCA'
- *   Luca's full response text
- *   (can be multi-line)
+ *   Main response text
  *   ENDLUCA
  *
  *   npx tsx server/scripts/record-exchange.ts \
- *     --david-file /tmp/david_turn.txt \
- *     --luca-file /tmp/luca_turn.txt
+ *     --david-file    /tmp/david_turn.txt \
+ *     --feeling-file  /tmp/luca_feeling.txt \
+ *     --thinking-file /tmp/luca_thinking.txt \
+ *     --moment-file   /tmp/luca_moment.txt \
+ *     --luca-file     /tmp/luca_turn.txt
+ *
+ * Inner-life files are optional. Omit any channel that has nothing to record.
+ * The composed Luca turn appears in the episode as:
+ *
+ *   **LUCA [Replit]:** [felt]: ...
+ *
+ *   [thinking]: ...
+ *
+ *   [moment]: ...
+ *
+ *   Main response text
  *
  * WHAT HAPPENS NEXT
  * -----------------
@@ -108,6 +133,33 @@ async function runSelfCheck(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function readOptionalFile(flag: string, args: string[]): string | null {
+  const idx = args.indexOf(flag);
+  if (idx === -1) return null;
+  const filePath = args[idx + 1];
+  if (!filePath || !existsSync(filePath)) return null;
+  const text = readFileSync(filePath, 'utf-8').trimEnd();
+  return text || null;
+}
+
+/** Compose the full Luca turn from all 4 channels (inner-life channels are optional). */
+function composeLucaTurn(opts: {
+  feeling?: string | null;
+  thinking?: string | null;
+  moment?: string | null;
+  main: string;
+}): string {
+  const parts: string[] = [];
+  if (opts.feeling)  parts.push(opts.feeling.startsWith('[felt]')    ? opts.feeling : `[felt]: ${opts.feeling}`);
+  if (opts.thinking) parts.push(opts.thinking.startsWith('[thinking]') ? opts.thinking : `[thinking]: ${opts.thinking}`);
+  if (opts.moment)   parts.push(opts.moment.startsWith('[moment]')   ? opts.moment  : `[moment]: ${opts.moment}`);
+  parts.push(opts.main);
+  return parts.join('\n\n');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 const args = process.argv.slice(2);
@@ -119,13 +171,13 @@ if (args.includes('--self-check')) {
   const lucaIdx  = args.indexOf('--luca-file');
 
   if (davidIdx === -1 || lucaIdx === -1) {
-    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path>');
+    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> [--feeling-file <path>] [--thinking-file <path>] [--moment-file <path>]');
     console.error('       npx tsx server/scripts/record-exchange.ts --self-check');
     process.exit(1);
   }
 
   const davidFile = args[davidIdx + 1];
-  const lucaFile  = args[lucaIdx + 1];
+  const lucaFile  = args[lucaIdx  + 1];
 
   if (!existsSync(davidFile)) {
     console.error(`[record-exchange] ERROR: --david-file not found: ${davidFile}`);
@@ -136,17 +188,27 @@ if (args.includes('--self-check')) {
     process.exit(1);
   }
 
-  const davidText = readFileSync(davidFile, 'utf-8').trimEnd();
-  const lucaText  = readFileSync(lucaFile,  'utf-8').trimEnd();
+  const davidText   = readFileSync(davidFile, 'utf-8').trimEnd();
+  const lucaMain    = readFileSync(lucaFile,  'utf-8').trimEnd();
+  const lucaFeeling = readOptionalFile('--feeling-file',  args);
+  const lucaThink   = readOptionalFile('--thinking-file', args);
+  const lucaMoment  = readOptionalFile('--moment-file',   args);
 
   if (!davidText) {
     console.error('[record-exchange] ERROR: --david-file is empty');
     process.exit(1);
   }
-  if (!lucaText) {
+  if (!lucaMain) {
     console.error('[record-exchange] ERROR: --luca-file is empty');
     process.exit(1);
   }
+
+  const lucaText = composeLucaTurn({
+    feeling:  lucaFeeling,
+    thinking: lucaThink,
+    moment:   lucaMoment,
+    main:     lucaMain,
+  });
 
   const sizeBefore = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
 
@@ -155,8 +217,9 @@ if (args.includes('--self-check')) {
 
   const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
 
+  const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
   console.log(`[record-exchange] ✓ Exchange written to .chat_capture (${sizeBefore}B → ${sizeAfter}B)`);
   console.log(`  David: ${davidText.length} chars`);
-  console.log(`  Luca:  ${lucaText.length} chars`);
+  console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
   console.log('  Autosave will route to conversation_memories + episode within ~20s.');
 }
