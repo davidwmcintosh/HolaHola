@@ -172,6 +172,10 @@ group_body_episode_sync() {
   run test-rolling-sync-guard.ts
 
   echo ""
+  echo "  --- test-rolling-episode-gap-check.ts --self-check (strip-removed regression) ---"
+  npx tsx server/scripts/test-rolling-episode-gap-check.ts --self-check
+
+  echo ""
   echo "  --- test-episode-append-trigger.ts --self-check-concurrent ---"
   npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
 

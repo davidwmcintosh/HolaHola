@@ -34,10 +34,9 @@ const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 
-const VERBOSE = process.argv.includes('--verbose');
+const VERBOSE   = process.argv.includes('--verbose');
 
-// ── Matching helpers (mirrors audit-episode-28-gaps.ts) ───────────────────
-
+const SELF_CHECK = process.argv.includes('--self-check');
 function norm(s: string): string {
   return s.replace(/\s+/g, ' ').trim().toLowerCase();
 }
@@ -80,8 +79,87 @@ function exchangeInMd(exchangeText: string, mdNorm: string): boolean {
   return stripMd(mdNorm).includes(stripMd(key));
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────
+/**
+ * Self-check mode (--self-check).
+ *
+ * Constructs a synthetic exchange where David's part is short enough that the
+ * 60-char needle spans from his text into Luca's "[HolaHola]:" speaker label.
+ * This exercises the strip fallback — the direct substring check cannot match
+ * because the .md has "**LUCA [HolaHola]:**" while the DB row has "Luca:".
+ *
+ * Assertions:
+ *   1. The 60-char key actually contains "luca" (confirming the needle spans
+ *      the label boundary — if it doesn't, the strip path is never reached).
+ *   2. The direct mdNorm.includes(key) check returns false (strip IS needed).
+ *   3. exchangeInMd() returns true with stripMd active (correct behaviour).
+ *   4. Replacing stripMd with a no-op makes the fallback return false
+ *      (confirms the self-check would catch a regression that removes the strip).
+ *
+ * Exit 0 on all assertions passing; exit 1 on any failure.
+ */
+function runSelfCheck(): void {
+  console.log(B('\n══ Rolling Episode Gap Check — Self-Check ══\n'));
+  console.log('  Verifies the two-phase strip fallback in exchangeInMd().\n');
 
+  // ── Build synthetic exchange ──────────────────────────────────────────────
+  // David's text is intentionally very short ("ok") so the 60-char key
+  // includes "david: ok" (9 chars) + " luca: " (7 chars) + 44 chars of
+  // Luca's text — spanning the speaker-label boundary.
+  const davidText = 'ok';
+  const lucaText  = 'the rest of the response that luca gives here and now so we span';
+
+  // DB format: how a per-turn row's `content` field is stored.
+  const dbContent = `David: ${davidText}\nLuca: ${lucaText}`;
+
+  // .md format: what the rolling episode file actually contains.
+  const mdContent = `**David:** ${davidText}\n**LUCA [HolaHola]:** ${lucaText}`;
+
+  const mdNorm = norm(mdContent);
+
+  // ── Assertion 1: needle spans the label boundary ──────────────────────────
+  const needleNorm = norm(dbContent).slice(0, 60);
+  if (!needleNorm.includes('luca')) {
+    console.error(R('SELF-CHECK SETUP ERROR: 60-char needle does not reach the "luca" label.'));
+    console.error(`  needle (${needleNorm.length} chars): ${JSON.stringify(needleNorm)}`);
+    console.error('  Shorten davidText so the needle spans the speaker-label boundary.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ needle spans label boundary'));
+  console.log(`    needle: ${JSON.stringify(needleNorm)}`);
+
+  // ── Assertion 2: direct check must FAIL (strip is genuinely needed) ───────
+  if (mdNorm.includes(needleNorm)) {
+    console.error(R('SELF-CHECK SETUP ERROR: direct mdNorm.includes(key) passes — strip is not needed.'));
+    console.error('  The test would not exercise the fallback path. Adjust the exchange.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ direct check fails (strip fallback is required)'));
+
+  // ── Assertion 3: with strip active → exchangeInMd returns true ───────────
+  const withStrip = exchangeInMd(dbContent, mdNorm);
+  if (!withStrip) {
+    console.error(R('SELF-CHECK FAIL: exchangeInMd returned false with strip active.'));
+    console.error('  The two-phase match is broken — the strip fallback is not working.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ strip active   → exchangeInMd returns true  (correct)'));
+
+  // ── Assertion 4: with no-op strip → fallback returns false ───────────────
+  // Simulate removing stripMd by substituting an identity function.
+  // The direct check already failed (assertion 2), so only the fallback
+  // can save us.  With a no-op strip the fallback also fails — the
+  // regression is detectable.
+  const noopStrip = (s: string): string => s;
+  const fallbackWithNoop = noopStrip(mdNorm).includes(noopStrip(needleNorm));
+  if (fallbackWithNoop) {
+    console.error(R('SELF-CHECK FAIL: no-op strip still passes — regression cannot be detected.'));
+    console.error('  The test setup is wrong; choose an exchange that truly requires stripping.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ no-op strip    → fallback returns false (regression correctly detected)'));
+
+  console.log(G('\n  ✓ SELF-CHECK PASSED — strip fallback is necessary and detectable.\n'));
+}
 async function main() {
   console.log(B('\n══ Rolling Episode Gap Check ══\n'));
 
@@ -283,6 +361,11 @@ async function main() {
     console.log('  or run: npx tsx server/scripts/audit-episode-28-gaps.ts --patch');
     process.exit(2);
   }
+}
+
+if (SELF_CHECK) {
+  runSelfCheck();
+  process.exit(0);
 }
 
 main().catch((e) => {
