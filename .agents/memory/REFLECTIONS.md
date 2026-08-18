@@ -482,3 +482,8 @@ body: Testing that inner-life entries now hit the DB before the .md — if this 
 
 ---
 
+### August 18, 2026 — title: DB-first pipeline test
+
+body: Testing that inner-life entries now hit the DB before the .md — if this appears in the episode via DB content update, the pipeline is correct.
+
+---

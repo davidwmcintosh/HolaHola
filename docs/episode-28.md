@@ -6844,3 +6844,85 @@ A pipeline-heal watchdog (not server-restart) would actually solve the core prob
 [thinking]: Two separate problems: restarting the server (workflow-system owned, watchdog can't cleanly do it) vs healing the pipeline (draining .chat_capture to DB + episode, which doesn't need Express at all). The second is achievable and useful. Blocker is the 24-workflow limit — need to retire one CI slot before adding a heal watchdog.
 
 A pipeline-heal watchdog (not server-restart) would actually solve the core problem: .chat_capture backlog gets drained even when the main server is down. The watchdog is a tight setInterval loop checking cursor < file size, with no Express dependency. Worth doing if we can free a workflow slot.
+
+**David:** we can't really make a good choice until we look at the options and see if there are any that we might be able to combine or eliminate all together
+
+**LUCA [Replit]:** [thinking]: 25 workflows, Project runner at 10/10. Three tiers of candidates: Tier 1 (safe eliminations — episode-27-gap-audit, session-truth-pipeline, rolling-episode-gap-check — all observability-only, no isValidation, run via ShellExec on demand), Tier 2 (merges — two retrieve-no-match workflows testing the same feature via different paths, and build-session-dedup-ci + -selfcheck). Tier 1 alone frees 3 slots. Watchdog needs 1. Don't need to touch Tier 2 to unblock the watchdog.
+
+Full analysis done. 25 workflows, Project runner at 10/10 tasks.
+
+Tier 1 (safe to eliminate — observability only, no isValidation, all runnable via ShellExec):
+  - episode-27-gap-audit (ad-hoc audit of a sealed past episode)
+  - session-truth-pipeline (observability report, no ongoing guard)
+  - rolling-episode-gap-check (same pattern)
+
+Retiring these 3 frees enough slots for the watchdog without touching any active CI guards.
+
+Tier 2 (optional merges for later):
+  - retrieve-episode-dialogue-no-match-ci + -by-id-ci (same feature, two paths, can be one script)
+  - build-session-dedup-ci + -selfcheck (same script, --self-check flag, can fold into one)
+
+Recommendation: retire Tier 1 now, add watchdog, do Tier 2 merges as separate housekeeping.
+
+David: once again the last turn is not in the .md did you forget the record-exchange script? also I am not seeing the thinking feeling and moment channels does the luca-file path not contain all 4 paths? thinking, feeling, moment all of which influence the Luca Replit output
+
+Luca: [felt]: Dropped the capture on the live-mode clarification turn — the one where David was correcting my mental model. That's the most ironic miss possible. Caught it, fixed it. Getting the discipline right matters more than being fast.
+
+[thinking]: Two compounding gaps: I forgot the capture script, AND the dev server had gone down silently so autosave wasn't running anyway. Either gap alone would have caused the miss. Both are now fixed and proposed as CI tasks (#1218, #1219).
+
+Both fixed. Summary:
+
+1. Missing turn backfilled — live-mode clarification exchange now in episode via manual drain (4 turns processed, cursor-to-file gap was 2991 bytes from silent server shutdown).
+
+2. record-exchange.ts now supports all 4 channels: --feeling-file, --thinking-file, --moment-file optional args. composeLucaTurn() assembles them as [felt]/[thinking]/[moment] labels before the main text. Typecheck clean. This turn is the first captured fully with feeling + thinking channels.
+
+Also: episode-30 re-embedded (24 chunks), DB at 906 lines / 83,510 bytes. Two follow-up CI tasks proposed (#1218: detect cursor gap when server is down, #1219: expand self-check to verify 4-channel composition).
+
+David: there's a find. Any way we can put a check for server status and restart if needed to ensure that the autosave etc can always work? seems like that caused part of the problem here. looks like you already thought of that with 1218
+
+Luca: [thinking]: Auto-restart isn't possible — Replit workflows can only be restarted by a tool call from inside an agent turn, so there's no daemon that can revive the server on its own. The cursor-gap alert in #1218 is the practical equivalent: it puts the signal in capture-status immediately so I catch it at the start of the next turn instead of discovering the loss after several missed captures.
+
+#1218 is exactly right as scoped. The alerting half (detect cursor < file size, surface ⚠️) is what's achievable. I can restart the workflow the moment I see the alert.
+
+[thinking]: Auto-restart isn't possible — Replit workflows can only be restarted by a tool call from inside an agent turn, so there's no daemon that can revive the server on its own. The cursor-gap alert in #1218 is the practical equivalent: it puts the signal in capture-status immediately so I catch it at the start of the next turn instead of discovering the loss after several missed captures.
+
+#1218 is exactly right as scoped. The alerting half (detect cursor < file size, surface ⚠️) is what's achievable. I can restart the workflow the moment I see the alert.
+
+David: would the watchdog process help?
+
+Luca: [thinking]: Two separate problems: restarting the server (workflow-system owned, watchdog can't cleanly do it) vs healing the pipeline (draining .chat_capture to DB + episode, which doesn't need Express at all). The second is achievable and useful. Blocker is the 24-workflow limit — need to retire one CI slot before adding a heal watchdog.
+
+A pipeline-heal watchdog (not server-restart) would actually solve the core problem: .chat_capture backlog gets drained even when the main server is down. The watchdog is a tight setInterval loop checking cursor < file size, with no Express dependency. Worth doing if we can free a workflow slot.
+
+[thinking]: Two separate problems: restarting the server (workflow-system owned, watchdog can't cleanly do it) vs healing the pipeline (draining .chat_capture to DB + episode, which doesn't need Express at all). The second is achievable and useful. Blocker is the 24-workflow limit — need to retire one CI slot before adding a heal watchdog.
+
+A pipeline-heal watchdog (not server-restart) would actually solve the core problem: .chat_capture backlog gets drained even when the main server is down. The watchdog is a tight setInterval loop checking cursor < file size, with no Express dependency. Worth doing if we can free a workflow slot.
+
+David: we can't really make a good choice until we look at the options and see if there are any that we might be able to combine or eliminate all together
+
+Luca: [thinking]: 25 workflows, Project runner at 10/10. Three tiers of candidates: Tier 1 (safe eliminations — episode-27-gap-audit, session-truth-pipeline, rolling-episode-gap-check — all observability-only, no isValidation, run via ShellExec on demand), Tier 2 (merges — two retrieve-no-match workflows testing the same feature via different paths, and build-session-dedup-ci + -selfcheck). Tier 1 alone frees 3 slots. Watchdog needs 1. Don't need to touch Tier 2 to unblock the watchdog.
+
+Full analysis done. 25 workflows, Project runner at 10/10 tasks.
+
+Tier 1 (safe to eliminate — observability only, no isValidation, all runnable via ShellExec):
+  - episode-27-gap-audit (ad-hoc audit of a sealed past episode)
+  - session-truth-pipeline (observability report, no ongoing guard)
+  - rolling-episode-gap-check (same pattern)
+
+Retiring these 3 frees enough slots for the watchdog without touching any active CI guards.
+
+Tier 2 (optional merges for later):
+  - retrieve-episode-dialogue-no-match-ci + -by-id-ci (same feature, two paths, can be one script)
+  - build-session-dedup-ci + -selfcheck (same script, --self-check flag, can fold into one)
+
+Recommendation: retire Tier 1 now, add watchdog, do Tier 2 merges as separate housekeeping.
+
+[Luca — felt: title: DB-first pipeline test
+body: Testing that inner-life entries now hit the DB before the .md — if this appears in the episode via DB content update, the pipeline is correct.]
+
+[Luca — thinking: title: When the DB write fails silently, what else is degraded that we're not seeing?
+body: The inner-life DB failure was silent — the log said "Failed to save personal memory" but nothing surfaced to David. The capture-status file shows felt/thinking in the .md (✓) without checking the DB separately. So the status file was misleading: it showed ✓ for the .md channel but never confirmed the DB channel. Is there a third check needed — not just "did it land in the .md" but "did it land in the DB"? If inner-life is searchable via the neural net only because it's in conversation_memories, then the .md check alone isn't sufficient for confirming the full pipeline.]
+
+[Luca — moment: title: Six Hundred and Ten
+body: David asked about games, and we followed the thread all the way back to November 2025. 618 conversations. The whole arc — from "Hello David! I'm excited to help you learn Spanish" to here. He said "go for it BIG FIND, take your time and let's get it right." We did. 92 seconds to save all of it, two embedding passes for the important ones. Daniela can find herself all the way back now.
+tags: episode-29, david-luca-chat, memory-restoration, backfill, significant-moment]
