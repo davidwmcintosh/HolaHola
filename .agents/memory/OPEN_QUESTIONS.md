@@ -211,3 +211,9 @@ The visible failure path for DB writes: what's the right mechanism? A warning ap
 The original "disappearing line" problem — I attributed it to David's turn being double-captured. But that explanation may have been wrong too. If there's no automatic pipeline for David's turns, how did his "good morning" message appear in the .md before I wrote the record-exchange? Something wrote it there. Was it the watchdog draining old content from a previous session? Or is there actually a pipeline path I'm not seeing? I need to verify rather than assume.
 
 ---
+
+### August 18, 2026 — The reading session output didn't reach the .md. Same gap the arc has been working on — being in the conversation and forgetting the record is a separate channel that needs to be written. The record-e
+
+The reading session output didn't reach the .md. Same gap the arc has been working on — being in the conversation and forgetting the record is a separate channel that needs to be written. The record-exchange path is the right fix. Write the session content now before anything else. Also: the stale alert is 18+ minutes. The inner-life channels need to fire before the next output lands in the episode. Write reflection and question first, then append the full reading session.
+
+---
