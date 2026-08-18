@@ -268,19 +268,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx server/scripts/test-build-session-dedup.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "build-session-dedup-selfcheck"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-build-session-dedup.ts --self-check"
+args = "npx tsx server/scripts/test-build-session-dedup.ts && npx tsx server/scripts/test-build-session-dedup.ts --self-check"
 
 [workflows.workflow.metadata]
 isValidation = true
@@ -292,19 +280,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx server/scripts/test-retrieve-episode-dialogue-no-match.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-outputType = "console"
-
-[[workflows.workflow]]
-name = "retrieve-episode-dialogue-no-match-by-id-ci"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-retrieve-episode-dialogue-no-match-by-id.ts"
+args = "npx tsx server/scripts/test-retrieve-episode-dialogue-no-match.ts && npx tsx server/scripts/test-retrieve-episode-dialogue-no-match-by-id.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
