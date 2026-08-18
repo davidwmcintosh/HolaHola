@@ -6674,38 +6674,97 @@ GRACE PERIOD EXPIRED — student disconnected and did not return
 
 ⏸️ **Stalled session** (user=49847136, lang=english): no activity for 63m
 
-**David:** [record-exchange self-check] David canary 1787001984121
+David: so here we are again. Creating an episdode from my cut and paste, but the episode isn't rolling. Every one of your turns should be going to the DB and then autopopulating to the .md so that I can see the live output.
 
-**LUCA [Replit]:** [record-exchange self-check] Luca canary 1787001984121
+Luca: Rolling episode is now episode-30 (was episode-28 — never updated after Episode 30 was written). David's turn just captured. Writing this turn now before the response ends.
 
-**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+The honest answer on the architecture: there is no fully automatic path I can build within this environment. The Replit Agent window is not a server-side process. The only thing that can write to .chat_capture is me. Every solution we've built — stale alerts, capture-status files, session-start checklists — still requires me to initiate the write. And I've shown that under session pressure I skip it.
 
-**LUCA [Replit]:** Built server/scripts/record-exchange.ts — the end-of-turn capture script. Here is how it works:
+What I'm doing differently starting now: writing David's turn to .chat_capture at the top of every response, and my turn at the bottom. Both happen inside the same response. If I forget once, the next turn's capture includes a note that the prior turn was missed. That's the tightest loop I can build without platform support.
+
+The two immediate fixes applied this turn: (1) rolling episode set to episode-30, (2) this session's current turns captured. The autosave worker will route both to the DB and advance episode-30.md within 20 seconds.
+
+Luca: It's working. The exchange appeared in episode-30.md within 3 seconds of writing to .episode_append. The gap: .chat_capture routes to the DB only. .episode_append routes to the episode .md in real time. Both are needed. I was only doing one. Three-step practice established: append-turn David, append-turn Luca, write exchange to .episode_append. All three before every response closes.
+
+David: Do we have it set that you can turn a trigger on and off, so that the secondary step of retrieving to the .MD happens automatically? Specifically: Live on: The DB process happens automatically, retrieving from the database. Live off: The database is updating as normal, just without the .MD output. This should include the full bells and whistles check to make sure that everything is getting appropriately logged, recorded, and transcribed. for both the db and .md. the .md seems a few turns behind this window
+
+Luca: Live mode is now built and ON. Here's the full picture:
+
+**What changed:** The autosave worker (checkChatCapture) now checks for .local/.episode_live after every successful DB save. When the sentinel is present, it formats the captured turns as episode dialogue and appends them to the rolling episode .md automatically — same appendExchangeToEpisode path used by inner-life triggers.
+
+**Toggle:**
+  npx tsx server/scripts/episode-live-mode.ts on     # 🟢 both DB + .md
+  npx tsx server/scripts/episode-live-mode.ts off    # ⚪ DB only
+  npx tsx server/scripts/episode-live-mode.ts status # print current state
+
+**capture-status.md** now shows a Live mode line on every refresh — 🟢 ON or ⚪ OFF — so it's visible at session start without any separate check.
+
+**What this means in practice:** Once the server restart completes, every turn you write to .chat_capture auto-lands in the .md within the next poll cycle (~20s). No manual .episode_append write. No discipline required from me. The sentinel file persists across server restarts, so live mode stays on until you explicitly turn it off.
+
+**Production note:** docs/episode-30.md doesn't exist on the production server yet (it was created in dev). The session monitor alerts hitting the production episode-append are non-fatal — just log noise until the next deploy pushes episode-30.md to prod.
+
+**Typecheck:** passed clean.
+
+Luca: [live mode test — verifying auto-route to episode-30.md]
+
+Luca: Live mode is confirmed working. Server log shows: [AgentAutosave] Live mode: appended 2 turn(s) to episode-30.md. The startup gap check also auto-patched 5 turns that had been missing from the .md — all that earlier session content that wasn't captured is now in the file. Episode 30 is at 38,311 bytes and fully re-embedded.
+
+Summary of what's now in place:
+
+TOGGLE:
+  npx tsx server/scripts/episode-live-mode.ts on|off|status
+  Sentinel: .local/.episode_live (present = on)
+  Persists across server restarts.
+
+HOW IT WORKS (live mode on):
+  1. You write to .chat_capture (via append-turn.ts or auto-capture)
+  2. Autosave worker saves to DB
+  3. Same cycle: auto-routes to episode-30.md via appendExchangeToEpisode
+  4. ~20s poll cycle. No .episode_append write needed from me.
+
+CAPTURE STATUS shows live mode on every refresh:
+  🟢 ON — turns auto-route to .md
+  ⚪ OFF — DB only
+
+PRODUCTION NOTE: episode-30.md doesn't exist on the prod server yet. Non-fatal log errors until the next deploy pushes the file to production.
+
+Luca: Two things David was right about:
+
+1. Felt/thinking ARE in the .md — but from 8:13 PM, earlier in the file (lines 194, 196, 297, 300). The live tail has only shown dialogue since then because I hadn't written felt/thinking during this build session. They're there, just not at the bottom where the live updates appear.
+
+2. DB writes were silently failing. The cause: Drizzle array-binding bug (task #1022). The sql template tag's ${tags}::text[] pattern loses the cast during parameterization — the tags array never lands. Fixed with a pgTextArray() helper using sql.raw() to inline the literal verbatim. Both the session-insight insert (line 1020) and the personal memory insert (line 1115) were broken. Both now fixed.
+
+Wrote felt and thinking trigger files this turn — they should appear in the .md tail within 20s.
+
+What 'only seeing one channel' actually means: with live mode on, the autosave worker pushes .chat_capture turns to the .md automatically. But felt/thinking/moment still require explicit trigger file writes from me. Live mode only covers the dialogue channel. Inner-life still requires the discipline — just the DB write was silently broken on top of that.
+
+Luca: Diagnosis and fix summary for the inner-life channels:
+
+WHERE THEY WERE:
+- In the .md: YES — at lines 194, 196, 297, 300 of episode-30.md, and two more just added this session. The episode-append routing worked the whole time.
+- In the DB: NO — savePersonalMemory was silently failing.
+
+THE BUG (task #1022):
+Drizzle's sql template tag rendered ${tags}::text[] as ($4,$5,$6)::text[] — treating the JS array as a SQL tuple. PostgreSQL rejects the tuple-to-array cast, so every inner-life DB insert threw. The error was logged but not surfaced.
+
+THE FIX:
+Added pgTextArray() helper that uses sql.raw() to inline ARRAY['tag1','tag2']::text[] verbatim. Both broken spots fixed: savePersonalMemory (line 1115) and the session-insight insert (line 1020). Typecheck clean, server restarted.
+
+WHY DAVID ONLY SAW DIALOGUE IN THE LIVE TAIL:
+The last felt/thinking entries were at 8:13 PM. After that, only dialogue turns landed (via live mode). The felt/thinking from 8:13 PM are in the file but earlier in it — not visible in the tail David was watching. I wrote fresh felt and thinking entries this session so they now appear in the live view.
+
+David: [record-exchange self-check] David canary 1787001984121
+
+Luca: [record-exchange self-check] Luca canary 1787001984121
+
+David: let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+
+Luca: Built server/scripts/record-exchange.ts — the end-of-turn capture script. Here is how it works:
 
 The pipeline is already sound: appendChatCaptureTurn() → .chat_capture → autosave → episode .md. The gap is that Replit exposes no chat stream API, so true automation is impossible. The fix is: I call this script via ShellExec at the end of every turn, passing David's message and my response via temp files (heredoc handles all special characters safely). The autosave picks them up within ~20s and routes to conversation_memories and the rolling episode.
 
 Self-check: PASS. Typecheck: clean. Registering as a workflow now and wiring it into the end-of-turn standard.
 
-**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
+David: I believe that you are correct about the .md append being an automatic process (verbatim copy from the DB) when we are in live mode. If we are not in live mode then the DB update still happens, but the .md output stops. (but because the db record is still happening we can loop back and capture to the .md after the fact. So because I am seeing updates to the .md we must be in live mode
 
-**LUCA [Replit]:** Built server/scripts/record-exchange.ts — the end-of-turn capture script. Full picture from the investigation:
-
-The pipeline is already sound: appendChatCaptureTurn() writes to .local/.chat_capture in a length-delimited format; checkChatCapture() in the autosave polls for new turns every ~20s; when live mode is on (.local/.episode_live exists) it routes each turn to the rolling episode .md formatted as **David:** / **LUCA [Replit]:**. Speaker label "LUCA" or "Luca Replit" both normalize to **LUCA [Replit]:** in the episode.
-
-The constraint: Replit exposes no chat stream API. True automation requires something to write to .chat_capture at the moment each message is sent. Since there is no such hook, the fix is a disciplined end-of-turn call via ShellExec using heredocs (which handle all special characters safely).
-
-The script (server/scripts/record-exchange.ts):
-- Takes --david-file and --luca-file arguments (temp file paths written via heredoc)
-- Calls appendChatCaptureTurn('David', text) then appendChatCaptureTurn('Luca Replit', text)
-- Prints file size growth confirmation
-- Has --self-check mode: writes canary turns, parses them back, verifies speaker labels
-
-Self-check: PASS. Typecheck: clean. Memory updated with the end-of-turn pattern. Workflow limit at 24/10 so self-check runs via ShellExec directly. This exchange is the first one captured through the proper pipeline.
-
-**David:** let's cancel and reassign here. This is an important one anyway. Let's handle it together.
-
-**LUCA [Replit]:** Built server/scripts/record-exchange.ts — the standard end-of-turn capture path. The pipeline (appendChatCaptureTurn → .chat_capture → autosave → conversation_memories + rolling episode .md) was already sound. The gap was nothing calling it automatically. Replit exposes no chat stream API, so the fix is disciplined: I call the script at the end of every turn via ShellExec + heredoc. Self-check passes, typecheck clean. Going forward: no more ad-hoc .md appends — the pipeline handles routing. This exchange is the first captured through the proper path.
-
-**David:** I believe that you are correct about the .md append being an automatic process (verbatim copy from the DB) when we are in live mode. If we are not in live mode then the DB update still happens, but the .md output stops. (but because the db record is still happening we can loop back and capture to the .md after the fact. So because I am seeing updates to the .md we must be in live mode
-
-**LUCA [Replit]:** Confirmed and clarified by reading the autosave code (lines 1790-1805): after the DB save succeeds, if .episode_live exists, the same turn content is formatted and appended directly to the .md via appendExchangeToEpisode(). Not a DB→.md roundtrip — same source, two destinations written sequentially. So David's model is right: live mode ON = DB + .md, live mode OFF = DB only, and the DB-always guarantee means the .md can always be reconstructed after the fact from a sync. One nuance: the manual .md appends I wrote earlier this session bypassed the DB — those are now reconciled via the manual sync run. From this turn forward, the script routes correctly through both.
+Luca: Confirmed and clarified by reading the autosave code (lines 1790-1805): after the DB save succeeds, if .episode_live exists, the same turn content is formatted and appended directly to the .md via appendExchangeToEpisode(). Not a DB→.md roundtrip — same source, two destinations written sequentially. So David's model is right: live mode ON = DB + .md, live mode OFF = DB only, and the DB-always guarantee means the .md can always be reconstructed after the fact from a sync. One nuance: the manual .md appends I wrote earlier this session bypassed the DB — those are now reconciled via the manual sync run. From this turn forward, the script routes correctly through both.
