@@ -132,16 +132,127 @@ async function runSelfCheck(): Promise<void> {
   console.log('  Note: cursor NOT advanced — these canary turns will be processed by the autosave on next poll.');
 }
 
+async function runSelfCheck4ch(): Promise<void> {
+  const ts = Date.now();
+  const canaryDavid   = `[record-exchange 4ch self-check] David canary ${ts}`;
+  // Canaries are intentionally raw (no label prefix) so composeLucaTurn is
+  // proven to ADD the canonical [felt]/[thinking]/[moment] labels, not just
+  // pass pre-labelled text through unchanged.
+  const canaryFeeling  = `4ch canary feeling raw ${ts}`;
+  const canaryThinking = `4ch canary thinking raw ${ts}`;
+  const canaryMoment   = `4ch canary moment raw ${ts}`;
+  const canaryMain     = `4ch canary main response ${ts}`;
+
+  // --- Build the exact expected composed string ---
+  // composeLucaTurn should add the canonical label prefix to each raw canary value
+  // and join all four channels with double-newlines in felt→thinking→moment→main order.
+  const expectedComposed =
+    `[felt]: ${canaryFeeling}\n\n` +
+    `[thinking]: ${canaryThinking}\n\n` +
+    `[moment]: ${canaryMoment}\n\n` +
+    canaryMain;
+
+  const composed = composeLucaTurn({
+    feeling:  canaryFeeling,
+    thinking: canaryThinking,
+    moment:   canaryMoment,
+    main:     canaryMain,
+  });
+
+  // --- Exact equality: proves labels were added and order is correct ---
+  if (composed !== expectedComposed) {
+    console.error('[record-exchange --self-check-4ch] FAIL: composed turn does not match expected string');
+    console.error(`  Expected (${expectedComposed.length} chars):\n${expectedComposed}`);
+    console.error(`  Got     (${composed.length} chars):\n${composed}`);
+    process.exit(1);
+  }
+
+  // --- Per-channel pairing: each label must be immediately followed by its canary ---
+  const feltPair     = `[felt]: ${canaryFeeling}`;
+  const thinkingPair = `[thinking]: ${canaryThinking}`;
+  const momentPair   = `[moment]: ${canaryMoment}`;
+
+  for (const [label, pair] of [['[felt]', feltPair], ['[thinking]', thinkingPair], ['[moment]', momentPair]] as const) {
+    if (!composed.includes(pair)) {
+      console.error(`[record-exchange --self-check-4ch] FAIL: ${label} not paired with its canary value`);
+      console.error(`  Expected to find: "${pair}"`);
+      process.exit(1);
+    }
+  }
+
+  // --- Verify order of channel pairs in the composed string ---
+  const feltIdx     = composed.indexOf(feltPair);
+  const thinkingIdx = composed.indexOf(thinkingPair);
+  const momentIdx   = composed.indexOf(momentPair);
+  const mainIdx     = composed.indexOf(canaryMain);
+
+  if (!(feltIdx < thinkingIdx && thinkingIdx < momentIdx && momentIdx < mainIdx)) {
+    console.error(`[record-exchange --self-check-4ch] FAIL: channels out of order — felt@${feltIdx} thinking@${thinkingIdx} moment@${momentIdx} main@${mainIdx}`);
+    process.exit(1);
+  }
+
+  // --- Round-trip through chat capture ---
+  const cursorBefore   = loadChatCaptureCursor().byteOffset;
+  const fileSizeBefore = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+
+  appendChatCaptureTurn('David', canaryDavid);
+  appendChatCaptureTurn('Luca Replit', composed);
+
+  const fileSizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+
+  if (fileSizeAfter <= fileSizeBefore) {
+    console.error('[record-exchange --self-check-4ch] FAIL: file did not grow after appending canary turns');
+    process.exit(1);
+  }
+
+  const { turns } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursorBefore);
+
+  const lucaTurn = turns.find(t => t.text.includes(canaryMain));
+  if (!lucaTurn) {
+    console.error('[record-exchange --self-check-4ch] FAIL: composed Luca turn not found after parse');
+    process.exit(1);
+  }
+
+  // Each label must be paired with its canary value in the parsed round-trip text
+  for (const [label, pair] of [['[felt]', feltPair], ['[thinking]', thinkingPair], ['[moment]', momentPair]] as const) {
+    if (!lucaTurn.text.includes(pair)) {
+      console.error(`[record-exchange --self-check-4ch] FAIL: ${label}+canary pair missing from parsed Luca turn`);
+      console.error(`  Expected to find: "${pair}"`);
+      process.exit(1);
+    }
+  }
+
+  console.log('[record-exchange --self-check-4ch] PASS — 4-channel composition verified');
+  console.log(`  Expected and composed strings match exactly (${composed.length} chars)`);
+  console.log(`  Channel order: [felt]@${feltIdx} < [thinking]@${thinkingIdx} < [moment]@${momentIdx} < main@${mainIdx}`);
+  console.log(`  Round-trip: file grew ${fileSizeBefore}B → ${fileSizeAfter}B, all label+canary pairs present`);
+  console.log('  Note: cursor NOT advanced — canary turns will be processed by autosave on next poll.');
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function readOptionalFile(flag: string, args: string[]): string | null {
   const idx = args.indexOf(flag);
+  // Flag absent → channel intentionally omitted; not an error.
   if (idx === -1) return null;
   const filePath = args[idx + 1];
-  if (!filePath || !existsSync(filePath)) return null;
+  // Flag supplied but path missing or file unreadable → explicit failure so the
+  // caller knows a requested channel was silently dropped.
+  if (!filePath) {
+    console.error(`[record-exchange] ERROR: ${flag} requires a file path argument`);
+    process.exit(1);
+  }
+  if (!existsSync(filePath)) {
+    console.error(`[record-exchange] ERROR: ${flag} file not found: ${filePath}`);
+    process.exit(1);
+  }
   const text = readFileSync(filePath, 'utf-8').trimEnd();
-  return text || null;
+  if (!text) {
+    console.error(`[record-exchange] ERROR: ${flag} file is empty: ${filePath}`);
+    process.exit(1);
+  }
+  return text;
 }
 
 /** Compose the full Luca turn from all 4 channels (inner-life channels are optional). */
@@ -164,7 +275,9 @@ function composeLucaTurn(opts: {
 // ---------------------------------------------------------------------------
 const args = process.argv.slice(2);
 
-if (args.includes('--self-check')) {
+if (args.includes('--self-check-4ch')) {
+  runSelfCheck4ch().catch(e => { console.error(e); process.exit(1); });
+} else if (args.includes('--self-check')) {
   runSelfCheck().catch(e => { console.error(e); process.exit(1); });
 } else {
   const davidIdx = args.indexOf('--david-file');
