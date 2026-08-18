@@ -47,7 +47,7 @@
 
 import { existsSync, readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { checkEpisodeAppend } from '../services/agent-session-autosave';
+import { checkEpisodeAppend, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -181,6 +181,13 @@ async function main(): Promise<void> {
   console.log(B('STEP 2 — Temporarily strip \'rolling\' tag from all rolling rows'));
   sep();
 
+  // Preserve the rolling-tag stale gate so it can be restored in the finally block.
+  // The gate is initialized to true at module load (fail-closed) and only cleared
+  // by runStartupGapCheck() in production.  This test sets it to false so
+  // checkEpisodeAppend() proceeds past the stale check and reaches the DB null-guard
+  // that is actually under test here.
+  const prevStaleFlag = getRollingTagIsStaleForTest();
+
   try {
     if (rows.length > 0) {
       await db.execute(sql`
@@ -209,6 +216,11 @@ async function main(): Promise<void> {
       countAfterStrip === 0,
       `Expected 0 rolling rows, found ${countAfterStrip}`,
     );
+
+    // ── Step 2b: Disable stale gate so checkEpisodeAppend() proceeds past it ──
+    // This test specifically exercises the DB null-guard (no rolling episode in DB),
+    // not the stale-tag startup gate.  Set to false now so the null-guard path is reached.
+    setRollingTagIsStaleForTest(false);
 
     // ── Step 3: Snapshot episode file mtimes ──────────────────────────────
     sep();
@@ -357,6 +369,9 @@ async function main(): Promise<void> {
         failed++;
       }
     }
+
+    // Restore rolling-tag stale gate to its prior value (fail-closed on module load)
+    setRollingTagIsStaleForTest(prevStaleFlag);
 
     // Clear trigger file so nothing re-fires on next poll
     try {

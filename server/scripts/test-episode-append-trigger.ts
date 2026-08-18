@@ -96,7 +96,7 @@ function acquireEpisodeCiLock(): void {
 function releaseEpisodeCiLock(): void {
   try { unlinkSync(EPISODE_CI_LOCK); } catch { /* already gone */ }
 }
-import { checkEpisodeAppend, syncEpisodeFile } from '../services/agent-session-autosave';
+import { checkEpisodeAppend, syncEpisodeFile, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -258,6 +258,13 @@ async function runNormalMode(): Promise<void> {
   const exchange  = `\n<!-- ${sentinel} -->`;
   const payload   = JSON.stringify({ exchange, episode: 'episode-27' });
 
+  // Disable the rolling-tag stale gate: this test exercises the real append path
+  // and needs checkEpisodeAppend() to proceed past the fail-closed startup gate.
+  // The gate is initialized to true at module load and only cleared by
+  // runStartupGapCheck() in production — CI sets it explicitly here.
+  const prevStaleFlag = getRollingTagIsStaleForTest();
+  setRollingTagIsStaleForTest(false);
+
   try {
     // ── Baseline: force DB to match current .md ──────────────────────────────
     // The rolling guard only lets syncEpisodeFile write when the new content is
@@ -348,6 +355,9 @@ async function runNormalMode(): Promise<void> {
     }
 
   } finally {
+    // Restore rolling-tag stale gate before any further assertions or returns.
+    setRollingTagIsStaleForTest(prevStaleFlag);
+
     sep();
     console.log(B('STEP 6 — Clean up sentinel (preserve rolling content)'));
     sep();
@@ -397,6 +407,11 @@ async function runSelfCheck(): Promise<void> {
   const sentinel   = `[CI-SELF-CHECK-SENTINEL-${Date.now()}] should-not-appear`;
   const exchange   = `\n<!-- ${sentinel} -->`;
   const payload    = JSON.stringify({ exchange, episode: 'episode-27' });
+
+  // Disable the rolling-tag stale gate: this test exercises the cleared-trigger
+  // path inside checkEpisodeAppend() and must proceed past the startup gate.
+  const prevStaleFlagSC = getRollingTagIsStaleForTest();
+  setRollingTagIsStaleForTest(false);
 
   try {
     sep();
@@ -464,6 +479,8 @@ async function runSelfCheck(): Promise<void> {
     );
 
   } finally {
+    // Restore the stale gate before exit.
+    setRollingTagIsStaleForTest(prevStaleFlagSC);
     // Clear the trigger file on every exit path
     if (existsSync(EPISODE_APPEND_PATH)) {
       writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
@@ -532,6 +549,10 @@ async function runSelfCheckConcurrent(): Promise<void> {
   const concurrentText = `[CI-CONCURRENT-CONTENT-${ts}] written by a live session — must survive cleanup`;
   const exchange       = `\n<!-- ${sentinel} -->`;
   const payload        = JSON.stringify({ exchange, episode: 'episode-27' });
+
+  // Disable the rolling-tag stale gate: this test exercises the real append path.
+  const prevStaleFlagCC = getRollingTagIsStaleForTest();
+  setRollingTagIsStaleForTest(false);
 
   try {
     // ── Baseline: force DB to match current .md ────────────────────────────
@@ -714,6 +735,9 @@ async function runSelfCheckConcurrent(): Promise<void> {
       console.error(R(`  ✗  Final cleanup failed: ${err.message}`));
       failed++;
     }
+
+    // Restore the rolling-tag stale gate.
+    setRollingTagIsStaleForTest(prevStaleFlagCC);
 
     // Clear the trigger file
     if (existsSync(EPISODE_APPEND_PATH)) {

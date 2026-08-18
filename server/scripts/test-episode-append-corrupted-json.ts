@@ -50,7 +50,7 @@
 
 import { existsSync, readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { checkEpisodeAppend } from '../services/agent-session-autosave';
+import { checkEpisodeAppend, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -214,6 +214,13 @@ async function main(): Promise<void> {
     originalWarn(...args); // still print to stdout for visibility
   };
 
+  // Disable the rolling-tag stale gate: this test exercises the corrupted-JSON
+  // guard inside parseEpisodeAppend() and must proceed past the fail-closed
+  // startup gate.  The gate is initialized to true at module load and only
+  // cleared by runStartupGapCheck() in production.
+  const prevStaleFlag = getRollingTagIsStaleForTest();
+  setRollingTagIsStaleForTest(false);
+
   try {
     // ── Step 4: Write a corrupted JSON trigger payload ──────────────────────
     sep();
@@ -269,7 +276,8 @@ async function main(): Promise<void> {
     console.log(Y(`  ℹ  checkEpisodeAppend() returned`));
 
   } finally {
-    // Restore warn before assertions
+    // Restore the rolling-tag stale gate and console.warn interceptor.
+    setRollingTagIsStaleForTest(prevStaleFlag);
     console.warn = originalWarn;
 
     // Clear trigger file so nothing re-fires on next poll

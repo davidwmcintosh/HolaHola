@@ -90,7 +90,7 @@ function acquireEpisodeCiLock(): void {
 function releaseEpisodeCiLock(): void {
   try { unlinkSync(EPISODE_CI_LOCK); } catch { /* already gone */ }
 }
-import { checkEpisodeAppend, syncEpisodeFile } from '../services/agent-session-autosave';
+import { checkEpisodeAppend, syncEpisodeFile, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -243,6 +243,12 @@ async function runNormalMode(): Promise<void> {
     baseline = originalDb;
     console.log(Y(`  ℹ  .md pulled from DB (DB was ahead by ${originalDb.length - originalMd.length} bytes)`));
   }
+
+  // Disable the rolling-tag stale gate so checkEpisodeAppend() can reach the
+  // real append logic.  The gate is fail-closed (true) at module load and only
+  // cleared by runStartupGapCheck() in production; CI sets it explicitly here.
+  const prevStaleFlag = getRollingTagIsStaleForTest();
+  setRollingTagIsStaleForTest(false);
 
   try {
     // Force-set DB to match the aligned .md baseline so syncEpisodeFile's
@@ -489,6 +495,9 @@ async function runNormalMode(): Promise<void> {
       failed++;
     }
 
+    // Restore the rolling-tag stale gate.
+    setRollingTagIsStaleForTest(prevStaleFlag);
+
     // Clear the trigger file so nothing re-fires on next poll
     if (existsSync(EPISODE_APPEND_PATH)) {
       writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
@@ -514,6 +523,13 @@ async function runSelfCheck(): Promise<void> {
   const originalMd = readFileSync(MD_PATH, 'utf-8');
   const ts         = Date.now();
   const sentinel   = `CI-SELFCHECK-SENTINEL-${ts}`;
+
+  // Disable the rolling-tag stale gate so checkEpisodeAppend() reaches the real
+  // watcher logic (mtime stamping + payload parsing) rather than returning early.
+  const prevStaleFlagSC = getRollingTagIsStaleForTest();
+  setRollingTagIsStaleForTest(false);
+
+  try {
 
   // ── STEP 1: Prime the mtime state ────────────────────────────────────────
   sep();
@@ -569,6 +585,10 @@ async function runSelfCheck(): Promise<void> {
 
   if (existsSync(EPISODE_APPEND_PATH)) {
     writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+  }
+
+  } finally {
+    setRollingTagIsStaleForTest(prevStaleFlagSC);
   }
 }
 

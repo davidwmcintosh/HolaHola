@@ -62,6 +62,8 @@ import {
 } from './transcript-parser';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { postAsLuca } from './luca-responder';
+import { detectRollingTagMisroute } from './rolling-tag-utils';
+export { detectRollingTagMisroute } from './rolling-tag-utils';
 
 const COMMIT_MSG_PATH      = join(WORKSPACE, '.local/.commit_message');
 const INSIGHTS_PATH        = join(WORKSPACE, '.local/.session_insights');
@@ -420,6 +422,120 @@ let _cursorGapCheckEnabled = true;
  */
 let _nowOverrideForTest: number | null = null;
 export function setNowOverrideForTest(ms: number | null): void { _nowOverrideForTest = ms; }
+
+/**
+ * Persistent rolling-tag misroute alert.
+ *
+ * Set by Phase 0 of runStartupGapCheck() when the 'rolling' tag is found on
+ * an older episode while a newer rolling-protected row exists.
+ * Cleared to null when the check finds the tag correctly placed.
+ *
+ * _writeCaptureStatusFile() reads this on EVERY poll and writes the banner
+ * into the capture-status file so the alert persists across the 20s rewrite
+ * cycle — unlike a one-shot prepend that gets overwritten immediately.
+ *
+ * Never set in production outside of runStartupGapCheck() / CI tests.
+ */
+let _rollingTagMisrouteAlert: string | null = null;
+
+/**
+ * Rolling-tag staleness gate.
+ *
+ * Initialized to TRUE (fail-closed): all automatic rolling-episode routing is
+ * blocked from module load until Phase 0 of runStartupGapCheck() completes the
+ * DB validation and explicitly sets this to false.  This eliminates the startup
+ * race: the pending .chat_capture drain fires before runStartupGapCheck() but
+ * the drain cannot route to the wrong episode because the gate blocks the lookup.
+ *
+ * Set to true by Phase 0 when the 'rolling' tag is on an older episode row
+ * while a newer rolling-protected episode exists.
+ * Set to false by Phase 0 when the tag is correctly placed.
+ *
+ * When true, getCurrentRollingEpisodeFilename() returns null immediately so
+ * ALL automatic routing paths (checkEpisodeAppend, checkChatCapture,
+ * checkAutoCapture, inner-life handlers) skip their .md write.
+ *
+ * Never set in production outside of runStartupGapCheck() / CI tests.
+ */
+let _rollingTagIsStale: boolean = true; // fail-closed until Phase 0 validates
+
+/**
+ * DB-lookup call counter.
+ * Incremented each time getCurrentRollingEpisodeFilename() actually reaches the
+ * DB query path (i.e. the stale gate was false and the try block executed).
+ * CI tests read this to prove the DB path was truly attempted — distinguishing
+ * "returned null from stale gate" from "attempted DB lookup that returned null".
+ * Not relied upon in production.
+ */
+let _rollingEpisodeLookupCallCount: number = 0;
+
+/**
+ * Test seam — path override for _writeCaptureStatusFile().
+ * When set, writes go to this path instead of CAPTURE_STATUS_PATH so CI can
+ * assert on the file contents without disturbing the live capture-status file
+ * (which would cause race failures in other CI checks that read the same file).
+ * Never set in production.
+ */
+let _captureStatusPathOverrideForTest: string | null = null;
+
+/**
+ * Test seam — inject or clear the rolling-tag misroute alert without running
+ * the full DB query.  Used by test-rolling-episode-gap-check.ts integration
+ * self-check to verify the alert appears in the capture-status file.
+ * Never call in production code.
+ */
+export function setRollingTagMisrouteAlertForTest(alert: string | null): void {
+  _rollingTagMisrouteAlert = alert;
+}
+export function getRollingTagMisrouteAlertForTest(): string | null {
+  return _rollingTagMisrouteAlert;
+}
+
+/**
+ * Test seam — set or clear the rolling-tag staleness gate.
+ * When true, getCurrentRollingEpisodeFilenameForTest() (and the private
+ * getCurrentRollingEpisodeFilename()) returns null, blocking all routing.
+ * Never call in production code.
+ */
+export function setRollingTagIsStaleForTest(val: boolean): void {
+  _rollingTagIsStale = val;
+}
+export function getRollingTagIsStaleForTest(): boolean {
+  return _rollingTagIsStale;
+}
+
+/**
+ * Test seam — read and reset the DB-lookup call counter.
+ * Use getRollingEpisodeLookupCallCountForTest() before and after
+ * getCurrentRollingEpisodeFilenameForTest() to verify the DB path was
+ * truly attempted (not short-circuited by the stale gate).
+ * Never call in production code.
+ */
+export function getRollingEpisodeLookupCallCountForTest(): number {
+  return _rollingEpisodeLookupCallCount;
+}
+export function resetRollingEpisodeLookupCallCountForTest(): void {
+  _rollingEpisodeLookupCallCount = 0;
+}
+
+/**
+ * Thin wrapper that exposes getCurrentRollingEpisodeFilename() to CI without
+ * making the private function public.  Respects _rollingTagIsStale so the
+ * self-check can verify routing returns null when stale.
+ * Never call in production code.
+ */
+export async function getCurrentRollingEpisodeFilenameForTest(): Promise<string | null> {
+  return getCurrentRollingEpisodeFilename();
+}
+
+/**
+ * Test seam — redirect _writeCaptureStatusFile() writes to a temp path.
+ * Pass a string to redirect; pass null to restore the real CAPTURE_STATUS_PATH.
+ * Never call in production code.
+ */
+export function setCaptureStatusPathOverrideForTest(path: string | null): void {
+  _captureStatusPathOverrideForTest = path;
+}
 
 /**
  * Per-session guard: set to true only after postAsLuca() returns a room ID
@@ -978,8 +1094,24 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     staleAlertLines.push('');
   }
 
+  // ── Persistent rolling-tag misroute alert ─────────────────────────────────
+  // Set by Phase 0 of runStartupGapCheck() and included in EVERY status write
+  // so the warning is not lost on the next 20s poll cycle.
+  const rollingTagAlertLines: string[] = [];
+  if (_rollingTagMisrouteAlert) {
+    rollingTagAlertLines.push('');
+    rollingTagAlertLines.push('## ⚠️ ROLLING TAG MISROUTE — ACTION REQUIRED');
+    rollingTagAlertLines.push('');
+    rollingTagAlertLines.push(_rollingTagMisrouteAlert);
+    rollingTagAlertLines.push('');
+    rollingTagAlertLines.push('Run `npx tsx server/scripts/set-rolling-episode.ts <episode-title>` to fix.');
+    rollingTagAlertLines.push('_Gap patching was skipped at startup to avoid writing to the wrong file._');
+    rollingTagAlertLines.push('');
+  }
+
   const outputLines: string[] = [
     ...headerLines,
+    ...rollingTagAlertLines,
     ...staleAlertLines,
     '',
     '## DB channels — ordering check',
@@ -999,7 +1131,8 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     '_Updated after each inner-life trigger, each chat-capture save, and every 20s._',
   ];
 
-  writeFileSync(CAPTURE_STATUS_PATH, outputLines.join('\n'), 'utf-8');
+  const writePath = _captureStatusPathOverrideForTest ?? CAPTURE_STATUS_PATH;
+  writeFileSync(writePath, outputLines.join('\n'), 'utf-8');
 }
 
 // --- Episode append watcher state ---
@@ -1570,6 +1703,16 @@ export async function checkLucaMoment(): Promise<void> {
  * Used when the .episode_append trigger file omits the "episode" field.
  */
 async function getCurrentRollingEpisodeFilename(): Promise<string | null> {
+  // Rolling tag is stale (or not yet validated at startup) — block ALL automatic
+  // routing to prevent new content accumulating in the wrong episode file.
+  // Initialized to true at module load (fail-closed); cleared to false by Phase 0
+  // of runStartupGapCheck() once the DB confirms the tag is correctly placed.
+  if (_rollingTagIsStale) {
+    console.warn('[AgentAutosave] getCurrentRollingEpisodeFilename: routing blocked (rolling tag stale or not yet validated).');
+    return null;
+  }
+  // Increment BEFORE the DB query so CI can verify this path was reached.
+  _rollingEpisodeLookupCallCount++;
   try {
     const db = getUserDb();
     const rows = await db.execute(sql`
@@ -1717,6 +1860,18 @@ export async function appendExchangeToEpisode(exchange: string, episodeFilename:
 
 export async function checkEpisodeAppend(): Promise<void> {
   if (!existsSync(EPISODE_APPEND_PATH)) return;
+
+  // Block ALL episode appends when the rolling tag is stale (or not yet validated).
+  // This includes trigger-file writes that carry an explicit episode filename, because
+  // the system is in an inconsistent state and we cannot trust any episode target until
+  // Phase 0 of runStartupGapCheck() confirms the tag is correctly placed.
+  // The operator must fix the rolling tag (see capture-status warning) then restart
+  // before episode appends are allowed again.
+  if (_rollingTagIsStale) {
+    console.warn('[AgentAutosave] checkEpisodeAppend: rolling tag is stale — skipping append to prevent misroute.');
+    return;
+  }
+
   try {
     const stat = statSync(EPISODE_APPEND_PATH);
     const mtime = stat.mtimeMs;
@@ -2515,6 +2670,66 @@ export async function runStartupGapCheck(): Promise<void> {
   _startupGapCheckDone = true;
 
   try {
+    const db = getUserDb();
+
+    // Phase 0: Rolling tag staleness check (runs BEFORE any gap patching) ──
+    // Validate that the episode tagged 'rolling' is the most recently created
+    // among all rolling-protected episodes.  If stale (tag left on an older row
+    // when a new episode was created, as happened Aug 10–18 2026 with ep-28 vs
+    // ep-30), skip Phase 1 entirely — patching gaps into the wrong file makes
+    // the misroute worse, not better.
+    let rollingTagIsStale = false;
+    try {
+      const protectedResult = await db.execute(sql`
+        SELECT id, title, tags, created_at FROM conversation_memories
+        WHERE arc_name = 'HolaHola Episodes'
+          AND ('rolling' = ANY(tags) OR 'rolling-protected' = ANY(tags))
+        ORDER BY created_at DESC
+      `);
+      const allProtected: Array<{ id: string; title: string; tags: string[] | null; created_at: Date | string }> =
+        (((protectedResult as any).rows ?? protectedResult) as any[]);
+
+      const misroute = detectRollingTagMisroute(allProtected);
+      if (misroute.stale) {
+        rollingTagIsStale = true;
+        const warnMsg =
+          `⚠️ rolling tag is on ${misroute.rollingLabel} (${misroute.rollingDate}) ` +
+          `but ${misroute.newerLabel} (${misroute.newerDate}) exists — verify rolling designation`;
+        console.warn(`[AgentAutosave] [GapCheck] ${warnMsg}`);
+
+        // Persist the alert in the module-level variable so _writeCaptureStatusFile()
+        // includes it in EVERY poll cycle (not just the first write at startup).
+        // The alert survives the 20s overwrite cycle until the misroute is fixed.
+        _rollingTagMisrouteAlert = warnMsg;
+
+        // Gate ALL automatic rolling-episode routing so new content cannot
+        // accumulate in the wrong .md while the misroute is unresolved.
+        // getCurrentRollingEpisodeFilename() returns null when this is true,
+        // which causes every routing caller to skip its .md write.
+        _rollingTagIsStale = true;
+      } else {
+        // Clear any previous alert — tag is correctly placed now.
+        _rollingTagMisrouteAlert = null;
+        _rollingTagIsStale = false;
+        console.log(
+          '[AgentAutosave] Startup gap check: rolling tag is on the most recently created rolling-protected episode — OK.',
+        );
+      }
+    } catch (rtErr: any) {
+      console.warn('[AgentAutosave] Rolling tag staleness check failed (non-fatal):', (rtErr as any)?.message);
+    }
+
+    // Phase 1 is SKIPPED when the rolling tag is stale.
+    // Appending missing exchanges to the wrong (stale) episode would compound the
+    // misroute.  The operator must fix the tag first, then restart the server to
+    // trigger a clean gap check against the correct episode.
+    if (rollingTagIsStale) {
+      console.warn(
+        '[AgentAutosave] Startup gap check: rolling tag is STALE — skipping gap patching to avoid writing to the wrong episode.',
+      );
+      return;
+    }
+
     // 1. Find the current rolling episode .md ──────────────────────────────
     const episodeFilename = await getCurrentRollingEpisodeFilename();
     if (!episodeFilename) {
@@ -2536,8 +2751,6 @@ export async function runStartupGapCheck(): Promise<void> {
     // prior episode that happened within the last 24h are never appended to
     // the wrong file.  Fall back to a 24h window only when the episode
     // created_at cannot be determined.
-    const db = getUserDb();
-
     const epRows = await db.execute(sql`
       SELECT created_at FROM conversation_memories
       WHERE arc_name = 'HolaHola Episodes'

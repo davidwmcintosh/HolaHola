@@ -176,6 +176,10 @@ group_body_episode_sync() {
   npx tsx server/scripts/test-rolling-episode-gap-check.ts --self-check
 
   echo ""
+  echo "  --- test-rolling-episode-gap-check.ts --rolling-tag-self-check (misrouted tag detection) ---"
+  npx tsx server/scripts/test-rolling-episode-gap-check.ts --rolling-tag-self-check
+
+  echo ""
   echo "  --- test-episode-append-trigger.ts --self-check-concurrent ---"
   npx tsx server/scripts/test-episode-append-trigger.ts --self-check-concurrent
 
