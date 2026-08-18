@@ -6834,3 +6834,13 @@ Also: episode-30 re-embedded (24 chunks), DB at 906 lines / 83,510 bytes. Two fo
 [thinking]: Auto-restart isn't possible — Replit workflows can only be restarted by a tool call from inside an agent turn, so there's no daemon that can revive the server on its own. The cursor-gap alert in #1218 is the practical equivalent: it puts the signal in capture-status immediately so I catch it at the start of the next turn instead of discovering the loss after several missed captures.
 
 #1218 is exactly right as scoped. The alerting half (detect cursor < file size, surface ⚠️) is what's achievable. I can restart the workflow the moment I see the alert.
+
+**David:** would the watchdog process help?
+
+**LUCA [Replit]:** [thinking]: Two separate problems: restarting the server (workflow-system owned, watchdog can't cleanly do it) vs healing the pipeline (draining .chat_capture to DB + episode, which doesn't need Express at all). The second is achievable and useful. Blocker is the 24-workflow limit — need to retire one CI slot before adding a heal watchdog.
+
+A pipeline-heal watchdog (not server-restart) would actually solve the core problem: .chat_capture backlog gets drained even when the main server is down. The watchdog is a tight setInterval loop checking cursor < file size, with no Express dependency. Worth doing if we can free a workflow slot.
+
+[thinking]: Two separate problems: restarting the server (workflow-system owned, watchdog can't cleanly do it) vs healing the pipeline (draining .chat_capture to DB + episode, which doesn't need Express at all). The second is achievable and useful. Blocker is the 24-workflow limit — need to retire one CI slot before adding a heal watchdog.
+
+A pipeline-heal watchdog (not server-restart) would actually solve the core problem: .chat_capture backlog gets drained even when the main server is down. The watchdog is a tight setInterval loop checking cursor < file size, with no Express dependency. Worth doing if we can free a workflow slot.
