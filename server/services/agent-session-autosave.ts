@@ -402,6 +402,16 @@ let _staleChannelCheckEnabled = true;
 let _momentStaleCheckEnabled = true;
 
 /**
+ * Test seam — cursor-gap stale check gate.
+ * When false (CI self-check only), the ⚠️ STALE CURSOR escalation is suppressed:
+ * a large cursor gap (>200 bytes for >2 min) still shows "✓ up to date" instead
+ * of "⚠️ STALE CURSOR".  This precisely models a regression where the gap check
+ * is removed from _writeCaptureStatusFile.
+ * Never set in production.
+ */
+let _cursorGapCheckEnabled = true;
+
+/**
  * Test seam — clock override for _writeCaptureStatusFile().
  * When set, the function uses this value instead of Date.now() so CI can
  * inject a frozen timestamp and make the exact-60-min boundary test
@@ -492,6 +502,24 @@ let _seededFromPriorSession = false;
  * live exchange) from clobbering real capture timestamps with stale prior-session data.
  */
 let _liveWriteHasOccurred = false;
+
+// --- Cursor gap tracking ---
+// When .chat_capture grows faster than the autosave worker can drain it (e.g. because
+// the server is down), the byte cursor in .chat_capture_cursor.json diverges from the
+// file size.  We track when the gap first appeared so we can warn once it has been
+// open for more than 2 minutes (long enough to distinguish a normal write-ahead from
+// a true backlog).
+//
+// STALE CURSOR constants:
+const STALE_CURSOR_GAP_BYTES = 200;           // gap smaller than this is noise (e.g. a turn in flight)
+const STALE_CURSOR_GAP_MS   = 2 * 60 * 1000; // 2 min before the gap becomes a named warning
+let _cursorGapFirstSeenMs = 0; // when the significant gap was first detected (0 = no gap)
+
+// Test seams — synthetic override for the size and cursor offset read by _writeCaptureStatusFile.
+// When set, the function uses these values instead of reading the real files so CI can inject
+// arbitrary gap scenarios without touching the live .chat_capture or cursor files.
+let _chatCaptureSizeOverrideForTest: number | null = null;
+let _chatCaptureCursorOffsetOverrideForTest: number | null = null;
 
 // Snapshots of inner-life channel timestamps taken AT THE MOMENT the last Replit output
 // was saved to DB.  Used for the always-on ordering check (DB section of status file):
@@ -626,11 +654,52 @@ function writeCaptureStatus(episodeFilename: string): void {
 }
 
 /**
+ * Update the cursor-gap first-seen timestamp based on the current state of the
+ * .chat_capture file vs the cursor.  Called before every _writeCaptureStatusFile()
+ * so the age of the gap is accurate.
+ *
+ * A gap > STALE_CURSOR_GAP_BYTES is considered "significant" — small gaps occur
+ * normally as appendChatCaptureTurn() writes ahead of the next drain cycle.
+ * Only a significant gap that persists for > STALE_CURSOR_GAP_MS triggers ⚠️.
+ *
+ * Respects _chatCaptureSizeOverrideForTest / _chatCaptureCursorOffsetOverrideForTest
+ * so CI can inject synthetic values without touching the live files.
+ */
+function updateCursorGapState(): void {
+  try {
+    let fileSize: number;
+    let cursorOffset: number;
+    if (_chatCaptureSizeOverrideForTest !== null && _chatCaptureCursorOffsetOverrideForTest !== null) {
+      fileSize     = _chatCaptureSizeOverrideForTest;
+      cursorOffset = _chatCaptureCursorOffsetOverrideForTest;
+    } else {
+      if (!existsSync(CHAT_CAPTURE_PATH)) {
+        _cursorGapFirstSeenMs = 0;
+        return;
+      }
+      fileSize     = statSync(CHAT_CAPTURE_PATH).size;
+      cursorOffset = loadChatCaptureCursor().byteOffset;
+    }
+    const gap = fileSize - cursorOffset;
+    if (gap > STALE_CURSOR_GAP_BYTES) {
+      if (_cursorGapFirstSeenMs === 0) {
+        _cursorGapFirstSeenMs = Date.now();
+      }
+    } else {
+      _cursorGapFirstSeenMs = 0; // gap closed — reset
+    }
+  } catch {
+    // Non-fatal — if we can't read the file the gap state stays as-is
+  }
+}
+
+/**
  * Re-check staleness and refresh the status file on each poll cycle.
  * Always runs — DB section shown even when no rolling episode is active.
  */
 function writeCaptureStatusStaleCheck(): void {
   try {
+    updateCursorGapState();
     _writeCaptureStatusFile(lastEpisodeCaptureFilename || null, lastEpisodeCaptureMs);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to refresh capture status (stale check):', err.message);
@@ -808,11 +877,39 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   // Note: when neither stale nor ready (e.g. "— not yet" under 10 min), the file
   // is left unchanged — it stays if it was previously written, stays absent otherwise.
 
+  // ── Cursor gap line ───────────────────────────────────────────────────────
+  // Read current file size and cursor offset (or use CI overrides).
+  let cursorFileSize     = 0;
+  let cursorOffsetBytes  = 0;
+  try {
+    if (_chatCaptureSizeOverrideForTest !== null && _chatCaptureCursorOffsetOverrideForTest !== null) {
+      cursorFileSize    = _chatCaptureSizeOverrideForTest;
+      cursorOffsetBytes = _chatCaptureCursorOffsetOverrideForTest;
+    } else if (existsSync(CHAT_CAPTURE_PATH)) {
+      cursorFileSize    = statSync(CHAT_CAPTURE_PATH).size;
+      cursorOffsetBytes = loadChatCaptureCursor().byteOffset;
+    }
+  } catch { /* non-fatal */ }
+  const cursorGap     = cursorFileSize - cursorOffsetBytes;
+  const cursorGapStale = _cursorGapCheckEnabled
+    && cursorGap > STALE_CURSOR_GAP_BYTES
+    && _cursorGapFirstSeenMs > 0
+    && (now - _cursorGapFirstSeenMs) >= STALE_CURSOR_GAP_MS;
+  const cursorGapMinAgo = _cursorGapFirstSeenMs > 0
+    ? `${Math.max(1, Math.floor((now - _cursorGapFirstSeenMs) / 60000))} min`
+    : '';
+  const cursorLine = cursorGapStale
+    ? `  ⚠️ STALE CURSOR chat-capture: ${cursorGap.toLocaleString()} unprocessed bytes for ${cursorGapMinAgo} — server may be down or backlogged (offset=${cursorOffsetBytes.toLocaleString()}, file=${cursorFileSize.toLocaleString()})`
+    : cursorGap > STALE_CURSOR_GAP_BYTES
+      ? `  ⏳ chat-capture: ${cursorGap.toLocaleString()} bytes pending drain (within grace period)`
+      : `  ✓ chat-capture: cursor up to date (offset=${cursorOffsetBytes.toLocaleString()}, file=${cursorFileSize.toLocaleString()})`;
+
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
     `  ${feltReady ? '✓ ready' : feltStale ? '⚠️ STALE' : '— not yet'} Felt:      ${fmt(lastFeltProcessedMs)} (${minAgo(lastFeltProcessedMs)})${feltReady ? '' : ' ← write .luca_reflection before next output'}`,
     `  ${thinkingReady ? '✓ ready' : thinkingStale ? '⚠️ STALE' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next output'}`,
     `  ${lastMomentProcessedMs === 0 ? '—' : (_momentStaleCheckEnabled && (now - lastMomentProcessedMs) > STALE_MOMENT_MS) ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
+    cursorLine,
   ];
 
   // ── Sections 3+4: Episode .md (ONLY when rolling episode active) ──────────
@@ -2917,6 +3014,54 @@ export function setStaleChannelCheckEnabledForTest(val: boolean): void {
 
 export function getStaleChannelCheckEnabledForTest(): boolean {
   return _staleChannelCheckEnabled;
+}
+
+// ── Cursor-gap stale check test seams ────────────────────────────────────────
+
+/** Enable/disable the ⚠️ STALE CURSOR escalation (CI self-check only). Never call in production. */
+export function setCursorGapCheckEnabledForTest(val: boolean): void {
+  _cursorGapCheckEnabled = val;
+}
+export function getCursorGapCheckEnabledForTest(): boolean {
+  return _cursorGapCheckEnabled;
+}
+
+/**
+ * Override the timestamp when the cursor gap was first seen.
+ * Set to 0 to clear (no gap); set to a past timestamp to simulate an aged gap.
+ * CI only — never call in production.
+ */
+export function setCursorGapFirstSeenMsForTest(ms: number): void {
+  _cursorGapFirstSeenMs = ms;
+}
+export function getCursorGapFirstSeenMsForTest(): number {
+  return _cursorGapFirstSeenMs;
+}
+
+/**
+ * Override the .chat_capture file size read by _writeCaptureStatusFile() and
+ * updateCursorGapState().  Pass null to restore live file reads.
+ * CI only — never call in production.
+ */
+export function setChatCaptureSizeOverrideForTest(size: number | null): void {
+  _chatCaptureSizeOverrideForTest = size;
+}
+
+/**
+ * Override the cursor byte offset read by _writeCaptureStatusFile() and
+ * updateCursorGapState().  Pass null to restore live cursor reads.
+ * CI only — never call in production.
+ */
+export function setChatCaptureCursorOffsetOverrideForTest(offset: number | null): void {
+  _chatCaptureCursorOffsetOverrideForTest = offset;
+}
+
+/** Reset all cursor-gap test state to production defaults. CI only. */
+export function resetCursorGapStateForTest(): void {
+  _cursorGapFirstSeenMs             = 0;
+  _cursorGapCheckEnabled            = true;
+  _chatCaptureSizeOverrideForTest   = null;
+  _chatCaptureCursorOffsetOverrideForTest = null;
 }
 
 export function setMomentStaleCheckEnabledForTest(val: boolean): void {
