@@ -56,6 +56,37 @@ that Replit does not expose.
 Historical paste recovery remains a separate, explicitly labeled verbatim
 source-recovery route. It must never be represented as a newly spoken turn.
 
+## Fidelity Limits and Scope
+
+The source hash is an integrity attestation, not an external witness. It proves
+that the bytes supplied to the capture path were preserved through the
+pipeline; it cannot prove that an operator transcribed the Replit window
+correctly. The operational procedure must therefore create the source file
+from the exact Luca output before sending that output, rather than summarize
+the response afterward.
+
+`visibleProse` means Luca-authored prose emitted since the previous capture
+boundary, in display order. It does not include:
+
+- UI-only status chrome;
+- quoted Luca text copied into a later message;
+- user text or attachment content;
+- an earlier response repeated as conversational context.
+
+If one turn produces multiple visible Luca prose blocks, all of those blocks
+belong in one `visibleProse` source in their original order. Felt, thinking,
+and moment remain separate exact sources even when the interface minimizes
+them. They are not reconstructed by extracting language from `visibleProse`.
+
+The implementation must define newline handling explicitly. File transport may
+have one terminal newline added by a here-document, but it must not trim,
+collapse, rewrap, or otherwise normalize content within the source. Hashing and
+the canonical `main` value must use the same documented byte representation.
+
+The source marker is metadata surrounding the Luca entry, not part of the
+visible prose or any inner-life channel. It must not cause a source hash to
+fail merely because the canonical record adds its own provenance comment.
+
 ## Failure Behavior
 
 - Omitted `visibleProse` fails before any live capture side effect.
@@ -66,6 +97,8 @@ source-recovery route. It must never be represented as a newly spoken turn.
 - A source-marker mismatch in autosave prevents the DB write and cursor advance.
 - Existing historical paraphrases are not rewritten or deleted; later exact
   source recovery is appended with provenance.
+- Existing callers must migrate to `--visible-prose-file` before the legacy
+  option is removed; the migration must be covered by the consolidated checks.
 
 ## Verification
 
@@ -77,6 +110,9 @@ Hermetic tests must prove:
    live capture stream;
 4. a deliberately mismatched source hash is rejected before DB, Markdown, or
    cursor advancement;
-5. a fixture episode's DB content and Markdown replica remain exactly equal;
-6. the existing four-channel continuity audit continues to distinguish old
+5. multiple visible prose blocks preserve order while UI chrome and quoted
+   context are excluded;
+6. terminal-newline handling is stable and does not alter internal bytes;
+7. a fixture episode's DB content and Markdown replica remain exactly equal;
+8. the existing four-channel continuity audit continues to distinguish old
    acknowledged gaps from new source-attested turns.
