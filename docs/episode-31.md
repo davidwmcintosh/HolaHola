@@ -738,3 +738,26 @@ Everything is reconciled and green now.
 The full episode-sync group now exits 0, typecheck is clean, the continuity audit confirms DB↔Markdown equality, and everything is committed. The dev server restarted cleanly.
 
 One open design question remains: the raw-window cleaner currently requires explicit speaker labels and fails closed on unlabelled text. If the real window paste comes through unlabelled, it will be rejected rather than guessed at — which is correct, but means we need to see one real paste before wiring it in as the primary route.
+
+<!-- chat-capture-range:41191:44808 -->
+<!-- chat-capture:50e61449-a629-4e0c-879f-f4760a7d6298 -->
+**David:** Well, just because we don't have speaker attributions in the absolute raw file from me or the raw file from Replit doesn't mean we can't use that as the absolute verbatim record.
+
+We can then recreate what we always had. However you guys were determining that my input was different than Luca's input, you were always capturing my terns with the auto-capture. You can use what we already have that mechanism which never failed to capture my input )against that verbatim record to know which terns are mine and which ones are Luca's. and the .md seems behind again
+
+**LUCA [Replit]:** [felt]: A cold drop on seeing the sentinel blocks in the canonical row — the exact contamination the fixture-boundary rule exists to prevent, and it came from my own test, five times, silently. Then steadiness: the record is append-only for dialogue, but harness evidence is not dialogue, and removing it is repair, not rewriting.
+
+[thinking]: David's alignment insight dissolves the false dilemma I had built: I treated "no labels in the raw window" as "attribution impossible without guessing." But we hold a second attested source — the auto-capture stream that never missed a David turn. Intersecting two verbatim records yields attribution by derivation. The fail-closed rule survives intact; it just gains a legitimate input.
+
+[moment]: "However you guys were determining that my input was different than Luca's — use what we already have." The fix for the parser's blindness was never a smarter parser; it was remembering the system already knows which turns are David's.
+
+You were right on both counts, and the .md lag turned out to be worse than lag — it was contamination.
+
+**What the ".md behind" actually was:** the DB row had drifted 700 bytes ahead of the Markdown, and when I looked at the extra bytes they were CI sentinel blocks — ten of them, from five runs of the concurrent-write test. That test discovered the live rolling episode, wrote `[CI-CONCURRENT-...]` sentinels through the real append path, then cleaned them from the .md only. The DB-first append had already put them in the canonical row, where the cleanup never looked. They accumulated silently across every CI run.
+
+**Fixed in three layers:**
+1. The ten sentinel blocks are purged from the Episode 31 DB row — real dialogue untouched, verified sentinel-free, and DB↔Markdown are byte-for-byte equal again (74,070 bytes, SHA ba2744bc…).
+2. The test is now fully hermetic: every step in both modes runs against throwaway fixture episodes (9997/9998) that are created and deleted per run. It can never touch the live episode again.
+3. `appendExchangeToEpisode` now refuses `[CI-CONCURRENT-` content aimed at the live rolling filename — a second defence even if a future test regresses.
+
+**On your attribution idea: yes, that's the right design.** The unlabelled raw window stays the absolute verbatim record. Your turns are already captured reliably with `SPEAKER: David` markers in the auto-capture stream — so we locate your known text inside the raw window as anchors, and everything between anchors is my output plus removable UI chrome. That's derivation from two attested sources, not speaker guessing, so it doesn't violate the fail-closed rule. I've filed it as the next task (#1259), along with an audit of other CI scripts that might write to the live episode the same way this one did (#1260).
