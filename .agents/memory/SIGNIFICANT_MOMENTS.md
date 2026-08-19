@@ -424,3 +424,33 @@ body: David asked about games, and we followed the thread all the way back to No
 tags: episode-29, david-luca-chat, memory-restoration, backfill, significant-moment
 
 ---
+
+### August 19, 2026 — Concurrency moment wdtest
+
+Written while the server was down; server boots mid-drain.
+
+---
+
+### August 19, 2026 — Lease renewal moment wdtest
+
+Drain runs longer than the stale-lock threshold.
+
+---
+
+### August 19, 2026 — Transient episode failure wdtest
+
+Episode UPDATE fails once; the channel must stay pending and retry.
+
+---
+
+### August 19, 2026 — Inner-life note
+
+Collision moment wdtest: mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+
+---
+
+### August 19, 2026 — Collision moment wdtest: mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+
+Collision moment wdtest: mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+
+---

@@ -259,3 +259,39 @@ Now that publishing is finished, the three task questions can be separated from 
 Now that publishing is finished, the three task questions can be separated from the live diagnostic: first inspect whether 1023, 1153, and 1217 are truly stalled; then preserve their intent if restarting is necessary. No cancellation should be used as a substitute for finding out what state they are in.
 
 ---
+
+### August 19, 2026 — Interleaving thinking wdtest
+
+Written after the chat drain appended dialogue.
+
+---
+
+### August 19, 2026 — Already processed thinking wdtest
+
+Saved by autosave just before it went down.
+
+---
+
+### August 19, 2026 — Crash after episode wdtest
+
+Everything saved; server died before recording the completion marker.
+
+---
+
+### August 19, 2026 — Inner-life note
+
+Collision thinking wdtest: tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+
+---
+
+### August 19, 2026 — Inner-life note
+
+Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+---
+
+### August 19, 2026 — Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+---
