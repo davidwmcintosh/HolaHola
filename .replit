@@ -70,6 +70,10 @@ args = "episode-28-startup-shrinkage-selfcheck"
 task = "workflow.run"
 args = "gl-reconnected-recovery-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "watchdog-inner-life-ci"
+
 
 [[workflows.workflow]]
 name = "Start application"
@@ -396,13 +400,13 @@ outputType = "console"
 name = "watchdog-inner-life-ci"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-watchdog-inner-life.ts"
-
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-watchdog-inner-life.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts --self-check"
 
 [[workflows.workflow]]
 name = "gl-game-session-detector-ci"

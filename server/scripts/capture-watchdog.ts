@@ -499,6 +499,16 @@ let drainingInnerLife = false;
 
 /** Drain any new inner-life trigger writes when the autosave service is down. Exported for CI. */
 /**
+ * Test seam — lets the autosave-alive gate be bypassed deliberately so its
+ * hermetic CI self-check can prove a fresh heartbeat is load-bearing.
+ * Production always leaves this enabled.
+ */
+let _autosaveAliveGateEnabledForTest = true;
+export function setAutosaveAliveGateEnabledForTest(enabled: boolean): void {
+  _autosaveAliveGateEnabledForTest = enabled;
+}
+
+/**
  * Test seam — invoked between the DB work for a channel and the persistence
  * of its processed-sha state, so CI can simulate a dev server booting in that
  * exact window and prove the cross-process lock closes the duplicate race.
@@ -528,7 +538,7 @@ function loadAutosaveProcessedRecord(): Record<string, { sha?: string }> {
 
 export async function drainInnerLife(): Promise<void> {
   if (drainingInnerLife) return;
-  if (autosaveIsAlive()) return; // dev server is up — autosave owns the trigger files
+  if (_autosaveAliveGateEnabledForTest && autosaveIsAlive()) return; // dev server is up — autosave owns the trigger files
 
   // Cross-process lock: exactly one watcher may touch the trigger files at a
   // time. If autosave (or another watchdog) holds it, skip — retry next poll.
@@ -544,7 +554,7 @@ export async function drainInnerLife(): Promise<void> {
   try {
     // Re-check aliveness now that we hold the lock: autosave may have booted
     // and refreshed the heartbeat while we were acquiring.
-    if (autosaveIsAlive()) return;
+    if (_autosaveAliveGateEnabledForTest && autosaveIsAlive()) return;
     let state = loadInnerLifeState();
     if (!state) {
       // First run: lossless handoff by durable processed IDENTITY, never by
