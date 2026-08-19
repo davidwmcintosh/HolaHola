@@ -22,6 +22,13 @@
  * This test fires two appends simultaneously (Promise.all) and asserts both
  * sentinels appear in the file afterwards.
  *
+ * HERMETIC: every step (both modes) runs against a synthetic episode-9998
+ * fixture row/file — NEVER the live rolling episode. CI sentinels are test
+ * harness evidence, not dialogue; they must never enter the canonical rolling
+ * DB row (see the CI fixture canonical boundary rule). appendExchangeToEpisode
+ * additionally refuses '[CI-CONCURRENT-' content aimed at the live rolling
+ * filename as a second defence.
+ *
  * Self-check mode (--self-check)
  * ─────────────────────────────────────────────────────────────────────────────
  * Proves the test itself would detect a regression by temporarily patching
@@ -97,37 +104,43 @@ async function runNormalMode(): Promise<void> {
 
   const db = getSharedDb();
 
-  // ── Discover rolling episode ───────────────────────────────────────────────
-  const rows = await db.execute(sql`
-    SELECT id, title FROM conversation_memories
-    WHERE arc_name = ${ARC_NAME}
-      AND 'rolling' = ANY(tags)
-    ORDER BY created_at DESC
-    LIMIT 1
+  // ── Synthetic fixture episode for STEPs 1–3 ───────────────────────────────
+  // CI sentinels must NEVER enter the live rolling episode: they are harness
+  // evidence, not dialogue, and the old .md-only cleanup left them permanently
+  // in the canonical DB row (observed Aug 19 2026 — 10 leaked sentinel blocks).
+  // created_at = 2020-01-01 keeps the fixture below every real rolling episode
+  // in ORDER BY created_at DESC lookups.
+  const FIX_ID      = '99970000-0000-4000-8000-000000009997';
+  const FIX_TITLE   = 'Episode 9997';
+  const episodeFilename = 'episode-9997.md';
+  const mdPath      = join(DOCS_DIR, episodeFilename);
+  const FIX_CONTENT = '# Episode 9997\n\nFixture baseline for the concurrent-write test.\n';
+
+  const fixtureCleanup = async () => {
+    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIX_ID}`);
+    if (existsSync(mdPath)) unlinkSync(mdPath);
+  };
+  await fixtureCleanup(); // remove any leftover from a previous failed run
+
+  await db.execute(sql`
+    INSERT INTO conversation_memories
+      (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+    VALUES (
+      ${FIX_ID},
+      ${FIX_TITLE},
+      ${'concurrent-write test fixture episode'},
+      ${FIX_CONTENT},
+      ${9},
+      'episode',
+      ARRAY['episode', 'rolling']::text[],
+      ${ARC_NAME},
+      '2020-01-01 00:00:00+00'
+    )
   `);
-  const row = (rows as any).rows?.[0] ?? (rows as any)[0];
-
-  assert('Rolling episode DB row found', !!row, 'No rolling episode in DB');
-  if (!row) return;
-
-  const rawTitle: string = row.title ?? '';
-  const m = /^Episode (\d+)$/i.exec(rawTitle);
-  const episodeFilename: string = m
-    ? `episode-${parseInt(m[1], 10)}.md`
-    : rawTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '.md';
-
-  const mdPath = join(DOCS_DIR, episodeFilename);
-  console.log(Y(`  ℹ  Rolling episode: "${rawTitle}" (${episodeFilename})`));
-
-  assert(
-    `docs/${episodeFilename} exists on disk`,
-    existsSync(mdPath),
-    `File not found: ${mdPath}`,
-  );
-  if (!existsSync(mdPath)) return;
+  writeFileSync(mdPath, FIX_CONTENT, 'utf-8');
+  console.log(Y(`  ℹ  Synthetic fixture: "${FIX_TITLE}" (${episodeFilename}) — live rolling episode untouched`));
 
   const originalMd = readFileSync(mdPath, 'utf-8');
-  console.log(Y(`  ℹ  Original .md size: ${originalMd.length} chars`));
 
   // ── Unique sentinels ───────────────────────────────────────────────────────
   const ts = Date.now();
@@ -149,7 +162,7 @@ async function runNormalMode(): Promise<void> {
     ]);
 
     sep();
-    console.log(B('STEP 2 — Verify both sentinels appear in the .md'));
+    console.log(B('STEP 2 — Verify both sentinels appear in the fixture .md and DB'));
     sep();
 
     const mdAfter = readFileSync(mdPath, 'utf-8');
@@ -174,6 +187,18 @@ async function runNormalMode(): Promise<void> {
       `expected growth ≥ ${entry1.length + entry2.length}, got ${mdAfter.length - originalMd.length}`,
     );
 
+    // DB-first append: both sentinels must be in the fixture DB row too.
+    const fixRows = await db.execute(sql`
+      SELECT content FROM conversation_memories WHERE id = ${FIX_ID} LIMIT 1
+    `);
+    const fixRow = (fixRows as any).rows?.[0] ?? (fixRows as any)[0];
+    const fixDb  = (fixRow?.content ?? '') as string;
+    assert(
+      'Both sentinels present in fixture DB row (DB-first append confirmed)',
+      fixDb.includes(`CI-CONCURRENT-${id1}`) && fixDb.includes(`CI-CONCURRENT-${id2}`),
+      'A concurrent append reached the .md without reaching the DB row',
+    );
+
     if (has1 && has2) {
       const idx1 = mdAfter.indexOf(`CI-CONCURRENT-${id1}`);
       const idx2 = mdAfter.indexOf(`CI-CONCURRENT-${id2}`);
@@ -182,24 +207,16 @@ async function runNormalMode(): Promise<void> {
 
   } finally {
     sep();
-    console.log(B('STEP 3 — Clean up sentinels (serialized via withEpisodeFileLock)'));
+    console.log(B('STEP 3 — Remove fixture episode (DB row + file)'));
     sep();
 
     try {
-      if (existsSync(mdPath)) {
-        await withEpisodeFileLock(episodeFilename, () => {
-          const currentMd = readFileSync(mdPath, 'utf-8');
-          const cleaned   = stripSentinels(currentMd, id1, id2);
-          writeFileSync(mdPath, cleaned, 'utf-8');
-        });
-        const afterClean = readFileSync(mdPath, 'utf-8');
-        assert(
-          'Sentinels stripped from .md (rolling content preserved)',
-          !afterClean.includes(`CI-CONCURRENT-${id1}`) && !afterClean.includes(`CI-CONCURRENT-${id2}`),
-          '.md still contains sentinel after cleanup',
-        );
-        console.log(Y(`  ℹ  .md after cleanup: ${afterClean.length} chars (was ${originalMd.length})`));
-      }
+      await fixtureCleanup();
+      assert(
+        'Fixture episode removed (no sentinel can persist anywhere)',
+        !existsSync(mdPath),
+        'Fixture .md still exists after cleanup',
+      );
     } catch (err: any) {
       console.error(R(`  ✗  Cleanup failed: ${err.message}`));
       failed++;
@@ -358,27 +375,15 @@ async function runSelfCheck(): Promise<void> {
 
   const db = getSharedDb();
 
-  // Discover rolling episode
-  const rows = await db.execute(sql`
-    SELECT id, title FROM conversation_memories
-    WHERE arc_name = ${ARC_NAME}
-      AND 'rolling' = ANY(tags)
-    ORDER BY created_at DESC
-    LIMIT 1
-  `);
-  const row = (rows as any).rows?.[0] ?? (rows as any)[0];
-  assert('Rolling episode DB row found', !!row, 'No rolling episode in DB');
-  if (!row) { if (failed > 0) process.exit(1); return; }
-
-  const rawTitle: string = row.title ?? '';
-  const m = /^Episode (\d+)$/i.exec(rawTitle);
-  const episodeFilename: string = m
-    ? `episode-${parseInt(m[1], 10)}.md`
-    : rawTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '.md';
+  // ── Synthetic fixture file for the race simulation ─────────────────────────
+  // The racy read-modify-write is simulated against a throwaway fixture file —
+  // never the live rolling episode. No DB row is needed: the race under test
+  // is purely a file-level read/write interleave.
+  const episodeFilename = 'episode-9997.md';
   const mdPath = join(DOCS_DIR, episodeFilename);
-
-  assert(`docs/${episodeFilename} exists`, existsSync(mdPath), `Not found: ${mdPath}`);
-  if (!existsSync(mdPath)) { if (failed > 0) process.exit(1); return; }
+  const FIX_CONTENT = '# Episode 9997\n\nFixture baseline for the concurrent-write self-check.\n';
+  writeFileSync(mdPath, FIX_CONTENT, 'utf-8');
+  console.log(Y(`  ℹ  Synthetic fixture file: ${episodeFilename} — live rolling episode untouched`));
 
   const originalMd = readFileSync(mdPath, 'utf-8');
 
@@ -438,29 +443,16 @@ async function runSelfCheck(): Promise<void> {
 
   } finally {
     sep();
-    console.log(B('STEP 3 — Clean up any sentinels left by self-check'));
+    console.log(B('STEP 3 — Remove the self-check fixture file'));
     sep();
 
     try {
-      if (existsSync(mdPath)) {
-        // In self-check mode we use writeFileSync directly since appendFileSync
-        // is the feature under test (not yet in scope here).
-        const currentMd = readFileSync(mdPath, 'utf-8');
-        const cleaned   = stripSentinels(currentMd, id1, id2);
-        writeFileSync(mdPath, cleaned, 'utf-8');
-        const afterClean = readFileSync(mdPath, 'utf-8');
-        assert(
-          'Sentinels stripped from .md',
-          !afterClean.includes(`CI-CONCURRENT-${id1}`) && !afterClean.includes(`CI-CONCURRENT-${id2}`),
-          '.md still contains sentinel after cleanup',
-        );
-        console.log(Y(`  ℹ  .md after cleanup: ${afterClean.length} chars`));
-        // Restore exact original if cleanup changed the size unexpectedly
-        if (afterClean.length < originalMd.length) {
-          writeFileSync(mdPath, originalMd, 'utf-8');
-          console.log(Y(`  ℹ  Restored original (cleanup shrank file below baseline)`));
-        }
-      }
+      if (existsSync(mdPath)) unlinkSync(mdPath);
+      assert(
+        'Fixture file removed (no sentinel can persist anywhere)',
+        !existsSync(mdPath),
+        'Fixture .md still exists after cleanup',
+      );
     } catch (err: any) {
       console.error(R(`  ✗  Cleanup failed: ${err.message}`));
       failed++;

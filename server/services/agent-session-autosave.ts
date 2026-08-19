@@ -2038,7 +2038,11 @@ export async function appendExchangeToEpisode(exchange: string, episodeFilename:
   // Fixture episodes remain testable because only the live rolling filename is
   // protected here. The legacy test consequently fails loudly until it uses an
   // isolated fixture instead of quietly contaminating the canonical DB row.
-  if (exchange.includes('[CI-AUTO-CAPTURE-') || exchange.includes('[CI-SELF-CHECK-AUTO-CAPTURE-')) {
+  if (
+    exchange.includes('[CI-AUTO-CAPTURE-') ||
+    exchange.includes('[CI-SELF-CHECK-AUTO-CAPTURE-') ||
+    exchange.includes('[CI-CONCURRENT-')
+  ) {
     const rollingFilename = await getCurrentRollingEpisodeFilename();
     if (rollingFilename === episodeFilename) {
       throw new Error(
