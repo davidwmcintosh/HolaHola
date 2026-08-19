@@ -9133,7 +9133,6 @@ The grammar section (pp. 217–232) has every tense for every verb class. This i
 - `docs/see-it-and-say-it-roadmap.md` — complete rewrite with all 9 phases, all 5 EE pages, full lesson map (no more unsampled rows), complete vocabulary inventories, appendix fully catalogued
 
 
-
 ---
 
 ## Session 57
@@ -9222,7 +9221,6 @@ PRIORITY GAPS:
   - 9-Language Matrix, Platform Status, Philosophy, Content Policy, all image sections
 
 **File is now 4177 lines.** curriculum-strategy.md remains separate (it covers the full platform, not just the textbook).
-
 
 
 ---
@@ -10191,3 +10189,25 @@ Capture reliability now uses event identity:
 - null rolling-episode lookup leaves chat cursors and inner-life processed state unadvanced.
 
 The hermetic watchdog suite covers collision, truncation, crash/retry, lookup failure, omission fallback, personal-memory exactly-once behavior, and legitimate identical repeated exchanges. Record-exchange self-checks now use private temporary streams; five synthetic canary exchanges leaked by the prior live-stream self-check were removed from the Neon source before re-projecting Episode 31. Typecheck and the independent architecture re-review pass. The consolidated suite's unrelated `test-luca-auto-capture-episode.ts` gate currently refuses to run because the young rolling episode remains below that legacy test's hardcoded 44 KB minimum; all task-specific inner-life checks pass.
+
+---
+
+## Addendum — August 19, 2026 (current-turn Guardian grounding)
+
+The live diagnostic exposed a continuity failure: while David asked about the
+counting game, a delayed Guardian check for an earlier guitar assertion became
+the response topic. The Guardian now binds each pre-turn Archive request to the
+student-turn epoch, complete utterance snapshot, and exact candidate assertion.
+When a new utterance starts, any queued prior-turn grounding is cleared rather
+than merged into the new context. Current-turn grounding tells Daniela to
+answer the present utterance first; an empty result remains an honest,
+candidate-scoped uncertainty rather than a subject change.
+
+Gemini’s final review was unconditional: “APPROVED — Ship it.” Typecheck and
+the new guitar-to-counting regression check are clean. No schema changes or
+new tools.
+
+The initial repair was extended after review to cover all asynchronous
+post-turn routes—not only the pre-turn lookup. Frictionless-slide,
+friction-signal, and hard-wall lookups now retain the same origin binding and
+cannot queue or inject a result after a newer utterance has started.

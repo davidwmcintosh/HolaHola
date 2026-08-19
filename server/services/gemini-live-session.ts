@@ -14,9 +14,9 @@ export function getGlobalGuardianChannel(): 'concat' | 'dedicated' { return _glo
 //                     (interrupted: true), cuts Daniela off and forces a restart.
 //                     Grounding is guaranteed this turn. Side effect: audible restarts.
 //
-//   'carry-forward' — (default) buffer the late result in pendingCarryForwardGrounding
-//                     and inject it at the START of the next student turn, before GL
-//                     begins generating the next response. No interruption; one turn late.
+//   'carry-forward' — (default) buffer the late result until the next student
+//                     utterance begins, then discard it as stale. A result for an
+//                     older topic must never be merged into a newer response.
 //
 // Toggle via POST /api/admin/guardian/fallback-mode.
 let _globalPreTurnFallbackMode: 'interrupt' | 'carry-forward' = 'carry-forward';
@@ -24,59 +24,15 @@ export function setGlobalPreTurnFallbackMode(mode: 'interrupt' | 'carry-forward'
 export function getGlobalPreTurnFallbackMode(): 'interrupt' | 'carry-forward' { return _globalPreTurnFallbackMode; }
 
 /**
- * GeminiLiveSession — Gemini Live API voice session manager.
- *
- * Replaces the 3-service pipeline (Deepgram STT + Gemini streaming + Gemini TTS)
- * with a single bidirectional Gemini Live WebSocket.
- *
- * Architecture:
- *   Client PCM16 (16 kHz) → sendAudioChunk() → ai.live session → Daniela audio (PCM16 24 kHz)
- *                                                               → tool_call events → NativeFunctionCallHandler
- *   PCM16 output → pcm16ToF32le() → audio_chunk WS message → client
- *
- * Preserved unchanged:
- *   - native-fc-handlers.ts  — all 40+ tool implementations
- *   - daniela-function-registry.ts — tool declarations
- *   - StreamingSession object — created by orchestrator, passed in here
- *   - All client-side UI — same audio_chunk message format
- *
- * Feature flag: GEMINI_LIVE_VOICE=true
+ * Immutable identity for one Guardian lookup. Grounding is asynchronous, while
+ * student speech and GL generation are not: a result is useful only for the
+ * precise utterance and memory candidate that caused the lookup.
  */
-
-import {
-  GoogleGenAI,
-  Modality,
-  StartSensitivity,
-  EndSensitivity,
-  HarmCategory,
-  HarmBlockThreshold,
-  type Session,
-  type LiveServerMessage,
-} from '@google/genai';
-import type { FunctionDeclaration } from '@google/genai';
-import { NativeFunctionCallHandler } from './native-fc-handlers';
-import type { StreamingSession } from './streaming-session-types';
-import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
-import type { ExtractedFunctionCall } from './gemini-function-declarations';
-import { reportGlToolCallFailure, reportGlToolCallSuccess, reportGreetingRetryAttempt, reportGreetingRetryExhausted } from './sofia-billing-monitor';
-import { voiceTelemetry } from './voice-pipeline-telemetry';
-import { glLiveAlert } from './gl-live-monitor';
-import { observeSessionStart, observeActflUpdate, observeSessionEnd, observeGuardianState, observeTurnComplete, observeFrictionScore } from './session-observation-store';
-import { getSharedDb } from '../db';
-import { generateConversationTitle } from '../conversation-utils';
-import { sql, eq } from 'drizzle-orm';
-import { voiceSessions } from '@shared/schema';
-import { GLKaraokeTracker } from './gl-karaoke-tracker';
-import { PostResponseEnrichmentService } from './post-response-enrichment';
-import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
-import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding, detectStudentMemoryRisk, detectStudentEmotionalValence } from './frictionless-slide-detector';
-import { consumeLucaSessionContext } from './luca-session-context';
-import { analyzeFriction } from './llm-friction-analyzer';
-import { storage } from '../storage';
-import type { IStorage } from '../storage';
-import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT, MEMORY_CHAIN_NUDGE_TEXT, NAMED_RECORD_PHRASES } from './memory-chain-guard';
-import { randomUUID } from 'crypto';
-
+export interface GroundingTurnBinding {
+  studentTurnEpoch: number;
+  studentUtterance: string;
+  candidateAssertion: string;
+}
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
 const AUDIO_INPUT_SAMPLE_RATE = 16000;
@@ -367,8 +323,9 @@ export class GeminiLiveSession {
   private lastWhisperTime = 0; // ms — wall clock when whisper last fired; 0 = not yet fired
   private pendingSystemWhisper = false; // Gemini audit fix: inject via tool response, not student speech
   // Post-turn auto-grounding whisper — set by Frictionless Slide detection after Daniela's turn completes.
-  // Queued for the NEXT turn's tool response (the correction arrives one turn late).
+  // It is only eligible while the student turn that caused it remains active.
   private pendingWeeOoGrounding: string | null = null;
+  private pendingWeeOoGroundingBinding: GroundingTurnBinding | null = null;
   // Set when pendingWeeOoGrounding originates from slide detection or hard wall (not ambient
   // pre-turn grounding). Causes the [LAST TURN CORRECTION] whisper to include a behavioral
   // directive: "verify before continuing" rather than just passive context delivery.
@@ -379,6 +336,7 @@ export class GeminiLiveSession {
   private preTurnGroundingFired = false;     // prevents re-fire within the same student turn
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
+  private preTurnGroundingBinding: GroundingTurnBinding | null = null;
   // Set to true when the pre-turn scan detected emotional valence (vulnerability/self-doubt/
   // embarrassment) rather than just a memory-risk phrase. Changes the [ARCHIVE GUARDIAN]
   // injection label so Daniela understands SHE IS BEING GIVEN RELATIONAL HISTORY, not facts.
@@ -388,6 +346,11 @@ export class GeminiLiveSession {
   // the grounding is stored here instead of interrupting her. Injected at the START of the next
   // student turn (student is still speaking — GL not generating yet — safe injection window).
   private pendingCarryForwardGrounding: string | null = null;
+  private pendingCarryForwardGroundingBinding: GroundingTurnBinding | null = null;
+  /** Increments at the first input-transcription chunk of each student utterance. */
+  private activeStudentTurnEpoch = 0;
+  /** Complete transcript accumulated for the active student-turn epoch. */
+  private activeStudentUtterance = '';
   private hardWallTriggered = false;   // set mid-output if slide detected; cleared at generationComplete
   // ── Archive Guardian A/B channel ────────────────────────────────────────────
   // Reads from global config live so mid-session swaps (POST /api/admin/guardian/channel)
@@ -2577,6 +2540,32 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if ((msg.serverContent as any)?.inputTranscription?.text) {
       const text = (msg.serverContent as any).inputTranscription.text as string;
       if (text.trim()) {
+        // A new utterance makes every prior carry-forward grounding result stale.
+        // Never merge a previous topic into a newer student turn: it turns an
+        // honest archive check into a subject change.
+        const startsNewStudentUtterance = !this.pendingInputTranscript.trim();
+        if (startsNewStudentUtterance) {
+          this.activeStudentTurnEpoch++;
+          this.activeStudentUtterance = '';
+          if (this.pendingCarryForwardGrounding) {
+            console.warn(
+              `[PreTurnGuardian] Discarding stale carry-forward grounding from student turn `
+              + `${this.pendingCarryForwardGroundingBinding?.studentTurnEpoch ?? 'unknown'}; current turn is `
+              + `${this.activeStudentTurnEpoch}.`,
+            );
+            this.pendingCarryForwardGrounding = null;
+            this.pendingCarryForwardGroundingBinding = null;
+          }
+          if (this.pendingWeeOoGrounding) {
+            console.warn(
+              '[ArchiveGuardian] Discarding prior-turn grounding before a newer student utterance.',
+            );
+            this.pendingWeeOoGrounding = null;
+            this.pendingWeeOoGroundingBinding = null;
+            this.slideCorrectionQueued = false;
+          }
+        }
+
         // Track student speech timing: start on first chunk, update last-word timestamp each chunk
         const inputNow = Date.now();
         if (this.studentSpeakingStartTime === null) {
@@ -2584,6 +2573,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.lastInputTranscriptionTime = inputNow;
         this.pendingInputTranscript += text;
+        this.activeStudentUtterance += text;
         this.pendingInputSaved = false;
 
         // Friction Score — first-input timing: measure pre-speech pause (generationComplete → first word)
@@ -2612,13 +2602,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.lastInputChunkMs = inputNow;
 
         // ── Carry-forward staging ──────────────────────────────────────────
-        // If the PREVIOUS turn's pre-turn grounding arrived late it was buffered
-        // in pendingCarryForwardGrounding. Do NOT inject it here as a separate
-        // sendClientContent — that would cause two injections on this turn (carry-
-        // forward + the pre-turn guardian below), which triggers two GL generations
-        // and overlapping audio. Instead, leave it set so the pre-turn guardian's
-        // 150ms injection below can merge it into a single whisper. The only
-        // sendClientContent allowed per student turn is the one at the 150ms point.
+        // Any carry-forward grounding from a previous utterance was discarded above.
+        // Grounding never crosses the utterance boundary.
         if (this.pendingCarryForwardGrounding) {
           console.log(`[PreTurnGuardian] Carry-forward staged for merge with this turn's guardian (${this.pendingCarryForwardGrounding.length} chars)`);
         }
@@ -2652,10 +2637,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           const risk = detectStudentMemoryRisk(this.pendingInputTranscript);
           const emotional = _emotionalEarlyCheck ?? detectStudentEmotionalValence(this.pendingInputTranscript);
           const queryText = this.pendingInputTranscript.trim();
+          // The lookup searches the exact candidate claim, but keeps the full utterance
+          // bound alongside it. A result may never outlive this pairing.
+          const candidateAssertion = (risk.detected ? risk.topic : null) || queryText;
+          const groundingBinding = createGroundingTurnBinding(
+            this.activeStudentTurnEpoch,
+            queryText,
+            candidateAssertion,
+          );
+          this.preTurnGroundingBinding = groundingBinding;
           const logLabel = emotional.detected
             ? `emotional valence "${emotional.valencePhrase}"`
             : risk.detected
-              ? `phrase "${risk.riskPhrase}"`
+              ? `phrase "${risk.riskPhrase}" → "${candidateAssertion.slice(0, 45)}"`
               : `universal ("${queryText.slice(0, 50)}")`;
           this.preTurnGroundingIsEmotional = emotional.detected;
           this.preTurnIsNamedRecord = NAMED_RECORD_PHRASES.some(
@@ -2667,7 +2661,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
           const promise = runAutoGrounding(
             userId,
-            queryText,
+            groundingBinding.candidateAssertion,
             'memory_assertion',
             conversationId,
             targetLanguage,
@@ -2676,7 +2670,17 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           this.preTurnGroundingPromise = promise;
 
           promise.then(result => {
-            if (this.isStopped) return;
+            if (
+              this.isStopped
+              || this.preTurnGroundingBinding !== groundingBinding
+              || !isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)
+            ) {
+              console.warn(
+                `[PreTurnGuardian] Discarding stale grounding result for "${groundingBinding.candidateAssertion.slice(0, 60)}" `
+                + `(student turn ${groundingBinding.studentTurnEpoch}).`,
+              );
+              return;
+            }
             this.preTurnGroundingResult = result;
             // Fill groundingPreview on the fire log entry so observe bench shows what was found.
             const previewEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.groundingPreview === null);
@@ -2701,6 +2705,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             //     guaranteed this turn at the cost of audible cut-offs.
             setTimeout(() => {
               if (this.isStopped || !this.liveSession) return;
+              if (
+                this.preTurnGroundingBinding !== groundingBinding
+                || !isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)
+              ) {
+                console.warn(
+                  `[PreTurnGuardian] Skipping stale fallback for "${groundingBinding.candidateAssertion.slice(0, 60)}" `
+                  + `(student turn ${groundingBinding.studentTurnEpoch}).`,
+                );
+                return;
+              }
 
               // Gemini audit Aug 6 2026: consume lucaCtx BEFORE the early exit so a slow
               // pre-turn DB lookup can't silently discard a prior-turn correction.
@@ -2712,7 +2726,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const lucaCtx = convIdForLuca ? consumeLucaSessionContext(convIdForLuca) : null;
 
               // Only exit if we have absolutely nothing to say.
-              if (!this.preTurnGroundingResult && !lucaCtx && !this.pendingCarryForwardGrounding) return;
+              if (this.preTurnGroundingResult === null && !lucaCtx && !this.pendingCarryForwardGrounding) return;
 
               const lateArrival = !!(this.processingPendingSentThisTurn || this.firstAudioSentThisTurn || this.generationStartedThisTurn);
               if (lateArrival && _globalPreTurnFallbackMode === 'carry-forward') {
@@ -2734,7 +2748,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                     : lucaCtx;
                 }
                 this.pendingCarryForwardGrounding = carryBuffer;
+                this.pendingCarryForwardGroundingBinding = groundingBinding;
                 this.preTurnGroundingResult = null;
+                this.preTurnGroundingBinding = null;
                 const cfPreview = this.pendingCarryForwardGrounding.slice(0, 150);
                 console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding.length} chars, mode=carry-forward${lucaCtx ? ', +lucaCtx' : ''})`);
                 this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: cfPreview });
@@ -2762,15 +2778,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 finalParts.push(`[ARCHIVE GUARDIAN — CARRIED FROM LAST TURN: ${this.pendingCarryForwardGrounding}]`);
               }
 
-              // Part C: Current pre-turn grounding.
-              if (this.preTurnGroundingResult) {
+              // Part C: Current pre-turn grounding. It is the only grounding result
+              // allowed to define this response's subject.
+              if (
+                this.preTurnGroundingResult !== null
+                && this.preTurnGroundingBinding
+                && isGroundingBindingCurrent(this.preTurnGroundingBinding, this.activeStudentTurnEpoch)
+              ) {
+                const currentGrounding = formatCurrentTurnGroundingContext(
+                  this.preTurnGroundingBinding,
+                  this.preTurnGroundingResult,
+                );
                 if (this.preTurnGroundingIsEmotional) {
                   // Student shared something vulnerable — frame as relational history, not factual recall.
                   // The goal is for Daniela to feel the weight of the student's disclosure and reach for
                   // her own history of being present with students in exactly this kind of moment.
-                  finalParts.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate. Here is what you know from walking alongside students in moments like this:\n${this.preTurnGroundingResult}]`);
+                  finalParts.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate.\n${currentGrounding}]`);
                 } else {
-                  finalParts.push(`[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`);
+                  finalParts.push(currentGrounding);
                 }
               } else if (!lucaCtxDeduped && !this.pendingCarryForwardGrounding) {
                 // Only show "The well is still" if we truly have nothing else — not alongside a correction.
@@ -2811,7 +2836,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   this._observeGuardian();
                 }
                 this.pendingCarryForwardGrounding = null;
+                this.pendingCarryForwardGroundingBinding = null;
                 this.preTurnGroundingResult = null;
+                this.preTurnGroundingBinding = null;
                 console.log(`[PreTurnGuardian] Emotional valence — injected directly via sendClientContent (pre-turn, ${whisperFinal.length} chars${cfNote}${lucaNote})`);
                 return;
               }
@@ -2822,9 +2849,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // Store in pendingWeeOoGrounding so tool-result channel delivers it safely.
               if (!this.pendingWeeOoGrounding) {
                 this.pendingWeeOoGrounding = whisperFinal;
+                this.pendingWeeOoGroundingBinding = groundingBinding;
               }
               this.pendingCarryForwardGrounding = null;
+              this.pendingCarryForwardGroundingBinding = null;
               this.preTurnGroundingResult = null;
+              this.preTurnGroundingBinding = null;
               const label = lateArrival ? 'interrupt mode — late arrival' : 'queued for tool channel';
               console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}${lucaNote}, ${whisperFinal.length} chars)`);
             }, 150);
@@ -3160,6 +3190,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const conversationId = (this.session as any).conversationId;
             const targetLanguage = (this.session as any).targetLanguage;
             const startMs = Date.now();
+            const groundingBinding = createGroundingTurnBinding(
+              this.activeStudentTurnEpoch,
+              this.activeStudentUtterance || this.lastUserText,
+              matchedPhrase,
+            );
             // Outcome tracking: if Guardian fired recently but same slide fired again — it was missed
             const prevUnresolvedPTP = this.guardianFireLog.findLast(e => e.outcome === null);
             if (prevUnresolvedPTP) { prevUnresolvedPTP.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedPTP); }
@@ -3168,6 +3203,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
               .then(groundingResult => {
                 if (this.isStopped) return;
+                if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
+                  console.warn(`[FrictionlessSlide/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
+                  return;
+                }
                 if (Date.now() - startMs > 2000) {
                   console.warn('[FrictionlessSlide/GL] Auto-grounding took >2s — discarding to avoid stale injection');
                   return;
@@ -3178,6 +3217,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 // Primary channel: queue for injection via next tool response batch.
                 // Tool responses are the safest GL channel — model reads them, never speaks them aloud.
                 this.pendingWeeOoGrounding = groundingResult;
+                this.pendingWeeOoGroundingBinding = groundingBinding;
                 this.slideCorrectionQueued = true;
                 console.log(`[FrictionlessSlide/GL] Auto-grounding queued (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
 
@@ -3190,12 +3230,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 // single guardian whisper instead.
                 setTimeout(() => {
                   if (this.isStopped || !this.liveSession || !this.pendingWeeOoGrounding) return;
+                  if (
+                    this.pendingWeeOoGroundingBinding !== groundingBinding
+                    || !isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)
+                  ) {
+                    return;
+                  }
                   if (this.generationStartedThisTurn) {
                     // GL is generating — do not interrupt. Carry it forward.
                     if (!this.pendingCarryForwardGrounding) {
                       this.pendingCarryForwardGrounding = this.pendingWeeOoGrounding;
+                      this.pendingCarryForwardGroundingBinding = groundingBinding;
                     }
                     this.pendingWeeOoGrounding = null;
+                    this.pendingWeeOoGroundingBinding = null;
                     console.log(`[FrictionlessSlide/GL] Suppressed mid-generation sendClientContent — carried forward (${this.pendingCarryForwardGrounding!.length} chars)`);
                     return;
                   }
@@ -3287,6 +3335,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const conversationId = (this.session as any).conversationId;
               const targetLanguage = (this.session as any).targetLanguage;
               const startMs = Date.now();
+              const groundingBinding = createGroundingTurnBinding(
+                this.activeStudentTurnEpoch,
+                this.activeStudentUtterance || this.lastUserText,
+                topicSeed,
+              );
               // Outcome tracking: if Guardian fired recently but friction-signal fired again — it was missed
               const prevUnresolvedFS = this.guardianFireLog.findLast(e => e.outcome === null);
               if (prevUnresolvedFS) { prevUnresolvedFS.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedFS); }
@@ -3295,19 +3348,32 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
                 .then(groundingResult => {
                   if (this.isStopped || Date.now() - startMs > 2000) return;
+                  if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
+                    console.warn(`[FrictionSignal/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
+                    return;
+                  }
                   const fsLogEntry = this.guardianFireLog.findLast(e => e.path === 'friction-signal');
                   if (fsLogEntry) fsLogEntry.charsInjected = groundingResult.length;
                   this.pendingWeeOoGrounding = groundingResult;
+                  this.pendingWeeOoGroundingBinding = groundingBinding;
                   console.log(`[FrictionSignal/GL] Grounding queued from Gemini friction signal (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
                   // Same 500ms fallback as phrase detection — gated on !generationStartedThisTurn
                   // to prevent mid-sentence restarts from sendClientContent while GL generates.
                   setTimeout(() => {
                     if (this.isStopped || !this.liveSession || !this.pendingWeeOoGrounding) return;
+                    if (
+                      this.pendingWeeOoGroundingBinding !== groundingBinding
+                      || !isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)
+                    ) {
+                      return;
+                    }
                     if (this.generationStartedThisTurn) {
                       if (!this.pendingCarryForwardGrounding) {
                         this.pendingCarryForwardGrounding = this.pendingWeeOoGrounding;
+                        this.pendingCarryForwardGroundingBinding = groundingBinding;
                       }
                       this.pendingWeeOoGrounding = null;
+                      this.pendingWeeOoGroundingBinding = null;
                       console.log(`[FrictionSignal/GL] Suppressed mid-generation sendClientContent — carried forward`);
                       return;
                     }
@@ -3363,6 +3429,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.preTurnIsNamedRecord = false;
         this.preTurnGroundingResult = null;
         this.preTurnGroundingPromise = null;
+        this.preTurnGroundingBinding = null;
         this.preTurnGroundingIsEmotional = false;
         // Hard wall correction — fires if slide was detected mid-output (memory assertion
         // with no Archive access). Injects grounding for the NEXT turn via sendClientContent.
@@ -3371,17 +3438,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           const _hwConvId = (this.session as any).conversationId;
           const _hwLang = (this.session as any).targetLanguage;
           const _hwQuery = this.pendingOutputTranscript.slice(0, 200);
+          const _hwBinding = createGroundingTurnBinding(
+            this.activeStudentTurnEpoch,
+            this.activeStudentUtterance || this.lastUserText,
+            _hwQuery,
+          );
           this.hardWallTriggered = false;
           console.warn('[HardWall] Injecting grounding correction for next turn');
           runAutoGrounding(_hwUserId, _hwQuery, 'memory_assertion', _hwConvId, _hwLang, { writeToDb: true, notifyLuca: true })
             .then(groundingResult => {
               if (this.isStopped || !this.liveSession) return;
+              if (!isGroundingBindingCurrent(_hwBinding, this.activeStudentTurnEpoch)) {
+                console.warn(`[HardWall] Discarding stale correction from student turn ${_hwBinding.studentTurnEpoch}.`);
+                return;
+              }
               const correction = groundingResult
                 ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${groundingResult}]`
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
               // sendClientContent is unsafe — store for tool-result delivery on next tool call.
               if (!this.pendingWeeOoGrounding) {
                 this.pendingWeeOoGrounding = correction;
+                this.pendingWeeOoGroundingBinding = _hwBinding;
                 this.slideCorrectionQueued = true;
               }
               console.log('[HardWall] Correction queued for tool channel');
@@ -4057,7 +4134,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Race condition guard (Gemini audit recommendation):
       // If the pre-turn DB lookup is still running when the first tool call arrives,
       // await the promise with a 400ms cap so we don't miss a result that's nearly done.
-      if (this.preTurnGroundingPromise && !this.preTurnGroundingResult) {
+      if (this.preTurnGroundingPromise && this.preTurnGroundingResult === null) {
         await Promise.race([
           this.preTurnGroundingPromise,
           new Promise<void>(resolve => setTimeout(resolve, 400)),
@@ -4065,7 +4142,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       }
 
       const guardianWhispers: string[] = [];
-      if (this.pendingWeeOoGrounding) {
+      if (
+        this.pendingWeeOoGrounding
+        && this.pendingWeeOoGroundingBinding
+        && isGroundingBindingCurrent(
+          this.pendingWeeOoGroundingBinding,
+          this.activeStudentTurnEpoch,
+        )
+      ) {
         // Slide-triggered corrections get a behavioral directive — not just context but an
         // explicit instruction to verify before continuing. This is Tier B: turning passive
         // grounding delivery into an active "check before you speak" lock.
@@ -4074,19 +4158,34 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           : `[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`;
         guardianWhispers.push(correctionLabel);
         this.pendingWeeOoGrounding = null;
+        this.pendingWeeOoGroundingBinding = null;
+        this.slideCorrectionQueued = false;
+      } else if (this.pendingWeeOoGrounding) {
+        console.warn('[ArchiveGuardian] Discarding stale or unbound queued grounding before tool response.');
+        this.pendingWeeOoGrounding = null;
+        this.pendingWeeOoGroundingBinding = null;
         this.slideCorrectionQueued = false;
       }
-      if (this.preTurnGroundingResult) {
+      if (
+        this.preTurnGroundingResult !== null
+        && this.preTurnGroundingBinding
+        && isGroundingBindingCurrent(this.preTurnGroundingBinding, this.activeStudentTurnEpoch)
+      ) {
+        const currentGrounding = formatCurrentTurnGroundingContext(
+          this.preTurnGroundingBinding,
+          this.preTurnGroundingResult,
+        );
         // Use the emotional framing when the student disclosed something vulnerable.
         // preTurnGroundingIsEmotional may have been updated by the re-scan loop even
         // after the initial grounding fire (handles short phrases like "I feel stupid"
         // that cross the emotional threshold on a later transcript chunk).
         if (this.preTurnGroundingIsEmotional) {
-          guardianWhispers.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate. Here is what you know from walking alongside students in moments like this:\n${this.preTurnGroundingResult}]`);
+          guardianWhispers.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate.\n${currentGrounding}]`);
         } else {
-          guardianWhispers.push(`[CURRENT CONTEXT: ${this.preTurnGroundingResult}]`);
+          guardianWhispers.push(currentGrounding);
         }
         this.preTurnGroundingResult = null;
+        this.preTurnGroundingBinding = null;
       }
       if (guardianWhispers.length > 0) {
         // Instructional Piggybacking (July 26 2026 — Gemini-approved wording, DB: b5503bea):
@@ -4986,3 +5085,40 @@ export function createGeminiLiveSession(
  * Controlled by the GEMINI_LIVE_VOICE=true environment variable.
  */
 export const GEMINI_LIVE_VOICE_ENABLED = process.env.GEMINI_LIVE_VOICE === 'true';
+
+export function createGroundingTurnBinding(
+  studentTurnEpoch: number,
+  studentUtterance: string,
+  candidateAssertion: string,
+): GroundingTurnBinding {
+  return {
+    studentTurnEpoch,
+    studentUtterance: studentUtterance.trim(),
+    candidateAssertion: candidateAssertion.trim(),
+  };
+}
+
+export function isGroundingBindingCurrent(
+  binding: GroundingTurnBinding,
+  activeStudentTurnEpoch: number,
+): boolean {
+  return binding.studentTurnEpoch === activeStudentTurnEpoch;
+}
+
+/**
+ * Tool results are the only safe live injection channel. This makes the
+ * current subject and the exact claim being checked explicit, so a failed
+ * lookup produces bounded uncertainty instead of inviting a topic change.
+ */
+export function formatCurrentTurnGroundingContext(
+  binding: GroundingTurnBinding,
+  groundingResult: string,
+): string {
+  const archiveResult = groundingResult.trim()
+    || 'No verified Archive source surfaced for this candidate.';
+  return `[CURRENT STUDENT TURN — ANSWER THIS FIRST:
+Utterance: "${binding.studentUtterance}"
+Candidate memory assertion under evaluation: "${binding.candidateAssertion}"
+Archive result for this candidate: ${archiveResult}
+If the Archive is silent, be honest about that uncertainty while responding to the current utterance. Do not change the subject to an earlier assertion.]`;
+}

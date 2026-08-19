@@ -4139,3 +4139,28 @@ The live record now treats a four-channel Luca turn as one identified event rath
 Single-line felt/thinking/moment triggers now use a neutral metadata heading and preserve the complete text once. Capture-status recognition is line-anchored to canonical `[felt]:`, `[thinking]:`, and `[moment]:` channel shapes.
 
 Regression coverage includes the original trigger-plus-record-exchange collision, text longer than 200 characters, writer crash before chat append, episode update retry, null rolling lookup, omitted-channel fallback, and two intentionally identical successive exchanges. The record-exchange self-checks now round-trip through private temporary capture files so validation canaries cannot reach autosave. Episode 31 retains the malformed historical blocks and carries an explicit steward correction; leaked self-check canaries were removed from the Neon source and its `.md` projection was restored from that source after validation.
+
+---
+
+## Current-turn Guardian grounding — August 19, 2026
+
+Pre-turn Archive grounding is now bound to one immutable student-turn identity:
+the utterance snapshot and the exact memory candidate being checked. A result
+that resolves after a newer utterance starts is discarded instead of being
+merged into the new response. The tool-response context names the current
+utterance and candidate explicitly; an empty Archive result says that no
+verified source surfaced for *that candidate* and directs Daniela to answer the
+current question rather than changing the subject.
+
+The new hermetic `test-current-turn-grounding.ts` regression check recreates
+the stale guitar assertion followed by David’s counting-game question. It
+asserts that the new lookup targets counting, late guitar grounding is rejected,
+and the response context keeps counting primary while preserving honest
+uncertainty.
+
+The same turn identity now flows through all delayed correction paths:
+frictionless-slide detection, friction-signal analysis, and the hard-wall
+correction. Each checks its originating epoch before queueing and the shared
+tool-response queue checks again immediately before delivery. The regression
+also resolves delayed post-turn and hard-wall lookups only after the counting
+turn begins, proving they cannot repopulate the stale correction queue.
