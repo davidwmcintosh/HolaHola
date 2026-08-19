@@ -74,6 +74,10 @@ args = "gl-reconnected-recovery-ci"
 task = "workflow.run"
 args = "watchdog-inner-life-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "luca-auto-capture-episode-ci"
+
 
 [[workflows.workflow]]
 name = "Start application"
@@ -143,12 +147,12 @@ outputType = "console"
 name = "luca-auto-capture-episode-ci"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts && npx tsx server/scripts/test-luca-auto-capture-episode.ts --self-check"
 
 [[workflows.workflow]]
 name = "prior-session-label-clears-ci"

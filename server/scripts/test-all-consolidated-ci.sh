@@ -227,6 +227,9 @@ group_body_luca_inner_life() {
   run test-watchdog-inner-life.ts
   run test-capture-status-db-only.ts
   run test-luca-auto-capture-episode.ts
+  echo ""
+  echo "  --- test-luca-auto-capture-episode.ts --self-check (disabled episode route regression) ---"
+  npx tsx server/scripts/test-luca-auto-capture-episode.ts --self-check
 
   echo ""
   echo "  --- test-inner-life-db-first.ts (felt/thinking/moment lands in episode DB row) ---"
