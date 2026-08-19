@@ -23,6 +23,66 @@ let _globalPreTurnFallbackMode: 'interrupt' | 'carry-forward' = 'carry-forward';
 export function setGlobalPreTurnFallbackMode(mode: 'interrupt' | 'carry-forward'): void { _globalPreTurnFallbackMode = mode; }
 export function getGlobalPreTurnFallbackMode(): 'interrupt' | 'carry-forward' { return _globalPreTurnFallbackMode; }
 
+import {
+  GoogleGenAI,
+  Modality,
+  StartSensitivity,
+  EndSensitivity,
+  HarmCategory,
+  HarmBlockThreshold,
+  type Session,
+  type LiveServerMessage,
+} from '@google/genai';
+import type { FunctionDeclaration } from '@google/genai';
+import { NativeFunctionCallHandler } from './native-fc-handlers';
+import type { StreamingSession } from './streaming-session-types';
+import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
+import type { ExtractedFunctionCall } from './gemini-function-declarations';
+import {
+  reportGlToolCallFailure,
+  reportGlToolCallSuccess,
+  reportGreetingRetryAttempt,
+  reportGreetingRetryExhausted,
+} from './sofia-billing-monitor';
+import { voiceTelemetry } from './voice-pipeline-telemetry';
+import { glLiveAlert } from './gl-live-monitor';
+import {
+  observeSessionStart,
+  observeActflUpdate,
+  observeSessionEnd,
+  observeGuardianState,
+  observeTurnComplete,
+  observeFrictionScore,
+} from './session-observation-store';
+import { getSharedDb } from '../db';
+import { generateConversationTitle } from '../conversation-utils';
+import { sql, eq } from 'drizzle-orm';
+import { voiceSessions } from '@shared/schema';
+import { GLKaraokeTracker } from './gl-karaoke-tracker';
+import { PostResponseEnrichmentService } from './post-response-enrichment';
+import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
+import {
+  detectFrictionlessSlide,
+  recordSlideDetection,
+  initSlideState,
+  buildGroundingNudge,
+  shouldAutoGround,
+  runAutoGrounding,
+  detectStudentMemoryRisk,
+  detectStudentEmotionalValence,
+} from './frictionless-slide-detector';
+import { consumeLucaSessionContext } from './luca-session-context';
+import { analyzeFriction } from './llm-friction-analyzer';
+import { storage } from '../storage';
+import type { IStorage } from '../storage';
+import {
+  MEMORY_TOOL_NAMES,
+  MEMORY_CHAIN_LIMIT,
+  MEMORY_CHAIN_NUDGE_TEXT,
+  NAMED_RECORD_PHRASES,
+} from './memory-chain-guard';
+import { randomUUID } from 'crypto';
+
 /**
  * Immutable identity for one Guardian lookup. Grounding is asynchronous, while
  * student speech and GL generation are not: a result is useful only for the
