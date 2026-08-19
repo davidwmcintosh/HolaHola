@@ -379,3 +379,15 @@ args = "npx tsx server/scripts/test-semantic-arm-timeout.ts"
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow]]
+name = "record-exchange-4ch-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/record-exchange.ts --self-check-4ch"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"

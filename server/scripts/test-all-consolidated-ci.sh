@@ -293,6 +293,10 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-db-write-failure-warning.ts --self-check (gate-removal proof) ---"
   npx tsx server/scripts/test-db-write-failure-warning.ts --self-check
+
+  echo ""
+  echo "  --- record-exchange.ts --self-check-4ch (4-channel composition verified) ---"
+  npx tsx server/scripts/record-exchange.ts --self-check-4ch
 }
 
 group_body_memory_recall() {
