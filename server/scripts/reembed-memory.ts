@@ -16,7 +16,7 @@
  * content hash hasn't changed, and orphaned chunk embeddings (from a memory
  * that got shorter) are cleaned up automatically.
  */
-import { getSharedDb, getUserDb } from '../db';
+import { getMonitoringDb, getUserDb } from '../db';
 import { conversationMemories, memoryEmbeddings } from '@shared/schema';
 import { generateAndStoreEmbedding } from '../services/semantic-memory-service';
 import { splitIntoChunks, reformatSpeakerHeaders } from '../services/memory-embedding-indexer';
@@ -83,11 +83,13 @@ async function resolveFounderUserId(tags: string[]): Promise<{ userId: string | 
  *                 Daniela teaching notes) that should be globally visible.
  */
 export async function reembedConversationMemory(id: string, userId?: string | null): Promise<void> {
-  return reembedOne(id, userId ?? null);
+  return reembedOne(id, userId ?? null, getMonitoringDb());
 }
 
-async function reembedOne(id: string, userId: string | null = null): Promise<void> {
-  const db = getSharedDb();
+async function reembedOne(id: string, userId: string | null = null, dbOverride?: any): Promise<void> {
+  // Detached recovery processes must use Neon HTTP for reads and embedding-row
+  // writes. The WebSocket pool can expose a stale snapshot to the next query.
+  const db = dbOverride ?? getMonitoringDb();
 
   const rows = await db
     .select({
@@ -166,13 +168,13 @@ async function reembedOne(id: string, userId: string | null = null): Promise<voi
   // Pass importance so memory_embeddings.importance is populated from conversation_memories.importance,
   // enabling the importance-first ORDER BY in the global pool queries to work correctly.
   const fullContent = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
-  const fullChanged = await generateAndStoreEmbedding('conversation_memory', row.id, effectiveUserId, fullContent, strength, importance);
+  const fullChanged = await generateAndStoreEmbedding('conversation_memory', row.id, effectiveUserId, fullContent, strength, importance, db);
   console.log(`[conversation_memory] ${id} -> ${fullChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
 
   // Arm B: summary anchor
   if (row.summary && row.summary.length > 10) {
     const summaryContent = [row.title, row.summary].filter(Boolean).join('\n\n');
-    const summaryChanged = await generateAndStoreEmbedding('conversation_summary', row.id, effectiveUserId, summaryContent, strength, importance);
+    const summaryChanged = await generateAndStoreEmbedding('conversation_summary', row.id, effectiveUserId, summaryContent, strength, importance, db);
     console.log(`[conversation_summary] ${id} -> ${summaryChanged ? 'RE-EMBEDDED' : 'unchanged (hash matched)'}`);
   }
 
@@ -185,7 +187,7 @@ async function reembedOne(id: string, userId: string | null = null): Promise<voi
     const chunkId = `${row.id}:chunk:${i}`;
     const chunkContent = `[Memory: ${row.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
     try {
-      const chunkChanged = await generateAndStoreEmbedding('conversation_chunk', chunkId, effectiveUserId, chunkContent, strength, importance);
+      const chunkChanged = await generateAndStoreEmbedding('conversation_chunk', chunkId, effectiveUserId, chunkContent, strength, importance, db);
       console.log(`[conversation_chunk ${i + 1}/${total}] ${id} -> ${chunkChanged ? 'RE-EMBEDDED' : 'unchanged'}`);
     } catch (err: any) {
       const msg = `chunk ${i + 1}/${total}: ${err?.message ?? err}`;
@@ -237,7 +239,7 @@ async function main() {
   }
 
   for (const id of ids) {
-    await reembedOne(id, null);
+    await reembedOne(id, null, getMonitoringDb());
   }
 
   console.log('Done.');

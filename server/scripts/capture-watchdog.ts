@@ -380,7 +380,7 @@ function flagDbWriteFailure(where: string, reason: string): void {
 }
 
 /** INSERT the personal inner-life memory row (mirrors savePersonalMemory()). */
-async function savePersonalMemory(title: string, body: string, tags: string[]): Promise<void> {
+async function savePersonalMemory(title: string, body: string, tags: string[]): Promise<string | null> {
   // Idempotency: an identical entry (same title + content) may already exist —
   // e.g. autosave saved it but its processed record was lost, or a prior drain
   // crashed after the INSERT but before persisting state. Skip, never duplicate.
@@ -391,9 +391,9 @@ async function savePersonalMemory(title: string, body: string, tags: string[]): 
   `;
   if (existing.length > 0) {
     console.log(`[watchdog] identical personal memory already in DB — skipping duplicate insert: ${title.slice(0, 60)}`);
-    return;
+    return (existing as any)[0]?.id ?? null;
   }
-  await db`
+  const inserted = await db`
     INSERT INTO conversation_memories
       (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
     VALUES (
@@ -402,7 +402,9 @@ async function savePersonalMemory(title: string, body: string, tags: string[]): 
       ${tags}::text[],
       8, NOW(), 'emergence', 'luca-inner-life'
     )
+    RETURNING id
   `;
+  return (inserted as any)[0]?.id ?? null;
 }
 
 /** Append a dated entry to a personal markdown file (mirrors appendToPersonalFile()). */
@@ -431,12 +433,18 @@ async function appendInnerLifeToEpisodeDb(text: string, episode: { id: string; f
   const current: string = existing[0]?.content ?? '';
   if (current.includes(text)) {
     console.log(`[watchdog] inner-life entry already present in ${episode.filename} — skipping duplicate append`);
-    return;
+  } else {
+    await appendTextToEpisodeDbFirst('\n' + text + '\n', episode);
+    console.log(`[watchdog] ✓ inner-life DB-first append: +${text.length} chars → ${episode.filename}`);
   }
-  await appendTextToEpisodeDbFirst('\n' + text + '\n', episode);
-  console.log(`[watchdog] ✓ inner-life DB-first append: +${text.length} chars → ${episode.filename}`);
+  await reembedInnerLifeMemory(episode.id);
 }
 
+/**
+ * Re-embed the row after a watchdog write. The test seam keeps the hermetic
+ * watchdog fixture independent of OpenAI and the shared database.
+ */
+let _reembedInnerLifeMemoryForTest: ((id: string) => Promise<void>) | null = null;
 /**
  * Stale-channel alert (production equivalent of the autosave stale check).
  * When felt/thinking trigger mtimes are ≥10 min old while the watchdog is the
@@ -620,14 +628,19 @@ export async function drainInnerLife(): Promise<void> {
         continue;
       }
 
+      let personalMemoryId: string | null;
       try {
-        await savePersonalMemory(
+        personalMemoryId = await savePersonalMemory(
           `${ch.titlePrefix}${parsed.title}`,
           parsed.body,
           ['luca-inner-life', ch.channelTag, ...parsed.tags.filter(t => t !== ch.channelTag)],
         );
+        if (!personalMemoryId) {
+          throw new Error('personal-memory INSERT returned no id');
+        }
+        await reembedInnerLifeMemory(personalMemoryId);
       } catch (err: any) {
-        flagDbWriteFailure(`personal-memory:${ch.key}`, err?.message ?? String(err));
+        flagDbWriteFailure(`personal-memory-or-reembed:${ch.key}`, err?.message ?? String(err));
         continue; // leave state unadvanced — retry next poll
       }
       appendToPersonalFile(ch.personalFile, parsed.title, parsed.body);
@@ -684,4 +697,19 @@ if (isMain) {
   };
   tick();
   setInterval(tick, POLL_MS);
+}
+
+export function setReembedInnerLifeMemoryForTest(fn: ((id: string) => Promise<void>) | null): void {
+  _reembedInnerLifeMemoryForTest = fn;
+}
+
+async function reembedInnerLifeMemory(id: string): Promise<void> {
+  if (_reembedInnerLifeMemoryForTest) {
+    await _reembedInnerLifeMemoryForTest(id);
+    return;
+  }
+  // Keep the watchdog's hermetic fixture independent of the production
+  // embedding module; real drains load the HTTP-backed re-embed path here.
+  const { reembedConversationMemory } = await import('./reembed-memory.js');
+  await reembedConversationMemory(id);
 }

@@ -10,7 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
-import { drainInnerLife, appendToEpisode, setEpisodeOverrideForTest, setDbForTest, setInnerLifePauseForTest, setLockRenewMsForTest } from './capture-watchdog';
+import { drainInnerLife, appendToEpisode, setEpisodeOverrideForTest, setDbForTest, setInnerLifePauseForTest, setLockRenewMsForTest, setReembedInnerLifeMemoryForTest } from './capture-watchdog';
 import { tryAcquireInnerLifeLock, releaseInnerLifeLock } from '../services/inner-life-lock';
 
 const MARKER = process.env.WD_TEST_MARKER ?? 'wdtest';
@@ -24,6 +24,7 @@ const store = {
   episodeContent: '' as string,
   episodeId: 'fixture-episode-id',
   personalInserts: [] as Array<{ title: string; body: string; tags: string[] }>,
+  reembeddedIds: [] as string[],
   failNextEpisodeUpdate: false,
 };
 
@@ -32,7 +33,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   if (q.includes('INSERT INTO conversation_memories')) {
     // param order in savePersonalMemory: title, summary, body, tags
     store.personalInserts.push({ title: vals[0], body: vals[2], tags: vals[3] });
-    return Promise.resolve([]);
+    return Promise.resolve([{ id: `personal-${store.personalInserts.length}` }]);
   }
   if (q.includes('UPDATE conversation_memories')) {
     if (store.failNextEpisodeUpdate) {
@@ -63,6 +64,9 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   fs.mkdirSync(path.join(cwd, '.agents/memory'), { recursive: true });
 
   setDbForTest(fakeDb);
+  setReembedInnerLifeMemoryForTest(async (id: string) => {
+    store.reembeddedIds.push(id);
+  });
   const seed = `EPISODE START (${MARKER})\n`;
   store.episodeContent = seed;
   const episode = { id: store.episodeId, filename: 'episode-ci.md' };
@@ -87,6 +91,8 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   );
   results.firstRunInEpisodeDb = store.episodeContent.includes(`felt: First-run pending felt ${MARKER}`);
   results.mdMatchesDb1 = fs.readFileSync(path.join(cwd, 'docs/episode-ci.md'), 'utf8') === store.episodeContent;
+  results.firstRunReembeddedPersonal = store.reembeddedIds.includes('personal-1');
+  results.firstRunReembeddedEpisode = store.reembeddedIds.includes(store.episodeId);
 
   // ── Scenario 2: chat + inner-life interleaving ────────────────────────────
   await appendToEpisode(

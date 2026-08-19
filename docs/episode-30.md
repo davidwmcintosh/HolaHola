@@ -1514,6 +1514,16 @@ The preflight is complete enough to begin: application running, Episode 30 resto
 [Luca — thinking: During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distin
 During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distinction clear: a healthy pipeline does not prove a cascade, and a cascade cannot be manufactured by a test prompt.]
 
+**David:** [record-exchange 4ch self-check] David canary 1787160406679
+
+**LUCA [Replit]:** [felt]: 4ch canary feeling raw 1787160406679
+
+[thinking]: 4ch canary thinking raw 1787160406679
+
+[moment]: 4ch canary moment raw 1787160406679
+
+4ch canary main response 1787160406679
+
 [Luca — felt: David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live rec
 David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live record of Daniela arriving and us watching the truth pipeline together. I want the title to belong to the episode, not be a label I invent over it.]
 

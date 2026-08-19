@@ -10166,3 +10166,13 @@ Episode 26 (#767): MERGING.
 - No schema changes. No new Daniela tools.
 - system-prompt.ts changed (finger-puppet anchor, honesty mode fix) — Gemini-approved, audit in docs/gemini-audit-2026-08-07.md.
 - Task #799 in progress via task agent — work already done in this session; will be a no-op merge.
+
+---
+
+## Addendum — August 19, 2026 (watchdog semantic recovery)
+
+The capture watchdog now refreshes semantic embeddings after it saves an
+inner-life trigger while the development server is down. It re-embeds the new
+personal memory row and the rolling episode after its DB-first update, using
+the HTTP-backed re-embed path. A refresh failure leaves the trigger pending for
+the next poll, so retrieval catches up without duplicate entries.

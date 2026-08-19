@@ -101,8 +101,9 @@ export async function generateAndStoreEmbedding(
   content: string,
   initialStrength?: number,
   importance?: number,
+  dbOverride?: any,
 ): Promise<boolean> {
-  const db = getSharedDb();
+  const db = dbOverride ?? getSharedDb();
   const hash = hashContent(content);
 
   // Check if already up-to-date

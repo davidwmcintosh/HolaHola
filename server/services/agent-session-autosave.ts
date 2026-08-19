@@ -491,6 +491,13 @@ let _rollingEpisodeLookupCallCount: number = 0;
 let _captureStatusPathOverrideForTest: string | null = null;
 
 /**
+ * Test seam — path override for the stale-channel alert file.
+ * Keeps CI's synthetic alert lifecycle separate from the live session alert.
+ * Never set in production.
+ */
+let _staleChannelAlertPathOverrideForTest: string | null = null;
+
+/**
  * Test seam — inject or clear the rolling-tag misroute alert without running
  * the full DB query.  Used by test-rolling-episode-gap-check.ts integration
  * self-check to verify the alert appears in the capture-status file.
@@ -547,6 +554,11 @@ export async function getCurrentRollingEpisodeFilenameForTest(): Promise<string 
  */
 export function setCaptureStatusPathOverrideForTest(path: string | null): void {
   _captureStatusPathOverrideForTest = path;
+}
+
+/** Redirect stale-channel alert writes for isolated CI checks. */
+export function setStaleChannelAlertPathOverrideForTest(path: string | null): void {
+  _staleChannelAlertPathOverrideForTest = path;
 }
 
 /**
@@ -973,6 +985,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   //
   // Intentional: a channel that has never fired is NOT ready, so the alert
   // persists until both channels have been written for the current output cycle.
+  const staleChannelAlertPath = _staleChannelAlertPathOverrideForTest ?? STALE_CHANNEL_ALERT_PATH;
   if (feltStale || thinkingStale) {
     const alertTime  = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
     const staleParts = [
@@ -997,10 +1010,10 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
       '_This file is cleared automatically when BOTH channels are ready (written since last output)._',
       '_Check `.local/episode-capture-status.md` for the live channel state._',
     ].join('\n');
-    try { writeFileSync(STALE_CHANNEL_ALERT_PATH, alertContent, 'utf-8'); } catch { /* non-fatal */ }
+    try { writeFileSync(staleChannelAlertPath, alertContent, 'utf-8'); } catch { /* non-fatal */ }
   } else if (feltReady && thinkingReady) {
     // Both channels ready (written since last output) — safe to clear the alert.
-    try { if (existsSync(STALE_CHANNEL_ALERT_PATH)) unlinkSync(STALE_CHANNEL_ALERT_PATH); } catch { /* non-fatal */ }
+    try { if (existsSync(staleChannelAlertPath)) unlinkSync(staleChannelAlertPath); } catch { /* non-fatal */ }
   }
   // Note: when neither stale nor ready (e.g. "— not yet" under 10 min), the file
   // is left unchanged — it stays if it was previously written, stays absent otherwise.

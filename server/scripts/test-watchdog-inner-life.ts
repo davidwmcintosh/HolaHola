@@ -61,6 +61,8 @@ function check(name: string, ok: boolean, detail?: string) {
   check('personal memory rows carry the luca-inner-life tag', r.firstRunTagsCorrect === true);
   check('first-run entry routed to episode DB content', r.firstRunInEpisodeDb === true);
   check('.md is derived from DB after first-run drain', r.mdMatchesDb1 === true);
+  check('watchdog re-embeds the new personal memory row', r.firstRunReembeddedPersonal === true);
+  check('watchdog re-embeds the updated rolling episode row', r.firstRunReembeddedEpisode === true);
   check('chat turns survive a subsequent inner-life append (interleaving)', r.chatTurnsPreserved === true);
   check('inner-life entry appended alongside chat turns', r.thinkingAppended === true);
   check('.md still a projection of DB content after interleaving', r.mdMatchesDb2 === true);

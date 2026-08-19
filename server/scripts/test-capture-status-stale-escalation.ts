@@ -83,7 +83,8 @@
  *   npx tsx server/scripts/test-capture-status-stale-escalation.ts --self-check
  */
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 
 import {
@@ -97,6 +98,8 @@ import {
   setLastEpisodeCaptureForTest,
   setStaleChannelCheckEnabledForTest,
   setNowOverrideForTest,
+  setCaptureStatusPathOverrideForTest,
+  setStaleChannelAlertPathOverrideForTest,
 } from '../services/agent-session-autosave';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -112,9 +115,9 @@ function info(msg: string): void { console.log(`${YELLOW}  ·${RESET}      ${msg
 function sep():  void { console.log(`\n${SEP}`); }
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
-const WORKSPACE                = process.cwd();
-const CAPTURE_STATUS_PATH      = join(WORKSPACE, '.local/episode-capture-status.md');
-const STALE_CHANNEL_ALERT_PATH = join(WORKSPACE, '.local/stale-channel-alert.md');
+const TEST_DIR                 = mkdtempSync(join(tmpdir(), 'capture-status-stale-ci-'));
+const CAPTURE_STATUS_PATH      = join(TEST_DIR, 'episode-capture-status.md');
+const STALE_CHANNEL_ALERT_PATH = join(TEST_DIR, 'stale-channel-alert.md');
 
 // Synthetic episode filename — does not need to exist on disk.
 const FIXTURE_EPISODE = 'episode-ci-stale-escalation-fixture.md';
@@ -160,13 +163,11 @@ const selfCheck = process.argv.includes('--self-check');
 async function main(): Promise<void> {
   let failures = 0;
 
-  // ── Snapshot + restore the live status and alert files ───────────────────
-  const statusExistedBefore = existsSync(CAPTURE_STATUS_PATH);
-  const statusSnapBefore    = statusExistedBefore ? readFileSync(CAPTURE_STATUS_PATH) : null;
-  const alertExistedBefore  = existsSync(STALE_CHANNEL_ALERT_PATH);
-  const alertSnapBefore     = alertExistedBefore ? readFileSync(STALE_CHANNEL_ALERT_PATH) : null;
-
   try {
+    // Keep synthetic status and alert lifecycle away from the live worker.
+    setCaptureStatusPathOverrideForTest(CAPTURE_STATUS_PATH);
+    setStaleChannelAlertPathOverrideForTest(STALE_CHANNEL_ALERT_PATH);
+
     if (selfCheck) {
       console.log(`\n${YELLOW}Self-check mode${RESET}: confirming the ⚠️ STALE escalation is the active gate.\n`);
     } else {
@@ -457,19 +458,10 @@ async function main(): Promise<void> {
     setStaleChannelCheckEnabledForTest(true);
     // Reset all module state to zero so we don't pollute a live server
     resetState();
-    // Restore the status file to its pre-test state
-    if (statusSnapBefore !== null) {
-      writeFileSync(CAPTURE_STATUS_PATH, statusSnapBefore);
-    } else if (existsSync(CAPTURE_STATUS_PATH)) {
-      unlinkSync(CAPTURE_STATUS_PATH);
-    }
-    // Restore the alert file to its pre-test state
-    if (alertSnapBefore !== null) {
-      writeFileSync(STALE_CHANNEL_ALERT_PATH, alertSnapBefore);
-    } else if (existsSync(STALE_CHANNEL_ALERT_PATH)) {
-      unlinkSync(STALE_CHANNEL_ALERT_PATH);
-    }
-    console.log('(Status file restored to pre-test state)');
+    setCaptureStatusPathOverrideForTest(null);
+    setStaleChannelAlertPathOverrideForTest(null);
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    console.log('(Temporary status and alert files removed)');
   }
 
   // ── Result ────────────────────────────────────────────────────────────────

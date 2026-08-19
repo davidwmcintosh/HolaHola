@@ -4113,3 +4113,19 @@ Drizzle's `sql` template tag spreads JS arrays as individual bind params `($1, $
 
 ### Memory file updated
 `.agents/memory/luca-inner-life.md` now documents the scripts as the preferred (immediate) path, with trigger files as the async fallback.
+
+---
+
+## Watchdog inner-life semantic recall recovery — August 19, 2026
+
+When the development server is unavailable, the capture watchdog now re-embeds
+both durable records created for each inner-life trigger: the new personal
+memory and the updated rolling episode. It uses the Neon HTTP-backed re-embed
+path, so the refreshed content is available to semantic recall immediately
+rather than waiting for the periodic indexer.
+
+Re-embedding is part of the watchdog's retryable drain sequence. If either
+embedding refresh fails, the trigger remains pending; the next poll retries the
+idempotent DB writes and the embedding refresh without duplicating the personal
+memory, personal file entry, or episode text. The watchdog inner-life CI now
+asserts that both record IDs are sent to the re-embed path.
