@@ -20,7 +20,9 @@ export function isKnownWindowChrome(line: string): boolean {
   return (
     /^Wrote a file$/i.test(value) ||
     /^\d+\s+actions?$/i.test(value) ||
-    /^Worked for \d+(?:\.\d+)? (?:seconds?|minutes?)$/i.test(value)
+    /^Worked for \d+(?:\.\d+)? (?:seconds?|minutes?)$/i.test(value) ||
+    /^\d+\s+minutes?\s+ago$/i.test(value) ||
+    /^Clarifying user confusion$/i.test(value)
   );
 }
 

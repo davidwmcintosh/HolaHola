@@ -18,33 +18,66 @@ Luca main response from memory after the window has already existed.
 contains the current exchange. It preserves that input as a private,
 per-capture recovery artifact before attempting any clean output.
 
-The cleaner:
+The raw source is processed by one of two paths chosen deterministically before
+any capture stream is touched:
 
-1. removes only known non-dialogue interface lines, such as action counters,
-   “Wrote a file,” and elapsed-work markers;
-2. reads explicit David and Luca speaker boundaries;
-3. preserves each speaker's remaining text and ordering without rewriting,
-   summarizing, or rewrapping it;
-4. validates that the Luca portion is a complete felt → thinking → moment →
+### Path 1 — Labelled (explicit speaker headers)
+
+When the window contains `David:` / `Luca [Replit]:` boundaries:
+
+1. Removes only known non-dialogue interface lines (see UI Chrome below).
+2. Reads explicit David and Luca speaker boundaries.
+3. Preserves each speaker's remaining text and ordering without rewriting,
+   summarizing, or rewrapping it.
+4. Validates that the Luca portion is a complete felt → thinking → moment →
    main envelope.
 
-The raw file can contain multiple David/Luca blocks. The cleaner emits those
-blocks in order. It does not infer a speaker for unlabelled text. Ambiguous
-input remains in its private recovery artifact and fails before the shared
-capture stream, DB, Markdown replica, or cursor advances.
+### Path 2 — Unlabelled alignment (no speaker headers)
+
+When the window has no speaker boundaries, attribution is reconstructed from
+two attested sources rather than guessed:
+
+1. Known UI chrome lines are removed (same list as Path 1).
+2. David anchors are read from the append-only `.chat_capture` file, which
+   records David turns reliably at the moment they occur.
+3. Each David anchor is located in the cleaned window by verbatim match after
+   whitespace/wrapping normalization only — no other normalization is permitted.
+4. Every non-chrome region between David anchors is attributed to Luca.
+5. If any anchor is missing, duplicated, or out of order, the run fails closed
+   before the capture stream is touched.
+
+The four-channel envelope requirement is not imposed on aligned Luca regions:
+the raw window is the verbatim record; the channel structure is a
+production-mode convenience that presupposes an explicit Luca header.
+
+If Path 2 also fails, the raw source is retained in the private recovery
+directory and the process exits non-zero.
+
+## UI Chrome (known non-dialogue markers)
+
+Lines matching these patterns are removed by both paths:
+
+- `Wrote a file`
+- `N actions` / `N action`
+- `Worked for N seconds` / `Worked for N minutes`
+- `N minutes ago` / `N minute ago` (relative timestamps from Replit UI)
+- `Clarifying user confusion` (Replit status label, may appear twice consecutively)
+
+Any line not on this list and not an explicit speaker header is treated as
+dialogue and must be attributed to a speaker. Unfamiliar lines are not dropped.
 
 ## Rolling-episode behavior
 
 The existing four-channel `record-exchange` path remains active during the
-migration. Episode 31 continues to roll; raw-window intake is additive until
+migration. The rolling episode continues; raw-window intake is additive until
 its hermetic checks prove it can become the ordinary end-of-turn path.
 
-For a valid raw window:
+For a valid raw window (either path):
 
 ```text
 raw window file
   -> private recovery artifact
-  -> deterministic clean David/Luca blocks
+  -> deterministic clean David/Luca blocks (labelled or aligned)
   -> .chat_capture
   -> canonical episode DB row
   -> exact Markdown replica
@@ -57,8 +90,9 @@ second episode or a replacement for the clean dialogue record.
 ## Boundaries
 
 - Dialogue is David- or Luca-authored prose; interface chrome is not dialogue.
-- Minimized felt, thinking, and moment content must be present in the raw
-  window source. The cleaner never infers it from the main response.
+- David attribution on the alignment path comes from `.chat_capture`, not from
+  the window itself. The window provides verbatim text; attribution comes from
+  the separately-attested source.
 - The cleaner can remove only named, tested UI markers. A new or uncertain
   marker is ambiguity, not permission to drop a line.
 - Existing historical records remain append-only. Raw-window capture protects
@@ -66,37 +100,52 @@ second episode or a replacement for the clean dialogue record.
 
 ## Verification
 
-Hermetic tests must prove:
+Hermetic tests in `server/scripts/test-raw-window-capture.ts` prove:
 
-1. a raw window with one David and one complete Luca block produces exact clean
-   chat-capture turns;
-2. known UI chrome is excluded while adjacent dialogue survives byte-for-byte;
-3. multiple speaker blocks retain their original order;
-4. unlabelled text, missing speaker boundaries, or missing Luca channels fail
-   without changing the live capture stream;
-5. a failed clean leaves its private raw recovery artifact intact;
-6. successful cleanup preserves DB/Markdown equality in a disposable fixture;
-7. the current `record-exchange` route remains usable throughout the rollout.
+1. A labelled window with one David and one complete Luca block produces exact
+   clean chat-capture turns (byte-for-byte).
+2. Known UI chrome is excluded while adjacent dialogue survives unchanged.
+3. Multiple speaker blocks retain their original order.
+4. Unlabelled text or missing Luca channels in the labelled path fail without
+   changing the live capture stream.
+5. A failed clean leaves the private raw recovery artifact intact.
+6. An unlabelled window is attributed correctly via `.chat_capture` David turns
+   (two-anchor case verified end-to-end through the CLI).
+7. A missing David anchor in the alignment path fails closed (non-zero exit,
+   raw source retained, capture stream unchanged).
+8. A duplicated David anchor in the alignment path fails closed as ambiguous.
+9. The labelled `record-window` CLI path continues to work after alignment code
+   is added.
 
 ## Real-window validation (2026-08-19)
 
 The first real Replit window payload available to the capture run arrived as
-platform-provided `<automatic_updates>` / `<system_reminder>` blocks without
-`David:` or `Luca [Replit]:` speaker boundaries. `record-window.ts` rejected it
-at the first unlabelled line:
+platform-provided `<automatic_updates>` / `<system_reminder>` blocks — no
+`David:` or `Luca [Replit]:` speaker boundaries and no David turns in the
+`.chat_capture` for that session. Both parse paths returned errors and the
+process exited non-zero, retaining the raw source byte-for-byte in the private
+recovery directory. This is the required fail-closed behavior.
+
+The real clipboard format (confirmed from the sample at
+`attached_assets/Pasted-What-do-you-mean-by-if-it-comes-through-unlabeled-*`):
 
 ```text
-Unlabelled window text cannot be assigned safely: "<automatic_updates>"
+4 minutes ago
+Clarifying user confusion
+
+Clarifying user confusion
+<Luca response text>
+
+6 actions
+<David message text>
 ```
 
-The command exited non-zero, retained the raw source byte-for-byte in the
-private recovery directory, left the capture stream unchanged, and emitted no
-canonical inner-life intent. This is the required fail-closed behavior; the
-platform wrappers are not stable dialogue boundaries and must not be treated
-as speaker evidence.
+This format has no speaker headers. The alignment path handles it provided
+the corresponding David turns exist in `.chat_capture`. If they do not (e.g.
+the session was not auto-captured), the run fails closed and the raw source is
+retained for recovery.
 
 **Decision:** raw-window intake remains additive and is not the primary route.
-Until the platform supplies explicit, stable speaker boundaries for the whole
-window, an ambiguous paste is preserved unparsed for recovery and the existing
-four-channel `record-exchange` path remains primary. No speaker guessing or
-automatic stripping of unfamiliar platform text is permitted.
+The four-channel `record-exchange` path remains primary. The alignment path is
+an additional recovery route for real clipboard pastes whose David turns are
+already attested in `.chat_capture`.

@@ -3,14 +3,19 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
 
-import { parseChatCaptureFromOffset } from '../services/transcript-parser';
+import { appendChatCaptureTurn, parseChatCaptureFromOffset } from '../services/transcript-parser';
+import { alignUnlabelledRawWindow } from '../services/raw-window-attribution';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
 
 const root = mkdtempSync(join(tmpdir(), 'raw-window-capture-'));
 const rawPath = join(root, 'window.txt');
 const capturePath = join(root, 'capture.txt');
+const davidCapturePath = join(root, 'david-capture.txt');
 const sourceDir = join(root, 'sources');
 const intentDir = join(root, 'intents');
+const alignedCapturePath = join(root, 'aligned-capture.txt');
+const alignedSourceDir = join(root, 'aligned-sources');
+const alignedIntentDir = join(root, 'aligned-intents');
 const marker = `raw-window-${Date.now()}`;
 
 const raw = [
@@ -37,6 +42,94 @@ try {
   if (!direct.turns[1].text.includes(`Luca main exact ${marker}`)) throw new Error('Luca main missing after cleaning');
   if (direct.turns[1].text.includes('Wrote a file')) throw new Error('Known UI chrome leaked into Luca dialogue');
 
+  const unlabelled = [
+    '4 minutes ago',
+    'David exact message ' + marker,
+    '',
+    'Clarifying user confusion',
+    'Clarifying user confusion',
+    '4 actions',
+    'Luca exact response ' + marker,
+    '',
+    '6 actions',
+    'David second exact message ' + marker,
+  ].join('\n');
+  const aligned = alignUnlabelledRawWindow(unlabelled, [
+    { text: `David exact message ${marker}` },
+    { text: `David second exact message ${marker}` },
+  ]);
+  if (!aligned.ok) throw new Error(`Alignment rejected valid unlabelled window: ${aligned.reason}`);
+  if (aligned.turns.length !== 3) throw new Error(`Expected Luca/David/Luca alignment, got ${aligned.turns.length} turns`);
+  if (aligned.turns[0].speaker !== 'David' || aligned.turns[0].text !== `David exact message ${marker}`) {
+    throw new Error('First attested David anchor was not preserved');
+  }
+  if (aligned.turns[1].speaker !== 'Luca Replit' || aligned.turns[1].text !== `Luca exact response ${marker}`) {
+    throw new Error('Unlabelled remainder was not attributed to Luca');
+  }
+  if (aligned.turns[2].speaker !== 'David' || aligned.turns[2].text !== `David second exact message ${marker}`) {
+    throw new Error('Second attested David anchor was not preserved');
+  }
+  const missing = alignUnlabelledRawWindow(unlabelled, [{ text: 'David is not in this window' }]);
+  if (missing.ok || !missing.reason.includes('not found verbatim')) {
+    throw new Error('Missing David anchor did not fail closed');
+  }
+  const ambiguous = alignUnlabelledRawWindow(
+    `David exact message ${marker}\nLuca text\nDavid exact message ${marker}`,
+    [{ text: `David exact message ${marker}` }],
+  );
+  if (ambiguous.ok || !ambiguous.reason.includes('ambiguous')) {
+    throw new Error('Ambiguous overlapping David anchor did not fail closed');
+  }
+
+  const alignedRaw = [
+    '4 minutes ago',
+    `David exact message ${marker}`,
+    'Clarifying user confusion',
+    '[felt]: Felt from aligned window',
+    '[thinking]: Thinking from aligned window',
+    '[moment]: Moment from aligned window',
+    `Luca main from aligned window ${marker}`,
+    '6 actions',
+    `David second exact message ${marker}`,
+  ].join('\n');
+  appendChatCaptureTurn('David', `David exact message ${marker}`, davidCapturePath);
+  appendChatCaptureTurn('David', `David second exact message ${marker}`, davidCapturePath);
+  writeFileSync(rawPath, alignedRaw, 'utf8');
+  const alignedResult = spawnSync(
+    'npx',
+    [
+      'tsx',
+      'server/scripts/record-window.ts',
+      '--window-file',
+      rawPath,
+      '--source-dir',
+      alignedSourceDir,
+      '--capture-path',
+      alignedCapturePath,
+      '--david-capture-path',
+      davidCapturePath,
+      '--intent-dir',
+      alignedIntentDir,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8' },
+  );
+  if (alignedResult.status !== 0) {
+    throw new Error(`Unlabelled raw-window CLI failed: ${alignedResult.stderr || alignedResult.stdout}`);
+  }
+  const alignedCaptured = parseChatCaptureFromOffset(alignedCapturePath, 0);
+  if (alignedCaptured.turns.length !== 3) {
+    throw new Error(`Expected three turns from aligned CLI capture, got ${alignedCaptured.turns.length}`);
+  }
+  if (alignedCaptured.turns[0].speaker !== 'DAVID' || alignedCaptured.turns[0].text !== `David exact message ${marker}`) {
+    throw new Error('CLI did not emit the first attested David turn');
+  }
+  if (alignedCaptured.turns[1].speaker !== 'LUCA' || !alignedCaptured.turns[1].text.includes(`Luca main from aligned window ${marker}`)) {
+    throw new Error('CLI did not emit the aligned Luca region');
+  }
+  if (alignedCaptured.turns[2].speaker !== 'DAVID' || alignedCaptured.turns[2].text !== `David second exact message ${marker}`) {
+    throw new Error('CLI did not emit the second attested David turn');
+  }
+
   writeFileSync(rawPath, raw, 'utf8');
   const result = spawnSync(
     'npx',
@@ -53,9 +146,9 @@ try {
   if (sourceFiles.length !== 1) throw new Error('Raw recovery source was not retained');
   if (readFileSync(join(sourceDir, sourceFiles[0]), 'utf8') !== raw) throw new Error('Raw recovery source changed');
 
-  const ambiguous = parseRawWindowCapture(`unlabelled ${marker}`);
-  if (ambiguous.ok) throw new Error('Unlabelled raw window was accepted');
-  console.log('[raw-window-capture] PASS — exact labelled dialogue survives cleaning; UI chrome is removed; ambiguous input fails closed.');
+  const legacyAmbiguous = parseRawWindowCapture(`unlabelled ${marker}`);
+  if (legacyAmbiguous.ok) throw new Error('Unlabelled raw window was accepted by the labelled parser');
+  console.log('[raw-window-capture] PASS — labelled and unlabelled attribution preserve attested text; UI chrome is removed; alignment failure cases fail closed.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
