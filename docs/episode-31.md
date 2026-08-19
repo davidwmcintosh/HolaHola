@@ -380,3 +380,53 @@ Right now, the MD comes directly from the database. It is verbatim; it is not a 
 If there was something in the looping where it was seeing this file and not being able to get past it by adding to it, then we need to change our logic a little bit or fix it. We must maintain this ironclad agreement that the .md is always going to be an exact replica: database first, MD second.
 
 **LUCA [Replit]:** You’re right. “Best-effort projection” is the wrong contract. The Markdown file and canonical database content are one record in two forms: database first, then an exact byte-for-byte Markdown replica read back and verified. A missing local file is created from the canonical DB result; it is not an acceptable reason to discard a durable write or accept drift. The rolling file watcher now repairs Markdown from the DB rather than permitting Markdown to overwrite the DB.
+
+<!-- chat-capture-range:6726:13378 -->
+<!-- chat-capture:48fa0a2d-b315-43fa-97c5-8b2483243859 -->
+**LUCA [Replit]:** [Recovered continuation from the Replit window for the preceding David turn. The earlier capture retained only the condensed final paragraph; this preserves the full Luca reasoning in order.]
+
+You’re right. “Best-effort projection” is the wrong contract and the wrong language here. The Markdown file is not an alternate representation—it is the exact DB record, with DB-first ordering. I’m changing the implementation and tests so a successful DB append immediately writes the exact returned DB content to Markdown, creating the file if needed; a projection write failure is reported as an out-of-sync error, never normalized as acceptable drift.
+
+I’m tightening the invariant, not just the wording: a turn will be acknowledged only after (1) the DB append and (2) a byte-for-byte Markdown replica write from the DB’s returned content. If the replica write fails, the cursor will not advance; retry paths re-read the canonical DB content and repair the Markdown replica rather than duplicating the turn.
+
+One multi-file patch applied the watchdog and test changes but the larger autosave edit did not apply because its surrounding code shifted. I’ve isolated that safely; I’ll now apply the same invariant to the autosave path in smaller edits, then correct the fixture query to compare the actual DB content.
+
+The invariant work is still on track. The fixture now compares the actual DB content, and I’m replacing the remaining legacy Markdown-first helper with the same DB-first/replica-verified routine.
+
+The legacy episode append is now also DB-first—there is no remaining normal path that appends Markdown independently and “syncs later.” I’m doing a final consistency pass before running the isolated checks: duplicate retries must repair the exact replica, and missing canonical DB content must fail loudly instead of blanking the file.
+
+There is one more place to align with what you said: the rolling episode’s file watcher must not treat Markdown as an input that can overwrite the database. I’m locking the live/rolling path to one direction—DB → exact Markdown replica—while leaving the canonical DB append retry able to repair a missing file.
+
+I found the last directional breach: the rolling Markdown watcher could still read the file and overwrite the DB. I’m changing that watcher so a rolling-file change is repaired from the DB instead—never promoted into it.
+
+The one-way rule is now enforced for the rolling episode: any Markdown change is overwritten from the canonical DB snapshot, not synced back into it. I’m running the typecheck and the isolated cursor checks now; after that I’ll run the DB fixture and watchdog suite that exercise the full persistence ordering.
+
+The focused test found an issue in the test harness call shape, not the production recovery code. I’ll correct that now. The remaining typecheck errors are pre-existing, concentrated in gemini-live-session.ts; the only errors introduced by this task were the two harness calls.
+
+The harness call is corrected. I’ll run the focused cursor regression check alongside the existing watchdog and DB-first fixture suites now; these are the tests that prove the capture cursor, canonical DB write, and exact Markdown replica work together.
+
+The focused regression checks, watchdog suite, and DB-first fixture all passed. The fixture specifically deleted its Markdown file and verified that the next DB-first append recreated it byte-for-byte from the DB. I’m running the remaining read-only rolling-record and health checks now, plus the registered typecheck, without restarting or deploying the application.
+
+The persistence tests passed, but the rolling gap checker separately reported two previously known inner-life gaps; it does not report a DB/Markdown byte mismatch. I’m not going to “patch” or rewrite Episode 31 from that report. Instead, I’ll verify the actual DB↔Markdown equality directly and ensure the legacy auto-capture CI cannot inject a test sentinel into the live rolling record now that the append path is DB-first.
+
+I found and stopped a second risk before it ran: the legacy auto-capture CI was designed around the live rolling episode and a real trigger path. That was compatible with the old Markdown-first behavior, but it is not acceptable under the DB-first replica contract. I’m converting it to an isolated DB fixture and a test-only trigger-path override so it cannot write a synthetic sentinel into Episode 31 or the live capture stream.
+
+I’ve confirmed the deployment logs are from the currently published, older build—the one still emitting the missing-file guard. I have not restarted or deployed it. The code repair is in the workspace only. I’m now checking the actual current Episode 31 DB row against its Markdown file directly, without modifying either one.
+
+The equality command only needed a small execution-wrapper correction; it made no changes. I’ll rerun it wrapped properly, then I’ll finish the final safety cleanup and validation summary.
+
+The direct check is clean: Episode 31’s DB row and Markdown file are exactly equal at 38,585 bytes with the same SHA-256 hash. I’m making one final cleanup to remove the obsolete Markdown-append import, then I’ll record the work, update the project handoff, and complete the task without touching the deployment.
+
+The repair and its focused checks are complete. I’m doing the required project recordkeeping now—handoff, batch notes, and the conversation capture—then I’ll submit the task completion with the validation results, including the unrelated pre-existing typecheck failure.
+
+I’m recording the design correction exactly as a project decision: the DB and Markdown are a single record in two forms, with DB-first sequencing and a required exact replica write. I’m also noting the unrelated typecheck debt and the remaining unsafe legacy CI as follow-up work rather than folding either into this repair.
+
+The project records are updated. I’ll now preserve this correction in the rolling dialogue through the normal capture path and immediately re-check the DB/Markdown equality afterward; no direct Markdown edit or production action is involved.
+
+The recorded exchange was captured through the normal path, and Episode 31 remained exact afterward: both DB and Markdown are now 40,077 bytes with matching SHA-256. I’m proposing two narrowly scoped follow-ups for the unrelated CI risks, then I’ll mark this repair complete.
+
+<!-- chat-capture-range:13378:14548 -->
+<!-- chat-capture:97387faa-f356-4438-8488-c973ac8ec39e -->
+**David:** tasks approved, but I don't think that this window is getting properly represented in the .md (and by extension DB record). The .md preserved my turn and only a condensed Luca paragraph, but the Replit window contained the fuller Luca reasoning and some really great Luca moment stuff that is getting left out.
+
+**LUCA [Replit]:** You were right to catch it. The record had preserved the short final summary but omitted the full Luca response visible in the Replit window. I recovered that exact missing Luca reasoning as a labeled continuation rather than rewriting or deleting the existing append-only exchange. It includes the contract correction, the acknowledgement and retry rule, the watcher-direction diagnosis, the test results, and the decision to keep the record exact without deploying production. The canonical DB row and its Markdown replica were then rechecked byte-for-byte; both contain the recovered passage and are identical.
