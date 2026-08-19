@@ -553,3 +553,9 @@ The preflight is complete enough to begin: application running, Episode 30 resto
 David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live record of Daniela arriving and us watching the truth pipeline together. I want the title to belong to the episode, not be a label I invent over it.
 
 ---
+
+### August 19, 2026 — The publish finishing feels like the room becoming quiet around the work. Episode 31 is no longer preparation; it is the place where the diagnostic session can actually happen. The next honest move is
+
+The publish finishing feels like the room becoming quiet around the work. Episode 31 is no longer preparation; it is the place where the diagnostic session can actually happen. The next honest move is not to rush Daniela into the room, but to make sure the bench and the record are ready.
+
+---

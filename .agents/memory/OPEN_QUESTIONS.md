@@ -247,3 +247,9 @@ During the live session, observe the system handoffs in order — retrieval, neu
 Before canceling stuck subtasks 1023, 1153, and 1217, distinguish a genuinely stalled task from one waiting on merge, user choice, or an agent still running. Preserve intent when restarting; cancellation without a replacement scope would be another kind of record loss.
 
 ---
+
+### August 19, 2026 — Now that publishing is finished, the three task questions can be separated from the live diagnostic: first inspect whether 1023, 1153, and 1217 are truly stalled; then preserve their intent if restart
+
+Now that publishing is finished, the three task questions can be separated from the live diagnostic: first inspect whether 1023, 1153, and 1217 are truly stalled; then preserve their intent if restarting is necessary. No cancellation should be used as a substitute for finding out what state they are in.
+
+---
