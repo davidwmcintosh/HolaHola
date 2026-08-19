@@ -16,6 +16,10 @@ const intentDir = join(root, 'intents');
 const alignedCapturePath = join(root, 'aligned-capture.txt');
 const alignedSourceDir = join(root, 'aligned-sources');
 const alignedIntentDir = join(root, 'aligned-intents');
+const emptyDavidCapturePath = join(root, 'empty-david-capture.txt');
+const emptyCapturePath = join(root, 'empty-capture.txt');
+const emptySourceDir = join(root, 'empty-sources');
+const emptyIntentDir = join(root, 'empty-intents');
 const marker = `raw-window-${Date.now()}`;
 
 const raw = [
@@ -128,6 +132,47 @@ try {
   }
   if (alignedCaptured.turns[2].speaker !== 'DAVID' || alignedCaptured.turns[2].text !== `David second exact message ${marker}`) {
     throw new Error('CLI did not emit the second attested David turn');
+  }
+
+  const noDavidAnchorsRaw = [
+    '4 minutes ago',
+    `No captured David turn in this window ${marker}`,
+    'Luca response from a session without auto-capture',
+  ].join('\n');
+  const existingCapture = `existing capture must remain unchanged ${marker}\n`;
+  writeFileSync(rawPath, noDavidAnchorsRaw, 'utf8');
+  writeFileSync(emptyDavidCapturePath, '', 'utf8');
+  writeFileSync(emptyCapturePath, existingCapture, 'utf8');
+  const noDavidAnchorsResult = spawnSync(
+    'npx',
+    [
+      'tsx',
+      'server/scripts/record-window.ts',
+      '--window-file',
+      rawPath,
+      '--source-dir',
+      emptySourceDir,
+      '--capture-path',
+      emptyCapturePath,
+      '--david-capture-path',
+      emptyDavidCapturePath,
+      '--intent-dir',
+      emptyIntentDir,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8' },
+  );
+  if (noDavidAnchorsResult.status === 0) {
+    throw new Error('Unlabelled raw-window CLI accepted a window with no attested David turns');
+  }
+  const emptySourceFiles = readdirSync(emptySourceDir);
+  if (emptySourceFiles.length !== 1) {
+    throw new Error('Raw recovery source was not retained after alignment failed with no David anchors');
+  }
+  if (readFileSync(join(emptySourceDir, emptySourceFiles[0]), 'utf8') !== noDavidAnchorsRaw) {
+    throw new Error('Raw recovery source changed after alignment failed with no David anchors');
+  }
+  if (readFileSync(emptyCapturePath, 'utf8') !== existingCapture) {
+    throw new Error('Capture path changed after alignment failed with no David anchors');
   }
 
   writeFileSync(rawPath, raw, 'utf8');
