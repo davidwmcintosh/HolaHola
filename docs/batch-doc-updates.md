@@ -4222,3 +4222,16 @@ that known turn when it is present; otherwise it logs the unverified reset and
 replays the file rather than silently skipping new dialogue. The regression
 checks cover the verified suffix boundary, the failure-detecting self-check,
 and missing-Markdown creation with exact DB equality.
+
+---
+
+## Raw-window whitespace-alignment self-check — August 19, 2026
+
+The raw-window capture regression script now has an alignment mutation mode.
+It uses a David anchor with a hard line wrap against a raw window that contains
+the same words with soft-wrap whitespace, proves the live normalizer aligns it,
+then substitutes an identity normalizer and requires the alignment to fail
+closed. The normalizer is restored before the check ends. The named
+`raw-window-capture-alignment-selfcheck` validation workflow runs this proof in
+CI, protecting the contract that alignment accepts whitespace/wrapping
+differences but no other rewrite.

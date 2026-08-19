@@ -7017,6 +7017,18 @@ sentinel only from Markdown while leaving synthetic dialogue in the canonical
 database record. Normal and self-check runs passed, with a final database leak
 query confirming no sentinel remained.
 
+---
+
+## Addendum — August 19, 2026 (raw-window alignment self-check)
+
+The raw-window capture check has a registered mutation self-check for the
+whitespace-only alignment contract. A hard-wrapped attested David anchor aligns
+to a soft-wrapped raw-window line with the production normalizer, fails closed
+when that normalizer is replaced by identity, and succeeds again after the
+test-only override is restored. The new named validation workflow is
+`raw-window-capture-alignment-selfcheck`; the normal test, mutation check, and
+TypeScript check are clean. No schema, prompt, or live-record changes.
+
 Project-wide typecheck remains blocked by the pre-existing unresolved names in
 `gemini-live-session.ts`; this work did not add errors. System health passed;
 the only warnings were optional localhost object-storage route probes skipped

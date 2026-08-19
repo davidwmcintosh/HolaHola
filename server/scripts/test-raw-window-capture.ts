@@ -4,8 +4,117 @@ import { join } from 'path';
 import { spawnSync } from 'child_process';
 
 import { appendChatCaptureTurn, parseChatCaptureFromOffset } from '../services/transcript-parser';
-import { alignUnlabelledRawWindow } from '../services/raw-window-attribution';
+import {
+  alignUnlabelledRawWindow,
+  _setNormalizeRawWindowForAlignmentForTest,
+} from '../services/raw-window-attribution';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const B = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
+
+// ── Self-check mode ───────────────────────────────────────────────────────────
+
+const SELF_CHECK = process.argv.includes('--self-check');
+
+/**
+ * Self-check mode (--self-check).
+ *
+ * Confirms that the normal-mode test WOULD catch a regression that removes
+ * normalizeRawWindowForAlignment from the aligner.
+ *
+ * How it works:
+ *   1. Build a raw window where David's attested text has a hard line-wrap
+ *      (i.e. a newline in the middle) that the live window presents as a
+ *      single soft-wrapped line (no embedded newline).
+ *   2. Verify that with the real normalizer the anchor is found (the test is
+ *      testing the right thing — the normalizer matters).
+ *   3. Replace the normalizer with an identity function (no whitespace
+ *      collapse) via the test seam _setNormalizeRawWindowForAlignmentForTest.
+ *   4. Assert that alignment now FAILS — the wrapped anchor is not found.
+ *   5. Restore the real normalizer and assert that the same window passes
+ *      again (no side-effects left behind).
+ *
+ * Exits 0 when all assertions pass (the regression IS detectable).
+ * Exits 1 when any assertion fails (the self-check itself is broken).
+ */
+function runSelfCheck(): void {
+  console.log(B('\n══ Raw-Window Capture — Alignment Self-Check ══\n'));
+  console.log('  Confirms that removing normalizeRawWindowForAlignment makes alignment fail.\n');
+
+  // ── Set up a window with a soft-wrapped David turn ────────────────────────
+  // The attested anchor David gave us has a newline in the middle (as it
+  // came from the .chat_capture file), but the copy-pasted Replit window
+  // collapsed those whitespace differences into a single space.
+  const sc = `self-check-${Date.now()}`;
+  const davidAttestedText = `This is line one of the message\nand here is line two of it ${sc}`;
+  const lucaText = `Great point! Let me help with that ${sc}`;
+
+  // The raw window uses a soft wrap (single space, no newline) between
+  // "line one" and "and here", exactly as Replit renders it.
+  const rawWindow = [
+    `This is line one of the message and here is line two of it ${sc}`,
+    '',
+    lucaText,
+  ].join('\n');
+
+  const anchor = { text: davidAttestedText };
+
+  // ── Assertion 1: real normalizer → alignment succeeds ────────────────────
+  const withReal = alignUnlabelledRawWindow(rawWindow, [anchor]);
+  if (!withReal.ok) {
+    console.error(R('SELF-CHECK SETUP ERROR: real normalizer failed to align the test window.'));
+    console.error(`  reason: ${withReal.reason}`);
+    console.error('  The self-check window is incorrectly constructed.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ real normalizer → alignment succeeds (the test exercises real behaviour)'));
+
+  // ── Assertion 2: identity normalizer → alignment fails ───────────────────
+  let identityResult: ReturnType<typeof alignUnlabelledRawWindow> | null = null;
+  try {
+    _setNormalizeRawWindowForAlignmentForTest((text: string) => text); // identity — no whitespace collapse
+    identityResult = alignUnlabelledRawWindow(rawWindow, [anchor]);
+  } finally {
+    _setNormalizeRawWindowForAlignmentForTest(null); // always restore
+  }
+
+  if (identityResult === null) {
+    console.error(R('SELF-CHECK ERROR: alignment call threw unexpectedly.'));
+    process.exit(1);
+  }
+
+  if (identityResult.ok) {
+    console.error(R('SELF-CHECK FAIL: identity normalizer still aligned the window — the regression is undetectable.'));
+    console.error('  The test window must use an anchor that genuinely requires whitespace normalization.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ identity normalizer → alignment fails (removing normalizer is detectable)'));
+  console.log(`    reason: ${identityResult.reason}`);
+
+  // ── Assertion 3: real normalizer works again after restore ────────────────
+  const afterRestore = alignUnlabelledRawWindow(rawWindow, [anchor]);
+  if (!afterRestore.ok) {
+    console.error(R('SELF-CHECK FAIL: alignment broken after normalizer was restored.'));
+    console.error(`  reason: ${afterRestore.reason}`);
+    console.error('  The test seam left side-effects — restore logic is broken.');
+    process.exit(1);
+  }
+  console.log(G('  ✓ normalizer restored → alignment succeeds again (no side-effects)'));
+
+  console.log(G('\n  ✓ SELF-CHECK PASSED — removing normalizeRawWindowForAlignment is detectable.\n'));
+}
+
+// ── Normal-mode tests ─────────────────────────────────────────────────────────
+
+if (SELF_CHECK) {
+  runSelfCheck();
+  process.exit(0);
+}
 
 const root = mkdtempSync(join(tmpdir(), 'raw-window-capture-'));
 const rawPath = join(root, 'window.txt');

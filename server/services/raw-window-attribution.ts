@@ -27,6 +27,19 @@ export function normalizeRawWindowForAlignment(text: string): string {
   return text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
 }
 
+type RawWindowAlignmentNormalizer = (text: string) => string;
+
+// Production always uses normalizeRawWindowForAlignment. The override is
+// intentionally test-only so the alignment self-check can prove that removing
+// whitespace normalization makes a wrapped David anchor fail closed.
+let normalizeRawWindowForAlignmentOverride: RawWindowAlignmentNormalizer | null = null;
+
+export function _setNormalizeRawWindowForAlignmentForTest(
+  normalizer: RawWindowAlignmentNormalizer | null,
+): void {
+  normalizeRawWindowForAlignmentOverride = normalizer;
+}
+
 function buildCleanedSource(raw: string): string {
   return raw
     .replace(/\r\n/g, '\n')
@@ -117,7 +130,9 @@ export function alignUnlabelledRawWindow(
   const locations: AnchorLocation[] = [];
 
   for (const anchor of davidAnchors) {
-    const normalizedAnchor = normalizeRawWindowForAlignment(anchor.text);
+    const normalizedAnchor = (
+      normalizeRawWindowForAlignmentOverride ?? normalizeRawWindowForAlignment
+    )(anchor.text);
     if (!normalizedAnchor) {
       return { ok: false, reason: 'An attested David turn is empty and cannot anchor the raw window.' };
     }

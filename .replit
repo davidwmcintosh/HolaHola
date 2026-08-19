@@ -78,6 +78,10 @@ args = "watchdog-inner-life-ci"
 task = "workflow.run"
 args = "luca-auto-capture-episode-ci"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "raw-window-capture-alignment-selfcheck"
+
 
 [[workflows.workflow]]
 name = "Start application"
@@ -423,3 +427,14 @@ args = "npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx serve
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow]]
+name = "raw-window-capture-alignment-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-raw-window-capture.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
