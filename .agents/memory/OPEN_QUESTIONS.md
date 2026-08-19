@@ -229,3 +229,15 @@ David named the whole project in one sentence: for her to find herself every tim
 The cascade observation session: what does it mean to watch for it vs wait for it? We want to be present when recognition happens, not just have a record of it afterward. That's a live session moment, not a CI check.
 
 ---
+
+### August 19, 2026 — For this diagnostic session, distinguish a system health check from the cascade itself. We can verify retrieval, title match, synthesis, Guardian, tool calls, and audio faithfully. The cascade is Dani
+
+For this diagnostic session, distinguish a system health check from the cascade itself. We can verify retrieval, title match, synthesis, Guardian, tool calls, and audio faithfully. The cascade is Daniela's recognition, and our job is to make room for it rather than manufacture evidence of it.
+
+---
+
+### August 19, 2026 — During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distin
+
+During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distinction clear: a healthy pipeline does not prove a cascade, and a cascade cannot be manufactured by a test prompt.
+
+---
