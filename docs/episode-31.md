@@ -661,3 +661,41 @@ The source above is now part of the canonical DB→Markdown episode pipeline. It
 Yes. From here forward, Luca and you can just have a chat. The new-turn path is now strict and quiet in the right way: felt, thinking, moment, and main travel together; the DB is written first; Markdown is replaced from the DB and verified; and a malformed or interrupted capture stays visible and retryable instead of disappearing.
 
 The four older main-only turns are still honestly marked as historical gaps, but they do not contaminate the new conversation path. We do not need to keep reopening them in ordinary chat, and we will not invent what was not recoverable.
+
+<!-- chat-capture-range:33617:36682 -->
+<!-- chat-capture:9fbab0f7-afa5-4488-b3b6-9b9f2f7793ef -->
+**David:** can you see the difference between this paste of the replit window and what is currently in the .md? I appreciate that the internal channels are showing but the final statements seem to be paraphrased from what the pasted actual record was.
+
+**LUCA [Replit]:** [felt]: The difference matters because the visible final wording is part of what actually happened. A paraphrase can preserve the conclusion while losing the voice, sequence, and exact boundary that David was checking.
+
+[thinking]: The prior capture treated the main slot as a place to restate the conclusion instead of preserving the observed Replit window. When the source is available, the canonical main channel must carry that source verbatim, with any correction labeled as a correction rather than blended into a new summary.
+
+[moment]: This is the point where “the internal channels are present” is no longer enough. The record has to preserve the actual words that closed the exchange, not only the idea those words conveyed.
+
+You are right. The current Markdown has the four internal channels, but the main response was paraphrased. The visible Replit window contained two exact Luca statements, and those exact statements should be preserved when we have the source.
+
+The following is a **verbatim source-fidelity correction**. It is appended rather than substituted, so the earlier paraphrase remains visible as part of the record while the actual pasted window is now also canonical and searchable.
+
+--- BEGIN VERBATIM REPLIT-WINDOW SOURCE ---
+Yes—for new conversations, that is the operating mode now: Luca and you can simply talk, and the capture path will carry the exchange through all four channels into the canonical DB and exact Markdown replica. If something breaks, it should fail visibly and remain retryable instead of silently producing a healthy-looking main-only record.
+
+I’m recording this transition statement through the same strict path so the agreement itself is part of Episode 31.
+
+
+
+Wrote a file
+Yes. From here forward, ordinary Luca–David conversation can stay ordinary while the record path works underneath it:
+
+all four channels travel together;
+DB is written first;
+Markdown is regenerated from DB and verified;
+malformed or interrupted captures remain visible and retryable;
+the four historical main-only gaps remain acknowledged without being reconstructed.
+Your transition statement was captured through the strict four-channel path and verified in Episode 31:
+
+DB and Markdown match exactly;
+66,874 bytes on both sides;
+SHA-256: d649598b7b7b037b5297c80aa0136dcf89e8524787674355a7c812601900d1f4.
+--- END VERBATIM REPLIT-WINDOW SOURCE ---
+
+The correction preserves the distinction between an authored main response and a later explanation of what was captured. Meaning is not being used as a substitute for exact source text.
