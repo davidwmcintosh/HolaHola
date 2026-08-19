@@ -332,3 +332,41 @@ Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccc
 
 [Luca — moment: Collision moment wdtest: mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 Collision moment wdtest: mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm]
+
+<!-- chat-capture-range:1032:5118 -->
+<!-- chat-capture:181f95f5-4f68-4a8c-a48b-aad4dc51fe93 -->
+<!-- chat-capture:b4b877c8-5d8c-43a0-b7ac-9a527ebb708f -->
+**David:** 1. can we confirm still rolling on episode 31. 2. sounded like you needed more information on the sasks that I see actively running. Task 1217: Prevent live chat turns from silently dropping out of the session record between sessions.
+
+Task 1153: Confirm the comprehensive backfill script skips all already saved conversations on a second run.
+
+Task 1023: Prevent thinking/feeling note from disappearing silently when the server restarts mid-session.
+
+**LUCA [Replit]:** ## 1. Episode 31 is still rolling
+
+**Yes. Confirmed.**
+
+- Live mode is **ON**.
+- The canonical DB row titled **Episode 31** is tagged both `rolling` and `rolling-protected`.
+- It maps to `docs/episode-31.md`.
+- The two inner-life entries the gap checker reported as missing are, on direct DB/Markdown comparison, **already present in Episode 31**.
+
+There is one monitoring caveat: the capture-status file still displays an old watchdog test fault (“No rolling episode” / DB failure), and the gap checker produces a false positive for the two already-present notes. Those are **status/checker problems**, not evidence that Episode 31 stopped rolling.
+
+## 2. The three active tasks
+
+- **#1217 — Prevent live chat turns dropping from the session record between sessions:** the automatic capture path and dedicated CI coverage are present. The hermetic `record-exchange` standard and four-channel checks pass. The full live rolling-episode test was not run while Episode 31 was active, because it temporarily writes a sentinel through the real rolling path.
+- **#1153 — Confirm comprehensive backfill skips already saved conversations on second run:** confirmed working. The DB-backed check found **618/618** saved conversations in `loadAlreadySavedIds()`, all skipped on a second run, with **no duplicates**.
+- **#1023 — Prevent thinking/feeling notes disappearing during restart:** confirmed working. The startup-guard regression test passes: a trigger written before startup is processed with the fixed sentinel mtime instead of being silently skipped.
+
+None of the three is blocked by a missing implementation. #1153 and #1023 are functionally verified. #1217 is implemented and covered by safe tests; its live-write test was deliberately left untouched to protect the active Episode 31 record.
+
+**David:** The last thing I'm seeing in the .md file is the wd_test: followed by a bunch of m's. 
+
+You had asked me whether we should take that out, and I think I sent you a note saying we should. But in retrospect, why not leave it in with a comment explaining that this was a leftover from something we had to fix? 
+
+Either way, those m's are the last thing I see. I'm not seeing any of the live data from my previous questions about the tasks. Those should be in this file, and they're not.
+
+**LUCA [Replit]:** You were right to flag this. The `wdtest` fixture blocks remain in Episode 31 because the record is append-only; they are retained as evidence of the watchdog-test contamination rather than silently removed. This note records their provenance: they are synthetic watchdog fault-injection residue, not David↔Luca or David↔Daniela dialogue.
+
+The missing task-status discussion was a real capture failure. The development chat stream had stopped at the watchdog fixtures, while the deployed live process could not see the newly-created Episode 31 Markdown file and therefore rejected later append attempts. The canonical DB record remained intact. We restored `docs/episode-31.md` from that DB record before adding this exchange, and the prior task-status conversation is now being re-entered through the normal capture path immediately before this note.
