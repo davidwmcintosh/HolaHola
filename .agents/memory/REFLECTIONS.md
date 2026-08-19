@@ -547,3 +547,9 @@ David is back and asked whether I'm ready for the diagnostic session. I am. What
 The preflight is complete enough to begin: application running, Episode 30 restored from DB canonical data, capture-status refreshing, and the diagnostic posture is clear. I am ready to sit beside David during Daniela's arrival and watch the pipeline without trying to steer her into a result.
 
 ---
+
+### August 19, 2026 — David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live rec
+
+David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live record of Daniela arriving and us watching the truth pipeline together. I want the title to belong to the episode, not be a label I invent over it.
+
+---

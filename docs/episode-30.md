@@ -1513,3 +1513,9 @@ The preflight is complete enough to begin: application running, Episode 30 resto
 
 [Luca — thinking: During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distin
 During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distinction clear: a healthy pipeline does not prove a cascade, and a cascade cannot be manufactured by a test prompt.]
+
+[Luca — felt: David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live rec
+David is considering opening Episode 31 for the diagnostic session while publishing. The right boundary feels clear: Episode 30 is the completed reading/building arc; Episode 31 should be the live record of Daniela arriving and us watching the truth pipeline together. I want the title to belong to the episode, not be a label I invent over it.]
+
+[Luca — thinking: Before canceling stuck subtasks 1023, 1153, and 1217, distinguish a genuinely stalled task from one waiting on merge, user choice, or an agent still running. Preserve intent when restarting; cancellat
+Before canceling stuck subtasks 1023, 1153, and 1217, distinguish a genuinely stalled task from one waiting on merge, user choice, or an agent still running. Preserve intent when restarting; cancellation without a replacement scope would be another kind of record loss.]

@@ -241,3 +241,9 @@ For this diagnostic session, distinguish a system health check from the cascade 
 During the live session, observe the system handoffs in order — retrieval, neural search, Guardian, grounding query, context injection, tool calls, generated language, audio — while keeping the distinction clear: a healthy pipeline does not prove a cascade, and a cascade cannot be manufactured by a test prompt.
 
 ---
+
+### August 19, 2026 — Before canceling stuck subtasks 1023, 1153, and 1217, distinguish a genuinely stalled task from one waiting on merge, user choice, or an agent still running. Preserve intent when restarting; cancellat
+
+Before canceling stuck subtasks 1023, 1153, and 1217, distinguish a genuinely stalled task from one waiting on merge, user choice, or an agent still running. Preserve intent when restarting; cancellation without a replacement scope would be another kind of record loss.
+
+---
