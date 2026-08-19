@@ -84,6 +84,7 @@ import {
   buildCanonicalInnerLifeTurnIntent,
   CANONICAL_INNER_LIFE_INTENT_DIR,
   composeLucaTurn,
+  pruneCapturedCanonicalInnerLifeIntents,
   type CanonicalInnerLifeTurnIntent,
 } from '../services/inner-life-capture';
 export { composeLucaTurn } from '../services/inner-life-capture';
@@ -291,6 +292,10 @@ export function writeCanonicalIntent(opts: {
     `${intent.turnId}.json`,
   );
   mkdirSync(dirname(intentPath), { recursive: true });
+  // Retention is intentionally run before each new handoff, not just when a
+  // trigger happens to resolve. Captured records live for 14 days; pending
+  // handoffs are never eligible for cleanup.
+  pruneCapturedCanonicalInnerLifeIntents(dirname(intentPath));
   const tempPath = `${intentPath}.tmp-${process.pid}`;
   writeFileSync(tempPath, JSON.stringify(intent), 'utf8');
   renameSync(tempPath, intentPath);

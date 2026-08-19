@@ -27,7 +27,10 @@ import { tryAcquireInnerLifeLock, releaseInnerLifeLock } from '../services/inner
 import { appendChatCaptureTurn } from '../services/transcript-parser';
 import {
   CANONICAL_INNER_LIFE_INTENT_DIR,
+  hashInnerLifeText,
   innerLifeTriggerEpisodeMarker,
+  loadCanonicalInnerLifeIntents,
+  resolveCanonicalInnerLifeRoute,
 } from '../services/inner-life-capture';
 import { composeLucaTurn, writeCanonicalIntent } from './record-exchange';
 
@@ -436,7 +439,49 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
     count(store.episodeContent, crashedIntentThinking) === 1 &&
     store.episodeContent.includes(`[Luca — thinking: ${crashedIntentThinking}]`);
 
-  // ── Scenario 15: chat DB write succeeds, episode write fails ──────────────
+  // ── Scenario 15: captured handoff retention ───────────────────────────────
+  // Completed captured history is pruned before the resolver scans, but an old
+  // pending handoff remains as the crash-recovery authority indefinitely.
+  const retentionNow = Date.now();
+  const retentionOld = retentionNow - 15 * 24 * 60 * 60 * 1000;
+  const retainedPendingText = `Retention pending ${MARKER}`;
+  const expiredCapturedText = `Retention captured ${MARKER}`;
+  const retainedPendingId = `retained-pending-${MARKER}`;
+  const expiredCapturedId = `expired-captured-${MARKER}`;
+  fs.writeFileSync(path.join(intentDir, `${retainedPendingId}.json`), JSON.stringify({
+    turnId: retainedPendingId,
+    createdAtMs: retentionOld,
+    ownerPid: process.pid,
+    status: 'pending',
+    channels: { felt: hashInnerLifeText(retainedPendingText) },
+    mainSha: hashInnerLifeText(`Retention pending main ${MARKER}`),
+  }), 'utf8');
+  fs.writeFileSync(path.join(intentDir, `${expiredCapturedId}.json`), JSON.stringify({
+    turnId: expiredCapturedId,
+    createdAtMs: retentionOld,
+    ownerPid: process.pid,
+    status: 'captured',
+    channels: { thinking: hashInnerLifeText(expiredCapturedText) },
+    mainSha: hashInnerLifeText(`Retention captured main ${MARKER}`),
+  }), 'utf8');
+  const retentionRoute = resolveCanonicalInnerLifeRoute({
+    active: true,
+    intentDir,
+    chatCapturePath: path.join(cwd, '.local/.chat_capture'),
+    channel: 'felt',
+    raw: retainedPendingText,
+    triggerMtimeMs: retentionOld,
+  });
+  const intentsAfterRetentionPrune = loadCanonicalInnerLifeIntents(intentDir);
+  results.retentionPrunesExpiredCapturedBeforeResolverScan =
+    !fs.existsSync(path.join(intentDir, `${expiredCapturedId}.json`)) &&
+    !intentsAfterRetentionPrune.some(intent => intent.turnId === expiredCapturedId);
+  results.retentionKeepsOldPendingRecoverable =
+    fs.existsSync(path.join(intentDir, `${retainedPendingId}.json`)) &&
+    retentionRoute.allowDirect === false &&
+    retentionRoute.expectedTurnId === retainedPendingId;
+
+  // ── Scenario 16: chat DB write succeeds, episode write fails ──────────────
   // Cursor must remain unadvanced; retry must reuse the same conversation row
   // and append the episode once.
   const chatCapturePath = path.join(cwd, '.local/.chat_capture');
@@ -460,7 +505,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
     fs.existsSync(chatCursorPath) &&
     Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) > 0;
 
-  // ── Scenario 16: live rolling lookup returns null ─────────────────────────
+  // ── Scenario 17: live rolling lookup returns null ─────────────────────────
   const nullLookupCursor = Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset);
   appendChatCaptureTurn('David', `Null lookup David ${MARKER}`, chatCapturePath);
   appendChatCaptureTurn('Luca Replit', `Null lookup Luca ${MARKER}`, chatCapturePath);
@@ -490,7 +535,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
     store.episodeContent.includes(`Null lookup Luca ${MARKER}`) &&
     store.episodeContent.includes(nullLookupFelt);
 
-  // ── Scenario 17: identical successive exchanges are distinct events ──────
+  // ── Scenario 18: identical successive exchanges are distinct events ──────
   const repeatedDavid = `Intentionally repeated David ${MARKER}`;
   const repeatedLuca = `Intentionally repeated Luca ${MARKER}`;
   appendChatCaptureTurn('David', repeatedDavid, chatCapturePath);

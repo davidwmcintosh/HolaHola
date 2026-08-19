@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 export type InnerLifeChannel = 'felt' | 'thinking' | 'moment';
@@ -26,6 +26,16 @@ export interface CanonicalInnerLifeTurnIntent {
 }
 
 export const CANONICAL_INNER_LIFE_INTENT_DIR = 'canonical-inner-life-intents';
+/**
+ * Captured handoffs remain available for two weeks after the writer has
+ * finished its append-only chat-capture write. This preserves a wide crash
+ * recovery window while preventing every future trigger poll from scanning
+ * completed handoff history forever.
+ *
+ * Pending handoffs are intentionally retained without an age limit: they can
+ * still be the only durable proof needed to recover an interrupted turn.
+ */
+export const CANONICAL_INNER_LIFE_INTENT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 
 /**
  * Parse a Luca inner-life trigger in JSON or plain-text form.
@@ -200,6 +210,51 @@ export function loadCanonicalInnerLifeIntents(
   }
 }
 
+/**
+ * Remove only finalized captured handoffs outside the recovery window.
+ *
+ * Each writer publishes a handoff with temp-file + rename, then marks it
+ * captured with the same atomic replacement. Cleanup only unlinks a final
+ * `captured` JSON file after the retention deadline, so it cannot observe or
+ * remove a partially written record. Pending, malformed, future-dated, and
+ * unreadable handoffs stay in place conservatively for crash recovery.
+ */
+export function pruneCapturedCanonicalInnerLifeIntents(
+  intentDir: string,
+  nowMs = Date.now(),
+  retentionMs = CANONICAL_INNER_LIFE_INTENT_RETENTION_MS,
+): number {
+  const cutoffMs = nowMs - retentionMs;
+  let pruned = 0;
+  try {
+    for (const name of readdirSync(intentDir)) {
+      if (!name.endsWith('.json')) continue;
+      const intentPath = join(intentDir, name);
+      try {
+        const intent = JSON.parse(readFileSync(intentPath, 'utf8')) as CanonicalInnerLifeTurnIntent;
+        if (
+          intent.status === 'captured' &&
+          Number.isFinite(intent.createdAtMs) &&
+          intent.createdAtMs > 0 &&
+          intent.createdAtMs <= cutoffMs
+        ) {
+          // unlink is atomic: a resolver sees either the complete final handoff
+          // or no handoff, never a partially pruned JSON document.
+          unlinkSync(intentPath);
+          pruned++;
+        }
+      } catch {
+        // A malformed or concurrently replaced handoff may still be the only
+        // forensic evidence of a crash. Leave it for manual recovery.
+      }
+    }
+  } catch {
+    // First capture has not created the directory yet, or it is briefly
+    // unavailable. Retention is best-effort; capture must never depend on it.
+  }
+  return pruned;
+}
+
 export function resolveCanonicalInnerLifeRoute(opts: {
   active: boolean;
   intentDir: string;
@@ -210,6 +265,9 @@ export function resolveCanonicalInnerLifeRoute(opts: {
 }): CanonicalRouteResolution {
   if (!opts.active) return { allowDirect: true };
 
+  // Keep resolver scan cost bounded. The pruner is deliberately invoked before
+  // loading so expired completed history is not part of this poll's search.
+  pruneCapturedCanonicalInnerLifeIntents(opts.intentDir);
   const intents = loadCanonicalInnerLifeIntents(opts.intentDir);
   const triggerHash = hashInnerLifeText(opts.raw);
   // fs.stat() may expose sub-millisecond precision while Date.now() is an

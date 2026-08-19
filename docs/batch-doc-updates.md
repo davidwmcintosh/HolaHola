@@ -4164,3 +4164,20 @@ correction. Each checks its originating epoch before queueing and the shared
 tool-response queue checks again immediately before delivery. The regression
 also resolves delayed post-turn and hard-wall lookups only after the counting
 turn begins, proving they cannot repopulate the stale correction queue.
+
+---
+
+## Canonical capture handoff retention — August 19, 2026
+
+Canonical four-channel handoffs are now retained for 14 days after their
+append-only chat-capture write completes (`status: captured`), then removed
+before later trigger resolver scans. The cleanup is conservative: pending,
+malformed, unreadable, and future-dated files remain untouched because they
+can still be the only crash-recovery evidence for a turn.
+
+The handoff writer and resolver both invoke the same cleanup helper, so
+ordinary live capture does not need a separate maintenance job. Each deletion
+is an atomic unlink of a finalized JSON handoff; the writer still publishes
+and captures records via temporary-file rename. The watchdog regression driver
+proves expired captured records are absent from the resolver's scan set while
+an equally old pending record still blocks direct fallback as required.

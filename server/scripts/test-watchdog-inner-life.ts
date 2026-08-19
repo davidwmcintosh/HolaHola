@@ -115,6 +115,10 @@ function check(name: string, ok: boolean, detail?: string) {
     r.omittedChannelFallsBackExactlyOnce === true);
   check('canonical crash: dead intent owner before chat append uses direct fallback once',
     r.crashedIntentFallsBackExactlyOnce === true);
+  check('retention: captured handoffs older than 14 days are removed before resolver scans',
+    r.retentionPrunesExpiredCapturedBeforeResolverScan === true);
+  check('retention: old pending handoffs remain available for crash recovery',
+    r.retentionKeepsOldPendingRecoverable === true);
   check('chat fault: episode failure leaves chat cursor unadvanced',
     r.chatFailureCursorUnadvanced === true);
   check('chat fault: first attempt creates one idempotent conversation row',

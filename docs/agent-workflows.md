@@ -65,6 +65,10 @@ While reading, also scan for **forward plans and agreements** — anything David
 - **NEVER use `DATABASE_URL` or `process.env.DATABASE_URL`** anywhere in the codebase. Always `NEON_SHARED_DATABASE_URL`.
 - **Mid-session plan saves (do this immediately, not at session end):** When David and Luca agree on a plan, test protocol, question list, or forward commitment for a future session, save it as a discrete `conversation_memories` entry right then — high importance, tagged, capturing the actual exchange verbatim. The bulk autosave will bury it in a session transcript; a discrete save makes it searchable and surfaceable at tomorrow's session start. Also write it to a `.local/` file if it needs to be found by path. Do not wait for the session-end checklist.
 - After any new feature: add to batch doc, update handoff.
+- **Canonical four-channel capture handoffs:** completed `captured` JSON
+  handoffs in `.local/canonical-inner-life-intents/` are retained for 14 days,
+  then pruned before future resolver scans. `pending` handoffs are never
+  time-pruned because they are crash-recovery evidence.
 - New Daniela tool pipeline — only 3 steps needed, everything else is automatic (see Adding a Daniela Tool below).
 
 ---

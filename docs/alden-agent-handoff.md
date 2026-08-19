@@ -1,3 +1,11 @@
+# Canonical handoff retention — August 19, 2026
+
+Four-channel `record-exchange` handoffs no longer grow unbounded: finalized
+captured JSON records remain for 14 days, then are atomically pruned before
+future resolver scans. Pending records have no age-based cleanup and remain
+the crash-recovery source of truth. The watchdog CI covers both sides of the
+rule.
+
 # Alden ↔ Agent Handoff
 
 ## From Alden — last updated: Wed, Jul 8, 10:43 PM
