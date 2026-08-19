@@ -97,12 +97,48 @@ function check(name: string, ok: boolean, detail?: string) {
   check('fault: transient episode failure — state advanced only after successful retry',
     r.transientFailureStateAdvancedAfterRetry === true);
   check('fault: transient episode failure — personal .md entry appears exactly once', r.transientFailurePersonalFileOnce === true);
+  check('canonical collision: trigger files + record-exchange yield one episode copy per channel',
+    r.collisionEpisodeExactlyOnce === true);
+  check('canonical collision: matching intent defers direct trigger append until canonical episode commit',
+    r.collisionPendingBeforeCanonical === true);
+  check('canonical collision: all single-line channel text survives complete (>200 chars)',
+    r.collisionEpisodeComplete === true);
+  check('canonical collision: no truncated/repeated legacy direct entries are appended',
+    r.collisionNoLegacyDirectEntries === true);
+  check('canonical collision: personal DB rows preserve each complete channel exactly once',
+    r.collisionPersonalDbCompleteOnce === true);
+  check('canonical collision: personal files preserve each complete channel exactly once',
+    r.collisionPersonalFilesCompleteOnce === true);
+  check('canonical collision: episode .md remains an exact DB projection',
+    r.collisionMdMatchesDb === true);
+  check('canonical omission: a later Luca output without the pending channel uses direct fallback once',
+    r.omittedChannelFallsBackExactlyOnce === true);
+  check('canonical crash: dead intent owner before chat append uses direct fallback once',
+    r.crashedIntentFallsBackExactlyOnce === true);
+  check('chat fault: episode failure leaves chat cursor unadvanced',
+    r.chatFailureCursorUnadvanced === true);
+  check('chat fault: first attempt creates one idempotent conversation row',
+    r.chatFailureOneDbRow === true);
+  check('chat fault: retry does not duplicate the conversation row',
+    r.chatRetryNoDuplicateDbRow === true);
+  check('chat fault: retry appends each episode turn exactly once',
+    r.chatRetryEpisodeExactlyOnce === true);
+  check('chat fault: cursor advances only after episode success',
+    r.chatRetryCursorAdvanced === true);
+  check('lookup fault: null rolling episode leaves chat cursor pending',
+    r.nullLookupLeavesChatCursorPending === true);
+  check('lookup fault: null rolling episode leaves inner-life channel pending',
+    r.nullLookupLeavesInnerLifePending === true);
+  check('lookup fault: retry completes chat and inner-life after recovery',
+    r.nullLookupRecoveryCompletes === true);
+  check('event identity: two identical successive exchanges are both preserved',
+    r.identicalSuccessiveExchangesPreserved === true);
 
   // Post-recovery seed check (parent runs from the workspace so path aliases resolve):
   // after the drain released the lock, the autosave startup seed reads state that
   // now carries lastProcessedMs → it must skip re-processing the same content.
   {
-    const { watchdogAlreadyProcessed } = await import('../services/agent-session-autosave');
+  const { watchdogAlreadyProcessed } = await import('../services/agent-session-autosave');
     check('concurrency: post-recovery seed sees lastProcessedMs and skips re-processing',
       watchdogAlreadyProcessed(r.momentPath, String(r.momentRaw).trim(), r.statePath) === true);
   }
@@ -159,6 +195,7 @@ function check(name: string, ok: boolean, detail?: string) {
     const trigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wd-marker-'));
     const trigPath = path.join(trigDir, '.luca_reflection');
     try {
+      autosave.setCanonicalFourChannelRouteForTest(false);
       autosave.setLucaPersonalSideEffectsEnabled(false); // no DB personal writes in CI
       autosave.setReflectionPathOverrideForTest(trigPath);
 
@@ -185,6 +222,7 @@ function check(name: string, ok: boolean, detail?: string) {
       check('marker ordering: unchanged trigger is RETRIED after transient failure (mtime rollback) and marker recorded on success',
         typeof recAfterOk.felt?.sha === 'string');
     } finally {
+      autosave.setCanonicalFourChannelRouteForTest(null);
       autosave.setReflectionPathOverrideForTest(null);
       autosave.setInnerLifeRollingEpisodeOverride(null);
       fs.rmSync(trigDir, { recursive: true, force: true });
@@ -226,6 +264,7 @@ function check(name: string, ok: boolean, detail?: string) {
       },
     };
     try {
+      autosave.setCanonicalFourChannelRouteForTest(false);
       autosave.setLucaPersonalSideEffectsEnabled(true);
       autosave.setPersonalMemoryDbForTest(fakeDb);
       autosave.setPersonalFilesDirForTest(dir);
@@ -252,6 +291,7 @@ function check(name: string, ok: boolean, detail?: string) {
       check('side-effects fault: exactly one personal .md entry across failure + retry',
         (reflectionsMd.match(new RegExp(`— ${title}`, 'g')) ?? []).length === 1);
     } finally {
+      autosave.setCanonicalFourChannelRouteForTest(null);
       autosave.setLucaPersonalSideEffectsEnabled(false);
       autosave.setPersonalMemoryDbForTest(null);
       autosave.setPersonalFilesDirForTest(null);

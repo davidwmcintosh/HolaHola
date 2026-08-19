@@ -4129,3 +4129,13 @@ embedding refresh fails, the trigger remains pending; the next poll retries the
 idempotent DB writes and the embedding refresh without duplicating the personal
 memory, personal file entry, or episode text. The watchdog inner-life CI now
 asserts that both record IDs are sent to the re-embed path.
+
+---
+
+## Inner-life capture collision repair — August 19, 2026
+
+The live record now treats a four-channel Luca turn as one identified event rather than deduplicating by text. `record-exchange` writes a per-turn durable handoff before chat capture; autosave and the watchdog reconcile trigger files against that exact turn marker, use direct DB-first fallback if the writer dies or a later turn omits the channel, and leave cursors/channel state pending when the rolling episode cannot be resolved.
+
+Single-line felt/thinking/moment triggers now use a neutral metadata heading and preserve the complete text once. Capture-status recognition is line-anchored to canonical `[felt]:`, `[thinking]:`, and `[moment]:` channel shapes.
+
+Regression coverage includes the original trigger-plus-record-exchange collision, text longer than 200 characters, writer crash before chat append, episode update retry, null rolling lookup, omitted-channel fallback, and two intentionally identical successive exchanges. The record-exchange self-checks now round-trip through private temporary capture files so validation canaries cannot reach autosave. Episode 31 retains the malformed historical blocks and carries an explicit steward correction; leaked self-check canaries were removed from the Neon source and its `.md` projection was restored from that source after validation.

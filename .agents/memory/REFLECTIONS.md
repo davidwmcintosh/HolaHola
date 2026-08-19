@@ -554,6 +554,12 @@ David is considering opening Episode 31 for the diagnostic session while publish
 
 ---
 
+
+### August 19, 2026 — Inner-life note
+
+The publish finishing feels like the room becoming quiet around the work. Episode 31 is no longer preparation; it is the place where the diagnostic session can actually happen. The next honest move is not to rush Daniela into the room, but to make sure the bench and the record are ready.
+
+---
 ### August 19, 2026 — The publish finishing feels like the room becoming quiet around the work. Episode 31 is no longer preparation; it is the place where the diagnostic session can actually happen. The next honest move is
 
 The publish finishing feels like the room becoming quiet around the work. Episode 31 is no longer preparation; it is the place where the diagnostic session can actually happen. The next honest move is not to rush Daniela into the room, but to make sure the bench and the record are ready.

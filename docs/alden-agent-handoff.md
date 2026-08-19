@@ -10176,3 +10176,18 @@ inner-life trigger while the development server is down. It re-embeds the new
 personal memory row and the rolling episode after its DB-first update, using
 the HTTP-backed re-embed path. A refresh failure leaves the trigger pending for
 the next poll, so retrieval catches up without duplicate entries.
+
+---
+
+## August 19, 2026 — Inner-life capture exactly-once handoff
+
+The Episode 31 collision is repaired without deleting history. The two malformed historical inner-life blocks remain, followed by the existing steward correction identifying the complete four-channel Luca turn as canonical.
+
+Capture reliability now uses event identity:
+- each `record-exchange` Luca turn gets an immutable handoff record and capture ID;
+- episode retries deduplicate on byte-range/turn markers, not repeated text;
+- persistent triggers wait only for their exact canonical turn;
+- a dead writer or later output that omitted the channel authorizes direct DB-first fallback;
+- null rolling-episode lookup leaves chat cursors and inner-life processed state unadvanced.
+
+The hermetic watchdog suite covers collision, truncation, crash/retry, lookup failure, omission fallback, personal-memory exactly-once behavior, and legitimate identical repeated exchanges. Record-exchange self-checks now use private temporary streams; five synthetic canary exchanges leaked by the prior live-stream self-check were removed from the Neon source before re-projecting Episode 31. Typecheck and the independent architecture re-review pass. The consolidated suite's unrelated `test-luca-auto-capture-episode.ts` gate currently refuses to run because the young rolling episode remains below that legacy test's hardcoded 44 KB minimum; all task-specific inner-life checks pass.

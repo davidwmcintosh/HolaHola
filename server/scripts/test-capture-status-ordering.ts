@@ -103,6 +103,7 @@ import {
   setLastThinkingProcessedForTest,
   setOrderingCheckEnabledForTest,
 } from '../services/agent-session-autosave';
+import { episodeTailHasInnerLifeChannel } from '../services/inner-life-capture';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const GREEN  = '\x1b[32m';
@@ -121,6 +122,7 @@ const CAPTURE_STATUS_PATH = join(WORKSPACE, '.local/episode-capture-status.md');
 // Synthetic episode filename — does not need to exist; the function handles
 // missing episode files gracefully (shows 0 lines / 0 bytes).
 const FIXTURE_EPISODE = 'episode-ci-ordering-fixture.md';
+const FIXTURE_EPISODE_PATH = join(WORKSPACE, 'docs', FIXTURE_EPISODE);
 
 // Channel-specific needles that only appear when the guard actually fires.
 // The footer always contains the literal string "OUT OF ORDER" in its explanatory
@@ -158,6 +160,8 @@ async function main(): Promise<void> {
   // ── Snapshot + restore the live capture status file ───────────────────────
   const statusExistedBefore = existsSync(CAPTURE_STATUS_PATH);
   const statusSnapBefore    = statusExistedBefore ? readFileSync(CAPTURE_STATUS_PATH) : null;
+  const fixtureExistedBefore = existsSync(FIXTURE_EPISODE_PATH);
+  const fixtureSnapBefore = fixtureExistedBefore ? readFileSync(FIXTURE_EPISODE_PATH) : null;
 
   try {
     if (selfCheck) {
@@ -366,6 +370,45 @@ async function main(): Promise<void> {
         fail('Round D: never-fired thinking wrongly flagged OUT OF ORDER instead of MISSING');
         failures++;
       }
+
+      // ── Round E: canonical record-exchange labels satisfy all 4ch checks ───
+      // The episode no longer needs duplicate legacy [Luca — felt: ...] entries
+      // for capture status to recognize channels delivered in the LUCA turn.
+      info('Round E — canonical [felt]/[thinking]/[moment] labels are recognized in the episode');
+      writeFileSync(
+        FIXTURE_EPISODE_PATH,
+        [
+          '# Canonical four-channel fixture',
+          '',
+          '**LUCA [Replit]:** [felt]: canonical felt',
+          '',
+          '[thinking]: canonical thinking',
+          '',
+          '[moment]: canonical moment',
+          '',
+          'canonical main response',
+        ].join('\n'),
+        'utf8',
+      );
+      writeEpisodeCaptureStatusFileForTest(FIXTURE_EPISODE, EXCHANGE);
+      const statusE = readStatus();
+      for (const channel of ['felt:', 'thinking:', 'moment:']) {
+        const okNeedle = `✓ ${channel}`;
+        if (statusE.includes(okNeedle)) {
+          pass(`Round E: canonical ${channel} channel recognized`);
+        } else {
+          fail(`Round E: canonical ${channel} channel reported missing`);
+          info('Status file content:\n' + statusE.split('\n').map(l => '    ' + l).join('\n'));
+          failures++;
+        }
+      }
+
+      if (!episodeTailHasInnerLifeChannel('ordinary prose mentioning [felt]: but not a channel line', 'felt')) {
+        pass('Round E: inline prose cannot spoof a canonical felt channel');
+      } else {
+        fail('Round E: inline prose falsely recognized as a canonical felt channel');
+        failures++;
+      }
     }
 
   } finally {
@@ -378,6 +421,11 @@ async function main(): Promise<void> {
       writeFileSync(CAPTURE_STATUS_PATH, statusSnapBefore);
     } else if (existsSync(CAPTURE_STATUS_PATH)) {
       unlinkSync(CAPTURE_STATUS_PATH);
+    }
+    if (fixtureSnapBefore !== null) {
+      writeFileSync(FIXTURE_EPISODE_PATH, fixtureSnapBefore);
+    } else if (existsSync(FIXTURE_EPISODE_PATH)) {
+      unlinkSync(FIXTURE_EPISODE_PATH);
     }
   }
 

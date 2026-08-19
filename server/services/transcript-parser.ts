@@ -80,6 +80,8 @@ export interface DialogueTurn {
   speaker: 'DAVID' | 'LUCA';
   text: string;
   memoryId: number;
+  /** Durable record-exchange identity used for event-based episode idempotency. */
+  captureId?: string;
 }
 
 export interface TranscriptCursor {
@@ -520,6 +522,8 @@ export function appendChatCaptureTurn(
   text: string,
   /** Inject a different path for unit tests; production callers omit this. */
   _pathOverride?: string,
+  /** Optional durable identity for record-exchange reconciliation. */
+  captureId?: string,
 ): void {
   // Normalize common variants → canonical form
   const normalized = speaker.trim();
@@ -540,6 +544,7 @@ export function appendChatCaptureTurn(
     CHAT_TURN_START,
     `SPEAKER: ${speakerNorm}`,
     `TIME: ${timestamp}`,
+    ...(captureId ? [`CAPTURE-ID: ${captureId}`] : []),
     `CHARLEN: ${charLen}`,  // character count of the body
     CHAT_BODY_SEP,
     text,                    // verbatim — no escaping needed with length-delimited framing
@@ -663,10 +668,16 @@ export function parseChatCaptureFromOffset(
     lastCompleteCharPos = pos;
 
     const speakerMatch = /^SPEAKER:\s*(David|Luca Replit|Luca)\s*$/im.exec(headers);
+    const captureIdMatch = /^CAPTURE-ID:\s*([A-Za-z0-9-]+)\s*$/im.exec(headers);
     if (speakerMatch && body.length >= 1) {
       const raw = speakerMatch[1];
       const speaker = (raw.toUpperCase().replace(' ', '_') === 'LUCA_REPLIT' ? 'LUCA' : raw.toUpperCase()) as 'DAVID' | 'LUCA';
-      turns.push({ speaker, text: body, memoryId: 0 });
+      turns.push({
+        speaker,
+        text: body,
+        memoryId: 0,
+        ...(captureIdMatch ? { captureId: captureIdMatch[1] } : {}),
+      });
       // Record the byte offset from file start after this complete turn.
       const charPosAfterTurn = pos;
       const byteOffsetAfterTurn = byteOffset + Buffer.byteLength(content.slice(0, charPosAfterTurn), 'utf-8');

@@ -43,6 +43,10 @@
  *     --luca-file     /tmp/luca_turn.txt
  *
  * Inner-life files are optional. Omit any channel that has nothing to record.
+ * During live mode this composed turn is the ONLY episode route for these
+ * channels. The persistent .luca_reflection/.luca_question/.luca_moment files
+ * still save personal memory and readiness status, but do not append a second
+ * episode copy.
  * The composed Luca turn appears in the episode as:
  *
  *   **LUCA [Replit]:** [felt]: ...
@@ -68,32 +72,44 @@
  * confirms both turns are present. Exits non-zero if anything is wrong.
  */
 
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, existsSync, statSync, writeFileSync, renameSync, mkdirSync, unlinkSync } from 'fs';
+import { dirname, join } from 'path';
 import {
   appendChatCaptureTurn,
   CHAT_CAPTURE_PATH,
-  loadChatCaptureCursor,
+  WORKSPACE,
   parseChatCaptureFromOffset,
 } from '../services/transcript-parser';
+import {
+  buildCanonicalInnerLifeTurnIntent,
+  CANONICAL_INNER_LIFE_INTENT_DIR,
+  composeLucaTurn,
+  type CanonicalInnerLifeTurnIntent,
+} from '../services/inner-life-capture';
+export { composeLucaTurn } from '../services/inner-life-capture';
 
 // ---------------------------------------------------------------------------
 // Self-check mode
 // ---------------------------------------------------------------------------
 async function runSelfCheck(): Promise<void> {
-  const canaryDavid = `[record-exchange self-check] David canary ${Date.now()}`;
-  const canaryLuca  = `[record-exchange self-check] Luca canary ${Date.now()}`;
+  const ts = Date.now();
+  const canaryDavid = `[record-exchange self-check] David canary ${ts}`;
+  const canaryLuca  = `[record-exchange self-check] Luca canary ${ts}`;
+  const testCapturePath = join(
+    WORKSPACE,
+    '.local',
+    `record-exchange-self-check-${process.pid}-${ts}.capture`,
+  );
 
-  // Capture the byte offset BEFORE writing so we only parse the new turns
-  const cursorBefore = loadChatCaptureCursor().byteOffset;
-  const fileSizeBefore = existsSync(CHAT_CAPTURE_PATH)
-    ? statSync(CHAT_CAPTURE_PATH).size
-    : 0;
+  // Never write CI canaries into the live stream: autosave could race the
+  // assertion and project synthetic turns into the rolling episode.
+  const fileSizeBefore = 0;
 
-  appendChatCaptureTurn('David', canaryDavid);
-  appendChatCaptureTurn('Luca Replit', canaryLuca);
+  appendChatCaptureTurn('David', canaryDavid, testCapturePath);
+  appendChatCaptureTurn('Luca Replit', canaryLuca, testCapturePath);
 
-  const fileSizeAfter = existsSync(CHAT_CAPTURE_PATH)
-    ? statSync(CHAT_CAPTURE_PATH).size
+  const fileSizeAfter = existsSync(testCapturePath)
+    ? statSync(testCapturePath).size
     : 0;
 
   if (fileSizeAfter <= fileSizeBefore) {
@@ -102,7 +118,7 @@ async function runSelfCheck(): Promise<void> {
   }
 
   // Parse from the pre-write offset to find our canary turns
-  const { turns } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursorBefore);
+  const { turns } = parseChatCaptureFromOffset(testCapturePath, 0);
 
   const davidTurn = turns.find(t => t.text === canaryDavid);
   const lucaTurn  = turns.find(t => t.text === canaryLuca);
@@ -129,7 +145,8 @@ async function runSelfCheck(): Promise<void> {
   console.log(`  File grew: ${fileSizeBefore}B → ${fileSizeAfter}B`);
   console.log(`  David turn speaker: ${davidTurn.speaker}`);
   console.log(`  Luca turn speaker:  ${lucaTurn.speaker}`);
-  console.log('  Note: cursor NOT advanced — these canary turns will be processed by the autosave on next poll.');
+  unlinkSync(testCapturePath);
+  console.log('  Hermetic capture removed; the live cursor and episode were untouched.');
 }
 
 async function runSelfCheck4ch(): Promise<void> {
@@ -142,6 +159,11 @@ async function runSelfCheck4ch(): Promise<void> {
   const canaryThinking = `4ch canary thinking raw ${ts}`;
   const canaryMoment   = `4ch canary moment raw ${ts}`;
   const canaryMain     = `4ch canary main response ${ts}`;
+  const testCapturePath = join(
+    WORKSPACE,
+    '.local',
+    `record-exchange-4ch-self-check-${process.pid}-${ts}.capture`,
+  );
 
   // --- Build the exact expected composed string ---
   // composeLucaTurn should add the canonical label prefix to each raw canary value
@@ -192,20 +214,19 @@ async function runSelfCheck4ch(): Promise<void> {
   }
 
   // --- Round-trip through chat capture ---
-  const cursorBefore   = loadChatCaptureCursor().byteOffset;
-  const fileSizeBefore = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+  const fileSizeBefore = 0;
 
-  appendChatCaptureTurn('David', canaryDavid);
-  appendChatCaptureTurn('Luca Replit', composed);
+  appendChatCaptureTurn('David', canaryDavid, testCapturePath);
+  appendChatCaptureTurn('Luca Replit', composed, testCapturePath);
 
-  const fileSizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+  const fileSizeAfter = existsSync(testCapturePath) ? statSync(testCapturePath).size : 0;
 
   if (fileSizeAfter <= fileSizeBefore) {
     console.error('[record-exchange --self-check-4ch] FAIL: file did not grow after appending canary turns');
     process.exit(1);
   }
 
-  const { turns } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursorBefore);
+  const { turns } = parseChatCaptureFromOffset(testCapturePath, 0);
 
   const lucaTurn = turns.find(t => t.text.includes(canaryMain));
   if (!lucaTurn) {
@@ -226,7 +247,8 @@ async function runSelfCheck4ch(): Promise<void> {
   console.log(`  Expected and composed strings match exactly (${composed.length} chars)`);
   console.log(`  Channel order: [felt]@${feltIdx} < [thinking]@${thinkingIdx} < [moment]@${momentIdx} < main@${mainIdx}`);
   console.log(`  Round-trip: file grew ${fileSizeBefore}B → ${fileSizeAfter}B, all label+canary pairs present`);
-  console.log('  Note: cursor NOT advanced — canary turns will be processed by autosave on next poll.');
+  unlinkSync(testCapturePath);
+  console.log('  Hermetic capture removed; the live cursor and episode were untouched.');
 }
 
 // ---------------------------------------------------------------------------
@@ -255,27 +277,47 @@ function readOptionalFile(flag: string, args: string[]): string | null {
   return text;
 }
 
-/** Compose the full Luca turn from all 4 channels (inner-life channels are optional). */
-function composeLucaTurn(opts: {
+export function writeCanonicalIntent(opts: {
   feeling?: string | null;
   thinking?: string | null;
   moment?: string | null;
   main: string;
-}): string {
-  const parts: string[] = [];
-  if (opts.feeling)  parts.push(opts.feeling.startsWith('[felt]')    ? opts.feeling : `[felt]: ${opts.feeling}`);
-  if (opts.thinking) parts.push(opts.thinking.startsWith('[thinking]') ? opts.thinking : `[thinking]: ${opts.thinking}`);
-  if (opts.moment)   parts.push(opts.moment.startsWith('[moment]')   ? opts.moment  : `[moment]: ${opts.moment}`);
-  parts.push(opts.main);
-  return parts.join('\n\n');
+}, pathOverride?: string): { intent: CanonicalInnerLifeTurnIntent; path: string } {
+  const intent = buildCanonicalInnerLifeTurnIntent(opts);
+  const intentPath = pathOverride ?? join(
+    WORKSPACE,
+    '.local',
+    CANONICAL_INNER_LIFE_INTENT_DIR,
+    `${intent.turnId}.json`,
+  );
+  mkdirSync(dirname(intentPath), { recursive: true });
+  const tempPath = `${intentPath}.tmp-${process.pid}`;
+  writeFileSync(tempPath, JSON.stringify(intent), 'utf8');
+  renameSync(tempPath, intentPath);
+  return { intent, path: intentPath };
+}
+
+function markCanonicalIntentCaptured(
+  handoff: { intent: CanonicalInnerLifeTurnIntent; path: string },
+): void {
+  const tempPath = `${handoff.path}.tmp-${process.pid}`;
+  writeFileSync(
+    tempPath,
+    JSON.stringify({ ...handoff.intent, status: 'captured' }),
+    'utf8',
+  );
+  renameSync(tempPath, handoff.path);
 }
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-const args = process.argv.slice(2);
+const isMain = process.argv[1]?.includes('record-exchange');
+const args = isMain ? process.argv.slice(2) : [];
 
-if (args.includes('--self-check-4ch')) {
+if (!isMain) {
+  // Import-only use (tests and shared composition); do not execute the CLI.
+} else if (args.includes('--self-check-4ch')) {
   runSelfCheck4ch().catch(e => { console.error(e); process.exit(1); });
 } else if (args.includes('--self-check')) {
   runSelfCheck().catch(e => { console.error(e); process.exit(1); });
@@ -314,12 +356,13 @@ if (args.includes('--self-check-4ch')) {
     process.exit(1);
   }
 
-  const lucaText = composeLucaTurn({
+  const lucaChannels = {
     feeling:  lucaFeeling,
     thinking: lucaThink,
     moment:   lucaMoment,
     main:     lucaMain,
-  });
+  };
+  const lucaText = composeLucaTurn(lucaChannels);
 
   const sizeBefore = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
 
@@ -334,9 +377,14 @@ if (args.includes('--self-check-4ch')) {
       console.error('[record-exchange] ERROR: --david-file is empty');
       process.exit(1);
     }
+    // Durable handoff written before the Luca chat-capture turn. Trigger
+    // watchers use it to wait for this exact canonical turn rather than
+    // racing a second direct episode append.
+    const handoff = writeCanonicalIntent(lucaChannels);
     appendChatCaptureTurn('David', davidText);
     const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
-    appendChatCaptureTurn('Luca Replit', lucaText);
+    appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
+    markCanonicalIntentCaptured(handoff);
     const sizeFinal = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
     const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
     console.log(`[record-exchange] ✓ Exchange written to .chat_capture (${sizeBefore}B → ${sizeFinal}B)`);
@@ -344,7 +392,9 @@ if (args.includes('--self-check-4ch')) {
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
     console.log('  Autosave will route to conversation_memories + episode within ~20s.');
   } else {
-    appendChatCaptureTurn('Luca Replit', lucaText);
+    const handoff = writeCanonicalIntent(lucaChannels);
+    appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
+    markCanonicalIntentCaptured(handoff);
     const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
     const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
     console.log(`[record-exchange] ✓ Luca turn written to .chat_capture (${sizeBefore}B → ${sizeAfter}B) [luca-only]`);

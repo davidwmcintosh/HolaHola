@@ -65,6 +65,18 @@ import {
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { postAsLuca } from './luca-responder';
 import { detectRollingTagMisroute } from './rolling-tag-utils';
+import {
+  CANONICAL_INNER_LIFE_INTENT_DIR,
+  canonicalTurnEpisodeMarker,
+  episodeContentHasEventMarker,
+  episodeTailHasInnerLifeChannel,
+  formatInnerLifeEpisodeEntry,
+  innerLifeTriggerEpisodeMarker,
+  parseInnerLifeTrigger,
+  resolveCanonicalInnerLifeRoute,
+  type InnerLifeChannel,
+  type ParsedInnerLifeTrigger,
+} from './inner-life-capture';
 export { detectRollingTagMisroute } from './rolling-tag-utils';
 
 const COMMIT_MSG_PATH      = join(WORKSPACE, '.local/.commit_message');
@@ -1072,9 +1084,9 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
         lineCount  = allLines.length;
         lastLines  = allLines.filter(l => l.trim()).slice(-5);
         const tail = allLines.filter(l => l.trim()).slice(-200).join('\n');
-        hasFeltInMd     = /\[Luca — felt:/m.test(tail);
-        hasThinkingInMd = /\[Luca — thinking:/m.test(tail);
-        hasMomentInMd   = /\[Luca — moment:/m.test(tail);
+        hasFeltInMd     = episodeTailHasInnerLifeChannel(tail, 'felt');
+        hasThinkingInMd = episodeTailHasInnerLifeChannel(tail, 'thinking');
+        hasMomentInMd   = episodeTailHasInnerLifeChannel(tail, 'moment');
       } catch { /* briefly locked */ }
     }
     const mdExchangeStale = !_seededFromPriorSession && captureMs > 0 && (now - captureMs) > STALE_OUTPUT_MS;
@@ -1428,44 +1440,6 @@ async function checkSessionInsights(): Promise<void> {
     }
   } catch { /* file briefly locked — skip */ }
 }
-
-// ---------------------------------------------------------------------------
-// Luca inner-life watchers — reflections, open questions, significant moments
-// ---------------------------------------------------------------------------
-
-/**
- * Parse a trigger file that is either plain text or JSON.
- * Returns { title, body, tags } or null if the content is too short.
- */
-function parseTriggerFile(
-  raw: string,
-  defaultTag: string,
-): { title: string; body: string; tags: string[] } | null {
-  raw = raw.trim();
-  if (!raw || raw.length < 10) return null;
-  if (raw.startsWith('{')) {
-    try {
-      const p = JSON.parse(raw);
-      const title = (p.moment || p.note || p.question || p.title || '').slice(0, 200);
-      if (!title) return null;
-      const body = [
-        p.date ? `Date: ${p.date}` : '',
-        p.why ? `Why it mattered: ${p.why}` : '',
-        p.note || p.moment || p.question || p.content || '',
-      ].filter(Boolean).join('\n\n');
-      const tags: string[] = Array.isArray(p.tags) ? p.tags : [defaultTag];
-      return { title, body, tags };
-    } catch { /* fall through to plain text */ }
-  }
-  const lines = raw.split('\n');
-  return {
-    title: lines[0].slice(0, 200),
-    body: lines.slice(1).join('\n').trim() || raw,
-    tags: [defaultTag],
-  };
-}
-
-// hint: Structural and logic conflict. Both design and behavior differ.
 /**
 /**
  * Write a visible DB write failure warning to INNER_LIFE_DB_WARNING_PATH.
@@ -1491,14 +1465,22 @@ function flagDbWriteFailure(where: string, reason: string): void {
 }
 
 /** Append a dated entry to one of the personal markdown files. */
-function appendToPersonalFile(filePath: string, title: string, body: string): void {
+function appendToPersonalFile(
+  filePath: string,
+  title: string,
+  body: string,
+  hasSeparateTitle = true,
+): void {
   try {
     const resolved = _personalFilesDirForTest ? join(_personalFilesDirForTest, basename(filePath)) : filePath;
     const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const entry = `\n### ${today} — ${title}\n\n${body}\n\n---\n`;
+    // A single-line trigger has no authored title. Use a neutral heading so
+    // its complete text appears once in the personal file, in the body.
+    const heading = hasSeparateTitle ? title : 'Inner-life note';
+    const entry = `\n### ${today} — ${heading}\n\n${body}\n\n---\n`;
     const existing = existsSync(resolved) ? readFileSync(resolved, 'utf-8') : '';
     // Idempotency: a retry after a transient failure must not duplicate the entry.
-    if (existing.includes(`— ${title}\n\n${body}\n\n---`)) {
+    if (existing.includes(`— ${heading}\n\n${body}\n\n---`)) {
       console.log('[AgentAutosave] personal-file entry already present — skipping duplicate append:', title.slice(0, 60));
       return;
     }
@@ -1578,7 +1560,15 @@ async function savePersonalMemory(
  *
  * Also triggers a re-embed so episode chunks reflect the new content.
  */
-async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string): Promise<boolean> {
+async function appendInnerLifeToEpisodeDb(
+  text: string,
+  episodeFilename: string,
+  route?: {
+    appendMarker?: string;
+    completionMarker?: string;
+    allowAppend: boolean;
+  },
+): Promise<boolean> {
   const filePath = join(DOCS_DIR, episodeFilename);
   if (!existsSync(filePath)) {
     console.warn(`[AgentAutosave] Inner-life DB append: target file not found: ${filePath}`);
@@ -1630,23 +1620,42 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
         return;
       }
 
-      // Idempotency: if this exact entry is already present in the episode
-      // content (e.g. a prior run crashed after the UPDATE but before its
-      // completion marker was recorded), do not append it a second time.
       const pre = await db.execute(sql`
         SELECT content FROM conversation_memories WHERE id = ${memoryId}
       `);
       const preRow = (pre as any).rows?.[0] ?? (pre as any)[0];
-      if (typeof preRow?.content === 'string' && preRow.content.includes(text)) {
-        console.log(`[AgentAutosave] Inner-life entry already present in ${episodeFilename} — skipping duplicate append`);
+      const preContent = typeof preRow?.content === 'string' ? preRow.content : '';
+      if (
+        route?.appendMarker &&
+        episodeContentHasEventMarker(preContent, route.appendMarker)
+      ) {
+        console.log(`[AgentAutosave] Episode event already present in ${episodeFilename} — skipping duplicate append`);
         appended = true; // durable effect already exists
+        return;
+      }
+      if (
+        route?.completionMarker &&
+        episodeContentHasEventMarker(preContent, route.completionMarker)
+      ) {
+        console.log(`[AgentAutosave] Canonical episode event already present in ${episodeFilename} — direct trigger append suppressed`);
+        appended = true;
+        return;
+      }
+      if (route && !route.allowAppend) {
+        console.log('[AgentAutosave] Canonical turn is pending — deferring direct trigger append');
+        return;
+      }
+      // Legacy callers without an event marker retain content-based idempotency.
+      if (!route?.appendMarker && preContent.includes(text)) {
+        appended = true;
         return;
       }
 
       // 1. Append text to the episode's DB content field (DB is primary)
+      const appendText = [route?.appendMarker, text].filter(Boolean).join('\n');
       await db.execute(sql`
         UPDATE conversation_memories
-        SET content = content || ${'\n' + text + '\n'}
+        SET content = content || ${'\n' + appendText + '\n'}
         WHERE id = ${memoryId}
       `);
 
@@ -1687,11 +1696,11 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
   return appended;
 }
 
-// Durable processed-record handoff (Task #1235): written as part of successfully
-// processing an inner-life trigger. The capture-watchdog treats a trigger as
-// already-processed ONLY when its content sha matches this record — never by
-// heartbeat/mtime timing inference, which races (a trigger written between the
-// poll pass and the status heartbeat write looks "old" despite being unsaved).
+const CANONICAL_INNER_LIFE_INTENT_PATH = join(
+  WORKSPACE,
+  '.local',
+  CANONICAL_INNER_LIFE_INTENT_DIR,
+);
 const INNER_LIFE_PROCESSED_PATH = join(WORKSPACE, '.local/.inner-life-processed.json');
 function recordInnerLifeProcessed(channel: 'felt' | 'thinking' | 'moment', raw: string): void {
   try {
@@ -1720,12 +1729,12 @@ export async function checkLucaReflection(): Promise<void> {
       reflectionLastMtime = mtime;
       if (prev === 0) return; // skip initial read
       const raw = readFileSync(triggerPath, 'utf-8').trim();
-      const parsed = parseTriggerFile(raw, 'luca-reflection');
+      const parsed = parseInnerLifeTrigger(raw, 'luca-reflection');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute REFLECTIONS.md or DB
       let personalOk = true;
       if (_lucaPersonalSideEffectsEnabled) {
-        appendToPersonalFile(REFLECTIONS_FILE, parsed.title, parsed.body);
+        appendToPersonalFile(REFLECTIONS_FILE, parsed.title, parsed.body, parsed.hasSeparateTitle);
         personalOk = await savePersonalMemory(
           `Luca reflection: ${parsed.title}`,
           parsed.body,
@@ -1739,17 +1748,17 @@ export async function checkLucaReflection(): Promise<void> {
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
       // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode
       // instead of querying the live rolling episode from DB.
-      const reflectionEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
-      let episodeOk = true;
-      if (reflectionEpisode) {
-        episodeOk = await appendInnerLifeToEpisodeDb(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
-      }
+      const episodeRoute = await routeInnerLifeTriggerToEpisode('felt', raw, parsed, mtime);
+      const episodeOk = episodeRoute === 'complete';
       // Durable handoff identity for the watchdog — recorded ONLY after every
       // required durable effect (personal memory + episode append) succeeded.
       // On failure the sha stays unrecorded so the watchdog can complete the
       // capture; its DB/episode idempotency makes that recovery duplicate-safe.
       if (personalOk && episodeOk) {
         recordInnerLifeProcessed('felt', raw);
+      } else if (episodeRoute === 'pending') {
+        reflectionLastMtime = prev;
+        console.log('[AgentAutosave] felt capture awaiting canonical record-exchange episode write — will reconcile next poll');
       } else {
         // Transient failure: roll the mtime cursor back so the NEXT poll of the
         // unchanged trigger retries the capture (retry is duplicate-safe via
@@ -1772,12 +1781,12 @@ export async function checkLucaQuestion(): Promise<void> {
       questionLastMtime = mtime;
       if (prev === 0) return;
       const raw = readFileSync(triggerPath, 'utf-8').trim();
-      const parsed = parseTriggerFile(raw, 'luca-question');
+      const parsed = parseInnerLifeTrigger(raw, 'luca-question');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute OPEN_QUESTIONS.md or DB
       let personalOk = true;
       if (_lucaPersonalSideEffectsEnabled) {
-        appendToPersonalFile(OPEN_QUESTIONS_FILE, parsed.title, parsed.body);
+        appendToPersonalFile(OPEN_QUESTIONS_FILE, parsed.title, parsed.body, parsed.hasSeparateTitle);
         personalOk = await savePersonalMemory(
           `Luca open question: ${parsed.title}`,
           parsed.body,
@@ -1790,14 +1799,14 @@ export async function checkLucaQuestion(): Promise<void> {
       writeCaptureStatusStaleCheck(); // refresh status immediately so thinking: clears its WARN
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
       // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode.
-      const questionEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
-      let episodeOk = true;
-      if (questionEpisode) {
-        episodeOk = await appendInnerLifeToEpisodeDb(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
-      }
+      const episodeRoute = await routeInnerLifeTriggerToEpisode('thinking', raw, parsed, mtime);
+      const episodeOk = episodeRoute === 'complete';
       // Marker recorded only after ALL durable effects succeeded (see felt path).
       if (personalOk && episodeOk) {
         recordInnerLifeProcessed('thinking', raw);
+      } else if (episodeRoute === 'pending') {
+        questionLastMtime = prev;
+        console.log('[AgentAutosave] thinking capture awaiting canonical record-exchange episode write — will reconcile next poll');
       } else {
         // Transient failure: roll back the cursor so the next poll retries (see felt path).
         questionLastMtime = prev;
@@ -1818,12 +1827,12 @@ export async function checkLucaMoment(): Promise<void> {
       momentLastMtime = mtime;
       if (prev === 0) return;
       const raw = readFileSync(triggerPath, 'utf-8').trim();
-      const parsed = parseTriggerFile(raw, 'luca-significant');
+      const parsed = parseInnerLifeTrigger(raw, 'luca-significant');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute SIGNIFICANT_MOMENTS.md or DB
       let personalOk = true;
       if (_lucaPersonalSideEffectsEnabled) {
-        appendToPersonalFile(MOMENTS_FILE, parsed.title, parsed.body);
+        appendToPersonalFile(MOMENTS_FILE, parsed.title, parsed.body, parsed.hasSeparateTitle);
         personalOk = await savePersonalMemory(
           `Luca significant moment: ${parsed.title}`,
           parsed.body,
@@ -1836,14 +1845,14 @@ export async function checkLucaMoment(): Promise<void> {
       writeCaptureStatusStaleCheck(); // refresh status immediately so moment: clears its WARN
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
       // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode.
-      const momentEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
-      let episodeOk = true;
-      if (momentEpisode) {
-        episodeOk = await appendInnerLifeToEpisodeDb(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
-      }
+      const episodeRoute = await routeInnerLifeTriggerToEpisode('moment', raw, parsed, mtime);
+      const episodeOk = episodeRoute === 'complete';
       // Marker recorded only after ALL durable effects succeeded (see felt path).
       if (personalOk && episodeOk) {
         recordInnerLifeProcessed('moment', raw);
+      } else if (episodeRoute === 'pending') {
+        momentLastMtime = prev;
+        console.log('[AgentAutosave] moment capture awaiting canonical record-exchange episode write — will reconcile next poll');
       } else {
         // Transient failure: roll back the cursor so the next poll retries (see felt path).
         momentLastMtime = prev;
@@ -2146,6 +2155,14 @@ async function checkChatCapture(): Promise<void> {
     let remaining = turns;
     let remainingOffsets = turnByteOffsets;
     let startCursor = cursor.byteOffset;
+    let liveEpisode: string | null = null;
+    const liveMode = existsSync(EPISODE_LIVE_PATH) && _autoCaptureEpisodeEnabled;
+    if (liveMode) {
+      liveEpisode = await getCurrentRollingEpisodeFilename();
+      if (!liveEpisode) {
+        throw new Error('Live mode rolling-episode lookup returned no episode; leaving chat cursor pending');
+      }
+    }
 
     while (remaining.length > 0) {
       const { dialogue, includedCount } = buildDialogueChunk(remaining, 0);
@@ -2175,21 +2192,58 @@ async function checkChatCapture(): Promise<void> {
       const summary    = `Verbatim David↔Luca dialogue (per-turn, append-only). ${davidCount} David turn(s), ${includedCount - davidCount} Luca turn(s). Cursor ${startCursor}→${endOffset}.`;
 
       const db = getUserDb();
-      await db.execute(sql`
-        INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
-        VALUES (
-          gen_random_uuid(),
-          ${title},
-          ${summary},
-          ${dialogue},
-          ARRAY['david', 'luca']::text[],
-          ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture']::text[],
-          8,
-          NOW(),
-          'conversation',
-          'david-luca-chat'
-        )
+      const existingCapture = await db.execute(sql`
+        SELECT id FROM conversation_memories
+        WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
+        LIMIT 1
       `);
+      const existingCaptureRow = (existingCapture as any).rows?.[0] ?? (existingCapture as any)[0];
+      if (!existingCaptureRow?.id) {
+        await db.execute(sql`
+          INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
+          VALUES (
+            gen_random_uuid(),
+            ${title},
+            ${summary},
+            ${dialogue},
+            ARRAY['david', 'luca']::text[],
+            ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture']::text[],
+            8,
+            NOW(),
+            'conversation',
+            'david-luca-chat'
+          )
+        `);
+      } else {
+        console.log(`[AgentAutosave] Chat capture DB row already present for cursor ${startCursor}→${endOffset} — skipping duplicate insert`);
+      }
+
+      // The episode is a required durable effect in live mode. Append DB-first
+      // before advancing the cursor; retries are safe because both the chat row
+      // and episode helper are idempotent.
+      if (liveEpisode) {
+        const batchTurns = remaining.slice(0, includedCount);
+        const formatted = batchTurns.map(t => {
+          const up = t.speaker.toUpperCase();
+          const label = up === 'DAVID' ? '**David:**' : '**LUCA [Replit]:**';
+          return `${label} ${t.text}`;
+        }).join('\n\n');
+        const eventMarkers = [
+          `<!-- chat-capture-range:${startCursor}:${endOffset} -->`,
+          ...batchTurns
+            .filter(turn => turn.captureId)
+            .map(turn => canonicalTurnEpisodeMarker(turn.captureId!)),
+        ].join('\n');
+        const episodeOk = await appendInnerLifeToEpisodeDb(
+          formatted,
+          liveEpisode,
+          { appendMarker: eventMarkers, allowAppend: true },
+        );
+        if (!episodeOk) {
+          throw new Error(`Live mode DB-first episode append failed for ${liveEpisode}`);
+        }
+        console.log(`[AgentAutosave] Live mode: appended ${batchTurns.length} turn(s) DB-first to ${liveEpisode}`);
+      }
 
       // Advance cursor ONLY through included turns — never newByteOffset (Bug fix #3):
       // endOffset = turnByteOffsets[includedCount - 1] = byte offset after the last
@@ -2207,28 +2261,6 @@ async function checkChatCapture(): Promise<void> {
     // Advance mtime ONLY after all inserts succeed (Bug fix #2):
     // mtime stays at old value if any insert throws, so the next poll retries.
     chatCaptureLastMtime = snapshotMtime; // now safe to advance
-
-    // ── Live mode: auto-route captured turns to the rolling episode .md ──────
-    // When .local/.episode_live exists, format each turn as episode dialogue
-    // and append to the rolling episode .md immediately after the DB save.
-    // Toggle with:  npx tsx server/scripts/episode-live-mode.ts on|off|status
-    // Guarded by _autoCaptureEpisodeEnabled so CI self-checks can disable it.
-    if (existsSync(EPISODE_LIVE_PATH) && _autoCaptureEpisodeEnabled) {
-      try {
-        const liveEpisode = await getCurrentRollingEpisodeFilename();
-        if (liveEpisode) {
-          const formatted = turns.map(t => {
-            const up = t.speaker.toUpperCase();
-            const label = up === 'DAVID' ? '**David:**' : '**LUCA [Replit]:**';
-            return `${label} ${t.text}`;
-          }).join('\n\n');
-          await appendExchangeToEpisode(formatted, liveEpisode);
-          console.log(`[AgentAutosave] Live mode: appended ${turns.length} turn(s) to ${liveEpisode}`);
-        }
-      } catch (liveErr: any) {
-        console.error('[AgentAutosave] Live mode episode append failed:', liveErr.message);
-      }
-    }
 
     // Update the DB-output anchor so the always-on ordering check runs even when
     // no rolling episode is active.  Only advance when Luca turns were included
@@ -3671,6 +3703,13 @@ let _innerLifeDbUpdateEnabled = true;
  */
 let _innerLifeRollingEpisodeOverride: string | null = null;
 
+/**
+ * Test seam for the live four-channel ownership rule.
+ * null = production: .episode_live means record-exchange owns episode routing.
+ * true = canonical record-exchange route active (triggers are personal-only).
+ * false = direct trigger-to-episode fallback active.
+ */
+let _canonicalFourChannelRouteOverrideForTest: boolean | null = null;
 export function getReflectionPathOverrideForTest(): string | null {
   return _reflectionPathOverrideForTest;
 }
@@ -3799,4 +3838,59 @@ export async function savePersonalMemoryForTest(
   arcName: string,
 ): Promise<void> {
   await savePersonalMemory(title, body, tags, arcName);
+}
+
+export function parseInnerLifeTriggerForTest(
+  raw: string,
+  defaultTag: string,
+): ParsedInnerLifeTrigger | null {
+  return parseInnerLifeTrigger(raw, defaultTag);
+}
+
+export function setCanonicalFourChannelRouteForTest(active: boolean | null): void {
+  _canonicalFourChannelRouteOverrideForTest = active;
+}
+
+async function routeInnerLifeTriggerToEpisode(
+  channel: InnerLifeChannel,
+  raw: string,
+  parsed: ParsedInnerLifeTrigger,
+  triggerMtimeMs: number,
+): Promise<'complete' | 'pending' | 'failed'> {
+  const episodeFilename = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
+  if (!episodeFilename) {
+    return isCanonicalFourChannelRouteActive() ? 'pending' : 'complete';
+  }
+
+  const route = resolveCanonicalInnerLifeRoute({
+    active: isCanonicalFourChannelRouteActive(),
+    intentDir: CANONICAL_INNER_LIFE_INTENT_PATH,
+    chatCapturePath: CHAT_CAPTURE_PATH,
+    channel,
+    raw,
+    triggerMtimeMs,
+  });
+  const complete = await appendInnerLifeToEpisodeDb(
+    formatInnerLifeEpisodeEntry(channel, parsed),
+    episodeFilename,
+    {
+      appendMarker: innerLifeTriggerEpisodeMarker(channel, triggerMtimeMs, raw),
+      completionMarker: route.expectedTurnId
+        ? canonicalTurnEpisodeMarker(route.expectedTurnId)
+        : undefined,
+      allowAppend: route.allowDirect,
+    },
+  );
+  if (complete) return 'complete';
+  return route.allowDirect ? 'failed' : 'pending';
+}
+
+function isCanonicalFourChannelRouteActive(): boolean {
+  if (_canonicalFourChannelRouteOverrideForTest !== null) {
+    return _canonicalFourChannelRouteOverrideForTest;
+  }
+  // Existing pinned fixture tests intentionally exercise the direct DB-first
+  // helper even when the workspace's real live-mode sentinel exists.
+  if (_innerLifeRollingEpisodeOverride !== null) return false;
+  return existsSync(EPISODE_LIVE_PATH);
 }

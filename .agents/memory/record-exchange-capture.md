@@ -56,6 +56,20 @@ Autosave won't run. Signs: cursor offset < file size. Fix: restart `Start applic
 ## Do NOT also manually append to episode .md
 Once this script is used, the autosave handles the episode routing. Manual appends after this create duplicates.
 
+## Exactly-once means event identity, not text identity
+Every captured turn and direct trigger append needs its own durable event identity. Identical text can be spoken twice legitimately, so text containment must never be the idempotency key.
+
+**Why:** Content-based duplicate checks fixed retries by silently deleting real repeated events. A canonical four-channel handoff can also race the persistent trigger watcher unless both paths reconcile against the same turn identity.
+
+**How to apply:** Write the handoff identity before the chat turn, carry it through capture and episode projection, and advance cursors/processed state only after the required live episode event is durable. If the writer dies before capture, the trigger may use DB-first fallback.
+
+## Self-check isolation
+Capture self-checks must use a private temporary stream, never the live capture file.
+
+**Why:** Leaving a canary behind the live cursor lets autosave turn synthetic validation text into permanent episode dialogue.
+
+**How to apply:** Round-trip the real writer and parser against a test-only path, delete it after the assertion, and verify the production stream and cursor remain unchanged.
+
 ## Self-check
 ```bash
 npx tsx server/scripts/record-exchange.ts --self-check

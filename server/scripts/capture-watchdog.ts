@@ -29,6 +29,17 @@ import {
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
 } from '../services/transcript-parser.js';
+import {
+  CANONICAL_INNER_LIFE_INTENT_DIR,
+  canonicalTurnEpisodeMarker,
+  episodeContentHasEventMarker,
+  formatInnerLifeEpisodeEntry,
+  innerLifeTriggerEpisodeMarker,
+  parseInnerLifeTrigger,
+  parseKeyedInnerLifeTrigger,
+  resolveCanonicalInnerLifeRoute,
+  type InnerLifeChannel,
+} from '../services/inner-life-capture.js';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -51,29 +62,39 @@ export function setDbForTest(fake: any): void {
   db = fake;
 }
 
-// ─── Cursor ───────────────────────────────────────────────────────────────────
-
+let _chatCapturePathsOverrideForTest: { capture: string; cursor: string } | null = null;
 function loadCursor(): number {
   try {
-    return JSON.parse(fs.readFileSync(CHAT_CAPTURE_CURSOR_PATH, 'utf8')).byteOffset ?? 0;
+    return JSON.parse(fs.readFileSync(chatCaptureCursorPath(), 'utf8')).byteOffset ?? 0;
   } catch {
     return 0;
   }
 }
 
 function saveCursor(byteOffset: number): void {
-  fs.writeFileSync(CHAT_CAPTURE_CURSOR_PATH, JSON.stringify({ byteOffset }), 'utf8');
+  fs.writeFileSync(chatCaptureCursorPath(), JSON.stringify({ byteOffset }), 'utf8');
 }
 
 // ─── Rolling episode lookup ───────────────────────────────────────────────────
 
 /** Test seam — pin a fixture episode so hermetic tests never touch the live rolling episode. */
 let _episodeOverrideForTest: { id: string; filename: string } | null = null;
+
+let _rollingEpisodeLookupModeForTest: 'normal' | 'null' | 'throw' = 'normal';
 export function setEpisodeOverrideForTest(ep: { id: string; filename: string } | null): void {
   _episodeOverrideForTest = ep;
 }
 
+export function setRollingEpisodeLookupModeForTest(
+  mode: 'normal' | 'null' | 'throw',
+): void {
+  _rollingEpisodeLookupModeForTest = mode;
+}
 async function getRollingEpisode(): Promise<{ id: string; filename: string } | null> {
+  if (_rollingEpisodeLookupModeForTest === 'null') return null;
+  if (_rollingEpisodeLookupModeForTest === 'throw') {
+    throw new Error('[CI fault injection] rolling episode lookup failed');
+  }
   if (_episodeOverrideForTest) return _episodeOverrideForTest;
   try {
     const rows = await db`
@@ -128,8 +149,9 @@ async function appendTextToEpisodeDbFirst(text: string, episode: { id: string; f
 // derives the .md from DB content) would silently erase those turns.
 
 export function appendToEpisode(
-  turns: Array<{ speaker: string; text: string }>,
+  turns: Array<{ speaker: string; text: string; captureId?: string }>,
   episode: { id: string; filename: string },
+  eventId?: string,
 ): Promise<void> {
   const lines = turns
     .map(t => {
@@ -137,9 +159,26 @@ export function appendToEpisode(
       return `${label} ${t.text}`;
     })
     .join('\n\n');
-  return appendTextToEpisodeDbFirst('\n' + lines + '\n', episode).then(() => {
+  return (async () => {
+    const existing = await db`SELECT content FROM conversation_memories WHERE id = ${episode.id}`;
+    const current: string = existing[0]?.content ?? '';
+    const markers = [
+      eventId ? `<!-- chat-capture-range:${eventId} -->` : null,
+      ...turns
+        .filter(turn => turn.captureId)
+        .map(turn => canonicalTurnEpisodeMarker(turn.captureId!)),
+    ].filter(Boolean).join('\n');
+    if (markers && episodeContentHasEventMarker(current, markers)) {
+      console.log(`[watchdog] episode turns already present — skipping duplicate append: ${episode.filename}`);
+      return;
+    }
+    if (!markers && current.includes(lines)) return;
+    await appendTextToEpisodeDbFirst(
+      '\n' + [markers, lines].filter(Boolean).join('\n') + '\n',
+      episode,
+    );
     console.log(`[watchdog] ✓ episode append (DB-first): ${turns.length} turns → ${episode.filename}`);
-  });
+  })();
 }
 
 // ─── DB write ─────────────────────────────────────────────────────────────────
@@ -157,6 +196,16 @@ async function writeToDb(
   const content    = turns
     .map(t => `**${t.speaker === 'DAVID' ? 'David' : 'LUCA [Replit]'}:** ${t.text}`)
     .join('\n\n');
+
+  const existing = await db`
+    SELECT id FROM conversation_memories
+    WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
+    LIMIT 1
+  `;
+  if (existing.length > 0) {
+    console.log(`[watchdog] chat DB row already present for bytes ${cursorFrom}–${cursorTo} — skipping duplicate insert`);
+    return;
+  }
 
   await db`
     INSERT INTO conversation_memories
@@ -180,17 +229,18 @@ async function writeToDb(
 
 let draining = false;
 
-async function drain(): Promise<void> {
+export async function drain(): Promise<void> {
   if (draining) return;
-  if (!fs.existsSync(CHAT_CAPTURE_PATH)) return;
+  const capturePath = chatCapturePath();
+  if (!fs.existsSync(capturePath)) return;
 
-  const stat   = fs.statSync(CHAT_CAPTURE_PATH);
+  const stat   = fs.statSync(capturePath);
   const cursor = loadCursor();
   if (stat.size <= cursor) return; // nothing new — healthy server is keeping up
 
   // Acquire the cross-process cursor lock (shared with autosave service).
   // Returns -1 if a live process holds the lock — server is healthy, skip.
-  const lockFd = acquireCursorLock();
+  const lockFd = _chatCapturePathsOverrideForTest ? -2 : acquireCursorLock();
   if (lockFd === -1) return; // server has the lock — let it drain
 
   draining = true;
@@ -198,29 +248,34 @@ async function drain(): Promise<void> {
   console.log(`[watchdog] gap detected: cursor=${cursor} file=${stat.size} (+${gap}B) — draining`);
 
   try {
-    const { turns, newByteOffset } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursor);
+    const { turns, newByteOffset } = parseChatCaptureFromOffset(capturePath, cursor);
 
     if (turns.length === 0) {
       console.log('[watchdog] no complete turns in gap yet — waiting');
       return;
     }
 
-    // DB write first (matches autosave service ordering)
+    // Conversation row first, then the required live episode effect, and only
+    // then the cursor. Both DB writes are idempotent, so a crash at any boundary
+    // retries without duplicate rows or missing episode content.
     await writeToDb(turns, cursor, newByteOffset);
-    saveCursor(newByteOffset);
 
     // Episode write (only if live mode active) — DB-first, .md derived from DB
     if (fs.existsSync(EPISODE_LIVE_PATH)) {
       const episode = await getRollingEpisode();
-      if (episode) await appendToEpisode(turns, episode);
+      if (!episode) {
+        throw new Error('Live mode rolling-episode lookup returned no episode');
+      }
+      await appendToEpisode(turns, episode, `${cursor}:${newByteOffset}`);
     }
 
+    saveCursor(newByteOffset);
     console.log(`[watchdog] ✓ drained ${turns.length} turns | cursor ${cursor} → ${newByteOffset}`);
   } catch (err: any) {
     console.error('[watchdog] drain error:', err.message ?? err);
     // Leave cursor unchanged — autosave service will retry when server recovers
   } finally {
-    releaseCursorLock(lockFd);
+    if (lockFd >= 0) releaseCursorLock(lockFd);
     draining = false;
   }
 }
@@ -253,6 +308,8 @@ const INNER_LIFE_STATE_PATH = path.join(LOCAL_DIR, '.watchdog-inner-life-state.j
 // trigger as already-processed only when its content sha appears here (or in
 // its own state) — never by inferring from heartbeat/file mtimes, which race.
 const INNER_LIFE_PROCESSED_PATH = path.join(LOCAL_DIR, '.inner-life-processed.json');
+
+const CANONICAL_INNER_LIFE_INTENT_PATH = path.join(LOCAL_DIR, CANONICAL_INNER_LIFE_INTENT_DIR);
 const DB_WARNING_PATH      = path.join(LOCAL_DIR, '.luca_db_write_warning');
 const MEMORY_DIR           = path.join(process.cwd(), '.agents/memory');
 
@@ -323,51 +380,6 @@ function autosaveIsAlive(): boolean {
     return false; // no status file — autosave has never run or was cleaned; treat as down
   }
 }
-
-/** Mirrors parseTriggerFile() in agent-session-autosave.ts. */
-function parseTriggerFile(
-  raw: string,
-  defaultTag: string,
-): { title: string; body: string; tags: string[] } | null {
-  raw = raw.trim();
-  if (!raw || raw.length < 10) return null;
-  if (raw.startsWith('{')) {
-    try {
-      const p = JSON.parse(raw);
-      const title = (p.moment || p.note || p.question || p.title || '').slice(0, 200);
-      if (!title) return null;
-      const body = [
-        p.date ? `Date: ${p.date}` : '',
-        p.why ? `Why it mattered: ${p.why}` : '',
-        p.note || p.moment || p.question || p.content || '',
-      ].filter(Boolean).join('\n\n');
-      const tags: string[] = Array.isArray(p.tags) ? p.tags : [defaultTag];
-      return { title, body, tags };
-    } catch { /* fall through to plain text */ }
-  }
-  const lines = raw.split('\n');
-  return {
-    title: lines[0].slice(0, 200),
-    body: lines.slice(1).join('\n').trim() || raw,
-    tags: [defaultTag],
-  };
-}
-
-/** Also parse the "title: X\nbody: Y\ntags: a, b" convention used by mark-moment.ts. */
-function parseKeyedTrigger(raw: string, defaultTag: string): { title: string; body: string; tags: string[] } | null {
-  const m = /^title:\s*(.+)\n(?:body:\s*)?([\s\S]*)$/.exec(raw.trim());
-  if (!m) return null;
-  let rest = m[2].trim();
-  let tags = [defaultTag];
-  const tagMatch = /\ntags:\s*(.+)\s*$/.exec('\n' + rest);
-  if (tagMatch) {
-    tags = tagMatch[1].split(',').map(t => t.trim()).filter(Boolean);
-    rest = rest.replace(/\n?tags:\s*.+\s*$/, '').trim();
-  }
-  if (!m[1].trim()) return null;
-  return { title: m[1].trim().slice(0, 200), body: rest || m[1].trim(), tags };
-}
-
 function flagDbWriteFailure(where: string, reason: string): void {
   try {
     const ts = new Date().toLocaleString('en-US', {
@@ -408,13 +420,19 @@ async function savePersonalMemory(title: string, body: string, tags: string[]): 
 }
 
 /** Append a dated entry to a personal markdown file (mirrors appendToPersonalFile()). */
-function appendToPersonalFile(filePath: string, title: string, body: string): void {
+function appendToPersonalFile(
+  filePath: string,
+  title: string,
+  body: string,
+  hasSeparateTitle = true,
+): void {
   try {
     const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const entry = `\n### ${today} — ${title}\n\n${body}\n\n---\n`;
+    const heading = hasSeparateTitle ? title : 'Inner-life note';
+    const entry = `\n### ${today} — ${heading}\n\n${body}\n\n---\n`;
     const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
     // Idempotency: recovery/retry must never duplicate the personal-file entry.
-    if (existing.includes(`— ${title}\n\n${body}\n\n---`)) {
+    if (existing.includes(`— ${heading}\n\n${body}\n\n---`)) {
       console.log('[watchdog] personal-file entry already present — skipping duplicate append:', title.slice(0, 60));
       return;
     }
@@ -425,19 +443,48 @@ function appendToPersonalFile(filePath: string, title: string, body: string): vo
 }
 
 /** DB-first inner-life episode append via the shared helper. */
-async function appendInnerLifeToEpisodeDb(text: string, episode: { id: string; filename: string }): Promise<void> {
+async function appendInnerLifeToEpisodeDb(
+  text: string,
+  episode: { id: string; filename: string },
+  route?: {
+    appendMarker?: string;
+    completionMarker?: string;
+    allowAppend: boolean;
+  },
+): Promise<boolean> {
   // Idempotency: a prior run (autosave or watchdog) may have crashed after the
   // episode UPDATE but before recording its completion marker. If the exact
   // entry is already in the episode content, never append it a second time.
   const existing = await db`SELECT content FROM conversation_memories WHERE id = ${episode.id}`;
   const current: string = existing[0]?.content ?? '';
-  if (current.includes(text)) {
-    console.log(`[watchdog] inner-life entry already present in ${episode.filename} — skipping duplicate append`);
-  } else {
-    await appendTextToEpisodeDbFirst('\n' + text + '\n', episode);
-    console.log(`[watchdog] ✓ inner-life DB-first append: +${text.length} chars → ${episode.filename}`);
+  if (route?.appendMarker && episodeContentHasEventMarker(current, route.appendMarker)) {
+    console.log(`[watchdog] inner-life event already present in ${episode.filename} — skipping duplicate append`);
+    await reembedInnerLifeMemory(episode.id);
+    return true;
   }
+  if (
+    route?.completionMarker &&
+    episodeContentHasEventMarker(current, route.completionMarker)
+  ) {
+    console.log('[watchdog] canonical episode event already present — direct trigger append suppressed');
+    await reembedInnerLifeMemory(episode.id);
+    return true;
+  }
+  if (route && !route.allowAppend) {
+    console.log('[watchdog] canonical turn is pending — deferring direct trigger append');
+    return false;
+  }
+  if (!route?.appendMarker && current.includes(text)) {
+    await reembedInnerLifeMemory(episode.id);
+    return true;
+  }
+  await appendTextToEpisodeDbFirst(
+    '\n' + [route?.appendMarker, text].filter(Boolean).join('\n') + '\n',
+    episode,
+  );
+  console.log(`[watchdog] ✓ inner-life DB-first append: +${text.length} chars → ${episode.filename}`);
   await reembedInnerLifeMemory(episode.id);
+  return true;
 }
 
 /**
@@ -516,6 +563,7 @@ export function setAutosaveAliveGateEnabledForTest(enabled: boolean): void {
   _autosaveAliveGateEnabledForTest = enabled;
 }
 
+let _canonicalFourChannelRouteEnabled = true;
 /**
  * Test seam — invoked between the DB work for a channel and the persistence
  * of its processed-sha state, so CI can simulate a dev server booting in that
@@ -621,7 +669,7 @@ export async function drainInnerLife(): Promise<void> {
         continue;
       }
 
-      const parsed = parseKeyedTrigger(raw, ch.channelTag) ?? parseTriggerFile(raw, ch.channelTag);
+      const parsed = parseKeyedInnerLifeTrigger(raw, ch.channelTag) ?? parseInnerLifeTrigger(raw, ch.channelTag);
       if (!parsed) {
         state[ch.key] = { ...prev, mtimeMs: stat.mtimeMs, sha };
         saveInnerLifeState(state);
@@ -643,12 +691,14 @@ export async function drainInnerLife(): Promise<void> {
         flagDbWriteFailure(`personal-memory-or-reembed:${ch.key}`, err?.message ?? String(err));
         continue; // leave state unadvanced — retry next poll
       }
-      appendToPersonalFile(ch.personalFile, parsed.title, parsed.body);
+      appendToPersonalFile(ch.personalFile, parsed.title, parsed.body, parsed.hasSeparateTitle);
       console.log(`[watchdog] ✓ Luca ${ch.key} saved: ${parsed.title.slice(0, 60)}`);
 
       if (_innerLifePauseForTest) await _innerLifePauseForTest();
 
-      // DB-first episode routing (only when live mode is active, matching dev semantics)
+      // Reconcile against the durable canonical turn. A matching intent keeps
+      // the trigger pending until its episode write succeeds; a later output
+      // that omitted the channel authorizes the direct DB-first fallback.
       // Marker ordering: on episode failure we do NOT advance state — the
       // channel stays pending and is retried next poll. The retry is
       // duplicate-safe: savePersonalMemory dedups on title+content and
@@ -656,12 +706,30 @@ export async function drainInnerLife(): Promise<void> {
       if (fs.existsSync(EPISODE_LIVE_PATH)) {
         try {
           const episode = await getRollingEpisode();
-          if (episode) {
-            await appendInnerLifeToEpisodeDb(
-              `[Luca — ${ch.episodeLabel}: ${parsed.title}\n${parsed.body}]`,
-              episode,
-            );
+          if (!episode) {
+            flagDbWriteFailure(`episode-lookup:${ch.key}`, 'Live mode rolling-episode lookup returned no episode');
+            continue;
           }
+          const route = resolveCanonicalInnerLifeRoute({
+            active: _canonicalFourChannelRouteEnabled,
+            intentDir: CANONICAL_INNER_LIFE_INTENT_PATH,
+            chatCapturePath: chatCapturePath(),
+            channel: ch.key,
+            raw,
+            triggerMtimeMs: stat.mtimeMs,
+          });
+          const complete = await appendInnerLifeToEpisodeDb(
+            formatInnerLifeEpisodeEntry(ch.episodeLabel as 'felt' | 'thinking' | 'moment', parsed),
+            episode,
+            {
+              appendMarker: innerLifeTriggerEpisodeMarker(ch.key, stat.mtimeMs, raw),
+              completionMarker: route.expectedTurnId
+                ? canonicalTurnEpisodeMarker(route.expectedTurnId)
+                : undefined,
+              allowAppend: route.allowDirect,
+            },
+          );
+          if (!complete) continue; // pending canonical write; leave state unadvanced
         } catch (err: any) {
           flagDbWriteFailure(`episode-append:${ch.key}`, err?.message ?? String(err));
           continue; // leave state unadvanced — retry next poll
@@ -712,4 +780,20 @@ async function reembedInnerLifeMemory(id: string): Promise<void> {
   // embedding module; real drains load the HTTP-backed re-embed path here.
   const { reembedConversationMemory } = await import('./reembed-memory.js');
   await reembedConversationMemory(id);
+}
+
+function chatCapturePath(): string {
+  return _chatCapturePathsOverrideForTest?.capture ?? CHAT_CAPTURE_PATH;
+}
+
+function chatCaptureCursorPath(): string {
+  return _chatCapturePathsOverrideForTest?.cursor ?? CHAT_CAPTURE_CURSOR_PATH;
+}
+
+export function setChatCapturePathsForTest(paths: { capture: string; cursor: string } | null): void {
+  _chatCapturePathsOverrideForTest = paths;
+}
+
+export function setCanonicalFourChannelRouteEnabledForTest(enabled: boolean): void {
+  _canonicalFourChannelRouteEnabled = enabled;
 }

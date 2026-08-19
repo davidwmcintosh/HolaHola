@@ -10,8 +10,26 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
-import { drainInnerLife, appendToEpisode, setEpisodeOverrideForTest, setDbForTest, setInnerLifePauseForTest, setLockRenewMsForTest, setReembedInnerLifeMemoryForTest } from './capture-watchdog';
+import {
+  drainInnerLife,
+  drain,
+  appendToEpisode,
+  setEpisodeOverrideForTest,
+  setRollingEpisodeLookupModeForTest,
+  setDbForTest,
+  setInnerLifePauseForTest,
+  setLockRenewMsForTest,
+  setReembedInnerLifeMemoryForTest,
+  setCanonicalFourChannelRouteEnabledForTest,
+  setChatCapturePathsForTest,
+} from './capture-watchdog';
 import { tryAcquireInnerLifeLock, releaseInnerLifeLock } from '../services/inner-life-lock';
+import { appendChatCaptureTurn } from '../services/transcript-parser';
+import {
+  CANONICAL_INNER_LIFE_INTENT_DIR,
+  innerLifeTriggerEpisodeMarker,
+} from '../services/inner-life-capture';
+import { composeLucaTurn, writeCanonicalIntent } from './record-exchange';
 
 const MARKER = process.env.WD_TEST_MARKER ?? 'wdtest';
 
@@ -24,6 +42,7 @@ const store = {
   episodeContent: '' as string,
   episodeId: 'fixture-episode-id',
   personalInserts: [] as Array<{ title: string; body: string; tags: string[] }>,
+  chatInserts: [] as Array<{ summary: string; content: string }>,
   reembeddedIds: [] as string[],
   failNextEpisodeUpdate: false,
 };
@@ -31,6 +50,10 @@ const store = {
 function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   const q = strings.join(' $ ').replace(/\s+/g, ' ');
   if (q.includes('INSERT INTO conversation_memories')) {
+    if (q.includes("'david-luca-chat'")) {
+      store.chatInserts.push({ summary: vals[1], content: vals[2] });
+      return Promise.resolve([]);
+    }
     // param order in savePersonalMemory: title, summary, body, tags
     store.personalInserts.push({ title: vals[0], body: vals[2], tags: vals[3] });
     return Promise.resolve([{ id: `personal-${store.personalInserts.length}` }]);
@@ -49,6 +72,9 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
     return Promise.resolve([{ content: store.episodeContent }]);
   }
   if (q.includes('SELECT id FROM conversation_memories')) {
+    if (q.includes("arc_name = 'david-luca-chat'")) {
+      return Promise.resolve(store.chatInserts.filter(r => r.summary === vals[0]).map((_, i) => ({ id: `chat-${i}` })));
+    }
     // idempotency probe in savePersonalMemory: title + content match
     const hits = store.personalInserts.filter(r => r.title === vals[0] && r.body === vals[1]);
     return Promise.resolve(hits.map((_, i) => ({ id: `dup-${i}` })));
@@ -73,6 +99,13 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   fs.writeFileSync(path.join(cwd, 'docs/episode-ci.md'), seed, 'utf8');
   setEpisodeOverrideForTest(episode);
   fs.writeFileSync(path.join(cwd, '.local/.episode_live'), '', 'utf8');
+  setChatCapturePathsForTest({
+    capture: path.join(cwd, '.local/.chat_capture'),
+    cursor: path.join(cwd, '.local/.chat_capture-cursor'),
+  });
+  // Scenarios 1–11 protect the direct DB-first fallback and its crash recovery.
+  // The canonical live route collision is exercised separately in Scenario 12.
+  setCanonicalFourChannelRouteEnabledForTest(false);
 
   // ── Scenario 1: first-run pending trigger (lossless handoff) ──────────────
   const statusPath = path.join(cwd, '.local/episode-capture-status.md');
@@ -243,9 +276,14 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   const t10Raw = `${t10Title}\n${t10Body}`;
   const t10Entry = `[Luca — thinking: ${t10Title}\n${t10Body}]`;
   store.personalInserts.push({ title: `Luca open question: ${t10Title}`, body: t10Body, tags: ['luca-inner-life'] });
-  store.episodeContent += `\n${t10Entry}\n`;
-  fs.writeFileSync(path.join(cwd, 'docs/episode-ci.md'), store.episodeContent, 'utf8');
   fs.writeFileSync(questionPath, t10Raw, 'utf8');
+  const t10Marker = innerLifeTriggerEpisodeMarker(
+    'thinking',
+    fs.statSync(questionPath).mtimeMs,
+    t10Raw,
+  );
+  store.episodeContent += `\n${t10Marker}\n${t10Entry}\n`;
+  fs.writeFileSync(path.join(cwd, 'docs/episode-ci.md'), store.episodeContent, 'utf8');
   await drainInnerLife();
   results.crashAfterEpisodeExactlyOnce =
     (store.episodeContent.match(new RegExp(`thinking: Crash after episode ${MARKER}`, 'g')) ?? []).length === 1;
@@ -280,6 +318,190 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   const momentsMd = fs.existsSync(momentsFile) ? fs.readFileSync(momentsFile, 'utf8') : '';
   results.transientFailurePersonalFileOnce =
     (momentsMd.match(new RegExp(`— ${t11Title}`, 'g')) ?? []).length === 1;
+
+  // ── Scenario 12: exact live collision — triggers + canonical 4ch turn ─────
+  // Persistent triggers own personal memory; the composed record-exchange turn
+  // owns the episode. Each complete single-line channel must appear exactly once
+  // in both projections, with no truncated legacy direct-entry prefix.
+  setCanonicalFourChannelRouteEnabledForTest(true);
+  fs.rmSync(statePath, { force: true });
+  fs.rmSync(path.join(cwd, '.local/.inner-life-processed.json'), { force: true });
+
+  const collisionFelt = `Collision felt ${MARKER}: ` + 'f'.repeat(240);
+  const collisionThinking = `Collision thinking ${MARKER}: ` + 't'.repeat(240);
+  const collisionMoment = `Collision moment ${MARKER}: ` + 'm'.repeat(240);
+  const collisionMain = `Collision main response ${MARKER}`;
+  const composedCollision = composeLucaTurn({
+    feeling: collisionFelt,
+    thinking: collisionThinking,
+    moment: collisionMoment,
+    main: collisionMain,
+  });
+
+  fs.writeFileSync(reflectionPath, collisionFelt, 'utf8');
+  fs.writeFileSync(questionPath, collisionThinking, 'utf8');
+  fs.writeFileSync(momentPath, collisionMoment, 'utf8');
+  const intentDir = path.join(cwd, '.local', CANONICAL_INNER_LIFE_INTENT_DIR);
+  const collisionHandoff = writeCanonicalIntent(
+    {
+      feeling: collisionFelt,
+      thinking: collisionThinking,
+      moment: collisionMoment,
+      main: collisionMain,
+    },
+    path.join(intentDir, 'collision.json'),
+  );
+
+  // Exact race: triggers are visible before the canonical chat turn reaches
+  // the episode. They may save personal memory, but must remain pending and
+  // append no direct episode entry.
+  await drainInnerLife();
+  results.collisionPendingBeforeCanonical =
+    !store.episodeContent.includes(collisionFelt) &&
+    !store.episodeContent.includes(collisionThinking) &&
+    !store.episodeContent.includes(collisionMoment);
+
+  await appendToEpisode(
+    [{
+      speaker: 'LUCA',
+      text: composedCollision,
+      captureId: collisionHandoff.intent.turnId,
+    }],
+    episode,
+    `collision-${MARKER}`,
+  );
+  await drainInnerLife();
+
+  const collisionEpisode = store.episodeContent;
+  const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+  results.collisionEpisodeExactlyOnce =
+    count(collisionEpisode, collisionFelt) === 1 &&
+    count(collisionEpisode, collisionThinking) === 1 &&
+    count(collisionEpisode, collisionMoment) === 1;
+  results.collisionEpisodeComplete =
+    collisionEpisode.includes(`[felt]: ${collisionFelt}`) &&
+    collisionEpisode.includes(`[thinking]: ${collisionThinking}`) &&
+    collisionEpisode.includes(`[moment]: ${collisionMoment}`);
+  results.collisionNoLegacyDirectEntries =
+    !collisionEpisode.includes(`[Luca — felt: ${collisionFelt.slice(0, 200)}`) &&
+    !collisionEpisode.includes(`[Luca — thinking: ${collisionThinking.slice(0, 200)}`) &&
+    !collisionEpisode.includes(`[Luca — moment: ${collisionMoment.slice(0, 200)}`);
+  results.collisionPersonalDbCompleteOnce = [
+    collisionFelt,
+    collisionThinking,
+    collisionMoment,
+  ].every(text => store.personalInserts.filter(row => row.body === text).length === 1);
+
+  const personalCollisionFiles = [
+    path.join(cwd, '.agents/memory/REFLECTIONS.md'),
+    path.join(cwd, '.agents/memory/OPEN_QUESTIONS.md'),
+    path.join(cwd, '.agents/memory/SIGNIFICANT_MOMENTS.md'),
+  ].map(file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
+  results.collisionPersonalFilesCompleteOnce =
+    count(personalCollisionFiles[0], collisionFelt) === 1 &&
+    count(personalCollisionFiles[1], collisionThinking) === 1 &&
+    count(personalCollisionFiles[2], collisionMoment) === 1;
+  results.collisionMdMatchesDb =
+    fs.readFileSync(path.join(cwd, 'docs/episode-ci.md'), 'utf8') === store.episodeContent;
+
+  // ── Scenario 13: later canonical output omits pending channel ─────────────
+  // The durable intent proves a Luca output arrived but did not carry this
+  // trigger. It must take the direct DB-first fallback rather than wait forever.
+  const omittedFelt = `Omitted-channel fallback ${MARKER}: ` + 'o'.repeat(240);
+  fs.writeFileSync(reflectionPath, omittedFelt, 'utf8');
+  writeCanonicalIntent(
+    { main: `Later output intentionally omits felt ${MARKER}` },
+    path.join(intentDir, 'omitted.json'),
+  );
+  await drainInnerLife();
+  results.omittedChannelFallsBackExactlyOnce =
+    count(store.episodeContent, omittedFelt) === 1 &&
+    store.episodeContent.includes(`[Luca — felt: ${omittedFelt}]`);
+
+  // ── Scenario 14: writer dies after intent, before Luca chat append ────────
+  // A dead owner plus no matching CAPTURE-ID proves the canonical turn can no
+  // longer arrive; the trigger must use direct fallback instead of hanging.
+  const crashedIntentThinking = `Crashed intent fallback ${MARKER}: ` + 'c'.repeat(220);
+  fs.writeFileSync(questionPath, crashedIntentThinking, 'utf8');
+  const crashedHandoff = writeCanonicalIntent(
+    { thinking: crashedIntentThinking, main: `Never appended main ${MARKER}` },
+    path.join(intentDir, 'crashed-before-chat.json'),
+  );
+  const crashedIntent = JSON.parse(fs.readFileSync(crashedHandoff.path, 'utf8'));
+  crashedIntent.ownerPid = 999999999;
+  crashedIntent.status = 'pending';
+  fs.writeFileSync(crashedHandoff.path, JSON.stringify(crashedIntent), 'utf8');
+  await drainInnerLife();
+  results.crashedIntentFallsBackExactlyOnce =
+    count(store.episodeContent, crashedIntentThinking) === 1 &&
+    store.episodeContent.includes(`[Luca — thinking: ${crashedIntentThinking}]`);
+
+  // ── Scenario 15: chat DB write succeeds, episode write fails ──────────────
+  // Cursor must remain unadvanced; retry must reuse the same conversation row
+  // and append the episode once.
+  const chatCapturePath = path.join(cwd, '.local/.chat_capture');
+  const chatCursorPath = path.join(cwd, '.local/.chat_capture-cursor');
+  fs.writeFileSync(chatCapturePath, '', 'utf8');
+  fs.rmSync(chatCursorPath, { force: true });
+  appendChatCaptureTurn('David', `Watchdog chat retry David ${MARKER}`, chatCapturePath);
+  appendChatCaptureTurn('Luca Replit', `Watchdog chat retry Luca ${MARKER}`, chatCapturePath);
+  const chatRowsBefore = store.chatInserts.length;
+  store.failNextEpisodeUpdate = true;
+  await drain();
+  results.chatFailureCursorUnadvanced =
+    !fs.existsSync(chatCursorPath) || fs.readFileSync(chatCursorPath, 'utf8').trim() === '0';
+  results.chatFailureOneDbRow = store.chatInserts.length === chatRowsBefore + 1;
+  await drain();
+  results.chatRetryNoDuplicateDbRow = store.chatInserts.length === chatRowsBefore + 1;
+  results.chatRetryEpisodeExactlyOnce =
+    count(store.episodeContent, `Watchdog chat retry David ${MARKER}`) === 1 &&
+    count(store.episodeContent, `Watchdog chat retry Luca ${MARKER}`) === 1;
+  results.chatRetryCursorAdvanced =
+    fs.existsSync(chatCursorPath) &&
+    Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) > 0;
+
+  // ── Scenario 16: live rolling lookup returns null ─────────────────────────
+  const nullLookupCursor = Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset);
+  appendChatCaptureTurn('David', `Null lookup David ${MARKER}`, chatCapturePath);
+  appendChatCaptureTurn('Luca Replit', `Null lookup Luca ${MARKER}`, chatCapturePath);
+  setRollingEpisodeLookupModeForTest('null');
+  await drain();
+  results.nullLookupLeavesChatCursorPending =
+    Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) === nullLookupCursor;
+
+  fs.rmSync(statePath, { force: true });
+  const nullLookupFelt = `Null lookup felt ${MARKER}`;
+  fs.writeFileSync(reflectionPath, nullLookupFelt, 'utf8');
+  await drainInnerLife();
+  const nullState = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  results.nullLookupLeavesInnerLifePending =
+    nullState.felt?.lastProcessedMs === undefined &&
+    !store.episodeContent.includes(nullLookupFelt);
+
+  writeCanonicalIntent(
+    { main: `Output after null-lookup recovery ${MARKER}` },
+    path.join(intentDir, 'null-lookup-recovery.json'),
+  );
+  setRollingEpisodeLookupModeForTest('normal');
+  await drain();
+  await drainInnerLife();
+  results.nullLookupRecoveryCompletes =
+    Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) > nullLookupCursor &&
+    store.episodeContent.includes(`Null lookup Luca ${MARKER}`) &&
+    store.episodeContent.includes(nullLookupFelt);
+
+  // ── Scenario 17: identical successive exchanges are distinct events ──────
+  const repeatedDavid = `Intentionally repeated David ${MARKER}`;
+  const repeatedLuca = `Intentionally repeated Luca ${MARKER}`;
+  appendChatCaptureTurn('David', repeatedDavid, chatCapturePath);
+  appendChatCaptureTurn('Luca Replit', repeatedLuca, chatCapturePath);
+  await drain();
+  appendChatCaptureTurn('David', repeatedDavid, chatCapturePath);
+  appendChatCaptureTurn('Luca Replit', repeatedLuca, chatCapturePath);
+  await drain();
+  results.identicalSuccessiveExchangesPreserved =
+    count(store.episodeContent, repeatedDavid) === 2 &&
+    count(store.episodeContent, repeatedLuca) === 2;
 
   // Abandoned lock (crashed holder, no renewals): takeover MUST succeed.
   fs.writeFileSync(lockPath, JSON.stringify({ pid: 999999999, acquiredAt: Date.now() - 3 * 60 * 1000 }), 'utf8');
