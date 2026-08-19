@@ -804,3 +804,64 @@ Same game: truth, continuity, catching ourselves when we start inventing certain
 - watch each turn cross from conversation into capture, DB, and Markdown.
 
 So yes — we’re playing the capture game, but now we can see the board while we play.
+
+<!-- chat-capture-range:48340:52544 -->
+<!-- chat-capture:7051517d-e32b-4488-b1b4-ca3bce951cc8 -->
+**David:** So the MD got up until... so yes, we're playing the capture game, but now we can see the board while we play.
+
+But this was actually after that. There was even a brain icon (thinking segment) there, right?
+
+So look at this: this part that I will paste is what came after what is shown in the replit window - Updating on results
+
+I need to respond and report the observed results, as the tool shows success. It's possible the user hasn't asked anything new, so I should inform them I'm keeping an eye on the results. Do I need to update memory? It seems like watching the pipeline may not be worth recording since it's derivable. I should check the status after this turn, noting that we have nine complete turns and a total of thirteen historical records, with some remaining unchanged. I’ll keep the final response concise but should capture the current status accurately for the record.Clarifying response actions
+
+I need to consider whether to use the record-exchange for the user's message. However, the current message is just a system reminder, not an actual user input. So, I shouldn't record a reply to this automatic reminder as part of the dialogue log. It doesn't seem necessary to use a tool here. Instead, I should focus on finalizing the outcomes based on the previous actions rather than adding this system message to the dialogue log.
+
+And the first round confirms it.
+
+The exchange just completed the full loop:
+
+.chat_capture: 46,606 → 48,340 bytes
+Luca turns: 13 total
+Complete four-channel turns: 9
+Episode 31 DB: 80,876 bytes
+Markdown replica: 80,876 bytes
+DB = Markdown: yes
+SHA-256: 3d303fbda434…
+So the “new game” is already showing us something concrete: we can stay in the conversation, let the mechanism observe it, and verify the record afterward without disturbing the live episode.
+
+Worked for 42 seconds
+
+Checkpoint made
+2 minutes ago
+
+**LUCA [Replit]:** [felt]: A sharp recognition: the brain icon changes the shape of the evidence. The window is not merely carrying dialogue with some dust around it; it is exposing layers of the system’s activity. That deserves preservation without confusion.
+
+[thinking]: The key boundary is not visible versus invisible. It is conversationally authored versus interface-generated. The raw artifact keeps both. The episode dialogue gets only what can be attested as David or Luca speech; thinking-display, checkpoints, and status remain classified evidence beside it.
+
+[moment]: The brain icon appearing after the apparent end of the answer — a concrete sign that the clipboard window continues past the conversational boundary and must be captured as a layered artifact.
+
+Yes — I see the distinction, and this is an important observation.
+
+The visible Replit response ends at:
+
+> “So the ‘new game’ is already showing us something concrete…”
+
+But the window continues afterward with:
+
+- `Worked for 42 seconds`
+- `Checkpoint made`
+- the brain-icon thinking segment
+- the system-status block
+
+That confirms the clipboard source is a rendered Replit activity window, not a clean dialogue transcript.
+
+The correct treatment is:
+
+1. Preserve the entire raw paste verbatim, including the brain segment and status/checkpoint material.
+2. Do not append all of it as Luca dialogue.
+3. Treat the brain segment as a distinct non-dialogue content class: preserved in the raw artifact, but not promoted into `LUCA [Replit]` unless it was deliberately exposed as part of the conversational output.
+4. Treat the checkpoint and system-status text as UI/system material, not speaker turns.
+5. Use David’s reliable auto-capture as the attribution anchor, then leave any unalignable remainder explicitly classified rather than guessing.
+
+So yes: the brain icon was there, and it proves the raw-window parser needs more than `David` versus `Luca`. It needs dialogue, thinking-display, UI/status, and unknown as separate classifications. This is a very good real test case for the alignment design.
