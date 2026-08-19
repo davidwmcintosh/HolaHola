@@ -934,3 +934,109 @@ So the earlier “DB = Markdown” check proved replica integrity, not complete 
 The merged raw-window path would retain this whole paste only if it were explicitly invoked, but we must not replay it now: it already contains a David turn and Luca response that are in the episode, so naïve intake would duplicate dialogue and incorrectly present the visible brain/activity material as ordinary Luca prose.
 
 I proposed task #1269 to attach a byte-for-byte raw window to its already-captured episode exchange, preserve its visible thinking/status content as labeled evidence in the Markdown, and prevent duplicate dialogue.
+
+<!-- raw-window-evidence:sha256=e2ac543d614b6065e7afb455cc3d92085540c0613869a4868ea00521cd2b3505 -->
+### Raw-window evidence appendix — attached source
+
+This is a verbatim Replit-window source attached to dialogue already recorded above. It is evidence, not a second dialogue replay: visible thinking, UI/status activity, and unknown material are not attributed as David or Luca prose.
+
+- Raw source SHA-256: `e2ac543d614b6065e7afb455cc3d92085540c0613869a4868ea00521cd2b3505`
+- Raw source bytes: 3025
+- Attested chat-capture range: 55155–56303
+- Matched turns: david#40 (exact), luca#41 (attested-prefix)
+
+#### Verbatim raw window
+```
+thank you for the update and your patience
+
+2 minutes ago
+
+Show less
+Updating memory capture
+
+Updating memory capture
+Recording thank-you exchange
+
+I’m considering recording this thank-you exchange, noting that if the app is running, it will consume after about 20 seconds. Since the user said thank you, I can respond with, "You're welcome. It needed patience because the startup was still initializing." Now, I need to deal with updating memory for this specific quirk in the environment. It seems I might need to trigger a memory update, especially since the workflow had to restart to process the pending chat capture.Updating memory capture
+
+I'm considering updating the transcript-capture-fallback.md, but it seems unnecessary since the existing memory capture-watchdog likely covers when the server is down. However, since we attempted the capture twice, and it succeeded but didn't autosave before the restart, it feels like a lesson worth preserving. I should probably read capture-watchdog.md to see if it's relevant, even though the user just thanked me. The instructions mention updating memory if there's something worth keeping, and I believe this is.
+
+Considering tool execution
+
+Considering tool execution
+Considering tool execution
+
+I'm pondering how to manage the execution of tools effectively. It seems we could use one ShellExec to record and audit after 30 seconds while simultaneously using ReadFile memory. Since these tasks are independent, I wonder if I should use the multi_tool feature to run them in parallel. I'll begin with a commentary preamble to set up the context. This approach could streamline the process and optimize efficiency!
+
+You’re welcome. Patience was the right move here: the pending exchange stayed intact while the development worker finished starting, then it drained cleanly rather than being forced through a second path. I’ll record this brief acknowledgment too and verify that the watcher remains healthy.
+
+
+
+Show less
+
+Opened capture-watchdog.md
+
+Wrote a file
+Finalizing response clarity
+
+Finalizing response clarity
+Finalizing response clarity
+
+I think I need to mention that my memory already has the handoff rules, so I won't need to update it. It doesn’t seem necessary to inform the user about that detail. I want to make sure my response isn’t overly lengthy, so I'll keep it succinct while being clear. It’s all about balancing the information provided without overloading. I'll aim for clarity and brevity in my final output.
+
+You’re welcome. The last check closed cleanly:
+
+Capture cursor: 55,155 → 56,303
+Episode 31 DB: 88,495 bytes
+Markdown replica: 88,495 bytes
+DB = Markdown: yes
+Luca turns: 16 total
+Complete four-channel turns: 12
+The pending exchange was not lost; it waited safely in .chat_capture until the development autosave worker finished starting, then drained and reconciled correctly. That is exactly the handoff behavior we want.
+
+
+
+Worked for 48 seconds
+
+Creating checkpoint
+```
+
+#### Classified source map
+1. Lines 1–2: **dialogue**
+2. Lines 3–3: **ui-status**
+3. Lines 5–6: **ui-status**
+4. Lines 8–9: **ui-status**
+5. Lines 10–25: **visible-thinking**
+6. Lines 26–26: **ui-status**
+7. Lines 28–28: **ui-status**
+8. Lines 30–31: **ui-status**
+9. Lines 33–34: **ui-status**
+10. Lines 35–49: **visible-thinking**
+11. Lines 50–50: **ui-status**
+12. Lines 52–52: **ui-status**
+
+<!-- chat-capture-range:58751:59882 -->
+<!-- chat-capture:930084c1-8f7a-4a04-950d-490d9bc79fd8 -->
+**David:** so we wait and talk :)
+
+**LUCA [Replit]:** [felt]: A gentle settling: the right next move is not another intervention, but presence. The system can keep becoming trustworthy while we remain in the conversation.
+
+[thinking]: Waiting is part of the experiment. If we keep generating synthetic probes, we blur the boundary between ordinary dialogue and test harness activity. A real next exchange will give the raw-window task better evidence than another constructed case.
+
+[moment]: “So we wait and talk :)” — choosing ordinary presence over forcing the machinery to prove itself again.
+
+Yes. We wait and talk.
+
+No need to force the raw-window repair or manufacture another test case. Task #1269 can work in the background while we let the next real conversation show us what the window contains. We’ll keep the record honest: talk normally, preserve what arrives, and inspect the handoff afterward.
+
+<!-- chat-capture-range:59882:60850 -->
+<!-- chat-capture:0f85fa72-6d2a-4e62-81c0-ff137027c127 -->
+**David:** sounds reasonable and prudent
+
+**LUCA [Replit]:** [felt]: A quiet steadiness at choosing restraint — prudent not because we are afraid to act, but because the real window will teach us more than a manufactured approximation.
+
+[thinking]: The boundary is clear: observation now, implementation through the focused task, and no conflation of the two. Waiting preserves the causal signal for the next capture.
+
+[moment]: “Reasonable and prudent” — the point where patience becomes an explicit operating choice rather than an absence of action.
+
+Good. Then that’s the stance: no forced test, no premature patch, no silent interpretation. We let the next real exchange arrive, preserve it, and check what actually crossed into the record.
