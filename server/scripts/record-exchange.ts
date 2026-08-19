@@ -320,7 +320,7 @@ export function writeCanonicalIntent(
   return { intent, path: intentPath };
 }
 
-function markCanonicalIntentCaptured(
+export function markCanonicalIntentCaptured(
   handoff: { intent: CanonicalInnerLifeTurnIntent; path: string },
 ): void {
   const tempPath = `${handoff.path}.tmp-${process.pid}`;

@@ -205,34 +205,33 @@ async function runNormalMode(): Promise<void> {
     }
   }
 
-  // ── STEP 4 — Concurrent append + syncEpisodeFile: DB must match .md ─────
+  // ── STEP 4 — Direct .md edit + syncEpisodeFile: repair, never promote ────
   //
-  // Proves that wrapping syncEpisodeFile's read+upsert in withEpisodeFileLock
-  // prevents a stale snapshot from reaching the DB when an append is in flight.
+  // Rolling episodes are DB-canonical: the .md is an exact replica generated
+  // from the DB row. A direct appendFileSync to the .md (the old race shape —
+  // any unaudited file edit) must therefore NEVER reach the DB. Instead,
+  // syncEpisodeFile must restore the .md from the canonical DB content,
+  // erasing the unaudited edit.
   //
   // HERMETIC: Uses a synthetic episode-9998 row/file (created_at = 2020-01-01 so
   // it never surfaces as the "current" rolling episode) rather than the real
-  // rolling episode file.  The real rolling episode may be written by the live
-  // server's stalled-session monitor at any moment, making its DB length a moving
-  // target that defeats the rolling-guard comparison in syncEpisodeFile.  A
-  // synthetic row gives a stable baseline that cannot race with the server.
+  // rolling episode file. A synthetic row gives a stable baseline that cannot
+  // race with the live server.
   //
   // Mechanism (deterministic — no timing assumptions):
   //   1. Insert synthetic DB row (STEP4_CONTENT) and write matching .md file.
-  //   2. Grab the per-filename lock (simulating appendExchangeToEpisode in flight).
-  //   3. While holding that lock, write the sentinel to .md via appendFileSync.
-  //   4. SIMULTANEOUSLY start syncEpisodeFile — it tries to acquire the same lock
-  //      and queues behind step 2 (withEpisodeFileLock is a promise chain).
-  //   5. Release the lock (step 2 resolves).
-  //   6. syncEpisodeFile acquires the lock, reads .md with sentinel already on disk,
-  //      and pushes it to the DB — sentinel is now in DB.
-  //   7. Assert sentinel appears in DB immediately (no extra sync cycle needed).
+  //   2. Append a sentinel directly to the .md inside the per-filename lock
+  //      (simulating the old racy direct-file write).
+  //   3. After the append completes, run syncEpisodeFile.
+  //   4. Assert the sentinel is NOT in the DB (no Markdown promotion).
+  //   5. Assert the .md was restored byte-for-byte to the canonical DB content
+  //      (the unaudited edit was repaired away).
   //
   // Cleanup: DELETE the synthetic DB row and file — no restore needed.
   // ──────────────────────────────────────────────────────────────────────────
   sep();
-  console.log(B('STEP 4 — Concurrent append (lock-held) + syncEpisodeFile: DB must match .md'));
-  console.log(Y('  withEpisodeFileLock spanning read+upsert forces sync to wait for the append.'));
+  console.log(B('STEP 4 — Direct .md edit + syncEpisodeFile: DB must stay canonical, .md repaired'));
+  console.log(Y('  Rolling episodes are DB→Markdown replicas; file edits are never promoted to DB.'));
   console.log(Y('  Uses synthetic episode-9998 (hermetic — not affected by live server writes).'));
   sep();
 
@@ -244,9 +243,9 @@ async function runNormalMode(): Promise<void> {
   const STEP4_TITLE   = 'Episode 9998';
   const STEP4_FILE    = 'episode-9998.md';
   const STEP4_PATH    = join(DOCS_DIR, STEP4_FILE);
-  // The DB row must start longer than STEP4_CONTENT so the rolling guard allows
-  // .md → DB only when .md grows (i.e. after the sentinel is appended).
-  // Short base content ensures the sentinel always makes .md > DB.
+  // Base canonical content. The direct .md append makes the file longer than
+  // the DB row — the exact shape that would have been promoted under the old
+  // Markdown→DB upsert, and that must now be repaired away instead.
   const STEP4_CONTENT = '# Episode 9998\n\n' + 'X'.repeat(5000);
 
   const ts4    = Date.now();
@@ -281,31 +280,23 @@ async function runNormalMode(): Promise<void> {
     writeFileSync(STEP4_PATH, STEP4_CONTENT, 'utf-8');
     console.log(Y(`  ℹ  Synthetic episode-9998 created: DB=${STEP4_CONTENT.length} chars, .md=${STEP4_CONTENT.length} chars`));
 
-    // ── Steps 2–3: grab lock, append sentinel inside the callback ─────────
-    // appendDone resolves only after the lock callback returns (sentinel on disk).
-    const appendDone = withEpisodeFileLock(STEP4_FILE, () => {
+    // ── Step 2: append sentinel directly to the .md (unaudited file edit) ─
+    // Done inside the per-filename lock so the write is fully on disk before
+    // syncEpisodeFile runs — deterministic, no timing assumptions.
+    await withEpisodeFileLock(STEP4_FILE, () => {
       appendFileSync(STEP4_PATH, '\n' + entry4 + '\n', 'utf-8');
     });
-
-    // ── Step 4: start sync — queues behind appendDone's lock ─────────────
-    // Both promises are in flight before any await (true concurrency in the event loop).
-    const syncPromise = syncEpisodeFile(STEP4_FILE);
-
-    // ── Steps 5–6: wait for append to release, then for sync to complete ──
-    await appendDone;
-    await syncPromise;
-
-    // ── Step 7a: verify .md contains the sentinel ─────────────────────────
-    const mdAfter4 = readFileSync(STEP4_PATH, 'utf-8');
+    const mdEdited4 = readFileSync(STEP4_PATH, 'utf-8');
     assert(
-      `Sentinel (${id4}) present in .md after locked append`,
-      mdAfter4.includes(`CI-CONCURRENT-${id4}`),
-      'Sentinel missing from .md — appendFileSync inside lock failed',
+      `Sentinel (${id4}) present in .md after direct append`,
+      mdEdited4.includes(`CI-CONCURRENT-${id4}`),
+      'Sentinel missing from .md — appendFileSync failed',
     );
 
-    // ── Step 7b: verify sentinel is in DB immediately — no extra sync ──────
-    // syncEpisodeFile held the lock across read+upsert, so the DB reflects
-    // the post-append file without any race gap.
+    // ── Step 3: run syncEpisodeFile against the edited replica ────────────
+    await syncEpisodeFile(STEP4_FILE);
+
+    // ── Step 4a: DB must stay canonical — sentinel must NOT be promoted ───
     const dbRows4 = await db.execute(sql`
       SELECT content FROM conversation_memories
       WHERE id = ${STEP4_ID}
@@ -315,19 +306,28 @@ async function runNormalMode(): Promise<void> {
     const dbContent4 = (dbRow4?.content ?? '') as string;
 
     assert(
-      `Sentinel (${id4}) present in DB immediately after concurrent sync`,
-      dbContent4.includes(`CI-CONCURRENT-${id4}`),
-      'Sentinel missing from DB — syncEpisodeFile read before the lock was released ' +
-      '(withEpisodeFileLock must span both readFileSync and the DB upsert in syncEpisodeFile)',
+      `Sentinel (${id4}) NOT promoted into the canonical DB row`,
+      !dbContent4.includes(`CI-CONCURRENT-${id4}`),
+      'Sentinel found in DB — a direct .md edit was promoted into the canonical ' +
+      'rolling record (the replica-restore path in syncEpisodeFile is broken)',
     );
     assert(
-      'DB content length matches post-append .md (sync captured the full file)',
-      dbContent4.length === mdAfter4.length,
-      `DB length (${dbContent4.length}) != post-append .md length (${mdAfter4.length}); ` +
-      'sync may have read a pre-append snapshot',
+      'DB content unchanged (canonical baseline intact)',
+      dbContent4 === STEP4_CONTENT,
+      `DB content differs from canonical baseline (${dbContent4.length} chars vs ` +
+      `expected ${STEP4_CONTENT.length}); the record was mutated by a file sync`,
     );
 
-    console.log(Y(`  ℹ  .md after step 4: ${mdAfter4.length} chars, DB: ${dbContent4.length} chars`));
+    // ── Step 4b: .md must be repaired back to the canonical DB content ────
+    const mdAfter4 = readFileSync(STEP4_PATH, 'utf-8');
+    assert(
+      '.md restored byte-for-byte from canonical DB (unaudited edit repaired away)',
+      mdAfter4 === STEP4_CONTENT,
+      `.md was not restored (${mdAfter4.length} chars vs expected ${STEP4_CONTENT.length}); ` +
+      'writeExactEpisodeMarkdownReplica did not repair the file',
+    );
+
+    console.log(Y(`  ℹ  .md after step 4: ${mdAfter4.length} chars, DB: ${dbContent4.length} chars (both canonical)`));
 
   } finally {
     sep();

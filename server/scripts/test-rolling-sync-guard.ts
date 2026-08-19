@@ -1,20 +1,21 @@
 /**
- * Regression test: syncEpisodeFile() monotonic guard for ROLLING episodes.
+ * Regression test: syncEpisodeFile() rolling-episode record protection.
  *
- * Verifies that a second (shorter) autosave cannot shrink a ROLLING episode
- * that has already grown — both on the first call (cold ID cache) and on
- * subsequent calls (warm ID cache, the bug path).
+ * Rolling episodes are DB-canonical: the Markdown file is an exact replica
+ * generated from the DB row. A filesystem event must therefore repair the
+ * file from DB and must never promote file contents into the record — not a
+ * shorter file (shrinkage) and not a longer file (unaudited promotion).
  *
  * Run: npx tsx server/scripts/test-rolling-sync-guard.ts
  */
 
 import {
   syncEpisodeFile,
-  setRollingGuardInvertForTest,
+  setRollingReplicaRestoreEnabledForTest,
 } from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { join } from 'path';
 
@@ -39,20 +40,20 @@ async function cleanup(db: ReturnType<typeof getSharedDb>) {
 }
 
 /**
- * Self-check: invert the SQL comparison direction (LENGTH(content) >= incoming
- * instead of <=) and verify that Pass 3 (longer wins) now FAILS.
+ * Self-check: disable the DB→Markdown replica-restore early return and verify
+ * that Pass 3 (no Markdown promotion) now FAILS.
  *
  * Why this mutation models a real regression:
- *   Normal guard:  WHERE LENGTH(content) <= incoming  →  longer content satisfies this → DB updates
- *   Inverted guard: WHERE LENGTH(content) >= incoming →  longer content does NOT satisfy this → DB stays
+ *   With the restore path present, a rolling sync repairs the .md from DB and
+ *   never writes file contents into the record. If that early return is ever
+ *   removed, syncEpisodeFile falls through to the legacy Markdown→DB upsert,
+ *   where a longer file IS promoted into the canonical record.
  *
- * With the inverted guard, LONG_CONTENT (8014) in DB vs LONGER_CONTENT (8037) incoming:
- *   8014 >= 8037 → FALSE → update skipped → Pass 3 fails.
- * This precisely models a bug where the comparison direction is wrong and longer content
- * can no longer overwrite stale shorter DB content.
+ * With the seam disabled, LONGER_CONTENT (8037) overwrites LONG_CONTENT (8014)
+ * in DB — exactly the promotion Pass 3 exists to catch.
  */
 async function runSelfCheck(db: ReturnType<typeof getSharedDb>): Promise<void> {
-  console.log('\n=== SELF-CHECK: verifying Pass 3 fails when length comparison is inverted ===\n');
+  console.log('\n=== SELF-CHECK: verifying Pass 3 fails when the replica-restore path is removed ===\n');
 
   // Setup: insert ROLLING episode with LONG content.
   // created_at is pinned to 2020-01-01 so this record always sorts BELOW real
@@ -83,12 +84,14 @@ async function runSelfCheck(db: ReturnType<typeof getSharedDb>): Promise<void> {
   writeFileSync(TEST_PATH, LONG_CONTENT, 'utf-8');
   await syncEpisodeFile(TEST_FILE);
 
-  // Invert the comparison — simulates the guard direction being wrong
-  setRollingGuardInvertForTest(true);
+  // Disable the replica-restore early return — simulates the regression where
+  // the rolling DB→Markdown repair path is removed and file contents fall
+  // through to the legacy Markdown→DB upsert.
+  setRollingReplicaRestoreEnabledForTest(false);
 
   try {
-    // Sync a LONGER file — with the inverted guard, longer content can no longer win
-    // because LENGTH(content) >= incoming = 8014 >= 8037 = FALSE → update skipped.
+    // Sync a LONGER file — with the restore path removed, the legacy upsert
+    // promotes the longer file into the canonical record (the regression).
     const LONGER_CONTENT = LONG_CONTENT + '\n\nNew content appended.';
     writeFileSync(TEST_PATH, LONGER_CONTENT, 'utf-8');
     await syncEpisodeFile(TEST_FILE);
@@ -98,20 +101,20 @@ async function runSelfCheck(db: ReturnType<typeof getSharedDb>): Promise<void> {
     `);
     const len = Number((r as any).rows?.[0]?.len ?? (r as any)[0]?.len ?? 0);
 
-    if (len === LONGER_CONTENT.length) {
-      // Inverted guard still let longer content through — seam is not working
-      console.error('  ✗ SELF-CHECK FAILED: DB updated to longer length even with inverted comparison.');
-      console.error('    The test would NOT have caught a wrong-direction regression — investigate the seam.');
+    if (len !== LONGER_CONTENT.length) {
+      // Restore path still protected the record — seam is not working
+      console.error(`  ✗ SELF-CHECK FAILED: DB stayed at ${len} chars even with the restore path disabled.`);
+      console.error('    The test would NOT have caught a removed-restore regression — investigate the seam.');
       process.exit(1);
     } else {
-      console.log(`  ✓ SELF-CHECK PASSED: with inverted comparison, DB stayed at ${len} chars`);
-      console.log(`    (longer content blocked — Pass 3 would correctly report a failure).`);
+      console.log(`  ✓ SELF-CHECK PASSED: with the restore path disabled, file contents reached DB (${len} chars)`);
+      console.log(`    (Markdown promotion occurred — Pass 3 would correctly report a failure).`);
     }
   } finally {
-    // Always restore the guard before exiting
-    setRollingGuardInvertForTest(false);
+    // Always restore the seam before exiting
+    setRollingReplicaRestoreEnabledForTest(true);
     await cleanup(db);
-    console.log('  Cleanup: comparison restored, temp record and file removed');
+    console.log('  Cleanup: replica-restore seam restored, temp record and file removed');
   }
 }
 
@@ -128,7 +131,7 @@ async function main() {
     try {
       await runSelfCheck(db);
     } catch (err: any) {
-      setRollingGuardInvertForTest(false); // safety restore
+      setRollingReplicaRestoreEnabledForTest(true); // safety restore
       await cleanup(db);
       console.error('[test-rolling-sync-guard] Self-check fatal error:', err);
       process.exit(1);
@@ -197,7 +200,10 @@ async function main() {
       console.log(`  ✓ Pass 2 (warm cache): DB kept long content (${len2} chars) despite shorter sync`);
     }
 
-    // ── Pass 3: verify a LONGER sync still wins (guard is not one-directional) ─
+    // ── Pass 3: a LONGER file must NOT be promoted into the canonical record ──
+    // Rolling episodes are DB-canonical: growth happens through the DB-first
+    // append path, never by editing the .md. A longer file is an unaudited
+    // edit; syncEpisodeFile must restore the .md from DB instead of upserting.
     const LONGER_CONTENT = LONG_CONTENT + '\n\nNew content appended.';
     writeFileSync(TEST_PATH, LONGER_CONTENT, 'utf-8');
     await syncEpisodeFile(TEST_FILE);
@@ -206,13 +212,19 @@ async function main() {
       SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
     `);
     const len3 = Number((r3 as any).rows?.[0]?.len ?? (r3 as any)[0]?.len ?? 0);
-    if (len3 !== LONGER_CONTENT.length) {
+    const mdAfter = existsSync(TEST_PATH) ? readFileSync(TEST_PATH, 'utf-8') : '';
+    if (len3 !== LONG_CONTENT.length) {
       failures.push(
-        `Pass 3 (longer wins): DB is ${len3} chars — expected ${LONGER_CONTENT.length}. ` +
-        `Longer content should always overwrite.`
+        `Pass 3 (no Markdown promotion): DB is ${len3} chars — expected ${LONG_CONTENT.length}. ` +
+        `File contents must never be promoted into the canonical rolling record.`
+      );
+    } else if (mdAfter !== LONG_CONTENT) {
+      failures.push(
+        `Pass 3 (no Markdown promotion): DB kept canonical content but .md was not restored ` +
+        `(${mdAfter.length} chars vs expected ${LONG_CONTENT.length}).`
       );
     } else {
-      console.log(`  ✓ Pass 3 (longer wins): DB updated to ${len3} chars when file grew`);
+      console.log(`  ✓ Pass 3 (no Markdown promotion): DB kept ${len3} chars; .md restored from canonical DB`);
     }
 
   } finally {

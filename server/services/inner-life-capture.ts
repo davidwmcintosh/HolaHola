@@ -358,9 +358,21 @@ export function composeLucaTurn(opts: FourChannelLucaTurnInput): string {
   ].join('\n\n');
 }
 
+/** Parse an already-rendered four-channel turn without changing its source text. */
+export function parseCanonicalFourChannelLucaTurn(text: string): FourChannelLucaTurn | null {
+  const match = /^\[felt\]:\s?([\s\S]*?)\n\n\[thinking\]:\s?([\s\S]*?)\n\n\[moment\]:\s?([\s\S]*?)\n\n([\s\S]+)$/u.exec(text);
+  if (!match || !match[4].trim()) return null;
+  return {
+    feeling: match[1],
+    thinking: match[2],
+    moment: match[3],
+    main: match[4],
+  };
+}
+
 /** True only for a complete canonical four-channel envelope in the required order. */
 export function isCanonicalFourChannelLucaTurn(text: string): boolean {
-  return /^\[felt\]:[\s\S]*?\n\n\[thinking\]:[\s\S]*?\n\n\[moment\]:[\s\S]*?\n\n\S[\s\S]*$/u.test(text);
+  return parseCanonicalFourChannelLucaTurn(text) !== null;
 }
 
 /** Capture-status accepts both legacy direct entries and canonical turn labels. */

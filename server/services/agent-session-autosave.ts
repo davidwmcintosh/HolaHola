@@ -147,18 +147,15 @@ export function getStartupGuardLegacySeedForTest(): boolean {
 }
 
 /**
- * Test seam — rolling-episode length guard comparison direction.
- * When true (CI self-check only), the atomic SQL UPDATE uses LENGTH(content) >= incoming
- * instead of <=, so longer content can no longer win and Pass 3 fails.
- * This precisely models a regression where the comparison direction is wrong.
- * Never set in production.
+ * Test seam — rolling replica-restore path.
+ * When false (CI self-check only), syncEpisodeFile() skips the DB→Markdown
+ * replica-restore early return for rolling episodes and falls through to the
+ * legacy Markdown→DB upsert. This models the regression where file contents
+ * can overwrite the canonical rolling record. Never set in production.
  */
-let _rollingGuardInvertForTest = false;
-export function setRollingGuardInvertForTest(val: boolean): void {
-  _rollingGuardInvertForTest = val;
-}
-export function getRollingGuardInvertForTest(): boolean {
-  return _rollingGuardInvertForTest;
+let _rollingReplicaRestoreEnabledForTest = true;
+export function setRollingReplicaRestoreEnabledForTest(val: boolean): void {
+  _rollingReplicaRestoreEnabledForTest = val;
 }
 
 /**
@@ -2543,7 +2540,9 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
   // Rolling episodes are canonical DB → Markdown replicas. A filesystem event
   // therefore repairs the file from DB; it must never promote Markdown back
   // into the record, even when the file was manually changed or recreated.
-  if (memoryId && isRolling) {
+  // (_rollingReplicaRestoreEnabledForTest is a CI-only seam that disables this
+  // early return to model the Markdown→DB promotion regression.)
+  if (memoryId && isRolling && _rollingReplicaRestoreEnabledForTest) {
     if (rollingContent === undefined) {
       try {
         const rows = await db.execute(sql`
@@ -2621,28 +2620,18 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       // DB upsert inside the same lock — no append can land between read and write.
       if (memoryId) {
         if (isRolling) {
-          // Atomic conditional UPDATE: only overwrite when the incoming content is at
-          // least as long as what is already in the DB.  Using LENGTH() in the WHERE
-          // clause makes this a single round-trip with no TOCTOU race.
-          // _rollingGuardInvertForTest flips the comparison to LENGTH(content) >= LENGTH(incoming)
-          // so the CI self-check can confirm Pass 3 (longer wins) catches the regression.
-          if (_rollingGuardInvertForTest) {
-            await db.execute(sql`
-              UPDATE conversation_memories
-              SET content = ${content},
-                  summary = ${summary}
-              WHERE id = ${memoryId}
-                AND LENGTH(content) >= LENGTH(${content})
-            `);
-          } else {
-            await db.execute(sql`
-              UPDATE conversation_memories
-              SET content = ${content},
-                  summary = ${summary}
-              WHERE id = ${memoryId}
-                AND LENGTH(content) <= LENGTH(${content})
-            `);
-          }
+          // Legacy second defence only. In production, rolling episodes never
+          // reach this upsert because the replica-restore early return above
+          // repairs Markdown from the canonical DB row instead. This branch is
+          // reachable only through the CI seam that disables that restore, and
+          // the monotonic LENGTH() guard still prevents shrinkage even then.
+          await db.execute(sql`
+            UPDATE conversation_memories
+            SET content = ${content},
+                summary = ${summary}
+            WHERE id = ${memoryId}
+              AND LENGTH(content) <= LENGTH(${content})
+          `);
         } else {
           await db.execute(sql`
             UPDATE conversation_memories

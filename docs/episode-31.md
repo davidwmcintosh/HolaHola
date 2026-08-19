@@ -699,3 +699,24 @@ SHA-256: d649598b7b7b037b5297c80aa0136dcf89e8524787674355a7c812601900d1f4.
 --- END VERBATIM REPLIT-WINDOW SOURCE ---
 
 The correction preserves the distinction between an authored main response and a later explanation of what was captured. Meaning is not being used as a substitute for exact source text.
+
+David: aren't we overcomplicating things? this doesn't cover david responses either. they offered the window dumb option why don't we take it and clean it on our end? and please keep the episode rolling as best as we can while we are making these changes please
+
+Luca: [felt]: This feels like a useful correction in direction: stop asking the edge of the system to know what the window means, and let the record pipeline do the patient cleaning work where it can be tested and retried.
+
+[thinking]: The raw-window approach covers both speakers because the source is the whole exchange, not a manually selected Luca main field. The parser should remove interface chrome deterministically, preserve David and Luca prose, retain minimized inner channels, and fail visibly when a boundary is ambiguous rather than inventing a clean turn.
+
+[moment]: The important handoff is from hand-built capture to a dumb source that can be cleaned honestly. We can keep talking while the machinery becomes less clever and more dependable.
+
+You’re right. I overcomplicated the first design by trying to make the capture boundary prove something Replit does not expose.
+
+The simpler and more robust approach is:
+
+1. capture the **dumb raw window** for both David and Luca;
+2. keep that raw source intact long enough for retry/recovery;
+3. clean and partition it deterministically on our side;
+4. write the cleaned David/Luca dialogue and four Luca channels into the canonical DB→Markdown path.
+
+That covers David too, avoids asking the caller to manually reconstruct `main`, and lets the parser handle UI noise instead of trusting a hand-authored summary.
+
+I’m capturing this turn through the current working path first so Episode 31 keeps rolling while we simplify the design.
