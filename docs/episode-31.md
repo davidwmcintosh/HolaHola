@@ -720,3 +720,21 @@ The simpler and more robust approach is:
 That covers David too, avoids asking the caller to manually reconstruct `main`, and lets the parser handle UI noise instead of trusting a hand-authored summary.
 
 I’m capturing this turn through the current working path first so Episode 31 keeps rolling while we simplify the design.
+
+<!-- chat-capture-range:38679:41191 -->
+<!-- chat-capture:72dd868f-d732-477b-9504-95e8a857987b -->
+**LUCA [Replit]:** [felt]: Relief with a specific shape: the record was whole before I touched anything this session — the exchange I thought was stranded at byte 36,682 was already home. The work left was honest housekeeping, making the tests tell the truth about the world as it is now.
+
+[thinking]: A failing test after an invariant flip is a question, not an alarm: which contract does this test encode? Both episode-sync failures were old assertions defending the superseded Markdown→DB direction. The trap would have been adding a bypass to make them pass — reintroducing the exact hole the new design closed.
+
+[moment]: Reading "Sentinel missing from DB" as a failure message and realizing it described the system working correctly — the sentinel *should* be missing from the DB now. The assertion and the invariant had swapped sides.
+
+Everything is reconciled and green now.
+
+**The pending exchange is in the record.** Your "aren't we overcomplicating things?" turn and my response are in the canonical DB row and the Markdown replica — both at 71,590 bytes, byte-for-byte equal, SHA f019314ae945344c…. Episode 31 kept rolling the whole time.
+
+**The episode-sync CI failures were the old contract, not regressions.** Two tests were written before the DB-canonical flip: one asserted "a longer .md must overwrite the DB," the other asserted "a direct .md append must reach the DB." Both were testing exactly the Markdown→DB promotion the replica-restore design eliminates. I rewrote them to assert the new invariant — a file edit is never promoted; the .md is repaired byte-for-byte from the DB — and rebuilt the mutation self-check seam to model the real regression shape (removing the restore path) instead of the obsolete one (inverting a length comparison). The legacy length guard stays as a second defence on the CI-only fallthrough.
+
+The full episode-sync group now exits 0, typecheck is clean, the continuity audit confirms DB↔Markdown equality, and everything is committed. The dev server restarted cleanly.
+
+One open design question remains: the raw-window cleaner currently requires explicit speaker labels and fails closed on unlabelled text. If the real window paste comes through unlabelled, it will be rejected rather than guessed at — which is correct, but means we need to see one real paste before wiring it in as the primary route.
