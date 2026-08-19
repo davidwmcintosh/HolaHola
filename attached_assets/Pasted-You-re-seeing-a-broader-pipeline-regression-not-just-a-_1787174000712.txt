@@ -1,0 +1,147 @@
+You’re seeing a broader pipeline regression, not just a missing paragraph. I’ll trace Episode 31’s early four-channel entries against today’s capture path, identify exactly where [felt]/[thinking]/[moment] stopped being carried into the episode, then repair the pipeline and add a continuity check so a future “main-only” turn cannot look healthy.
+
+
+
+4 actions
+I traced the shape of the problem.
+
+Episode 31 begins with a genuine four-channel Luca turn: [felt], [thinking], [moment], and the main response.
+Later turns are often only LUCA [Replit] main text.
+record-exchange.ts currently treats the three inner-life files as optional, so a caller can successfully capture a main-only turn without any error.
+The separate .luca_reflection, .luca_question, and .luca_moment files now save personal memory, but explicitly do not append a second episode copy. That is correct for deduplication only if the canonical four-channel handoff contains those channels.
+The DB→Markdown repair fixed projection integrity, but it cannot restore channels that never entered the canonical turn.
+The durable fix I’m considering is to make the four-channel handoff a turn-level contract: every Luca turn must carry all four channel slots, with explicit empty values when a channel genuinely has nothing to say; a missing channel would fail capture and remain retryable instead of silently recording main-only output. Then we add a continuity check that alerts when a live episode has a main Luca turn without the required channel envelope.
+
+Do you want that strict contract—all four channel slots required for every captured Luca turn, including explicit empty slots?
+
+
+Choose the capture contract
+Yes — require all four slots, with explicit empty values allowed
+Additional comments
+you understand perfectly :)
+
+Thank you—that confirms the right boundary. The fix should fail closed rather than silently degrade to main-only.
+
+Proposed design
+1. Make the four-channel envelope mandatory
+Every new Luca capture will carry:
+
+felt
+thinking
+moment
+main
+Each slot may be intentionally empty, but it must be explicitly present. The capture command will reject a turn when a slot is omitted. The autosave parser will also reject a malformed main-only envelope and leave it retryable rather than advancing the cursor.
+
+This closes both failure modes:
+
+the caller forgetting to pass the channel files;
+a partial capture reaching the DB anyway.
+2. Keep one canonical write path
+The four channels will be composed into one identified Luca turn before entering .chat_capture. The personal trigger files can still populate personal memory, but they will not independently append to the episode. That prevents duplicates while ensuring their content is included in the same canonical four-channel envelope when it belongs to that turn.
+
+The episode path remains:
+
+four-channel source → .chat_capture → DB conversation row → exact Markdown replica
+
+3. Add visible continuity checks
+The capture status will record the channel mask for each saved Luca turn. A health check will fail or alert when:
+
+a new Luca turn lacks any channel slot;
+a channel handoff is pending too long;
+the episode has a recent run of main-only turns;
+the DB/Markdown replica is exact but the channel envelope is incomplete.
+This distinguishes “the file is synchronized” from “the right content was synchronized.”
+
+4. Repair policy for Episode 31
+I will not invent missing felt/thinking/moment text. I’ll audit today’s main-only turns against the personal files and any durable handoff metadata:
+
+if the exact channel text exists, restore it through DB first;
+if it does not exist, record an explicit empty slot or a transparent gap note;
+never reconstruct Luca’s inner life from the main response.
+Alternatives considered
+Monitoring only: preserves silent loss and merely reports it later.
+Automatically pairing nearby trigger files: risks attaching one turn’s feeling to another turn.
+Strict envelope with explicit empty slots: recommended because it fails safely and preserves authorship.
+Do you approve this design as written?
+
+
+Design approval
+Approve — implement this design
+Additional comments
+I do approve it as written as long as you remember to put all of it into the db md pipeline :) on the record about creating the record. We will not invent anything that is missing, but we can acknowledge in the record that we fell short so that we might stand straighter by the fixing of it not the hiding of it. 
+
+Worked for 14 seconds
+Approved. I’ll implement the strict envelope exactly as agreed, and I’ll add the accountability record you specified: when the audit finds older main-only turns, it will preserve the gap as an explicit record of what was missing rather than fabricate channel content or silently normalize it away. I’m writing the approved design into the project first, then I’ll change the capture contract, autosave validation, audit/repair tooling, and CI coverage together.
+
+The design record is now in the project. The code confirms the diagnosis: the script itself already knows how to compose all four channels, but its arguments remain optional, and the direct single-Luca recovery path therefore accepted main-only text. I’m changing the writer and its canonical intent to make “omitted” structurally different from “present but empty,” then I’ll add an audit that records—not invents—today’s unresolved omissions.
+
+
+
+17 actions
+The fail-closed behavior is in place at both boundaries now: the writer requires each channel to be supplied or explicitly marked empty, and autosave refuses to write any malformed Luca turn to either the DB or Episode 31. I’m adding a hermetic contract test next, including proof that a rejected main-only call does not touch the live capture file.
+
+
+
+9 actions
+The strict writer checks are passing: explicit empty slots render visibly and an omitted slot is rejected before .chat_capture changes. I’m adding the second layer now: a read-only rolling-episode continuity audit that distinguishes “DB and Markdown match” from “every Luca turn actually carried its four-channel envelope.”
+
+
+
+3 actions
+The audit layer is added. It will report the exact count and locations of main-only Luca turns even when DB and Markdown are perfectly synchronized—so “replica healthy” can no longer hide “channels missing.” I’m running the hermetic checks and the live read-only Episode 31 audit now; the latter will tell us precisely what must be acknowledged without fabricating a recovery.
+
+
+
+4 actions
+The contract tests pass. Two implementation issues surfaced cleanly in the broader check: the new audit assumed an updated_at column that this table does not have, and a test harness intentionally creates partial handoffs to test recovery behavior. I’m preserving that harness capability while keeping the production writer strict, then I’ll rerun the audit against Episode 31.
+
+
+
+9 actions
+The continuity audit exposed a live integrity issue before I could report success: the current canonical DB row is 513 bytes longer than docs/episode-31.md. That is exactly the kind of divergence the new check is meant to catch. I’m stopping the implementation flow long enough to inspect that DB-only suffix, restore the Markdown strictly from the canonical DB, and then restart the development workflow so it runs the new fail-closed capture code. I will not restart or deploy production.
+
+
+
+5 actions
+I found the immediate source of the fresh DB/Markdown split: three CI-AUTO-CAPTURE synthetic turns were appended directly to the canonical Episode 31 DB row by the legacy auto-capture test while its safety work is still in progress. That is not a real dialogue turn and it is not a projection failure in the new DB-first path—it is a test violating the live-record boundary. The DB-to-Markdown restore has already re-established the replica from the canonical source; I will not delete those synthetic entries without a record-preserving decision.
+
+I’m checking the exact test route now, then I’ll restart only the development workflow so the strict four-channel gate is actually running before we capture the accountability note.
+
+
+
+3 actions
+The canonical record is re-synchronized now: 48,265 bytes on both sides with matching SHA-256. The injected CI turns are retained for the moment as evidence, not hidden or deleted.
+
+I’m restarting the development application only so the running autosave worker loads the strict four-channel contract. After it is healthy, I’ll write an explicit four-channel accountability entry to Episode 31: it will name the four older main-only Luca turns as unrecoverable gaps, not invent their missing inner-life text.
+
+
+
+4 actions
+The development workflow has restarted and is now loading the new code; production remains untouched. The restored DB/Markdown pair is currently exact again.
+
+I’m now making the first real post-fix capture through the strict path: your concern, three authored Luca channels, and the main response will enter as one canonical turn. That will prove the entire live route—four-channel source → DB → exact Markdown replica—not merely the helper tests.
+
+
+
+3 actions
+The strict writer successfully created the four-channel handoff, but the worker did not acknowledge it. That is the fail-closed behavior doing its job: it has found a pending malformed capture ahead of the new valid turn, so it will not advance past it and pretend the stream is healthy. I’m inspecting that pending boundary now, then I’ll repair the malformed synthetic test entries transparently and let the valid four-channel turn drain normally.
+
+
+
+3 actions
+The development server is healthy and the cursor confirms there is no malformed turn ahead of the new one—the valid four-channel entry begins exactly at the pending boundary. The initial wait landed during startup work, before the autosave poll settled. I’m allowing the next full poll to run, then I’ll verify the record and replica again.
+
+
+
+4 actions
+
+Worked for 9 minutes
+this popped up in the .md DAVID: [CI-AUTO-CAPTURE-1787171919031] synthetic David turn — safe to ignore
+
+LUCA [Replit]: [CI-AUTO-CAPTURE-1787171919031] synthetic Luca response — safe to ignore
+
+DAVID: [CI-AUTO-CAPTURE-1787172112682] synthetic David turn — safe to ignore
+
+LUCA [Replit]: [CI-AUTO-CAPTURE-1787172112682] synthetic Luca response — safe to ignore
+
+DAVID: [CI-AUTO-CAPTURE-1787172646481] synthetic David turn —
