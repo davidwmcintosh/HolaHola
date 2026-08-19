@@ -41,6 +41,7 @@ import {
   appendExchangeToEpisode,
   withEpisodeFileLock,
   syncEpisodeFile,
+  setRollingReplicaRestoreEnabledForTest,
 } from '../services/agent-session-autosave';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -464,6 +465,102 @@ async function runSelfCheck(): Promise<void> {
       console.error(R(`  ✗  Cleanup failed: ${err.message}`));
       failed++;
     }
+  }
+
+  // ── STEP 4 self-check — prove the DB-canonical repair assertions catch a
+  // removed replica-restore path ─────────────────────────────────────────────
+  //
+  // This is the mutation proof for the normal-mode STEP 4 assertions above.
+  // Disabling the restore seam models removing syncEpisodeFile()'s rolling
+  // replica-restore early return. The legacy Markdown→DB upsert then promotes
+  // the direct .md edit and leaves the edited replica unrepaired.
+  sep();
+  console.log(B('STEP 4 SELF-CHECK — simulate removed rolling replica restore'));
+  console.log(Y('  The sentinel should reach DB and the edited .md should remain unrepaired.'));
+  sep();
+
+  const STEP4_ID      = '99980000-0000-4000-8000-000000009998';
+  const STEP4_TITLE   = 'Episode 9998';
+  const STEP4_FILE    = 'episode-9998.md';
+  const STEP4_PATH    = join(DOCS_DIR, STEP4_FILE);
+  const STEP4_CONTENT = '# Episode 9998\n\n' + 'X'.repeat(5000);
+  const ts4            = Date.now();
+  const id4            = `${ts4}-SC-STEP4`;
+  const entry4         = `[CI-CONCURRENT-${id4}\nSelf-check STEP 4 sentinel]`;
+
+  const step4Cleanup = async () => {
+    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${STEP4_ID}`);
+    if (existsSync(STEP4_PATH)) unlinkSync(STEP4_PATH);
+  };
+
+  await step4Cleanup();
+
+  try {
+    await db.execute(sql`
+      INSERT INTO conversation_memories
+        (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+      VALUES (
+        ${STEP4_ID},
+        ${STEP4_TITLE},
+        ${'step-4 self-check synthetic episode'},
+        ${STEP4_CONTENT},
+        ${9},
+        'episode',
+        ARRAY['episode', 'rolling']::text[],
+        ${ARC_NAME},
+        '2020-01-01 00:00:00+00'
+      )
+    `);
+    writeFileSync(STEP4_PATH, STEP4_CONTENT, 'utf-8');
+
+    await withEpisodeFileLock(STEP4_FILE, () => {
+      appendFileSync(STEP4_PATH, '\n' + entry4 + '\n', 'utf-8');
+    });
+    const mdEdited4 = readFileSync(STEP4_PATH, 'utf-8');
+    assert(
+      `STEP 4 self-check sentinel (${id4}) present in .md`,
+      mdEdited4.includes(`CI-CONCURRENT-${id4}`),
+      'Sentinel missing from .md — mutation setup failed',
+    );
+
+    // This seam models quietly removing the production repair early return.
+    // Keep the assignment inside the try/finally so every exit path restores
+    // the normal behavior before the script finishes.
+    setRollingReplicaRestoreEnabledForTest(false);
+    await syncEpisodeFile(STEP4_FILE);
+
+    const dbRows4 = await db.execute(sql`
+      SELECT content FROM conversation_memories
+      WHERE id = ${STEP4_ID}
+      LIMIT 1
+    `);
+    const dbRow4     = (dbRows4 as any).rows?.[0] ?? (dbRows4 as any)[0];
+    const dbContent4 = (dbRow4?.content ?? '') as string;
+    const mdAfter4   = readFileSync(STEP4_PATH, 'utf-8');
+
+    // These are the inverse outcomes of all three normal-mode STEP 4
+    // assertions: the sentinel is promoted, DB content changes, and the .md
+    // is not repaired to the canonical baseline.
+    assert(
+      'STEP 4 sentinel-to-DB guard WOULD fail without replica restore',
+      dbContent4.includes(`CI-CONCURRENT-${id4}`),
+      'Sentinel did not reach DB — the mutation did not remove the guarded path',
+    );
+    assert(
+      'STEP 4 DB-unchanged guard WOULD fail without replica restore',
+      dbContent4 !== STEP4_CONTENT,
+      'DB still matches the baseline — the mutation did not change the record',
+    );
+    assert(
+      'STEP 4 Markdown-repair guard WOULD fail without replica restore',
+      mdAfter4 !== STEP4_CONTENT,
+      'The edited .md was repaired despite the restore seam being disabled',
+    );
+    console.log(Y(`  ℹ  Mutated result: DB=${dbContent4.length} chars, .md=${mdAfter4.length} chars`));
+  } finally {
+    setRollingReplicaRestoreEnabledForTest(true);
+    await step4Cleanup();
+    console.log(Y('  ℹ  STEP 4 self-check cleanup: replica-restore seam restored, synthetic episode removed'));
   }
 }
 
