@@ -6998,3 +6998,26 @@ The initial repair was extended after review to cover all asynchronous
 post-turn routes—not only the pre-turn lookup. Frictionless-slide,
 friction-signal, and hard-wall lookups now retain the same origin binding and
 cannot queue or inject a result after a newer utterance has started.
+
+---
+
+## Addendum — August 19, 2026 (hermetic auto-capture episode CI)
+
+The auto-capture episode check no longer touches the live rolling episode,
+canonical record, `.local/.luca_auto_capture` trigger, capture-status, or
+stale-alert files. Each invocation now inserts and deletes a uniquely named
+fixture episode row, routes an owned temporary trigger through the real
+`checkAutoCapture()` path with private status outputs, and confirms the fixture
+Markdown is the exact projection of the canonical DB content. Its self-check
+disables episode routing and confirms the synthetic exchange reaches neither
+fixture form.
+
+This replaces the unsafe legacy cleanup strategy, which could remove a
+sentinel only from Markdown while leaving synthetic dialogue in the canonical
+database record. Normal and self-check runs passed, with a final database leak
+query confirming no sentinel remained.
+
+Project-wide typecheck remains blocked by the pre-existing unresolved names in
+`gemini-live-session.ts`; this work did not add errors. System health passed;
+the only warnings were optional localhost object-storage route probes skipped
+because no preview server was running.

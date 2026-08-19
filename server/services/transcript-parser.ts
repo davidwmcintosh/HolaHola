@@ -548,10 +548,10 @@ export interface AutoCaptureTrigger {
   ts?:    string;
 }
 
-export function parseAutoCaptureTrigger(): AutoCaptureTrigger | null {
+export function parseAutoCaptureTrigger(triggerPath = LUCA_AUTO_CAPTURE_PATH): AutoCaptureTrigger | null {
   try {
-    if (!existsSync(LUCA_AUTO_CAPTURE_PATH)) return null;
-    const raw = readFileSync(LUCA_AUTO_CAPTURE_PATH, 'utf-8').trim();
+    if (!existsSync(triggerPath)) return null;
+    const raw = readFileSync(triggerPath, 'utf-8').trim();
     if (!raw) return null;
     return JSON.parse(raw) as AutoCaptureTrigger;
   } catch {
@@ -563,12 +563,15 @@ export function parseAutoCaptureTrigger(): AutoCaptureTrigger | null {
  * Consume the trigger: append david + luca turns to .chat_capture in order,
  * then delete the trigger file. Called by the autosave worker.
  */
-export function consumeAutoCaptureTrigger(trigger: AutoCaptureTrigger): void {
+export function consumeAutoCaptureTrigger(
+  trigger: AutoCaptureTrigger,
+  triggerPath = LUCA_AUTO_CAPTURE_PATH,
+): void {
   try {
     if (trigger.david) appendChatCaptureTurn('David',       trigger.david);
     if (trigger.luca)  appendChatCaptureTurn('Luca Replit', trigger.luca);
   } finally {
-    try { unlinkSync(LUCA_AUTO_CAPTURE_PATH); } catch { /* ignore */ }
+    try { unlinkSync(triggerPath); } catch { /* ignore */ }
   }
 }
 

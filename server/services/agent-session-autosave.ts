@@ -179,6 +179,10 @@ export function getRollingGuardInvertForTest(): boolean {
  *     concurrently-created fixtures (e.g. Episode 99 from rolling-sync-guard).
  *     Pass null to restore dynamic lookup.
  *
+ * setAutoCaptureTriggerPathOverrideForTest(path | null)
+ *   — redirects every read/delete/consume operation in checkAutoCapture() to
+ *     an owned temporary trigger file, never the live .luca_auto_capture path.
+ *
  * Never set any of these in production code.
  */
 let _autoCaptureDbEnabled = true;
@@ -2328,24 +2332,25 @@ async function checkChatCapture(): Promise<void> {
 //   npx tsx server/scripts/capture-exchange.ts --david "..." --luca "..."
 // ---------------------------------------------------------------------------
 export async function checkAutoCapture(): Promise<void> {
-  if (!existsSync(LUCA_AUTO_CAPTURE_PATH)) return;
-  const trigger = parseAutoCaptureTrigger();
+  const triggerPath = _autoCaptureTriggerPathOverrideForTest ?? LUCA_AUTO_CAPTURE_PATH;
+  if (!existsSync(triggerPath)) return;
+  const trigger = parseAutoCaptureTrigger(triggerPath);
   if (!trigger || (!trigger.david && !trigger.luca)) {
     // Empty or unparseable trigger — clean it up
-    try { unlinkSync(LUCA_AUTO_CAPTURE_PATH); } catch { /* ignore */ }
+    try { unlinkSync(triggerPath); } catch { /* ignore */ }
     return;
   }
   const parts = [trigger.david ? '1D' : '', trigger.luca ? '1L' : ''].filter(Boolean);
   try {
     if (_autoCaptureDbEnabled) {
-      consumeAutoCaptureTrigger(trigger); // appends to .chat_capture, deletes trigger file
+      consumeAutoCaptureTrigger(trigger, triggerPath); // appends to .chat_capture, deletes trigger file
       console.log(`[AgentAutosave] Auto-capture: consumed ${parts.join('+')} from .luca_auto_capture → appended to .chat_capture`);
       // Immediately save the new bytes — don't wait for the next poll cycle
       await checkChatCapture();
     } else {
       // Test mode: delete trigger without appending to .chat_capture (no cursor advancement,
       // no conversation_memories write).  Seam set by CI via setAutoCaptureDbEnabled(false).
-      try { unlinkSync(LUCA_AUTO_CAPTURE_PATH); } catch { /* ignore */ }
+      try { unlinkSync(triggerPath); } catch { /* ignore */ }
       console.log(`[AgentAutosave] Auto-capture (test mode): read ${parts.join('+')} — DB path skipped`);
     }
 
@@ -3527,6 +3532,10 @@ export function getAutoCaptureEpisodeEnabled(): boolean { return _autoCaptureEpi
 export function setAutoCaptureDbEnabled(val: boolean): void { _autoCaptureDbEnabled = val; }
 export function setPinnedRollingEpisodeFilename(f: string | null): void { _pinnedRollingEpisodeFilename = f; }
 let _pinnedRollingEpisodeFilename: string | null = null;
+let _autoCaptureTriggerPathOverrideForTest: string | null = null;
+export function setAutoCaptureTriggerPathOverrideForTest(path: string | null): void {
+  _autoCaptureTriggerPathOverrideForTest = path;
+}
 export function getAutoCaptureDbEnabled(): boolean { return _autoCaptureDbEnabled; }
 
 // ---------------------------------------------------------------------------

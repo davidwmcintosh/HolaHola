@@ -1,5 +1,22 @@
 # Batch Documentation Updates
 
+## Session August 19, 2026 — Hermetic auto-capture episode CI
+
+### Auto-capture test no longer writes synthetic dialogue into the live record
+
+**What changed:** `test-luca-auto-capture-episode.ts` now owns a per-run episode fixture row, matching Markdown replica, temporary auto-capture trigger, and temporary status outputs. It verifies the real DB-first route through `checkAutoCapture()`: canonical episode content is updated first, then the Markdown replica exactly matches it.
+
+**Why it matters:** The former test discovered the live rolling episode and attempted to remove its sentinel afterward. That is unsafe now that the database record is canonical: cleaning only the Markdown file could leave synthetic dialogue permanently retrievable.
+
+**Regression coverage:** Normal mode proves the exchange reaches both the fixture DB row and exact replica, with capture status redirected to the invocation’s private path. `--self-check` disables episode routing and proves the sentinel remains absent from both fixture representations. Both modes remove only their own row, files, and temporary outputs, and verify no synthetic sentinel remains in `conversation_memories`.
+
+**Key files:**
+- `server/services/agent-session-autosave.ts` — temporary auto-capture trigger override for CI
+- `server/services/transcript-parser.ts` — parser/consumer accept the owned trigger path
+- `server/scripts/test-luca-auto-capture-episode.ts` — fully hermetic DB-first regression test
+
+---
+
 ## Session August 7, 2026 — North Star Cascade + Gate Cleared + White Wall Named
 
 ### North Star fully wired — founding conversations, semantic echo, neural-net indexed
