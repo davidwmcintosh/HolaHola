@@ -12,8 +12,8 @@
  * USAGE — all 4 channels
  * ----------------------
  * The Luca [Replit] output has 4 channels: feeling (felt), thinking, moment,
- * and the main response. Pass inner-life channels via optional temp files so the
- * episode shows all 4 paths together, not just the surface response.
+ * and the main response. Every capture must explicitly supply all four slots so
+ * the episode cannot silently retain only the surface response.
  *
  *   cat > /tmp/david_turn.txt << 'ENDDAVID'
  *   David's exact message text
@@ -42,14 +42,18 @@
  *     --moment-file   /tmp/luca_moment.txt \
  *     --luca-file     /tmp/luca_turn.txt
  *
- * Inner-life files are optional. Omit any channel that has nothing to record.
+ * Each inner-life slot is required. If a channel genuinely has no authored
+ * content, use its explicit-empty flag (`--felt-empty`, `--thinking-empty`, or
+ * `--moment-empty`) rather than omitting it. The canonical record will show
+ * `[intentionally empty]`, an acknowledgement of absence rather than invented
+ * inner-life text.
  * During live mode this composed turn is the ONLY episode route for these
  * channels. The persistent .luca_reflection/.luca_question/.luca_moment files
  * still save personal memory and readiness status, but do not append a second
  * episode copy.
  * The composed Luca turn appears in the episode as:
  *
- *   **LUCA [Replit]:** [felt]: ...
+ *   **LUCA [Replit]:** [felt]: ... or [intentionally empty]
  *
  *   [thinking]: ...
  *
@@ -86,6 +90,7 @@ import {
   composeLucaTurn,
   pruneCapturedCanonicalInnerLifeIntents,
   type CanonicalInnerLifeTurnIntent,
+  type FourChannelLucaTurn,
 } from '../services/inner-life-capture';
 export { composeLucaTurn } from '../services/inner-life-capture';
 
@@ -255,13 +260,23 @@ async function runSelfCheck4ch(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function readOptionalFile(flag: string, args: string[]): string | null {
+function readRequiredChannel(
+  flag: string,
+  emptyFlag: string,
+  args: string[],
+): string {
   const idx = args.indexOf(flag);
-  // Flag absent → channel intentionally omitted; not an error.
-  if (idx === -1) return null;
+  const explicitlyEmpty = args.includes(emptyFlag);
+  if (idx !== -1 && explicitlyEmpty) {
+    console.error(`[record-exchange] ERROR: use either ${flag} or ${emptyFlag}, not both`);
+    process.exit(1);
+  }
+  if (explicitlyEmpty) return '';
+  if (idx === -1) {
+    console.error(`[record-exchange] ERROR: ${flag} is required; use ${emptyFlag} only when that channel is intentionally empty`);
+    process.exit(1);
+  }
   const filePath = args[idx + 1];
-  // Flag supplied but path missing or file unreadable → explicit failure so the
-  // caller knows a requested channel was silently dropped.
   if (!filePath) {
     console.error(`[record-exchange] ERROR: ${flag} requires a file path argument`);
     process.exit(1);
@@ -272,18 +287,21 @@ function readOptionalFile(flag: string, args: string[]): string | null {
   }
   const text = readFileSync(filePath, 'utf-8').trimEnd();
   if (!text) {
-    console.error(`[record-exchange] ERROR: ${flag} file is empty: ${filePath}`);
+    console.error(`[record-exchange] ERROR: ${flag} file is empty: ${filePath}; use ${emptyFlag} to acknowledge an intentionally empty channel`);
     process.exit(1);
   }
   return text;
 }
 
-export function writeCanonicalIntent(opts: {
-  feeling?: string | null;
-  thinking?: string | null;
-  moment?: string | null;
-  main: string;
-}, pathOverride?: string): { intent: CanonicalInnerLifeTurnIntent; path: string } {
+export function writeCanonicalIntent(
+  opts: {
+    feeling?: string | null;
+    thinking?: string | null;
+    moment?: string | null;
+    main: string;
+  },
+  pathOverride?: string,
+): { intent: CanonicalInnerLifeTurnIntent; path: string } {
   const intent = buildCanonicalInnerLifeTurnIntent(opts);
   const intentPath = pathOverride ?? join(
     WORKSPACE,
@@ -334,8 +352,8 @@ if (!isMain) {
   // --luca-only: David's turn is already captured by the normal pipeline;
   // only write Luca's channels to avoid double-writing David's side.
   if (!lucaOnly && (davidIdx === -1 || lucaIdx === -1)) {
-    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> [--feeling-file <path>] [--thinking-file <path>] [--moment-file <path>]');
-    console.error('       npx tsx server/scripts/record-exchange.ts --luca-only --luca-file <path> [--feeling-file <path>] [--thinking-file <path>] [--moment-file <path>]');
+    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty)');
+    console.error('       npx tsx server/scripts/record-exchange.ts --luca-only --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty)');
     console.error('       npx tsx server/scripts/record-exchange.ts --self-check');
     process.exit(1);
   }
@@ -352,16 +370,16 @@ if (!isMain) {
   }
 
   const lucaMain    = readFileSync(lucaFile, 'utf-8').trimEnd();
-  const lucaFeeling = readOptionalFile('--feeling-file',  args);
-  const lucaThink   = readOptionalFile('--thinking-file', args);
-  const lucaMoment  = readOptionalFile('--moment-file',   args);
+  const lucaFeeling = readRequiredChannel('--feeling-file',  '--felt-empty',     args);
+  const lucaThink   = readRequiredChannel('--thinking-file', '--thinking-empty', args);
+  const lucaMoment  = readRequiredChannel('--moment-file',   '--moment-empty',   args);
 
   if (!lucaMain) {
     console.error('[record-exchange] ERROR: --luca-file is empty');
     process.exit(1);
   }
 
-  const lucaChannels = {
+  const lucaChannels: FourChannelLucaTurn = {
     feeling:  lucaFeeling,
     thinking: lucaThink,
     moment:   lucaMoment,
@@ -391,7 +409,7 @@ if (!isMain) {
     appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
     markCanonicalIntentCaptured(handoff);
     const sizeFinal = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
-    const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
+    const channels = ['felt', 'thinking', 'moment', 'main'];
     console.log(`[record-exchange] ✓ Exchange written to .chat_capture (${sizeBefore}B → ${sizeFinal}B)`);
     console.log(`  David: ${davidText.length} chars`);
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
@@ -401,7 +419,7 @@ if (!isMain) {
     appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
     markCanonicalIntentCaptured(handoff);
     const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
-    const channels = ['main', lucaFeeling && 'feeling', lucaThink && 'thinking', lucaMoment && 'moment'].filter(Boolean);
+    const channels = ['felt', 'thinking', 'moment', 'main'];
     console.log(`[record-exchange] ✓ Luca turn written to .chat_capture (${sizeBefore}B → ${sizeAfter}B) [luca-only]`);
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
     console.log('  David turn already captured by autosave pipeline.');

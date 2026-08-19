@@ -306,6 +306,10 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- record-exchange.ts --self-check-4ch (4-channel composition verified) ---"
   npx tsx server/scripts/record-exchange.ts --self-check-4ch
+  echo "  --- four-channel capture contract (missing slots reject before live capture) ---"
+  npx tsx server/scripts/test-four-channel-capture-contract.ts
+  echo "  --- rolling four-channel continuity parser self-check ---"
+  npx tsx server/scripts/audit-rolling-four-channel-continuity.ts --self-check
 }
 
 group_body_memory_recall() {

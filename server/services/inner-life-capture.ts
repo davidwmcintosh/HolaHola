@@ -3,6 +3,21 @@ import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 export type InnerLifeChannel = 'felt' | 'thinking' | 'moment';
+export const INTENTIONALLY_EMPTY_CHANNEL = '[intentionally empty]';
+
+export interface FourChannelLucaTurn {
+  feeling: string;
+  thinking: string;
+  moment: string;
+  main: string;
+}
+
+type FourChannelLucaTurnInput = {
+  feeling?: string | null;
+  thinking?: string | null;
+  moment?: string | null;
+  main: string;
+};
 
 export interface ParsedInnerLifeTrigger {
   title: string;
@@ -134,12 +149,7 @@ export function hashInnerLifeText(text: string): string {
 }
 
 export function buildCanonicalInnerLifeTurnIntent(
-  opts: {
-    feeling?: string | null;
-    thinking?: string | null;
-    moment?: string | null;
-    main: string;
-  },
+  opts: FourChannelLucaTurnInput,
   createdAtMs = Date.now(),
   turnId = randomUUID(),
 ): CanonicalInnerLifeTurnIntent {
@@ -324,19 +334,33 @@ function withCanonicalLabel(channel: InnerLifeChannel, text: string): string {
   return trimmed.startsWith(label) ? trimmed : `${label}: ${trimmed}`;
 }
 
-/** Compose the canonical felt → thinking → moment → main Luca turn. */
-export function composeLucaTurn(opts: {
-  feeling?: string | null;
-  thinking?: string | null;
-  moment?: string | null;
-  main: string;
-}): string {
-  const parts: string[] = [];
-  if (opts.feeling) parts.push(withCanonicalLabel('felt', opts.feeling));
-  if (opts.thinking) parts.push(withCanonicalLabel('thinking', opts.thinking));
-  if (opts.moment) parts.push(withCanonicalLabel('moment', opts.moment));
-  parts.push(opts.main);
-  return parts.join('\n\n');
+function renderCanonicalChannel(channel: InnerLifeChannel, text: string): string {
+  const value = text.trim() || INTENTIONALLY_EMPTY_CHANNEL;
+  return withCanonicalLabel(channel, value);
+}
+
+/**
+ * Compose the required felt → thinking → moment → main Luca envelope.
+ *
+ * An empty string is intentional only after the caller has supplied that slot.
+ * The rendered marker makes that absence visible in the canonical record rather
+ * than silently collapsing the turn into a main-only response.
+ */
+export function composeLucaTurn(opts: FourChannelLucaTurnInput): string {
+  if (!opts.main.trim()) {
+    throw new Error('A canonical Luca turn requires non-empty main content');
+  }
+  return [
+    renderCanonicalChannel('felt', opts.feeling ?? ''),
+    renderCanonicalChannel('thinking', opts.thinking ?? ''),
+    renderCanonicalChannel('moment', opts.moment ?? ''),
+    opts.main.trimEnd(),
+  ].join('\n\n');
+}
+
+/** True only for a complete canonical four-channel envelope in the required order. */
+export function isCanonicalFourChannelLucaTurn(text: string): boolean {
+  return /^\[felt\]:[\s\S]*?\n\n\[thinking\]:[\s\S]*?\n\n\[moment\]:[\s\S]*?\n\n\S[\s\S]*$/u.test(text);
 }
 
 /** Capture-status accepts both legacy direct entries and canonical turn labels. */

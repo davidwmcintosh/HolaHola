@@ -74,6 +74,7 @@ import {
   episodeTailHasInnerLifeChannel,
   formatInnerLifeEpisodeEntry,
   innerLifeTriggerEpisodeMarker,
+  isCanonicalFourChannelLucaTurn,
   parseInnerLifeTrigger,
   resolveCanonicalInnerLifeRoute,
   type InnerLifeChannel,
@@ -2031,6 +2032,20 @@ export async function withEpisodeFileLock<T>(filename: string, fn: () => T | Pro
  * DB row; it is never independently appended or treated as a source.
  */
 export async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
+  // A CI sentinel is evidence about a test harness, never dialogue. Refuse to
+  // let legacy auto-capture checks append one to the active rolling record.
+  // Fixture episodes remain testable because only the live rolling filename is
+  // protected here. The legacy test consequently fails loudly until it uses an
+  // isolated fixture instead of quietly contaminating the canonical DB row.
+  if (exchange.includes('[CI-AUTO-CAPTURE-') || exchange.includes('[CI-SELF-CHECK-AUTO-CAPTURE-')) {
+    const rollingFilename = await getCurrentRollingEpisodeFilename();
+    if (rollingFilename === episodeFilename) {
+      throw new Error(
+        `Refusing to append CI auto-capture sentinel to active rolling episode ${episodeFilename}; ` +
+        'run the test against an isolated fixture.',
+      );
+    }
+  }
   const appended = await appendInnerLifeToEpisodeDb(exchange, episodeFilename, { allowAppend: true });
   if (!appended) {
     console.error(`[AgentAutosave] Episode append remains pending because DB→Markdown replication is incomplete: ${episodeFilename}`);
@@ -2152,6 +2167,19 @@ async function checkChatCapture(): Promise<void> {
     const { turns, newByteOffset, turnByteOffsets } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursor.byteOffset);
 
     if (turns.length === 0) return; // new bytes but no complete turns yet (mid-write)
+
+    // A new Luca turn must carry the complete canonical envelope. Do this before
+    // any DB insert or episode append, and deliberately leave the cursor at its
+    // prior boundary so a repaired capture can be retried without loss.
+    const incompleteLuca = turns.find(turn =>
+      turn.speaker === 'LUCA' && !isCanonicalFourChannelLucaTurn(turn.text),
+    );
+    if (incompleteLuca) {
+      throw new Error(
+        'Chat capture contains a Luca turn without the required felt/thinking/moment/main envelope; ' +
+        'no DB or episode write was attempted and the cursor remains pending for repair.',
+      );
+    }
 
     // Drain loop — buildDialogueChunk caps at 80K chars. If more turns were parsed
     // than fit in one chunk, we loop: insert the first batch, advance the cursor to
