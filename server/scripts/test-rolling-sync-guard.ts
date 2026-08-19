@@ -10,6 +10,7 @@
  */
 
 import {
+  clearEpisodeRollingCacheForTest,
   syncEpisodeFile,
   setRollingReplicaRestoreEnabledForTest,
 } from '../services/agent-session-autosave';
@@ -183,21 +184,31 @@ async function main() {
       console.log(`  ✓ Pass 1 (cold cache): DB kept long content (${len1} chars) despite shorter sync`);
     }
 
-    // ── Pass 2: warm ID cache — syncEpisodeFile again with SHORT content ──────
-    // The ID is now in episodeIdCache; this is the bug path that used to skip the guard.
+    // ── Pass 2: warm ID cache + cold rolling cache ───────────────────────────
+    // DB-first append paths can warm episodeIdCache without populating
+    // episodeRollingCache. A subsequent file watcher event must re-read tags
+    // and restore the replica; it must never default to Markdown→DB behavior.
+    clearEpisodeRollingCacheForTest(TEST_FILE);
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
     await syncEpisodeFile(TEST_FILE);
 
     const r2 = await db.execute(sql`
       SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
     `);
     const len2 = Number((r2 as any).rows?.[0]?.len ?? (r2 as any)[0]?.len ?? 0);
+    const mdAfterCacheCold = existsSync(TEST_PATH) ? readFileSync(TEST_PATH, 'utf-8') : '';
     if (len2 !== LONG_CONTENT.length) {
       failures.push(
-        `Pass 2 (warm cache): DB shrank to ${len2} chars — expected ${LONG_CONTENT.length}. ` +
-        `episodeRollingCache not populated on first lookup.`
+        `Pass 2 (warm ID, cold rolling cache): DB shrank to ${len2} chars — expected ${LONG_CONTENT.length}. ` +
+        `A cached ID must not default the rolling record to Markdown-authoritative behavior.`
+      );
+    } else if (mdAfterCacheCold !== LONG_CONTENT) {
+      failures.push(
+        `Pass 2 (warm ID, cold rolling cache): DB stayed canonical but .md was not restored ` +
+        `(${mdAfterCacheCold.length} chars vs expected ${LONG_CONTENT.length}).`
       );
     } else {
-      console.log(`  ✓ Pass 2 (warm cache): DB kept long content (${len2} chars) despite shorter sync`);
+      console.log(`  ✓ Pass 2 (warm ID, cold rolling cache): DB kept ${len2} chars; .md restored from canonical DB`);
     }
 
     // ── Pass 3: a LONGER file must NOT be promoted into the canonical record ──

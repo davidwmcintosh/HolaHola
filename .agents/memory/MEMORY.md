@@ -145,3 +145,4 @@
 - [Turn-bound Guardian grounding](turn-bound-guardian-grounding.md) — async Archive results belong only to their original utterance; discard stale queues before newer speech begins.
 - [CI fixture canonical boundary](ci-fixture-canonical-boundary.md) — rolling episode records are never test fixtures; synthetic CI text must be isolated from canonical dialogue.
 - [Legacy CI encodes old contracts](legacy-ci-contract-flip.md) — when a data-flow direction flips (Markdown→DB became DB-canonical), old CI passes assert the outdated contract; rewrite assertions to the new invariant, never weaken the guard.
+- [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.

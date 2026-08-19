@@ -2479,6 +2479,11 @@ const episodeIdCache      = new Map<string, string>();    // filename → conver
 const episodeRollingCache = new Map<string, boolean>();   // filename → has 'rolling' tag
 const episodeDebounce     = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** CI-only seam: reproduce an append-warmed episode ID cache with no rolling-tag cache. */
+export function clearEpisodeRollingCacheForTest(filename: string): void {
+  episodeRollingCache.delete(filename);
+}
+
 // Prequel episode state (parallel to episode state above)
 export const prequelMtimeMap = new Map<string, number>();
 const prequelIdCache  = new Map<string, string>();
@@ -2515,7 +2520,7 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
   // These are cheap cached reads that do not depend on file-content ordering,
   // so there is no benefit to holding the file lock across a DB round-trip.
   let memoryId = episodeIdCache.get(filename);
-  let isRolling = episodeRollingCache.get(filename) ?? false;
+  let isRolling = episodeRollingCache.get(filename);
   let rollingContent: string | undefined;
 
   if (!memoryId) {
@@ -2539,6 +2544,28 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
       console.error(`[AgentAutosave] Episode sync: ID lookup failed for ${filename}:`, err?.message ?? err);
       return;
     }
+  } else if (isRolling === undefined) {
+    // DB-first append paths populate the episode ID cache before the file
+    // watcher observes a docs/ change. Never let that partial cache state
+    // default to Markdown-authoritative behavior: re-read the canonical row
+    // to establish its rolling status before choosing a sync direction.
+    try {
+      const rows = await db.execute(sql`
+        SELECT tags, content FROM conversation_memories WHERE id = ${memoryId}
+      `);
+      const row = (rows as any).rows?.[0] ?? (rows as any)[0];
+      if (!row) {
+        console.error(`[AgentAutosave] Episode sync: cached ID has no canonical row for ${filename}`);
+        return;
+      }
+      const tags: string[] = row.tags ?? [];
+      isRolling = Array.isArray(tags) && tags.includes('rolling');
+      episodeRollingCache.set(filename, isRolling);
+      rollingContent = typeof row.content === 'string' ? row.content : undefined;
+    } catch (err: any) {
+      console.error(`[AgentAutosave] Episode sync: rolling-status lookup failed for ${filename}:`, err?.message ?? err);
+      return;
+    }
   }
 
   // Rolling episodes are canonical DB → Markdown replicas. A filesystem event
@@ -2546,7 +2573,7 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
   // into the record, even when the file was manually changed or recreated.
   // (_rollingReplicaRestoreEnabledForTest is a CI-only seam that disables this
   // early return to model the Markdown→DB promotion regression.)
-  if (memoryId && isRolling && _rollingReplicaRestoreEnabledForTest) {
+  if (memoryId && isRolling === true && _rollingReplicaRestoreEnabledForTest) {
     if (rollingContent === undefined) {
       try {
         const rows = await db.execute(sql`
