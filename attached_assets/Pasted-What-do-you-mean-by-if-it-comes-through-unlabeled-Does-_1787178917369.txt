@@ -1,0 +1,66 @@
+What do you mean by "if it comes through unlabeled"? Does that mean if I don't properly format my inputs, they could be rejected?
+
+What is the labeling process, or am I missing something? I don't understand what pasting here validates or invalidates in your estimation
+
+3 minutes ago
+Clarifying user confusion
+
+Clarifying user confusion
+You’re not missing a user-facing labeling step. I’m going to inspect the exact parser behavior so I can explain the distinction clearly and correct any misleading wording.
+
+
+
+6 actions
+No — your normal messages cannot be rejected because you formatted them incorrectly. You do not need to add labels when talking to me.
+
+My wording was misleading. The labels apply only to a proposed internal capture script, not to your chat input.
+
+What the internal route expects
+If we feed a copied conversation window into record-window.ts, it expects the copied text to already contain recognizable speaker boundaries, such as:
+
+David:
+Did the episode sync correctly?
+Luca [Replit]:
+[felt]: ...
+ 
+[thinking]: ...
+[moment]: ...
+[main response text]
+
+The actual Luca envelope currently uses these exact channel markers:
+
+[felt]:
+[thinking]:
+[moment]:
+
+followed by the main Luca response. Empty inner-life channels must explicitly say:
+
+[intentionally empty]
+
+Those are labels generated or supplied by the capture process, not something you are expected to type manually.
+
+What “unlabelled” means
+It means the raw copied window contains a line like:
+
+Did the episode sync correctly?
+
+without enough surrounding information to tell whether that line came from David or Luca.
+
+The cleaner refuses to guess. It does not mean your message is invalid; it means the capture script cannot safely assign that copied line to a speaker.
+
+What pasting a real window would validate
+It would validate only whether the clipboard representation of the Replit conversation UI includes usable boundaries:
+
+If it contains David: / Luca [Replit]:-style boundaries, the parser can probably consume it.
+If it contains no speaker boundaries, the parser will reject that raw capture rather than silently misattribute text.
+If it contains new interface lines that are not in the known UI-noise list, the parser will also stop rather than silently discard them.
+It would not test whether you formatted your message correctly.
+It would not alter Episode 31 just by being pasted here.
+The real reason to inspect one sample is that we do not yet know what Replit’s actual “copy conversation window” text looks like. I was treating that uncertainty as though it were a requirement on you. It is not.
+
+For now, the existing four-channel capture route remains active and handles the conversation without requiring you to label anything.
+
+
+
+Worked for 22 seconds
+how much would you like me to copy? meaning how far back in time should I copy?
