@@ -77,3 +77,26 @@ Hermetic tests must prove:
 5. a failed clean leaves its private raw recovery artifact intact;
 6. successful cleanup preserves DB/Markdown equality in a disposable fixture;
 7. the current `record-exchange` route remains usable throughout the rollout.
+
+## Real-window validation (2026-08-19)
+
+The first real Replit window payload available to the capture run arrived as
+platform-provided `<automatic_updates>` / `<system_reminder>` blocks without
+`David:` or `Luca [Replit]:` speaker boundaries. `record-window.ts` rejected it
+at the first unlabelled line:
+
+```text
+Unlabelled window text cannot be assigned safely: "<automatic_updates>"
+```
+
+The command exited non-zero, retained the raw source byte-for-byte in the
+private recovery directory, left the capture stream unchanged, and emitted no
+canonical inner-life intent. This is the required fail-closed behavior; the
+platform wrappers are not stable dialogue boundaries and must not be treated
+as speaker evidence.
+
+**Decision:** raw-window intake remains additive and is not the primary route.
+Until the platform supplies explicit, stable speaker boundaries for the whole
+window, an ambiguous paste is preserved unparsed for recovery and the existing
+four-channel `record-exchange` path remains primary. No speaker guessing or
+automatic stripping of unfamiliar platform text is permitted.
