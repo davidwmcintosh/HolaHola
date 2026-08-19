@@ -403,3 +403,15 @@ args = "npx tsx server/scripts/test-watchdog-inner-life.ts"
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow]]
+name = "gl-game-session-detector-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"

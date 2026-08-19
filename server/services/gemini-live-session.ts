@@ -608,6 +608,13 @@ export class GeminiLiveSession {
   private transcriptBuffer: Array<{ role: 'student' | 'daniela'; text: string }> = [];
   private readonly MAX_TRANSCRIPT_BUFFER = 8;
 
+  // ── Game session detector — full-session exchange log ───────────────────────
+  // Accumulates every real (non-greeting, non-incognito) student↔Daniela exchange
+  // so the game detector can scan the complete session transcript at stop() time.
+  // No size cap — game detection needs the full picture (a counting game can run
+  // 30+ turns). Cleared automatically when the object is GC'd at session end.
+  private sessionExchangeLog: Array<{ user: string; daniela: string }> = [];
+
   // ── Mid-session context refresh (DISABLED — 2026-06-13) ────────────────
   // sendClientContent({role:'model', turnComplete:false}) was intended as a
   // silent context reminder but is incorrect GL API usage: it signals GL that
@@ -1829,6 +1836,29 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.flushTranscripts().catch(err =>
       console.warn('[GeminiLive] Final transcript flush error on stop:', err.message)
     );
+
+    // GAME SESSION DETECTOR — auto-save a dedicated conversation_memory when the
+    // session transcript contains a recognised game pattern. Fire-and-forget;
+    // never blocks the stop() path. Skipped for incognito sessions (no persistence)
+    // and sessions with fewer than 3 real exchanges (definitely not a game).
+    if (!this.session.isIncognito && this.sessionExchangeLog.length >= 3) {
+      const capturedExchanges = [...this.sessionExchangeLog];
+      const capturedTutorName = this.session.tutorName || 'Daniela';
+      const capturedLang = this.session.targetLanguage ?? 'spanish';
+      const capturedUserId = this.session.userId;
+      import('./gl-game-session-detector')
+        .then(({ maybeAutoSaveGameSession }) =>
+          maybeAutoSaveGameSession({
+            exchanges: capturedExchanges,
+            tutorName: capturedTutorName,
+            targetLanguage: capturedLang,
+            userId: capturedUserId,
+          }),
+        )
+        .catch((err: any) => {
+          console.warn('[GeminiLive] Game session detector error (non-fatal):', err?.message);
+        });
+    }
 
     // Shadow Auditor — fire-and-forget post-session transcript analysis.
     // Generates a session summary for compass continuity + suspends active loops.
@@ -4656,6 +4686,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const studentLabel = studentName ? `${studentName} [GL]` : 'Student [GL]';
         const danielaLabel = (this.session.tutorName || 'Daniela') + ' [GL]';
         const exchange = `**${studentLabel}:** ${this.lastUserText.trim()}\n**${danielaLabel}:** ${assistantText.trim()}`;
+
+        // GAME DETECTOR: accumulate every real exchange for post-session game detection.
+        this.sessionExchangeLog.push({
+          user: this.lastUserText.trim(),
+          daniela: assistantText.trim(),
+        });
+
         setImmediate(async () => {
           try {
             const { safeWriteTrigger, getRollingEpisodeName } = await import('./chat-episode-hook');
