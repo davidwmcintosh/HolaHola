@@ -562,6 +562,7 @@ export class GeminiLiveSession {
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
   // drop, etc.) we transparently reconnect so the student doesn't have to reload.
   private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
   // Close codes we consider transient/retriable (not policy violations or intentional closes).
   // 1011 is intentionally excluded: it covers both quota exhaustion and Gemini internal errors.
@@ -1159,7 +1160,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               delayMs,
             });
 
-            setTimeout(async () => {
+            this.reconnectTimer = setTimeout(async () => {
+              this.reconnectTimer = null;
               if (this.isStopped) return;
               console.log(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts}…`);
               // Capture whether we have a resumption handle BEFORE resetting state.
@@ -1256,6 +1258,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.transcriptFlushTimer = null;
               }
 
+              let reconnectPrompt = this.lastSystemPrompt;
               try {
                 // Reconnect without a greeting — inject Context Bridge so Daniela
                 // resumes from where the conversation was rather than waking amnesiac.
@@ -1264,7 +1267,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 // gets trimmed before core persona does, and (c) LLM recency bias naturally
                 // pulls the model toward the recent context even when it's at the end.
                 const contextBridge = this.buildContextBridge();
-                const reconnectPrompt = contextBridge
+                reconnectPrompt = contextBridge
                   ? `${this.lastSystemPrompt}\n\n${contextBridge}`
                   : this.lastSystemPrompt;
                 await this.start(reconnectPrompt, this.lastTools);
@@ -1294,7 +1297,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.sendWsMessage(this.session.ws, { type: 'gl_reconnected' });
               } catch (err: any) {
                 console.error(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts} failed:`, err?.message);
-                // onclose will fire again and trigger the next attempt (or give up)
+                // connect() can reject before a new Live WebSocket exists, so there
+                // is no later onclose to advance the retry chain. Continue explicitly.
+                this.retryFailedReconnectStart(reconnectPrompt);
               }
             }, delayMs);
           } else if (!this.isStopped) {
@@ -1327,6 +1332,58 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.pendingGreetingTrigger = greetingTrigger;
       console.log('[GeminiLive] Greeting buffered at start() — waiting for setupComplete');
     }
+  }
+
+  /**
+   * Continue a reconnect when start() rejects before opening a new Live socket.
+   *
+   * The normal onclose handler can only schedule the next retry after a real
+   * WebSocket exists. A failed connect has no socket and therefore no onclose,
+   * so this bounded continuation owns that otherwise-dead retry branch.
+   */
+  private retryFailedReconnectStart(reconnectPrompt: string): void {
+    if (this.isStopped) return;
+
+    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+      console.error('[GeminiLive] Reconnect attempts exhausted after failed start()');
+      this.sendWsMessage(this.session.ws, {
+        type: 'voice_error',
+        code: 'GEMINI_LIVE_DISCONNECTED',
+        message: 'Daniela\'s voice session disconnected. Please start a new session.',
+        recoverable: false,
+      });
+      return;
+    }
+
+    this.reconnectAttempts++;
+    const delayMs = 1000 * Math.pow(2, this.reconnectAttempts - 1);
+    console.log(`[GeminiLive] Scheduling reconnect ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS} after failed start in ${delayMs} ms`);
+    this.sendWsMessage(this.session.ws, {
+      type: 'gl_reconnecting',
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.MAX_RECONNECT_ATTEMPTS,
+      delayMs,
+    });
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      if (this.isStopped) return;
+
+      // start() marks the session started before opening the upstream socket.
+      // Reset those fields so a failed start can make a fresh bounded attempt.
+      this.isStarted = false;
+      this.liveSession = null;
+
+      try {
+        await this.start(reconnectPrompt, this.lastTools);
+        this.reconnectAttempts = 0;
+        console.log('[GeminiLive] Reconnected successfully after failed start');
+        this.sendWsMessage(this.session.ws, { type: 'gl_reconnected' });
+      } catch (err: any) {
+        console.error(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts} failed:`, err?.message);
+        this.retryFailedReconnectStart(reconnectPrompt);
+      }
+    }, delayMs);
   }
 
   /**
@@ -1790,6 +1847,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
   stop(): void {
     if (this.isStopped) return;
     this.isStopped = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.transcriptFlushTimer) {
       clearTimeout(this.transcriptFlushTimer);
       this.transcriptFlushTimer = null;

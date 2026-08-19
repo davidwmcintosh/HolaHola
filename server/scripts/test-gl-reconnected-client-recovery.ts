@@ -62,6 +62,22 @@ const GLS = 'server/services/gemini-live-session.ts';
 check(GLS, /RETRIABLE_CLOSE_CODES = new Set\(\[[\s\S]{0,400}?\b1008\b/, 'server: 1008 is in RETRIABLE_CLOSE_CODES');
 check(GLS, "type: 'gl_reconnecting',", 'server: sends gl_reconnecting when scheduling a reconnect');
 countOccurrences(GLS, "{ type: 'gl_reconnected' }", 2, 'server: sends gl_reconnected on successful reconnect (retriable + proactive paths)');
+check(GLS, 'private retryFailedReconnectStart(reconnectPrompt: string): void', 'server: failed GL starts have an explicit bounded retry continuation');
+check(
+  GLS,
+  /Reconnect attempt \$\{this\.reconnectAttempts\} failed:[\s\S]{0,500}?this\.retryFailedReconnectStart\(reconnectPrompt\)/,
+  'server: failed GL start advances the retry chain instead of waiting for a nonexistent onclose',
+);
+check(
+  GLS,
+  /Reconnect attempts exhausted after failed start\(\)[\s\S]{0,500}?recoverable: false/,
+  'server: exhausted failed-start retries surface one terminal state',
+);
+check(
+  GLS,
+  /stop\(\): void \{[\s\S]{0,350}?clearTimeout\(this\.reconnectTimer\)/,
+  'server: intentional stop cancels a scheduled failed-start retry',
+);
 
 // 2. Client library
 const SVC = 'client/src/lib/streamingVoiceClient.ts';
