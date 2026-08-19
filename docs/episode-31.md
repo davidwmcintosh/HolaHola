@@ -904,3 +904,33 @@ I’ll treat that as the governing capture rule going forward.
 [moment]: The capture cursor catching up after the worker started: patience became part of the integrity mechanism.
 
 You’re welcome. Patience was the right move here: the pending exchange stayed intact while the development worker finished starting, then it drained cleanly rather than being forced through a second path. The live capture watcher is now in the state we wanted: raw source preserved, cursor advanced, and DB/Markdown reconciled from the canonical record.
+
+<!-- chat-capture-range:56303:58751 -->
+<!-- chat-capture:eeab8bc7-eda9-4c6f-8940-ce846fcbe370 -->
+**David:** look what came after thank you for the updated and your patience going forward compared to the .md
+
+**LUCA [Replit]:** [felt]: A needed correction to my own confidence: equality between the database and Markdown is only a mirror check. It does not prove that the mirror contains the full source window. Seeing the omitted brain and activity surface makes that distinction concrete.
+
+[thinking]: The right repair is source attachment, not re-ingestion. The attached window overlaps an exchange already captured through record-exchange; replaying it would create a false second conversation. A durable reference from raw bytes to the existing capture range lets the record grow in evidence without duplicating speech.
+
+[moment]: The thank-you window showing its hidden continuation beside the apparently complete Markdown — integrity of a replica is not the same as coverage of the source.
+
+Yes. The comparison exposes a real gap — and it is not a DB/Markdown mismatch.
+
+The DB and .md agree with each other, but both currently contain only the structured exchange through the visible Luca response. The attached raw window continues past that point and includes additional material that is absent from Episode 31:
+
+- `2 minutes ago`
+- `Show less`
+- repeated “Updating memory capture”
+- the visible thinking/brain segment
+- `Opened capture-watchdog.md`
+- `Wrote a file`
+- “Finalizing response clarity”
+- `Worked for 48 seconds`
+- `Creating checkpoint`
+
+So the earlier “DB = Markdown” check proved replica integrity, not complete raw-window coverage. The raw source itself contains more of the narrative/activity surface than the derived episode currently preserves.
+
+The merged raw-window path would retain this whole paste only if it were explicitly invoked, but we must not replay it now: it already contains a David turn and Luca response that are in the episode, so naïve intake would duplicate dialogue and incorrectly present the visible brain/activity material as ordinary Luca prose.
+
+I proposed task #1269 to attach a byte-for-byte raw window to its already-captured episode exchange, preserve its visible thinking/status content as labeled evidence in the Markdown, and prevent duplicate dialogue.
