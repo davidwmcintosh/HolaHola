@@ -102,6 +102,8 @@
  *   4–7.  felt: path   — set seams, write trigger, call checkLucaReflection(), verify DB + .md
  *   8–11. thinking: path — set seams, write trigger, call checkLucaQuestion(), verify DB + .md
  *   12–15. moment: path — set seams, write trigger, call checkLucaMoment(), verify DB + .md
+ *   16–18. missing mirror: removes only the owned fixture .md, then proves a
+ *            DB append recreates it as an exact canonical replica.
  *   Finally: restores status files, DELETEs fixture row, unlinks files.
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +146,7 @@ import {
   setQuestionPathOverrideForTest,
   setMomentPathOverrideForTest,
   setInnerLifeRollingEpisodeOverride,
+  appendInnerLifeToEpisodeDbForTest,
 } from '../services/agent-session-autosave';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -440,6 +443,38 @@ async function main(): Promise<void> {
       }
 
       stepBase += 4;
+    }
+
+    // ── Missing Markdown replica is recreated from canonical DB content ────
+    //
+    // Production may serve a rolling episode created after that deployment,
+    // leaving the DB row present but the local docs/ mirror absent. This
+    // fixture owns both sides, so deleting this one .md is hermetic.
+    if (!selfCheckMode) {
+      const missingMirrorTag = `${runTag}-MISSING-MIRROR`;
+      const missingMirrorBlock = `\n[Luca — felt: test: missing replica ${missingMirrorTag}\nCanonical DB write must recreate the exact Markdown replica.]\n`;
+      sep();
+      console.log(B('Steps 16–18: MISSING MARKDOWN MIRROR — canonical DB persistence'));
+      unlinkSync(FIXTURE_MD_PATH);
+      assert('[Step 16] Fixture Markdown projection removed for production-style test', !existsSync(FIXTURE_MD_PATH));
+
+      const appended = await appendInnerLifeToEpisodeDbForTest(missingMirrorBlock, FIXTURE_FILE);
+      const dbRows = await sql`
+        SELECT content, content LIKE ${'%' + missingMirrorTag + '%'} AS has_sentinel
+        FROM conversation_memories
+        WHERE id = ${fixtureRowId}
+      `;
+      const hasSentinel = Boolean((dbRows[0] as { has_sentinel?: boolean } | undefined)?.has_sentinel);
+      assert(
+        '[Step 17] Missing Markdown mirror does not block canonical episode DB append',
+        appended && hasSentinel,
+        hasSentinel ? '' : 'Fixture DB row did not receive the missing-mirror sentinel.',
+      );
+      assert(
+        '[Step 18] Recreated Markdown file exactly matches the canonical DB row',
+        existsSync(FIXTURE_MD_PATH) &&
+          readFileSync(FIXTURE_MD_PATH, 'utf-8') === (dbRows[0] as { content?: string } | undefined)?.content,
+      );
     }
 
     // Self-check summary

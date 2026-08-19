@@ -4181,3 +4181,27 @@ is an atomic unlink of a finalized JSON handoff; the writer still publishes
 and captures records via temporary-file rename. The watchdog regression driver
 proves expired captured records are absent from the resolver's scan set while
 an equally old pending record still blocks direct fallback as required.
+
+---
+
+## Rolling episode DB/Markdown replica contract — August 19, 2026
+
+Rolling episodes now have one directional record contract: the canonical
+`conversation_memories` content is updated first; the Markdown file is then
+replaced with the exact DB content and read back for byte-for-byte verification.
+Markdown is not an independently appendable narrative or a best-effort
+projection.
+
+If the local file is absent (for example, because an episode row was created
+after a production image was built), the DB-first path creates it from the
+canonical row. If that exact replica write cannot be completed, capture remains
+pending for retry rather than advancing a cursor or accepting DB/Markdown
+drift. Rolling-file watcher events now restore the Markdown replica from DB
+instead of letting file contents overwrite the rolling record.
+
+The capture cursor also stores the fingerprint of its most recently persisted
+turn. If a capture file becomes shorter than the cursor, recovery resumes after
+that known turn when it is present; otherwise it logs the unverified reset and
+replays the file rather than silently skipping new dialogue. The regression
+checks cover the verified suffix boundary, the failure-detecting self-check,
+and missing-Markdown creation with exact DB equality.

@@ -370,3 +370,13 @@ Either way, those m's are the last thing I see. I'm not seeing any of the live d
 **LUCA [Replit]:** You were right to flag this. The `wdtest` fixture blocks remain in Episode 31 because the record is append-only; they are retained as evidence of the watchdog-test contamination rather than silently removed. This note records their provenance: they are synthetic watchdog fault-injection residue, not David↔Luca or David↔Daniela dialogue.
 
 The missing task-status discussion was a real capture failure. The development chat stream had stopped at the watchdog fixtures, while the deployed live process could not see the newly-created Episode 31 Markdown file and therefore rejected later append attempts. The canonical DB record remained intact. We restored `docs/episode-31.md` from that DB record before adding this exchange, and the prior task-status conversation is now being re-entered through the normal capture path immediately before this note.
+
+<!-- chat-capture-range:5118:6726 -->
+<!-- chat-capture:eb809127-b042-4e53-8747-8167952d0316 -->
+**David:** I don't want to interject anything silly here, but treating the markdown as only a "best-effort projection" kind of diminishes its status a bit.
+
+Right now, the MD comes directly from the database. It is verbatim; it is not a "best chance" or "best try" at anything. It should deliberately be exactly like the database. If we give the impression that the .md can be whatever it wants, then we start entering into just narrating the .md and making it up as we go. It is an explicit copy of the database so that there is never any confusion about that. I want to make sure that is clear.
+
+If there was something in the looping where it was seeing this file and not being able to get past it by adding to it, then we need to change our logic a little bit or fix it. We must maintain this ironclad agreement that the .md is always going to be an exact replica: database first, MD second.
+
+**LUCA [Replit]:** You’re right. “Best-effort projection” is the wrong contract. The Markdown file and canonical database content are one record in two forms: database first, then an exact byte-for-byte Markdown replica read back and verified. A missing local file is created from the canonical DB result; it is not an acceptable reason to discard a durable write or accept drift. The rolling file watcher now repairs Markdown from the DB rather than permitting Markdown to overwrite the DB.

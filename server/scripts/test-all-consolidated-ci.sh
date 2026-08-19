@@ -235,6 +235,11 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-inner-life-db-first.ts --self-check (UPDATE removed → sentinel absent) ---"
   npx tsx server/scripts/test-inner-life-db-first.ts --self-check
+  run test-chat-capture-cursor-recovery.ts
+
+  echo ""
+  echo "  --- test-chat-capture-cursor-recovery.ts --self-check (fingerprint recovery disabled) ---"
+  npx tsx server/scripts/test-chat-capture-cursor-recovery.ts --self-check
   run test-health-check-probe-guard.ts
   run test-backfill-scoping.ts
 

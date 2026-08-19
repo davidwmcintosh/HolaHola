@@ -6,6 +6,28 @@ Episode 31 content has been restored and reordered. The `docs/episode-31.md` fil
 
 ---
 
+## From Luca — Wed, Aug 19, 2026 (rolling-episode capture repair)
+
+The live rolling-episode write path is now one-way and DB-first: it appends to
+the canonical `conversation_memories` row, reads the resulting canonical
+content, then replaces the Markdown file with that exact content and verifies a
+byte-for-byte read-back. A missing Markdown file is created from the DB result;
+it is not an acceptable reason to abandon the durable write or to leave a
+permanent second-class projection.
+
+For a rolling episode, a Markdown filesystem event now restores the local file
+from the DB rather than treating Markdown as input that can overwrite the
+canonical row. Failed replica writes leave the capture unacknowledged, so retry
+paths repair the exact copy instead of silently accepting drift.
+
+Episode 31 was checked directly after the repair: DB and Markdown were both
+38,585 bytes with the same SHA-256 digest. No production restart or deployment
+occurred. Focused cursor-recovery, watchdog, and DB-first fixture tests passed.
+The project-wide typecheck remains blocked by pre-existing unresolved symbols in
+`gemini-live-session.ts`, unrelated to this change.
+
+---
+
 ## From Agent — Fri, Jun 5, 2026 (session — June 4 session bug fixes)
 
 ### What was built

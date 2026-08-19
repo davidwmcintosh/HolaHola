@@ -36,7 +36,7 @@
  * All watchers poll every 60 seconds.
  */
 
-import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, watch, readdirSync, unlinkSync } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync, watch, readdirSync, unlinkSync, mkdirSync } from 'fs';
 import { createHash } from 'crypto';
 import { tryAcquireInnerLifeLock, releaseInnerLifeLock, waitForInnerLifeLock } from './inner-life-lock';
 import { join, basename } from 'path';
@@ -59,6 +59,8 @@ import {
   acquireCursorLock,
   releaseCursorLock,
   appendChatCaptureTurn,
+  chatCaptureTurnFingerprint,
+  recoverChatCaptureCursor,
   parseAutoCaptureTrigger,
   consumeAutoCaptureTrigger,
 } from './transcript-parser';
@@ -1552,11 +1554,39 @@ async function savePersonalMemory(
 }
 
 /**
+ * Replace the episode Markdown file with the exact content just read from its
+ * canonical database row. A capture is not acknowledged until this replica
+ * write and byte-for-byte read-back verification both succeed.
+ */
+function writeExactEpisodeMarkdownReplica(
+  episodeFilename: string,
+  filePath: string,
+  canonicalContent: string,
+): boolean {
+  try {
+    mkdirSync(DOCS_DIR, { recursive: true });
+    writeFileSync(filePath, canonicalContent, 'utf-8');
+    if (readFileSync(filePath, 'utf-8') !== canonicalContent) {
+      throw new Error('post-write read-back differs from canonical DB content');
+    }
+    _innerLifeFileWriteCount++;
+    try { episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs); } catch { /* ignore */ }
+    return true;
+  } catch (err: any) {
+    console.error(
+      `[AgentAutosave] CRITICAL: canonical episode row is durable but its required Markdown replica is out of sync (${episodeFilename}):`,
+      err?.message ?? err,
+    );
+    return false;
+  }
+}
+
+/**
  * DB-first inner-life episode append.
  *
  * Writes the inner-life text to the episode's conversation_memories content
- * field in the DB first, then derives the .md from that content.  The DB row
- * is the authoritative record; the .md is always generated from it.
+ * field in the DB first, then replaces the .md with that exact DB content.
+ * The two forms are one record, not independently editable sources.
  *
  * Also triggers a re-embed so episode chunks reflect the new content.
  */
@@ -1570,11 +1600,6 @@ async function appendInnerLifeToEpisodeDb(
   },
 ): Promise<boolean> {
   const filePath = join(DOCS_DIR, episodeFilename);
-  if (!existsSync(filePath)) {
-    console.warn(`[AgentAutosave] Inner-life DB append: target file not found: ${filePath}`);
-    return false;
-  }
-
   const title = episodeTitleFromFilename(episodeFilename);
   const db = getUserDb();
 
@@ -1630,7 +1655,7 @@ async function appendInnerLifeToEpisodeDb(
         episodeContentHasEventMarker(preContent, route.appendMarker)
       ) {
         console.log(`[AgentAutosave] Episode event already present in ${episodeFilename} — skipping duplicate append`);
-        appended = true; // durable effect already exists
+        appended = writeExactEpisodeMarkdownReplica(episodeFilename, filePath, preContent);
         return;
       }
       if (
@@ -1638,7 +1663,7 @@ async function appendInnerLifeToEpisodeDb(
         episodeContentHasEventMarker(preContent, route.completionMarker)
       ) {
         console.log(`[AgentAutosave] Canonical episode event already present in ${episodeFilename} — direct trigger append suppressed`);
-        appended = true;
+        appended = writeExactEpisodeMarkdownReplica(episodeFilename, filePath, preContent);
         return;
       }
       if (route && !route.allowAppend) {
@@ -1647,7 +1672,7 @@ async function appendInnerLifeToEpisodeDb(
       }
       // Legacy callers without an event marker retain content-based idempotency.
       if (!route?.appendMarker && preContent.includes(text)) {
-        appended = true;
+        appended = writeExactEpisodeMarkdownReplica(episodeFilename, filePath, preContent);
         return;
       }
 
@@ -1659,20 +1684,18 @@ async function appendInnerLifeToEpisodeDb(
         WHERE id = ${memoryId}
       `);
 
-      // 2. Read updated content from DB and write to .md (derived from DB)
+      // 2. Read updated content from DB and replace Markdown with that exact
+      // snapshot. This creates a missing mirror when the episode was created
+      // after the current deployed filesystem was built.
       const updated = await db.execute(sql`
         SELECT content FROM conversation_memories WHERE id = ${memoryId}
       `);
       const updatedRow = (updated as any).rows?.[0] ?? (updated as any)[0];
-      const newContent: string = updatedRow?.content ?? '';
+      const newContent = updatedRow?.content;
 
-      if (newContent) {
+      if (typeof newContent === 'string' && writeExactEpisodeMarkdownReplica(episodeFilename, filePath, newContent)) {
         appended = true;
-        writeFileSync(filePath, newContent, 'utf-8');
-        _innerLifeFileWriteCount++;
-        // Keep mtime map current so the episode poller doesn't re-trigger
-        try { episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs); } catch { /* ignore */ }
-        console.log(`[AgentAutosave] Inner-life DB-first append: +${text.length} chars → ${episodeFilename}`);
+        console.log(`[AgentAutosave] Inner-life DB-first append + exact Markdown replica: +${text.length} chars → ${episodeFilename}`);
         writeCaptureStatus(episodeFilename);
         // Re-embed so episode chunks reflect the new content.
         // Fire-and-forget: a reembed failure must never prevent the .md write
@@ -1687,6 +1710,8 @@ async function appendInnerLifeToEpisodeDb(
             console.error(`[AgentAutosave] Re-embed failed for ${episodeFilename}:`, err?.message ?? err);
           });
         }
+      } else if (typeof newContent !== 'string') {
+        console.error(`[AgentAutosave] Inner-life DB append could not read canonical content for Markdown replication: ${episodeFilename}`);
       }
     } catch (err: any) {
       console.error(`[AgentAutosave] Inner-life DB-first append failed for ${episodeFilename}:`, err?.message ?? err);
@@ -1999,46 +2024,17 @@ export async function withEpisodeFileLock<T>(filename: string, fn: () => T | Pro
   }
 }
 
-/** Append exchange text to an episode .md file and schedule an immediate DB sync.
+/**
+ * Append exchange text through the canonical DB-first episode path.
  *
- * Uses fs.appendFileSync (atomic at the OS level) inside a per-filename in-process
- * mutex so that two concurrent async callers never race on the same file.
- * The old read-modify-write pattern was unsafe: two callers reading the same
- * snapshot would silently discard each other's content on write.
+ * Markdown is replaced only with the exact content returned from the updated
+ * DB row; it is never independently appended or treated as a source.
  */
 export async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
-  const filePath = join(DOCS_DIR, episodeFilename);
-
-  // Ensure the target file exists before appending (check outside lock — cheap, safe)
-  if (!existsSync(filePath)) {
-    console.warn(`[AgentAutosave] Episode append: target file not found: ${filePath}`);
-    return;
+  const appended = await appendInnerLifeToEpisodeDb(exchange, episodeFilename, { allowAppend: true });
+  if (!appended) {
+    console.error(`[AgentAutosave] Episode append remains pending because DB→Markdown replication is incomplete: ${episodeFilename}`);
   }
-
-  await withEpisodeFileLock(episodeFilename, () => {
-    try {
-      // appendFileSync is atomic: the OS guarantees the write either fully
-      // lands or does not; no partial-write interleaving between processes.
-      // Prepend '\n' so there is always a newline before the new block,
-      // regardless of whether the file already ends with one.
-      appendFileSync(filePath, '\n' + exchange + '\n', 'utf-8');
-
-      // Update mtime map so the regular episode poller doesn't re-trigger on this write
-      try {
-        episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs);
-      } catch { /* ignore */ }
-
-      console.log(`[AgentAutosave] Episode append: +${exchange.length} chars → ${episodeFilename}`);
-
-      // Update capture status file so Luca can verify the last exchange was written
-      writeCaptureStatus(episodeFilename);
-
-      // Schedule immediate DB sync (2s debounce collapses rapid bursts)
-      scheduleEpisodeSync(episodeFilename);
-    } catch (err: any) {
-      console.error(`[AgentAutosave] Episode append failed for ${episodeFilename}:`, err.message);
-    }
-  });
 }
 
 export async function checkEpisodeAppend(): Promise<void> {
@@ -2142,7 +2138,17 @@ async function checkChatCapture(): Promise<void> {
       return;
     }
 
-    const cursor = loadChatCaptureCursor();
+    const storedCursor = loadChatCaptureCursor();
+    const recovery = recoverChatCaptureCursor(CHAT_CAPTURE_PATH, storedCursor);
+    if (recovery.recovered) {
+      saveChatCaptureCursor(recovery.cursor);
+      console.warn(
+        `[AgentAutosave] Chat-capture cursor recovered (${recovery.reason}): ` +
+        `${storedCursor.byteOffset}→${recovery.cursor.byteOffset}` +
+        (recovery.verifiedBoundary ? ' at verified saved-turn boundary.' : ' from byte zero; prior boundary was not provable.'),
+      );
+    }
+    const cursor = recovery.cursor;
     const { turns, newByteOffset, turnByteOffsets } = parseChatCaptureFromOffset(CHAT_CAPTURE_PATH, cursor.byteOffset);
 
     if (turns.length === 0) return; // new bytes but no complete turns yet (mid-write)
@@ -2249,7 +2255,10 @@ async function checkChatCapture(): Promise<void> {
       // endOffset = turnByteOffsets[includedCount - 1] = byte offset after the last
       // turn actually inserted. Remaining turns stay behind the cursor for the next loop.
       const effectiveCursor = endOffset;
-      saveChatCaptureCursor({ byteOffset: effectiveCursor });
+      saveChatCaptureCursor({
+        byteOffset: effectiveCursor,
+        lastSavedTurnFingerprint: chatCaptureTurnFingerprint(remaining[includedCount - 1]),
+      });
 
       console.log(`[AgentAutosave] Chat capture +${includedCount} turn(s) saved (${davidCount}D + ${includedCount - davidCount}L, cursor ${startCursor}→${effectiveCursor})`);
 
@@ -2464,7 +2473,6 @@ function episodeSummaryFromContent(content: string): string {
  */
 export async function syncEpisodeFile(filename: string): Promise<void> {
   const filePath = join(DOCS_DIR, filename);
-  if (!existsSync(filePath)) return;
 
   const title = episodeTitleFromFilename(filename);
   const db    = getUserDb();
@@ -2474,11 +2482,12 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
   // so there is no benefit to holding the file lock across a DB round-trip.
   let memoryId = episodeIdCache.get(filename);
   let isRolling = episodeRollingCache.get(filename) ?? false;
+  let rollingContent: string | undefined;
 
   if (!memoryId) {
     try {
       const rows = await db.execute(sql`
-        SELECT id, tags FROM conversation_memories
+        SELECT id, tags, content FROM conversation_memories
         WHERE arc_name = 'HolaHola Episodes'
           AND title = ${title}
         LIMIT 1
@@ -2490,12 +2499,41 @@ export async function syncEpisodeFile(filename: string): Promise<void> {
         const tags: string[] = row.tags ?? [];
         isRolling = Array.isArray(tags) && tags.includes('rolling');
         episodeRollingCache.set(filename, isRolling);
+        rollingContent = typeof row.content === 'string' ? row.content : undefined;
       }
     } catch (err: any) {
       console.error(`[AgentAutosave] Episode sync: ID lookup failed for ${filename}:`, err?.message ?? err);
       return;
     }
   }
+
+  // Rolling episodes are canonical DB → Markdown replicas. A filesystem event
+  // therefore repairs the file from DB; it must never promote Markdown back
+  // into the record, even when the file was manually changed or recreated.
+  if (memoryId && isRolling) {
+    if (rollingContent === undefined) {
+      try {
+        const rows = await db.execute(sql`
+          SELECT content FROM conversation_memories WHERE id = ${memoryId}
+        `);
+        const row = (rows as any).rows?.[0] ?? (rows as any)[0];
+        rollingContent = typeof row?.content === 'string' ? row.content : undefined;
+      } catch (err: any) {
+        console.error(`[AgentAutosave] Rolling episode replica read failed for ${filename}:`, err?.message ?? err);
+        return;
+      }
+    }
+    if (rollingContent === undefined) {
+      console.error(`[AgentAutosave] Rolling episode replica read returned no canonical content: ${filename}`);
+      return;
+    }
+    if (writeExactEpisodeMarkdownReplica(filename, filePath, rollingContent)) {
+      console.log(`[AgentAutosave] Rolling episode Markdown replica restored from canonical DB: ${title}`);
+    }
+    return;
+  }
+
+  if (!existsSync(filePath)) return;
 
   // ── Serialised snapshot → upsert (inside the file lock) ─────────────────
   //
@@ -3249,7 +3287,17 @@ export function startAgentSessionAutosave(): void {
   //      next poll/watcher fire will seed it correctly on first real change.
   if (existsSync(CHAT_CAPTURE_PATH)) {
     try {
-      const cursor   = loadChatCaptureCursor();
+      const storedCursor = loadChatCaptureCursor();
+      const recovery = recoverChatCaptureCursor(CHAT_CAPTURE_PATH, storedCursor);
+      if (recovery.recovered) {
+        saveChatCaptureCursor(recovery.cursor);
+        console.warn(
+          `[AgentAutosave] Recovered shortened chat-capture cursor at startup: ` +
+          `${storedCursor.byteOffset}→${recovery.cursor.byteOffset}` +
+          (recovery.verifiedBoundary ? ' (verified boundary).' : ' (unverified reset; replaying file).'),
+        );
+      }
+      const cursor   = recovery.cursor;
       const fileSize = statSync(CHAT_CAPTURE_PATH).size;
       if (fileSize > cursor.byteOffset) {
         console.warn(

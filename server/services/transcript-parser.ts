@@ -12,6 +12,7 @@
  */
 
 import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, readdirSync, renameSync, openSync, closeSync, unlinkSync } from 'fs';
+import { createHash } from 'crypto';
 import { join } from 'path';
 
 export const WORKSPACE        = '/home/runner/workspace';
@@ -350,6 +351,12 @@ export function extractTurns(
 
 export interface ChatCaptureCursor {
   byteOffset: number;
+  /**
+   * Stable identity of the last turn whose durable effects completed before
+   * byteOffset advanced. It lets a worker recover its verified boundary after
+   * a capture file is shortened or replaced.
+   */
+  lastSavedTurnFingerprint?: string;
 }
 
 export function loadChatCaptureCursor(): ChatCaptureCursor {
@@ -359,6 +366,76 @@ export function loadChatCaptureCursor(): ChatCaptureCursor {
     }
   } catch { /* ignore */ }
   return { byteOffset: 0 };
+}
+
+/** Stable per-turn identity for cursor recovery; timestamps are intentionally excluded. */
+export function chatCaptureTurnFingerprint(turn: Pick<DialogueTurn, 'speaker' | 'text' | 'captureId'>): string {
+  return createHash('sha256')
+    .update(JSON.stringify([turn.speaker, turn.captureId ?? '', turn.text]), 'utf8')
+    .digest('hex');
+}
+
+export interface ChatCaptureCursorRecovery {
+  cursor: ChatCaptureCursor;
+  recovered: boolean;
+  verifiedBoundary: boolean;
+  reason?: 'last-saved-turn-found' | 'last-saved-turn-not-found';
+}
+
+/**
+ * Recover a cursor that points past the current capture file.
+ *
+ * A normal append-only file can never be shorter than its committed cursor.
+ * When it is, a reset or external truncation occurred. If the persisted
+ * fingerprint is still present, resume immediately after that exact completed
+ * turn so only the verified unprocessed suffix is drained. If it is absent,
+ * there is no honest boundary to skip to: restart from byte zero rather than
+ * silently discard the file. Downstream event markers keep normal retry paths
+ * idempotent, and the caller logs the unverified fallback for investigation.
+ */
+export function recoverChatCaptureCursor(
+  filePath: string,
+  cursor: ChatCaptureCursor,
+): ChatCaptureCursorRecovery {
+  let fileSize: number;
+  try {
+    fileSize = statSync(filePath).size;
+  } catch {
+    return { cursor, recovered: false, verifiedBoundary: false };
+  }
+  if (cursor.byteOffset <= fileSize) {
+    return { cursor, recovered: false, verifiedBoundary: false };
+  }
+
+  if (_chatCaptureCursorFingerprintRecoveryEnabled && cursor.lastSavedTurnFingerprint) {
+    const parsed = parseChatCaptureFromOffset(filePath, 0);
+    for (let i = parsed.turns.length - 1; i >= 0; i--) {
+      if (chatCaptureTurnFingerprint(parsed.turns[i]) === cursor.lastSavedTurnFingerprint) {
+        return {
+          cursor: { ...cursor, byteOffset: parsed.turnByteOffsets[i] },
+          recovered: true,
+          verifiedBoundary: true,
+          reason: 'last-saved-turn-found',
+        };
+      }
+    }
+  }
+
+  return {
+    cursor: { byteOffset: 0 },
+    recovered: true,
+    verifiedBoundary: false,
+    reason: 'last-saved-turn-not-found',
+  };
+}
+
+/** CI-only seam proving fingerprint matching is load-bearing for safe recovery. */
+let _chatCaptureCursorFingerprintRecoveryEnabled = true;
+export function setChatCaptureCursorFingerprintRecoveryEnabledForTest(enabled: boolean): void {
+  _chatCaptureCursorFingerprintRecoveryEnabled = enabled;
+}
+export function getChatCaptureCursorFingerprintRecoveryEnabledForTest(): boolean {
+  return _chatCaptureCursorFingerprintRecoveryEnabled;
 }
 
 export function saveChatCaptureCursor(

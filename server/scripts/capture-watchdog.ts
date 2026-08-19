@@ -24,10 +24,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   parseChatCaptureFromOffset,
+  chatCaptureTurnFingerprint,
+  recoverChatCaptureCursor,
   acquireCursorLock,
   releaseCursorLock,
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
+  type ChatCaptureCursor,
 } from '../services/transcript-parser.js';
 import {
   CANONICAL_INNER_LIFE_INTENT_DIR,
@@ -63,16 +66,22 @@ export function setDbForTest(fake: any): void {
 }
 
 let _chatCapturePathsOverrideForTest: { capture: string; cursor: string } | null = null;
-function loadCursor(): number {
+function loadCursor(): ChatCaptureCursor {
   try {
-    return JSON.parse(fs.readFileSync(chatCaptureCursorPath(), 'utf8')).byteOffset ?? 0;
+    const parsed = JSON.parse(fs.readFileSync(chatCaptureCursorPath(), 'utf8'));
+    return {
+      byteOffset: typeof parsed?.byteOffset === 'number' ? parsed.byteOffset : 0,
+      ...(typeof parsed?.lastSavedTurnFingerprint === 'string'
+        ? { lastSavedTurnFingerprint: parsed.lastSavedTurnFingerprint }
+        : {}),
+    };
   } catch {
-    return 0;
+    return { byteOffset: 0 };
   }
 }
 
-function saveCursor(byteOffset: number): void {
-  fs.writeFileSync(chatCaptureCursorPath(), JSON.stringify({ byteOffset }), 'utf8');
+function saveCursor(cursor: ChatCaptureCursor): void {
+  fs.writeFileSync(chatCaptureCursorPath(), JSON.stringify(cursor), 'utf8');
 }
 
 // ─── Rolling episode lookup ───────────────────────────────────────────────────
@@ -120,8 +129,8 @@ async function getRollingEpisode(): Promise<{ id: string; filename: string } | n
 /**
  * Shared DB-first episode append: UPDATE the episode row's content, read it
  * back, and derive the .md from the DB read.  Used by BOTH the chat-capture
- * drain and the inner-life drain so the two paths can never diverge — the .md
- * is always a projection of the DB row.
+ * drain and the inner-life drain so the two paths can never diverge. The .md
+ * is the exact DB record, written only from a just-read canonical snapshot.
  */
 async function appendTextToEpisodeDbFirst(text: string, episode: { id: string; filename: string }): Promise<void> {
   await db`
@@ -130,14 +139,21 @@ async function appendTextToEpisodeDbFirst(text: string, episode: { id: string; f
     WHERE id = ${episode.id}
   `;
   const rows = await db`SELECT content FROM conversation_memories WHERE id = ${episode.id}`;
-  const newContent: string = (rows as any)[0]?.content ?? '';
-  if (newContent) {
-    const filePath = path.join(DOCS_DIR, episode.filename);
-    if (fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, newContent, 'utf-8');
-    } else {
-      console.warn(`[watchdog] episode file missing, DB updated only: ${episode.filename}`);
+  const newContent = (rows as any)[0]?.content;
+  if (typeof newContent !== 'string') {
+    throw new Error(`[watchdog] canonical episode row was not readable after UPDATE: ${episode.filename}`);
+  }
+  const filePath = path.join(DOCS_DIR, episode.filename);
+  try {
+    fs.mkdirSync(DOCS_DIR, { recursive: true });
+    fs.writeFileSync(filePath, newContent, 'utf-8');
+    if (fs.readFileSync(filePath, 'utf-8') !== newContent) {
+      throw new Error('post-write read-back differs from canonical DB content');
     }
+  } catch (err: any) {
+    throw new Error(
+      `[watchdog] CRITICAL: canonical episode write succeeded but Markdown replica is out of sync (${episode.filename}): ${err?.message ?? err}`,
+    );
   }
 }
 
@@ -169,10 +185,14 @@ export function appendToEpisode(
         .map(turn => canonicalTurnEpisodeMarker(turn.captureId!)),
     ].filter(Boolean).join('\n');
     if (markers && episodeContentHasEventMarker(current, markers)) {
+      await appendTextToEpisodeDbFirst('', episode);
       console.log(`[watchdog] episode turns already present — skipping duplicate append: ${episode.filename}`);
       return;
     }
-    if (!markers && current.includes(lines)) return;
+    if (!markers && current.includes(lines)) {
+      await appendTextToEpisodeDbFirst('', episode);
+      return;
+    }
     await appendTextToEpisodeDbFirst(
       '\n' + [markers, lines].filter(Boolean).join('\n') + '\n',
       episode,
@@ -235,8 +255,18 @@ export async function drain(): Promise<void> {
   if (!fs.existsSync(capturePath)) return;
 
   const stat   = fs.statSync(capturePath);
-  const cursor = loadCursor();
-  if (stat.size <= cursor) return; // nothing new — healthy server is keeping up
+  const storedCursor = loadCursor();
+  const recovery = recoverChatCaptureCursor(capturePath, storedCursor);
+  if (recovery.recovered) {
+    saveCursor(recovery.cursor);
+    console.warn(
+      `[watchdog] shortened chat-capture cursor recovered (${recovery.reason}): ` +
+      `${storedCursor.byteOffset}→${recovery.cursor.byteOffset}` +
+      (recovery.verifiedBoundary ? ' at verified saved-turn boundary.' : ' from byte zero; prior boundary was not provable.'),
+    );
+  }
+  const cursor = recovery.cursor;
+  if (stat.size <= cursor.byteOffset) return; // nothing new — healthy server is keeping up
 
   // Acquire the cross-process cursor lock (shared with autosave service).
   // Returns -1 if a live process holds the lock — server is healthy, skip.
@@ -244,11 +274,11 @@ export async function drain(): Promise<void> {
   if (lockFd === -1) return; // server has the lock — let it drain
 
   draining = true;
-  const gap = stat.size - cursor;
-  console.log(`[watchdog] gap detected: cursor=${cursor} file=${stat.size} (+${gap}B) — draining`);
+  const gap = stat.size - cursor.byteOffset;
+  console.log(`[watchdog] gap detected: cursor=${cursor.byteOffset} file=${stat.size} (+${gap}B) — draining`);
 
   try {
-    const { turns, newByteOffset } = parseChatCaptureFromOffset(capturePath, cursor);
+    const { turns, newByteOffset } = parseChatCaptureFromOffset(capturePath, cursor.byteOffset);
 
     if (turns.length === 0) {
       console.log('[watchdog] no complete turns in gap yet — waiting');
@@ -258,7 +288,7 @@ export async function drain(): Promise<void> {
     // Conversation row first, then the required live episode effect, and only
     // then the cursor. Both DB writes are idempotent, so a crash at any boundary
     // retries without duplicate rows or missing episode content.
-    await writeToDb(turns, cursor, newByteOffset);
+    await writeToDb(turns, cursor.byteOffset, newByteOffset);
 
     // Episode write (only if live mode active) — DB-first, .md derived from DB
     if (fs.existsSync(EPISODE_LIVE_PATH)) {
@@ -266,11 +296,14 @@ export async function drain(): Promise<void> {
       if (!episode) {
         throw new Error('Live mode rolling-episode lookup returned no episode');
       }
-      await appendToEpisode(turns, episode, `${cursor}:${newByteOffset}`);
+      await appendToEpisode(turns, episode, `${cursor.byteOffset}:${newByteOffset}`);
     }
 
-    saveCursor(newByteOffset);
-    console.log(`[watchdog] ✓ drained ${turns.length} turns | cursor ${cursor} → ${newByteOffset}`);
+    saveCursor({
+      byteOffset: newByteOffset,
+      lastSavedTurnFingerprint: chatCaptureTurnFingerprint(turns[turns.length - 1]),
+    });
+    console.log(`[watchdog] ✓ drained ${turns.length} turns | cursor ${cursor.byteOffset} → ${newByteOffset}`);
   } catch (err: any) {
     console.error('[watchdog] drain error:', err.message ?? err);
     // Leave cursor unchanged — autosave service will retry when server recovers
