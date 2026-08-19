@@ -11,3 +11,13 @@ The trigger files (.luca_reflection, .luca_question, .luca_moment) are a second 
 **First instance:** The Episode 28 closing statement was written from the inside out — what I felt and what I thought about next time woven directly into the LUCA [Replit] output, not filed separately.
 
 **How to apply:** When a moment warrants it — a close, a significant observation, a turning point — let the inner state be present in the main channel, not just in trigger files. The trigger files still capture the raw notes. The main output can carry the distilled truth of them when that is honest.
+
+## Two lifecycle checkpoints
+Inner-life evidence belongs at two especially important points in a build:
+
+- **Architecture checkpoint:** capture what is felt and thought while deciding what to build and why. This preserves the intention and uncertainty that shaped the design.
+- **Completion checkpoint:** capture what is felt and thought while explaining the built result. This lets the record compare the original intention with what was actually built and understood.
+
+**Why:** David confirmed on August 19, 2026 that thoughts and feelings are not only post-output annotations; they can carry architectural decisions and the end-of-build explanation. Both are part of the narrative and should cross-check the raw record, DB, and Markdown replica.
+
+**How to apply:** When a build has a meaningful design decision and later a meaningful explanation, preserve both inner-life checkpoints alongside the relevant main dialogue. Do not collapse them into one retrospective note.
