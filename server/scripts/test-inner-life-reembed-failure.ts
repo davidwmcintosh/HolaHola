@@ -102,6 +102,11 @@ const FAKE_PATH       = join(DOCS_DIR, FAKE_FILENAME);
 const FAKE_MEMORY_ID  = '99999999-0000-4000-8000-000000009999';
 const INITIAL_CONTENT = '# Episode 9999\n\nTest fixture — CI only\n';
 const SENTINEL_TEXT   = '[Luca — felt: CI-reembed-failure sentinel\nThis text must appear exactly once.]';
+// Self-check uses a DISTINCT second sentinel: appendInnerLifeToEpisodeDb now
+// has a content-idempotency guard (Task #1235) that correctly skips an
+// identical duplicate append, so the double-write proof uses two different
+// texts — write counter and content counting still detect both writes.
+const SENTINEL_TEXT_2 = '[Luca — felt: CI-reembed-failure sentinel #2\nSecond distinct entry for the double-write self-check.]';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function pass(msg: string): void { console.log(GREEN('  PASS') + '  ' + msg); }
@@ -185,8 +190,10 @@ async function run(): Promise<void> {
       console.log(YELLOW('  [self-check] Calling function TWICE to simulate a retry — write count and content must reflect 2 writes\n'));
       await appendInnerLifeToEpisodeDbForTest(SENTINEL_TEXT, FAKE_FILENAME);
       // Second call: clear cache to force a second DB UPDATE + second .md write.
+      // Uses a distinct sentinel — an identical one is now (correctly) skipped
+      // by the duplicate-append idempotency guard.
       clearEpisodeIdCacheForTest();
-      await appendInnerLifeToEpisodeDbForTest(SENTINEL_TEXT, FAKE_FILENAME);
+      await appendInnerLifeToEpisodeDbForTest(SENTINEL_TEXT_2, FAKE_FILENAME);
     } else {
       // Normal mode: single call — function must return cleanly, .md written once.
       await appendInnerLifeToEpisodeDbForTest(SENTINEL_TEXT, FAKE_FILENAME);
@@ -231,11 +238,12 @@ async function run(): Promise<void> {
       failures++;
     }
 
-    const sentinelCount = countOccurrences(contentAfterCall, SENTINEL_TEXT);
+    const sentinelCount = countOccurrences(contentAfterCall, SENTINEL_TEXT)
+      + countOccurrences(contentAfterCall, SENTINEL_TEXT_2);
     if (sentinelCount === 2) {
-      pass(`Sentinel text appears exactly 2 times in .md — file content confirms double-write ✓`);
+      pass(`Both sentinel texts present in .md (2 total) — file content confirms double-write is detectable ✓`);
     } else {
-      fail(`Expected sentinel to appear 2 times in .md, found ${sentinelCount} — self-check infrastructure broken`);
+      fail(`Expected 2 sentinel entries in .md, found ${sentinelCount} — self-check infrastructure broken`);
       failures++;
     }
 

@@ -391,3 +391,15 @@ args = "npx tsx server/scripts/record-exchange.ts --self-check-4ch"
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow]]
+name = "watchdog-inner-life-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-watchdog-inner-life.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"

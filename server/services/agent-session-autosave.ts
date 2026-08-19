@@ -37,7 +37,9 @@
  */
 
 import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, watch, readdirSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { createHash } from 'crypto';
+import { tryAcquireInnerLifeLock, releaseInnerLifeLock, waitForInnerLifeLock } from './inner-life-lock';
+import { join, basename } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import {
@@ -364,7 +366,7 @@ export function clearEpisodeIdCacheForTest(): void {
 }
 
 /** Exported wrapper for appendInnerLifeToEpisodeDb() — CI tests only. */
-export async function appendInnerLifeToEpisodeDbForTest(text: string, episodeFilename: string): Promise<void> {
+export async function appendInnerLifeToEpisodeDbForTest(text: string, episodeFilename: string): Promise<boolean> {
   return appendInnerLifeToEpisodeDb(text, episodeFilename);
 }
 
@@ -1478,10 +1480,16 @@ function flagDbWriteFailure(where: string, reason: string): void {
 /** Append a dated entry to one of the personal markdown files. */
 function appendToPersonalFile(filePath: string, title: string, body: string): void {
   try {
+    const resolved = _personalFilesDirForTest ? join(_personalFilesDirForTest, basename(filePath)) : filePath;
     const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const entry = `\n### ${today} — ${title}\n\n${body}\n\n---\n`;
-    const existing = existsSync(filePath) ? readFileSync(filePath, 'utf-8') : '';
-    writeFileSync(filePath, existing.trimEnd() + '\n' + entry);
+    const existing = existsSync(resolved) ? readFileSync(resolved, 'utf-8') : '';
+    // Idempotency: a retry after a transient failure must not duplicate the entry.
+    if (existing.includes(`— ${title}\n\n${body}\n\n---`)) {
+      console.log('[AgentAutosave] personal-file entry already present — skipping duplicate append:', title.slice(0, 60));
+      return;
+    }
+    writeFileSync(resolved, existing.trimEnd() + '\n' + entry);
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to append to personal file:', filePath, err.message);
   }
@@ -1505,13 +1513,25 @@ async function savePersonalMemory(
   body: string,
   tags: string[],
   arcName: string,
-): Promise<void> {
-  const db = getUserDb();
+): Promise<boolean> {
+  const db = _personalMemoryDbForTest ?? getUserDb();
   try {
     // _savePersonalMemoryDbShouldThrowForTest is true only in CI self-check mode —
     // it simulates a DB failure so the catch block's flagDbWriteFailure() call is exercised.
     if (_savePersonalMemoryDbShouldThrowForTest) {
       throw new Error('[CI-test] Synthetic personal-memory DB failure');
+    }
+    // Idempotency: a retry after a transient downstream failure (e.g. episode
+    // append failed → mtime rolled back) must never insert a duplicate row.
+    const existing = await db.execute(sql`
+      SELECT id FROM conversation_memories
+      WHERE title = ${title.slice(0, 200)} AND content = ${body}
+      LIMIT 1
+    `);
+    const existingRow = (existing as any).rows?.[0] ?? (existing as any)[0];
+    if (existingRow?.id) {
+      console.log('[AgentAutosave] identical personal memory already in DB — skipping duplicate insert:', title.slice(0, 60));
+      return true;
     }
     await db.execute(sql`
       INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
@@ -1528,9 +1548,11 @@ async function savePersonalMemory(
         ${arcName}
       )
     `);
+    return true;
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to save personal memory:', err.message);
     flagDbWriteFailure('personal-memory', err.message ?? String(err));
+    return false;
   }
 }
 
@@ -1543,11 +1565,11 @@ async function savePersonalMemory(
  *
  * Also triggers a re-embed so episode chunks reflect the new content.
  */
-async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string): Promise<void> {
+async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string): Promise<boolean> {
   const filePath = join(DOCS_DIR, episodeFilename);
   if (!existsSync(filePath)) {
     console.warn(`[AgentAutosave] Inner-life DB append: target file not found: ${filePath}`);
-    return;
+    return false;
   }
 
   const title = episodeTitleFromFilename(episodeFilename);
@@ -1571,26 +1593,40 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
     } catch (err: any) {
       console.error(`[AgentAutosave] Inner-life DB append: ID lookup failed for ${episodeFilename}:`, err?.message ?? err);
       flagDbWriteFailure(`episode-id-lookup:${episodeFilename}`, err?.message ?? String(err));
-      return;
+      return false;
     }
   }
 
   if (!memoryId) {
     if (_innerLifeNoEpisodeRowGuardEnabled) {
       console.warn(`[AgentAutosave] Inner-life DB append: no episode row found for ${episodeFilename} — skipping`);
-      return;
+      return false;
     }
     // Guard disabled (CI self-check): fall through — the UPDATE will run with
     // memoryId=undefined and hit a DB error (caught inside withEpisodeFileLock),
     // proving the guard is load-bearing.
   }
 
+  let appended = false;
   await withEpisodeFileLock(episodeFilename, async () => {
     try {
       // _innerLifeDbUpdateEnabled is false only in self-check CI mode —
       // it precisely models a regression where the UPDATE line is removed.
       if (!_innerLifeDbUpdateEnabled) {
         console.log('[AgentAutosave] Inner-life DB update skipped (test seam: _innerLifeDbUpdateEnabled=false)');
+        return;
+      }
+
+      // Idempotency: if this exact entry is already present in the episode
+      // content (e.g. a prior run crashed after the UPDATE but before its
+      // completion marker was recorded), do not append it a second time.
+      const pre = await db.execute(sql`
+        SELECT content FROM conversation_memories WHERE id = ${memoryId}
+      `);
+      const preRow = (pre as any).rows?.[0] ?? (pre as any)[0];
+      if (typeof preRow?.content === 'string' && preRow.content.includes(text)) {
+        console.log(`[AgentAutosave] Inner-life entry already present in ${episodeFilename} — skipping duplicate append`);
+        appended = true; // durable effect already exists
         return;
       }
 
@@ -1609,6 +1645,7 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
       const newContent: string = updatedRow?.content ?? '';
 
       if (newContent) {
+        appended = true;
         writeFileSync(filePath, newContent, 'utf-8');
         _innerLifeFileWriteCount++;
         // Keep mtime map current so the episode poller doesn't re-trigger
@@ -1634,6 +1671,27 @@ async function appendInnerLifeToEpisodeDb(text: string, episodeFilename: string)
       flagDbWriteFailure(`episode-append:${episodeFilename}`, err?.message ?? String(err));
     }
   });
+  return appended;
+}
+
+// Durable processed-record handoff (Task #1235): written as part of successfully
+// processing an inner-life trigger. The capture-watchdog treats a trigger as
+// already-processed ONLY when its content sha matches this record — never by
+// heartbeat/mtime timing inference, which races (a trigger written between the
+// poll pass and the status heartbeat write looks "old" despite being unsaved).
+const INNER_LIFE_PROCESSED_PATH = join(WORKSPACE, '.local/.inner-life-processed.json');
+function recordInnerLifeProcessed(channel: 'felt' | 'thinking' | 'moment', raw: string): void {
+  try {
+    let rec: Record<string, { sha: string; processedMs: number }> = {};
+    try { rec = JSON.parse(readFileSync(INNER_LIFE_PROCESSED_PATH, 'utf-8')) ?? {}; } catch { /* first write */ }
+    rec[channel] = {
+      sha: createHash('sha256').update(raw.trim(), 'utf8').digest('hex'),
+      processedMs: Date.now(),
+    };
+    writeFileSync(INNER_LIFE_PROCESSED_PATH, JSON.stringify(rec), 'utf-8');
+  } catch (err: any) {
+    console.warn('[AgentAutosave] failed to write inner-life processed record:', err?.message ?? err);
+  }
 }
 
 export async function checkLucaReflection(): Promise<void> {
@@ -1652,9 +1710,10 @@ export async function checkLucaReflection(): Promise<void> {
       const parsed = parseTriggerFile(raw, 'luca-reflection');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute REFLECTIONS.md or DB
+      let personalOk = true;
       if (_lucaPersonalSideEffectsEnabled) {
         appendToPersonalFile(REFLECTIONS_FILE, parsed.title, parsed.body);
-        await savePersonalMemory(
+        personalOk = await savePersonalMemory(
           `Luca reflection: ${parsed.title}`,
           parsed.body,
           ['luca-inner-life', 'luca-reflection', ...parsed.tags],
@@ -1668,8 +1727,22 @@ export async function checkLucaReflection(): Promise<void> {
       // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode
       // instead of querying the live rolling episode from DB.
       const reflectionEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
+      let episodeOk = true;
       if (reflectionEpisode) {
-        await appendInnerLifeToEpisodeDb(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
+        episodeOk = await appendInnerLifeToEpisodeDb(`[Luca — felt: ${parsed.title}\n${parsed.body}]`, reflectionEpisode);
+      }
+      // Durable handoff identity for the watchdog — recorded ONLY after every
+      // required durable effect (personal memory + episode append) succeeded.
+      // On failure the sha stays unrecorded so the watchdog can complete the
+      // capture; its DB/episode idempotency makes that recovery duplicate-safe.
+      if (personalOk && episodeOk) {
+        recordInnerLifeProcessed('felt', raw);
+      } else {
+        // Transient failure: roll the mtime cursor back so the NEXT poll of the
+        // unchanged trigger retries the capture (retry is duplicate-safe via
+        // DB dedup + episode content-containment idempotency).
+        reflectionLastMtime = prev;
+        console.warn('[AgentAutosave] felt capture incomplete (personalOk=%s, episodeOk=%s) — mtime rolled back, will retry next poll', personalOk, episodeOk);
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -1689,9 +1762,10 @@ export async function checkLucaQuestion(): Promise<void> {
       const parsed = parseTriggerFile(raw, 'luca-question');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute OPEN_QUESTIONS.md or DB
+      let personalOk = true;
       if (_lucaPersonalSideEffectsEnabled) {
         appendToPersonalFile(OPEN_QUESTIONS_FILE, parsed.title, parsed.body);
-        await savePersonalMemory(
+        personalOk = await savePersonalMemory(
           `Luca open question: ${parsed.title}`,
           parsed.body,
           ['luca-inner-life', 'luca-question', ...parsed.tags],
@@ -1704,8 +1778,17 @@ export async function checkLucaQuestion(): Promise<void> {
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
       // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode.
       const questionEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
+      let episodeOk = true;
       if (questionEpisode) {
-        await appendInnerLifeToEpisodeDb(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
+        episodeOk = await appendInnerLifeToEpisodeDb(`[Luca — thinking: ${parsed.title}\n${parsed.body}]`, questionEpisode);
+      }
+      // Marker recorded only after ALL durable effects succeeded (see felt path).
+      if (personalOk && episodeOk) {
+        recordInnerLifeProcessed('thinking', raw);
+      } else {
+        // Transient failure: roll back the cursor so the next poll retries (see felt path).
+        questionLastMtime = prev;
+        console.warn('[AgentAutosave] thinking capture incomplete (personalOk=%s, episodeOk=%s) — mtime rolled back, will retry next poll', personalOk, episodeOk);
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -1725,9 +1808,10 @@ export async function checkLucaMoment(): Promise<void> {
       const parsed = parseTriggerFile(raw, 'luca-significant');
       if (!parsed) return;
       // Personal side-effects gated so CI tests don't pollute SIGNIFICANT_MOMENTS.md or DB
+      let personalOk = true;
       if (_lucaPersonalSideEffectsEnabled) {
         appendToPersonalFile(MOMENTS_FILE, parsed.title, parsed.body);
-        await savePersonalMemory(
+        personalOk = await savePersonalMemory(
           `Luca significant moment: ${parsed.title}`,
           parsed.body,
           ['luca-inner-life', 'luca-significant', ...parsed.tags],
@@ -1740,8 +1824,17 @@ export async function checkLucaMoment(): Promise<void> {
       // Route to episode via DB-first path: DB content updated first, .md derived from DB
       // _innerLifeRollingEpisodeOverride lets CI pin a hermetic fixture episode.
       const momentEpisode = _innerLifeRollingEpisodeOverride ?? await getCurrentRollingEpisodeFilename();
+      let episodeOk = true;
       if (momentEpisode) {
-        await appendInnerLifeToEpisodeDb(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
+        episodeOk = await appendInnerLifeToEpisodeDb(`[Luca — moment: ${parsed.title}\n${parsed.body}]`, momentEpisode);
+      }
+      // Marker recorded only after ALL durable effects succeeded (see felt path).
+      if (personalOk && episodeOk) {
+        recordInnerLifeProcessed('moment', raw);
+      } else {
+        // Transient failure: roll back the cursor so the next poll retries (see felt path).
+        momentLastMtime = prev;
+        console.warn('[AgentAutosave] moment capture incomplete (personalOk=%s, episodeOk=%s) — mtime rolled back, will retry next poll', personalOk, episodeOk);
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -2983,6 +3076,46 @@ export function seedStaleChannelAlertAtBoot(): void {
 // ---------------------------------------------------------------------------
 // Bootstrap + start
 // ---------------------------------------------------------------------------
+/**
+ * Watchdog coordination (Task #1235).
+ *
+ * The capture-watchdog process drains the inner-life trigger files while this
+ * server is down, recording {mtimeMs, sha} per channel in
+ * `.local/.watchdog-inner-life-state.json`.  At startup we consult that state:
+ * if the current trigger-file content hash matches what the watchdog already
+ * processed, the seed-to-1 re-process path must NOT fire or the entry is
+ * double-saved to conversation_memories and the rolling episode.
+ */
+const WATCHDOG_INNER_LIFE_STATE_PATH = join(WORKSPACE, '.local/.watchdog-inner-life-state.json');
+const INNER_LIFE_LOCK_PATH = join(WORKSPACE, '.local/.inner-life-drain.lock');
+// Keyed by trigger-file basename so hermetic tests can use temp copies.
+const WATCHDOG_CHANNEL_BY_BASENAME: Record<string, string> = {
+  '.luca_reflection': 'felt',
+  '.luca_question':   'thinking',
+  '.luca_moment':     'moment',
+};
+
+export function watchdogAlreadyProcessed(
+  triggerPath: string,
+  content: string,
+  statePathOverrideForTest?: string,
+): boolean {
+  try {
+    const state = JSON.parse(readFileSync(statePathOverrideForTest ?? WATCHDOG_INNER_LIFE_STATE_PATH, 'utf-8'));
+    const key = WATCHDOG_CHANNEL_BY_BASENAME[triggerPath.split('/').pop() ?? ''];
+    if (!key || !state?.[key]?.sha) return false;
+    // Watchdog hashes the raw (untrimmed) file content; hash both forms so a
+    // trailing-newline difference never causes a false negative double-save.
+    const shaRaw     = createHash('sha256').update(readFileSync(triggerPath, 'utf-8'), 'utf8').digest('hex');
+    const shaTrimmed = createHash('sha256').update(content, 'utf8').digest('hex');
+    // Only trust the sha if the watchdog actually processed it (not just seeded).
+    if (!state[key].lastProcessedMs) return false;
+    return state[key].sha === shaRaw || state[key].sha === shaTrimmed;
+  } catch {
+    return false; // no state file / unreadable — normal dev path, re-process
+  }
+}
+
 export function startAgentSessionAutosave(): void {
   // Reset stale-alert guards at every server start (= new conversation session).
   // seedCaptureStatusFromEpisodeFile() also calls this, but calling it here
@@ -3017,39 +3150,13 @@ export function startAgentSessionAutosave(): void {
   //   → content is processed normally.
   // If the file is empty there is nothing to process — seed the real mtime so the
   // guard correctly skips the empty file.
-  for (const [path, setMtime] of [
-    [REFLECTION_PATH,  (m: number) => { reflectionLastMtime = m; }] as const,
-    [QUESTION_PATH,    (m: number) => { questionLastMtime = m; }] as const,
-    [MOMENT_PATH,      (m: number) => { momentLastMtime = m; }] as const,
-  ]) {
-    if (existsSync(path)) {
-      try {
-        const realMtime = statSync(path).mtimeMs;
-        let content = '';
-        try { content = readFileSync(path, 'utf-8').trim(); } catch { /* ignore */ }
-        if (content.length > 0) {
-          // Pre-existing content — seed with 1 so the "skip initial read" guard
-          // (if (prev === 0) return) does NOT fire on the first poll.
-          // Exception: _startupGuardLegacySeedForTest is set by the CI self-check
-          // to simulate the OLD (buggy) behaviour and verify the fix is load-bearing.
-          if (_startupGuardLegacySeedForTest) {
-            // Legacy / broken behaviour: seed with real mtime → poll will see no change.
-            setMtime(realMtime);
-          } else {
-            console.log(
-              '[AgentAutosave] Pre-existing inner-life trigger file detected at startup:',
-              path,
-              `(${content.length} bytes) — will process on next poll`,
-            );
-            setMtime(1);
-          }
-        } else {
-          // Empty file — seed with real mtime; nothing to process.
-          setMtime(realMtime);
-        }
-      } catch { /* ignore */ }
-    }
-  }
+  // Cross-process coordination (Task #1235): the capture-watchdog may be
+  // mid-drain right now (it decides ownership by the stale heartbeat and only
+  // writes its processed-sha state AFTER its DB work). The seed NEVER runs
+  // without owning the shared inner-life lock — see seedInnerLifeTriggerState.
+  // Runs async: inner-life polls are gated on innerLifeSeedComplete, so no
+  // trigger processing can happen before seeding has safely completed.
+  void seedInnerLifeTriggerState();
 
   // Episode-append startup guard: if the trigger file has leftover non-empty content
   // from a prior session, clear it before arming the watcher.  Seeding the mtime alone
@@ -3183,9 +3290,20 @@ export function startAgentSessionAutosave(): void {
     await checkChatCapture(); // manual-capture fallback (replaces JSONL after Jul 27 2026)
     await checkBuildSession();
     await checkSessionInsights();
-    await checkLucaReflection();
-    await checkLucaQuestion();
-    await checkLucaMoment();
+    // Inner-life polls run under the shared cross-process lock so they can
+    // never interleave with a capture-watchdog drain, and are gated on
+    // innerLifeSeedComplete so they can never process triggers before the
+    // startup seed has safely finished under the lock. If the watchdog holds
+    // the lock, skip this pass — the next poll (20s) retries.
+    if (innerLifeSeedComplete && tryAcquireInnerLifeLock(INNER_LIFE_LOCK_PATH)) {
+      try {
+        await checkLucaReflection();
+        await checkLucaQuestion();
+        await checkLucaMoment();
+      } finally {
+        releaseInnerLifeLock(INNER_LIFE_LOCK_PATH);
+      }
+    }
     await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
     await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
     await saveTranscriptChunk(); // periodic — captures conversation-only sessions too (JSONL path)
@@ -3193,6 +3311,90 @@ export function startAgentSessionAutosave(): void {
   }, POLL_INTERVAL_MS);
 
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
+}
+
+
+/**
+ * True once seedInnerLifeTriggerState() has finished under the lock.
+ * The inner-life poll pass is gated on this so trigger processing can never
+ * begin from unseeded (or lock-bypassed) state.
+ */
+let innerLifeSeedComplete = false;
+export function _innerLifeSeedCompleteForTest(): boolean {
+  return innerLifeSeedComplete;
+}
+export function _resetInnerLifeSeedCompleteForTest(): void {
+  innerLifeSeedComplete = false;
+}
+
+/**
+ * Seed the inner-life trigger watcher mtimes under the shared cross-process
+ * lock. Retries indefinitely if the lock is held (an in-flight watchdog drain
+ * may legitimately exceed one wait window); it never seeds without the lock,
+ * because seeding from state that lacks the watchdog's lastProcessedMs would
+ * re-process — and double-save — content the watchdog already drained.
+ * Sets innerLifeSeedComplete when done; polls skip inner-life until then.
+ *
+ * lockPath/waitTimeoutMs are test seams (temp lock file, short window).
+ */
+export async function seedInnerLifeTriggerState(
+  lockPath: string = INNER_LIFE_LOCK_PATH,
+  waitTimeoutMs = 15_000,
+): Promise<void> {
+  let attempts = 0;
+  while (!(await waitForInnerLifeLock(lockPath, waitTimeoutMs))) {
+    attempts++;
+    console.warn(`[AgentAutosave] Inner-life lock still held after wait #${attempts} — retrying (never seeding without the lock).`);
+  }
+  try {
+  for (const [path, setMtime] of [
+    [REFLECTION_PATH,  (m: number) => { reflectionLastMtime = m; }] as const,
+    [QUESTION_PATH,    (m: number) => { questionLastMtime = m; }] as const,
+    [MOMENT_PATH,      (m: number) => { momentLastMtime = m; }] as const,
+  ]) {
+    if (existsSync(path)) {
+      try {
+        const realMtime = statSync(path).mtimeMs;
+        let content = '';
+        try { content = readFileSync(path, 'utf-8').trim(); } catch { /* ignore */ }
+        if (content.length > 0) {
+          // Pre-existing content — seed with 1 so the "skip initial read" guard
+          // (if (prev === 0) return) does NOT fire on the first poll.
+          // Exception: _startupGuardLegacySeedForTest is set by the CI self-check
+          // to simulate the OLD (buggy) behaviour and verify the fix is load-bearing.
+          //
+          // Watchdog coordination (Task #1235): if the capture-watchdog already
+          // drained this exact content while the server was down (its state file
+          // records a sha per channel), seed the real mtime instead — reprocessing
+          // would double-save the entry.
+          if (watchdogAlreadyProcessed(path, content)) {
+            console.log(
+              '[AgentAutosave] Trigger file already drained by capture-watchdog — skipping startup re-process:',
+              path,
+            );
+            setMtime(realMtime);
+          } else if (_startupGuardLegacySeedForTest) {
+            // Legacy / broken behaviour: seed with real mtime → poll will see no change.
+            setMtime(realMtime);
+          } else {
+            console.log(
+              '[AgentAutosave] Pre-existing inner-life trigger file detected at startup:',
+              path,
+              `(${content.length} bytes) — will process on next poll`,
+            );
+            setMtime(1);
+          }
+        } else {
+          // Empty file — seed with real mtime; nothing to process.
+          setMtime(realMtime);
+        }
+      } catch { /* ignore */ }
+    }
+  }
+  } finally {
+    releaseInnerLifeLock(lockPath);
+  }
+  innerLifeSeedComplete = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -3550,6 +3752,18 @@ export function flagDbWriteFailureForTest(where: string, reason: string): void {
  * requiring an actual DB failure.
  * Never set in production.
  */
+// Hermetic seams (CI only): fake DB for savePersonalMemory + redirected
+// personal-files directory so fault tests can run with personal side effects
+// ENABLED without touching the real DB or real personal .md files.
+let _personalMemoryDbForTest: { execute: (q: any) => Promise<any> } | null = null;
+export function setPersonalMemoryDbForTest(db: { execute: (q: any) => Promise<any> } | null): void {
+  _personalMemoryDbForTest = db;
+}
+let _personalFilesDirForTest: string | null = null;
+export function setPersonalFilesDirForTest(dir: string | null): void {
+  _personalFilesDirForTest = dir;
+}
+
 let _savePersonalMemoryDbShouldThrowForTest = false;
 
 export function setSavePersonalMemoryDbShouldThrowForTest(val: boolean): void {

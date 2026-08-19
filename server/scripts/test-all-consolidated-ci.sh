@@ -221,6 +221,10 @@ group_body_episode_28() {
 
 group_body_luca_inner_life() {
   run test-capture-status-seed.ts
+
+  echo ""
+  echo "  --- test-watchdog-inner-life.ts (watchdog drain: first-run handoff / interleaving / restart dedup) ---"
+  run test-watchdog-inner-life.ts
   run test-capture-status-db-only.ts
   run test-luca-auto-capture-episode.ts
 

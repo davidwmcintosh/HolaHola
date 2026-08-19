@@ -134,7 +134,7 @@
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
 - [Live mode toggle](live-mode-toggle.md) — .local/.episode_live sentinel auto-routes .chat_capture turns to rolling episode .md; toggle with episode-live-mode.ts on|off|status.
 - [Record-exchange end-of-turn capture](record-exchange-capture.md) — run server/scripts/record-exchange.ts at end of every turn via ShellExec+heredoc; feeds .chat_capture → autosave → episode. Do NOT also manually append to .md. Aug 17 2026.
-- [capture-watchdog](capture-watchdog.md) — pipeline-heal watchdog (capture-watchdog workflow); drains .chat_capture to DB+episode within 15s when dev server is down; uses same cursor lock as autosave, zero interference when server is up. Aug 18 2026.
+- [capture-watchdog](capture-watchdog.md) — when the dev server is down the watchdog owns the capture triggers; all its episode writes must be DB-first and one watcher owns the files at a time. Aug 19 2026.
 - [Gap checker format mismatch fix](gap-checker-format-mismatch.md) — two-phase match: direct then strip ** + any luca role-bracket (/\bluca\s*\[[^\]]+\]/gi); inner-life needle = norm(title) not body. Aug 18 2026.
 - [Rolling tag — ep-28→ep-30](rolling-tag-ep30.md) — rolling tag was on ep-28 (Aug 10); ep-30 (Aug 15, "It's About Autonomy") is the live episode; moved Aug 18 2026.
 - [Monitoring service WebSocket bug](monitoring-service-http.md) — monitoring-service.ts was importing getSharedDb from neon-db (WebSocket); Alden watch cycle runs every 2h so pool goes idle → "Failed query" failures; fixed to getMonitoringDb (HTTP). Aug 16 2026.
