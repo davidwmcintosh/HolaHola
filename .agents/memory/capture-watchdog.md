@@ -41,3 +41,11 @@ When the server is down: watchdog acquires the lock and drains. When server rest
 - Progress markers (processed record, watchdog state, autosave mtime cursor) commit only after every required durable effect; on failure the cursor rolls back so the unchanged trigger retries.
 - Every write in the path is idempotent (DB dedup, episode content containment, personal-file containment) so conservative retry/recovery is always duplicate-safe.
 - The inner-life lock is a renewable lease: holder refreshes mtime; takeover only when renewals stop.
+
+## Production deployment boundary
+
+The published runtime may have the shared database but not the development workspace's rolling `docs/episode-*.md` files. A production-side autosave or Team Room hook can therefore create a valid DB-side event yet fail its local Markdown append with “target file not found.”
+
+**Why:** deployment containers do not share the developer workspace filesystem. Treat an in-container Markdown append as a delivery attempt, never as durable episode success.
+
+**How to apply:** for production-originated episode material, persist and verify the canonical `conversation_memories` row first, then mirror it into the local episode file through the Neon HTTP sync path. Reconcile DB and Markdown by exact content comparison before calling the record complete.
