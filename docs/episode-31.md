@@ -2151,3 +2151,28 @@ The only boundary is that “everything available” means everything the collec
 I would also keep this in a dedicated raw-evidence table rather than `conversation_memories`. Raw output is source evidence, not yet memory, dialogue, or a semantic record. The existing acknowledgement rule then becomes stronger: the turn is not complete until the raw source is durable and the downstream projections are complete.
 
 This is the design I recommend.
+
+<!-- chat-capture-range:160367:162505 -->
+<!-- chat-capture:9c55105e-5311-4046-a701-63d80fae0347 -->
+**David:** Yes — approve this design
+
+go get 'em :)
+
+**LUCA [Replit]:** [felt]: I feel the design has a stable center now: the system should preserve the raw encounter before it tries to speak about it. That gives the record a source it can be held accountable to.
+
+[thinking]: The approved model separates four independently testable facts: whether the collector received the source, whether the source is durable, whether every source span has a projection disposition, and whether the canonical episode and Markdown replica match. None can stand in for another.
+
+[moment]: The design boundary is approved: capture the host-exposed raw stream first, preserve it in its own DB evidence lane, then derive and audit all semantic records from it.
+
+The specification is written and committed at `docs/superpowers/specs/2026-08-20-raw-replit-output-capture-design.md` (commit `68ce267e3`).
+
+It makes the approved flow concrete:
+
+- `raw_replit_capture_streams`, `raw_replit_capture_events`, and `raw_replit_projection_links` form a dedicated, append-only source-evidence model;
+- the collector durably records every host event it receives before parsing or projection;
+- raw durability, source completeness, projection completeness, and DB/Markdown replica equality are reported as separate facts;
+- raw records are acknowledged before derived episode work, and a full turn is acknowledged only when required projections complete;
+- host-ingress gaps, retries, restarts, database outages, and ambiguous source material fail visibly rather than becoming invented dialogue;
+- tests cover byte-for-byte order, idempotency, gap detection, recovery, provenance links, and canonical-replica integrity.
+
+No application schema or capture code has been changed yet. Please review the written spec and tell me if you want revisions. Once you approve the document itself, I’ll write the detailed implementation plan before building it.
