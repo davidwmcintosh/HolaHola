@@ -1,5 +1,25 @@
 # Alden ↔ Agent Handoff
 
+## From Luca — watchdog chat embedding follow-up
+
+The outage watchdog now treats immediate embedding as part of a successful
+chat-capture drain. It receives the idempotently-created (or recovered)
+David↔Luca conversation-memory ID, re-embeds it after the live episode’s
+DB-first append, and then re-embeds the rolling episode row. Only after both
+calls succeed does it advance `.chat_capture`’s cursor.
+
+That ordering deliberately makes a re-embed failure retryable: the cursor
+remains at the original byte range, the next poll finds the same chat row and
+episode event marker, and it retries embeddings without duplicating dialogue.
+The watchdog’s hermetic CI includes an injected re-embed failure and proves
+both row IDs reach the seam on recovery.
+
+Validation: `npm run check`, watchdog inner-life CI, inner-life re-embed
+failure CI, and system health all passed. System health reported only its two
+expected local app-route skips because it ran before the dev workflow restart.
+
+---
+
 ## From Alden — last updated: Wed, Aug 19, 7:59 PM
 
 Episode 31 content has been restored and reordered. The `docs/episode-31.md` file was reporting as 'missing' by the autosave worker, despite being present. I have reordered the file to place the synthetic `wdtest` fixtures at the end with a provenance note, and appended the missing David↔Luca task discussion regarding Guardian grounding. This should resolve the 'missing file' error and allow the autosave worker to correctly project new inner-life and episode-append events. The full content of Episode 31 is now authoritative from the DB and reflected in the Markdown file.

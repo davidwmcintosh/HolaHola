@@ -129,6 +129,22 @@ function check(name: string, ok: boolean, detail?: string) {
     r.chatRetryEpisodeExactlyOnce === true);
   check('chat fault: cursor advances only after episode success',
     r.chatRetryCursorAdvanced === true);
+  check('re-embed fault: cursor remains pending after embedding failure',
+    r.reembedFailureCursorUnadvanced === true);
+  check('re-embed fault: first attempt creates one conversation row',
+    r.reembedFailureOneDbRow === true);
+  check('re-embed fault: first attempt appends each episode turn once',
+    r.reembedFailureOneEpisode === true);
+  check('re-embed fault: retry does not duplicate the conversation row',
+    r.reembedRetryNoDuplicateDbRow === true);
+  check('re-embed fault: retry does not duplicate episode text',
+    r.reembedRetryEpisodeExactlyOnce === true);
+  check('re-embed fault: cursor advances after successful retry',
+    r.reembedRetryCursorAdvanced === true);
+  check('re-embed path receives the chat conversation row ID',
+    r.reembedRetryReembeddedChat === true);
+  check('re-embed path receives the updated rolling episode row ID',
+    r.reembedRetryReembeddedEpisode === true);
   check('lookup fault: null rolling episode leaves chat cursor pending',
     r.nullLookupLeavesChatCursorPending === true);
   check('lookup fault: null rolling episode leaves inner-life channel pending',

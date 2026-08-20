@@ -19,7 +19,7 @@ import {
   setDbForTest,
   setInnerLifePauseForTest,
   setLockRenewMsForTest,
-  setReembedInnerLifeMemoryForTest,
+  setReembedMemoryForTest,
   setCanonicalFourChannelRouteEnabledForTest,
   setChatCapturePathsForTest,
 } from './capture-watchdog';
@@ -48,14 +48,16 @@ const store = {
   chatInserts: [] as Array<{ summary: string; content: string }>,
   reembeddedIds: [] as string[],
   failNextEpisodeUpdate: false,
+  failNextReembed: false,
 };
 
 function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   const q = strings.join(' $ ').replace(/\s+/g, ' ');
   if (q.includes('INSERT INTO conversation_memories')) {
     if (q.includes("'david-luca-chat'")) {
+      const id = `chat-${store.chatInserts.length + 1}`;
       store.chatInserts.push({ summary: vals[1], content: vals[2] });
-      return Promise.resolve([]);
+      return Promise.resolve([{ id }]);
     }
     // param order in savePersonalMemory: title, summary, body, tags
     store.personalInserts.push({ title: vals[0], body: vals[2], tags: vals[3] });
@@ -76,7 +78,12 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   }
   if (q.includes('SELECT id FROM conversation_memories')) {
     if (q.includes("arc_name = 'david-luca-chat'")) {
-      return Promise.resolve(store.chatInserts.filter(r => r.summary === vals[0]).map((_, i) => ({ id: `chat-${i}` })));
+      return Promise.resolve(
+        store.chatInserts
+          .map((row, index) => ({ ...row, id: `chat-${index + 1}` }))
+          .filter(row => row.summary === vals[0])
+          .map(row => ({ id: row.id })),
+      );
     }
     // idempotency probe in savePersonalMemory: title + content match
     const hits = store.personalInserts.filter(r => r.title === vals[0] && r.body === vals[1]);
@@ -93,7 +100,11 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   fs.mkdirSync(path.join(cwd, '.agents/memory'), { recursive: true });
 
   setDbForTest(fakeDb);
-  setReembedInnerLifeMemoryForTest(async (id: string) => {
+  setReembedMemoryForTest(async (id: string) => {
+    if (store.failNextReembed) {
+      store.failNextReembed = false;
+      throw new Error('[CI fault injection] synthetic re-embed failure');
+    }
     store.reembeddedIds.push(id);
   });
   const seed = `EPISODE START (${MARKER})\n`;
@@ -505,7 +516,40 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
     fs.existsSync(chatCursorPath) &&
     Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) > 0;
 
-  // ── Scenario 17: live rolling lookup returns null ─────────────────────────
+  // ── Scenario 17: re-embed failure leaves chat capture retryable ────────────
+  // Both durable writes complete before re-embedding. A transient embedding
+  // failure must leave the cursor pending; retry must dedup both the chat row
+  // and episode event, then reach the re-embed path for both row IDs.
+  const reembedFailureDavid = `Watchdog reembed retry David ${MARKER}`;
+  const reembedFailureLuca = `Watchdog reembed retry Luca ${MARKER}`;
+  appendChatCaptureTurn('David', reembedFailureDavid, chatCapturePath);
+  appendChatCaptureTurn('Luca Replit', reembedFailureLuca, chatCapturePath);
+  const reembedFailureCursorBefore = Number(
+    JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset,
+  );
+  const chatRowsBeforeReembedFailure = store.chatInserts.length;
+  const reembeddedBeforeFailure = store.reembeddedIds.length;
+  store.failNextReembed = true;
+  await drain();
+  const reembedFailureChatId = `chat-${chatRowsBeforeReembedFailure + 1}`;
+  results.reembedFailureCursorUnadvanced =
+    Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) === reembedFailureCursorBefore;
+  results.reembedFailureOneDbRow = store.chatInserts.length === chatRowsBeforeReembedFailure + 1;
+  results.reembedFailureOneEpisode =
+    count(store.episodeContent, reembedFailureDavid) === 1 &&
+    count(store.episodeContent, reembedFailureLuca) === 1;
+  await drain();
+  results.reembedRetryNoDuplicateDbRow = store.chatInserts.length === chatRowsBeforeReembedFailure + 1;
+  results.reembedRetryEpisodeExactlyOnce =
+    count(store.episodeContent, reembedFailureDavid) === 1 &&
+    count(store.episodeContent, reembedFailureLuca) === 1;
+  results.reembedRetryCursorAdvanced =
+    Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) > reembedFailureCursorBefore;
+  results.reembedRetryReembeddedChat = store.reembeddedIds.includes(reembedFailureChatId);
+  results.reembedRetryReembeddedEpisode = store.reembeddedIds.includes(store.episodeId);
+  results.reembedFailureHadRetry = store.reembeddedIds.length > reembeddedBeforeFailure;
+
+  // ── Scenario 18: live rolling lookup returns null ─────────────────────────
   const nullLookupCursor = Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset);
   appendChatCaptureTurn('David', `Null lookup David ${MARKER}`, chatCapturePath);
   appendChatCaptureTurn('Luca Replit', `Null lookup Luca ${MARKER}`, chatCapturePath);

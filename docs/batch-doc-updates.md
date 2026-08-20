@@ -1,5 +1,33 @@
 # Batch Documentation Updates
 
+## Session August 19, 2026 — Immediate watchdog chat embedding
+
+### Outage-captured chat is searchable before its cursor advances
+
+**What changed:** The capture watchdog now returns the durable ID from each
+idempotent David↔Luca chat insert, re-embeds that row immediately, and
+re-embeds the rolling episode row whenever live capture updates it. Both
+re-embeds complete before the chat-capture cursor is committed.
+
+**Why it matters:** The periodic indexer does not detect edited content, so a
+watchdog-created conversation could be absent from semantic recall and a
+watchdog-updated rolling episode could retain stale embeddings after an outage.
+If an immediate re-embed fails, the cursor remains pending. The next watchdog
+poll retrieves the existing chat row, recognizes the episode event marker, and
+retries embedding without duplicating either record.
+
+**Regression coverage:** The hermetic watchdog driver now injects a re-embed
+failure after both durable writes. It proves the cursor stays unchanged, the
+retry produces exactly one chat row and one copy of each episode turn, and both
+the chat and rolling-episode IDs reach the re-embed seam.
+
+**Key files:**
+- `server/scripts/capture-watchdog.ts`
+- `server/scripts/test-watchdog-inner-life-driver.ts`
+- `server/scripts/test-watchdog-inner-life.ts`
+
+---
+
 ## Session August 19, 2026 — Hermetic auto-capture episode CI
 
 ### Auto-capture test no longer writes synthetic dialogue into the live record

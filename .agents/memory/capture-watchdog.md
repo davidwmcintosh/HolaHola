@@ -22,7 +22,7 @@ Polls every 15s. When `cursor < file size` (dev server down, autosave stopped), 
 
 The watchdog also drains the inner-life trigger files when the dev server is down, so production sessions never silently drop felt/thinking/moment writes. Two durable rules govern it:
 - **Every watchdog episode write is DB-first** — the episode row's content is authoritative and the .md is always re-derived from it. An .md-only append from one path WILL be erased by the next DB-first write from another path; never add one.
-- **Exactly one watcher owns the trigger files at a time** — ownership is decided by the autosave heartbeat, and processed content is recorded (content hash) so a restarted server never double-saves what the watchdog already drained. The watchdog does not re-embed what it inserts.
+- **Exactly one watcher owns the trigger files at a time** — ownership is decided by the autosave heartbeat, and processed content is recorded (content hash) so a restarted server never double-saves what the watchdog already drained. Every watchdog-created or watchdog-updated conversation-memory row is re-embedded before its progress marker commits.
 
 ## Coordination with autosave service
 
@@ -33,7 +33,7 @@ When the server is down: watchdog acquires the lock and drains. When server rest
 ## How to apply
 
 - If you see `[watchdog] gap detected` in its logs but the server is running, something went wrong with the autosave service's lock release — check for stale `.chat_capture.lock`.
-- The watchdog does NOT re-embed the conversation_memories row it inserts. If embeddings matter for a watchdog-drained turn, manually run `npx tsx server/scripts/reembed-memory.ts <id>`.
+- Do not advance the chat cursor or inner-life channel state until all required re-embeds succeed. On failure, retry the unchanged input; DB dedup and episode event markers make that safe.
 - Workflow count after building: 24 (25 → 23 via two CI workflow mergers, +1 for watchdog). One slot still free.
 
 ## Watcher handoff rules (Aug 19 2026)

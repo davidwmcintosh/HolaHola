@@ -207,7 +207,7 @@ async function writeToDb(
   turns: Array<{ speaker: string; text: string }>,
   cursorFrom: number,
   cursorTo: number,
-): Promise<void> {
+): Promise<string> {
   const today      = new Date().toISOString().slice(0, 10);
   const davidCount = turns.filter(t => t.speaker === 'DAVID').length;
   const lucaCount  = turns.length - davidCount;
@@ -224,10 +224,14 @@ async function writeToDb(
   `;
   if (existing.length > 0) {
     console.log(`[watchdog] chat DB row already present for bytes ${cursorFrom}–${cursorTo} — skipping duplicate insert`);
-    return;
+    const existingId = (existing as any)[0]?.id;
+    if (!existingId) {
+      throw new Error(`[watchdog] existing chat row has no id for bytes ${cursorFrom}–${cursorTo}`);
+    }
+    return existingId;
   }
 
-  await db`
+  const inserted = await db`
     INSERT INTO conversation_memories
       (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
     VALUES (
@@ -242,7 +246,13 @@ async function writeToDb(
       'conversation',
       'david-luca-chat'
     )
+    RETURNING id
   `;
+  const insertedId = (inserted as any)[0]?.id;
+  if (!insertedId) {
+    throw new Error(`[watchdog] chat INSERT returned no id for bytes ${cursorFrom}–${cursorTo}`);
+  }
+  return insertedId;
 }
 
 // ─── Main drain ───────────────────────────────────────────────────────────────
@@ -288,7 +298,8 @@ export async function drain(): Promise<void> {
     // Conversation row first, then the required live episode effect, and only
     // then the cursor. Both DB writes are idempotent, so a crash at any boundary
     // retries without duplicate rows or missing episode content.
-    await writeToDb(turns, cursor.byteOffset, newByteOffset);
+    const chatMemoryId = await writeToDb(turns, cursor.byteOffset, newByteOffset);
+    let episodeForReembed: { id: string; filename: string } | null = null;
 
     // Episode write (only if live mode active) — DB-first, .md derived from DB
     if (fs.existsSync(EPISODE_LIVE_PATH)) {
@@ -297,6 +308,15 @@ export async function drain(): Promise<void> {
         throw new Error('Live mode rolling-episode lookup returned no episode');
       }
       await appendToEpisode(turns, episode, `${cursor.byteOffset}:${newByteOffset}`);
+      episodeForReembed = episode;
+    }
+
+    // The chat row and any updated live episode must be searchable before this
+    // range is acknowledged. If re-embedding fails, leave the cursor unchanged:
+    // the idempotent write paths above make the next drain duplicate-safe.
+    await reembedWatchdogMemory(chatMemoryId);
+    if (episodeForReembed) {
+      await reembedWatchdogMemory(episodeForReembed.id);
     }
 
     saveCursor({
@@ -492,7 +512,7 @@ async function appendInnerLifeToEpisodeDb(
   const current: string = existing[0]?.content ?? '';
   if (route?.appendMarker && episodeContentHasEventMarker(current, route.appendMarker)) {
     console.log(`[watchdog] inner-life event already present in ${episode.filename} — skipping duplicate append`);
-    await reembedInnerLifeMemory(episode.id);
+    await reembedWatchdogMemory(episode.id);
     return true;
   }
   if (
@@ -500,7 +520,7 @@ async function appendInnerLifeToEpisodeDb(
     episodeContentHasEventMarker(current, route.completionMarker)
   ) {
     console.log('[watchdog] canonical episode event already present — direct trigger append suppressed');
-    await reembedInnerLifeMemory(episode.id);
+    await reembedWatchdogMemory(episode.id);
     return true;
   }
   if (route && !route.allowAppend) {
@@ -508,7 +528,7 @@ async function appendInnerLifeToEpisodeDb(
     return false;
   }
   if (!route?.appendMarker && current.includes(text)) {
-    await reembedInnerLifeMemory(episode.id);
+    await reembedWatchdogMemory(episode.id);
     return true;
   }
   await appendTextToEpisodeDbFirst(
@@ -516,7 +536,7 @@ async function appendInnerLifeToEpisodeDb(
     episode,
   );
   console.log(`[watchdog] ✓ inner-life DB-first append: +${text.length} chars → ${episode.filename}`);
-  await reembedInnerLifeMemory(episode.id);
+  await reembedWatchdogMemory(episode.id);
   return true;
 }
 
@@ -524,7 +544,7 @@ async function appendInnerLifeToEpisodeDb(
  * Re-embed the row after a watchdog write. The test seam keeps the hermetic
  * watchdog fixture independent of OpenAI and the shared database.
  */
-let _reembedInnerLifeMemoryForTest: ((id: string) => Promise<void>) | null = null;
+let _reembedWatchdogMemoryForTest: ((id: string) => Promise<void>) | null = null;
 /**
  * Stale-channel alert (production equivalent of the autosave stale check).
  * When felt/thinking trigger mtimes are ≥10 min old while the watchdog is the
@@ -719,7 +739,7 @@ export async function drainInnerLife(): Promise<void> {
         if (!personalMemoryId) {
           throw new Error('personal-memory INSERT returned no id');
         }
-        await reembedInnerLifeMemory(personalMemoryId);
+        await reembedWatchdogMemory(personalMemoryId);
       } catch (err: any) {
         flagDbWriteFailure(`personal-memory-or-reembed:${ch.key}`, err?.message ?? String(err));
         continue; // leave state unadvanced — retry next poll
@@ -800,17 +820,22 @@ if (isMain) {
   setInterval(tick, POLL_MS);
 }
 
-export function setReembedInnerLifeMemoryForTest(fn: ((id: string) => Promise<void>) | null): void {
-  _reembedInnerLifeMemoryForTest = fn;
+export function setReembedMemoryForTest(fn: ((id: string) => Promise<void>) | null): void {
+  _reembedWatchdogMemoryForTest = fn;
 }
 
-async function reembedInnerLifeMemory(id: string): Promise<void> {
-  if (_reembedInnerLifeMemoryForTest) {
-    await _reembedInnerLifeMemoryForTest(id);
+/** Backward-compatible name for existing inner-life watchdog fixtures. */
+export function setReembedInnerLifeMemoryForTest(fn: ((id: string) => Promise<void>) | null): void {
+  setReembedMemoryForTest(fn);
+}
+
+async function reembedWatchdogMemory(id: string): Promise<void> {
+  if (_reembedWatchdogMemoryForTest) {
+    await _reembedWatchdogMemoryForTest(id);
     return;
   }
-  // Keep the watchdog's hermetic fixture independent of the production
-  // embedding module; real drains load the HTTP-backed re-embed path here.
+  // Keep hermetic fixtures independent of the production embedding module;
+  // real drains load the HTTP-backed re-embed path here.
   const { reembedConversationMemory } = await import('./reembed-memory.js');
   await reembedConversationMemory(id);
 }
