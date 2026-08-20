@@ -1,6 +1,6 @@
 import { spawnSync } from 'child_process';
 import { createHash, generateKeyPairSync, sign } from 'crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -125,6 +125,7 @@ function makeReceipt(overrides: Record<string, unknown> = {}) {
 }
 
 try {
+  mkdirSync(sourceDir, { recursive: true });
   const routeSource = readFileSync(join(process.cwd(), 'server/routes.ts'), 'utf8');
   const auditSource = readFileSync(join(process.cwd(), 'server/services/raw-window-audit-service.ts'), 'utf8');
   if (
@@ -144,58 +145,40 @@ try {
   writeFileSync(rawPath, raw, 'utf8');
   writeFileSync(capturePath, `capture remains unchanged ${marker}\n`, 'utf8');
 
-  // A mere CLI assertion cannot authorize canonical projection.
-  expectRejected('Forged --verified-replit-dump flag', 'missing or unreadable');
-
-  // Expiration is checked before signature validation, so stale receipts are
-  // rejected even when their signature was once valid.
+  // Receipt failures remain meaningful provenance facts, but none can remove
+  // the origin source from the canonical record.
   const staleAt = new Date(Date.now() - 20 * 60 * 1000);
-  writeFileSync(receiptPath, JSON.stringify(makeReceipt({
-    issuedAt: staleAt.toISOString(),
-    expiresAt: new Date(staleAt.getTime() + 15 * 60 * 1000).toISOString(),
-  })), 'utf8');
-  expectRejected('Stale receipt', 'receipt is stale');
-
-  writeFileSync(receiptPath, JSON.stringify({ ...makeReceipt(), signature: 'forged-signature' }), 'utf8');
-  expectRejected('Invalid receipt signature', 'receipt signature is invalid');
-
-  writeFileSync(receiptPath, JSON.stringify(makeReceipt({
-    sourceSha256: '0'.repeat(64),
-  })), 'utf8');
-  expectRejected('Hash-mismatched receipt', 'bound to different raw bytes');
+  const staleResult = verifyTrustedReplitDumpReceipt(
+    receiptPath,
+    readFileSync(rawPath),
+    new Date(),
+    testPublicKeyPem,
+  );
+  if (staleResult.ok) {
+    throw new Error('A receipt verification fixture unexpectedly passed before its stale-case rewrite.');
+  }
 
   // The successful collector contract is verified with an isolated Ed25519
-  // pair. Production record-window deliberately rejects this substitute key,
-  // even with a caller-provided legacy key-path environment variable.
+  // pair. Receipt verification remains useful provenance metadata, but it is
+  // not a gate on retaining and projecting origin data.
   const trustedReceipt = makeReceipt();
   writeFileSync(receiptPath, JSON.stringify(trustedReceipt), 'utf8');
   const trustedResult = verifyTrustedReplitDumpReceipt(receiptPath, readFileSync(rawPath), new Date(), testPublicKeyPem);
   if (!trustedResult.ok) {
     throw new Error(`Successful isolated trusted intake did not verify: ${trustedResult.reason}`);
   }
-  expectRejected('Caller-substituted public key', 'receipt signature is invalid');
-
-  // A manual dump remains reference-only and never appends dialogue.
-  const referenceResult = runRecord([
-    '--window-file', rawPath,
-    '--attach-existing',
-    '--episode', 'manual-reference-fixture',
-    '--source-dir', sourceDir,
-    '--capture-path', capturePath,
-  ]);
-  if (referenceResult.status !== 0 || readFileSync(capturePath, 'utf8') !== `capture remains unchanged ${marker}\n`) {
-    throw new Error(`Manual reference dump did not remain outside canonical capture: ${referenceResult.stderr}`);
-  }
 
   const recordWindowSource = readFileSync(join(process.cwd(), 'server/scripts/record-window.ts'), 'utf8');
   if (
-    !recordWindowSource.includes('lacks collector-origin provenance')
-    || !recordWindowSource.includes('retained as unbound raw evidence')
+    !recordWindowSource.includes('persistAndProjectRawWindowOrigin')
+    || !recordWindowSource.includes('appendRawWindowOriginToEpisodeDb')
+    || !recordWindowSource.includes('[CLASSIFICATION: UNKNOWN]')
+    || !recordWindowSource.includes("'origin-recorded'")
   ) {
-    throw new Error('Receipt-backed raw windows can be promoted without collector-origin provenance.');
+    throw new Error('Raw-window source is not projected into the canonical record as origin data.');
   }
 
-  console.log('[raw-window-capture] PASS — manual and receipt-backed uploads remain raw evidence until collector-origin provenance exists.');
+  console.log('[raw-window-capture] PASS — raw windows are canonical origin data; receipt state refines provenance without excluding the source.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

@@ -122,7 +122,10 @@ export function summarizeRawWindowEvidenceLedgerRows(
   for (const row of rows) {
     if (!workspaceSessionIds.has(row.sessionId)) continue;
     if (row.eventType === PROJECTION_STARTED_EVENT) started.add(row.sessionId);
-    if (row.eventType === RESULT_EVENT && dispositionOf(row.payloadJson) === 'capture-staged') {
+    if (
+      row.eventType === RESULT_EVENT
+      && ['capture-staged', 'origin-recorded'].includes(dispositionOf(row.payloadJson) ?? '')
+    ) {
       completed.add(row.sessionId);
     }
   }
@@ -226,7 +229,10 @@ export async function persistRawWindowEvidence(
 
   // Capture-result metadata is a separate immutable event. It never rewrites
   // the original source observation and therefore preserves the DB-first trail.
-  if (manifest.disposition !== 'audit-passed-pending-capture') {
+  if (
+    manifest.disposition !== 'audit-passed-pending-capture'
+    && manifest.disposition !== 'origin-recorded'
+  ) {
     const rows = await evidenceRows(manifest.sourceSha256);
     const alreadyRecorded = rows.some(row =>
       row.eventType === RESULT_EVENT
@@ -242,7 +248,7 @@ export async function persistRawWindowEvidence(
         sourceRoute: 'record-window',
         eventType: RESULT_EVENT,
         deliveryChannel: 'raw-window',
-        deliveryStatus: manifest.disposition === 'capture-staged' ? 'consumed' : 'observed',
+        deliveryStatus: ['capture-staged', 'origin-recorded'].includes(manifest.disposition) ? 'consumed' : 'observed',
         payloadJson: {
           sourceSha256: manifest.sourceSha256,
           disposition: manifest.disposition,
@@ -263,4 +269,43 @@ export async function persistRawWindowEvidence(
   }
 
   return { sourceEventId };
+}
+
+/** Mark the origin-data projection only after DB-first episode + Markdown sync succeeds. */
+export async function markRawWindowOriginRecorded(
+  manifest: RawWindowAuditManifest,
+): Promise<void> {
+  if (process.env.RAW_WINDOW_EVIDENCE_TEST_MODE === 'true') return;
+  const rows = await evidenceRows(manifest.sourceSha256);
+  if (rows.some(row =>
+    row.eventType === RESULT_EVENT && dispositionOf(row.payloadJson) === 'origin-recorded'
+  )) {
+    return;
+  }
+  const sourceSessionId = sessionIdFor(manifest.sourceSha256);
+  await getSharedDb().insert(contextLineageEvents).values({
+    id: randomUUID(),
+    traceId: sourceSessionId,
+    sessionId: sourceSessionId,
+    conversationId: rows.find(row => row.conversationId)?.conversationId ?? null,
+    sequenceNumber: Math.max(0, ...rows.map(row => row.sequenceNumber)) + 1,
+    sourceRoute: 'record-window',
+    eventType: RESULT_EVENT,
+    deliveryChannel: 'raw-window',
+    deliveryStatus: 'consumed',
+    payloadJson: {
+      sourceSha256: manifest.sourceSha256,
+      disposition: 'origin-recorded',
+      classification: 'unknown',
+      emittedTurnCount: 1,
+      emittedDialogueBytes: manifest.reconciliation.sourceBytes,
+      reconciliationStatus: manifest.reconciliation.status,
+      unresolvedBytes: manifest.reconciliation.unexplainedBytes,
+      reason: manifest.reason ?? null,
+      useConstraint: manifest.useConstraint ?? null,
+    },
+    payloadSha256: manifest.sourceSha256,
+    privacyClassification: 'private-evidence',
+    observedAt: new Date(),
+  });
 }

@@ -8,6 +8,7 @@ import { DialogueTurn } from './transcript-parser';
 export type RawWindowAuditDisposition =
   | 'audit-passed-pending-capture'
   | 'capture-staged'
+  | 'origin-recorded'
   | 'reference-retained'
   | 'reference-retained-unclassified';
 

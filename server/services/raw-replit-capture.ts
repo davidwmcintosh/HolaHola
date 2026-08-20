@@ -49,7 +49,7 @@ export interface RawReplitProjectionInput {
   capture: PersistedRawReplitCapture;
   targetKind: string;
   targetKey: string;
-  disposition: 'dialogue' | 'evidence' | 'cleanup' | 'unresolved' | 'not_projected';
+  disposition: 'dialogue' | 'evidence' | 'origin-data' | 'cleanup' | 'unresolved' | 'not_projected';
   captureStartByteOffset?: number;
   captureEndByteOffset?: number;
   metadata?: Record<string, unknown>;

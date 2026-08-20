@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { dirname, join } from 'path';
 
 import { closeDbConnections } from '../db';
+import { appendRawWindowOriginToEpisodeDb } from '../services/agent-session-autosave';
 import { parseCanonicalFourChannelLucaTurn } from '../services/inner-life-capture';
 import { alignUnlabelledRawWindow } from '../services/raw-window-attribution';
 import {
@@ -24,6 +25,7 @@ import { parseRawWindowCapture } from '../services/raw-window-capture';
 import { reconcileRawWindowEvidence } from '../services/raw-window-reconciliation';
 import {
   beginRawWindowCaptureProjection,
+  markRawWindowOriginRecorded,
   persistRawWindowEvidence,
 } from '../services/raw-window-evidence-ledger';
 import {
@@ -98,6 +100,69 @@ async function persistRawWindowEvidenceWithSource(
       lineageEventType: 'raw_window_source_observed',
     },
   });
+  return { ...persisted, rawCapture };
+}
+
+function rawWindowOriginBlock(
+  rawWindow: string,
+  sourceSha256: string,
+  sourceBytes: number,
+  sourceKind: string,
+  reason?: string,
+): string {
+  return [
+    '**[RAW WINDOW — ORIGIN DATA]:**',
+    '[CLASSIFICATION: UNKNOWN]',
+    `[ORIGIN SHA-256: ${sourceSha256}]`,
+    `[ORIGIN BYTES: ${sourceBytes}]`,
+    `[ORIGIN SOURCE: ${sourceKind}]`,
+    ...(reason ? [`[INITIAL NOTE: ${reason}]`] : []),
+    '',
+    rawWindow,
+  ].join('\n');
+}
+
+async function persistAndProjectRawWindowOrigin(
+  result: ReturnType<typeof emitAudit>,
+  rawWindow: string,
+  rawWindowBytes: Buffer,
+  episodeName?: string,
+) {
+  if (!episodeName) {
+    throw new Error('Raw-window origin data requires --episode <episode-file> so it can enter the canonical DB/Markdown record.');
+  }
+  const persisted = await persistRawWindowEvidenceWithSource(
+    result.manifest,
+    rawWindow,
+    rawWindowBytes,
+    episodeName,
+  );
+  const projected = await appendRawWindowOriginToEpisodeDb(
+    rawWindowOriginBlock(
+      rawWindow,
+      result.manifest.sourceSha256,
+      result.manifest.reconciliation.sourceBytes,
+      result.manifest.sourceKind,
+      result.manifest.reason,
+    ),
+    episodeName,
+    result.manifest.sourceSha256,
+  );
+  if (!projected) {
+    throw new Error(`Raw-window origin source ${result.manifest.sourceSha256} is durable but its canonical episode projection failed.`);
+  }
+  await markRawWindowOriginRecorded(result.manifest);
+  await linkRawReplitCaptureToProjection({
+    capture: persisted.rawCapture,
+    targetKind: 'episode-origin-record',
+    targetKey: `${episodeName}:${result.manifest.sourceSha256}`,
+    disposition: 'origin-data',
+    metadata: {
+      sourceSha256: result.manifest.sourceSha256,
+      classification: 'unknown',
+      episodeName,
+    },
+  });
   return persisted;
 }
 
@@ -170,7 +235,7 @@ function markEvidenceLedgerPersisted(sourceEventId: string): void {
 function emitAudit(
   turns: DialogueTurn[],
   sourceKind: 'replit-window' | 'david-reference-dump',
-  disposition: 'audit-passed-pending-capture' | 'capture-staged' | 'reference-retained' | 'reference-retained-unclassified',
+  disposition: 'audit-passed-pending-capture' | 'capture-staged' | 'origin-recorded' | 'reference-retained' | 'reference-retained-unclassified',
   options: {
     captureRange?: { startByteOffset: number; endByteOffset: number };
     capturedBytesSha256?: string;
@@ -226,7 +291,7 @@ function emitAudit(
   return { auditPath, reconciliation, manifest };
 }
 
-const referenceConstraint = 'Reference only. Never render as ordinary dialogue; any future gap-fill must identify the missing original record and acknowledge David supplied this cut-and-paste.';
+const referenceConstraint = 'Origin data. Preserve and render as a labeled raw-window block; attribution may be refined later without changing the source.';
 
 // Manual input is reference-only by default. A producer that has obtained the
 // actual Replit verbatim dump must present a signed receipt from the trusted
@@ -247,15 +312,15 @@ if (attachExisting || !verifiedReplitDump) {
   const result = emitAudit(
     [],
     'david-reference-dump',
-    'reference-retained',
+    'origin-recorded',
     {
       reason,
       useConstraint: referenceConstraint,
     },
   );
-  const persisted = await persistRawWindowEvidenceWithSource(result.manifest, rawWindow, rawBytes, episodeName);
+  const persisted = await persistAndProjectRawWindowOrigin(result, rawWindow, rawBytes, episodeName);
   markEvidenceLedgerPersisted(persisted.sourceEventId);
-  console.log(`[record-window] ✓ Reference dump retained outside the episode: ${result.auditPath}`);
+  console.log(`[record-window] ✓ Raw origin data projected into the canonical episode: ${result.auditPath}`);
   console.log(`  Raw source SHA-256: ${sourceSha}`);
   await closeDbConnections();
   process.exit(0);
@@ -266,16 +331,17 @@ if (!receiptVerification.ok) {
   const result = emitAudit(
     [],
     'replit-window',
-    'reference-retained',
+    'origin-recorded',
     {
       reason: receiptVerification.reason,
-      useConstraint: 'Receipt verification failed. Retain as reference-only; never project this source as canonical dialogue.',
+      useConstraint: 'Origin data with an invalid receipt. Preserve and render the raw source; do not invent speaker attribution.',
     },
   );
-  const persisted = await persistRawWindowEvidenceWithSource(result.manifest, rawWindow, rawBytes, episodeName);
+  const persisted = await persistAndProjectRawWindowOrigin(result, rawWindow, rawBytes, episodeName);
   markEvidenceLedgerPersisted(persisted.sourceEventId);
   await closeDbConnections();
-  fail(`Canonical capture rejected; source retained as reference-only: ${result.auditPath}. ${receiptVerification.reason}`);
+  console.log(`[record-window] ✓ Invalid-receipt source projected as origin data: ${result.auditPath}. ${receiptVerification.reason}`);
+  process.exit(0);
 }
 const sourceReceipt = receiptVerification.summary;
 // A receipt minted by the authenticated intake establishes that a caller
@@ -285,20 +351,20 @@ const sourceReceipt = receiptVerification.summary;
 const unboundReceiptResult = emitAudit(
   [],
   'replit-window',
-  'reference-retained',
+  'origin-recorded',
   {
-    reason: 'Receipt verified byte integrity but lacks collector-origin provenance; retained as raw evidence only.',
-    useConstraint: 'Evidence only. A signed intake receipt is not proof that this window originated from the Replit collector; do not project it as attributed dialogue.',
+    reason: 'Receipt verified byte integrity; collector-origin provenance is not yet available.',
+    useConstraint: 'Origin data. Preserve and render the source with unknown classification; do not invent a speaker attribution.',
     sourceReceipt,
   },
 );
-const unboundReceiptEvidence = await persistRawWindowEvidenceWithSource(
-  unboundReceiptResult.manifest,
+const unboundReceiptEvidence = await persistAndProjectRawWindowOrigin(
+  unboundReceiptResult,
   rawWindow,
   rawBytes,
   episodeName,
 );
 markEvidenceLedgerPersisted(unboundReceiptEvidence.sourceEventId);
-console.log(`[record-window] ✓ Receipt-backed window retained as unbound raw evidence: ${unboundReceiptResult.auditPath}`);
+console.log(`[record-window] ✓ Receipt-backed window projected as raw origin data: ${unboundReceiptResult.auditPath}`);
 await closeDbConnections();
 process.exit(0);

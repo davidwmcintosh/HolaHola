@@ -1217,9 +1217,9 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     acknowledgementLine,
   ];
 
-  // Raw Replit windows are audited before their cleaned text enters capture.
-  // Personal/manual dumps are reference-only; neither raw source nor audit
-  // prose is appended to the canonical episode.
+  // Raw Replit windows are immutable origin data. Their current attribution
+  // may be unknown, but every collector-visible source is projected into the
+  // canonical DB-first episode/Markdown record.
   const rawWindowSummary = summarizeRawWindowReconciliationDirectory(
     join(WORKSPACE, '.local', 'raw-window-captures'),
   );
@@ -1250,9 +1250,9 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
         ? `  ⚠️ DB evidence: UNAVAILABLE — ${rawWindowEvidenceLedgerStatus.error ?? 'ledger query failed'}; replica parity cannot establish completeness.`
         : rawWindowEvidenceLedgerStatus.sourceCount === 0
           ? '  ⚠️ Visible Replit window: UNOBSERVED — no DB-backed raw-window evidence exists; replica parity cannot establish completeness.'
-          : `  ${rawWindowEvidenceLedgerStatus.unresolvedSources > 0 ? '⚠️ REVIEW' : '✓'} DB evidence: ${rawWindowEvidenceLedgerStatus.sourceCount} retained source(s); local audits: ${rawWindowSummary.auditedSources}; reference-only sources: ${rawWindowSummary.referenceSources}`,
+          : `  ${rawWindowEvidenceLedgerStatus.unresolvedSources > 0 ? '⚠️ REVIEW' : '✓'} DB origin data: ${rawWindowEvidenceLedgerStatus.sourceCount} source(s); local audits: ${rawWindowSummary.auditedSources}; classification pending: ${rawWindowEvidenceLedgerStatus.unresolvedSources}`,
     rawWindowEvidenceLedgerStatus.state === 'available' && rawWindowEvidenceLedgerStatus.unresolvedSources > 0
-      ? `  ⚠️ Unclassified source material: ${rawWindowEvidenceLedgerStatus.unresolvedSources} source(s), ${rawWindowEvidenceLedgerStatus.unresolvedBytes.toLocaleString()} byte(s) — retained as evidence, never inferred as dialogue.`
+      ? `  ⚠️ Classification pending: ${rawWindowEvidenceLedgerStatus.unresolvedSources} origin source(s), ${rawWindowEvidenceLedgerStatus.unresolvedBytes.toLocaleString()} byte(s) — present in the episode as raw data; no speaker attribution was invented.`
       : rawWindowEvidenceLedgerStatus.state === 'available'
         ? '  ✓ No unclassified raw-window source spans in the DB evidence ledger.'
         : '  — Unclassified-source count is unavailable until the ledger query completes.',
@@ -1951,6 +1951,22 @@ async function appendInnerLifeToEpisodeDb(
     }
   });
   return appended;
+}
+
+/**
+ * Appends an immutable raw-window rendering to the canonical episode record.
+ * The raw ledger preserves exact bytes; this is the visible DB/Markdown
+ * origin-data projection whose classification may be refined later.
+ */
+export async function appendRawWindowOriginToEpisodeDb(
+  text: string,
+  episodeFilename: string,
+  sourceSha256: string,
+): Promise<boolean> {
+  return appendInnerLifeToEpisodeDb(text, episodeFilename, {
+    appendMarker: `<!-- raw-window-origin:${sourceSha256} -->`,
+    allowAppend: true,
+  });
 }
 
 const CANONICAL_INNER_LIFE_INTENT_PATH = join(

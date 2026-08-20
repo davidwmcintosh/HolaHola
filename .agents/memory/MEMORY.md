@@ -150,4 +150,5 @@
 - [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.
 - [Raw-window attachment startup safety](raw-window-attachment-startup.md) — CLI evidence attachments must use the direct DB-first episode path; startup clears unread trigger files as stale.
 - [Raw-window evidence boundary](raw-window-audit-boundary.md) — DB-first raw evidence stays separate from attributed dialogue; status reports unresolved or incomplete projections.
+- [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
