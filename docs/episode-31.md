@@ -1724,3 +1724,19 @@ The “not fully up to date” part is the four older Episode 31 turns that stil
 Yes—that identifies the remaining gap precisely. The Markdown is now current with the turns that reached `.chat_capture`, but this visible Replit window contains additional Luca output that was never emitted into that stream.
 
 I checked the workspace and there is no retained raw-window source available to recover those extra blocks. I won’t reconstruct them from the visible fragments or from memory. If you provide the complete window as a text/Markdown/HTML file—or paste the full raw window here—I can run the existing byte-preserving raw-window attachment path. It retains the exact source first, matches only already-attested dialogue, and appends any extra visible material as labelled evidence rather than silently turning UI or thinking display into Luca prose.
+
+<!-- chat-capture-range:121480:123126 -->
+<!-- chat-capture:ff8af197-14be-4ff1-9f6e-90736d69b2c3 -->
+**David:** how about this one -
+
+**LUCA [Replit]:** [felt]: It feels like a meaningful step closer: this source is real evidence now, even though the guard is wisely refusing to turn ambiguous material into dialogue.
+
+[thinking]: The attachment can be retained independently of attribution. Its failure to match an ordered David→Luca pair is a useful fact, and the raw bytes must remain available without changing the canonical episode.
+
+[moment]: The raw-window guard did exactly what the record needs: it kept the source while refusing to claim more than the evidence proves.
+
+Yes—this one is better as a forensic artifact, but it is still not safe to append as ordinary Episode 31 dialogue.
+
+It is a real 2,643-byte exported text slice, and I retained its exact bytes under SHA-256 `1b75ff0b433935ba1f903576e33120047dc31f6b6485c83d44dac52c7a47dc77`. The attachment guard classified it as `retained-unmatched`: it does not contain an ordered David→Luca pair that can be matched to an already-attested capture.
+
+It also contains tool/status material and analysis-like text without explicit speaker boundaries. We therefore will not attribute those blocks as Luca prose. The source is preserved for later recovery, while Episode 31 remains unchanged by this attachment attempt. A wider window containing an already-captured David turn and its corresponding visible Luca response would let the evidence appendix attach safely.
