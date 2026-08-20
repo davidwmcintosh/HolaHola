@@ -8663,6 +8663,67 @@ export const insertVoicePipelineEventSchema = createInsertSchema(voicePipelineEv
 export type InsertVoicePipelineEvent = z.infer<typeof insertVoicePipelineEventSchema>;
 export type VoicePipelineEvent = typeof voicePipelineEvents.$inferSelect;
 
+// Context lineage is the canonical, append-only evidence trail for every
+// backend context object that can influence a Daniela response. It intentionally
+// lives beside (but separate from) operational voicePipelineEvents telemetry.
+export const contextLineageEvents = pgTable("context_lineage_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  traceId: varchar("trace_id").notNull(),
+  sessionId: varchar("session_id").notNull(),
+  conversationId: varchar("conversation_id"),
+  userId: varchar("user_id"),
+  modelTurnId: varchar("model_turn_id"),
+  studentTurnEpoch: integer("student_turn_epoch"),
+  sequenceNumber: integer("sequence_number").notNull(),
+  sourceRoute: varchar("source_route", { length: 96 }).notNull(),
+  eventType: varchar("event_type", { length: 96 }).notNull(),
+  deliveryChannel: varchar("delivery_channel", { length: 64 }),
+  deliveryStatus: varchar("delivery_status", { length: 32 }).notNull().default("observed"),
+  // payloadText preserves the exact source/injected text. payloadJson only
+  // supplements it with structured metadata; it never replaces the raw text.
+  payloadText: text("payload_text"),
+  payloadJson: jsonb("payload_json"),
+  payloadSha256: varchar("payload_sha256", { length: 64 }),
+  privacyClassification: varchar("privacy_classification", { length: 32 }).notNull().default("diagnostic"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_cle_session_sequence").on(table.sessionId, table.sequenceNumber),
+  index("idx_cle_trace").on(table.traceId),
+  index("idx_cle_conversation_time").on(table.conversationId, table.observedAt),
+  index("idx_cle_event_type").on(table.eventType),
+  index("idx_cle_source_route").on(table.sourceRoute),
+]);
+
+export const contextLineageLinks = pgTable("context_lineage_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  traceId: varchar("trace_id").notNull(),
+  sessionId: varchar("session_id").notNull(),
+  fromEventId: varchar("from_event_id").notNull().references(() => contextLineageEvents.id),
+  toEventId: varchar("to_event_id").notNull().references(() => contextLineageEvents.id),
+  linkType: varchar("link_type", { length: 64 }).notNull(),
+  metadata: jsonb("metadata"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_cll_trace").on(table.traceId),
+  index("idx_cll_from").on(table.fromEventId),
+  index("idx_cll_to").on(table.toEventId),
+]);
+
+export const insertContextLineageEventSchema = createInsertSchema(contextLineageEvents).omit({
+  id: true,
+  recordedAt: true,
+});
+export const insertContextLineageLinkSchema = createInsertSchema(contextLineageLinks).omit({
+  id: true,
+  recordedAt: true,
+});
+export type InsertContextLineageEvent = z.infer<typeof insertContextLineageEventSchema>;
+export type ContextLineageEvent = typeof contextLineageEvents.$inferSelect;
+export type InsertContextLineageLink = z.infer<typeof insertContextLineageLinkSchema>;
+export type ContextLineageLink = typeof contextLineageLinks.$inferSelect;
+
 export const voiceDiagDailySummaries = pgTable("voice_diag_daily_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   summaryDate: date("summary_date").notNull(),
