@@ -1638,6 +1638,15 @@ function writeExactEpisodeMarkdownReplica(
 ): boolean {
   try {
     mkdirSync(DOCS_DIR, { recursive: true });
+    // A DB-first append has already placed the exact canonical snapshot on
+    // disk when this function is re-entered through docs/ fs.watch().  Do not
+    // rewrite identical bytes: writeFileSync emits another filesystem event,
+    // which otherwise schedules an endless DB→Markdown restore loop that can
+    // race real append work.
+    if (existsSync(filePath) && readFileSync(filePath, 'utf-8') === canonicalContent) {
+      try { episodeMtimeMap.set(episodeFilename, statSync(filePath).mtimeMs); } catch { /* ignore */ }
+      return true;
+    }
     writeFileSync(filePath, canonicalContent, 'utf-8');
     if (readFileSync(filePath, 'utf-8') !== canonicalContent) {
       throw new Error('post-write read-back differs from canonical DB content');
