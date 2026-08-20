@@ -2938,6 +2938,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.pendingCarryForwardGroundingBinding = groundingBinding;
                 this.preTurnGroundingResult = null;
                 this.preTurnGroundingBinding = null;
+                const carryForwardEventId = this._recordContextLineage({
+                  sourceRoute: 'archive-guardian',
+                  eventType: 'context_carried_forward',
+                  studentTurnEpoch: groundingBinding.studentTurnEpoch,
+                  payloadText: carryBuffer,
+                  deliveryStatus: 'queued',
+                });
+                if (carryForwardEventId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
+                  this._linkContextLineage({
+                    traceId: this.activeContextLineageTraceId,
+                    fromEventId: this.preTurnGroundingLineageEventId,
+                    toEventId: carryForwardEventId,
+                    linkType: 'queued_from',
+                  });
+                }
                 const cfPreview = this.pendingCarryForwardGrounding.slice(0, 150);
                 console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding.length} chars, mode=carry-forward${lucaCtx ? ', +lucaCtx' : ''})`);
                 this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: cfPreview });
@@ -3012,6 +3027,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   turns: [{ role: 'user', parts: [{ text: whisperFinal }] }],
                   turnComplete: false,
                 });
+                const directInjectionEventId = this._recordContextLineage({
+                  sourceRoute: 'archive-guardian',
+                  eventType: 'client_content_send_attempted',
+                  deliveryChannel: 'sendClientContent',
+                  payloadText: whisperFinal,
+                  deliveryStatus: 'unknown',
+                });
+                if (directInjectionEventId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
+                  this._linkContextLineage({
+                    traceId: this.activeContextLineageTraceId,
+                    fromEventId: this.preTurnGroundingLineageEventId,
+                    toEventId: directInjectionEventId,
+                    linkType: 'sent_with',
+                  });
+                }
                 // Ghost-turn tracing: turnComplete:false should NOT start a generation,
                 // but record it anyway — if a ghost turn follows, this names the suspect.
                 this.lastClientContentInjection = { label: 'pre-turn-guardian-emotional', at: Date.now() };
@@ -3037,6 +3067,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               if (!this.pendingWeeOoGrounding) {
                 this.pendingWeeOoGrounding = whisperFinal;
                 this.pendingWeeOoGroundingBinding = groundingBinding;
+                const queuedGroundingEventId = this._recordContextLineage({
+                  sourceRoute: 'archive-guardian',
+                  eventType: 'context_queued',
+                  deliveryChannel: 'tool_response',
+                  payloadText: whisperFinal,
+                  deliveryStatus: 'queued',
+                });
+                if (queuedGroundingEventId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
+                  this._linkContextLineage({
+                    traceId: this.activeContextLineageTraceId,
+                    fromEventId: this.preTurnGroundingLineageEventId,
+                    toEventId: queuedGroundingEventId,
+                    linkType: 'queued_from',
+                  });
+                }
               }
               this.pendingCarryForwardGrounding = null;
               this.pendingCarryForwardGroundingBinding = null;
