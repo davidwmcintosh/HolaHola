@@ -52,6 +52,45 @@ unchanged `.chat_capture`, evidence coverage, and repeated-attachment no-op.
 
 ---
 
+## Session August 19, 2026 — Daniela-authored GL game-memory titles
+
+### Detected games now receive specific, searchable memory names
+
+**What changed:** The GL game-session detector still builds its deterministic,
+de-identified payload first, then asks Daniela to choose the best descriptive
+topic from a server-owned safe taxonomy using the completed game transcript.
+The known student name is redacted before that transient call. Daniela returns
+the selected option's prebuilt title and one-sentence summary; only an exact
+three-line match can replace the generic fields before insertion and embedding.
+
+**Why it matters:** Generic records such as “GL Game Session: counting game
+(Spanish)” are weak recall targets. Daniela can now preserve the actual activity
+topic—such as counting farm animals—without storing the transcript or student
+identity in the globally shared memory table.
+
+**Privacy boundary:** The transcript can influence which safe topic Daniela
+selects, but no free-form transcript-derived or model-generated text can enter
+the globally shared memory row. Unknown PII and valid-format stored prompt
+injection therefore fail closed rather than depending on name heuristics.
+
+**Failure behavior:** The naming call has a four-second deadline. Model errors,
+timeouts, malformed output, altered options, or unknown topics all retain the
+original auto-generated title and summary. The GL stop path remains non-blocking.
+
+**Verification:** Focused detector CI passes 48 assertions, its mutation
+self-check passes, TypeScript is clean, and a live naming call selected the
+specific farm-animal counting option. Both the architecture reviewer and
+Gemini approved the final boundary; Gemini’s final response was
+“APPROVED — Ship it.”
+
+**Key files:**
+- `server/services/gl-game-session-detector.ts`
+- `server/services/gemini-live-session.ts`
+- `server/scripts/test-gl-game-session-detector.ts`
+- `docs/gemini-audit-2026-08-19-game-memory-naming.md`
+
+---
+
 ## Session August 19, 2026 — Hermetic auto-capture episode CI
 
 ### Auto-capture test no longer writes synthetic dialogue into the live record

@@ -27,6 +27,30 @@ expected local app-route skips because it ran before the dev workflow restart.
 
 ---
 
+## From Luca — Wed, Aug 19, 2026 (Daniela-authored game-memory titles)
+
+The GL game detector now asks Daniela to name and summarize a detected game
+before its dedicated `conversation_memories` row is inserted and embedded.
+This is a post-session REST call; the GL stop path remains fire-and-forget.
+
+The generic, de-identified payload is always built first. Daniela sees a bounded
+transcript only as transient untrusted evidence, with the known student display
+name redacted. She chooses one topic from a server-owned safe taxonomy and
+copies that option's prebuilt title and one-sentence summary. The parser accepts
+only an exact three-line match to one complete option. This means the transcript
+can influence topic selection, but no free-form model text, unknown PII, or
+stored prompt injection can enter the globally shared row. A four-second
+timeout or any unsafe/malformed response preserves the previous generic title
+and summary.
+
+Focused detector CI passes 48 assertions and its self-check passes. The project
+typecheck is clean. A live sample selected “Counting game: Farm animals
+(Spanish).” The architecture reviewer and Gemini both approved the final
+boundary, with unconditional Gemini sign-off. Audit:
+`docs/gemini-audit-2026-08-19-game-memory-naming.md`.
+
+---
+
 ## From Alden — last updated: Wed, Aug 19, 7:59 PM
 
 Episode 31 content has been restored and reordered. The `docs/episode-31.md` file was reporting as 'missing' by the autosave worker, despite being present. I have reordered the file to place the synthetic `wdtest` fixtures at the end with a provenance note, and appended the missing David↔Luca task discussion regarding Guardian grounding. This should resolve the 'missing file' error and allow the autosave worker to correctly project new inner-life and episode-append events. The full content of Episode 31 is now authoritative from the DB and reflected in the Markdown file.

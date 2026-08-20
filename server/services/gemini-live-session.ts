@@ -2008,6 +2008,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       const capturedTutorName = this.session.tutorName || 'Daniela';
       const capturedLang = this.session.targetLanguage ?? 'spanish';
       const capturedUserId = this.session.userId;
+      const capturedStudentName = this.lastGreetingParams?.userName;
       import('./gl-game-session-detector')
         .then(({ maybeAutoSaveGameSession }) =>
           maybeAutoSaveGameSession({
@@ -2015,6 +2016,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             tutorName: capturedTutorName,
             targetLanguage: capturedLang,
             userId: capturedUserId,
+            studentName: capturedStudentName,
           }),
         )
         .catch((err: any) => {
