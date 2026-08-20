@@ -27188,6 +27188,10 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         recentMessages: msgs,
         // Archive Guardian — live state + fire log for this session (all four protocols)
         guardianAB: {
+          // Legacy heuristic only: these counts are not evidence that a
+          // context payload was delivered, received, or understood. Use
+          // contextLineage below for immutable lifecycle facts.
+          heuristic: true,
           globalChannel: observation.guardianChannel,
           recentFires: observation.guardianFireLog.slice(-10).map(f => ({
             ts: f.ts,
@@ -27208,6 +27212,39 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           totalPreTurnCount:     observation.guardianFireLog.filter(f => f.path === 'pre-turn').length,
           carryForwardBufferedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length,
           carryForwardInjectedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-injected').length,
+        },
+        // Immutable context evidence, projected from the active shadow writer.
+        // Full raw payloads are intentionally absent from this lightweight
+        // endpoint; the durable forensic query is the authorized source.
+        contextLineage: {
+          activeTraceId: observation.contextLineage?.activeTraceId ?? null,
+          events: (observation.contextLineage?.events ?? []).map(event => ({
+            id: event.id,
+            traceId: event.traceId,
+            sequenceNumber: event.sequenceNumber,
+            sourceRoute: event.sourceRoute,
+            eventType: event.eventType,
+            deliveryChannel: event.deliveryChannel,
+            deliveryStatus: event.deliveryStatus,
+            studentTurnEpoch: event.studentTurnEpoch,
+            payloadSha256: event.payloadSha256,
+            observedAt: event.observedAt,
+          })),
+          links: (observation.contextLineage?.links ?? []).map(link => ({
+            id: link.id,
+            traceId: link.traceId,
+            fromEventId: link.fromEventId,
+            toEventId: link.toEventId,
+            linkType: link.linkType,
+            observedAt: link.observedAt,
+          })),
+          ledgerHealth: observation.contextLineage?.health ?? {
+            state: 'healthy',
+            pendingWrites: 0,
+            failedWrites: 0,
+            firstUnrecordedSequenceNumber: null,
+            lastError: null,
+          },
         },
         // Neural-net memory searches — real-time feed from searchTeachingKnowledge calls
         recentMemorySearches: (observation.recentMemorySearches ?? []).slice(0, 10).map(s => ({
