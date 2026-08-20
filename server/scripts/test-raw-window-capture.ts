@@ -125,6 +125,12 @@ const intentDir = join(root, 'intents');
 const alignedCapturePath = join(root, 'aligned-capture.txt');
 const alignedSourceDir = join(root, 'aligned-sources');
 const alignedIntentDir = join(root, 'aligned-intents');
+
+const staleRawPath = join(root, 'stale-window.txt');
+const staleCapturePath = join(root, 'stale-david-capture.txt');
+const staleOutputPath = join(root, 'stale-output.txt');
+const staleSourceDir = join(root, 'stale-sources');
+const staleIntentDir = join(root, 'stale-intents');
 const emptyDavidCapturePath = join(root, 'empty-david-capture.txt');
 const emptyCapturePath = join(root, 'empty-capture.txt');
 const emptySourceDir = join(root, 'empty-sources');
@@ -192,6 +198,50 @@ try {
   );
   if (ambiguous.ok || !ambiguous.reason.includes('ambiguous')) {
     throw new Error('Ambiguous overlapping David anchor did not fail closed');
+  }
+
+  const repeatedMessage = `Repeated greeting ${marker}`;
+  const staleRaw = [
+    '4 minutes ago',
+    repeatedMessage,
+    'Luca response from the current window',
+  ].join('\n');
+  const staleOutput = `Existing capture must remain unchanged ${marker}\n`;
+  appendChatCaptureTurn('David', repeatedMessage, staleCapturePath);
+  appendChatCaptureTurn('Luca Replit', `Prior-session Luca boundary ${marker}`, staleCapturePath);
+  writeFileSync(staleRawPath, staleRaw, 'utf8');
+  writeFileSync(staleOutputPath, staleOutput, 'utf8');
+  const staleResult = spawnSync(
+    'npx',
+    [
+      'tsx',
+      'server/scripts/record-window.ts',
+      '--window-file',
+      staleRawPath,
+      '--source-dir',
+      staleSourceDir,
+      '--capture-path',
+      staleOutputPath,
+      '--david-capture-path',
+      staleCapturePath,
+      '--intent-dir',
+      staleIntentDir,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8' },
+  );
+  if (staleResult.status === 0) {
+    throw new Error('A David turn from before the last Luca boundary was incorrectly used as an alignment anchor');
+  }
+  const staleFailure = `${staleResult.stderr}\n${staleResult.stdout}`;
+  if (!staleFailure.includes('No attested David turns were supplied for alignment')) {
+    throw new Error(`Stale David anchor did not fail with the expected boundary diagnostic: ${staleFailure}`);
+  }
+  if (readFileSync(staleOutputPath, 'utf8') !== staleOutput) {
+    throw new Error('Capture path changed after a prior-session David anchor was rejected');
+  }
+  const staleSourceFiles = readdirSync(staleSourceDir);
+  if (staleSourceFiles.length !== 1 || readFileSync(join(staleSourceDir, staleSourceFiles[0]), 'utf8') !== staleRaw) {
+    throw new Error('Raw recovery source was not retained after a prior-session David anchor was rejected');
   }
 
   const alignedRaw = [

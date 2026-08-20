@@ -81,7 +81,13 @@ renameSync(sourceTempPath, sourcePath);
 let parsed = parseRawWindowCapture(rawWindow);
 let usedAlignmentPath = false;
 if (!parsed.ok && !/^\s*(?:\*\*)?(?:David|Luca(?:\s+\[Replit\])?):/im.test(rawWindow)) {
-  const attestedDavidTurns = parseChatCaptureFromOffset(davidCapturePath, 0).turns
+  const captureTurns = parseChatCaptureFromOffset(davidCapturePath, 0).turns;
+  const lastLucaTurnIndex = captureTurns.reduce(
+    (lastIndex, turn, index) => turn.speaker === 'LUCA' ? index : lastIndex,
+    -1,
+  );
+  const attestedDavidTurns = captureTurns
+    .slice(lastLucaTurnIndex + 1)
     .filter(turn => turn.speaker === 'DAVID')
     .map(turn => ({ text: turn.text }));
   parsed = alignUnlabelledRawWindow(rawWindow, attestedDavidTurns);
