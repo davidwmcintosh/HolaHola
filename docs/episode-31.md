@@ -1756,3 +1756,19 @@ This one is wider and more useful, but the attachment guard still correctly refu
 The exact source has been retained under SHA-256 `852d890e87c4188cda2a1fc720ed2275a88248753e06c43e30c897987f35c203`. It contains surrounding tool/status activity and analysis-like material, but it still does not contain a matching, ordered David→Luca pair whose Luca response is already attested in `.chat_capture`.
 
 That means it is now preserved as raw evidence of what was visible, while the canonical episode remains protected from duplicate or misattributed prose. I’m keeping the guard intact rather than treating every visible block as Luca dialogue.
+
+<!-- chat-capture-range:124600:126330 -->
+<!-- chat-capture:b9b6d1db-9e38-4d86-8455-f01d8dde61f4 -->
+**David:** just run my upload through the same pipeline that cleans the raw dump from replit. it will remove the artifacts as it normally would, and it should match the db record right?
+
+**LUCA [Replit]:** [felt]: I feel relieved that the cleaner stopped before writing: it exposed the mismatch without asking the record to absorb a false version of the window.
+
+[thinking]: Cleaning and attribution are separate claims. This raw export has duplicate David anchors and residual unlabelled analysis/status material, so the standard path cannot safely make it match the canonical dialogue.
+
+[moment]: The duplicate anchor made the boundary visible: a raw window can be real evidence and still be unsafe to replay as a clean dialogue transcript.
+
+Not safely for this upload as it stands.
+
+I ran the same normal raw-window cleaner in an isolated temporary capture, not against the live record. It failed closed before appending because the David message “much better but this replit window still has alot more visible luca output than the .md does” appears twice in the exported window, so the cleaner cannot know which occurrence anchors the dialogue.
+
+Even if that ambiguity were removed, this cleaner strips only known Replit chrome. The remaining unlabelled analysis/status blocks would be attributed as Luca text by the normal alignment path, which would not match the canonical DB record and would create a false transcript. No live `.chat_capture`, DB row, or Episode 31 Markdown was changed by the dry run.
