@@ -1,4 +1,9 @@
 import type { GuardianAttemptTrace } from './guardian-attempt-trace';
+import {
+  getContextLineageAvailability,
+  isContextLineageCaptureEnabled,
+  type ContextLineageAvailability,
+} from './context-lineage-service';
 
 const EXPIRY_MS = 4 * 60 * 60 * 1000;
 
@@ -96,6 +101,21 @@ export interface ContextLineageObservation {
   events: ContextLineageObservationEvent[];
   links: ContextLineageObservationLink[];
   health: ContextLineageObservationHealth;
+}
+
+/**
+ * Compute availability at read time so a config change cannot leave a stale
+ * "healthy" default that looks like evidence was captured.
+ */
+export function getContextLineageObservationAvailability(
+  lineage: ContextLineageObservation | undefined,
+): ContextLineageAvailability {
+  return getContextLineageAvailability({
+    captureEnabled: isContextLineageCaptureEnabled(),
+    eventCount: lineage?.events?.length ?? 0,
+    linkCount: lineage?.links?.length ?? 0,
+    persistenceState: lineage?.health?.state ?? "healthy",
+  });
 }
 
 export interface SessionObservation {

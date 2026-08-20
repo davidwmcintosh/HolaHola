@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   ContextLineageRecorder,
+  getContextLineageAvailability,
+  isFactualStreamProxyReference,
   type ContextLineageSink,
   type RecordedContextLineageEvent,
   type RecordedContextLineageLink,
@@ -128,7 +130,7 @@ describe("ContextLineageRecorder", () => {
       sourceRoute: "gemini-live",
       eventType: "client_content_send_attempted",
       deliveryChannel: "sendClientContent",
-      deliveryStatus: "unknown",
+      deliveryStatus: "observed",
       payloadText: "quiet context",
     });
     await recorder.flushNow();
@@ -136,5 +138,111 @@ describe("ContextLineageRecorder", () => {
     assert.equal(sink.events[0].deliveryStatus, "unknown");
     assert.equal(sink.events[0].eventType, "client_content_send_attempted");
     recorder.stop();
+  });
+
+  it("only preserves an observed direct-send status when a factual stream proxy is named", async () => {
+    const sink = new RecordingSink();
+    const recorder = new ContextLineageRecorder(
+      { sessionId: "session-d" },
+      { sink, retryDelayMs: 1 },
+    );
+
+    const traceId = recorder.beginTrace();
+    const observedStreamEvent = recorder.recordEvent({
+      traceId,
+      sourceRoute: "gemini-live",
+      eventType: "stream_event_observed",
+      deliveryStatus: "observed",
+      payloadJson: { sdkEvent: "client-content-stream" },
+    });
+    recorder.recordEvent({
+      traceId,
+      sourceRoute: "gemini-live",
+      eventType: "tool_response_send_attempted",
+      deliveryChannel: "sendToolResponse",
+      deliveryStatus: "observed",
+      payloadJson: { streamProxy: { eventId: observedStreamEvent.id } },
+    });
+    await recorder.flushNow();
+
+    assert.equal(sink.events[1].deliveryStatus, "observed");
+    recorder.stop();
+  });
+
+  it("rejects an unlinked caller-supplied stream proxy label", async () => {
+    const sink = new RecordingSink();
+    const recorder = new ContextLineageRecorder(
+      { sessionId: "session-e" },
+      { sink, retryDelayMs: 1 },
+    );
+
+    recorder.recordEvent({
+      sourceRoute: "gemini-live",
+      eventType: "client_content_send_attempted",
+      deliveryChannel: "sendClientContent",
+      deliveryStatus: "observed",
+      payloadJson: { streamProxy: { eventId: "made-up-event-id", source: "not evidence" } },
+    });
+    await recorder.flushNow();
+
+    assert.equal(sink.events[0].deliveryStatus, "unknown");
+    recorder.stop();
+  });
+
+  it("separates disabled capture, pending evidence, and degraded persistence", () => {
+    assert.equal(
+      getContextLineageAvailability({
+        captureEnabled: false,
+        eventCount: 0,
+        linkCount: 0,
+      }).status,
+      "capture_disabled",
+    );
+    assert.equal(
+      getContextLineageAvailability({
+        captureEnabled: true,
+        eventCount: 0,
+        linkCount: 0,
+      }).status,
+      "no_evidence_yet",
+    );
+    assert.equal(
+      getContextLineageAvailability({
+        captureEnabled: true,
+        eventCount: 4,
+        linkCount: 3,
+        persistenceState: "degraded",
+      }).status,
+      "degraded_partial",
+    );
+  });
+
+  it("requires a same-trace, earlier observed stream event before treating a proxy as factual", () => {
+    const send = {
+      id: "send",
+      traceId: "trace-a",
+      sequenceNumber: 8,
+      eventType: "client_content_send_attempted",
+      deliveryStatus: "unknown",
+    };
+    const validProxy = {
+      id: "stream-1",
+      traceId: "trace-a",
+      sequenceNumber: 7,
+      eventType: "stream_event_observed",
+      deliveryStatus: "observed",
+    };
+
+    assert.equal(isFactualStreamProxyReference(send, validProxy.id, validProxy), true);
+    assert.equal(
+      isFactualStreamProxyReference(send, validProxy.id, { ...validProxy, sequenceNumber: 9 }),
+      false,
+      "a later stream event cannot explain an earlier send",
+    );
+    assert.equal(
+      isFactualStreamProxyReference(send, validProxy.id, { ...validProxy, traceId: "trace-b" }),
+      false,
+      "a stream event from another trace cannot explain this send",
+    );
   });
 });

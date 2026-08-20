@@ -7185,3 +7185,20 @@ assuming every sentinel is bracketed. A pure guard check covers all audited
 prefixes and verifies that they are rejected for the active filename without
 writing any database or Markdown content. Typecheck, the three fixture checks,
 and consolidated CI are clean.
+
+---
+
+## Addendum — August 20, 2026 (context-lineage evidence boundary)
+
+The active Observation Bench no longer presents an empty lineage projection
+with only a healthy default. Its availability block distinguishes disabled
+capture, enabled capture awaiting first evidence, available evidence,
+degraded/partial persistence, and unavailable diagnostics. The status text
+states that missing rows do not prove delivery or model receipt.
+
+The forensic truth-pipeline report now queries canonical lineage events and
+links independently of legacy telemetry. It prints the diagnostic boundary and
+uses a reference to an earlier immutable observed stream event as the only
+transport-side exception to unknown direct-send receipt; even that proxy does
+not establish model receipt.
+No prompt, tool, or Live delivery behavior changed.

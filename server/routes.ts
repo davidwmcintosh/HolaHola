@@ -27097,7 +27097,11 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Auth: x-agent-token header OR authenticated founder browser session.
   app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
     try {
-      const { getAllActiveObservations, getObservation } = await import('./services/session-observation-store');
+      const {
+        getAllActiveObservations,
+        getObservation,
+        getContextLineageObservationAvailability,
+      } = await import('./services/session-observation-store');
       const { getGlobalPreTurnFallbackMode } = await import('./services/gemini-live-session');
       const conversationId = req.query.conversationId as string | undefined;
 
@@ -27167,6 +27171,8 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       // Elapsed time
       const elapsedMs = Date.now() - observation.sessionStartedMs;
       const elapsedMin = Math.round(elapsedMs / 60000);
+      const lineage = observation.contextLineage;
+      const lineageAvailability = getContextLineageObservationAvailability(lineage);
 
       res.json({
         status: 'active',
@@ -27260,6 +27266,40 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           firstUnverifiedAssertion: f.firstUnverifiedAssertion,
           secsAgo:                  Math.round((Date.now() - f.ts) / 1000),
         })),
+        // Canonical context-lineage evidence is opt-in today. Keep the capture
+        // state explicit so an empty projection is never mistaken for proof that
+        // nothing was sent or that Daniela did not receive it.
+        contextLineage: {
+          availability: lineageAvailability,
+          activeTraceId: lineage?.activeTraceId ?? null,
+          events: (lineage?.events ?? []).map(event => ({
+            id: event.id,
+            traceId: event.traceId,
+            sequenceNumber: event.sequenceNumber,
+            sourceRoute: event.sourceRoute,
+            eventType: event.eventType,
+            deliveryChannel: event.deliveryChannel,
+            deliveryStatus: event.deliveryStatus,
+            studentTurnEpoch: event.studentTurnEpoch,
+            payloadSha256: event.payloadSha256,
+            observedAt: event.observedAt,
+          })),
+          links: (lineage?.links ?? []).map(link => ({
+            id: link.id,
+            traceId: link.traceId,
+            fromEventId: link.fromEventId,
+            toEventId: link.toEventId,
+            linkType: link.linkType,
+            observedAt: link.observedAt,
+          })),
+          health: lineage?.health ?? {
+            state: "healthy",
+            pendingWrites: 0,
+            failedWrites: 0,
+            firstUnrecordedSequenceNumber: null,
+            lastError: null,
+          },
+        },
       });
     } catch (err: any) {
       console.error('[Luca Observe] Error:', err.message);

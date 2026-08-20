@@ -4401,6 +4401,24 @@ messages, an early tool batch waits on the same turn epoch's definitive
 tool-response path. A timeout leaves the correction dormant rather than
 releasing from a partial prefix.
 
+---
+
+## Context-lineage diagnostic availability — August 20, 2026
+
+The Observation Bench now labels its lineage projection as capture disabled,
+waiting for first evidence, available, degraded/partial, or unavailable instead
+of allowing a healthy empty array to imply that a trace exists. It returns the
+bounded event/link projection and persistence health alongside that status.
+
+The truth-pipeline report now reads the canonical lineage tables in a protected
+diagnostic query. It prints the availability boundary, event/link counts,
+sequence gaps, hashes, and direct-send receipt evidence. A direct send must
+reference an earlier immutable observed stream event before it is treated as
+transport evidence. No lineage row, no linked stream event, and a failed ledger
+query are all explicitly non-evidence: none
+can be used to claim delivery or model receipt. This work changes no Daniela
+prompt, tool, or Live delivery path.
+
 Every released block names the current finalized utterance as the primary
 subject before showing the earlier candidate and already-available Archive
 grounding. Regression coverage includes guitar → counting rejection, explicit

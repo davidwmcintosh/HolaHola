@@ -21,6 +21,124 @@ export type ContextLineageDeliveryStatus =
   | "failed"
   | "unknown";
 
+export type ContextLineageAvailabilityStatus =
+  | "capture_disabled"
+  | "no_evidence_yet"
+  | "available"
+  | "degraded_partial"
+  | "unavailable";
+
+export interface ContextLineageAvailabilityInput {
+  captureEnabled: boolean;
+  eventCount: number;
+  linkCount: number;
+  persistenceState?: "healthy" | "degraded" | "unavailable";
+  unavailableReason?: string | null;
+}
+
+/**
+ * A status for the evidence system itself, not a verdict about Daniela.
+ *
+ * In particular, an empty ledger cannot establish that a payload was delivered
+ * or received. The caller must surface this message beside any empty trace.
+ */
+export interface ContextLineageAvailability {
+  status: ContextLineageAvailabilityStatus;
+  captureEnabled: boolean;
+  eventCount: number;
+  linkCount: number;
+  message: string;
+}
+
+export interface ContextLineageStreamProxyReference {
+  id: string;
+  traceId: string;
+  sequenceNumber: number;
+  eventType: string;
+  deliveryStatus: string;
+}
+
+/**
+ * A stream callback can support a transport observation only when it belongs to
+ * the same trace and precedes the send it is being used to explain. It still
+ * cannot establish that the model received or used the payload.
+ */
+export function isFactualStreamProxyReference(
+  send: Pick<ContextLineageStreamProxyReference, "traceId" | "sequenceNumber">,
+  proxyEventId: string | null,
+  proxy: ContextLineageStreamProxyReference | null | undefined,
+): boolean {
+  return Boolean(
+    proxyEventId
+    && proxy
+    && proxy.id === proxyEventId
+    && proxy.traceId === send.traceId
+    && proxy.sequenceNumber < send.sequenceNumber
+    && proxy.eventType === "stream_event_observed"
+    && proxy.deliveryStatus === "observed",
+  );
+}
+
+export function isContextLineageCaptureEnabled(): boolean {
+  return process.env.CONTEXT_LINEAGE_LEDGER_ENABLED === "true";
+}
+
+export function getContextLineageAvailability(
+  input: ContextLineageAvailabilityInput,
+): ContextLineageAvailability {
+  const eventCount = Math.max(0, input.eventCount);
+  const linkCount = Math.max(0, input.linkCount);
+  const persistenceState = input.persistenceState ?? "healthy";
+
+  if (persistenceState === "unavailable") {
+    return {
+      status: "unavailable",
+      captureEnabled: input.captureEnabled,
+      eventCount,
+      linkCount,
+      message: `Lineage diagnostics are unavailable${input.unavailableReason ? `: ${input.unavailableReason}` : ""}. This cannot confirm delivery or model receipt.`,
+    };
+  }
+
+  if (persistenceState === "degraded") {
+    return {
+      status: "degraded_partial",
+      captureEnabled: input.captureEnabled,
+      eventCount,
+      linkCount,
+      message: "Lineage capture is degraded; the recorded trace may be partial. Missing rows cannot confirm delivery or model receipt.",
+    };
+  }
+
+  if (eventCount > 0) {
+    return {
+      status: "available",
+      captureEnabled: input.captureEnabled,
+      eventCount,
+      linkCount,
+      message: "Canonical lineage evidence is available. Direct-send receipt remains unknown unless a factual stream proxy is recorded.",
+    };
+  }
+
+  if (!input.captureEnabled) {
+    return {
+      status: "capture_disabled",
+      captureEnabled: false,
+      eventCount,
+      linkCount,
+      message: "Lineage capture is disabled by CONTEXT_LINEAGE_LEDGER_ENABLED. No rows are expected, and their absence cannot confirm delivery or model receipt.",
+    };
+  }
+
+  return {
+    status: "no_evidence_yet",
+    captureEnabled: true,
+    eventCount,
+    linkCount,
+    message: "Lineage capture is enabled, but no evidence has been recorded for this session yet. This cannot confirm delivery or model receipt.",
+  };
+}
+
 export type ContextLineageLinkType =
   | "caused_by"
   | "derived_from"
@@ -48,6 +166,18 @@ export interface ContextLineageEventInput {
   payloadJson?: Record<string, unknown> | null;
   privacyClassification?: string;
   observedAt?: Date;
+}
+
+function streamProxyEventId(payloadJson: Record<string, unknown> | null | undefined): string | null {
+  const proxy = payloadJson?.streamProxy;
+  const eventId = proxy && typeof proxy === "object"
+    ? (proxy as { eventId?: unknown }).eventId
+    : null;
+  return typeof eventId === "string" && eventId.trim() ? eventId : null;
+}
+
+function isDirectLiveSendChannel(channel: string | null | undefined): boolean {
+  return channel === "sendClientContent" || channel === "sendToolResponse";
 }
 
 export interface ContextLineageLinkInput {
@@ -111,6 +241,11 @@ export class ContextLineageRecorder {
   private firstUnrecordedSequenceNumber: number | null = null;
   private lastError: string | null = null;
   private stopped = false;
+  /**
+   * Direct sends can only cite an earlier recorder event that itself represents
+   * an observed stream callback. A caller-supplied label is never evidence.
+   */
+  private readonly observedStreamProxyEvents = new Map<string, ContextLineageStreamProxyReference>();
 
   constructor(session: ContextLineageSession, options: ContextLineageRecorderOptions) {
     this.session = session;
@@ -147,6 +282,16 @@ export class ContextLineageRecorder {
       observedAt: input.observedAt ?? new Date(),
     };
 
+    event.deliveryStatus = this.resolveDeliveryStatus(event, input);
+    if (event.eventType === "stream_event_observed" && event.deliveryStatus === "observed") {
+      this.observedStreamProxyEvents.set(event.id, {
+        id: event.id,
+        traceId: event.traceId,
+        sequenceNumber: event.sequenceNumber,
+        eventType: event.eventType,
+        deliveryStatus: event.deliveryStatus,
+      });
+    }
     this.pending.push({ kind: "event", value: event, attempts: 0 });
     this.emitHealth();
     this.scheduleFlush();
@@ -248,6 +393,21 @@ export class ContextLineageRecorder {
 
   private emitHealth(): void {
     this.onHealthChange?.(this.getHealth());
+  }
+
+  private resolveDeliveryStatus(
+    event: RecordedContextLineageEvent,
+    input: ContextLineageEventInput,
+  ): ContextLineageDeliveryStatus {
+    const requested = input.deliveryStatus ?? "observed";
+    if (!isDirectLiveSendChannel(input.deliveryChannel)) return requested;
+
+    const proxyEventId = streamProxyEventId(input.payloadJson);
+    // A local SDK call only proves an attempt. The only exception is a prior,
+    // immutable stream callback allocated by this same recorder.
+    return isFactualStreamProxyReference(event, proxyEventId, this.observedStreamProxyEvents.get(proxyEventId ?? ""))
+      ? requested
+      : "unknown";
   }
 }
 

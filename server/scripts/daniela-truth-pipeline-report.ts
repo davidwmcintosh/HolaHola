@@ -35,6 +35,11 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import {
+  getContextLineageAvailability,
+  isFactualStreamProxyReference,
+  isContextLineageCaptureEnabled,
+} from '../services/context-lineage-service';
 
 // ─── ANSI helpers ─────────────────────────────────────────────────────────────
 const G    = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -72,6 +77,42 @@ function trunc(s: string | null | undefined, n = 150): string {
   if (!s) return DIM('(none)');
   const clean = s.replace(/\s+/g, ' ').trim();
   return clean.length <= n ? clean : clean.slice(0, n) + '…';
+}
+
+function findLineageSequenceGaps(rows: any[]): string[] {
+  const gaps: string[] = [];
+  let previous = 0;
+  for (const row of rows) {
+    const current = Number(row.sequence_number);
+    if (!Number.isFinite(current) || current <= previous) continue;
+    if (current > previous + 1) {
+      gaps.push(previous + 1 === current - 1
+        ? String(previous + 1)
+        : `${previous + 1}-${current - 1}`);
+    }
+    previous = current;
+  }
+  return gaps;
+}
+
+function streamProxyEventId(payload: unknown): string | null {
+  let value = payload;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== 'object') return null;
+  const proxy = (value as { streamProxy?: unknown }).streamProxy;
+  if (!proxy || typeof proxy !== 'object') return null;
+  const eventId = (proxy as { eventId?: unknown }).eventId;
+  return typeof eventId === 'string' && eventId.trim() ? eventId : null;
+}
+
+function isDirectLineageSend(row: any): boolean {
+  return row.delivery_channel === 'sendClientContent' || row.delivery_channel === 'sendToolResponse';
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -319,9 +360,64 @@ async function main() {
     ORDER BY created_at ASC
   `;
 
-  const [bySessionId, byConversationId, memoryRows, messageRows, latencyRows, studentMemoryRows] = await Promise.all([
-    fetchBySessionId, fetchByConversationId, fetchMemory, fetchMessages, fetchLatency, fetchStudentMemory,
+  // The ledger is diagnostic infrastructure. A missing table or a read failure
+  // must be reported as unavailable rather than hiding the whole legacy report.
+  const fetchLineage = Promise.all([
+    sql`
+      SELECT
+        id, trace_id, sequence_number, source_route, event_type,
+        delivery_channel, delivery_status, student_turn_epoch,
+        payload_sha256, payload_json, observed_at, recorded_at
+      FROM context_lineage_events
+      WHERE session_id = ${sessionId}
+      ORDER BY sequence_number ASC, observed_at ASC
+    `,
+    sql`
+      SELECT
+        id, trace_id, from_event_id, to_event_id, link_type, observed_at
+      FROM context_lineage_links
+      WHERE session_id = ${sessionId}
+      ORDER BY observed_at ASC
+    `,
+  ]).then(([events, links]) => ({
+    events: events as any[],
+    links: links as any[],
+    error: null as string | null,
+  })).catch((error: unknown) => ({
+    events: [] as any[],
+    links: [] as any[],
+    error: error instanceof Error ? error.message : String(error),
+  }));
+
+  const [bySessionId, byConversationId, memoryRows, messageRows, latencyRows, studentMemoryRows, lineage] = await Promise.all([
+    fetchBySessionId, fetchByConversationId, fetchMemory, fetchMessages, fetchLatency, fetchStudentMemory, fetchLineage,
   ]);
+
+  const lineageEvents = lineage.events;
+  const lineageLinks = lineage.links;
+  const lineageSequenceGaps = findLineageSequenceGaps(lineageEvents);
+  const observedStreamProxyEvents = new Map(
+    lineageEvents
+      .filter(row => row.event_type === 'stream_event_observed' && row.delivery_status === 'observed')
+      .map(row => [row.id, {
+        id: row.id as string,
+        traceId: row.trace_id as string,
+        sequenceNumber: Number(row.sequence_number),
+        eventType: row.event_type as string,
+        deliveryStatus: row.delivery_status as string,
+      }] as const),
+  );
+  const lineageAvailability = getContextLineageAvailability({
+    captureEnabled: isContextLineageCaptureEnabled(),
+    eventCount: lineageEvents.length,
+    linkCount: lineageLinks.length,
+    persistenceState: lineage.error
+      ? 'unavailable'
+      : lineageSequenceGaps.length > 0
+      ? 'degraded'
+      : 'healthy',
+    unavailableReason: lineage.error,
+  });
 
   // Merge and deduplicate pipeline events (prefer bySessionId which is authoritative)
   const seenIds = new Set<string>();
@@ -397,6 +493,8 @@ async function main() {
     const totalSentences = audioFlushRows.reduce((acc: number, r: any) => acc + (r.audio_total_sentences ?? 0), 0);
     console.log(`  ${BOLD('Audio:')}     ${audioSubRows.length} sub-turns sealed  ${totalSentences} sentences delivered`);
   }
+  console.log(`  ${BOLD('Lineage:')}   ${lineageAvailability.status}  ${lineageEvents.length} events  ${lineageLinks.length} links`);
+  console.log(`             ${DIM(lineageAvailability.message)}`);
   sep();
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -639,6 +737,44 @@ async function main() {
     });
   }
 
+  // 1a. Canonical context-lineage evidence
+  console.log(BOLD('\n  CONTEXT LINEAGE AVAILABILITY (canonical ledger)'));
+  sep('─', 60);
+  console.log(`  Status: ${lineageAvailability.status}`);
+  console.log(`  Capture configured: ${lineageAvailability.captureEnabled ? G('enabled') : Y('disabled')}`);
+  console.log(`  Evidence: ${lineageEvents.length} event(s) · ${lineageLinks.length} link(s)`);
+  console.log(`  ${DIM(lineageAvailability.message)}`);
+
+  if (lineageAvailability.status === 'unavailable') {
+    console.log(Y('  Ledger rows could not be read. This is an unavailable diagnostic boundary, not evidence about delivery or model receipt.'));
+  } else if (lineageEvents.length === 0) {
+    console.log(Y('  No canonical lineage rows are present. Absence of rows does not prove a send was not attempted, delivered, or received by the model.'));
+  } else {
+    const traceCount = new Set(lineageEvents.map(row => row.trace_id)).size;
+    console.log(`  Traces: ${traceCount}`);
+    if (lineageSequenceGaps.length > 0) {
+      console.log(Y(`  Partial persistence: missing sequence number(s) ${lineageSequenceGaps.join(', ')}.`));
+    }
+    for (const row of lineageEvents) {
+      const channel = row.delivery_channel ? ` channel:${row.delivery_channel}` : '';
+      const hash = row.payload_sha256 ? ` sha:${String(row.payload_sha256).slice(0, 12)}` : '';
+      console.log(`  [${String(row.sequence_number).padStart(3)}] ${fmtTs(new Date(row.observed_at))}  ${row.source_route} → ${row.event_type}  status:${row.delivery_status}${channel}${hash}`);
+      if (isDirectLineageSend(row)) {
+        const proxyEventId = streamProxyEventId(row.payload_json);
+        const proxyEvent = observedStreamProxyEvents.get(proxyEventId ?? '');
+        const hasFactualProxy = isFactualStreamProxyReference({
+          traceId: row.trace_id,
+          sequenceNumber: Number(row.sequence_number),
+        }, proxyEventId, proxyEvent);
+        if (hasFactualProxy && proxyEvent) {
+          console.log(`        ${G(`Stream proxy observed: ${proxyEvent.eventType} ${String(proxyEvent.id).slice(0, 8)}.`)} ${DIM('This is transport evidence only; model receipt remains unknown.')}`);
+        } else {
+          console.log(`        ${Y('Send receipt unknown — no linked observed stream event was recorded. Model receipt is unknown.')}`);
+        }
+      }
+    }
+  }
+
   // 2. Guardian attempts
   console.log(BOLD('\n  2. GUARDIAN ATTEMPTS'));
   sep('─', 60);
@@ -811,6 +947,16 @@ async function main() {
     notes.push(Y(`${traceUnknown} Guardian attempt(s) reached an explicit unknown-delivery state. This is evidence to investigate, not a “miss” attributed to Daniela.`));
   }
 
+  if (lineageAvailability.status === 'capture_disabled') {
+    notes.push(Y('Context-lineage capture was disabled for this report environment. The absence of lineage rows cannot be used to assess delivery or model receipt.'));
+  } else if (lineageAvailability.status === 'no_evidence_yet') {
+    notes.push(Y('Context-lineage capture is enabled but no rows exist for this session yet. This is a missing observation boundary, not confirmation of delivery or model receipt.'));
+  } else if (lineageAvailability.status === 'degraded_partial') {
+    issues.push(R(`Context-lineage evidence is partial (${lineageSequenceGaps.length} sequence gap(s)); do not treat the trace as complete.`));
+  } else if (lineageAvailability.status === 'unavailable') {
+    issues.push(R('Context-lineage diagnostics could not be queried; delivery and model receipt remain unknown.'));
+  }
+
   const errored = (toolRows as any[]).filter(r => r.status === 'error');
   if (errored.length > 0) {
     issues.push(R(`${errored.length} tool call(s) errored: ${[...new Set(errored.map((r: any) => r.tool_name))].join(', ')}`));
@@ -858,8 +1004,9 @@ async function main() {
   }
 
   sep();
-  const totalEvents = pipelineEvents.length + (memoryRows as any[]).length + (studentMemoryRows as any[]).length + (messageRows as any[]).length;
+  const totalEvents = pipelineEvents.length + (memoryRows as any[]).length + (studentMemoryRows as any[]).length + (messageRows as any[]).length + lineageEvents.length + lineageLinks.length;
   console.log(DIM(`  Events: ${toolRows.length} tool calls · ${guardianRows.length} legacy guardian fires · ${guardianTraceRows.length} Guardian trace events · ${(memoryRows as any[]).length} teaching-mem searches · ${(studentMemoryRows as any[]).length} student-mem searches · ${audioSubRows.length} audio sub-turns · ${audioFlushRows.length} audio flushes · ${(messageRows as any[]).length} messages`));
+  console.log(DIM(`          ${lineageEvents.length} canonical lineage events · ${lineageLinks.length} canonical lineage links`));
   console.log(DIM(`  Total:  ${totalEvents} events in timeline`));
   sep2();
 }
