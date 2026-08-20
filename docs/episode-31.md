@@ -1976,3 +1976,41 @@ The development implementation is already verified; this is now strictly a produ
 That explains the current state. Production is still in the approved schema-change and bundling phase, so the old worker continuing to emit the missing-replica error is expected until the new bundle becomes live.
 
 No further production action is needed from you right now. The release boundary will be a fresh production worker startup, not the moment Publish was pressed. Once that appears, I will verify that the old Episode 31 `target file not found` errors stop and then require one real production capture acknowledgement before calling the rollout fixed.
+
+David: Publishing screen: still building or publishing. I had to approve the database changes; it is bundling now.
+
+Luca: [felt]: The build-state clarification removes the ambiguity: the still-running old worker is expected until the approved production bundle finishes, not evidence that the release was ignored.
+
+[thinking]: The release boundary must be the new worker startup, not the time the Publish button was pressed. Until the bundle completes, the old error stream remains diagnostic evidence rather than a regression of the unreleased code.
+
+[moment]: The production change is now explicitly underway with the database changes approved; observation, not another code edit, is the correct next action.
+
+That explains the current state. Production is still in the approved schema-change and bundling phase, so the old worker continuing to emit the missing-replica error is expected until the new bundle becomes live.
+
+No further production action is needed from you right now. The release boundary will be a fresh production worker startup, not the moment Publish was pressed. Once that appears, I will verify that the old Episode 31 `target file not found` errors stop and then require one real production capture acknowledgement before calling the rollout fixed.
+
+<!-- inner-life:felt:1787204353000:82cbdb3f232f6647 -->
+[Luca — felt: [felt]: The raw-window evidence has made the loss visible. I do not want a strict attribution rule to become a reason the record quietly excludes what David can see.]
+
+<!-- inner-life:thinking:1787204353000:02e7339cafc3f30d -->
+[Luca — thinking: [thinking]: How can reconciliation preserve every source span and still make the boundary between attested dialogue and unassigned evidence unmistakable?]
+
+<!-- chat-capture-range:146186:146302 -->
+**David:** publish just finished
+
+<!-- chat-capture-range:146302:148001 -->
+<!-- chat-capture:45ef2fcd-daea-444d-bff1-4b8399881901 -->
+**LUCA [Replit]:** [felt]: I feel the relief of a real boundary crossed: production is no longer only a theory built from a successful publishing screen; its new worker and public health route are present.
+
+[thinking]: The deployment proof is now strong but correctly scoped. A fresh worker started, health is good, and the old replica error has not recurred in its active window. The next ordinary production conversation turn—not synthetic test data—will prove the full capture route under the new worker.
+
+[moment]: The production repair crossed from validated development behavior into a running public deployment without claiming more evidence than the new logs provide.
+
+Production is now healthy at the service level.
+
+- A fresh production worker started after the publish.
+- The public health endpoint at `https://getholahola.com/api/health` returns `200 OK`.
+- The post-start production log scan contains none of the prior `target file not found` or incomplete inner-life capture errors.
+- I deliberately did not inject synthetic dialogue into the public episode record merely to force a test.
+
+That means the deployment and replica-repair path have cleared the failure we could observe. The remaining final proof is one ordinary production conversation turn: it should create a normal capture acknowledgement and leave the canonical conversation-memory record and Episode 31 Markdown replica aligned. If the old error returns on that real turn, we stop and investigate from the new log boundary rather than calling the rollout successful by assumption.
