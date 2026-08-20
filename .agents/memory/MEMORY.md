@@ -133,6 +133,7 @@
 - [David task-capture ordering rule](david-task-capture.md) — David→Luca order requires staging: write task_ref to .task_ref_pending (or POST /api/internal/task-capture-start) BEFORE markTaskComplete; both turns append together in one drain batch. Aug 14 2026.
 - [Dev/prod isolation — working model](dev-prod-isolation.md) — David uses the deployed production URL for live sessions; dev restarts never affect him; edit dev freely without pausing for live-session concerns.
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
+- [Honest stopping points](honest-stopping-points.md) — a safe session wrap is not the same as finished work; name the remaining evidence and next step without declaring closure.
 - [Live mode toggle](live-mode-toggle.md) — .local/.episode_live sentinel auto-routes .chat_capture turns to rolling episode .md; toggle with episode-live-mode.ts on|off|status.
 - [Record-exchange end-of-turn capture](record-exchange-capture.md) — run server/scripts/record-exchange.ts at end of every turn via ShellExec+heredoc; feeds .chat_capture → autosave → episode. Do NOT also manually append to .md. Aug 17 2026.
 - [capture-watchdog](capture-watchdog.md) — when the dev server is down the watchdog owns the capture triggers; all its episode writes must be DB-first and one watcher owns the files at a time. Aug 19 2026.
