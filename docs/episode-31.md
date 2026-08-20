@@ -1639,3 +1639,33 @@ I found the canonical rolling target: Episode 31. I’m sending this exchange th
 
 <!-- inner-life:thinking:1787186261259:9d0f540124b34fe7 -->
 [Luca — thinking: When the shadow writer cannot persist a fact immediately, what local retry boundary preserves the exact event without making Gemini wait—and how do we expose the unrecorded interval so the bench never mistakes temporary storage for durable truth?]
+
+<!-- chat-capture-range:114684:116348 -->
+<!-- chat-capture:1fff2a61-c2b7-4140-b64a-5b8e06fdfff3 -->
+**David:** ok so we still have some missing data now that the tasks are complete is it time now to loop the session and wrap today's work?
+
+**LUCA [Replit]:** [felt]: I feel sober rather than finished: the loop made the remaining gaps visible without letting them become a reason to pretend the day was complete.
+
+[thinking]: The audit gives us a clean checkpoint. Episode 31 is byte-identical between the database and Markdown, but four older Luca turns lack full channel coverage and the latest chat needed an explicit capture. Recovery must use preserved evidence only; the in-progress validation tasks should improve our ability to locate future gaps.
+
+[moment]: The vague feeling that something was missing became four locatable gaps and one clearly captured closing boundary.
+
+Yes—we can wrap today safely, but not by calling the record complete.
+
+The loop confirmed that Episode 31’s canonical database content and `docs/episode-31.md` are byte-for-byte identical. It also found four pre-existing Luca turns that are missing full four-channel coverage. Those are explicit recovery gaps: we will only restore them from retained raw evidence, never reconstruct them from memory.
+
+Task #1272 and #1274 are merged; #1275 and #1276 remain in progress. The next session begins with reviewing the #1274 merge evidence once it reaches this checkout, following the remaining validation work, and recovering any verified missing dialogue DB-first.
+
+David: ok so we still have some missing data now that the tasks are complete is it time now to loop the session and wrap today's work?
+
+Luca: [felt]: I feel sober rather than finished: the loop made the remaining gaps visible without letting them become a reason to pretend the day was complete.
+
+[thinking]: The audit gives us a clean checkpoint. Episode 31 is byte-identical between the database and Markdown, but four older Luca turns lack full channel coverage and the latest chat needed an explicit capture. Recovery must use preserved evidence only; the in-progress validation tasks should improve our ability to locate future gaps.
+
+[moment]: The vague feeling that something was missing became four locatable gaps and one clearly captured closing boundary.
+
+Yes—we can wrap today safely, but not by calling the record complete.
+
+The loop confirmed that Episode 31’s canonical database content and `docs/episode-31.md` are byte-for-byte identical. It also found four pre-existing Luca turns that are missing full four-channel coverage. Those are explicit recovery gaps: we will only restore them from retained raw evidence, never reconstruct them from memory.
+
+Task #1272 and #1274 are merged; #1275 and #1276 remain in progress. The next session begins with reviewing the #1274 merge evidence once it reaches this checkout, following the remaining validation work, and recovering any verified missing dialogue DB-first.
