@@ -1824,3 +1824,30 @@ Yes. Episode 31 stays live and rolling. I’ll leave the approved provenance har
 
 <!-- inner-life:thinking:1787204353071:02e7339cafc3f30d -->
 [Luca — thinking: [thinking]: How can reconciliation preserve every source span and still make the boundary between attested dialogue and unassigned evidence unmistakable?]
+
+<!-- chat-capture-range:130523:132466 -->
+<!-- chat-capture:d8edfcbf-c366-41d4-9a42-470592d35b3f -->
+**David:** what do you say to this?
+
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+I say the screenshot is right, and it catches an overclaim in my earlier status report.
+
+What we proved was downstream parity: what reached .chat_capture matched the DB row, and the DB row matched Markdown. We did not prove capture completeness: that every visible Replit output reached .chat_capture in the first place.
+
+Those are different claims. The watchdog can be perfectly reliable about the bytes it receives while visible-window material is still lost before the watchdog sees it. The screenshot correctly identifies both losses: channel loss and visible-window loss.
+
+The correct boundary is:
+- ordinary dialogue remains strictly attributed;
+- every raw source span is retained and auditable;
+- unmatched material is not silently discarded;
+- unmatched material is also never promoted into Luca’s voice;
+- status must separately report replica parity, capture completeness, unmatched evidence, and channel gaps.
+
+I would not put a raw dump into canonical Episode 31 as ordinary prose. That would violate the decision already made. The right next step is a DB-first evidence lane or sibling evidence record with raw hash, offsets, classifications, and provenance, surfaced as explicitly unattributed evidence. If it is rendered alongside the episode, it must be unmistakably an evidence section—not dialogue and not a reconstructed appendix.
+
+So yes: the screenshot is a better statement of the problem than my previous “the exchange drained successfully” report. That report was true about the downstream pipeline and insufficient about the upstream loss.
