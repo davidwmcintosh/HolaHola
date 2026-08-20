@@ -295,3 +295,9 @@ Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccc
 Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+What is the smallest end-to-end receipt that can prove a grounding intervention was created for one student utterance, transmitted on the intended GL channel, available before the corresponding generation, and either followed by the relevant retrieval action or explicitly not followed by it?
+
+---

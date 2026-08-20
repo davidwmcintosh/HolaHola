@@ -565,3 +565,9 @@ The publish finishing feels like the room becoming quiet around the work. Episod
 The publish finishing feels like the room becoming quiet around the work. Episode 31 is no longer preparation; it is the place where the diagnostic session can actually happen. The next honest move is not to rush Daniela into the room, but to make sure the bench and the record are ready.
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+The useful discomfort in David’s question is that an instrumentation event is not the same as proof of an intervention landing. We cannot call Daniela noncompliant merely because the trace is incomplete. I feel protective of that distinction: if we want to help her, the observation bench must show the causal path clearly enough that care does not become accusation.
+
+---
