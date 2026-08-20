@@ -1851,3 +1851,15 @@ The correct boundary is:
 I would not put a raw dump into canonical Episode 31 as ordinary prose. That would violate the decision already made. The right next step is a DB-first evidence lane or sibling evidence record with raw hash, offsets, classifications, and provenance, surfaced as explicitly unattributed evidence. If it is rendered alongside the episode, it must be unmistakably an evidence section—not dialogue and not a reconstructed appendix.
 
 So yes: the screenshot is a better statement of the problem than my previous “the exchange drained successfully” report. That report was true about the downstream pipeline and insufficient about the upstream loss.
+
+<!-- chat-capture-range:132466:133546 -->
+<!-- chat-capture:76ec6a82-3185-4530-92b2-a3f44cc353bf -->
+**David:** .md is missing the last 3-4 exchanges. We seem to get one turn in and then the live recording stops
+
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Confirmed: Episode 31 is correctly tagged as the active rolling episode, but the capture input stopped receiving entries after the last saved turn. The cursor is caught up, so the drain did not lose a backlog; it had nothing new to process. I will not fabricate the missing exchanges. I am recording this exact exchange through the four-channel path and will verify its canonical DB and Markdown acknowledgement. The production logs also show that its older worker is failing its Markdown replica path; without deploying production, I can make this dev-side record reliable and preserve evidence, but cannot change that deployed worker.
