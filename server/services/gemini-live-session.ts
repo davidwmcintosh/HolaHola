@@ -53,7 +53,16 @@ import {
   observeGuardianState,
   observeTurnComplete,
   observeFrictionScore,
+  observeContextLineageEvent,
+  observeContextLineageLink,
+  observeContextLineageHealth,
 } from './session-observation-store';
+import {
+  ContextLineageRecorder,
+  createDatabaseContextLineageSink,
+  type ContextLineageEventInput,
+  type ContextLineageLinkInput,
+} from './context-lineage-service';
 import { getSharedDb } from '../db';
 import { generateConversationTitle } from '../conversation-utils';
 import { sql, eq } from 'drizzle-orm';
@@ -397,6 +406,9 @@ export class GeminiLiveSession {
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
   private preTurnGroundingBinding: GroundingTurnBinding | null = null;
+  /** Shadow-ledger IDs for the currently active pre-turn Guardian lookup. */
+  private preTurnGuardianLineageEventId: string | null = null;
+  private preTurnGroundingLineageEventId: string | null = null;
   // Set to true when the pre-turn scan detected emotional valence (vulnerability/self-doubt/
   // embarrassment) rather than just a memory-risk phrase. Changes the [ARCHIVE GUARDIAN]
   // injection label so Daniela understands SHE IS BEING GIVEN RELATIONAL HISTORY, not facts.
@@ -411,6 +423,9 @@ export class GeminiLiveSession {
   private activeStudentTurnEpoch = 0;
   /** Complete transcript accumulated for the active student-turn epoch. */
   private activeStudentUtterance = '';
+  /** One immutable lineage trace per student utterance, when the ledger is enabled. */
+  private activeContextLineageTraceId: string | null = null;
+  private contextLineageRecorder: ContextLineageRecorder | null = null;
   private hardWallTriggered = false;   // set mid-output if slide detected; cleared at generationComplete
   // ── Archive Guardian A/B channel ────────────────────────────────────────────
   // Reads from global config live so mid-session swaps (POST /api/admin/guardian/channel)
@@ -441,6 +456,69 @@ export class GeminiLiveSession {
   }> = [];
   /** Tracks how many guardianFireLog entries have already been persisted to voice_pipeline_events. */
   private _guardianLoggedCount = 0;
+
+  /**
+   * The ledger is intentionally feature-gated until its additive table
+   * migration and database-level mutation guards are installed. Calls below
+   * remain pure observation: they do not change Live request payloads or wait
+   * on a database write.
+   */
+  private _getContextLineageRecorder(): ContextLineageRecorder | null {
+    if (process.env.CONTEXT_LINEAGE_LEDGER_ENABLED !== 'true') return null;
+    if (this.contextLineageRecorder) return this.contextLineageRecorder;
+
+    const conversationId = (this.session as any).conversationId as string | undefined;
+    const userId = this.session.userId ? String(this.session.userId) : undefined;
+    this.contextLineageRecorder = new ContextLineageRecorder(
+      {
+        sessionId: this.session.dbSessionId ?? this.session.id,
+        conversationId,
+        userId,
+      },
+      {
+        sink: createDatabaseContextLineageSink(),
+        onHealthChange: (health) => observeContextLineageHealth(conversationId, health),
+      },
+    );
+    return this.contextLineageRecorder;
+  }
+
+  private _recordContextLineage(input: ContextLineageEventInput): string | null {
+    const recorder = this._getContextLineageRecorder();
+    if (!recorder) return null;
+    const event = recorder.recordEvent({
+      ...input,
+      traceId: input.traceId ?? this.activeContextLineageTraceId ?? undefined,
+      studentTurnEpoch: input.studentTurnEpoch ?? this.activeStudentTurnEpoch,
+    });
+    observeContextLineageEvent((this.session as any).conversationId, {
+      id: event.id,
+      traceId: event.traceId,
+      sequenceNumber: event.sequenceNumber,
+      sourceRoute: event.sourceRoute,
+      eventType: event.eventType,
+      deliveryChannel: event.deliveryChannel ?? null,
+      deliveryStatus: event.deliveryStatus ?? 'observed',
+      studentTurnEpoch: event.studentTurnEpoch ?? null,
+      payloadSha256: event.payloadSha256 ?? null,
+      observedAt: event.observedAt.toISOString(),
+    });
+    return event.id;
+  }
+
+  private _linkContextLineage(input: ContextLineageLinkInput): void {
+    const recorder = this._getContextLineageRecorder();
+    if (!recorder) return;
+    const link = recorder.recordLink(input);
+    observeContextLineageLink((this.session as any).conversationId, {
+      id: link.id,
+      traceId: link.traceId,
+      fromEventId: link.fromEventId,
+      toEventId: link.toEventId,
+      linkType: link.linkType,
+      observedAt: link.observedAt.toISOString(),
+    });
+  }
 
   /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live.
    *  Also persists any new fire-log entries to voice_pipeline_events immediately so they survive
@@ -2607,6 +2685,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         if (startsNewStudentUtterance) {
           this.activeStudentTurnEpoch++;
           this.activeStudentUtterance = '';
+          this.activeContextLineageTraceId = this._getContextLineageRecorder()?.beginTrace() ?? null;
+          this._recordContextLineage({
+            traceId: this.activeContextLineageTraceId ?? undefined,
+            studentTurnEpoch: this.activeStudentTurnEpoch,
+            sourceRoute: 'gemini-live',
+            eventType: 'student_turn_started',
+          });
           if (this.pendingCarryForwardGrounding) {
             console.warn(
               `[PreTurnGuardian] Discarding stale carry-forward grounding from student turn `
@@ -2635,6 +2720,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.pendingInputTranscript += text;
         this.activeStudentUtterance += text;
         this.pendingInputSaved = false;
+        this._recordContextLineage({
+          sourceRoute: 'gemini-live',
+          eventType: 'input_transcription_chunk',
+          payloadText: text,
+        });
 
         // Friction Score — first-input timing: measure pre-speech pause (generationComplete → first word)
         if (this.currentTurnFirstInputMs === 0 && this.studentTurnStartMs > 0) {
@@ -2718,6 +2808,30 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           console.log(`[PreTurnGuardian] Firing — ${logLabel}`);
           this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null, groundingPreview: null });
           this._observeGuardian();
+          this.preTurnGuardianLineageEventId = this._recordContextLineage({
+            sourceRoute: 'archive-guardian',
+            eventType: 'guardian_triggered',
+            payloadText: queryText,
+            payloadJson: {
+              candidateAssertion: groundingBinding.candidateAssertion,
+              emotional: emotional.detected,
+              namedRecord: this.preTurnIsNamedRecord,
+            },
+          });
+          const lookupStartedId = this._recordContextLineage({
+            sourceRoute: 'archive-guardian',
+            eventType: 'lookup_started',
+            payloadText: groundingBinding.candidateAssertion,
+            deliveryStatus: 'attempted',
+          });
+          if (this.preTurnGuardianLineageEventId && lookupStartedId && this.activeContextLineageTraceId) {
+            this._linkContextLineage({
+              traceId: this.activeContextLineageTraceId,
+              fromEventId: this.preTurnGuardianLineageEventId,
+              toEventId: lookupStartedId,
+              linkType: 'caused_by',
+            });
+          }
 
           const promise = runAutoGrounding(
             userId,
@@ -2739,9 +2853,22 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 `[PreTurnGuardian] Discarding stale grounding result for "${groundingBinding.candidateAssertion.slice(0, 60)}" `
                 + `(student turn ${groundingBinding.studentTurnEpoch}).`,
               );
+                this._recordContextLineage({
+                  sourceRoute: 'archive-guardian',
+                  eventType: 'context_stale_discarded',
+                  studentTurnEpoch: groundingBinding.studentTurnEpoch,
+                  payloadText: result,
+                  deliveryStatus: 'discarded',
+                });
               return;
             }
             this.preTurnGroundingResult = result;
+              this.preTurnGroundingLineageEventId = this._recordContextLineage({
+                sourceRoute: 'archive-guardian',
+                eventType: 'lookup_resolved',
+                studentTurnEpoch: groundingBinding.studentTurnEpoch,
+                payloadText: result,
+              });
             // Fill groundingPreview on the fire log entry so observe bench shows what was found.
             const previewEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.groundingPreview === null);
             if (previewEntry) {
@@ -4278,6 +4405,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           last.response.result = currentResult
             + (currentResult ? '\n\n' : '')
             + guardianWhisper;
+          const assembledContextId = this._recordContextLineage({
+            sourceRoute: 'gemini-live',
+            eventType: 'context_concatenated',
+            deliveryChannel: 'tool_response',
+            payloadText: guardianWhisper,
+            deliveryStatus: 'queued',
+          });
+          if (assembledContextId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
+            this._linkContextLineage({
+              traceId: this.activeContextLineageTraceId,
+              fromEventId: this.preTurnGroundingLineageEventId,
+              toEventId: assembledContextId,
+              linkType: 'derived_from',
+            });
+          }
           console.log(`[ArchiveGuardian/concat] ${guardianWhispers.length} whisper(s) injected into tool response (${last.name}) — ${guardianWhisper.length} chars`);
           if (recentFireForChannel) { recentFireForChannel.channel = 'concat'; recentFireForChannel.charsInjected = guardianWhisper.length; }
           this._observeGuardian();
@@ -4454,6 +4596,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // already barged past. GL stall risk is low: the interrupted turn has no pending model turn.
       if (this.currentTurnId !== localTurnId) {
         console.log(`[GeminiLive] Call-ID guard: dropping ${responses.length} tool response(s) — turn ${localTurnId} superseded by turn ${this.currentTurnId} (barge-in during tool execution)`);
+        this._recordContextLineage({
+          sourceRoute: 'gemini-live',
+          eventType: 'tool_response_discarded_by_barge_in',
+          deliveryChannel: 'tool_response',
+          deliveryStatus: 'discarded',
+          payloadText: JSON.stringify(responses),
+          payloadJson: { localTurnId, currentTurnId: this.currentTurnId },
+        });
         return;
       }
 
@@ -4464,9 +4614,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // the turn is resolved regardless of what happens to the connection next.
           this.pendingFunctionCallIds = [];
           this.liveSession.sendToolResponse({ functionResponses: responses });
+          this._recordContextLineage({
+            sourceRoute: 'gemini-live',
+            eventType: 'tool_response_send_attempted',
+            deliveryChannel: 'sendToolResponse',
+            deliveryStatus: 'unknown',
+            payloadText: JSON.stringify(responses),
+          });
           console.log(`[GeminiLive] Tool responses sent: ${responses.map(r => r.name).join(', ')}`);
         } catch (err) {
           console.error('[GeminiLive] Failed to send tool responses:', err);
+          this._recordContextLineage({
+            sourceRoute: 'gemini-live',
+            eventType: 'tool_response_send_failed',
+            deliveryChannel: 'sendToolResponse',
+            deliveryStatus: 'failed',
+            payloadText: JSON.stringify(responses),
+            payloadJson: { error: err instanceof Error ? err.message : String(err) },
+          });
         }
 
         // Send any queued inline image parts (vision) as realtimeInput after tool response.

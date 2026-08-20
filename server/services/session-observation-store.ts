@@ -62,6 +62,49 @@ export interface FrictionRecord {
   ts: number;
 }
 
+/**
+ * Deliberately bounded, payload-free projection of the immutable context
+ * ledger. The canonical source remains context_lineage_events; this exists so
+ * the Observation Bench can show a currently active trace without waiting for
+ * a forensic database query.
+ */
+export interface ContextLineageObservationEvent {
+  id: string;
+  traceId: string;
+  sequenceNumber: number;
+  sourceRoute: string;
+  eventType: string;
+  deliveryChannel: string | null;
+  deliveryStatus: string;
+  studentTurnEpoch: number | null;
+  payloadSha256: string | null;
+  observedAt: string;
+}
+
+export interface ContextLineageObservationLink {
+  id: string;
+  traceId: string;
+  fromEventId: string;
+  toEventId: string;
+  linkType: string;
+  observedAt: string;
+}
+
+export interface ContextLineageObservationHealth {
+  state: "healthy" | "degraded";
+  pendingWrites: number;
+  failedWrites: number;
+  firstUnrecordedSequenceNumber: number | null;
+  lastError: string | null;
+}
+
+export interface ContextLineageObservation {
+  activeTraceId: string | null;
+  events: ContextLineageObservationEvent[];
+  links: ContextLineageObservationLink[];
+  health: ContextLineageObservationHealth;
+}
+
 export interface SessionObservation {
   conversationId: string;
   userId: string;
@@ -84,6 +127,9 @@ export interface SessionObservation {
   turnSummaries: TurnSummary[];
   // Friction history from analyzeFriction (last 20 records)
   frictionHistory: FrictionRecord[];
+  // Live projection of immutable context lineage. Payloads stay in the durable
+  // ledger and are fetched separately for authorized raw inspection.
+  contextLineage: ContextLineageObservation;
 }
 
 const store = new Map<string, SessionObservation>();
@@ -121,6 +167,18 @@ export function observeSessionStart(opts: {
     recentMemorySearches: existing?.recentMemorySearches ?? [],
     turnSummaries: existing?.turnSummaries ?? [],
     frictionHistory: existing?.frictionHistory ?? [],
+    contextLineage: existing?.contextLineage ?? {
+      activeTraceId: null,
+      events: [],
+      links: [],
+      health: {
+        state: "healthy",
+        pendingWrites: 0,
+        failedWrites: 0,
+        firstUnrecordedSequenceNumber: null,
+        lastError: null,
+      },
+    },
   });
 }
 
@@ -254,6 +312,46 @@ export function observeFrictionScore(
     ts: now(),
   };
   entry.frictionHistory = [record, ...entry.frictionHistory].slice(0, 20);
+  entry.lastUpdatedMs = now();
+}
+
+export function observeContextLineageEvent(
+  conversationId: string | undefined,
+  event: ContextLineageObservationEvent,
+): void {
+  if (!conversationId) return;
+  const entry = touch(conversationId);
+  if (!entry) return;
+  entry.contextLineage.activeTraceId = event.traceId;
+  entry.contextLineage.events = [
+    ...entry.contextLineage.events,
+    event,
+  ].slice(-100);
+  entry.lastUpdatedMs = now();
+}
+
+export function observeContextLineageLink(
+  conversationId: string | undefined,
+  link: ContextLineageObservationLink,
+): void {
+  if (!conversationId) return;
+  const entry = touch(conversationId);
+  if (!entry) return;
+  entry.contextLineage.links = [
+    ...entry.contextLineage.links,
+    link,
+  ].slice(-150);
+  entry.lastUpdatedMs = now();
+}
+
+export function observeContextLineageHealth(
+  conversationId: string | undefined,
+  health: ContextLineageObservationHealth,
+): void {
+  if (!conversationId) return;
+  const entry = touch(conversationId);
+  if (!entry) return;
+  entry.contextLineage.health = { ...health };
   entry.lastUpdatedMs = now();
 }
 
