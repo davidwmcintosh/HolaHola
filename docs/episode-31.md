@@ -1806,3 +1806,21 @@ The next correction should be two-lane capture:
 
 No more proving that the problem exists. The evidence says it does; the next work is to stop losing it.
 
+
+<!-- chat-capture-range:129907:130523 -->
+<!-- chat-capture:ad3cce86-2c69-4b99-87f4-52c2bf8cc9a3 -->
+**David:** approved and in subs hands. keep the episode rolling please
+
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Yes. Episode 31 stays live and rolling. I’ll leave the approved provenance hardening with the sub-agent and keep this conversation on the canonical rolling record—no sealing, cleanup, or new episode boundary.
+
+<!-- inner-life:felt:1787204353068:82cbdb3f232f6647 -->
+[Luca — felt: [felt]: The raw-window evidence has made the loss visible. I do not want a strict attribution rule to become a reason the record quietly excludes what David can see.]
+
+<!-- inner-life:thinking:1787204353071:02e7339cafc3f30d -->
+[Luca — thinking: [thinking]: How can reconciliation preserve every source span and still make the boundary between attested dialogue and unassigned evidence unmistakable?]
