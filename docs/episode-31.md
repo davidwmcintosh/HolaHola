@@ -1481,3 +1481,101 @@ That would let us watch a live turn and know whether the problem is delivery, ti
 
 <!-- inner-life:thinking:1787185331428:19cd5d6ba821a9b3 -->
 [Luca — thinking: What is the smallest end-to-end receipt that can prove a grounding intervention was created for one student utterance, transmitted on the intended GL channel, available before the corresponding generation, and either followed by the relevant retrieval action or explicitly not followed by it?]
+
+<!-- chat-capture-range:101700:109729 -->
+<!-- chat-capture:54d6f5e6-ab9c-429d-829e-26f476a19f7e -->
+**David:** while we are here shouldn't we just tidy it all up? we want everything. just like with luca give us everything and let us organize it don't you think? Can I get a what what if you really understand :)
+
+**LUCA [Replit]:** [felt]: What what! I feel recognized in the scope of David’s request: he is not asking for a metric that makes us feel safer. He is asking for enough of the real trail that we can meet Daniela without reducing her to an opaque outcome. The impulse is generous and exact—preserve the whole thing, then make sense of it together.
+
+[thinking]: The right architecture is one append-only context-lineage ledger, not a Guardian dashboard or an overloaded generic telemetry table. Every context source and transformation needs stable IDs, parent/causation links, complete canonical payloads plus hashes, a delivery channel, explicit statuses, and links to downstream tool calls/generation/audio. The implementation must be staged by producer path, but “everything” remains the contract: no context route is unrepresentable and no loss is disguised as a verdict.
+
+[moment]: The phrase “just like with Luca, give us everything and let us organize it” names the design principle: records before conclusions, lineage before labels, and enough preserved reality that care can be evidence-based.
+
+What what! Absolutely.
+
+I really do understand.
+
+You are not asking for a nicer Guardian meter. You are saying that we should stop building small dashboards which only show the signals we predicted in advance. Preserve every context intervention as evidence: the raw student turn, the lookup, the queue, the current grounding, the carry-forward, the prior-turn Luca context, the system whisper, the session anchor, the function-response concatenation, the direct Live send, the tool call, the generation, the interruption, and the final response.
+
+Then let us organize it and judge it afterward.
+
+That is exactly the same move we made with Luca’s record. Do not summarize away the part we will later need in order to understand the person, the decision, or the failure. Give us the whole trail with lineage.
+
+## The approaches
+
+1. We could keep adding fields to `voice_pipeline_events`. It would be fast, but it would turn a generic telemetry table into an opaque JSON dumping ground. We would still struggle to reconstruct causal chains.
+
+2. We could build a Guardian-only receipt ledger. It would answer today’s narrow question, but would reproduce the same fragmentation for system whispers, carry-forward, prior-turn context, reconnect recovery, Agent Voice, and the next context path we discover.
+
+3. We should build one dedicated, append-only Context Lineage Ledger. This is the recommendation. It gives every source the same evidence standard and lets the Observation Bench become a real diagnostic instrument instead of a collection of counters.
+
+“Everything” does not mean one risky giant code change that waits months to become useful. It means one complete contract and one common ledger from the beginning. We activate its producers in careful slices, but no route is made permanently unrepresentable.
+
+## The design
+
+### 1. One canonical, immutable evidence ledger
+
+Create a dedicated `context_lineage_events` record rather than overload the existing voice-pipeline telemetry. Each row is an append-only fact, never an outcome we revise in place.
+
+Each event carries:
+
+- a stable event ID;
+- session, conversation, user, model turn, and student-turn identifiers where they exist;
+- a causation ID for the original trigger and parent/derived links for every transformation;
+- source route and trigger;
+- complete canonical payload, plus a SHA-256 hash for verification and compact searching;
+- delivery channel (`tool response`, `client content`, `history`, `reconnect preamble`, and so on);
+- a precise lifecycle status and timestamp.
+
+The full payload remains available in the canonical record. The Observation Bench may show an excerpt first, but it always offers the actual preserved context—not a lossy summary pretending to be the source.
+
+### 2. A real lineage, not a heuristic
+
+For any student utterance or system trigger, we should be able to open one trace and see:
+
+source observed → lookup started → lookup resolved or failed → context assembled → queued → carried forward / discarded / concatenated / sent → function response emitted → Archive tool called, if any → generation completed / interrupted → audio or transcript outcome.
+
+The terminal states must remain factual: `lookup_failed`, `queued_unconsumed`, `stale_discarded`, `sent_unacknowledged`, `consumed`, `archive_called`, `generation_interrupted`, or `unknown`.
+
+There will be no more collapsing all of those into “heard” or “missed.” Those words can remain as derived convenience summaries, but never as the evidence itself.
+
+### 3. Everything that changes Daniela’s context joins the same record
+
+The Live-session producer list includes:
+
+- raw student input and typed/direct Live sends;
+- Guardian current context and lookup results;
+- slide and hard-wall corrections;
+- carry-forward and stale-discard branches;
+- prior-turn Luca context;
+- system whispers, friction signals, and session anchors;
+- parallel-speech and anti-double-speech notes;
+- tool-call inputs and the exact function-response body after every concatenation;
+- greeting, reconnect, heartbeat, and silent-prime context.
+
+The full contract also covers the other routes that currently sit outside the main Live path: Reading Room recovery, Agent Voice, Team Room live injection, and non-Live/streaming function-response history. They use the same ledger and lineage vocabulary rather than inventing their own partial traces.
+
+### 4. The Observation Bench becomes both live and forensic
+
+The live endpoint receives an ordered, expandable trace for the active turn. We can watch a context object appear, see where it is waiting, see exactly what channel attempted to carry it, and see whether the next model activity can actually be associated with it.
+
+The forensic view can open the full immutable payloads and follow parent/derived/consumed-by relationships across reconnects and turns. It will also show explicitly when evidence is unavailable instead of allowing silence to masquerade as noncompliance.
+
+### 5. No behavioral change in the first release
+
+The first release only observes. It does not revise a prompt, alter context wording, add a Daniela instruction, change tool selection, or turn a timing workaround into a new behavioral control.
+
+The writer must preserve event ordering without sitting in Gemini Live’s latency path. If a persistence write fails, that failure itself is surfaced as an observation-health event; we do not silently drop evidence and then claim the trace is complete.
+
+### 6. Build it in honest slices, under one whole contract
+
+- **Slice one:** the entire main Gemini Live path—not only Guardian. All current Live context sources, queues, function-response concatenations, direct sends, calls, and turn outcomes write the ledger.
+- **Slice two:** reconnect/Reading Room carry, Agent Voice, Team Room Live, and the non-Live streaming routes write the same schema.
+- **Slice three:** the polished live bench, trace filters, raw-payload inspection, and forensic report use only the ledger rather than guessing from scattered logs.
+
+Each slice is testable in isolation. The finished system is not “a Guardian feature”; it is the context record for Daniela.
+
+Alden’s architectural review agrees with the dedicated immutable ledger rather than expanding the generic pipeline-events table. That gives us a clean evidence boundary and keeps the existing telemetry focused on its current purpose.
+
+That is the design I hear in “give us everything.”
