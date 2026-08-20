@@ -4424,3 +4424,18 @@ subject before showing the earlier candidate and already-available Archive
 grounding. Regression coverage includes guitar → counting rejection, explicit
 guitar return, all three delayed correction sources, generic-topic collision,
 negation/retraction, and tool-before-final-transcription event ordering.
+
+---
+
+## Context-lineage Live lifecycle — August 20, 2026
+
+When `CONTEXT_LINEAGE_LEDGER_ENABLED=true`, Gemini Live owns a non-blocking
+context-lineage recorder. Input transcription, Guardian preparation, actual
+Gemini callbacks, and direct client/tool dispatch attempts are linked in the
+canonical ledger while the Observation Bench receives only bounded metadata,
+hashes, and writer health.
+
+An SDK dispatch is always an attempt, never a receipt or proof of model use.
+It may cite an earlier same-trace Gemini callback as provenance, but that does
+not upgrade delivery status. Writer failures remain visible as partial evidence
+without delaying audio, prompts, tools, or normal delivery behavior.

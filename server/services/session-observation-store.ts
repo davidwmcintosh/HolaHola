@@ -376,7 +376,20 @@ export function observeContextLineageHealth(
   entry.lastUpdatedMs = now();
 }
 
-export function observeSessionEnd(conversationId: string): void {
+export function observeSessionEnd(
+  conversationId: string,
+  options?: { preserveDegradedLineage?: boolean },
+): void {
+  if (options?.preserveDegradedLineage) {
+    const entry = store.get(conversationId);
+    if (entry) {
+      // An open recorder retry is the only live evidence that a trailing
+      // canonical write may be missing. Retain this bounded projection until
+      // its normal expiry rather than deleting the partial-evidence signal.
+      entry.lastUpdatedMs = now();
+      return;
+    }
+  }
   store.delete(conversationId);
 }
 

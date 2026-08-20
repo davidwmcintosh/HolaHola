@@ -236,6 +236,7 @@ export class ContextLineageRecorder {
   private nextSequenceNumber = 0;
   private readonly pending: PendingWrite[] = [];
   private flushing = false;
+  private activeFlush: Promise<void> | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
   private failedWrites = 0;
   private firstUnrecordedSequenceNumber: number | null = null;
@@ -331,7 +332,12 @@ export class ContextLineageRecorder {
    * It does not discard an unrecorded fact when the sink remains unavailable.
    */
   async flushNow(): Promise<void> {
-    await this.flush();
+    if (this.activeFlush) {
+      await this.activeFlush;
+    }
+    if (this.pending.length > 0 && !this.stopped) {
+      await this.startFlush();
+    }
   }
 
   stop(): void {
@@ -344,7 +350,15 @@ export class ContextLineageRecorder {
 
   private scheduleFlush(): void {
     if (this.stopped || this.flushing || this.retryTimer) return;
-    void this.flush();
+    void this.startFlush();
+  }
+
+  private startFlush(): Promise<void> {
+    if (this.activeFlush) return this.activeFlush;
+    this.activeFlush = this.flush().finally(() => {
+      this.activeFlush = null;
+    });
+    return this.activeFlush;
   }
 
   private async flush(): Promise<void> {
@@ -387,7 +401,7 @@ export class ContextLineageRecorder {
     if (this.stopped || this.retryTimer) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      void this.flush();
+      void this.startFlush();
     }, this.retryDelayMs);
   }
 
@@ -402,12 +416,11 @@ export class ContextLineageRecorder {
     const requested = input.deliveryStatus ?? "observed";
     if (!isDirectLiveSendChannel(input.deliveryChannel)) return requested;
 
-    const proxyEventId = streamProxyEventId(input.payloadJson);
-    // A local SDK call only proves an attempt. The only exception is a prior,
-    // immutable stream callback allocated by this same recorder.
-    return isFactualStreamProxyReference(event, proxyEventId, this.observedStreamProxyEvents.get(proxyEventId ?? ""))
-      ? requested
-      : "unknown";
+    // A successful local SDK call proves an attempt only. A prior factual stream
+    // callback is retained in payloadJson as provenance for the attempted send,
+    // never as an acknowledgement, receipt, or proof of model use.
+    if (requested === "failed" || requested === "discarded") return requested;
+    return "attempted";
   }
 }
 

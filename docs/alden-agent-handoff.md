@@ -7202,3 +7202,23 @@ uses a reference to an earlier immutable observed stream event as the only
 transport-side exception to unknown direct-send receipt; even that proxy does
 not establish model receipt.
 No prompt, tool, or Live delivery behavior changed.
+
+---
+
+## Addendum — August 20, 2026 (Live lineage capture lifecycle)
+
+Enabled Gemini Live sessions now instantiate a local, asynchronous
+`ContextLineageRecorder` and project its bounded event/link metadata and writer
+health to the Observation Bench. The canonical trace starts with the actual
+input-transcription callback, follows Guardian lookup and prepared context,
+then records direct `sendClientContent` and `sendToolResponse` attempts. Each
+attempt retains the distinction between local dispatch and Gemini receipt:
+only an earlier same-trace server callback may be named as a factual transport
+proxy, and it still does not establish model receipt or use.
+
+The recorder’s explicit flush waits for an in-flight background write before
+reporting the queued tail drained. This prevents a short enabled diagnostic
+session from appearing to have an incomplete trace solely because its
+fire-and-forget writer had already begun flushing. Recorder outages remain
+visible as degraded/partial evidence; the audio and tool paths do not wait for
+the ledger.

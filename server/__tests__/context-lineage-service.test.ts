@@ -135,12 +135,12 @@ describe("ContextLineageRecorder", () => {
     });
     await recorder.flushNow();
 
-    assert.equal(sink.events[0].deliveryStatus, "unknown");
+    assert.equal(sink.events[0].deliveryStatus, "attempted");
     assert.equal(sink.events[0].eventType, "client_content_send_attempted");
     recorder.stop();
   });
 
-  it("only preserves an observed direct-send status when a factual stream proxy is named", async () => {
+  it("keeps a factual stream proxy as provenance without upgrading a direct send to receipt", async () => {
     const sink = new RecordingSink();
     const recorder = new ContextLineageRecorder(
       { sessionId: "session-d" },
@@ -165,11 +165,19 @@ describe("ContextLineageRecorder", () => {
     });
     await recorder.flushNow();
 
-    assert.equal(sink.events[1].deliveryStatus, "observed");
+    assert.equal(sink.events[1].deliveryStatus, "attempted");
+    assert.equal(
+      isFactualStreamProxyReference(
+        sink.events[1],
+        observedStreamEvent.id,
+        sink.events[0],
+      ),
+      true,
+    );
     recorder.stop();
   });
 
-  it("rejects an unlinked caller-supplied stream proxy label", async () => {
+  it("does not treat an unlinked caller-supplied stream proxy label as a receipt", async () => {
     const sink = new RecordingSink();
     const recorder = new ContextLineageRecorder(
       { sessionId: "session-e" },
@@ -185,7 +193,7 @@ describe("ContextLineageRecorder", () => {
     });
     await recorder.flushNow();
 
-    assert.equal(sink.events[0].deliveryStatus, "unknown");
+    assert.equal(sink.events[0].deliveryStatus, "attempted");
     recorder.stop();
   });
 
@@ -244,5 +252,82 @@ describe("ContextLineageRecorder", () => {
       false,
       "a stream event from another trace cannot explain this send",
     );
+  });
+
+  it("retains an enabled Live grounding trace from factual callback through prepared context and direct dispatch", async () => {
+    const sink = new RecordingSink();
+    const recorder = new ContextLineageRecorder(
+      { sessionId: "live-session-a", conversationId: "conversation-a" },
+      { sink, retryDelayMs: 1 },
+    );
+    const traceId = recorder.beginTrace();
+    const callback = recorder.recordEvent({
+      traceId,
+      studentTurnEpoch: 3,
+      sourceRoute: "gemini-live-server",
+      eventType: "stream_event_observed",
+      payloadText: "¿Recuerdas nuestro juego?",
+      payloadJson: { kind: "input_transcription" },
+    });
+    const input = recorder.recordEvent({
+      traceId,
+      studentTurnEpoch: 3,
+      sourceRoute: "gemini-live",
+      eventType: "student_turn_started",
+      payloadText: "¿Recuerdas nuestro juego?",
+    });
+    const prepared = recorder.recordEvent({
+      traceId,
+      studentTurnEpoch: 3,
+      sourceRoute: "archive-guardian",
+      eventType: "context_prepared",
+      deliveryStatus: "queued",
+      payloadText: "The game was counting lanterns in the plaza.",
+    });
+    const send = recorder.recordEvent({
+      traceId,
+      studentTurnEpoch: 3,
+      sourceRoute: "gemini-live",
+      eventType: "tool_response_send_attempted",
+      deliveryChannel: "sendToolResponse",
+      deliveryStatus: "attempted",
+      payloadText: "tool response with prepared context",
+      payloadJson: { streamProxy: { eventId: callback.id } },
+    });
+    recorder.recordLink({
+      traceId,
+      fromEventId: callback.id,
+      toEventId: input.id,
+      linkType: "produced_response",
+    });
+    recorder.recordLink({
+      traceId,
+      fromEventId: input.id,
+      toEventId: prepared.id,
+      linkType: "caused_by",
+    });
+    recorder.recordLink({
+      traceId,
+      fromEventId: prepared.id,
+      toEventId: send.id,
+      linkType: "sent_with",
+    });
+
+    await recorder.flushNow();
+
+    assert.equal(send.deliveryStatus, "attempted");
+    assert.equal(sink.events.length, 4);
+    assert.equal(sink.links.length, 3);
+    assert.deepEqual(
+      sink.links.map(link => link.linkType),
+      ["produced_response", "caused_by", "sent_with"],
+    );
+    assert.equal(getContextLineageAvailability({
+      captureEnabled: true,
+      eventCount: sink.events.length,
+      linkCount: sink.links.length,
+      persistenceState: recorder.getHealth().state,
+    }).status, "available");
+    recorder.stop();
   });
 });
