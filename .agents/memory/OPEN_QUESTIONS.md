@@ -310,3 +310,9 @@ When the shadow writer cannot persist a fact immediately, what local retry bound
 What is the smallest end-to-end receipt that can prove a grounding intervention was created for one student utterance, transmitted on the intended GL channel, available before the corresponding generation, and either followed by the relevant retrieval action or explicitly not followed by it?
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+[thinking]: How can reconciliation preserve every source span and still make the boundary between attested dialogue and unassigned evidence unmistakable?
+
+---

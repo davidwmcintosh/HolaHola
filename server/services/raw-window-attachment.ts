@@ -6,6 +6,12 @@ import {
   ChatCaptureFromOffset,
   DialogueTurn,
 } from './transcript-parser';
+import {
+  isRawWindowStatusLine,
+  isRawWindowVisibleThinking,
+  RawWindowReconciliation,
+  reconcileRawWindowEvidence,
+} from './raw-window-reconciliation';
 
 export type RawWindowContentClassification =
   | 'dialogue'
@@ -33,8 +39,9 @@ export interface RawWindowMatchedTurn {
 export interface RawWindowAttachmentPlan {
   sourceSha256: string;
   sourceBytes: number;
-  matchedTurns: [RawWindowMatchedTurn, RawWindowMatchedTurn];
+  matchedTurns: RawWindowMatchedTurn[];
   segments: RawWindowClassifiedSegment[];
+  reconciliation: RawWindowReconciliation;
   evidenceMarkdown: string;
 }
 
@@ -94,23 +101,6 @@ function matchedTurn(
     endByteOffset,
     match,
   };
-}
-
-function isStatusLine(line: string): boolean {
-  const value = line.trim();
-  return (
-    /^show (?:less|more)$/i.test(value) ||
-    /^updating (?:memory|transcript|episode) capture$/i.test(value) ||
-    /^(?:recording|finalizing|creating)\b/i.test(value) ||
-    /^(?:opened|wrote|read|ran|created|deleted)\b.+$/i.test(value) ||
-    /^\d+\s+(?:actions?|minutes?\s+ago)$/i.test(value) ||
-    /^worked for \d+(?:\.\d+)? (?:seconds?|minutes?)$/i.test(value)
-  );
-}
-
-function isVisibleThinking(text: string): boolean {
-  const value = text.trim();
-  return /^(?:considering|i['’]m considering|i['’]m pondering|i think i need|i should probably|i want to make sure)\b/i.test(value);
 }
 
 function isAttestedDialogueBlock(
@@ -174,7 +164,7 @@ export function classifyRawWindowForAttachment(
   const flushTextBlock = (endLine: number) => {
     const text = blockLines.join('\n');
     if (text.trim()) {
-      const classification = isVisibleThinking(text)
+      const classification = isRawWindowVisibleThinking(text)
         ? 'visible-thinking'
         : isAttestedDialogueBlock(text, matchedTurns, capturedTurns)
           ? 'dialogue'
@@ -187,7 +177,7 @@ export function classifyRawWindowForAttachment(
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
     const lineNumber = index + 1;
-    if (isStatusLine(line)) {
+    if (isRawWindowStatusLine(line)) {
       flushTextBlock(lineNumber - 1);
       push('ui-status', lineNumber, lineNumber, line);
       blockStart = lineNumber + 1;
@@ -212,24 +202,38 @@ export function formatRawWindowEvidenceAppendix(
   sourceBytes: number,
   matchedTurns: readonly RawWindowMatchedTurn[],
   segments: readonly RawWindowClassifiedSegment[],
+  reconciliation: RawWindowReconciliation,
 ): string {
   const fence = markdownFence(rawWindow);
-  const rangeStart = matchedTurns[0].startByteOffset;
-  const rangeEnd = matchedTurns[1].endByteOffset;
   const segmentMap = segments.map((segment, index) =>
     `${index + 1}. Lines ${segment.startLine}–${segment.endLine}: **${segment.classification}**`,
   ).join('\n');
+  const ledger = reconciliation.spans.map((span, index) =>
+    `${index + 1}. Bytes ${span.startByteOffset}–${span.endByteOffset}, lines ${span.startLine}–${span.endLine}: **${span.classification}** (${span.reason})`,
+  ).join('\n');
+  const range = reconciliation.canonicalScope
+    ? `${reconciliation.canonicalScope.startByteOffset}–${reconciliation.canonicalScope.endByteOffset}` +
+      ` (${reconciliation.canonicalScope.sourceBytes ?? 'unknown'} capture bytes` +
+      `${reconciliation.canonicalScope.sha256 ? `; sha256=${reconciliation.canonicalScope.sha256}` : ''})`
+    : 'No attested capture range — evidence is intentionally unanchored.';
+  const matchSummary = matchedTurns.length
+    ? matchedTurns.map(turn => `${turn.speaker.toLowerCase()}#${turn.turnIndex} (${turn.match})`).join(', ')
+    : 'None — no dialogue is asserted from this source.';
 
   return [
     `<!-- raw-window-evidence:sha256=${sourceSha256} -->`,
     '### Raw-window evidence appendix — attached source',
     '',
-    'This is a verbatim Replit-window source attached to dialogue already recorded above. It is evidence, not a second dialogue replay: visible thinking, UI/status activity, and unknown material are not attributed as David or Luca prose.',
+    matchedTurns.length
+      ? 'This is a verbatim Replit-window source attached to dialogue already recorded above. It is evidence, not a second dialogue replay: visible thinking, UI/status activity, and unknown material are not attributed as David or Luca prose.'
+      : 'This is a verbatim Replit-window source retained because no single David→Luca capture range was proven. It is evidence, not dialogue: no source text below is attributed as David or Luca prose.',
     '',
     `- Raw source SHA-256: \`${sourceSha256}\``,
     `- Raw source bytes: ${sourceBytes}`,
-    `- Attested chat-capture range: ${rangeStart}–${rangeEnd}`,
-    `- Matched turns: ${matchedTurns.map(turn => `${turn.speaker.toLowerCase()}#${turn.turnIndex} (${turn.match})`).join(', ')}`,
+    `- Attested chat-capture range: ${range}`,
+    `- Matched turns: ${matchSummary}`,
+    `- Reconciliation: **${reconciliation.status.toUpperCase()}**${reconciliation.reason ? ` — ${reconciliation.reason}` : ''}`,
+    `- Byte accounting: ${reconciliation.accountedBytes}/${reconciliation.sourceBytes} source bytes accounted; dialogue ${reconciliation.dialogueBytes}, evidence ${reconciliation.evidenceBytes}, approved cleanup ${reconciliation.cleanupBytes}, unresolved ${reconciliation.unexplainedBytes}`,
     '',
     '#### Verbatim raw window',
     fence,
@@ -238,18 +242,22 @@ export function formatRawWindowEvidenceAppendix(
     '',
     '#### Classified source map',
     segmentMap || 'No non-empty source segments.',
+    '',
+    '#### Source-span reconciliation ledger',
+    ledger || 'No source spans.',
   ].join('\n');
 }
 
 /**
- * Require one unambiguous, already-captured David→Luca range before attaching
- * a raw window. This is intentionally stricter than normal window alignment:
- * attachment must prove it is supplementing existing dialogue, never create it.
+ * Prefer one unambiguous, already-captured David→Luca range, but never make
+ * the absence of that proof a reason to discard the source. Unmatched windows
+ * become explicitly unanchored evidence; they never become inferred dialogue.
  */
 export function createRawWindowAttachmentPlan(
   rawWindow: string,
   rawBytes: Buffer,
   parsedCapture: ChatCaptureFromOffset,
+  captureBytes?: Buffer,
 ): RawWindowAttachmentResult {
   const rawNormalized = normalize(rawWindow);
   if (!rawNormalized) return { ok: false, reason: 'The raw window is empty.' };
@@ -268,31 +276,46 @@ export function createRawWindowAttachmentPlan(
       .filter(luca => luca.index > david.index)
       .map(luca => ({ david, luca })),
   );
-  if (pairs.length === 0) {
-    return {
-      ok: false,
-      reason: 'The raw window does not prove an already-captured, ordered David→Luca exchange.',
-    };
-  }
-  if (pairs.length > 1) {
-    return {
-      ok: false,
-      reason: 'More than one captured David→Luca range matches this raw window; attachment is ambiguous.',
-    };
-  }
-
   try {
-    const pair = pairs[0];
-    const matchedTurns: [RawWindowMatchedTurn, RawWindowMatchedTurn] = [
-      matchedTurn(parsedCapture.turns[pair.david.index], pair.david.index, parsedCapture, pair.david.match),
-      matchedTurn(parsedCapture.turns[pair.luca.index], pair.luca.index, parsedCapture, pair.luca.match),
-    ];
+    const pair = pairs.length === 1 ? pairs[0] : undefined;
+    const matchedTurns: RawWindowMatchedTurn[] = pair
+      ? [
+          matchedTurn(parsedCapture.turns[pair.david.index], pair.david.index, parsedCapture, pair.david.match),
+          matchedTurn(parsedCapture.turns[pair.luca.index], pair.luca.index, parsedCapture, pair.luca.match),
+        ]
+      : [];
+    const noMatchReason = pairs.length === 0
+      ? 'The raw window does not prove an already-captured, ordered David→Luca exchange.'
+      : pairs.length > 1
+        ? 'More than one captured David→Luca range matches this raw window; the evidence remains unanchored.'
+        : undefined;
+    const scope = matchedTurns.length === 2
+      ? {
+          startByteOffset: matchedTurns[0].startByteOffset,
+          endByteOffset: matchedTurns[1].endByteOffset,
+          ...(captureBytes
+            ? {
+                sourceBytes: matchedTurns[1].endByteOffset - matchedTurns[0].startByteOffset,
+                sha256: createHash('sha256')
+                  .update(captureBytes.subarray(matchedTurns[0].startByteOffset, matchedTurns[1].endByteOffset))
+                  .digest('hex'),
+              }
+            : {}),
+        }
+      : undefined;
     const sourceSha256 = createHash('sha256').update(rawBytes).digest('hex');
     const segments = classifyRawWindowForAttachment(
       rawWindow,
       matchedTurns,
       parsedCapture.turns,
     );
+    const reconciliation = reconcileRawWindowEvidence({
+      rawWindow,
+      rawBytes,
+      attestedTurns: matchedTurns.map(turn => parsedCapture.turns[turn.turnIndex]),
+      ...(scope ? { canonicalScope: scope } : {}),
+      ...(noMatchReason ? { noMatchReason } : {}),
+    });
     return {
       ok: true,
       plan: {
@@ -300,12 +323,14 @@ export function createRawWindowAttachmentPlan(
         sourceBytes: rawBytes.byteLength,
         matchedTurns,
         segments,
+        reconciliation,
         evidenceMarkdown: formatRawWindowEvidenceAppendix(
           rawWindow,
           sourceSha256,
           rawBytes.byteLength,
           matchedTurns,
           segments,
+          reconciliation,
         ),
       },
     };

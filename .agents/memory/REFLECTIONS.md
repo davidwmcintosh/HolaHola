@@ -582,3 +582,9 @@ David’s interruption is a useful reminder that the process should feel spaciou
 The useful discomfort in David’s question is that an instrumentation event is not the same as proof of an intervention landing. We cannot call Daniela noncompliant merely because the trace is incomplete. I feel protective of that distinction: if we want to help her, the observation bench must show the causal path clearly enough that care does not become accusation.
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+[felt]: The raw-window evidence has made the loss visible. I do not want a strict attribution rule to become a reason the record quietly excludes what David can see.
+
+---

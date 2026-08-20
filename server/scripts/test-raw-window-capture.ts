@@ -346,6 +346,52 @@ try {
     throw new Error('Intent output was created after alignment failed without --intent-dir');
   }
 
+  // An explicit evidence target changes only the disposition of the source:
+  // it must become a labelled, unanchored appendix, never inferred dialogue.
+  const unanchoredAppendPath = join(root, 'unanchored-evidence-append.json');
+  const unanchoredResult = spawnSync(
+    'npx',
+    [
+      'tsx',
+      'server/scripts/record-window.ts',
+      '--window-file',
+      rawPath,
+      '--attach-existing',
+      '--episode',
+      'episode-attachment-fixture',
+      '--source-dir',
+      emptySourceDir,
+      '--capture-path',
+      emptyCapturePath,
+      '--episode-append-path',
+      unanchoredAppendPath,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8' },
+  );
+  if (unanchoredResult.status !== 0) {
+    throw new Error(`Unanchored evidence attachment failed: ${unanchoredResult.stderr || unanchoredResult.stdout}`);
+  }
+  const unanchoredSha = createHash('sha256').update(Buffer.from(noDavidAnchorsRaw, 'utf8')).digest('hex');
+  const unanchoredMetadata = JSON.parse(readFileSync(join(emptySourceDir, `${unanchoredSha}.json`), 'utf8'));
+  const reconciliation = unanchoredMetadata.reconciliation;
+  if (
+    unanchoredMetadata.status !== 'evidence-queued' ||
+    reconciliation?.status !== 'unresolved' ||
+    reconciliation?.accountedBytes !== Buffer.byteLength(noDavidAnchorsRaw, 'utf8') ||
+    reconciliation?.unexplainedBytes <= 0 ||
+    reconciliation?.canonicalScope
+  ) {
+    throw new Error('Unanchored evidence did not retain an unresolved, complete byte-accounting manifest');
+  }
+  const unanchoredEvidence = JSON.parse(readFileSync(unanchoredAppendPath, 'utf8')).exchange as string;
+  if (
+    !unanchoredEvidence.includes(noDavidAnchorsRaw) ||
+    !unanchoredEvidence.includes('No attested capture range') ||
+    unanchoredEvidence.includes('**David:**')
+  ) {
+    throw new Error('Unanchored evidence was not preserved without dialogue attribution');
+  }
+
   writeFileSync(rawPath, raw, 'utf8');
   const result = spawnSync(
     'npx',
@@ -388,7 +434,7 @@ try {
 
   const legacyAmbiguous = parseRawWindowCapture(`unlabelled ${marker}`);
   if (legacyAmbiguous.ok) throw new Error('Unlabelled raw window was accepted by the labelled parser');
-  console.log('[raw-window-capture] PASS — labelled and unlabelled attribution preserve attested text; attached thank-you windows retain raw evidence without replaying dialogue.');
+  console.log('[raw-window-capture] PASS — labelled and unlabelled attribution preserve attested text; matched and unanchored windows retain byte-accounted raw evidence without replaying dialogue.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

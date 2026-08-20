@@ -111,6 +111,12 @@ if (!parsed.ok && !/^\s*(?:\*\*)?(?:David|Luca(?:\s+\[Replit\])?):/im.test(rawWi
   usedAlignmentPath = parsed.ok;
 }
 if (!parsed.ok) {
+  const episodeName = episodeIndex === -1 ? undefined : args[episodeIndex + 1];
+  if (episodeName) {
+    console.warn(`[record-window] ${parsed.reason} Recording the source as unanchored evidence instead of inferring dialogue.`);
+    await attachExistingDialogue(episodeName);
+    process.exit(0);
+  }
   fail(`${parsed.reason} Raw source retained for recovery: ${sourcePath}`);
 }
 
@@ -156,8 +162,8 @@ console.log(`  Raw source retained: ${sourcePath}`);
 console.log(`  Source SHA-256: ${sourceSha}`);
 console.log('  Autosave will route to conversation_memories + the rolling episode within ~20s.');
 
-async function attachExistingDialogue(): Promise<void> {
-  const episodeName = episodeIndex === -1 ? undefined : args[episodeIndex + 1];
+async function attachExistingDialogue(explicitEpisodeName?: string): Promise<void> {
+  const episodeName = explicitEpisodeName ?? (episodeIndex === -1 ? undefined : args[episodeIndex + 1]);
   if (!episodeName) fail('--attach-existing requires --episode <episode-name>; do not infer an episode target for an auditable attachment.');
   const episodeAppendPath = episodeAppendPathIndex === -1 ? undefined : args[episodeAppendPathIndex + 1];
   if (episodeAppendPathIndex !== -1 && !episodeAppendPath) fail('--episode-append-path requires a path');
@@ -174,7 +180,8 @@ async function attachExistingDialogue(): Promise<void> {
   });
 
   const captured = parseChatCaptureFromOffset(capturePath, 0);
-  const attachment = createRawWindowAttachmentPlan(rawWindow, rawBytes, captured);
+  const captureBytes = existsSync(capturePath) ? readFileSync(capturePath) : undefined;
+  const attachment = createRawWindowAttachmentPlan(rawWindow, rawBytes, captured, captureBytes);
   if (!attachment.ok) {
     writeAttachmentMetadata({
       version: 1,
@@ -197,6 +204,7 @@ async function attachExistingDialogue(): Promise<void> {
     episode: episodeName,
     matchedTurns: plan.matchedTurns,
     classifications: plan.segments,
+    reconciliation: plan.reconciliation,
     evidenceMarker: `raw-window-evidence:sha256=${plan.sourceSha256}`,
   });
 
@@ -223,6 +231,7 @@ async function attachExistingDialogue(): Promise<void> {
         episode: episodeName,
         matchedTurns: plan.matchedTurns,
         classifications: plan.segments,
+        reconciliation: plan.reconciliation,
         evidenceMarker,
       });
       console.log('[record-window] ✓ Raw window evidence already attached; dialogue was not replayed.');
@@ -242,12 +251,17 @@ async function attachExistingDialogue(): Promise<void> {
     episode: episodeName,
     matchedTurns: plan.matchedTurns,
     classifications: plan.segments,
+    reconciliation: plan.reconciliation,
     evidenceMarker,
   });
 
   console.log('[record-window] ✓ Raw window attached as DB-first evidence; dialogue was not replayed.');
   console.log(`  Raw source retained: ${sourcePath}`);
   console.log(`  Source SHA-256: ${plan.sourceSha256}`);
-  console.log(`  Matched capture range: ${plan.matchedTurns[0].startByteOffset}→${plan.matchedTurns[1].endByteOffset}`);
+  console.log(
+    plan.matchedTurns.length === 2
+      ? `  Matched capture range: ${plan.matchedTurns[0].startByteOffset}→${plan.matchedTurns[1].endByteOffset}`
+      : `  Capture range: unanchored (${plan.reconciliation.reason})`,
+  );
   console.log(`  Episode evidence ${episodeAppendPath ? 'queued' : 'appended'}: ${episodeName}`);
 }
