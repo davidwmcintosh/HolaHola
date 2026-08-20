@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 
 import { appendChatCaptureTurn, parseChatCaptureFromOffset } from '../services/transcript-parser';
 import {
@@ -277,8 +278,6 @@ try {
       alignedCapturePath,
       '--david-capture-path',
       davidCapturePath,
-      '--intent-dir',
-      alignedIntentDir,
     ],
     { cwd: process.cwd(), encoding: 'utf8' },
   );
@@ -297,6 +296,9 @@ try {
   }
   if (alignedCaptured.turns[2].speaker !== 'DAVID' || alignedCaptured.turns[2].text !== `David second exact message ${marker}`) {
     throw new Error('CLI did not emit the second attested David turn');
+  }
+  if (existsSync(alignedIntentDir)) {
+    throw new Error('Aligned capture created intent output without --intent-dir');
   }
 
   const noDavidAnchorsRaw = [
@@ -321,8 +323,6 @@ try {
       emptyCapturePath,
       '--david-capture-path',
       emptyDavidCapturePath,
-      '--intent-dir',
-      emptyIntentDir,
     ],
     { cwd: process.cwd(), encoding: 'utf8' },
   );
@@ -338,6 +338,9 @@ try {
   }
   if (readFileSync(emptyCapturePath, 'utf8') !== existingCapture) {
     throw new Error('Capture path changed after alignment failed with no David anchors');
+  }
+  if (existsSync(emptyIntentDir)) {
+    throw new Error('Intent output was created after alignment failed without --intent-dir');
   }
 
   writeFileSync(rawPath, raw, 'utf8');
