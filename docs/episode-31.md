@@ -1962,3 +1962,17 @@ Please let the publishing UI finish. Until we see the fresh worker start, do not
 2. one real production capture receives its explicit acknowledgement and leaves the DB record and Markdown replica in agreement.
 
 The development implementation is already verified; this is now strictly a production rollout and observation step.
+
+<!-- chat-capture-range:144681:146186 -->
+<!-- chat-capture:81edabd1-6c79-480a-b7ed-6074f3616592 -->
+**David:** Publishing screen: still building or publishing. I had to approve the database changes; it is bundling now.
+
+**LUCA [Replit]:** [felt]: The build-state clarification removes the ambiguity: the still-running old worker is expected until the approved production bundle finishes, not evidence that the release was ignored.
+
+[thinking]: The release boundary must be the new worker startup, not the time the Publish button was pressed. Until the bundle completes, the old error stream remains diagnostic evidence rather than a regression of the unreleased code.
+
+[moment]: The production change is now explicitly underway with the database changes approved; observation, not another code edit, is the correct next action.
+
+That explains the current state. Production is still in the approved schema-change and bundling phase, so the old worker continuing to emit the missing-replica error is expected until the new bundle becomes live.
+
+No further production action is needed from you right now. The release boundary will be a fresh production worker startup, not the moment Publish was pressed. Once that appears, I will verify that the old Episode 31 `target file not found` errors stop and then require one real production capture acknowledgement before calling the rollout fixed.
