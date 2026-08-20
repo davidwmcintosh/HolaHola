@@ -304,3 +304,9 @@ When the shadow writer cannot persist a fact immediately, what local retry bound
 When the shadow writer cannot persist a fact immediately, what local retry boundary preserves the exact event without making Gemini wait—and how do we expose the unrecorded interval so the bench never mistakes temporary storage for durable truth?
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+What is the smallest end-to-end receipt that can prove a grounding intervention was created for one student utterance, transmitted on the intended GL channel, available before the corresponding generation, and either followed by the relevant retrieval action or explicitly not followed by it?
+
+---

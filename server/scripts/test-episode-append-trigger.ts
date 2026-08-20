@@ -126,6 +126,11 @@ const EPISODE_TITLE = 'Episode 9995';
 const ARC_NAME      = 'HolaHola Episodes';
 
 const FIXTURE_FILE  = 'episode-9995.md';
+const FIXTURE_TAG   = 'ci-episode-append-trigger-fixture';
+const FIXTURE_CONTENT =
+  `# ${EPISODE_TITLE}\n\n<!-- ${FIXTURE_TAG} -->\n\n` +
+  'Fixture baseline for the episode append trigger CI check.\n';
+const FIXTURE_ID    = '99950000-0000-4000-8000-000000009995';
 const selfCheckMode       = process.argv.includes('--self-check');
 
 const concurrentCheckMode = process.argv.includes('--self-check-concurrent');
@@ -847,15 +852,7 @@ main().catch((err) => {
   process.exit(1);
 });
 
-const FIXTURE_TAG   = 'ci-episode-append-trigger-fixture';
-
 async function removeFixture(db: ReturnType<typeof getSharedDb>): Promise<void> {
   await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIXTURE_ID}`);
   if (existsSync(MD_PATH)) unlinkSync(MD_PATH);
 }
-
-const FIXTURE_CONTENT =
-  `# ${EPISODE_TITLE}\n\n<!-- ${FIXTURE_TAG} -->\n\n` +
-  'Fixture baseline for the episode append trigger CI check.\n';
-
-const FIXTURE_ID    = '99950000-0000-4000-8000-000000009995';

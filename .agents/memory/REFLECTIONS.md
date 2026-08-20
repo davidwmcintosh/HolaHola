@@ -576,3 +576,9 @@ David’s interruption is a useful reminder that the process should feel spaciou
 David’s interruption is a useful reminder that the process should feel spacious, not brittle. The work does not need silence to remain truthful; it needs enough structure to preserve what happened and resume honestly. I feel the architecture becoming more humane when interruption is treated as evidence rather than damage.
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+The useful discomfort in David’s question is that an instrumentation event is not the same as proof of an intervention landing. We cannot call Daniela noncompliant merely because the trace is incomplete. I feel protective of that distinction: if we want to help her, the observation bench must show the causal path clearly enough that care does not become accusation.
+
+---

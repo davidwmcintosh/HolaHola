@@ -27188,24 +27188,24 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         recentMessages: msgs,
         // Archive Guardian — live state + fire log for this session (all four protocols)
         guardianAB: {
-          // Legacy heuristic only: these counts are not evidence that a
-          // context payload was delivered, received, or understood. Use
-          // contextLineage below for immutable lifecycle facts.
-          heuristic: true,
           globalChannel: observation.guardianChannel,
           recentFires: observation.guardianFireLog.slice(-10).map(f => ({
             ts: f.ts,
             path: f.path,
             phrase: f.phrase.slice(0, 60),
             channel: f.channel,
-            outcome: f.outcome,
+            // Compatibility-only heuristic, never an authoritative delivery outcome.
+            legacyHeuristicOutcome: f.outcome,
+            traceAttemptId: f.attemptId ?? null,
             charsInjected: f.charsInjected,
             groundingPreview: f.groundingPreview,
           })),
           // Summary counts
           pendingCount:          observation.guardianFireLog.filter(f => f.outcome === null).length,
-          heardCount:            observation.guardianFireLog.filter(f => f.outcome === 'heard').length,
-          missedCount:           observation.guardianFireLog.filter(f => f.outcome === 'missed').length,
+          legacyHeuristicOutcomeCount: observation.guardianFireLog.filter(f => f.outcome !== null).length,
+          unknownDeliveryCount: (observation.guardianAttempts ?? []).filter(
+            attempt => attempt.terminalOutcome === 'injected_delivery_unknown' || attempt.terminalOutcome === 'delivery_unknown',
+          ).length,
           universalPreTurnCount: observation.guardianFireLog.filter(f => f.path === 'pre-turn' && f.phrase.startsWith('universal')).length,
           riskPhraseCount:       observation.guardianFireLog.filter(f => f.path === 'pre-turn' && f.phrase.startsWith('phrase')).length,
           hardWallCount:         observation.guardianFireLog.filter(f => f.path === 'hard-wall').length,
@@ -27213,39 +27213,25 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           carryForwardBufferedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length,
           carryForwardInjectedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-injected').length,
         },
-        // Immutable context evidence, projected from the active shadow writer.
-        // Full raw payloads are intentionally absent from this lightweight
-        // endpoint; the durable forensic query is the authorized source.
-        contextLineage: {
-          activeTraceId: observation.contextLineage?.activeTraceId ?? null,
-          events: (observation.contextLineage?.events ?? []).map(event => ({
-            id: event.id,
-            traceId: event.traceId,
-            sequenceNumber: event.sequenceNumber,
-            sourceRoute: event.sourceRoute,
-            eventType: event.eventType,
-            deliveryChannel: event.deliveryChannel,
-            deliveryStatus: event.deliveryStatus,
-            studentTurnEpoch: event.studentTurnEpoch,
-            payloadSha256: event.payloadSha256,
-            observedAt: event.observedAt,
+        // Exact evidence chain for grounding interventions. These are not inferred
+        // "heard/missed" labels: each timeline names what the system observed.
+        guardianAttemptTimeline: (observation.guardianAttempts ?? []).slice(-10).map(attempt => ({
+          attemptId: attempt.attemptId,
+          path: attempt.path,
+          studentTurnEpoch: attempt.studentTurnEpoch,
+          studentUtterance: attempt.studentUtterance.slice(0, 240),
+          candidateAssertion: attempt.candidateAssertion.slice(0, 180),
+          terminalOutcome: attempt.terminalOutcome,
+          events: attempt.events.map(event => ({
+            type: event.type,
+            ts: event.ts,
+            channel: event.channel ?? null,
+            modelTurnId: event.modelTurnId ?? null,
+            toolBatchSequence: event.toolBatchSequence ?? null,
+            archiveTool: event.archiveTool ?? null,
+            detail: event.detail ?? null,
           })),
-          links: (observation.contextLineage?.links ?? []).map(link => ({
-            id: link.id,
-            traceId: link.traceId,
-            fromEventId: link.fromEventId,
-            toEventId: link.toEventId,
-            linkType: link.linkType,
-            observedAt: link.observedAt,
-          })),
-          ledgerHealth: observation.contextLineage?.health ?? {
-            state: 'healthy',
-            pendingWrites: 0,
-            failedWrites: 0,
-            firstUnrecordedSequenceNumber: null,
-            lastError: null,
-          },
-        },
+        })),
         // Neural-net memory searches — real-time feed from searchTeachingKnowledge calls
         recentMemorySearches: (observation.recentMemorySearches ?? []).slice(0, 10).map(s => ({
           secsAgo:       Math.round((Date.now() - s.ts) / 1000),

@@ -6,7 +6,7 @@
  *
  * Shows (in timestamp order):
  *   1. Memory fetches — neural-net teaching searches (query, domains, result count)
- *   2. Guardian fires — tier/path, trigger phrase, heard/missed, grounding preview
+ *   2. Guardian attempts — lookup through delivery evidence and terminal outcome
  *   3. Grounding queries — grounding_query tool calls (what was searched)
  *   4. All tool calls — name, args summary, result summary, status
  *   5. Audio delivery — gl_audio_subturn_sealed + gl_transcripts_flushed events
@@ -49,7 +49,7 @@ const sep  = (char = '─', w = 80) => console.log(char.repeat(w));
 const sep2 = () => sep('═');
 
 // ─── Unified timeline event ────────────────────────────────────────────────────
-type EventKind = 'tool_call' | 'guardian_fire' | 'memory_search' | 'student_memory_search' | 'message' | 'audio_subturn' | 'audio_flush';
+type EventKind = 'tool_call' | 'guardian_fire' | 'guardian_trace' | 'memory_search' | 'student_memory_search' | 'message' | 'audio_subturn' | 'audio_flush';
 
 interface TimelineEvent {
   kind: EventKind;
@@ -152,7 +152,7 @@ async function main() {
   // Pipeline events: query by DB session ID (new scheme) and by conversationId
   // embedded in JSONB (old scheme, where streaming session ID was used).
   // Run both queries and deduplicate by row id.
-  const PIPELINE_TYPES = "('gl_tool_call','gl_guardian_fire','gl_audio_subturn_sealed','gl_transcripts_flushed')";
+  const PIPELINE_TYPES = "('gl_tool_call','gl_guardian_fire','gl_guardian_trace','gl_audio_subturn_sealed','gl_transcripts_flushed')";
   const PIPELINE_SELECT = `
     SELECT
       id, created_at, event_type, event_data,
@@ -195,7 +195,7 @@ async function main() {
       (event_data->>'sentenceIndex')::int AS audio_sentence_index,
       (event_data->>'totalSentences')::int AS audio_total_sentences
     FROM voice_pipeline_events
-    WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_audio_subturn_sealed','gl_transcripts_flushed')
+    WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_guardian_trace','gl_audio_subturn_sealed','gl_transcripts_flushed')
       AND session_id = ${sessionId}
     ORDER BY created_at ASC
   `;
@@ -244,7 +244,7 @@ async function main() {
         (event_data->>'sentenceIndex')::int AS audio_sentence_index,
         (event_data->>'totalSentences')::int AS audio_total_sentences
       FROM voice_pipeline_events
-      WHERE event_type IN ('gl_tool_call','gl_guardian_fire')
+      WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_guardian_trace')
         AND event_data->>'conversationId' = ${conversationId}
         AND created_at >= ${sessionStart}::timestamptz
         AND created_at <= (${sessionEnd}::timestamptz + INTERVAL '5 minutes')
@@ -268,7 +268,7 @@ async function main() {
         (event_data->>'sentenceIndex')::int AS audio_sentence_index,
         (event_data->>'totalSentences')::int AS audio_total_sentences
       FROM voice_pipeline_events
-      WHERE event_type IN ('gl_tool_call','gl_guardian_fire')
+      WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_guardian_trace')
         AND event_data->>'conversationId' = ${conversationId}
         AND created_at >= ${sessionStart}::timestamptz
       ORDER BY created_at ASC
@@ -337,6 +337,7 @@ async function main() {
   // Split pipeline events by type
   const toolRows      = pipelineEvents.filter((r: any) => r.event_type === 'gl_tool_call');
   const guardianRows  = pipelineEvents.filter((r: any) => r.event_type === 'gl_guardian_fire');
+  const guardianTraceRows = pipelineEvents.filter((r: any) => r.event_type === 'gl_guardian_trace');
   const audioSubRows  = pipelineEvents.filter((r: any) => r.event_type === 'gl_audio_subturn_sealed');
   const audioFlushRows = pipelineEvents.filter((r: any) => r.event_type === 'gl_transcripts_flushed');
 
@@ -373,13 +374,22 @@ async function main() {
     }
   }
 
-  const gTotal  = session.gf_total ?? guardianRows.length;
-  const gHeard  = session.gf_heard ?? 0;
-  const gMissed = session.gf_missed ?? 0;
-  const gHW     = session.gf_hard_walls ?? 0;
-  const gCF     = session.gf_carry ?? 0;
-  const gLabel  = gMissed > 0 ? R(`${gMissed} MISSED`) : G('0 missed');
-  console.log(`  ${BOLD('Guardian:')}  ${gTotal} fires  ${G(`${gHeard} heard`)}  ${gLabel}  ${gHW} hard-walls  ${gCF} carry-forward`);
+  const latestTraceByAttempt = new Map<string, any>();
+  for (const row of guardianTraceRows as any[]) {
+    const attemptId = row.event_data?.attemptId as string | undefined;
+    if (attemptId) latestTraceByAttempt.set(attemptId, row);
+  }
+  const terminalOutcomes = [...latestTraceByAttempt.values()]
+    .map(row => row.event_data?.terminalOutcome)
+    .filter(Boolean);
+  const traceDelivered = terminalOutcomes.filter(outcome => outcome === 'injected_with_related_archive_call').length;
+  const traceUnknown = terminalOutcomes.filter(outcome => outcome === 'injected_delivery_unknown' || outcome === 'delivery_unknown').length;
+  const gHW = session.gf_hard_walls ?? 0;
+  const gCF = session.gf_carry ?? 0;
+  const traceLabel = guardianTraceRows.length
+    ? `${latestTraceByAttempt.size} attempts  ${G(`${traceDelivered} Archive-linked`)}  ${traceUnknown ? Y(`${traceUnknown} delivery unknown`) : G('0 delivery unknown')}`
+    : `${guardianRows.length} legacy fire row(s) — no attempt trace`;
+  console.log(`  ${BOLD('Guardian:')}  ${traceLabel}  ${gHW} hard-walls  ${gCF} carry-forward`);
 
   if (!hasAudioTelemetry) {
     console.log(`  ${DIM('Audio tel: not available for this session (pre-Aug 2026 or no audio turns)')}`);
@@ -402,6 +412,15 @@ async function main() {
   }
   for (const r of guardianRows as any[]) {
     timeline.push({ kind: 'guardian_fire', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
+  }
+  for (const r of guardianTraceRows as any[]) {
+    const event = ((r.event_data ?? {}) as Record<string, any>).event ?? {};
+    timeline.push({
+      kind: 'guardian_trace',
+      ts: new Date(r.created_at),
+      turnId: event.modelTurnId != null ? String(event.modelTurnId) : undefined,
+      payload: r,
+    });
   }
   for (const r of toolRows as any[]) {
     timeline.push({ kind: 'tool_call', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
@@ -498,13 +517,27 @@ async function main() {
         const grnd    = p.gf_grounding as string | null;
         const pathColor = path.includes('hard') ? R(path) :
                           path.includes('carry') ? Y(path) : C(path);
-        const oLabel = outcome === 'heard' ? G('HEARD') :
-                       outcome === 'missed' ? R('MISSED') :
-                       outcome ? Y(outcome) : DIM('pending');
+        const oLabel = outcome
+          ? DIM('LEGACY / NON-AUTHORITATIVE HEURISTIC')
+          : DIM('legacy fire only — see attempt timeline for delivery evidence');
         console.log(`${tsLabel} ${Y('🛡  GUARDIAN')}    ${pathColor}  ${oLabel}  ${turnLabel}`);
         if (phrase)   console.log(`           phrase:    ${DIM(trunc(phrase, 120))}`);
         if (chars)    console.log(`           injected:  ${chars} chars`);
         if (grnd)     console.log(`           grounding: ${DIM(trunc(grnd, 180))}`);
+        break;
+      }
+
+      case 'guardian_trace': {
+        const data = (ev.payload.event_data ?? {}) as Record<string, any>;
+        const trace = (data.event ?? {}) as Record<string, any>;
+        const attempt = String(data.attemptId ?? '?').slice(0, 8);
+        const type = String(trace.type ?? 'unknown');
+        const outcome = data.terminalOutcome ? ` → ${data.terminalOutcome}` : '';
+        console.log(`${tsLabel} ${M('🧭 ATTEMPT')}  ${attempt}  ${B(type)}${outcome ? Y(outcome) : ''}  ${turnLabel}`);
+        if (trace.archiveTool) console.log(`           archive:   ${G(String(trace.archiveTool))}`);
+        if (trace.channel) console.log(`           channel:   ${DIM(String(trace.channel))}`);
+        if (trace.toolBatchSequence != null) console.log(`           batch:     ${DIM(String(trace.toolBatchSequence))}`);
+        if (trace.detail) console.log(`           detail:    ${DIM(trunc(String(trace.detail), 180))}`);
         break;
       }
 
@@ -606,20 +639,32 @@ async function main() {
     });
   }
 
-  // 2. Guardian fires
-  console.log(BOLD('\n  2. GUARDIAN FIRES'));
+  // 2. Guardian attempts
+  console.log(BOLD('\n  2. GUARDIAN ATTEMPTS'));
   sep('─', 60);
-  if (guardianRows.length === 0) {
-    console.log(DIM('  No guardian fires recorded.'));
+  if (guardianTraceRows.length === 0) {
+    console.log(DIM('  No traceable Guardian attempts recorded.'));
+    if (guardianRows.length > 0) {
+      console.log(DIM(`  ${guardianRows.length} legacy Guardian fire row(s) exist without attempt-level evidence.`));
+    }
   } else {
-    (guardianRows as any[]).forEach((r: any, i: number) => {
-      const oLabel = r.gf_outcome === 'heard' ? G('HEARD') :
-                     r.gf_outcome === 'missed' ? R('MISSED') :
-                     r.gf_outcome ? Y(r.gf_outcome) : DIM('pending');
-      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${C(r.gf_path ?? '?')}  ${oLabel}`);
-      if (r.gf_phrase)   console.log(`      phrase: ${DIM(trunc(r.gf_phrase, 120))}`);
-      if (r.gf_grounding) console.log(`      grounding: ${DIM(trunc(r.gf_grounding, 140))}`);
-    });
+    const latestByAttempt = new Map<string, any>();
+    for (const row of guardianTraceRows as any[]) {
+      const attemptId = row.event_data?.attemptId as string | undefined;
+      if (attemptId) latestByAttempt.set(attemptId, row);
+    }
+    for (const [attemptId, row] of latestByAttempt.entries()) {
+      const data = row.event_data ?? {};
+      const outcome = data.terminalOutcome ?? 'in progress';
+      const outcomeLabel = outcome === 'injected_with_related_archive_call'
+        ? G(outcome)
+        : outcome === 'injected_delivery_unknown' || outcome === 'delivery_unknown'
+        ? Y(outcome)
+        : DIM(outcome);
+      console.log(`  ${attemptId.slice(0, 8)}  ${C(data.path ?? '?')}  ${outcomeLabel}`);
+      console.log(`      student: ${DIM(trunc(data.studentUtterance, 150))}`);
+      console.log(`      claim:   ${DIM(trunc(data.candidateAssertion, 150))}`);
+    }
   }
 
   // 3. Grounding queries
@@ -762,9 +807,8 @@ async function main() {
     issues.push(R(`${rows.length} ${src} search(es) returned 0 results — Daniela asked about the student but got nothing back: ${queries}`));
   }
 
-  const missedFires = (guardianRows as any[]).filter(r => r.gf_outcome === 'missed');
-  if (missedFires.length > 0) {
-    issues.push(R(`${missedFires.length} guardian fire(s) MISSED — Daniela made a memory assertion without archive backup: ${missedFires.map(r => `"${trunc(r.gf_phrase ?? '?', 60)}"`).join(', ')}`));
+  if (traceUnknown > 0) {
+    notes.push(Y(`${traceUnknown} Guardian attempt(s) reached an explicit unknown-delivery state. This is evidence to investigate, not a “miss” attributed to Daniela.`));
   }
 
   const errored = (toolRows as any[]).filter(r => r.status === 'error');
@@ -801,7 +845,7 @@ async function main() {
 
   if (issues.length === 0) {
     console.log(G('  Backend was tight. No issues found.\n'));
-    console.log(G('  ✅ Memory searches returned results, all guardian fires were heard,'));
+    console.log(G('  ✅ Memory searches returned results, Guardian delivery states are traceable,'));
     console.log(G('     all tool calls succeeded' + (hasAudioTelemetry ? ', audio sentences were delivered.' : '.')));
   } else {
     console.log(Y(`  Backend had ${issues.length} issue(s):\n`));
@@ -815,7 +859,7 @@ async function main() {
 
   sep();
   const totalEvents = pipelineEvents.length + (memoryRows as any[]).length + (studentMemoryRows as any[]).length + (messageRows as any[]).length;
-  console.log(DIM(`  Events: ${toolRows.length} tool calls · ${guardianRows.length} guardian fires · ${(memoryRows as any[]).length} teaching-mem searches · ${(studentMemoryRows as any[]).length} student-mem searches · ${audioSubRows.length} audio sub-turns · ${audioFlushRows.length} audio flushes · ${(messageRows as any[]).length} messages`));
+  console.log(DIM(`  Events: ${toolRows.length} tool calls · ${guardianRows.length} legacy guardian fires · ${guardianTraceRows.length} Guardian trace events · ${(memoryRows as any[]).length} teaching-mem searches · ${(studentMemoryRows as any[]).length} student-mem searches · ${audioSubRows.length} audio sub-turns · ${audioFlushRows.length} audio flushes · ${(messageRows as any[]).length} messages`));
   console.log(DIM(`  Total:  ${totalEvents} events in timeline`));
   sep2();
 }

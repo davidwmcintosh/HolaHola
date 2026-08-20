@@ -143,6 +143,7 @@
 - [GL episode capture — no dedicated game records](gl-game-memory-gap.md) — GL session exchanges now write to rolling episode via safeWriteTrigger in _doFlushTranscripts; but no dedicated game-session memory records exist; Daniela must call save_learning_memory with a descriptive title after games or they stay buried in episode archives. Aug 16 2026.
 - [Validation workflow registration](validation-workflow-registration.md) — update protected named CI workflows through the validation registry, not ordinary workflow configuration.
 - [Turn-bound Guardian grounding](turn-bound-guardian-grounding.md) — async Archive results belong only to their original utterance; discard stale queues before newer speech begins.
+- [Guardian causal correlation](guardian-causal-correlation.md) — correlate delivery to later function-call batches, not coarse model turns or a turn-wide tool heuristic.
 - [CI fixture canonical boundary](ci-fixture-canonical-boundary.md) — rolling episode records are never test fixtures; synthetic CI text must be isolated from canonical dialogue.
 - [Legacy CI encodes old contracts](legacy-ci-contract-flip.md) — when a data-flow direction flips (Markdown→DB became DB-canonical), old CI passes assert the outdated contract; rewrite assertions to the new invariant, never weaken the guard.
 - [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.

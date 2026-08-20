@@ -53,16 +53,19 @@ import {
   observeGuardianState,
   observeTurnComplete,
   observeFrictionScore,
-  observeContextLineageEvent,
-  observeContextLineageLink,
-  observeContextLineageHealth,
 } from './session-observation-store';
 import {
-  ContextLineageRecorder,
-  createDatabaseContextLineageSink,
-  type ContextLineageEventInput,
-  type ContextLineageLinkInput,
-} from './context-lineage-service';
+  appendGuardianTraceEvent,
+  createGuardianAttempt,
+  finalizeGuardianAttempt,
+  resolveGuardianTerminalOutcome,
+  selectGuardianArchiveCandidate,
+} from './guardian-attempt-trace';
+import type {
+  GuardianAttemptPath,
+  GuardianAttemptTrace,
+  GuardianTraceEvent,
+} from './guardian-attempt-trace';
 import { getSharedDb } from '../db';
 import { generateConversationTitle } from '../conversation-utils';
 import { sql, eq } from 'drizzle-orm';
@@ -403,10 +406,6 @@ export class GeminiLiveSession {
   // It is only eligible while the student turn that caused it remains active.
   private pendingWeeOoGrounding: string | null = null;
   private pendingWeeOoGroundingBinding: GroundingTurnBinding | null = null;
-  // A correction from the immediately preceding turn remains dormant until the
-  // current utterance is complete enough to prove that the student explicitly
-  // returned to its bound subject. It is never merged into generic new speech.
-  private pendingPriorTurnGrounding: PriorTurnGroundingCorrection | null = null;
   // Set when pendingWeeOoGrounding originates from slide detection or hard wall (not ambient
   // pre-turn grounding). Causes the [LAST TURN CORRECTION] whisper to include a behavioral
   // directive: "verify before continuing" rather than just passive context delivery.
@@ -418,9 +417,7 @@ export class GeminiLiveSession {
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
   private preTurnGroundingBinding: GroundingTurnBinding | null = null;
-  /** Shadow-ledger IDs for the currently active pre-turn Guardian lookup. */
-  private preTurnGuardianLineageEventId: string | null = null;
-  private preTurnGroundingLineageEventId: string | null = null;
+  private preTurnGroundingAttemptId: string | null = null;
   // Set to true when the pre-turn scan detected emotional valence (vulnerability/self-doubt/
   // embarrassment) rather than just a memory-risk phrase. Changes the [ARCHIVE GUARDIAN]
   // injection label so Daniela understands SHE IS BEING GIVEN RELATIONAL HISTORY, not facts.
@@ -431,28 +428,12 @@ export class GeminiLiveSession {
   // student turn (student is still speaking — GL not generating yet — safe injection window).
   private pendingCarryForwardGrounding: string | null = null;
   private pendingCarryForwardGroundingBinding: GroundingTurnBinding | null = null;
+  private pendingCarryForwardGroundingAttemptId: string | null = null;
+  private pendingWeeOoGroundingAttemptId: string | null = null;
   /** Increments at the first input-transcription chunk of each student utterance. */
   private activeStudentTurnEpoch = 0;
   /** Complete transcript accumulated for the active student-turn epoch. */
   private activeStudentUtterance = '';
-  /** Set only from Gemini's inputTranscription.finished protocol signal. */
-  private finalizedStudentTurnEpoch: number | null = null;
-  /** Input-transcription epochs awaiting their ordered `finished` event. */
-  private unfinalizedStudentTurnEpochs: number[] = [];
-  /**
-   * Armed only when the client reports that Daniela's completed playback ended,
-   * the point at which a new student utterance can actually begin.
-   */
-  private startNewStudentTurnOnNextInputTranscription = true;
-  /** False when a new transcript epoch begins before the prior epoch definitively finishes. */
-  private currentStudentTurnBoundaryTrusted = true;
-  /** Trust assigned to the next epoch when its first transcription text arrives. */
-  private nextStudentTurnBoundaryTrusted = true;
-  /** Tool batches awaiting the independently-streamed final transcription signal. */
-  private inputTranscriptionFinalizationWaiters = new Map<number, Set<(finished: boolean) => void>>();
-  /** One immutable lineage trace per student utterance, when the ledger is enabled. */
-  private activeContextLineageTraceId: string | null = null;
-  private contextLineageRecorder: ContextLineageRecorder | null = null;
   private hardWallTriggered = false;   // set mid-output if slide detected; cleared at generationComplete
   // ── Archive Guardian A/B channel ────────────────────────────────────────────
   // Reads from global config live so mid-session swaps (POST /api/admin/guardian/channel)
@@ -475,123 +456,20 @@ export class GeminiLiveSession {
     channel: 'concat' | 'dedicated' | 'pre-turn-sendclientcontent' | null;
     outcome: 'heard' | 'missed' | null;
     groundingPreview: string | null;   // first 150 chars of what was actually injected
+    /** Present only when this legacy row corresponds to an evidence-chain attempt. */
+    attemptId?: string;
     /** UUID of the voice_pipeline_events row, set at insert time so we can UPDATE outcome later. */
     dbEventId?: string;
     /** Promise for the in-flight INSERT — outcome UPDATE must chain off this to avoid
      *  a race where UPDATE runs before the INSERT commits and silently no-ops. */
     _insertPromise?: Promise<void>;
   }> = [];
+  /** Evidence chain for each Guardian lookup. Unlike guardianFireLog, this is not heuristic. */
+  private guardianAttempts: GuardianAttemptTrace[] = [];
   /** Tracks how many guardianFireLog entries have already been persisted to voice_pipeline_events. */
   private _guardianLoggedCount = 0;
-
-  /**
-   * The ledger is intentionally feature-gated until its additive table
-   * migration and database-level mutation guards are installed. Calls below
-   * remain pure observation: they do not change Live request payloads or wait
-   * on a database write.
-   */
-  private _getContextLineageRecorder(): ContextLineageRecorder | null {
-    if (process.env.CONTEXT_LINEAGE_LEDGER_ENABLED !== 'true') return null;
-    if (this.contextLineageRecorder) return this.contextLineageRecorder;
-
-    const conversationId = (this.session as any).conversationId as string | undefined;
-    const userId = this.session.userId ? String(this.session.userId) : undefined;
-    this.contextLineageRecorder = new ContextLineageRecorder(
-      {
-        sessionId: this.session.dbSessionId ?? this.session.id,
-        conversationId,
-        userId,
-      },
-      {
-        sink: createDatabaseContextLineageSink(),
-        onHealthChange: (health) => observeContextLineageHealth(conversationId, health),
-      },
-    );
-    return this.contextLineageRecorder;
-  }
-
-  private _recordContextLineage(input: ContextLineageEventInput): string | null {
-    const recorder = this._getContextLineageRecorder();
-    if (!recorder) return null;
-    const event = recorder.recordEvent({
-      ...input,
-      traceId: input.traceId ?? this.activeContextLineageTraceId ?? undefined,
-      studentTurnEpoch: input.studentTurnEpoch ?? this.activeStudentTurnEpoch,
-    });
-    observeContextLineageEvent((this.session as any).conversationId, {
-      id: event.id,
-      traceId: event.traceId,
-      sequenceNumber: event.sequenceNumber,
-      sourceRoute: event.sourceRoute,
-      eventType: event.eventType,
-      deliveryChannel: event.deliveryChannel ?? null,
-      deliveryStatus: event.deliveryStatus ?? 'observed',
-      studentTurnEpoch: event.studentTurnEpoch ?? null,
-      payloadSha256: event.payloadSha256 ?? null,
-      observedAt: event.observedAt.toISOString(),
-    });
-    return event.id;
-  }
-
-  private _linkContextLineage(input: ContextLineageLinkInput): void {
-    const recorder = this._getContextLineageRecorder();
-    if (!recorder) return;
-    const link = recorder.recordLink(input);
-    observeContextLineageLink((this.session as any).conversationId, {
-      id: link.id,
-      traceId: link.traceId,
-      fromEventId: link.fromEventId,
-      toEventId: link.toEventId,
-      linkType: link.linkType,
-      observedAt: link.observedAt.toISOString(),
-    });
-  }
-
-  /**
-   * Input transcription is independent of model/tool messages in Gemini Live.
-   * Hold a tool batch briefly so a late definitive `finished` event can resume
-   * the same safe delivery channel. Timeout fails closed and leaves the dormant
-   * correction available for any later tool batch in this student turn.
-   */
-  private waitForInputTranscriptionFinalization(
-    expectedEpoch: number,
-    timeoutMs = 2_000,
-  ): Promise<boolean> {
-    if (this.finalizedStudentTurnEpoch === expectedEpoch) return Promise.resolve(true);
-    return new Promise<boolean>(resolve => {
-      let waiters = this.inputTranscriptionFinalizationWaiters.get(expectedEpoch);
-      if (!waiters) {
-        waiters = new Set();
-        this.inputTranscriptionFinalizationWaiters.set(expectedEpoch, waiters);
-      }
-      let settled = false;
-      const finish = (finished: boolean) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        waiters!.delete(finish);
-        if (waiters!.size === 0) {
-          this.inputTranscriptionFinalizationWaiters.delete(expectedEpoch);
-        }
-        resolve(finished);
-      };
-      waiters.add(finish);
-      const timeout = setTimeout(() => finish(false), timeoutMs);
-    });
-  }
-
-  private resetInputTranscriptionFinalizationState(): void {
-    const allWaiters = [...this.inputTranscriptionFinalizationWaiters.values()];
-    this.inputTranscriptionFinalizationWaiters.clear();
-    for (const waiters of allWaiters) {
-      for (const finish of [...waiters]) finish(false);
-    }
-    this.unfinalizedStudentTurnEpochs = [];
-    this.finalizedStudentTurnEpoch = null;
-    this.startNewStudentTurnOnNextInputTranscription = true;
-    this.currentStudentTurnBoundaryTrusted = true;
-    this.nextStudentTurnBoundaryTrusted = true;
-  }
+  /** Monotonic order for incoming Gemini function-call batches. */
+  private toolCallBatchSequence = 0;
 
   /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live.
    *  Also persists any new fire-log entries to voice_pipeline_events immediately so they survive
@@ -599,7 +477,7 @@ export class GeminiLiveSession {
   private _observeGuardian(): void {
     const conversationId = (this.session as any).conversationId as string | undefined;
     if (!conversationId) return;
-    observeGuardianState(conversationId, this.guardianChannel, this.guardianFireLog);
+    observeGuardianState(conversationId, this.guardianChannel, this.guardianFireLog, this.guardianAttempts);
 
     // Persist any newly appended entries to voice_pipeline_events in real-time.
     const newEntries = this.guardianFireLog.slice(this._guardianLoggedCount);
@@ -646,6 +524,136 @@ export class GeminiLiveSession {
         WHERE id = ${dbEventId}
       `);
     }).catch(() => {});
+  }
+
+  private _startGuardianAttempt(
+    path: GuardianAttemptPath,
+    binding: GroundingTurnBinding,
+  ): string {
+    const attempt = createGuardianAttempt({
+      path,
+      studentTurnEpoch: binding.studentTurnEpoch,
+      studentUtterance: binding.studentUtterance,
+      candidateAssertion: binding.candidateAssertion,
+    });
+    this.guardianAttempts.push(attempt);
+    this._persistGuardianTrace(attempt, attempt.events[0]);
+    this._observeGuardian();
+    return attempt.attemptId;
+  }
+
+  private _traceGuardianAttempt(
+    attemptId: string | null,
+    event: Omit<GuardianTraceEvent, 'ts'>,
+  ): void {
+    if (!attemptId) return;
+    const attempt = this.guardianAttempts.find(candidate => candidate.attemptId === attemptId);
+    if (!attempt || attempt.terminalOutcome) return;
+    const recorded = appendGuardianTraceEvent(attempt, event);
+    if (event.type === 'lookup_failed' || event.type === 'stale_discarded' || event.type === 'superseded') {
+      attempt.terminalOutcome = resolveGuardianTerminalOutcome(attempt);
+    }
+    this._persistGuardianTrace(attempt, recorded);
+    this._observeGuardian();
+  }
+
+  /** The tool-response queue has one slot; never silently orphan its prior attempt. */
+  private _replacePendingWeeOoGrounding(
+    text: string,
+    binding: GroundingTurnBinding,
+    attemptId: string,
+    detail: string,
+  ): void {
+    const displacedAttemptId = this.pendingWeeOoGroundingAttemptId;
+    if (this.pendingWeeOoGrounding && displacedAttemptId && displacedAttemptId !== attemptId) {
+      this._traceGuardianAttempt(displacedAttemptId, {
+        type: 'superseded',
+        detail,
+      });
+    }
+    this.pendingWeeOoGrounding = text;
+    this.pendingWeeOoGroundingBinding = binding;
+    this.pendingWeeOoGroundingAttemptId = attemptId;
+  }
+
+  private _persistGuardianTrace(attempt: GuardianAttemptTrace, event: GuardianTraceEvent): void {
+    const conversationId = (this.session as any).conversationId as string | undefined;
+    voiceTelemetry.log(
+      this.session.dbSessionId ?? this.session.id,
+      String(this.session.userId ?? ''),
+      'gl_guardian_trace',
+      {
+        attemptId: attempt.attemptId,
+        path: attempt.path,
+        studentTurnEpoch: attempt.studentTurnEpoch,
+        studentUtterance: attempt.studentUtterance,
+        candidateAssertion: attempt.candidateAssertion,
+        terminalOutcome: attempt.terminalOutcome,
+        conversationId,
+        event,
+      },
+    );
+  }
+
+  private _finalizeGuardianAttemptsForTurn(): void {
+    for (const attempt of this.guardianAttempts) {
+      const wasDeliveredThisModelTurn = attempt.events.some(
+        event => event.modelTurnId === this.currentTurnId
+          && (event.type === 'tool_response_sent' || event.channel === 'send-client-content'),
+      );
+      const lookupHasResolved = attempt.events.some(
+        event => event.type === 'lookup_completed' || event.type === 'queued',
+      );
+      const isCurrentPreTurnAttempt = attempt.path === 'pre-turn'
+        && attempt.studentTurnEpoch === this.activeStudentTurnEpoch
+        && lookupHasResolved;
+      if (attempt.terminalOutcome || (!wasDeliveredThisModelTurn && !isCurrentPreTurnAttempt)) continue;
+      finalizeGuardianAttempt(attempt, this.currentTurnId);
+      this._persistGuardianTrace(attempt, attempt.events[attempt.events.length - 1]);
+    }
+    this._observeGuardian();
+  }
+
+  private _finalizeOutstandingGuardianAttempts(reason: string): void {
+    for (const attempt of this.guardianAttempts) {
+      if (attempt.terminalOutcome) continue;
+      const event = appendGuardianTraceEvent(attempt, {
+        type: 'generation_interrupted',
+        modelTurnId: this.currentTurnId,
+        detail: reason,
+      });
+      attempt.terminalOutcome = resolveGuardianTerminalOutcome(attempt);
+      this._persistGuardianTrace(attempt, event);
+    }
+    this._observeGuardian();
+  }
+
+  private _linkRelatedArchiveCalls(toolNames: string[], toolBatchSequence: number): void {
+    const archiveTools = new Set([
+      'grounding_query',
+      'introspect',
+      'recall',
+      'unified_recall',
+      'search_my_archive',
+      'search_conversations',
+      'search_conversation_threads',
+      'memory_lookup',
+      'memory_review',
+    ]);
+    const archiveTool = toolNames.find(toolName => archiveTools.has(toolName));
+    if (!archiveTool) return;
+    const candidate = selectGuardianArchiveCandidate(
+      this.guardianAttempts,
+      this.activeStudentTurnEpoch,
+      toolBatchSequence,
+    );
+    if (!candidate) return;
+    this._traceGuardianAttempt(candidate.attemptId, {
+      type: 'archive_call_linked',
+      archiveTool,
+      modelTurnId: this.currentTurnId,
+      toolBatchSequence,
+    });
   }
 
   private static readonly WHISPER_INTERVAL = 8;
@@ -1424,7 +1432,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.greetingWatchdogTimer = null;
               }
               this.pendingInputTranscript = '';
-              this.resetInputTranscriptionFinalizationState();
               this.pendingInputSaved = false;
               this.pendingOutputTranscript = '';
               this.usingOutputTranscription = false;
@@ -1637,7 +1644,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       return;
     }
     this.pendingPlaybackEndedLift = false;
-    const openedMicGate = this.isTutorGeneratingAudio;
     if (this.isTutorGeneratingAudio) {
       this.isTutorGeneratingAudio = false;
       console.log('[GeminiLive] Mic gate lifted — client playback_ended (echo suppression off)');
@@ -1649,19 +1655,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.studentTurnStartMs = Date.now();
     this.currentTurnFirstInputMs = 0;
     this.lastInputChunkMs = 0;
-    // This playback boundary is independent of inputTranscription.finished.
-    // If the prior finish arrives late, the next transcript still gets its own
-    // epoch and joins the ordered unfinished queue behind the prior epoch.
-    if (openedMicGate) {
-      this.startNewStudentTurnOnNextInputTranscription = true;
-      this.nextStudentTurnBoundaryTrusted = this.unfinalizedStudentTurnEpochs.length === 0;
-      if (!this.nextStudentTurnBoundaryTrusted) {
-        console.warn(
-          '[GeminiLive] Next student transcription boundary is untrusted: '
-          + 'the prior input transcription has not finished.',
-        );
-      }
-    }
 
     // Proactive ACTFL reconnect: Daniela's pedagogical heartbeat flagged a tier change.
     // This is the safest moment to reconnect — audio just finished, student hasn't started
@@ -2036,6 +2029,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
   stop(): void {
     if (this.isStopped) return;
     this.isStopped = true;
+    this._finalizeOutstandingGuardianAttempts('Session stopped before the Guardian attempt reached a normal generation boundary.');
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -2217,7 +2211,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.greetingWatchdogTimer = null;
     }
     this.pendingInputTranscript = '';
-    this.resetInputTranscriptionFinalizationState();
     this.pendingInputSaved = false;
     this.pendingOutputTranscript = '';
     if (this.transcriptFlushTimer) {
@@ -2772,70 +2765,35 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // A new utterance makes every prior carry-forward grounding result stale.
         // Never merge a previous topic into a newer student turn: it turns an
         // honest archive check into a subject change.
-        // pendingInputTranscript cannot define this boundary: Gemini documents
-        // input transcription as independent from model output, so its buffer
-        // may be reset before the independently-streamed `finished` signal.
-        // The client playback boundary arms a new turn instead.
-        const epochTransition = registerInputTranscriptionChunk(
-          this.startNewStudentTurnOnNextInputTranscription,
-          this.activeStudentTurnEpoch,
-          this.unfinalizedStudentTurnEpochs,
-        );
-        const startsNewStudentUtterance = epochTransition.startedNewStudentUtterance;
-        this.activeStudentTurnEpoch = epochTransition.activeStudentTurnEpoch;
-        this.startNewStudentTurnOnNextInputTranscription =
-          epochTransition.startNewStudentTurnOnNextInputTranscription;
+        const startsNewStudentUtterance = !this.pendingInputTranscript.trim();
         if (startsNewStudentUtterance) {
+          this.activeStudentTurnEpoch++;
           this.activeStudentUtterance = '';
-          this.finalizedStudentTurnEpoch = null;
-          this.currentStudentTurnBoundaryTrusted = this.nextStudentTurnBoundaryTrusted;
-          this.activeContextLineageTraceId = this._getContextLineageRecorder()?.beginTrace() ?? null;
-          this._recordContextLineage({
-            traceId: this.activeContextLineageTraceId ?? undefined,
-            studentTurnEpoch: this.activeStudentTurnEpoch,
-            sourceRoute: 'gemini-live',
-            eventType: 'student_turn_started',
-          });
-          if (
-            this.pendingPriorTurnGrounding
-            && this.pendingPriorTurnGrounding.eligibleStudentTurnEpoch !== this.activeStudentTurnEpoch
-          ) {
-            console.warn(
-              `[ArchiveGuardian] Discarding unopened prior-turn grounding from student turn `
-              + `${this.pendingPriorTurnGrounding.binding.studentTurnEpoch}; its one-turn return window expired.`,
-            );
-            this.pendingPriorTurnGrounding = null;
-          }
           if (this.pendingCarryForwardGrounding) {
             console.warn(
               `[PreTurnGuardian] Discarding stale carry-forward grounding from student turn `
               + `${this.pendingCarryForwardGroundingBinding?.studentTurnEpoch ?? 'unknown'}; current turn is `
               + `${this.activeStudentTurnEpoch}.`,
             );
+            this._traceGuardianAttempt(this.pendingCarryForwardGroundingAttemptId, {
+              type: 'stale_discarded',
+              detail: 'A newer student utterance began before carry-forward delivery.',
+            });
             this.pendingCarryForwardGrounding = null;
             this.pendingCarryForwardGroundingBinding = null;
+            this.pendingCarryForwardGroundingAttemptId = null;
           }
           if (this.pendingWeeOoGrounding) {
-            const priorCorrection = this.pendingWeeOoGroundingBinding
-              ? createPriorTurnGroundingCorrection(
-                this.pendingWeeOoGrounding,
-                this.pendingWeeOoGroundingBinding,
-                this.activeStudentTurnEpoch,
-              )
-              : null;
-            if (priorCorrection) {
-              this.pendingPriorTurnGrounding = priorCorrection;
-              console.log(
-                `[ArchiveGuardian] Holding correction from student turn `
-                + `${priorCorrection.binding.studentTurnEpoch} dormant for an explicit topic return.`,
-              );
-            } else {
-              console.warn(
-                '[ArchiveGuardian] Discarding prior-turn grounding outside its one-turn return window.',
-              );
-            }
+            console.warn(
+              '[ArchiveGuardian] Discarding prior-turn grounding before a newer student utterance.',
+            );
+            this._traceGuardianAttempt(this.pendingWeeOoGroundingAttemptId, {
+              type: 'stale_discarded',
+              detail: 'A newer student utterance began before tool-response delivery.',
+            });
             this.pendingWeeOoGrounding = null;
             this.pendingWeeOoGroundingBinding = null;
+            this.pendingWeeOoGroundingAttemptId = null;
             this.slideCorrectionQueued = false;
           }
         }
@@ -2849,11 +2807,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.pendingInputTranscript += text;
         this.activeStudentUtterance += text;
         this.pendingInputSaved = false;
-        this._recordContextLineage({
-          sourceRoute: 'gemini-live',
-          eventType: 'input_transcription_chunk',
-          payloadText: text,
-        });
 
         // Friction Score — first-input timing: measure pre-speech pause (generationComplete → first word)
         if (this.currentTurnFirstInputMs === 0 && this.studentTurnStartMs > 0) {
@@ -2925,6 +2878,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             candidateAssertion,
           );
           this.preTurnGroundingBinding = groundingBinding;
+          const preTurnAttemptId = this._startGuardianAttempt('pre-turn', groundingBinding);
+          this.preTurnGroundingAttemptId = preTurnAttemptId;
           const logLabel = emotional.detected
             ? `emotional valence "${emotional.valencePhrase}"`
             : risk.detected
@@ -2935,32 +2890,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             p => queryText.toLowerCase().includes(p)
           );
           console.log(`[PreTurnGuardian] Firing — ${logLabel}`);
-          this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null, groundingPreview: null });
+          this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null, groundingPreview: null, attemptId: preTurnAttemptId });
           this._observeGuardian();
-          this.preTurnGuardianLineageEventId = this._recordContextLineage({
-            sourceRoute: 'archive-guardian',
-            eventType: 'guardian_triggered',
-            payloadText: queryText,
-            payloadJson: {
-              candidateAssertion: groundingBinding.candidateAssertion,
-              emotional: emotional.detected,
-              namedRecord: this.preTurnIsNamedRecord,
-            },
-          });
-          const lookupStartedId = this._recordContextLineage({
-            sourceRoute: 'archive-guardian',
-            eventType: 'lookup_started',
-            payloadText: groundingBinding.candidateAssertion,
-            deliveryStatus: 'attempted',
-          });
-          if (this.preTurnGuardianLineageEventId && lookupStartedId && this.activeContextLineageTraceId) {
-            this._linkContextLineage({
-              traceId: this.activeContextLineageTraceId,
-              fromEventId: this.preTurnGuardianLineageEventId,
-              toEventId: lookupStartedId,
-              linkType: 'caused_by',
-            });
-          }
 
           const promise = runAutoGrounding(
             userId,
@@ -2982,22 +2913,22 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 `[PreTurnGuardian] Discarding stale grounding result for "${groundingBinding.candidateAssertion.slice(0, 60)}" `
                 + `(student turn ${groundingBinding.studentTurnEpoch}).`,
               );
-                this._recordContextLineage({
-                  sourceRoute: 'archive-guardian',
-                  eventType: 'context_stale_discarded',
-                  studentTurnEpoch: groundingBinding.studentTurnEpoch,
-                  payloadText: result,
-                  deliveryStatus: 'discarded',
-                });
+              this._traceGuardianAttempt(preTurnAttemptId, {
+                type: 'stale_discarded',
+                detail: 'Lookup resolved after its bound student turn was no longer current.',
+              });
               return;
             }
             this.preTurnGroundingResult = result;
-              this.preTurnGroundingLineageEventId = this._recordContextLineage({
-                sourceRoute: 'archive-guardian',
-                eventType: 'lookup_resolved',
-                studentTurnEpoch: groundingBinding.studentTurnEpoch,
-                payloadText: result,
-              });
+            this._traceGuardianAttempt(preTurnAttemptId, {
+              type: 'lookup_completed',
+              detail: `${result.length} characters returned from Archive lookup.`,
+            });
+            this._traceGuardianAttempt(preTurnAttemptId, {
+              type: 'queued',
+              channel: 'tool-response',
+              detail: 'Awaiting a Gemini tool-response batch for safe delivery.',
+            });
             // Fill groundingPreview on the fire log entry so observe bench shows what was found.
             const previewEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.groundingPreview === null);
             if (previewEntry) {
@@ -3029,6 +2960,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   `[PreTurnGuardian] Skipping stale fallback for "${groundingBinding.candidateAssertion.slice(0, 60)}" `
                   + `(student turn ${groundingBinding.studentTurnEpoch}).`,
                 );
+                this._traceGuardianAttempt(preTurnAttemptId, {
+                  type: 'stale_discarded',
+                  detail: 'Fallback was reached after a newer student turn replaced this lookup.',
+                });
                 return;
               }
 
@@ -3065,26 +3000,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 }
                 this.pendingCarryForwardGrounding = carryBuffer;
                 this.pendingCarryForwardGroundingBinding = groundingBinding;
+                this.pendingCarryForwardGroundingAttemptId = preTurnAttemptId;
+                this._traceGuardianAttempt(preTurnAttemptId, {
+                  type: 'queued',
+                  channel: 'tool-response',
+                  detail: 'Late lookup result moved to carry-forward buffer.',
+                });
                 this.preTurnGroundingResult = null;
                 this.preTurnGroundingBinding = null;
-                const carryForwardEventId = this._recordContextLineage({
-                  sourceRoute: 'archive-guardian',
-                  eventType: 'context_carried_forward',
-                  studentTurnEpoch: groundingBinding.studentTurnEpoch,
-                  payloadText: carryBuffer,
-                  deliveryStatus: 'queued',
-                });
-                if (carryForwardEventId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
-                  this._linkContextLineage({
-                    traceId: this.activeContextLineageTraceId,
-                    fromEventId: this.preTurnGroundingLineageEventId,
-                    toEventId: carryForwardEventId,
-                    linkType: 'queued_from',
-                  });
-                }
+                this.preTurnGroundingAttemptId = null;
                 const cfPreview = this.pendingCarryForwardGrounding.slice(0, 150);
                 console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding.length} chars, mode=carry-forward${lucaCtx ? ', +lucaCtx' : ''})`);
-                this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: cfPreview });
+                this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: cfPreview, attemptId: preTurnAttemptId });
                 this._observeGuardian();
                 return;
               }
@@ -3156,24 +3083,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   turns: [{ role: 'user', parts: [{ text: whisperFinal }] }],
                   turnComplete: false,
                 });
-                const directInjectionEventId = this._recordContextLineage({
-                  sourceRoute: 'archive-guardian',
-                  eventType: 'client_content_send_attempted',
-                  deliveryChannel: 'sendClientContent',
-                  payloadText: whisperFinal,
-                  deliveryStatus: 'unknown',
-                });
-                if (directInjectionEventId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
-                  this._linkContextLineage({
-                    traceId: this.activeContextLineageTraceId,
-                    fromEventId: this.preTurnGroundingLineageEventId,
-                    toEventId: directInjectionEventId,
-                    linkType: 'sent_with',
-                  });
-                }
                 // Ghost-turn tracing: turnComplete:false should NOT start a generation,
                 // but record it anyway — if a ghost turn follows, this names the suspect.
                 this.lastClientContentInjection = { label: 'pre-turn-guardian-emotional', at: Date.now() };
+                this._traceGuardianAttempt(preTurnAttemptId, {
+                  type: 'injected',
+                  channel: 'send-client-content',
+                  modelTurnId: this.currentTurnId,
+                  toolBatchSequence: this.toolCallBatchSequence,
+                  detail: 'Emotional-valence grounding sent through sendClientContent.',
+                });
                 // Update the pre-turn fire log entry with delivery details.
                 const preTurnEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.charsInjected === null);
                 if (preTurnEntry) {
@@ -3183,8 +3102,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 }
                 this.pendingCarryForwardGrounding = null;
                 this.pendingCarryForwardGroundingBinding = null;
+                this.pendingCarryForwardGroundingAttemptId = null;
                 this.preTurnGroundingResult = null;
                 this.preTurnGroundingBinding = null;
+                this.preTurnGroundingAttemptId = null;
                 console.log(`[PreTurnGuardian] Emotional valence — injected directly via sendClientContent (pre-turn, ${whisperFinal.length} chars${cfNote}${lucaNote})`);
                 return;
               }
@@ -3193,33 +3114,33 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // turnComplete:true triggers duplicate generation; turnComplete:false leaves
               // an open turn that cuts Daniela short.
               // Store in pendingWeeOoGrounding so tool-result channel delivers it safely.
-              if (!this.pendingWeeOoGrounding) {
-                this.pendingWeeOoGrounding = whisperFinal;
-                this.pendingWeeOoGroundingBinding = groundingBinding;
-                const queuedGroundingEventId = this._recordContextLineage({
-                  sourceRoute: 'archive-guardian',
-                  eventType: 'context_queued',
-                  deliveryChannel: 'tool_response',
-                  payloadText: whisperFinal,
-                  deliveryStatus: 'queued',
-                });
-                if (queuedGroundingEventId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
-                  this._linkContextLineage({
-                    traceId: this.activeContextLineageTraceId,
-                    fromEventId: this.preTurnGroundingLineageEventId,
-                    toEventId: queuedGroundingEventId,
-                    linkType: 'queued_from',
-                  });
-                }
-              }
+              this._replacePendingWeeOoGrounding(
+                whisperFinal,
+                groundingBinding,
+                preTurnAttemptId,
+                'A newer pre-turn Guardian payload replaced this queued payload before delivery.',
+              );
+              this._traceGuardianAttempt(preTurnAttemptId, {
+                type: 'queued',
+                channel: 'tool-response',
+                detail: 'Pre-turn grounding queued for safe tool-response delivery.',
+              });
               this.pendingCarryForwardGrounding = null;
               this.pendingCarryForwardGroundingBinding = null;
+              this.pendingCarryForwardGroundingAttemptId = null;
               this.preTurnGroundingResult = null;
               this.preTurnGroundingBinding = null;
+              this.preTurnGroundingAttemptId = null;
               const label = lateArrival ? 'interrupt mode — late arrival' : 'queued for tool channel';
               console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}${lucaNote}, ${whisperFinal.length} chars)`);
             }, 150);
-          }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
+          }).catch(err => {
+            this._traceGuardianAttempt(preTurnAttemptId, {
+              type: 'lookup_failed',
+              detail: (err as Error).message,
+            });
+            console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message);
+          });
         }
 
         // Emotional-valence re-scan — runs on every transcript chunk after the grounding has
@@ -3249,34 +3170,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           isFinal: true,
           source: 'gemini_live',
         });
-      }
-    }
-
-    if ((msg.serverContent as any)?.inputTranscription?.finished) {
-      const finalizedEpoch = consumeNextUnfinalizedStudentTurnEpoch(
-        this.unfinalizedStudentTurnEpochs,
-      );
-      if (finalizedEpoch === null) {
-        console.warn('[GeminiLive] Ignoring inputTranscription.finished with no unfinished student turn.');
-      } else {
-        this.finalizedStudentTurnEpoch = finalizedEpoch;
-        if (
-          this.startNewStudentTurnOnNextInputTranscription
-          && this.unfinalizedStudentTurnEpochs.length === 0
-        ) {
-          // No text from the next utterance has arrived yet, so a late prior
-          // finish can still upgrade the upcoming boundary before it is used.
-          this.nextStudentTurnBoundaryTrusted = true;
-        }
-        const waiters = this.inputTranscriptionFinalizationWaiters.get(finalizedEpoch);
-        if (waiters) {
-          this.inputTranscriptionFinalizationWaiters.delete(finalizedEpoch);
-          for (const finish of [...waiters]) finish(true);
-        }
-        console.log(
-          `[GeminiLive] Input transcription finalized for student turn ${finalizedEpoch} `
-          + `(${this.activeStudentUtterance.length} chars)`,
-        );
       }
     }
 
@@ -3582,49 +3475,50 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const groundingBinding = createGroundingTurnBinding(
               this.activeStudentTurnEpoch,
               this.activeStudentUtterance || this.lastUserText,
-              glSlideResult.candidateAssertion || matchedPhrase,
+              matchedPhrase,
             );
-            // Outcome tracking: if Guardian fired recently but same slide fired again — it was missed
-            const prevUnresolvedPTP = this.guardianFireLog.findLast(e => e.outcome === null);
-            if (prevUnresolvedPTP) { prevUnresolvedPTP.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedPTP); }
-            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
+            const postTurnAttemptId = this._startGuardianAttempt('post-turn-phrase', groundingBinding);
+            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null, groundingPreview: null, attemptId: postTurnAttemptId });
             this._observeGuardian();
-            runAutoGrounding(
-              userId,
-              groundingBinding.candidateAssertion,
-              glSlideResult.trigger,
-              conversationId,
-              targetLanguage,
-            )
+            runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
               .then(groundingResult => {
                 if (this.isStopped) return;
+                if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
+                  console.warn(`[FrictionlessSlide/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
+                  this._traceGuardianAttempt(postTurnAttemptId, {
+                    type: 'stale_discarded',
+                    detail: 'Post-turn lookup completed after the bound student turn ended.',
+                  });
+                  return;
+                }
                 if (Date.now() - startMs > 2000) {
                   console.warn('[FrictionlessSlide/GL] Auto-grounding took >2s — discarding to avoid stale injection');
+                  this._traceGuardianAttempt(postTurnAttemptId, {
+                    type: 'stale_discarded',
+                    detail: 'Post-turn lookup exceeded the two-second freshness budget.',
+                  });
                   return;
                 }
-                if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
-                  if (this.activeStudentTurnEpoch === groundingBinding.studentTurnEpoch + 1) {
-                    this.pendingPriorTurnGrounding = createPriorTurnGroundingCorrection(
-                      groundingResult,
-                      groundingBinding,
-                      this.activeStudentTurnEpoch,
-                    );
-                    console.log(
-                      `[FrictionlessSlide/GL] Holding stale grounding from student turn `
-                      + `${groundingBinding.studentTurnEpoch} dormant for an explicit topic return.`,
-                    );
-                  } else {
-                    console.warn(`[FrictionlessSlide/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
-                  }
-                  return;
-                }
+                this._traceGuardianAttempt(postTurnAttemptId, {
+                  type: 'lookup_completed',
+                  detail: `${groundingResult.length} characters returned from Archive lookup.`,
+                });
                 // Update chars now that result is available.
                 const logEntry = this.guardianFireLog.findLast(e => e.path === 'post-turn-phrase' && e.phrase === matchedPhrase);
                 if (logEntry) logEntry.charsInjected = groundingResult.length;
                 // Primary channel: queue for injection via next tool response batch.
                 // Tool responses are the safest GL channel — model reads them, never speaks them aloud.
-                this.pendingWeeOoGrounding = groundingResult;
-                this.pendingWeeOoGroundingBinding = groundingBinding;
+                this._replacePendingWeeOoGrounding(
+                  groundingResult,
+                  groundingBinding,
+                  postTurnAttemptId,
+                  'A post-turn Guardian lookup replaced this queued payload before delivery.',
+                );
+                this._traceGuardianAttempt(postTurnAttemptId, {
+                  type: 'queued',
+                  channel: 'tool-response',
+                  detail: 'Post-turn correction queued for a safe tool-response delivery.',
+                });
                 this.slideCorrectionQueued = true;
                 console.log(`[FrictionlessSlide/GL] Auto-grounding queued (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
 
@@ -3648,9 +3542,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                     if (!this.pendingCarryForwardGrounding) {
                       this.pendingCarryForwardGrounding = this.pendingWeeOoGrounding;
                       this.pendingCarryForwardGroundingBinding = groundingBinding;
+                      this.pendingCarryForwardGroundingAttemptId = postTurnAttemptId;
+                    } else {
+                      this._traceGuardianAttempt(postTurnAttemptId, {
+                        type: 'superseded',
+                        detail: 'An existing carry-forward payload retained the only deferred-delivery slot.',
+                      });
                     }
                     this.pendingWeeOoGrounding = null;
                     this.pendingWeeOoGroundingBinding = null;
+                    this.pendingWeeOoGroundingAttemptId = null;
+                    this._traceGuardianAttempt(postTurnAttemptId, {
+                      type: 'queued',
+                      channel: 'tool-response',
+                      detail: 'Post-turn correction moved to carry-forward while generation was active.',
+                    });
                     console.log(`[FrictionlessSlide/GL] Suppressed mid-generation sendClientContent — carried forward (${this.pendingCarryForwardGrounding!.length} chars)`);
                     return;
                   }
@@ -3658,7 +3564,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   console.log(`[FrictionlessSlide/GL] Grounding stays queued for tool channel (${this.pendingWeeOoGrounding!.length} chars — no sendClientContent)`);
                 }, 500);
               })
-              .catch(err => console.warn('[FrictionlessSlide/GL] Auto-grounding failed:', (err as Error).message));
+              .catch(err => {
+                this._traceGuardianAttempt(postTurnAttemptId, {
+                  type: 'lookup_failed',
+                  detail: (err as Error).message,
+                });
+                console.warn('[FrictionlessSlide/GL] Auto-grounding failed:', (err as Error).message);
+              });
           }
         }
         // ── Gemini friction signal analysis ──────────────────────────────────
@@ -3736,52 +3648,54 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   `archive: ${friction.archiveAccess}, signals: ${friction.signals.join(' | ')}`,
                 );
               }
-              const frictionGrounding = createFrictionSignalGroundingBinding(
-                this.activeStudentTurnEpoch,
-                this.activeStudentUtterance || this.lastUserText,
-                transcript,
-                friction.unverifiedAssertions,
-              );
-              const topicSeed = frictionGrounding.binding.candidateAssertion;
+              // Use the first 80 chars of transcript as topic seed for the vector search.
+              const topicSeed = transcript.slice(0, 80);
               const userId = String((this.session as any).userId || '');
               const conversationId = (this.session as any).conversationId;
               const targetLanguage = (this.session as any).targetLanguage;
               const startMs = Date.now();
-              const groundingBinding = frictionGrounding.binding;
-              // Outcome tracking: if Guardian fired recently but friction-signal fired again — it was missed
-              const prevUnresolvedFS = this.guardianFireLog.findLast(e => e.outcome === null);
-              if (prevUnresolvedFS) { prevUnresolvedFS.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedFS); }
-              this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
+              const groundingBinding = createGroundingTurnBinding(
+                this.activeStudentTurnEpoch,
+                this.activeStudentUtterance || this.lastUserText,
+                topicSeed,
+              );
+              const frictionAttemptId = this._startGuardianAttempt('friction-signal', groundingBinding);
+              this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null, channel: null, outcome: null, groundingPreview: null, attemptId: frictionAttemptId });
               this._observeGuardian();
               runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
                 .then(groundingResult => {
-                  if (this.isStopped || Date.now() - startMs > 2000) return;
-                  if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
-                    if (
-                      frictionGrounding.canCarryToPriorTurn
-                      && this.activeStudentTurnEpoch === groundingBinding.studentTurnEpoch + 1
-                    ) {
-                      this.pendingPriorTurnGrounding = createPriorTurnGroundingCorrection(
-                        groundingResult,
-                        groundingBinding,
-                        this.activeStudentTurnEpoch,
-                      );
-                      console.log(
-                        `[FrictionSignal/GL] Holding stale grounding from student turn `
-                        + `${groundingBinding.studentTurnEpoch} dormant for an explicit topic return.`,
-                      );
-                    } else {
-                      console.warn(
-                        `[FrictionSignal/GL] Discarding stale grounding from student turn `
-                        + `${groundingBinding.studentTurnEpoch}; no assertion-scoped prior-turn candidate.`,
-                      );
-                    }
+                  if (this.isStopped || Date.now() - startMs > 2000) {
+                    this._traceGuardianAttempt(frictionAttemptId, {
+                      type: 'stale_discarded',
+                      detail: this.isStopped ? 'Session stopped before lookup delivery.' : 'Lookup exceeded the two-second freshness budget.',
+                    });
                     return;
                   }
+                  if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
+                    console.warn(`[FrictionSignal/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
+                    this._traceGuardianAttempt(frictionAttemptId, {
+                      type: 'stale_discarded',
+                      detail: 'Friction-signal lookup completed after the bound student turn ended.',
+                    });
+                    return;
+                  }
+                  this._traceGuardianAttempt(frictionAttemptId, {
+                    type: 'lookup_completed',
+                    detail: `${groundingResult.length} characters returned from Archive lookup.`,
+                  });
                   const fsLogEntry = this.guardianFireLog.findLast(e => e.path === 'friction-signal');
                   if (fsLogEntry) fsLogEntry.charsInjected = groundingResult.length;
-                  this.pendingWeeOoGrounding = groundingResult;
-                  this.pendingWeeOoGroundingBinding = groundingBinding;
+                  this._replacePendingWeeOoGrounding(
+                    groundingResult,
+                    groundingBinding,
+                    frictionAttemptId,
+                    'A friction-signal Guardian lookup replaced this queued payload before delivery.',
+                  );
+                  this._traceGuardianAttempt(frictionAttemptId, {
+                    type: 'queued',
+                    channel: 'tool-response',
+                    detail: 'Friction-signal correction queued for a safe tool-response delivery.',
+                  });
                   console.log(`[FrictionSignal/GL] Grounding queued from Gemini friction signal (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
                   // Same 500ms fallback as phrase detection — gated on !generationStartedThisTurn
                   // to prevent mid-sentence restarts from sendClientContent while GL generates.
@@ -3797,9 +3711,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                       if (!this.pendingCarryForwardGrounding) {
                         this.pendingCarryForwardGrounding = this.pendingWeeOoGrounding;
                         this.pendingCarryForwardGroundingBinding = groundingBinding;
+                        this.pendingCarryForwardGroundingAttemptId = frictionAttemptId;
+                      } else {
+                        this._traceGuardianAttempt(frictionAttemptId, {
+                          type: 'superseded',
+                          detail: 'An existing carry-forward payload retained the only deferred-delivery slot.',
+                        });
                       }
                       this.pendingWeeOoGrounding = null;
                       this.pendingWeeOoGroundingBinding = null;
+                      this.pendingWeeOoGroundingAttemptId = null;
+                      this._traceGuardianAttempt(frictionAttemptId, {
+                        type: 'queued',
+                        channel: 'tool-response',
+                        detail: 'Friction-signal correction moved to carry-forward while generation was active.',
+                      });
                       console.log(`[FrictionSignal/GL] Suppressed mid-generation sendClientContent — carried forward`);
                       return;
                     }
@@ -3807,34 +3733,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                     console.log(`[FrictionSignal/GL] Grounding stays queued for tool channel (${this.pendingWeeOoGrounding!.length} chars — no sendClientContent)`);
                   }, 500);
                 })
-                .catch(err => console.warn('[FrictionSignal/GL] Auto-grounding failed:', (err as Error).message));
+                .catch(err => {
+                  this._traceGuardianAttempt(frictionAttemptId, {
+                    type: 'lookup_failed',
+                    detail: (err as Error).message,
+                  });
+                  console.warn('[FrictionSignal/GL] Auto-grounding failed:', (err as Error).message);
+                });
             } else if (friction.label !== 'CLEAN') {
               console.log(`[FrictionSignal/GL] Friction ${friction.label} (score: ${friction.totalScore}) — below grounding threshold, monitoring`);
             }
           }
         }
 
-        // Archive Guardian outcome — 'heard' if Daniela called an Archive tool this turn
-        // (introspect, recall, grounding_query, memory_lookup signal she went to the Archive).
         const archiveToolsUsedThisTurn = this.currentTurnToolCalls.some(t =>
           ['introspect', 'recall', 'grounding_query', 'memory_lookup', 'unified_recall'].includes(t)
         );
-        if (archiveToolsUsedThisTurn) {
-          const recentFire = this.guardianFireLog.findLast(e => e.outcome === null);
-          if (recentFire) {
-            recentFire.outcome = 'heard';
-            console.log(`[ArchiveGuardian] Outcome 'heard' — Archive tool called this turn after Guardian fire (phrase: "${recentFire.phrase.slice(0, 50)}")`);
-            this._persistGuardianOutcome(recentFire);
-          }
-        } else {
-          // No Archive tool called this turn — any pending fire is a miss.
-          const recentFire = this.guardianFireLog.findLast(e => e.outcome === null);
-          if (recentFire) {
-            recentFire.outcome = 'missed';
-            console.log(`[ArchiveGuardian] Outcome 'missed' — no Archive tool called this turn (phrase: "${recentFire.phrase.slice(0, 50)}")`);
-            this._persistGuardianOutcome(recentFire);
-          }
-        }
+        // Delivery and Archive linkage are recorded per stable attempt. Do not
+        // infer “heard” or “missed” from a turn-wide tool-name heuristic.
         // Surface per-turn tool summary to Luca's observer before resetting the list.
         {
           const _tcConvId = (this.session as any).conversationId as string | undefined;
@@ -3863,45 +3779,62 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           const _hwUserId = String((this.session as any).userId || '');
           const _hwConvId = (this.session as any).conversationId;
           const _hwLang = (this.session as any).targetLanguage;
-          const _hwQuery = extractGroundingAssertionCandidate(this.pendingOutputTranscript);
+          const _hwQuery = this.pendingOutputTranscript.slice(0, 200);
           const _hwBinding = createGroundingTurnBinding(
             this.activeStudentTurnEpoch,
             this.activeStudentUtterance || this.lastUserText,
             _hwQuery,
           );
+          const hardWallAttemptId = this._startGuardianAttempt('hard-wall', _hwBinding);
           this.hardWallTriggered = false;
           console.warn('[HardWall] Injecting grounding correction for next turn');
           runAutoGrounding(_hwUserId, _hwQuery, 'memory_assertion', _hwConvId, _hwLang, { writeToDb: true, notifyLuca: true })
             .then(groundingResult => {
               if (this.isStopped || !this.liveSession) return;
+              if (!isGroundingBindingCurrent(_hwBinding, this.activeStudentTurnEpoch)) {
+                console.warn(`[HardWall] Discarding stale correction from student turn ${_hwBinding.studentTurnEpoch}.`);
+                this._traceGuardianAttempt(hardWallAttemptId, {
+                  type: 'stale_discarded',
+                  detail: 'Hard-wall lookup completed after the bound student turn ended.',
+                });
+                return;
+              }
+              this._traceGuardianAttempt(hardWallAttemptId, {
+                type: 'lookup_completed',
+                detail: `${groundingResult.length} characters returned from Archive lookup.`,
+              });
               const correction = groundingResult
                 ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${groundingResult}]`
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
-              if (!isGroundingBindingCurrent(_hwBinding, this.activeStudentTurnEpoch)) {
-                if (this.activeStudentTurnEpoch === _hwBinding.studentTurnEpoch + 1) {
-                  this.pendingPriorTurnGrounding = createPriorTurnGroundingCorrection(
-                    correction,
-                    _hwBinding,
-                    this.activeStudentTurnEpoch,
-                  );
-                  console.log(
-                    `[HardWall] Holding stale correction from student turn `
-                    + `${_hwBinding.studentTurnEpoch} dormant for an explicit topic return.`,
-                  );
-                } else {
-                  console.warn(`[HardWall] Discarding stale correction from student turn ${_hwBinding.studentTurnEpoch}.`);
-                }
-                return;
-              }
               // sendClientContent is unsafe — store for tool-result delivery on next tool call.
               if (!this.pendingWeeOoGrounding) {
-                this.pendingWeeOoGrounding = correction;
-                this.pendingWeeOoGroundingBinding = _hwBinding;
+                this._replacePendingWeeOoGrounding(
+                  correction,
+                  _hwBinding,
+                  hardWallAttemptId,
+                  'Hard-wall correction replaced this queued payload before delivery.',
+                );
                 this.slideCorrectionQueued = true;
+                this._traceGuardianAttempt(hardWallAttemptId, {
+                  type: 'queued',
+                  channel: 'tool-response',
+                  detail: 'Hard-wall correction queued for a safe tool-response delivery.',
+                });
+              } else {
+                this._traceGuardianAttempt(hardWallAttemptId, {
+                  type: 'superseded',
+                  detail: 'An existing Guardian payload retained the only tool-response queue slot.',
+                });
               }
               console.log('[HardWall] Correction queued for tool channel');
             })
-            .catch(err => console.warn('[HardWall] Correction failed:', (err as Error).message));
+            .catch(err => {
+              this._traceGuardianAttempt(hardWallAttemptId, {
+                type: 'lookup_failed',
+                detail: (err as Error).message,
+              });
+              console.warn('[HardWall] Correction failed:', (err as Error).message);
+            });
         } else {
           this.hardWallTriggered = false;
         }
@@ -4035,6 +3968,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_generation_complete', {
         turnId: this.currentTurnId, hadAudio: this.hadAudioInCurrentSubturn,
       });
+      this._finalizeGuardianAttemptsForTurn();
 
       // Close transcription immediately at generationComplete — BEFORE the 800ms
       // audio-seal debounce. Audio chunks can still arrive for 300-700ms after
@@ -4100,6 +4034,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // We close the open audio sub-turn and flush whatever partial transcript we have so
     // the truncated assistant message is saved cleanly before the next user turn begins.
     if ((msg.serverContent as any)?.interrupted) {
+      this._finalizeOutstandingGuardianAttempts('Gemini generation was interrupted by a new student utterance.');
       // Clear thought buffer — interrupted turns won't reach generationComplete, so the
       // buffer must be wiped here or it would bleed into the next turn's thought accumulation.
       this.currentTurnThoughtBuffer = '';
@@ -4189,6 +4124,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // while handlers are running, currentTurnId will advance and the guard below drops
       // the now-stale responses before they reach sendToolResponse.
       const localTurnId = this.currentTurnId;
+      const toolBatchSequence = ++this.toolCallBatchSequence;
+      const guardianAttemptIdsInToolResponse: string[] = [];
+      this._linkRelatedArchiveCalls(
+        msg.toolCall.functionCalls.map((fc: any) => fc.name as string),
+        toolBatchSequence,
+      );
 
       // Frictionless Slide: record all tool names called this GL turn
       for (const fc of msg.toolCall.functionCalls) {
@@ -4579,13 +4520,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         ]);
       }
 
-      const guardianWhispers: string[] = [];
-      const priorTurnTranscriptFinalized = (
-        this.pendingPriorTurnGrounding
-        && this.currentStudentTurnBoundaryTrusted
-      )
-        ? await this.waitForInputTranscriptionFinalization(this.activeStudentTurnEpoch)
-        : true;
+      const guardianWhispers: Array<{ text: string; attemptId: string | null }> = [];
       if (
         this.pendingWeeOoGrounding
         && this.pendingWeeOoGroundingBinding
@@ -4594,18 +4529,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           this.activeStudentTurnEpoch,
         )
       ) {
-        guardianWhispers.push(formatCurrentTurnCorrectionContext(
-          this.pendingWeeOoGroundingBinding,
-          this.pendingWeeOoGrounding,
-          this.slideCorrectionQueued,
-        ));
+        // Slide-triggered corrections get a behavioral directive — not just context but an
+        // explicit instruction to verify before continuing. This is Tier B: turning passive
+        // grounding delivery into an active "check before you speak" lock.
+        const correctionLabel = this.slideCorrectionQueued
+          ? `[LAST TURN CORRECTION — ARCHIVE SYNC: Our shared history contains specific records relevant to your last turn. Archive Data:\n${this.pendingWeeOoGrounding}\n\nTo ensure we stay aligned, please use grounding_query or introspect to reconcile this information before making further assertions about our shared history.]`
+          : `[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`;
+        const queuedAttemptId = this.pendingWeeOoGroundingAttemptId;
+        guardianWhispers.push({ text: correctionLabel, attemptId: queuedAttemptId });
         this.pendingWeeOoGrounding = null;
         this.pendingWeeOoGroundingBinding = null;
+        this.pendingWeeOoGroundingAttemptId = null;
         this.slideCorrectionQueued = false;
       } else if (this.pendingWeeOoGrounding) {
         console.warn('[ArchiveGuardian] Discarding stale or unbound queued grounding before tool response.');
+        this._traceGuardianAttempt(this.pendingWeeOoGroundingAttemptId, {
+          type: 'stale_discarded',
+          detail: 'Queued grounding no longer matched the active student turn at tool response.',
+        });
         this.pendingWeeOoGrounding = null;
         this.pendingWeeOoGroundingBinding = null;
+        this.pendingWeeOoGroundingAttemptId = null;
         this.slideCorrectionQueued = false;
       }
       if (
@@ -4622,51 +4566,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // after the initial grounding fire (handles short phrases like "I feel stupid"
         // that cross the emotional threshold on a later transcript chunk).
         if (this.preTurnGroundingIsEmotional) {
-          guardianWhispers.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate.\n${currentGrounding}]`);
+          guardianWhispers.push({
+            text: `[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate.\n${currentGrounding}]`,
+            attemptId: this.preTurnGroundingAttemptId,
+          });
         } else {
-          guardianWhispers.push(currentGrounding);
+          guardianWhispers.push({ text: currentGrounding, attemptId: this.preTurnGroundingAttemptId });
         }
         this.preTurnGroundingResult = null;
         this.preTurnGroundingBinding = null;
-      }
-      if (
-        this.pendingPriorTurnGrounding
-        && this.pendingPriorTurnGrounding.eligibleStudentTurnEpoch === this.activeStudentTurnEpoch
-      ) {
-        const prior = this.pendingPriorTurnGrounding;
-        if (!this.currentStudentTurnBoundaryTrusted) {
-          console.warn(
-            `[ArchiveGuardian] Prior-turn grounding discarded because student turn `
-            + `${this.activeStudentTurnEpoch} has an ambiguous transcription boundary.`,
-          );
-          this.pendingPriorTurnGrounding = null;
-        } else if (!priorTurnTranscriptFinalized) {
-          console.warn(
-            `[ArchiveGuardian] Prior-turn grounding deferred because student turn `
-            + `${this.activeStudentTurnEpoch} has no final transcription signal yet.`,
-          );
-        } else {
-          const reopenedContext = releasePriorTurnGroundingCorrection(
-            prior,
-            this.activeStudentTurnEpoch,
-            this.activeStudentUtterance,
-            true,
-            this.currentStudentTurnBoundaryTrusted,
-          );
-          if (reopenedContext) {
-            guardianWhispers.push(reopenedContext);
-            console.log(
-              `[ArchiveGuardian] Prior-turn grounding released for explicit topic return on student turn `
-              + `${this.activeStudentTurnEpoch}.`,
-            );
-          } else {
-            console.warn(
-              `[ArchiveGuardian] Prior-turn grounding withheld from non-matching student turn `
-              + `${this.activeStudentTurnEpoch}.`,
-            );
-          }
-          this.pendingPriorTurnGrounding = null;
-        }
+        this.preTurnGroundingAttemptId = null;
       }
       if (guardianWhispers.length > 0) {
         // Instructional Piggybacking (July 26 2026 — Gemini-approved wording, DB: b5503bea):
@@ -4687,7 +4596,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         if (sessionAnchorText) {
           console.log(`[ArchiveGuardian/anchor] Session Anchor injected at turn ${this.sessionStudentTurnCount}`);
         }
-        const guardianWhisper = `[ARCHIVE GUARDIAN:\n${guardianWhispers.join('\n')}${sessionAnchorText}]`;
+        const guardianWhisper = `[ARCHIVE GUARDIAN:\n${guardianWhispers.map(whisper => whisper.text).join('\n')}${sessionAnchorText}]`;
         // Find the most recent fire log entry that hasn't had its channel recorded yet
         const recentFireForChannel = this.guardianFireLog.findLast(e => e.channel === null);
         // Always use concat channel — dedicated channel (sendClientContent) disabled.
@@ -4699,22 +4608,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           last.response.result = currentResult
             + (currentResult ? '\n\n' : '')
             + guardianWhisper;
-          const assembledContextId = this._recordContextLineage({
-            sourceRoute: 'gemini-live',
-            eventType: 'context_concatenated',
-            deliveryChannel: 'tool_response',
-            payloadText: guardianWhisper,
-            deliveryStatus: 'queued',
-          });
-          if (assembledContextId && this.preTurnGroundingLineageEventId && this.activeContextLineageTraceId) {
-            this._linkContextLineage({
-              traceId: this.activeContextLineageTraceId,
-              fromEventId: this.preTurnGroundingLineageEventId,
-              toEventId: assembledContextId,
-              linkType: 'derived_from',
+          console.log(`[ArchiveGuardian/concat] ${guardianWhispers.length} whisper(s) injected into tool response (${last.name}) — ${guardianWhisper.length} chars`);
+          for (const attemptId of new Set(guardianWhispers.map(whisper => whisper.attemptId).filter((id): id is string => Boolean(id)))) {
+            guardianAttemptIdsInToolResponse.push(attemptId);
+            this._traceGuardianAttempt(attemptId, {
+              type: 'injected',
+              channel: 'tool-response',
+              modelTurnId: localTurnId,
+              toolBatchSequence,
+              detail: `Appended to ${last.name} function response.`,
+            });
+            this._traceGuardianAttempt(attemptId, {
+              type: 'tool_response_consumed',
+              channel: 'tool-response',
+              modelTurnId: localTurnId,
+              toolBatchSequence,
+              detail: `Grounding text is present in ${last.name} response body.`,
             });
           }
-          console.log(`[ArchiveGuardian/concat] ${guardianWhispers.length} whisper(s) injected into tool response (${last.name}) — ${guardianWhisper.length} chars`);
           if (recentFireForChannel) { recentFireForChannel.channel = 'concat'; recentFireForChannel.charsInjected = guardianWhisper.length; }
           this._observeGuardian();
         }
@@ -4890,14 +4801,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // already barged past. GL stall risk is low: the interrupted turn has no pending model turn.
       if (this.currentTurnId !== localTurnId) {
         console.log(`[GeminiLive] Call-ID guard: dropping ${responses.length} tool response(s) — turn ${localTurnId} superseded by turn ${this.currentTurnId} (barge-in during tool execution)`);
-        this._recordContextLineage({
-          sourceRoute: 'gemini-live',
-          eventType: 'tool_response_discarded_by_barge_in',
-          deliveryChannel: 'tool_response',
-          deliveryStatus: 'discarded',
-          payloadText: JSON.stringify(responses),
-          payloadJson: { localTurnId, currentTurnId: this.currentTurnId },
-        });
+        for (const attemptId of guardianAttemptIdsInToolResponse) {
+          this._traceGuardianAttempt(attemptId, {
+            type: 'stale_discarded',
+            detail: 'Tool response was dropped after the student barged into a newer model turn.',
+          });
+        }
         return;
       }
 
@@ -4908,24 +4817,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // the turn is resolved regardless of what happens to the connection next.
           this.pendingFunctionCallIds = [];
           this.liveSession.sendToolResponse({ functionResponses: responses });
-          this._recordContextLineage({
-            sourceRoute: 'gemini-live',
-            eventType: 'tool_response_send_attempted',
-            deliveryChannel: 'sendToolResponse',
-            deliveryStatus: 'unknown',
-            payloadText: JSON.stringify(responses),
-          });
           console.log(`[GeminiLive] Tool responses sent: ${responses.map(r => r.name).join(', ')}`);
+          for (const attemptId of guardianAttemptIdsInToolResponse) {
+            this._traceGuardianAttempt(attemptId, {
+              type: 'tool_response_sent',
+              channel: 'tool-response',
+              modelTurnId: localTurnId,
+              toolBatchSequence,
+              detail: 'Gemini Live accepted the function-response dispatch.',
+            });
+          }
         } catch (err) {
           console.error('[GeminiLive] Failed to send tool responses:', err);
-          this._recordContextLineage({
-            sourceRoute: 'gemini-live',
-            eventType: 'tool_response_send_failed',
-            deliveryChannel: 'sendToolResponse',
-            deliveryStatus: 'failed',
-            payloadText: JSON.stringify(responses),
-            payloadJson: { error: err instanceof Error ? err.message : String(err) },
-          });
+          for (const attemptId of guardianAttemptIdsInToolResponse) {
+            this._traceGuardianAttempt(attemptId, {
+              type: 'queued',
+              channel: 'tool-response',
+              detail: `Tool-response dispatch failed: ${(err as Error).message}`,
+            });
+          }
         }
 
         // Send any queued inline image parts (vision) as realtimeInput after tool response.
@@ -5648,11 +5558,7 @@ export function createPriorTurnGroundingCorrection(
   activeStudentTurnEpoch: number,
 ): PriorTurnGroundingCorrection | null {
   if (activeStudentTurnEpoch !== binding.studentTurnEpoch + 1) return null;
-  return {
-    groundingResult,
-    binding,
-    eligibleStudentTurnEpoch: activeStudentTurnEpoch,
-  };
+  return { groundingResult, binding, eligibleStudentTurnEpoch: activeStudentTurnEpoch };
 }
 
 export function registerInputTranscriptionChunk(
@@ -5701,17 +5607,13 @@ export function createFrictionSignalGroundingBinding(
   unverifiedAssertionPhrases: string[],
 ): { binding: GroundingTurnBinding; canCarryToPriorTurn: boolean } {
   const matchedAssertionPhrase = unverifiedAssertionPhrases.find(phrase =>
-    modelTranscript.toLocaleLowerCase().includes(phrase.toLocaleLowerCase())
+    modelTranscript.toLocaleLowerCase().includes(phrase.toLocaleLowerCase()),
   );
   const candidateAssertion = matchedAssertionPhrase
     ? extractGroundingAssertionCandidate(modelTranscript, matchedAssertionPhrase)
     : studentUtterance.trim().slice(0, 240);
   return {
-    binding: createGroundingTurnBinding(
-      studentTurnEpoch,
-      studentUtterance,
-      candidateAssertion,
-    ),
+    binding: createGroundingTurnBinding(studentTurnEpoch, studentUtterance, candidateAssertion),
     canCarryToPriorTurn: Boolean(matchedAssertionPhrase && candidateAssertion),
   };
 }
@@ -5730,34 +5632,14 @@ export function releasePriorTurnGroundingCorrection(
   studentTurnBoundaryTrusted = true,
 ): string | null {
   if (prior.eligibleStudentTurnEpoch !== activeStudentTurnEpoch) return null;
-  if (!inputTranscriptionFinished) return null;
-  if (!studentTurnBoundaryTrusted) return null;
+  if (!inputTranscriptionFinished || !studentTurnBoundaryTrusted) return null;
   if (!doesStudentExplicitlyReopenGroundingTopic(
     currentStudentUtterance,
     prior.binding.candidateAssertion,
-  )) {
-    return null;
-  }
+  )) return null;
   return formatReopenedPriorTurnGroundingContext(
     currentStudentUtterance,
     prior.binding,
     prior.groundingResult,
   );
-}
-
-export function formatCurrentTurnCorrectionContext(
-  binding: GroundingTurnBinding,
-  groundingResult: string,
-  requiresArchiveReconciliation: boolean,
-): string {
-  const archiveResult = groundingResult.trim()
-    || 'No verified Archive source surfaced for this candidate.';
-  const reconciliation = requiresArchiveReconciliation
-    ? '\nBefore making another assertion about this candidate, reconcile it with this Archive result.'
-    : '';
-  return `[CURRENT STUDENT TURN — PRIMARY SUBJECT:
-Utterance: "${binding.studentUtterance}"
-Candidate from this same turn: "${binding.candidateAssertion}"
-Archive correction for this candidate: ${archiveResult}${reconciliation}
-Answer the current utterance first. Do not change the subject.]`;
 }

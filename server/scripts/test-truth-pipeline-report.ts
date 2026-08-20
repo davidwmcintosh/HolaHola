@@ -207,10 +207,9 @@ async function main() {
 
   // ── Test 5: Guardian heard/missed outcomes (fixture) ─────────────────────
   // Inserts two synthetic gl_guardian_fire rows for a real session — one with
-  // outcome:'heard', one with outcome:'missed' — then runs the report and verifies
-  // both labels appear in the output.  Proves the report correctly reads persisted
-  // outcomes rather than treating all fires as pending.
-  console.log(B('\nTest 5 — Guardian outcome rendering: HEARD and MISSED labels appear'));
+  // Historical heuristic rows remain visible, but are explicitly marked as
+  // non-authoritative rather than treated as evidence about Daniela.
+  console.log(B('\nTest 5 — Legacy Guardian heuristic rows are clearly non-authoritative'));
   sep();
   {
     const sessions = await sql`
@@ -275,16 +274,16 @@ async function main() {
           // Strip ANSI codes so string matching is reliable
           const plain = out.replace(/\x1b\[[0-9;]*m/g, '');
           assert(
-            'HEARD label appears in guardian section',
-            plain.includes('HEARD'),
-            `"HEARD" not found in output. Guardian section:\n${
+            'legacy heuristic disclaimer appears in guardian section',
+            plain.includes('LEGACY / NON-AUTHORITATIVE HEURISTIC'),
+            `"LEGACY / NON-AUTHORITATIVE HEURISTIC" not found in output. Guardian section:\n${
               (() => { const i = plain.indexOf('GUARDIAN'); return i >= 0 ? plain.slice(i, i + 600) : plain.slice(0, 600); })()
             }`
           );
           assert(
-            'MISSED label appears in guardian section',
-            plain.includes('MISSED'),
-            `"MISSED" not found in output. Guardian section:\n${
+            'historical Guardian phrases remain visible for forensic review',
+            plain.includes(HEARD_PHRASE) && plain.includes(MISSED_PHRASE),
+            `"${HEARD_PHRASE}" or "${MISSED_PHRASE}" not found in output. Guardian section:\n${
               (() => { const i = plain.indexOf('GUARDIAN'); return i >= 0 ? plain.slice(i, i + 600) : plain.slice(0, 600); })()
             }`
           );
@@ -371,14 +370,14 @@ async function main() {
           `expected "heard", got "${after[0]?.outcome}"`
         );
 
-        // Step 5 — run the report and verify HEARD appears (report reads from DB)
+        // Step 5 — report shows the compatibility disclaimer (not a behavioral claim)
         const { out, exitCode } = run(sessionId);
         assert('report exits 0', exitCode === 0, `exitCode=${exitCode}`);
         const plain = out.replace(/\x1b\[[0-9;]*m/g, '');
         assert(
-          'report shows HEARD for the updated row',
-          plain.includes('HEARD'),
-          `"HEARD" not found in guardian section`
+          'report marks legacy persisted outcome as non-authoritative',
+          plain.includes('LEGACY / NON-AUTHORITATIVE HEURISTIC'),
+          `"LEGACY / NON-AUTHORITATIVE HEURISTIC" not found in guardian section`
         );
       } catch (err: any) {
         console.log(Y(`  SKIP: fixture error — ${err?.message ?? err}`));

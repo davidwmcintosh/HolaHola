@@ -1,13 +1,4 @@
-/**
- * Session Observation Store
- *
- * Lightweight in-memory snapshot of the currently active GL session.
- * Written to by the GL session and native FC handlers at key events.
- * Read by GET /api/admin/luca/observe so Luca can see what Daniela is doing
- * from the Replit chat window without any UI changes.
- *
- * One entry per conversationId. Auto-expires after 4 hours of inactivity.
- */
+import type { GuardianAttemptTrace } from './guardian-attempt-trace';
 
 const EXPIRY_MS = 4 * 60 * 60 * 1000;
 
@@ -25,6 +16,8 @@ export interface GuardianFireRecord {
   channel: 'concat' | 'dedicated' | 'pre-turn-sendclientcontent' | null;
   outcome: 'heard' | 'missed' | null;
   groundingPreview: string | null;
+  /** Optional link to the evidence-chain attempt; legacy rows may omit it. */
+  attemptId?: string;
 }
 
 export interface MemorySearchRecord {
@@ -121,6 +114,8 @@ export interface SessionObservation {
   // Archive Guardian A/B state
   guardianChannel: 'concat' | 'dedicated';
   guardianFireLog: GuardianFireRecord[];
+  /** Append-only evidence chain for Guardian attempts, newest attempt last. */
+  guardianAttempts: GuardianAttemptTrace[];
   // Neural net memory searches (last 20)
   recentMemorySearches: MemorySearchRecord[];
   // Per-turn tool-call summaries (last 15 turns)
@@ -164,6 +159,7 @@ export function observeSessionStart(opts: {
     sessionStartedMs: existing?.sessionStartedMs ?? now(),
     guardianChannel: existing?.guardianChannel ?? 'concat',
     guardianFireLog: existing?.guardianFireLog ?? [],
+    guardianAttempts: existing?.guardianAttempts ?? [],
     recentMemorySearches: existing?.recentMemorySearches ?? [],
     turnSummaries: existing?.turnSummaries ?? [],
     frictionHistory: existing?.frictionHistory ?? [],
@@ -260,11 +256,16 @@ export function observeGuardianState(
   conversationId: string,
   channel: 'concat' | 'dedicated',
   fireLog: GuardianFireRecord[],
+  attempts: GuardianAttemptTrace[] = [],
 ): void {
   const entry = touch(conversationId);
   if (!entry) return;
   entry.guardianChannel = channel;
   entry.guardianFireLog = [...fireLog];
+  entry.guardianAttempts = attempts.map(attempt => ({
+    ...attempt,
+    events: [...attempt.events],
+  }));
   entry.lastUpdatedMs = now();
 }
 
