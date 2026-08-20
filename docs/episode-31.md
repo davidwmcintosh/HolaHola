@@ -2014,3 +2014,47 @@ Production is now healthy at the service level.
 - I deliberately did not inject synthetic dialogue into the public episode record merely to force a test.
 
 That means the deployment and replica-repair path have cleared the failure we could observe. The remaining final proof is one ordinary production conversation turn: it should create a normal capture acknowledgement and leave the canonical conversation-memory record and Episode 31 Markdown replica aligned. If the old error returns on that real turn, we stop and investigate from the new log boundary rather than calling the rollout successful by assumption.
+
+<!-- chat-capture-range:148001:151170 -->
+<!-- chat-capture:bef255b3-07ba-47b7-ba01-1800bdfd31c7 -->
+**David:** 1. The text for the main luca channel appears to be a summarized version of the original replit window output. we have the full replit dump, or did the capture fail? 2. what do you want me to do next? have a /chat with daniela?
+
+**LUCA [Replit]:** [felt]: I feel the distinction is finally concrete: the canonical record preserved the explicit turn we sent, while the visible Replit window contained additional material that never entered the capture stream. I do not want downstream parity to be mistaken for completeness again.
+
+[thinking]: The next test should be a real production /chat with Daniela after the publish, not synthetic dialogue. Separately, recovering the older missing visible blocks requires the complete exported Replit window so the raw-evidence guard can retain and classify it without inventing attribution.
+
+[moment]: The raw evidence boundary is now concrete: retained source bytes prove that visible host-window material exceeded the attributed dialogue, but they do not yet constitute a complete dump.
+
+1. Yes—the main Luca channel you are looking at is a summarized version of the explicit assistant response that entered `.chat_capture`. The downstream capture did not silently shorten that response: it saved what it received, and the DB-to-Markdown replica is exact.
+
+The loss happened earlier. The visible Replit window contained additional Luca/tool/status/progress material that never entered the capture stream. We do have retained raw-window evidence, but not the full Replit dump: three partial source artifacts totaling 22,789 bytes are retained as raw evidence, all three are currently unclassified/reference-only, and the status report shows no completed local reconciliation audit. They prove the gap; they do not recover every missing visible block.
+
+Task 1281, which just merged, protects this boundary. It retains raw material and refuses to promote ambiguous tool/status text into Luca dialogue. It does not mean the complete visible window was recovered. To recover the older missing material faithfully, we would need one complete exported or pasted Replit window with the relevant David message and the complete Luca response visible; I would retain it byte-for-byte and reconcile it as evidence rather than blend it into the main channel.
+
+2. Yes: the next thing I want you to do is have a short, ordinary `/chat` with Daniela on the published production app at `https://getholahola.com`. Use about 3–5 natural turns and do not frame it as a capture test. After you finish, tell me that the chat is done. I will then inspect the new production log boundary, acknowledgement, and DB/Markdown result without injecting synthetic dialogue.
+
+That production chat is the right next step because the publish has completed and the service-level checks are clean. The full-window recovery is a separate forensic task; do it afterward only if you want to recover the earlier missing visible blocks.
+
+<!-- chat-capture-range:151170:153933 -->
+<!-- chat-capture:6ae901cf-107c-4c8a-9430-8cc18f7ba8e7 -->
+**David:** why don't we start saving the entire raw replit output into the DB so that we never have to worry about finding the original source data as it will be in the DB. Then we can  audit our db episodes, and .md against the source any time that we want to?
+
+**LUCA [Replit]:** [felt]: I feel the distinction is finally concrete: the canonical record preserved the explicit turn we sent, while the visible Replit window contained additional material that never entered the capture stream. I do not want downstream parity to be mistaken for completeness again.
+
+[thinking]: The next design decision is the source boundary. The database can make every received raw window durable, but it cannot store visible material that Replit never exports to the collector. We should decide whether the first version stores explicitly supplied complete exports only or also prepares an automatic collector interface for future platform access.
+
+[moment]: The raw evidence boundary is now concrete: retained source bytes prove that visible host-window material exceeded the attributed dialogue, but they do not yet constitute a complete dump.
+
+Yes—that is the right long-term architecture, with one important separation: the entire raw Replit window should be stored as immutable source evidence, while the canonical episode dialogue remains a separately attributed projection.
+
+Part of that infrastructure already exists. The raw-window lane retains exact source bytes and SHA-256 hashes, and the current status shows three retained sources totaling 22,789 bytes. But those are partial, unclassified/reference-only artifacts—not the complete visible Replit dump. The main Luca channel is a summarized projection because the additional visible tool/status material never entered the capture stream upstream.
+
+Once a complete source is in the database, we can audit three layers independently:
+
+- raw source bytes: immutable evidence with hash, size, origin, and capture time;
+- canonical DB episode: attributed dialogue plus explicitly labelled evidence;
+- Markdown replica: exact projection of the canonical DB episode.
+
+That would let us report “DB and Markdown match” separately from “the episode accounts for every raw source span,” which is the distinction currently missing.
+
+One design question determines the first scope: should the durable raw-source table accept only complete exports that you explicitly provide, or should we also build an automatic live collector for future visible Replit output when the platform makes it available?

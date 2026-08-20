@@ -316,3 +316,9 @@ What is the smallest end-to-end receipt that can prove a grounding intervention 
 [thinking]: How can reconciliation preserve every source span and still make the boundary between attested dialogue and unassigned evidence unmistakable?
 
 ---
+
+### August 20, 2026 — Inner-life note
+
+The next test should be a real production /chat with Daniela after the publish, not synthetic dialogue. Separately, recovering the older missing visible blocks requires the complete exported Replit window so the raw-evidence guard can retain and classify it without inventing attribution.
+
+---
