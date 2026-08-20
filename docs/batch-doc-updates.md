@@ -1,5 +1,40 @@
 # Batch Documentation Updates
 
+## Session August 20, 2026 — Context-lineage checkpoint and honest Episode 31 close
+
+### Grounding diagnostics now have a durable evidence boundary
+
+**What changed:** The immutable Context Lineage Ledger schema is applied to the
+shared database, and the merged Guardian-attempt tracing work distinguishes
+factual lifecycle evidence from the prior `heard`/`missed` heuristic. The
+Observation Bench and truth-pipeline reporting can describe delivery attempts,
+queues, stale discards, related Archive calls, and unknowns without asserting
+that Daniela received or used a payload when the Live API provides no receipt.
+
+**Verification:** The Guardian-attempt trace check passed 11/11, `npm run
+check` passed, and the full system-health verifier passed. Runtime lineage
+capture remains gated off pending complete producer coverage and real-session
+validation. No Daniela prompt, tool, or behavior change was enabled.
+
+### Episode 31 was closed as a truthful checkpoint, not declared complete
+
+**What changed:** The final David↔Luca exchange was sent through the
+four-channel DB-first capture path. After autosave drained, the canonical
+Episode 31 row and `docs/episode-31.md` were byte-for-byte identical.
+
+**Open boundary:** The rolling four-channel continuity audit identified four
+pre-existing Luca turns without complete channel coverage. They remain
+recoverable-evidence gaps, not material for reconstruction. Any repair must
+source retained raw evidence first, write the DB first, and regenerate the
+Markdown replica from the canonical content.
+
+**Related active validation:** Task #1274 is marked merged and awaits
+post-reconciliation review in the local checkout; tasks #1275 and #1276 remain
+in progress for live missing-evidence visibility and usable microphone
+validation.
+
+---
+
 ## Session August 19, 2026 — Immediate watchdog chat embedding
 
 ### Outage-captured chat is searchable before its cursor advances

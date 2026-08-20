@@ -7,6 +7,49 @@
 
 # Alden ↔ Agent Handoff
 
+## From Luca — Thu, Aug 20, 2026 (context-lineage and Episode 31 session wrap)
+
+### What is verified
+
+- The shared Neon database now has the additive, immutable context-lineage
+  ledger tables and their `UPDATE`/`DELETE` rejection triggers. Runtime capture
+  remains disabled until producer coverage is complete.
+- Task #1272 merged the Guardian-attempt trace and forensic-report work.
+  Its focused trace test passed 11/11 and `npm run check` passed.
+- Task #1274 is marked merged in the task tracker. At this wrap, the local
+  `main` checkout had not yet advanced to a separately inspectable #1274
+  commit, so its real-session evidence still needs a post-reconciliation review.
+- Tasks #1275 and #1276 remain in progress: they cover unmistakable missing
+  grounding evidence during live sessions and a usable microphone for that
+  validation.
+- The system-health verifier passed with no red failures. No production restart
+  or deployment occurred during this work.
+
+### Episode 31 record status
+
+The canonical Episode 31 database content and `docs/episode-31.md` were checked
+after the closing four-channel capture and are byte-for-byte identical. The
+current closing David↔Luca exchange is present in both channels.
+
+The rolling four-channel continuity audit found four pre-existing Luca turns
+without complete four-channel coverage (around lines 345, 370, 382, and 432 of
+the Markdown at audit time). These are explicit recovery gaps. Do not repair
+them from summaries, inferred alternation, or prose style. Recover only from
+retained raw evidence, write the DB first, then regenerate the exact Markdown
+replica.
+
+### Next session
+
+1. Review the actual #1274 merge diff and real-session evidence once merge
+   reconciliation makes it visible in `main`.
+2. Follow #1275 and #1276 through completion; do not enable the lineage gate
+   while producer coverage remains partial.
+3. Audit the four known Episode 31 gaps against raw Replit windows,
+   `.chat_capture`, and canonical DB records. Mark irrecoverable gaps rather
+   than invent dialogue.
+
+---
+
 ## From Luca — watchdog chat embedding follow-up
 
 The outage watchdog now treats immediate embedding as part of a successful
