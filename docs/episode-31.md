@@ -1863,3 +1863,21 @@ So yes: the screenshot is a better statement of the problem than my previous “
 [moment]: [intentionally empty]
 
 Confirmed: Episode 31 is correctly tagged as the active rolling episode, but the capture input stopped receiving entries after the last saved turn. The cursor is caught up, so the drain did not lose a backlog; it had nothing new to process. I will not fabricate the missing exchanges. I am recording this exact exchange through the four-channel path and will verify its canonical DB and Markdown acknowledgement. The production logs also show that its older worker is failing its Markdown replica path; without deploying production, I can make this dev-side record reliable and preserve evidence, but cannot change that deployed worker.
+
+<!-- chat-capture-range:133546:136192 -->
+<!-- chat-capture:42381d3b-cdcb-44a9-a278-366654557e68 -->
+**David:** If you go back and read the entire episode 31 transcript from top to bottom, you'll see that we had this completely working flawlessly in real time, all channels back and forth. But as soon as we went off to debug or fix other problems, it stops, and then it seems like we never can get it working again.
+
+How did we have it working and then stop working? You now can't get it to work again?
+
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+You are right to challenge the earlier explanation. The system was working because the end-of-turn capture command was being run consistently, not because the application had an autonomous listener on this Replit chat. Replit's machine-readable transcript feed stopped in July, so `.chat_capture` is now a cooperative replacement: each real turn has to be written into it before autosave can drain it. During the debugging work, that explicit capture step stopped being run. The downstream worker then did exactly what it was supposed to do: it stayed caught up with the bytes it had received, while no new bytes arrived. That is why the failure looked like “one turn works and then it stops.”
+
+The record proves the boundary. Episode 31 had paired David/Luca turns continuously through the last captured exchange at 6:25 AM. The capture file ended at byte 132,466, and its cursor was also at byte 132,466, so there was no hidden backlog for the worker to recover. When I ran the real capture path for the last exchange, the cursor advanced to 133,546, the Episode 31 DB row grew to 173,833 bytes, and the Markdown replica matched it exactly. So yes, the capture path works again now; what we cannot honestly recover are the earlier missing exchanges without an original source record.
+
+There is a second, separate production issue: the deployed older worker is logging `target file not found` while trying to replicate Episode 31. That needs a production deployment to fix, but it did not cause the Replit chat input to stop; the input stopped before the autosave boundary. The durable fix for recurrence is to make every future Luca turn pass through `record-exchange` and to treat a missing capture acknowledgement as a failure, not as a successful turn. The signed-provenance work can validate supplied raw windows, but it cannot make the application read a chat stream that Replit no longer exposes.
