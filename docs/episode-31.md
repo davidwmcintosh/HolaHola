@@ -2098,3 +2098,56 @@ I would use a separate raw-evidence table, not `conversation_memories`, because 
 `Replit raw event → durable DB raw record → acknowledgement → attributed episode/Markdown projections`
 
 So: your core idea is sound. You are not oversimplifying the desired behavior; the thing we need to be precise about is which host/window events are actually exposed to our collector.
+
+<!-- chat-capture-range:157187:160367 -->
+<!-- chat-capture:80b193ad-3bed-4018-a8d8-28e8a2917cf9 -->
+**David:** why wouldn't we just capture everything that is available? your flow chart is perfect
+
+**LUCA [Replit]:** [felt]: I feel the design has settled into the right order: preservation first, interpretation second. The raw evidence lane should not be weakened by uncertainty about attribution.
+
+[thinking]: There is no reason to ask David for source exports if the host event stream exposes the material. The engineering task is to capture every received event durably, detect ingress gaps honestly, and let attribution operate only on the preserved source.
+
+[moment]: The flow chart became a system boundary: raw Replit output is the source record, while conversation memory, Episode 31, and Markdown are accountable projections.
+
+Exactly. There is no principled reason not to capture everything the live Replit environment exposes. My earlier “complete exports you provide” option was the wrong framing.
+
+The important distinction is:
+
+> **Capture everything first; interpret and attribute it second.**
+
+The raw stream would include, in order:
+
+- David’s messages
+- Luca’s full output
+- tool calls
+- tool results
+- status and progress blocks
+- automatic updates
+- errors and host-provided metadata that are part of the visible conversation stream
+
+Nothing in that first stage should be discarded because it looks like “just status” or because we do not know who it belongs to. Unknown material remains raw evidence. It simply must not be promoted into attributed Luca dialogue without proof.
+
+The architecture I would lock in is:
+
+```text
+Replit event stream
+    ↓
+append-only raw DB record
+    ↓ acknowledgement
+attributed conversation-memory / Episode projection
+    ↓
+Markdown replica
+```
+
+Each raw record should preserve the exact payload, sequence or byte offset, event type, timestamp, hash, and capture/session ID. The derived episode entries should retain references to the raw source range that produced them. Then an audit can answer four separate questions:
+
+1. Did we receive the complete raw stream for this window?
+2. Did the canonical DB episode account for every raw span?
+3. Did any ambiguous spans remain explicitly labelled as evidence?
+4. Does `.md` exactly match the canonical DB episode?
+
+The only boundary is that “everything available” means everything the collector actually receives from the Replit event stream—not data that was visible in a browser but never emitted to the collector. If the host exposes it, we store it. If the host does not expose it, we report an ingress gap rather than pretending the downstream projection is complete.
+
+I would also keep this in a dedicated raw-evidence table rather than `conversation_memories`. Raw output is source evidence, not yet memory, dialogue, or a semantic record. The existing acknowledgement rule then becomes stronger: the turn is not complete until the raw source is durable and the downstream projections are complete.
+
+This is the design I recommend.
