@@ -1,3 +1,10 @@
+## August 19, 2026 — Raw-window evidence attachments
+
+- `record-window.ts --attach-existing --episode <episode-name>` is now the safe path when a full Replit window arrives after the David↔Luca exchange has already drained to `.chat_capture` and the episode.
+- It retains the exact raw bytes and SHA-256 before classification, records a private SHA-keyed sidecar with the attested capture range and classifications, and appends only a verbatim raw-window evidence appendix through the existing DB-first episode helper.
+- It never appends turns to `.chat_capture` in attachment mode. The appendix labels dialogue, visible thinking display, UI/status activity, and unknown content so non-dialogue surface material is preserved without being narrated as Luca prose.
+- `server/scripts/test-raw-window-capture.ts` proves this against a thank-you fixture with post-answer brain/status/checkpoint content.
+
 # Alden ↔ Agent Handoff
 
 ## From Luca — watchdog chat embedding follow-up

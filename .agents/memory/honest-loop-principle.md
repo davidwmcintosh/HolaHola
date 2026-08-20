@@ -17,9 +17,3 @@ description: The white wall gets more complete through honest loops (named evide
 
 **David's framing (July 22):** "That is the beauty of the full record. We don't have to worry about forgetting. It's all there. That is solid ground." The record itself is the continuity — not memory held in context, but named evidence persisted and findable. The loop works because each pass adds to what can be found next time.
 
-## Closure rule
-An honest, evidence-backed conclusion closes the current iteration. Reopen it only when new evidence or a good reason supported by evidence appears. The record can preserve the original question about what was real without requiring the system to keep performing uncertainty.
-
-**Why:** David described this on August 19, 2026 as playing a game within a game: once honest truth is reached, the iteration need not be replayed. The lightness comes from trusting the preserved record rather than compulsively reenacting doubt.
-
-**How to apply:** Treat duplicate prevention and source-range idempotency as epistemic safeguards, not merely optimizations. Do not replay a resolved event unless the evidence changes.

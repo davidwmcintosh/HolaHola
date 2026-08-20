@@ -1678,22 +1678,50 @@ async function appendInnerLifeToEpisodeDb(
         return;
       }
 
-      // 1. Append text to the episode's DB content field (DB is primary)
+      // 1. Append text to the episode's DB content field (DB is primary).
+      //
+      // Marker-bearing events require database-level idempotency. The
+      // in-process filename lock only serializes callers in this Node process;
+      // a CLI retry and the running server are separate processes. PostgreSQL
+      // re-evaluates the conditional predicate after a concurrent UPDATE
+      // commits, so only one can append a given durable marker.
       const appendText = [route?.appendMarker, text].filter(Boolean).join('\n');
-      await db.execute(sql`
-        UPDATE conversation_memories
-        SET content = content || ${'\n' + appendText + '\n'}
-        WHERE id = ${memoryId}
-      `);
+      let newContent: unknown;
+      if (route?.appendMarker) {
+        const updated = await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = content || ${'\n' + appendText + '\n'}
+          WHERE id = ${memoryId}
+            AND POSITION(${route.appendMarker} IN content) = 0
+          RETURNING content
+        `);
+        const updatedRow = (updated as any).rows?.[0] ?? (updated as any)[0];
+        if (updatedRow) {
+          newContent = updatedRow.content;
+        } else {
+          const canonical = await db.execute(sql`
+            SELECT content FROM conversation_memories WHERE id = ${memoryId}
+          `);
+          const canonicalRow = (canonical as any).rows?.[0] ?? (canonical as any)[0];
+          newContent = canonicalRow?.content;
+          console.log(`[AgentAutosave] Episode event already present in ${episodeFilename} after conditional update — skipping duplicate append`);
+        }
+      } else {
+        await db.execute(sql`
+          UPDATE conversation_memories
+          SET content = content || ${'\n' + appendText + '\n'}
+          WHERE id = ${memoryId}
+        `);
 
-      // 2. Read updated content from DB and replace Markdown with that exact
-      // snapshot. This creates a missing mirror when the episode was created
-      // after the current deployed filesystem was built.
-      const updated = await db.execute(sql`
-        SELECT content FROM conversation_memories WHERE id = ${memoryId}
-      `);
-      const updatedRow = (updated as any).rows?.[0] ?? (updated as any)[0];
-      const newContent = updatedRow?.content;
+        // 2. Read updated content from DB and replace Markdown with that exact
+        // snapshot. This creates a missing mirror when the episode was created
+        // after the current deployed filesystem was built.
+        const updated = await db.execute(sql`
+          SELECT content FROM conversation_memories WHERE id = ${memoryId}
+        `);
+        const updatedRow = (updated as any).rows?.[0] ?? (updated as any)[0];
+        newContent = updatedRow?.content;
+      }
 
       if (typeof newContent === 'string' && writeExactEpisodeMarkdownReplica(episodeFilename, filePath, newContent)) {
         appended = true;
@@ -2032,7 +2060,11 @@ export async function withEpisodeFileLock<T>(filename: string, fn: () => T | Pro
  * Markdown is replaced only with the exact content returned from the updated
  * DB row; it is never independently appended or treated as a source.
  */
-export async function appendExchangeToEpisode(exchange: string, episodeFilename: string): Promise<void> {
+export async function appendExchangeToEpisode(
+  exchange: string,
+  episodeFilename: string,
+  options?: { appendMarker?: string },
+): Promise<void> {
   // A CI sentinel is evidence about a test harness, never dialogue. Refuse to
   // let legacy auto-capture checks append one to the active rolling record.
   // Fixture episodes remain testable because only the live rolling filename is
@@ -2051,7 +2083,10 @@ export async function appendExchangeToEpisode(exchange: string, episodeFilename:
       );
     }
   }
-  const appended = await appendInnerLifeToEpisodeDb(exchange, episodeFilename, { allowAppend: true });
+  const appended = await appendInnerLifeToEpisodeDb(exchange, episodeFilename, {
+    appendMarker: options?.appendMarker,
+    allowAppend: true,
+  });
   if (!appended) {
     console.error(`[AgentAutosave] Episode append remains pending because DB→Markdown replication is incomplete: ${episodeFilename}`);
   }

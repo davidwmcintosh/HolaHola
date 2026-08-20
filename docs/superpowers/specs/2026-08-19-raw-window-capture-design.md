@@ -87,6 +87,36 @@ The private artifact is retained for the same recovery window as a canonical
 inner-life intent. It is a source for retry and forensic comparison, not a
 second episode or a replacement for the clean dialogue record.
 
+### Attachment mode for already-captured dialogue
+
+`record-window.ts --attach-existing --episode <episode-name>` is for a full
+window that arrives after its David→Luca exchange is already in
+`.chat_capture` and the episode. It retains raw bytes under their SHA-256 name
+and writes an unclassified sidecar before it attempts any matching or
+classification.
+
+Attachment then requires exactly one ordered, attested David→Luca capture
+range. David matches exactly after whitespace normalization; Luca may match an
+attested main-response prefix when the window displays that answer followed by
+new UI activity. Missing or ambiguous pairs fail closed without changing
+`.chat_capture`.
+
+When the pair is proven, attachment emits only a deterministic
+`raw-window-evidence` appendix through the existing DB-first episode append
+helper. It does not depend on an asynchronous trigger that can be discarded as
+stale during a server startup.
+The appendix contains the entire verbatim raw window, source SHA/byte count,
+the linked capture range, and a source map that separates:
+
+- dialogue already recorded,
+- visible thinking display,
+- UI/status activity, and
+- unknown retained content.
+
+It is explicitly evidence rather than a second speaker-attributed exchange.
+Unknown material remains in the verbatim appendix and is never silently
+dropped.
+
 ## Boundaries
 
 - Dialogue is David- or Luca-authored prose; interface chrome is not dialogue.
@@ -116,6 +146,10 @@ Hermetic tests in `server/scripts/test-raw-window-capture.ts` prove:
 8. A duplicated David anchor in the alignment path fails closed as ambiguous.
 9. The labelled `record-window` CLI path continues to work after alignment code
    is added.
+10. An already-captured thank-you exchange can receive a raw-window attachment
+    with post-answer brain/status/checkpoint material: raw bytes and SHA are
+    retained, the evidence appendix covers the source, all four classifications
+    are present, and `.chat_capture` remains byte-for-byte unchanged.
 
 ## Real-window validation (2026-08-19)
 

@@ -28,6 +28,30 @@ the chat and rolling-episode IDs reach the re-embed seam.
 
 ---
 
+## Session August 19, 2026 — Raw-window evidence attachments
+
+### Complete Replit windows can supplement an existing episode exchange without replaying it
+
+**What changed:** `record-window.ts --attach-existing --episode <episode-name>`
+retains a full Replit-window paste under its SHA-256 before attribution, links
+it to one attested David→Luca `.chat_capture` range, and appends only a labelled
+verbatim evidence appendix through the DB-first episode route.
+
+**Why it matters:** The clean capture can omit visible brain display,
+tool/status activity, timing, and checkpoint material. Replaying that paste
+would duplicate dialogue and misrepresent non-dialogue text as Luca prose.
+
+**Regression coverage:** The thank-you-window fixture proves byte-exact source
+retention, SHA linkage, dialogue/thinking/status/unknown classification,
+unchanged `.chat_capture`, evidence coverage, and repeated-attachment no-op.
+
+**Key files:**
+- `server/services/raw-window-attachment.ts`
+- `server/scripts/record-window.ts`
+- `server/scripts/test-raw-window-capture.ts`
+
+---
+
 ## Session August 19, 2026 — Hermetic auto-capture episode CI
 
 ### Auto-capture test no longer writes synthetic dialogue into the live record

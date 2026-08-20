@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { createHash } from 'crypto';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
@@ -135,6 +136,11 @@ const emptyDavidCapturePath = join(root, 'empty-david-capture.txt');
 const emptyCapturePath = join(root, 'empty-capture.txt');
 const emptySourceDir = join(root, 'empty-sources');
 const emptyIntentDir = join(root, 'empty-intents');
+
+const attachmentCapturePath = join(root, 'attachment-capture.txt');
+const attachmentSourceDir = join(root, 'attachment-sources');
+const attachmentAppendPath = join(root, 'attachment-append.json');
+const attachmentRawPath = join(root, 'thank-you-window.txt');
 const marker = `raw-window-${Date.now()}`;
 
 const raw = [
@@ -347,12 +353,36 @@ try {
   if (captured.turns[0].text !== `David exact message ${marker}`) throw new Error('Captured David text is not exact');
   if (!captured.turns[1].text.includes(`Luca main exact ${marker}`)) throw new Error('Captured Luca main is not exact');
   const sourceFiles = readdirSync(sourceDir);
-  if (sourceFiles.length !== 1) throw new Error('Raw recovery source was not retained');
-  if (readFileSync(join(sourceDir, sourceFiles[0]), 'utf8') !== raw) throw new Error('Raw recovery source changed');
+  if (sourceFiles.length !== 1) throw new Error('Normal raw source was not retained');
+
+  const thankYou = `thank you for the update and your patience ${marker}`;
+  const visibleLucaMain = `You’re welcome. Patience was the right move here. ${marker}`;
+  const recordedLuca = [`[felt]: Felt ${marker}`, `[thinking]: Thinking ${marker}`, `[moment]: Moment ${marker}`, visibleLucaMain].join('\n\n');
+  const thankYouWindow = [thankYou, '', 'Updating memory capture', '', 'I’m pondering how to retain visible brain activity without calling it dialogue.', '', visibleLucaMain, '', 'Opened capture-watchdog.md', '', 'Worked for 48 seconds', '', 'Creating checkpoint', '', 'Unfamiliar window material that must remain preserved.'].join('\n');
+  appendChatCaptureTurn('David', thankYou, attachmentCapturePath);
+  appendChatCaptureTurn('Luca Replit', recordedLuca, attachmentCapturePath);
+  writeFileSync(attachmentRawPath, thankYouWindow, 'utf8');
+  const attachmentBytesBefore = statSync(attachmentCapturePath).size;
+  const attachmentArgs = ['tsx', 'server/scripts/record-window.ts', '--window-file', attachmentRawPath, '--attach-existing', '--episode', 'episode-attachment-fixture', '--source-dir', attachmentSourceDir, '--capture-path', attachmentCapturePath, '--episode-append-path', attachmentAppendPath];
+  const attachmentResult = spawnSync('npx', attachmentArgs, { cwd: process.cwd(), encoding: 'utf8' });
+  if (attachmentResult.status !== 0) throw new Error(`Raw-window attachment CLI failed: ${attachmentResult.stderr || attachmentResult.stdout}`);
+  const attachmentSha = createHash('sha256').update(Buffer.from(thankYouWindow, 'utf8')).digest('hex');
+  const attachmentMetadataPath = join(attachmentSourceDir, `${attachmentSha}.json`);
+  const retainedAttachment = join(attachmentSourceDir, `${attachmentSha}.raw`);
+  if (!readFileSync(retainedAttachment).equals(Buffer.from(thankYouWindow, 'utf8'))) throw new Error('Attachment raw source was not retained byte-for-byte');
+  if (statSync(attachmentCapturePath).size !== attachmentBytesBefore || parseChatCaptureFromOffset(attachmentCapturePath, 0).turns.length !== 2) throw new Error('Attachment mode replayed dialogue');
+  const attachmentMetadata = JSON.parse(readFileSync(attachmentMetadataPath, 'utf8'));
+  const classes = new Set((attachmentMetadata.classifications ?? []).map((item: any) => item.classification));
+  if (attachmentMetadata.status !== 'evidence-queued' || !['dialogue', 'visible-thinking', 'ui-status', 'unknown'].every(item => classes.has(item))) throw new Error('Attachment metadata omitted durable classification coverage');
+  const evidence = JSON.parse(readFileSync(attachmentAppendPath, 'utf8')).exchange as string;
+  if (!evidence.includes(`raw-window-evidence:sha256=${attachmentSha}`) || !evidence.includes(thankYouWindow) || evidence.includes(`**David:** ${thankYou}`)) throw new Error('Attachment evidence did not preserve the raw window without duplicating dialogue');
+  const repeat = spawnSync('npx', attachmentArgs, { cwd: process.cwd(), encoding: 'utf8' });
+  if (repeat.status !== 0 || (JSON.parse(readFileSync(attachmentAppendPath, 'utf8')).exchange.match(new RegExp(`raw-window-evidence:sha256=${attachmentSha}`, 'g')) ?? []).length !== 1) throw new Error('Repeated attachment duplicated evidence');
+  if (JSON.parse(readFileSync(attachmentMetadataPath, 'utf8')).status !== 'evidence-already-attached') throw new Error('Repeated attachment was not a successful no-op');
 
   const legacyAmbiguous = parseRawWindowCapture(`unlabelled ${marker}`);
   if (legacyAmbiguous.ok) throw new Error('Unlabelled raw window was accepted by the labelled parser');
-  console.log('[raw-window-capture] PASS — labelled and unlabelled attribution preserve attested text; UI chrome is removed; alignment failure cases fail closed.');
+  console.log('[raw-window-capture] PASS — labelled and unlabelled attribution preserve attested text; attached thank-you windows retain raw evidence without replaying dialogue.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

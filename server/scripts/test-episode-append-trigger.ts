@@ -623,6 +623,13 @@ async function runSelfCheckConcurrent(): Promise<void> {
       `Sentinel not found in .md after 1500 ms — append did not work`,
     );
 
+    // The running dev server may have read this trigger immediately before this
+    // test process cleared it. Let that already-dispatched append settle before
+    // we simulate an unrelated concurrent Markdown write below; otherwise its
+    // DB→Markdown replica can erase the fixture's marker and masquerade as a
+    // cleanup regression.
+    await sleep(250);
+
     // ── Environment stability check ────────────────────────────────────────────
     // If the .md is shorter than originalMd after the sentinel append, an external
     // process (e.g., a concurrent task-agent merge) corrupted the file while the
