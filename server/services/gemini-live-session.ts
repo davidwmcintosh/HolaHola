@@ -2230,6 +2230,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
   stop(): void {
     if (this.isStopped) return;
     this.isStopped = true;
+    // Cancel reconnect first: an intentional stop must never revive this
+    // session through a retry that was queued before teardown began.
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     // Do not make disconnect or audio teardown wait for diagnostic persistence.
     // A healthy recorder stops after the queued tail drains; a degraded recorder
     // keeps retrying so a known diagnostic gap is not silently discarded.
@@ -2244,10 +2250,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       });
     }
     this._finalizeOutstandingGuardianAttempts('Session stopped before the Guardian attempt reached a normal generation boundary.');
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
     if (this.transcriptFlushTimer) {
       clearTimeout(this.transcriptFlushTimer);
       this.transcriptFlushTimer = null;

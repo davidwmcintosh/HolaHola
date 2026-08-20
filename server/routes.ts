@@ -7,6 +7,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { db, getUserDb, getSharedDb, getMonitoringDb } from "./db";
 import { eq, and, gte, desc, sql, isNotNull, isNull, inArray, asc } from "drizzle-orm";
+import { createPrivateKey, createPublicKey } from "crypto";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
@@ -595,6 +596,26 @@ setInterval(() => {
 
 function hasAdminAccess(role: string | null | undefined): boolean {
   return role === 'admin' || role === 'founder';
+}
+
+function loadTrustedReplitWindowReceiptPrivateKey() {
+  const encodedPem = process.env.RAW_WINDOW_RECEIPT_PRIVATE_KEY_B64?.replace(/\s/g, '');
+  if (!encodedPem || !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedPem)) {
+    throw new Error('Trusted Replit-window receipt signing is not configured.');
+  }
+  const keyBytes = Buffer.from(encodedPem, 'base64');
+  let privateKey;
+  try {
+    // The normal form is Base64(PEM), but accepting Base64(PKCS#8 DER) avoids
+    // forcing operators to convert a standard Ed25519 private-key export.
+    privateKey = createPrivateKey(keyBytes.toString('utf8'));
+  } catch {
+    privateKey = createPrivateKey({ key: keyBytes, format: 'der', type: 'pkcs8' });
+  }
+  if (privateKey.asymmetricKeyType !== 'ed25519') {
+    throw new Error('Trusted Replit-window receipt key must be Ed25519.');
+  }
+  return privateKey;
 }
 
 export async function registerRoutes(app: Application): Promise<void> {
@@ -37343,6 +37364,87 @@ Under 250 words. Write as yourself.`;
       res.json({ success: true, message: 'Agent session established' });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Trusted Replit-window intake. This route is deliberately agent-token-only:
+  // a browser user or local CLI must not be able to mint a provenance receipt
+  // for a copy-pasted/manual dump. The collector stores exact bytes privately
+  // and signs the resulting receipt; record-window verifies that receipt before
+  // canonical capture is allowed.
+  app.post("/api/internal/replit-window-intake", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { rawWindowBase64 } = req.body ?? {};
+      if (typeof rawWindowBase64 !== 'string' || rawWindowBase64.length === 0) {
+        return res.status(400).json({ error: 'rawWindowBase64 is required.' });
+      }
+      if (rawWindowBase64.length > 2_800_000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(rawWindowBase64)) {
+        return res.status(400).json({ error: 'rawWindowBase64 must be a canonical base64 payload within the intake size limit.' });
+      }
+      const rawBytes = Buffer.from(rawWindowBase64, 'base64');
+      if (
+        rawBytes.byteLength === 0 ||
+        rawBytes.toString('base64') !== rawWindowBase64
+      ) {
+        return res.status(400).json({ error: 'rawWindowBase64 is not canonical base64 data.' });
+      }
+      const { createHash, randomUUID, sign } = await import('crypto');
+      const { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } = await import('fs');
+      const { dirname, join } = await import('path');
+      const { WORKSPACE } = await import('./services/transcript-parser');
+      const { TRUSTED_REPLIT_WINDOW_RECEIPT_PUBLIC_KEY } = await import('./services/raw-window-audit-service');
+      const privateKey = loadTrustedReplitWindowReceiptPrivateKey();
+      if (createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString() !== TRUSTED_REPLIT_WINDOW_RECEIPT_PUBLIC_KEY) {
+        throw new Error('Trusted Replit-window receipt private key does not match the pinned public verifier.');
+      }
+      const sourceSha256 = createHash('sha256').update(rawBytes).digest('hex');
+      const sourceDir = join(WORKSPACE, '.local', 'raw-window-captures');
+      const sourcePath = join(sourceDir, `${sourceSha256}.raw`);
+      mkdirSync(dirname(sourcePath), { recursive: true });
+      if (existsSync(sourcePath)) {
+        if (!readFileSync(sourcePath).equals(rawBytes)) {
+          throw new Error(`Raw source SHA-256 collision or prior source corruption at ${sourcePath}`);
+        }
+      } else {
+        const tempPath = `${sourcePath}.tmp-${process.pid}`;
+        writeFileSync(tempPath, rawBytes);
+        renameSync(tempPath, sourcePath);
+      }
+      const issuedAt = new Date();
+      const expiresAt = new Date(issuedAt.getTime() + 15 * 60 * 1000);
+      const unsignedReceipt = {
+        version: 1 as const,
+        receiptId: randomUUID(),
+        intakeRoute: 'trusted-replit-dump-intake' as const,
+        sourceSha256,
+        sourceBytes: rawBytes.byteLength,
+        issuedAt: issuedAt.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+      };
+       const signature = sign(null, Buffer.from([
+        unsignedReceipt.version,
+        unsignedReceipt.receiptId,
+        unsignedReceipt.intakeRoute,
+        unsignedReceipt.sourceSha256,
+        unsignedReceipt.sourceBytes,
+        unsignedReceipt.issuedAt,
+        unsignedReceipt.expiresAt,
+       ].join('|'), 'utf8'), privateKey).toString('base64url');
+      const receipt = { ...unsignedReceipt, signature };
+      const receiptPath = join(sourceDir, `${sourceSha256}.replit-receipt.json`);
+      const receiptTempPath = `${receiptPath}.tmp-${process.pid}`;
+      writeFileSync(receiptTempPath, JSON.stringify(receipt, null, 2) + '\n', 'utf8');
+      renameSync(receiptTempPath, receiptPath);
+      return res.status(201).json({
+        ok: true,
+        sourceSha256: receipt.sourceSha256,
+        sourceBytes: receipt.sourceBytes,
+        receiptId: receipt.receiptId,
+        expiresAt: receipt.expiresAt,
+      });
+    } catch (error: any) {
+      console.error('[ReplitWindowIntake] Failed:', error.message);
+      return res.status(500).json({ error: 'Trusted Replit-window intake failed.' });
     }
   });
 

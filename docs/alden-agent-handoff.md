@@ -1,5 +1,16 @@
 ## August 20, 2026 — Raw-window pipeline audit and reference boundary
 
+- Canonical raw-window capture now requires an Ed25519-signed, short-lived
+  provenance receipt bound to the exact SHA-256 and byte count. The receipt can be minted
+  only by the `requireAgentToken`-protected
+  `POST /api/internal/replit-window-intake` route; the old
+  `--verified-replit-dump` CLI flag is only an assertion and cannot authorize
+  capture on its own. Its public verification key is pinned in the application,
+  never supplied by the capture caller.
+- Missing, invalid-signature, stale, and source-mismatched receipts fail closed:
+  the bytes are retained as reference-only evidence, never appended to
+  `.chat_capture`. The focused regression now verifies all four cases plus the
+  valid-receipt path.
 - A genuine Replit-window capture is retained under its SHA-256, then audited
   before cleaned dialogue reaches `.chat_capture` and the DB/Markdown pipe. The
   private audit has byte accounting, offsets, categories, permitted cleanup,

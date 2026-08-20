@@ -1,5 +1,28 @@
 # Batch Documentation Updates
 
+## Session August 20, 2026 — Trusted Replit-window provenance receipts
+
+### Canonical raw-window capture now requires an authenticated source receipt
+
+**What changed:** `record-window.ts` no longer treats
+`--verified-replit-dump` as proof. Before it can append cleaned dialogue, it
+requires a current Ed25519-signed receipt bound to the exact raw SHA-256 and
+byte count. The receipt is minted only by the agent-token-protected
+`POST /api/internal/replit-window-intake` collector; the former arbitrary
+command-line receipt creator was removed. `record-window` verifies against a
+pinned public key, not any caller-selected environment or workspace file.
+
+**Failure behavior:** Missing, stale, invalid-signature, or hash-mismatched
+receipts retain the source as private reference-only evidence and leave the
+capture → DB → Markdown pipe untouched. Audit manifests for successful
+canonical capture carry receipt metadata but never source prose.
+
+**Verification:** The raw-window regression covers forged flags, stale and
+tampered receipts, source hash mismatches, and a valid signed intake fixture;
+the alignment mutation self-check and TypeScript check pass.
+
+---
+
 ## Session August 20, 2026 — Raw-window pipeline audit boundary
 
 ### Replit dumps are audited before capture; David’s raw dumps are reference-only

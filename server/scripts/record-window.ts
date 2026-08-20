@@ -16,6 +16,8 @@ import { alignUnlabelledRawWindow } from '../services/raw-window-attribution';
 import {
   createRawWindowAuditManifest,
   persistRawWindowAuditManifest,
+  TrustedReplitDumpReceiptSummary,
+  verifyTrustedReplitDumpReceipt,
 } from '../services/raw-window-audit-service';
 import { createRawWindowAttachmentPlan } from '../services/raw-window-attachment';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
@@ -40,6 +42,8 @@ const capturePathIndex = args.indexOf('--capture-path');
 const davidCapturePathIndex = args.indexOf('--david-capture-path');
 const intentDirIndex = args.indexOf('--intent-dir');
 const episodeIndex = args.indexOf('--episode');
+
+const receiptPathIndex = args.indexOf('--receipt-path');
 const attachExisting = args.includes('--attach-existing');
 const verifiedReplitDump = args.includes('--verified-replit-dump');
 
@@ -49,7 +53,7 @@ function fail(message: string): never {
 }
 
 if (windowIndex === -1 || !args[windowIndex + 1]) {
-  fail('Usage: npx tsx server/scripts/record-window.ts --window-file <path> [--verified-replit-dump] [--attach-existing --episode <episode-name>] [--source-dir <path>] [--capture-path <test-path>] [--david-capture-path <test-path>] [--intent-dir <test-path>]');
+  fail('Usage: npx tsx server/scripts/record-window.ts --window-file <path> [--verified-replit-dump --receipt-path <path>] [--attach-existing --episode <episode-name>] [--source-dir <path>] [--capture-path <test-path>] [--david-capture-path <test-path>] [--intent-dir <test-path>]');
 }
 
 const rawBytes = readFileSync(args[windowIndex + 1]);
@@ -67,8 +71,9 @@ if (!davidCapturePath) fail('--david-capture-path requires a path');
 const intentDir = intentDirIndex === -1 ? undefined : args[intentDirIndex + 1];
 if (intentDirIndex !== -1 && !intentDir) fail('--intent-dir requires a path');
 const episodeName = episodeIndex === -1 ? undefined : args[episodeIndex + 1];
-
 const sourceSha = createHash('sha256').update(rawBytes).digest('hex');
+
+const receiptPath = receiptPathIndex === -1 ? join(sourceDir, `${sourceSha}.replit-receipt.json`) : args[receiptPathIndex + 1];
 const sourcePath = join(sourceDir, `${sourceSha}.raw`);
 mkdirSync(dirname(sourcePath), { recursive: true });
 if (existsSync(sourcePath)) {
@@ -122,6 +127,7 @@ function emitAudit(
     capturedBytesSha256?: string;
     reason?: string;
     useConstraint?: string;
+    sourceReceipt?: TrustedReplitDumpReceiptSummary;
   } = {},
 ) {
   const emittedDialogue = turns
@@ -160,6 +166,12 @@ function emitAudit(
     ...(episodeName ? { episodeContext: episodeName } : {}),
     ...(options.reason ? { reason: options.reason } : {}),
     ...(options.useConstraint ? { useConstraint: options.useConstraint } : {}),
+    ...(options.sourceReceipt ? {
+      trustedReplitSourceReceipt: {
+        path: receiptPath,
+        ...options.sourceReceipt,
+      },
+    } : {}),
     reconciliation,
   });
   return { auditPath, reconciliation, manifest };
@@ -168,8 +180,9 @@ function emitAudit(
 const referenceConstraint = 'Reference only. Never render as ordinary dialogue; any future gap-fill must identify the missing original record and acknowledge David supplied this cut-and-paste.';
 
 // Manual input is reference-only by default. A producer that has obtained the
-// actual Replit verbatim dump must opt in explicitly; merely selecting a file
-// cannot accidentally promote David's cut-and-paste into canonical dialogue.
+// actual Replit verbatim dump must present a signed receipt from the trusted
+// intake collector; merely selecting a file or setting a CLI flag cannot
+// accidentally promote David's cut-and-paste into canonical dialogue.
 if (attachExisting || !verifiedReplitDump) {
   if (attachExisting && !episodeName) fail('--attach-existing requires --episode <episode-name> to name the reference context.');
   const parsedCapture = parseChatCaptureFromOffset(capturePath, 0);
@@ -179,15 +192,17 @@ if (attachExisting || !verifiedReplitDump) {
     parsedCapture,
     existsSync(capturePath) ? readFileSync(capturePath) : undefined,
   );
-  const turns: DialogueTurn[] = [];
   const reason = attachment.ok
     ? attachment.plan.reconciliation.reason
     : attachment.reason;
   const result = emitAudit(
-    turns,
+    [],
     'david-reference-dump',
-    attachment.ok ? 'reference-retained' : 'reference-retained-unclassified',
-    { ...(reason ? { reason } : {}), useConstraint: referenceConstraint },
+    'reference-retained',
+    {
+      reason,
+      useConstraint: referenceConstraint,
+    },
   );
   const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
   markEvidenceLedgerPersisted(persisted.sourceEventId);
@@ -196,6 +211,24 @@ if (attachExisting || !verifiedReplitDump) {
   await closeDbConnections();
   process.exit(0);
 }
+
+const receiptVerification = verifyTrustedReplitDumpReceipt(receiptPath, rawBytes);
+if (!receiptVerification.ok) {
+  const result = emitAudit(
+    [],
+    'replit-window',
+    'reference-retained',
+    {
+      reason: receiptVerification.reason,
+      useConstraint: 'Receipt verification failed. Retain as reference-only; never project this source as canonical dialogue.',
+    },
+  );
+  const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
+  markEvidenceLedgerPersisted(persisted.sourceEventId);
+  await closeDbConnections();
+  fail(`Canonical capture rejected; source retained as reference-only: ${result.auditPath}. ${receiptVerification.reason}`);
+}
+const sourceReceipt = receiptVerification.summary;
 
 let parsed = parseRawWindowCapture(rawWindow);
 let usedAlignmentPath = false;
@@ -224,6 +257,7 @@ if (!parsed.ok) {
       ...(reference ? { useConstraint: referenceConstraint } : {}),
     },
   );
+
   const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
   markEvidenceLedgerPersisted(persisted.sourceEventId);
   if (reference) {
@@ -234,7 +268,7 @@ if (!parsed.ok) {
 }
 
 const turns = asDialogueTurns(parsed.turns);
-const preCaptureAudit = emitAudit(turns, 'replit-window', 'audit-passed-pending-capture');
+const preCaptureAudit = emitAudit(turns, 'replit-window', 'audit-passed-pending-capture', { sourceReceipt });
 const initialEvidence = await persistRawWindowEvidence(preCaptureAudit.manifest, rawWindow, episodeName);
 markEvidenceLedgerPersisted(initialEvidence.sourceEventId);
 if (!await beginRawWindowCaptureProjection(preCaptureAudit.manifest)) {
@@ -278,6 +312,7 @@ const capturedBytes = readFileSync(capturePath).subarray(sizeBefore, sizeAfter);
 const stagedAudit = emitAudit(turns, 'replit-window', 'capture-staged', {
   captureRange: { startByteOffset: sizeBefore, endByteOffset: sizeAfter },
   capturedBytesSha256: createHash('sha256').update(capturedBytes).digest('hex'),
+  sourceReceipt,
 });
 const stagedEvidence = await persistRawWindowEvidence(stagedAudit.manifest, rawWindow, episodeName);
 markEvidenceLedgerPersisted(stagedEvidence.sourceEventId);

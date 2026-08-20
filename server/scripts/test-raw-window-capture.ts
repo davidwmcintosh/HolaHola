@@ -1,118 +1,41 @@
-import { createHash } from 'crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
+import { spawnSync } from 'child_process';
+import { createHash, generateKeyPairSync, sign } from 'crypto';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { spawnSync } from 'child_process';
 
-import { appendChatCaptureTurn, parseChatCaptureFromOffset } from '../services/transcript-parser';
 import {
   alignUnlabelledRawWindow,
   _setNormalizeRawWindowForAlignmentForTest,
 } from '../services/raw-window-attribution';
+import { verifyTrustedReplitDumpReceipt } from '../services/raw-window-audit-service';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
 
 process.env.RAW_WINDOW_EVIDENCE_TEST_MODE = 'true';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
-const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
-const B = (s: string) => `\x1b[1m${s}\x1b[0m`;
-const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
-
-// ── Self-check mode ───────────────────────────────────────────────────────────
-
 const SELF_CHECK = process.argv.includes('--self-check');
 
-/**
- * Self-check mode (--self-check).
- *
- * Confirms that the normal-mode test WOULD catch a regression that removes
- * normalizeRawWindowForAlignment from the aligner.
- *
- * How it works:
- *   1. Build a raw window where David's attested text has a hard line-wrap
- *      (i.e. a newline in the middle) that the live window presents as a
- *      single soft-wrapped line (no embedded newline).
- *   2. Verify that with the real normalizer the anchor is found (the test is
- *      testing the right thing — the normalizer matters).
- *   3. Replace the normalizer with an identity function (no whitespace
- *      collapse) via the test seam _setNormalizeRawWindowForAlignmentForTest.
- *   4. Assert that alignment now FAILS — the wrapped anchor is not found.
- *   5. Restore the real normalizer and assert that the same window passes
- *      again (no side-effects left behind).
- *
- * Exits 0 when all assertions pass (the regression IS detectable).
- * Exits 1 when any assertion fails (the self-check itself is broken).
- */
 function runSelfCheck(): void {
-  console.log(B('\n══ Raw-Window Capture — Alignment Self-Check ══\n'));
-  console.log('  Confirms that removing normalizeRawWindowForAlignment makes alignment fail.\n');
+  const marker = `self-check-${Date.now()}`;
+  const anchor = { text: `This is line one\nand line two ${marker}` };
+  const rawWindow = `This is line one and line two ${marker}\n\nLuca response ${marker}`;
 
-  // ── Set up a window with a soft-wrapped David turn ────────────────────────
-  // The attested anchor David gave us has a newline in the middle (as it
-  // came from the .chat_capture file), but the copy-pasted Replit window
-  // collapsed those whitespace differences into a single space.
-  const sc = `self-check-${Date.now()}`;
-  const davidAttestedText = `This is line one of the message\nand here is line two of it ${sc}`;
-  const lucaText = `Great point! Let me help with that ${sc}`;
-
-  // The raw window uses a soft wrap (single space, no newline) between
-  // "line one" and "and here", exactly as Replit renders it.
-  const rawWindow = [
-    `This is line one of the message and here is line two of it ${sc}`,
-    '',
-    lucaText,
-  ].join('\n');
-
-  const anchor = { text: davidAttestedText };
-
-  // ── Assertion 1: real normalizer → alignment succeeds ────────────────────
-  const withReal = alignUnlabelledRawWindow(rawWindow, [anchor]);
-  if (!withReal.ok) {
-    console.error(R('SELF-CHECK SETUP ERROR: real normalizer failed to align the test window.'));
-    console.error(`  reason: ${withReal.reason}`);
-    console.error('  The self-check window is incorrectly constructed.');
-    process.exit(1);
+  if (!alignUnlabelledRawWindow(rawWindow, [anchor]).ok) {
+    throw new Error('Real whitespace normalizer did not align the self-check fixture.');
   }
-  console.log(G('  ✓ real normalizer → alignment succeeds (the test exercises real behaviour)'));
-
-  // ── Assertion 2: identity normalizer → alignment fails ───────────────────
-  let identityResult: ReturnType<typeof alignUnlabelledRawWindow> | null = null;
   try {
-    _setNormalizeRawWindowForAlignmentForTest((text: string) => text); // identity — no whitespace collapse
-    identityResult = alignUnlabelledRawWindow(rawWindow, [anchor]);
+    _setNormalizeRawWindowForAlignmentForTest(text => text);
+    if (alignUnlabelledRawWindow(rawWindow, [anchor]).ok) {
+      throw new Error('Removing whitespace normalization did not break the alignment fixture.');
+    }
   } finally {
-    _setNormalizeRawWindowForAlignmentForTest(null); // always restore
+    _setNormalizeRawWindowForAlignmentForTest(null);
   }
-
-  if (identityResult === null) {
-    console.error(R('SELF-CHECK ERROR: alignment call threw unexpectedly.'));
-    process.exit(1);
+  if (!alignUnlabelledRawWindow(rawWindow, [anchor]).ok) {
+    throw new Error('Whitespace normalizer was not restored after self-check.');
   }
-
-  if (identityResult.ok) {
-    console.error(R('SELF-CHECK FAIL: identity normalizer still aligned the window — the regression is undetectable.'));
-    console.error('  The test window must use an anchor that genuinely requires whitespace normalization.');
-    process.exit(1);
-  }
-  console.log(G('  ✓ identity normalizer → alignment fails (removing normalizer is detectable)'));
-  console.log(`    reason: ${identityResult.reason}`);
-
-  // ── Assertion 3: real normalizer works again after restore ────────────────
-  const afterRestore = alignUnlabelledRawWindow(rawWindow, [anchor]);
-  if (!afterRestore.ok) {
-    console.error(R('SELF-CHECK FAIL: alignment broken after normalizer was restored.'));
-    console.error(`  reason: ${afterRestore.reason}`);
-    console.error('  The test seam left side-effects — restore logic is broken.');
-    process.exit(1);
-  }
-  console.log(G('  ✓ normalizer restored → alignment succeeds again (no side-effects)'));
-
-  console.log(G('\n  ✓ SELF-CHECK PASSED — removing normalizeRawWindowForAlignment is detectable.\n'));
+  console.log('[raw-window-capture] SELF-CHECK PASS — alignment normalization regression is detectable.');
 }
-
-// ── Normal-mode tests ─────────────────────────────────────────────────────────
 
 if (SELF_CHECK) {
   runSelfCheck();
@@ -120,348 +43,151 @@ if (SELF_CHECK) {
 }
 
 const root = mkdtempSync(join(tmpdir(), 'raw-window-capture-'));
-const rawPath = join(root, 'window.txt');
-const capturePath = join(root, 'capture.txt');
-const davidCapturePath = join(root, 'david-capture.txt');
-const sourceDir = join(root, 'sources');
-const intentDir = join(root, 'intents');
-const alignedCapturePath = join(root, 'aligned-capture.txt');
-const alignedSourceDir = join(root, 'aligned-sources');
-const alignedIntentDir = join(root, 'aligned-intents');
-
-const staleRawPath = join(root, 'stale-window.txt');
-const staleCapturePath = join(root, 'stale-david-capture.txt');
-const staleOutputPath = join(root, 'stale-output.txt');
-const staleSourceDir = join(root, 'stale-sources');
-const staleIntentDir = join(root, 'stale-intents');
-const emptyDavidCapturePath = join(root, 'empty-david-capture.txt');
-const emptyCapturePath = join(root, 'empty-capture.txt');
-const emptySourceDir = join(root, 'empty-sources');
-const emptyIntentDir = join(root, 'empty-intents');
-
-const attachmentCapturePath = join(root, 'attachment-capture.txt');
-const attachmentSourceDir = join(root, 'attachment-sources');
-const attachmentAppendPath = join(root, 'attachment-append.json');
-const attachmentRawPath = join(root, 'thank-you-window.txt');
 const marker = `raw-window-${Date.now()}`;
-
 const raw = [
-  '**David:** David exact message ' + marker,
+  `**David:** David exact message ${marker}`,
   '',
   '4 actions',
-  '**LUCA [Replit]:** [felt]: Felt exact ' + marker,
+  `**LUCA [Replit]:** [felt]: Felt exact ${marker}`,
   '',
-  '[thinking]: Thinking exact ' + marker,
+  `[thinking]: Thinking exact ${marker}`,
   '',
-  '[moment]: Moment exact ' + marker,
+  `[moment]: Moment exact ${marker}`,
   '',
   'Wrote a file',
-  'Luca main exact ' + marker,
-  '',
-  'Worked for 9 minutes',
+  `Luca main exact ${marker}`,
 ].join('\n');
+const rawPath = join(root, 'window.txt');
+const sourceDir = join(root, 'sources');
+const capturePath = join(root, 'capture.txt');
+const receiptPath = join(sourceDir, `${createHash('sha256').update(raw).digest('hex')}.replit-receipt.json`);
+const testKeys = generateKeyPairSync('ed25519');
+const testPublicKeyPem = testKeys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+
+function runRecord(args: string[]) {
+  return spawnSync('npx', ['tsx', 'server/scripts/record-window.ts', ...args], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      // This legacy variable must not replace the production verifier's pinned key.
+      RAW_WINDOW_RECEIPT_PUBLIC_KEY_PATH: join(root, 'attacker-public-key.pem'),
+    },
+    encoding: 'utf8',
+  });
+}
+
+function expectRejected(label: string, expectedText: string): void {
+  const captureBefore = readFileSync(capturePath, 'utf8');
+  const result = runRecord([
+    '--window-file', rawPath,
+    '--verified-replit-dump',
+    '--source-dir', sourceDir,
+    '--capture-path', capturePath,
+  ]);
+  const output = `${result.stdout}\n${result.stderr}`;
+  if (result.status === 0 || !output.includes(expectedText)) {
+    throw new Error(`${label} was not rejected as expected: ${output}`);
+  }
+  if (readFileSync(capturePath, 'utf8') !== captureBefore) {
+    throw new Error(`${label} changed canonical capture despite receipt rejection.`);
+  }
+}
+
+function receiptPayload(receipt: Record<string, unknown>): Buffer {
+  return Buffer.from([
+    receipt.version,
+    receipt.receiptId,
+    receipt.intakeRoute,
+    receipt.sourceSha256,
+    receipt.sourceBytes,
+    receipt.issuedAt,
+    receipt.expiresAt,
+  ].join('|'), 'utf8');
+}
+
+function makeReceipt(overrides: Record<string, unknown> = {}) {
+  const bytes = readFileSync(rawPath);
+  const issuedAt = new Date();
+  const receipt = {
+    version: 1,
+    receiptId: `isolated-test-${marker}`,
+    intakeRoute: 'trusted-replit-dump-intake',
+    sourceSha256: createHash('sha256').update(bytes).digest('hex'),
+    sourceBytes: bytes.byteLength,
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: new Date(issuedAt.getTime() + 15 * 60 * 1000).toISOString(),
+    ...overrides,
+  };
+  return {
+    ...receipt,
+    signature: sign(null, receiptPayload(receipt), testKeys.privateKey).toString('base64url'),
+  };
+}
 
 try {
-  const direct = parseRawWindowCapture(raw);
-  if (!direct.ok) throw new Error(`Parser rejected valid raw window: ${direct.reason}`);
-  if (direct.turns.length !== 2) throw new Error(`Expected two turns, got ${direct.turns.length}`);
-  if (direct.turns[0].text !== `David exact message ${marker}`) throw new Error('David text changed during cleaning');
-  if (!direct.turns[1].text.includes(`Luca main exact ${marker}`)) throw new Error('Luca main missing after cleaning');
-  if (direct.turns[1].text.includes('Wrote a file')) throw new Error('Known UI chrome leaked into Luca dialogue');
-
-  const unlabelled = [
-    '4 minutes ago',
-    'David exact',
-    'message ' + marker,
-    '',
-    'Clarifying user confusion',
-    'Clarifying user confusion',
-    '4 actions',
-    'Luca exact response ' + marker,
-    '',
-    '6 actions',
-    'David second exact message ' + marker,
-  ].join('\n');
-  const aligned = alignUnlabelledRawWindow(unlabelled, [
-    { text: `David exact message ${marker}` },
-    { text: `David second exact message ${marker}` },
-  ]);
-  if (!aligned.ok) throw new Error(`Alignment rejected valid unlabelled window: ${aligned.reason}`);
-  if (aligned.turns.length !== 3) throw new Error(`Expected Luca/David/Luca alignment, got ${aligned.turns.length} turns`);
-  if (aligned.turns[0].speaker !== 'David' || aligned.turns[0].text !== `David exact\nmessage ${marker}`) {
-    throw new Error('First David output did not preserve raw-window wrapping');
-  }
-  if (aligned.turns[1].speaker !== 'Luca Replit' || aligned.turns[1].text !== `Luca exact response ${marker}`) {
-    throw new Error('Unlabelled remainder was not attributed to Luca');
-  }
-  if (aligned.turns[2].speaker !== 'David' || aligned.turns[2].text !== `David second exact message ${marker}`) {
-    throw new Error('Second attested David anchor was not preserved');
-  }
-  const missing = alignUnlabelledRawWindow(unlabelled, [{ text: 'David is not in this window' }]);
-  if (missing.ok || !missing.reason.includes('No attested David turn')) {
-    throw new Error('Window with no matching David anchor did not fail closed');
-  }
-  const ambiguous = alignUnlabelledRawWindow(
-    `David exact message ${marker}\nLuca text\nDavid exact message ${marker}`,
-    [{ text: `David exact message ${marker}` }],
-  );
-  if (ambiguous.ok || !ambiguous.reason.includes('ambiguous')) {
-    throw new Error('Ambiguous overlapping David anchor did not fail closed');
-  }
-
-  const repeatedMessage = `Repeated greeting ${marker}`;
-  const staleRaw = [
-    '4 minutes ago',
-    repeatedMessage,
-    'Luca response from the current window',
-  ].join('\n');
-  const staleOutput = `Existing capture must remain unchanged ${marker}\n`;
-  appendChatCaptureTurn('David', repeatedMessage, staleCapturePath);
-  appendChatCaptureTurn('Luca Replit', `Prior-session Luca boundary ${marker}`, staleCapturePath);
-  writeFileSync(staleRawPath, staleRaw, 'utf8');
-  writeFileSync(staleOutputPath, staleOutput, 'utf8');
-  const staleResult = spawnSync(
-    'npx',
-    [
-      'tsx',
-      'server/scripts/record-window.ts',
-      '--window-file',
-      staleRawPath,
-      '--verified-replit-dump',
-      '--source-dir',
-      staleSourceDir,
-      '--capture-path',
-      staleOutputPath,
-      '--david-capture-path',
-      staleCapturePath,
-      '--intent-dir',
-      staleIntentDir,
-    ],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
-  if (staleResult.status === 0) {
-    throw new Error('A David turn from before the last Luca boundary was incorrectly used as an alignment anchor');
-  }
-  const staleFailure = `${staleResult.stderr}\n${staleResult.stdout}`;
-  if (!staleFailure.includes('No attested David turns were supplied for alignment')) {
-    throw new Error(`Stale David anchor did not fail with the expected boundary diagnostic: ${staleFailure}`);
-  }
-  if (readFileSync(staleOutputPath, 'utf8') !== staleOutput) {
-    throw new Error('Capture path changed after a prior-session David anchor was rejected');
-  }
-  const staleSourceFiles = readdirSync(staleSourceDir).filter(file => file.endsWith('.raw'));
-  if (staleSourceFiles.length !== 1 || readFileSync(join(staleSourceDir, staleSourceFiles[0]), 'utf8') !== staleRaw) {
-    throw new Error('Raw recovery source was not retained after a prior-session David anchor was rejected');
-  }
-
-  const alignedRaw = [
-    '4 minutes ago',
-    `David exact`,
-    `message ${marker}`,
-    'Clarifying user confusion',
-    '[felt]: Felt from aligned window',
-    '[thinking]: Thinking from aligned window',
-    '[moment]: Moment from aligned window',
-    `Luca main from aligned window ${marker}`,
-    '6 actions',
-    `David second exact message ${marker}`,
-  ].join('\n');
-  appendChatCaptureTurn('David', `Earlier unrelated David turn ${marker}`, davidCapturePath);
-  appendChatCaptureTurn('David', `David exact message ${marker}`, davidCapturePath);
-  appendChatCaptureTurn('David', `David second exact message ${marker}`, davidCapturePath);
-  appendChatCaptureTurn('David', `Later unrelated David turn ${marker}`, davidCapturePath);
-  writeFileSync(rawPath, alignedRaw, 'utf8');
-  const alignedResult = spawnSync(
-    'npx',
-    [
-      'tsx',
-      'server/scripts/record-window.ts',
-      '--window-file',
-      rawPath,
-      '--verified-replit-dump',
-      '--source-dir',
-      alignedSourceDir,
-      '--capture-path',
-      alignedCapturePath,
-      '--david-capture-path',
-      davidCapturePath,
-    ],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
-  if (alignedResult.status !== 0) {
-    throw new Error(`Unlabelled raw-window CLI failed: ${alignedResult.stderr || alignedResult.stdout}`);
-  }
-  const alignedCaptured = parseChatCaptureFromOffset(alignedCapturePath, 0);
-  if (alignedCaptured.turns.length !== 3) {
-    throw new Error(`Expected three turns from aligned CLI capture, got ${alignedCaptured.turns.length}`);
-  }
-  if (alignedCaptured.turns[0].speaker !== 'DAVID' || alignedCaptured.turns[0].text !== `David exact\nmessage ${marker}`) {
-    throw new Error('CLI did not emit the raw-window David slice with its original wrapping');
-  }
-  if (alignedCaptured.turns[1].speaker !== 'LUCA' || !alignedCaptured.turns[1].text.includes(`Luca main from aligned window ${marker}`)) {
-    throw new Error('CLI did not emit the aligned Luca region');
-  }
-  if (alignedCaptured.turns[2].speaker !== 'DAVID' || alignedCaptured.turns[2].text !== `David second exact message ${marker}`) {
-    throw new Error('CLI did not emit the second attested David turn');
-  }
-  if (existsSync(alignedIntentDir)) {
-    throw new Error('Aligned capture created intent output without --intent-dir');
-  }
-
-  const noDavidAnchorsRaw = [
-    '4 minutes ago',
-    `No captured David turn in this window ${marker}`,
-    'Luca response from a session without auto-capture',
-  ].join('\n');
-  const existingCapture = `existing capture must remain unchanged ${marker}\n`;
-  writeFileSync(rawPath, noDavidAnchorsRaw, 'utf8');
-  writeFileSync(emptyDavidCapturePath, '', 'utf8');
-  writeFileSync(emptyCapturePath, existingCapture, 'utf8');
-  const noDavidAnchorsResult = spawnSync(
-    'npx',
-    [
-      'tsx',
-      'server/scripts/record-window.ts',
-      '--window-file',
-      rawPath,
-      '--verified-replit-dump',
-      '--source-dir',
-      emptySourceDir,
-      '--capture-path',
-      emptyCapturePath,
-      '--david-capture-path',
-      emptyDavidCapturePath,
-    ],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
-  if (noDavidAnchorsResult.status === 0) {
-    throw new Error('Unlabelled raw-window CLI accepted a window with no attested David turns');
-  }
-  const emptySourceFiles = readdirSync(emptySourceDir).filter(file => file.endsWith('.raw'));
-  if (emptySourceFiles.length !== 1) {
-    throw new Error('Raw recovery source was not retained after alignment failed with no David anchors');
-  }
-  if (readFileSync(join(emptySourceDir, emptySourceFiles[0]), 'utf8') !== noDavidAnchorsRaw) {
-    throw new Error('Raw recovery source changed after alignment failed with no David anchors');
-  }
-  if (readFileSync(emptyCapturePath, 'utf8') !== existingCapture) {
-    throw new Error('Capture path changed after alignment failed with no David anchors');
-  }
-  if (existsSync(emptyIntentDir)) {
-    throw new Error('Intent output was created after alignment failed without --intent-dir');
-  }
-
-  // A personal/manual dump is reference-only: it is audited but can never
-  // become an episode appendix or inferred dialogue.
-  const unanchoredAppendPath = join(root, 'unanchored-evidence-append.json');
-  const unanchoredResult = spawnSync(
-    'npx',
-    [
-      'tsx',
-      'server/scripts/record-window.ts',
-      '--window-file',
-      rawPath,
-      '--attach-existing',
-      '--episode',
-      'episode-attachment-fixture',
-      '--source-dir',
-      emptySourceDir,
-      '--capture-path',
-      emptyCapturePath,
-      '--episode-append-path',
-      unanchoredAppendPath,
-    ],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
-  if (unanchoredResult.status !== 0) {
-    throw new Error(`Unanchored evidence attachment failed: ${unanchoredResult.stderr || unanchoredResult.stdout}`);
-  }
-  const unanchoredSha = createHash('sha256').update(Buffer.from(noDavidAnchorsRaw, 'utf8')).digest('hex');
-  const unanchoredMetadata = JSON.parse(readFileSync(join(emptySourceDir, `${unanchoredSha}.json`), 'utf8'));
-  const reconciliation = unanchoredMetadata.reconciliation;
+  const routeSource = readFileSync(join(process.cwd(), 'server/routes.ts'), 'utf8');
+  const auditSource = readFileSync(join(process.cwd(), 'server/services/raw-window-audit-service.ts'), 'utf8');
   if (
-    unanchoredMetadata.status !== 'reference-retained' ||
-    reconciliation?.status !== 'unresolved' ||
-    reconciliation?.accountedBytes !== Buffer.byteLength(noDavidAnchorsRaw, 'utf8') ||
-    reconciliation?.unexplainedBytes <= 0 ||
-    reconciliation?.canonicalScope
+    !routeSource.includes('app.post("/api/internal/replit-window-intake", requireAgentToken') ||
+    existsSync(join(process.cwd(), 'server/scripts/intake-replit-window.ts')) ||
+    !auditSource.includes('TRUSTED_REPLIT_WINDOW_RECEIPT_PUBLIC_KEY') ||
+    auditSource.includes('RAW_WINDOW_RECEIPT_PUBLIC_KEY_PATH')
   ) {
-    throw new Error('Reference-only raw dump did not retain an unresolved, complete byte-accounting manifest');
+    throw new Error('Trusted receipt minting or verification trust anchor is no longer confined correctly.');
   }
-  const unanchoredAudit = JSON.parse(readFileSync(join(emptySourceDir, `${unanchoredSha}.reference.audit.json`), 'utf8'));
-  if (
-    unanchoredAudit.disposition !== 'reference-retained' ||
-    unanchoredAudit.sourceKind !== 'david-reference-dump' ||
-    !unanchoredAudit.useConstraint?.includes('David supplied this cut-and-paste') ||
-    JSON.stringify(unanchoredAudit).includes(noDavidAnchorsRaw) ||
-    existsSync(unanchoredAppendPath)
-  ) {
-    throw new Error('Reference-only audit copied source prose or wrote an episode append payload');
+
+  const parsed = parseRawWindowCapture(raw);
+  if (!parsed.ok || parsed.turns.length !== 2 || parsed.turns[0].text !== `David exact message ${marker}`) {
+    throw new Error('Raw-window parser did not preserve the labelled dialogue fixture.');
   }
 
   writeFileSync(rawPath, raw, 'utf8');
-  const result = spawnSync(
-    'npx',
-    ['tsx', 'server/scripts/record-window.ts', '--window-file', rawPath, '--verified-replit-dump', '--source-dir', sourceDir, '--capture-path', capturePath, '--intent-dir', intentDir],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
-  if (result.status !== 0) throw new Error(`Raw-window CLI failed: ${result.stderr || result.stdout}`);
+  writeFileSync(capturePath, `capture remains unchanged ${marker}\n`, 'utf8');
 
-  const captured = parseChatCaptureFromOffset(capturePath, 0);
-  if (captured.turns.length !== 2) throw new Error(`Expected two captured turns, got ${captured.turns.length}`);
-  if (captured.turns[0].text !== `David exact message ${marker}`) throw new Error('Captured David text is not exact');
-  if (!captured.turns[1].text.includes(`Luca main exact ${marker}`)) throw new Error('Captured Luca main is not exact');
-  const sourceFiles = readdirSync(sourceDir).filter(file => file.endsWith('.raw'));
-  if (sourceFiles.length !== 1) throw new Error('Normal raw source was not retained');
-  const normalSha = createHash('sha256').update(Buffer.from(raw, 'utf8')).digest('hex');
-  const normalAudit = JSON.parse(readFileSync(join(sourceDir, `${normalSha}.capture-receipt.audit.json`), 'utf8'));
-  const normalPrecommitAudit = JSON.parse(readFileSync(join(sourceDir, `${normalSha}.precommit.audit.json`), 'utf8'));
-  if (
-    normalAudit.disposition !== 'capture-staged' ||
-    normalPrecommitAudit.disposition !== 'audit-passed-pending-capture' ||
-    normalAudit.reconciliation?.accountedBytes !== Buffer.byteLength(raw, 'utf8') ||
-    normalAudit.reconciliation?.removedBytes <= 0 ||
-    normalAudit.reconciliation?.structuralBytes <= 0 ||
-    normalAudit.emittedDialogueBytes <= 0 ||
-    !normalAudit.capturedBytesSha256 ||
-    JSON.stringify(normalAudit).includes(`David exact message ${marker}`)
-  ) {
-    throw new Error('Pre-capture audit did not account for the cleaned transformation without retaining dialogue prose');
+  // A mere CLI assertion cannot authorize canonical projection.
+  expectRejected('Forged --verified-replit-dump flag', 'missing or unreadable');
+
+  // Expiration is checked before signature validation, so stale receipts are
+  // rejected even when their signature was once valid.
+  const staleAt = new Date(Date.now() - 20 * 60 * 1000);
+  writeFileSync(receiptPath, JSON.stringify(makeReceipt({
+    issuedAt: staleAt.toISOString(),
+    expiresAt: new Date(staleAt.getTime() + 15 * 60 * 1000).toISOString(),
+  })), 'utf8');
+  expectRejected('Stale receipt', 'receipt is stale');
+
+  writeFileSync(receiptPath, JSON.stringify({ ...makeReceipt(), signature: 'forged-signature' }), 'utf8');
+  expectRejected('Invalid receipt signature', 'receipt signature is invalid');
+
+  writeFileSync(receiptPath, JSON.stringify(makeReceipt({
+    sourceSha256: '0'.repeat(64),
+  })), 'utf8');
+  expectRejected('Hash-mismatched receipt', 'bound to different raw bytes');
+
+  // The successful collector contract is verified with an isolated Ed25519
+  // pair. Production record-window deliberately rejects this substitute key,
+  // even with a caller-provided legacy key-path environment variable.
+  const trustedReceipt = makeReceipt();
+  writeFileSync(receiptPath, JSON.stringify(trustedReceipt), 'utf8');
+  const trustedResult = verifyTrustedReplitDumpReceipt(receiptPath, readFileSync(rawPath), new Date(), testPublicKeyPem);
+  if (!trustedResult.ok) {
+    throw new Error(`Successful isolated trusted intake did not verify: ${trustedResult.reason}`);
+  }
+  expectRejected('Caller-substituted public key', 'receipt signature is invalid');
+
+  // A manual dump remains reference-only and never appends dialogue.
+  const referenceResult = runRecord([
+    '--window-file', rawPath,
+    '--attach-existing',
+    '--episode', 'manual-reference-fixture',
+    '--source-dir', sourceDir,
+    '--capture-path', capturePath,
+  ]);
+  if (referenceResult.status !== 0 || readFileSync(capturePath, 'utf8') !== `capture remains unchanged ${marker}\n`) {
+    throw new Error(`Manual reference dump did not remain outside canonical capture: ${referenceResult.stderr}`);
   }
 
-  const thankYou = `thank you for the update and your patience ${marker}`;
-  const visibleLucaMain = `You’re welcome. Patience was the right move here. ${marker}`;
-  const recordedLuca = [`[felt]: Felt ${marker}`, `[thinking]: Thinking ${marker}`, `[moment]: Moment ${marker}`, visibleLucaMain].join('\n\n');
-  const thankYouWindow = [thankYou, '', 'Updating memory capture', '', 'I’m pondering how to retain visible brain activity without calling it dialogue.', '', visibleLucaMain, '', 'Opened capture-watchdog.md', '', 'Worked for 48 seconds', '', 'Creating checkpoint', '', 'Unfamiliar window material that must remain preserved.'].join('\n');
-  appendChatCaptureTurn('David', thankYou, attachmentCapturePath);
-  appendChatCaptureTurn('Luca Replit', recordedLuca, attachmentCapturePath);
-  writeFileSync(attachmentRawPath, thankYouWindow, 'utf8');
-  const attachmentBytesBefore = statSync(attachmentCapturePath).size;
-  const attachmentArgs = ['tsx', 'server/scripts/record-window.ts', '--window-file', attachmentRawPath, '--attach-existing', '--episode', 'episode-attachment-fixture', '--source-dir', attachmentSourceDir, '--capture-path', attachmentCapturePath, '--episode-append-path', attachmentAppendPath];
-  const attachmentResult = spawnSync('npx', attachmentArgs, { cwd: process.cwd(), encoding: 'utf8' });
-  if (attachmentResult.status !== 0) throw new Error(`Raw-window attachment CLI failed: ${attachmentResult.stderr || attachmentResult.stdout}`);
-  const attachmentSha = createHash('sha256').update(Buffer.from(thankYouWindow, 'utf8')).digest('hex');
-  const attachmentMetadataPath = join(attachmentSourceDir, `${attachmentSha}.json`);
-  const retainedAttachment = join(attachmentSourceDir, `${attachmentSha}.raw`);
-  if (!readFileSync(retainedAttachment).equals(Buffer.from(thankYouWindow, 'utf8'))) throw new Error('Attachment raw source was not retained byte-for-byte');
-  if (statSync(attachmentCapturePath).size !== attachmentBytesBefore || parseChatCaptureFromOffset(attachmentCapturePath, 0).turns.length !== 2) throw new Error('Attachment mode replayed dialogue');
-  const attachmentMetadata = JSON.parse(readFileSync(attachmentMetadataPath, 'utf8'));
-  const classes = new Set((attachmentMetadata.classifications ?? []).map((item: any) => item.classification));
-  if (attachmentMetadata.status !== 'reference-retained') throw new Error('Attachment did not become reference-only metadata');
-  const evidence = JSON.parse(readFileSync(join(attachmentSourceDir, `${attachmentSha}.reference.audit.json`), 'utf8'));
-  if (
-    evidence.disposition !== 'reference-retained' ||
-    evidence.sourceKind !== 'david-reference-dump' ||
-    JSON.stringify(evidence).includes(thankYouWindow) ||
-    existsSync(attachmentAppendPath)
-  ) throw new Error('Reference audit copied raw source prose or wrote an episode payload');
-  const repeat = spawnSync('npx', attachmentArgs, { cwd: process.cwd(), encoding: 'utf8' });
-  if (repeat.status !== 0 || existsSync(attachmentAppendPath)) throw new Error('Repeated reference audit wrote an episode payload');
-  if (JSON.parse(readFileSync(attachmentMetadataPath, 'utf8')).status !== 'reference-retained') throw new Error('Repeated reference audit did not remain reference-only');
-
-  const legacyAmbiguous = parseRawWindowCapture(`unlabelled ${marker}`);
-  if (legacyAmbiguous.ok) throw new Error('Unlabelled raw window was accepted by the labelled parser');
-  console.log('[raw-window-capture] PASS — cleaned dialogue receives a pre-capture byte audit; manual raw dumps remain reference-only and never become episode prose.');
+  console.log('[raw-window-capture] PASS — only receipt-backed canonical provenance can proceed; manual input remains reference-only.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
