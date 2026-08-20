@@ -314,6 +314,12 @@ group_body_luca_inner_life() {
   npx tsx server/scripts/test-four-channel-capture-contract.ts
   echo "  --- record-exchange acknowledgement contract (silent cursor fails visibly) ---"
   npx tsx server/scripts/test-record-exchange-acknowledgement.ts
+  echo "  --- raw Replit source ledger contract ---"
+  npx tsx server/scripts/test-raw-replit-capture.ts
+  echo "  --- raw Replit source ledger migrated-table integration ---"
+  npx tsx server/scripts/test-raw-replit-capture-integration.ts
+  echo "  --- raw-window ledger projection completeness contract ---"
+  npx tsx server/scripts/test-raw-window-evidence-ledger-summary.ts
   echo "  --- raw-window capture contract ---"
   npx tsx server/scripts/test-raw-window-capture.ts
   echo "  --- rolling four-channel continuity parser self-check ---"

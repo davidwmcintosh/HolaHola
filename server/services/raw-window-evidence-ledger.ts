@@ -19,6 +19,12 @@ export interface RawWindowEvidenceLedgerSummary {
   error?: string;
 }
 
+export interface RawWindowEvidenceLedgerRow {
+  sessionId: string;
+  eventType: string;
+  payloadJson: unknown;
+}
+
 function sessionIdFor(sourceSha256: string): string {
   return `raw-window:${sourceSha256}`;
 }
@@ -78,6 +84,56 @@ export async function beginRawWindowCaptureProjection(
   return true;
 }
 
+/**
+ * Aggregates the immutable DB rows after they have been read. Keeping the
+ * grouping separate makes the source/session boundary testable without ever
+ * inserting synthetic rows into the append-only production evidence ledger.
+ */
+export function summarizeRawWindowEvidenceLedgerRows(
+  rows: RawWindowEvidenceLedgerRow[],
+): Omit<RawWindowEvidenceLedgerSummary, 'state' | 'error'> {
+  const workspaceSources = rows.filter(row => {
+      if (row.eventType !== SOURCE_EVENT) return false;
+      const payload = row.payloadJson as Record<string, unknown> | null;
+      const rawSourcePath = payload?.rawSourcePath;
+      return typeof rawSourcePath === 'string'
+        // Raw-window tests use disposable /tmp directories. The append-only
+        // ledger intentionally preserves their historical rows, but live
+        // capture status must describe only workspace evidence.
+        && !rawSourcePath.startsWith('/tmp/')
+        // One earlier CI attempt wrote this explicitly labeled marker before
+        // the append-only ledger's no-delete trigger was discovered. Do not
+        // report a CI fixture as user-visible source evidence.
+        && !rawSourcePath.includes('/.local/ci-raw-window-summary-');
+  });
+  const workspaceSessionIds = new Set(workspaceSources.map(row => row.sessionId));
+  let unresolvedSources = 0;
+  let unresolvedBytes = 0;
+  const started = new Set<string>();
+  const completed = new Set<string>();
+  for (const source of workspaceSources) {
+    const payload = source.payloadJson as Record<string, unknown> | null;
+    const reconciliation = payload?.reconciliation as Record<string, unknown> | undefined;
+    if (reconciliation?.status === 'unresolved') {
+      unresolvedSources++;
+      unresolvedBytes += Number(reconciliation.unexplainedBytes) || 0;
+    }
+  }
+  for (const row of rows) {
+    if (!workspaceSessionIds.has(row.sessionId)) continue;
+    if (row.eventType === PROJECTION_STARTED_EVENT) started.add(row.sessionId);
+    if (row.eventType === RESULT_EVENT && dispositionOf(row.payloadJson) === 'capture-staged') {
+      completed.add(row.sessionId);
+    }
+  }
+  return {
+    sourceCount: workspaceSources.length,
+    unresolvedSources,
+    unresolvedBytes,
+    incompleteProjections: [...started].filter(sessionId => !completed.has(sessionId)).length,
+  };
+}
+
 /** Query the canonical ledger for status; local audit sidecars are not proof. */
 export async function getRawWindowEvidenceLedgerSummary(): Promise<RawWindowEvidenceLedgerSummary> {
   try {
@@ -88,37 +144,10 @@ export async function getRawWindowEvidenceLedgerSummary(): Promise<RawWindowEvid
         payloadJson: contextLineageEvents.payloadJson,
       })
       .from(contextLineageEvents)
-      .where(eq(contextLineageEvents.eventType, SOURCE_EVENT));
-    const workspaceRows = rows.filter(row => {
-      const payload = row.payloadJson as Record<string, unknown> | null;
-      return typeof payload?.rawSourcePath === 'string'
-        // Raw-window tests use disposable /tmp directories. The append-only
-        // ledger intentionally preserves their historical rows, but live
-        // capture status must describe only workspace evidence.
-        && !payload.rawSourcePath.startsWith('/tmp/');
-    });
-    let unresolvedSources = 0;
-    let unresolvedBytes = 0;
-    const started = new Set<string>();
-    const completed = new Set<string>();
-    for (const row of workspaceRows) {
-      const payload = row.payloadJson as Record<string, unknown> | null;
-      const reconciliation = payload?.reconciliation as Record<string, unknown> | undefined;
-      if (reconciliation?.status === 'unresolved') {
-        unresolvedSources++;
-        unresolvedBytes += Number(reconciliation.unexplainedBytes) || 0;
-      }
-      if (row.eventType === PROJECTION_STARTED_EVENT) started.add(row.sessionId);
-      if (row.eventType === RESULT_EVENT && dispositionOf(row.payloadJson) === 'capture-staged') {
-        completed.add(row.sessionId);
-      }
-    }
+      .where(eq(contextLineageEvents.sourceRoute, 'record-window'));
     return {
       state: 'available',
-      sourceCount: workspaceRows.length,
-      unresolvedSources,
-      unresolvedBytes,
-      incompleteProjections: [...started].filter(sessionId => !completed.has(sessionId)).length,
+      ...summarizeRawWindowEvidenceLedgerRows(rows),
     };
   } catch (error) {
     return {

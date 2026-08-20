@@ -417,6 +417,71 @@ export function markCanonicalIntentCaptured(
   renameSync(tempPath, handoff.path);
 }
 
+async function persistRecordExchangeRawCapture(
+  turnId: string,
+  lucaSourceText: string,
+  lucaSourceBytes: Buffer,
+  options: {
+    david?: { text: string; bytes: Buffer };
+    mode: 'exchange' | 'luca-only';
+  },
+): Promise<{
+  streamId: string;
+  sourceKey: string;
+  eventIds: string[];
+  eventCount: number;
+  byteCount: number;
+  aggregateSha256: string;
+}> {
+  const events = options.david === undefined
+    ? [{
+        sequenceNumber: 1,
+        eventType: 'luca-output',
+        payloadText: lucaSourceText,
+        payloadBytes: lucaSourceBytes,
+        idempotencyKey: 'luca-output',
+      }]
+    : [
+        {
+          sequenceNumber: 1,
+          eventType: 'david-message',
+          payloadText: options.david.text,
+          payloadBytes: options.david.bytes,
+          idempotencyKey: 'david-message',
+        },
+        {
+          sequenceNumber: 2,
+          eventType: 'luca-output',
+          payloadText: lucaSourceText,
+          payloadBytes: lucaSourceBytes,
+          idempotencyKey: 'luca-output',
+        },
+      ];
+  const { persistRawReplitCapture } = await import('../services/raw-replit-capture');
+  return persistRawReplitCapture({
+    sourceKey: `record-exchange:${turnId}`,
+    sourceRoute: 'record-exchange',
+    events,
+    metadata: {
+      canonicalTurnId: turnId,
+      mode: options.mode,
+      collectorCapability: 'workspace-visible-record-exchange',
+    },
+  });
+}
+
+async function linkRecordExchangeRawCapture(
+  input: Parameters<(typeof import('../services/raw-replit-capture'))['linkRawReplitCaptureToProjection']>[0],
+): Promise<void> {
+  const { linkRawReplitCaptureToProjection } = await import('../services/raw-replit-capture');
+  await linkRawReplitCaptureToProjection(input);
+}
+
+async function closeRecordExchangeDbConnections(): Promise<void> {
+  const { closeDbConnections } = await import('../db');
+  await closeDbConnections();
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -463,7 +528,8 @@ async function runCli(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const lucaMain    = readFileSync(lucaFile, 'utf-8').trimEnd();
+  const lucaMainBytes = readFileSync(lucaFile);
+  const lucaMain = lucaMainBytes.toString('utf8').trimEnd();
   const lucaFeeling = readRequiredChannel('--feeling-file',  '--felt-empty',     args);
   const lucaThink   = readRequiredChannel('--thinking-file', '--thinking-empty', args);
   const lucaMoment  = readRequiredChannel('--moment-file',   '--moment-empty',   args);
@@ -489,7 +555,8 @@ async function runCli(args: string[]): Promise<void> {
       console.error(`[record-exchange] ERROR: --david-file not found: ${davidFile}`);
       process.exit(1);
     }
-    const davidText = readFileSync(davidFile, 'utf-8').trimEnd();
+    const davidBytes = readFileSync(davidFile);
+    const davidText = davidBytes.toString('utf8').trimEnd();
     if (!davidText) {
       console.error('[record-exchange] ERROR: --david-file is empty');
       process.exit(1);
@@ -498,10 +565,31 @@ async function runCli(args: string[]): Promise<void> {
     // watchers use it to wait for this exact canonical turn rather than
     // racing a second direct episode append.
     const handoff = writeCanonicalIntent(lucaChannels);
+    // The exact source events must be durable before the semantic .chat_capture
+    // projection is allowed to exist. Failure here leaves no new chat-capture
+    // bytes and therefore cannot produce a false canonical acknowledgement.
+    const rawCapture = await persistRecordExchangeRawCapture(
+      handoff.intent.turnId,
+      lucaText,
+      Buffer.from(lucaText, 'utf8'),
+      {
+      david: { text: davidBytes.toString('utf8'), bytes: davidBytes },
+      mode: 'exchange',
+      },
+    );
     appendChatCaptureTurn('David', davidText);
     appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
-    markCanonicalIntentCaptured(handoff);
     const sizeFinal = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    await linkRecordExchangeRawCapture({
+      capture: rawCapture,
+      targetKind: 'chat-capture-range',
+      targetKey: handoff.intent.turnId,
+      disposition: 'dialogue',
+      captureStartByteOffset: sizeBefore,
+      captureEndByteOffset: sizeFinal,
+      metadata: { canonicalTurnId: handoff.intent.turnId },
+    });
+    markCanonicalIntentCaptured(handoff);
     const receipt: CaptureAcknowledgement = {
       turnId: handoff.intent.turnId,
       targetByteOffset: sizeFinal,
@@ -514,11 +602,27 @@ async function runCli(args: string[]): Promise<void> {
     console.log(`  David: ${davidText.length} chars`);
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
     await acknowledgeCapture(receipt, waitForAcknowledgement, acknowledgementTimeoutMs);
+    await closeRecordExchangeDbConnections();
   } else {
     const handoff = writeCanonicalIntent(lucaChannels);
+    const rawCapture = await persistRecordExchangeRawCapture(
+      handoff.intent.turnId,
+      lucaText,
+      Buffer.from(lucaText, 'utf8'),
+      { mode: 'luca-only' },
+    );
     appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
-    markCanonicalIntentCaptured(handoff);
     const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    await linkRecordExchangeRawCapture({
+      capture: rawCapture,
+      targetKind: 'chat-capture-range',
+      targetKey: handoff.intent.turnId,
+      disposition: 'dialogue',
+      captureStartByteOffset: sizeBefore,
+      captureEndByteOffset: sizeAfter,
+      metadata: { canonicalTurnId: handoff.intent.turnId },
+    });
+    markCanonicalIntentCaptured(handoff);
     const receipt: CaptureAcknowledgement = {
       turnId: handoff.intent.turnId,
       targetByteOffset: sizeAfter,
@@ -531,6 +635,7 @@ async function runCli(args: string[]): Promise<void> {
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
     console.log('  David turn already captured by autosave pipeline.');
     await acknowledgeCapture(receipt, waitForAcknowledgement, acknowledgementTimeoutMs);
+  await closeRecordExchangeDbConnections();
   }
 }
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { RESOLUTION_TYPE_VALUES } from "./absence-types";
@@ -8723,6 +8723,104 @@ export type InsertContextLineageEvent = z.infer<typeof insertContextLineageEvent
 export type ContextLineageEvent = typeof contextLineageEvents.$inferSelect;
 export type InsertContextLineageLink = z.infer<typeof insertContextLineageLinkSchema>;
 export type ContextLineageLink = typeof contextLineageLinks.$inferSelect;
+
+// Raw Replit capture is source evidence for the Agent↔David record. It is kept
+// separate from conversation_memories so raw host events can be preserved before
+// attribution, parsing, or episode projection.
+export const rawReplitCaptureStreams = pgTable("raw_replit_capture_streams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Stable source identity: record-exchange uses its canonical turnId, while
+  // raw-window intake uses the source SHA-256 identity.
+  sourceKey: varchar("source_key", { length: 255 }).notNull(),
+  sourceRoute: varchar("source_route", { length: 96 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("open"),
+  expectedEventCount: integer("expected_event_count").notNull().default(0),
+  persistedEventCount: integer("persisted_event_count").notNull().default(0),
+  persistedByteCount: integer("persisted_byte_count").notNull().default(0),
+  aggregateSha256: varchar("aggregate_sha256", { length: 64 }),
+  metadata: jsonb("metadata"),
+  privacyClassification: varchar("privacy_classification", { length: 32 })
+    .notNull()
+    .default("private-evidence"),
+  openedAt: timestamp("opened_at").notNull().defaultNow(),
+  lastObservedAt: timestamp("last_observed_at").notNull().defaultNow(),
+  closedAt: timestamp("closed_at"),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrcs_source_key").on(table.sourceKey),
+  index("idx_rrcs_route_time").on(table.sourceRoute, table.recordedAt),
+  index("idx_rrcs_status_time").on(table.status, table.lastObservedAt),
+]);
+
+const rawCaptureBytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+export const rawReplitCaptureEvents = pgTable("raw_replit_capture_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  streamId: varchar("stream_id")
+    .notNull()
+    .references(() => rawReplitCaptureStreams.id),
+  sequenceNumber: integer("sequence_number").notNull(),
+  eventType: varchar("event_type", { length: 96 }).notNull(),
+  // payloadBytes is authoritative source evidence. payloadText is a UTF-8
+  // rendering for search/inspection only and can be lossy for arbitrary bytes.
+  payloadText: text("payload_text").notNull(),
+  payloadBytes: rawCaptureBytea("payload_bytes").notNull(),
+  payloadBytesExact: boolean("payload_bytes_exact").notNull().default(true),
+  payloadByteCount: integer("payload_byte_count").notNull(),
+  payloadSha256: varchar("payload_sha256", { length: 64 }).notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 255 }).notNull(),
+  metadata: jsonb("metadata"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrce_stream_sequence").on(table.streamId, table.sequenceNumber),
+  uniqueIndex("idx_rrce_stream_idempotency").on(table.streamId, table.idempotencyKey),
+  index("idx_rrce_stream_recorded").on(table.streamId, table.recordedAt),
+  index("idx_rrce_payload_hash").on(table.payloadSha256),
+]);
+
+export const rawReplitProjectionLinks = pgTable("raw_replit_projection_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  streamId: varchar("stream_id")
+    .notNull()
+    .references(() => rawReplitCaptureStreams.id),
+  rawEventId: varchar("raw_event_id")
+    .notNull()
+    .references(() => rawReplitCaptureEvents.id),
+  targetKind: varchar("target_kind", { length: 64 }).notNull(),
+  targetKey: varchar("target_key", { length: 255 }).notNull(),
+  disposition: varchar("disposition", { length: 32 }).notNull(),
+  captureStartByteOffset: integer("capture_start_byte_offset"),
+  captureEndByteOffset: integer("capture_end_byte_offset"),
+  metadata: jsonb("metadata"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrpl_event_target").on(table.rawEventId, table.targetKind, table.targetKey),
+  index("idx_rrpl_stream_target").on(table.streamId, table.targetKind, table.targetKey),
+]);
+
+export const insertRawReplitCaptureStreamSchema = createInsertSchema(rawReplitCaptureStreams).omit({
+  id: true,
+  openedAt: true,
+  lastObservedAt: true,
+  recordedAt: true,
+});
+export const insertRawReplitCaptureEventSchema = createInsertSchema(rawReplitCaptureEvents).omit({
+  id: true,
+  recordedAt: true,
+});
+export const insertRawReplitProjectionLinkSchema = createInsertSchema(rawReplitProjectionLinks).omit({
+  id: true,
+  recordedAt: true,
+});
+export type RawReplitCaptureStream = typeof rawReplitCaptureStreams.$inferSelect;
+export type RawReplitCaptureEvent = typeof rawReplitCaptureEvents.$inferSelect;
+export type RawReplitProjectionLink = typeof rawReplitProjectionLinks.$inferSelect;
 
 export const voiceDiagDailySummaries = pgTable("voice_diag_daily_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

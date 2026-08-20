@@ -105,6 +105,65 @@ let rawWindowEvidenceLedgerStatus: RawWindowEvidenceLedgerSummary = {
   incompleteProjections: 0,
 };
 let rawWindowEvidenceRefreshInFlight = false;
+interface RawReplitCaptureStatus {
+  state: 'checking' | 'available' | 'unavailable';
+  streamCount: number;
+  completeStreamCount: number;
+  eventCount: number;
+  byteCount: number;
+  unlinkedStreamCount: number;
+  error?: string;
+}
+let rawReplitCaptureStatus: RawReplitCaptureStatus = {
+  state: 'checking',
+  streamCount: 0,
+  completeStreamCount: 0,
+  eventCount: 0,
+  byteCount: 0,
+  unlinkedStreamCount: 0,
+};
+let rawReplitCaptureRefreshInFlight = false;
+
+async function getRawReplitCaptureStatus(): Promise<RawReplitCaptureStatus> {
+  try {
+    const result = await getUserDb().execute(sql`
+      SELECT
+        COUNT(*)::int AS stream_count,
+        COUNT(*) FILTER (WHERE status = 'complete')::int AS complete_stream_count,
+        COALESCE(SUM(persisted_event_count), 0)::int AS event_count,
+        COALESCE(SUM(persisted_byte_count), 0)::int AS byte_count,
+        COUNT(*) FILTER (
+          WHERE status = 'complete'
+            AND NOT EXISTS (
+              SELECT 1
+              FROM raw_replit_projection_links links
+              WHERE links.stream_id = raw_replit_capture_streams.id
+            )
+        )::int AS unlinked_stream_count
+      FROM raw_replit_capture_streams
+    `);
+    const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+    const count = (key: string) => Number(row[key] ?? 0);
+    return {
+      state: 'available',
+      streamCount: count('stream_count'),
+      completeStreamCount: count('complete_stream_count'),
+      eventCount: count('event_count'),
+      byteCount: count('byte_count'),
+      unlinkedStreamCount: count('unlinked_stream_count'),
+    };
+  } catch (error) {
+    return {
+      state: 'unavailable',
+      streamCount: 0,
+      completeStreamCount: 0,
+      eventCount: 0,
+      byteCount: 0,
+      unlinkedStreamCount: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 // Trigger file: touch this to force an immediate transcript save without waiting for the next poll.
 // The fs.watch() listener below fires within milliseconds of the file being written.
@@ -941,9 +1000,27 @@ function refreshRawWindowEvidenceLedgerStatus(
     });
 }
 
+function refreshRawReplitCaptureStatus(
+  episodeFilename: string | null,
+  captureMs: number,
+): void {
+  if (_captureStatusPathOverrideForTest !== null || rawReplitCaptureRefreshInFlight) return;
+  rawReplitCaptureRefreshInFlight = true;
+  void getRawReplitCaptureStatus()
+    .then(next => {
+      const changed = JSON.stringify(next) !== JSON.stringify(rawReplitCaptureStatus);
+      rawReplitCaptureStatus = next;
+      if (changed) _writeCaptureStatusFile(episodeFilename, captureMs);
+    })
+    .finally(() => {
+      rawReplitCaptureRefreshInFlight = false;
+    });
+}
+
 /** Internal: build and write the status file. episodeFilename is null when no episode is active. */
 function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: number): void {
   refreshRawWindowEvidenceLedgerStatus(episodeFilename, captureMs);
+  refreshRawReplitCaptureStatus(episodeFilename, captureMs);
   const STALE_OUTPUT_MS = 10 * 60 * 1000; // 10 min
   const STALE_MOMENT_MS = 2  * 60 * 60 * 1000; // 2h
 
@@ -1147,6 +1224,22 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     join(WORKSPACE, '.local', 'raw-window-captures'),
   );
   const rawWindowLines: string[] = [
+    '',
+    '## Raw Replit collector ledger',
+    '_This reports source events that reached the workspace collector. Browser-visible host blocks that never reach the collector remain an ingress capability gap, not a successful capture._',
+    '',
+    rawReplitCaptureStatus.state === 'checking'
+      ? '  ⏳ raw source ledger: checking durable collector events…'
+      : rawReplitCaptureStatus.state === 'unavailable'
+        ? `  ⚠️ raw source ledger: UNAVAILABLE — ${rawReplitCaptureStatus.error ?? 'ledger query failed'}; do not claim raw durability.`
+        : rawReplitCaptureStatus.streamCount === 0
+          ? '  ⚠️ raw source ledger: no collector-visible Replit events retained yet.'
+          : `  ${rawReplitCaptureStatus.completeStreamCount === rawReplitCaptureStatus.streamCount ? '✓' : '⚠️'} raw source ledger: ${rawReplitCaptureStatus.completeStreamCount}/${rawReplitCaptureStatus.streamCount} complete stream(s), ${rawReplitCaptureStatus.eventCount.toLocaleString()} event(s), ${rawReplitCaptureStatus.byteCount.toLocaleString()} byte(s).`,
+    rawReplitCaptureStatus.state === 'available' && rawReplitCaptureStatus.unlinkedStreamCount > 0
+      ? `  ⚠️ raw source projection: ${rawReplitCaptureStatus.unlinkedStreamCount} complete stream(s) have no derived-record link.`
+      : rawReplitCaptureStatus.state === 'available'
+        ? '  ✓ raw source projection: every complete collector stream has a derived-record link.'
+        : '',
     '',
     '## Raw-window evidence lane',
     '_Replica parity does not prove the visible host window was complete. Raw source is retained as DB evidence; unknown spans are never inferred as dialogue._',

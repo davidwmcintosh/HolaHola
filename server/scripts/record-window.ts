@@ -27,6 +27,10 @@ import {
   persistRawWindowEvidence,
 } from '../services/raw-window-evidence-ledger';
 import {
+  linkRawReplitCaptureToProjection,
+  persistRawReplitCapture,
+} from '../services/raw-replit-capture';
+import {
   appendChatCaptureTurn,
   CHAT_CAPTURE_PATH,
   DialogueTurn,
@@ -50,6 +54,51 @@ const verifiedReplitDump = args.includes('--verified-replit-dump');
 function fail(message: string): never {
   console.error(`[record-window] ERROR: ${message}`);
   process.exit(1);
+}
+
+async function persistRawWindowEvidenceWithSource(
+  manifest: Parameters<typeof persistRawWindowEvidence>[0],
+  rawWindow: string,
+  rawWindowBytes: Buffer,
+  episodeName?: string,
+) {
+  // Source first: neither reference-only nor attributed projection may create
+  // a lineage event until the exact collector-visible bytes are durable.
+  const rawCapture = await persistRawReplitCapture({
+    sourceKey: `raw-window:${manifest.sourceSha256}`,
+    sourceRoute: 'record-window',
+    events: [{
+      sequenceNumber: 1,
+      eventType: 'raw-window-source',
+      payloadText: rawWindow,
+      payloadBytes: rawWindowBytes,
+      idempotencyKey: 'source',
+      metadata: {
+        sourceSha256: manifest.sourceSha256,
+        sourceKind: manifest.sourceKind,
+        sourceBytes: manifest.reconciliation.sourceBytes,
+      },
+    }],
+    metadata: {
+      sourceSha256: manifest.sourceSha256,
+      sourceKind: manifest.sourceKind,
+      disposition: manifest.disposition,
+    },
+  });
+  const persisted = await persistRawWindowEvidence(manifest, rawWindow, episodeName);
+  // Raw-window source remains evidence even when later reconciliation proves
+  // dialogue; attribution is represented by the downstream audit events.
+  await linkRawReplitCaptureToProjection({
+    capture: rawCapture,
+    targetKind: 'context-lineage-event',
+    targetKey: persisted.sourceEventId,
+    disposition: 'evidence',
+    metadata: {
+      sourceSha256: manifest.sourceSha256,
+      lineageEventType: 'raw_window_source_observed',
+    },
+  });
+  return persisted;
 }
 
 if (windowIndex === -1 || !args[windowIndex + 1]) {
@@ -204,7 +253,7 @@ if (attachExisting || !verifiedReplitDump) {
       useConstraint: referenceConstraint,
     },
   );
-  const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
+  const persisted = await persistRawWindowEvidenceWithSource(result.manifest, rawWindow, rawBytes, episodeName);
   markEvidenceLedgerPersisted(persisted.sourceEventId);
   console.log(`[record-window] ✓ Reference dump retained outside the episode: ${result.auditPath}`);
   console.log(`  Raw source SHA-256: ${sourceSha}`);
@@ -223,101 +272,33 @@ if (!receiptVerification.ok) {
       useConstraint: 'Receipt verification failed. Retain as reference-only; never project this source as canonical dialogue.',
     },
   );
-  const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
+  const persisted = await persistRawWindowEvidenceWithSource(result.manifest, rawWindow, rawBytes, episodeName);
   markEvidenceLedgerPersisted(persisted.sourceEventId);
   await closeDbConnections();
   fail(`Canonical capture rejected; source retained as reference-only: ${result.auditPath}. ${receiptVerification.reason}`);
 }
 const sourceReceipt = receiptVerification.summary;
-
-let parsed = parseRawWindowCapture(rawWindow);
-let usedAlignmentPath = false;
-if (!parsed.ok && !/^\s*(?:\*\*)?(?:David|Luca(?:\s+\[Replit\])?):/im.test(rawWindow)) {
-  const captureTurns = parseChatCaptureFromOffset(davidCapturePath, 0).turns;
-  const lastLucaIndex = captureTurns.reduce(
-    (last, turn, index) => turn.speaker === 'LUCA' ? index : last,
-    -1,
-  );
-  const anchors = captureTurns
-    .slice(lastLucaIndex + 1)
-    .filter(turn => turn.speaker === 'DAVID')
-    .map(turn => ({ text: turn.text }));
-  parsed = alignUnlabelledRawWindow(rawWindow, anchors);
-  usedAlignmentPath = parsed.ok;
-}
-
-if (!parsed.ok) {
-  const reference = Boolean(episodeName);
-  const result = emitAudit(
-    [],
-    reference ? 'david-reference-dump' : 'replit-window',
-    reference ? 'reference-retained-unclassified' : 'reference-retained-unclassified',
-    {
-      reason: parsed.reason,
-      ...(reference ? { useConstraint: referenceConstraint } : {}),
-    },
-  );
-
-  const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
-  markEvidenceLedgerPersisted(persisted.sourceEventId);
-  if (reference) {
-    console.log(`[record-window] ✓ Unclassified reference retained outside the episode: ${result.auditPath}`);
-    process.exit(0);
-  }
-  fail(`${parsed.reason} Raw source retained with audit: ${result.auditPath}`);
-}
-
-const turns = asDialogueTurns(parsed.turns);
-const preCaptureAudit = emitAudit(turns, 'replit-window', 'audit-passed-pending-capture', { sourceReceipt });
-const initialEvidence = await persistRawWindowEvidence(preCaptureAudit.manifest, rawWindow, episodeName);
-markEvidenceLedgerPersisted(initialEvidence.sourceEventId);
-if (!await beginRawWindowCaptureProjection(preCaptureAudit.manifest)) {
-  await closeDbConnections();
-  fail('This raw source already has a completed capture projection; refusing to append duplicate dialogue.');
-}
-
-const lucaPlans: Array<{ text: string; channels: ReturnType<typeof parseCanonicalFourChannelLucaTurn> }> = [];
-if (!usedAlignmentPath) {
-  for (const turn of parsed.turns) {
-    if (turn.speaker !== 'Luca Replit') continue;
-    const channels = parseCanonicalFourChannelLucaTurn(turn.text);
-    if (!channels) fail('Internal error: a validated Luca envelope could not be parsed.');
-    lucaPlans.push({ text: turn.text, channels });
-  }
-}
-
-const sizeBefore = existsSync(capturePath) ? statSync(capturePath).size : 0;
-const existingTurns = parseChatCaptureFromOffset(capturePath, 0).turns;
-let lucaIndex = 0;
-for (const turn of parsed.turns) {
-  const expectedSpeaker = turn.speaker === 'David' ? 'DAVID' : 'LUCA';
-  if (existingTurns.some(existing => existing.speaker === expectedSpeaker && existing.text === turn.text)) {
-    continue;
-  }
-  if (turn.speaker === 'David') {
-    appendChatCaptureTurn('David', turn.text, capturePath);
-    continue;
-  }
-  if (usedAlignmentPath) {
-    appendChatCaptureTurn('Luca Replit', turn.text, capturePath);
-    continue;
-  }
-  const plan = lucaPlans[lucaIndex++];
-  const handoff = writeCanonicalIntent(plan.channels!, intentDir ? join(intentDir, `${randomUUID()}.json`) : undefined);
-  appendChatCaptureTurn('Luca Replit', plan.text, capturePath, handoff.intent.turnId);
-  markCanonicalIntentCaptured(handoff);
-}
-const sizeAfter = existsSync(capturePath) ? statSync(capturePath).size : 0;
-const capturedBytes = readFileSync(capturePath).subarray(sizeBefore, sizeAfter);
-const stagedAudit = emitAudit(turns, 'replit-window', 'capture-staged', {
-  captureRange: { startByteOffset: sizeBefore, endByteOffset: sizeAfter },
-  capturedBytesSha256: createHash('sha256').update(capturedBytes).digest('hex'),
-  sourceReceipt,
-});
-const stagedEvidence = await persistRawWindowEvidence(stagedAudit.manifest, rawWindow, episodeName);
-markEvidenceLedgerPersisted(stagedEvidence.sourceEventId);
-console.log(`[record-window] ✓ Raw window cleaned into ${parsed.turns.length} dialogue turn(s) (${sizeBefore}B → ${sizeAfter}B)`);
-console.log(`  Audit: ${stagedAudit.auditPath}`);
-console.log(`  Accounting: removed ${stagedAudit.reconciliation.removedBytes}B formatting/chrome; structural ${stagedAudit.reconciliation.structuralBytes}B; emitted ${stagedAudit.reconciliation.emittedDialogueBytes}B.`);
-console.log('  Autosave will route the cleaned dialogue to conversation_memories + the rolling episode within ~20s.');
+// A receipt minted by the authenticated intake establishes that a caller
+// submitted these bytes, but it does not carry a non-forgeable host event or
+// collector identity. Until that ingress exists, this remains raw evidence and
+// cannot authorize attributed canonical dialogue.
+const unboundReceiptResult = emitAudit(
+  [],
+  'replit-window',
+  'reference-retained',
+  {
+    reason: 'Receipt verified byte integrity but lacks collector-origin provenance; retained as raw evidence only.',
+    useConstraint: 'Evidence only. A signed intake receipt is not proof that this window originated from the Replit collector; do not project it as attributed dialogue.',
+    sourceReceipt,
+  },
+);
+const unboundReceiptEvidence = await persistRawWindowEvidenceWithSource(
+  unboundReceiptResult.manifest,
+  rawWindow,
+  rawBytes,
+  episodeName,
+);
+markEvidenceLedgerPersisted(unboundReceiptEvidence.sourceEventId);
+console.log(`[record-window] ✓ Receipt-backed window retained as unbound raw evidence: ${unboundReceiptResult.auditPath}`);
 await closeDbConnections();
+process.exit(0);

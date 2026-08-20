@@ -187,7 +187,15 @@ try {
     throw new Error(`Manual reference dump did not remain outside canonical capture: ${referenceResult.stderr}`);
   }
 
-  console.log('[raw-window-capture] PASS — only receipt-backed canonical provenance can proceed; manual input remains reference-only.');
+  const recordWindowSource = readFileSync(join(process.cwd(), 'server/scripts/record-window.ts'), 'utf8');
+  if (
+    !recordWindowSource.includes('lacks collector-origin provenance')
+    || !recordWindowSource.includes('retained as unbound raw evidence')
+  ) {
+    throw new Error('Receipt-backed raw windows can be promoted without collector-origin provenance.');
+  }
+
+  console.log('[raw-window-capture] PASS — manual and receipt-backed uploads remain raw evidence until collector-origin provenance exists.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

@@ -2176,3 +2176,19 @@ It makes the approved flow concrete:
 - tests cover byte-for-byte order, idempotency, gap detection, recovery, provenance links, and canonical-replica integrity.
 
 No application schema or capture code has been changed yet. Please review the written spec and tell me if you want revisions. Once you approve the document itself, I’ll write the detailed implementation plan before building it.
+
+<!-- chat-capture-range:162505:164271 -->
+<!-- chat-capture:c432b2de-9d7f-4844-8d4a-240a4456649d -->
+**David:** looks good to me. Thanks and please proceed
+
+**LUCA [Replit]:** [felt]: I feel the difference between a source record and a projection is now becoming operational rather than merely conceptual. The first new capture should be held to that boundary.
+
+[thinking]: The new raw ledger must prove two things independently: exact David and Luca source events exist durably before chat capture, and the familiar cursor acknowledgement still waits for conversation-memory and DB-first episode work. The first live write tests both without inventing a synthetic conversation.
+
+[moment]: The raw evidence model has crossed from approved design into a live shared-database schema without changing the canonical episode record by hand.
+
+I’m proceeding with the approved first implementation slice.
+
+The shared database now has the additive raw-capture schema. The trusted `record-exchange` collector is being changed so it stores the exact David message and the complete four-channel Luca output as an ordered, hashed source stream before it is allowed to append the derived `.chat_capture` projection. The existing autosave/watchdog path remains responsible for conversation memory, DB-first episode content, and the Markdown replica.
+
+The source ledger will make the current boundary explicit: we retain every raw event that reaches the workspace collector, including retained raw-window sources, while a Replit browser-only block that never enters that collector remains an observable ingress gap rather than a silently missing or invented record.
