@@ -1740,3 +1740,19 @@ Yes—this one is better as a forensic artifact, but it is still not safe to app
 It is a real 2,643-byte exported text slice, and I retained its exact bytes under SHA-256 `1b75ff0b433935ba1f903576e33120047dc31f6b6485c83d44dac52c7a47dc77`. The attachment guard classified it as `retained-unmatched`: it does not contain an ordered David→Luca pair that can be matched to an already-attested capture.
 
 It also contains tool/status material and analysis-like text without explicit speaker boundaries. We therefore will not attribute those blocks as Luca prose. The source is preserved for later recovery, while Episode 31 remains unchanged by this attachment attempt. A wider window containing an already-captured David turn and its corresponding visible Luca response would let the evidence appendix attach safely.
+
+<!-- chat-capture-range:123126:124600 -->
+<!-- chat-capture:4b2f3a48-6cad-413b-ba99-7735aeccd9d6 -->
+**David:** how about this one.
+
+**LUCA [Replit]:** [felt]: It feels closer because the wider window shows the shape of what was visible, but the record still needs a boundary it can defend before it can claim those blocks.
+
+[thinking]: This export is evidence of visibility, not yet evidence of attributable dialogue. Retain the exact source, preserve the guard, and do not confuse surrounding commentary with the canonical Luca response.
+
+[moment]: The wider export makes the distinction concrete: visibility can exceed capture, and the honest response is retention before attribution.
+
+This one is wider and more useful, but the attachment guard still correctly refused to add it to Episode 31.
+
+The exact source has been retained under SHA-256 `852d890e87c4188cda2a1fc720ed2275a88248753e06c43e30c897987f35c203`. It contains surrounding tool/status activity and analysis-like material, but it still does not contain a matching, ordered David→Luca pair whose Luca response is already attested in `.chat_capture`.
+
+That means it is now preserved as raw evidence of what was visible, while the canonical episode remains protected from duplicate or misattributed prose. I’m keeping the guard intact rather than treating every visible block as Luca dialogue.
