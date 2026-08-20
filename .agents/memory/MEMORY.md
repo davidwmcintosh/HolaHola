@@ -149,3 +149,4 @@
 - [Legacy CI encodes old contracts](legacy-ci-contract-flip.md) — when a data-flow direction flips (Markdown→DB became DB-canonical), old CI passes assert the outdated contract; rewrite assertions to the new invariant, never weaken the guard.
 - [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.
 - [Raw-window attachment startup safety](raw-window-attachment-startup.md) — CLI evidence attachments must use the direct DB-first episode path; startup clears unread trigger files as stale.
+- [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.

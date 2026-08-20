@@ -277,6 +277,35 @@ Observation Bench and forensic reports.
 - Add concise validation workflows for the ledger invariants if existing
   workflows do not already cover them.
 
+### Non-production live verification procedure
+
+The approved verification path is the ordinary authenticated `/chat` flow in
+the development environment, with the browser's real recording device enabled
+and microphone permission granted. The diagnostic operator starts Open Mic,
+speaks one fixed phrase, and then stops the microphone; no text relay,
+synthetic WebSocket event, direct Live API injection, or production URL is
+used. The app workflow may be restarted before or after the check, but no
+runtime capture policy or production configuration is changed.
+
+Evidence is evaluated in two separate layers:
+
+1. The conversation transcript and the forensic report establish that an
+   attributable student utterance and Daniela response were persisted.
+2. The Observation Bench and `context_lineage_events` /
+   `context_lineage_links` establish lineage facts. A successful conversation
+   transcript must not be used to infer a model receipt, active epoch, trace,
+   or terminal delivery outcome when the ledger does not contain those facts.
+
+For the August 20, 2026 diagnostic, the real utterance
+`Daniela, this is the lineage diagnostic.` and Daniela's response were present
+in the same voice-session transcript and forensic report. The legacy pipeline
+also showed Guardian lookup started, lookup completed, queued tool-response
+delivery, and carry-forward buffering. The canonical lineage ledger had zero
+events and zero links for that session, so active epoch/trace, explicit
+`receipt_unknown`, reconnect/interruption, and call-ID terminal outcomes were
+reported as **not observed**, not inferred. The evidence-retention follow-up
+must close that gap before a future live run can verify those facts.
+
 ## Delivery order
 
 The ledger's *contract* is complete immediately. Implementation proceeds in
