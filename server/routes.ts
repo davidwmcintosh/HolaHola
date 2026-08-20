@@ -27612,7 +27612,10 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { emitNewMessage } = await import('./services/team-room-ws-broker');
       emitNewMessage(targetRoomId, message);
 
-      // Feed rolling episode if one is active (fire-and-forget — does not block the response)
+      // Feed the active rolling episode if one is active (fire-and-forget — does
+      // not block the response). Episode selection is intentionally server-owned:
+      // authenticated HTTP callers must never be able to direct Team Room content
+      // to an arbitrary episode record.
       import('./services/team-room-episode-hook').then(({ maybeAppendTeamRoomMessage }) => {
         maybeAppendTeamRoomMessage(content).catch(() => {});
       }).catch(() => {});

@@ -123,7 +123,16 @@ let _dbWriteWarningPathOverrideForTest: string | null = null;
 const EPISODE_APPEND_PATH  = join(WORKSPACE, '.local/.episode_append');
 const EPISODE_LIVE_PATH    = join(WORKSPACE, '.local/.episode_live');    // sentinel: live on/off
 
-// --- Luca inner-life watcher state ---
+/**
+ * Test-only override for the single-consumer episode append queue.
+ *
+ * Fixture tests must never write, clear, or delete the live
+ * `.local/.episode_append` file: the running server may be holding a real
+ * rolling exchange there. Redirecting both the writer and checkEpisodeAppend()
+ * to an owned path lets a fixture exercise the production append logic without
+ * racing the live queue. Production code never sets this override.
+ */
+let _episodeAppendPathOverrideForTest: string | null = null;
 let reflectionLastMtime = 0;
 let questionLastMtime = 0;
 let momentLastMtime = 0;
@@ -2055,6 +2064,23 @@ export async function withEpisodeFileLock<T>(filename: string, fn: () => T | Pro
 }
 
 /**
+ * CI harness markers are never legitimate episode dialogue. Prefixes are kept
+ * unbracketed because some hooks emit ordinary prose (for example Team Room and
+ * chat E2E sentinels) while others emit an HTML comment containing brackets.
+ */
+export const CI_SENTINEL_PREFIXES = [
+  'CI-AUTO-CAPTURE-',
+  'CI-SELF-CHECK-AUTO-CAPTURE-',
+  'CI-CONCURRENT-',
+  'CI-TEST-SENTINEL-',
+  'CI-SELF-CHECK-SENTINEL-',
+  'CI-CONCURRENT-SENTINEL-',
+  'CI-SELFCHECK-SENTINEL-',
+  'CI-CHAT-E2E-SENTINEL-',
+  'CI-TEAMROOM-E2E-',
+] as const;
+
+/**
  * Append exchange text through the canonical DB-first episode path.
  *
  * Markdown is replaced only with the exact content returned from the updated
@@ -2065,20 +2091,11 @@ export async function appendExchangeToEpisode(
   episodeFilename: string,
   options?: { appendMarker?: string },
 ): Promise<void> {
-  // A CI sentinel is evidence about a test harness, never dialogue. Refuse to
-  // let legacy auto-capture checks append one to the active rolling record.
-  // Fixture episodes remain testable because only the live rolling filename is
-  // protected here. The legacy test consequently fails loudly until it uses an
-  // isolated fixture instead of quietly contaminating the canonical DB row.
-  if (
-    exchange.includes('[CI-AUTO-CAPTURE-') ||
-    exchange.includes('[CI-SELF-CHECK-AUTO-CAPTURE-') ||
-    exchange.includes('[CI-CONCURRENT-')
-  ) {
+  if (isCiSentinelExchange(exchange)) {
     const rollingFilename = await getCurrentRollingEpisodeFilename();
-    if (rollingFilename === episodeFilename) {
+    if (mustRejectCiSentinelForEpisode(exchange, episodeFilename, rollingFilename)) {
       throw new Error(
-        `Refusing to append CI auto-capture sentinel to active rolling episode ${episodeFilename}; ` +
+        `Refusing to append CI sentinel to active rolling episode ${episodeFilename}; ` +
         'run the test against an isolated fixture.',
       );
     }
@@ -2093,7 +2110,8 @@ export async function appendExchangeToEpisode(
 }
 
 export async function checkEpisodeAppend(): Promise<void> {
-  if (!existsSync(EPISODE_APPEND_PATH)) return;
+  const episodeAppendPath = getEpisodeAppendPath();
+  if (!existsSync(episodeAppendPath)) return;
 
   // Block ALL episode appends when the rolling tag is stale (or not yet validated).
   // This includes trigger-file writes that carry an explicit episode filename, because
@@ -2107,7 +2125,7 @@ export async function checkEpisodeAppend(): Promise<void> {
   }
 
   try {
-    const stat = statSync(EPISODE_APPEND_PATH);
+    const stat = statSync(episodeAppendPath);
     const mtime = stat.mtimeMs;
     if (mtime <= episodeAppendLastMtime) return; // already handled
 
@@ -2115,7 +2133,7 @@ export async function checkEpisodeAppend(): Promise<void> {
     episodeAppendLastMtime = mtime;
     if (prev === 0) return; // skip initial read on startup
 
-    const raw = readFileSync(EPISODE_APPEND_PATH, 'utf-8');
+    const raw = readFileSync(episodeAppendPath, 'utf-8');
     const parsed = parseEpisodeAppend(raw);
     if (!parsed) return;
 
@@ -2131,10 +2149,10 @@ export async function checkEpisodeAppend(): Promise<void> {
     }
 
     // Clear the trigger file immediately so a restart/double-poll can't re-append
-    writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    writeFileSync(episodeAppendPath, '', 'utf-8');
     // Advance the mtime stamp to the cleared file so the next poll doesn't re-fire
     try {
-      episodeAppendLastMtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+      episodeAppendLastMtime = statSync(episodeAppendPath).mtimeMs;
     } catch { /* ignore */ }
 
     console.log(`[AgentAutosave] Episode append trigger: "${parsed.exchange.slice(0, 60).replace(/\n/g, '↵')}…" → ${episodeFilename}`);
@@ -4033,4 +4051,35 @@ function isCanonicalFourChannelRouteActive(): boolean {
   // helper even when the workspace's real live-mode sentinel exists.
   if (_innerLifeRollingEpisodeOverride !== null) return false;
   return existsSync(EPISODE_LIVE_PATH);
+}
+
+/**
+ * Pure predicate so CI can prove every known marker family is rejected before
+ * appendExchangeToEpisode touches a row or Markdown replica.
+ */
+export function mustRejectCiSentinelForEpisode(
+  exchange: string,
+  episodeFilename: string,
+  rollingFilename: string | null,
+): boolean {
+  return rollingFilename === episodeFilename && isCiSentinelExchange(exchange);
+}
+
+export function isCiSentinelExchange(exchange: string): boolean {
+  return CI_SENTINEL_PREFIXES.some(prefix => exchange.includes(prefix));
+}
+
+export function setEpisodeAppendPathOverrideForTest(path: string | null): void {
+  _episodeAppendPathOverrideForTest = path;
+  // A path change is a new queue. Do not let its first write inherit the
+  // previous queue's mtime and get skipped.
+  episodeAppendLastMtime = 0;
+}
+
+export function getEpisodeAppendPathOverrideForTest(): string | null {
+  return _episodeAppendPathOverrideForTest;
+}
+
+function getEpisodeAppendPath(): string {
+  return _episodeAppendPathOverrideForTest ?? EPISODE_APPEND_PATH;
 }

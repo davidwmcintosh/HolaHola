@@ -2,29 +2,30 @@
  * test-episode-append-trigger.ts
  *
  * CI check: confirms the .local/.episode_append trigger-file mechanism works
- * end-to-end — the watcher must detect the trigger, append to docs/episode-27.md,
- * and sync to the DB, all within 20 s.
+ * end-to-end — the watcher must detect the trigger, append to an isolated
+ * fixture Markdown file, and sync to the fixture DB row, all within 20 s.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Normal mode
  * ─────────────────────────────────────────────────────────────────────────────
- *   1. Discovers the DB row for Episode 27 using the same title-based lookup
- *      that syncEpisodeFile uses internally (title = "Episode 27", arc_name
+ *   1. Uses an old-dated fixture row for Episode 9995 using the same
+ *      title-based lookup
+ *      that syncEpisodeFile uses internally (title = "Episode 9995", arc_name
  *      = "HolaHola Episodes").  This ensures the test targets exactly the row
  *      the production sync path will update.
  *   2. Saves original .md and DB content so both can be restored in try/finally.
  *   3. Force-sets the DB to match the current .md to give a known baseline
  *      (guards against stale DB content from prior test runs).
- *   4. Writes a timestamped sentinel exchange to .local/.episode_append.
+ *   4. Writes a timestamped sentinel exchange to an owned fixture trigger.
  *   5. Primes the watcher's mtime state (first call skips by design — prev===0).
  *   6. Re-writes the sentinel with a fresh mtime so the second call processes it.
  *   7. Calls checkEpisodeAppend() — appends sentinel to the .md.
  *   8. Calls syncEpisodeFile() directly (bypassing 2 s debounce) to exercise
  *      the real production sync path.
  *   9. Asserts:
- *      a. Sentinel appears in docs/episode-27.md.
+ *      a. Sentinel appears in docs/episode-9995.md.
  *      b. Sentinel appears in the DB row (same row syncEpisodeFile targets).
- *  10. Restores both docs/episode-27.md and DB to original content.
+ *  10. Removes the owned fixture Markdown and DB row.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Self-check mode  (--self-check)
@@ -41,7 +42,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  *   Proves the cleanup step does NOT destroy content written to the rolling .md
  *   while the CI test was in flight (simulates concurrent session writes):
- *   1. Runs the full normal-mode append flow (sentinel lands in .md).
+ *   1. Runs the full normal-mode append flow against the fixture (sentinel lands in .md).
  *   2. Appends a "concurrent content" marker directly to the .md, simulating a
  *      live session writing to the rolling episode during the CI run.
  *   3. Runs the cleanup logic (strip sentinel from current .md, write back).
@@ -59,10 +60,10 @@ import { existsSync, readFileSync, writeFileSync, statSync, openSync, closeSync,
 import { join } from 'path';
 
 // ── Episode-file CI lockfile (prevents concurrent runs from racing) ────────────
-// Both episode-append-trigger-ci and chat-episode-hook-e2e-ci modify the real
-// docs/episode-27.md and the DB row.  A shared lockfile ensures they never run
-// at the same time.  Stale locks (> 10 min) are cleared automatically.
-const EPISODE_CI_LOCK = '/tmp/.episode-27-ci.lock';
+// Both episode-append-trigger-ci and chat-episode-hook-e2e-ci use the shared
+// trigger file. A shared lockfile prevents their fixture triggers from racing.
+// Stale locks (> 10 min) are cleared automatically.
+const EPISODE_CI_LOCK = '/tmp/.episode-fixture-ci.lock';
 function acquireEpisodeCiLock(): void {
   const MAX_WAIT_MS = 90_000;   // wait up to 90s for the other CI to finish
   const POLL_MS     = 2_000;
@@ -96,7 +97,13 @@ function acquireEpisodeCiLock(): void {
 function releaseEpisodeCiLock(): void {
   try { unlinkSync(EPISODE_CI_LOCK); } catch { /* already gone */ }
 }
-import { checkEpisodeAppend, syncEpisodeFile, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
+import {
+  checkEpisodeAppend,
+  syncEpisodeFile,
+  setEpisodeAppendPathOverrideForTest,
+  setRollingTagIsStaleForTest,
+  getRollingTagIsStaleForTest,
+} from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -109,15 +116,16 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const WORKSPACE           = process.cwd();
-const EPISODE_APPEND_PATH = join(WORKSPACE, '.local', '.episode_append');
-const MD_PATH             = join(WORKSPACE, 'docs', 'episode-27.md');
 
-// Episode 27 title as derived by syncEpisodeFile (episodeTitleFromFilename).
-// "episode-27.md" → "Episode 27"
-const EPISODE_TITLE = 'Episode 27';
+const FIXTURE_TRIGGER_PATH = join(WORKSPACE, '.local', `.episode_append-trigger-e2e-${process.pid}`);
+const MD_PATH             = join(WORKSPACE, 'docs', 'episode-9995.md');
+
+// Episode 9995 title as derived by syncEpisodeFile (episodeTitleFromFilename).
+// "episode-9995.md" → "Episode 9995"
+const EPISODE_TITLE = 'Episode 9995';
 const ARC_NAME      = 'HolaHola Episodes';
 
-// ── CLI ───────────────────────────────────────────────────────────────────────
+const FIXTURE_FILE  = 'episode-9995.md';
 const selfCheckMode       = process.argv.includes('--self-check');
 
 const concurrentCheckMode = process.argv.includes('--self-check-concurrent');
@@ -145,6 +153,25 @@ function episodeSummary(content: string): string {
     .slice(0, 5).join(' ').slice(0, 400);
 }
 
+async function prepareFixture(db: ReturnType<typeof getSharedDb>): Promise<void> {
+  await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIXTURE_ID}`);
+  await db.execute(sql`
+    INSERT INTO conversation_memories
+      (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+    VALUES (
+      ${FIXTURE_ID},
+      ${EPISODE_TITLE},
+      ${'CI fixture — episode append trigger'},
+      ${FIXTURE_CONTENT},
+      3,
+      'episode',
+      ARRAY['episode', 'rolling', ${FIXTURE_TAG}]::text[],
+      ${ARC_NAME},
+      '2020-01-01 00:00:00+00'
+    )
+  `);
+  writeFileSync(MD_PATH, FIXTURE_CONTENT, 'utf-8');
+}
 /**
  * Strip a CI-owned HTML comment marker from episode content.
  *
@@ -191,19 +218,19 @@ async function cleanupSentinel(
 }
 
 /**
- * Write payload to EPISODE_APPEND_PATH and spin until its mtime is strictly
+ * Write payload to the owned fixture trigger and spin until its mtime is strictly
  * newer than afterMs (or 2 s elapsed).  Guards against sub-ms filesystem
  * clock resolution.
  */
 async function writeAppendTrigger(payload: string, afterMs: number): Promise<number> {
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline) {
-    writeFileSync(EPISODE_APPEND_PATH, payload, 'utf-8');
-    const mtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    writeFileSync(FIXTURE_TRIGGER_PATH, payload, 'utf-8');
+    const mtime = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
     if (mtime > afterMs) return mtime;
     await sleep(5);
   }
-  return statSync(EPISODE_APPEND_PATH).mtimeMs;
+  return statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -217,18 +244,18 @@ async function runNormalMode(): Promise<void> {
 
   // ── Preflight: .md must exist ──────────────────────────────────────────────
   if (!existsSync(MD_PATH)) {
-    console.log(R(`  ✗  docs/episode-27.md not found — cannot run test`));
+    console.log(R(`  ✗  ${MD_PATH} not found — cannot run test`));
     failed++;
     return;
   }
-  console.log(Y(`  ℹ  docs/episode-27.md found`));
+  console.log(Y(`  ℹ  ${MD_PATH} found`));
   passed++;
 
   const db         = getSharedDb();
   const originalMd = readFileSync(MD_PATH, 'utf-8');
 
   // ── Discover the DB row using the same title-lookup syncEpisodeFile uses ───
-  // syncEpisodeFile queries: WHERE arc_name = 'HolaHola Episodes' AND title = 'Episode 27'
+  // syncEpisodeFile queries: WHERE arc_name = 'HolaHola Episodes' AND title = 'Episode 9995'
   // We must target the same row so baseline/verify/restore are all consistent.
   const lookupRows = await db.execute(sql`
     SELECT id, content, tags
@@ -256,7 +283,7 @@ async function runNormalMode(): Promise<void> {
   // ── Unique sentinel ────────────────────────────────────────────────────────
   const sentinel = `[CI-TEST-SENTINEL-${Date.now()}] append-trigger test — safe to ignore`;
   const exchange  = `\n<!-- ${sentinel} -->`;
-  const payload   = JSON.stringify({ exchange, episode: 'episode-27' });
+  const payload   = JSON.stringify({ exchange, episode: 'episode-9995' });
 
   // Disable the rolling-tag stale gate: this test exercises the real append path
   // and needs checkEpisodeAppend() to proceed past the fail-closed startup gate.
@@ -312,7 +339,7 @@ async function runNormalMode(): Promise<void> {
 
     const mdAfter = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
     assert(
-      'Sentinel appears in docs/episode-27.md',
+      'Sentinel appears in docs/episode-9995.md',
       mdAfter.includes(sentinel),
       `Sentinel "${sentinel.slice(0, 60)}…" not found in .md`,
     );
@@ -323,7 +350,7 @@ async function runNormalMode(): Promise<void> {
     sep();
 
     // Exercises the real production sync path via the same DB transport
-    await syncEpisodeFile('episode-27.md');
+    await syncEpisodeFile(FIXTURE_FILE);
     console.log(Y(`  ℹ  syncEpisodeFile() complete`));
 
     sep();
@@ -380,8 +407,8 @@ async function runNormalMode(): Promise<void> {
     }
 
     // Clear the trigger file so nothing re-fires on next poll
-    if (existsSync(EPISODE_APPEND_PATH)) {
-      writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    if (existsSync(FIXTURE_TRIGGER_PATH)) {
+      writeFileSync(FIXTURE_TRIGGER_PATH, '', 'utf-8');
     }
   }
 }
@@ -398,7 +425,7 @@ async function runSelfCheck(): Promise<void> {
   console.log(Y('  ℹ  Sentinel must NOT appear in .md when trigger is cleared first.'));
 
   if (!existsSync(MD_PATH)) {
-    console.log(R(`  ✗  docs/episode-27.md not found — cannot run self-check`));
+    console.log(R(`  ✗  ${MD_PATH} not found — cannot run self-check`));
     failed++;
     return;
   }
@@ -406,7 +433,7 @@ async function runSelfCheck(): Promise<void> {
   const originalMd = readFileSync(MD_PATH, 'utf-8');
   const sentinel   = `[CI-SELF-CHECK-SENTINEL-${Date.now()}] should-not-appear`;
   const exchange   = `\n<!-- ${sentinel} -->`;
-  const payload    = JSON.stringify({ exchange, episode: 'episode-27' });
+  const payload    = JSON.stringify({ exchange, episode: 'episode-9995' });
 
   // Disable the rolling-tag stale gate: this test exercises the cleared-trigger
   // path inside checkEpisodeAppend() and must proceed past the startup gate.
@@ -453,7 +480,7 @@ async function runSelfCheck(): Promise<void> {
     const sentinelInMd = mdAfter.includes(sentinel);
 
     assert(
-      'Sentinel correctly absent from docs/episode-27.md (gate held)',
+      'Sentinel correctly absent from docs/episode-9995.md (gate held)',
       !sentinelInMd,
       sentinelInMd
         ? 'GATE BROKEN — sentinel appeared in .md even though trigger was cleared before processing'
@@ -482,8 +509,8 @@ async function runSelfCheck(): Promise<void> {
     // Restore the stale gate before exit.
     setRollingTagIsStaleForTest(prevStaleFlagSC);
     // Clear the trigger file on every exit path
-    if (existsSync(EPISODE_APPEND_PATH)) {
-      writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    if (existsSync(FIXTURE_TRIGGER_PATH)) {
+      writeFileSync(FIXTURE_TRIGGER_PATH, '', 'utf-8');
     }
   }
 }
@@ -496,7 +523,7 @@ async function runSelfCheckConcurrent(): Promise<void> {
   console.log(Y('  ℹ  Concurrent content must survive; only the CI sentinel must be stripped.'));
 
   if (!existsSync(MD_PATH)) {
-    console.log(R(`  ✗  docs/episode-27.md not found — cannot run concurrent self-check`));
+    console.log(R(`  ✗  ${MD_PATH} not found — cannot run concurrent self-check`));
     failed++;
     return;
   }
@@ -548,7 +575,7 @@ async function runSelfCheckConcurrent(): Promise<void> {
   const sentinel       = `[CI-CONCURRENT-SENTINEL-${ts}] should-be-stripped-by-cleanup`;
   const concurrentText = `[CI-CONCURRENT-CONTENT-${ts}] written by a live session — must survive cleanup`;
   const exchange       = `\n<!-- ${sentinel} -->`;
-  const payload        = JSON.stringify({ exchange, episode: 'episode-27' });
+  const payload        = JSON.stringify({ exchange, episode: 'episode-9995' });
 
   // Disable the rolling-tag stale gate: this test exercises the real append path.
   const prevStaleFlagCC = getRollingTagIsStaleForTest();
@@ -579,8 +606,8 @@ async function runSelfCheckConcurrent(): Promise<void> {
     // in the same millisecond as the clear, leaving both the test process and
     // the server process with a last-seen mtime equal to mtime1, causing both to
     // skip processing and leaving the sentinel out of the .md.
-    const mtime0Clear = existsSync(EPISODE_APPEND_PATH)
-      ? statSync(EPISODE_APPEND_PATH).mtimeMs
+    const mtime0Clear = existsSync(FIXTURE_TRIGGER_PATH)
+      ? statSync(FIXTURE_TRIGGER_PATH).mtimeMs
       : mtime0;
     console.log(Y(`  ℹ  Prime call complete (mtime0 = ${mtime0}, mtime0_clear = ${mtime0Clear})`));
 
@@ -600,7 +627,7 @@ async function runSelfCheckConcurrent(): Promise<void> {
     // NOTE: When the application server is running alongside this CI script, the
     // server also has an fs.watch on .local/ and may process the step-2 trigger
     // *concurrently*.  Whoever runs first clears the trigger file, then writes the
-    // sentinel to docs/episode-27.md.  The other process reads the now-empty
+    // sentinel to the fixture Markdown. The other process reads the now-empty
     // trigger and returns early.  Because the two processes are scheduled by the OS,
     // the server's write may land a few milliseconds AFTER our readFileSync below.
     // Polling for up to 1500 ms lets us catch the sentinel regardless of which
@@ -638,7 +665,7 @@ async function runSelfCheckConcurrent(): Promise<void> {
     // originalMd so the DB and disk are left in a known-good state.
     if (mdWithSentinel.length < originalMd.length) {
       console.log(Y(
-        `  ⚠  ENVIRONMENT UNSTABLE — episode-27.md was modified externally during the test ` +
+        `  ⚠  ENVIRONMENT UNSTABLE — ${MD_PATH} was modified externally during the test ` +
         `(${mdWithSentinel.length} bytes after sentinel append; expected ≥ ${originalMd.length} bytes). ` +
         `Aborting concurrent self-check to prevent DB corruption. ` +
         `This is not a code bug — re-run when no task-agent merges are in flight.`,
@@ -682,7 +709,7 @@ async function runSelfCheckConcurrent(): Promise<void> {
 
     // Use cleanedMd (the return value from cleanupSentinel) rather than
     // re-reading from disk.  The live server's autosave watcher can overwrite
-    // docs/episode-27.md with the prior DB snapshot in the gap between
+    // the fixture Markdown with the prior DB snapshot in the gap between
     // cleanupSentinel's write and a fresh readFileSync — causing a false
     // "concurrent content discarded" failure.  cleanedMd is the authoritative
     // post-cleanup content and is immune to this race.
@@ -747,8 +774,8 @@ async function runSelfCheckConcurrent(): Promise<void> {
     setRollingTagIsStaleForTest(prevStaleFlagCC);
 
     // Clear the trigger file
-    if (existsSync(EPISODE_APPEND_PATH)) {
-      writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    if (existsSync(FIXTURE_TRIGGER_PATH)) {
+      writeFileSync(FIXTURE_TRIGGER_PATH, '', 'utf-8');
     }
   }
 }
@@ -759,10 +786,14 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Acquire the shared episode-CI lockfile so this run does not race with
-  // chat-episode-hook-e2e-ci (both write to the real docs/episode-27.md).
+  // The lock protects the shared fixture row/file from manual concurrent
+  // invocations. Trigger queues themselves are private to each process.
   acquireEpisodeCiLock();
   try {
+  setEpisodeAppendPathOverrideForTest(FIXTURE_TRIGGER_PATH);
+  const db = getSharedDb();
+  await prepareFixture(db);
+  console.log(Y(`  ℹ  Prepared isolated ${EPISODE_TITLE} fixture (${MD_PATH}); live rolling episode untouched`));
 
   const modeLabel = concurrentCheckMode
     ? '  Episode Append Trigger — CONCURRENT SELF-CHECK'
@@ -783,6 +814,15 @@ async function main(): Promise<void> {
   }
 
   } finally {
+    try {
+      await removeFixture(getSharedDb());
+      console.log(Y(`  ℹ  Removed isolated ${EPISODE_TITLE} fixture`));
+    } catch (err: any) {
+      console.error(R(`  ✗  Fixture cleanup failed: ${err.message}`));
+      failed++;
+    }
+    setEpisodeAppendPathOverrideForTest(null);
+    try { if (existsSync(FIXTURE_TRIGGER_PATH)) unlinkSync(FIXTURE_TRIGGER_PATH); } catch { /* owned temp already removed */ }
     releaseEpisodeCiLock();
   }
 
@@ -806,3 +846,16 @@ main().catch((err) => {
   console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
   process.exit(1);
 });
+
+const FIXTURE_TAG   = 'ci-episode-append-trigger-fixture';
+
+async function removeFixture(db: ReturnType<typeof getSharedDb>): Promise<void> {
+  await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIXTURE_ID}`);
+  if (existsSync(MD_PATH)) unlinkSync(MD_PATH);
+}
+
+const FIXTURE_CONTENT =
+  `# ${EPISODE_TITLE}\n\n<!-- ${FIXTURE_TAG} -->\n\n` +
+  'Fixture baseline for the episode append trigger CI check.\n';
+
+const FIXTURE_ID    = '99950000-0000-4000-8000-000000009995';

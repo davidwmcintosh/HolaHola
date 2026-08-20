@@ -163,16 +163,20 @@ export function safeWriteTrigger(
  * autosave watcher picks it up (< 20 s) and writes it into the episode .md
  * and DB.
  */
-export async function maybeAppendTeamRoomMessage(content: string): Promise<void> {
+export async function maybeAppendTeamRoomMessage(
+  content: string,
+  episodeNameForTest?: string,
+  triggerPathForTest?: string,
+): Promise<void> {
   try {
-    const episodeName = await getRollingEpisodeName();
+    const episodeName = episodeNameForTest ?? await getRollingEpisodeName();
     if (!episodeName) return; // No rolling episode active — nothing to do
 
     // Canonical attribution label per episode source taxonomy.
     // safeWriteTrigger enqueues the write and returns immediately; the queue
     // ensures concurrent calls are serialised.
     const exchange = `**LUCA [HolaHola]:** ${content.trim()}`;
-    await safeWriteTrigger(exchange, episodeName);
+    await safeWriteTrigger(exchange, episodeName, triggerPathForTest);
   } catch (err: any) {
     console.error('[TeamRoomEpisodeHook] Unexpected error:', err.message);
   }

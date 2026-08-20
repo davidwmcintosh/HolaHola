@@ -4326,3 +4326,20 @@ closed. The normalizer is restored before the check ends. The named
 `raw-window-capture-alignment-selfcheck` validation workflow runs this proof in
 CI, protecting the contract that alignment accepts whitespace/wrapping
 differences but no other rewrite.
+
+---
+
+## CI episode-fixture boundary audit — August 19, 2026
+
+Episode CI checks that append synthetic dialogue now own old-dated, disposable
+episode fixtures rather than discovering and cleaning up the active rolling
+record. The Team Room hook, chat episode hook, and append-trigger checks each
+create an isolated row and Markdown replica, exercise the real DB-first append
+chain, and remove only resources they created.
+
+The Team Room HTTP route no longer accepts an episode destination from a
+request header; episode selection remains server-owned. Its CI check uses the
+hook's in-process fixture seam instead. The append gate recognizes every
+audited literal CI marker family — including the unbracketed Team Room and chat
+sentinels — and a no-write self-check proves each is refused for the live
+rolling filename while allowed for an owned fixture.

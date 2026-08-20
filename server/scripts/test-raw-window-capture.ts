@@ -1,9 +1,8 @@
 import { createHash } from 'crypto';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 
 import { appendChatCaptureTurn, parseChatCaptureFromOffset } from '../services/transcript-parser';
 import {
@@ -170,7 +169,8 @@ try {
 
   const unlabelled = [
     '4 minutes ago',
-    'David exact message ' + marker,
+    'David exact',
+    'message ' + marker,
     '',
     'Clarifying user confusion',
     'Clarifying user confusion',
@@ -186,8 +186,8 @@ try {
   ]);
   if (!aligned.ok) throw new Error(`Alignment rejected valid unlabelled window: ${aligned.reason}`);
   if (aligned.turns.length !== 3) throw new Error(`Expected Luca/David/Luca alignment, got ${aligned.turns.length} turns`);
-  if (aligned.turns[0].speaker !== 'David' || aligned.turns[0].text !== `David exact message ${marker}`) {
-    throw new Error('First attested David anchor was not preserved');
+  if (aligned.turns[0].speaker !== 'David' || aligned.turns[0].text !== `David exact\nmessage ${marker}`) {
+    throw new Error('First David output did not preserve raw-window wrapping');
   }
   if (aligned.turns[1].speaker !== 'Luca Replit' || aligned.turns[1].text !== `Luca exact response ${marker}`) {
     throw new Error('Unlabelled remainder was not attributed to Luca');
@@ -196,8 +196,8 @@ try {
     throw new Error('Second attested David anchor was not preserved');
   }
   const missing = alignUnlabelledRawWindow(unlabelled, [{ text: 'David is not in this window' }]);
-  if (missing.ok || !missing.reason.includes('not found verbatim')) {
-    throw new Error('Missing David anchor did not fail closed');
+  if (missing.ok || !missing.reason.includes('No attested David turn')) {
+    throw new Error('Window with no matching David anchor did not fail closed');
   }
   const ambiguous = alignUnlabelledRawWindow(
     `David exact message ${marker}\nLuca text\nDavid exact message ${marker}`,
@@ -253,7 +253,8 @@ try {
 
   const alignedRaw = [
     '4 minutes ago',
-    `David exact message ${marker}`,
+    `David exact`,
+    `message ${marker}`,
     'Clarifying user confusion',
     '[felt]: Felt from aligned window',
     '[thinking]: Thinking from aligned window',
@@ -262,8 +263,10 @@ try {
     '6 actions',
     `David second exact message ${marker}`,
   ].join('\n');
+  appendChatCaptureTurn('David', `Earlier unrelated David turn ${marker}`, davidCapturePath);
   appendChatCaptureTurn('David', `David exact message ${marker}`, davidCapturePath);
   appendChatCaptureTurn('David', `David second exact message ${marker}`, davidCapturePath);
+  appendChatCaptureTurn('David', `Later unrelated David turn ${marker}`, davidCapturePath);
   writeFileSync(rawPath, alignedRaw, 'utf8');
   const alignedResult = spawnSync(
     'npx',
@@ -288,8 +291,8 @@ try {
   if (alignedCaptured.turns.length !== 3) {
     throw new Error(`Expected three turns from aligned CLI capture, got ${alignedCaptured.turns.length}`);
   }
-  if (alignedCaptured.turns[0].speaker !== 'DAVID' || alignedCaptured.turns[0].text !== `David exact message ${marker}`) {
-    throw new Error('CLI did not emit the first attested David turn');
+  if (alignedCaptured.turns[0].speaker !== 'DAVID' || alignedCaptured.turns[0].text !== `David exact\nmessage ${marker}`) {
+    throw new Error('CLI did not emit the raw-window David slice with its original wrapping');
   }
   if (alignedCaptured.turns[1].speaker !== 'LUCA' || !alignedCaptured.turns[1].text.includes(`Luca main from aligned window ${marker}`)) {
     throw new Error('CLI did not emit the aligned Luca region');

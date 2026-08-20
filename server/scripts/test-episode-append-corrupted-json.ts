@@ -48,9 +48,14 @@
  *   npx tsx server/scripts/test-episode-append-corrupted-json.ts
  */
 
-import { existsSync, readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, statSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { checkEpisodeAppend, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
+import {
+  checkEpisodeAppend,
+  getRollingTagIsStaleForTest,
+  setEpisodeAppendPathOverrideForTest,
+  setRollingTagIsStaleForTest,
+} from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -63,7 +68,7 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const WORKSPACE           = process.cwd();
-const EPISODE_APPEND_PATH = join(WORKSPACE, '.local', '.episode_append');
+const FIXTURE_TRIGGER_PATH = join(WORKSPACE, '.local', `.episode_append-corrupted-json-${process.pid}`);
 const DOCS_DIR            = join(WORKSPACE, 'docs');
 const EPISODE_RE          = /^episode-\d+\.md$/;
 
@@ -87,19 +92,19 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Write payload to EPISODE_APPEND_PATH and spin until its mtime is strictly
+ * Write payload to the owned fixture trigger and spin until its mtime is strictly
  * newer than afterMs (or 2 s elapsed).  Guards against sub-ms filesystem
  * clock resolution.
  */
 async function writeAppendTrigger(payload: string, afterMs: number): Promise<number> {
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline) {
-    writeFileSync(EPISODE_APPEND_PATH, payload, 'utf-8');
-    const mtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    writeFileSync(FIXTURE_TRIGGER_PATH, payload, 'utf-8');
+    const mtime = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
     if (mtime > afterMs) return mtime;
     await sleep(5);
   }
-  return statSync(EPISODE_APPEND_PATH).mtimeMs;
+  return statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
 }
 
 /**
@@ -214,12 +219,15 @@ async function main(): Promise<void> {
     originalWarn(...args); // still print to stdout for visibility
   };
 
+  // The rolling-row query below is intentionally read-only. The malformed input
+  // itself uses an owned trigger queue, never the live .episode_append file.
   // Disable the rolling-tag stale gate: this test exercises the corrupted-JSON
   // guard inside parseEpisodeAppend() and must proceed past the fail-closed
   // startup gate.  The gate is initialized to true at module load and only
   // cleared by runStartupGapCheck() in production.
   const prevStaleFlag = getRollingTagIsStaleForTest();
   setRollingTagIsStaleForTest(false);
+  setEpisodeAppendPathOverrideForTest(FIXTURE_TRIGGER_PATH);
 
   try {
     // ── Step 4: Write a corrupted JSON trigger payload ──────────────────────
@@ -280,13 +288,15 @@ async function main(): Promise<void> {
     setRollingTagIsStaleForTest(prevStaleFlag);
     console.warn = originalWarn;
 
-    // Clear trigger file so nothing re-fires on next poll
+    // Remove only the owned fixture queue. The running server exclusively owns
+    // the live .local/.episode_append file.
     try {
-      if (existsSync(EPISODE_APPEND_PATH)) {
-        writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
-        console.log(Y(`  ℹ  Trigger file cleared`));
+      if (existsSync(FIXTURE_TRIGGER_PATH)) {
+        unlinkSync(FIXTURE_TRIGGER_PATH);
+        console.log(Y(`  ℹ  Fixture trigger file removed`));
       }
     } catch { /* ignore */ }
+    setEpisodeAppendPathOverrideForTest(null);
   }
 
   // ── Step 6: Assert corrupted-JSON warning was emitted ────────────────────

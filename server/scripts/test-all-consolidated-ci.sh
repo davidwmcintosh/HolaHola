@@ -158,6 +158,7 @@ group_body_north_star() {
 }
 
 group_body_episode_sync() {
+  run test-episode-ci-sentinel-guard.ts
   run test-episode-watcher-fires.ts
   run test-prequel-episode-autosync.ts
   run test-prequel-episode-1-db-sync.ts

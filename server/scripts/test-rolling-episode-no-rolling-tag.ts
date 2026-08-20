@@ -35,19 +35,37 @@
  *   The warning-capture assertion is therefore the primary guard detector.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * DB safety
+ * DB safety — CI-fixture audit (Task 1260)
  * ─────────────────────────────────────────────────────────────────────────────
- *   The test temporarily removes the 'rolling' tag from any episode rows so
- *   getCurrentRollingEpisodeFilename() returns null even when the live episode
- *   row exists.  Tags are restored in a finally block regardless of outcome.
+ *   This test temporarily removes the 'rolling' tag from live episode rows so
+ *   getCurrentRollingEpisodeFilename() returns null even when the live rolling
+ *   episode exists.  This is intentional — the test is specifically probing the
+ *   null-tag guard path inside checkEpisodeAppend() and cannot exercise it
+ *   without briefly making the DB think no rolling episode is active.
+ *
+ *   Justification for live-row DB mutation (not a fixture):
+ *     • The test writes NOTHING to any episode .md file.
+ *     • The test writes NOTHING to any episode DB content column.
+ *     • It only sets/restores a tag array on existing rows, which is always
+ *       restored in the finally block regardless of outcome.
+ *     • There is no CI sentinel content appended to any live episode row.
+ *   This makes it a read-adjacent tag-toggle, not a content write, and it is
+ *   safe to run against live rows.  A fixture row with the 'rolling' tag would
+ *   not exercise the real getCurrentRollingEpisodeFilename() lookup accurately
+ *   (it would find the fixture instead of reporting no rolling row).
  *
  * Run:
  *   npx tsx server/scripts/test-rolling-episode-no-rolling-tag.ts
  */
 
-import { existsSync, readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, statSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { checkEpisodeAppend, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
+import {
+  checkEpisodeAppend,
+  getRollingTagIsStaleForTest,
+  setEpisodeAppendPathOverrideForTest,
+  setRollingTagIsStaleForTest,
+} from '../services/agent-session-autosave';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -60,7 +78,7 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const WORKSPACE           = process.cwd();
-const EPISODE_APPEND_PATH = join(WORKSPACE, '.local', '.episode_append');
+const FIXTURE_TRIGGER_PATH = join(WORKSPACE, '.local', `.episode_append-no-rolling-tag-${process.pid}`);
 const DOCS_DIR            = join(WORKSPACE, 'docs');
 const EPISODE_RE          = /^episode-\d+\.md$/;
 
@@ -84,19 +102,19 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Write payload to EPISODE_APPEND_PATH and spin until its mtime is strictly
+ * Write payload to the owned fixture trigger and spin until its mtime is strictly
  * newer than afterMs (or 2 s elapsed).  Guards against sub-ms filesystem
  * clock resolution.
  */
 async function writeAppendTrigger(payload: string, afterMs: number): Promise<number> {
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline) {
-    writeFileSync(EPISODE_APPEND_PATH, payload, 'utf-8');
-    const mtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    writeFileSync(FIXTURE_TRIGGER_PATH, payload, 'utf-8');
+    const mtime = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
     if (mtime > afterMs) return mtime;
     await sleep(5);
   }
-  return statSync(EPISODE_APPEND_PATH).mtimeMs;
+  return statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
 }
 
 /**
@@ -187,6 +205,9 @@ async function main(): Promise<void> {
   // checkEpisodeAppend() proceeds past the stale check and reaches the DB null-guard
   // that is actually under test here.
   const prevStaleFlag = getRollingTagIsStaleForTest();
+  // The tag toggle below is the documented live-row exception. Its synthetic
+  // trigger stays private so it cannot race or clear a real pending exchange.
+  setEpisodeAppendPathOverrideForTest(FIXTURE_TRIGGER_PATH);
 
   try {
     if (rows.length > 0) {
@@ -373,13 +394,15 @@ async function main(): Promise<void> {
     // Restore rolling-tag stale gate to its prior value (fail-closed on module load)
     setRollingTagIsStaleForTest(prevStaleFlag);
 
-    // Clear trigger file so nothing re-fires on next poll
+    // Remove only the owned fixture queue. Do not touch the live append queue:
+    // a genuine exchange may be waiting there for the server watcher.
     try {
-      if (existsSync(EPISODE_APPEND_PATH)) {
-        writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
-        console.log(Y(`  ℹ  Trigger file cleared`));
+      if (existsSync(FIXTURE_TRIGGER_PATH)) {
+        unlinkSync(FIXTURE_TRIGGER_PATH);
+        console.log(Y(`  ℹ  Fixture trigger file removed`));
       }
     } catch { /* ignore */ }
+    setEpisodeAppendPathOverrideForTest(null);
 
     // Verify rolling tags were restored
     try {

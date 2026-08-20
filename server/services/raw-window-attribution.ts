@@ -21,7 +21,7 @@ interface AnchorLocation {
 /**
  * Whitespace is the only normalization allowed when matching an attested
  * David turn against the raw window. The returned text is used for searching
- * only; attributed output still comes from the source or the attested anchor.
+ * only; attributed output always comes from the cleaned raw-window source.
  */
 export function normalizeRawWindowForAlignment(text: string): string {
   return text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
@@ -110,12 +110,13 @@ function sourceSlice(source: string, start: number, end: number): string {
 /**
  * Attribute a raw Replit-window paste that has no speaker labels.
  *
- * David anchors are not generated from the window. They are supplied by the
- * append-only .chat_capture source and must occur once, in the same order,
- * after only whitespace/wrapping normalization. Every remaining non-chrome
- * region is attributed to Luca because the anchors are the attested David
- * regions. Any missing, duplicated, overlapping, or reordered anchor fails
- * closed.
+ * David anchors are not generated from the window. They are supplied as
+ * candidates by the append-only .chat_capture source. Only candidates that
+ * occur exactly once in this particular cleaned window belong to it; older or
+ * later capture turns that do not occur are ignored. At least one candidate
+ * must match. A matched candidate that is duplicated, overlapping, or
+ * reordered fails closed. Every remaining non-chrome region is attributed to
+ * Luca because the selected anchors are attested David regions.
  */
 export function alignUnlabelledRawWindow(
   raw: string,
@@ -144,12 +145,10 @@ export function alignUnlabelledRawWindow(
         start + normalizedAnchor.length,
       ));
 
-    if (candidates.length === 0) {
-      return {
-        ok: false,
-        reason: `An attested David anchor was not found verbatim after whitespace normalization: "${anchor.text.slice(0, 120)}"`,
-      };
-    }
+    // A normal clipboard window contains only a recent subset of the
+    // append-only capture history. An absent candidate therefore belongs to a
+    // different window, rather than making this window unactionable.
+    if (candidates.length === 0) continue;
     if (candidates.length > 1) {
       return {
         ok: false,
@@ -166,6 +165,13 @@ export function alignUnlabelledRawWindow(
       sourceStart: normalizedSource.starts[start],
       sourceEnd: normalizedSource.ends[end - 1],
     });
+  }
+
+  if (locations.length === 0) {
+    return {
+      ok: false,
+      reason: 'No attested David turn was found in this raw window after whitespace normalization.',
+    };
   }
 
   const orderedLocations = [...locations].sort((a, b) => a.start - b.start);
@@ -188,7 +194,12 @@ export function alignUnlabelledRawWindow(
   for (const location of locations) {
     const lucaText = sourceSlice(cleanedSource, sourceCursor, location.sourceStart);
     if (lucaText) turns.push({ speaker: 'Luca Replit', text: lucaText });
-    turns.push({ speaker: 'David', text: location.anchor.text });
+    // The anchor attests speaker identity only. The output must remain the
+    // exact cleaned raw-window source span, including its original wrapping.
+    turns.push({
+      speaker: 'David',
+      text: cleanedSource.slice(location.sourceStart, location.sourceEnd),
+    });
     sourceCursor = location.sourceEnd;
   }
 

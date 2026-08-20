@@ -7084,3 +7084,21 @@ Project-wide typecheck remains blocked by the pre-existing unresolved names in
 `gemini-live-session.ts`; this work did not add errors. System health passed;
 the only warnings were optional localhost object-storage route probes skipped
 because no preview server was running.
+
+---
+
+## Addendum — August 19, 2026 (CI fixture boundary audit)
+
+The episode-test audit found and removed three patterns that could put synthetic
+test dialogue into canonical rolling records: Team Room route capture, chat
+episode-hook capture, and direct append-trigger capture. Each now runs through
+an old-dated disposable fixture row and file. The Team Room route deliberately
+has no client-controlled episode override; the CI imports the hook and uses its
+existing in-process fixture parameter, so an authenticated HTTP caller cannot
+redirect a real Team Room message to another episode.
+
+`appendExchangeToEpisode` now detects literal marker families rather than
+assuming every sentinel is bracketed. A pure guard check covers all audited
+prefixes and verifies that they are rejected for the active filename without
+writing any database or Markdown content. Typecheck, the three fixture checks,
+and consolidated CI are clean.

@@ -5,11 +5,15 @@
  * produced by maybeAppendChatMessage() travels the full pipeline:
  *
  *   maybeAppendChatMessage()
- *     → .local/.episode_append trigger file
+ *     → an owned fixture trigger file (the same append-queue protocol)
  *       → checkEpisodeAppend() (autosave watcher)
- *         → docs/episode-27.md updated
+ *         → docs/episode-9993.md updated
  *           → syncEpisodeFile() (production DB sync + re-embed)
  *             → DB row contains the exchange with LUCA [HolaHola chat]: attribution
+ *
+ * The check uses an old-dated rolling fixture episode (Episode 9993,
+ * created_at=2020-01-01).  Synthetic CI dialogue never targets the active
+ * rolling episode or its Markdown replica.
  *
  * The unit CI (test-chat-episode-hook.ts) already confirms the trigger file
  * is formatted correctly.  This test confirms the rolling episode DB row
@@ -18,22 +22,15 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Normal mode
  * ─────────────────────────────────────────────────────────────────────────────
- *  1. Discovers the DB row for Episode 27 (same title-based lookup as syncEpisodeFile).
- *  2. Reads original .md and DB content; if DB is ahead, writes DB content into .md
- *     (non-destructive alignment — no force-set of DB content).
- *  3. Force-sets DB to the aligned .md baseline so syncEpisodeFile's rolling guard
- *     does not block the sentinel sync (matches test-episode-append-trigger.ts pattern).
- *  4. Primes the watcher mtime state via maybeAppendChatMessage() + checkEpisodeAppend().
- *  5. Writes sentinel exchange via maybeAppendChatMessage() — exercises the full
+ *  1. Creates an isolated Episode 9993 fixture row (created_at=2020-01-01).
+ *  2. Primes the watcher mtime state via maybeAppendChatMessage() + checkEpisodeAppend().
+ *  3. Writes sentinel exchange via maybeAppendChatMessage() — exercises the full
  *     attribution logic (LUCA [HolaHola chat]: + Daniela:).
- *  6. Calls checkEpisodeAppend() — appends sentinel to docs/episode-27.md.
- *  7. Asserts sentinel (with "LUCA [HolaHola chat]:" attribution) appears in .md.
- *  8. Calls syncEpisodeFile('episode-27.md') — the production DB sync + re-embed path.
- *  9. Asserts sentinel appears in the DB record.
- * 10. Cleans up: reads CURRENT .md (preserves concurrent session content), strips
- *     sentinel, writes .md, direct UPDATE to DB (bypasses rolling guard).
- *     Note: the autosave watcher naturally re-embeds the cleaned content on its
- *     next cycle, matching the cleanupSentinel pattern in test-episode-append-trigger.ts.
+ *  4. Calls checkEpisodeAppend() — appends sentinel to docs/episode-9993.md.
+ *  5. Asserts sentinel (with "LUCA [HolaHola chat]:" attribution) appears in .md.
+ *  6. Calls syncEpisodeFile('episode-9993.md') — the production DB sync + re-embed path.
+ *  7. Asserts sentinel appears in the DB record.
+ *  8. Removes the owned fixture .md and DB row.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Self-check mode  (--self-check)
@@ -56,10 +53,10 @@ import { join } from 'path';
 import { maybeAppendChatMessage } from '../services/chat-episode-hook';
 
 // ── Episode-file CI lockfile (prevents concurrent runs from racing) ────────────
-// Both episode-append-trigger-ci and chat-episode-hook-e2e-ci modify the real
-// docs/episode-27.md and the DB row.  A shared lockfile ensures they never run
-// at the same time.  Stale locks (> 10 min) are cleared automatically.
-const EPISODE_CI_LOCK = '/tmp/.episode-27-ci.lock';
+// Both episode-append-trigger-ci and chat-episode-hook-e2e-ci use the shared
+// trigger file.  A shared lockfile ensures they never run at the same time.
+// Stale locks (> 10 min) are cleared automatically.
+const EPISODE_CI_LOCK = '/tmp/.episode-fixture-ci.lock';
 function acquireEpisodeCiLock(): void {
   const MAX_WAIT_MS = 90_000;
   const POLL_MS     = 2_000;
@@ -90,7 +87,13 @@ function acquireEpisodeCiLock(): void {
 function releaseEpisodeCiLock(): void {
   try { unlinkSync(EPISODE_CI_LOCK); } catch { /* already gone */ }
 }
-import { checkEpisodeAppend, syncEpisodeFile, setRollingTagIsStaleForTest, getRollingTagIsStaleForTest } from '../services/agent-session-autosave';
+import {
+  checkEpisodeAppend,
+  syncEpisodeFile,
+  setEpisodeAppendPathOverrideForTest,
+  setRollingTagIsStaleForTest,
+  getRollingTagIsStaleForTest,
+} from '../services/agent-session-autosave';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
@@ -104,11 +107,20 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const WORKSPACE           = process.cwd();
-const EPISODE_APPEND_PATH = join(WORKSPACE, '.local', '.episode_append');
-const MD_PATH             = join(WORKSPACE, 'docs', 'episode-27.md');
+const FIXTURE_TRIGGER_PATH = join(WORKSPACE, '.local', `.episode_append-chat-hook-e2e-${process.pid}`);
+const DOCS_DIR            = join(WORKSPACE, 'docs');
+const FIXTURE_FILE        = 'episode-9993.md';
+const MD_PATH             = join(DOCS_DIR, FIXTURE_FILE);
 
-const EPISODE_TITLE = 'Episode 27';
+// Episode 9993 title as derived by syncEpisodeFile (episodeTitleFromFilename).
+// "episode-9993.md" → "Episode 9993"
+const EPISODE_TITLE = 'Episode 9993';
 const ARC_NAME      = 'HolaHola Episodes';
+const FIXTURE_ID    = '99930000-0000-4000-8000-000000009993';
+const FIXTURE_TAG   = 'ci-chat-episode-hook-e2e-fixture';
+const FIXTURE_CONTENT =
+  `# ${EPISODE_TITLE}\n\n<!-- ${FIXTURE_TAG} -->\n\n` +
+  'Fixture baseline for the chat episode hook e2e CI check.\n';
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 const selfCheckMode = process.argv.includes('--self-check');
@@ -135,13 +147,37 @@ function episodeSummary(content: string): string {
     .slice(0, 5).join(' ').slice(0, 400);
 }
 
+async function prepareFixture(db: ReturnType<typeof getSharedDb>): Promise<void> {
+  await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIXTURE_ID}`);
+  await db.execute(sql`
+    INSERT INTO conversation_memories
+      (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+    VALUES (
+      ${FIXTURE_ID},
+      ${EPISODE_TITLE},
+      ${'CI fixture — chat episode hook e2e'},
+      ${FIXTURE_CONTENT},
+      3,
+      'episode',
+      ARRAY['episode', 'rolling', ${FIXTURE_TAG}]::text[],
+      ${ARC_NAME},
+      '2020-01-01 00:00:00+00'
+    )
+  `);
+  writeFileSync(MD_PATH, FIXTURE_CONTENT, 'utf-8');
+}
+
+async function removeFixture(db: ReturnType<typeof getSharedDb>): Promise<void> {
+  await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIXTURE_ID}`);
+  if (existsSync(MD_PATH)) unlinkSync(MD_PATH);
+}
+
 /**
  * Strip all CI sentinel exchanges from the episode content — both the current
  * run's sentinel AND any residue from previous runs.  Matches:
  *
  *   **LUCA [HolaHola chat]:** CI-CHAT-E2E-SENTINEL-<timestamp>…
  *   **Daniela:** test-daniela-e2e-reply       (synthetic reply, if present)
- *   **Daniela:** Daniela reply for CI-CHAT-E2E-SENTINEL-<ts>  (older variant)
  *
  * Uses /g so double-appends (watcher + test both processed the trigger) are
  * fully removed in one pass.
@@ -149,36 +185,29 @@ function episodeSummary(content: string): string {
 function stripSentinel(content: string, _sentinel: string): string {
   // Remove any LUCA [HolaHola chat]: line that begins a CI sentinel exchange,
   // plus an optional following Daniela: reply on the very next line.
-  // [A-Z0-9-]+ covers names like CHAT-E2E (digit in E2E) as well as plain names.
   let cleaned = content.replace(
     /\n?\*\*LUCA \[HolaHola chat\]:\*\* CI-[A-Z0-9-]+-SENTINEL-\d+[^\n]*(\n\*\*Daniela:\*\*[^\n]*)?\n?/g,
     '',
   );
-  // Remove orphaned synthetic Daniela reply lines (from runs where the Daniela
-  // line was separated from the LUCA line by a prior partial cleanup).
-  cleaned = cleaned.replace(/\n?\*\*Daniela:\*\* Daniela reply for CI-CHAT-E2E-SENTINEL-\d+[^\n]*\n?/g, '');
+  // Remove orphaned synthetic Daniela reply lines.
   cleaned = cleaned.replace(/\n?\*\*Daniela:\*\* test-daniela-e2e-reply[^\n]*\n?/g, '');
-  // Remove any CI comment markers left in the file.
-  cleaned = cleaned.replace(/\n?<!-- \[CI-[A-Z0-9-]+-\d+-\d+\][^\n]*-->\n?/g, '');
-  cleaned = cleaned.replace(/\n?<!-- \[CI-[A-Z0-9-]+-\d+\][^\n]*-->\n?/g, '');
-  cleaned = cleaned.replace(/\n? survive cleanup -->\n?/g, '');
   return cleaned;
 }
 
 /**
- * Write a string to EPISODE_APPEND_PATH and spin until its mtime is strictly
+ * Write a string to the owned fixture trigger and spin until its mtime is strictly
  * greater than afterMs.  Guards against sub-ms filesystem clock resolution.
  * Mirrors writeAppendTrigger() in test-episode-append-trigger.ts.
  */
 async function writeAndWaitMtime(content: string, afterMs: number): Promise<number> {
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline) {
-    writeFileSync(EPISODE_APPEND_PATH, content, 'utf-8');
-    const mtime = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    writeFileSync(FIXTURE_TRIGGER_PATH, content, 'utf-8');
+    const mtime = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
     if (mtime > afterMs) return mtime;
     await sleep(5);
   }
-  return statSync(EPISODE_APPEND_PATH).mtimeMs;
+  return statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -187,15 +216,16 @@ async function writeAndWaitMtime(content: string, afterMs: number): Promise<numb
 
 async function runNormalMode(): Promise<void> {
   sep();
-  console.log(B('NORMAL MODE — /chat observation bench → episode DB row end-to-end'));
+  console.log(B('NORMAL MODE — /chat observation bench → fixture episode DB row end-to-end'));
   sep();
+  console.log(Y(`  ℹ  Fixture: ${FIXTURE_FILE} (created_at=2020-01-01); live rolling episode untouched`));
 
   if (!existsSync(MD_PATH)) {
-    console.log(R(`  ✗  docs/episode-27.md not found — cannot run test`));
+    console.log(R(`  ✗  ${MD_PATH} not found — fixture setup failed`));
     failed++;
     return;
   }
-  console.log(Y(`  ℹ  docs/episode-27.md found`));
+  console.log(Y(`  ℹ  ${MD_PATH} found`));
   passed++;
 
   const db         = getSharedDb();
@@ -203,8 +233,6 @@ async function runNormalMode(): Promise<void> {
 
   // Discover the DB row using the SAME query as syncEpisodeFile:
   // WHERE arc_name = ... AND title = ... (no entry_type filter).
-  // Using a different filter here would risk baselining/asserting a different
-  // row than syncEpisodeFile updates.
   const lookupRows = await db.execute(sql`
     SELECT id, content, tags
     FROM conversation_memories
@@ -216,9 +244,9 @@ async function runNormalMode(): Promise<void> {
   const lookupRow = (lookupRows as any).rows?.[0] ?? (lookupRows as any)[0];
 
   assert(
-    `DB row for "${EPISODE_TITLE}" (entry_type=episode) in "${ARC_NAME}" found`,
+    `DB row for "${EPISODE_TITLE}" in "${ARC_NAME}" found`,
     !!lookupRow,
-    `No row found — run the episode insert script first`,
+    `No row found — fixture insert failed`,
   );
   if (!lookupRow) return;
 
@@ -234,9 +262,7 @@ async function runNormalMode(): Promise<void> {
   const sentinel = `CI-CHAT-E2E-SENTINEL-${ts}`;
 
   // Non-destructive alignment: if DB is ahead pull DB content into .md so the
-  // .md baseline is at least as large as the DB.  We do NOT force-set the DB
-  // here — that would discard any live session content in the DB that hasn't
-  // yet synced to .md.
+  // .md baseline is at least as large as the DB.
   let baseline = originalMd;
   if (originalDb.length > originalMd.length) {
     writeFileSync(MD_PATH, originalDb, 'utf-8');
@@ -245,15 +271,13 @@ async function runNormalMode(): Promise<void> {
   }
 
   // Disable the rolling-tag stale gate so checkEpisodeAppend() can reach the
-  // real append logic.  The gate is fail-closed (true) at module load and only
-  // cleared by runStartupGapCheck() in production; CI sets it explicitly here.
+  // real append logic.
   const prevStaleFlag = getRollingTagIsStaleForTest();
   setRollingTagIsStaleForTest(false);
 
   try {
     // Force-set DB to match the aligned .md baseline so syncEpisodeFile's
     // rolling guard does not block when we sync the sentinel.
-    // Pattern from test-episode-append-trigger.ts — same rationale.
     await db.execute(sql`
       UPDATE conversation_memories
       SET content = ${baseline},
@@ -267,18 +291,21 @@ async function runNormalMode(): Promise<void> {
     console.log(B('STEP 1 — Prime the watcher mtime state via maybeAppendChatMessage()'));
     sep();
 
-    // Clear any stale trigger content, then call the PRODUCTION chat hook with
-    // prime text (bypasses DB lookup via 4th arg — test-only override).
+    // Clear any stale trigger content, then call the PRODUCTION chat hook.
+    // episodeNameForTest override routes writes to the fixture, never the live rolling episode.
     await writeAndWaitMtime('', 0);
-    await maybeAppendChatMessage('prime-text', '', { episodeNameForTest: 'episode-27' });
-    const mtime0 = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    await maybeAppendChatMessage('prime-text', '', {
+      episodeNameForTest: FIXTURE_FILE.replace(/\.md$/, ''),
+      triggerPath: FIXTURE_TRIGGER_PATH,
+    });
+    const mtime0 = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
     console.log(Y(`  ℹ  maybeAppendChatMessage() wrote prime trigger (mtime0 = ${mtime0})`));
 
     // First checkEpisodeAppend(): prev=0 → stamps mtime0, skips processing.
     await checkEpisodeAppend();
     console.log(Y(`  ℹ  Prime call complete (mtime0 stamped)`));
 
-    // Clear trigger so sentinel write starts from a clean state (no merge with prime-text).
+    // Clear trigger so sentinel write starts from a clean state.
     const mtime0cleared = await writeAndWaitMtime('', mtime0);
     console.log(Y(`  ℹ  Trigger cleared (mtime0cleared = ${mtime0cleared})`));
 
@@ -287,11 +314,11 @@ async function runNormalMode(): Promise<void> {
     console.log(B('STEP 2 — Write sentinel exchange via maybeAppendChatMessage()'));
     sep();
 
-    // Call the PRODUCTION hook with sentinel text + a fixed Daniela reply.
-    // The Daniela reply does NOT contain the sentinel so stripSentinel can
-    // cleanly remove only the LUCA line without pattern-matching the reply.
-    await maybeAppendChatMessage(sentinel, 'test-daniela-e2e-reply', { episodeNameForTest: 'episode-27' });
-    const mtime1 = statSync(EPISODE_APPEND_PATH).mtimeMs;
+    await maybeAppendChatMessage(sentinel, 'test-daniela-e2e-reply', {
+      episodeNameForTest: FIXTURE_FILE.replace(/\.md$/, ''),
+      triggerPath: FIXTURE_TRIGGER_PATH,
+    });
+    const mtime1 = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
     console.log(Y(`  ℹ  maybeAppendChatMessage() wrote sentinel (mtime1 = ${mtime1})`));
 
     assert(
@@ -301,12 +328,7 @@ async function runNormalMode(): Promise<void> {
     );
 
     // Verify trigger file content before processing.
-    // The application server's fs.watch may clear the trigger file and append to
-    // episode-27.md in the milliseconds between maybeAppendChatMessage() writing
-    // the trigger and our readFileSync below.  If the trigger is already empty,
-    // the server has already processed it correctly — we skip the content
-    // assertions and instead verify the output in step 3.
-    const triggerRaw = readFileSync(EPISODE_APPEND_PATH, 'utf-8');
+    const triggerRaw = readFileSync(FIXTURE_TRIGGER_PATH, 'utf-8');
     let triggerPayload: { exchange?: string; episode?: string } = {};
     try { triggerPayload = JSON.parse(triggerRaw); } catch { /* fallback */ }
     const triggerAlreadyCleared = triggerRaw.trim() === '';
@@ -316,8 +338,6 @@ async function runNormalMode(): Promise<void> {
         `  ℹ  Trigger already cleared by server fs.watch — skipping trigger-content assertions ` +
         `(server processed the sentinel; output verified in step 3)`,
       ));
-      // Count the 4 trigger-content assertions as passed (they would all pass on
-      // a slower system where the test reads the trigger before the server does).
       passed += 4;
     } else {
       assert(
@@ -336,68 +356,43 @@ async function runNormalMode(): Promise<void> {
         `Daniela: line missing from trigger exchange`,
       );
       assert(
-        'Trigger episode field is episode-27',
-        triggerPayload.episode === 'episode-27',
+        `Trigger episode field is ${FIXTURE_FILE.replace(/\.md$/, '')}`,
+        triggerPayload.episode === FIXTURE_FILE.replace(/\.md$/, ''),
         `episode field: ${triggerPayload.episode}`,
       );
     }
 
-    // ── STEP 3: Process trigger → append to .md ───────────────────────────────
+    // ── STEP 3: Process trigger → append to fixture .md ──────────────────────
     sep();
-    console.log(B('STEP 3 — Process trigger via checkEpisodeAppend() → append to .md'));
+    console.log(B('STEP 3 — Process trigger via checkEpisodeAppend() → append to fixture .md'));
     sep();
 
-    // The autosave worker in the server process watches .episode_append independently.
-    // It may race with the CI's own checkEpisodeAppend() call on appendExchangeToEpisode
-    // (both use writeFileSync which briefly truncates the file to 0 before writing).
-    // Sleep 3s so the server's watcher finishes its write before we read the .md.
-    // If the server already processed the trigger and cleared it, our checkEpisodeAppend
-    // will find the trigger empty and skip — which is correct; the sentinel is already
-    // in the .md from the server's write.
     console.log(Y('  ℹ  Waiting 3s for server watcher to process trigger first…'));
     await sleep(3000);
 
-    // Second call: prev = mtime0cleared ≠ 0; if server already cleared trigger,
-    // mtime is now the server-clear mtime which may be > prev; we read empty → skip.
-    // If server hasn't run yet, we process the trigger ourselves (normal path).
     await checkEpisodeAppend();
     console.log(Y(`  ℹ  checkEpisodeAppend() processed the trigger (or found already cleared)`));
 
     const mdAfter = readFileSync(MD_PATH, 'utf-8');
     console.log(Y(`  ℹ  .md size after append: ${mdAfter.length} bytes (was ${baseline.length})`));
 
-    // Environment stability check: if the .md is shorter than the baseline, a
-    // concurrent task-agent merge zeroed or truncated episode-27.md while CI was
-    // running.  Abort the remaining assertions — they would all fail for the wrong
-    // reason — and let the finally block restore the baseline so the DB and disk
-    // are left in a known-good state.
-    if (mdAfter.length < baseline.length) {
-      console.log(Y(
-        `  ⚠  ENVIRONMENT UNSTABLE — episode-27.md was modified externally after the append ` +
-        `(${mdAfter.length} bytes, expected ≥ ${baseline.length}). ` +
-        `Aborting assertions to prevent DB corruption. ` +
-        `This is not a code bug — re-run when no task-agent merges are in flight.`,
-      ));
-      return; // finally block runs, restoring baseline to disk + DB
-    }
-
     assert(
-      'Sentinel appears in docs/episode-27.md',
+      `Sentinel appears in ${FIXTURE_FILE}`,
       mdAfter.includes(sentinel),
       `Sentinel "${sentinel}" not found in .md`,
     );
     assert(
-      '"LUCA [HolaHola chat]:" attribution appears in docs/episode-27.md',
+      '"LUCA [HolaHola chat]:" attribution appears in fixture .md',
       mdAfter.includes('**LUCA [HolaHola chat]:**'),
       `.md does not contain the chat-hook attribution label`,
     );
 
     // ── STEP 4: Sync via syncEpisodeFile() — production DB sync + re-embed ───
     sep();
-    console.log(B('STEP 4 — Sync docs/episode-27.md to DB via syncEpisodeFile() (production path)'));
+    console.log(B(`STEP 4 — Sync ${FIXTURE_FILE} to DB via syncEpisodeFile() (production path)`));
     sep();
 
-    await syncEpisodeFile('episode-27.md');
+    await syncEpisodeFile(FIXTURE_FILE);
     console.log(Y(`  ℹ  syncEpisodeFile() complete (DB updated + re-embedded)`));
 
     // ── STEP 5: Verify DB record contains sentinel ────────────────────────────
@@ -435,72 +430,10 @@ async function runNormalMode(): Promise<void> {
     }
 
   } finally {
-    // ── STEP 6: Clean up — strip sentinel from CURRENT .md, sync DB ──────────
-    // Reads the CURRENT .md (not the start-of-run snapshot) so any real
-    // session content written while CI was running is preserved.
-    // Uses direct UPDATE to bypass the rolling guard (cleaned content is
-    // slightly shorter than sentinel-containing DB row but within 5%).
-    // The autosave watcher re-embeds the cleaned content on its next cycle —
-    // same approach as cleanupSentinel() in test-episode-append-trigger.ts.
-    sep();
-    console.log(B('STEP 6 — Clean up sentinel (preserve rolling session content)'));
-    sep();
-
-    try {
-      // Read the CURRENT .md (not the start-of-run snapshot) so any real
-      // session content written while CI was running is preserved.
-      // Strip all occurrences of the sentinel (guards against double-append
-      // if the autosave watcher also processed the trigger concurrently).
-      const currentMd = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
-      const strippedMd = stripSentinel(currentMd, sentinel);
-
-      // Safety restore: if external corruption left the file shorter than the
-      // baseline (e.g., a concurrent task-agent merge zeroed episode-27.md while
-      // CI was running), write baseline back to disk and DB instead of persisting
-      // the corrupted 0-byte content.  Without this guard the cleanup would write
-      // "" to both disk and DB, silently erasing the episode.
-      const cleanedMd = strippedMd.length >= baseline.length ? strippedMd : baseline;
-      if (strippedMd.length < baseline.length) {
-        console.log(Y(
-          `  ⚠  External corruption detected during cleanup — stripped .md is ` +
-          `${strippedMd.length} bytes (baseline was ${baseline.length}). ` +
-          `Restoring baseline to disk and DB.`,
-        ));
-      }
-      writeFileSync(MD_PATH, cleanedMd, 'utf-8');
-
-      // Use direct UPDATE (bypasses rolling guard) so the cleanup always
-      // wins the race against the autosave watcher — the watcher may have
-      // synced the STEP 4 sentinel version back to the DB between the STEP 4
-      // syncEpisodeFile and this cleanup call.  Then re-embed immediately so
-      // the vector store reflects the cleaned content, not the sentinel.
-      await db.execute(sql`
-        UPDATE conversation_memories
-        SET content = ${cleanedMd},
-            summary = ${episodeSummary(cleanedMd)}
-        WHERE id = ${rowId}
-      `);
-      await reembedConversationMemory(rowId);
-
-      const restoredMd = readFileSync(MD_PATH, 'utf-8');
-      assert(
-        'Sentinel stripped from .md (rolling content preserved)',
-        !restoredMd.includes(sentinel),
-        '.md still contains sentinel after cleanup',
-      );
-      console.log(Y(`  ℹ  .md after cleanup: ${cleanedMd.length} bytes`));
-      console.log(Y(`  ℹ  DB row ${rowId.slice(0, 8)}… synced + re-embedded: ${cleanedMd.length} bytes`));
-    } catch (err: any) {
-      console.error(R(`  ✗  Cleanup failed: ${err.message}`));
-      failed++;
-    }
-
-    // Restore the rolling-tag stale gate.
+    // ── STEP 6: Restore stale gate + clear trigger ────────────────────────────
     setRollingTagIsStaleForTest(prevStaleFlag);
-
-    // Clear the trigger file so nothing re-fires on next poll
-    if (existsSync(EPISODE_APPEND_PATH)) {
-      writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+    if (existsSync(FIXTURE_TRIGGER_PATH)) {
+      writeFileSync(FIXTURE_TRIGGER_PATH, '', 'utf-8');
     }
   }
 }
@@ -515,7 +448,7 @@ async function runSelfCheck(): Promise<void> {
   sep();
 
   if (!existsSync(MD_PATH)) {
-    console.log(R(`  ✗  docs/episode-27.md not found — cannot run self-check`));
+    console.log(R(`  ✗  ${MD_PATH} not found — fixture setup failed`));
     failed++;
     return;
   }
@@ -523,9 +456,8 @@ async function runSelfCheck(): Promise<void> {
   const originalMd = readFileSync(MD_PATH, 'utf-8');
   const ts         = Date.now();
   const sentinel   = `CI-SELFCHECK-SENTINEL-${ts}`;
+  const fixtureEpisodeName = FIXTURE_FILE.replace(/\.md$/, '');
 
-  // Disable the rolling-tag stale gate so checkEpisodeAppend() reaches the real
-  // watcher logic (mtime stamping + payload parsing) rather than returning early.
   const prevStaleFlagSC = getRollingTagIsStaleForTest();
   setRollingTagIsStaleForTest(false);
 
@@ -537,8 +469,11 @@ async function runSelfCheck(): Promise<void> {
   sep();
 
   await writeAndWaitMtime('', 0);
-  await maybeAppendChatMessage('prime-text', '', { episodeNameForTest: 'episode-27' });
-  const mtime0 = statSync(EPISODE_APPEND_PATH).mtimeMs;
+  await maybeAppendChatMessage('prime-text', '', {
+    episodeNameForTest: fixtureEpisodeName,
+    triggerPath: FIXTURE_TRIGGER_PATH,
+  });
+  const mtime0 = statSync(FIXTURE_TRIGGER_PATH).mtimeMs;
   console.log(Y(`  ℹ  Prime write done (mtime0 = ${mtime0})`));
   await checkEpisodeAppend();
   console.log(Y(`  ℹ  Prime call complete (mtime0 stamped)`));
@@ -551,10 +486,13 @@ async function runSelfCheck(): Promise<void> {
   console.log(B('STEP 2 — Call maybeAppendChatMessage() with empty lucaText'));
   sep();
 
-  await maybeAppendChatMessage('', `reply-${sentinel}`, { episodeNameForTest: 'episode-27' });
+  await maybeAppendChatMessage('', `reply-${sentinel}`, {
+    episodeNameForTest: fixtureEpisodeName,
+    triggerPath: FIXTURE_TRIGGER_PATH,
+  });
 
-  const triggerContent = existsSync(EPISODE_APPEND_PATH)
-    ? readFileSync(EPISODE_APPEND_PATH, 'utf-8')
+  const triggerContent = existsSync(FIXTURE_TRIGGER_PATH)
+    ? readFileSync(FIXTURE_TRIGGER_PATH, 'utf-8')
     : '';
 
   assert(
@@ -573,7 +511,7 @@ async function runSelfCheck(): Promise<void> {
 
   const mdAfter = existsSync(MD_PATH) ? readFileSync(MD_PATH, 'utf-8') : '';
   assert(
-    'Sentinel does NOT appear in .md (gate held)',
+    'Sentinel does NOT appear in fixture .md (gate held)',
     !mdAfter.includes(sentinel),
     `Sentinel "${sentinel}" unexpectedly found in .md`,
   );
@@ -583,8 +521,8 @@ async function runSelfCheck(): Promise<void> {
     `.md content changed (was ${originalMd.length} bytes, now ${mdAfter.length} bytes)`,
   );
 
-  if (existsSync(EPISODE_APPEND_PATH)) {
-    writeFileSync(EPISODE_APPEND_PATH, '', 'utf-8');
+  if (existsSync(FIXTURE_TRIGGER_PATH)) {
+    writeFileSync(FIXTURE_TRIGGER_PATH, '', 'utf-8');
   }
 
   } finally {
@@ -602,10 +540,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Acquire the shared episode-CI lockfile so this run does not race with
-  // episode-append-trigger-ci (both write to the real docs/episode-27.md).
+  // The lock still protects the shared fixture row/file from manual concurrent
+  // invocations. Trigger queues themselves are private to each process.
   acquireEpisodeCiLock();
   try {
+  setEpisodeAppendPathOverrideForTest(FIXTURE_TRIGGER_PATH);
 
   const modeLabel = selfCheckMode
     ? '  Chat Episode Hook — SELF-CHECK (empty lucaText gate)'
@@ -615,6 +554,10 @@ async function main(): Promise<void> {
   console.log(B(modeLabel));
   console.log('═'.repeat(70));
 
+  const db = getSharedDb();
+  await prepareFixture(db);
+  console.log(Y(`  ℹ  Prepared isolated ${EPISODE_TITLE} fixture (${FIXTURE_FILE}); live rolling episode untouched`));
+
   if (selfCheckMode) {
     await runSelfCheck();
   } else {
@@ -622,6 +565,15 @@ async function main(): Promise<void> {
   }
 
   } finally {
+    try {
+      await removeFixture(getSharedDb());
+      console.log(Y(`  ℹ  Removed isolated ${EPISODE_TITLE} fixture`));
+    } catch (err: any) {
+      console.error(R(`  ✗  Fixture cleanup failed: ${err.message}`));
+      failed++;
+    }
+    setEpisodeAppendPathOverrideForTest(null);
+    try { if (existsSync(FIXTURE_TRIGGER_PATH)) unlinkSync(FIXTURE_TRIGGER_PATH); } catch { /* owned temp already removed */ }
     releaseEpisodeCiLock();
   }
 
