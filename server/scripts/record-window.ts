@@ -10,6 +10,7 @@ import { createHash, randomUUID } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 
+import { closeDbConnections } from '../db';
 import { parseCanonicalFourChannelLucaTurn } from '../services/inner-life-capture';
 import { alignUnlabelledRawWindow } from '../services/raw-window-attribution';
 import {
@@ -19,6 +20,10 @@ import {
 import { createRawWindowAttachmentPlan } from '../services/raw-window-attachment';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
 import { reconcileRawWindowEvidence } from '../services/raw-window-reconciliation';
+import {
+  beginRawWindowCaptureProjection,
+  persistRawWindowEvidence,
+} from '../services/raw-window-evidence-ledger';
 import {
   appendChatCaptureTurn,
   CHAT_CAPTURE_PATH,
@@ -86,9 +91,26 @@ function asDialogueTurns(turns: Array<{ speaker: 'David' | 'Luca Replit'; text: 
 
 function writeSourceMetadata(metadata: object): void {
   const path = join(sourceDir, `${sourceSha}.json`);
+  let priorMetadata: Record<string, unknown> = {};
+  if (existsSync(path)) {
+    try {
+      priorMetadata = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    } catch {
+      // The new metadata is still the authoritative local audit state.
+    }
+  }
   const tempPath = `${path}.tmp-${process.pid}`;
-  writeFileSync(tempPath, JSON.stringify(metadata, null, 2) + '\n', 'utf8');
+  writeFileSync(tempPath, JSON.stringify({ ...priorMetadata, ...metadata }, null, 2) + '\n', 'utf8');
   renameSync(tempPath, path);
+}
+
+function markEvidenceLedgerPersisted(sourceEventId: string): void {
+  writeSourceMetadata({
+    evidenceLedger: {
+      sourceEventId,
+      persistedAt: new Date().toISOString(),
+    },
+  });
 }
 
 function emitAudit(
@@ -140,7 +162,7 @@ function emitAudit(
     ...(options.useConstraint ? { useConstraint: options.useConstraint } : {}),
     reconciliation,
   });
-  return { auditPath, reconciliation };
+  return { auditPath, reconciliation, manifest };
 }
 
 const referenceConstraint = 'Reference only. Never render as ordinary dialogue; any future gap-fill must identify the missing original record and acknowledge David supplied this cut-and-paste.';
@@ -167,8 +189,11 @@ if (attachExisting || !verifiedReplitDump) {
     attachment.ok ? 'reference-retained' : 'reference-retained-unclassified',
     { ...(reason ? { reason } : {}), useConstraint: referenceConstraint },
   );
+  const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
+  markEvidenceLedgerPersisted(persisted.sourceEventId);
   console.log(`[record-window] ✓ Reference dump retained outside the episode: ${result.auditPath}`);
   console.log(`  Raw source SHA-256: ${sourceSha}`);
+  await closeDbConnections();
   process.exit(0);
 }
 
@@ -199,6 +224,8 @@ if (!parsed.ok) {
       ...(reference ? { useConstraint: referenceConstraint } : {}),
     },
   );
+  const persisted = await persistRawWindowEvidence(result.manifest, rawWindow, episodeName);
+  markEvidenceLedgerPersisted(persisted.sourceEventId);
   if (reference) {
     console.log(`[record-window] ✓ Unclassified reference retained outside the episode: ${result.auditPath}`);
     process.exit(0);
@@ -208,6 +235,12 @@ if (!parsed.ok) {
 
 const turns = asDialogueTurns(parsed.turns);
 const preCaptureAudit = emitAudit(turns, 'replit-window', 'audit-passed-pending-capture');
+const initialEvidence = await persistRawWindowEvidence(preCaptureAudit.manifest, rawWindow, episodeName);
+markEvidenceLedgerPersisted(initialEvidence.sourceEventId);
+if (!await beginRawWindowCaptureProjection(preCaptureAudit.manifest)) {
+  await closeDbConnections();
+  fail('This raw source already has a completed capture projection; refusing to append duplicate dialogue.');
+}
 
 const lucaPlans: Array<{ text: string; channels: ReturnType<typeof parseCanonicalFourChannelLucaTurn> }> = [];
 if (!usedAlignmentPath) {
@@ -220,8 +253,13 @@ if (!usedAlignmentPath) {
 }
 
 const sizeBefore = existsSync(capturePath) ? statSync(capturePath).size : 0;
+const existingTurns = parseChatCaptureFromOffset(capturePath, 0).turns;
 let lucaIndex = 0;
 for (const turn of parsed.turns) {
+  const expectedSpeaker = turn.speaker === 'David' ? 'DAVID' : 'LUCA';
+  if (existingTurns.some(existing => existing.speaker === expectedSpeaker && existing.text === turn.text)) {
+    continue;
+  }
   if (turn.speaker === 'David') {
     appendChatCaptureTurn('David', turn.text, capturePath);
     continue;
@@ -241,7 +279,10 @@ const stagedAudit = emitAudit(turns, 'replit-window', 'capture-staged', {
   captureRange: { startByteOffset: sizeBefore, endByteOffset: sizeAfter },
   capturedBytesSha256: createHash('sha256').update(capturedBytes).digest('hex'),
 });
+const stagedEvidence = await persistRawWindowEvidence(stagedAudit.manifest, rawWindow, episodeName);
+markEvidenceLedgerPersisted(stagedEvidence.sourceEventId);
 console.log(`[record-window] ✓ Raw window cleaned into ${parsed.turns.length} dialogue turn(s) (${sizeBefore}B → ${sizeAfter}B)`);
 console.log(`  Audit: ${stagedAudit.auditPath}`);
 console.log(`  Accounting: removed ${stagedAudit.reconciliation.removedBytes}B formatting/chrome; structural ${stagedAudit.reconciliation.structuralBytes}B; emitted ${stagedAudit.reconciliation.emittedDialogueBytes}B.`);
 console.log('  Autosave will route the cleaned dialogue to conversation_memories + the rolling episode within ~20s.');
+await closeDbConnections();

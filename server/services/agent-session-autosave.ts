@@ -69,6 +69,10 @@ import { postAsLuca } from './luca-responder';
 import { detectRollingTagMisroute } from './rolling-tag-utils';
 import { summarizeRawWindowReconciliationDirectory } from './raw-window-reconciliation';
 import {
+  getRawWindowEvidenceLedgerSummary,
+  type RawWindowEvidenceLedgerSummary,
+} from './raw-window-evidence-ledger';
+import {
   CANONICAL_INNER_LIFE_INTENT_DIR,
   canonicalTurnEpisodeMarker,
   episodeContentHasEventMarker,
@@ -92,6 +96,14 @@ const STALE_CHANNEL_ALERT_PATH = join(WORKSPACE, '.local/stale-channel-alert.md'
 const STALE_CHANNEL_MS = 10 * 60 * 1000;
 export const TASK_REF_PENDING_PATH = join(WORKSPACE, '.local/.task_ref_pending');
 const POLL_INTERVAL_MS = 20 * 1000;
+let rawWindowEvidenceLedgerStatus: RawWindowEvidenceLedgerSummary = {
+  state: 'checking',
+  sourceCount: 0,
+  unresolvedSources: 0,
+  unresolvedBytes: 0,
+  incompleteProjections: 0,
+};
+let rawWindowEvidenceRefreshInFlight = false;
 
 // Trigger file: touch this to force an immediate transcript save without waiting for the next poll.
 // The fs.watch() listener below fires within milliseconds of the file being written.
@@ -909,8 +921,28 @@ export function markReplitOutputFromChatCapture(): void {
   writeCaptureStatusStaleCheck();
 }
 
+function refreshRawWindowEvidenceLedgerStatus(
+  episodeFilename: string | null,
+  captureMs: number,
+): void {
+  // CI exercises this synchronous writer with a temporary path. Keep those
+  // checks hermetic; the live status refreshes itself after the DB result.
+  if (_captureStatusPathOverrideForTest !== null || rawWindowEvidenceRefreshInFlight) return;
+  rawWindowEvidenceRefreshInFlight = true;
+  void getRawWindowEvidenceLedgerSummary()
+    .then(next => {
+      const changed = JSON.stringify(next) !== JSON.stringify(rawWindowEvidenceLedgerStatus);
+      rawWindowEvidenceLedgerStatus = next;
+      if (changed) _writeCaptureStatusFile(episodeFilename, captureMs);
+    })
+    .finally(() => {
+      rawWindowEvidenceRefreshInFlight = false;
+    });
+}
+
 /** Internal: build and write the status file. episodeFilename is null when no episode is active. */
 function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: number): void {
+  refreshRawWindowEvidenceLedgerStatus(episodeFilename, captureMs);
   const STALE_OUTPUT_MS = 10 * 60 * 1000; // 10 min
   const STALE_MOMENT_MS = 2  * 60 * 60 * 1000; // 2h
 
@@ -1087,15 +1119,24 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   );
   const rawWindowLines: string[] = [
     '',
-    '## Raw-window pipeline audit',
-    '_Raw bytes, cleanup, and emitted payload are accounted before DB capture; reference dumps stay outside the episode._',
+    '## Raw-window evidence lane',
+    '_Replica parity does not prove the visible host window was complete. Raw source is retained as DB evidence; unknown spans are never inferred as dialogue._',
     '',
-    rawWindowSummary.totalSources === 0
-      ? '  — No retained raw Replit-window sources.'
-      : `  ${rawWindowSummary.unresolvedSources > 0 ? '⚠️ REVIEW' : '✓'} Sources: ${rawWindowSummary.totalSources}; cleaned-capture audits: ${rawWindowSummary.auditedSources}; reference-only dumps: ${rawWindowSummary.referenceSources}`,
-    rawWindowSummary.unresolvedSources > 0
-      ? `  ⚠️ Unclassified source material: ${rawWindowSummary.unresolvedSources} source(s), ${rawWindowSummary.unresolvedBytes.toLocaleString()} byte(s) — retained for audit/reference, never inferred as dialogue.`
-      : '  ✓ No unclassified raw-window source spans.',
+    rawWindowEvidenceLedgerStatus.state === 'checking'
+      ? '  ⏳ DB evidence: checking the canonical ledger…'
+      : rawWindowEvidenceLedgerStatus.state === 'unavailable'
+        ? `  ⚠️ DB evidence: UNAVAILABLE — ${rawWindowEvidenceLedgerStatus.error ?? 'ledger query failed'}; replica parity cannot establish completeness.`
+        : rawWindowEvidenceLedgerStatus.sourceCount === 0
+          ? '  ⚠️ Visible Replit window: UNOBSERVED — no DB-backed raw-window evidence exists; replica parity cannot establish completeness.'
+          : `  ${rawWindowEvidenceLedgerStatus.unresolvedSources > 0 ? '⚠️ REVIEW' : '✓'} DB evidence: ${rawWindowEvidenceLedgerStatus.sourceCount} retained source(s); local audits: ${rawWindowSummary.auditedSources}; reference-only sources: ${rawWindowSummary.referenceSources}`,
+    rawWindowEvidenceLedgerStatus.state === 'available' && rawWindowEvidenceLedgerStatus.unresolvedSources > 0
+      ? `  ⚠️ Unclassified source material: ${rawWindowEvidenceLedgerStatus.unresolvedSources} source(s), ${rawWindowEvidenceLedgerStatus.unresolvedBytes.toLocaleString()} byte(s) — retained as evidence, never inferred as dialogue.`
+      : rawWindowEvidenceLedgerStatus.state === 'available'
+        ? '  ✓ No unclassified raw-window source spans in the DB evidence ledger.'
+        : '  — Unclassified-source count is unavailable until the ledger query completes.',
+    rawWindowEvidenceLedgerStatus.state === 'available' && rawWindowEvidenceLedgerStatus.incompleteProjections > 0
+      ? `  ⚠️ Capture projection incomplete: ${rawWindowEvidenceLedgerStatus.incompleteProjections} source(s) need recovery; do not infer dialogue completeness.`
+      : '',
   ];
 
   // ── Sections 3+4: Episode .md (ONLY when rolling episode active) ──────────

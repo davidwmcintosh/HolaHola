@@ -11,6 +11,8 @@ import {
 } from '../services/raw-window-attribution';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
 
+process.env.RAW_WINDOW_EVIDENCE_TEST_MODE = 'true';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;

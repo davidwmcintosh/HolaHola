@@ -195,6 +195,8 @@ export interface RawWindowReconciliationDirectorySummary {
   totalSources: number;
   auditedSources: number;
   referenceSources: number;
+  dbEvidenceSources: number;
+  missingDbEvidenceSources: number;
   unresolvedSources: number;
   unresolvedBytes: number;
 }
@@ -203,13 +205,26 @@ export interface RawWindowReconciliationDirectorySummary {
 export function summarizeRawWindowReconciliationDirectory(
   sourceDir: string,
 ): RawWindowReconciliationDirectorySummary {
-  const summary = { totalSources: 0, auditedSources: 0, referenceSources: 0, unresolvedSources: 0, unresolvedBytes: 0 };
+  const summary = {
+    totalSources: 0,
+    auditedSources: 0,
+    referenceSources: 0,
+    dbEvidenceSources: 0,
+    missingDbEvidenceSources: 0,
+    unresolvedSources: 0,
+    unresolvedBytes: 0,
+  };
   if (!existsSync(sourceDir)) return summary;
   for (const entry of readdirSync(sourceDir)) {
     if (!entry.endsWith('.json') || entry.endsWith('.audit.json')) continue;
     try {
       const metadata = JSON.parse(readFileSync(`${sourceDir}/${entry}`, 'utf8'));
       summary.totalSources++;
+      if (typeof metadata.evidenceLedger?.sourceEventId === 'string') {
+        summary.dbEvidenceSources++;
+      } else {
+        summary.missingDbEvidenceSources++;
+      }
       if (metadata.status === 'capture-staged' || metadata.status === 'audit-passed-pending-capture') {
         summary.auditedSources++;
       }
