@@ -4343,3 +4343,31 @@ hook's in-process fixture seam instead. The append gate recognizes every
 audited literal CI marker family — including the unbracketed Team Room and chat
 sentinels — and a no-write self-check proves each is refused for the live
 rolling filename while allowed for an owned fixture.
+
+---
+
+## Explicit-return prior-turn Archive grounding — August 20, 2026
+
+A delayed Archive correction may now survive as dormant context for exactly the
+immediately following student turn. It is released only after Gemini marks that
+turn's input transcription finished and the complete utterance affirmatively
+returns to the correction's bound assertion topic. Unrelated new questions
+receive neither the old correction nor an instruction to call an Archive tool.
+
+The topic gate binds to the exact assertion sentence, not the full earlier
+utterance or a generic memory phrase. Single-term topics require that term;
+multi-term assertions require two identifiers. Pronoun-only returns, one-word
+generic collisions, English and Spanish negations, topic redirects, and
+late-arriving retractions fail closed.
+
+Because Gemini Live streams input transcription independently from tool
+messages, an early tool batch waits on the same turn epoch's definitive
+`inputTranscription.finished` event. That event resumes the original safe
+tool-response path. A timeout leaves the correction dormant rather than
+releasing from a partial prefix.
+
+Every released block names the current finalized utterance as the primary
+subject before showing the earlier candidate and already-available Archive
+grounding. Regression coverage includes guitar → counting rejection, explicit
+guitar return, all three delayed correction sources, generic-topic collision,
+negation/retraction, and tool-before-final-transcription event ordering.

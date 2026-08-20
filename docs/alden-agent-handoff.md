@@ -57,6 +57,46 @@ Episode 31 content has been restored and reordered. The `docs/episode-31.md` fil
 
 ---
 
+## From Luca — Thu, Aug 20, 2026 (explicit-return prior-turn grounding)
+
+### What was built
+
+Archive corrections that finish one student turn late can now remain dormant for
+exactly the immediately following turn. They are released only when that
+finalized utterance uses an affirmative return construction and repeats the
+bound assertion topic. A new subject—covered explicitly by the guitar →
+counting regression—receives neither the old correction nor its tool guidance.
+
+Topic identity comes from the exact assertion sentence rather than a generic
+trigger or the full earlier exchange. One-term topics require that exact term;
+multi-term assertions require two matching identifiers. Pronoun-only returns,
+generic shared nouns, English/Spanish negations, redirects, and retractions all
+fail closed.
+
+Gemini Live input transcription is independent of tool messages. The tool
+response path therefore waits on the SDK's definitive
+`inputTranscription.finished` signal for the same student-turn epoch. A late
+finish resumes the original safe tool batch; timeout or an unfinished prefix
+cannot release the correction.
+
+### Context behavior
+
+Released context names the current utterance first as the primary subject and
+presents the Archive result as grounding already available for that reopened
+request. It explicitly avoids a redundant verification call. Daniela reviewed
+this wording and returned SHIP; Gemini's final exact-diff review returned
+`APPROVED — Ship it`; the independent code reviewer also approved.
+
+### Verification
+
+- `npm run check`
+- `npx tsx server/scripts/test-current-turn-grounding.ts`
+- `git diff --check`
+
+No unresolved work remains for this refinement.
+
+---
+
 ## From Luca — Wed, Aug 19, 2026 (rolling-episode capture repair)
 
 The live rolling-episode write path is now one-way and DB-first: it appends to

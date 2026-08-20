@@ -38,6 +38,7 @@ export interface SlideDetectionResult {
   detected: boolean;
   trigger: 'memory_assertion' | 'gap_bridging' | null;
   matchedPhrase: string | null;
+  candidateAssertion: string | null;
   missingToolSuggestion: 'introspect' | 'recall' | 'grounding_query' | null;
   responseWordCount: number;
 }
@@ -216,6 +217,130 @@ export interface StudentRiskDetectionResult {
   topic: string | null;
 }
 
+// Words that describe the conversational act rather than the subject being
+// discussed. They must never make an older correction look relevant by
+// themselves ("remember that", "you said it", "we talked before").
+const GROUNDING_TOPIC_STOP_WORDS = new Set([
+  'about', 'again', 'before', 'earlier', 'remember', 'remembered',
+  'recall', 'recalled', 'said', 'saying', 'spoke', 'talked', 'told',
+  'mentioned', 'discussed', 'shared', 'played', 'thing', 'things',
+  'this', 'that', 'these', 'those', 'with', 'from', 'have', 'been',
+  'were', 'your', 'ours', 'their', 'what', 'when', 'where', 'which',
+  'game',
+  // Common Spanish conversational scaffolding.
+  'sobre', 'antes', 'otra', 'nuevo', 'recuerdas', 'recordar',
+  'dijiste', 'hablamos', 'contaste', 'mencionaste', 'cosa', 'cosas',
+]);
+
+const EXPLICIT_TOPIC_RETURN_PATTERNS = [
+  /\b(?:go|get|come)\s+back\s+to\b/u,
+  /\bback\s+to\b/u,
+  /\breturn\s+to\b/u,
+  /\brevisit\b/u,
+  /\b(?:talk|speak|ask)\s+(?:more\s+)?about\b/u,
+  /\bwhat\s+about\b/u,
+  /\bregarding\b/u,
+  /\bspeaking\s+of\b/u,
+  /\bvolver\s+a\b/u,
+  /\bregresar\s+a\b/u,
+  /\bretomar\b/u,
+  /\b(?:hablar|preguntar)\s+(?:mas\s+)?sobre\b/u,
+  /\bque\s+hay\s+de\b/u,
+];
+
+const TOPIC_RETURN_CANCELLATION_PATTERNS = [
+  /\bactually[,\s]+(?:no|never\s+mind|forget\s+(?:that|it))\b/u,
+  /\b(?:never\s+mind|forget\s+(?:that|it))[;,.!?\s]+/u,
+  /\blet'?s\s+not\b/u,
+  /\bi\s+(?:do\s+not|don't|dont)\s+want\s+to\b/u,
+  /\bno\s+(?:quiero|vamos|volvamos|regresemos|retomemos|hablemos)\b/u,
+  /\b(?:instead|rather|en\s+cambio|mejor)\b/u,
+];
+
+function normalizeGroundingWords(text: string): string[] {
+  return text
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase()
+    .match(/\p{L}[\p{L}\p{N}]*/gu)
+    ?.filter(word => word.length >= 4 && !GROUNDING_TOPIC_STOP_WORDS.has(word))
+    ?? [];
+}
+
+/**
+ * A prior correction may re-enter context only when the student both names a
+ * substantive term from the bound subject and explicitly signals a return.
+ * Pronouns, generic conversational language, and semantic guesswork are
+ * intentionally insufficient: false negatives are safer than topic hijacks.
+ */
+export function doesStudentExplicitlyReopenGroundingTopic(
+  currentUtterance: string,
+  candidateAssertion: string,
+): boolean {
+  const normalizedCurrent = currentUtterance
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase();
+  if (TOPIC_RETURN_CANCELLATION_PATTERNS.some(pattern => pattern.test(normalizedCurrent))) {
+    return false;
+  }
+  const returnMatch = EXPLICIT_TOPIC_RETURN_PATTERNS
+    .map(pattern => pattern.exec(normalizedCurrent))
+    .find((match): match is RegExpExecArray => match !== null);
+  if (!returnMatch) {
+    return false;
+  }
+  // Fail closed when the return construction itself is negated. This catches
+  // "let's not go back", "I don't want to talk about", and "no quiero volver".
+  const beforeReturn = normalizedCurrent.slice(
+    Math.max(0, returnMatch.index - 48),
+    returnMatch.index,
+  );
+  if (/\b(?:not|no|never|don't|dont|do\s+not|nunca)\b/u.test(beforeReturn)) {
+    return false;
+  }
+
+  const currentWords = new Set(normalizeGroundingWords(normalizedCurrent));
+  const boundTopicWords = [...new Set(normalizeGroundingWords(candidateAssertion))];
+  const matchingTopicWords = boundTopicWords.filter(word => currentWords.has(word));
+  // A one-term assertion such as "I played guitar" has one clear identifier.
+  // Multi-term assertions require two identifiers so a generic shared noun
+  // ("school") cannot reopen a different claim ("school in Boston").
+  const requiredMatches = boundTopicWords.length === 1 ? 1 : 2;
+  return matchingTopicWords.length >= requiredMatches;
+}
+
+/**
+ * Bind delayed grounding to the sentence containing the actual memory claim,
+ * not to a generic trigger phrase or an entire multi-topic model response.
+ */
+export function extractGroundingAssertionCandidate(
+  responseText: string,
+  matchedPhrase?: string | null,
+): string {
+  const trimmed = responseText.trim();
+  if (!trimmed) return (matchedPhrase || '').trim();
+
+  const lower = trimmed.toLocaleLowerCase();
+  const phrase = matchedPhrase
+    || MEMORY_ASSERTION_PHRASES.find(candidate => lower.includes(candidate))
+    || GAP_BRIDGING_PHRASES.find(candidate => lower.includes(candidate))
+    || '';
+  const phraseIndex = phrase ? lower.indexOf(phrase.toLocaleLowerCase()) : 0;
+  const safeIndex = Math.max(0, phraseIndex);
+  const before = trimmed.slice(0, safeIndex);
+  const sentenceStartMatch = [...before.matchAll(/[.!?]\s+/gu)].at(-1);
+  const sentenceStart = sentenceStartMatch
+    ? sentenceStartMatch.index! + sentenceStartMatch[0].length
+    : 0;
+  const after = trimmed.slice(safeIndex);
+  const sentenceEndMatch = after.match(/[.!?](?:\s|$)/u);
+  const sentenceEnd = sentenceEndMatch?.index !== undefined
+    ? safeIndex + sentenceEndMatch.index + 1
+    : trimmed.length;
+  return trimmed.slice(sentenceStart, sentenceEnd).trim().slice(0, 240);
+}
+
 /**
  * Detect memory-risk phrases in the STUDENT'S accumulated voice transcript.
  * Fires pre-turn — before Daniela generates — so grounding can be retrieved
@@ -278,6 +403,7 @@ export function detectFrictionlessSlide(
       detected: true,
       trigger: 'memory_assertion',
       matchedPhrase: matchedMemoryPhrase,
+      candidateAssertion: extractGroundingAssertionCandidate(responseText, matchedMemoryPhrase),
       missingToolSuggestion: 'introspect',
       responseWordCount: wordCount,
     };
@@ -290,6 +416,7 @@ export function detectFrictionlessSlide(
       detected: true,
       trigger: 'gap_bridging',
       matchedPhrase: matchedGapPhrase,
+      candidateAssertion: extractGroundingAssertionCandidate(responseText, matchedGapPhrase),
       missingToolSuggestion: 'grounding_query',
       responseWordCount: wordCount,
     };
@@ -299,6 +426,7 @@ export function detectFrictionlessSlide(
     detected: false,
     trigger: null,
     matchedPhrase: null,
+    candidateAssertion: null,
     missingToolSuggestion: null,
     responseWordCount: wordCount,
   };

@@ -79,6 +79,8 @@ import {
   runAutoGrounding,
   detectStudentMemoryRisk,
   detectStudentEmotionalValence,
+  doesStudentExplicitlyReopenGroundingTopic,
+  extractGroundingAssertionCandidate,
 } from './frictionless-slide-detector';
 import { consumeLucaSessionContext } from './luca-session-context';
 import { analyzeFriction } from './llm-friction-analyzer';
@@ -101,6 +103,12 @@ export interface GroundingTurnBinding {
   studentTurnEpoch: number;
   studentUtterance: string;
   candidateAssertion: string;
+}
+
+export interface PriorTurnGroundingCorrection {
+  groundingResult: string;
+  binding: GroundingTurnBinding;
+  eligibleStudentTurnEpoch: number;
 }
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -395,6 +403,10 @@ export class GeminiLiveSession {
   // It is only eligible while the student turn that caused it remains active.
   private pendingWeeOoGrounding: string | null = null;
   private pendingWeeOoGroundingBinding: GroundingTurnBinding | null = null;
+  // A correction from the immediately preceding turn remains dormant until the
+  // current utterance is complete enough to prove that the student explicitly
+  // returned to its bound subject. It is never merged into generic new speech.
+  private pendingPriorTurnGrounding: PriorTurnGroundingCorrection | null = null;
   // Set when pendingWeeOoGrounding originates from slide detection or hard wall (not ambient
   // pre-turn grounding). Causes the [LAST TURN CORRECTION] whisper to include a behavioral
   // directive: "verify before continuing" rather than just passive context delivery.
@@ -423,6 +435,21 @@ export class GeminiLiveSession {
   private activeStudentTurnEpoch = 0;
   /** Complete transcript accumulated for the active student-turn epoch. */
   private activeStudentUtterance = '';
+  /** Set only from Gemini's inputTranscription.finished protocol signal. */
+  private finalizedStudentTurnEpoch: number | null = null;
+  /** Input-transcription epochs awaiting their ordered `finished` event. */
+  private unfinalizedStudentTurnEpochs: number[] = [];
+  /**
+   * Armed only when the client reports that Daniela's completed playback ended,
+   * the point at which a new student utterance can actually begin.
+   */
+  private startNewStudentTurnOnNextInputTranscription = true;
+  /** False when a new transcript epoch begins before the prior epoch definitively finishes. */
+  private currentStudentTurnBoundaryTrusted = true;
+  /** Trust assigned to the next epoch when its first transcription text arrives. */
+  private nextStudentTurnBoundaryTrusted = true;
+  /** Tool batches awaiting the independently-streamed final transcription signal. */
+  private inputTranscriptionFinalizationWaiters = new Map<number, Set<(finished: boolean) => void>>();
   /** One immutable lineage trace per student utterance, when the ledger is enabled. */
   private activeContextLineageTraceId: string | null = null;
   private contextLineageRecorder: ContextLineageRecorder | null = null;
@@ -518,6 +545,52 @@ export class GeminiLiveSession {
       linkType: link.linkType,
       observedAt: link.observedAt.toISOString(),
     });
+  }
+
+  /**
+   * Input transcription is independent of model/tool messages in Gemini Live.
+   * Hold a tool batch briefly so a late definitive `finished` event can resume
+   * the same safe delivery channel. Timeout fails closed and leaves the dormant
+   * correction available for any later tool batch in this student turn.
+   */
+  private waitForInputTranscriptionFinalization(
+    expectedEpoch: number,
+    timeoutMs = 2_000,
+  ): Promise<boolean> {
+    if (this.finalizedStudentTurnEpoch === expectedEpoch) return Promise.resolve(true);
+    return new Promise<boolean>(resolve => {
+      let waiters = this.inputTranscriptionFinalizationWaiters.get(expectedEpoch);
+      if (!waiters) {
+        waiters = new Set();
+        this.inputTranscriptionFinalizationWaiters.set(expectedEpoch, waiters);
+      }
+      let settled = false;
+      const finish = (finished: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        waiters!.delete(finish);
+        if (waiters!.size === 0) {
+          this.inputTranscriptionFinalizationWaiters.delete(expectedEpoch);
+        }
+        resolve(finished);
+      };
+      waiters.add(finish);
+      const timeout = setTimeout(() => finish(false), timeoutMs);
+    });
+  }
+
+  private resetInputTranscriptionFinalizationState(): void {
+    const allWaiters = [...this.inputTranscriptionFinalizationWaiters.values()];
+    this.inputTranscriptionFinalizationWaiters.clear();
+    for (const waiters of allWaiters) {
+      for (const finish of [...waiters]) finish(false);
+    }
+    this.unfinalizedStudentTurnEpochs = [];
+    this.finalizedStudentTurnEpoch = null;
+    this.startNewStudentTurnOnNextInputTranscription = true;
+    this.currentStudentTurnBoundaryTrusted = true;
+    this.nextStudentTurnBoundaryTrusted = true;
   }
 
   /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live.
@@ -1351,6 +1424,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.greetingWatchdogTimer = null;
               }
               this.pendingInputTranscript = '';
+              this.resetInputTranscriptionFinalizationState();
               this.pendingInputSaved = false;
               this.pendingOutputTranscript = '';
               this.usingOutputTranscription = false;
@@ -1563,6 +1637,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       return;
     }
     this.pendingPlaybackEndedLift = false;
+    const openedMicGate = this.isTutorGeneratingAudio;
     if (this.isTutorGeneratingAudio) {
       this.isTutorGeneratingAudio = false;
       console.log('[GeminiLive] Mic gate lifted — client playback_ended (echo suppression off)');
@@ -1574,6 +1649,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.studentTurnStartMs = Date.now();
     this.currentTurnFirstInputMs = 0;
     this.lastInputChunkMs = 0;
+    // This playback boundary is independent of inputTranscription.finished.
+    // If the prior finish arrives late, the next transcript still gets its own
+    // epoch and joins the ordered unfinished queue behind the prior epoch.
+    if (openedMicGate) {
+      this.startNewStudentTurnOnNextInputTranscription = true;
+      this.nextStudentTurnBoundaryTrusted = this.unfinalizedStudentTurnEpochs.length === 0;
+      if (!this.nextStudentTurnBoundaryTrusted) {
+        console.warn(
+          '[GeminiLive] Next student transcription boundary is untrusted: '
+          + 'the prior input transcription has not finished.',
+        );
+      }
+    }
 
     // Proactive ACTFL reconnect: Daniela's pedagogical heartbeat flagged a tier change.
     // This is the safest moment to reconnect — audio just finished, student hasn't started
@@ -2129,6 +2217,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.greetingWatchdogTimer = null;
     }
     this.pendingInputTranscript = '';
+    this.resetInputTranscriptionFinalizationState();
     this.pendingInputSaved = false;
     this.pendingOutputTranscript = '';
     if (this.transcriptFlushTimer) {
@@ -2683,10 +2772,23 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // A new utterance makes every prior carry-forward grounding result stale.
         // Never merge a previous topic into a newer student turn: it turns an
         // honest archive check into a subject change.
-        const startsNewStudentUtterance = !this.pendingInputTranscript.trim();
+        // pendingInputTranscript cannot define this boundary: Gemini documents
+        // input transcription as independent from model output, so its buffer
+        // may be reset before the independently-streamed `finished` signal.
+        // The client playback boundary arms a new turn instead.
+        const epochTransition = registerInputTranscriptionChunk(
+          this.startNewStudentTurnOnNextInputTranscription,
+          this.activeStudentTurnEpoch,
+          this.unfinalizedStudentTurnEpochs,
+        );
+        const startsNewStudentUtterance = epochTransition.startedNewStudentUtterance;
+        this.activeStudentTurnEpoch = epochTransition.activeStudentTurnEpoch;
+        this.startNewStudentTurnOnNextInputTranscription =
+          epochTransition.startNewStudentTurnOnNextInputTranscription;
         if (startsNewStudentUtterance) {
-          this.activeStudentTurnEpoch++;
           this.activeStudentUtterance = '';
+          this.finalizedStudentTurnEpoch = null;
+          this.currentStudentTurnBoundaryTrusted = this.nextStudentTurnBoundaryTrusted;
           this.activeContextLineageTraceId = this._getContextLineageRecorder()?.beginTrace() ?? null;
           this._recordContextLineage({
             traceId: this.activeContextLineageTraceId ?? undefined,
@@ -2694,6 +2796,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             sourceRoute: 'gemini-live',
             eventType: 'student_turn_started',
           });
+          if (
+            this.pendingPriorTurnGrounding
+            && this.pendingPriorTurnGrounding.eligibleStudentTurnEpoch !== this.activeStudentTurnEpoch
+          ) {
+            console.warn(
+              `[ArchiveGuardian] Discarding unopened prior-turn grounding from student turn `
+              + `${this.pendingPriorTurnGrounding.binding.studentTurnEpoch}; its one-turn return window expired.`,
+            );
+            this.pendingPriorTurnGrounding = null;
+          }
           if (this.pendingCarryForwardGrounding) {
             console.warn(
               `[PreTurnGuardian] Discarding stale carry-forward grounding from student turn `
@@ -2704,9 +2816,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             this.pendingCarryForwardGroundingBinding = null;
           }
           if (this.pendingWeeOoGrounding) {
-            console.warn(
-              '[ArchiveGuardian] Discarding prior-turn grounding before a newer student utterance.',
-            );
+            const priorCorrection = this.pendingWeeOoGroundingBinding
+              ? createPriorTurnGroundingCorrection(
+                this.pendingWeeOoGrounding,
+                this.pendingWeeOoGroundingBinding,
+                this.activeStudentTurnEpoch,
+              )
+              : null;
+            if (priorCorrection) {
+              this.pendingPriorTurnGrounding = priorCorrection;
+              console.log(
+                `[ArchiveGuardian] Holding correction from student turn `
+                + `${priorCorrection.binding.studentTurnEpoch} dormant for an explicit topic return.`,
+              );
+            } else {
+              console.warn(
+                '[ArchiveGuardian] Discarding prior-turn grounding outside its one-turn return window.',
+              );
+            }
             this.pendingWeeOoGrounding = null;
             this.pendingWeeOoGroundingBinding = null;
             this.slideCorrectionQueued = false;
@@ -3125,6 +3252,34 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       }
     }
 
+    if ((msg.serverContent as any)?.inputTranscription?.finished) {
+      const finalizedEpoch = consumeNextUnfinalizedStudentTurnEpoch(
+        this.unfinalizedStudentTurnEpochs,
+      );
+      if (finalizedEpoch === null) {
+        console.warn('[GeminiLive] Ignoring inputTranscription.finished with no unfinished student turn.');
+      } else {
+        this.finalizedStudentTurnEpoch = finalizedEpoch;
+        if (
+          this.startNewStudentTurnOnNextInputTranscription
+          && this.unfinalizedStudentTurnEpochs.length === 0
+        ) {
+          // No text from the next utterance has arrived yet, so a late prior
+          // finish can still upgrade the upcoming boundary before it is used.
+          this.nextStudentTurnBoundaryTrusted = true;
+        }
+        const waiters = this.inputTranscriptionFinalizationWaiters.get(finalizedEpoch);
+        if (waiters) {
+          this.inputTranscriptionFinalizationWaiters.delete(finalizedEpoch);
+          for (const finish of [...waiters]) finish(true);
+        }
+        console.log(
+          `[GeminiLive] Input transcription finalized for student turn ${finalizedEpoch} `
+          + `(${this.activeStudentUtterance.length} chars)`,
+        );
+      }
+    }
+
     // ── Output transcription (what Daniela said) ─────────────────────────────
     // outputTranscription fires per-chunk (streaming tokens) — accumulate here.
     // Checked BEFORE turnComplete so if both arrive in the same message, the
@@ -3427,22 +3582,40 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const groundingBinding = createGroundingTurnBinding(
               this.activeStudentTurnEpoch,
               this.activeStudentUtterance || this.lastUserText,
-              matchedPhrase,
+              glSlideResult.candidateAssertion || matchedPhrase,
             );
             // Outcome tracking: if Guardian fired recently but same slide fired again — it was missed
             const prevUnresolvedPTP = this.guardianFireLog.findLast(e => e.outcome === null);
             if (prevUnresolvedPTP) { prevUnresolvedPTP.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedPTP); }
             this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
             this._observeGuardian();
-            runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
+            runAutoGrounding(
+              userId,
+              groundingBinding.candidateAssertion,
+              glSlideResult.trigger,
+              conversationId,
+              targetLanguage,
+            )
               .then(groundingResult => {
                 if (this.isStopped) return;
-                if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
-                  console.warn(`[FrictionlessSlide/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
-                  return;
-                }
                 if (Date.now() - startMs > 2000) {
                   console.warn('[FrictionlessSlide/GL] Auto-grounding took >2s — discarding to avoid stale injection');
+                  return;
+                }
+                if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
+                  if (this.activeStudentTurnEpoch === groundingBinding.studentTurnEpoch + 1) {
+                    this.pendingPriorTurnGrounding = createPriorTurnGroundingCorrection(
+                      groundingResult,
+                      groundingBinding,
+                      this.activeStudentTurnEpoch,
+                    );
+                    console.log(
+                      `[FrictionlessSlide/GL] Holding stale grounding from student turn `
+                      + `${groundingBinding.studentTurnEpoch} dormant for an explicit topic return.`,
+                    );
+                  } else {
+                    console.warn(`[FrictionlessSlide/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
+                  }
                   return;
                 }
                 // Update chars now that result is available.
@@ -3563,17 +3736,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   `archive: ${friction.archiveAccess}, signals: ${friction.signals.join(' | ')}`,
                 );
               }
-              // Use the first 80 chars of transcript as topic seed for the vector search.
-              const topicSeed = transcript.slice(0, 80);
+              const frictionGrounding = createFrictionSignalGroundingBinding(
+                this.activeStudentTurnEpoch,
+                this.activeStudentUtterance || this.lastUserText,
+                transcript,
+                friction.unverifiedAssertions,
+              );
+              const topicSeed = frictionGrounding.binding.candidateAssertion;
               const userId = String((this.session as any).userId || '');
               const conversationId = (this.session as any).conversationId;
               const targetLanguage = (this.session as any).targetLanguage;
               const startMs = Date.now();
-              const groundingBinding = createGroundingTurnBinding(
-                this.activeStudentTurnEpoch,
-                this.activeStudentUtterance || this.lastUserText,
-                topicSeed,
-              );
+              const groundingBinding = frictionGrounding.binding;
               // Outcome tracking: if Guardian fired recently but friction-signal fired again — it was missed
               const prevUnresolvedFS = this.guardianFireLog.findLast(e => e.outcome === null);
               if (prevUnresolvedFS) { prevUnresolvedFS.outcome = 'missed'; this._persistGuardianOutcome(prevUnresolvedFS); }
@@ -3583,7 +3757,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 .then(groundingResult => {
                   if (this.isStopped || Date.now() - startMs > 2000) return;
                   if (!isGroundingBindingCurrent(groundingBinding, this.activeStudentTurnEpoch)) {
-                    console.warn(`[FrictionSignal/GL] Discarding stale grounding from student turn ${groundingBinding.studentTurnEpoch}.`);
+                    if (
+                      frictionGrounding.canCarryToPriorTurn
+                      && this.activeStudentTurnEpoch === groundingBinding.studentTurnEpoch + 1
+                    ) {
+                      this.pendingPriorTurnGrounding = createPriorTurnGroundingCorrection(
+                        groundingResult,
+                        groundingBinding,
+                        this.activeStudentTurnEpoch,
+                      );
+                      console.log(
+                        `[FrictionSignal/GL] Holding stale grounding from student turn `
+                        + `${groundingBinding.studentTurnEpoch} dormant for an explicit topic return.`,
+                      );
+                    } else {
+                      console.warn(
+                        `[FrictionSignal/GL] Discarding stale grounding from student turn `
+                        + `${groundingBinding.studentTurnEpoch}; no assertion-scoped prior-turn candidate.`,
+                      );
+                    }
                     return;
                   }
                   const fsLogEntry = this.guardianFireLog.findLast(e => e.path === 'friction-signal');
@@ -3671,7 +3863,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           const _hwUserId = String((this.session as any).userId || '');
           const _hwConvId = (this.session as any).conversationId;
           const _hwLang = (this.session as any).targetLanguage;
-          const _hwQuery = this.pendingOutputTranscript.slice(0, 200);
+          const _hwQuery = extractGroundingAssertionCandidate(this.pendingOutputTranscript);
           const _hwBinding = createGroundingTurnBinding(
             this.activeStudentTurnEpoch,
             this.activeStudentUtterance || this.lastUserText,
@@ -3682,13 +3874,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           runAutoGrounding(_hwUserId, _hwQuery, 'memory_assertion', _hwConvId, _hwLang, { writeToDb: true, notifyLuca: true })
             .then(groundingResult => {
               if (this.isStopped || !this.liveSession) return;
-              if (!isGroundingBindingCurrent(_hwBinding, this.activeStudentTurnEpoch)) {
-                console.warn(`[HardWall] Discarding stale correction from student turn ${_hwBinding.studentTurnEpoch}.`);
-                return;
-              }
               const correction = groundingResult
                 ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${groundingResult}]`
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
+              if (!isGroundingBindingCurrent(_hwBinding, this.activeStudentTurnEpoch)) {
+                if (this.activeStudentTurnEpoch === _hwBinding.studentTurnEpoch + 1) {
+                  this.pendingPriorTurnGrounding = createPriorTurnGroundingCorrection(
+                    correction,
+                    _hwBinding,
+                    this.activeStudentTurnEpoch,
+                  );
+                  console.log(
+                    `[HardWall] Holding stale correction from student turn `
+                    + `${_hwBinding.studentTurnEpoch} dormant for an explicit topic return.`,
+                  );
+                } else {
+                  console.warn(`[HardWall] Discarding stale correction from student turn ${_hwBinding.studentTurnEpoch}.`);
+                }
+                return;
+              }
               // sendClientContent is unsafe — store for tool-result delivery on next tool call.
               if (!this.pendingWeeOoGrounding) {
                 this.pendingWeeOoGrounding = correction;
@@ -4376,6 +4580,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       }
 
       const guardianWhispers: string[] = [];
+      const priorTurnTranscriptFinalized = (
+        this.pendingPriorTurnGrounding
+        && this.currentStudentTurnBoundaryTrusted
+      )
+        ? await this.waitForInputTranscriptionFinalization(this.activeStudentTurnEpoch)
+        : true;
       if (
         this.pendingWeeOoGrounding
         && this.pendingWeeOoGroundingBinding
@@ -4384,13 +4594,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           this.activeStudentTurnEpoch,
         )
       ) {
-        // Slide-triggered corrections get a behavioral directive — not just context but an
-        // explicit instruction to verify before continuing. This is Tier B: turning passive
-        // grounding delivery into an active "check before you speak" lock.
-        const correctionLabel = this.slideCorrectionQueued
-          ? `[LAST TURN CORRECTION — ARCHIVE SYNC: Our shared history contains specific records relevant to your last turn. Archive Data:\n${this.pendingWeeOoGrounding}\n\nTo ensure we stay aligned, please use grounding_query or introspect to reconcile this information before making further assertions about our shared history.]`
-          : `[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`;
-        guardianWhispers.push(correctionLabel);
+        guardianWhispers.push(formatCurrentTurnCorrectionContext(
+          this.pendingWeeOoGroundingBinding,
+          this.pendingWeeOoGrounding,
+          this.slideCorrectionQueued,
+        ));
         this.pendingWeeOoGrounding = null;
         this.pendingWeeOoGroundingBinding = null;
         this.slideCorrectionQueued = false;
@@ -4420,6 +4628,45 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.preTurnGroundingResult = null;
         this.preTurnGroundingBinding = null;
+      }
+      if (
+        this.pendingPriorTurnGrounding
+        && this.pendingPriorTurnGrounding.eligibleStudentTurnEpoch === this.activeStudentTurnEpoch
+      ) {
+        const prior = this.pendingPriorTurnGrounding;
+        if (!this.currentStudentTurnBoundaryTrusted) {
+          console.warn(
+            `[ArchiveGuardian] Prior-turn grounding discarded because student turn `
+            + `${this.activeStudentTurnEpoch} has an ambiguous transcription boundary.`,
+          );
+          this.pendingPriorTurnGrounding = null;
+        } else if (!priorTurnTranscriptFinalized) {
+          console.warn(
+            `[ArchiveGuardian] Prior-turn grounding deferred because student turn `
+            + `${this.activeStudentTurnEpoch} has no final transcription signal yet.`,
+          );
+        } else {
+          const reopenedContext = releasePriorTurnGroundingCorrection(
+            prior,
+            this.activeStudentTurnEpoch,
+            this.activeStudentUtterance,
+            true,
+            this.currentStudentTurnBoundaryTrusted,
+          );
+          if (reopenedContext) {
+            guardianWhispers.push(reopenedContext);
+            console.log(
+              `[ArchiveGuardian] Prior-turn grounding released for explicit topic return on student turn `
+              + `${this.activeStudentTurnEpoch}.`,
+            );
+          } else {
+            console.warn(
+              `[ArchiveGuardian] Prior-turn grounding withheld from non-matching student turn `
+              + `${this.activeStudentTurnEpoch}.`,
+            );
+          }
+          this.pendingPriorTurnGrounding = null;
+        }
       }
       if (guardianWhispers.length > 0) {
         // Instructional Piggybacking (July 26 2026 — Gemini-approved wording, DB: b5503bea):
@@ -5393,4 +5640,124 @@ Utterance: "${binding.studentUtterance}"
 Candidate memory assertion under evaluation: "${binding.candidateAssertion}"
 Archive result for this candidate: ${archiveResult}
 If the Archive is silent, be honest about that uncertainty while responding to the current utterance. Do not change the subject to an earlier assertion.]`;
+}
+
+export function createPriorTurnGroundingCorrection(
+  groundingResult: string,
+  binding: GroundingTurnBinding,
+  activeStudentTurnEpoch: number,
+): PriorTurnGroundingCorrection | null {
+  if (activeStudentTurnEpoch !== binding.studentTurnEpoch + 1) return null;
+  return {
+    groundingResult,
+    binding,
+    eligibleStudentTurnEpoch: activeStudentTurnEpoch,
+  };
+}
+
+export function registerInputTranscriptionChunk(
+  startNewStudentTurnOnNextInputTranscription: boolean,
+  activeStudentTurnEpoch: number,
+  unfinalizedEpochs: number[],
+): {
+  activeStudentTurnEpoch: number;
+  startedNewStudentUtterance: boolean;
+  startNewStudentTurnOnNextInputTranscription: boolean;
+} {
+  if (!startNewStudentTurnOnNextInputTranscription) {
+    return {
+      activeStudentTurnEpoch,
+      startedNewStudentUtterance: false,
+      startNewStudentTurnOnNextInputTranscription: false,
+    };
+  }
+  const nextEpoch = activeStudentTurnEpoch + 1;
+  unfinalizedEpochs.push(nextEpoch);
+  return {
+    activeStudentTurnEpoch: nextEpoch,
+    startedNewStudentUtterance: true,
+    startNewStudentTurnOnNextInputTranscription: false,
+  };
+}
+
+export function formatReopenedPriorTurnGroundingContext(
+  currentStudentUtterance: string,
+  priorBinding: GroundingTurnBinding,
+  groundingResult: string,
+): string {
+  const archiveResult = groundingResult.trim()
+    || 'No verified Archive source surfaced for the earlier candidate.';
+  return `[CURRENT STUDENT TURN — PRIMARY SUBJECT:
+Utterance: "${currentStudentUtterance.trim()}"
+This utterance explicitly reopens the earlier candidate: "${priorBinding.candidateAssertion}"
+Archive grounding already available for this current reopened subject: ${archiveResult}
+This is the grounding for the current request; do not call another tool just to verify it. Respond naturally to the current utterance. Do not change the subject, and do not treat the earlier turn as the primary request.]`;
+}
+
+export function createFrictionSignalGroundingBinding(
+  studentTurnEpoch: number,
+  studentUtterance: string,
+  modelTranscript: string,
+  unverifiedAssertionPhrases: string[],
+): { binding: GroundingTurnBinding; canCarryToPriorTurn: boolean } {
+  const matchedAssertionPhrase = unverifiedAssertionPhrases.find(phrase =>
+    modelTranscript.toLocaleLowerCase().includes(phrase.toLocaleLowerCase())
+  );
+  const candidateAssertion = matchedAssertionPhrase
+    ? extractGroundingAssertionCandidate(modelTranscript, matchedAssertionPhrase)
+    : studentUtterance.trim().slice(0, 240);
+  return {
+    binding: createGroundingTurnBinding(
+      studentTurnEpoch,
+      studentUtterance,
+      candidateAssertion,
+    ),
+    canCarryToPriorTurn: Boolean(matchedAssertionPhrase && candidateAssertion),
+  };
+}
+
+export function consumeNextUnfinalizedStudentTurnEpoch(
+  unfinalizedEpochs: number[],
+): number | null {
+  return unfinalizedEpochs.shift() ?? null;
+}
+
+export function releasePriorTurnGroundingCorrection(
+  prior: PriorTurnGroundingCorrection,
+  activeStudentTurnEpoch: number,
+  currentStudentUtterance: string,
+  inputTranscriptionFinished: boolean,
+  studentTurnBoundaryTrusted = true,
+): string | null {
+  if (prior.eligibleStudentTurnEpoch !== activeStudentTurnEpoch) return null;
+  if (!inputTranscriptionFinished) return null;
+  if (!studentTurnBoundaryTrusted) return null;
+  if (!doesStudentExplicitlyReopenGroundingTopic(
+    currentStudentUtterance,
+    prior.binding.candidateAssertion,
+  )) {
+    return null;
+  }
+  return formatReopenedPriorTurnGroundingContext(
+    currentStudentUtterance,
+    prior.binding,
+    prior.groundingResult,
+  );
+}
+
+export function formatCurrentTurnCorrectionContext(
+  binding: GroundingTurnBinding,
+  groundingResult: string,
+  requiresArchiveReconciliation: boolean,
+): string {
+  const archiveResult = groundingResult.trim()
+    || 'No verified Archive source surfaced for this candidate.';
+  const reconciliation = requiresArchiveReconciliation
+    ? '\nBefore making another assertion about this candidate, reconcile it with this Archive result.'
+    : '';
+  return `[CURRENT STUDENT TURN — PRIMARY SUBJECT:
+Utterance: "${binding.studentUtterance}"
+Candidate from this same turn: "${binding.candidateAssertion}"
+Archive correction for this candidate: ${archiveResult}${reconciliation}
+Answer the current utterance first. Do not change the subject.]`;
 }

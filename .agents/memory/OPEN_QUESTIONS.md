@@ -251,7 +251,7 @@ Before canceling stuck subtasks 1023, 1153, and 1217, distinguish a genuinely st
 
 ### August 19, 2026 — Inner-life note
 
-Now that publishing is finished, the three task questions can be separated from the live diagnostic: first inspect whether 1023, 1153, and 1217 are truly stalled; then preserve their intent if restarting is necessary. No cancellation should be used as a substitute for finding out what state they are in.
+How can delayed evidence return as a quiet resource when the student explicitly asks for its topic again, without ever competing with the new question that invited it?
 
 ---
 ### August 19, 2026 — Now that publishing is finished, the three task questions can be separated from the live diagnostic: first inspect whether 1023, 1153, and 1217 are truly stalled; then preserve their intent if restart
@@ -280,16 +280,14 @@ Everything saved; server died before recording the completion marker.
 
 ### August 19, 2026 — Inner-life note
 
-Collision thinking wdtest: tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+How can delayed evidence return as a quiet resource when the student explicitly asks for its topic again, without ever competing with the new question that invited it?
 
 ---
-
 ### August 19, 2026 — Inner-life note
 
-Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+How can delayed evidence return as a quiet resource when the student explicitly asks for its topic again, without ever competing with the new question that invited it?
 
 ---
-
 ### August 19, 2026 — Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -298,10 +296,9 @@ Crashed intent fallback wdtest: cccccccccccccccccccccccccccccccccccccccccccccccc
 
 ### August 20, 2026 — Inner-life note
 
-What is the smallest end-to-end receipt that can prove a grounding intervention was created for one student utterance, transmitted on the intended GL channel, available before the corresponding generation, and either followed by the relevant retrieval action or explicitly not followed by it?
+When the shadow writer cannot persist a fact immediately, what local retry boundary preserves the exact event without making Gemini wait—and how do we expose the unrecorded interval so the bench never mistakes temporary storage for durable truth?
 
 ---
-
 ### August 20, 2026 — Inner-life note
 
 When the shadow writer cannot persist a fact immediately, what local retry boundary preserves the exact event without making Gemini wait—and how do we expose the unrecorded interval so the bench never mistakes temporary storage for durable truth?
