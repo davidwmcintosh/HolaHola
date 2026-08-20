@@ -13,18 +13,29 @@ Never use `import.meta.url.endsWith(process.argv[1])` (or `===`) as a "am I the 
 
 ## Correct pattern
 
-Check the **actual filename** in `process.argv[1]`, not `import.meta.url`:
+Check the **exact actual filename** in `process.argv[1]`, not `import.meta.url`:
 
 ```ts
-// Safe — works both with tsx (source path) and node dist/index.js (bundle path)
-const isMain = Boolean(process.argv[1]?.includes('my-script-name'));
+import { basename } from 'node:path';
+
+// Safe — works with tsx source paths and cannot be triggered by importing
+// my-script-name.test.ts.
+const isMain = basename(process.argv[1] ?? '') === 'my-script-name.ts';
 ```
 
-- `npx tsx server/scripts/my-script-name.ts` → `argv[1]` contains the filename ✓
+- `npx tsx server/scripts/my-script-name.ts` → basename is the filename ✓
 - `node dist/index.js` → `argv[1]` is `dist/index.js` ✗ → `isMain` false ✓
 
-`reembed-memory.ts` already uses this pattern (`argv[1]?.endsWith('reembed-memory.ts')`).
+`reembed-memory.ts` already uses the safe suffix pattern
+(`argv[1]?.endsWith('reembed-memory.ts')`).
+
+Avoid `.includes('my-script-name')` for scripts imported by tests: a file named
+`my-script-name.test.ts` would incorrectly execute the CLI IIFE during import.
 
 ## How to apply
 
-Any script in `server/scripts/` that (a) exports a function AND (b) is dynamically imported by `server/index.ts` or `server/routes.ts` must use the `argv[1]?.includes(...)` form, NOT `import.meta.url`. Scripts that are CLI-only (never imported by the server) are still affected by the bundle collapse if esbuild touches them, so prefer the argv form everywhere.
+Any script in `server/scripts/` that (a) exports a function AND (b) is dynamically
+imported by `server/index.ts`, `server/routes.ts`, or a test must use an exact
+basename or a narrow `.endsWith('<script>.ts')` check, NOT `import.meta.url`.
+Scripts that are CLI-only (never imported by the server) are still affected by
+the bundle collapse if esbuild touches them, so prefer the argv form everywhere.
