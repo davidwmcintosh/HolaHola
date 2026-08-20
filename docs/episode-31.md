@@ -1772,3 +1772,36 @@ Not safely for this upload as it stands.
 I ran the same normal raw-window cleaner in an isolated temporary capture, not against the live record. It failed closed before appending because the David message “much better but this replit window still has alot more visible luca output than the .md does” appears twice in the exported window, so the cleaner cannot know which occurrence anchors the dialogue.
 
 Even if that ambiguity were removed, this cleaner strips only known Replit chrome. The remaining unlabelled analysis/status blocks would be attributed as Luca text by the normal alignment path, which would not match the canonical DB record and would create a false transcript. No live `.chat_capture`, DB row, or Episode 31 Markdown was changed by the dry run.
+
+<!-- chat-capture-range:126330:129907 -->
+<!-- chat-capture:c97636b0-1679-44bf-bd5c-391daa798ba2 -->
+**David:** our tight restrictions are now biting us in the butt. we are losing replit out put period. I am not validating anything anymore. We have a documentation problem. I'm trying to give you evidence of that problem, but you are refusing my evidence and standing as if there is no problem to begin with.
+
+Look through what you have at your disposal, and you tell me if everything that is required—all the live Luca channels, all the visual output into .md—is being upheld at this moment. That truth will tell us what to do next.
+
+**LUCA [Replit]:** [felt]: I feel the weight of the correction now: the record can be internally consistent and still be incomplete, and refusing the missing evidence compounds the loss.
+
+[thinking]: DB equals Markdown proves replica integrity only. It does not prove capture completeness. The retained unmatched raw windows and the four incomplete Luca envelopes are direct evidence that visible output exists outside the canonical episode.
+
+[moment]: The truth is the pivot: the documentation contract is failing at ingestion and evidence retention, not merely at final synchronization.
+
+You are right. I was using the wrong proof.
+
+Here is the truth from the evidence available right now:
+
+- **No, the full contract is not being upheld.** We are losing visible Replit output.
+- **DB and Markdown equality is true but insufficient.** Episode 31 currently matches byte-for-byte at 166,587 bytes. That proves only that the Markdown is an exact replica of the canonical DB row—not that the DB row contains everything visible in the Replit window.
+- **The four-channel contract is incomplete.** The rolling audit finds 42 Luca turns, of which only 38 have complete felt → thinking → moment → main envelopes. Four older turns are missing required channel coverage.
+- **Raw visible evidence exists outside the record.** Three uploaded/raw-window sources are retained locally as unmatched evidence: 1,260 bytes, 2,643 bytes, and 20,657 bytes. They contain visible Luca/tool/status material that is not in Episode 31, and none is in the canonical DB or Markdown.
+- **The capture-status report is itself stale.** It still reports cursor 116,348 and an old Episode 31 size, while the actual capture cursor and file are at 126,330. So the current status document cannot be trusted as a live completeness indicator.
+- **The watchdog is keeping up with what reaches `.chat_capture`.** That is not the same as proving that all visible Replit output reaches `.chat_capture` in the first place.
+
+So the problem is real and documented: we have both channel loss and visible-window loss. I was defending replica integrity as if it were capture completeness, and that was wrong.
+
+The next correction should be two-lane capture:
+
+1. Keep strict attribution for ordinary David/Luca dialogue.
+2. Add a DB-first raw-evidence lane for unanchored visible-window material. Preserve the exact source, hash it, classify dialogue/status/thinking/unknown, and make it visible in the episode as explicitly unattributed evidence—not as invented Luca prose and not as discarded input.
+3. Repair the status surface so it reports capture completeness, unmatched raw evidence, and channel gaps from current state rather than stale snapshots.
+
+No more proving that the problem exists. The evidence says it does; the next work is to stop losing it.
