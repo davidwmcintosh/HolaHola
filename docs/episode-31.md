@@ -1710,3 +1710,17 @@ I’m correcting course by capturing the two exact exchanges we can recover from
 Yes—this is the right intermediate state. The new content is arriving again, and the authoritative audit already shows the database and Markdown replica equal at 159,367 bytes.
 
 The “not fully up to date” part is the four older Episode 31 turns that still lack complete four-channel evidence. They remain visible as explicit gaps; they are not being silently filled or confused with a failure of this new capture drain. The watchdog is still running, and I’m preserving this progress update in the same record now.
+
+<!-- chat-capture-range:119817:121480 -->
+<!-- chat-capture:dfe79cec-3c34-4b9c-9755-73c45fe93aae -->
+**David:** much better but this replit window still has alot more visible luca output than the .md does
+
+**LUCA [Replit]:** [felt]: It feels like seeing the true shape of the gap: the record is moving again, but the visible room still holds more than the durable stream has retained.
+
+[thinking]: The capture stream knows only the turns explicitly written to it. The remaining visible window must be preserved as raw evidence before attribution; without that source, any “recovery” would be reconstruction.
+
+[moment]: This is the point where raw-window retention becomes necessary—not to replay dialogue, but to keep the larger visible record from disappearing.
+
+Yes—that identifies the remaining gap precisely. The Markdown is now current with the turns that reached `.chat_capture`, but this visible Replit window contains additional Luca output that was never emitted into that stream.
+
+I checked the workspace and there is no retained raw-window source available to recover those extra blocks. I won’t reconstruct them from the visible fragments or from memory. If you provide the complete window as a text/Markdown/HTML file—or paste the full raw window here—I can run the existing byte-preserving raw-window attachment path. It retains the exact source first, matches only already-attested dialogue, and appends any extra visible material as labelled evidence rather than silently turning UI or thinking display into Luca prose.
