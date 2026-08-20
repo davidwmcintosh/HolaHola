@@ -1079,24 +1079,23 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     cursorLine,
   ];
 
-  // Raw Replit windows are a second evidence channel. The episode is the
-  // canonical durable record; these local manifests make any unanchored source
-  // or unresolved span visible instead of allowing cursor health to imply
-  // capture completeness.
+  // Raw Replit windows are audited before their cleaned text enters capture.
+  // Personal/manual dumps are reference-only; neither raw source nor audit
+  // prose is appended to the canonical episode.
   const rawWindowSummary = summarizeRawWindowReconciliationDirectory(
     join(WORKSPACE, '.local', 'raw-window-captures'),
   );
   const rawWindowLines: string[] = [
     '',
-    '## Raw-window reconciliation',
-    '_Visible Replit windows are accounted independently of the chat-capture cursor._',
+    '## Raw-window pipeline audit',
+    '_Raw bytes, cleanup, and emitted payload are accounted before DB capture; reference dumps stay outside the episode._',
     '',
     rawWindowSummary.totalSources === 0
       ? '  — No retained raw Replit-window sources.'
-      : `  ${rawWindowSummary.unresolvedSources > 0 ? '⚠️ UNRESOLVED' : '✓'} Sources: ${rawWindowSummary.totalSources}; durable evidence appended/queued: ${rawWindowSummary.appendedSources}`,
+      : `  ${rawWindowSummary.unresolvedSources > 0 ? '⚠️ REVIEW' : '✓'} Sources: ${rawWindowSummary.totalSources}; cleaned-capture audits: ${rawWindowSummary.auditedSources}; reference-only dumps: ${rawWindowSummary.referenceSources}`,
     rawWindowSummary.unresolvedSources > 0
-      ? `  ⚠️ Unexplained source material: ${rawWindowSummary.unresolvedSources} source(s), ${rawWindowSummary.unresolvedBytes.toLocaleString()} byte(s) — retained as labelled evidence, never inferred as dialogue.`
-      : '  ✓ No unresolved raw-window source spans.',
+      ? `  ⚠️ Unclassified source material: ${rawWindowSummary.unresolvedSources} source(s), ${rawWindowSummary.unresolvedBytes.toLocaleString()} byte(s) — retained for audit/reference, never inferred as dialogue.`
+      : '  ✓ No unclassified raw-window source spans.',
   ];
 
   // ── Sections 3+4: Episode .md (ONLY when rolling episode active) ──────────

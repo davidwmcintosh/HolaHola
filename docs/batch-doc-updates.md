@@ -1,5 +1,35 @@
 # Batch Documentation Updates
 
+## Session August 20, 2026 — Raw-window pipeline audit boundary
+
+### Replit dumps are audited before capture; David’s raw dumps are reference-only
+
+**What changed:** `record-window.ts` now retains the SHA-keyed raw input and
+writes a private audit manifest immediately before valid cleaned dialogue enters
+the append-only capture → DB → Markdown pipe. The manifest records only hash,
+byte totals, offset/category spans, emitted-payload size, explicitly permitted
+formatting/chrome removals, and structural marker bytes. It contains neither
+raw source prose nor a second dialogue representation.
+
+Manual/David-provided raw dumps are retained as reference-only material while
+the original Replit record is sought. They cannot enter the episode as ordinary
+dialogue. If one is ever used to fill a known gap, the future record must name
+the missing original capture and acknowledge David supplied the cut-and-paste.
+
+**Correction applied:** Three raw-dump appendices that had been accidentally
+placed in Episode 31 were removed from the canonical DB/Markdown record with
+David’s explicit approval. Their SHA-verified source files and private
+reference manifests remain retained. The corrected Episode 31 DB/Markdown
+replica is byte-identical at 170,052 bytes (SHA-256
+`2d337dc019b63a88ec828aeb1ad4fc100b5bdb0291f135cf0d7a4fece45af698`).
+
+**Verification:** The focused raw-window regression and alignment self-check,
+TypeScript check, re-embed, and rolling four-channel parity audit pass. The
+audit still reports 43 Luca turns, 39 complete four-channel envelopes, and
+four pre-existing gaps; none was reconstructed.
+
+---
+
 ## Session August 20, 2026 — Context-lineage checkpoint and honest Episode 31 close
 
 ### Grounding diagnostics now have a durable evidence boundary

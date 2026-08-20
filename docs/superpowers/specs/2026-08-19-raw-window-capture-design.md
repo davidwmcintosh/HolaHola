@@ -87,35 +87,26 @@ The private artifact is retained for the same recovery window as a canonical
 inner-life intent. It is a source for retry and forensic comparison, not a
 second episode or a replacement for the clean dialogue record.
 
-### Attachment mode for already-captured dialogue
+### Reference mode for manually supplied raw dumps
 
 `record-window.ts --attach-existing --episode <episode-name>` is for a full
 window that arrives after its David→Luca exchange is already in
 `.chat_capture` and the episode. It retains raw bytes under their SHA-256 name
-and writes an unclassified sidecar before it attempts any matching or
+and writes a private audit manifest before it attempts any matching or
 classification.
 
-Attachment then requires exactly one ordered, attested David→Luca capture
-range. David matches exactly after whitespace normalization; Luca may match an
-attested main-response prefix when the window displays that answer followed by
-new UI activity. Missing or ambiguous pairs fail closed without changing
-`.chat_capture`.
+The manifest is a transform audit, not presented source material. It contains
+hashes, byte totals, offsets, classifications, cleanup reasons, and emitted
+payload totals; it does not duplicate the raw dump or cleaned dialogue text.
 
-When the pair is proven, attachment emits only a deterministic
-`raw-window-evidence` appendix through the existing DB-first episode append
-helper. It does not depend on an asynchronous trigger that can be discarded as
-stale during a server startup.
-The appendix contains the entire verbatim raw window, source SHA/byte count,
-the linked capture range, and a source map that separates:
+Manual/David-provided raw dumps are retained as reference while the original
+Replit record is sought. They do not change `.chat_capture`, the episode DB
+row, or Markdown. If an original record never appears, a later gap-fill may
+use the reference only when it:
 
-- dialogue already recorded,
-- visible thinking display,
-- UI/status activity, and
-- unknown retained content.
-
-It is explicitly evidence rather than a second speaker-attributed exchange.
-Unknown material remains in the verbatim appendix and is never silently
-dropped.
+- attributes the dialogue safely,
+- explicitly identifies the missing original record, and
+- acknowledges that David supplied the cut-and-paste.
 
 ## Boundaries
 

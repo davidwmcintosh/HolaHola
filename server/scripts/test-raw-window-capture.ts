@@ -225,6 +225,7 @@ try {
       'server/scripts/record-window.ts',
       '--window-file',
       staleRawPath,
+      '--verified-replit-dump',
       '--source-dir',
       staleSourceDir,
       '--capture-path',
@@ -246,7 +247,7 @@ try {
   if (readFileSync(staleOutputPath, 'utf8') !== staleOutput) {
     throw new Error('Capture path changed after a prior-session David anchor was rejected');
   }
-  const staleSourceFiles = readdirSync(staleSourceDir);
+  const staleSourceFiles = readdirSync(staleSourceDir).filter(file => file.endsWith('.raw'));
   if (staleSourceFiles.length !== 1 || readFileSync(join(staleSourceDir, staleSourceFiles[0]), 'utf8') !== staleRaw) {
     throw new Error('Raw recovery source was not retained after a prior-session David anchor was rejected');
   }
@@ -275,6 +276,7 @@ try {
       'server/scripts/record-window.ts',
       '--window-file',
       rawPath,
+      '--verified-replit-dump',
       '--source-dir',
       alignedSourceDir,
       '--capture-path',
@@ -320,6 +322,7 @@ try {
       'server/scripts/record-window.ts',
       '--window-file',
       rawPath,
+      '--verified-replit-dump',
       '--source-dir',
       emptySourceDir,
       '--capture-path',
@@ -332,7 +335,7 @@ try {
   if (noDavidAnchorsResult.status === 0) {
     throw new Error('Unlabelled raw-window CLI accepted a window with no attested David turns');
   }
-  const emptySourceFiles = readdirSync(emptySourceDir);
+  const emptySourceFiles = readdirSync(emptySourceDir).filter(file => file.endsWith('.raw'));
   if (emptySourceFiles.length !== 1) {
     throw new Error('Raw recovery source was not retained after alignment failed with no David anchors');
   }
@@ -346,8 +349,8 @@ try {
     throw new Error('Intent output was created after alignment failed without --intent-dir');
   }
 
-  // An explicit evidence target changes only the disposition of the source:
-  // it must become a labelled, unanchored appendix, never inferred dialogue.
+  // A personal/manual dump is reference-only: it is audited but can never
+  // become an episode appendix or inferred dialogue.
   const unanchoredAppendPath = join(root, 'unanchored-evidence-append.json');
   const unanchoredResult = spawnSync(
     'npx',
@@ -375,27 +378,29 @@ try {
   const unanchoredMetadata = JSON.parse(readFileSync(join(emptySourceDir, `${unanchoredSha}.json`), 'utf8'));
   const reconciliation = unanchoredMetadata.reconciliation;
   if (
-    unanchoredMetadata.status !== 'evidence-queued' ||
+    unanchoredMetadata.status !== 'reference-retained' ||
     reconciliation?.status !== 'unresolved' ||
     reconciliation?.accountedBytes !== Buffer.byteLength(noDavidAnchorsRaw, 'utf8') ||
     reconciliation?.unexplainedBytes <= 0 ||
     reconciliation?.canonicalScope
   ) {
-    throw new Error('Unanchored evidence did not retain an unresolved, complete byte-accounting manifest');
+    throw new Error('Reference-only raw dump did not retain an unresolved, complete byte-accounting manifest');
   }
-  const unanchoredEvidence = JSON.parse(readFileSync(unanchoredAppendPath, 'utf8')).exchange as string;
+  const unanchoredAudit = JSON.parse(readFileSync(join(emptySourceDir, `${unanchoredSha}.reference.audit.json`), 'utf8'));
   if (
-    !unanchoredEvidence.includes(noDavidAnchorsRaw) ||
-    !unanchoredEvidence.includes('No attested capture range') ||
-    unanchoredEvidence.includes('**David:**')
+    unanchoredAudit.disposition !== 'reference-retained' ||
+    unanchoredAudit.sourceKind !== 'david-reference-dump' ||
+    !unanchoredAudit.useConstraint?.includes('David supplied this cut-and-paste') ||
+    JSON.stringify(unanchoredAudit).includes(noDavidAnchorsRaw) ||
+    existsSync(unanchoredAppendPath)
   ) {
-    throw new Error('Unanchored evidence was not preserved without dialogue attribution');
+    throw new Error('Reference-only audit copied source prose or wrote an episode append payload');
   }
 
   writeFileSync(rawPath, raw, 'utf8');
   const result = spawnSync(
     'npx',
-    ['tsx', 'server/scripts/record-window.ts', '--window-file', rawPath, '--source-dir', sourceDir, '--capture-path', capturePath, '--intent-dir', intentDir],
+    ['tsx', 'server/scripts/record-window.ts', '--window-file', rawPath, '--verified-replit-dump', '--source-dir', sourceDir, '--capture-path', capturePath, '--intent-dir', intentDir],
     { cwd: process.cwd(), encoding: 'utf8' },
   );
   if (result.status !== 0) throw new Error(`Raw-window CLI failed: ${result.stderr || result.stdout}`);
@@ -404,8 +409,23 @@ try {
   if (captured.turns.length !== 2) throw new Error(`Expected two captured turns, got ${captured.turns.length}`);
   if (captured.turns[0].text !== `David exact message ${marker}`) throw new Error('Captured David text is not exact');
   if (!captured.turns[1].text.includes(`Luca main exact ${marker}`)) throw new Error('Captured Luca main is not exact');
-  const sourceFiles = readdirSync(sourceDir);
+  const sourceFiles = readdirSync(sourceDir).filter(file => file.endsWith('.raw'));
   if (sourceFiles.length !== 1) throw new Error('Normal raw source was not retained');
+  const normalSha = createHash('sha256').update(Buffer.from(raw, 'utf8')).digest('hex');
+  const normalAudit = JSON.parse(readFileSync(join(sourceDir, `${normalSha}.capture-receipt.audit.json`), 'utf8'));
+  const normalPrecommitAudit = JSON.parse(readFileSync(join(sourceDir, `${normalSha}.precommit.audit.json`), 'utf8'));
+  if (
+    normalAudit.disposition !== 'capture-staged' ||
+    normalPrecommitAudit.disposition !== 'audit-passed-pending-capture' ||
+    normalAudit.reconciliation?.accountedBytes !== Buffer.byteLength(raw, 'utf8') ||
+    normalAudit.reconciliation?.removedBytes <= 0 ||
+    normalAudit.reconciliation?.structuralBytes <= 0 ||
+    normalAudit.emittedDialogueBytes <= 0 ||
+    !normalAudit.capturedBytesSha256 ||
+    JSON.stringify(normalAudit).includes(`David exact message ${marker}`)
+  ) {
+    throw new Error('Pre-capture audit did not account for the cleaned transformation without retaining dialogue prose');
+  }
 
   const thankYou = `thank you for the update and your patience ${marker}`;
   const visibleLucaMain = `You’re welcome. Patience was the right move here. ${marker}`;
@@ -425,16 +445,21 @@ try {
   if (statSync(attachmentCapturePath).size !== attachmentBytesBefore || parseChatCaptureFromOffset(attachmentCapturePath, 0).turns.length !== 2) throw new Error('Attachment mode replayed dialogue');
   const attachmentMetadata = JSON.parse(readFileSync(attachmentMetadataPath, 'utf8'));
   const classes = new Set((attachmentMetadata.classifications ?? []).map((item: any) => item.classification));
-  if (attachmentMetadata.status !== 'evidence-queued' || !['dialogue', 'visible-thinking', 'ui-status', 'unknown'].every(item => classes.has(item))) throw new Error('Attachment metadata omitted durable classification coverage');
-  const evidence = JSON.parse(readFileSync(attachmentAppendPath, 'utf8')).exchange as string;
-  if (!evidence.includes(`raw-window-evidence:sha256=${attachmentSha}`) || !evidence.includes(thankYouWindow) || evidence.includes(`**David:** ${thankYou}`)) throw new Error('Attachment evidence did not preserve the raw window without duplicating dialogue');
+  if (attachmentMetadata.status !== 'reference-retained') throw new Error('Attachment did not become reference-only metadata');
+  const evidence = JSON.parse(readFileSync(join(attachmentSourceDir, `${attachmentSha}.reference.audit.json`), 'utf8'));
+  if (
+    evidence.disposition !== 'reference-retained' ||
+    evidence.sourceKind !== 'david-reference-dump' ||
+    JSON.stringify(evidence).includes(thankYouWindow) ||
+    existsSync(attachmentAppendPath)
+  ) throw new Error('Reference audit copied raw source prose or wrote an episode payload');
   const repeat = spawnSync('npx', attachmentArgs, { cwd: process.cwd(), encoding: 'utf8' });
-  if (repeat.status !== 0 || (JSON.parse(readFileSync(attachmentAppendPath, 'utf8')).exchange.match(new RegExp(`raw-window-evidence:sha256=${attachmentSha}`, 'g')) ?? []).length !== 1) throw new Error('Repeated attachment duplicated evidence');
-  if (JSON.parse(readFileSync(attachmentMetadataPath, 'utf8')).status !== 'evidence-already-attached') throw new Error('Repeated attachment was not a successful no-op');
+  if (repeat.status !== 0 || existsSync(attachmentAppendPath)) throw new Error('Repeated reference audit wrote an episode payload');
+  if (JSON.parse(readFileSync(attachmentMetadataPath, 'utf8')).status !== 'reference-retained') throw new Error('Repeated reference audit did not remain reference-only');
 
   const legacyAmbiguous = parseRawWindowCapture(`unlabelled ${marker}`);
   if (legacyAmbiguous.ok) throw new Error('Unlabelled raw window was accepted by the labelled parser');
-  console.log('[raw-window-capture] PASS — labelled and unlabelled attribution preserve attested text; matched and unanchored windows retain byte-accounted raw evidence without replaying dialogue.');
+  console.log('[raw-window-capture] PASS — cleaned dialogue receives a pre-capture byte audit; manual raw dumps remain reference-only and never become episode prose.');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

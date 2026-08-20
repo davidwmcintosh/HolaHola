@@ -1,85 +1,73 @@
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { mkdirSync, renameSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { WORKSPACE, DialogueTurn } from './transcript-parser';
-import { classifyRawWindowForAttachment, RawWindowClassifiedSegment, RawWindowMatchedTurn } from './raw-window-attachment'; // Reusing classification logic
 
-export type RawWindowAuditStatus = 'pending' | 'approved' | 'rejected' | 'processed';
+import { RawWindowReconciliation } from './raw-window-reconciliation';
+import { DialogueTurn } from './transcript-parser';
 
+export type RawWindowAuditDisposition =
+  | 'audit-passed-pending-capture'
+  | 'capture-staged'
+  | 'reference-retained'
+  | 'reference-retained-unclassified';
+
+/**
+ * Private pipeline accounting. This is intentionally an audit of transforms,
+ * not a second representation of the source: it never stores raw prose or
+ * cleaned dialogue text.
+ */
 export interface RawWindowAuditManifest {
-  auditId: string;
-  timestamp: string;
-  rawBytesHash: string;
-  retainedPayloadBytes: number;
-  permittedFormattingRemovalBytes: number; // Placeholder, will need logic to calculate
-  structuralMarkerBytes: number; // Placeholder, will need logic to calculate
-  categorizedSpans: RawWindowClassifiedSegment[];
-  byteConservationRatio: number; // retained / raw
-  unresolvedAmbiguousInput: string[];
-  cleanedDialogue: DialogueTurn[];
-  auditStatus: RawWindowAuditStatus;
+  version: 1;
+  sourceSha256: string;
+  sourceKind: 'replit-window' | 'david-reference-dump';
+  disposition: RawWindowAuditDisposition;
   rawSourcePath: string;
-  auditManifestPath?: string;
+  reconciliation: RawWindowReconciliation;
+  emittedTurnCount: number;
+  emittedDialogueBytes: number;
+  captureRange?: { startByteOffset: number; endByteOffset: number };
+  capturedBytesSha256?: string;
+  reason?: string;
+  useConstraint?: string;
 }
 
-export function createAuditManifest(
-  rawWindow: string,
-  rawBytes: Buffer,
-  parsedTurns: DialogueTurn[],
-  matchedTurns: RawWindowMatchedTurn[], // From raw-window-attachment's classification
-  capturedTurns: DialogueTurn[], // From raw-window-attachment's classification
-): RawWindowAuditManifest {
-  const auditId = createHash('sha256').update(rawBytes).digest('hex'); // Using rawBytes hash as auditId
-  const rawBytesHash = auditId;
-  const retainedPayloadBytes = rawBytes.byteLength;
-
-  // Reusing classification logic from raw-window-attachment for initial categorization
-  const categorizedSpans = classifyRawWindowForAttachment(rawWindow, matchedTurns, capturedTurns);
-
-  // Placeholder calculations for now, will be refined
-  const permittedFormattingRemovalBytes = 0;
-  const structuralMarkerBytes = 0;
-  const byteConservationRatio = 1.0; // Placeholder
-
-  const unresolvedAmbiguousInput: string[] = [];
-  categorizedSpans.forEach(segment => {
-    if (segment.classification === 'unknown') {
-      unresolvedAmbiguousInput.push(`[Line ${segment.startLine}-${segment.endLine}] ${segment.text}`);
-    }
-  });
-
+export function createRawWindowAuditManifest(input: {
+  rawBytes: Buffer;
+  rawSourcePath: string;
+  sourceKind: RawWindowAuditManifest['sourceKind'];
+  disposition: RawWindowAuditDisposition;
+  reconciliation: RawWindowReconciliation;
+  emittedTurns: readonly DialogueTurn[];
+  captureRange?: RawWindowAuditManifest['captureRange'];
+  capturedBytesSha256?: string;
+  reason?: string;
+  useConstraint?: string;
+}): RawWindowAuditManifest {
   return {
-    auditId,
-    timestamp: new Date().toISOString(),
-    rawBytesHash,
-    retainedPayloadBytes,
-    permittedFormattingRemovalBytes,
-    structuralMarkerBytes,
-    categorizedSpans,
-    byteConservationRatio,
-    unresolvedAmbiguousInput,
-    cleanedDialogue: parsedTurns,
-    auditStatus: 'pending',
-    rawSourcePath: join(WORKSPACE, '.local', 'raw-window-captures', `${rawBytesHash}.raw`),
+    version: 1,
+    sourceSha256: createHash('sha256').update(input.rawBytes).digest('hex'),
+    sourceKind: input.sourceKind,
+    disposition: input.disposition,
+    rawSourcePath: input.rawSourcePath,
+    reconciliation: input.reconciliation,
+    emittedTurnCount: input.emittedTurns.length,
+    emittedDialogueBytes: input.reconciliation.emittedDialogueBytes,
+    ...(input.captureRange ? { captureRange: input.captureRange } : {}),
+    ...(input.capturedBytesSha256 ? { capturedBytesSha256: input.capturedBytesSha256 } : {}),
+    ...(input.reason ? { reason: input.reason } : {}),
+    ...(input.useConstraint ? { useConstraint: input.useConstraint } : {}),
   };
 }
 
-export function persistAuditManifest(manifest: RawWindowAuditManifest): string {
-  const auditDir = join(WORKSPACE, '.local', 'raw-window-audits');
-  mkdirSync(auditDir, { recursive: true });
-  const manifestPath = join(auditDir, `${manifest.auditId}.json`);
-  const tempPath = `${manifestPath}.tmp-${process.pid}`;
+export function persistRawWindowAuditManifest(
+  sourceDir: string,
+  manifest: RawWindowAuditManifest,
+  artifact: 'precommit' | 'capture-receipt' | 'reference' = 'precommit',
+): string {
+  const outputPath = join(sourceDir, `${manifest.sourceSha256}.${artifact}.audit.json`);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  const tempPath = `${outputPath}.tmp-${process.pid}`;
   writeFileSync(tempPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  renameSync(tempPath, manifestPath);
-  manifest.auditManifestPath = manifestPath; // Update manifest with its own path
-  return manifestPath;
-}
-
-export function loadAuditManifest(auditId: string): RawWindowAuditManifest | null {
-  const auditDir = join(WORKSPACE, '.local', 'raw-window-audits');
-  const manifestPath = join(auditDir, `${auditId}.json`);
-  if (!existsSync(manifestPath)) {
-    return null;
-  }
-  return JSON.parse(readFileSync(manifestPath, 'utf8')) as RawWindowAuditManifest;
+  renameSync(tempPath, outputPath);
+  return outputPath;
 }

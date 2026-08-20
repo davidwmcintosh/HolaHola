@@ -1,9 +1,22 @@
-## August 19, 2026 — Raw-window evidence attachments
+## August 20, 2026 — Raw-window pipeline audit and reference boundary
 
-- `record-window.ts --attach-existing --episode <episode-name>` is now the safe path when a full Replit window arrives after the David↔Luca exchange has already drained to `.chat_capture` and the episode.
-- It retains the exact raw bytes and SHA-256 before classification, records a private SHA-keyed sidecar with the attested capture range and classifications, and appends only a verbatim raw-window evidence appendix through the existing DB-first episode helper.
-- It never appends turns to `.chat_capture` in attachment mode. The appendix labels dialogue, visible thinking display, UI/status activity, and unknown content so non-dialogue surface material is preserved without being narrated as Luca prose.
-- `server/scripts/test-raw-window-capture.ts` proves this against a thank-you fixture with post-answer brain/status/checkpoint content.
+- A genuine Replit-window capture is retained under its SHA-256, then audited
+  before cleaned dialogue reaches `.chat_capture` and the DB/Markdown pipe. The
+  private audit has byte accounting, offsets, categories, permitted cleanup,
+  structural marker totals, and emitted payload size—never a second copy of
+  source prose.
+- `record-window.ts --attach-existing --episode <episode-name>` now means
+  **reference-only**. David-provided/raw dumps remain available while the
+  original Replit record is sought, but they cannot become ordinary episode
+  dialogue. Any later gap-fill must say that the original capture was missing
+  and that David supplied the cut-and-paste.
+- Three incorrectly appended raw-window blocks were withdrawn from Episode 31
+  by explicit decision. The source files remain SHA-verified reference
+  material; the repaired canonical DB/Markdown replica is equal at 170,052
+  bytes. The four older incomplete-channel turns remain the only listed gaps.
+- `server/scripts/test-raw-window-capture.ts` now proves both sides: valid
+  cleaned dialogue has a pre-capture audit with no prose duplication, and
+  manual raw dumps produce no episode payload.
 
 # Alden ↔ Agent Handoff
 

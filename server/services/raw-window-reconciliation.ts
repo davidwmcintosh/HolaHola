@@ -9,7 +9,8 @@ export type RawWindowEvidenceClassification =
   | 'visible-thinking'
   | 'ui-status'
   | 'unknown'
-  | 'cleanup';
+  | 'cleanup'
+  | 'structural';
 
 export interface RawWindowSourceSpan {
   classification: RawWindowEvidenceClassification;
@@ -37,6 +38,12 @@ export interface RawWindowReconciliation {
   dialogueBytes: number;
   evidenceBytes: number;
   cleanupBytes: number;
+  /** Speaker/category headers consumed to organise the verbatim payload. */
+  structuralBytes: number;
+  /** Exact payload bytes emitted into the capture pipe, excluding its framing. */
+  emittedDialogueBytes: number;
+  /** Formatting/chrome bytes removed from the source; structural markers are separate. */
+  removedBytes: number;
   unexplainedBytes: number;
   status: 'reconciled' | 'unresolved';
   reason?: string;
@@ -50,6 +57,8 @@ export interface RawWindowReconciliationInput {
   attestedTurns: readonly DialogueTurn[];
   canonicalScope?: RawWindowCanonicalScope;
   noMatchReason?: string;
+  /** The exact cleaned turns about to enter the capture → DB path. */
+  emittedDialogue?: string;
 }
 
 const normalize = (value: string) =>
@@ -87,6 +96,9 @@ function classifyLine(
   if (!textWithoutEol.trim()) {
     return { classification: 'cleanup', reason: 'blank-line' };
   }
+  if (/^\s*(?:\*\*)?(?:David|Luca(?:\s+\[Replit\])?):(?:\*\*)?\s*/i.test(textWithoutEol)) {
+    return { classification: 'structural', reason: 'speaker-header' };
+  }
   if (isKnownWindowChrome(textWithoutEol)) {
     return { classification: 'cleanup', reason: 'known-window-chrome' };
   }
@@ -103,9 +115,9 @@ function classifyLine(
 }
 
 /**
- * Account for every source byte before any source is projected into dialogue.
- * The appendix carries the full raw source; this span ledger explains exactly
- * which bytes were recognised, retained as evidence, or remain unresolved.
+ * Account for every source byte before a cleaned payload enters the capture →
+ * DB pipe. This is a system audit: it stores offsets and reasons, never raw
+ * source prose. The raw dump itself stays in its private SHA-keyed source file.
  */
 export function reconcileRawWindowEvidence(
   input: RawWindowReconciliationInput,
@@ -153,8 +165,9 @@ export function reconcileRawWindowEvidence(
       .reduce((total, span) => total + span.sourceBytes, 0);
   const dialogueBytes = count('dialogue');
   const cleanupBytes = count('cleanup');
+  const structuralBytes = count('structural');
   const unexplainedBytes = count('unknown');
-  const evidenceBytes = input.rawBytes.byteLength - dialogueBytes - cleanupBytes;
+  const evidenceBytes = input.rawBytes.byteLength - dialogueBytes - cleanupBytes - structuralBytes;
   const accountedBytes = spans.reduce((total, span) => total + span.sourceBytes, 0);
   const reason = input.noMatchReason
     ?? (unexplainedBytes > 0 ? 'The source contains material not proven as dialogue or known UI.' : undefined);
@@ -167,6 +180,9 @@ export function reconcileRawWindowEvidence(
     dialogueBytes,
     evidenceBytes,
     cleanupBytes,
+    structuralBytes,
+    emittedDialogueBytes: Buffer.byteLength(input.emittedDialogue ?? '', 'utf8'),
+    removedBytes: cleanupBytes,
     unexplainedBytes,
     status: reason ? 'unresolved' : 'reconciled',
     ...(reason ? { reason } : {}),
@@ -177,24 +193,28 @@ export function reconcileRawWindowEvidence(
 
 export interface RawWindowReconciliationDirectorySummary {
   totalSources: number;
-  appendedSources: number;
+  auditedSources: number;
+  referenceSources: number;
   unresolvedSources: number;
   unresolvedBytes: number;
 }
 
-/** Read local source metadata for status reporting; canonical evidence is in the episode. */
+/** Read local audit metadata for status reporting; raw dumps are never episode prose. */
 export function summarizeRawWindowReconciliationDirectory(
   sourceDir: string,
 ): RawWindowReconciliationDirectorySummary {
-  const summary = { totalSources: 0, appendedSources: 0, unresolvedSources: 0, unresolvedBytes: 0 };
+  const summary = { totalSources: 0, auditedSources: 0, referenceSources: 0, unresolvedSources: 0, unresolvedBytes: 0 };
   if (!existsSync(sourceDir)) return summary;
   for (const entry of readdirSync(sourceDir)) {
-    if (!entry.endsWith('.json')) continue;
+    if (!entry.endsWith('.json') || entry.endsWith('.audit.json')) continue;
     try {
       const metadata = JSON.parse(readFileSync(`${sourceDir}/${entry}`, 'utf8'));
       summary.totalSources++;
-      if (metadata.status === 'evidence-appended' || metadata.status === 'evidence-queued') {
-        summary.appendedSources++;
+      if (metadata.status === 'capture-staged' || metadata.status === 'audit-passed-pending-capture') {
+        summary.auditedSources++;
+      }
+      if (metadata.status === 'reference-retained' || metadata.status === 'reference-retained-unclassified') {
+        summary.referenceSources++;
       }
       if (metadata.reconciliation?.status === 'unresolved') {
         summary.unresolvedSources++;
