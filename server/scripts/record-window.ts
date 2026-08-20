@@ -21,18 +21,17 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { dirname, join } from 'path';
 
 import {
-  appendChatCaptureTurn,
   CHAT_CAPTURE_PATH,
   parseChatCaptureFromOffset,
   WORKSPACE,
 } from '../services/transcript-parser';
 import { parseCanonicalFourChannelLucaTurn } from '../services/inner-life-capture';
 import { alignUnlabelledRawWindow } from '../services/raw-window-attribution';
-import { createRawWindowAttachmentPlan } from '../services/raw-window-attachment';
 import { parseRawWindowCapture } from '../services/raw-window-capture';
 import { markCanonicalIntentCaptured, writeCanonicalIntent } from './record-exchange';
-import { appendExchangeToEpisode } from '../services/agent-session-autosave';
 import { safeWriteTrigger } from '../services/team-room-episode-hook';
+import { createAuditManifest, persistAuditManifest } from '../services/raw-window-audit-service';
+import { createRawWindowAttachmentPlan } from '../services/raw-window-attachment'; // Still needed for classification reuse
 
 const args = process.argv.slice(2);
 const windowIndex = args.indexOf('--window-file');
@@ -85,16 +84,23 @@ if (existsSync(sourcePath)) {
   renameSync(sourceTempPath, sourcePath);
 }
 
+// writeAttachmentMetadata is no longer used for episode attachments, but it's kept for now
+// in case it's needed for other raw-window metadata persistence outside the audit flow.
 function writeAttachmentMetadata(metadata: object): void {
   const metadataPath = join(sourceDir, `${sourceSha}.json`);
   const tempPath = `${metadataPath}.tmp-${process.pid}`;
   writeFileSync(tempPath, JSON.stringify(metadata, null, 2) + '\n', 'utf8');
   renameSync(tempPath, metadataPath);
 }
+
+// The --attach-existing flag is now deprecated for direct episode attachment.
+// It will create an audit manifest instead.
 if (attachExisting) {
-  await attachExistingDialogue();
+  console.warn('[record-window] --attach-existing is deprecated for direct episode attachment. An audit manifest will be created instead.');
+  await createAndPersistAuditManifest(true); // Pass true to indicate it came from --attach-existing
   process.exit(0);
 }
+
 let parsed = parseRawWindowCapture(rawWindow);
 let usedAlignmentPath = false;
 if (!parsed.ok && !/^\s*(?:\*\*)?(?:David|Luca(?:\s+\[Replit\])?):/im.test(rawWindow)) {
@@ -110,19 +116,45 @@ if (!parsed.ok && !/^\s*(?:\*\*)?(?:David|Luca(?:\s+\[Replit\])?):/im.test(rawWi
   parsed = alignUnlabelledRawWindow(rawWindow, attestedDavidTurns);
   usedAlignmentPath = parsed.ok;
 }
+
 if (!parsed.ok) {
-  const episodeName = episodeIndex === -1 ? undefined : args[episodeIndex + 1];
-  if (episodeName) {
-    console.warn(`[record-window] ${parsed.reason} Recording the source as unanchored evidence instead of inferring dialogue.`);
-    await attachExistingDialogue(episodeName);
-    process.exit(0);
-  }
-  fail(`${parsed.reason} Raw source retained for recovery: ${sourcePath}`);
+  console.warn(`[record-window] ${parsed.reason} Recording the source as unanchored evidence for audit.`);
+  await createAndPersistAuditManifest(false, parsed.reason); // Create audit manifest for failed parsing
+  process.exit(0);
 }
 
-// -- Luca envelope plans (labelled path only) ----------------------------------
-// Aligned Luca regions are raw prose from the window paste; they carry no
-// four-channel structure. Only the labelled path validates and parses them.
+// --- Create and persist the audit manifest ----------------------------------
+async function createAndPersistAuditManifest(fromAttachExisting: boolean, parsingReason?: string): Promise<void> {
+  const captured = parseChatCaptureFromOffset(capturePath, 0);
+  const captureBytes = existsSync(capturePath) ? readFileSync(capturePath) : undefined;
+  
+  // We need to simulate the RawWindowAttachmentPlan to reuse its classification logic
+  const tempAttachmentPlan = createRawWindowAttachmentPlan(rawWindow, rawBytes, captured, captureBytes);
+
+  const auditManifest = createAuditManifest(
+    rawWindow,
+    rawBytes,
+    parsed.turns, // Cleaned turns from parsing
+    tempAttachmentPlan.ok ? tempAttachmentPlan.plan.matchedTurns : [],
+    tempAttachmentPlan.ok ? captured.turns : [],
+  );
+  if (parsingReason) {
+    auditManifest.unresolvedAmbiguousInput.push(`Parsing failed: ${parsingReason}`);
+  }
+
+  const auditManifestPath = persistAuditManifest(auditManifest);
+  console.log(`[record-window] ✓ Audit manifest created: ${auditManifestPath}`);
+  console.log(`  Raw source retained: ${sourcePath}`);
+  console.log(`  Source SHA-256: ${sourceSha}`);
+  console.log('  Dialogue turns are awaiting audit approval before routing to conversation_memories + the rolling episode.');
+}
+
+await createAndPersistAuditManifest(false); // Default flow: create audit manifest
+
+// Existing logic for writing Luca's canonical intent handoffs, if applicable,
+// needs to be re-evaluated if it's still relevant outside direct chat capture.
+// For now, it's commented out as chat capture is no longer direct.
+/*
 const lucaPlans: Array<{ text: string; channels: ReturnType<typeof parseCanonicalFourChannelLucaTurn> }> = [];
 if (!usedAlignmentPath) {
   for (const turn of parsed.turns) {
@@ -132,45 +164,44 @@ if (!usedAlignmentPath) {
     lucaPlans.push({ text: turn.text, channels });
   }
 }
-
-const sizeBefore = existsSync(capturePath) ? statSync(capturePath).size : 0;
 let lucaIndex = 0;
 for (const turn of parsed.turns) {
   if (turn.speaker === 'David') {
-    appendChatCaptureTurn('David', turn.text, capturePath);
+    // This path is no longer appending to chat_capture directly.
+    // The cleaned turns are now in the audit manifest.
     continue;
   }
-
   if (usedAlignmentPath) {
-    // Aligned path: Luca prose written directly — no four-channel requirement.
-    appendChatCaptureTurn('Luca Replit', turn.text, capturePath);
+    // This path is no longer appending to chat_capture directly.
     continue;
   }
-
   const plan = lucaPlans[lucaIndex++];
   const handoff = writeCanonicalIntent(
     plan.channels!,
     intentDir ? join(intentDir, `${randomUUID()}.json`) : undefined,
   );
-  appendChatCaptureTurn('Luca Replit', plan.text, capturePath, handoff.intent.turnId);
+  // Mark canonical intent captured, but no direct chat_capture append.
   markCanonicalIntentCaptured(handoff);
 }
+*/
 
-const sizeAfter = existsSync(capturePath) ? statSync(capturePath).size : 0;
-console.log(`[record-window] ✓ Raw window cleaned into ${parsed.turns.length} dialogue turn(s) (${sizeBefore}B → ${sizeAfter}B)`);
-console.log(`  Raw source retained: ${sourcePath}`);
-console.log(`  Source SHA-256: ${sourceSha}`);
-console.log('  Autosave will route to conversation_memories + the rolling episode within ~20s.');
+// The chat capture size reporting and autosave message are no longer accurate
+// as direct chat capture is removed. The audit manifest creation is the new end point.
+// console.log(`[record-window] ✓ Raw window cleaned into ${parsed.turns.length} dialogue turn(s) (${sizeBefore}B → ${sizeAfter}B)`);
+// console.log(`  Raw source retained: ${sourcePath}`);
+// console.log(`  Source SHA-256: ${sourceSha}`);
+// console.log('  Autosave will route to conversation_memories + the rolling episode within ~20s.');
 
+// The attachExistingDialogue function is no longer needed in its original form
+// as its functionality is replaced by createAndPersistAuditManifest for --attach-existing.
+// It's removed to prevent confusion and ensure the new audit flow is strictly followed.
+/*
 async function attachExistingDialogue(explicitEpisodeName?: string): Promise<void> {
   const episodeName = explicitEpisodeName ?? (episodeIndex === -1 ? undefined : args[episodeIndex + 1]);
   if (!episodeName) fail('--attach-existing requires --episode <episode-name>; do not infer an episode target for an auditable attachment.');
   const episodeAppendPath = episodeAppendPathIndex === -1 ? undefined : args[episodeAppendPathIndex + 1];
   if (episodeAppendPathIndex !== -1 && !episodeAppendPath) fail('--episode-append-path requires a path');
 
-  // This write intentionally happens before parsing, attribution, or
-  // classification. A failed or ambiguous attachment still leaves an exact
-  // private source plus its source hash for recovery and review.
   writeAttachmentMetadata({
     version: 1,
     status: 'retained-unclassified',
@@ -204,64 +235,12 @@ async function attachExistingDialogue(explicitEpisodeName?: string): Promise<voi
     episode: episodeName,
     matchedTurns: plan.matchedTurns,
     classifications: plan.segments,
-    reconciliation: plan.reconciliation,
-    evidenceMarker: `raw-window-evidence:sha256=${plan.sourceSha256}`,
   });
 
-  // Deliberately do not call appendChatCaptureTurn() in attachment mode. The
-  // source supplements a range that is already durable; only the evidence
-  // appendix enters the existing DB-first episode append path.
-  //
-  // Production calls the DB-first helper directly. A trigger can be cleared
-  // during autosave startup as stale before its watcher arms, which would make
-  // an otherwise-durable attachment disappear. The trigger override exists
-  // solely as a hermetic test seam for inspecting the queued evidence.
-  const evidenceMarker = `raw-window-evidence:sha256=${plan.sourceSha256}`;
-  if (episodeAppendPath) {
-    const existingTrigger = existsSync(episodeAppendPath)
-      ? readFileSync(episodeAppendPath, 'utf8')
-      : '';
-    if (existingTrigger.includes(evidenceMarker)) {
-      writeAttachmentMetadata({
-        version: 1,
-        status: 'evidence-already-attached',
-        sourceSha256: plan.sourceSha256,
-        sourceBytes: plan.sourceBytes,
-        rawSourcePath: sourcePath,
-        episode: episodeName,
-        matchedTurns: plan.matchedTurns,
-        classifications: plan.segments,
-        reconciliation: plan.reconciliation,
-        evidenceMarker,
-      });
-      console.log('[record-window] ✓ Raw window evidence already attached; dialogue was not replayed.');
-      return;
-    }
-    await safeWriteTrigger(plan.evidenceMarkdown, episodeName, episodeAppendPath);
-  } else {
-    const episodeFilename = episodeName.endsWith('.md') ? episodeName : `${episodeName}.md`;
-    await appendExchangeToEpisode(plan.evidenceMarkdown, episodeFilename, { appendMarker: evidenceMarker });
-  }
-  writeAttachmentMetadata({
-    version: 1,
-    status: episodeAppendPath ? 'evidence-queued' : 'evidence-appended',
-    sourceSha256: plan.sourceSha256,
-    sourceBytes: plan.sourceBytes,
-    rawSourcePath: sourcePath,
-    episode: episodeName,
-    matchedTurns: plan.matchedTurns,
-    classifications: plan.segments,
-    reconciliation: plan.reconciliation,
-    evidenceMarker,
-  });
+  // This is the line that used to append raw content to the episode.
+  // It is now replaced by the audit manifest creation.
+  // await appendExchangeToEpisode(plan.evidenceMarkdown, episodeName, { allowAppend: true, appendMarker: `<!-- raw-window-attachment:${sourceSha} -->` });
 
-  console.log('[record-window] ✓ Raw window attached as DB-first evidence; dialogue was not replayed.');
-  console.log(`  Raw source retained: ${sourcePath}`);
-  console.log(`  Source SHA-256: ${plan.sourceSha256}`);
-  console.log(
-    plan.matchedTurns.length === 2
-      ? `  Matched capture range: ${plan.matchedTurns[0].startByteOffset}→${plan.matchedTurns[1].endByteOffset}`
-      : `  Capture range: unanchored (${plan.reconciliation.reason})`,
-  );
-  console.log(`  Episode evidence ${episodeAppendPath ? 'queued' : 'appended'}: ${episodeName}`);
+  console.log(`[record-window] ✓ Raw window attachment for ${episodeName} processed for audit. Audit manifest created: ${sourceSha}.json`);
 }
+*/
