@@ -49,6 +49,7 @@ import {
   findTranscriptPath,
   extractTurns,
   buildDialogueChunk,
+  CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
   LUCA_AUTO_CAPTURE_PATH,
@@ -1102,6 +1103,33 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     : cursorGap > STALE_CURSOR_GAP_BYTES
       ? `  ⏳ chat-capture: ${cursorGap.toLocaleString()} bytes pending drain (within grace period)`
       : `  ✓ chat-capture: cursor up to date (offset=${cursorOffsetBytes.toLocaleString()}, file=${cursorFileSize.toLocaleString()})`;
+  let acknowledgementLine = '  — capture acknowledgement: no explicit turn receipt';
+  try {
+    if (existsSync(CHAT_CAPTURE_ACK_PATH)) {
+      const receipt = JSON.parse(readFileSync(CHAT_CAPTURE_ACK_PATH, 'utf-8')) as {
+        targetByteOffset?: unknown;
+        status?: unknown;
+      };
+      const targetByteOffset = typeof receipt.targetByteOffset === 'number'
+        ? receipt.targetByteOffset
+        : null;
+      if (targetByteOffset === null) {
+        acknowledgementLine = '  ⚠️ capture acknowledgement: receipt is malformed — do not assume the latest turn is durable';
+      } else if (cursorOffsetBytes < targetByteOffset) {
+        acknowledgementLine =
+          `  ⚠️ UNACKNOWLEDGED TURN: waiting for cursor ${targetByteOffset.toLocaleString()} ` +
+          `(currently ${cursorOffsetBytes.toLocaleString()}) — this turn is not yet canonical`;
+      } else if (receipt.status === 'acknowledged') {
+        acknowledgementLine =
+          `  ✓ capture acknowledgement: latest explicit turn is canonical (cursor ${cursorOffsetBytes.toLocaleString()})`;
+      } else {
+        acknowledgementLine =
+          `  ✓ capture acknowledgement: cursor reached ${targetByteOffset.toLocaleString()} after the caller ended — canonical effects completed`;
+      }
+    }
+  } catch {
+    acknowledgementLine = '  ⚠️ capture acknowledgement: receipt could not be read — do not assume the latest turn is durable';
+  }
 
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
@@ -1109,6 +1137,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     `  ${thinkingReady ? '✓ ready' : thinkingStale ? '⚠️ STALE' : '— not yet'} Thinking:  ${fmt(lastThinkingProcessedMs)} (${minAgo(lastThinkingProcessedMs)})${thinkingReady ? '' : ' ← write .luca_question before next output'}`,
     `  ${lastMomentProcessedMs === 0 ? '—' : (_momentStaleCheckEnabled && (now - lastMomentProcessedMs) > STALE_MOMENT_MS) ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
     cursorLine,
+    acknowledgementLine,
   ];
 
   // Raw Replit windows are audited before their cleaned text enters capture.

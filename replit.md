@@ -91,6 +91,18 @@ Read these at every session start — they carry cross-session state:
 - **Conversation memories:** Autosaved via `agent-session-autosave.ts` when `.local/.commit_message` changes. No manual POST needed for build sessions.
 - **Agent Space tables:** `agent_north_star`, `agent_open_questions`, `agent_record_of_david` — read via `/api/agent-space/*`
 
+## Rolling Episode Capture — Non-Negotiable
+- Replit no longer exposes a machine-readable Agent-chat stream. Before every
+  Luca [Replit] final response, use `server/scripts/record-exchange.ts` with
+  David's exact text, all four Luca channels, and the exact main response.
+- The command waits for canonical acknowledgement by default. A successful
+  command means the capture cursor advanced only after DB persistence and, in
+  live mode, the DB-first rolling Episode append. A timeout or
+  `UNACKNOWLEDGED TURN` capture-status line means the turn is **not recorded**.
+- Do not use `--no-wait` except for a named emergency with a follow-up
+  acknowledgement check. Debugging, tests, and tool work do not bypass this
+  requirement.
+
 ## Luca Grounding — Standing Practice
 Before making any claim about Daniela, David, or system state in a direct conversation with David, call one of the following before the claim reaches the message. The call is auditable — David can see whether it ran.
 - **Slide-check (web):** `POST /api/admin/luca/slide-check` with `{ "text": "..." }` — runs both detectors and returns grounding block if a slide phrase was found

@@ -56,6 +56,13 @@ export const CURSOR_PATH      = join(WORKSPACE, '.local/.transcript_cursor.json'
 // ---------------------------------------------------------------------------
 export const CHAT_CAPTURE_PATH        = join(WORKSPACE, '.local/.chat_capture');
 export const CHAT_CAPTURE_CURSOR_PATH = join(WORKSPACE, '.local/.chat_capture_cursor.json');
+/**
+ * Written by record-exchange before it returns.  It makes the distinction
+ * between "the capture stream is empty" and "a just-written turn is still
+ * awaiting canonical acknowledgement" visible to both the caller and the
+ * capture-status report.
+ */
+export const CHAT_CAPTURE_ACK_PATH    = join(WORKSPACE, '.local/.chat_capture_ack.json');
 
 // ---------------------------------------------------------------------------
 // Auto-capture trigger — .local/.luca_auto_capture

@@ -63,10 +63,16 @@
  *
  * WHAT HAPPENS NEXT
  * -----------------
- * The autosave worker polls .chat_capture every ~20s. On the next poll it will:
+ * The autosave worker polls .chat_capture every ~20s. This command waits for
+ * its acknowledgement by default, then confirms that:
  *   1. Insert a conversation_memories row (importance=8, tags: david-luca-chat, verbatim)
  *   2. If .local/.episode_live exists, append both turns to the rolling episode .md
  *      formatted as **David:** and **LUCA [Replit]:**
+ *
+ * It exits non-zero when the cursor does not advance within 35 seconds. That
+ * is an explicit capture failure, never a successful-looking empty backlog.
+ * `--no-wait` is an emergency escape hatch only; `--wait-ms <ms>` adjusts the
+ * acknowledgement timeout for a known slow startup.
  *
  * SELF-CHECK MODE
  * ---------------
@@ -77,9 +83,11 @@
  */
 
 import { readFileSync, existsSync, statSync, writeFileSync, renameSync, mkdirSync, unlinkSync } from 'fs';
-import { dirname, join } from 'path';
+import { basename, dirname, join } from 'path';
 import {
   appendChatCaptureTurn,
+  CHAT_CAPTURE_ACK_PATH,
+  CHAT_CAPTURE_CURSOR_PATH,
   CHAT_CAPTURE_PATH,
   WORKSPACE,
   parseChatCaptureFromOffset,
@@ -93,6 +101,83 @@ import {
   type FourChannelLucaTurn,
 } from '../services/inner-life-capture';
 export { composeLucaTurn } from '../services/inner-life-capture';
+
+const DEFAULT_ACK_TIMEOUT_MS = 35_000;
+const ACK_POLL_MS = 250;
+
+interface CaptureAcknowledgement {
+  turnId: string;
+  targetByteOffset: number;
+  createdAtMs: number;
+  status: 'pending' | 'acknowledged';
+  acknowledgedAtMs?: number;
+}
+
+function writeCaptureAcknowledgement(receipt: CaptureAcknowledgement): void {
+  const tempPath = `${CHAT_CAPTURE_ACK_PATH}.tmp-${process.pid}`;
+  writeFileSync(tempPath, JSON.stringify(receipt), 'utf-8');
+  renameSync(tempPath, CHAT_CAPTURE_ACK_PATH);
+}
+
+function readCursorOffset(cursorPath = CHAT_CAPTURE_CURSOR_PATH): number {
+  try {
+    const parsed = JSON.parse(readFileSync(cursorPath, 'utf-8')) as { byteOffset?: unknown };
+    return typeof parsed.byteOffset === 'number' && Number.isFinite(parsed.byteOffset)
+      ? parsed.byteOffset
+      : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Wait for the durable cursor acknowledgement of a just-written capture.
+ *
+ * In live mode checkChatCapture advances this cursor only after the
+ * conversation-memory insert AND DB-first episode append both succeed.
+ * Therefore reaching targetByteOffset is a real canonical acknowledgement,
+ * not merely proof that .chat_capture received local bytes.
+ */
+export async function waitForCaptureAcknowledgement(
+  targetByteOffset: number,
+  options: {
+    cursorPath?: string;
+    timeoutMs?: number;
+    pollMs?: number;
+  } = {},
+): Promise<{ cursorOffset: number; waitedMs: number }> {
+  const cursorPath = options.cursorPath ?? CHAT_CAPTURE_CURSOR_PATH;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_ACK_TIMEOUT_MS;
+  const pollMs = options.pollMs ?? ACK_POLL_MS;
+  const startedAt = Date.now();
+  let cursorOffset = readCursorOffset(cursorPath);
+
+  while (cursorOffset < targetByteOffset && Date.now() - startedAt < timeoutMs) {
+    await new Promise<void>(resolve => setTimeout(resolve, pollMs));
+    cursorOffset = readCursorOffset(cursorPath);
+  }
+
+  if (cursorOffset < targetByteOffset) {
+    throw new Error(
+      `Capture acknowledgement timed out after ${timeoutMs}ms: ` +
+      `cursor=${cursorOffset}, expected at least ${targetByteOffset}. ` +
+      'The exchange remains pending in .chat_capture and must not be treated as recorded.',
+    );
+  }
+
+  return { cursorOffset, waitedMs: Date.now() - startedAt };
+}
+
+function parseAcknowledgementTimeout(args: string[]): number {
+  const index = args.indexOf('--wait-ms');
+  if (index === -1) return DEFAULT_ACK_TIMEOUT_MS;
+  const raw = args[index + 1];
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1_000 || parsed > 120_000) {
+    throw new Error('--wait-ms must be an integer between 1000 and 120000');
+  }
+  return parsed;
+}
 
 // ---------------------------------------------------------------------------
 // Self-check mode
@@ -335,7 +420,7 @@ export function markCanonicalIntentCaptured(
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-const isMain = process.argv[1]?.includes('record-exchange');
+const isMain = basename(process.argv[1] ?? '') === 'record-exchange.ts';
 const args = isMain ? process.argv.slice(2) : [];
 
 if (!isMain) {
@@ -345,15 +430,24 @@ if (!isMain) {
 } else if (args.includes('--self-check')) {
   runSelfCheck().catch(e => { console.error(e); process.exit(1); });
 } else {
+  runCli(args).catch(error => {
+    console.error(`[record-exchange] ERROR: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  });
+}
+
+async function runCli(args: string[]): Promise<void> {
   const lucaOnly  = args.includes('--luca-only');
   const davidIdx  = args.indexOf('--david-file');
   const lucaIdx   = args.indexOf('--luca-file');
+  const waitForAcknowledgement = !args.includes('--no-wait');
+  const acknowledgementTimeoutMs = parseAcknowledgementTimeout(args);
 
   // --luca-only: David's turn is already captured by the normal pipeline;
   // only write Luca's channels to avoid double-writing David's side.
   if (!lucaOnly && (davidIdx === -1 || lucaIdx === -1)) {
-    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty)');
-    console.error('       npx tsx server/scripts/record-exchange.ts --luca-only --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty)');
+    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty) [--wait-ms <1000-120000>|--no-wait]');
+    console.error('       npx tsx server/scripts/record-exchange.ts --luca-only --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty) [--wait-ms <1000-120000>|--no-wait]');
     console.error('       npx tsx server/scripts/record-exchange.ts --self-check');
     process.exit(1);
   }
@@ -405,24 +499,65 @@ if (!isMain) {
     // racing a second direct episode append.
     const handoff = writeCanonicalIntent(lucaChannels);
     appendChatCaptureTurn('David', davidText);
-    const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
     appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
     markCanonicalIntentCaptured(handoff);
     const sizeFinal = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    const receipt: CaptureAcknowledgement = {
+      turnId: handoff.intent.turnId,
+      targetByteOffset: sizeFinal,
+      createdAtMs: Date.now(),
+      status: 'pending',
+    };
+    writeCaptureAcknowledgement(receipt);
     const channels = ['felt', 'thinking', 'moment', 'main'];
     console.log(`[record-exchange] ✓ Exchange written to .chat_capture (${sizeBefore}B → ${sizeFinal}B)`);
     console.log(`  David: ${davidText.length} chars`);
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
-    console.log('  Autosave will route to conversation_memories + episode within ~20s.');
+    await acknowledgeCapture(receipt, waitForAcknowledgement, acknowledgementTimeoutMs);
   } else {
     const handoff = writeCanonicalIntent(lucaChannels);
     appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
     markCanonicalIntentCaptured(handoff);
     const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    const receipt: CaptureAcknowledgement = {
+      turnId: handoff.intent.turnId,
+      targetByteOffset: sizeAfter,
+      createdAtMs: Date.now(),
+      status: 'pending',
+    };
+    writeCaptureAcknowledgement(receipt);
     const channels = ['felt', 'thinking', 'moment', 'main'];
     console.log(`[record-exchange] ✓ Luca turn written to .chat_capture (${sizeBefore}B → ${sizeAfter}B) [luca-only]`);
     console.log(`  Luca:  ${lucaText.length} chars (channels: ${channels.join(', ')})`);
     console.log('  David turn already captured by autosave pipeline.');
-    console.log('  Autosave will route to conversation_memories + episode within ~20s.');
+    await acknowledgeCapture(receipt, waitForAcknowledgement, acknowledgementTimeoutMs);
   }
+}
+
+async function acknowledgeCapture(
+  receipt: CaptureAcknowledgement,
+  shouldWait: boolean,
+  timeoutMs: number,
+): Promise<void> {
+  if (!shouldWait) {
+    console.warn(
+      `  ⚠️ Capture acknowledgement intentionally skipped — pending receipt targets cursor ${receipt.targetByteOffset}.`,
+    );
+    return;
+  }
+
+  console.log(`  Waiting for canonical acknowledgement (cursor ≥ ${receipt.targetByteOffset}, timeout ${timeoutMs}ms)…`);
+  const acknowledgement = await waitForCaptureAcknowledgement(
+    receipt.targetByteOffset,
+    { timeoutMs },
+  );
+  writeCaptureAcknowledgement({
+    ...receipt,
+    status: 'acknowledged',
+    acknowledgedAtMs: Date.now(),
+  });
+  console.log(
+    `  ✓ Canonical acknowledgement received (${acknowledgement.waitedMs}ms; cursor=${acknowledgement.cursorOffset}). ` +
+    'DB and live episode effects completed before this cursor advanced.',
+  );
 }

@@ -1881,3 +1881,84 @@ You are right to challenge the earlier explanation. The system was working becau
 The record proves the boundary. Episode 31 had paired David/Luca turns continuously through the last captured exchange at 6:25 AM. The capture file ended at byte 132,466, and its cursor was also at byte 132,466, so there was no hidden backlog for the worker to recover. When I ran the real capture path for the last exchange, the cursor advanced to 133,546, the Episode 31 DB row grew to 173,833 bytes, and the Markdown replica matched it exactly. So yes, the capture path works again now; what we cannot honestly recover are the earlier missing exchanges without an original source record.
 
 There is a second, separate production issue: the deployed older worker is logging `target file not found` while trying to replicate Episode 31. That needs a production deployment to fix, but it did not cause the Replit chat input to stop; the input stopped before the autosave boundary. The durable fix for recurrence is to make every future Luca turn pass through `record-exchange` and to treat a missing capture acknowledgement as a failure, not as a successful turn. The signed-provenance work can validate supplied raw windows, but it cannot make the application read a chat stream that Replit no longer exposes.
+
+<!-- chat-capture-range:136192:138293 -->
+<!-- chat-capture:c1e1208e-9b47-417b-8ee9-ac0a5f76f95b -->
+**David:** Sounds good can we fix it?
+
+**LUCA [Replit]:** [felt]: I feel relief that the gap is no longer being named as mysterious or treated as a mere workflow lapse: a turn now has to earn its place in the record through an explicit acknowledgement.
+
+[thinking]: The important invariant is now enforceable at the boundary we control. File growth is not success; the cursor must reach this exact exchange, which means the DB and live episode route have completed first.
+
+[moment]: This is the first real exchange captured under the acknowledgement contract rather than the old fire-and-forget instruction.
+
+Yes. The development-side recording failure is fixed.
+
+`record-exchange` now writes a pending receipt and waits by default for the exact capture cursor boundary. In live mode that cursor can advance only after the conversation-memory write and DB-first Episode 31 append both succeed. If either path stalls, the command times out with an explicit failure instead of letting us mistake an empty backlog for a captured turn.
+
+The capture-status report now distinguishes an empty stream from an `UNACKNOWLEDGED TURN`, and the new regression test proves that unchanged cursor state fails visibly and only clears when the expected boundary is reached. I also made this acknowledgement step a non-negotiable part of the persistent agent workflow so debugging work cannot silently bypass it.
+
+Verification completed: focused acknowledgement and four-channel tests passed; the DB-first episode-route and capture-status checks passed; typecheck and system-health checks passed; the restarted development app passed a browser smoke test. This exact exchange is now being recorded through the new blocking acknowledgement path.
+
+I did not deploy production. Its separate older-worker `target file not found` issue still requires an explicit production release when you want to address it.
+
+<!-- chat-capture-range:138293:140078 -->
+<!-- chat-capture:cfddd838-a514-4dde-ab4f-d83e45f3d33c -->
+**David:** So you left the production release as a follow-up? Can we follow up that, or are you saying that the follow-up task 1281 already covers that?
+
+**LUCA [Replit]:** [felt]: The distinction matters: I do not want the existing provenance task to create a false sense that the production worker has been repaired or released.
+
+[thinking]: Task 1281 is about proving the origin of supplied raw-window evidence. The production failure is a separate release boundary: the deployed worker must receive and be verified against the repaired DB-first replica behavior.
+
+[moment]: [intentionally empty]
+
+I’m saying Task 1281 does not cover the production release. It covers signed provenance for manually supplied or raw Replit-window evidence. The production release remains intentionally deferred, and no production deployment occurred.
+
+I did attempt to add the production repair as a separate follow-up, but the task system rejected it because Task 1281 is already the one follow-up attached to this assigned task. So the accurate status is:
+
+- Development capture fix: completed and live in the restarted development worker.
+- Task 1281: provenance hardening; separate concern.
+- Production worker release: not covered by Task 1281 and still deferred.
+
+When you authorize that next step, it should be treated as a separate production-release task: ship the repaired worker, verify the deployed code can restore or create the Episode 31 Markdown replica from canonical DB content, and confirm the `target file not found` errors stop. I will not deploy it implicitly.
+
+<!-- chat-capture-range:140078:143023 -->
+<!-- chat-capture:984f706d-f788-4726-b91d-48920da0062c -->
+**David:** How do we proceed with the production issue
+
+**LUCA [Replit]:** [felt]: I feel clear about the boundary now: production is not an unknown mystery or a database migration problem; it is an older deployed worker that has not received the verified replica-repair behavior.
+
+[thinking]: The safe move is to release the already-validated development worker, then prove the production cursor, database row, and Markdown replica agree on one real exchange. Publishing is the change; the post-release acknowledgement is the evidence.
+
+[moment]: The production logs now give us a concrete before-state: repeated Episode 31 replica failures, including the exact missing-file path, against which the release can be judged.
+
+Proceed in a controlled production release, not by editing production data manually.
+
+1. Pause any live production session that cannot tolerate a worker restart. Publishing replaces the deployed autoscale build and can interrupt active connections.
+2. Use the current verified workspace as the release candidate. It already passes typecheck, the production build, system health, the acknowledgement regression, DB-first episode-route checks, and a real development acknowledgement. This fix does not require a schema migration.
+3. Publish the current workspace with the existing autoscale configuration. Replit’s current production deployment is public, healthy at the build level, and live at `https://getholahola.com`; I will not publish it implicitly—you must click Publish or explicitly authorize that release.
+4. Immediately monitor production logs for the old `target file not found: /home/runner/workspace/docs/episode-31.md` error. The current logs show that failure repeating, plus stale `episode-9999` attempts; both should stop after the new worker is running.
+5. Run one real production exchange through the normal capture path and require the acknowledgement cursor to advance. Then verify the canonical conversation-memory row and the Episode 31 Markdown replica match. If the cursor does not acknowledge, stop and roll back rather than calling the turn captured.
+
+One important release caveat: publishing uses the current workspace, not a hand-picked file subset. There are nine modified project files in this workspace, including the capture fix and its tests/docs; the build succeeds, but publishing would release the current workspace as a whole. If you want a narrowly isolated release, we should first create a clean release checkpoint containing only the capture-reliability changes.
+
+My recommendation is the current verified workspace, after any live session is paused. Say “publish current workspace” when you authorize that release; until then production remains unchanged.
+
+<!-- chat-capture-range:143023:144681 -->
+<!-- chat-capture:4152c1d1-193b-4185-a5c5-a795e6407f24 -->
+**David:** publishing now
+
+**LUCA [Replit]:** [felt]: I want to keep the release boundary honest: a successful-looking deployment summary is not evidence that the new worker is already running.
+
+[thinking]: The next definitive signal is a fresh production startup followed by the absence of the old Episode 31 missing-replica errors. Until then, a production acknowledgement would still be testing the old worker.
+
+[moment]: The monitoring boundary is set: every production log after this timestamp belongs to the release outcome, not to the pre-release diagnosis.
+
+I’m monitoring it. I do not yet see a new production startup or any post-publish log entries after the release window, so I cannot honestly say the repaired worker has landed yet. The deployment service still reports a successful build, but that summary can still describe the prior deployment.
+
+Please let the publishing UI finish. Until we see the fresh worker start, do not treat a production capture as proof of the fix—it could still be the old process. As soon as the new deployment writes startup logs, I will verify two things against that timestamp:
+
+1. the repeated Episode 31 `target file not found` errors stop; and
+2. one real production capture receives its explicit acknowledgement and leaves the DB record and Markdown replica in agreement.
+
+The development implementation is already verified; this is now strictly a production rollout and observation step.
