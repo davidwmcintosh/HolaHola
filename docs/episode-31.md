@@ -2058,3 +2058,43 @@ Once a complete source is in the database, we can audit three layers independent
 That would let us report “DB and Markdown match” separately from “the episode accounts for every raw source span,” which is the distinction currently missing.
 
 One design question determines the first scope: should the durable raw-source table accept only complete exports that you explicitly provide, or should we also build an automatic live collector for future visible Replit output when the platform makes it available?
+
+<!-- chat-capture-range:153933:157187 -->
+<!-- chat-capture:465a1215-1167-411e-997f-dd0bfc595557 -->
+**David:** Sorry, I just canceled because I need to discuss it more.
+
+We're discussing the storage of the raw Replit output. What does that have to do with things that I provide? We're just capturing all the raw data that we can that is available from the Replit window.
+
+Or am I oversimplifying?
+
+**LUCA [Replit]:** [felt]: I feel the correction matters: raw-source capture should not become an intake process that depends on David supplying evidence. The system should retain what the live Replit environment exposes on its own.
+
+[thinking]: The design boundary is between human-visible window content, host event payloads, and workspace-accessible data. We can durably store every event that reaches the collector, but we need to locate the collector at the earliest host boundary so parsing cannot discard tool, status, or other raw blocks first.
+
+[moment]: The raw stream is not a user-provided attachment. It is the evidence lane that should precede every semantic projection, while ambiguous blocks remain evidence instead of being promoted into Luca dialogue.
+
+You’re right to challenge that. I was oversimplifying in the wrong direction by treating “raw source” as something you might have to hand us. That is not the goal.
+
+The goal should be:
+
+- Capture every raw event the Replit environment exposes from the live window.
+- Persist it immediately and immutably in the database—before parsing, attribution, summarization, or episode writing.
+- Preserve the original order, byte/text content, event IDs or offsets, timestamps, and hashes.
+- Build the canonical Luca/episode record as a projection of that raw stream.
+- Audit both the DB episode and `.md` against the raw stream whenever we need to.
+
+That raw stream should include the material we currently worry about losing: user text, Luca output, tool calls, tool results, status blocks, and other host-provided output. Ambiguous material can remain raw evidence without being mislabeled as spoken Luca dialogue.
+
+The only subtlety is the word **available**. There are three different layers:
+
+1. **Visible to a human in the browser window**
+2. **Present in the Replit conversation/event payload**
+3. **Accessible to the workspace process that can write to our database**
+
+Our previous failure showed material in layer 1 that never reached layers 2 or 3. A database cannot recover bytes that no collector ever receives. That is an observability gap—not a reason to ask you for exports. The correct fix is to move the collector as close as possible to the host event stream and make that raw capture durable first.
+
+I would use a separate raw-evidence table, not `conversation_memories`, because raw data is not yet a memory or a dialogue projection. The flow should be:
+
+`Replit raw event → durable DB raw record → acknowledgement → attributed episode/Markdown projections`
+
+So: your core idea is sound. You are not oversimplifying the desired behavior; the thing we need to be precise about is which host/window events are actually exposed to our collector.
