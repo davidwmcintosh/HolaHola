@@ -6,7 +6,7 @@
  * block that identifies the exact workspace attachment and its digest.
  */
 import { createHash } from 'crypto';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import { basename, relative, resolve, sep } from 'path';
 
 import { closeDbConnections } from '../db';
@@ -40,6 +40,17 @@ if (
   || pathWithinAttachmentRoot.includes('..' + sep)
 ) {
   usage('--attachment must be a file inside this workspace’s attached_assets directory');
+}
+const realAttachmentRoot = realpathSync(attachmentRoot);
+const realAttachmentPath = realpathSync(attachmentPath);
+const realPathWithinAttachmentRoot = relative(realAttachmentRoot, realAttachmentPath);
+if (
+  realPathWithinAttachmentRoot === ''
+  || realPathWithinAttachmentRoot.startsWith('..')
+  || realPathWithinAttachmentRoot.includes('..' + sep)
+  || !statSync(realAttachmentPath).isFile()
+) {
+  usage('--attachment must resolve to a regular file inside this workspace’s attached_assets directory');
 }
 
 const bytes = readFileSync(attachmentPath);
