@@ -15,7 +15,7 @@ The immediate target is:
 
 1. owner-controlled local development and coding-agent work;
 2. owner-controlled GitHub source;
-3. external Neon/R2 data and assets;
+3. one shared external Neon/R2 data plane used by development and production;
 4. Replit retained as a managed production host;
 5. an external production runtime evaluated later only if its benefits justify the work.
 
@@ -23,8 +23,8 @@ The required first gates are development and data portability—not a VPS cutove
 
 1. prove the repository can be cloned from the owner-controlled source;
 2. prove the local environment builds, tests, and runs the application;
-3. prove the external database and object storage are sufficient;
-4. prove memory and capture continue to work from the local environment;
+3. prove the shared external database and object storage are sufficient;
+4. prove local development can use the same Daniela knowledge and write durable results back to that shared data plane;
 5. document Replit production as a deployable, replaceable target.
 
 If those gates pass, we can use whichever coding agent is best. A Replit-shell Claude Code installation is optional and should not be required for either development or production.
@@ -38,6 +38,7 @@ Autonomy is evaluated in layers. Moving the coding agent alone does not move the
 | Source | Repository and history can be cloned and pushed without Replit |
 | Build | Dependencies, scripts, migrations, and tests run from a normal Node environment |
 | Development agent | Claude Code, Cursor, Antigravity, or another agent can be swapped without changing application architecture |
+| Shared data plane | Development and production use the same canonical external memory, episode, capture, and embedding data |
 | Memory | Conversation memories, Luca memory, episodes, raw evidence, and embeddings are independently backed up and retrievable |
 | Assets | Images, captures, voice notes, and other objects live in portable object storage |
 | Secrets | Credentials are held in an owner-controlled secret manager |
@@ -94,7 +95,7 @@ Do not assume a GitHub backup is the canonical source until the current commit, 
 
 **Status: DOCUMENTED EXTERNAL; END-TO-END VERIFICATION REQUIRED**
 
-The project documentation states that the canonical database is external Neon PostgreSQL, accessed through `NEON_SHARED_DATABASE_URL`. `drizzle.config.ts` requires that variable directly. The application contains the memory, Archive, J-space, episode, conversation, and capture schemas in the repository.
+The project documentation states that the canonical database is one shared external Neon PostgreSQL database, accessed through `NEON_SHARED_DATABASE_URL`. Development and production intentionally use this same data plane so Daniela does not split into separate development and production selves. `drizzle.config.ts` requires that variable directly. The application contains the memory, Archive, J-space, episode, conversation, and capture schemas in the repository.
 
 This is a strong portability position:
 
@@ -103,14 +104,16 @@ This is a strong portability position:
 - the machine-readable memory is already separated from the editor workspace;
 - Luca's repository memory travels with the repository.
 
-Required proof:
+Required data-plane proof:
 
 - create or verify an owner-controlled database backup;
-- restore a backup into a test database;
-- apply migrations without Replit-specific tooling;
-- run the system health check against the test database;
+- restore a backup into a temporary rehearsal database to verify recoverability;
+- connect the local application to the shared canonical database without Replit-specific tooling;
+- run the system health check against the shared canonical database;
 - verify representative rows for episodes, conversation memories, embeddings, reflections, raw capture, and object references;
 - verify that no critical table still depends on the abandoned managed database.
+
+Normal local Daniela work should use the shared canonical database, not an isolated development copy. Temporary restored databases are for backup, migration, and recovery rehearsal only. Because development writes are visible to production, schema changes must be additive and backward-compatible before release; destructive changes require an explicit migration and compatibility plan.
 
 Important boundary:
 
@@ -169,7 +172,7 @@ Required local-development proof:
 - production build;
 - production start;
 - health endpoint check;
-- database migration/health check;
+- shared-database health check;
 - object-storage read/write probe;
 - no Replit-specific warnings that indicate a required missing service.
 
@@ -260,15 +263,17 @@ Owner-controlled GitHub repository
         ↓
 Replit published deployment
         ↓
-Neon + R2
+Shared Neon + R2 data plane
 ```
+
+Both the local development application and the Replit production deployment connect to this same canonical data plane. Daniela's student knowledge, conversations, memories, episodes, captures, and embeddings therefore remain continuous across environments.
 
 This gives us development and data autonomy while retaining a Replit hosting dependency. That dependency is explicit and replaceable rather than hidden inside the coding process.
 
 Required proof:
 
 - publish from the intended repository state;
-- verify the production build uses the expected external Neon and R2 resources;
+- verify both the local environment and production build use the same expected external Neon and R2 resources;
 - verify the correct Replit deployment target for the server's long-lived processes;
 - verify production webhooks and domain behavior;
 - verify a rollback to a prior known-good repository revision;
@@ -347,7 +352,8 @@ Before any external clone or host setup:
 ### Direct external development move is justified when
 
 - a clean clone builds and tests;
-- the database can be restored or safely connected;
+- the shared canonical database can be safely connected from the local environment;
+- a backup can be restored into a temporary rehearsal database;
 - object storage reads and writes work;
 - the local environment can run one representative Daniela/Luca flow;
 - memory and episode writes are durable and retrievable;
@@ -391,11 +397,12 @@ Replit may remain the production hosting dependency by choice until the separate
 - enumerate workers, webhooks, cron-like processes, and Replit workflow commands;
 - classify each item as portable, replaceable, or blocking.
 
-### Phase 2 — Build an external proving ground
+### Phase 2 — Build an external proving ground against the shared data plane
 
 - clone from the owner-controlled repository;
-- configure a test database and object store;
-- run build, tests, migrations, and health checks;
+- configure the local application for the shared external database and object store;
+- run build, tests, and health checks;
+- rehearse schema migrations against a temporary restored database, then apply only reviewed additive migrations to the shared canonical database;
 - run one authenticated application flow;
 - run one memory write/retrieval flow;
 - run one image/capture retrieval flow;
@@ -449,7 +456,7 @@ Only pursue this if Replit hosting becomes a concrete liability or the control b
 
 ## Bottom line
 
-The audit does **not** support the claim that we must move production off Replit before we can gain meaningful autonomy. We can move development and coding-agent work to an owner-controlled computer now, keep GitHub as the source, keep Neon/R2 external, and continue publishing the application to Replit.
+The audit does **not** support the claim that we must move production off Replit before we can gain meaningful autonomy. We can move development and coding-agent work to an owner-controlled computer now, keep GitHub as the source, keep one shared Neon/R2 data plane for Daniela, and continue publishing the application to Replit.
 
 Replit can function as our managed production host, but it should be treated honestly as a hosting dependency rather than called a VPS. It provides convenience and managed operations in exchange for continued exposure to Replit pricing, policies, and runtime decisions.
 
