@@ -9,17 +9,25 @@ This is an operational audit, not a commitment to a particular replacement for R
 
 ### Current conclusion
 
-HolaHola is **closer to external portability than a fresh migration**, especially in code, database, object storage, and AI-provider configuration. It is **not yet proven operationally independent** because the current development and deployment workflow still has substantial Replit coupling.
+HolaHola is **closer to external development autonomy than a fresh migration**, especially in code, database, object storage, and AI-provider configuration. Development autonomy and production-hosting autonomy are separate decisions.
 
-The right next move is not to assume either “we are ready” or “we are far away.” It is to complete the verification gates in this document:
+The immediate target is:
+
+1. owner-controlled local development and coding-agent work;
+2. owner-controlled GitHub source;
+3. external Neon/R2 data and assets;
+4. Replit retained as a managed production host;
+5. an external production runtime evaluated later only if its benefits justify the work.
+
+The required first gates are development and data portability—not a VPS cutover:
 
 1. prove the repository can be cloned from the owner-controlled source;
-2. prove the external database and object storage are sufficient;
-3. prove the application builds and runs outside Replit;
-4. prove authentication, workers, webhooks, and scheduled jobs have non-Replit paths;
-5. prove memory and capture continue to work in the external environment.
+2. prove the local environment builds, tests, and runs the application;
+3. prove the external database and object storage are sufficient;
+4. prove memory and capture continue to work from the local environment;
+5. document Replit production as a deployable, replaceable target.
 
-If those gates pass, a direct external move is reasonable. If only the runtime gates fail, installing Claude Code inside Replit is a useful bounded experiment while the external environment is completed. It must not become the new system of record.
+If those gates pass, we can use whichever coding agent is best. A Replit-shell Claude Code installation is optional and should not be required for either development or production.
 
 ## Autonomy model
 
@@ -37,6 +45,8 @@ Autonomy is evaluated in layers. Moving the coding agent alone does not move the
 | Identity | Authentication does not require Replit OIDC |
 | Delivery | Domain, webhooks, deployment, and rollback do not require Replit |
 | Model access | AI providers are configured behind replaceable adapters with direct-key or independently managed access |
+
+These layers are independent decisions. We can achieve source, development-agent, memory, asset, and model-access autonomy while continuing to use Replit for managed production hosting.
 
 ## Status vocabulary
 
@@ -65,7 +75,7 @@ What is not yet proven:
 - The current checkout has many Replit-internal remotes alongside the GitHub remote. The purpose and retention policy for those remotes should be documented before declaring GitHub the sole source of truth.
 - The configured GitHub remote currently uses an embedded credential. Do not copy it into any document or new host configuration. Rotate that credential, remove it from the Git configuration, and use SSH or an owner-controlled credential helper instead.
 - Remote tracking proves a configured path, not that all relevant history, branches, tags, and assets have been independently backed up.
-- A clean clone from GitHub has not yet been built and started in an external environment.
+- A clean clone from GitHub has not yet been built and started on the owner's computer.
 
 Required proof:
 
@@ -130,7 +140,7 @@ Required proof:
 
 ### 4. Application runtime and build
 
-**Status: PORTABLE PATH EXISTS; NOT YET PROVEN OUTSIDE REPLIT**
+**Status: PORTABLE PATH EXISTS; NOT YET PROVEN ON THE OWNER'S COMPUTER**
 
 The repository has ordinary Node scripts:
 
@@ -153,7 +163,7 @@ Replit-specific concerns still requiring isolation tests:
 - assumptions about ports, proxy headers, or hostnames;
 - workflow startup behavior currently encoded in `.replit`.
 
-Required proof:
+Required local-development proof:
 
 - clean external install;
 - production build;
@@ -162,6 +172,8 @@ Required proof:
 - database migration/health check;
 - object-storage read/write probe;
 - no Replit-specific warnings that indicate a required missing service.
+
+The application does not need to leave Replit production for this gate to pass. The purpose is to establish a trustworthy owner-controlled development environment.
 
 ### 5. Authentication and authorization
 
@@ -217,7 +229,9 @@ The application should not need to change when the coding agent changes.
 
 The `.replit` file contains the development workflow and a large set of named validation workflows. The application also has long-running workers and scheduled processes for memory, capture, monitoring, and synchronization.
 
-The external equivalent does not need to use Replit workflows. It does need an explicit replacement for each process:
+For local development, Replit workflows can be replaced with ordinary shell commands and a locally run test suite. For production, Replit can continue to provide the managed workflow/runtime while it remains the selected host.
+
+An external production equivalent is needed only if we decide to remove Replit from hosting. At that point it needs an explicit replacement for each process:
 
 | Current function | External replacement to prove |
 |---|---|
@@ -231,23 +245,54 @@ The external equivalent does not need to use Replit workflows. It does need an e
 
 The named checks are valuable project behavior, but the Replit workflow runner is not part of the application's core identity.
 
-### 8. Deployment, domain, and webhooks
+### 8. Replit as managed production hosting
 
-**Status: UNKNOWN / VERIFY**
+**Status: VALID INTERIM ARCHITECTURE; PLATFORM-DEPENDENT BY CHOICE**
 
-The code has ordinary production build and start commands, and the documentation identifies an external application URL. The actual deployment path, webhook ownership, DNS, TLS, rollback, and runtime supervision have not been established by this audit.
+Replit can remain the production host while development moves elsewhere. Replit's publishing system handles managed infrastructure, hosting, TLS, and health checks, and offers deployment targets such as Autoscale, Reserved VM, and Scheduled. A Reserved VM is the closest Replit option to an always-running server for HolaHola's long-lived processes, but it is still a managed Replit runtime rather than a traditional VPS with root access.
+
+The proposed source flow is:
+
+```text
+Owner-controlled local checkout
+        ↓
+Owner-controlled GitHub repository
+        ↓
+Replit published deployment
+        ↓
+Neon + R2
+```
+
+This gives us development and data autonomy while retaining a Replit hosting dependency. That dependency is explicit and replaceable rather than hidden inside the coding process.
 
 Required proof:
 
-- identify where the production process runs;
+- publish from the intended repository state;
+- verify the production build uses the expected external Neon and R2 resources;
+- verify the correct Replit deployment target for the server's long-lived processes;
+- verify production webhooks and domain behavior;
+- verify a rollback to a prior known-good repository revision;
+- document the exact steps to redeploy the same revision outside Replit if necessary.
+
+Replit is acceptable as the production host if the consequences are understood: pricing, platform policies, deployment availability, and Replit runtime behavior remain external dependencies.
+
+### 9. Deployment, domain, and webhooks
+
+**Status: UNKNOWN / VERIFY**
+
+The code has ordinary production build and start commands, and Replit provides a managed publishing path. The actual deployment target, webhook ownership, DNS, TLS, rollback, and production runtime supervision have not been established by this audit.
+
+Required proof:
+
+- identify where the production process runs within Replit;
 - identify who controls the domain and DNS;
 - inventory every inbound webhook;
 - move or duplicate webhook endpoints in a test environment;
 - verify Stripe, Twilio, email, and AI callbacks;
 - perform a rollback from a known-good build;
-- confirm that the app can remain available if Replit is unavailable.
+- confirm that the app can be rebuilt outside Replit if Replit becomes unavailable.
 
-### 9. Conversation and capture records
+### 10. Conversation and capture records
 
 **Status: DATA IS PORTABLE; REPLIT-VISIBLE INGRESS REMAINS UNPROVEN**
 
@@ -299,32 +344,41 @@ Before any external clone or host setup:
 
 ## Decision thresholds
 
-### Direct external move is justified when
+### Direct external development move is justified when
 
 - a clean clone builds and tests;
 - the database can be restored or safely connected;
 - object storage reads and writes work;
-- authentication works without Replit OIDC;
-- workers and webhooks have explicit replacements;
-- the external environment can run one representative Daniela/Luca flow;
+- the local environment can run one representative Daniela/Luca flow;
 - memory and episode writes are durable and retrievable;
-- Replit can be turned off without data loss.
+- the source and data can be recovered without Replit.
+
+This decision does **not** require moving production hosting.
+
+### External production move is justified when
+
+- Replit cost, policy, reliability, or operational limits create a concrete problem;
+- the external runtime has passed the local proving-ground checks;
+- authentication, workers, webhooks, and scheduled jobs have tested replacements;
+- rollback and backup procedures are ready;
+- the expected control or cost benefit is greater than the migration and operations burden.
 
 ### A Replit-shell baby step is justified when
 
-- the external audit finds one or two operational gaps;
-- we want to evaluate Claude Code's workflow before selecting the permanent host;
+- the local audit finds one or two environment gaps;
+- we want to evaluate Claude Code's workflow before selecting the preferred agent;
 - the trial is read-only or bounded at first;
-- the trial output is recorded outside Replit;
+- the trial output is recorded in an owner-controlled location;
 - no critical memory or deployment decision is allowed to depend on the Replit shell.
 
-### Replit should not remain the critical path when
+### Replit should not remain the critical path for development when
 
 - the only complete transcript is visible only inside Replit;
-- the only reliable deployment or worker scheduler is Replit;
-- credentials or assets exist only in Replit;
+- credentials or source records exist only in Replit;
 - a Replit pricing or policy change could interrupt development or memory access;
-- the external clone cannot operate without undocumented Replit behavior.
+- the local clone cannot operate without undocumented Replit behavior.
+
+Replit may remain the production hosting dependency by choice until the separate external-production threshold is met.
 
 ## Recommended sequence
 
@@ -347,19 +401,25 @@ Before any external clone or host setup:
 - run one image/capture retrieval flow;
 - record all failures in this document.
 
-### Phase 3 — Optional Claude Code trial in Replit
+### Phase 3 — Select and use the external coding agent
 
-Only after the audit baseline is recorded:
+After the local proving ground works:
 
-- install Claude Code through the supported package path;
-- run a read-only repository analysis;
-- run a bounded test change on a branch or checkpoint;
-- compare its workflow, permissions, output quality, and recordability;
-- do not treat the Replit installation as the destination.
+- start with Claude Code because it is the simplest terminal-native baseline;
+- compare Cursor, Antigravity, or another agent against the same repository and checks if useful;
+- evaluate permissions, output quality, transcript recordability, and model/provider flexibility;
+- make the agent replaceable by keeping the application independent of it.
 
-### Phase 4 — Select the permanent agent and host
+### Phase 4 — Continue using Replit as production, if it remains suitable
 
-Choose Claude Code, Cursor, Antigravity, or another tool based on:
+- keep local development and owner-controlled source separate from the published runtime;
+- deploy known repository revisions to Replit;
+- verify production against the external Neon and R2 resources;
+- maintain a tested rebuild path outside Replit.
+
+### Phase 5 — Optional external production move
+
+Only pursue this if Replit hosting becomes a concrete liability or the control benefit is compelling. Choose the external runtime based on:
 
 - repository control;
 - transcript and output control;
@@ -369,10 +429,10 @@ Choose Claude Code, Cursor, Antigravity, or another tool based on:
 - cost and policy stability;
 - ability to swap the model without changing the application.
 
-### Phase 5 — Make Replit optional
+### Phase 6 — Make Replit production optional, if desired
 
 - externalize the production/runtime path;
-- keep Replit as a preview or temporary mirror if useful;
+- keep Replit as a preview, fallback, or temporary production mirror if useful;
 - retain independent backups;
 - test a full Replit-off recovery;
 - document the final cutover and rollback path.
@@ -382,15 +442,15 @@ Choose Claude Code, Cursor, Antigravity, or another tool based on:
 1. Is `github.com/davidwmcintosh/HolaHola` the current complete canonical repository, and when was it last synchronized?
 2. Where are the current database backups, and has a restore been tested recently?
 3. Is Cloudflare R2 the only active object-storage backend in production?
-4. Which authentication path will be used outside Replit?
-5. Where will production run after Replit is optional?
+4. Which authentication path will be used if external production is selected?
+5. Which Replit deployment target is appropriate while Replit remains production?
 6. Which scheduled workers must stay continuously alive, and which can become external scheduled jobs?
 7. What is the owner-controlled location for raw coding-agent transcripts and command results?
 
 ## Bottom line
 
-The audit does **not** support the claim that we must spend weeks rebuilding HolaHola outside Replit. The repository already contains a portability foundation, and the database/object-storage work appears to have removed two of the largest migration risks.
+The audit does **not** support the claim that we must move production off Replit before we can gain meaningful autonomy. We can move development and coding-agent work to an owner-controlled computer now, keep GitHub as the source, keep Neon/R2 external, and continue publishing the application to Replit.
 
-It also does **not** support the claim that installing Claude Code in the Replit shell would make us autonomous. That would be a useful experiment inside the current boundary, not a removal of the boundary.
+Replit can function as our managed production host, but it should be treated honestly as a hosting dependency rather than called a VPS. It provides convenience and managed operations in exchange for continued exposure to Replit pricing, policies, and runtime decisions.
 
-The next decision should be made from the Phase 1 and Phase 2 evidence. If those pass, go external directly. If they expose manageable runtime gaps, use the Replit-shell trial while closing them. Either way, the permanent goal is the same: Replit becomes optional, and coding agents become interchangeable.
+The next decision should be made from the local proving-ground evidence. If the local clone works, use whichever coding agent performs best. If Replit hosting remains acceptable, keep it. If it becomes a concrete liability, the already-tested external runtime path can be activated later without moving the development process again.
