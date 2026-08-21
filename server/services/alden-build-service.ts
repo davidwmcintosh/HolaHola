@@ -9,7 +9,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync, spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
@@ -340,7 +340,7 @@ function applyChange(change: FileChange): { success: boolean; linesChanged: numb
 
 async function syncToGithub(featureName: string): Promise<boolean> {
   try {
-    execSync(`bash scripts/sync-to-github.sh "[FEATURE] ${featureName}"`, {
+    execFileSync('bash', ['scripts/sync-to-github.sh', `[FEATURE] ${featureName}`], {
       cwd: process.cwd(),
       timeout: 60_000,
       encoding: 'utf-8',

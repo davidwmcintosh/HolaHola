@@ -21,7 +21,7 @@
 
 const fs = require('fs');
 const http = require('http');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
 const INITIAL_WAIT_MS = 14000;   // tsx typically restarts within 8-12 seconds
@@ -72,7 +72,7 @@ function restoreBackups(backups) {
 function syncToGithub(featureName, cwd) {
   try {
     const commitMsg = `[FEATURE] ${featureName}`;
-    execSync(`bash scripts/sync-to-github.sh "${commitMsg}"`, {
+    execFileSync('bash', ['scripts/sync-to-github.sh', commitMsg], {
       cwd,
       timeout: 60000,
       encoding: 'utf-8',

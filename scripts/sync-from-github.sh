@@ -1,46 +1,54 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/github-ssh-env.sh
-source "$SCRIPT_DIR/github-ssh-env.sh"
+# shellcheck source=github-release-ssh.sh
+source "$SCRIPT_DIR/github-release-ssh.sh"
 
 BRANCH="main"
+REPO_URL="$GITHUB_REPO_URL"
+
+if [[ -z "${HOLAHOLA_GITHUB_DEPLOY_KEY:-}" ]]; then
+  echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY secret is not set. Add it in Replit Secrets." >&2
+  exit 1
+fi
 
 echo "--- HolaHola: Sync from GitHub ---"
 
-if [[ "$(git symbolic-ref --short HEAD 2>/dev/null || true)" != "$BRANCH" ]]; then
-  echo "ERROR: sync-from-github must run on the local ${BRANCH} branch." >&2
+CURRENT_BRANCH="$(git branch --show-current)"
+if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
+  echo "ERROR: Release must run from the ${BRANCH} branch (currently: ${CURRENT_BRANCH:-detached HEAD})." >&2
   exit 1
 fi
 
-CHANGES="$(git status --porcelain)"
+CHANGES=$(git status --porcelain 2>/dev/null)
 if [[ -n "$CHANGES" ]]; then
-  echo "ERROR: local uncommitted changes are present. Refusing to merge GitHub." >&2
+  echo "ERROR: Uncommitted local changes prevent a safe GitHub release pull:" >&2
   git status --short
-  echo "Commit or stash them before running this script again." >&2
+  echo "Commit or stash them first, then run this script again." >&2
   exit 1
 fi
 
-github_ssh_setup
-trap github_ssh_cleanup EXIT
+prepare_github_ssh "$HOLAHOLA_GITHUB_DEPLOY_KEY"
+trap cleanup_github_ssh EXIT
+unset HOLAHOLA_GITHUB_DEPLOY_KEY
 
-echo "Fetching GitHub (branch: ${BRANCH})..."
-git fetch --no-tags "$HOLAHOLA_GITHUB_REPO_SSH" "refs/heads/$BRANCH"
+echo "Fetching latest changes from GitHub (branch: ${BRANCH})..."
+git fetch --no-tags "$REPO_URL" "$BRANCH"
 
-LOCAL_COMMIT="$(git rev-parse HEAD)"
-REMOTE_COMMIT="$(git rev-parse FETCH_HEAD)"
+LOCAL_HEAD="$(git rev-parse --verify HEAD^{commit})"
+GITHUB_HEAD="$(git rev-parse --verify FETCH_HEAD^{commit})"
 
-if [[ "$LOCAL_COMMIT" == "$REMOTE_COMMIT" ]]; then
-  echo "Replit is already up to date with GitHub."
-elif git merge-base --is-ancestor "$LOCAL_COMMIT" "$REMOTE_COMMIT"; then
-  echo "Fast-forwarding Replit to GitHub..."
-  git merge --ff-only "$REMOTE_COMMIT"
-elif git merge-base --is-ancestor "$REMOTE_COMMIT" "$LOCAL_COMMIT"; then
-  echo "ERROR: Replit contains commits not present on GitHub. Refusing to overwrite local work." >&2
+if [[ "$LOCAL_HEAD" == "$GITHUB_HEAD" ]]; then
+  echo "Replit is already up to date."
+elif git merge-base --is-ancestor "$LOCAL_HEAD" "$GITHUB_HEAD"; then
+  # Only fast-forward. Never create a merge commit or discard local commits.
+  git merge --ff-only FETCH_HEAD
+elif git merge-base --is-ancestor "$GITHUB_HEAD" "$LOCAL_HEAD"; then
+  echo "ERROR: Replit is ahead of GitHub. Refusing to move Replit backward." >&2
   exit 1
 else
-  echo "ERROR: Replit and GitHub histories have diverged. Refusing to merge." >&2
+  echo "ERROR: Replit and GitHub have diverged. Refusing to merge automatically." >&2
   exit 1
 fi
 

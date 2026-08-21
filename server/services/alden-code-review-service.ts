@@ -8,7 +8,7 @@
  */
 
 import * as fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { getSharedDb } from '../db';
 import { costTracker } from './cost-tracker';
@@ -158,7 +158,7 @@ function applyPatch(filePath: string, lineStart: number, lineEnd: number, afterC
 
 function syncToGithub(commitMessage: string): { success: boolean; output: string } {
   try {
-    const output = execSync(`bash scripts/sync-to-github.sh "${commitMessage}"`, {
+    const output = execFileSync('bash', ['scripts/sync-to-github.sh', commitMessage], {
       cwd: process.cwd(),
       timeout: 60_000,
       encoding: 'utf-8',
