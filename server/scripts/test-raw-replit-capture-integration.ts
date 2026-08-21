@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 
 import {
   rawReplitCaptureEvents,
+  rawReplitClassificationRevisions,
   rawReplitCaptureStreams,
   rawReplitProjectionLinks,
 } from '../../shared/schema';
@@ -124,25 +125,53 @@ async function main(): Promise<void> {
       'Raw test projection links are missing or differ from the acknowledged target.',
     );
 
-      let updateRejected = false;
-      let deleteRejected = false;
-      try {
-        await tx.update(rawReplitCaptureEvents)
-          .set({ payloadText: 'mutation must be rejected' })
-          .where(eq(rawReplitCaptureEvents.id, capture.eventIds[0]!));
-      } catch {
-        updateRejected = true;
+      await tx.insert(rawReplitClassificationRevisions).values({
+        rawEventId: capture.eventIds[0]!,
+        sourceSha256: sha256(orderedPayloads[0]!),
+        classification: 'unknown',
+        reason: 'Source retained before attribution review.',
+        revisedBy: 'raw-replit-capture-integration',
+      });
+      await tx.insert(rawReplitClassificationRevisions).values({
+        rawEventId: capture.eventIds[0]!,
+        sourceSha256: sha256(orderedPayloads[0]!),
+        classification: 'tool-status',
+        reason: 'Later review classified the source without changing bytes.',
+        revisedBy: 'raw-replit-capture-integration',
+      });
+      const revisions = await tx.select().from(rawReplitClassificationRevisions)
+        .where(eq(rawReplitClassificationRevisions.rawEventId, capture.eventIds[0]!));
+      expect(revisions.length === 2, 'Classification revisions were not recorded append-only.');
+      expect(
+        revisions.map(revision => revision.classification).join(',') === 'unknown,tool-status',
+        'Classification history did not preserve unknown-to-classified progression.',
+      );
+      async function expectRejected(action: (nested: any) => Promise<void>): Promise<boolean> {
+        const unexpectedlySucceeded = new Error('Mutation unexpectedly succeeded.');
+        try {
+          await tx.transaction(async nested => {
+            await action(nested);
+            throw unexpectedlySucceeded;
+          });
+          return false;
+        } catch (error) {
+          if (error === unexpectedlySucceeded) return false;
+          return true;
+        }
       }
-      try {
-        await tx.delete(rawReplitProjectionLinks)
-          .where(eq(rawReplitProjectionLinks.streamId, capture.streamId));
-      } catch {
-        deleteRejected = true;
-      }
+      const updateRejected = await expectRejected(nested => nested.update(rawReplitCaptureEvents)
+        .set({ payloadText: 'mutation must be rejected' })
+        .where(eq(rawReplitCaptureEvents.id, capture.eventIds[0]!)));
+      const deleteRejected = await expectRejected(nested => nested.delete(rawReplitProjectionLinks)
+        .where(eq(rawReplitProjectionLinks.streamId, capture.streamId)));
+      const revisionMutationRejected = await expectRejected(nested => nested.update(rawReplitClassificationRevisions)
+        .set({ classification: 'rewritten' })
+        .where(eq(rawReplitClassificationRevisions.id, revisions[0]!.id)));
       expect(updateRejected, 'Raw event mutation was not rejected by the database.');
       expect(deleteRejected, 'Raw projection-link deletion was not rejected by the database.');
+      expect(revisionMutationRejected, 'Classification revision mutation was not rejected by the database.');
 
-      console.log('[raw-replit-capture-integration] PASS — migrated raw stream, exact bytes/hashes/order, links, and immutability verified.');
+      console.log('[raw-replit-capture-integration] PASS — migrated raw stream, exact bytes/hashes/order, links, and append-only classification revisions verified.');
       throw rollback;
     });
   } catch (error) {

@@ -134,6 +134,13 @@
       "when": 1787259000000,
       "tag": "0019_raw_replit_capture_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787265000000,
+      "tag": "0020_raw_replit_classification_revisions",
+      "breakpoints": true
     }
   ]
 }

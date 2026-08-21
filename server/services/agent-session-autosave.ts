@@ -1962,9 +1962,10 @@ export async function appendRawWindowOriginToEpisodeDb(
   text: string,
   episodeFilename: string,
   sourceSha256: string,
+  appendMarker = `<!-- raw-window-origin:${sourceSha256} -->`,
 ): Promise<boolean> {
   return appendInnerLifeToEpisodeDb(text, episodeFilename, {
-    appendMarker: `<!-- raw-window-origin:${sourceSha256} -->`,
+    appendMarker,
     allowAppend: true,
   });
 }

@@ -8822,6 +8822,30 @@ export type RawReplitCaptureStream = typeof rawReplitCaptureStreams.$inferSelect
 export type RawReplitCaptureEvent = typeof rawReplitCaptureEvents.$inferSelect;
 export type RawReplitProjectionLink = typeof rawReplitProjectionLinks.$inferSelect;
 
+// Classification is deliberately outside the immutable source/projection
+// ledger. Each row is a later, auditable interpretation of source evidence;
+// it can never alter the original bytes, hash, or first origin projection.
+export const rawReplitClassificationRevisions = pgTable("raw_replit_classification_revisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rawEventId: varchar("raw_event_id")
+    .notNull()
+    .references(() => rawReplitCaptureEvents.id),
+  sourceSha256: varchar("source_sha256", { length: 64 }).notNull(),
+  classification: varchar("classification", { length: 96 }).notNull(),
+  attribution: jsonb("attribution"),
+  reason: text("reason").notNull(),
+  revisedBy: varchar("revised_by", { length: 128 }).notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_rrcr_event_time").on(table.rawEventId, table.recordedAt),
+  index("idx_rrcr_source_time").on(table.sourceSha256, table.recordedAt),
+]);
+
+export const insertRawReplitClassificationRevisionSchema = createInsertSchema(
+  rawReplitClassificationRevisions,
+).omit({ id: true, recordedAt: true });
+export type RawReplitClassificationRevision = typeof rawReplitClassificationRevisions.$inferSelect;
+
 export const voiceDiagDailySummaries = pgTable("voice_diag_daily_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   summaryDate: date("summary_date").notNull(),

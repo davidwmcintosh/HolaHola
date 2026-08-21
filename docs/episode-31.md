@@ -2544,3 +2544,10 @@ Worked for 1 minute
 
 Checkpoint made
 2 minutes ago
+
+<!-- raw-window-classification:1b75ff0b433935ba1f903576e33120047dc31f6b6485c83d44dac52c7a47dc77:origin-data-retained:Reviewed as retained origin data; speaker attribution remains unresolved. -->
+**[RAW WINDOW — CLASSIFICATION REVISION]:**
+[ORIGIN SHA-256: 1b75ff0b433935ba1f903576e33120047dc31f6b6485c83d44dac52c7a47dc77]
+[CLASSIFICATION: origin-data-retained]
+[REASON: Reviewed as retained origin data; speaker attribution remains unresolved.]
+[REVISED BY: luca]
