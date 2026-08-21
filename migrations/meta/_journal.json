@@ -141,6 +141,13 @@
       "when": 1787265000000,
       "tag": "0020_raw_replit_classification_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787266000000,
+      "tag": "0021_raw_replit_classification_queue",
+      "breakpoints": true
     }
   ]
 }

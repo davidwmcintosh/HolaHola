@@ -8827,6 +8827,9 @@ export type RawReplitProjectionLink = typeof rawReplitProjectionLinks.$inferSele
 // it can never alter the original bytes, hash, or first origin projection.
 export const rawReplitClassificationRevisions = pgTable("raw_replit_classification_revisions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Legacy rows predate retry keys. All new writer paths provide this key;
+  // we do not mutate an immutable historical row merely to backfill it.
+  revisionKey: varchar("revision_key", { length: 255 }),
   rawEventId: varchar("raw_event_id")
     .notNull()
     .references(() => rawReplitCaptureEvents.id),
@@ -8837,6 +8840,7 @@ export const rawReplitClassificationRevisions = pgTable("raw_replit_classificati
   revisedBy: varchar("revised_by", { length: 128 }).notNull(),
   recordedAt: timestamp("recorded_at").notNull().defaultNow(),
 }, (table) => [
+  uniqueIndex("idx_rrcr_revision_key").on(table.revisionKey),
   index("idx_rrcr_event_time").on(table.rawEventId, table.recordedAt),
   index("idx_rrcr_source_time").on(table.sourceSha256, table.recordedAt),
 ]);
@@ -8845,6 +8849,23 @@ export const insertRawReplitClassificationRevisionSchema = createInsertSchema(
   rawReplitClassificationRevisions,
 ).omit({ id: true, recordedAt: true });
 export type RawReplitClassificationRevision = typeof rawReplitClassificationRevisions.$inferSelect;
+
+export const rawReplitClassificationProjectionQueue = pgTable("raw_replit_classification_projection_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  revisionId: varchar("revision_id").notNull().references(() => rawReplitClassificationRevisions.id),
+  revisionKey: varchar("revision_key", { length: 255 }).notNull(),
+  sourceSha256: varchar("source_sha256", { length: 64 }).notNull(),
+  episodeFilename: varchar("episode_filename", { length: 255 }).notNull(),
+  marker: varchar("marker", { length: 255 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  projectedAt: timestamp("projected_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrcpq_revision_key").on(table.revisionKey),
+  index("idx_rrcpq_status").on(table.status, table.updatedAt),
+]);
 
 export const voiceDiagDailySummaries = pgTable("voice_diag_daily_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

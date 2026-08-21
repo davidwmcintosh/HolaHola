@@ -127,6 +127,7 @@ async function main(): Promise<void> {
 
       await tx.insert(rawReplitClassificationRevisions).values({
         rawEventId: capture.eventIds[0]!,
+        revisionKey: `${testId}:unknown`,
         sourceSha256: sha256(orderedPayloads[0]!),
         classification: 'unknown',
         reason: 'Source retained before attribution review.',
@@ -134,6 +135,7 @@ async function main(): Promise<void> {
       });
       await tx.insert(rawReplitClassificationRevisions).values({
         rawEventId: capture.eventIds[0]!,
+        revisionKey: `${testId}:tool-status`,
         sourceSha256: sha256(orderedPayloads[0]!),
         classification: 'tool-status',
         reason: 'Later review classified the source without changing bytes.',
