@@ -24,14 +24,14 @@ set -eu
 printf '%s\n' "$*" >> "${GIT_CALL_LOG:?}"
 
 case "${1:-}" in
-  symbolic-ref)
+  branch|symbolic-ref)
     printf '%s\n' main
     ;;
   fetch)
     exit 0
     ;;
   rev-parse)
-    if [[ "${2:-}" == "HEAD" ]]; then
+    if [[ "${3:-}" == "HEAD^{commit}" || "${2:-}" == "HEAD" ]]; then
       printf '%s\n' local
     else
       printf '%s\n' remote
@@ -102,12 +102,12 @@ run_pull_dirty_case() {
   )" || status=$?
 
   [[ "$status" -eq 1 ]]
-  grep -Fq "local uncommitted changes are present" <<<"$output"
+  grep -Fq "Uncommitted local changes prevent a safe GitHub release pull" <<<"$output"
   ! grep -Eq '^(fetch|merge)' "$fixture_dir/calls"
 }
 
 if rg -n 'GITHUB_TOKEN|https://[^[:space:]]+@github\.com' \
-  "$ROOT_DIR/scripts/github-ssh-env.sh" \
+  "$ROOT_DIR/scripts/github-release-ssh.sh" \
   "$ROOT_DIR/scripts/sync-to-github.sh" \
   "$ROOT_DIR/scripts/sync-from-github.sh"; then
   echo "Legacy token-bearing GitHub transport remains in a guarded sync script." >&2
@@ -115,7 +115,7 @@ if rg -n 'GITHUB_TOKEN|https://[^[:space:]]+@github\.com' \
 fi
 
 run_push_refusal_case "github-ahead" "GitHub is ahead of Replit"
-run_push_refusal_case "diverged" "histories have diverged"
+run_push_refusal_case "diverged" "Replit and GitHub have diverged"
 run_pull_dirty_case
 
 echo "PASS: GitHub sync guards reject unsafe history and dirty pull states."
