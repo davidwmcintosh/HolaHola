@@ -7,7 +7,7 @@
  */
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, statSync } from 'fs';
-import { basename, resolve } from 'path';
+import { basename, relative, resolve, sep } from 'path';
 
 import { closeDbConnections } from '../db';
 import { appendRawWindowOriginToEpisodeDb } from '../services/agent-session-autosave';
@@ -32,6 +32,15 @@ if (episodeIndex === -1 || !args[episodeIndex + 1]) usage('--episode is required
 const attachmentPath = resolve(args[attachmentIndex + 1]);
 const episodeFilename = args[episodeIndex + 1];
 if (!existsSync(attachmentPath)) usage(`attachment not found: ${attachmentPath}`);
+const attachmentRoot = resolve(process.cwd(), 'attached_assets');
+const pathWithinAttachmentRoot = relative(attachmentRoot, attachmentPath);
+if (
+  pathWithinAttachmentRoot === ''
+  || pathWithinAttachmentRoot.startsWith('..')
+  || pathWithinAttachmentRoot.includes('..' + sep)
+) {
+  usage('--attachment must be a file inside this workspace’s attached_assets directory');
+}
 
 const bytes = readFileSync(attachmentPath);
 const sha256 = createHash('sha256').update(bytes).digest('hex');

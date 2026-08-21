@@ -48,6 +48,15 @@ async function main(): Promise<void> {
       payloadBytes: Buffer.from('David source', 'utf8'),
       idempotencyKey: 'david',
     },
+    {
+      sequenceNumber: 3,
+      eventType: 'raw-window-attachment',
+      payloadText: '[ATTACHMENT: replit-window.png] [CLASSIFICATION: UNKNOWN]',
+      // Deliberately non-UTF-8 bytes: attachment retention must never rely on
+      // payloadText being a lossless representation of a visible window.
+      payloadBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]),
+      idempotencyKey: 'attachment',
+    },
   ];
 
   const rollback = new Error('raw-replit-capture integration rollback');
@@ -85,28 +94,38 @@ async function main(): Promise<void> {
       .where(eq(rawReplitProjectionLinks.streamId, capture.streamId));
 
     const orderedPayloads = ['David source', 'Luca source\nUTF-8 preserved: ñ'];
+    const attachmentBytes = events.find(event => event.idempotencyKey === 'attachment')!.payloadBytes!;
     const expectedBytes = orderedPayloads.reduce(
       (total, payload) => total + Buffer.byteLength(payload, 'utf8'),
-      0,
+      attachmentBytes.byteLength,
     );
     const expectedAggregate = sha256(
       [
         `1:david-message:${sha256(orderedPayloads[0]!)}\n`,
         `2:luca-output:${sha256(orderedPayloads[1]!)}\n`,
+        `3:raw-window-attachment:${createHash('sha256').update(attachmentBytes).digest('hex')}\n`,
       ].join(''),
     );
 
     expect(stream?.status === 'complete', 'Raw test stream did not close as complete.');
-    expect(stream?.persistedEventCount === 2, 'Raw test stream did not persist two events.');
+    expect(stream?.persistedEventCount === 3, 'Raw test stream did not persist all source events.');
     expect(stream?.persistedByteCount === expectedBytes, 'Raw test stream byte count differs from UTF-8 source.');
     expect(stream?.aggregateSha256 === expectedAggregate, 'Raw test stream aggregate hash differs from ordered source.');
-    expect(storedEvents.length === 2, 'Raw test events were not stored.');
+    expect(storedEvents.length === 3, 'Raw test events were not stored.');
       expect(
-      storedEvents.map(event => event.sequenceNumber).join(',') === '1,2',
+      storedEvents.map(event => event.sequenceNumber).join(',') === '1,2,3',
       'Raw test events were not returned in canonical source order.',
     );
+    const storedAttachment = storedEvents[2];
     expect(
-      storedEvents.every((event, index) =>
+      storedAttachment?.eventType === 'raw-window-attachment'
+      && Buffer.from(storedAttachment.payloadBytes).equals(attachmentBytes)
+      && storedAttachment.payloadSha256 === createHash('sha256').update(attachmentBytes).digest('hex')
+      && storedAttachment.payloadByteCount === attachmentBytes.byteLength,
+      'Binary attachment bytes, hash, or byte count differ from the source.',
+    );
+    expect(
+      storedEvents.slice(0, 2).every((event, index) =>
         event.payloadText === orderedPayloads[index]
         && event.payloadSha256 === sha256(orderedPayloads[index]!)
         && event.payloadByteCount === Buffer.byteLength(orderedPayloads[index]!, 'utf8'),
@@ -114,7 +133,7 @@ async function main(): Promise<void> {
       'Raw test event payload, SHA-256, or UTF-8 byte count differs from source.',
     );
     expect(
-      links.length === 2
+      links.length === 3
       && links.every(link =>
         link.targetKind === 'raw-replit-capture-integration'
         && link.targetKey === testId

@@ -2567,3 +2567,12 @@ Checkpoint made
 [ORIGIN SHA-256: 087089091b114b75c2494812b3ea4b89b234f7e1611bd4a92e86cfaa305cff1b]
 [ORIGIN BYTES: 298231]
 [NOTE: This byte-exact screenshot is retained as visible-window evidence. No OCR or speaker attribution has been inferred.]
+
+<!-- raw-window-attachment-origin:b5f652438fd5c52fac8bca76546c132b42c3b713e5cbfdb067898453a6da64e7 -->
+**[RAW WINDOW — ATTACHMENT ORIGIN DATA]:**
+[CLASSIFICATION: UNKNOWN]
+[ATTACHMENT: evidence_2_1787207040416.png]
+[WORKSPACE PATH: /home/runner/workspace/attached_assets/evidence_2_1787207040416.png]
+[ORIGIN SHA-256: b5f652438fd5c52fac8bca76546c132b42c3b713e5cbfdb067898453a6da64e7]
+[ORIGIN BYTES: 247834]
+[NOTE: This byte-exact screenshot is retained as visible-window evidence. No OCR or speaker attribution has been inferred.]
