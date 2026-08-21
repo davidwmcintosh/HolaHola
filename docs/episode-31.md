@@ -2558,3 +2558,12 @@ Checkpoint made
 [CLASSIFICATION: origin-data-retained]
 [REASON: Reviewed as retained origin data; speaker attribution remains unresolved.]
 [REVISED BY: luca]
+
+<!-- raw-window-attachment-origin:087089091b114b75c2494812b3ea4b89b234f7e1611bd4a92e86cfaa305cff1b -->
+**[RAW WINDOW — ATTACHMENT ORIGIN DATA]:**
+[CLASSIFICATION: UNKNOWN]
+[ATTACHMENT: different_1787281324842.png]
+[WORKSPACE PATH: /home/runner/workspace/attached_assets/different_1787281324842.png]
+[ORIGIN SHA-256: 087089091b114b75c2494812b3ea4b89b234f7e1611bd4a92e86cfaa305cff1b]
+[ORIGIN BYTES: 298231]
+[NOTE: This byte-exact screenshot is retained as visible-window evidence. No OCR or speaker attribution has been inferred.]
