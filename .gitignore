@@ -10,3 +10,8 @@ vite.config.ts.*
 .cache/replit/
 *.db
 .replit.nix
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
