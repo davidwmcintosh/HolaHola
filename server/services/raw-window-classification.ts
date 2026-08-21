@@ -47,27 +47,29 @@ export async function reviseRawWindowClassification(input: RawWindowClassificati
     input.episodeFilename, input.revisedBy, stableJson(input.attribution),
   ].join('\n')).digest('hex');
   const marker = `<!-- raw-window-classification:${revisionKey} -->`;
-  await db.insert(rawReplitClassificationRevisions).values({
-    rawEventId: rawEvent.id,
-    revisionKey,
-    sourceSha256: input.sourceSha256,
-    classification: input.classification,
-    attribution: input.attribution,
-    reason: input.reason,
-    revisedBy: input.revisedBy,
-  }).onConflictDoNothing();
-  const revisions = await db.select().from(rawReplitClassificationRevisions)
-    .where(eq(rawReplitClassificationRevisions.revisionKey, revisionKey)).limit(1);
-  const revision = revisions[0];
-  if (!revision) throw new Error(`Classification revision ${revisionKey} was not durable.`);
-  await db.insert(rawReplitClassificationProjectionQueue).values({
-    revisionId: revision.id,
-    revisionKey,
-    sourceSha256: input.sourceSha256,
-    episodeFilename: input.episodeFilename,
-    marker,
-    status: 'pending',
-  }).onConflictDoNothing();
+  await db.transaction(async tx => {
+    await tx.insert(rawReplitClassificationRevisions).values({
+      rawEventId: rawEvent.id,
+      revisionKey,
+      sourceSha256: input.sourceSha256,
+      classification: input.classification,
+      attribution: input.attribution,
+      reason: input.reason,
+      revisedBy: input.revisedBy,
+    }).onConflictDoNothing();
+    const revisions = await tx.select().from(rawReplitClassificationRevisions)
+      .where(eq(rawReplitClassificationRevisions.revisionKey, revisionKey)).limit(1);
+    const revision = revisions[0];
+    if (!revision) throw new Error(`Classification revision ${revisionKey} was not durable.`);
+    await tx.insert(rawReplitClassificationProjectionQueue).values({
+      revisionId: revision.id,
+      revisionKey,
+      sourceSha256: input.sourceSha256,
+      episodeFilename: input.episodeFilename,
+      marker,
+      status: 'pending',
+    }).onConflictDoNothing();
+  });
   const queueRows = await db.select().from(rawReplitClassificationProjectionQueue)
     .where(eq(rawReplitClassificationProjectionQueue.revisionKey, revisionKey)).limit(1);
   const queue = queueRows[0];
