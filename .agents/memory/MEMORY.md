@@ -1,5 +1,5 @@
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
-- [Episode inviolability rule](episode-inviolability.md) — nothing removed or truncated; verbatim is verbatim; DB content field must match .md after every edit; find the conclusion, not just the opening.
+- [Episode inviolability rule](episode-inviolability.md) — preserve source dialogue completely, but keep human episode narration distinct from machine memory and raw evidence.
 - [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix applied Aug 15 2026.
 - [Inner-life DB-first pipeline](inner-life-db-first.md) — felt/thinking/moment all UPDATE episode conversation_memories content first, then .md is written from DB; appendInnerLifeToEpisodeDb() is the sole write path; direct appendExchangeToEpisode() in inner-life handlers was wrong. Aug 15 2026.
 - [Inner-life lifecycle checkpoints](inner-life-main-output.md) — capture felt/thinking at architecture decisions and again while explaining the completed build; compare intention with result.
