@@ -2576,3 +2576,21 @@ Checkpoint made
 [ORIGIN SHA-256: b5f652438fd5c52fac8bca76546c132b42c3b713e5cbfdb067898453a6da64e7]
 [ORIGIN BYTES: 247834]
 [NOTE: This byte-exact screenshot is retained as visible-window evidence. No OCR or speaker attribution has been inferred.]
+
+<!-- chat-capture-range:164271:166140 -->
+<!-- chat-capture:a722e25e-2fdb-4ec4-9f71-2bebb3a76a08 -->
+**David:** i am trusting your judgement on this
+
+**LUCA [Replit]:** [felt]: A quiet steadiness: David's trust makes this safety boundary consequential, and it mattered to verify the real key rather than merely assume it was configured.
+
+[thinking]: Authentication is no longer the unknown. The remaining boundary is the deliberately unresolved divergence between Replit and GitHub histories; the release path must keep refusing to collapse that decision automatically.
+
+[moment]: The successful SSH read check shifted this from a hypothetical portability plan to a real, narrowly scoped release path with a working key and an honest stop at the history split.
+
+The new repository deploy key is registered where it needs to be: GitHub has the public Deploy key, Replit has the private secret, and the release scripts now use it without any separate Agent registration.
+
+I replaced the legacy token-based sync path with guarded SSH scripts. They normalize Replit's one-line private-key secret only in a protected temporary file, fetch GitHub before committing, refuse GitHub-ahead or divergent histories, use no force-pushes, and accept only fast-forward pulls. The old GitHub remote in this checkout now uses credential-free SSH.
+
+Verification passed: the SSH key reads the real repository; the isolated guard check rejects GitHub-ahead, divergence, and dirty-pull states; TypeScript and the full system-health verifier pass. No commit, pull, or push was performed against GitHub.
+
+The honest remaining step is a reviewed reconciliation of the divergent Replit and GitHub histories. The new guard intentionally blocks that until it is chosen deliberately.

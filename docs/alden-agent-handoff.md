@@ -1,3 +1,23 @@
+## August 21, 2026 — GitHub deploy-key release boundary
+
+- The repository-scoped SSH deploy key is authenticated for read access from
+  Replit. `scripts/sync-to-github.sh` and `scripts/sync-from-github.sh` now use
+  that key rather than the old credential-bearing HTTPS URL.
+- The scripts must fail closed: push fetches first and rejects a GitHub-ahead
+  or divergent branch before it stages/commits; pull rejects a dirty tree and
+  accepts only a fast-forward. Neither script force-pushes or creates an
+  automatic merge.
+- The Replit secret service stores the OpenSSH private key body as one line in
+  this environment. `scripts/github-ssh-env.sh` reconstructs it only in a
+  temporary 0600 file and removes that file on exit. Do not change the secret
+  to a public key or use it in a repository URL.
+- Replit `main` and GitHub `main` are currently divergent (`17487913…` locally,
+  `37ed5a85…` remotely). This is an intentional hard stop, not a sync failure:
+  reconcile through a reviewed branch/merge plan before any production release.
+- Run `bash scripts/test-github-sync-guards.sh` after changing sync behavior.
+
+---
+
 ## August 20, 2026 — Raw-window pipeline audit and reference boundary
 
 - Canonical raw-window capture now requires an Ed25519-signed, short-lived

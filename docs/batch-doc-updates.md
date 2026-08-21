@@ -1,5 +1,31 @@
 # Batch Documentation Updates
 
+## Session August 21, 2026 — Guarded GitHub deploy-key release path
+
+### Replit release automation no longer depends on an account-wide HTTPS token
+
+**What changed:** The Replit→GitHub and GitHub→Replit sync scripts now use the
+repository-scoped `HOLAHOLA_GITHUB_DEPLOY_KEY` over SSH. They materialize the
+private key only in a protected temporary file and safely reconstruct armored
+key line breaks when Replit has stored the secret as one line. No key material
+is printed, committed, or embedded in a Git URL.
+
+**Safety boundary:** Pushes fetch GitHub before staging or committing. If
+GitHub is ahead or the histories diverge, the script stops before creating a
+commit or push. Pulls reject dirty trees and allow fast-forwards only; neither
+direction force-pushes or creates an implicit merge.
+
+**Current status:** Authentication and repository read access are verified.
+The current Replit and GitHub `main` histories diverge, so the guarded script
+intentionally refuses any release until a deliberate reconciliation is
+reviewed. No GitHub write occurred during this change.
+
+**Verification:** Shell syntax, secret normalization, real read-only SSH
+access, isolated GitHub-ahead/divergence refusal cases, and dirty-pull refusal
+are covered by `scripts/test-github-sync-guards.sh`.
+
+---
+
 ## Session August 20, 2026 — Trusted Replit-window provenance receipts
 
 ### Canonical raw-window capture now requires an authenticated source receipt
