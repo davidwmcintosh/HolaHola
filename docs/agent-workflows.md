@@ -26,10 +26,18 @@ The Replit configuration intentionally contains four workflow records:
 - **Project** is the run-button entry point. It starts the application, Source
   bridge, Validation suite, and capture watchdog in parallel.
 - **Start application** owns the web server and the rolling-episode startup
-  safeguards.
+  safeguards. Its launcher takes `.local/start-application.lock` before
+  starting `npm run dev` and reuses an already-listening port, so starting
+  Project after Start application does not create a second server or an
+  `EADDRINUSE` failure. The reused workflow stays attached while that server is
+  alive and ends when the existing server stops.
 - **Source bridge** is a dedicated console workflow running
   `bash scripts/source-bridge.sh watch`. It is independently visible and
   restartable, and it never publishes production.
+- Source bridge invocations remain serialized by `.local/source-bridge.lock`.
+  If Project starts it while a manually started bridge is active, the second
+  invocation reports lock contention as `retrying` and performs no Git work;
+  the existing bridge remains the sole owner of synchronization.
 - **Validation suite** runs `server/scripts/run-validation-suite.sh`. That
   runner preserves the typecheck, application tests, consolidated CI, bridge
   safety checks, and workflow-boundary checks without consuming a workflow slot
