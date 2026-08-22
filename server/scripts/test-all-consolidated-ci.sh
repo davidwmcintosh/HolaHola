@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Consolidated CI runner — ~40 checks grouped into named sections.
+# Consolidated CI runner — safety checks grouped into named sections.
 # Estimated total runtime: ~3–5 minutes (network / DB-latency dependent).
 #
 # Usage:
@@ -25,12 +25,7 @@
 #                        depth guard + keyword arm
 #   backfill-integrity – confirms all backfill-cid:* conversation_memories (~10 s)
 #                        have at least one embedding; fails if cohort < 618
-#
-# Growth-cap exemptions (registered as standalone named workflows, not in groups):
-#   truth-pipeline-unified-recall-diagnosis-ci
-#     → npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts
-#       Kept standalone to avoid exceeding the consolidated-ci group growth cap
-#       (see task #1079).  Run it via the named workflow or directly.
+#   workflow-safety   – retired named CI checks kept in the consolidated gate
 
 # ── Parse arguments ─────────────────────────────────────────────────────────
 ONLY_GROUP=""
@@ -47,7 +42,7 @@ for arg in "$@"; do
   esac
 done
 
-VALID_GROUPS="absence sms-voice session north-star episode-sync episode-28 luca-inner-life memory-recall backfill-integrity"
+VALID_GROUPS="absence sms-voice session north-star episode-sync episode-28 luca-inner-life memory-recall backfill-integrity workflow-safety"
 
 if [[ -n "$ONLY_GROUP" && $SELF_TEST -eq 1 ]]; then
   echo "--self-test and --only cannot be combined (self-test uses synthetic groups that are not in VALID_GROUPS)" >&2
@@ -226,6 +221,10 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-watchdog-inner-life.ts (watchdog drain: first-run handoff / interleaving / restart dedup) ---"
   run test-watchdog-inner-life.ts
+  run test-watchdog-inner-life-autosave-gate.ts
+  echo ""
+  echo "  --- test-watchdog-inner-life-autosave-gate.ts --self-check (autosave gate removal regression) ---"
+  npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts --self-check
   run test-capture-status-db-only.ts
   run test-luca-auto-capture-episode.ts
   echo ""
@@ -361,6 +360,23 @@ group_body_backfill_integrity() {
   echo ""
   echo "  --- test-straggler-check-ci.ts (mutation: dark row raises count, detector is live) ---"
   npx tsx server/scripts/test-straggler-check-ci.ts
+}
+
+group_body_workflow_safety() {
+  # These guards used to consume individual Replit workflow slots. Keep them in
+  # the consolidated gate so lowering the configured-workflow count never
+  # weakens validation coverage.
+  run test-replit-attribution-discipline.ts
+  npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
+  npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
+  run test-capture-status-ordering.ts
+  run test-capture-status-stale-escalation.ts
+  run test-inner-life-no-episode-row.ts
+  run test-gl-reconnected-client-recovery.ts
+  run test-truth-pipeline-unified-recall-diagnosis.ts
+  run test-gl-game-session-detector.ts
+  npx tsx server/scripts/test-gl-game-session-detector.ts --self-check
+  npx tsx server/scripts/test-raw-window-capture.ts --self-check
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────
