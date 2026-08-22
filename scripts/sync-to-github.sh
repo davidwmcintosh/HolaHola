@@ -8,6 +8,12 @@ source "$SCRIPT_DIR/github-release-ssh.sh"
 BRANCH="main"
 REPO_URL="$GITHUB_REPO_URL"
 LOCK_FILE=".git/index.lock"
+COMMITTED_ONLY=0
+
+if [[ "${1:-}" == "--committed-only" ]]; then
+  COMMITTED_ONLY=1
+  shift
+fi
 
 if [[ -z "${HOLAHOLA_GITHUB_DEPLOY_KEY:-}" ]]; then
   echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY secret is not set. Add it in Replit Secrets." >&2
@@ -73,6 +79,13 @@ if [[ -z "$CHANGES" ]]; then
   git push "$REPO_URL" "HEAD:refs/heads/$BRANCH"
   echo "Done. Your GitHub repo is up to date."
   exit 0
+fi
+
+if [[ "$COMMITTED_ONLY" -eq 1 ]]; then
+  echo "ERROR: Uncommitted local changes prevent a committed-only GitHub push." >&2
+  git status --short >&2
+  echo "The source bridge never stages or commits editor changes automatically." >&2
+  exit 2
 fi
 
 echo "Changes to be committed:"

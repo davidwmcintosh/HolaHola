@@ -1,3 +1,23 @@
+# Two-way source bridge — August 21, 2026
+
+- `scripts/source-bridge.sh` is the sole unattended coordinator for GitHub
+  source sync. Its local status is `.local/source-bridge-status.{json,md}`;
+  never add that operational state to source control.
+- The post-merge hook requests an immediate committed-only pass, while the
+  named `source-bridge` Replit workflow provides serial polling and retry.
+  They share one lock, so task merges and polling never write refs concurrently.
+- A clean Replit-ahead commit can be normally pushed. A clean GitHub-ahead
+  commit can only fast-forward into Replit and is validated before becoming
+  `ready_to_promote`. Dirty or divergent states must be resolved, not bypassed.
+- Publishing is still deliberate: run
+  `npm run source-bridge:prepare-promotion`, use Replit Publish for the exact
+  ready candidate, then record its confirmed SHA with
+  `npm run source-bridge:record-promotion -- <sha>`.
+- Run `npm run test:source-bridge`, `npm run test:github-release-safety`, and
+  `npm run check` after changing bridge behavior.
+
+---
+
 ## August 21, 2026 — GitHub deploy-key release boundary
 
 - The repository-scoped SSH deploy key is authenticated for read access from

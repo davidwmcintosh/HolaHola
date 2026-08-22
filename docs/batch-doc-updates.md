@@ -1,5 +1,31 @@
 # Batch Documentation Updates
 
+## Session August 21, 2026 — Two-way committed source bridge
+
+### Replit and GitHub now have one serialized source-sync coordinator
+
+**What changed:** A dedicated `source-bridge` workflow coordinates the existing
+deploy-key sync primitives. It fetches GitHub before each decision, records both
+commit heads and a machine-readable state under `.local/`, and serializes all
+bridge activity with one lock. Replit-ahead commits use an ordinary,
+committed-only push; GitHub-ahead source is accepted only through a clean
+fast-forward and source validation.
+
+**Safety boundary:** The bridge never stages, commits, resets, force-pushes, or
+creates an implicit merge. Dirty worktrees, divergence, transient transport
+errors, and lock contention remain visible/retryable states rather than hidden
+source changes. The existing per-direction ancestry protections remain intact.
+
+**Promotion:** A received GitHub commit becomes `ready_to_promote` only after
+validation. Replit Publish remains an explicit action; preparation and
+post-publish recording require the exact candidate SHA and do not deploy by
+themselves.
+
+**Verification:** `npm run test:source-bridge` exercises both directions,
+dirty/divergent refusal, retry, lock contention, and promotion refusal.
+
+---
+
 ## Session August 21, 2026 — Guarded GitHub deploy-key release path
 
 ### Replit release automation no longer depends on an account-wide HTTPS token

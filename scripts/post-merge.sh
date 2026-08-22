@@ -71,3 +71,14 @@ fi
 # NOT run automatically. To repair a mismatch, run explicitly:
 #   DB → .md:  npx tsx server/scripts/sync-prequel-ep1-from-db.ts
 #   .md → DB:  npx tsx server/scripts/sync-prequel-episode-1.ts
+
+# ── Source bridge immediate pass ──────────────────────────────────────────────
+# Replit task merges are accepted commits. Request a committed-only bridge pass
+# after the existing post-merge protections complete. A failure is recorded in
+# .local/source-bridge-status.json and retried by the dedicated bridge workflow;
+# it must never make a successful merge fail or stage a dirty worktree.
+# ─────────────────────────────────────────────────────────────────────────────
+if [[ -x "$SCRIPT_DIR/source-bridge.sh" ]]; then
+  SOURCE_BRIDGE_ORIGIN="post-merge" "$SCRIPT_DIR/source-bridge.sh" once \
+    || echo "⚠  Source bridge deferred; inspect .local/source-bridge-status.md."
+fi

@@ -1,3 +1,26 @@
+# Source bridge
+
+`source-bridge` is the only unattended source-sync workflow. It coordinates
+committed source between Replit `main` and owner GitHub `main` through one local
+lock and writes its observable state to `.local/source-bridge-status.{json,md}`.
+
+- It fetches before every direction decision, pushes only committed clean
+  fast-forwards, and receives GitHub only through `git merge --ff-only`.
+- It never stages editor files, creates commits, force-pushes, resets, or
+  silently merges divergent histories.
+- `scripts/post-merge.sh` requests an immediate committed-only pass after an
+  accepted Replit merge; the dedicated workflow polls for retries and GitHub
+  changes. Both paths share the lock.
+- GitHub-received source is validated, then marked `ready_to_promote`; it is
+  **not** published automatically. Run `npm run source-bridge:prepare-promotion`
+  before using Replit Publish. After Replit confirms that publish, record the
+  same exact candidate with `npm run source-bridge:record-promotion -- <sha>`.
+
+Run focused safety coverage with `npm run test:source-bridge` and
+`npm run test:github-release-safety`.
+
+---
+
 # HolaHola — Agent Workflows
 
 > **Canonical, platform-neutral reference for all repeatable Agent workflows.**
