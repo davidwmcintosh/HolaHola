@@ -341,7 +341,8 @@ class VoiceProbeService {
     const byCategory: Record<ProbeCategory, number> = {
       emotional_bleed: 0,
       incongruent_intonation: 0,
-      cultural_resonance: 0
+      cultural_resonance: 0,
+      moral_boundaries: 0,
     };
     
     const byVoice: Record<string, number> = {};

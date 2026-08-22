@@ -61,9 +61,11 @@ import {
   MessageCircle,
   User,
   GraduationCap,
+  ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { synthesizeSpeech } from "@/lib/restVoiceApi";
 import type HanziWriter from "hanzi-writer";
@@ -73,6 +75,7 @@ import type {
   WriteItem,
   WriteItemSize,
   ImageItem,
+  ComparisonItem,
   DrillItem,
   PronunciationItem,
   ContextItem,
@@ -91,14 +94,19 @@ import type {
   MatchPair,
   DialogueItem,
   DialogueLine,
+  SentenceTableItem,
+  TextbookSearchItem,
+  TextbookPageItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isComparisonItem, isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isVocabCardItem, isWordEchoItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import type { DailyPlanItem, DailyPlanAgendaItem, TeachingCardItem, VocabCardItem } from "@shared/whiteboard-types";
+import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { GripVertical, PenLine, Send } from "lucide-react";
+import { GripVertical, PenLine, Send, ClipboardList, Zap, CalendarDays, ChevronRight } from "lucide-react";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -150,6 +158,10 @@ const getItemIcon = (type: WhiteboardItemType) => {
       return <TrendingUp className="h-4 w-4" />;
     case "text_input":
       return <PenLine className="h-4 w-4" />;
+    case "sentence_table":
+      return <Table2 className="h-4 w-4" />;
+    case "textbook_search":
+      return <BookOpen className="h-4 w-4" />;
     default:
       return null;
   }
@@ -195,6 +207,10 @@ const getItemStyle = (type: WhiteboardItemType): string => {
       return "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300";
     case "text_input":
       return "bg-lime-500/10 border-lime-500/30 text-lime-700 dark:text-lime-300";
+    case "sentence_table":
+      return "bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300";
+    case "textbook_search":
+      return "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300";
     default:
       return "bg-muted border-border text-foreground";
   }
@@ -237,6 +253,20 @@ interface ImageItemDisplayProps {
 
 const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
   const { data } = item;
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // labelMode is set by Daniela — students have no control over labels.
+  // 'teach'  → show target word + native translation (both labels — introducing)
+  // 'target' → show native translation only (hint toward the target language — student produces target word)
+  // 'quiz'   → image only — no labels, student must produce the target word unprompted
+  const labelMode = data.labelMode ?? 'teach';
+  const showWord = labelMode === 'teach';
+  const showTranslation = (labelMode === 'teach' || labelMode === 'target') && !!data.translation;
+
+  // Multi-subject: when labels array is present, use chips instead of single header
+  const multiLabels = data.labels && data.labels.length > 0 ? data.labels : null;
+  // For multi-subject chips, only render if labelMode is not 'quiz'
+  const showChips = multiLabels !== null && labelMode !== 'quiz';
   
   return (
     <motion.div
@@ -247,35 +277,207 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
       className="flex flex-col gap-2 p-4 rounded-lg border bg-emerald-500/10 border-emerald-500/30"
       data-testid={`whiteboard-item-image-${index}`}
     >
-      <div className="flex items-center gap-2">
-        <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60" />
-        <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-          {data.word}
-        </span>
-      </div>
+      {/* Single-subject label — only when no labels array */}
+      {!multiLabels && showWord && (
+        <div className="flex items-center gap-2">
+          <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
+          <div className="flex flex-col leading-tight">
+            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+              {data.word}
+            </span>
+            {data.latinScript && (
+              <span className="text-[12px] font-medium text-emerald-600/80 dark:text-emerald-400/80 italic">
+                {data.latinScript}
+              </span>
+            )}
+            {showTranslation && (
+              <span className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
+                {data.translation}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {!multiLabels && !showWord && showTranslation && (
+        <div className="flex items-center gap-2">
+          <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 opacity-60 shrink-0" />
+          <span className="text-[13px] text-emerald-600/80 dark:text-emerald-400/80">
+            {data.translation}
+          </span>
+        </div>
+      )}
       
       {data.isLoading ? (
         <div className="flex items-center justify-center h-32 bg-muted/50 rounded-lg">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : data.imageUrl ? (
-        <img 
-          src={data.imageUrl} 
-          alt={data.description}
-          className="w-full h-32 object-cover rounded-lg"
-          data-testid={`image-vocab-${data.word}`}
-        />
+        <div
+          className="relative group cursor-zoom-in rounded-lg overflow-hidden"
+          onClick={() => setLightboxOpen(true)}
+        >
+          <img 
+            src={data.imageUrl} 
+            alt={data.description}
+            className="w-full h-32 object-cover"
+            data-testid={`image-vocab-${data.word}`}
+          />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
+            <ZoomIn className="h-7 w-7 text-white drop-shadow" />
+          </div>
+        </div>
       ) : (
         <div className="flex items-center justify-center h-32 bg-muted/50 rounded-lg text-muted-foreground text-sm">
-          {data.description}
+          Generating image...
         </div>
       )}
       
+      {/* Multi-subject chip grid — rendered after image, controlled by labelMode */}
+      {showChips && (
+        <div className="flex flex-wrap gap-1.5" data-testid={`chips-multi-${index}`}>
+          {multiLabels!.map((label, i) => (
+            <div
+              key={i}
+              className="flex flex-col leading-tight px-2 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/20"
+              data-testid={`chip-vocab-${label.word}`}
+            >
+              {/* teach mode: show target word (bold) + latin script + native translation */}
+              {labelMode === 'teach' && (
+                <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">
+                  {label.word}
+                </span>
+              )}
+              {labelMode === 'teach' && label.latinScript && (
+                <span className="text-[10px] italic text-emerald-600/80 dark:text-emerald-400/80">
+                  {label.latinScript}
+                </span>
+              )}
+              {/* teach + target modes: show native translation */}
+              {label.translation && (
+                <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">
+                  {label.translation}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {data.description && data.description !== data.word && (
         <span className="text-sm text-muted-foreground italic">
           {data.description}
         </span>
       )}
+
+      {data.imageUrl && (
+        <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0" data-testid="whiteboard-image-lightbox">
+            <img
+              src={data.imageUrl}
+              alt={data.description}
+              className="w-full h-auto max-h-[80vh] object-contain"
+            />
+            {data.description && (
+              <p className="text-white/80 text-sm text-center px-4 py-2 bg-black/70">{data.description}</p>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+    </motion.div>
+  );
+};
+
+interface ComparisonItemDisplayProps {
+  item: ComparisonItem;
+  index: number;
+}
+
+const ComparisonItemDisplay = ({ item, index }: ComparisonItemDisplayProps) => {
+  const { data } = item;
+  const isRTL = data.language === 'arabic';
+  const hasBackground = !!data.imageUrl;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col rounded-lg border border-violet-500/30 overflow-hidden"
+      data-testid={`whiteboard-item-comparison-${index}`}
+    >
+      {/* Background image wrapper — DOM text always on top */}
+      <div
+        className="relative"
+        style={hasBackground ? {
+          backgroundImage: `url(${data.imageUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : undefined}
+      >
+        {/* Dark wash so DOM text stays readable over any background image */}
+        {hasBackground && (
+          <div className="absolute inset-0 bg-black/55" aria-hidden />
+        )}
+
+        {/* Two-column grid — concept labels always DOM text */}
+        <div
+          className="relative z-10 grid grid-cols-2"
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          {/* Left panel — concept_a */}
+          <div className={`p-4 flex flex-col gap-1 ${hasBackground ? 'border-r border-white/20' : 'border-r border-violet-500/20 bg-violet-500/5'}`}>
+            <div className={`text-xl font-bold tracking-wide ${hasBackground ? 'text-white drop-shadow' : 'text-violet-700 dark:text-violet-300'}`}>
+              {data.concept_a}
+            </div>
+            {data.a_meaning && (
+              <ul className={`flex flex-col gap-0.5 mt-0.5 ${hasBackground ? 'text-white/85' : 'text-violet-600/80 dark:text-violet-400/80'}`}>
+                {data.a_meaning.split(',').map((item: string, i: number) => item.trim() && (
+                  <li key={i} className="flex items-start gap-1 text-xs font-medium leading-snug">
+                    <span className="mt-[3px] shrink-0">•</span>
+                    <span>{item.trim()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.a_example && (
+              <div className={`text-xs italic mt-1 ${hasBackground ? 'text-white/70' : 'text-muted-foreground'}`}>
+                &ldquo;{data.a_example}&rdquo;
+              </div>
+            )}
+          </div>
+
+          {/* Right panel — concept_b */}
+          <div className={`p-4 flex flex-col gap-1 ${hasBackground ? '' : 'bg-amber-500/5'}`}>
+            <div className={`text-xl font-bold tracking-wide ${hasBackground ? 'text-white drop-shadow' : 'text-amber-700 dark:text-amber-300'}`}>
+              {data.concept_b}
+            </div>
+            {data.b_meaning && (
+              <ul className={`flex flex-col gap-0.5 mt-0.5 ${hasBackground ? 'text-white/85' : 'text-amber-600/80 dark:text-amber-400/80'}`}>
+                {data.b_meaning.split(',').map((item: string, i: number) => item.trim() && (
+                  <li key={i} className="flex items-start gap-1 text-xs font-medium leading-snug">
+                    <span className="mt-[3px] shrink-0">•</span>
+                    <span>{item.trim()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.b_example && (
+              <div className={`text-xs italic mt-1 ${hasBackground ? 'text-white/70' : 'text-muted-foreground'}`}>
+                &ldquo;{data.b_example}&rdquo;
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Student error context */}
+        {data.student_example && (
+          <div className={`relative z-10 px-4 py-2 text-xs border-t ${hasBackground ? 'border-white/20 text-white/70' : 'border-violet-500/20 text-muted-foreground bg-violet-500/5'}`}>
+            <span className="opacity-60">You said: </span>
+            <span className="italic">&ldquo;{data.student_example}&rdquo;</span>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -2538,26 +2740,30 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
   };
   
   useEffect(() => {
-    if (!data.character) {
+    if (!data.character || typeof window === 'undefined') {
       setIsLoading(false);
       setHasError(true);
       return;
     }
-    if (typeof window === 'undefined') {
-      setIsLoading(false);
-      setHasError(true);
-      return;
-    }
-    if (!writerContainerRef.current) {
-      setIsLoading(false);
-      setHasError(true);
-      return;
-    }
-    
-    const container = writerContainerRef.current;
+
     let mounted = true;
-    
+
+    // Container is always in DOM (rendered with visibility:hidden during loading/error).
+    // The ref is available immediately on mount because the div is unconditionally rendered.
+    // initWriter is async so it can await the dynamic import — started via initWriter().
     const initWriter = async () => {
+      // Guard: if ref is somehow not yet populated (e.g. very first paint), wait one tick.
+      if (!writerContainerRef.current) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      if (!mounted) return;
+      if (!writerContainerRef.current) {
+        setIsLoading(false);
+        setHasError(true);
+        return;
+      }
+
+      const container = writerContainerRef.current;
       try {
         const HanziWriterModule = await import('hanzi-writer');
         const HanziWriter = HanziWriterModule.default;
@@ -2668,22 +2874,39 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
         )}
       </div>
       
-      <div className="flex justify-center items-center py-4 min-h-[140px]">
-        {isLoading && !hasError ? (
+      <div className="flex justify-center items-center py-4 min-h-[140px] relative">
+        {/* Writer container is ALWAYS in the DOM so the ref is available when the effect fires.
+            Visibility is toggled via CSS — HanziWriter requires the element to exist on mount. */}
+        <div
+          className="relative"
+          style={{ visibility: (isLoading || hasError || !isSupported) ? 'hidden' : 'visible' }}
+        >
+          <div 
+            ref={writerContainerRef}
+            className="w-[120px] h-[120px]"
+            data-testid={`stroke-writer-${index}`}
+          />
+        </div>
+
+        {/* Loading overlay */}
+        {isLoading && !hasError && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center gap-2"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
           >
             <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             <span className="text-xs text-muted-foreground">Loading stroke data...</span>
           </motion.div>
-        ) : hasError || !isSupported ? (
+        )}
+
+        {/* Error / unsupported overlay */}
+        {(hasError || !isSupported) && (
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 10 }}
-            className="relative flex flex-col items-center gap-2"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
           >
             <span 
               className="text-6xl font-medium text-orange-700 dark:text-orange-300"
@@ -2694,19 +2917,6 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
             <p className="text-xs text-orange-600/70 dark:text-orange-400/70">
               Stroke data not available
             </p>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 10 }}
-            className="relative"
-          >
-            <div 
-              ref={writerContainerRef}
-              className="w-[120px] h-[120px]"
-              data-testid={`stroke-writer-${index}`}
-            />
           </motion.div>
         )}
       </div>
@@ -3710,6 +3920,348 @@ const TextInputItemDisplay = ({ item, index, onSubmit }: TextInputItemDisplayPro
   );
 };
 
+// ─── Sentence Table (Substitution drill) ───────────────────────────
+function SentenceTableItemDisplay({ item, index }: { item: SentenceTableItem; index: number }) {
+  const { columns, patternLabel } = item.data;
+  if (!columns || columns.length === 0) return null;
+  const maxRows = Math.max(...columns.map(c => c.items.length));
+
+  return (
+    <div className="space-y-2" data-testid={`whiteboard-item-sentence-table-${index}`}>
+      {patternLabel && (
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{patternLabel}</p>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              {columns.map((col, ci) => (
+                <th
+                  key={ci}
+                  className="text-left px-3 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border/60 uppercase tracking-wide"
+                >
+                  {col.header || `Column ${ci + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: maxRows }).map((_, ri) => (
+              <tr key={ri} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
+                {columns.map((col, ci) => (
+                  <td
+                    key={ci}
+                    className="px-3 py-1.5 font-medium"
+                    data-testid={`sentence-table-cell-${index}-${ri}-${ci}`}
+                  >
+                    {col.items[ri] ?? ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Each row is a complete sentence — swap any column to make a new one.
+      </p>
+    </div>
+  );
+}
+
+// ─── Textbook Search Results ──────────────────────────────────────────────────
+function TextbookSearchItemDisplay({ item, index }: { item: TextbookSearchItem; index: number }) {
+  const { query, matches } = item.data;
+
+  return (
+    <div className="space-y-2" data-testid={`whiteboard-item-textbook-search-${index}`}>
+      <div className="flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+        <p className="text-sm font-medium">
+          Results for &ldquo;<span className="text-foreground">{query}</span>&rdquo;
+        </p>
+      </div>
+      {matches.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">No chapters found covering this topic yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {matches.map((match, mi) => (
+            <div
+              key={mi}
+              className="rounded-md border border-border/50 bg-background/60 px-3 py-2 space-y-0.5"
+              data-testid={`textbook-search-match-${index}-${mi}`}
+            >
+              <div className="flex items-center gap-2">
+                {match.chapterNumber !== undefined && (
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">Ch.{match.chapterNumber}</span>
+                )}
+                <span className="text-sm font-semibold text-foreground">{match.unitName}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">{match.lessonName}</p>
+              {match.excerpt && (
+                <p className="text-xs text-foreground/70 line-clamp-2">{match.excerpt}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Vocab Card ───────────────────────────────────────────────────────────────
+
+function VocabCardItemDisplay({ item, index }: { item: VocabCardItem; index: number }) {
+  const { data } = item;
+  return (
+    <div
+      className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300"
+      data-testid={`whiteboard-item-vocab-card-${index}`}
+    >
+      <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+        <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+          Vocabulary
+        </span>
+        {data.language && (
+          <span className="ml-auto text-xs text-muted-foreground uppercase">{data.language}</span>
+        )}
+      </div>
+      <div className="flex items-start gap-3">
+        {data.imageUrl && (
+          <img
+            src={data.imageUrl}
+            alt={data.word}
+            className="w-16 h-16 object-cover rounded-md shrink-0"
+          />
+        )}
+        <div className="space-y-1 min-w-0">
+          <p className="text-2xl font-bold text-foreground leading-tight">{data.word}</p>
+          {data.showTranslation !== false ? (
+            <p className="text-sm text-muted-foreground">{data.definition}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground/60 italic">What does this mean?</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Teaching Card ────────────────────────────────────────────────────────────
+
+function TeachingCardItemDisplay({ item, index }: { item: TeachingCardItem; index: number }) {
+  const { data } = item;
+  const durationMs = data.autoDismissMs ?? 8000;
+  return (
+    <div
+      className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300"
+      data-testid={`whiteboard-item-teaching-card-${index}`}
+    >
+      <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+        <Zap className="h-4 w-4 text-amber-500 shrink-0" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+          Quick Note
+        </span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {Math.round(durationMs / 1000)}s
+        </span>
+      </div>
+      {data.word && (
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-xl font-bold text-foreground">{data.word}</span>
+          {data.translation && (
+            <span className="text-sm text-muted-foreground">— {data.translation}</span>
+          )}
+        </div>
+      )}
+      {data.grammarRule && !data.word && (
+        <p className="text-sm text-foreground">{data.grammarRule}</p>
+      )}
+      {data.grammarRule && data.word && (
+        <p className="text-xs text-muted-foreground italic">{data.grammarRule}</p>
+      )}
+      {data.examples && data.examples.length > 0 && (
+        <ul className="space-y-1">
+          {data.examples.map((ex, i) => (
+            <li key={i} className="text-xs text-foreground/80 before:content-['›'] before:mr-1.5 before:text-amber-500">
+              {ex}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─── Textbook Page Card ────────────────────────────────────────────────────────
+
+function TextbookPageItemDisplay({ item, index }: { item: TextbookPageItem; index: number }) {
+  const { data } = item;
+  return (
+    <div className="space-y-3" data-testid={`whiteboard-item-textbook-page-${index}`}>
+      <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+        <BookOpen className="h-4 w-4 text-primary shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">
+            {data.lessonId}
+          </p>
+          {data.actflLevel && (
+            <p className="text-xs text-muted-foreground">{data.actflLevel}</p>
+          )}
+        </div>
+      </div>
+
+      {data.vocabulary && data.vocabulary.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Vocabulary
+          </p>
+          <div className="space-y-1">
+            {data.vocabulary.map((v, i) => (
+              <div key={i} className="flex items-baseline gap-2">
+                <span className="text-sm font-medium text-foreground">{v.word}</span>
+                {v.translation && (
+                  <span className="text-xs text-muted-foreground">{v.translation}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.grammarPattern && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Grammar Pattern
+          </p>
+          <p className="text-sm text-foreground/90 leading-relaxed">{data.grammarPattern}</p>
+        </div>
+      )}
+
+      {data.examples && data.examples.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Key Examples
+          </p>
+          <div className="space-y-2">
+            {data.examples.map((e, i) => (
+              <div key={i} className="space-y-0.5">
+                <p className="text-sm font-medium text-foreground">{e.target}</p>
+                {e.translation && (
+                  <p className="text-xs text-muted-foreground">{e.translation}</p>
+                )}
+                {e.note && (
+                  <p className="text-xs text-muted-foreground/70 italic">{e.note}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.sentencePatterns && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Sentence Patterns
+          </p>
+          <p className="text-sm text-foreground/80 leading-relaxed">{data.sentencePatterns}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Daily Plan Card ──────────────────────────────────────────────────────────
+
+function agendaIcon(type: DailyPlanAgendaItem['type']) {
+  switch (type) {
+    case 'vocab_review': return <RotateCcw className="w-4 h-4" />;
+    case 'lesson':       return <BookOpen className="w-4 h-4" />;
+    case 'assignment':   return <ClipboardList className="w-4 h-4" />;
+    case 'practice':     return <Zap className="w-4 h-4" />;
+    case 'conversation': return <MessageSquare className="w-4 h-4" />;
+    default:             return <CheckCircle2 className="w-4 h-4" />;
+  }
+}
+
+function DailyPlanCard({ item, index }: { item: DailyPlanItem; index: number }) {
+  const { data } = item;
+  const { greeting, dateLabel, agenda, stats } = data;
+
+  const sessionsDisplay = `${stats.sessionsThisWeek}/${stats.goalSessionsPerWeek}`;
+  const weekProgress = Math.min(stats.sessionsThisWeek / (stats.goalSessionsPerWeek || 5), 1);
+
+  return (
+    <div
+      className="rounded-xl border border-border bg-card text-card-foreground overflow-hidden"
+      data-testid={`whiteboard-daily-plan-${index}`}
+    >
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border bg-muted/40">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <p className="text-xs text-muted-foreground">{dateLabel}</p>
+            <h2 className="text-base font-semibold leading-tight">{greeting}</h2>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>{sessionsDisplay} this week</span>
+            </span>
+            {stats.dueVocabCount > 0 && (
+              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{stats.dueVocabCount} due</span>
+              </span>
+            )}
+          </div>
+        </div>
+        {/* Week progress bar */}
+        <div className="mt-2 h-1 rounded-full bg-border overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${weekProgress * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Agenda list */}
+      <div className="divide-y divide-border">
+        {agenda.map((agendaItem, i) => (
+          <div
+            key={agendaItem.id}
+            className="flex items-center gap-3 px-4 py-3"
+            data-testid={`daily-plan-item-${agendaItem.id}`}
+          >
+            <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
+              agendaItem.urgency === 'due'
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                : 'bg-primary/10 text-primary'
+            }`}>
+              {agendaIcon(agendaItem.type)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium leading-snug truncate">{agendaItem.label}</p>
+              {agendaItem.detail && (
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{agendaItem.detail}</p>
+              )}
+            </div>
+            {agendaItem.urgency === 'due' && (
+              <span className="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                Due
+              </span>
+            )}
+            <ChevronRight className="shrink-0 w-4 h-4 text-muted-foreground" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── WhiteboardItemDisplay ────────────────────────────────────────────────────
+
 const WhiteboardItemDisplay = ({ 
   item, 
   index,
@@ -3730,6 +4282,10 @@ const WhiteboardItemDisplay = ({
   // Track when drills are displayed for response time calculation
   const drillDisplayTimeRef = useRef<number>(Date.now());
   
+  if (isComparisonItem(item)) {
+    return <ComparisonItemDisplay item={item} index={index} />;
+  }
+
   if (isImageItem(item)) {
     return <ImageItemDisplay item={item} index={index} />;
   }
@@ -3844,7 +4400,45 @@ const WhiteboardItemDisplay = ({
   if (isDialogueItem(item)) {
     return <DialogueItemDisplay item={item} index={index} />;
   }
-  
+
+  if (isSceneCanvasItem(item)) {
+    return (
+      <SceneCanvas
+        data={item.data}
+        data-testid={`whiteboard-item-scene-canvas-${index}`}
+      />
+    );
+  }
+
+  if (isSentenceTableItem(item)) {
+    return <SentenceTableItemDisplay item={item} index={index} />;
+  }
+
+  if (isTextbookSearchItem(item)) {
+    return <TextbookSearchItemDisplay item={item} index={index} />;
+  }
+
+  if (isDailyPlanItem(item)) {
+    return <DailyPlanCard item={item} index={index} />;
+  }
+
+  if (isTextbookPageItem(item)) {
+    return <TextbookPageItemDisplay item={item} index={index} />;
+  }
+
+  if (isTeachingCardItem(item)) {
+    return <TeachingCardItemDisplay item={item} index={index} />;
+  }
+
+  if (isVocabCardItem(item)) {
+    return <VocabCardItemDisplay item={item} index={index} />;
+  }
+
+  // word_echo items are rendered as overlays in WhiteboardPanel — never reach here
+  if (isWordEchoItem(item)) {
+    return null;
+  }
+
   return <TextItemDisplay item={item} index={index} />;
 };
 

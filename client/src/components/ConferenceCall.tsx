@@ -11,6 +11,7 @@ import {
   PhoneOff,
   Users,
   AtSign,
+  UserPlus,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,15 @@ import type { CollaborationMessage } from "@shared/schema";
 const AGENT_CONFIG: Record<string, { label: string; initials: string; color: string; darkColor: string }> = {
   founder: { label: "David", initials: "D", color: "bg-blue-500/10 text-blue-600", darkColor: "bg-blue-500/20 text-blue-400" },
   daniela: { label: "Daniela", initials: "Da", color: "bg-purple-500/10 text-purple-600", darkColor: "bg-purple-500/20 text-purple-400" },
+  editor: { label: "Alden", initials: "Al", color: "bg-primary/10 text-primary", darkColor: "bg-primary/20 text-primary" },
   wren: { label: "Wren", initials: "W", color: "bg-emerald-500/10 text-emerald-600", darkColor: "bg-emerald-500/20 text-emerald-400" },
-  editor: { label: "Alden", initials: "A", color: "bg-primary/10 text-primary", darkColor: "bg-primary/20 text-primary" },
+  sofia: { label: "Sofia", initials: "So", color: "bg-cyan-500/10 text-cyan-600", darkColor: "bg-cyan-500/20 text-cyan-400" },
+  lyra: { label: "Lyra", initials: "Ly", color: "bg-amber-500/10 text-amber-600", darkColor: "bg-amber-500/20 text-amber-400" },
   system: { label: "System", initials: "S", color: "bg-muted text-muted-foreground", darkColor: "bg-muted text-muted-foreground" },
 };
+
+const ROOM_PARTICIPANTS = ["daniela", "editor"] as const;
+const INVITE_BENCH = ["wren", "sofia", "lyra"] as const;
 
 function getAgentConfig(role: string) {
   return AGENT_CONFIG[role] || AGENT_CONFIG.system;
@@ -215,15 +221,18 @@ export function ConferenceCall() {
   return (
     <div className="flex flex-col h-full" data-testid="conference-call-container">
       <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b bg-muted/30 flex-wrap">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <ConnectionBadge state={founderCollab.state.connectionState} />
-          <div className="flex -space-x-1.5">
-            {["daniela", "wren", "editor"].map(role => {
+          <div className="flex items-center gap-1.5">
+            {ROOM_PARTICIPANTS.map(role => {
               const cfg = getAgentConfig(role);
               return (
-                <Avatar key={role} className="h-5 w-5 border-2 border-background">
-                  <AvatarFallback className={`${cfg.color} text-[8px] font-bold`}>{cfg.initials}</AvatarFallback>
-                </Avatar>
+                <div key={role} className="flex items-center gap-1">
+                  <Avatar className="h-5 w-5 border border-border">
+                    <AvatarFallback className={`${cfg.color} text-[8px] font-bold`}>{cfg.initials}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-[10px] text-muted-foreground">{cfg.label}</span>
+                </div>
               );
             })}
           </div>
@@ -314,8 +323,8 @@ export function ConferenceCall() {
 
         <div className="border-t p-3 space-y-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <AtSign className="h-3.5 w-3.5 text-muted-foreground" />
-            {["daniela", "wren", "alden", "team"].map(target => (
+            <AtSign className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+            {["daniela", "alden", "team"].map(target => (
               <Button
                 key={target}
                 size="sm"
@@ -327,6 +336,23 @@ export function ConferenceCall() {
                 @{target}
               </Button>
             ))}
+            <div className="w-px h-4 bg-border mx-0.5 flex-shrink-0" />
+            <UserPlus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            {INVITE_BENCH.map(role => {
+              const cfg = getAgentConfig(role);
+              return (
+                <Button
+                  key={role}
+                  size="sm"
+                  variant={mentionPrefix === role ? "default" : "ghost"}
+                  className="h-6 text-[11px] px-2 text-muted-foreground"
+                  onClick={() => addMention(role)}
+                  data-testid={`button-mention-${role}`}
+                >
+                  @{cfg.label.toLowerCase()}
+                </Button>
+              );
+            })}
           </div>
           <div className="flex items-end gap-2">
             <Textarea

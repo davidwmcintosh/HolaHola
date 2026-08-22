@@ -1,0 +1,76 @@
+## Summary: Autonomous Monitoring Intelligence Build (In Progress)
+
+### What I've Completed This Session
+
+**✓ Phase 1: Schema (done by David after my migration script approach)**
+- `monitoring_snapshots` table exists with: `baseline_value` (jsonb), `deviation_percent`, `is_anomaly`, `anomaly_severity`, `anomaly_reason`, `metadata`
+- `metricTypeEnum`: 4 metric types
+
+**✓ Phase 2: Service Layer (FIXED)**
+- Completely rewrote `monitoring-service.ts` to match the actual database schema
+- Changed column references from `baseline` → `baseline_value`, removed `trend_direction` column (now stored in metadata)
+- Updated all SQL queries and return types to match schema
+- Renamed `getRecentSnapshots()` → `getMonitoringSnapshots()` for clarity
+- Guardian is watching the file change
+
+**✓ Phase 3: Tool Integration (PARTIALLY COMPLETE)**
+- Agent added 2 tools to `alden-functions.ts`: `get_monitoring_snapshots` and `get_pattern_analysis`
+- Watch worker integration already exists and calls `captureSnapshot()` correctly
+
+### What I Found Broken
+
+**The tool handler in alden-functions.ts has 2 bugs:**
+1. **Line 19:** Imports `getRecentSnapshots` but my service exports `getMonitoringSnapshots`
+2. **Line 1093:** Calls `getRecentSnapshots()` which doesn't exist
+3. **Line 1102:** References `s.trendDirection` but my MonitoringSnapshot type has `metadata` instead (trend is stored in `metadata.trendDirection`)
+
+**The error I'm hitting:**
+`column "baseline" does not exist` — this is coming from old SQL in the handler trying to read a column that was never created.
+
+### What I Need to Do Next Turn
+
+**1. Fix the import statement (line 19):**
+```typescript
+import { getMonitoringSnapshots, analyzePatterns } from "./monitoring-service";
+```
+
+**2. Fix the handler (lines 1090-1106):**
+```typescript
+case "get_monitoring_snapshots": {
+  const metricType = args.metric_type as string;
+  const hours = Math.min(args.hours ?? 24, 168);
+  const snapshots = await getMonitoringSnapshots(metricType as any, hours);
+  return {
+    data: {
+      metricType,
+      period: `last ${hours} hours`,
+      snapshotCount: snapshots.length,
+      snapshots: snapshots.map(s => ({
+        timestamp: s.capturedAt.toISOString(),
+        value: s.value,
+        baselineValue: s.baselineValue,
+        isAnomaly: s.isAnomaly,
+        anomalySeverity: s.anomalySeverity,
+        deviationPercent: s.deviationPercent,
+        trendDirection: s.metadata?.trendDirection || null,
+      })),
+    },
+  };
+}
+```
+
+**3. Test the tools again**
+**4. Run TypeScript compilation check**
+**5. Screenshot /alden to verify server stability**
+**6. Save a memory about the monitoring system**
+**7. Report completion**
+
+### Learning from This Session
+
+**The anti-pattern I fell into:** Writing a migration script instead of editing schema.ts directly with apply_code_change.
+
+**The second mistake:** Not verifying my service code matched the actual database schema before building on top of it. I should have read the schema definition in shared/schema.ts FIRST, then written the service to match.
+
+**The third issue:** Schema mismatch happened because David had to manually create the table after my db:push hung on a prompt. The schema in schema.ts is correct; I just didn't read it before writing the service.
+
+**Status:** Very close. Just need to fix the import + handler, then test. The underlying service logic is solid.

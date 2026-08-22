@@ -7,15 +7,24 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle, ArrowLeft } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle, ArrowLeft, Phone, MessageSquare, PhoneCall, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
+
+interface ContactPreferences {
+  phone: string | null;
+  phoneConsentSms: boolean;
+  phoneConsentVoice: boolean;
+  phoneConsentAt: string | null;
+  phoneConsentSource: string | null;
+}
 
 interface LanguagePreferencesData {
   language: string;
@@ -89,6 +98,75 @@ interface TeacherClass {
   enrolledCount?: number;
 }
 
+const COUNTRY_CODES = [
+  { flag: "🇺🇸", name: "United States", dial: "+1" },
+  { flag: "🇨🇦", name: "Canada",        dial: "+1" },
+  { flag: "🇬🇧", name: "United Kingdom",dial: "+44" },
+  { flag: "🇦🇺", name: "Australia",     dial: "+61" },
+  { flag: "🇳🇿", name: "New Zealand",   dial: "+64" },
+  { flag: "🇮🇪", name: "Ireland",       dial: "+353" },
+  { flag: "🇲🇽", name: "Mexico",        dial: "+52" },
+  { flag: "🇨🇴", name: "Colombia",      dial: "+57" },
+  { flag: "🇦🇷", name: "Argentina",     dial: "+54" },
+  { flag: "🇨🇱", name: "Chile",         dial: "+56" },
+  { flag: "🇵🇪", name: "Peru",          dial: "+51" },
+  { flag: "🇻🇪", name: "Venezuela",     dial: "+58" },
+  { flag: "🇪🇨", name: "Ecuador",       dial: "+593" },
+  { flag: "🇬🇹", name: "Guatemala",     dial: "+502" },
+  { flag: "🇨🇺", name: "Cuba",          dial: "+53" },
+  { flag: "🇩🇴", name: "Dominican Rep.",dial: "+1" },
+  { flag: "🇵🇷", name: "Puerto Rico",   dial: "+1" },
+  { flag: "🇧🇴", name: "Bolivia",       dial: "+591" },
+  { flag: "🇵🇾", name: "Paraguay",      dial: "+595" },
+  { flag: "🇺🇾", name: "Uruguay",       dial: "+598" },
+  { flag: "🇵🇦", name: "Panama",        dial: "+507" },
+  { flag: "🇨🇷", name: "Costa Rica",    dial: "+506" },
+  { flag: "🇭🇳", name: "Honduras",      dial: "+504" },
+  { flag: "🇸🇻", name: "El Salvador",   dial: "+503" },
+  { flag: "🇳🇮", name: "Nicaragua",     dial: "+505" },
+  { flag: "🇪🇸", name: "Spain",         dial: "+34" },
+  { flag: "🇵🇹", name: "Portugal",      dial: "+351" },
+  { flag: "🇧🇷", name: "Brazil",        dial: "+55" },
+  { flag: "🇫🇷", name: "France",        dial: "+33" },
+  { flag: "🇩🇪", name: "Germany",       dial: "+49" },
+  { flag: "🇮🇹", name: "Italy",         dial: "+39" },
+  { flag: "🇳🇱", name: "Netherlands",   dial: "+31" },
+  { flag: "🇧🇪", name: "Belgium",       dial: "+32" },
+  { flag: "🇨🇭", name: "Switzerland",   dial: "+41" },
+  { flag: "🇦🇹", name: "Austria",       dial: "+43" },
+  { flag: "🇸🇪", name: "Sweden",        dial: "+46" },
+  { flag: "🇳🇴", name: "Norway",        dial: "+47" },
+  { flag: "🇩🇰", name: "Denmark",       dial: "+45" },
+  { flag: "🇫🇮", name: "Finland",       dial: "+358" },
+  { flag: "🇵🇱", name: "Poland",        dial: "+48" },
+  { flag: "🇷🇺", name: "Russia",        dial: "+7" },
+  { flag: "🇺🇦", name: "Ukraine",       dial: "+380" },
+  { flag: "🇯🇵", name: "Japan",         dial: "+81" },
+  { flag: "🇨🇳", name: "China",         dial: "+86" },
+  { flag: "🇰🇷", name: "South Korea",   dial: "+82" },
+  { flag: "🇮🇳", name: "India",         dial: "+91" },
+  { flag: "🇵🇰", name: "Pakistan",      dial: "+92" },
+  { flag: "🇧🇩", name: "Bangladesh",    dial: "+880" },
+  { flag: "🇮🇩", name: "Indonesia",     dial: "+62" },
+  { flag: "🇵🇭", name: "Philippines",   dial: "+63" },
+  { flag: "🇻🇳", name: "Vietnam",       dial: "+84" },
+  { flag: "🇹🇭", name: "Thailand",      dial: "+66" },
+  { flag: "🇲🇾", name: "Malaysia",      dial: "+60" },
+  { flag: "🇸🇬", name: "Singapore",     dial: "+65" },
+  { flag: "🇹🇼", name: "Taiwan",        dial: "+886" },
+  { flag: "🇭🇰", name: "Hong Kong",     dial: "+852" },
+  { flag: "🇸🇦", name: "Saudi Arabia",  dial: "+966" },
+  { flag: "🇦🇪", name: "UAE",           dial: "+971" },
+  { flag: "🇮🇱", name: "Israel",        dial: "+972" },
+  { flag: "🇹🇷", name: "Turkey",        dial: "+90" },
+  { flag: "🇿🇦", name: "South Africa",  dial: "+27" },
+  { flag: "🇳🇬", name: "Nigeria",       dial: "+234" },
+  { flag: "🇰🇪", name: "Kenya",         dial: "+254" },
+  { flag: "🇬🇭", name: "Ghana",         dial: "+233" },
+  { flag: "🇪🇹", name: "Ethiopia",      dial: "+251" },
+  { flag: "🇪🇬", name: "Egypt",         dial: "+20" },
+];
+
 export default function Settings() {
   const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
@@ -158,7 +236,134 @@ export default function Settings() {
     flexibilityMutation.mutate(flexibility);
   };
 
-  // Native language state and mutation
+  // ── Contact & outreach preferences ──────────────────────────────────────
+  const { data: contactPrefs, isLoading: contactPrefsLoading } = useQuery<ContactPreferences>({
+    queryKey: ["/api/user/contact-preferences"],
+    enabled: !!user,
+  });
+
+  const [countryCode, setCountryCode] = useState<string>("+1");
+  const [localPhone, setLocalPhone] = useState<string>("");
+  const [phoneInput, setPhoneInput] = useState<string>(""); // kept for internal E.164 assembly
+  const [consentSms, setConsentSms] = useState<boolean>(false);
+  const [consentVoice, setConsentVoice] = useState<boolean>(false);
+  const [phoneError, setPhoneError] = useState<string>("");
+
+  // Sync local state with fetched contact prefs
+  useEffect(() => {
+    if (contactPrefs) {
+      const stored = contactPrefs.phone ?? "";
+      setPhoneInput(stored);
+      setConsentSms(contactPrefs.phoneConsentSms);
+      setConsentVoice(contactPrefs.phoneConsentVoice);
+      if (stored) {
+        // Try to match a known country code prefix (longest match first)
+        const match = COUNTRY_CODES
+          .slice()
+          .sort((a, b) => b.dial.length - a.dial.length)
+          .find(c => stored.startsWith(c.dial));
+        if (match) {
+          setCountryCode(match.dial);
+          setLocalPhone(stored.slice(match.dial.length));
+        } else {
+          // Unknown prefix — put full number in local field
+          setCountryCode("+1");
+          setLocalPhone(stored.startsWith("+") ? stored.slice(2) : stored);
+        }
+      } else {
+        setLocalPhone("");
+      }
+    }
+  }, [contactPrefs]);
+
+  const contactPrefsMutation = useMutation({
+    mutationFn: async (data: { phone?: string | null; phoneConsentSms?: boolean; phoneConsentVoice?: boolean }) => {
+      return apiRequest("PUT", "/api/user/contact-preferences", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/contact-preferences"] });
+      toast({ title: "Contact preferences saved" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to save contact preferences", variant: "destructive" });
+    },
+  });
+
+  const removePhoneMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", "/api/user/contact-preferences/phone", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/contact-preferences"] });
+      setPhoneInput("");
+      setConsentSms(false);
+      setConsentVoice(false);
+      toast({ title: "Phone number removed", description: "Daniela will not attempt to contact you." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to remove phone number", variant: "destructive" });
+    },
+  });
+
+  const handleSaveContact = () => {
+    let digits = localPhone.replace(/[\s\-().]/g, "");
+    if (!digits) {
+      // Clearing the phone number is allowed
+      setPhoneError("");
+      contactPrefsMutation.mutate({ phone: null, phoneConsentSms: consentSms, phoneConsentVoice: consentVoice });
+      return;
+    }
+    // Strip the country code's numeric part if the user accidentally included it
+    // e.g. countryCode="+1", digits="16027438228" → strip leading "1" → "6027438228"
+    const dialDigits = countryCode.replace(/^\+/, "");
+    if (dialDigits && digits.startsWith(dialDigits)) {
+      digits = digits.slice(dialDigits.length);
+    }
+    if (!/^\d{4,15}$/.test(digits)) {
+      setPhoneError("Enter just the local number — digits only (no country code)");
+      return;
+    }
+    setPhoneError("");
+    const e164 = `${countryCode}${digits}`;
+    contactPrefsMutation.mutate({ phone: e164, phoneConsentSms: consentSms, phoneConsentVoice: consentVoice });
+  };
+
+  // ── Tutor voice preference state and mutation ────────────────────────────
+  type TutorGenderPref = 'male' | 'female' | 'no_preference';
+  const resolvedTutorGenderPref = (): TutorGenderPref => {
+    if (user?.tutorGender === 'male') return 'male';
+    if (user?.tutorGender === 'female') return 'female';
+    return 'no_preference';
+  };
+  const [tutorGenderPref, setTutorGenderPref] = useState<TutorGenderPref>(resolvedTutorGenderPref);
+
+  useEffect(() => {
+    setTutorGenderPref(resolvedTutorGenderPref());
+  }, [user?.tutorGender]);
+
+  const tutorGenderMutation = useMutation({
+    mutationFn: async (pref: TutorGenderPref) => {
+      return apiRequest("PUT", "/api/user/preferences", { tutorGender: pref });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Tutor preference saved" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save tutor preference",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTutorGenderPrefChange = (pref: TutorGenderPref) => {
+    setTutorGenderPref(pref);
+    tutorGenderMutation.mutate(pref);
+  };
+
+  // ── Native language state and mutation ──────────────────────────────────
   const [nativeLanguage, setNativeLanguage] = useState<string>(user?.nativeLanguage || "english");
   
   useEffect(() => {
@@ -523,6 +728,182 @@ export default function Settings() {
           </CardFooter>
         </Card>
 
+        {/* Tutor Voice Preference */}
+        <Card data-testid="card-tutor-preference">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Tutor Voice
+            </CardTitle>
+            <CardDescription>
+              Choose whether you prefer a male or female tutor voice. This applies to all conversations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                data-testid="button-tutor-pref-female"
+                variant={tutorGenderPref === 'female' ? 'default' : 'outline'}
+                onClick={() => handleTutorGenderPrefChange('female')}
+                disabled={tutorGenderMutation.isPending}
+              >
+                Female voice
+              </Button>
+              <Button
+                data-testid="button-tutor-pref-male"
+                variant={tutorGenderPref === 'male' ? 'default' : 'outline'}
+                onClick={() => handleTutorGenderPrefChange('male')}
+                disabled={tutorGenderMutation.isPending}
+              >
+                Male voice
+              </Button>
+              <Button
+                data-testid="button-tutor-pref-none"
+                variant={tutorGenderPref === 'no_preference' ? 'default' : 'ghost'}
+                onClick={() => handleTutorGenderPrefChange('no_preference')}
+                disabled={tutorGenderMutation.isPending}
+              >
+                No preference
+              </Button>
+            </div>
+            {tutorGenderPref === 'no_preference' && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Using the default tutor voice for your language.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Contact & Outreach */}
+        <Card data-testid="card-contact-outreach">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Contact &amp; Outreach
+              </CardTitle>
+              <CardDescription>
+                Add your phone number so Daniela can reach out if you haven't practiced in a while.
+                You control exactly what she's allowed to do.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {contactPrefsLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground space-y-1">
+                    <p>Daniela can send you a short voice message or call you if you haven't practiced in a while — nothing automated, nothing spammy. She decides when it's worth reaching out based on your sessions together.</p>
+                    <p className="text-xs mt-1">Reply STOP to any text to unsubscribe at any time. Message frequency varies. Standard message and data rates may apply.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Phone number</Label>
+                    <div className="flex flex-wrap gap-2">
+                      <Select value={countryCode} onValueChange={(v) => { setCountryCode(v); setPhoneError(""); }}>
+                        <SelectTrigger data-testid="select-country-code" className="w-44">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {COUNTRY_CODES.map((c) => (
+                            <SelectItem key={c.dial + c.name} value={c.dial}>
+                              {c.flag} {c.name} ({c.dial})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="input-phone"
+                        data-testid="input-phone"
+                        type="tel"
+                        placeholder="555 123 4567"
+                        value={localPhone}
+                        onChange={(e) => { setLocalPhone(e.target.value); setPhoneError(""); }}
+                        className="flex-1 min-w-36"
+                      />
+                      {contactPrefs?.phone && (
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={() => removePhoneMutation.mutate()}
+                          disabled={removePhoneMutation.isPending}
+                          data-testid="button-remove-phone"
+                        >
+                          <X className="h-4 w-4 mr-1.5" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    {phoneError && (
+                      <p className="text-sm text-destructive" data-testid="text-phone-error">{phoneError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Enter your number without the country code — we'll add it automatically.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">What Daniela is allowed to do</p>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="consent-sms"
+                        data-testid="checkbox-consent-sms"
+                        checked={consentSms}
+                        onCheckedChange={(checked) => setConsentSms(!!checked)}
+                      />
+                      <div className="space-y-0.5">
+                        <Label htmlFor="consent-sms" className="text-sm cursor-pointer flex items-center gap-1.5">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          Send me a text message
+                        </Label>
+                        <p className="text-xs text-muted-foreground">A short, personal note when you've been away for a while</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="consent-voice"
+                        data-testid="checkbox-consent-voice"
+                        checked={consentVoice}
+                        onCheckedChange={(checked) => setConsentVoice(!!checked)}
+                      />
+                      <div className="space-y-0.5">
+                        <Label htmlFor="consent-voice" className="text-sm cursor-pointer flex items-center gap-1.5">
+                          <PhoneCall className="h-3.5 w-3.5 text-muted-foreground" />
+                          Call me
+                        </Label>
+                        <p className="text-xs text-muted-foreground">A brief voice message left when you haven't shown up for a while</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {contactPrefs?.phoneConsentAt && (contactPrefs.phoneConsentSms || contactPrefs.phoneConsentVoice) && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                      <span data-testid="text-consent-timestamp">
+                        Consent recorded {new Date(contactPrefs.phoneConsentAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        {contactPrefs.phoneConsentSource === 'in_session' ? ' (during a session)' : ''}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-wrap gap-2">
+              <Button
+                onClick={handleSaveContact}
+                disabled={contactPrefsMutation.isPending || contactPrefsLoading}
+                data-testid="button-save-contact"
+              >
+                {contactPrefsMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+              </Button>
+              {!consentSms && !consentVoice && (contactPrefs?.phoneConsentSms || contactPrefs?.phoneConsentVoice) && (
+                <p className="text-xs text-muted-foreground self-center">Unchecking all boxes and saving will withdraw your consent.</p>
+              )}
+            </CardFooter>
+        </Card>
+
         {/* Self-Directed Tutor Style - Hidden per design update (moved to join-class page) */}
         {false && <Card data-testid="card-self-directed-style">
           <CardHeader>
@@ -585,7 +966,7 @@ export default function Settings() {
                         Your {languageNames[selectedPrefLanguage] || selectedPrefLanguage} Proficiency
                       </p>
                       <p className="text-lg font-medium capitalize" data-testid="text-actfl-level">
-                        {langPrefsData.actflLevel.replace(/_/g, ' ').replace(/-/g, ' ')}
+                        {langPrefsData?.actflLevel?.replace(/_/g, ' ').replace(/-/g, ' ')}
                       </p>
                     </div>
                     <Badge variant="secondary">ACTFL</Badge>
@@ -662,7 +1043,7 @@ export default function Settings() {
                         <>
                           <AlertTriangle className="h-4 w-4" />
                           <span>
-                            Recommended for {langPrefsData.actflLevel.replace(/_/g, ' ').replace(/-/g, ' ')}: {' '}
+                            Recommended for {langPrefsData?.actflLevel?.replace(/_/g, ' ').replace(/-/g, ' ')}: {' '}
                             <button 
                               className="underline hover:no-underline"
                               onClick={() => handleFlexibilityChange(recommendedFlexibility)}
@@ -796,15 +1177,15 @@ export default function Settings() {
                       <p className="text-2xl font-bold" data-testid="text-subscription-tier">{currentTier}</p>
                     </div>
                   </div>
-                  {subscription && subscription.status === 'active' && (
+                  {subscription?.status === 'active' && (
                     <Badge variant="default" data-testid="badge-subscription-status">Active</Badge>
                   )}
                 </div>
 
-                {subscription && subscription.status === 'active' && subscription.current_period_end && (
+                {subscription?.status === 'active' && subscription?.current_period_end && (
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      Renews {new Date(subscription.current_period_end * 1000).toLocaleDateString()}
+                      Renews {new Date((subscription?.current_period_end ?? 0) * 1000).toLocaleDateString()}
                     </p>
                   </div>
                 )}
@@ -820,7 +1201,7 @@ export default function Settings() {
             )}
           </CardContent>
           <CardFooter className="flex gap-2">
-            {subscription && subscription.status === 'active' ? (
+            {subscription?.status === 'active' ? (
               <Button
                 variant="outline"
                 onClick={() => portalMutation.mutate()}
@@ -838,10 +1219,10 @@ export default function Settings() {
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-10 w-full" />
                   </div>
-                ) : billingData?.products && billingData.products.length > 0 ? (
+                ) : billingData?.products && (billingData?.products?.length ?? 0) > 0 ? (
                   <>
                     <div className="grid gap-2">
-                      {billingData.products
+                      {billingData?.products
                         .filter(p => p.active)
                         .map(product => {
                           const price = getPriceForProduct(product);
@@ -906,9 +1287,9 @@ export default function Settings() {
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
-            ) : hourPackages && hourPackages.length > 0 ? (
+            ) : hourPackages && (hourPackages?.length ?? 0) > 0 ? (
               <div className="grid gap-3">
-                {hourPackages.map((pkg) => (
+                {hourPackages?.map((pkg) => (
                   <div
                     key={pkg.tier}
                     className="flex items-center justify-between p-4 rounded-lg border bg-muted/30"
@@ -948,7 +1329,7 @@ export default function Settings() {
         </Card>}
 
         {/* Institutional Class Packages - Hidden per design update (users purchase via join-class/pricing pages) */}
-        {false && teacherClasses && teacherClasses.length > 0 && (
+        {false && teacherClasses && (teacherClasses?.length ?? 0) > 0 && (
           <Card data-testid="card-class-packages">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -978,7 +1359,7 @@ export default function Settings() {
                           <SelectValue placeholder="Choose a class" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teacherClasses.map((cls) => (
+                          {teacherClasses?.map((cls) => (
                             <SelectItem key={cls.id} value={cls.id}>
                               {cls.name} ({cls.language})
                             </SelectItem>
@@ -1193,7 +1574,11 @@ export default function Settings() {
                               const minutes = Math.round(absSeconds / 60);
                               const hours = Math.round(absSeconds / 360) / 10;
                               const displayTime = absSeconds >= 3600 ? `${hours}h` : `${minutes}m`;
-                              const date = new Date(entry.createdAt);
+                              // Parse DB timestamps (no Z suffix) as UTC so local timezone is applied correctly
+                              const rawDate = entry.createdAt;
+                              const date = (rawDate.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(rawDate))
+                                ? new Date(rawDate)
+                                : new Date(rawDate.replace(' ', 'T') + 'Z');
                               
                               return (
                                 <div key={entry.id} className="flex items-center justify-between py-2 px-3 rounded-md border text-sm" data-testid={`row-usage-${entry.id}`}>

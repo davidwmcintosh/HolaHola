@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
 import { ChatInterface, type SupportHandoffContext } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
@@ -7,7 +8,8 @@ import { DesktopChatLayout } from "@/components/DesktopChatLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle, FlaskConical, CheckCircle2, Maximize2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -18,17 +20,24 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
-import type { WhiteboardItem, ScenarioItemData } from "@shared/whiteboard-types";
-import { isScenarioItem } from "@shared/whiteboard-types";
+import { LucaObserverPanel } from "@/components/LucaObserverPanel";
+import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
+import { getTutorAvatar } from "@/lib/tutor-avatars";
+import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPanel, CenterBackdropItemData } from "@shared/whiteboard-types";
+import { isScenarioItem, isSceneCanvasItem, isOverlayPanelItem, isCenterBackdropItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUser } from "@/lib/auth";
+import { useDanielaSession } from "@/contexts/DanielaSessionContext";
 
 export default function Chat() {
   const search = useSearch();
-  const [, setLocation] = useLocation();
+  const [currentPath, setLocation] = useLocation();
   const [mode, setMode] = useState<"text" | "voice">("voice");
-  const { language, difficulty, userName } = useLanguage();
+  const { language, difficulty, userName, tutorGender } = useLanguage();
   const { learningContext, getSelectedClassName } = useLearningFilter();
+  const { isDeveloper, isAdmin } = useUser();
   const { setOpen, setOpenMobile } = useSidebar();
+  const { publishConversationId } = useDanielaSession();
   const [conversationId, setConversationId] = useState<string | null>(() => {
     // Don't restore if user explicitly wants a new conversation
     const forceNew = localStorage.getItem('forceNewConversation') === 'true';
@@ -51,6 +60,7 @@ export default function Chat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [isCheckingActiveSession, setIsCheckingActiveSession] = useState(true); // Start true to block auto-create until checked
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+  const prevOnboardingRef = useRef<boolean | null>(null);
   const previousModeRef = useRef<"text" | "voice">("voice");
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
@@ -61,9 +71,26 @@ export default function Chat() {
   const useDesktopWhiteboard = !isMobile && mode === "voice";
   
   const [loadedScenarioData, setLoadedScenarioData] = useState<any>(null);
-  const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string }>>([]);
+  const [scenarioHistoryId, setScenarioHistoryId] = useState<string | null>(null);
+  const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string; slot?: 'scene' | 'context'; category?: string }>>([]);
+  const [isImmersiveMode, setIsImmersiveMode] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewedConvId, setReviewedConvId] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
+  const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
+  const activeCenterBackdrop = whiteboardItems.find(isCenterBackdropItem)?.data as CenterBackdropItemData | undefined ?? null;
+  const activePanel: OverlayPanel | null = whiteboardItems.find(isOverlayPanelItem)?.data.panel ?? null;
+
+  // Immersive mode is controlled exclusively by the `enter_immersive` tool via the
+  // `immersive_mode` WS message (handled at chat.tsx line ~913 → setIsImmersiveMode).
+  // The old auto-trigger on open_scene/add_prop caused unintended fullscreen whenever
+  // Daniela opened ANY scene, even for the Studio side-pane. Removed.
+
+  const displayWhiteboardItems = whiteboardItems.filter(
+    item => !isSceneCanvasItem(item) && !isOverlayPanelItem(item) && !isCenterBackdropItem(item)
+  );
   const activeScenario: ScenarioItemData | null = loadedScenarioData
     ? {
         location: loadedScenarioData.location || loadedScenarioData.title,
@@ -75,6 +102,9 @@ export default function Chat() {
         scenarioSlug: loadedScenarioData.slug,
         props: loadedScenarioData.props,
         levelGuide: loadedScenarioData.levelGuide,
+        zones: loadedScenarioData.zones,
+        currentZoneIndex: loadedScenarioData.currentZoneIndex,
+        currentZoneName: loadedScenarioData.currentZoneName,
       }
     : whiteboardScenario;
   
@@ -131,7 +161,8 @@ export default function Chat() {
                         learningContext !== "all-classes" && 
                         learningContext !== "all-learning" &&
                         learningContext !== "founder-mode" &&
-                        learningContext !== "honesty-mode";
+                        learningContext !== "honesty-mode" &&
+                        learningContext !== "reading-room";
   
   // Check if we're in Founder Mode (developer-only open collaboration)
   const isFounderMode = learningContext === "founder-mode";
@@ -139,8 +170,13 @@ export default function Chat() {
   // Check if we're in Honesty Mode (minimal prompting for authentic exploration)
   const isHonestyMode = learningContext === "honesty-mode";
 
+  // Check if we're in Reading Room mode (Daniela reads her own history freely, takes notes)
+  const isReadingRoom = learningContext === "reading-room";
+
   // Founder Collaboration EXPRESS Lane state
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  // Luca Observer Panel state
+  const [lucaPanelOpen, setLucaPanelOpen] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const syncMessagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -156,13 +192,21 @@ export default function Chat() {
     isConnected: syncIsConnected 
   } = useFounderCollab();
 
-  // Auto-connect to founder collaboration when entering Founder Mode
+  // Absence nudge count — shown as a badge on the EXPRESS Lane header in founder mode
+  const { data: nudgeCountData } = useQuery<{ count: number }>({
+    queryKey: ["/api/admin/absence-nudges/count"],
+    refetchInterval: 30000,
+    enabled: isFounderMode,
+  });
+  const pendingNudgeCount = nudgeCountData?.count ?? 0;
+
+  // Auto-connect to founder collaboration when entering Founder Mode or Reading Room
   useEffect(() => {
-    if (isFounderMode && !syncIsConnected) {
-      console.log('[SHARED CHAT] Founder Mode active - connecting to collaboration channel');
+    if ((isFounderMode || isReadingRoom) && !syncIsConnected) {
+      console.log('[SHARED CHAT] Founder/Reading Room Mode active - connecting to collaboration channel');
       syncConnect();
     }
-  }, [isFounderMode, syncIsConnected, syncConnect]);
+  }, [isFounderMode, isReadingRoom, syncIsConnected, syncConnect]);
 
   // Disconnect from founder collaboration only on unmount
   useEffect(() => {
@@ -193,23 +237,44 @@ export default function Chat() {
       sessionStorage.setItem('currentChatConversationId', conversationId);
     }
   }, [conversationId]);
+
+  // Publish conversationId to the ambient session context so FloatingVoiceWidget
+  // and other app-level components can observe session status from any page.
+  useEffect(() => {
+    publishConversationId(conversationId);
+  }, [conversationId, publishConversationId]);
   
+  // Pre-warm Daniela's synthesis while the student is still on the "Prepare"
+  // screen. By the time they tap "Start", the synthesis is already computed
+  // and cached server-side — the WS handler consumes it at 0ms latency
+  // instead of awaiting a fresh 1-2s generation during GL startup.
+  // Fire-and-forget: any error here is non-fatal (WS handler generates on demand).
+  useEffect(() => {
+    if (!conversationId || mode !== "voice") return;
+    const controller = new AbortController();
+    apiRequest("POST", "/api/sessions/warm-synthesis", { conversationId })
+      .catch(() => {}); // non-fatal — warm cache miss is handled gracefully
+    return () => controller.abort();
+  }, [conversationId, mode]);
+
+
   // NOTE: We intentionally do NOT clear currentChatConversationId on unmount.
   // HMR remounts would wipe it, defeating the purpose of persistence.
   // The stored ID is cleared only by: handleNewChat(), forceNewConversation flag,
   // or overwritten when a new conversation is created.
   
-  // Auto-close sidebar when entering voice chat area
-  // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
-  // Empty dependency array ensures user can reopen sidebar after initial close
+  // Auto-close sidebar when entering voice chat area.
+  // This fires ONCE on the first time the student navigates to /chat.
+  // Because Chat is always mounted at the app level, we guard by currentPath
+  // so the sidebar isn't closed while the student is on other pages.
   const hasClosedSidebarRef = useRef(false);
   useEffect(() => {
-    if (!hasClosedSidebarRef.current) {
+    if (!hasClosedSidebarRef.current && currentPath === '/chat') {
       hasClosedSidebarRef.current = true;
       setOpen(false);      // Close desktop sidebar
       setOpenMobile(false); // Close mobile sidebar
     }
-  }, [setOpen, setOpenMobile]);
+  }, [setOpen, setOpenMobile, currentPath]);
 
   // Check for active voice session on mount - allows resuming after reconnect/server restart
   // This runs BEFORE auto-create conversation logic to reuse existing sessions
@@ -259,6 +324,7 @@ export default function Chat() {
     const params = new URLSearchParams(search);
     const resumeId = params.get('resume');
     const textbookChapter = params.get('textbook_chapter');
+    const textbookLessonId = params.get('lesson_id');
     
     if (resumeId) {
       console.log('[SHARED CHAT] Resuming conversation from URL:', resumeId);
@@ -267,10 +333,20 @@ export default function Chat() {
       setIsResumedConversation(true);
       setLocation('/chat', { replace: true });
     } else if (textbookChapter) {
-      console.log('[SHARED CHAT] Navigated from textbook chapter:', textbookChapter);
+      console.log('[SHARED CHAT] Navigated from textbook chapter:', textbookChapter, 'lessonId:', textbookLessonId);
       resumeHandledRef.current = true;
       setTextbookContext(textbookChapter);
       sessionStorage.setItem('textbook_chapter_context', textbookChapter);
+      if (textbookLessonId) sessionStorage.setItem('textbook_lesson_id', textbookLessonId);
+      setForceNewConversation(true);
+      setConversationId(null);
+      sessionStorage.removeItem('currentChatConversationId');
+      setLocation('/chat', { replace: true });
+    } else if (params.get('scenario')) {
+      const scenarioSlug = params.get('scenario')!;
+      console.log('[SHARED CHAT] Scenario selected from browser:', scenarioSlug);
+      resumeHandledRef.current = true;
+      sessionStorage.setItem('pending_scenario_slug', scenarioSlug);
       setForceNewConversation(true);
       setConversationId(null);
       sessionStorage.removeItem('currentChatConversationId');
@@ -417,9 +493,28 @@ export default function Chat() {
       setClassName(null);
     }
   }, [conversationId]);
+
+  // When onboarding completes (true → false), start a fresh session after a short delay
+  useEffect(() => {
+    const prev = prevOnboardingRef.current;
+    prevOnboardingRef.current = currentConversationOnboarding;
+
+    if (prev === true && currentConversationOnboarding === false) {
+      // Onboarding just finished — give the user 2.5s to read the closing message,
+      // then drop the onboarding conversation and open a clean first session.
+      const timer = setTimeout(() => {
+        setConversationId(null);
+        setForceNewConversation(true);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentConversationOnboarding]);
   
   // Auto-create shared conversation
   useEffect(() => {
+    // Guard: only create a conversation when the chat page is active
+    if (currentPath !== '/chat') return;
+
     // Wait for active session check to complete first
     if (isCheckingActiveSession) {
       console.log('[SHARED CHAT] Auto-create check - waiting for active session check');
@@ -448,14 +543,18 @@ export default function Chat() {
       
       // Use class ID from learning context if in class mode, or special mode IDs
       const selectedClassId = isInClassMode ? learningContext : 
-        (isHonestyMode ? 'honesty-mode' : undefined);
+        (isHonestyMode ? 'honesty-mode' : isReadingRoom ? 'reading-room' : undefined);
       
       const pendingTextbookChapter = sessionStorage.getItem('textbook_chapter_context');
+      const pendingTextbookLessonId = sessionStorage.getItem('textbook_lesson_id');
       if (pendingTextbookChapter) {
         sessionStorage.removeItem('textbook_chapter_context');
       }
+      if (pendingTextbookLessonId) {
+        sessionStorage.removeItem('textbook_lesson_id');
+      }
       
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode, 'textbookChapter:', pendingTextbookChapter);
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode, 'textbookChapter:', pendingTextbookChapter, 'textbookLessonId:', pendingTextbookLessonId);
       setIsCreatingConversation(true);
       
       apiRequest("POST", "/api/conversations", {
@@ -468,8 +567,9 @@ export default function Chat() {
         forceNew: forceNewConversation,
         mode,
         classId: selectedClassId,
-        founderMode: isFounderMode,
+        founderMode: isFounderMode || isReadingRoom,
         textbookChapter: pendingTextbookChapter || undefined,
+        textbookLessonId: pendingTextbookLessonId || undefined,
       })
         .then(res => res.json())
         .then(async (data) => {
@@ -506,8 +606,9 @@ export default function Chat() {
     }
     // NOTE: forceNewConversation is intentionally NOT in dependencies
     // We only read its current value when creating, we don't need to re-run when it changes
+    // currentPath IS in dependencies so the effect re-runs when user navigates to /chat
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode, isCheckingActiveSession]);
+  }, [language, difficulty, userName, conversationId, isCreatingConversation, currentConversationOnboarding, mode, isCheckingActiveSession, currentPath]);
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
@@ -523,6 +624,29 @@ export default function Chat() {
       window.location.reload();
     }, 400);
   };
+
+  const handleReview = useCallback(async () => {
+    if (!conversationId || isReviewing || reviewedConvId === conversationId) return;
+    setIsReviewing(true);
+    try {
+      const res = await apiRequest("POST", `/api/conversations/${conversationId}/review`, {});
+      const data = await res.json();
+      setReviewedConvId(conversationId);
+      if (data.findingCount === 0) {
+        toast({ title: "Review complete", description: "No findings — conversation looks clean." });
+      } else {
+        toast({
+          title: `Review complete — ${data.findingCount} finding${data.findingCount !== 1 ? 's' : ''} queued`,
+          description: "Alden has logged them to your inbox. Check the notification badge.",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/alden/notifications/unread-count'] });
+      }
+    } catch (err: any) {
+      toast({ title: "Review failed", description: err.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setIsReviewing(false);
+    }
+  }, [conversationId, isReviewing, reviewedConvId, toast]);
 
   // Handle voice mode click - check credits first
   const handleVoiceModeClick = useCallback(() => {
@@ -540,7 +664,7 @@ export default function Chat() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className="absolute inset-0 flex flex-col bg-background z-10">
       {/* Smooth loading overlay for page reload */}
       {isReloading && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-200">
@@ -594,6 +718,7 @@ export default function Chat() {
             <MessageSquare className="h-4 w-4 md:mr-2" />
             <span className="hidden md:inline">Type instead</span>
           </Button>
+
         </div>
         
         <div className="flex items-center gap-2">
@@ -602,10 +727,16 @@ export default function Chat() {
             <TooltipTrigger asChild>
               <Badge 
                 variant="outline" 
-                className={`flex items-center gap-1 text-xs ${isHonestyMode ? 'border-rose-500/50 text-rose-600 dark:text-rose-400' : isFounderMode ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : ''}`}
+                className={`flex items-center gap-1 text-xs ${isHonestyMode ? 'border-rose-500/50 text-rose-600 dark:text-rose-400' : isFounderMode ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : isReadingRoom ? 'border-violet-500/50 text-violet-600 dark:text-violet-400' : ''}`}
                 data-testid="badge-practice-mode"
               >
-                {isHonestyMode ? (
+                {isReadingRoom ? (
+                  <>
+                    <Brain className="h-3 w-3" />
+                    <span className="hidden sm:inline">Reading Room</span>
+                    <span className="sm:hidden">Reading</span>
+                  </>
+                ) : isHonestyMode ? (
                   <>
                     <Heart className="h-3 w-3" />
                     <span className="hidden sm:inline">Honesty Mode</span>
@@ -633,7 +764,9 @@ export default function Chat() {
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isHonestyMode 
+              <p>{isReadingRoom
+                  ? 'Reading Room: Daniela reads her own history and takes notes'
+                  : isHonestyMode 
                   ? 'Honesty Mode: Minimal prompting for authentic exploration'
                   : isFounderMode 
                   ? 'Founder Mode: Open collaboration with Daniela'
@@ -651,6 +784,38 @@ export default function Chat() {
             />
           )}
           
+          {conversationId && (isDeveloper || isAdmin) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReview}
+                  disabled={isReviewing || reviewedConvId === conversationId}
+                  data-testid="button-review-conversation"
+                >
+                  {isReviewing
+                    ? <Loader2 className="h-4 w-4 md:mr-2 animate-spin" />
+                    : reviewedConvId === conversationId
+                      ? <CheckCircle2 className="h-4 w-4 md:mr-2" />
+                      : <FlaskConical className="h-4 w-4 md:mr-2" />
+                  }
+                  <span className="hidden md:inline">
+                    {isReviewing ? "Reviewing…" : reviewedConvId === conversationId ? "Reviewed" : "Review"}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {reviewedConvId === conversationId
+                    ? "Already reviewed this session — findings are in Alden's inbox"
+                    : "Analyse this conversation with AI — best used at the end of a session when there's more to review"
+                  }
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -670,12 +835,23 @@ export default function Chat() {
       />
       <div className="flex-1 min-h-0 flex">
         <DesktopChatLayout
-          whiteboardItems={whiteboardItems}
-          onClearWhiteboard={whiteboardCallbacksRef.current?.clear}
+          whiteboardItems={displayWhiteboardItems}
+          onClearWhiteboard={() => {
+            whiteboardCallbacksRef.current?.clear?.();
+            // If a textbook page was open, clear it from Daniela's visionBuffer too
+            if (whiteboardItems.some(item => item.type === 'textbook_page')) {
+              fetch('/api/voice/widget-closed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ widget: 'textbook' }),
+              }).catch(() => {});
+            }
+          }}
           onDrillComplete={whiteboardCallbacksRef.current?.drillComplete}
           onTextInputSubmit={whiteboardCallbacksRef.current?.textInputSubmit}
           activeScenario={activeScenario}
           studioImages={studioImages}
+          sceneCanvas={activeSceneCanvas}
         >
           {/* Main chat area */}
           <div className="h-full relative">
@@ -693,8 +869,32 @@ export default function Chat() {
                   onWhiteboardItemsChange={setWhiteboardItems}
                   whiteboardCallbacksRef={whiteboardCallbacksRef}
                   useDesktopWhiteboard={useDesktopWhiteboard}
-                  onScenarioLoaded={setLoadedScenarioData}
-                  onScenarioEnded={() => { setLoadedScenarioData(null); setStudioImages([]); }}
+                  backdropImageUrl={activeCenterBackdrop?.imageUrl ?? undefined}
+                  onScenarioLoaded={async (scenarioData: any) => {
+                    setLoadedScenarioData(scenarioData);
+                    if (scenarioData?.id) {
+                      try {
+                        const res = await apiRequest("POST", `/api/scenarios/${scenarioData.id}/start`, {
+                          conversationId: conversationId || undefined,
+                        });
+                        const data = await res.json();
+                        if (data.historyId) setScenarioHistoryId(data.historyId);
+                      } catch { /* non-critical */ }
+                    }
+                  }}
+                  onScenarioEnded={async () => {
+                    if (loadedScenarioData?.id && scenarioHistoryId) {
+                      try {
+                        await apiRequest("POST", `/api/scenarios/${loadedScenarioData.id}/complete`, {
+                          historyId: scenarioHistoryId,
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['/api/user/scenario-history'] });
+                      } catch { /* non-critical */ }
+                    }
+                    setLoadedScenarioData(null);
+                    setScenarioHistoryId(null);
+                    setStudioImages([]);
+                  }}
                   onPropUpdate={(data) => {
                     setLoadedScenarioData((prev: any) => {
                       if (!prev?.props) return prev;
@@ -717,7 +917,37 @@ export default function Chat() {
                       return { ...prev, props: updatedProps };
                     });
                   }}
-                  onStudioImage={(img) => setStudioImages(prev => [...prev.slice(-4), img])}
+                  onStudioImage={(img) => setStudioImages(prev => {
+                    const typedImg = img as typeof prev[number];
+                    if (img.slot === 'scene') {
+                      return [...prev.filter(i => i.slot !== 'scene'), typedImg];
+                    } else if (img.slot === 'context' && img.category) {
+                      return [...prev.filter(i => !(i.slot === 'context' && i.category === img.category)), typedImg];
+                    }
+                    return [typedImg];
+                  })}
+                  onImmersiveModeChange={(active) => {
+                    setIsImmersiveMode(active);
+                    if (!active) {
+                      setStudioImages(prev => prev.filter(i => i.slot !== 'scene'));
+                    }
+                  }}
+                  onSceneZoneAdvanced={(data) => {
+                    if (data.isChain && data.nextScenarioSlug) {
+                      // Cross-scenario chain: keep conversation going, just note the transition
+                      console.log('[Chat] Zone chain → next scenario:', data.nextScenarioSlug);
+                    } else if (!data.isComplete) {
+                      // Advance zone image and name in-place
+                      setLoadedScenarioData((prev: any) => {
+                        if (!prev) return prev;
+                        const updated = { ...prev };
+                        if (data.imageUrl) updated.imageUrl = data.imageUrl;
+                        if (data.zoneName) updated.currentZoneName = data.zoneName;
+                        if (data.zoneIndex >= 0) updated.currentZoneIndex = data.zoneIndex;
+                        return updated;
+                      });
+                    }
+                  }}
                 />
             ) : (
               <ChatInterface 
@@ -753,6 +983,15 @@ export default function Chat() {
                   <div className="flex items-center gap-2">
                     <Radio className="h-4 w-4 text-amber-500" />
                     <span className="font-medium text-sm">EXPRESS Lane</span>
+                    {pendingNudgeCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="h-4 min-w-4 px-1 text-[10px] leading-none"
+                        data-testid="badge-nudge-count-chat"
+                      >
+                        {pendingNudgeCount}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     {syncIsConnected ? (
@@ -942,6 +1181,15 @@ export default function Chat() {
             )}
           </div>
         )}
+
+        {/* Luca Observer Panel - Founder Mode + Honesty Mode, shows Luca's live session observations */}
+        {(isFounderMode || isHonestyMode) && (
+          <LucaObserverPanel
+            isOpen={lucaPanelOpen}
+            onToggle={() => setLucaPanelOpen(!lucaPanelOpen)}
+            sessionId={conversationId}
+          />
+        )}
       </div>
       
       {/* Developer testing tools - shows conversation ID and developer actions */}
@@ -968,6 +1216,51 @@ export default function Chat() {
         reason={supportHandoffContext?.reason || ''}
         priority={supportHandoffContext?.priority || 'normal'}
         mode="support"
+      />
+
+      {/* Re-enter immersive button — shown when a scene with an environment image is active but user has exited fullscreen.
+           Guard: only show when environmentImageUrl is set. Without it the ImmersiveOverlay renders a near-black
+           gradient fallback which looks broken for students who just saw a clock or simple widget. */}
+      {activeSceneCanvas && activeSceneCanvas.environmentImageUrl && !isImmersiveMode && (
+        <Button
+          size="sm"
+          variant="default"
+          onClick={() => setIsImmersiveMode(true)}
+          className="fixed bottom-24 right-4 z-50 gap-1.5 shadow-lg bg-black/70 hover:bg-black/90 text-white border border-white/20 backdrop-blur-sm"
+          data-testid="button-reenter-immersive"
+          aria-label="Re-enter fullscreen scene"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          <span>Fullscreen</span>
+        </Button>
+      )}
+
+      {/* Immersive fullscreen overlay — auto-enters on scene open/prop add, context images shown as chips */}
+      <ImmersiveOverlay
+        isActive={isImmersiveMode}
+        sceneCanvas={activeSceneCanvas}
+        displayWhiteboardItems={displayWhiteboardItems}
+        contextImages={studioImages.filter(img => img.slot === 'context' && img.imageUrl)}
+        tutorImageUrl={getTutorAvatar(language, tutorGender, 'idle')}
+        onExit={() => {
+          setIsImmersiveMode(false);
+          // Clear scene from Daniela's visionBuffer so Observer Seat stays accurate
+          fetch('/api/voice/widget-closed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ widget: 'scene' }),
+          }).catch(() => {});
+        }}
+        activePanel={activePanel}
+        onDismissPanel={() => {
+          setWhiteboardItems(prev => prev.filter(item => !isOverlayPanelItem(item)));
+          // Clear vocab grid from Daniela's visionBuffer so Observer Seat stays accurate
+          fetch('/api/voice/widget-closed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ widget: 'vocab_grid' }),
+          }).catch(() => {});
+        }}
       />
     </div>
   );

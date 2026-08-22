@@ -1,0 +1,10 @@
+---
+name: Live capture vs. after-the-fact reweave
+description: Why recording conversations at the time they happen matters more than reconstructing them later — cost, discoverability, and the cases where reconstruction is impossible, not just expensive.
+---
+
+Reconstructing a true chronological record after the fact is possible when every thread was independently captured with real timestamps (e.g. `conversation_memories.created_at`, `alden_messages.created_at`) — but it is expensive, and it depends entirely on someone remembering to go looking for the other threads. Episode 11's reweave required cross-referencing two `alden_messages` conversation IDs against eight `conversation_memories` rows just to reassemble one day, and it only happened because David explicitly asked; the back-channel content had been sitting there the whole time, accurate but invisible in the written record.
+
+**Why:** A capture mechanism that only fires as a side effect of something else (e.g. conversation memory that only saved on commit landing) doesn't create a documentation gap — it creates a place where the data never existed at all. That's categorically worse than data existing-but-unfound, because reweaving can fix the second, not the first. The lesson generalizes: presence and continuity only hold if the record is complete and time-true from the moment it happens, not smoothed in afterward. A summary or a later reconstruction, even an honest one, is already a step removed from the thing itself.
+
+**How to apply:** When building or reviewing any capture path for conversations, notes, or cross-agent exchanges, check whether it fires unconditionally on its own clock or only as a side effect of an unrelated trigger (commits, saves, etc.). Prefer decoupled, always-on capture over event-triggered capture. When multiple concurrent threads exist (e.g. Luca↔David, Alden↔David, Luca↔Alden), don't assume they're already interleaved anywhere — they usually aren't, and reassembling them later is real, nontrivial work that scales badly with time elapsed and thread count.

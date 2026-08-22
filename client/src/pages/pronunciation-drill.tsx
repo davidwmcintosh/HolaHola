@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +24,14 @@ import {
   Play,
   RotateCcw,
   Lightbulb,
-  ChevronLeft
+  ChevronLeft,
+  Home
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PhonemeChallenge {
@@ -118,8 +120,15 @@ const DIFFICULTY_OPTIONS = [
 export default function PronunciationDrill() {
   const { language: contextLanguage, difficulty: contextDifficulty } = useLanguage();
   const { toast } = useToast();
-  
-  const [selectedLanguage, setSelectedLanguage] = useState(contextLanguage || 'spanish');
+  const [, setLocation] = useLocation();
+
+  // Read URL params — hub passes ?phoneme=xxx&language=xxx for direct drill launch
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPhoneme = urlParams.get('phoneme');
+  const urlLanguage = urlParams.get('language');
+  const isAutoStart = !!urlPhoneme;
+
+  const [selectedLanguage, setSelectedLanguage] = useState(urlLanguage || contextLanguage || 'spanish');
   const [selectedDifficulty, setSelectedDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>(
     (contextDifficulty as 'beginner' | 'intermediate' | 'advanced') || 'intermediate'
   );
@@ -155,7 +164,7 @@ export default function PronunciationDrill() {
         language: selectedLanguage,
         difficulty: selectedDifficulty,
       });
-      return res as unknown as DrillSession;
+      return res.json() as Promise<DrillSession>;
     },
     onSuccess: (data) => {
       setSession(data);
@@ -184,7 +193,7 @@ export default function PronunciationDrill() {
         transcribedSpeech: currentItem?.phrase || '',
         pronunciationScore: score,
       });
-      return res as unknown as SubmitResult;
+      return res.json() as Promise<SubmitResult>;
     },
     onSuccess: (data) => {
       setLastResult(data);
@@ -219,7 +228,7 @@ export default function PronunciationDrill() {
     mutationFn: async () => {
       if (!session) throw new Error("No active session");
       const res = await apiRequest("POST", `/api/pronunciation-drills/session/${session.sessionId}/end`);
-      return res as unknown as { summary: SessionSummary };
+      return res.json() as Promise<{ summary: SessionSummary }>;
     },
     onSuccess: (data) => {
       setSessionSummary(data.summary);
@@ -228,6 +237,14 @@ export default function PronunciationDrill() {
       setShowResult(false);
     },
   });
+
+  // Auto-start drill when navigated from hub with a specific phoneme
+  useEffect(() => {
+    if (isAutoStart && !session && !startSessionMutation.isPending && !sessionSummary) {
+      startSessionMutation.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAutoStart]);
 
   const handleSubmit = useCallback((score: number) => {
     submitResponseMutation.mutate(score);
@@ -320,6 +337,40 @@ export default function PronunciationDrill() {
             </div>
           </Card>
         </motion.div>
+      </div>
+    );
+  }
+
+  if (startSessionMutation.isPending) {
+    return (
+      <div className="container max-w-2xl mx-auto p-4 space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setLocation('/')} data-testid="button-back-to-hub-loading">
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Language Hub
+          </Button>
+        </div>
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold">Pronunciation Drill</h1>
+          <p className="text-muted-foreground">
+            Practice challenging sounds with focused repetition
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-16 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            </div>
+            <div>
+              <CardTitle className="text-xl mb-2">Generating your drill...</CardTitle>
+              <CardDescription className="text-sm">
+                Crafting phrases tailored to your focus areas. This takes about 10 seconds.
+              </CardDescription>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -502,18 +553,34 @@ export default function PronunciationDrill() {
 
   return (
     <div className="container max-w-2xl mx-auto p-4 space-y-6">
+      {/* Navigation */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setLocation('/')}
+          data-testid="button-back-to-hub"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Language Hub
+        </Button>
+      </div>
+
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">Pronunciation Drill</h1>
         <p className="text-muted-foreground">
-          Practice challenging sounds with focused repetition
+          {isAutoStart
+            ? `Focused practice on: ${urlPhoneme}`
+            : "Practice challenging sounds with focused repetition"}
         </p>
       </div>
 
+      {!isAutoStart && (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Session Settings</CardTitle>
+          <CardTitle className="text-lg">Phoneme Pronunciation Practice</CardTitle>
           <CardDescription>
-            Choose your language and difficulty level
+            Focused repetition drills targeting sounds that challenge learners in your chosen language
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -566,6 +633,7 @@ export default function PronunciationDrill() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {loadingPhonemes ? (
         <div className="flex justify-center py-8">
@@ -576,10 +644,10 @@ export default function PronunciationDrill() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="h-5 w-5" />
-              {LANGUAGE_OPTIONS.find(l => l.value === selectedLanguage)?.label} Phoneme Challenges
+              {LANGUAGE_OPTIONS.find(l => l.value === selectedLanguage)?.label} Phoneme Reference
             </CardTitle>
             <CardDescription>
-              Common sounds that learners find challenging
+              Common sounds with difficulty scores — your session will target your personal weak spots from the list below
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -615,21 +683,27 @@ export default function PronunciationDrill() {
               Your Focus Areas
             </CardTitle>
             <CardDescription>
-              Sounds you've struggled with in past sessions
+              Pronunciation patterns flagged in your recent sessions
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {struggles.struggles.map((struggle, i) => (
-                <Badge key={i} variant="secondary" className="py-1.5 px-3">
-                  {struggle.phoneme}
-                  {struggle.occurrenceCount > 0 && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({struggle.occurrenceCount}x)
-                    </span>
-                  )}
-                </Badge>
-              ))}
+            <div className="space-y-2">
+              {struggles.struggles.slice(0, 5).map((struggle, i) => {
+                const label = struggle.description && struggle.description !== 'Pronunciation challenge'
+                  ? struggle.description
+                  : struggle.phoneme;
+                const displayText = label.length > 70 ? label.slice(0, 70) + '…' : label;
+                return (
+                  <div key={i} className="flex items-center justify-between gap-3 py-1.5">
+                    <span className="text-sm text-muted-foreground flex-1 min-w-0">{displayText}</span>
+                    {struggle.occurrenceCount > 0 && (
+                      <Badge variant="secondary" className="shrink-0 text-xs">
+                        {struggle.occurrenceCount}x
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

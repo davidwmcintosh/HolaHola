@@ -1,22 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
+import { costTracker } from "./services/cost-tracker";
+import { acquireBackgroundSlot } from "./services/gemini-priority-gate";
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  },
+  apiKey: process.env.GEMINI_API_KEY || '',
 });
 
 export const GEMINI_MODELS = {
   FLASH: "gemini-3-flash-preview",
-  PRO: "gemini-3-pro-preview",
+  PRO: "gemini-2.5-pro",
 } as const;
 
 export async function callGemini(
   model: string,
   messages: Array<{ role: string; content: string }>
 ): Promise<string> {
+  await acquireBackgroundSlot('callGemini');
   const systemMessage = messages.find(m => m.role === 'system')?.content || '';
   const conversationMessages = messages.filter(m => m.role !== 'system');
   
@@ -40,8 +39,17 @@ export async function callGemini(
     model,
     contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello' }] }]
   });
-  
-  return response.text || "";
+
+  try {
+    const usage = (response as any).usageMetadata;
+    if (usage) costTracker.track(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'gemini');
+  } catch {}
+
+  try {
+    return response.text || "";
+  } catch {
+    return "";
+  }
 }
 
 export async function callGeminiWithSchema<T = any>(
@@ -49,6 +57,7 @@ export async function callGeminiWithSchema<T = any>(
   messages: Array<{ role: string; content: string }>,
   schema: any
 ): Promise<T> {
+  await acquireBackgroundSlot('callGeminiWithSchema');
   const systemMessage = messages.find(m => m.role === 'system')?.content || '';
   const conversationMessages = messages.filter(m => m.role !== 'system');
   
@@ -77,6 +86,11 @@ export async function callGeminiWithSchema<T = any>(
     },
   });
   
+  try {
+    const usage = (response as any).usageMetadata;
+    if (usage) costTracker.track(model, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'gemini-schema');
+  } catch {}
+
   const responseText = response.text || "{}";
   return JSON.parse(responseText) as T;
 }

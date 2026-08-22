@@ -1,0 +1,51 @@
+## Summary of Investigation and Progress
+
+### What I've Discovered
+
+**Database Schema Reality:**
+- `voiceSessions` table does **NOT** have an `environment` column
+- `users` table (in userDb) does **NOT** have an `environment` column
+- Only certain tables have environment tracking: `sofiaIssueReports.environment`, `collaboration_messages.environment`, and various neural network sync tables with `originEnvironment`
+- The separation is **deployment-based** (2 servers, 1 shared database), not schema-based
+
+**Current Monitoring Tools Behavior:**
+- All 4 main tools (`get_system_health`, `get_database_stats`, `get_user_analytics`, `get_voice_session_metrics`) query the shared database **without any environment filtering**
+- This means they return **combined dev + production data**
+- The only exception: `get_recent_errors` queries `sofiaIssueReports` which DOES have an `environment` column
+
+**Your Request:**
+Make monitoring "environment-aware" — report dev and production separately — but **keep test account/session data** (don't filter it out)
+
+### What I've Completed So Far
+
+✅ **Modified `get_system_health`** (via patch_file):
+- Added `currentEnvironment: process.env.NODE_ENV` to the response
+- This tells me which server the tool is running on
+- Active sessions query remains unchanged (no environment column exists on `voice_sessions`)
+
+### What I Need to Do Next Turn
+
+Since `voiceSessions` and `users` tables don't have `environment` columns, I **cannot** filter by environment in the database queries. The architectural reality is:
+
+1. **Both servers write to the same tables** in the shared database
+2. **No persistent environment marker** exists on the session/user records themselves
+3. **Sofia's reports** have environment tracking, but voice sessions don't
+
+**My Next Turn Plan:**
+
+1. **Add environment labels to ALL tool responses** (like I did for `get_system_health`)
+   - `get_database_stats` → add `currentEnvironment`
+   - `get_user_analytics` → add `currentEnvironment`
+   - `get_voice_session_metrics` → add `currentEnvironment`
+   
+2. **For `get_recent_errors`** — this CAN filter by environment since `sofiaIssueReports.environment` exists:
+   - Query and return BOTH `currentEnvIssues` and `productionIssues` separately
+   - This gives visibility into production problems even when working in dev
+
+3. **Document the limitation** in the tool responses: monitoring shows combined data because the schema doesn't track which server created each session/user
+
+The result: you'll always know **which environment you're querying FROM**, and for Sofia reports you'll see **which environment the issues came FROM**. But session/user counts will remain combined until we add environment columns to those tables (which would require a schema change + migration).
+
+**Do you want me to:**
+- A) Proceed with this approach (environment labels + Sofia filtering)
+- B) Add `environment` column to `voiceSessions` and `users` tables so we can truly separate the data?

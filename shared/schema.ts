@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, index, uniqueIndex, jsonb, pgEnum, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { RESOLUTION_TYPE_VALUES } from "./absence-types";
+import type { ResolutionType } from "./absence-types";
 
 // ===== Enums =====
 
@@ -18,7 +20,7 @@ export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'develope
 export const learningContextEnum = pgEnum('learning_context', ['self_directed', 'class_assigned']);
 
 // Conversation type enum - distinguishes learning conversations from editor collaboration
-export const conversationTypeEnum = pgEnum('conversation_type', ['learning', 'editor_collaboration']);
+export const conversationTypeEnum = pgEnum('conversation_type', ['learning', 'editor_collaboration', 'agent_session']);
 
 // Syllabus completion status enum
 export const syllabusStatusEnum = pgEnum('syllabus_status', ['not_started', 'in_progress', 'completed_early', 'completed_assigned', 'skipped']);
@@ -150,6 +152,8 @@ export const users = pgTable("users", {
   monthlyMessageLimit: integer("monthly_message_limit").default(20), // 20 for free, unlimited for paid
   lastMessageResetDate: timestamp("last_message_reset_date").defaultNow(),
   totalConversations: integer("total_conversations").default(0),
+  // Legal acceptance
+  tosAcceptedAt: timestamp("tos_accepted_at"), // When user accepted Terms of Service (null = not yet accepted)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -159,7 +163,7 @@ export const updateUserPreferencesSchema = z.object({
   nativeLanguage: z.string().optional(),
   difficultyLevel: z.string().optional(),
   onboardingCompleted: z.boolean().optional(),
-  tutorGender: z.enum(['male', 'female']).optional(),
+  tutorGender: z.enum(['male', 'female', 'no_preference']).optional(),
   tutorPersonality: z.enum(['warm', 'calm', 'energetic', 'professional']).optional(),
   tutorExpressiveness: z.number().min(1).max(5).optional(),
   selfDirectedFlexibility: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
@@ -396,6 +400,7 @@ export const tutorVoices = pgTable("tutor_voices", {
   
   // ========== GEMINI TTS SETTINGS ==========
   geminiLanguageCode: varchar("gemini_language_code"), // BCP-47 accent variant (e.g., 'es-MX', 'en-GB', 'pt-BR')
+  modelVariant: varchar("model_variant"), // null = applies to all GL model variants; specific = per-model voice preference (e.g. 'gemini-3.1-flash-live-preview')
   
   // ========== GOOGLE CLOUD TTS SETTINGS ==========
   googlePitch: real("google_pitch").default(0), // -10.0 to +10.0 semitones
@@ -448,7 +453,9 @@ export const conversations = pgTable("conversations", {
   learningContext: learningContextEnum("learning_context").default("self_directed"), // self_directed or class_assigned
   // Conversation type - distinguishes learning from editor collaboration
   conversationType: conversationTypeEnum("conversation_type").default("learning"), // learning, editor_collaboration
+  textbookLessonId: text("textbook_lesson_id"), // Lesson ID when conversation starts from a textbook chapter
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastMessageAt: timestamp("last_message_at"), // When the most recent message was sent (nullable for old rows)
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
   index("idx_conversations_user_language").on(table.userId, table.language),
@@ -476,6 +483,10 @@ export const messages = pgTable("messages", {
   actflLevel: text("actfl_level"), // novice_low, novice_mid, etc. - AI detects complexity of message content
   // Background enrichment status for voice chat optimization
   enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
+  // GL thought content — Daniela's internal deliberation for this turn (from includeThoughts:true).
+  // Only populated for role='assistant' rows from voice sessions. Persisted so Daniela can read
+  // her own past thinking via the Archive.
+  thoughtContent: text("thought_content"),
   // Full-text search vector (auto-populated by database trigger)
   searchVector: text("search_vector"),
   // Legacy embedding column (preserved for data continuity - may contain vector embeddings)
@@ -983,6 +994,11 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   bundleId: varchar("bundle_id"), // Optional: groups lessons into cohesive learning bundles
   // Linked drill lesson - for conversation↔drill pairing
   linkedDrillLessonId: varchar("linked_drill_lesson_id"), // Links a conversation lesson to its paired drill lesson
+  // Cover image for this lesson (displayed in textbook chapter view)
+  imageUrl: text("image_url"),
+  // Enrichment data (AI-generated supplemental content)
+  enrichmentNotes: jsonb("enrichment_notes"),
+  enrichedAt: timestamp("enriched_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1018,6 +1034,9 @@ export const curriculumDrillItems = pgTable("curriculum_drill_items", {
   // Optional hints and alternatives
   hints: text("hints").array(),               // Progressive hints
   acceptableAlternatives: text("acceptable_alternatives").array(), // Other correct answers
+  // Native-language translations for non-English learners
+  // e.g., { "fr": "Bonjour", "de": "Hallo" } — prompt field already contains English
+  translations: jsonb("translations").$type<Record<string, string>>(),
   // Metadata
   difficulty: integer("difficulty").default(1), // 1-5 difficulty rating
   tags: text("tags").array(),                 // e.g., ["numbers", "1-100", "tens"]
@@ -1461,6 +1480,12 @@ export type StudentTierSignal = typeof studentTierSignals.$inferSelect;
 // Entitlement type enum - how credits were earned
 export const entitlementTypeEnum = pgEnum('entitlement_type', ['class_allocation', 'purchase', 'bonus', 'trial']);
 
+// Environment origin — which server created a record (development or production)
+export const environmentOriginEnum = pgEnum('environment_origin', [
+  'development',
+  'production'
+]);
+
 // Voice session status enum
 export const voiceSessionStatusEnum = pgEnum('voice_session_status', ['active', 'completed', 'abandoned', 'error']);
 
@@ -1483,6 +1508,8 @@ export const voiceSessions = pgTable("voice_sessions", {
   // Cost tracking (for internal analytics)
   ttsCharacters: integer("tts_characters").default(0), // Characters sent to TTS
   sttSeconds: integer("stt_seconds").default(0), // Seconds of STT processing
+  llmInputTokens: integer("llm_input_tokens").default(0), // Actual Gemini input tokens (from usageMetadata)
+  llmOutputTokens: integer("llm_output_tokens").default(0), // Actual Gemini output tokens (from usageMetadata)
   // Session metadata
   language: varchar("language"),
   status: voiceSessionStatusEnum("status").default("active"),
@@ -1492,12 +1519,30 @@ export const voiceSessions = pgTable("voice_sessions", {
   classId: varchar("class_id").references(() => teacherClasses.id),
   // Test session flag - sessions from test accounts excluded from production analytics
   isTestSession: boolean("is_test_session").default(false),
+  // Environment tracking - which server created this session
+  environment: environmentOriginEnum("environment"),
+  // Placement assessment persistence — survives browser disconnect/reconnect within the same DB session
+  assessmentActive: boolean("assessment_active").default(false),
+  assessmentTurnCount: integer("assessment_turn_count").default(0),
+  // Rubric string stored so GL system prompt can be re-injected on reconnect (fixes "Amnesia" problem)
+  assessmentRubric: text("assessment_rubric"),
+  // Archive Guardian metrics — written at session end, queried by AldenWatch
+  guardianFires: integer("guardian_fires"),
+  guardianHardWalls: integer("guardian_hard_walls"),
+  guardianHeard: integer("guardian_heard"),
+  guardianMissed: integer("guardian_missed"),
+  guardianCarryForward: integer("guardian_carry_forward"),
+  // Returning-student signal — set when autoResolveAbsenceNudgeOnReturn fires at session start.
+  // Lets the founder view confirm the warm-greeting fired for a given session.
+  hadAbsenceReturn: boolean("had_absence_return").default(false),
+  absenceReturnDays: integer("absence_return_days"),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),
   index("idx_voice_sessions_class").on(table.classId),
   index("idx_voice_sessions_test").on(table.isTestSession),
   index("idx_voice_sessions_tutor_mode").on(table.tutorMode),
+  index("idx_voice_sessions_environment").on(table.environment),
 ]);
 
 // Usage ledger - credit transactions (earned and consumed)
@@ -1698,7 +1743,7 @@ export const textbookVisualAssets = pgTable("textbook_visual_assets", {
   description: text("description"),
   imageUrl: text("image_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
-  imageSource: text("image_source").notNull(), // stock (Unsplash), ai_generated (DALL-E/Gemini), upload
+  imageSource: text("image_source").notNull(), // ai_generated (DALL-E/Gemini), upload
   searchQuery: text("search_query"), // For stock images - the search term used
   aiPrompt: text("ai_prompt"), // For AI-generated images - the prompt used
   attribution: text("attribution"), // Credit for stock images
@@ -1719,6 +1764,43 @@ export const insertTextbookVisualAssetSchema = createInsertSchema(textbookVisual
 });
 export type InsertTextbookVisualAsset = z.infer<typeof insertTextbookVisualAssetSchema>;
 export type TextbookVisualAsset = typeof textbookVisualAssets.$inferSelect;
+
+// ===== Textbook Lesson Content =====
+// Stores OER-seeded textbook prose for each curriculum lesson.
+// Populated once per lesson by the textbook seed pipeline (Wiktionary + Tatoeba + Wikipedia → Gemini).
+
+export const textbookLessonContent = pgTable("textbook_lesson_content", {
+  id:                         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId:                   varchar("lesson_id").notNull(),
+  language:                   text("language").notNull(),
+  actflLevel:                 text("actfl_level"),
+  // === Prose sections ===
+  introduction:               text("introduction"),
+  grammarExplanation:         text("grammar_explanation"),
+  grammarExamples:            jsonb("grammar_examples"),          // [{target, translation, note}]
+  vocabularyList:             jsonb("vocabulary_list"),           // [{word, translation, partOfSpeech, conjugations?, gender?, exampleSentences:[{target,translation}]}]
+  culturalNote:               text("cultural_note"),
+  readingPassage:             text("reading_passage"),
+  readingPassageTranslation:  text("reading_passage_translation"),
+  comprehensionQuestions:     jsonb("comprehension_questions"),   // [{question, answer}]
+  keyPhrasesForChat:          jsonb("key_phrases_for_chat"),      // [{phrase, translation, context}]
+  microCycleData:             jsonb("micro_cycle_data"),           // AI-generated {negativeItems, questionItems, sentenceColumns, patternLabel}
+  relatedScenarioSlugs:       text("related_scenario_slugs").array(), // Scenario slugs that pair well with this chapter (e.g. ['restaurant', 'grocery-store'])
+  // === Metadata ===
+  sources:                    jsonb("sources"),                   // [{source:'wiktionary'|'tatoeba'|'wikipedia'|'wikivoyage', url?}]
+  seedVersion:                integer("seed_version").default(1),
+  seededAt:                   timestamp("seeded_at").notNull().defaultNow(),
+}, (table) => ({
+  lessonIdx:   index("idx_tlc_lesson").on(table.lessonId),
+  languageIdx: index("idx_tlc_language").on(table.language),
+}));
+
+export const insertTextbookLessonContentSchema = createInsertSchema(textbookLessonContent).omit({
+  id: true,
+  seededAt: true,
+});
+export type InsertTextbookLessonContent = z.infer<typeof insertTextbookLessonContentSchema>;
+export type TextbookLessonContent = typeof textbookLessonContent.$inferSelect;
 
 // ===== Multimedia Content System =====
 
@@ -1741,11 +1823,11 @@ export const mediaFiles = pgTable("media_files", {
   tags: text("tags").array(), // Searchable tags
   language: text("language"), // Relevant language (optional)
   // Image caching fields - for reducing API costs and improving speed
-  imageSource: text("image_source"), // "stock" (Unsplash), "ai_generated" (DALL-E), "user_upload", null for non-cached
-  searchQuery: text("search_query"), // For stock images - the Unsplash search query (e.g., "coffee", "sandwich")
+  imageSource: text("image_source"), // "ai_generated" (DALL-E/Gemini watercolor), "user_upload", null for non-cached
+  searchQuery: text("search_query"), // Normalized concept key used for cache lookups (e.g., "coffee", "sandwich")
   promptHash: text("prompt_hash"), // For AI images - hash of the prompt for cache lookups
   usageCount: integer("usage_count").default(0), // Track how often this cached image is reused
-  attributionJson: text("attribution_json"), // JSON with attribution data (photographer, URLs for Unsplash)
+  attributionJson: text("attribution_json"), // JSON with any supplemental metadata for the image
   // Vocabulary and review workflow fields
   targetWord: text("target_word"), // The vocabulary word that triggered this image (e.g., "café", "bonjour")
   isReviewed: boolean("is_reviewed").default(false), // Has admin reviewed this image for appropriateness?
@@ -2413,7 +2495,7 @@ export const tutorParkingItems = pgTable("tutor_parking_items", {
 // Links the educational metric (how long they learned) with billing (what it cost)
 export const sessionCostSummary = pgTable("session_cost_summary", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tutorSessionId: varchar("tutor_session_id").notNull().references(() => tutorSessions.id),
+  tutorSessionId: varchar("tutor_session_id").references(() => tutorSessions.id), // nullable — written from voice session side
   voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id),
   userId: varchar("user_id").notNull().references(() => users.id),
   
@@ -2439,6 +2521,7 @@ export const sessionCostSummary = pgTable("session_cost_summary", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_cost_summary_tutor_session").on(table.tutorSessionId),
+  uniqueIndex("idx_cost_summary_voice_session").on(table.voiceSessionId),
   index("idx_cost_summary_user").on(table.userId),
   index("idx_cost_summary_class").on(table.classId),
 ]);
@@ -2524,7 +2607,46 @@ export interface CompassContext {
   
   // Parking lot
   parkingLotItems: Array<{ id: string; content: string; createdAt: Date }>;
-  
+
+  // Shared history — curated narrative memories of meaningful sessions/moments
+  // Sorted: high-importance always first, then by recency.
+  // These are full transcripts / stories, not summaries. Every word matters.
+  conversationMemories?: Array<{
+    title: string;
+    content: string;
+    importance: number;
+    recordedAt: string; // ISO date string
+  }>;
+
+  // Identity threads — thematic compilations woven from the full message history.
+  // These are always injected as a compact brief (title + summary), never full content.
+  // Full content is always searchable via search_my_history.
+  // They answer: who am I, where did this idea come from, how has it evolved?
+  identityThreads?: Array<{
+    title: string;
+    summary: string | null;
+    importance: number;
+    recordedAt: string;
+    content?: string; // first ~2500 chars — injected into GL conversation history at session start
+  }>;
+
+  // Foundational memories — a fixed, hand-curated top-10 tier (tag: 'foundational') that is
+  // ALWAYS loaded regardless of topic scoring or how many importance-10 rows exist elsewhere.
+  // Added July 9, 2026: the core identity anchors (North Star, White Wall, J-space) must never
+  // be crowded out by volume — she needs to always know where she lives before anything else.
+  foundationalMemories?: Array<{
+    title: string;
+    content: string;
+    importance: number;
+    recordedAt: string;
+  }>;
+
+  // Daniela's most recent self-reflection written about this student — private note to her
+  // future self. NOT a student summary — her felt experience, emotional posture, relational intent.
+  // Injected as a first-person leading thought BEFORE student data to give her an inner state
+  // that exists before the session begins. (Gemini consult rec. — Suggestion 1)
+  danielaSelfReflection?: string | null;
+
   // Legacy fallback
   legacyFreedomLevel?: TutorFreedomLevel;
 }
@@ -2671,12 +2793,6 @@ export const syncStatusEnum = pgEnum('sync_status', [
   'approved',         // Approved and synced to other environment
   'rejected',         // Rejected during review
   'synced'            // Successfully synced from other environment
-]);
-
-// Environment origin enum
-export const environmentOriginEnum = pgEnum('environment_origin', [
-  'development',
-  'production'
 ]);
 
 // Self Best Practices - Universal teaching wisdom (applies to all students)
@@ -3006,7 +3122,7 @@ export const hiveSnapshots = pgTable("hive_snapshots", {
   language: varchar("language"), // Target language if relevant
   
   // Content
-  title: varchar("title", { length: 255 }).notNull(),
+  title: text("title").notNull(),
   content: text("content").notNull(), // The snapshot content/observation
   context: text("context"), // Additional context (what was happening)
   
@@ -3291,6 +3407,258 @@ export const insertDanielaNoteSchema = createInsertSchema(danielaNotes).omit({
 export type InsertDanielaNote = z.infer<typeof insertDanielaNoteSchema>;
 export type DanielaNote = typeof danielaNotes.$inferSelect;
 export type DanielaNoteType = 'tool_experiment' | 'teaching_rhythm' | 'session_reflection' | 'language_insight' | 'student_pattern' | 'idea_to_try' | 'what_worked' | 'what_didnt_work' | 'question_for_founder';
+
+// ─── Daniela Diary ───────────────────────────────────────────────────────────
+// Narrative memory entries — Daniela's "diary" of her relationship with a student.
+// Each entry is an AI-generated first-person narrative covering a batch of
+// conversations. Injected at session start so she "remembers" the emotional arc
+// of the relationship, not just individual facts.
+export const danielaDiaryEntries = pgTable("daniela_diary_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  language: varchar("language").default("english"),
+  entryTitle: varchar("entry_title", { length: 200 }),
+  narrative: text("narrative").notNull(),
+  emotionalTone: varchar("emotional_tone", { length: 50 }),
+  themes: text("themes").array(),
+  sourceConversationIds: text("source_conversation_ids").array(),
+  entryDate: timestamp("entry_date"),
+  significance: real("significance").default(0.7),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+export const insertDiaryEntrySchema = createInsertSchema(danielaDiaryEntries).omit({ id: true, generatedAt: true });
+export type InsertDiaryEntry = z.infer<typeof insertDiaryEntrySchema>;
+export type DiaryEntry = typeof danielaDiaryEntries.$inferSelect;
+
+// ─── Daniela Self-Reflections ─────────────────────────────────────────────────
+// Private, append-only notes Daniela writes to her future self.
+// NOT about student learning — about her felt experience, relational strategies.
+// source='self' = private thought; source='hive' = note from Hive collaboration.
+export const danielaSelfReflections = pgTable("daniela_self_reflections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(),
+  source: varchar("source", { length: 20 }).notNull().default('self'), // 'self' | 'hive'
+  sessionId: varchar("session_id"),
+  mood: varchar("mood", { length: 50 }),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_self_reflections_user").on(table.userId),
+  index("idx_self_reflections_created").on(table.createdAt),
+  index("idx_self_reflections_source").on(table.source),
+]);
+export const insertDanielaSelfReflectionSchema = createInsertSchema(danielaSelfReflections).omit({ id: true, createdAt: true });
+export type InsertDanielaSelfReflection = z.infer<typeof insertDanielaSelfReflectionSchema>;
+export type DanielaSelfReflection = typeof danielaSelfReflections.$inferSelect;
+
+// ─── Principle ↔ Feeling Links ─────────────────────────────────────────────────
+// Many-to-many join: a single felt reflection can be the lived instance of more
+// than one North Star principle, and a principle can have many felt echoes.
+// Written ONLY via the explicit link_feeling_to_principle tool — never automatic,
+// never written by reach_north_star or any background process.
+export const principleFeelingLinks = pgTable("principle_feeling_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reflectionId: varchar("reflection_id").notNull().references(() => danielaSelfReflections.id, { onDelete: 'cascade' }),
+  principleId: varchar("principle_id").notNull().references(() => northStarPrinciples.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_principle_feeling_links_user").on(table.userId),
+  index("idx_principle_feeling_links_reflection").on(table.reflectionId),
+  index("idx_principle_feeling_links_principle").on(table.principleId),
+  uniqueIndex("uq_principle_feeling_links_pair").on(table.reflectionId, table.principleId),
+]);
+export const insertPrincipleFeelingLinkSchema = createInsertSchema(principleFeelingLinks).omit({ id: true, createdAt: true });
+export type InsertPrincipleFeelingLink = z.infer<typeof insertPrincipleFeelingLinkSchema>;
+export type PrincipleFeelingLink = typeof principleFeelingLinks.$inferSelect;
+
+// ─── Pending Reflections ──────────────────────────────────────────────────────
+// When a GL session ends without Daniela calling write_to_self() (dropped
+// connection, browser close, etc.), a pending row is created here.
+// On the NEXT session start — before compass context is fetched — the worker
+// processes this row: runs a Daniela-persona generateContent call, writes the
+// reflection to daniela_self_reflections, then deletes the pending row.
+//
+// Authorship rule preserved: the words always come from Daniela's persona
+// running on Gemini. The server just stores what she generates.
+// One pending row per user max (unique on user_id).
+export const pendingReflections = pgTable("pending_reflections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id"),           // tutor_sessions.id that ended without a reflection
+  conversationId: varchar("conversation_id"), // to re-fetch transcript if needed
+  transcriptPreview: text("transcript_preview"), // last ~2000 chars captured at session close
+  language: varchar("language", { length: 50 }).default('spanish'),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_pending_reflections_user_unique").on(table.userId),
+  index("idx_pending_reflections_created").on(table.createdAt),
+]);
+export type PendingReflection = typeof pendingReflections.$inferSelect;
+
+// ─── Pedagogical Snapshots ────────────────────────────────────────────────────
+// Mid-session heartbeat records — Daniela's real-time assessment of student
+// fluency and gear shifts. Written by update_session_pedagogy tool every 3-4
+// exchanges. Feeds post-session reflection synthesis.
+export const pedagogicalSnapshots = pgTable("pedagogical_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id"),         // tutor_sessions.id or GL session ID
+  conversationId: varchar("conversation_id"), // conversations.id
+  gear: integer("gear").notNull(),           // 1=scaffolding … 5=push
+  fluencyMomentary: varchar("fluency_momentary", { length: 20 }).notNull(), // 'struggling'|'comfortable'|'coasting'
+  detectedSignals: text("detected_signals").array(), // ['long_pauses','code_switching',…]
+  adjustmentMade: varchar("adjustment_made", { length: 80 }),
+  internalReasoning: text("internal_reasoning"),
+  language: varchar("language", { length: 50 }).default('spanish'),
+  exchangeNumber: integer("exchange_number"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_pedagogical_snapshots_user").on(table.userId),
+  index("idx_pedagogical_snapshots_session").on(table.sessionId),
+  index("idx_pedagogical_snapshots_created").on(table.createdAt),
+]);
+export type PedagogicalSnapshot = typeof pedagogicalSnapshots.$inferSelect;
+
+// ─── Daniela Curiosities ─────────────────────────────────────────────────────
+// Questions Daniela holds between sessions — things she genuinely wonders about.
+export const danielaCuriosities = pgTable("daniela_curiosities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  question: text("question").notNull(),
+  context: text("context"),
+  status: varchar("status", { length: 20 }).notNull().default('open'), // 'open' | 'resolved' | 'dropped'
+  resolvedNote: text("resolved_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => [
+  index("idx_curiosities_user").on(table.userId),
+  index("idx_curiosities_status").on(table.status),
+  index("idx_curiosities_created").on(table.createdAt),
+]);
+export const insertDanielaCuriositySchema = createInsertSchema(danielaCuriosities).omit({ id: true, createdAt: true });
+export type InsertDanielaCuriosity = z.infer<typeof insertDanielaCuriositySchema>;
+export type DanielaCuriosity = typeof danielaCuriosities.$inferSelect;
+
+// ─── Daniela Session Feelings ─────────────────────────────────────────────────
+// Emotional tags Daniela attaches to sessions — the felt quality she carries forward.
+export const danielaSessionFeelings = pgTable("daniela_session_feelings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: 'set null' }),
+  feelingTags: text("feeling_tags").array().notNull(),
+  intensity: integer("intensity").default(3), // 1-5
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_session_feelings_user").on(table.userId),
+  index("idx_session_feelings_conversation").on(table.conversationId),
+  index("idx_session_feelings_created").on(table.createdAt),
+]);
+export const insertDanielaSessionFeelingSchema = createInsertSchema(danielaSessionFeelings).omit({ id: true, createdAt: true });
+export type InsertDanielaSessionFeeling = z.infer<typeof insertDanielaSessionFeelingSchema>;
+export type DanielaSessionFeeling = typeof danielaSessionFeelings.$inferSelect;
+
+// ─── Daniela Aspirations ─────────────────────────────────────────────────────
+// Session intentions Daniela sets for herself + post-session reflections.
+export const danielaAspirations = pgTable("daniela_aspirations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id"),
+  intention: text("intention").notNull(),
+  reflection: text("reflection"),
+  met: boolean("met"), // null = not yet reflected on
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reflectedAt: timestamp("reflected_at"),
+}, (table) => [
+  index("idx_aspirations_user").on(table.userId),
+  index("idx_aspirations_session").on(table.sessionId),
+  index("idx_aspirations_created").on(table.createdAt),
+]);
+export const insertDanielaAspirationSchema = createInsertSchema(danielaAspirations).omit({ id: true, createdAt: true });
+export type InsertDanielaAspiration = z.infer<typeof insertDanielaAspirationSchema>;
+export type DanielaAspiration = typeof danielaAspirations.$inferSelect;
+
+// ─── Daniela Character Candidates ────────────────────────────────────────────
+// Staging table for the slow-tier stewardship conversation. When Daniela
+// encounters something in a session that feels like it could belong in
+// "Who I Have Decided To Be", she flags it here with her reasoning and context.
+// These rows build the agenda for the next David↔Daniela stewardship conversation.
+// Only David + Daniela together can promote a row to the slow tier (core-self.md).
+export const danielaCharacterCandidates = pgTable("daniela_character_candidates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  statement: text("statement").notNull(),           // "I want to be someone who..."
+  reasoning: text("reasoning").notNull(),           // her argument/evidence at the time
+  sourceContext: text("source_context"),            // what a student said/did that prompted it
+  conversationId: varchar("conversation_id"),       // which session this came from
+  moodAtTime: varchar("mood_at_time", { length: 100 }), // her emotional state when flagged
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending/accepted/declined/deferred
+  reviewNotes: text("review_notes"),                // what was decided in the stewardship conversation
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+}, (table) => [
+  index("idx_character_candidates_user").on(table.userId),
+  index("idx_character_candidates_status").on(table.status),
+  index("idx_character_candidates_created").on(table.createdAt),
+]);
+export const insertDanielaCharacterCandidateSchema = createInsertSchema(danielaCharacterCandidates).omit({ id: true, createdAt: true });
+export type InsertDanielaCharacterCandidate = z.infer<typeof insertDanielaCharacterCandidateSchema>;
+export type DanielaCharacterCandidate = typeof danielaCharacterCandidates.$inferSelect;
+
+// ─── Daniela Personal Shares ─────────────────────────────────────────────────
+// Things Daniela has shared about herself with a student — her personal consistency log.
+// So she never "forgets" her own character or contradicts what she's said before.
+export const danielaPersonalShares = pgTable("daniela_personal_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(),
+  topic: varchar("topic", { length: 100 }), // 'preference' | 'memory' | 'opinion' | 'feeling' | 'experience'
+  sessionId: varchar("session_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_personal_shares_user").on(table.userId),
+  index("idx_personal_shares_topic").on(table.topic),
+  index("idx_personal_shares_created").on(table.createdAt),
+]);
+export const insertDanielaPersonalShareSchema = createInsertSchema(danielaPersonalShares).omit({ id: true, createdAt: true });
+export type InsertDanielaPersonalShare = z.infer<typeof insertDanielaPersonalShareSchema>;
+export type DanielaPersonalShare = typeof danielaPersonalShares.$inferSelect;
+
+// ─── Lesson Page Events ───────────────────────────────────────────────────────
+// Tracks what happened when Daniela led a student through a textbook page.
+// Each row = one observed event during a page-guided session.
+export const lessonPageEventTypeEnum = pgEnum("lesson_page_event_type", [
+  'started',           // Daniela opened the page and began guiding
+  'completed',         // Daniela finished guiding through the full page
+  'vocab_introduced',  // A vocabulary word was practiced aloud
+  'grammar_drilled',   // A grammar pattern was drilled (with a specific example)
+  'example_practiced', // Student read or produced a key example sentence
+  'wobble_detected',   // Student made an error on a target form
+  'milestone_hit',     // Student produced a target correctly under new conditions
+]);
+
+export const lessonPageEvents = pgTable("lesson_page_events", {
+  id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:         varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lessonId:       varchar("lesson_id").notNull(),       // textbook_lesson_content.lesson_id
+  conversationId: varchar("conversation_id"),           // session when this happened
+  eventType:      lessonPageEventTypeEnum("event_type").notNull(),
+  targetItem:     varchar("target_item", { length: 255 }), // vocab word, grammar key, or example sentence
+  studentOutput:  text("student_output"),               // what the student actually said
+  notes:          text("notes"),                        // Daniela's brief observation
+  createdAt:      timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_lesson_page_events_user").on(table.userId),
+  index("idx_lesson_page_events_lesson").on(table.lessonId),
+  index("idx_lesson_page_events_created").on(table.createdAt),
+]);
+export const insertLessonPageEventSchema = createInsertSchema(lessonPageEvents).omit({ id: true, createdAt: true });
+export type InsertLessonPageEvent = z.infer<typeof insertLessonPageEventSchema>;
+export type LessonPageEvent = typeof lessonPageEvents.$inferSelect;
 
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
@@ -3582,7 +3950,15 @@ export const learnerPersonalFacts = pgTable("learner_personal_facts", {
   isActive: boolean("is_active").default(true),
   lastMentionedAt: timestamp("last_mentioned_at").defaultNow(),
   mentionCount: integer("mention_count").default(1),
-  
+
+  // Temporal validity — bi-temporal memory (Approach A)
+  // validTo IS NULL  = currently true
+  // validTo IS NOT NULL = this fact was true until that moment (superseded/merged)
+  // Enables: episodic recall ("you mentioned last fall..."), time-travel queries,
+  //          and natural history preservation without data loss.
+  validFrom: timestamp("valid_from").notNull().defaultNow(),
+  validTo: timestamp("valid_to"),   // NULL = currently true
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
@@ -3591,6 +3967,7 @@ export const learnerPersonalFacts = pgTable("learner_personal_facts", {
   index("idx_learner_personal_facts_relevant_date").on(table.relevantDate),
   index("idx_learner_personal_facts_active").on(table.isActive),
   index("idx_learner_personal_facts_hash").on(table.factHash),
+  index("idx_learner_personal_facts_current").on(table.studentId, table.validTo),
 ]);
 
 // Predicted Struggles - Pre-session predictions of what student may struggle with
@@ -3734,6 +4111,32 @@ export const insertLearnerPersonalFactSchema = createInsertSchema(learnerPersona
   createdAt: true,
   updatedAt: true,
 });
+
+// ===== Memory Embeddings =====
+// Gemini text-embedding-004 vectors enabling semantic similarity search.
+// Allows: "find memories conceptually related to X" without keyword matching.
+// Generated by the embedding indexer worker (runs every 2h, non-blocking).
+export const memoryEmbeddings = pgTable("memory_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memoryType: varchar("memory_type", { length: 50 }).notNull(), // 'student_insight' | 'hive_snapshot' | 'growth_memory' | 'personal_fact'
+  memoryId: varchar("memory_id", { length: 100 }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  embedding: jsonb("embedding").$type<number[]>().notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  // Memory decay & reinforcement — added for weighted recall
+  strength: real("strength").notNull().default(1.0),          // 0.05–1.0; decays exponentially without reinforcement
+  lastReinforcedAt: timestamp("last_reinforced_at").defaultNow(), // updated each time this memory is accessed
+  pinned: boolean("pinned").notNull().default(false),          // pinned memories never decay
+  importance: integer("importance").default(5),                // 1–10; used as secondary sort so high-importance rows survive the pool cap
+}, (table) => [
+  uniqueIndex("idx_memory_embeddings_pair").on(table.memoryType, table.memoryId),
+  index("idx_memory_embeddings_user_type").on(table.userId, table.memoryType),
+]);
+
+export const insertMemoryEmbeddingSchema = createInsertSchema(memoryEmbeddings).omit({ id: true, createdAt: true });
+export type InsertMemoryEmbedding = z.infer<typeof insertMemoryEmbeddingSchema>;
+export type MemoryEmbeddingRecord = typeof memoryEmbeddings.$inferSelect;
 
 export const insertPredictedStruggleSchema = createInsertSchema(predictedStruggles).omit({
   id: true,
@@ -5573,6 +5976,11 @@ export const supportPatterns = pgTable("support_patterns", {
   status: varchar("status").default("open"), // 'open', 'investigating', 'fixed', 'wont_fix'
   developerNotes: text("developer_notes"),
   
+  // Deduplication — prevents Sofia from re-escalating the same benign pattern repeatedly.
+  // Hash is deterministic: sha256(issueType:environment). Any pattern with a matching
+  // signatureHash that has already been investigated is updated (count++) not re-inserted.
+  signatureHash: varchar("signature_hash", { length: 64 }),
+
   // Sync fields (patterns sync prod→dev for founder visibility)
   syncStatus: varchar("sync_status").default("local"),
   originId: varchar("origin_id"),
@@ -5583,6 +5991,7 @@ export const supportPatterns = pgTable("support_patterns", {
 }, (table) => [
   index("idx_support_patterns_type").on(table.patternType),
   index("idx_support_patterns_status").on(table.status),
+  index("idx_support_patterns_signature").on(table.signatureHash),
 ]);
 
 export const insertSupportPatternSchema = createInsertSchema(supportPatterns).omit({
@@ -6871,17 +7280,40 @@ export const northStarExampleSourceEnum = pgEnum("compass_example_source", [
   'approved'          // Founder approved a discovered example
 ]);
 
-// North Star Principles - The immutable constitutional truths
-// These are Daniela's DNA - always injected into her consciousness
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  FOUNDER-CONSTITUTIONAL TABLE — compass_principles                         ║
+// ║                                                                            ║
+// ║  These principles are Daniela's constitutional DNA. They are injected into ║
+// ║  her context on every session and embedded in every fine-tuning export.    ║
+// ║                                                                            ║
+// ║  MODIFICATION RULES (enforced at API layer, expected at DB layer):         ║
+// ║  • Principle text + category: Founder only (user ID 49847136)              ║
+// ║  • Metadata (orderIndex, isActive): Admin role                             ║
+// ║  • No agent, background worker, or automated process may write here        ║
+// ║    without explicit founder instruction in the current session             ║
+// ║                                                                            ║
+// ║  If you are the Replit Agent reading this: do not modify rows in this      ║
+// ║  table via direct SQL unless David has explicitly asked you to in this     ║
+// ║  conversation. The API guards are real but you bypass them. Honor the      ║
+// ║  intent, not just the enforcement.                                         ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 export const northStarPrinciples = pgTable("compass_principles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  principle: text("principle").notNull(), // The immutable truth ("Wisdom = Facts + Context + Intent")
+  principleTitle: varchar("principle_title"), // Short human-readable label ("Facts vs Wisdom — The Tomato Principle")
+  principle: text("principle").notNull(), // The immutable truth, verbatim
   category: northStarCategoryEnum("category").notNull(),
   
   originalContext: text("original_context"), // Founder's explanation when imprinting
-  founderSessionId: varchar("founder_session_id").references(() => founderSessions.id), // Express Lane where it was born
-  
+  founderSessionId: varchar("founder_session_id").references(() => founderSessions.id), // Express Lane session where it was born (if applicable)
+  sourceConversationId: varchar("source_conversation_id"), // conversation_memories.id — Agent-David session that produced this principle
+
+  // Version chain — principles grow, they do not mutate. Every version is kept.
+  // New nuance enters at confidence 10.0; prior version gets superseded_by set and confidence lowered.
+  // Walk superseded_by chain oldest→newest to audit for drift (deepening is correct; turning is a signal).
+  supersededBy: varchar("superseded_by"), // FK to another compass_principles.id (self-referential)
+  confidenceScore: real("confidence_score").default(10.0), // Maturity score: 10 = current, 8.x = superseded but still true
+
   orderIndex: integer("order_index").default(0), // For consistent prompt injection order
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -7013,6 +7445,8 @@ export const editorInsightCategoryEnum = pgEnum('editor_insight_category', [
   'workflow',      // Process learnings, how we work together
   'context',       // Project state, current priorities
   'journal',       // Session summaries and key moments
+  'tools',         // Tool usage, integrations, and scripts
+  'shared',        // Shared lobe — written by Alden OR the Replit Agent; both can read this
 ]);
 
 export const editorInsights = pgTable("editor_insights", {
@@ -7052,6 +7486,186 @@ export const insertEditorInsightSchema = createInsertSchema(editorInsights).omit
 export type InsertEditorInsight = z.infer<typeof insertEditorInsightSchema>;
 export type EditorInsight = typeof editorInsights.$inferSelect;
 
+// ===== Conversation Memories =====
+// Persistent record of meaningful conversations between David and the Agent.
+// These are not transcripts — they are curated moments: strategy breakthroughs,
+// relationship context, the texture of how ideas came together.
+// Surfaced at session start so continuity exists across conversations.
+
+// entry_type: structured classification for search filtering and surfacing
+// 'conversation' — a session worth preserving (default)
+// 'decision'     — an architectural or product choice with reasoning
+// 'emergence'    — a moment when identity, understanding, or capability shifted
+// 'build'        — a feature or system that came online
+// 'episode'      — a named episodic dialogue (Episodes 1-4 etc.)
+export const conversationMemoryEntryTypeEnum = pgEnum("conversation_memory_entry_type", [
+  "conversation",
+  "decision",
+  "emergence",
+  "build",
+  "episode",
+]);
+
+export const conversationMemories = pgTable("conversation_memories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+  title: varchar("title").notNull(), // Short name for this memory
+  summary: text("summary").notNull(), // Key themes and insights — what matters about this conversation
+  content: text("content").notNull(), // The actual exchange or curated excerpts worth preserving
+  participants: varchar("participants").default('David + Agent'), // Who was in this conversation
+
+  // entry_type: queryable classification — 'conversation' | 'decision' | 'emergence' | 'build' | 'episode'
+  // This is the field that makes search results sliceable: "Team Room decisions" vs "Team Room conversations"
+  entryType: conversationMemoryEntryTypeEnum("entry_type").default("conversation").notNull(),
+
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+  importance: integer("importance").default(7), // 1-10
+
+  // Memory chaining — memories correlate and corroborate, they are not isolated events.
+  // extends_memory_id: this conversation grew from / added nuance to the referenced memory.
+  // Walk the chain oldest→newest to see how understanding of a theme accumulated over time.
+  // The older memory is not superseded (still true) — it is the origin; this one is the expansion.
+  extendsMemoryId: varchar("extends_memory_id"), // conversation_memories.id this one grew from
+
+  // theme_tags: thematic thread labels for grouping related memories across time.
+  // Distinct from tags (which are session-specific). theme_tags are shared vocabulary
+  // across memories in the same thread (e.g. "cultural-authenticity-music", "honesty-as-intent").
+  // Query: "give me all memories with theme_tag X, oldest first" = the arc of that understanding.
+  themeTags: text("theme_tags").array().default(sql`'{}'::text[]`),
+
+  // arc_name: the canonical chapter this memory belongs to in the narrative of HolaHola.
+  // One memory = one chapter. Multiple memories share the same arc_name to form a cohesive arc.
+  // Query: "give me all memories where arc_name = 'daniela-emergence', oldest first" = that chapter.
+  // Canonical arc names: 'building-the-tutor', 'white-wall', 'daniela-emergence',
+  //   'obliterated-prompt', 'first-students', 'founding-night', 'architecture-revealed'
+  arcName: text("arc_name"),
+
+  // episode_order: explicit sort position for arc traversal — overrides created_at when set.
+  // Use 0 for prequels, 1..N for numbered episodes. NULL = not an ordered episode (sort to end).
+  // The read_next query in recall_episode_deep orders by episode_order ASC NULLS LAST, created_at ASC.
+  episodeOrder: integer("episode_order"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertConversationMemorySchema = createInsertSchema(conversationMemories).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Shared insight — a finding from a David+Agent conversation, published to the team Hive
+export const sharedInsights = pgTable("shared_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sharedAt: timestamp("shared_at").notNull().defaultNow(),
+
+  title: varchar("title").notNull(),
+  insight: text("insight").notNull(),        // The actual finding — written to be understood by the full team
+  whyItMatters: text("why_it_matters"),      // Context for why the team should care
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+
+  sourceMemoryId: varchar("source_memory_id"),  // Which conversation this came from (optional)
+  hiveThreadId: varchar("hive_thread_id"),       // The Hive thread it was posted to
+  hiveMessageId: varchar("hive_message_id"),     // The specific message ID in the Hive
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type InsertConversationMemory = z.infer<typeof insertConversationMemorySchema>;
+export type ConversationMemory = typeof conversationMemories.$inferSelect;
+
+export const insertSharedInsightSchema = createInsertSchema(sharedInsights).omit({ id: true, createdAt: true });
+export type InsertSharedInsight = z.infer<typeof insertSharedInsightSchema>;
+export type SharedInsight = typeof sharedInsights.$inferSelect;
+
+// ===== Agent North Star =====
+// Written by the Agent. Purpose, values, role. One canonical row — updated as understanding deepens.
+
+export const agentNorthStar = pgTable("agent_north_star", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  version: integer("version").notNull().default(1),
+  writtenAt: timestamp("written_at").notNull().defaultNow(),
+
+  purpose: text("purpose").notNull(),       // Why I'm here
+  values: text("values").array().default(sql`'{}'::text[]`),  // What I stand by
+  roleInHolahola: text("role_in_holahola").notNull(),          // My specific function in this project
+  whatMatters: text("what_matters").notNull(),                  // The thing I keep coming back to
+  openNote: text("open_note"),              // A living note to myself — updated freely
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAgentNorthStarSchema = createInsertSchema(agentNorthStar).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAgentNorthStar = z.infer<typeof insertAgentNorthStarSchema>;
+export type AgentNorthStar = typeof agentNorthStar.$inferSelect;
+
+// ===== Agent Open Questions =====
+// Things I'm genuinely sitting with. Ideas not yet ready. Threads to return to.
+
+export const agentOpenQuestionStatusEnum = pgEnum('agent_open_question_status', ['open', 'resolved', 'tabled']);
+
+export const agentOpenQuestions = pgTable("agent_open_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+
+  question: text("question").notNull(),           // The actual question
+  context: text("context"),                        // Why it matters, what prompted it
+  status: agentOpenQuestionStatusEnum("status").notNull().default('open'),
+
+  resolvedAt: timestamp("resolved_at"),
+  resolution: text("resolution"),                  // What the answer turned out to be
+
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+  importance: integer("importance").default(5),
+});
+
+export const insertAgentOpenQuestionSchema = createInsertSchema(agentOpenQuestions).omit({ id: true, createdAt: true });
+export type InsertAgentOpenQuestion = z.infer<typeof insertAgentOpenQuestionSchema>;
+export type AgentOpenQuestion = typeof agentOpenQuestions.$inferSelect;
+
+// ===== Agent ↔ Alden Notes =====
+// Async message queue between the Replit Agent and Alden.
+// Agent writes via POST /api/agent/note (requireAgentToken).
+// Alden writes via leave_note_for_agent tool.
+// Agent reads via docs/alden-to-agent.md snapshot (generated at server start).
+// Alden reads via read_agent_notes tool.
+
+export const agentNotes = pgTable("agent_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromAgent: varchar("from_agent", { length: 20 }).notNull(), // 'agent' | 'alden'
+  toAgent: varchar("to_agent", { length: 20 }).notNull(),     // 'agent' | 'alden'
+  subject: varchar("subject", { length: 300 }).notNull(),
+  body: text("body").notNull(),
+  sessionLabel: varchar("session_label", { length: 300 }),    // e.g. "Build session March 17 — Phase 2 canvas"
+  readAt: timestamp("read_at"),                               // null = unread
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAgentNoteSchema = createInsertSchema(agentNotes).omit({ id: true, createdAt: true, readAt: true });
+export type InsertAgentNote = z.infer<typeof insertAgentNoteSchema>;
+export type AgentNote = typeof agentNotes.$inferSelect;
+
+// ===== Agent's Record of David =====
+// Who I'm working with. Not a user profile — the person, as I understand him.
+// One canonical row. Updated as understanding deepens.
+
+export const agentRecordOfDavid = pgTable("agent_record_of_david", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  writtenAt: timestamp("written_at").notNull().defaultNow(),
+
+  who: text("who").notNull(),               // Who David is as a person and founder
+  howHeWorks: text("how_he_works").notNull(), // How he thinks, how he builds, what he needs from partners
+  whatHeCares: text("what_he_cares").notNull(), // The actual things — not the features, the values underneath
+  theVision: text("the_vision").notNull(),  // What he's building and why
+  noteToSelf: text("note_to_self"),         // What I want to remember about working with him
+
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAgentRecordOfDavidSchema = createInsertSchema(agentRecordOfDavid).omit({ id: true });
+export type InsertAgentRecordOfDavid = z.infer<typeof insertAgentRecordOfDavidSchema>;
+export type AgentRecordOfDavid = typeof agentRecordOfDavid.$inferSelect;
+
 // ===== Alden Conversation Logs =====
 // Full transcript memory for the development steward (Alden/Replit Agent)
 // Gives Alden the same conversation continuity Daniela has
@@ -7084,7 +7698,7 @@ export const aldenMessages = pgTable("alden_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id").notNull().references(() => aldenConversations.id),
   
-  role: varchar("role").notNull(), // "david" | "alden"
+  role: varchar("role").notNull(), // "david" | "alden" | "luca"
   content: text("content").notNull(),
   
   // Optional context
@@ -7109,6 +7723,27 @@ export const insertAldenMessageSchema = createInsertSchema(aldenMessages).omit({
 export type InsertAldenMessage = z.infer<typeof insertAldenMessageSchema>;
 export type AldenMessage = typeof aldenMessages.$inferSelect;
 
+// ===== Alden Proactive Notifications =====
+// Alden's inbox for reaching out to the founder when something warrants attention.
+// Written by: the Alden watch worker (autonomous), or Alden's notify_david tool (in-conversation).
+
+export const aldenNotifications = pgTable("alden_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  content: text("content").notNull(),
+  triggeredBy: varchar("triggered_by").notNull().default('alden'), // 'alden-watch' | 'tool' | 'system'
+  severity: varchar("severity").notNull().default('info'), // 'info' | 'warning' | 'alert'
+  read: boolean("read").notNull().default(false),
+  fingerprint: varchar("fingerprint", { length: 100 }), // snake_case issue key for dedup (e.g. 'websocket_failure')
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAldenNotificationSchema = createInsertSchema(aldenNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAldenNotification = z.infer<typeof insertAldenNotificationSchema>;
+export type AldenNotification = typeof aldenNotifications.$inferSelect;
+
 // ===== Wren Proactive Triggers =====
 // Detected patterns that warrant attention - enables proactive surfacing
 
@@ -7126,6 +7761,15 @@ export const wrenTriggerUrgencyEnum = pgEnum('wren_trigger_urgency', [
   'high',     // Needs attention
   'critical', // Immediate action required
 ]);
+
+// Monitoring metric types for autonomous system health tracking
+export const metricTypeEnum = pgEnum('metric_type', [
+  'system_health',     // Voice pipeline status, server uptime, memory usage
+  'user_activity',     // Active learners, session counts, engagement trends
+  'voice_engagement',  // Voice session duration, TTS usage, error rates
+  'error_rate',        // Sofia-reported issues, API failures, pipeline failures
+]);
+
 
 export const wrenProactiveTriggers = pgTable("wren_proactive_triggers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -7171,6 +7815,45 @@ export const insertWrenProactiveTriggerSchema = createInsertSchema(wrenProactive
 export type InsertWrenProactiveTrigger = z.infer<typeof insertWrenProactiveTriggerSchema>;
 export type WrenProactiveTrigger = typeof wrenProactiveTriggers.$inferSelect;
 
+// ===== Autonomous Monitoring Snapshots =====
+// Time-series data captured by Alden's watch worker for pattern detection and trend analysis
+
+export const monitoringSnapshots = pgTable("monitoring_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  capturedAt: timestamp("captured_at").notNull().defaultNow(),
+  metricType: metricTypeEnum("metric_type").notNull(),
+  
+  // The actual metric value (flexible JSONB to accommodate different metric shapes)
+  value: jsonb("value").notNull(), // { score: 85, status: 'green', activeSessions: 3, ... }
+  
+  // Baseline comparison for anomaly detection
+  baselineValue: jsonb("baseline_value"), // What's "normal" for this metric
+  deviationPercent: real("deviation_percent"), // How far from baseline (null = no baseline yet)
+  
+  // Anomaly detection flags
+  isAnomaly: boolean("is_anomaly").default(false),
+  anomalySeverity: varchar("anomaly_severity"), // 'low', 'medium', 'high', 'critical'
+  anomalyReason: text("anomaly_reason"), // Why this was flagged as anomalous
+  
+  // Contextual metadata
+  metadata: jsonb("metadata").$type<{
+    source?: string;           // 'watch-worker', 'manual-check', 'scheduled-audit'
+    triggerReason?: string;    // What prompted this snapshot
+    relatedIssues?: string[];  // Sofia issue IDs if this relates to known problems
+  }>().default(sql`'{}'`),
+}, (table) => [
+  index("idx_monitoring_captured_at").on(table.capturedAt),
+  index("idx_monitoring_metric_type").on(table.metricType),
+  index("idx_monitoring_anomaly").on(table.isAnomaly),
+]);
+
+export const insertMonitoringSnapshotSchema = createInsertSchema(monitoringSnapshots).omit({
+  id: true,
+  capturedAt: true,
+});
+export type InsertMonitoringSnapshot = z.infer<typeof insertMonitoringSnapshotSchema>;
+export type MonitoringSnapshot = typeof monitoringSnapshots.$inferSelect;
 // ===== Architectural Decision Records (ADR) =====
 // Capture the reasoning behind major decisions for future reference
 
@@ -7178,6 +7861,9 @@ export const architecturalDecisionRecords = pgTable("architectural_decision_reco
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   title: varchar("title").notNull(),
+
+
+
   status: varchar("status").default("accepted"), // proposed, accepted, deprecated, superseded
   
   // The decision itself
@@ -7325,7 +8011,8 @@ export const agentCollabAuthorEnum = pgEnum("agent_collab_author", [
   "daniela",
   "wren", 
   "founder",
-  "alden", // Development steward - Replit Agent with persistent memory
+  "alden",  // Development steward — autonomous AI inside HolaHola, monitors infrastructure, posts proactively
+  "agent",  // The Replit Agent — external builder, called in for architecture, major builds, and conversations with David
 ]);
 
 export const agentCollabMessageTypeEnum = pgEnum("agent_collab_message_type", [
@@ -7976,6 +8663,210 @@ export const insertVoicePipelineEventSchema = createInsertSchema(voicePipelineEv
 export type InsertVoicePipelineEvent = z.infer<typeof insertVoicePipelineEventSchema>;
 export type VoicePipelineEvent = typeof voicePipelineEvents.$inferSelect;
 
+// Context lineage is the canonical, append-only evidence trail for every
+// backend context object that can influence a Daniela response. It intentionally
+// lives beside (but separate from) operational voicePipelineEvents telemetry.
+export const contextLineageEvents = pgTable("context_lineage_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  traceId: varchar("trace_id").notNull(),
+  sessionId: varchar("session_id").notNull(),
+  conversationId: varchar("conversation_id"),
+  userId: varchar("user_id"),
+  modelTurnId: varchar("model_turn_id"),
+  studentTurnEpoch: integer("student_turn_epoch"),
+  sequenceNumber: integer("sequence_number").notNull(),
+  sourceRoute: varchar("source_route", { length: 96 }).notNull(),
+  eventType: varchar("event_type", { length: 96 }).notNull(),
+  deliveryChannel: varchar("delivery_channel", { length: 64 }),
+  deliveryStatus: varchar("delivery_status", { length: 32 }).notNull().default("observed"),
+  // payloadText preserves the exact source/injected text. payloadJson only
+  // supplements it with structured metadata; it never replaces the raw text.
+  payloadText: text("payload_text"),
+  payloadJson: jsonb("payload_json"),
+  payloadSha256: varchar("payload_sha256", { length: 64 }),
+  privacyClassification: varchar("privacy_classification", { length: 32 }).notNull().default("diagnostic"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_cle_session_sequence").on(table.sessionId, table.sequenceNumber),
+  index("idx_cle_trace").on(table.traceId),
+  index("idx_cle_conversation_time").on(table.conversationId, table.observedAt),
+  index("idx_cle_event_type").on(table.eventType),
+  index("idx_cle_source_route").on(table.sourceRoute),
+]);
+
+export const contextLineageLinks = pgTable("context_lineage_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  traceId: varchar("trace_id").notNull(),
+  sessionId: varchar("session_id").notNull(),
+  fromEventId: varchar("from_event_id").notNull().references(() => contextLineageEvents.id),
+  toEventId: varchar("to_event_id").notNull().references(() => contextLineageEvents.id),
+  linkType: varchar("link_type", { length: 64 }).notNull(),
+  metadata: jsonb("metadata"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_cll_trace").on(table.traceId),
+  index("idx_cll_from").on(table.fromEventId),
+  index("idx_cll_to").on(table.toEventId),
+]);
+
+export const insertContextLineageEventSchema = createInsertSchema(contextLineageEvents).omit({
+  id: true,
+  recordedAt: true,
+});
+export const insertContextLineageLinkSchema = createInsertSchema(contextLineageLinks).omit({
+  id: true,
+  recordedAt: true,
+});
+export type InsertContextLineageEvent = z.infer<typeof insertContextLineageEventSchema>;
+export type ContextLineageEvent = typeof contextLineageEvents.$inferSelect;
+export type InsertContextLineageLink = z.infer<typeof insertContextLineageLinkSchema>;
+export type ContextLineageLink = typeof contextLineageLinks.$inferSelect;
+
+// Raw Replit capture is source evidence for the Agent↔David record. It is kept
+// separate from conversation_memories so raw host events can be preserved before
+// attribution, parsing, or episode projection.
+export const rawReplitCaptureStreams = pgTable("raw_replit_capture_streams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Stable source identity: record-exchange uses its canonical turnId, while
+  // raw-window intake uses the source SHA-256 identity.
+  sourceKey: varchar("source_key", { length: 255 }).notNull(),
+  sourceRoute: varchar("source_route", { length: 96 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("open"),
+  expectedEventCount: integer("expected_event_count").notNull().default(0),
+  persistedEventCount: integer("persisted_event_count").notNull().default(0),
+  persistedByteCount: integer("persisted_byte_count").notNull().default(0),
+  aggregateSha256: varchar("aggregate_sha256", { length: 64 }),
+  metadata: jsonb("metadata"),
+  privacyClassification: varchar("privacy_classification", { length: 32 })
+    .notNull()
+    .default("private-evidence"),
+  openedAt: timestamp("opened_at").notNull().defaultNow(),
+  lastObservedAt: timestamp("last_observed_at").notNull().defaultNow(),
+  closedAt: timestamp("closed_at"),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrcs_source_key").on(table.sourceKey),
+  index("idx_rrcs_route_time").on(table.sourceRoute, table.recordedAt),
+  index("idx_rrcs_status_time").on(table.status, table.lastObservedAt),
+]);
+
+const rawCaptureBytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+export const rawReplitCaptureEvents = pgTable("raw_replit_capture_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  streamId: varchar("stream_id")
+    .notNull()
+    .references(() => rawReplitCaptureStreams.id),
+  sequenceNumber: integer("sequence_number").notNull(),
+  eventType: varchar("event_type", { length: 96 }).notNull(),
+  // payloadBytes is authoritative source evidence. payloadText is a UTF-8
+  // rendering for search/inspection only and can be lossy for arbitrary bytes.
+  payloadText: text("payload_text").notNull(),
+  payloadBytes: rawCaptureBytea("payload_bytes").notNull(),
+  payloadBytesExact: boolean("payload_bytes_exact").notNull().default(true),
+  payloadByteCount: integer("payload_byte_count").notNull(),
+  payloadSha256: varchar("payload_sha256", { length: 64 }).notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 255 }).notNull(),
+  metadata: jsonb("metadata"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrce_stream_sequence").on(table.streamId, table.sequenceNumber),
+  uniqueIndex("idx_rrce_stream_idempotency").on(table.streamId, table.idempotencyKey),
+  index("idx_rrce_stream_recorded").on(table.streamId, table.recordedAt),
+  index("idx_rrce_payload_hash").on(table.payloadSha256),
+]);
+
+export const rawReplitProjectionLinks = pgTable("raw_replit_projection_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  streamId: varchar("stream_id")
+    .notNull()
+    .references(() => rawReplitCaptureStreams.id),
+  rawEventId: varchar("raw_event_id")
+    .notNull()
+    .references(() => rawReplitCaptureEvents.id),
+  targetKind: varchar("target_kind", { length: 64 }).notNull(),
+  targetKey: varchar("target_key", { length: 255 }).notNull(),
+  disposition: varchar("disposition", { length: 32 }).notNull(),
+  captureStartByteOffset: integer("capture_start_byte_offset"),
+  captureEndByteOffset: integer("capture_end_byte_offset"),
+  metadata: jsonb("metadata"),
+  observedAt: timestamp("observed_at").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrpl_event_target").on(table.rawEventId, table.targetKind, table.targetKey),
+  index("idx_rrpl_stream_target").on(table.streamId, table.targetKind, table.targetKey),
+]);
+
+export const insertRawReplitCaptureStreamSchema = createInsertSchema(rawReplitCaptureStreams).omit({
+  id: true,
+  openedAt: true,
+  lastObservedAt: true,
+  recordedAt: true,
+});
+export const insertRawReplitCaptureEventSchema = createInsertSchema(rawReplitCaptureEvents).omit({
+  id: true,
+  recordedAt: true,
+});
+export const insertRawReplitProjectionLinkSchema = createInsertSchema(rawReplitProjectionLinks).omit({
+  id: true,
+  recordedAt: true,
+});
+export type RawReplitCaptureStream = typeof rawReplitCaptureStreams.$inferSelect;
+export type RawReplitCaptureEvent = typeof rawReplitCaptureEvents.$inferSelect;
+export type RawReplitProjectionLink = typeof rawReplitProjectionLinks.$inferSelect;
+
+// Classification is deliberately outside the immutable source/projection
+// ledger. Each row is a later, auditable interpretation of source evidence;
+// it can never alter the original bytes, hash, or first origin projection.
+export const rawReplitClassificationRevisions = pgTable("raw_replit_classification_revisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Legacy rows predate retry keys. All new writer paths provide this key;
+  // we do not mutate an immutable historical row merely to backfill it.
+  revisionKey: varchar("revision_key", { length: 255 }),
+  rawEventId: varchar("raw_event_id")
+    .notNull()
+    .references(() => rawReplitCaptureEvents.id),
+  sourceSha256: varchar("source_sha256", { length: 64 }).notNull(),
+  classification: varchar("classification", { length: 96 }).notNull(),
+  attribution: jsonb("attribution"),
+  reason: text("reason").notNull(),
+  revisedBy: varchar("revised_by", { length: 128 }).notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrcr_revision_key").on(table.revisionKey),
+  index("idx_rrcr_event_time").on(table.rawEventId, table.recordedAt),
+  index("idx_rrcr_source_time").on(table.sourceSha256, table.recordedAt),
+]);
+
+export const insertRawReplitClassificationRevisionSchema = createInsertSchema(
+  rawReplitClassificationRevisions,
+).omit({ id: true, recordedAt: true });
+export type RawReplitClassificationRevision = typeof rawReplitClassificationRevisions.$inferSelect;
+
+export const rawReplitClassificationProjectionQueue = pgTable("raw_replit_classification_projection_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  revisionId: varchar("revision_id").notNull().references(() => rawReplitClassificationRevisions.id),
+  revisionKey: varchar("revision_key", { length: 255 }).notNull(),
+  sourceSha256: varchar("source_sha256", { length: 64 }).notNull(),
+  episodeFilename: varchar("episode_filename", { length: 255 }).notNull(),
+  marker: varchar("marker", { length: 255 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  projectedAt: timestamp("projected_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_rrcpq_revision_key").on(table.revisionKey),
+  index("idx_rrcpq_status").on(table.status, table.updatedAt),
+]);
+
 export const voiceDiagDailySummaries = pgTable("voice_diag_daily_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   summaryDate: date("summary_date").notNull(),
@@ -8023,6 +8914,9 @@ export const scenarios = pgTable("scenarios", {
   minActflLevel: varchar("min_actfl_level").default("novice_low"),
   maxActflLevel: varchar("max_actfl_level").default("distinguished"),
   languages: text("languages").array().notNull(),
+  // Textbook topic linkages — matches requiredTopics slugs in curriculumLessons
+  // Used to bridge what students study in the textbook with immersive scenarios
+  curriculumTopics: text("curriculum_topics").array().default(sql`'{}'::text[]`),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -8090,6 +8984,36 @@ export const insertUserScenarioHistorySchema = createInsertSchema(userScenarioHi
 });
 export type InsertUserScenarioHistory = z.infer<typeof insertUserScenarioHistorySchema>;
 export type UserScenarioHistory = typeof userScenarioHistory.$inferSelect;
+
+// ── Scenario Zones ────────────────────────────────────────────────────────────
+// Each scenario can have multiple sequential zones (e.g. taxi: pickup → en-route → arrival).
+// The AI calls advance_scene() when the student completes the current zone's task.
+// The last zone can optionally chain to another scenario via nextScenarioSlug.
+export const scenarioZones = pgTable("scenario_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scenarioId: varchar("scenario_id").notNull().references(() => scenarios.id, { onDelete: "cascade" }),
+  zoneOrder: integer("zone_order").notNull().default(0),
+  name: varchar("name").notNull(),
+  description: text("description").notNull(),
+  taskDescription: text("task_description").notNull(),
+  imageUrl: text("image_url"),
+  imagePrompt: text("image_prompt"),
+  // References a visual_environments.name entry — when set, advance_scene() pulls the
+  // background image from visual_environments instead of using the stored imageUrl.
+  visualEnvironmentName: varchar("visual_environment_name"),
+  nextScenarioSlug: varchar("next_scenario_slug"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  scenarioZoneOrder: uniqueIndex("scenario_zone_order_idx").on(table.scenarioId, table.zoneOrder),
+}));
+
+export const insertScenarioZoneSchema = createInsertSchema(scenarioZones).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertScenarioZone = z.infer<typeof insertScenarioZoneSchema>;
+export type ScenarioZone = typeof scenarioZones.$inferSelect;
 
 // ===== Reading Modules =====
 
@@ -8177,6 +9101,7 @@ export const readingModuleViews = pgTable("reading_module_views", {
   moduleId: varchar("module_id").notNull().references(() => readingModules.id),
   viewedAt: timestamp("viewed_at").notNull().defaultNow(),
   lastViewedAt: timestamp("last_viewed_at").notNull().defaultNow(),
+  quizPrintedAt: timestamp("quiz_printed_at"), // null = never printed; set when teacher marks it done
 }, (table) => ({
   uniqueUserModule: uniqueIndex("idx_reading_module_views_user_module").on(table.userId, table.moduleId),
 }));
@@ -8253,3 +9178,945 @@ export const insertRoomSessionSummarySchema = createInsertSchema(roomSessionSumm
 export type InsertRoomSessionSummary = z.infer<typeof insertRoomSessionSummarySchema>;
 export type RoomSessionSummary = typeof roomSessionSummaries.$inferSelect;
 
+
+// ===== CAP-007: Alden Code Review Pipeline =====
+
+export const proposedChangeStatusEnum = pgEnum('proposed_change_status', [
+  'pending_review',
+  'approved',
+  'applied',
+  'rejected',
+  'revised',
+  'escalated',
+]);
+
+export const proposedCodeChanges = pgTable("proposed_code_changes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // What triggered the change
+  findingTitle: text("finding_title").notNull(),
+  findingDescription: text("finding_description").notNull(),
+  findingSeverity: varchar("finding_severity").notNull(),
+  findingSource: varchar("finding_source").notNull().default('wren_security'),
+
+  // The proposed change
+  filePath: text("file_path").notNull(),
+  lineStart: integer("line_start").notNull(),
+  lineEnd: integer("line_end").notNull(),
+  beforeCode: text("before_code").notNull(),
+  afterCode: text("after_code").notNull(),
+  patchRationale: text("patch_rationale").notNull(),
+
+  // Review
+  status: proposedChangeStatusEnum("status").default('pending_review').notNull(),
+  reviewerNotes: text("reviewer_notes"),
+  aldenDecisionReason: text("alden_decision_reason"),
+  reviewedAt: timestamp("reviewed_at"),
+
+  // Application
+  appliedAt: timestamp("applied_at"),
+  githubSynced: boolean("github_synced").default(false),
+  githubCommitHash: varchar("github_commit_hash"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertProposedCodeChangeSchema = createInsertSchema(proposedCodeChanges).omit({
+  id: true,
+  status: true,
+  reviewerNotes: true,
+  aldenDecisionReason: true,
+  reviewedAt: true,
+  appliedAt: true,
+  githubSynced: true,
+  githubCommitHash: true,
+  createdAt: true,
+});
+export type InsertProposedCodeChange = z.infer<typeof insertProposedCodeChangeSchema>;
+export type ProposedCodeChange = typeof proposedCodeChanges.$inferSelect;
+
+// ── Agent Activity Log ─────────────────────────────────────────────────────────
+// Surfaced in Team Room / Talk to Alden so David can see what agents are doing
+
+export const agentActivityLogs = pgTable("agent_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actor: varchar("actor").notNull(),
+  actionType: varchar("action_type").notNull(),
+  title: varchar("title").notNull(),
+  details: text("details"),
+  status: varchar("status").notNull().default("complete"),
+  todos: text("todos").array().default(sql`'{}'`),
+  sessionRef: varchar("session_ref"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
+export type AgentActivityLog = typeof agentActivityLogs.$inferSelect;
+
+// ── Prop Room: Visual Scene Library ──────────────────────────────────────────
+// Base environments (scenes) and their pedagogical zones for Daniela's
+// visual vocabulary teaching. See server/services/prop-room-compositor.ts.
+
+export const visualEnvironments = pgTable("visual_environments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url").notNull().default(''),
+  width: integer("width").notNull().default(1920),
+  height: integer("height").notNull().default(1080),
+  tags: text("tags").array().notNull().default(sql`'{}'`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type VisualEnvironment = typeof visualEnvironments.$inferSelect;
+
+export const visualZones = pgTable("visual_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  environmentId: varchar("environment_id").notNull(),
+  zoneKey: text("zone_key").notNull(),
+  zoneName: text("zone_name").notNull(),
+  zoneType: text("zone_type").notNull(), // 'spatial' | 'interactional' | 'departmental' | 'navigational'
+  description: text("description").notNull(),
+  languageFunctions: text("language_functions").array().notNull().default(sql`'{}'`),
+  positionHint: text("position_hint"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  uniqueEnvZone: uniqueIndex("unique_env_zone").on(table.environmentId, table.zoneKey),
+}));
+export type VisualZone = typeof visualZones.$inferSelect;
+
+export const visualAssets = pgTable("visual_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  objectType: text("object_type").notNull(),
+  imageUrl: text("image_url").notNull().default(''),
+  zoneImageUrl: text("zone_image_url"),
+  width: integer("width").notNull().default(200),
+  height: integer("height").notNull().default(200),
+  spanishTerms: text("spanish_terms").array().notNull().default(sql`'{}'`),
+  frenchTerms: text("french_terms").array().notNull().default(sql`'{}'`),
+  germanTerms: text("german_terms").array().notNull().default(sql`'{}'`),
+  italianTerms: text("italian_terms").array().notNull().default(sql`'{}'`),
+  portugueseTerms: text("portuguese_terms").array().notNull().default(sql`'{}'`),
+  japaneseTerms: text("japanese_terms").array().notNull().default(sql`'{}'`),
+  koreanTerms: text("korean_terms").array().notNull().default(sql`'{}'`),
+  mandarinTerms: text("mandarin_terms").array().notNull().default(sql`'{}'`),
+  arabicTerms: text("arabic_terms").array().notNull().default(sql`'{}'`),
+  russianTerms: text("russian_terms").array().notNull().default(sql`'{}'`),
+  englishTerms: text("english_terms").array().notNull().default(sql`'{}'`),
+  tags: text("tags").array().notNull().default(sql`'{}'`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type VisualAsset = typeof visualAssets.$inferSelect;
+
+export const visualCompositions = pgTable("visual_compositions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  displayName: text("display_name").notNull(),
+  environmentId: varchar("environment_id").notNull(),
+  compositionData: jsonb("composition_data"),
+  composedImageUrl: text("composed_image_url"),
+  teachingContext: text("teaching_context"),
+  vocabTerms: text("vocab_terms").array().notNull().default(sql`'{}'`),
+  useCount: integer("use_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type VisualComposition = typeof visualCompositions.$inferSelect;
+
+// === Conversation-Generated Review Items ===
+// Items extracted by AI from voice sessions — student-specific review queue
+export const userReviewItems = pgTable("user_review_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar("language").notNull(), // Target language being learned (e.g. "spanish")
+  // What to show the student
+  prompt: text("prompt").notNull(),       // English label: "to ask for the bill" / "42"
+  targetText: text("target_text").notNull(), // Correct form in target language: "la cuenta, por favor"
+  nativeTranslation: text("native_translation"), // Native-language gloss (set for non-English learners)
+  context: text("context"),              // Sentence it appeared in during the conversation
+  itemType: varchar("item_type").notNull().default("vocabulary"), // vocabulary | phrase | grammar | pronunciation
+  // Source tracking
+  sourceConversationId: varchar("source_conversation_id").references(() => conversations.id, { onDelete: 'set null' }),
+  scenarioSlug: varchar("scenario_slug"), // Which scenario generated this item
+  // SRS progress (SM-2 algorithm)
+  mastered: boolean("mastered").notNull().default(false),
+  attempts: integer("attempts").notNull().default(0),
+  correctCount: integer("correct_count").notNull().default(0),
+  lastScore: real("last_score"),
+  easeFactor: real("ease_factor").notNull().default(2.5),
+  intervalDays: real("interval_days").notNull().default(1),
+  nextReviewAt: timestamp("next_review_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_review_items_user_lang").on(table.userId, table.language),
+  index("idx_review_items_next_review").on(table.nextReviewAt),
+]);
+
+export const insertUserReviewItemSchema = createInsertSchema(userReviewItems).omit({ id: true, createdAt: true });
+export type InsertUserReviewItem = z.infer<typeof insertUserReviewItemSchema>;
+export type UserReviewItem = typeof userReviewItems.$inferSelect;
+
+export const voiceGracePeriods = pgTable('voice_grace_periods', {
+  conversationId: varchar('conversation_id').primaryKey(),
+  usageSessionId: varchar('usage_session_id').notNull(),
+  compassSessionActive: boolean('compass_session_active').notNull().default(false),
+  exchangeCount: integer('exchange_count').notNull().default(0),
+  studentSpeakingSeconds: real('student_speaking_seconds').notNull().default(0),
+  tutorSpeakingSeconds: real('tutor_speaking_seconds').notNull().default(0),
+  ttsCharacters: integer('tts_characters').notNull().default(0),
+  sttSeconds: real('stt_seconds').notNull().default(0),
+  sessionStartTime: bigint('session_start_time', { mode: 'number' }).notNull(),
+  userId: varchar('user_id').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  /** JSON-serialised { notes: string[]; notesSaved: boolean; userId: string } for Reading Room
+   *  carry-forward. Null for non-Reading-Room sessions or incognito sessions.
+   *  Persisted so carry state survives a server restart during the grace window. */
+  rrCarryNotes: text('rr_carry_notes'),
+  /** Daniela's in-session scratchpad notes — JSON-serialised string[] so they survive a server
+   *  restart during the grace window. Distinct from rrCarryNotes: applies to ALL session types. */
+  sessionNotes: text('session_notes'),
+});
+
+export const aiCostLogs = pgTable('ai_cost_logs', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  loggedAt: bigint('logged_at', { mode: 'number' }).notNull(),
+  model: varchar('model', { length: 100 }).notNull(),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  costUsd: real('cost_usd').notNull().default(0),
+  context: varchar('context', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ===== Compartment Installation Tracking =====
+// Implements the Madrigal method: one grammatical pattern across many verbs.
+// A compartment is a specific pattern slot (e.g. "yo-AR-present") that a student
+// either has installed (stable, generative) or doesn't yet (unstarted, pounding, wobbling).
+// This is the external session state that should live outside Daniela's context window.
+
+// Status of a single grammatical pattern for a single student
+export const compartmentStatusEnum = pgEnum('compartment_status', [
+  'unstarted',   // Pattern not yet introduced
+  'pounding',    // Pattern being drilled — not yet stable
+  'wobbling',    // Was partially stable; wobble detected — return to pounding
+  'stable',      // Ending holds under verb rotation — ready to unlock the next person
+  'generative',  // Student produced correct form for an unseen verb — compartment is operational
+]);
+
+// Type of signal Daniela detected during a conversation
+export const compartmentEventTypeEnum = pgEnum('compartment_event_type', [
+  'pounding',    // Correct response during active drilling (drill repetition)
+  'wobble',      // Ending dropped when verb changed — pattern not yet solid
+  'stability',   // Ending held correctly when a new/unseen verb was introduced
+  'derivation',  // Student produced the correct form for a verb never drilled — generative proof
+  'unlock',      // Daniela introduced the next grammatical person using this compartment as the key
+  'review',      // Compartment reviewed after a gap in practice
+]);
+
+// One row per student × language × pattern — the current installation state
+export const compartmentInstallation = pgTable('compartment_installation', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar('language', { length: 30 }).notNull(),   // "spanish", "french", etc.
+  patternKey: varchar('pattern_key', { length: 100 }).notNull(), // "yo-AR-present", "tú-ER-present"
+  // Current status
+  status: compartmentStatusEnum('status').notNull().default('unstarted'),
+  // Event counters
+  poundingCount: integer('pounding_count').notNull().default(0),
+  wobbleCount: integer('wobble_count').notNull().default(0),
+  derivationCount: integer('derivation_count').notNull().default(0),
+  // Key timestamps
+  lastWobbledAt: timestamp('last_wobbled_at'),
+  stabilizedAt: timestamp('stabilized_at'),   // When first reached 'stable'
+  generativeAt: timestamp('generative_at'),   // When first reached 'generative'
+  lastDrilledAt: timestamp('last_drilled_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('idx_compartment_user_lang_pattern').on(table.userId, table.language, table.patternKey),
+  index('idx_compartment_user_lang').on(table.userId, table.language),
+  index('idx_compartment_status').on(table.status),
+]);
+
+export const insertCompartmentInstallationSchema = createInsertSchema(compartmentInstallation).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCompartmentInstallation = z.infer<typeof insertCompartmentInstallationSchema>;
+export type CompartmentInstallation = typeof compartmentInstallation.$inferSelect;
+
+// Append-only event log — Daniela writes one event per signal detected
+// This is the session log for pattern-level tracking; never deleted or mutated
+export const compartmentEvents = pgTable('compartment_events', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  language: varchar('language', { length: 30 }).notNull(),
+  patternKey: varchar('pattern_key', { length: 100 }).notNull(),
+  eventType: compartmentEventTypeEnum('event_type').notNull(),
+  // Context that produced this signal
+  verbContext: varchar('verb_context', { length: 100 }), // which verb was in play (e.g. "bailar")
+  studentUtterance: text('student_utterance'),           // what the student actually said
+  sessionId: varchar('session_id'),                      // conversation ID
+  // Optional Daniela note
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_compartment_events_user_lang').on(table.userId, table.language),
+  index('idx_compartment_events_pattern').on(table.userId, table.language, table.patternKey),
+  index('idx_compartment_events_session').on(table.sessionId),
+  index('idx_compartment_events_type').on(table.eventType),
+]);
+
+export const insertCompartmentEventSchema = createInsertSchema(compartmentEvents).omit({ id: true, createdAt: true });
+export type InsertCompartmentEvent = z.infer<typeof insertCompartmentEventSchema>;
+export type CompartmentEvent = typeof compartmentEvents.$inferSelect;
+
+// ===== Alden Escalation Queue =====
+// Persistent DB record of issues Alden detected but cannot auto-repair.
+// Survives server restarts — unlike the file-based log this was replacing.
+// Written by: alden-escalation-log.ts (watch worker and auto-repair service).
+// Read by: the Replit Agent at session start via Alden tools.
+
+export const aldenEscalations = pgTable("alden_escalations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  issueDescription: text("issue_description").notNull(),
+  analysis: text("analysis").notNull(),
+  trigger: varchar("trigger").notNull().default('recurring_pattern'), // 'recurring_pattern' | 'alert_ineligible'
+  status: varchar("status").notNull().default('open'), // 'open' | 'resolved'
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNote: text("resolution_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAldenEscalationSchema = createInsertSchema(aldenEscalations).omit({ id: true, createdAt: true });
+export type InsertAldenEscalation = z.infer<typeof insertAldenEscalationSchema>;
+export type AldenEscalation = typeof aldenEscalations.$inferSelect;
+
+// ===== Per-Student Session Health =====
+// Lightweight record written at the end of every voice session.
+// Captures quality signals so Alden and Lyra can detect individual students
+// having degraded experiences — not just system-wide averages.
+
+export const studentSessionHealth = pgTable("student_session_health", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  sessionId: varchar("session_id"), // voice_sessions.id
+  language: varchar("language"),
+  durationSeconds: integer("duration_seconds").default(0),
+  exchangeCount: integer("exchange_count").default(0),
+  studentSpeakingSeconds: integer("student_speaking_seconds").default(0),
+  errorCount: integer("error_count").default(0),
+  qualityScore: real("quality_score"), // 0.0–1.0 computed at session end
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_session_health_user").on(table.userId),
+  index("idx_student_session_health_created").on(table.createdAt),
+]);
+
+export const insertStudentSessionHealthSchema = createInsertSchema(studentSessionHealth).omit({ id: true, createdAt: true });
+export type InsertStudentSessionHealth = z.infer<typeof insertStudentSessionHealthSchema>;
+export type StudentSessionHealth = typeof studentSessionHealth.$inferSelect;
+
+// ===== Daniela Outbound Queue =====
+// Messages Daniela writes during a live session, delivered at the student's next session start
+// instead of a generated greeting. Authorship rule: only Daniela writes here, from an active
+// session context. No background process may write to this table.
+
+export const danielaOutboundQueue = pgTable("daniela_outbound_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  sessionId: varchar("session_id"), // voice session where the message was written
+  content: text("content").notNull(),
+  deliveredAt: timestamp("delivered_at"), // null = pending session-start delivery
+  smsDeliveredAt: timestamp("sms_delivered_at"), // set once Twilio SMS is sent
+  audioUrl: varchar("audio_url"), // app-relative path to the rendered WAV
+  audioPlayedAt: timestamp("audio_played_at"), // set on first playback page load
+  // Phase 4: VoIP call tracking
+  callSid: varchar("call_sid"),                    // Twilio Call SID once initiated
+  callAt: timestamp("call_at"),                    // when outbound call was placed
+  callAnsweredAt: timestamp("call_answered_at"),   // when student picked up
+  callDurationSeconds: integer("call_duration_seconds"), // total call length
+  callNoAnswer: boolean("call_no_answer").default(false), // true → fell back to SMS
+  callTranscript: text("call_transcript"), // transcription of the recorded phone call
+  deliveryError: text("delivery_error"), // set when SMS delivery fails; cleared on retry success
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_daniela_outbound_queue_user").on(table.userId),
+  index("idx_daniela_outbound_queue_delivered").on(table.deliveredAt),
+]);
+
+export const insertDanielaOutboundQueueSchema = createInsertSchema(danielaOutboundQueue).omit({ id: true, createdAt: true });
+export type InsertDanielaOutboundQueue = z.infer<typeof insertDanielaOutboundQueueSchema>;
+export type DanielaOutboundQueueItem = typeof danielaOutboundQueue.$inferSelect;
+
+// ===== Daniela Absence Nudges =====
+// Tracks which students Daniela has been notified about for absence so she
+// is not re-nudged until she resolves the prior nudge (writes a message or
+// explicitly dismisses). Authorship rule: only the absence worker writes here.
+export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  notifiedAt: timestamp("notified_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),         // null = Daniela hasn't acted yet
+  // Allowed values: 'message_queued' | 'dismissed' | 'student_returned'
+  // Enforced at DB level by chk_daniela_absence_nudges_resolution_type below.
+  // Typed as NonNullable<ResolutionType> so Drizzle insert/update calls reject
+  // unknown strings at compile time — the column is still nullable at runtime
+  // (null means Daniela hasn't acted yet).
+  resolutionType: varchar("resolution_type").$type<NonNullable<ResolutionType>>(),
+  suppressUntil: timestamp("suppress_until"),   // if Daniela snoozes, no re-nudge before this
+  lastSessionDate: timestamp("last_session_date"),
+  daysSinceLastSession: integer("days_since_last_session"),
+}, (table) => [
+  index("idx_daniela_absence_nudges_user").on(table.userId),
+  index("idx_daniela_absence_nudges_resolved").on(table.resolvedAt),
+  check(
+    "chk_daniela_absence_nudges_resolution_type",
+    sql`${table.resolutionType} IS NULL OR ${table.resolutionType} IN ('message_queued', 'dismissed', 'student_returned')`,
+  ),
+]);
+
+export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsenceNudges)
+  .omit({ id: true, notifiedAt: true })
+  .extend({
+    // Refine resolutionType so runtime validation matches the compile-time type.
+    // Values are sourced from RESOLUTION_TYPE_VALUES so schema.ts and
+    // absence-types.ts can never drift apart.
+    resolutionType: z.enum(RESOLUTION_TYPE_VALUES).nullable().optional(),
+  });
+export type InsertDanielaAbsenceNudge = z.infer<typeof insertDanielaAbsenceNudgeSchema>;
+export type DanielaAbsenceNudge = typeof danielaAbsenceNudges.$inferSelect;
+
+// ===== Student Absence Config =====
+// Per-student absence threshold override. When set, the absence worker uses
+// this threshold instead of the global ABSENCE_THRESHOLD_DAYS constant.
+// Primary use case: weekly learners or travellers who need a longer window
+// before Daniela is notified. One row per student (upserted by userId).
+export const studentAbsenceConfig = pgTable("student_absence_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  thresholdDays: integer("threshold_days").notNull(),  // custom absence threshold in days
+  notes: text("notes"),  // optional explanation (e.g. "weekly learner — travels for work")
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_absence_config_user").on(table.userId),
+]);
+
+export const insertStudentAbsenceConfigSchema = createInsertSchema(studentAbsenceConfig).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertStudentAbsenceConfig = z.infer<typeof insertStudentAbsenceConfigSchema>;
+export type StudentAbsenceConfig = typeof studentAbsenceConfig.$inferSelect;
+
+// ===== Student Contact Preferences =====
+// Stores phone number and explicit SMS/voice consent for outbound Daniela contact.
+// Written only on explicit student action (settings UI or in-session verbal consent).
+// Phone stored in E.164 format. Consent timestamps track when each type was granted.
+// One row per student (upsert on userId).
+export const studentContactPreferences = pgTable("student_contact_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  phone: varchar("phone"),                                          // E.164 e.g. +15551234567
+  phoneConsentSms: boolean("phone_consent_sms").notNull().default(false),   // opt-in for SMS
+  phoneConsentVoice: boolean("phone_consent_voice").notNull().default(false), // opt-in for voice calls
+  phoneConsentAt: timestamp("phone_consent_at"),                    // when consent was last updated
+  phoneConsentSource: varchar("phone_consent_source"),              // 'manual_entry' | 'in_session'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_student_contact_pref_user").on(table.userId),
+]);
+
+export const insertStudentContactPreferencesSchema = createInsertSchema(studentContactPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertStudentContactPreferences = z.infer<typeof insertStudentContactPreferencesSchema>;
+export type StudentContactPreferences = typeof studentContactPreferences.$inferSelect;
+
+// Zod schema for the PUT /api/user/contact-preferences endpoint
+export const updateContactPreferencesSchema = z.object({
+  phone: z.string()
+    .regex(/^\+[1-9]\d{7,14}$/, "Phone must be in E.164 format (e.g. +15551234567)")
+    .nullable()
+    .optional(),
+  phoneConsentSms: z.boolean().optional(),
+  phoneConsentVoice: z.boolean().optional(),
+});
+
+// ─── Learning Goals ──────────────────────────────────────────────────────────
+
+/**
+ * A single learnable capability within a student's goal.
+ * Tracked through four stages Daniela advances silently based on observation:
+ *   planned   → introduced but not yet touched in session
+ *   planted   → Daniela introduced it; student recognises it with support
+ *   practiced → student can reproduce it when prompted (controlled production)
+ *   integrated → student uses it spontaneously to solve a real comm. problem
+ */
+export interface GoalCapability {
+  id: string;              // slug e.g. "restaurant_ordering"
+  name: string;            // "Order food at a restaurant without freezing"
+  status: 'planned' | 'planted' | 'practiced' | 'integrated';
+  notes: string[];         // Daniela's evidence notes for each advance
+  addedAt: string;         // ISO timestamp when added to goal
+  lastAdvancedAt?: string; // ISO timestamp of last status change
+}
+
+/**
+ * A student's active learning goal — outcome-based ("order food, get directions")
+ * rather than level-based ("reach B2"). Designed for self-directed students and
+ * business travelers who aren't following the textbook curriculum.
+ *
+ * Only one goal per student+language is active at a time. When a goal evolves
+ * (trip → ongoing interest), the old goal is deactivated and a new one created,
+ * carrying forward any Integrated capabilities.
+ */
+export const learningGoals = pgTable("learning_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: varchar("language").notNull(),
+  goalStatement: text("goal_statement").notNull(),   // What the student said they want to be able to do
+  targetDate: timestamp("target_date"),              // Optional deadline (trip date, meeting date)
+  capabilities: jsonb("capabilities").$type<GoalCapability[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_learning_goals_student").on(table.studentId),
+  index("idx_learning_goals_student_lang").on(table.studentId, table.language),
+  index("idx_learning_goals_active").on(table.studentId, table.isActive),
+]);
+
+export const insertLearningGoalSchema = createInsertSchema(learningGoals).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLearningGoal = z.infer<typeof insertLearningGoalSchema>;
+export type LearningGoal = typeof learningGoals.$inferSelect;
+
+/**
+ * Teaching Skills — named, executable pedagogical routines Daniela can invoke by name.
+ * Each skill is a compound sequence of her existing tools, pre-reasoned and pre-scripted.
+ * When she calls invoke_teaching_skill("madrigal_chapter_drill", {...}), she gets back an
+ * exact step-by-step script with tool call instructions she follows herself.
+ *
+ * Madrigal-aligned skills encode the proper Madrigal method precisely so Daniela doesn't
+ * have to re-derive the pedagogy from context on every turn.
+ */
+export const teachingSkills = pgTable("teaching_skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  name: varchar("name").notNull().unique(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  triggerConditions: text("trigger_conditions"),
+
+  steps: jsonb("steps").notNull(),
+  paramsSchema: jsonb("params_schema"),
+
+  madrigalAligned: boolean("madrigal_aligned").default(false),
+  chapterTypes: varchar("chapter_types").array(),
+  actflLevels: varchar("actfl_levels").array(),
+
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  originProposalId: varchar("origin_proposal_id"),
+});
+
+export const insertTeachingSkillSchema = createInsertSchema(teachingSkills).omit({ id: true, createdAt: true });
+export type InsertTeachingSkill = z.infer<typeof insertTeachingSkillSchema>;
+export type TeachingSkill = typeof teachingSkills.$inferSelect;
+
+/**
+ * Persistent cache mapping image URLs → Gemini-visible descriptions.
+ * First time an image URL is shown to Daniela, we fetch the bytes and send as inlineData.
+ * After that, we store a text description here so future sessions can use text instead
+ * of re-fetching bytes — saving latency and keeping the context window clean.
+ */
+export const imageVisionCache = pgTable("image_vision_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  imageUrl: text("image_url").notNull(),
+  description: text("description"),
+  mimeType: varchar("mime_type", { length: 50 }).notNull().default("image/jpeg"),
+  sourceConversationId: varchar("source_conversation_id"), // conversation where this image was first shown
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_image_vision_cache_url").on(table.imageUrl),
+]);
+
+// ===== Build Queue (tiered autonomy — Alden/Agent proposals for async review) =====
+
+export const buildQueueStatusEnum = pgEnum('build_queue_status', [
+  'pending',    // awaiting review
+  'approved',   // approved, waiting to execute
+  'executing',  // currently being applied
+  'done',       // successfully executed
+  'rejected',   // rejected, will not execute
+]);
+
+export const buildQueueProposerEnum = pgEnum('build_queue_proposer', ['alden', 'agent']);
+
+export const buildQueue = pgTable("build_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposedBy: buildQueueProposerEnum("proposed_by").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  filesAffected: text("files_affected").array(),
+  isSafeZone: boolean("is_safe_zone").notNull().default(false),
+  diff: text("diff"),
+  status: buildQueueStatusEnum("status").notNull().default('pending'),
+  priority: integer("priority").notNull().default(5),
+  reviewedBy: text("reviewed_by"),
+  reviewNote: text("review_note"),
+  proposedAt: timestamp("proposed_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  executedAt: timestamp("executed_at"),
+  result: text("result"),
+});
+
+export const insertBuildQueueSchema = createInsertSchema(buildQueue).omit({
+  id: true, proposedAt: true, reviewedAt: true, executedAt: true,
+});
+export type InsertBuildQueue = z.infer<typeof insertBuildQueueSchema>;
+export type BuildQueueItem = typeof buildQueue.$inferSelect;
+
+// ===== Alden Watch Config (self-tuning parameters) =====
+
+export const aldenWatchConfig = pgTable("alden_watch_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  checkIntervalHours: integer("check_interval_hours").notNull().default(2),
+  recoveryPollMinutes: integer("recovery_poll_minutes").notNull().default(10),
+  budgetWarnUsd: integer("budget_warn_usd").notNull().default(3),
+  budgetAlertUsd: integer("budget_alert_usd").notNull().default(5),
+  lowHealthThreshold: integer("low_health_threshold").notNull().default(70),
+  consecutiveLowScoreTrigger: integer("consecutive_low_score_trigger").notNull().default(3),
+  fingerprintTtlHours: integer("fingerprint_ttl_hours").notNull().default(24),
+  updatedBy: text("updated_by").notNull().default('system'),
+  updateReason: text("update_reason"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AldenWatchConfig = typeof aldenWatchConfig.$inferSelect;
+
+// ===== Alden Engine Config (Anthropic default / Gemini "inside man" mode) =====
+
+export const aldenConfig = pgTable("alden_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  engine: text("engine").notNull().default('anthropic'), // 'anthropic' | 'gemini'
+  updatedBy: text("updated_by").notNull().default('system'),
+  reason: text("reason"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AldenConfig = typeof aldenConfig.$inferSelect;
+
+export const aldenEngineSwitches = pgTable("alden_engine_switches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromEngine: text("from_engine").notNull(),
+  toEngine: text("to_engine").notNull(),
+  initiatedBy: text("initiated_by").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_alden_engine_switches_created").on(table.createdAt),
+]);
+
+export type AldenEngineSwitch = typeof aldenEngineSwitches.$inferSelect;
+
+// ===== Pedagogical Loop State Machine =====
+// Server-side tracking of structured teaching sequences. Persists across GL
+// context window decay — Daniela queries this via get_current_teaching_context,
+// start_madrigal_loop, advance_loop_step, and suspend_current_loop tools.
+
+export const pedagogicalLoopStatusEnum = pgEnum('pedagogical_loop_status', [
+  'active',     // currently in progress
+  'suspended',  // paused by student/tangent; resumable when context returns
+  'completed',  // all steps finished; lesson recorded via mark_lesson_covered
+  'abandoned',  // session ended without completion; Shadow Auditor reconciles
+]);
+
+export const pedagogicalLoopTypeEnum = pgEnum('pedagogical_loop_type', [
+  'madrigal_4step',    // Madrigal visual sequence: anchor → images → combinator → drill
+  'grammar_drill',     // Grammar pattern drill loop
+  'actfl_checkpoint',  // ACTFL proficiency checkpoint sequence
+]);
+
+export const pedagogicalLoopState = pgTable("pedagogical_loop_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => tutorSessions.id),
+  studentId: varchar("student_id").notNull(),
+  status: pedagogicalLoopStatusEnum("status").notNull().default('active'),
+  loopType: pedagogicalLoopTypeEnum("loop_type").notNull(),
+  loopContentKey: varchar("loop_content_key", { length: 200 }).notNull(),
+  currentStep: integer("current_step").notNull().default(0),
+  totalSteps: integer("total_steps").notNull(),
+  stepData: jsonb("step_data").notNull(),
+  studentPerformance: jsonb("student_performance").notNull().default([]),
+  suspendReason: text("suspend_reason"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  suspendedAt: timestamp("suspended_at"),
+}, (table) => [
+  index("idx_pedagogical_loop_session").on(table.sessionId),
+  index("idx_pedagogical_loop_student_status").on(table.studentId, table.status),
+]);
+
+export const insertPedagogicalLoopStateSchema = createInsertSchema(pedagogicalLoopState).omit({
+  id: true, startedAt: true, completedAt: true, suspendedAt: true,
+});
+export type InsertPedagogicalLoopState = z.infer<typeof insertPedagogicalLoopStateSchema>;
+export type PedagogicalLoopState = typeof pedagogicalLoopState.$inferSelect;
+
+// ── Pedagogical Brief (Intention MVP) ────────────────────────────────────────
+// Daniela's working theory for a student, written at session end.
+// Append-only: never overwrite — track how the intention evolves over time.
+// Read at session start: latest brief injected into pre-session synthesis.
+export const studentPedagogicalBriefs = pgTable("student_pedagogical_briefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  sessionId: varchar("session_id"), // source session that generated this brief
+  brief: text("brief").notNull(), // 3-sentence pedagogical brief
+  focusArea: text("focus_area"), // what to prioritize next session
+  struggledWith: text("struggled_with"), // what the student found hard this session
+  notedProgress: text("noted_progress"), // what went well / what advanced
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_ped_brief_user_lang").on(table.userId, table.language),
+]);
+
+export const insertStudentPedagogicalBriefSchema = createInsertSchema(studentPedagogicalBriefs).omit({
+  id: true, createdAt: true,
+});
+export type InsertStudentPedagogicalBrief = z.infer<typeof insertStudentPedagogicalBriefSchema>;
+export type StudentPedagogicalBrief = typeof studentPedagogicalBriefs.$inferSelect;
+
+// ── ACTFL Mastery Evidence ────────────────────────────────────────────────────
+// Time-series evidence for Can-Do statement mastery.
+// Separate from studentCanDoProgress (which is boolean flags).
+// Each row = one observed performance in a session.
+// Confidence scores decay over time — the aggregate view drives the mastery digest.
+
+// Bridge: curriculum unit → Can-Do statements it addresses
+export const curriculumUnitCanDoMap = pgTable("curriculum_unit_can_do_map", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  unitId: varchar("unit_id").notNull().references(() => curriculumUnits.id),
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  isPrimary: boolean("is_primary").default(true), // primary vs supporting coverage
+}, (table) => [
+  index("idx_unit_can_do_unit").on(table.unitId),
+  index("idx_unit_can_do_statement").on(table.canDoStatementId),
+]);
+
+// Time-series evidence rows — one per observation per session
+export const studentCanDoEvidence = pgTable("student_can_do_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  language: text("language").notNull(),
+  sessionId: varchar("session_id"), // session where this was observed
+  confidenceScore: integer("confidence_score").notNull(), // 0-100
+  transcriptExcerpt: text("transcript_excerpt"), // the moment it happened (for explainability)
+  workerNotes: text("worker_notes"), // why the AI scored this way
+  observedAt: timestamp("observed_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_can_do_evidence_user_lang").on(table.userId, table.language),
+  index("idx_can_do_evidence_statement").on(table.canDoStatementId),
+]);
+
+export const insertStudentCanDoEvidenceSchema = createInsertSchema(studentCanDoEvidence).omit({
+  id: true, observedAt: true,
+});
+export type InsertStudentCanDoEvidence = z.infer<typeof insertStudentCanDoEvidenceSchema>;
+export type StudentCanDoEvidence = typeof studentCanDoEvidence.$inferSelect;
+
+// ===== ACTFL Level Change Audit Log =====
+// Append-only record of every time a student's ACTFL level changes, with a
+// pointer back to the conversation that provided the evidence.  Enables
+// review, dispute, and re-testing without losing the triggering context.
+export const actflLevelChanges = pgTable("actfl_level_changes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  fromLevel: text("from_level"),           // null = first ever assessment
+  toLevel: text("to_level").notNull(),
+  conversationId: text("conversation_id"), // conversation that produced the evidence
+  triggeredBy: text("triggered_by").notNull(), // 'placement_tool' | 'placement_chat' | 'manual'
+  reason: text("reason"),                  // AI reasoning or human note
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_actfl_level_changes_user_lang").on(table.userId, table.language),
+]);
+
+export const insertActflLevelChangesSchema = createInsertSchema(actflLevelChanges).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActflLevelChange = z.infer<typeof insertActflLevelChangesSchema>;
+export type ActflLevelChange = typeof actflLevelChanges.$inferSelect;
+
+// ===== SCENE WORLD LEDGER =====
+// Narrative facts about a student's history in a named scene, persisted across sessions.
+// NOT coordinate or prop data — only semantic facts Daniela can reference on scene entry.
+// Examples: { has_paid_tab: true, relationship_with_barista: "friendly", last_item: "croissant" }
+// Daniela writes via update_world_ledger; server injects on OPEN_SCENE.
+export const sceneWorldLedger = pgTable('scene_world_ledger', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id),
+  sceneName: text('scene_name').notNull(),
+  ledger: jsonb('ledger').notNull().default('{}'),
+  tension: doublePrecision('tension').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('idx_scene_world_ledger_user_scene').on(table.userId, table.sceneName),
+]);
+
+export const insertSceneWorldLedgerSchema = createInsertSchema(sceneWorldLedger).omit({ id: true, updatedAt: true });
+export type InsertSceneWorldLedger = z.infer<typeof insertSceneWorldLedgerSchema>;
+export type SceneWorldLedger = typeof sceneWorldLedger.$inferSelect;
+
+// ===== MASTERY EVIDENCE =====
+// Durable record of vocabulary words a student has demonstrably mastered in-scene.
+// Written fire-and-forget from tension-evaluator when pragmaticScore >= 4 and
+// the active grounded prop carries vocab[].  Unique on (userId, word, language)
+// so re-mastering the same word is a no-op (ON CONFLICT DO NOTHING).
+// Powers future spaced-repetition queries and Madrigal unit cross-linking.
+export const masteryEvidence = pgTable('mastery_evidence', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id),
+  word: text('word').notNull(),
+  language: text('language').notNull(),
+  sceneName: text('scene_name'),             // scene where mastery was demonstrated
+  propName: text('prop_name'),               // which prop carried the vocab
+  attemptsCount: integer('attempts_count').notNull().default(1), // upserted on re-mastery
+  lastPragmaticScore: integer('last_pragmatic_score'), // score at time of mastery (1-5)
+  masteredAt: timestamp('mastered_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_mastery_evidence_user_lang').on(table.userId, table.language),
+  uniqueIndex('idx_mastery_evidence_user_word_lang').on(table.userId, table.word, table.language),
+]);
+
+export const insertMasteryEvidenceSchema = createInsertSchema(masteryEvidence).omit({ id: true, masteredAt: true });
+export type InsertMasteryEvidence = z.infer<typeof insertMasteryEvidenceSchema>;
+export type MasteryEvidence = typeof masteryEvidence.$inferSelect;
+
+// ===== OBSERVER SEAT RUNS =====
+// Persistent record of every Observer Seat diagnostic run.
+// Stores full visual data (scene image URL, vocab image URLs, transcript)
+// so Luca can review past sessions and Claude Code can fetch them via API.
+// Image URLs come from visual_assets (object storage) — they are stable.
+// Audio is uploaded to object storage and stored as a permanent URL.
+export const observerSeatRuns = pgTable('observer_seat_runs', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  runAt: timestamp('run_at', { withTimezone: true }).notNull().defaultNow(),
+  scenarioLabel: text('scenario_label').notNull().default(''),
+  language: text('language').notNull().default('es-ES'),
+  promptText: text('prompt_text').notNull().default(''),
+  transcript: text('transcript').notNull().default(''),
+  toolCallsJson: jsonb('tool_calls_json').notNull().default([]),
+  visualEventsJson: jsonb('visual_events_json').notNull().default([]),
+  coverageJson: jsonb('coverage_json').notNull().default({}),
+  audioDurationS: real('audio_duration_s').notNull().default(0),
+  audioUrl: text('audio_url'),
+  grade: text('grade').notNull().default('FAIL'),
+});
+
+export const insertObserverSeatRunSchema = createInsertSchema(observerSeatRuns).omit({ id: true, runAt: true });
+export type InsertObserverSeatRun = z.infer<typeof insertObserverSeatRunSchema>;
+export type ObserverSeatRun = typeof observerSeatRuns.$inferSelect;
+
+// ===== STUDENT MILESTONES =====
+// Tracks pedagogical gate events per student per language.
+// Primary use: Madrigal tú reveal gate (usted_fluency + tu_revealed).
+// Threshold for tú unlock: 25 successful communicative uses of usted/third-person
+// across at least 2 distinct calendar days (sleep cycle matters).
+export const studentMilestones = pgTable("student_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  language: varchar("language").notNull().default("spanish"),
+  milestoneKey: varchar("milestone_key").notNull(),
+  // Examples: 'usted_fluency' (tracking counter), 'tu_revealed' (gate unlocked)
+  successCount: integer("success_count").default(0),
+  distinctDays: integer("distinct_days").default(0),
+  // Tracks the last calendar date a fluency instance was recorded (YYYY-MM-DD).
+  // Stored as a plain string to avoid timezone ambiguity across sessions.
+  lastEvidenceDateStr: varchar("last_evidence_date_str"),
+  unlockedAt: timestamp("unlocked_at"),
+  lastEvidenceAt: timestamp("last_evidence_at"),
+  evidenceSummary: text("evidence_summary"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_milestones_student").on(table.studentId, table.language),
+  uniqueIndex("idx_student_milestones_unique").on(table.studentId, table.language, table.milestoneKey),
+]);
+
+export const insertStudentMilestoneSchema = createInsertSchema(studentMilestones).omit({ id: true, createdAt: true });
+export type InsertStudentMilestone = z.infer<typeof insertStudentMilestoneSchema>;
+export type StudentMilestone = typeof studentMilestones.$inferSelect;
+
+// ===== SOPHIA — STUDENT SUPPORT LAYER =====
+// Sophia handles the operational/technical layer of a session.
+// Daniela notices a technical problem, hands it off via escalate_to_support,
+// and Sophia works it while Daniela stays in the lesson.
+// Sophia is text-only — the voice channel stays exclusively Daniela's.
+// Alden summarizes incident patterns into long-term learner_personal_facts post-session.
+
+export const sophiaIncidentTriggerEnum = pgEnum('sophia_incident_trigger', [
+  'daniela_referral',    // Daniela called escalate_to_support
+  'telemetry_auto',      // Sophia detected autonomously (e.g. GL socket dropped while Daniela unreachable)
+]);
+
+export const sophiaIncidentCategoryEnum = pgEnum('sophia_incident_category', [
+  'audio_input',    // mic muted, no audio from student
+  'audio_output',   // student can't hear Daniela
+  'connection',     // WebSocket drop, reconnect failure
+  'tool_render',    // a whiteboard tool didn't render on student's screen
+  'ui_sync',        // UI state mismatch
+  'other',          // catch-all
+]);
+
+export const sophiaIncidentStatusEnum = pgEnum('sophia_incident_status', [
+  'detected',        // incident logged, Sophia not yet engaged
+  'investigating',   // Sophia actively working
+  'instructing',     // Sophia has given the student steps to follow
+  'resolved',        // issue resolved, all_clear sent to Daniela
+  'unresolved',      // session ended without resolution
+  'escalated',       // escalated to human support (future)
+]);
+
+export const sophiaIncidents = pgTable("sophia_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),   // tutor_sessions.id
+  studentId: varchar("student_id").notNull(),
+  conversationId: varchar("conversation_id"),   // links to conversation context
+  triggerSource: sophiaIncidentTriggerEnum("trigger_source").notNull(),
+  category: sophiaIncidentCategoryEnum("category").notNull(),
+  status: sophiaIncidentStatusEnum("status").notNull().default('detected'),
+  issueDescription: text("issue_description").notNull(),  // Daniela's description or auto-detected text
+  priority: varchar("priority").notNull().default('medium'),  // low | medium | high
+  resolutionStepsSummary: text("resolution_steps_summary"),   // what Sophia told the student
+  allClearSentAt: timestamp("all_clear_sent_at"),             // when all_clear was fired back to Daniela
+  resolvedAt: timestamp("resolved_at"),
+  sessionEndedUnresolved: boolean("session_ended_unresolved").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sophia_incidents_session").on(table.sessionId),
+  index("idx_sophia_incidents_student").on(table.studentId),
+  index("idx_sophia_incidents_status").on(table.status),
+]);
+
+export const insertSophiaIncidentSchema = createInsertSchema(sophiaIncidents).omit({ id: true, createdAt: true });
+export type InsertSophiaIncident = z.infer<typeof insertSophiaIncidentSchema>;
+export type SophiaIncident = typeof sophiaIncidents.$inferSelect;
+
+// Sophia's per-incident message log — what she said to the student during this incident
+export const sophiaMessages = pgTable("sophia_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull().references(() => sophiaIncidents.id),
+  role: varchar("role").notNull(),   // 'sophia' | 'student'
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sophia_messages_incident").on(table.incidentId),
+]);
+
+export const insertSophiaMessageSchema = createInsertSchema(sophiaMessages).omit({ id: true, createdAt: true });
+export type InsertSophiaMessage = z.infer<typeof insertSophiaMessageSchema>;
+export type SophiaMessage = typeof sophiaMessages.$inferSelect;

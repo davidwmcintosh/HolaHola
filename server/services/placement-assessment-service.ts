@@ -19,11 +19,7 @@ import { toInternalActflLevel } from "../actfl-utils";
 import type { Message } from "@shared/schema";
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  }
+  apiKey: process.env.GEMINI_API_KEY || ''
 });
 
 export interface PlacementResult {
@@ -137,7 +133,7 @@ Confidence should be between 0.5 and 1.0.`;
 
   try {
     const response = await gemini.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: assessmentPrompt,
     });
 
@@ -208,6 +204,32 @@ export async function completePlacementAssessment(
       role: m.role === 'user' ? 'user' : 'assistant',
       content: m.content,
     }));
+
+    // Double-write guard: if SET_ACTFL_LEVEL was called in-session (selfDirectedPlacementDone=true
+    // + lastAssessmentDate within last 60 min), the in-session result is more precise — it comes
+    // from Daniela's real-time 8-turn assessment, not post-hoc AI analysis. Skip the re-assess
+    // and only mark the enrollment as checked.
+    const recentMs = 60 * 60 * 1000; // 60 minutes
+    const assessedRecently = user.actflAssessed &&
+      user.lastAssessmentDate &&
+      (Date.now() - new Date(user.lastAssessmentDate).getTime()) < recentMs;
+
+    if (assessedRecently) {
+      console.log(`[PlacementAssessment] Skipping post-session AI assessment for user ${userId} — in-session SET_ACTFL_LEVEL already ran (level: ${user.actflLevel}, assessed at: ${user.lastAssessmentDate})`);
+      await storage.updateClassEnrollment(enrollmentId, {
+        placementChecked: true,
+        placementActflResult: user.actflLevel as any,
+        placementDelta: 0,
+        placementDate: new Date(),
+      });
+      return {
+        assessedLevel: user.actflLevel as any,
+        confidence: 1.0,
+        delta: 0,
+        reasoning: 'Level set by in-session placement assessment — post-session re-analysis skipped.',
+        recommendations: [],
+      };
+    }
 
     const result = await assessActflLevel(
       conversationHistory,

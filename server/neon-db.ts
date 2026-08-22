@@ -104,3 +104,23 @@ export async function closeNeonConnections(): Promise<void> {
     console.log("[Neon] Database pool closed");
   }
 }
+
+export interface PoolStats {
+  total: number;
+  idle: number;
+  waiting: number;
+  max: number;
+  pressurePercent: number;
+}
+
+export function getPoolStats(): PoolStats {
+  if (!pool) {
+    return { total: 0, idle: 0, waiting: 0, max: 20, pressurePercent: 0 };
+  }
+  const total = (pool as any).totalCount ?? 0;
+  const idle = (pool as any).idleCount ?? 0;
+  const waiting = (pool as any).waitingCount ?? 0;
+  const max = 20;
+  const pressurePercent = max > 0 ? Math.round(((total - idle) / max) * 100) : 0;
+  return { total, idle, waiting, max, pressurePercent };
+}

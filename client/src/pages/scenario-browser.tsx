@@ -5,10 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Briefcase, Plane, Users, AlertTriangle, Palette, ArrowLeft, Search, Play } from "lucide-react";
+import { MapPin, Briefcase, Plane, Users, AlertTriangle, Palette, ArrowLeft, Search, Play, BookOpen, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { Scenario } from "@shared/schema";
+import { Link } from "wouter";
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof MapPin; color: string }> = {
   daily: { label: "Daily Life", icon: MapPin, color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
@@ -19,13 +20,128 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof MapPin; colo
   cultural: { label: "Cultural", icon: Palette, color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
 };
 
+const LESSON_TYPE_LABEL: Record<string, string> = {
+  grammar: "Grammar",
+  vocabulary: "Vocab",
+  conversation: "Conversation",
+  culture: "Culture",
+  reading: "Reading",
+  listening: "Listening",
+};
 
-function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () => void }) {
+interface RelatedLesson {
+  id: string;
+  chapterId: string;
+  name: string;
+  description: string;
+  lessonType: string;
+  estimatedMinutes: number | null;
+  imageUrl: string | null;
+}
+
+function RelatedLessonsSection({ slug, language }: { slug: string; language: string }) {
+  const { data, isLoading } = useQuery<{ lessons: RelatedLesson[] }>({
+    queryKey: ["/api/scenarios", slug, "related-lessons", language],
+    queryFn: async () => {
+      const res = await fetch(`/api/scenarios/${encodeURIComponent(slug)}/related-lessons?language=${encodeURIComponent(language)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to load related lessons");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5 pt-2 border-t">
+        <Skeleton className="h-3.5 w-32" />
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
+      </div>
+    );
+  }
+
+  const lessons = data?.lessons || [];
+  if (lessons.length === 0) return null;
+
+  return (
+    <div className="pt-2 border-t space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        <BookOpen className="w-3 h-3" />
+        Study first in the textbook
+      </p>
+      {lessons.map((lesson) => (
+        <Link href={`/textbook?chapterId=${encodeURIComponent(lesson.chapterId)}`} key={lesson.id}>
+          <div
+            className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer"
+            data-testid={`link-related-lesson-${lesson.id}`}
+          >
+            {lesson.imageUrl ? (
+              <img
+                src={lesson.imageUrl}
+                alt={lesson.name}
+                className="w-10 h-10 rounded object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">{lesson.name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                  {LESSON_TYPE_LABEL[lesson.lessonType] || lesson.lessonType}
+                </Badge>
+                {lesson.estimatedMinutes && (
+                  <span className="text-[10px] text-muted-foreground">{lesson.estimatedMinutes}m</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function ScenarioCard({
+  scenario,
+  onStart,
+  language,
+  practiced,
+}: {
+  scenario: Scenario;
+  onStart: () => void;
+  language: string;
+  practiced?: boolean;
+}) {
   const config = CATEGORY_CONFIG[scenario.category] || CATEGORY_CONFIG.daily;
   const CategoryIcon = config.icon;
+  const [showRelated, setShowRelated] = useState(false);
 
   return (
     <Card className="flex flex-col hover-elevate transition-all duration-200 overflow-visible" data-testid={`card-scenario-${scenario.slug}`}>
+      {scenario.imageUrl ? (
+        <div className="relative h-36 rounded-t-md overflow-hidden shrink-0">
+          <img
+            src={scenario.imageUrl}
+            alt={scenario.title}
+            className="w-full h-full object-cover object-top"
+            data-testid={`img-scenario-cover-${scenario.slug}`}
+          />
+          {practiced && (
+            <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+              <CheckCircle2 className="w-3 h-3" />
+              Practiced
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="h-36 rounded-t-md bg-muted shrink-0 flex items-center justify-center">
+          <CategoryIcon className="w-8 h-8 text-muted-foreground opacity-40" />
+        </div>
+      )}
       <div className="p-4 flex-1 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <h3 className="font-semibold text-base" data-testid={`text-scenario-title-${scenario.slug}`}>
@@ -55,8 +171,23 @@ function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () =
           data-testid={`button-start-scenario-${scenario.slug}`}
         >
           <Play className="w-3.5 h-3.5 mr-1.5" />
-          Start Scenario
+          {practiced ? "Practice again" : "Start Scenario"}
         </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full -mt-1 text-xs text-muted-foreground"
+          onClick={() => setShowRelated(v => !v)}
+          data-testid={`button-toggle-related-${scenario.slug}`}
+        >
+          {showRelated ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+          {showRelated ? "Hide" : "Textbook prep"}
+        </Button>
+
+        {showRelated && (
+          <RelatedLessonsSection slug={scenario.slug} language={language} />
+        )}
       </div>
     </Card>
   );
@@ -99,6 +230,12 @@ export default function ScenarioBrowser() {
     },
   });
 
+  const { data: scenarioHistory = [] } = useQuery<{ scenarioId: string; completedAt: string | null }[]>({
+    queryKey: ["/api/user/scenario-history"],
+  });
+
+  const practicedIds = useMemo(() => new Set(scenarioHistory.map(h => h.scenarioId)), [scenarioHistory]);
+
   const filteredScenarios = useMemo(() => {
     let filtered = scenarios;
     if (selectedCategory) {
@@ -140,6 +277,12 @@ export default function ScenarioBrowser() {
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <h1 className="text-lg font-semibold" data-testid="text-page-title">Scenarios</h1>
+        {practicedIds.size > 0 && scenarios.length > 0 && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-practiced-count">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+            {practicedIds.size}/{scenarios.length} practiced
+          </span>
+        )}
         <div className="flex-1" />
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -210,6 +353,8 @@ export default function ScenarioBrowser() {
               <ScenarioCard
                 key={scenario.id}
                 scenario={scenario}
+                language={language}
+                practiced={practicedIds.has(scenario.id)}
                 onStart={() => handleStartScenario(scenario)}
               />
             ))}

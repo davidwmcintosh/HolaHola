@@ -1,0 +1,403 @@
+/**
+ * test-memory-tool-coverage.ts
+ *
+ * Lint/coverage check: every tool in the Daniela function registry whose name
+ * matches a memory-retrieval naming pattern must be explicitly listed in either:
+ *
+ *   A) MEMORY_TOOL_NAMES  — counted against the chain guard (most recall-style tools)
+ *   B) KNOWN_NON_GUARD_TOOLS — intentionally excluded, with a comment explaining why
+ *
+ * If a developer adds "recall_new_thing" and doesn't update either list, this
+ * script exits non-zero so CI catches it.
+ *
+ * Run: npx tsx server/scripts/test-memory-tool-coverage.ts
+ */
+
+import { MEMORY_TOOL_NAMES, CLASSROOM_BLOCKED_EXEMPTIONS } from '../services/memory-chain-guard';
+import { DANIELA_FUNCTION_DECLARATIONS, GL_EXCLUDED_TOOLS } from '../services/daniela-function-registry';
+import {
+  MEMORY_PATTERN_PREFIXES,
+  KNOWN_NON_GUARD_TOOLS,
+  KNOWN_MEMORY_DISPATCHERS,
+} from '../services/memory-tool-coverage-constants';
+// ↑ Single source of truth — do NOT redefine these here.
+// To add a new prefix, exemption, or dispatcher, edit memory-tool-coverage-constants.ts.
+// Both this script and test-memory-tool-coverage-negative-path.ts import from there.
+
+const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
+const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
+const sep = () => console.log('\n' + '─'.repeat(70));
+
+// ─── Non-memory dispatcher tools ─────────────────────────────────────────────
+//
+// Every tool that uses dispatchSubTool() internally must appear in either
+// KNOWN_MEMORY_DISPATCHERS (above) or this set.  Together they form the
+// complete registry of all dispatcher tools in the codebase.
+//
+// WHY THIS EXISTS
+// ───────────────
+// MEMORY_PATTERN_PREFIXES only catches dispatchers whose name prefix is
+// already listed there.  A developer who names a new dispatcher "agent_",
+// "meta_", or "context_" would bypass the coverage check entirely — just
+// as "self_read" once did before its prefix was registered (the original
+// blind-spot that motivated Task #336).
+//
+// The static check below reads native-fc-handlers.ts at CI time, extracts
+// every tool name passed to dispatchSubTool() via regex, and verifies each
+// one is either:
+//   a) covered by a prefix in MEMORY_PATTERN_PREFIXES (already audited), or
+//   b) listed here.
+// Any dispatcher whose prefix is novel AND is not listed here will cause
+// the script to exit non-zero, regardless of its prefix.
+//
+// HOW TO UPDATE
+// ─────────────
+// When you add a new dispatcher tool that uses dispatchSubTool():
+//   • Routes to ANY memory-reading sub-tool → add to KNOWN_MEMORY_DISPATCHERS
+//     AND add its name prefix to MEMORY_PATTERN_PREFIXES.
+//   • Routes ONLY to non-memory sub-tools → add it here with a comment
+//     listing the sub-tools it routes to.
+//
+// NOTE: dispatchers whose prefix IS already in MEMORY_PATTERN_PREFIXES
+// (e.g. memory_record "memory_", self_write "self_") are handled by the
+// existing pattern check and do NOT need an entry here.
+//
+const KNOWN_NON_MEMORY_DISPATCHERS = new Set<string>([
+  // ── widget_ dispatchers ──────────────────────────────────────────────────
+  // Each routes to UI-widget sub-tools only; no DB/embedding reads.
+  'widget_time',    // sub-tools: set_clock, countdown_timer, etc.
+  'widget_state',   // sub-tools: show_widget, hide_widget, toggle_widget
+  'widget_body',    // sub-tools: set_body_part, set_face_part, set_hand_part, set_thermometer, set_emotion
+  'widget_scene',   // sub-tools: open_scene, add_to_scene, remove_from_scene, move_in_scene, clear_scene
+  'widget_board',   // sub-tools: whiteboard/conjugation/calendar widget actions
+  'widget_media',   // sub-tools: audio/video media controls
+
+  // ── exercise_ dispatchers ────────────────────────────────────────────────
+  // Each routes to exercise/drill sub-tools only; no memory retrieval.
+  'exercise_language',  // sub-tools: language drill types (matching, fill-in, etc.)
+  'exercise_drill',     // sub-tools: pronunciation / translation drill sub-tools
+  'exercise_content',   // sub-tools: content-generation exercise sub-tools
+
+  // ── admin_ dispatchers ───────────────────────────────────────────────────
+  // Admin/founder-mode only; no student memory retrieval.
+  'admin_session',  // sub-tools: session-admin actions (switch, override, inspect)
+  'admin_tools',    // sub-tools: administrative utility sub-tools
+
+  // ── teaching_ dispatchers ────────────────────────────────────────────────
+  // Routes to card-display and content-delivery sub-tools; no memory reads.
+  'teaching_cards',    // sub-tools: vocab cards, grammar cards, etc.
+  'teaching_content',  // sub-tools: content-delivery sub-tools
+]);
+
+// ─── Run ─────────────────────────────────────────────────────────────────────
+
+sep();
+console.log(B('Memory-tool chain-guard coverage check'));
+console.log(Y('  Every pattern-matching tool must be in MEMORY_TOOL_NAMES, KNOWN_NON_GUARD_TOOLS,'));
+console.log(Y('  or KNOWN_MEMORY_DISPATCHERS.  Failing to categorize a new tool is a test failure.'));
+sep();
+
+const allToolNames: string[] = DANIELA_FUNCTION_DECLARATIONS.map((d) => d.name as string);
+
+// Find all tools matching any memory-retrieval pattern
+const patternMatches = allToolNames.filter((name) =>
+  MEMORY_PATTERN_PREFIXES.some((prefix) => name.startsWith(prefix)),
+);
+
+let allPassed = true;
+const uncategorized: string[] = [];
+const inGuard: string[] = [];
+const inExclusion: string[] = [];
+const inDispatcher: string[] = [];
+
+for (const toolName of patternMatches) {
+  if (MEMORY_TOOL_NAMES.has(toolName)) {
+    inGuard.push(toolName);
+  } else if (KNOWN_NON_GUARD_TOOLS.has(toolName)) {
+    inExclusion.push(toolName);
+  } else if (KNOWN_MEMORY_DISPATCHERS.has(toolName)) {
+    inDispatcher.push(toolName);
+  } else {
+    uncategorized.push(toolName);
+  }
+}
+
+// ── Report: guarded tools ─────────────────────────────────────────────────────
+console.log('\n' + B('Guarded tools (in MEMORY_TOOL_NAMES):'));
+for (const name of inGuard) {
+  console.log(`  ${G('✓')} ${name}`);
+}
+if (inGuard.length === 0) {
+  console.log(Y('  (none)'));
+}
+
+// ── Report: intentionally excluded tools ──────────────────────────────────────
+console.log('\n' + B('Intentionally excluded tools (KNOWN_NON_GUARD_TOOLS):'));
+for (const name of inExclusion) {
+  console.log(`  ${Y('○')} ${name}`);
+}
+if (inExclusion.length === 0) {
+  console.log(Y('  (none)'));
+}
+
+// ── Report: memory-routing dispatchers ───────────────────────────────────────
+console.log('\n' + B('Memory-routing dispatchers (KNOWN_MEMORY_DISPATCHERS):'));
+console.log(Y('  These tools route to memory sub-tools internally but are not chain-guarded'));
+console.log(Y('  at the dispatcher level.  The sub-tools they dispatch to ARE guarded.'));
+for (const name of inDispatcher) {
+  console.log(`  ${B('⇒')} ${name}`);
+}
+if (inDispatcher.length === 0) {
+  console.log(Y('  (none)'));
+}
+
+// ── Report: uncategorized tools — FAIL ───────────────────────────────────────
+sep();
+if (uncategorized.length > 0) {
+  console.log(R('FAIL — uncategorized memory-pattern tools found:'));
+  console.log('');
+  for (const name of uncategorized) {
+    console.log(R(`  ✗ ${name}`));
+  }
+  console.log('');
+  console.log(R('  Each tool above matches a memory-retrieval naming pattern but is'));
+  console.log(R('  present in NONE of: MEMORY_TOOL_NAMES, KNOWN_NON_GUARD_TOOLS,'));
+  console.log(R('  or KNOWN_MEMORY_DISPATCHERS.'));
+  console.log('');
+  console.log(Y('  To fix: add the tool to one of these lists in:'));
+  console.log(Y('    • server/services/memory-chain-guard.ts  (if it should trigger the guard)'));
+  console.log(Y('    • server/services/memory-tool-coverage-constants.ts KNOWN_NON_GUARD_TOOLS'));
+  console.log(Y('      (if it intentionally bypasses the guard — add a comment explaining why)'));
+  console.log(Y('    • server/services/memory-tool-coverage-constants.ts KNOWN_MEMORY_DISPATCHERS'));
+  console.log(Y('      (if it is a dispatcher that routes to memory sub-tools internally)'));
+  console.log('');
+  allPassed = false;
+} else {
+  console.log(G('✓ All pattern-matching tools are categorized.'));
+}
+
+// ── Sanity: verify MEMORY_TOOL_NAMES has no phantom entries ───────────────────
+sep();
+console.log(B('Sanity check: MEMORY_TOOL_NAMES entries exist in the registry'));
+const toolNameSet = new Set(allToolNames);
+const phantoms: string[] = [];
+for (const guardedName of MEMORY_TOOL_NAMES) {
+  if (!toolNameSet.has(guardedName)) {
+    phantoms.push(guardedName);
+  }
+}
+if (phantoms.length > 0) {
+  console.log(R('FAIL — MEMORY_TOOL_NAMES contains tool names not found in the registry:'));
+  for (const name of phantoms) {
+    console.log(R(`  ✗ ${name}  (was it renamed or removed?)`));
+  }
+  console.log(Y('  Remove or rename these entries in server/services/memory-chain-guard.ts'));
+  allPassed = false;
+} else {
+  console.log(G('✓ Every entry in MEMORY_TOOL_NAMES exists in the live registry.'));
+}
+
+// ── Sanity: verify KNOWN_NON_GUARD_TOOLS has no phantom entries ──────────────
+sep();
+console.log(B('Sanity check: KNOWN_NON_GUARD_TOOLS entries exist in the registry'));
+const exclusionPhantoms: string[] = [];
+for (const excludedName of KNOWN_NON_GUARD_TOOLS) {
+  if (!toolNameSet.has(excludedName)) {
+    exclusionPhantoms.push(excludedName);
+  }
+}
+if (exclusionPhantoms.length > 0) {
+  console.log(R('FAIL — KNOWN_NON_GUARD_TOOLS contains tool names not found in the registry:'));
+  for (const name of exclusionPhantoms) {
+    console.log(R(`  ✗ ${name}  (was it renamed or removed?)`));
+  }
+  console.log(Y('  Remove or rename these entries in server/services/memory-tool-coverage-constants.ts KNOWN_NON_GUARD_TOOLS.'));
+  allPassed = false;
+} else {
+  console.log(G('✓ Every entry in KNOWN_NON_GUARD_TOOLS exists in the live registry.'));
+}
+
+// ── Sanity: verify KNOWN_MEMORY_DISPATCHERS has no phantom entries ───────────
+sep();
+console.log(B('Sanity check: KNOWN_MEMORY_DISPATCHERS entries exist in the registry'));
+console.log(Y('  If a dispatcher was renamed or removed, its entry here becomes a phantom.'));
+console.log(Y('  Remove the phantom and update MEMORY_PATTERN_PREFIXES if its prefix is no longer needed.'));
+const dispatcherPhantoms: string[] = [];
+for (const dispatcherName of KNOWN_MEMORY_DISPATCHERS) {
+  if (!toolNameSet.has(dispatcherName)) {
+    dispatcherPhantoms.push(dispatcherName);
+  }
+}
+if (dispatcherPhantoms.length > 0) {
+  console.log(R('FAIL — KNOWN_MEMORY_DISPATCHERS contains tool names not found in the registry:'));
+  for (const name of dispatcherPhantoms) {
+    console.log(R(`  ✗ ${name}  (was it renamed or removed?)`));
+  }
+  console.log(Y('  Remove or rename these entries in server/services/memory-tool-coverage-constants.ts KNOWN_MEMORY_DISPATCHERS.'));
+  allPassed = false;
+} else {
+  console.log(G('✓ Every entry in KNOWN_MEMORY_DISPATCHERS exists in the live registry.'));
+}
+
+// ── Classroom-exclusion sync check ───────────────────────────────────────────
+//
+// CLASSROOM_BLOCKED_EXEMPTIONS is the single source of truth for tools whose
+// chain-guard bypass is justified by classroom exclusion.  It is imported from
+// server/services/memory-chain-guard.ts so this script and
+// test-classroom-exclusion-negative-path.ts always agree on the list.
+//
+sep();
+console.log(B('Classroom-exclusion sync: KNOWN_NON_GUARD_TOOLS entries blocked from student sessions'));
+console.log(Y('  Each tool listed in CLASSROOM_BLOCKED_EXEMPTIONS must also be in GL_EXCLUDED_TOOLS.'));
+console.log(Y('  A drift here means a student could chain the tool without the guard ever firing.'));
+
+const classroomDrift: string[] = [];
+for (const toolName of CLASSROOM_BLOCKED_EXEMPTIONS) {
+  if (GL_EXCLUDED_TOOLS.has(toolName)) {
+    console.log(`  ${G('✓')} ${toolName}  (still in GL_EXCLUDED_TOOLS)`);
+  } else {
+    console.log(R(`  ✗ ${toolName}  — NOT in GL_EXCLUDED_TOOLS but exempted from chain guard on that basis`));
+    classroomDrift.push(toolName);
+  }
+}
+
+if (classroomDrift.length > 0) {
+  console.log('');
+  console.log(R('FAIL — classroom-exclusion drift detected:'));
+  for (const name of classroomDrift) {
+    console.log(R(`  ✗ ${name}`));
+  }
+  console.log('');
+  console.log(Y('  To fix, do ONE of the following for each drifted tool:'));
+  console.log(Y('    a) Re-add it to GL_EXCLUDED_TOOLS in daniela-function-registry.ts'));
+  console.log(Y('       (if it should still be blocked from student classroom sessions), OR'));
+  console.log(Y('    b) Remove it from CLASSROOM_BLOCKED_EXEMPTIONS here AND add it to'));
+  console.log(Y('       MEMORY_TOOL_NAMES in memory-chain-guard.ts so the chain guard fires'));
+  console.log(Y('       (if it is now intentionally reachable in student sessions).'));
+  allPassed = false;
+} else if (CLASSROOM_BLOCKED_EXEMPTIONS.size > 0) {
+  console.log(`  ${G('✓')} All classroom-blocked exemptions are still excluded from student sessions.`);
+}
+
+// ── Static check: every dispatchSubTool() caller is in the dispatcher registry ─
+//
+// Read native-fc-handlers.ts and extract every tool name passed as the 5th
+// argument to dispatchSubTool() (the dispatcher tool name, e.g. 'widget_time').
+// Verify that each name is either:
+//   a) covered by a prefix in MEMORY_PATTERN_PREFIXES — already audited by the
+//      pattern-match check above, OR
+//   b) listed in KNOWN_NON_MEMORY_DISPATCHERS.
+//
+// This catches any future dispatcher whose prefix is novel (e.g. "agent_",
+// "meta_", "context_") before it can bypass the coverage check silently.
+//
+sep();
+console.log(B('Static check: every dispatchSubTool() caller is in the dispatcher registry'));
+console.log(Y('  Parses native-fc-handlers.ts to extract all dispatcher tool names.'));
+console.log(Y('  Each must be covered by a prefix in MEMORY_PATTERN_PREFIXES OR listed in'));
+console.log(Y('  KNOWN_NON_MEMORY_DISPATCHERS — no dispatcher may be invisible to the check.'));
+
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const handlersPath = resolve(process.cwd(), 'server/services/native-fc-handlers.ts');
+let handlersSource: string;
+try {
+  handlersSource = readFileSync(handlersPath, 'utf-8');
+} catch (e) {
+  console.log(R(`FAIL — could not read native-fc-handlers.ts: ${e}`));
+  allPassed = false;
+  handlersSource = '';
+}
+
+// dispatchSubTool call shape:
+//   this.dispatchSubTool(sessionId, session, firstArg, paramsArg, 'dispatcher_name', 'paramKey')
+// Capture the 5th argument (4th 0-indexed after the opening paren).
+const dispatchSubToolRegex = /dispatchSubTool\s*\([^,]+,[^,]+,[^,]+,[^,]+,\s*'([^']+)'/g;
+const extractedDispatchers = new Set<string>();
+if (handlersSource) {
+  let m: RegExpExecArray | null;
+  while ((m = dispatchSubToolRegex.exec(handlersSource)) !== null) {
+    extractedDispatchers.add(m[1]);
+  }
+  console.log(`\n  Dispatchers extracted from native-fc-handlers.ts: ${extractedDispatchers.size}`);
+  for (const name of [...extractedDispatchers].sort()) {
+    console.log(`    • ${name}`);
+  }
+}
+
+// A dispatcher is "covered" if its prefix appears in MEMORY_PATTERN_PREFIXES
+// (meaning the pattern check will catch it if it drifts) OR it is explicitly
+// listed in KNOWN_NON_MEMORY_DISPATCHERS.
+const uncoveredDispatchers: string[] = [];
+for (const name of extractedDispatchers) {
+  const prefixCovered = MEMORY_PATTERN_PREFIXES.some((prefix) => name.startsWith(prefix));
+  const explicitlyCovered = KNOWN_NON_MEMORY_DISPATCHERS.has(name);
+  if (!prefixCovered && !explicitlyCovered) {
+    uncoveredDispatchers.push(name);
+  }
+}
+
+if (uncoveredDispatchers.length > 0) {
+  console.log('');
+  console.log(R('FAIL — dispatcher(s) found in native-fc-handlers.ts with no coverage:'));
+  console.log('');
+  for (const name of uncoveredDispatchers) {
+    console.log(R(`  ✗ ${name}  (prefix not in MEMORY_PATTERN_PREFIXES; not in KNOWN_NON_MEMORY_DISPATCHERS)`));
+  }
+  console.log('');
+  console.log(Y('  To fix, do ONE of the following for each dispatcher above:'));
+  console.log(Y('    a) If it routes to any memory-reading sub-tool:'));
+  console.log(Y('       • Add its name prefix to MEMORY_PATTERN_PREFIXES'));
+  console.log(Y('       • Add the tool name to KNOWN_MEMORY_DISPATCHERS'));
+  console.log(Y('    b) If it routes ONLY to non-memory sub-tools:'));
+  console.log(Y('       • Add the tool name to KNOWN_NON_MEMORY_DISPATCHERS'));
+  console.log('');
+  allPassed = false;
+} else if (extractedDispatchers.size > 0) {
+  console.log(G(`✓ All ${extractedDispatchers.size} dispatchSubTool() callers are covered.`));
+}
+
+// ── Sanity: KNOWN_NON_MEMORY_DISPATCHERS has no phantom entries ───────────────
+sep();
+console.log(B('Sanity check: KNOWN_NON_MEMORY_DISPATCHERS entries exist as dispatchSubTool() callers'));
+console.log(Y('  If a dispatcher was renamed or removed, its entry here becomes a phantom.'));
+const nonMemoryPhantoms: string[] = [];
+for (const name of KNOWN_NON_MEMORY_DISPATCHERS) {
+  if (handlersSource && !extractedDispatchers.has(name)) {
+    nonMemoryPhantoms.push(name);
+  }
+}
+if (nonMemoryPhantoms.length > 0) {
+  console.log(R('FAIL — KNOWN_NON_MEMORY_DISPATCHERS contains entries not found as dispatchSubTool() callers:'));
+  for (const name of nonMemoryPhantoms) {
+    console.log(R(`  ✗ ${name}  (was it renamed or removed?)`));
+  }
+  console.log(Y('  Remove or rename these entries in KNOWN_NON_MEMORY_DISPATCHERS above.'));
+  allPassed = false;
+} else {
+  console.log(G('✓ Every entry in KNOWN_NON_MEMORY_DISPATCHERS exists as a dispatchSubTool() caller.'));
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+sep();
+console.log(`  Pattern-matching tools found:  ${patternMatches.length}`);
+console.log(`  Guarded (MEMORY_TOOL_NAMES):   ${inGuard.length}`);
+console.log(`  Excluded (KNOWN_NON_GUARD):    ${inExclusion.length}`);
+console.log(`  Dispatchers (KNOWN_DISPATCH):  ${inDispatcher.length}`);
+console.log(`  Uncategorized (FAIL):          ${uncategorized.length}`);
+console.log(`  Classroom-blocked exemptions:  ${CLASSROOM_BLOCKED_EXEMPTIONS.size} checked, ${classroomDrift.length} drifted`);
+console.log(`  dispatchSubTool() callers:     ${extractedDispatchers.size} found, ${uncoveredDispatchers.length} uncovered`);
+console.log(`  Non-memory dispatcher set:     ${KNOWN_NON_MEMORY_DISPATCHERS.size} entries, ${nonMemoryPhantoms.length} phantom`);
+sep();
+
+if (allPassed) {
+  console.log(G('ALL CHECKS PASSED'));
+  console.log(G('Chain-guard coverage is complete — no memory-pattern tool is silently unguarded.'));
+  console.log('');
+} else {
+  console.log(R('ONE OR MORE CHECKS FAILED — see ✗ lines above.'));
+  process.exit(1);
+}

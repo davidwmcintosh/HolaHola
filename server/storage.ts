@@ -74,6 +74,9 @@ import {
   type InsertCurriculumDrillItem,
   type UserDrillProgress,
   type InsertUserDrillProgress,
+  userReviewItems,
+  type InsertUserReviewItem,
+  type UserReviewItem,
   userLanguagePreferences,
   curriculumDrillItems,
   userDrillProgress,
@@ -84,6 +87,7 @@ import {
   users,
   conversations,
   messages,
+  scenarios,
   vocabularyWords,
   grammarExercises,
   grammarCompetencies,
@@ -258,6 +262,15 @@ import {
   roomSessionSummaries,
   type RoomSessionSummary,
   type InsertRoomSessionSummary,
+  agentActivityLogs,
+  type AgentActivityLog,
+  type InsertAgentActivityLog,
+  compartmentInstallation,
+  compartmentEvents,
+  type CompartmentInstallation,
+  type InsertCompartmentInstallation,
+  type CompartmentEvent,
+  type InsertCompartmentEvent,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
@@ -276,7 +289,7 @@ export interface IStorage {
     nativeLanguage?: string;
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
-    tutorGender?: 'male' | 'female';
+    tutorGender?: 'male' | 'female' | null;
     tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
     tutorExpressiveness?: number;
     selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
@@ -289,6 +302,8 @@ export interface IStorage {
       redactionRequestedAt?: string;
     };
   }): Promise<User | undefined>;
+  getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
+  acceptTermsOfService(userId: string): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
@@ -302,6 +317,16 @@ export interface IStorage {
     lastAssessmentDate?: Date;
   }): Promise<User | undefined>;
   updateUserTimezone(userId: string, timezone: string): Promise<void>;
+
+  // Contact preferences + SMS/voice consent
+  getContactPreferences(userId: string): Promise<import('@shared/schema').StudentContactPreferences | undefined>;
+  upsertContactPreferences(userId: string, data: {
+    phone?: string | null;
+    phoneConsentSms?: boolean;
+    phoneConsentVoice?: boolean;
+    phoneConsentAt?: Date;
+    phoneConsentSource?: string;
+  }): Promise<import('@shared/schema').StudentContactPreferences>;
 
   // Per-language self-directed preferences
   getLanguagePreferences(userId: string, language: string): Promise<UserLanguagePreferences | undefined>;
@@ -398,7 +423,7 @@ export interface IStorage {
   createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
   getMediaFile(id: string): Promise<MediaFile | undefined>;
   getUserMediaFiles(userId: string): Promise<MediaFile[]>;
-  getAllMediaFiles(options?: { source?: string; reviewed?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>;
+  getAllMediaFiles(options?: { source?: string; reviewed?: string; search?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>;
   updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null; isReviewed?: boolean; reviewedAt?: Date | null; reviewedBy?: string | null }): Promise<MediaFile | undefined>;
   bulkUpdateMediaReviewStatus(ids: string[], isReviewed: boolean, reviewedBy: string): Promise<number>;
   deleteMediaFile(id: string): Promise<boolean>;
@@ -412,6 +437,8 @@ export interface IStorage {
   getCachedAIImage(promptHash: string): Promise<MediaFile | undefined>;
   cacheImage(data: InsertMediaFile): Promise<MediaFile>;
   incrementImageUsage(id: string): Promise<void>;
+  listComparisonBackgrounds(): Promise<MediaFile[]>;
+  deleteMediaFileBySearchQuery(searchQuery: string): Promise<number>;
   incrementAlertViewCount(id: string): Promise<void>;
 
   // ACTFL Can-Do Statements
@@ -492,6 +519,18 @@ export interface IStorage {
   recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number, classId?: string): Promise<UserDrillProgress>;
   getDueReviewItems(userId: string, lessonId?: string, limit?: number): Promise<CurriculumDrillItem[]>;
   checkDrillLessonCompletion(userId: string, lessonId: string): Promise<{ completed: boolean; masteredCount: number; totalCount: number; completionPercent: number }>;
+  // Cross-modality mastery signals: aggregated from userDrillProgress for Daniela's context
+  getUserDrillMasterySignals(userId: string, targetLanguage: string): Promise<{ mastered: string[]; struggling: string[] }>;
+  // Scenario-to-textbook: find lessons relevant to a scenario's curriculum topics
+  getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; chapterId: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null; imageUrl: string | null }[]>;
+  // Conversation-generated review items
+  createReviewItems(items: InsertUserReviewItem[]): Promise<UserReviewItem[]>;
+  getReviewItems(userId: string, language: string, limit?: number): Promise<UserReviewItem[]>;
+  recordReviewItemAttempt(id: string, isCorrect: boolean): Promise<UserReviewItem | undefined>;
+  getClassDrillMastery(classId: string, studentIds: string[]): Promise<{
+    lessonId: string; lessonName: string; lessonType: string; unitName: string;
+    totalStudents: number; masteredStudents: number; attemptedStudents: number; strugglingStudents: number;
+  }[]>;
 
   // Class-Specific Curriculum (Teacher's Customizable Syllabi)
   cloneCurriculumToClass(classId: string, curriculumPathId: string): Promise<{ units: ClassCurriculumUnit[]; lessons: ClassCurriculumLesson[] }>;
@@ -643,6 +682,7 @@ export interface IStorage {
     starredOnly?: boolean;
     topicId?: string;
     language?: string;
+    agentSessions?: boolean;
   }): Promise<Conversation[]>;
   
   // Phase 1: Vocabulary time-based filtering
@@ -747,19 +787,26 @@ export interface IStorage {
       totalVocabulary: number;
       dueCount: number;
       streakDays: number;
+      lastConversationDate: Date | null;
+      sessionsThisWeek: number;
     };
   }>;
 
   // ===== Tutor Voice Management (Admin Console) =====
   
-  // Get voice for a specific language and gender
-  getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined>;
+  // Get voice for a specific language and gender.
+  // Pass preferredProvider (e.g. 'gemini-live') to try that provider first before falling back.
+  // Pass modelVariant (e.g. 'gemini-3.1-flash-live-preview') to prefer a model-specific voice record over the base record.
+  getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string, modelVariant?: string): Promise<TutorVoice | undefined>;
   
   // Get all configured voices
   getAllTutorVoices(): Promise<TutorVoice[]>;
   
   // Create or update a voice configuration
   upsertTutorVoice(data: InsertTutorVoice): Promise<TutorVoice>;
+
+  // Update an existing voice configuration by its UUID (for edit flows)
+  updateTutorVoiceById(id: string, data: Partial<InsertTutorVoice>): Promise<TutorVoice>;
   
   // Delete a voice configuration
   deleteTutorVoice(id: string): Promise<boolean>;
@@ -1014,6 +1061,14 @@ export interface IStorage {
   createRoomSessionSummary(data: InsertRoomSessionSummary): Promise<RoomSessionSummary>;
   getRoomSessionSummaries(roomId: string, limit?: number): Promise<RoomSessionSummary[]>;
   getLatestSummaryByTopic(topic: string): Promise<RoomSessionSummary | undefined>;
+
+  // Compartment installation tracking (Madrigal method — pattern stability per student)
+  getCompartmentMap(userId: string, language: string): Promise<CompartmentInstallation[]>;
+  getCompartment(userId: string, language: string, patternKey: string): Promise<CompartmentInstallation | undefined>;
+  upsertCompartment(data: InsertCompartmentInstallation): Promise<CompartmentInstallation>;
+  updateCompartmentStatus(userId: string, language: string, patternKey: string, updates: Partial<InsertCompartmentInstallation>): Promise<CompartmentInstallation | undefined>;
+  logCompartmentEvent(data: InsertCompartmentEvent): Promise<CompartmentEvent>;
+  getCompartmentEvents(userId: string, language: string, patternKey: string, limit?: number): Promise<CompartmentEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1433,7 +1488,7 @@ export class DatabaseStorage implements IStorage {
     nativeLanguage?: string;
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
-    tutorGender?: 'male' | 'female';
+    tutorGender?: 'male' | 'female' | null;
     tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
     tutorExpressiveness?: number;
     selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
@@ -1452,6 +1507,19 @@ export class DatabaseStorage implements IStorage {
         ...preferences,
         updatedAt: new Date(),
       })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId)).limit(1);
+    return user;
+  }
+
+  async acceptTermsOfService(userId: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ tosAcceptedAt: new Date(), updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return updated;
@@ -1487,6 +1555,66 @@ export class DatabaseStorage implements IStorage {
     await db.update(users)
       .set({ timezone, updatedAt: new Date() })
       .where(eq(users.id, userId));
+  }
+
+  async getContactPreferences(userId: string): Promise<import('@shared/schema').StudentContactPreferences | undefined> {
+    const { studentContactPreferences } = await import('@shared/schema');
+    const [row] = await db.select().from(studentContactPreferences)
+      .where(eq(studentContactPreferences.userId, userId))
+      .limit(1);
+    if (!row) return undefined;
+    if (row.phone) {
+      try {
+        const { decryptPhone } = await import('./services/phone-encryption');
+        row.phone = decryptPhone(row.phone);
+      } catch {
+        // If decryption fails the value is either corrupted or an unencrypted legacy
+        // row — surface null rather than leaking ciphertext to callers.
+        row.phone = null;
+      }
+    }
+    return row;
+  }
+
+  async upsertContactPreferences(userId: string, data: {
+    phone?: string | null;
+    phoneConsentSms?: boolean;
+    phoneConsentVoice?: boolean;
+    phoneConsentAt?: Date;
+    phoneConsentSource?: string;
+  }): Promise<import('@shared/schema').StudentContactPreferences> {
+    const { studentContactPreferences } = await import('@shared/schema');
+    const { encryptPhone, decryptPhone } = await import('./services/phone-encryption');
+
+    // Normalise and validate the phone number to E.164 before storing.
+    // Twilio requires E.164 (+[country][subscriber]). Rejecting non-E.164 here
+    // surfaces the problem at write-time with a clear error rather than producing
+    // a silent SMS failure when the stored value is later passed to Twilio.
+    let normalizedPhone = data.phone;
+    if (normalizedPhone != null) {
+      const { normalizeE164 } = await import('./services/voice-message-delivery');
+      normalizedPhone = normalizeE164(normalizedPhone);
+    }
+
+    const storedData = {
+      ...data,
+      phone: normalizedPhone != null ? encryptPhone(normalizedPhone) : normalizedPhone,
+    };
+    const [result] = await db.insert(studentContactPreferences)
+      .values({ userId, ...storedData, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: studentContactPreferences.userId,
+        set: { ...storedData, updatedAt: new Date() },
+      })
+      .returning();
+    if (result.phone) {
+      try {
+        result.phone = decryptPhone(result.phone);
+      } catch {
+        result.phone = null;
+      }
+    }
+    return result;
   }
 
   // Per-language self-directed preferences
@@ -1544,7 +1672,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
       .where(and(
         eq(classEnrollments.studentId, userId),
-        eq(classEnrollments.status, 'active'),
+        eq(classEnrollments.isActive, true),
         sql`LOWER(${teacherClasses.language}) = ${normalizedLanguage}`
       ))
       .limit(1);
@@ -1948,16 +2076,23 @@ export class DatabaseStorage implements IStorage {
       const allMessages = await this.getMessagesByConversation(data.conversationId);
       
       let duration = 0;
-      if (allMessages.length > 0) {
-        const firstMessage = allMessages[0];
-        const lastMessage = allMessages[allMessages.length - 1];
-        const durationMs = new Date(lastMessage.createdAt).getTime() - new Date(firstMessage.createdAt).getTime();
-        duration = Math.floor(durationMs / 60000);
+      if (allMessages.length > 1) {
+        const GAP_THRESHOLD_MS = 60 * 60 * 1000; // 60-minute gap = new sitting
+        for (let i = 1; i < allMessages.length; i++) {
+          const prev = new Date(allMessages[i - 1].createdAt).getTime();
+          const curr = new Date(allMessages[i].createdAt).getTime();
+          const gapMs = curr - prev;
+          if (gapMs <= GAP_THRESHOLD_MS) {
+            duration += gapMs;
+          }
+        }
+        duration = Math.floor(duration / 60000);
       }
       
       await this.updateConversationInternal(data.conversationId, {
         messageCount: conversation.messageCount + 1,
         duration,
+        lastMessageAt: message.createdAt,
       });
     }
 
@@ -1987,7 +2122,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     
-    return result[0];
+    return result[0] as Message | undefined;
   }
 
   async getMessagesByConversation(conversationId: string): Promise<Message[]> {
@@ -2033,7 +2168,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt))
       .limit(limit);
     
-    return results;
+    return results as Array<Message & { conversationTitle: string | null }>;
   }
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
@@ -2101,10 +2236,12 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined> {
+  async updateVocabularyReview(id: string, isCorrect: boolean): Promise<(VocabularyWord & { newlyMastered: boolean }) | undefined> {
     const result = await getSharedDb().select().from(vocabularyWords).where(eq(vocabularyWords.id, id));
     const word = result[0];
     if (!word) return undefined;
+
+    const wasMastered = (word.interval ?? 0) >= 21 && (word.correctCount ?? 0) >= 3;
 
     const currentState = {
       easeFactor: word.easeFactor,
@@ -2128,7 +2265,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(vocabularyWords.id, id))
       .returning();
 
-    return updated;
+    const isMastered = (updated.interval ?? 0) >= 21 && (updated.correctCount ?? 0) >= 3;
+    return { ...updated, newlyMastered: !wasMastered && isMastered };
   }
 
   async getDueVocabulary(language: string, userId: string, difficulty?: string, limit: number = 5): Promise<VocabularyWord[]> {
@@ -2519,13 +2657,22 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(mediaFiles.createdAt));
   }
 
-  async getAllMediaFiles(options: { source?: string; reviewed?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }> {
-    const { source, reviewed, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+  async getAllMediaFiles(options: { source?: string; reviewed?: string; search?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }> {
+    const { source, reviewed, search, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = options;
     
     const conditions: any[] = [];
     if (source) conditions.push(eq(mediaFiles.imageSource, source));
     if (reviewed === 'reviewed') conditions.push(eq(mediaFiles.isReviewed, true));
     if (reviewed === 'unreviewed') conditions.push(eq(mediaFiles.isReviewed, false));
+    if (search) {
+      const pattern = `%${search}%`;
+      conditions.push(sql`(
+        ${mediaFiles.filename} ILIKE ${pattern} OR
+        ${mediaFiles.title} ILIKE ${pattern} OR
+        ${mediaFiles.description} ILIKE ${pattern} OR
+        ${mediaFiles.targetWord} ILIKE ${pattern}
+      )`);
+    }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
@@ -2619,15 +2766,12 @@ export class DatabaseStorage implements IStorage {
 
   // Image Caching - for reducing API costs and improving speed
   async getCachedStockImage(searchQuery: string): Promise<MediaFile | undefined> {
+    // Looks up any cached image by searchQuery regardless of imageSource —
+    // covers both 'stock' (legacy/external) and 'ai_generated' (our seeded vocab images)
     const result = await db
       .select()
       .from(mediaFiles)
-      .where(
-        and(
-          eq(mediaFiles.imageSource, "stock"),
-          eq(mediaFiles.searchQuery, searchQuery)
-        )
-      )
+      .where(eq(mediaFiles.searchQuery, searchQuery))
       .limit(1);
     return result[0];
   }
@@ -2656,6 +2800,22 @@ export class DatabaseStorage implements IStorage {
       .update(mediaFiles)
       .set({ usageCount: sql`${mediaFiles.usageCount} + 1` })
       .where(eq(mediaFiles.id, id));
+  }
+
+  async listComparisonBackgrounds(): Promise<MediaFile[]> {
+    return await db
+      .select()
+      .from(mediaFiles)
+      .where(sql`${mediaFiles.searchQuery} LIKE 'vocab_%compar%'`)
+      .orderBy(desc(mediaFiles.createdAt));
+  }
+
+  async deleteMediaFileBySearchQuery(searchQuery: string): Promise<number> {
+    const deleted = await db
+      .delete(mediaFiles)
+      .where(eq(mediaFiles.searchQuery, searchQuery))
+      .returning();
+    return deleted.length;
   }
 
   // ACTFL Can-Do Statements
@@ -3344,6 +3504,236 @@ export class DatabaseStorage implements IStorage {
     const completed = completionPercent >= 70;
     
     return { completed, masteredCount, totalCount, completionPercent };
+  }
+
+  async getUserDrillMasterySignals(userId: string, _targetLanguage: string): Promise<{ mastered: string[]; struggling: string[] }> {
+    // Join userDrillProgress → curriculumDrillItems → curriculumLessons to get lesson-level signals
+    const rows = await getSharedDb()
+      .select({
+        lessonName: curriculumLessons.name,
+        requiredTopics: curriculumLessons.requiredTopics,
+        mastered: userDrillProgress.mastered,
+        attempts: userDrillProgress.attempts,
+        averageScore: userDrillProgress.averageScore,
+      })
+      .from(userDrillProgress)
+      .innerJoin(curriculumDrillItems, eq(curriculumDrillItems.id, userDrillProgress.drillItemId))
+      .innerJoin(curriculumLessons, eq(curriculumLessons.id, curriculumDrillItems.lessonId))
+      .where(eq(userDrillProgress.userId, userId));
+
+    // Aggregate at lesson + topic level
+    const masteredTopics = new Set<string>();
+    const strugglingTopics = new Set<string>();
+
+    // Group by lessonName to get lesson-level picture
+    const lessonMap: Record<string, { name: string; topics: string[]; totalItems: number; masteredItems: number; strugglingItems: number }> = {};
+    for (const row of rows) {
+      const key = row.lessonName;
+      if (!lessonMap[key]) {
+        lessonMap[key] = { name: row.lessonName, topics: row.requiredTopics || [], totalItems: 0, masteredItems: 0, strugglingItems: 0 };
+      }
+      lessonMap[key].totalItems++;
+      if (row.mastered) lessonMap[key].masteredItems++;
+      if (!row.mastered && (row.attempts ?? 0) >= 2 && (row.averageScore ?? 1) < 0.6) lessonMap[key].strugglingItems++;
+    }
+
+    for (const lesson of Object.values(lessonMap)) {
+      const pct = lesson.totalItems > 0 ? lesson.masteredItems / lesson.totalItems : 0;
+      if (pct >= 0.7) {
+        // Mastered lesson — add all its topics + the lesson name itself
+        masteredTopics.add(lesson.name);
+        for (const t of lesson.topics) masteredTopics.add(t);
+      } else if (lesson.strugglingItems >= 2 || (lesson.totalItems > 0 && lesson.strugglingItems / lesson.totalItems >= 0.4)) {
+        // Struggling lesson
+        strugglingTopics.add(lesson.name);
+        for (const t of lesson.topics) strugglingTopics.add(t);
+      }
+    }
+
+    // Remove overlap: mastered takes priority
+    for (const t of masteredTopics) strugglingTopics.delete(t);
+
+    return {
+      mastered: [...masteredTopics].slice(0, 12),
+      struggling: [...strugglingTopics].slice(0, 8),
+    };
+  }
+
+  async getRelatedLessonsForScenario(scenarioSlug: string, targetLanguage: string): Promise<{ id: string; chapterId: string; name: string; description: string; lessonType: string; estimatedMinutes: number | null; imageUrl: string | null }[]> {
+    // 1. Find the scenario and its curriculumTopics
+    const [scenario] = await getSharedDb()
+      .select({ curriculumTopics: scenarios.curriculumTopics })
+      .from(scenarios)
+      .where(eq(scenarios.slug, scenarioSlug))
+      .limit(1);
+
+    if (!scenario || !scenario.curriculumTopics || scenario.curriculumTopics.length === 0) return [];
+
+    // 2. Fetch all lessons for the target language with their topics, then filter in JS
+    const topicSet = new Set(scenario.curriculumTopics);
+    const allLessons = await getSharedDb()
+      .select({
+        id: curriculumLessons.id,
+        chapterId: curriculumUnits.id,
+        name: curriculumLessons.name,
+        description: curriculumLessons.description,
+        lessonType: curriculumLessons.lessonType,
+        estimatedMinutes: curriculumLessons.estimatedMinutes,
+        imageUrl: curriculumLessons.imageUrl,
+        requiredTopics: curriculumLessons.requiredTopics,
+      })
+      .from(curriculumLessons)
+      .innerJoin(curriculumUnits, eq(curriculumUnits.id, curriculumLessons.curriculumUnitId))
+      .innerJoin(curriculumPaths, eq(curriculumPaths.id, curriculumUnits.curriculumPathId))
+      .where(eq(curriculumPaths.language, targetLanguage));
+
+    // Filter for topic overlap, rank by number of matching topics (most relevant first), return top 4
+    const related = allLessons
+      .filter(l => (l.requiredTopics || []).some(t => topicSet.has(t)))
+      .map(l => ({
+        ...l,
+        _score: (l.requiredTopics || []).filter(t => topicSet.has(t)).length,
+      }))
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 4)
+      .map(({ requiredTopics: _, _score: __, ...rest }) => rest);
+
+    return related;
+  }
+
+  async createReviewItems(items: InsertUserReviewItem[]): Promise<UserReviewItem[]> {
+    if (items.length === 0) return [];
+    const now = new Date();
+    // Set initial nextReviewAt to 24 hours from now (SRS first interval)
+    const nextReview = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const withDefaults = items.map(item => ({ ...item, nextReviewAt: item.nextReviewAt ?? nextReview }));
+    return await getSharedDb().insert(userReviewItems).values(withDefaults).returning();
+  }
+
+  async getReviewItems(userId: string, language: string, limit = 20): Promise<UserReviewItem[]> {
+    return await getSharedDb()
+      .select()
+      .from(userReviewItems)
+      .where(
+        and(
+          eq(userReviewItems.userId, userId),
+          eq(userReviewItems.language, language),
+          eq(userReviewItems.mastered, false),
+        )
+      )
+      .orderBy(sql`COALESCE(${userReviewItems.nextReviewAt}, ${userReviewItems.createdAt}) ASC`)
+      .limit(limit);
+  }
+
+  async recordReviewItemAttempt(id: string, isCorrect: boolean): Promise<UserReviewItem | undefined> {
+    const [item] = await getSharedDb().select().from(userReviewItems).where(eq(userReviewItems.id, id)).limit(1);
+    if (!item) return undefined;
+
+    const attempts = (item.attempts ?? 0) + 1;
+    const correctCount = (item.correctCount ?? 0) + (isCorrect ? 1 : 0);
+    const score = isCorrect ? 1.0 : 0.0;
+
+    // SM-2 spaced repetition algorithm
+    // quality: 5 = perfect, 4 = correct with hesitation, 1 = incorrect (blackout)
+    const quality = isCorrect ? 4 : 1;
+    const prevEF = item.easeFactor ?? 2.5;
+    const prevInterval = item.intervalDays ?? 1;
+
+    // Update ease factor: EF' = EF + (0.1 - (5-q)*(0.08 + (5-q)*0.02))
+    let newEF = prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+    newEF = Math.max(1.3, Math.min(3.0, newEF)); // clamp between 1.3 and 3.0
+
+    // Calculate next interval
+    let newInterval: number;
+    if (!isCorrect) {
+      newInterval = 1; // Reset to 1 day on failure
+    } else if (attempts <= 1) {
+      newInterval = 1;
+    } else if (attempts === 2) {
+      newInterval = 6;
+    } else {
+      newInterval = Math.min(90, Math.round(prevInterval * newEF));
+    }
+
+    const now = new Date();
+    const nextReviewAt = new Date(now.getTime() + newInterval * 24 * 60 * 60 * 1000);
+    // Mastered when correct 3+ times with 80%+ accuracy and interval reached 21+ days
+    const mastered = correctCount >= 3 && correctCount / attempts >= 0.8 && newInterval >= 21;
+
+    const [updated] = await getSharedDb()
+      .update(userReviewItems)
+      .set({ attempts, correctCount, lastScore: score, nextReviewAt, mastered, easeFactor: newEF, intervalDays: newInterval })
+      .where(eq(userReviewItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getClassDrillMastery(classId: string, studentIds: string[]): Promise<{
+    lessonId: string;
+    lessonName: string;
+    lessonType: string;
+    unitName: string;
+    totalStudents: number;
+    masteredStudents: number;
+    attemptedStudents: number;
+    strugglingStudents: number;
+  }[]> {
+    if (studentIds.length === 0) return [];
+
+    // Get all drill progress for students in this class, joined to lessons
+    const rows = await getSharedDb()
+      .select({
+        lessonId: curriculumLessons.id,
+        lessonName: curriculumLessons.name,
+        lessonType: curriculumLessons.lessonType,
+        unitName: curriculumUnits.name,
+        userId: userDrillProgress.userId,
+        mastered: userDrillProgress.mastered,
+        attempts: userDrillProgress.attempts,
+        averageScore: userDrillProgress.averageScore,
+      })
+      .from(userDrillProgress)
+      .innerJoin(curriculumDrillItems, eq(curriculumDrillItems.id, userDrillProgress.drillItemId))
+      .innerJoin(curriculumLessons, eq(curriculumLessons.id, curriculumDrillItems.lessonId))
+      .innerJoin(curriculumUnits, eq(curriculumUnits.id, curriculumLessons.curriculumUnitId))
+      .where(inArray(userDrillProgress.userId, studentIds));
+
+    const totalStudents = studentIds.length;
+
+    // Aggregate per lesson
+    const lessonMap: Record<string, {
+      lessonId: string; lessonName: string; lessonType: string; unitName: string;
+      masteredByUser: Set<string>; attemptedByUser: Set<string>; strugglingByUser: Set<string>;
+    }> = {};
+
+    for (const row of rows) {
+      const key = row.lessonId;
+      if (!lessonMap[key]) {
+        lessonMap[key] = {
+          lessonId: row.lessonId, lessonName: row.lessonName,
+          lessonType: row.lessonType, unitName: row.unitName,
+          masteredByUser: new Set(), attemptedByUser: new Set(), strugglingByUser: new Set(),
+        };
+      }
+      lessonMap[key].attemptedByUser.add(row.userId);
+      if (row.mastered) lessonMap[key].masteredByUser.add(row.userId);
+      if (!row.mastered && (row.attempts ?? 0) >= 2 && (row.averageScore ?? 1) < 0.6) {
+        lessonMap[key].strugglingByUser.add(row.userId);
+      }
+    }
+
+    return Object.values(lessonMap)
+      .map(l => ({
+        lessonId: l.lessonId,
+        lessonName: l.lessonName,
+        lessonType: l.lessonType,
+        unitName: l.unitName,
+        totalStudents,
+        masteredStudents: l.masteredByUser.size,
+        attemptedStudents: l.attemptedByUser.size,
+        strugglingStudents: l.strugglingByUser.size,
+      }))
+      .sort((a, b) => b.attemptedStudents - a.attemptedStudents);
   }
 
   // ===== Class-Specific Curriculum (Teacher's Customizable Syllabi) =====
@@ -4600,11 +4990,19 @@ export class DatabaseStorage implements IStorage {
     starredOnly?: boolean;
     topicId?: string;
     language?: string;
+    agentSessions?: boolean;
   }): Promise<Conversation[]> {
     const conditions: any[] = [eq(conversations.userId, userId)];
     
-    // Language filter
-    if (filter.language) {
+    // Agent session mode: show ONLY agent_session conversations; normal mode: exclude them
+    if (filter.agentSessions) {
+      conditions.push(eq(conversations.conversationType, 'agent_session'));
+    } else {
+      conditions.push(sql`(${conversations.conversationType} IS NULL OR ${conversations.conversationType} != 'agent_session')`);
+    }
+    
+    // Language filter (ignored when showing agent sessions — they span languages)
+    if (filter.language && !filter.agentSessions) {
       conditions.push(eq(conversations.language, filter.language));
     }
     
@@ -4656,7 +5054,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(conversations)
       .where(and(...conditions))
-      .orderBy(desc(conversations.createdAt));
+      .orderBy(sql`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt}) DESC`);
   }
 
   // Phase 1: Get filtered vocabulary
@@ -5168,6 +5566,8 @@ export class DatabaseStorage implements IStorage {
       totalVocabulary: number;
       dueCount: number;
       streakDays: number;
+      lastConversationDate: Date | null;
+      sessionsThisWeek: number;
     };
   }> {
     const now = new Date();
@@ -5205,6 +5605,8 @@ export class DatabaseStorage implements IStorage {
       dueCountResult,
       allTopics,
       enrollments,
+      lastConvResult,
+      sessionsThisWeekResult,
     ] = await Promise.all([
       db.select().from(vocabularyWords)
         .where(buildAndConditions(
@@ -5236,8 +5638,9 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(vocabularyWords.nextReviewDate))
         .limit(20),
 
+      // Cross-context total — used for hasStarted check (streak/nudge logic must be globally consistent)
       db.select({ count: sql<number>`count(*)` }).from(conversations)
-        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter, convClassFilter)),
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter)),
 
       db.select({ count: sql<number>`count(*)` }).from(vocabularyWords)
         .where(buildAndConditions(eq(vocabularyWords.userId, userId), vocabLangFilter, vocabClassFilter)),
@@ -5251,6 +5654,19 @@ export class DatabaseStorage implements IStorage {
       this.getTopics(),
 
       this.getStudentEnrollments(userId).catch(() => [] as any[]),
+
+      db.select({ createdAt: conversations.createdAt }).from(conversations)
+        .where(buildAndConditions(eq(conversations.userId, userId), convLangFilter))
+        .orderBy(desc(conversations.createdAt))
+        .limit(1),
+
+      // Cross-context sessions this week — no class filter so it matches streak/last-session scope
+      db.select({ count: sql<number>`count(*)` }).from(conversations)
+        .where(buildAndConditions(
+          eq(conversations.userId, userId),
+          convLangFilter,
+          gte(conversations.createdAt, weekAgo)
+        )),
     ]);
 
     const [conversationTopicResults, streakResult, tipsResult, activeLessonsResult] = await Promise.all([
@@ -5553,15 +5969,64 @@ export class DatabaseStorage implements IStorage {
         totalConversations: Number(totalConvsResult[0]?.count || 0),
         totalVocabulary: Number(totalVocabResult[0]?.count || 0),
         dueCount: Number(dueCountResult[0]?.count || 0),
-        streakDays
+        streakDays,
+        lastConversationDate: lastConvResult[0]?.createdAt ?? null,
+        sessionsThisWeek: Number(sessionsThisWeekResult[0]?.count || 0),
       }
     };
   }
 
   // ===== Tutor Voice Management =====
 
-  async getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined> {
+  async getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string, modelVariant?: string): Promise<TutorVoice | undefined> {
     // IMPORTANT: Filter by role='tutor' to get main Cartesia tutor, not Google assistant
+    //
+    // Each language+gender pair may have multiple active rows — one per provider
+    // (e.g. 'google' + 'gemini-live' both active).  When a preferred provider is
+    // supplied (e.g. 'gemini-live' when that feature flag is on) we try it first;
+    // if no match we fall back to any active tutor voice so the session always starts.
+    //
+    // Per-model voice preferences: when modelVariant is supplied (e.g. 'gemini-3.1-flash-live-preview'),
+    // prefer a model-specific record (model_variant = value) over the base record (model_variant IS NULL).
+    if (preferredProvider && modelVariant) {
+      // 1. Try exact match: provider + model_variant
+      const exact = await getSharedDb().select().from(tutorVoices).where(
+        and(
+          eq(tutorVoices.language, language),
+          eq(tutorVoices.gender, gender),
+          eq(tutorVoices.role, 'tutor'),
+          eq(tutorVoices.isActive, true),
+          eq(tutorVoices.provider, preferredProvider),
+          eq(tutorVoices.modelVariant, modelVariant)
+        )
+      ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
+      if (exact[0]) return exact[0];
+      // 2. Fall back to provider base (model_variant IS NULL)
+      const base = await getSharedDb().select().from(tutorVoices).where(
+        and(
+          eq(tutorVoices.language, language),
+          eq(tutorVoices.gender, gender),
+          eq(tutorVoices.role, 'tutor'),
+          eq(tutorVoices.isActive, true),
+          eq(tutorVoices.provider, preferredProvider),
+          isNull(tutorVoices.modelVariant)
+        )
+      ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
+      if (base[0]) return base[0];
+      // 3. Fall through to any-provider below
+    } else if (preferredProvider) {
+      const preferred = await getSharedDb().select().from(tutorVoices).where(
+        and(
+          eq(tutorVoices.language, language),
+          eq(tutorVoices.gender, gender),
+          eq(tutorVoices.role, 'tutor'),
+          eq(tutorVoices.isActive, true),
+          eq(tutorVoices.provider, preferredProvider)
+        )
+      ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
+      if (preferred[0]) return preferred[0];
+      // Fall through to any-provider query below
+    }
     const result = await getSharedDb().select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, language),
@@ -5569,7 +6034,7 @@ export class DatabaseStorage implements IStorage {
         eq(tutorVoices.role, 'tutor'),  // Only main tutors, not assistants
         eq(tutorVoices.isActive, true)
       )
-    ).limit(1);
+    ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
     return result[0];
   }
 
@@ -5581,9 +6046,9 @@ export class DatabaseStorage implements IStorage {
     // Default to 'tutor' role if not specified
     const role = data.role || 'tutor';
     
-    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
-    if (role === 'tutor' && !validTutorProviders.includes(data.provider)) {
-      throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, or Gemini voices.');
+    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
+    if (role === 'tutor' && !validTutorProviders.includes(data.provider!)) {
+      throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices.');
     }
     if ((role === 'assistant' || role === 'support') && data.provider !== 'google') {
       throw new Error('[Voice Guard] Assistant tutors and support must use Google voices.');
@@ -5612,13 +6077,22 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async updateTutorVoiceById(id: string, data: Partial<InsertTutorVoice>): Promise<TutorVoice> {
+    const updated = await getSharedDb().update(tutorVoices)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tutorVoices.id, id))
+      .returning();
+    if (!updated[0]) throw new Error(`Tutor voice with id ${id} not found`);
+    return updated[0];
+  }
+
   async deleteTutorVoice(id: string): Promise<boolean> {
     const result = await getSharedDb().delete(tutorVoices).where(eq(tutorVoices.id, id)).returning();
     return result.length > 0;
   }
 
   async updateAllTutorVoicesProvider(provider: string): Promise<number> {
-    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }
@@ -5663,7 +6137,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTutorVoiceProviderWithMapping(id: string, provider: string, voiceId: string, voiceName: string): Promise<void> {
-    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }
@@ -5683,38 +6157,40 @@ export class DatabaseStorage implements IStorage {
 
     console.log('[Voice Seed] Seeding default tutor voices...');
 
-    // Default voices from Cartesia - includes both male and female for each language
+    // All main tutors now use Google Chirp 3 HD
+    // Female voices: Aoede, Kore, Leda, Zephyr
+    // Male voices:   Fenrir, Puck, Charon, Orus
     const defaultVoices: InsertTutorVoice[] = [
       // English
-      { language: 'english', gender: 'female', provider: 'cartesia', voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', voiceName: 'Teacher Lady', languageCode: 'en' },
-      { language: 'english', gender: 'male', provider: 'cartesia', voiceId: '638efaaa-4d0c-442e-b701-3fae16aad012', voiceName: 'Friendly Australian Man', languageCode: 'en' },
-      // Spanish
-      { language: 'spanish', gender: 'female', provider: 'cartesia', voiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', voiceName: 'Mexican Woman', languageCode: 'es' },
-      { language: 'spanish', gender: 'male', provider: 'cartesia', voiceId: 'ee7ea9f8-c0c1-498c-9f64-1571fc4b6a32', voiceName: 'Spanish Male Narrator', languageCode: 'es' },
-      // French
-      { language: 'french', gender: 'female', provider: 'cartesia', voiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', voiceName: 'French Conversational Lady', languageCode: 'fr' },
-      { language: 'french', gender: 'male', provider: 'cartesia', voiceId: 'ab7c61f5-3daa-47dd-a23b-4ac0aac5f5c3', voiceName: 'French Narrator Man', languageCode: 'fr' },
-      // German
-      { language: 'german', gender: 'female', provider: 'cartesia', voiceId: '3f4ade23-6eb4-4279-ab05-6a144947c4d5', voiceName: 'German Conversational Woman', languageCode: 'de' },
-      { language: 'german', gender: 'male', provider: 'cartesia', voiceId: 'fb26447f-308b-471e-8b00-8c6697283ca1', voiceName: 'German Narrator Man', languageCode: 'de' },
-      // Italian
-      { language: 'italian', gender: 'female', provider: 'cartesia', voiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', voiceName: 'Italian Narrator Woman', languageCode: 'it' },
-      { language: 'italian', gender: 'male', provider: 'cartesia', voiceId: 'b9de4a89-2257-424b-94c2-db18ba68c81a', voiceName: 'Italian Male', languageCode: 'it' },
-      // Portuguese
-      { language: 'portuguese', gender: 'female', provider: 'cartesia', voiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', voiceName: 'Pleasant Brazilian Lady', languageCode: 'pt' },
-      { language: 'portuguese', gender: 'male', provider: 'cartesia', voiceId: 'a3520a8f-226a-428d-9fcd-b0a4711a6829', voiceName: 'Brazilian Male', languageCode: 'pt' },
-      // Japanese
-      { language: 'japanese', gender: 'female', provider: 'cartesia', voiceId: '2b568345-1d48-4047-b25f-7baccf842eb0', voiceName: 'Japanese Woman Conversational', languageCode: 'ja' },
-      { language: 'japanese', gender: 'male', provider: 'cartesia', voiceId: '8f091740-3df1-4795-8bd9-dc62d88e5131', voiceName: 'Japanese Male Calm', languageCode: 'ja' },
-      // Mandarin Chinese
-      { language: 'mandarin chinese', gender: 'female', provider: 'cartesia', voiceId: 'b991c420-1ad1-401b-bee0-34a16f76aa71', voiceName: 'Chinese Woman Narrator', languageCode: 'zh' },
-      { language: 'mandarin chinese', gender: 'male', provider: 'cartesia', voiceId: '5619d38c-cf51-4d8e-9575-48f61a280413', voiceName: 'Chinese Commercial Man', languageCode: 'zh' },
-      // Korean
-      { language: 'korean', gender: 'female', provider: 'cartesia', voiceId: 'b5d7b5e0-c94d-47f8-8df5-b124cf8c8b8c', voiceName: 'Korean Woman', languageCode: 'ko' },
-      { language: 'korean', gender: 'male', provider: 'cartesia', voiceId: '63ff761f-c1e8-414b-b969-d1833d1c870c', voiceName: 'Korean Male', languageCode: 'ko' },
+      { language: 'english', gender: 'female', provider: 'google', voiceId: 'en-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'en-US' },
+      { language: 'english', gender: 'male', provider: 'google', voiceId: 'en-US-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'en-US' },
+      // Spanish — Daniela: Aoede, Agustin: Fenrir
+      { language: 'spanish', gender: 'female', provider: 'google', voiceId: 'es-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'es-US' },
+      { language: 'spanish', gender: 'male', provider: 'google', voiceId: 'es-US-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'es-US' },
+      // French — Juliette: Leda, Vincent: Orus
+      { language: 'french', gender: 'female', provider: 'google', voiceId: 'fr-FR-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'fr-FR' },
+      { language: 'french', gender: 'male', provider: 'google', voiceId: 'fr-FR-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'fr-FR' },
+      // German — Greta: Zephyr, Lukas: Puck
+      { language: 'german', gender: 'female', provider: 'google', voiceId: 'de-DE-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'de-DE' },
+      { language: 'german', gender: 'male', provider: 'google', voiceId: 'de-DE-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'de-DE' },
+      // Italian — Liv: Kore, Luca: Charon
+      { language: 'italian', gender: 'female', provider: 'google', voiceId: 'it-IT-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'it-IT' },
+      { language: 'italian', gender: 'male', provider: 'google', voiceId: 'it-IT-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'it-IT' },
+      // Portuguese — Isabel: Aoede, Camilo: Puck
+      { language: 'portuguese', gender: 'female', provider: 'google', voiceId: 'pt-BR-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'pt-BR' },
+      { language: 'portuguese', gender: 'male', provider: 'google', voiceId: 'pt-BR-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'pt-BR' },
+      // Japanese — Sayuri: Leda, Daisuke: Orus
+      { language: 'japanese', gender: 'female', provider: 'google', voiceId: 'ja-JP-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'ja-JP' },
+      { language: 'japanese', gender: 'male', provider: 'google', voiceId: 'ja-JP-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'ja-JP' },
+      // Mandarin Chinese — Hua: Kore, Tao: Fenrir
+      { language: 'mandarin chinese', gender: 'female', provider: 'google', voiceId: 'cmn-CN-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'cmn-CN' },
+      { language: 'mandarin chinese', gender: 'male', provider: 'google', voiceId: 'cmn-CN-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'cmn-CN' },
+      // Korean — Jihyun: Zephyr, Minho: Charon
+      { language: 'korean', gender: 'female', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'ko-KR' },
+      { language: 'korean', gender: 'male', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'ko-KR' },
       // Hebrew (hidden language - special unlock for founder's daughter)
-      { language: 'hebrew', gender: 'female', provider: 'cartesia', voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', voiceName: 'Hebrew Woman', languageCode: 'he' },
-      { language: 'hebrew', gender: 'male', provider: 'cartesia', voiceId: '638efaaa-4d0c-442e-b701-3fae16aad012', voiceName: 'Hebrew Man', languageCode: 'he' },
+      { language: 'hebrew', gender: 'female', provider: 'google', voiceId: 'he-IL-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'he-IL' },
+      { language: 'hebrew', gender: 'male', provider: 'google', voiceId: 'he-IL-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'he-IL' },
     ];
 
     for (const voice of defaultVoices) {
@@ -5726,7 +6202,59 @@ export class DatabaseStorage implements IStorage {
     // Also seed Sofia's support voices if they don't exist
     await this.seedSupportVoices();
   }
-  
+
+  /**
+   * Migrate all main tutor voices to Google Chirp 3 HD.
+   * Runs at startup to update any lingering Cartesia/ElevenLabs records.
+   * Safe to call every boot — only updates records that differ.
+   */
+  async migrateTutorVoicesToGoogle(): Promise<void> {
+    // Full Google Chirp 3 HD mapping for every language (role = 'tutor', main voices)
+    const googleVoices: Array<{ language: string; gender: string; voiceId: string; voiceName: string; languageCode: string }> = [
+      { language: 'english',        gender: 'female', voiceId: 'en-US-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'en-US' },
+      { language: 'english',        gender: 'male',   voiceId: 'en-US-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'en-US' },
+      { language: 'spanish',        gender: 'female', voiceId: 'es-US-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'es-US' },
+      { language: 'spanish',        gender: 'male',   voiceId: 'es-US-Chirp3-HD-Fenrir',  voiceName: 'Fenrir', languageCode: 'es-US' },
+      { language: 'french',         gender: 'female', voiceId: 'fr-FR-Chirp3-HD-Leda',    voiceName: 'Leda',   languageCode: 'fr-FR' },
+      { language: 'french',         gender: 'male',   voiceId: 'fr-FR-Chirp3-HD-Orus',    voiceName: 'Orus',   languageCode: 'fr-FR' },
+      { language: 'german',         gender: 'female', voiceId: 'de-DE-Chirp3-HD-Zephyr',  voiceName: 'Zephyr', languageCode: 'de-DE' },
+      { language: 'german',         gender: 'male',   voiceId: 'de-DE-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'de-DE' },
+      { language: 'italian',        gender: 'female', voiceId: 'it-IT-Chirp3-HD-Kore',    voiceName: 'Kore',   languageCode: 'it-IT' },
+      { language: 'italian',        gender: 'male',   voiceId: 'it-IT-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'it-IT' },
+      { language: 'portuguese',     gender: 'female', voiceId: 'pt-BR-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'pt-BR' },
+      { language: 'portuguese',     gender: 'male',   voiceId: 'pt-BR-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'pt-BR' },
+      { language: 'japanese',       gender: 'female', voiceId: 'ja-JP-Chirp3-HD-Leda',    voiceName: 'Leda',   languageCode: 'ja-JP' },
+      { language: 'japanese',       gender: 'male',   voiceId: 'ja-JP-Chirp3-HD-Orus',    voiceName: 'Orus',   languageCode: 'ja-JP' },
+      { language: 'mandarin chinese', gender: 'female', voiceId: 'cmn-CN-Chirp3-HD-Kore', voiceName: 'Kore',   languageCode: 'cmn-CN' },
+      { language: 'mandarin chinese', gender: 'male',   voiceId: 'cmn-CN-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'cmn-CN' },
+      { language: 'korean',         gender: 'female', voiceId: 'ko-KR-Chirp3-HD-Zephyr',  voiceName: 'Zephyr', languageCode: 'ko-KR' },
+      { language: 'korean',         gender: 'male',   voiceId: 'ko-KR-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'ko-KR' },
+      { language: 'hebrew',         gender: 'female', voiceId: 'he-IL-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'he-IL' },
+      { language: 'hebrew',         gender: 'male',   voiceId: 'he-IL-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'he-IL' },
+    ];
+
+    let updated = 0;
+    for (const v of googleVoices) {
+      const result = await getSharedDb()
+        .update(tutorVoices)
+        .set({ provider: 'google', voiceId: v.voiceId, voiceName: v.voiceName, languageCode: v.languageCode, updatedAt: new Date() })
+        .where(
+          and(
+            eq(tutorVoices.language, v.language),
+            eq(tutorVoices.gender, v.gender),
+            eq(tutorVoices.role, 'tutor'),
+            // Skip voices the admin has intentionally set to a Gemini provider — those are
+            // deliberate overrides and must not be clobbered on every server boot.
+            ne(tutorVoices.provider, 'gemini-live'),
+            ne(tutorVoices.provider, 'gemini'),
+          )
+        )
+        .returning({ id: tutorVoices.id });
+      updated += result.length;
+    }
+    console.log(`[Voice Migration] ✓ Migrated ${updated} main tutor voice(s) to Google Chirp 3 HD`);
+  }
+
   /**
    * Seed Sofia's support agent voices (Google Chirp3 HD)
    * These voices are used for technical support conversations
@@ -5793,6 +6321,7 @@ export class DatabaseStorage implements IStorage {
     conversationsDeleted: number;
     progressReset: boolean;
     lessonsDeleted: number;
+    firstMeetingReset: boolean;
   }> {
     const opts = {
       resetVocabulary: true,
@@ -5953,7 +6482,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(and(
         eq(classEnrollments.classId, classId),
-        eq(classEnrollments.userId, studentId)
+        eq(classEnrollments.studentId, studentId)
       ));
     placementReset = true;
 
@@ -6865,7 +7394,7 @@ export class DatabaseStorage implements IStorage {
   // ===== AGENT COLLABORATION METHODS =====
   
   async createCollaborationEvent(event: InsertAgentCollaborationEvent): Promise<AgentCollaborationEvent> {
-    const [created] = await db.insert(agentCollaborationEvents).values([event]).returning();
+    const [created] = await db.insert(agentCollaborationEvents).values([event as any]).returning();
     return created;
   }
   
@@ -7089,7 +7618,7 @@ export class DatabaseStorage implements IStorage {
   // ===== ARIS (ASSISTANT TUTOR) STORAGE =====
   
   async createArisDrillAssignment(assignment: InsertArisDrillAssignment): Promise<ArisDrillAssignment> {
-    const [created] = await db.insert(arisDrillAssignments).values([assignment]).returning();
+    const [created] = await db.insert(arisDrillAssignments).values([assignment as any]).returning();
     return created;
   }
   
@@ -7125,7 +7654,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createArisDrillResult(result: InsertArisDrillResult): Promise<ArisDrillResult> {
-    const [created] = await db.insert(arisDrillResults).values([result]).returning();
+    const [created] = await db.insert(arisDrillResults).values([result as any]).returning();
     return created;
   }
   
@@ -7176,7 +7705,7 @@ export class DatabaseStorage implements IStorage {
   // ===== FEATURE SPRINT SYSTEM STORAGE =====
 
   async createFeatureSprint(data: InsertFeatureSprint): Promise<FeatureSprint> {
-    const [created] = await db.insert(featureSprints).values([data]).returning();
+    const [created] = await db.insert(featureSprints).values([data as any]).returning();
     return created;
   }
 
@@ -7311,7 +7840,7 @@ export class DatabaseStorage implements IStorage {
   async createProjectContextSnapshot(data: InsertProjectContextSnapshot): Promise<ProjectContextSnapshot> {
     // First deactivate all existing snapshots
     await this.deactivateOldSnapshots();
-    const [created] = await db.insert(projectContextSnapshots).values([{ ...data, isActive: true }]).returning();
+    const [created] = await db.insert(projectContextSnapshots).values([{ ...data, isActive: true } as any]).returning();
     return created;
   }
 
@@ -7322,7 +7851,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAiSuggestion(data: InsertAiSuggestion): Promise<AiSuggestion> {
-    const [created] = await db.insert(aiSuggestions).values([data]).returning();
+    const [created] = await db.insert(aiSuggestions).values([data as any]).returning();
     return created;
   }
 
@@ -7388,7 +7917,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async insertDanielaGrowthMemory(data: InsertDanielaGrowthMemory): Promise<string> {
-    const [created] = await db.insert(danielaGrowthMemories).values([data]).returning();
+    const [created] = await db.insert(danielaGrowthMemories).values([data as any]).returning();
     return created.id;
   }
   
@@ -7510,7 +8039,7 @@ export class DatabaseStorage implements IStorage {
   // ===== COLLABORATIVE SURGERY SESSIONS =====
   
   async createSurgerySession(data: InsertSurgerySession): Promise<SurgerySession> {
-    const [created] = await db.insert(surgerySessions).values([data]).returning();
+    const [created] = await db.insert(surgerySessions).values([data as any]).returning();
     return created;
   }
   
@@ -7546,7 +8075,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createSurgeryTurn(data: InsertSurgeryTurn): Promise<SurgeryTurn> {
-    const [created] = await db.insert(surgeryTurns).values([data]).returning();
+    const [created] = await db.insert(surgeryTurns).values([data as any]).returning();
     return created;
   }
   
@@ -7973,6 +8502,92 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(roomSessionSummaries.generatedAt))
       .limit(1);
     return summaries[0];
+  }
+
+  async addAgentActivityLog(data: InsertAgentActivityLog): Promise<AgentActivityLog> {
+    const [log] = await db.insert(agentActivityLogs).values(data).returning();
+    return log;
+  }
+
+  async getAgentActivityLogs(limit = 20): Promise<AgentActivityLog[]> {
+    return db.select().from(agentActivityLogs)
+      .orderBy(desc(agentActivityLogs.createdAt))
+      .limit(limit);
+  }
+
+  // ===== Compartment Installation =====
+
+  async getCompartmentMap(userId: string, language: string): Promise<CompartmentInstallation[]> {
+    return db.select().from(compartmentInstallation)
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, language)
+      ))
+      .orderBy(asc(compartmentInstallation.patternKey));
+  }
+
+  async getCompartment(userId: string, language: string, patternKey: string): Promise<CompartmentInstallation | undefined> {
+    const [row] = await db.select().from(compartmentInstallation)
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, language),
+        eq(compartmentInstallation.patternKey, patternKey)
+      ));
+    return row;
+  }
+
+  async upsertCompartment(data: InsertCompartmentInstallation): Promise<CompartmentInstallation> {
+    const [row] = await db.insert(compartmentInstallation)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [compartmentInstallation.userId, compartmentInstallation.language, compartmentInstallation.patternKey],
+        set: {
+          status: data.status,
+          poundingCount: data.poundingCount,
+          wobbleCount: data.wobbleCount,
+          derivationCount: data.derivationCount,
+          lastWobbledAt: data.lastWobbledAt,
+          stabilizedAt: data.stabilizedAt,
+          generativeAt: data.generativeAt,
+          lastDrilledAt: data.lastDrilledAt,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async updateCompartmentStatus(
+    userId: string,
+    language: string,
+    patternKey: string,
+    updates: Partial<InsertCompartmentInstallation>
+  ): Promise<CompartmentInstallation | undefined> {
+    const [row] = await db.update(compartmentInstallation)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(compartmentInstallation.userId, userId),
+        eq(compartmentInstallation.language, language),
+        eq(compartmentInstallation.patternKey, patternKey)
+      ))
+      .returning();
+    return row;
+  }
+
+  async logCompartmentEvent(data: InsertCompartmentEvent): Promise<CompartmentEvent> {
+    const [event] = await db.insert(compartmentEvents).values(data).returning();
+    return event;
+  }
+
+  async getCompartmentEvents(userId: string, language: string, patternKey: string, limit = 50): Promise<CompartmentEvent[]> {
+    return db.select().from(compartmentEvents)
+      .where(and(
+        eq(compartmentEvents.userId, userId),
+        eq(compartmentEvents.language, language),
+        eq(compartmentEvents.patternKey, patternKey)
+      ))
+      .orderBy(desc(compartmentEvents.createdAt))
+      .limit(limit);
   }
 }
 

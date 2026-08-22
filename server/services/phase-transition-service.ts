@@ -24,11 +24,7 @@ type HiveSnapshotType = typeof hiveSnapshotTypeEnum.enumValues[number];
 import { eq, desc, and, gte, inArray } from "drizzle-orm";
 
 const genAI = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  },
+  apiKey: process.env.GEMINI_API_KEY || '',
 });
 
 export type TeachingPhase = 
@@ -364,7 +360,12 @@ SUMMARIZE for the new phase (max 150 words):
 Be concise - this summary will be injected into the next phase's context.`;
 
       const result = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
+        config: {
+          // Thinking enabled — phase-transition summaries distill the session so far
+          // for the next phase's context. Quality matters more than latency here.
+          thinkingConfig: { thinkingBudget: -1 },
+        },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
       let summary = result.text;

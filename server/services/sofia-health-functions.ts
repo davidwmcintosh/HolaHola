@@ -17,15 +17,20 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "get_recent_pipeline_events",
-    description: "Query raw voice pipeline diagnostic events. Use this to investigate which specific error types are occurring and which users/devices are affected.",
+    description: "Query raw voice pipeline events — both client-side diagnostics and server-side failures. Use this to investigate errors, function call failures, and latency spikes.",
     parametersJsonSchema: {
       type: "object",
       properties: {
         minutes: { type: "number", description: "How many minutes back to look (default 60, max 360)" },
+        source: {
+          type: "string",
+          enum: ["client", "server", "all"],
+          description: "Which event source to query. 'client' = client_diag_* events (device/browser diagnostics). 'server' = server-side events like silent_function_failure, gl_turn_latency, gl_tool_failure. 'all' = both. Default: 'all'.",
+        },
         event_types: {
           type: "array",
           items: { type: "string" },
-          description: "Filter by specific event types: lockout_watchdog_8s, failsafe_tier1_20s, failsafe_tier2_45s, greeting_silence_15s, error, tts_error, mismatch_recovery",
+          description: "Optional: filter by specific event type substrings. Client examples: lockout_watchdog_8s, failsafe_tier1_20s, error, tts_error. Server examples: silent_function_failure, gl_turn_latency, gl_tool_failure.",
         },
       },
     },
@@ -54,7 +59,7 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     parametersJsonSchema: {
       type: "object",
       properties: {
-        older_than_hours: { type: "number", description: "Only cleanup sessions older than this many hours (minimum 2)" },
+        older_than_hours: { type: "number", description: "Only cleanup sessions older than this many hours (minimum 0.5 = 30 minutes, which matches the zombie auto-cleanup threshold)" },
       },
       required: ["older_than_hours"],
     },
@@ -216,6 +221,47 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       },
     },
   },
+  {
+    name: "get_session_reliability_report",
+    description: "Trend analysis for session reliability problems. Shows daily counts of abnormal disconnects (WS code != 1000) and tutor no-response events, broken down by close code and most-affected users. Use this to spot recurring patterns and determine if a specific problem is getting better or worse over time.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days of history to include (default 7, max 30)" },
+      },
+    },
+  },
+  {
+    name: "get_gl_health",
+    description: "Comprehensive Gemini Live voice pipeline health dashboard. Aggregates all GL-specific telemetry from the live chat area: turn latency percentiles (p50/p90/p99), tool call success rate and per-tool failure breakdown, silent turn count (tutor no-response), mid-turn reconnect count (double-audio risk path), session establishment latency (start() → setupComplete), and barge-in frequency (student interruptions). Use this as your first call when investigating any voice quality issue.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        minutes: { type: "number", description: "How many minutes back to look (default 60, max 720)" },
+      },
+    },
+  },
+  {
+    name: "get_gl_session_detail",
+    description: "Drill into the full GL event timeline for a specific voice session. Returns all voice_pipeline_events for that session in chronological order — turn latencies, tool calls, reconnects, errors. Use after get_gl_health identifies a problem session to understand exactly what happened.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "The voice session ID to inspect" },
+      },
+      required: ["session_id"],
+    },
+  },
+  {
+    name: "get_greeting_retry_stats",
+    description: "Monitor the greeting auto-retry system. Shows how often GL produces a silent greeting turn (Mode B: response_complete with totalSentences:0), how many retries were attempted, how many succeeded (audio arrived on retry), and how many were exhausted (both retries burned, student never heard a greeting). Use this to assess whether the greeting silence fix is working and to alert Luca and Alden if exhausted events cluster.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days of history to include (default 7, max 30)" },
+      },
+    },
+  },
 ];
 
 export type SofiaToolResult = { success: boolean; data: any };
@@ -271,29 +317,49 @@ export async function executeSofiaTool(
     case "get_recent_pipeline_events": {
       const minutes = Math.min(args.minutes || 60, 360);
       const since = new Date(Date.now() - minutes * 60 * 1000);
-      let typeFilter = sql`1=1`;
-      if (args.event_types?.length > 0) {
-        const prefixed = args.event_types.map((t: string) => `client_diag_${t}`);
-        typeFilter = sql`event_type = ANY(${prefixed})`;
+      const source: string = args.source || 'all';
+
+      // Build source filter
+      let sourceFilter: string;
+      if (source === 'client') {
+        sourceFilter = `event_type LIKE 'client_diag_%'`;
+      } else if (source === 'server') {
+        sourceFilter = `event_type NOT LIKE 'client_diag_%'`;
+      } else {
+        sourceFilter = `1=1`;
       }
-      const rows = await sharedDb.execute(sql`
+
+      // Build optional event_type substring filter
+      let typeClause = '';
+      if (args.event_types?.length > 0) {
+        const conditions = (args.event_types as string[])
+          .map(t => `event_type LIKE '%${t.replace(/'/g, "''")}%'`)
+          .join(' OR ');
+        typeClause = `AND (${conditions})`;
+      }
+
+      const rows = await sharedDb.execute(sql.raw(`
         SELECT 
           event_type,
           user_id,
-          event_data->'device'->>'screenWidth' as screen_width,
-          event_data->'device'->>'browser' as browser,
-          event_data->>'triggerType' as trigger_type,
+          event_data,
           created_at
         FROM voice_pipeline_events
-        WHERE event_type LIKE 'client_diag_%'
-          AND created_at >= ${since}
-          AND ${typeFilter}
+        WHERE ${sourceFilter}
+          AND created_at >= '${since.toISOString()}'
+          ${typeClause}
         ORDER BY created_at DESC
         LIMIT 50
-      `);
+      `));
       const summary = {
         totalEvents: rows.rows.length,
-        events: rows.rows,
+        source,
+        events: rows.rows.map((r: any) => ({
+          eventType: r.event_type,
+          userId: r.user_id,
+          data: typeof r.event_data === 'string' ? JSON.parse(r.event_data) : r.event_data,
+          createdAt: r.created_at,
+        })),
       };
       return { success: true, data: summary };
     }
@@ -327,7 +393,7 @@ export async function executeSofiaTool(
       if (checkCooldown('stale_session_cleanup')) {
         return { success: false, data: { reason: "Cooldown active — stale session cleanup was already performed within the last 30 minutes" } };
       }
-      const hours = Math.max(args.older_than_hours || 2, 2);
+      const hours = Math.max(args.older_than_hours || 0.5, 0.5);
       const threshold = new Date(Date.now() - hours * 60 * 60 * 1000);
       const result = await sharedDb.execute(sql`
         UPDATE voice_sessions 
@@ -414,7 +480,7 @@ export async function executeSofiaTool(
       }
       const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
       await founderCollabService.emitSofiaIssueAlert({
-        reportId: 0,
+        reportId: String(0),
         issueType: 'voice_health_escalation',
         userDescription: `[ESCALATION ${args.severity.toUpperCase()}] ${args.summary}`,
         environment,
@@ -599,6 +665,374 @@ export async function executeSofiaTool(
             affectedEvents: a.affectedEvents,
           })),
           recommendation: anomalyResult.recommendation,
+        },
+      };
+    }
+
+    case "get_session_reliability_report": {
+      const days = Math.min(args.days || 7, 30);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const [disconnectRows, noResponseRows] = await Promise.all([
+        sharedDb.execute(sql`
+          SELECT
+            DATE(created_at) AS day,
+            event_data->>'closeCode' AS close_code,
+            user_id,
+            COUNT(*) AS cnt,
+            AVG((event_data->>'sessionDurationSeconds')::float)::int AS avg_duration_s,
+            AVG((event_data->>'exchangeCount')::float)::int AS avg_exchanges
+          FROM voice_pipeline_events
+          WHERE event_type = 'session_abnormal_disconnect'
+            AND created_at >= ${since}
+          GROUP BY DATE(created_at), event_data->>'closeCode', user_id
+          ORDER BY day DESC, cnt DESC
+        `),
+        sharedDb.execute(sql`
+          SELECT
+            DATE(created_at) AS day,
+            user_id,
+            COUNT(*) AS cnt
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tutor_no_response'
+            AND created_at >= ${since}
+          GROUP BY DATE(created_at), user_id
+          ORDER BY day DESC, cnt DESC
+        `),
+      ]);
+
+      // Roll up daily totals and breakdowns
+      const disconnectsByDay: Record<string, { total: number; byCode: Record<string, number>; affectedUsers: number }> = {};
+      const noResponseByDay: Record<string, { total: number; affectedUsers: number }> = {};
+      const codeFrequency: Record<string, number> = {};
+      const affectedUserSet = new Set<string>();
+
+      for (const row of disconnectRows.rows as any[]) {
+        const day = String(row.day).substring(0, 10);
+        if (!disconnectsByDay[day]) disconnectsByDay[day] = { total: 0, byCode: {}, affectedUsers: 0 };
+        const cnt = Number(row.cnt);
+        disconnectsByDay[day].total += cnt;
+        const code = row.close_code ?? 'unknown';
+        disconnectsByDay[day].byCode[code] = (disconnectsByDay[day].byCode[code] || 0) + cnt;
+        codeFrequency[code] = (codeFrequency[code] || 0) + cnt;
+        if (row.user_id) affectedUserSet.add(String(row.user_id));
+      }
+
+      for (const row of noResponseRows.rows as any[]) {
+        const day = String(row.day).substring(0, 10);
+        if (!noResponseByDay[day]) noResponseByDay[day] = { total: 0, affectedUsers: 0 };
+        noResponseByDay[day].total += Number(row.cnt);
+        if (row.user_id) affectedUserSet.add(String(row.user_id));
+      }
+
+      const totalDisconnects = Object.values(disconnectsByDay).reduce((s, d) => s + d.total, 0);
+      const totalNoResponse = Object.values(noResponseByDay).reduce((s, d) => s + d.total, 0);
+
+      // Trend: compare last half of window vs first half
+      const midpoint = new Date(since.getTime() + (days / 2) * 24 * 60 * 60 * 1000);
+      const midStr = midpoint.toISOString().substring(0, 10);
+      const recentDays = Object.entries(disconnectsByDay).filter(([d]) => d >= midStr);
+      const olderDays = Object.entries(disconnectsByDay).filter(([d]) => d < midStr);
+      const recentTotal = recentDays.reduce((s, [, d]) => s + d.total, 0);
+      const olderTotal = olderDays.reduce((s, [, d]) => s + d.total, 0);
+      const trend = olderTotal === 0 ? 'stable'
+        : recentTotal > olderTotal * 1.2 ? 'worsening'
+        : recentTotal < olderTotal * 0.8 ? 'improving'
+        : 'stable';
+
+      return {
+        success: true,
+        data: {
+          windowDays: days,
+          summary: {
+            totalAbnormalDisconnects: totalDisconnects,
+            totalTutorNoResponse: totalNoResponse,
+            uniqueAffectedUsers: affectedUserSet.size,
+            disconnectTrend: trend,
+          },
+          closeCodeBreakdown: Object.entries(codeFrequency)
+            .sort(([, a], [, b]) => b - a)
+            .map(([code, count]) => ({
+              code,
+              count,
+              meaning: code === '1006' ? 'abnormal closure / network drop'
+                : code === '1001' ? 'browser going away'
+                : code === '1011' ? 'server error'
+                : code === '1008' ? 'policy violation'
+                : 'other',
+            })),
+          dailyDisconnects: Object.entries(disconnectsByDay)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([day, d]) => ({ day, total: d.total, byCode: d.byCode })),
+          dailyTutorNoResponse: Object.entries(noResponseByDay)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([day, d]) => ({ day, total: d.total })),
+        },
+      };
+    }
+
+    case "get_gl_health": {
+      const minutes = Math.min(args.minutes || 60, 720);
+      const since = new Date(Date.now() - minutes * 60 * 1000);
+
+      const [latencyRows, toolFailureRows, toolSuccessRows, reconnectRows, silentRows, midTurnRows, establishRows, bargeRows] = await Promise.all([
+        // Turn latency percentiles
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS turn_count,
+            PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY (event_data->>'latencyMs')::float)::int AS p50_ms,
+            PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY (event_data->>'latencyMs')::float)::int AS p90_ms,
+            PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY (event_data->>'latencyMs')::float)::int AS p99_ms,
+            AVG((event_data->>'latencyMs')::float)::int AS avg_ms,
+            MAX((event_data->>'latencyMs')::float)::int AS max_ms
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_turn_latency'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Tool call failures — grouped by tool name
+        sharedDb.execute(sql`
+          SELECT
+            event_data->>'toolName' AS tool_name,
+            COUNT(*)::int AS failure_count,
+            MAX(created_at) AS last_seen
+          FROM voice_pipeline_events
+          WHERE event_type LIKE 'gl_tool_failure%'
+            AND created_at >= ${since.toISOString()}
+          GROUP BY event_data->>'toolName'
+          ORDER BY failure_count DESC
+          LIMIT 10
+        `),
+        // Tool call successes — total count for success rate denominator
+        sharedDb.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tool_success'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Abnormal reconnects (WS drops during session)
+        sharedDb.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM voice_pipeline_events
+          WHERE event_type = 'session_abnormal_disconnect'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Silent turns — tutor didn't respond
+        sharedDb.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tutor_no_response'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Mid-turn reconnects — the double-audio risk path
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS count,
+            MAX(created_at) AS last_seen,
+            string_agg(DISTINCT COALESCE(session_id, 'unknown'), ', ' ORDER BY COALESCE(session_id, 'unknown')) AS sessions
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_reconnect_mid_turn'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Session establishment latency (start() → setupComplete)
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS session_count,
+            PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY (event_data->>'establishMs')::float)::int AS p50_ms,
+            PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY (event_data->>'establishMs')::float)::int AS p90_ms,
+            AVG((event_data->>'establishMs')::float)::int AS avg_ms,
+            MAX((event_data->>'establishMs')::float)::int AS max_ms
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_session_established'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Barge-in count — student interruptions of Daniela mid-speech
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE (event_data->>'tutorWasGenerating')::boolean = true)::int AS while_generating
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_barge_in'
+            AND created_at >= ${since.toISOString()}
+        `),
+      ]);
+
+      const lat = (latencyRows.rows[0] || {}) as any;
+      const reconnects = Number((reconnectRows.rows[0] as any)?.count ?? 0);
+      const silent = Number((silentRows.rows[0] as any)?.count ?? 0);
+      const midTurn = (midTurnRows.rows[0] || {}) as any;
+      const midTurnCount = Number(midTurn?.count ?? 0);
+      const toolFailures = toolFailureRows.rows as any[];
+      const totalToolFailures = toolFailures.reduce((s, r) => s + Number(r.failure_count), 0);
+      const totalToolSuccesses = Number((toolSuccessRows.rows[0] as any)?.count ?? 0);
+      const totalToolCalls = totalToolSuccesses + totalToolFailures;
+      const toolSuccessRate = totalToolCalls > 0
+        ? Math.round((totalToolSuccesses / totalToolCalls) * 100)
+        : null;
+      const estRow = (establishRows.rows[0] || {}) as any;
+      const bargeRow = (bargeRows.rows[0] || {}) as any;
+
+      // Compute a simple GL health score
+      const turnCount = Number(lat.turn_count ?? 0);
+      const p90 = Number(lat.p90_ms ?? 0);
+      const estP90 = Number(estRow.p90_ms ?? 0);
+      let status = 'green';
+      if (reconnects > 5 || silent > 3 || p90 > 8000 || totalToolFailures > 10 || estP90 > 10000) status = 'red';
+      else if (reconnects > 2 || silent > 1 || p90 > 5000 || totalToolFailures > 3 || midTurnCount > 0 || (toolSuccessRate !== null && toolSuccessRate < 90) || estP90 > 6000) status = 'yellow';
+
+      return {
+        success: true,
+        data: {
+          windowMinutes: minutes,
+          status,
+          latency: turnCount === 0 ? null : {
+            turnCount,
+            p50Ms: Number(lat.p50_ms ?? 0),
+            p90Ms: Number(lat.p90_ms ?? 0),
+            p99Ms: Number(lat.p99_ms ?? 0),
+            avgMs: Number(lat.avg_ms ?? 0),
+            maxMs: Number(lat.max_ms ?? 0),
+          },
+          tools: {
+            totalCalls: totalToolCalls,
+            successes: totalToolSuccesses,
+            failures: totalToolFailures,
+            successRatePct: toolSuccessRate,
+            byFailedTool: toolFailures.map(r => ({
+              toolName: r.tool_name ?? 'unknown',
+              count: Number(r.failure_count),
+              lastSeen: r.last_seen,
+            })),
+          },
+          sessionEstablishment: Number(estRow.session_count ?? 0) === 0 ? null : {
+            sessionCount: Number(estRow.session_count),
+            p50Ms: Number(estRow.p50_ms ?? 0),
+            p90Ms: Number(estRow.p90_ms ?? 0),
+            avgMs: Number(estRow.avg_ms ?? 0),
+            maxMs: Number(estRow.max_ms ?? 0),
+            note: estP90 > 6000 ? 'Slow GL handshake (>6s p90) — may make first turns feel sluggish.' : 'Establishment latency nominal.',
+          },
+          bargeIns: {
+            total: Number(bargeRow.total ?? 0),
+            whileGenerating: Number(bargeRow.while_generating ?? 0),
+            note: 'whileGenerating = student spoke while Daniela was mid-speech (true barge-in vs early tap).',
+          },
+          sessionDrops: {
+            abnormalDisconnects: reconnects,
+            midTurnReconnects: midTurnCount,
+            midTurnLastSeen: midTurn?.last_seen ?? null,
+            midTurnSessions: midTurn?.sessions ?? null,
+            note: midTurnCount > 0
+              ? 'Mid-turn reconnects trigger gl_audio_reset on the client (double-audio fix). Verify no complaints correlate.'
+              : 'No mid-turn reconnects in this window.',
+          },
+          silentTurns: silent,
+        },
+      };
+    }
+
+    case "get_greeting_retry_stats": {
+      const days = Math.min(args.days || 7, 30);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const [attempts, successes, exhausted] = await Promise.all([
+        sharedDb.execute(sql`
+          SELECT DATE(created_at) AS day, COUNT(*) AS cnt, user_id
+          FROM voice_pipeline_events
+          WHERE event_type = 'greeting_retry_attempt' AND created_at >= ${since}
+          GROUP BY DATE(created_at), user_id ORDER BY day DESC
+        `),
+        sharedDb.execute(sql`
+          SELECT DATE(created_at) AS day, COUNT(*) AS cnt
+          FROM voice_pipeline_events
+          WHERE event_type = 'greeting_retry_succeeded' AND created_at >= ${since}
+          GROUP BY DATE(created_at) ORDER BY day DESC
+        `),
+        sharedDb.execute(sql`
+          SELECT DATE(created_at) AS day, COUNT(*) AS cnt, user_id
+          FROM voice_pipeline_events
+          WHERE event_type = 'greeting_retry_exhausted' AND created_at >= ${since}
+          GROUP BY DATE(created_at), user_id ORDER BY day DESC
+        `),
+      ]);
+
+      const totalAttempts = (attempts.rows as any[]).reduce((s, r) => s + Number(r.cnt), 0);
+      const totalSucceeded = (successes.rows as any[]).reduce((s, r) => s + Number(r.cnt), 0);
+      const totalExhausted = (exhausted.rows as any[]).reduce((s, r) => s + Number(r.cnt), 0);
+      const successRate = totalAttempts > 0
+        ? `${Math.round((totalSucceeded / totalAttempts) * 100)}%`
+        : 'n/a (no retries yet)';
+
+      return {
+        success: true,
+        data: {
+          windowDays: days,
+          summary: {
+            totalRetryAttempts: totalAttempts,
+            totalRetrySucceeded: totalSucceeded,
+            totalRetryExhausted: totalExhausted,
+            successRate,
+            interpretation: totalExhausted > 0
+              ? `⚠️ ${totalExhausted} session(s) exhausted both retries — student never heard a greeting. File an agent_note for Luca.`
+              : totalAttempts > 0
+                ? `✓ Retries firing and resolving (${successRate} success rate). System working as intended.`
+                : 'No silent greetings detected in this window — no retries needed.',
+          },
+          byDay: {
+            attempts: (attempts.rows as any[]).map(r => ({ day: String(r.day).substring(0, 10), count: Number(r.cnt), userId: r.user_id })),
+            successes: (successes.rows as any[]).map(r => ({ day: String(r.day).substring(0, 10), count: Number(r.cnt) })),
+            exhausted: (exhausted.rows as any[]).map(r => ({ day: String(r.day).substring(0, 10), count: Number(r.cnt), userId: r.user_id })),
+          },
+        },
+      };
+    }
+
+    case "get_gl_session_detail": {
+      const sessionId: string = args.session_id;
+      if (!sessionId) return { success: false, data: { error: 'session_id is required' } };
+
+      const rows = await sharedDb.execute(sql`
+        SELECT
+          event_type,
+          event_data,
+          created_at,
+          user_id
+        FROM voice_pipeline_events
+        WHERE session_id = ${sessionId}
+        ORDER BY created_at ASC
+        LIMIT 200
+      `);
+
+      const events = (rows.rows as any[]).map(r => ({
+        eventType: r.event_type,
+        createdAt: r.created_at,
+        userId: r.user_id,
+        data: r.event_data,
+      }));
+
+      // Build a quick summary
+      const byType: Record<string, number> = {};
+      for (const e of events) byType[e.eventType] = (byType[e.eventType] || 0) + 1;
+
+      const latencies = events
+        .filter(e => e.eventType === 'gl_turn_latency')
+        .map(e => Number(e.data?.latencyMs ?? 0))
+        .filter(n => n > 0);
+      const p90 = latencies.length > 0
+        ? latencies.sort((a, b) => a - b)[Math.floor(latencies.length * 0.9)]
+        : null;
+
+      return {
+        success: true,
+        data: {
+          sessionId,
+          totalEvents: events.length,
+          eventTypeSummary: byType,
+          latencyP90Ms: p90,
+          hasMidTurnReconnect: !!byType['gl_reconnect_mid_turn'],
+          hasToolFailures: !!(byType['gl_tool_failure'] || Object.keys(byType).some(k => k.startsWith('gl_tool_failure'))),
+          hasAbnormalDisconnect: !!byType['session_abnormal_disconnect'],
+          hasSilentTurn: !!byType['gl_tutor_no_response'],
+          timeline: events,
         },
       };
     }

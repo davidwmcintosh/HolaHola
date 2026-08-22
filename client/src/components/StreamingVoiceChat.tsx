@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag, BookOpen, X, Download, Globe, Sparkles, Camera, Monitor } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -28,17 +28,27 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
+import { useVisionCapture } from "@/hooks/useVisionCapture";
 import { usePlaybackState, getGlobalPlaybackState, setGlobalPlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
+import { VoiceInputContext } from "@/contexts/VoiceInputContext";
+import { useDanielaSession } from "@/contexts/DanielaSessionContext";
+import { deriveVoiceStatus } from "@/lib/voice-widget-state";
+import { setGlobalVoiceInput } from "@/lib/voiceInputStore";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { setRemediationCallback } from "@/lib/lockoutDiagnostics";
 import { getStreamingVoiceClient } from "@/lib/streamingVoiceClient";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
+import type { LessonNote } from "@shared/whiteboard-types";
+import { SofiaWidget } from "@/components/SophiaWidget";
+import { isSpotlightMessageValid } from "@/lib/spotlight-guard";
+import { validateCulturalContextPayload } from "@/lib/cultural-context-guard";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -146,13 +156,17 @@ interface StreamingVoiceChatProps {
   onScenarioLoaded?: (scenario: any) => void;
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
-  onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
+  onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string; slot?: string; category?: string }) => void;
+  onImmersiveModeChange?: (active: boolean) => void;
+  onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
   /** Override the language sent to the server without touching the user's stored language preference.
    *  Use this for subject pages (biology, history) so their subject identifier reaches the WS handler
    *  but does NOT bleed into the user's learning-language context. */
   targetLanguageOverride?: string;
   /** Route to navigate to when an unrecoverable error occurs. Defaults to '/chat'. */
   homeRoute?: string;
+  /** Background image URL to render behind Daniela's avatar (center backdrop / broadcast mode). */
+  backdropImageUrl?: string;
 }
 
 export function StreamingVoiceChat({ 
@@ -172,8 +186,11 @@ export function StreamingVoiceChat({
   onScenarioEnded,
   onPropUpdate,
   onStudioImage,
+  onImmersiveModeChange,
+  onSceneZoneAdvanced,
   targetLanguageOverride,
   homeRoute = '/chat',
+  backdropImageUrl,
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -275,6 +292,8 @@ export function StreamingVoiceChat({
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   // Incognito mode: off-the-record voice sessions (Founder/Honesty mode only)
   const [isIncognito, setIsIncognito] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
   const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -284,11 +303,23 @@ export function StreamingVoiceChat({
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<string | null>(null);
   
-  // Voice input mode: open-mic (default) or push-to-talk
+  // Voice input mode: push-to-talk or open-mic (default)
   const [inputMode, setInputMode] = useState<VoiceInputMode>('open-mic');
   // Open mic visual state for feedback
   const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
   const openMicStateRef = useRef<OpenMicState>('idle');
+  // Listening patience indicator: when student has been quiet for 1200ms mid-turn
+  // (before the 3s silence cutoff fires), show "Take your time..." so the session
+  // doesn't feel frozen. Timer starts on VAD speech start, clears on utterance end.
+  const [showListeningPatience, setShowListeningPatience] = useState(false);
+  const listeningPatienceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // UI fallback hint: if greeting hasn't arrived after 5s, stop ringing + show subtle prompt
+  const [showStartHint, setShowStartHint] = useState(false);
+  const startHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stuck-listening ceiling: if VAD stays open for too long (background noise keeps mic hot),
+  // Daniela never gets a turn. Ceiling fires after 30s and forces an utterance-end.
+  const listeningCeilingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const LISTENING_CEILING_MS = 30_000;
   // Track if we're awaiting/playing a response (to ignore VAD events)
   const isAwaitingResponseRef = useRef(false);
   // Track previous input mode to detect mode changes
@@ -300,6 +331,8 @@ export function StreamingVoiceChat({
   // CRITICAL: Track current avatarState for use in callbacks (avoids stale closure)
   const avatarStateRef = useRef<AvatarState>(avatarState);
   avatarStateRef.current = avatarState; // Always keep in sync
+  // Track when Daniela started speaking — used to suppress echo-triggered barge-in
+  const danielaSpeakingStartedAtRef = useRef<number>(0);
   // CRITICAL: Track current connectionState for use in polling loops (avoids stale closure)
   // Note: The actual sync happens AFTER streamingVoice is initialized below
   const connectionStateRef = useRef<string>('disconnected');
@@ -316,6 +349,44 @@ export function StreamingVoiceChat({
   
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
+
+  // Lesson notes — accumulate throughout the session as Daniela adds them
+  const [lessonNotes, setLessonNotes] = useState<LessonNote[]>([]);
+  const [lessonNotesOpen, setLessonNotesOpen] = useState(false);
+
+  // Pronunciation score — temporary floating overlay
+  const [pronunciationScore, setPronunciationScore] = useState<{
+    id: string; phrase: string;
+    wordScores: Array<{ word: string; score: number; tip?: string }>;
+    overallScore: number; encouragement?: string;
+  } | null>(null);
+  const pronunciationScoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Grammar flag — temporary auto-dismissing correction card
+  const [grammarFlag, setGrammarFlag] = useState<{
+    id: string; original: string; corrected: string; explanation: string; ruleLabel?: string;
+  } | null>(null);
+  const grammarFlagTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Quiz — interactive overlay with multiple-choice options
+  const [activeQuiz, setActiveQuiz] = useState<{
+    id: string; question: string; options: string[]; correctIndex: number; explanation?: string;
+    selectedIndex?: number; showResult?: boolean;
+  } | null>(null);
+
+  // Cultural context — persistent floating card until dismissed
+  const [culturalContext, setCulturalContext] = useState<{
+    id: string; title: string; text: string; category?: string; sourceUrl?: string;
+  } | null>(null);
+
+  // Spotlight — full-screen dimmed overlay directing attention
+  const [spotlight, setSpotlight] = useState<{
+    id: string; zone: string; message: string; durationMs: number;
+  } | null>(null);
+  const spotlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Gap D — Shared Mission: persistent badge showing the session objective set by Daniela
+  const [activeMission, setActiveMission] = useState<string | null>(null);
   
   // Sync whiteboard items to parent for desktop panel rendering
   const onWhiteboardItemsChangeRef = useRef(onWhiteboardItemsChange);
@@ -323,6 +394,17 @@ export function StreamingVoiceChat({
   useEffect(() => {
     onWhiteboardItemsChangeRef.current?.(whiteboard.items);
   }, [whiteboard.items]);
+
+  // Cleanup: clear the stuck-listening ceiling timer on unmount to prevent
+  // a timer firing on a null/unmounted component (memory leak / crash guard).
+  useEffect(() => {
+    return () => {
+      if (listeningCeilingTimerRef.current) {
+        clearTimeout(listeningCeilingTimerRef.current);
+        listeningCeilingTimerRef.current = null;
+      }
+    };
+  }, []);
   
   // Expose whiteboard callbacks to parent via ref (for desktop panel drill/text interactions)
   // This needs to be set after streamingVoice is available, so we use a separate effect below
@@ -342,6 +424,8 @@ export function StreamingVoiceChat({
   const currentConversationRef = useRef<string | null>(conversationId);
   const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
   const hasDanielaSpokeOnceRef = useRef<boolean>(false); // Track if Daniela has spoken at least once this session
+  const needsGreetingAfterReconnectRef = useRef<boolean>(false); // Set after proactive reconnect so greeting re-fires
+  const connectionReadyAtRef = useRef<number>(0); // Timestamp when connectionState last became 'ready'
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false); // For stable keyboard handlers
@@ -355,6 +439,12 @@ export function StreamingVoiceChat({
   // Streaming voice mode for low-latency responses
   const streamingVoice = useStreamingVoice();
   const globalPlaybackState = usePlaybackState(); // Global store - reliable during HMR
+
+  // Vision capture — opt-in webcam + screen share sent to Daniela's GL session
+  const visionIsConnected = (['connected', 'ready', 'streaming'] as const).includes(
+    streamingVoice.state.connectionState as any
+  );
+  const vision = useVisionCapture(streamingVoice.sendVideoFrame, visionIsConnected);
   const streamingConnectedRef = useRef(false);
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   // Keep connectionStateRef in sync (must be after streamingVoice is defined)
@@ -412,6 +502,7 @@ export function StreamingVoiceChat({
   // Cross-language handoff tracking
   // When true, we're reconnecting after a language switch
   const isLanguageHandoffRef = useRef(false);
+  const pendingHandoffModeRef = useRef<'tutor_mode' | 'founder_mode' | 'honesty_mode' | undefined>(undefined);
   
   // Keep refs updated with current state
   useEffect(() => {
@@ -423,15 +514,29 @@ export function StreamingVoiceChat({
   // Reset hasDanielaSpokeOnce when conversation changes (new session)
   useEffect(() => {
     hasDanielaSpokeOnceRef.current = false;
+    // Also clear any pending start-hint timer from the previous session
+    if (startHintTimerRef.current) {
+      clearTimeout(startHintTimerRef.current);
+      startHintTimerRef.current = null;
+    }
+    setShowStartHint(false);
   }, [conversationId]);
   
-  // Voice Lab: Send voice override to server when it changes
+  // Voice Lab: Send voice override to server when it changes.
+  // Tracks the last-sent value to avoid re-sending on every connectionState toggle
+  // (processing ↔ ready fires constantly while Daniela speaks, which would restart
+  // the GL session mid-sentence on each transition and cause both a voice change and
+  // an audio cutoff). Only re-sends when voiceOverride itself changes, or when the
+  // connection becomes ready after a full disconnect (lastSent won't match current).
+  const lastSentVoiceOverrideRef = useRef<typeof voiceOverride | null>(null);
   useEffect(() => {
-    if (streamingVoice.state.connectionState === 'ready' || 
-        streamingVoice.state.connectionState === 'processing') {
-      streamingVoice.sendVoiceOverride(voiceOverride);
-      console.log('[Voice Lab] Sent voice override to server:', voiceOverride);
-    }
+    const connected = streamingVoice.state.connectionState === 'ready' || 
+                      streamingVoice.state.connectionState === 'processing';
+    if (!connected || voiceOverride === null) return;
+    if (JSON.stringify(lastSentVoiceOverrideRef.current) === JSON.stringify(voiceOverride)) return;
+    lastSentVoiceOverrideRef.current = voiceOverride;
+    streamingVoice.sendVoiceOverride(voiceOverride);
+    console.log('[Voice Lab] Sent voice override to server:', voiceOverride);
   }, [voiceOverride, streamingVoice.state.connectionState]);
   
   // Handle input mode changes - cleanup when switching modes
@@ -487,10 +592,8 @@ export function StreamingVoiceChat({
           if (startOpenMicRecordingRef.current) {
             console.log('[MODE SWITCH] Calling startOpenMicRecordingRef.current()...');
             startOpenMicRecordingRef.current().then(() => {
-              console.log('[MODE SWITCH] Open mic auto-started successfully');
-              // DON'T immediately show green light!
-              // The playback state effect will show it when Daniela finishes speaking
-              console.log('[MODE SWITCH] Mic ready, green light controlled by playback state');
+              console.log('[MODE SWITCH] Open mic auto-started successfully — enabling green mic');
+              setOpenMicState('ready');
             }).catch((err: any) => {
               console.error('[MODE SWITCH] Failed to auto-start open mic:', err);
               setOpenMicState('idle');
@@ -734,36 +837,36 @@ export function StreamingVoiceChat({
     }
   }, [streamingVoice.state.connectionState, useStreamingMode]);
   
-  // Connection timeout: If stuck ringing/connecting for too long, redirect to language hub
-  // This prevents users from being stuck in a "calling" state forever
+  // Connection timeout: If stuck in INITIAL connecting for too long, redirect to language hub
+  // IMPORTANT: Only applies to 'connecting' (first call), NOT 'reconnecting' (auto-recovery).
+  // During reconnection after a server restart we want to stay on the page and keep retrying.
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds max to connect
+  const INITIAL_CONNECTION_TIMEOUT_MS = 30000; // 30 seconds for the very first connect attempt
   
   useEffect(() => {
     if (!useStreamingMode) return;
     
     const { connectionState } = streamingVoice.state;
     
-    // Start timeout when entering connecting/reconnecting states
-    if (connectionState === 'connecting' || connectionState === 'reconnecting') {
-      // Clear any existing timeout
+    // Only timeout on INITIAL connection — reconnection has its own multi-minute retry window
+    if (connectionState === 'connecting') {
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
       }
       
       connectionTimeoutRef.current = setTimeout(() => {
-        console.log('[STREAMING] Connection timeout - redirecting to language hub');
+        console.log('[STREAMING] Initial connection timeout - redirecting to language hub');
         stopRinging();
         toast({
           title: "Connection timed out",
-          description: "Unable to reach Daniela. Please try again.",
-          variant: "destructive",
+          description: "Unable to reach the tutor. Please try again.",
         });
         navigate(homeRoute);
-      }, CONNECTION_TIMEOUT_MS);
+      }, INITIAL_CONNECTION_TIMEOUT_MS);
     }
     
-    // Clear timeout when connected successfully or disconnected
+    // Clear timeout when connected successfully or disconnected (but NOT on reconnecting —
+    // let the client's own retry logic run uninterrupted during server restarts)
     if (connectionState === 'ready' || connectionState === 'disconnected') {
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
@@ -786,15 +889,21 @@ export function StreamingVoiceChat({
     
     if (!streamError || connectionState !== 'disconnected') return;
     
+    // Helper: update the shared reconnect toast slot in-place, or show a new toast if none exists.
+    const showConnectionToast = (title: string, description: string) => {
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.update({ id: reconnectToastRef.current.id, title, description });
+        reconnectToastRef.current = null;
+      } else {
+        toast({ title, description });
+      }
+    };
+
     // Credits exhausted - show clear message and redirect to account
     if (streamError.includes('credits have been used up') || streamError.includes('Insufficient tutoring hours')) {
       console.log('[STREAMING] Credits exhausted - redirecting to account page');
       stopRinging();
-      toast({
-        title: "Session hours used up",
-        description: "Visit your Account page to add more hours.",
-        variant: "destructive",
-      });
+      showConnectionToast("Session hours used up", "Visit your Account page to add more hours.");
       setTimeout(() => {
         navigate(homeRoute);
       }, 2500);
@@ -805,17 +914,164 @@ export function StreamingVoiceChat({
     if (streamError.includes('Please restart') || streamError.includes('session has ended') || streamError.includes('Please start a new')) {
       console.log('[STREAMING] Unrecoverable error - redirecting to language hub');
       stopRinging();
-      toast({
-        title: "Session ended",
-        description: "The connection was lost. Let's start fresh!",
-        variant: "destructive",
-      });
+      showConnectionToast("Session ended", "The connection was lost. Starting a fresh session.");
       setTimeout(() => {
         navigate(homeRoute);
       }, 1500);
     }
   }, [streamingVoice.state.error, streamingVoice.state.connectionState, navigate, toast]);
-  
+
+  // Reconnect grace timer — only surface a notification after 4 s of continuous reconnecting.
+  // Transient drops that auto-recover within 4 s produce no toast at all.
+  const reconnectGraceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Hold the full toast handle for the in-flight "Reconnecting…" toast so we can
+  // update it in-place when the session fully fails (preventing stacked toasts).
+  const reconnectToastRef = useRef<{ id: string; dismiss: () => void; update: (props: any) => void } | null>(null);
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    const { connectionState } = streamingVoice.state;
+
+    if (connectionState === 'reconnecting') {
+      // Start the grace timer only once per reconnect episode
+      if (!reconnectGraceTimerRef.current) {
+        reconnectGraceTimerRef.current = setTimeout(() => {
+          reconnectGraceTimerRef.current = null;
+          // Only show if still reconnecting when the timer fires
+          if (connectionStateRef.current === 'reconnecting') {
+            reconnectToastRef.current = toast({
+              title: "Reconnecting…",
+              description: "Restoring your voice session.",
+              duration: 10000,
+            });
+          }
+        }, 4000);
+      }
+    } else {
+      // Recovered or fully disconnected — cancel any pending grace notification
+      if (reconnectGraceTimerRef.current) {
+        clearTimeout(reconnectGraceTimerRef.current);
+        reconnectGraceTimerRef.current = null;
+      }
+      // Dismiss the visible "Reconnecting…" toast if the connection left that state
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
+    }
+
+    return () => {
+      if (reconnectGraceTimerRef.current) {
+        clearTimeout(reconnectGraceTimerRef.current);
+        reconnectGraceTimerRef.current = null;
+      }
+    };
+  }, [streamingVoice.state.connectionState, useStreamingMode, toast]);
+
+  // When the server is restarting (deploy rotation), poll until it's back then start fresh.
+  // A new session is better UX than waiting 60s for WebSocket reconnect — Daniela's memory
+  // carries full context so the student experience is seamless.
+  const restartPollRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!streamingVoice.state.serverRestarting) return;
+
+    // Reuse the reconnect toast slot if one is already visible, so the two
+    // connection-state toasts never stack on top of each other.
+    if (reconnectToastRef.current) {
+      reconnectToastRef.current.update({
+        id: reconnectToastRef.current.id,
+        title: "HolaHola is updating",
+        description: "We'll be right back — starting a fresh session automatically.",
+        duration: 90000,
+      });
+    } else {
+      reconnectToastRef.current = toast({
+        title: "HolaHola is updating",
+        description: "We'll be right back — starting a fresh session automatically.",
+        duration: 90000,
+      });
+    }
+
+    const poll = () => {
+      fetch('/api/health')
+        .then(r => {
+          if (r.ok) {
+            console.log('[StreamingVoice] Server back — navigating to fresh session');
+            if (reconnectToastRef.current) {
+              reconnectToastRef.current.dismiss();
+              reconnectToastRef.current = null;
+            }
+            navigate(homeRoute);
+          } else {
+            restartPollRef.current = setTimeout(poll, 3000);
+          }
+        })
+        .catch(() => {
+          restartPollRef.current = setTimeout(poll, 3000);
+        });
+    };
+
+    // Give the server a moment to finish draining before first poll
+    restartPollRef.current = setTimeout(poll, 5000);
+
+    return () => {
+      if (restartPollRef.current) clearTimeout(restartPollRef.current);
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
+    };
+  }, [streamingVoice.state.serverRestarting, toast, navigate, homeRoute]);
+
+  // One-tap retry when all GL reconnect attempts are exhausted.
+  // Shows a persistent toast with a "Tap to reconnect" action so the student
+  // does not need to reload the page — the existing socket is reused.
+  const glRetryToastRef = useRef<{ id: string; dismiss: () => void } | null>(null);
+  useEffect(() => {
+    if (!useStreamingMode) return;
+
+    if (streamingVoice.state.glDisconnectedForRetry) {
+      // Dismiss any stale reconnect progress toast first.
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
+      // Only show one retry toast at a time.
+      if (!glRetryToastRef.current) {
+        const handle = toast({
+          title: "Voice session disconnected",
+          description: "The connection to Daniela was lost.",
+          duration: 60000,
+          action: (
+            <ToastAction
+              altText="Tap to reconnect"
+              onClick={() => {
+                glRetryToastRef.current?.dismiss();
+                glRetryToastRef.current = null;
+                streamingVoice.retryGlSession();
+              }}
+            >
+              Tap to reconnect
+            </ToastAction>
+          ),
+        });
+        glRetryToastRef.current = handle;
+      }
+    } else {
+      // Retry succeeded or state was reset — dismiss the prompt.
+      if (glRetryToastRef.current) {
+        glRetryToastRef.current.dismiss();
+        glRetryToastRef.current = null;
+      }
+    }
+
+    return () => {
+      if (glRetryToastRef.current) {
+        glRetryToastRef.current.dismiss();
+        glRetryToastRef.current = null;
+      }
+    };
+  }, [streamingVoice.state.glDisconnectedForRetry, streamingVoice.retryGlSession, useStreamingMode, toast]);
+
   // Separate cleanup effect for unmount only
   useEffect(() => {
     return () => {
@@ -829,8 +1085,19 @@ export function StreamingVoiceChat({
     enabled: !!conversationId,
   });
   
-  // FIX: Stop ringing when 'ready' AND this is an existing conversation that won't get a greeting
-  // For existing conversations with user messages, no auto-greeting plays, so we must stop ringing
+  // Stamp when connectionState first becomes 'ready' so the greeting grace window is accurate
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    if (streamingVoice.state.connectionState === 'ready') {
+      connectionReadyAtRef.current = Date.now();
+    }
+  }, [streamingVoice.state.connectionState, useStreamingMode]);
+
+  // FIX: Stop ringing when 'ready' AND this is an existing conversation that won't get a greeting.
+  // For existing conversations with user messages, no auto-greeting plays, so we must stop ringing.
+  // BUT: give a 6-second grace window after the connection becomes 'ready' so the greeting has
+  // time to arrive (GL thinks for ~2s before emitting audio). If greeting arrives in that window
+  // the ring stops naturally when audio plays. If nothing arrives in 6s, we stop it on the timer.
   useEffect(() => {
     if (!useStreamingMode) return;
     
@@ -840,16 +1107,47 @@ export function StreamingVoiceChat({
       const userMessages = messages.filter(m => m.role === 'user');
       const aiMessages = messages.filter(m => m.role === 'assistant');
       const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
-      const willGreet = isNewConversation || isResumedConversation;
+      const willGreet = isNewConversation || isResumedConversation || needsGreetingAfterReconnectRef.current;
       
-      // If no greeting will play, stop ringing immediately (call is "connected")
+      // If no greeting will play, stop ringing — but honor a 6s grace window after connect
       if (!willGreet) {
+        const GREETING_GRACE_MS = 6000;
+        const msSinceReady = Date.now() - connectionReadyAtRef.current;
+        const remaining = GREETING_GRACE_MS - msSinceReady;
+        if (remaining > 0) {
+          // Grace window still open — schedule the stop so a late greeting can win
+          const timer = setTimeout(() => {
+            console.log('[RINGING] Stopping ring - existing conversation with no greeting (grace elapsed)');
+            stopRinging();
+          }, remaining);
+          return () => clearTimeout(timer);
+        }
         console.log('[RINGING] Stopping ring - existing conversation with no greeting');
         stopRinging();
       }
     }
   }, [streamingVoice.state.connectionState, useStreamingMode, messages, isResumedConversation]);
-  
+
+  // AUTO-START open mic whenever session becomes ready in open-mic mode.
+  // This covers: initial session load (mode already open-mic), and reconnects.
+  // The mode-switch effect only fires when switching FROM push-to-talk → open-mic,
+  // so this is needed for the initial default-mode case.
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    const { connectionState } = streamingVoice.state;
+    if (connectionState === 'ready' && inputModeRef.current === 'open-mic') {
+      console.log('[OPEN MIC AUTO-START] Session ready in open-mic mode — auto-starting recording');
+      if (startOpenMicRecordingRef.current) {
+        startOpenMicRecordingRef.current().then(() => {
+          console.log('[OPEN MIC AUTO-START] Recording started — enabling green mic');
+          setOpenMicState('ready');
+        }).catch((err: any) => {
+          console.error('[OPEN MIC AUTO-START] Failed to auto-start recording:', err);
+        });
+      }
+    }
+  }, [streamingVoice.state.connectionState, useStreamingMode]);
+
   // Fetch user details to get tutor gender preference
   const { data: userDetails } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -876,7 +1174,10 @@ export function StreamingVoiceChat({
           startRinging();
         }
         
-        const isExplicitFounderMode = learningContext === 'founder-mode';
+        const handoffMode = pendingHandoffModeRef.current;
+        pendingHandoffModeRef.current = undefined; // consume it
+        const isExplicitFounderMode = learningContext === 'founder-mode' || handoffMode === 'founder_mode';
+        const isExplicitHonestyMode = isHonestyMode || handoffMode === 'honesty_mode';
         
         await streamingVoice.connect({
           conversationId,
@@ -887,8 +1188,16 @@ export function StreamingVoiceChat({
           tutorPersonality: userDetails.tutorPersonality || 'warm',
           tutorExpressiveness: userDetails.tutorExpressiveness || 3,
           tutorGender,  // Pass current tutor gender from context
-          rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
+          rawHonestyMode: isExplicitHonestyMode,  // Minimal prompting for authentic conversation
           founderMode: isExplicitFounderMode,  // Only true when explicitly selected
+          onProcessingPending: () => {
+            // processing_pending fired (PTT released, Gemini transcribed) — set thinking immediately.
+            // Uses component-level isProcessing (properly cleared by onResponseComplete) rather
+            // than the hook-level state, which can get stuck in the Gemini Live PCM audio path.
+            setIsProcessing(true);
+            isProcessingRef.current = true;
+            isAwaitingResponseRef.current = true;
+          },
           onNoSpeechDetected: () => {
             console.log('[STREAMING] No speech detected - resetting processing state');
             setIsProcessing(false);
@@ -955,6 +1264,88 @@ export function StreamingVoiceChat({
               // Since invalidation is async, we'll set lastMessageId in a separate effect
             }
           },
+          onLessonNoteAdded: (note) => {
+            setLessonNotes(prev => [...prev, note as LessonNote]);
+            // Don't auto-open — notes accumulate quietly; student opens when ready
+          },
+          onPronunciationScoreShown: (data) => {
+            // ARCHITECTURE NOTE: The streaming path does NOT call /api/pronunciation-scores/analyze.
+            // Instead, Daniela scores the student's pronunciation herself via the show_pronunciation_score
+            // tool (see daniela-function-registry.ts). The scores arrive here as a WebSocket event.
+            // This means the OpenAI key error path from VoiceChat.tsx (pronunciation_unavailable) cannot
+            // occur in this path — there is no server-side OpenAI call on the scoring route.
+            // The guard below covers the only failure mode that can reach here: malformed tool data.
+            //
+            // Guard: validate required fields before updating state.
+            // wordScores must be an array — rendering calls .map() on it directly.
+            // A missing or non-array value would throw a runtime error with no user feedback.
+            if (
+              !data ||
+              typeof data.phrase !== 'string' || !data.phrase.trim() ||
+              !Array.isArray(data.wordScores) || data.wordScores.length === 0 ||
+              typeof data.overallScore !== 'number'
+            ) {
+              console.warn('[StreamingVoiceChat] Received malformed pronunciation score data — skipping display', data);
+              toast({
+                title: "Pronunciation feedback is temporarily unavailable",
+                description: "Scoring data could not be displayed right now.",
+                variant: "destructive",
+              });
+              return;
+            }
+            // Sanitize optional encouragement: strip whitespace-only values so the
+            // card never renders a blank encouragement line.
+            const sanitizedData = (typeof data.encouragement === 'string' && !data.encouragement.trim())
+              ? { ...data, encouragement: undefined }
+              : data;
+            if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current);
+            setPronunciationScore(sanitizedData);
+            pronunciationScoreTimerRef.current = setTimeout(() => setPronunciationScore(null), 8000);
+          },
+          onGrammarFlagShown: (data) => {
+            if (!data.original || !data.original.trim() || !data.corrected || !data.corrected.trim() || !data.explanation || !data.explanation.trim()) {
+              console.warn('[StreamingVoiceChat] onGrammarFlagShown: malformed grammar flag data (blank original, corrected, or explanation)', data);
+              toast({ title: 'Grammar correction unavailable', description: 'Daniela sent an incomplete grammar correction card — skipping.', variant: 'destructive' });
+              return;
+            }
+            if (grammarFlagTimerRef.current) clearTimeout(grammarFlagTimerRef.current);
+            setGrammarFlag(data);
+            grammarFlagTimerRef.current = setTimeout(() => setGrammarFlag(null), 6000);
+          },
+          onQuizPresented: (data) => {
+            if (typeof data.question !== 'string' || !data.question.trim() ||
+                !Array.isArray(data.options) || data.options.length === 0 ||
+                !data.options.every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) ||
+                typeof data.correctIndex !== 'number' || !Number.isInteger(data.correctIndex) ||
+                data.correctIndex < 0 || data.correctIndex >= data.options.length) {
+              console.warn('[StreamingVoiceChat] onQuizPresented: malformed quiz data', data);
+              toast({ title: 'Quiz unavailable', description: 'Daniela sent an incomplete quiz — skipping.', variant: 'destructive' });
+              return;
+            }
+            setActiveQuiz({ ...data, selectedIndex: undefined, showResult: false });
+          },
+          onCulturalContextShown: (data) => {
+            const validated = validateCulturalContextPayload(data);
+            if (!validated) {
+              console.warn('[StreamingVoiceChat] onCulturalContextShown: malformed cultural context data', data);
+              toast({ title: 'Cultural note unavailable', description: 'Daniela sent an incomplete cultural context card — skipping.', variant: 'destructive' });
+              return;
+            }
+            setCulturalContext(validated);
+          },
+          onSpotlightShown: (data) => {
+            if (!isSpotlightMessageValid(data)) {
+              console.warn('[StreamingVoiceChat] onSpotlightShown: malformed spotlight data (empty message)', data);
+              toast({ title: 'Spotlight unavailable', description: 'Daniela sent an incomplete spotlight card — skipping.', variant: 'destructive' });
+              return;
+            }
+            if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+            setSpotlight(data);
+            spotlightTimerRef.current = setTimeout(() => setSpotlight(null), data.durationMs);
+          },
+          onMissionSet: (mission) => {
+            setActiveMission(mission);
+          },
           onWhiteboardUpdate: (items, shouldClear) => {
             const imageItems = items.filter((item: any) => item.type === 'image' && item.data?.imageUrl);
             const otherItems = items.filter((item: any) => !(item.type === 'image' && item.data?.imageUrl));
@@ -964,6 +1355,8 @@ export function StreamingVoiceChat({
                 description: img.data.description || img.content,
                 imageUrl: img.data.imageUrl,
                 context: img.data.context,
+                slot: img.data.slot,
+                category: img.data.category,
               });
             });
             if (otherItems.length > 0 || shouldClear) {
@@ -976,8 +1369,34 @@ export function StreamingVoiceChat({
           onScenarioEnded: (data) => {
             onScenarioEnded?.(data);
           },
+          onSceneZoneAdvanced: (data) => {
+            onSceneZoneAdvanced?.(data);
+          },
           onPropUpdate: (data) => {
             onPropUpdate?.(data);
+          },
+          onImmersiveModeChange: (active) => {
+            onImmersiveModeChange?.(active);
+          },
+          onIncognitoChanged: (enabled) => {
+            setIsIncognito(enabled);
+          },
+          onCreditWarning: ({ level, remainingSeconds }) => {
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            if (level === 'critical' || level === 'exhausted') {
+              toast({
+                title: 'Credits running low',
+                description: `You have about ${timeStr} of speaking time remaining. Purchase more to keep learning.`,
+                variant: 'destructive',
+              });
+            } else if (level === 'low') {
+              toast({
+                title: 'Credit reminder',
+                description: `You have about ${timeStr} of speaking time remaining.`,
+              });
+            }
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for visual feedback
@@ -992,9 +1411,37 @@ export function StreamingVoiceChat({
             } else {
               console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (waiting for her to answer)');
             }
+
+            // Patience indicator: after 1200ms of the student speaking, arm a 1200ms
+            // "still listening" timer. When it fires it shows "Take your time..." so the
+            // student gets permission to pause and think (silence cutoff is now 3000ms).
+            if (listeningPatienceTimerRef.current) clearTimeout(listeningPatienceTimerRef.current);
+            setShowListeningPatience(false);
+            listeningPatienceTimerRef.current = setTimeout(() => {
+              setShowListeningPatience(true);
+            }, 1200);
+            // Stuck-listening ceiling: if VAD stays open for the full ceiling window
+            // (e.g. background noise keeps the mic hot), Daniela never gets a turn.
+            // After 30s, force-close the recording session — simulates a natural utterance end.
+            if (listeningCeilingTimerRef.current) clearTimeout(listeningCeilingTimerRef.current);
+            listeningCeilingTimerRef.current = setTimeout(() => {
+              listeningCeilingTimerRef.current = null;
+              const alreadyProcessing = openMicStateRef.current === 'processing';
+              if (alreadyProcessing) return; // utterance end already handled naturally
+              console.warn('[OPEN MIC] Stuck-listening ceiling fired — forcing utterance end after 30s');
+              setOpenMicState('processing');
+              openMicStateRef.current = 'processing';
+              setShowListeningPatience(false);
+              if (stopOpenMicRecordingRef.current) stopOpenMicRecordingRef.current();
+            }, LISTENING_CEILING_MS);
           },
           onVadUtteranceEnd: (transcript, empty) => {
             console.log('[OPEN MIC] VAD utterance end, transcript:', transcript, 'empty:', empty);
+            // Clear patience indicator and listening ceiling — student's turn is complete
+            if (listeningPatienceTimerRef.current) clearTimeout(listeningPatienceTimerRef.current);
+            if (listeningCeilingTimerRef.current) clearTimeout(listeningCeilingTimerRef.current);
+            listeningCeilingTimerRef.current = null;
+            setShowListeningPatience(false);
             if (empty) {
               console.log('[OPEN MIC] Empty transcript - resetting to listening (no AI call needed)');
               setOpenMicState('ready');
@@ -1007,6 +1454,13 @@ export function StreamingVoiceChat({
             setIsProcessing(true);
             isProcessingRef.current = true;
             isAwaitingResponseRef.current = true;
+            // Show thinking avatar immediately — don't wait for the processing_pending
+            // server round-trip. By the time processing_pending arrives, the first audio
+            // chunk may already be batching in, causing React to skip the 'thinking'
+            // state entirely and jump straight to 'playing'.
+            if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+              setGlobalPlaybackState('thinking');
+            }
             
             // SAFETY: Start failsafe timer to recover from stuck processing state
             if (openMicProcessingTimeoutRef.current) clearTimeout(openMicProcessingTimeoutRef.current);
@@ -1035,10 +1489,18 @@ export function StreamingVoiceChat({
                 setOpenMicState('listening');
               }
               
-              // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
-              // This is more reliable than VAD alone, which can trigger on TTS echo
-              if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
-                console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
+              // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech.
+              // Require ≥5 words before triggering to filter mic echo artifacts —
+              // GL inputTranscription can pick up the tutor's own audio playing
+              // through the speaker (especially without headphones) and a few
+              // echo words would cut off the tutor mid-sentence.
+              // ALSO: suppress barge-in within the first 1.5s of Daniela starting to
+              // speak — echo arrives immediately, genuine interruption takes longer.
+              const wordCount = transcript.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
+              const msSinceSpeakingStarted = Date.now() - danielaSpeakingStartedAtRef.current;
+              const echoSuppressed = avatarStateRef.current === 'speaking' && msSinceSpeakingStarted < 1500;
+              if (!echoSuppressed && (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) && wordCount >= 5) {
+                console.log('[BARGE-IN] User speaking with transcript (' + wordCount + ' words, ' + msSinceSpeakingStarted + 'ms since Daniela started) - stopping audio and sending interrupt');
                 // CRITICAL: Stop audio playback immediately on client side
                 streamingVoice.stop();
                 // Also notify server to stop generating
@@ -1092,12 +1554,70 @@ export function StreamingVoiceChat({
               setOpenMicState('silence_issue');
             }
           },
+          onGlReconnected: () => {
+            // GL-only reconnect (e.g. Gemini 1008 drop): the Socket.io connection to the
+            // client never dropped and the server rebuilt the GL session with a Context
+            // Bridge — no greeting or recorder reset needed. Just clear any stale
+            // "connection failed" error UI so the student can keep talking.
+            console.log('[StreamingVoice] GL session restored (socket intact) — clearing error state');
+            setError(null);
+            setAvatarState('idle');
+            isAwaitingResponseRef.current = false;
+            isProcessingRef.current = false;
+            setIsProcessing(false);
+            // Restore open-mic readiness so the mic loop resumes listening immediately.
+            if (inputModeRef.current === 'open-mic') {
+              setOpenMicState('idle');
+            }
+          },
           onReconnected: () => {
-            console.log('[StreamingVoice] Connection restored silently');
+            console.log('[StreamingVoice] Connection restored after drop — resetting UI state for fresh start');
+
+            // AUTOSCALE RECOVERY: Clear all stale "Juliette was speaking" client state
+            // so the user isn't stuck waiting for audio from the dead server instance.
+            setGlobalPlaybackState('idle');
+            setAvatarState('idle');
+            setIsRecording(false);
+            isRecordingRef.current = false;
+            isAwaitingResponseRef.current = false;
+            isProcessingRef.current = false;
+            // No toast — reconnects from autoscale rotation are routine infrastructure
+            // events and should be completely invisible to the user.
+
+            // GREETING LOCK RESET: GL is always a fresh WebSocket after reconnect — needs
+            // an orientation greeting or it waits silently for the user's first utterance.
+            greetingRequestedRef.current = null;
+            clearGreetingLock();
+            needsGreetingAfterReconnectRef.current = true;
+
+            // Restart open-mic automatically if that was the active mode
+            if (inputModeRef.current === 'open-mic') {
+              setOpenMicState('idle');
+              let retries = 0;
+              const tryRestart = () => {
+                const state = connectionStateRef.current;
+                if ((state === 'ready' || state === 'processing') && startOpenMicRecordingRef.current) {
+                  console.log('[RECONNECT] Auto-restarting open mic after reconnect');
+                  startOpenMicRecordingRef.current().catch((err: any) => {
+                    console.error('[RECONNECT] Failed to restart open mic:', err);
+                    setOpenMicState('idle');
+                  });
+                } else if (retries < 20 && inputModeRef.current === 'open-mic') {
+                  retries++;
+                  setTimeout(tryRestart, 250);
+                }
+              };
+              setTimeout(tryRestart, 300);
+            }
           },
           onTutorHandoff: (handoff) => {
-            const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
+            const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant, mode: handoffMode } = handoff;
             
+            // Store requested mode so it's applied when the new session connects
+            if (handoffMode && handoffMode !== 'tutor_mode') {
+              pendingHandoffModeRef.current = handoffMode as 'tutor_mode' | 'founder_mode' | 'honesty_mode';
+            }
+
             // ASSISTANT HANDOFF: Navigate to assistant practice page
             if (isAssistant) {
               console.log(`[TUTOR HANDOFF] Assistant handoff to ${tutorName} - navigating to practice page`);
@@ -1110,7 +1630,7 @@ export function StreamingVoiceChat({
             }
             
             if (isLanguageSwitch && targetLanguage) {
-              console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
+              console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}${handoffMode ? ` [${handoffMode}]` : ''}`);
               // Mark that we're in a language handoff - used to complete handoff after reconnection
               isLanguageHandoffRef.current = true;
               // CRITICAL: Clear greeting lock so new tutor can greet
@@ -1181,7 +1701,11 @@ export function StreamingVoiceChat({
         streamingConnectedRef.current = false;
       }
     };
-  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete, isExhausted, onInsufficientCredits]);
+  // NOTE: `user?.id` (not `user`) is intentional — the effect guards on `userDetails` from the
+  // query cache; using the full `user` object caused a spurious cleanup+disconnect every time
+  // the auth context hydrated (~3s after mount), killing the active greeting session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, useStreamingMode, user?.id, language, difficulty, subtitleMode, onLanguageHandoffComplete, isExhausted, onInsufficientCredits]);
   
   // DEBUG: Log mic lockout state changes
   // CRITICAL: Use globalPlaybackState for accurate mic lock timing (avoids stale closure issues)
@@ -1294,6 +1818,11 @@ export function StreamingVoiceChat({
     if (isStreamingPlaying) {
       // Audio is actually playing - show speaking state
       console.log('[AVATAR SYNC DEBUG] Setting avatarState to speaking');
+      // Record when Daniela started speaking so barge-in echo guard can suppress
+      // false interrupts from mic picking up speaker audio
+      if (avatarStateRef.current !== 'speaking') {
+        danielaSpeakingStartedAtRef.current = Date.now();
+      }
       setAvatarState('speaking');
       
       // CRITICAL: Clear currentPlayingMessageId when streaming starts
@@ -1321,6 +1850,12 @@ export function StreamingVoiceChat({
       hasDanielaSpokeOnceRef.current = true;
       // Stop ringing when audio starts playing (Daniela "picks up")
       stopRinging();
+      // Clear the start-hint if it fired or is still pending — Daniela is here now
+      if (startHintTimerRef.current) {
+        clearTimeout(startHintTimerRef.current);
+        startHintTimerRef.current = null;
+      }
+      setShowStartHint(false);
       // SAFETY: Clear processing timeout since response arrived
       if (openMicProcessingTimeoutRef.current) {
         clearTimeout(openMicProcessingTimeoutRef.current);
@@ -1332,6 +1867,9 @@ export function StreamingVoiceChat({
         console.log('[OPEN MIC DUPLEX] Daniela speaking - showing green light (duplex mode)');
         setOpenMicState('ready');
       }
+    } else if (streamProcessing || isProcessingRef.current) {
+      // Processing but audio hasn't arrived yet — show thinking state
+      setAvatarState('thinking');
     } else if (!streamProcessing && !isProcessingRef.current && !isAwaitingResponseRef.current) {
       // Not processing (hook) AND not processing (component) AND not awaiting response AND not playing
       // The isAwaitingResponseRef guard prevents the "thinking→listening→speaking" blip:
@@ -1502,6 +2040,8 @@ export function StreamingVoiceChat({
     }
   };
   const greetingRequestedRef = useRef<string | null>(getStoredGreetingKey());
+  // Settling delay timer — cleared on each effect re-run to cancel stale pending greetings
+  const greetingSettlingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Handle resume flag clearing even if connection isn't ready - prevents re-triggering
   useEffect(() => {
@@ -1517,6 +2057,12 @@ export function StreamingVoiceChat({
   }, [isResumedConversation, conversationId, onResumeHandled]);
   
   useEffect(() => {
+    // Cancel any pending settling timeout from a previous effect run
+    if (greetingSettlingTimeoutRef.current) {
+      clearTimeout(greetingSettlingTimeoutRef.current);
+      greetingSettlingTimeoutRef.current = null;
+    }
+
     // Only for streaming mode
     if (!useStreamingMode) return;
     
@@ -1530,12 +2076,14 @@ export function StreamingVoiceChat({
     // Don't request if recording or processing
     if (isRecording || isProcessing) return;
     
-    // CRITICAL: Skip greeting on reconnected sessions to prevent double audio streams
-    // When WebSocket reconnects, the session is re-initialized but we don't want a new greeting
+    // NOTE on reconnected sessions: Previously we skipped the greeting entirely here to
+    // prevent double audio on legacy-pipeline reconnects. That guard has been moved server-side
+    // (the server suppresses request_greeting for legacy sessions but allows it for GL sessions).
+    // GL is always a fresh WebSocket after reconnect — without a greeting Daniela waits silently.
+    // The greeting lock is cleared in onReconnected so this effect can re-fire after reconnect.
     const client = getStreamingVoiceClient();
     if (client.isReconnectedSession) {
-      console.log('[STREAMING GREETING] Skipping — this is a reconnected session (prevents double audio)');
-      return;
+      console.log('[STREAMING GREETING] Reconnected session — allowing greeting (server-side guard handles legacy vs GL)');
     }
     
     // Check if this is a new conversation (no messages yet, or only AI greeting placeholder)
@@ -1543,13 +2091,15 @@ export function StreamingVoiceChat({
     const userMessages = messages.filter(m => m.role === 'user');
     
     // Request greeting if: new conversation (no user messages) OR resuming a past conversation
+    // OR just reconnected mid-session (GL always needs an orientation turn after reconnect)
     const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
-    const shouldGreet = isNewConversation || isResumedConversation;
+    const isReconnectGreeting = needsGreetingAfterReconnectRef.current;
+    const shouldGreet = isNewConversation || isResumedConversation || isReconnectGreeting;
     
     if (shouldGreet) {
-      // ATOMICALLY try to acquire lock (using full lock key including -resumed suffix)
+      // ATOMICALLY try to acquire lock (using full lock key including -resumed/-reconnect suffix)
       // This prevents double-greetings on mobile reloads and fast switching
-      const lockKey = `streaming-greeting-${conversationId}${isResumedConversation ? '-resumed' : ''}`;
+      const lockKey = `streaming-greeting-${conversationId}${isResumedConversation ? '-resumed' : isReconnectGreeting ? '-reconnect' : ''}`;
       
       // Check if we already requested greeting for this exact lockKey (handles both new and resumed)
       if (greetingRequestedRef.current === lockKey) {
@@ -1567,17 +2117,55 @@ export function StreamingVoiceChat({
         return;
       }
       
-      // Mark as requested using full lockKey to distinguish new vs resumed
+      // Mark as requested using full lockKey to distinguish new vs resumed vs reconnect
       greetingRequestedRef.current = lockKey;
       hasPlayedGreetingRef.current = lockKey;
       
-      const greetingType = isResumedConversation ? 'RESUMED (welcome-back)' : 'NEW conversation';
+      // Clear the reconnect flag — it's a one-shot trigger
+      if (isReconnectGreeting) {
+        needsGreetingAfterReconnectRef.current = false;
+      }
+      
+      const greetingType = isResumedConversation ? 'RESUMED (welcome-back)' : isReconnectGreeting ? 'RECONNECT (continuing)' : 'NEW conversation';
       console.log(`[STREAMING GREETING] Requesting ${greetingType} AI-generated personalized greeting...`);
+      
+      // Pick up any pending scenario slug (set when navigating from scenario browser)
+      const pendingScenarioSlug = sessionStorage.getItem('pending_scenario_slug') || undefined;
+      if (pendingScenarioSlug) {
+        sessionStorage.removeItem('pending_scenario_slug');
+        console.log('[STREAMING GREETING] Passing pending scenario slug to greeting:', pendingScenarioSlug);
+      }
       
       // Request greeting through the streaming pipeline
       // The server will generate an ACTFL-aware, history-aware greeting
-      // For resumed conversations, it will generate a contextual "welcome back" message
-      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedConversation);
+      // For resumed/reconnected conversations, it will generate a contextual "welcome back" message
+      // isResumed=true on reconnect so Daniela continues naturally rather than re-introducing herself
+      const isResumedForGreeting = isResumedConversation || isReconnectGreeting;
+
+      // SETTLING DELAY: Give Daniela a moment to orient before she speaks her first word.
+      // Reconnects and resumes skip the delay — the session context is already established.
+      // New conversations get 1500ms: just enough to feel like a phone connecting, not a freeze.
+      const settlingDelay = isReconnectGreeting || isResumedConversation ? 0 : 1500;
+      if (settlingDelay > 0) {
+        console.log('[STREAMING GREETING] Settling pause (1500ms) — giving Daniela time to orient...');
+      }
+
+      greetingSettlingTimeoutRef.current = setTimeout(() => {
+        greetingSettlingTimeoutRef.current = null;
+        streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);
+
+        // UI FALLBACK HINT: If greeting audio hasn't arrived within 5s, stop ringing and
+        // show a subtle "She's ready — say hello" prompt so the student knows what to do.
+        if (startHintTimerRef.current) clearTimeout(startHintTimerRef.current);
+        startHintTimerRef.current = setTimeout(() => {
+          startHintTimerRef.current = null;
+          if (!hasDanielaSpokeOnceRef.current) {
+            console.warn('[GREETING HINT] No audio after 5s — stopping ringing + showing start hint');
+            stopRinging();
+            setShowStartHint(true);
+          }
+        }, 5000);
+      }, settlingDelay);
       
       // Mark resume as handled so we don't keep triggering it
       if (isResumedConversation && onResumeHandled) {
@@ -1755,6 +2343,16 @@ export function StreamingVoiceChat({
   useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
   useEffect(() => { inputModeRef.current = inputMode; }, [inputMode]);
   useEffect(() => { isPlayingRef.current = avatarState === 'speaking'; }, [avatarState]);
+
+  // Task #32: Publish voice status to DanielaSessionContext so FloatingVoiceWidget shows live state
+  const { publishVoiceStatus } = useDanielaSession();
+  useEffect(() => {
+    publishVoiceStatus(deriveVoiceStatus(avatarState, streamingVoice.state.connectionState));
+  }, [avatarState, streamingVoice.state.connectionState, publishVoiceStatus]);
+  // NOTE: We intentionally do NOT reset voiceStatus to 'idle' on unmount.
+  // The widget should continue to show the last known active state while the
+  // student browses other pages.  voiceStatus is reset to 'idle' in
+  // DanielaSessionContext when sessionConversationId becomes null (session ends).
   
   // Track playbackState for guards - 'buffering' happens before 'playing'
   // This catches speculative PTT audio earlier than avatarState
@@ -1764,7 +2362,7 @@ export function StreamingVoiceChat({
     console.log('[STREAMING VOICE CHAT DEBUG] playbackState changed:', globalPlaybackState);
     playbackStateRef.current = globalPlaybackState; 
   }, [globalPlaybackState]);
-  
+
   // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -2587,6 +3185,7 @@ export function StreamingVoiceChat({
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         } 
       });
       openMicStreamRef.current = stream;
@@ -2764,9 +3363,29 @@ export function StreamingVoiceChat({
   };
 
   const handleToggleIncognito = () => {
-    const newState = !isIncognito;
-    setIsIncognito(newState);
-    streamingVoice.sendToggleIncognito(newState);
+    // Send the request to the server; state updates via the confirmed onIncognitoChanged callback
+    // (no optimistic update — we wait for the server's authoritative incognito_changed signal)
+    streamingVoice.sendToggleIncognito(!isIncognito);
+  };
+
+  const handleSubmitReport = async () => {
+    if (isSubmittingReport || reportSubmitted) return;
+    setIsSubmittingReport(true);
+    try {
+      const tutorName = tutorGender === 'male' ? tutorNames.male : tutorNames.female;
+      await apiRequest('POST', '/api/sessions/submit-report', {
+        conversationId,
+        language,
+        tutorName,
+      });
+      setReportSubmitted(true);
+      toast({ title: 'Session flagged', description: 'The team has been notified and will review this session.' });
+      setTimeout(() => setReportSubmitted(false), 8000);
+    } catch (err: any) {
+      toast({ title: 'Could not submit report', description: err.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
   const handleEndCall = () => {
@@ -2946,6 +3565,8 @@ export function StreamingVoiceChat({
                     description: img.data.description || img.content,
                     imageUrl: img.data.imageUrl,
                     context: img.data.context,
+                    slot: img.data.slot,
+                    category: img.data.category,
                   });
                 });
                 if (otherItems.length > 0 || shouldClear) {
@@ -2958,8 +3579,14 @@ export function StreamingVoiceChat({
               onScenarioEnded: (data) => {
                 onScenarioEnded?.(data);
               },
+              onSceneZoneAdvanced: (data) => {
+                onSceneZoneAdvanced?.(data);
+              },
               onPropUpdate: (data) => {
                 onPropUpdate?.(data);
+              },
+              onImmersiveModeChange: (active) => {
+                onImmersiveModeChange?.(active);
               },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for visual feedback
@@ -2986,6 +3613,10 @@ export function StreamingVoiceChat({
                 }
                 setOpenMicState('processing');
                 isAwaitingResponseRef.current = true;
+                // Show thinking avatar immediately (same reasoning as primary path above)
+                if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+                  setGlobalPlaybackState('thinking');
+                }
                 
                 // SAFETY: Start failsafe timer for reconnect path too
                 if (openMicProcessingTimeoutRef.current) clearTimeout(openMicProcessingTimeoutRef.current);
@@ -3013,10 +3644,11 @@ export function StreamingVoiceChat({
                     setOpenMicState('listening');
                   }
                   
-                  // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
-                  // This is more reliable than VAD alone, which can trigger on TTS echo
-                  if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
-                    console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
+                  // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech.
+                  // Require ≥3 words to filter mic echo (tutor audio bleeding into mic).
+                  const wordCount = transcript.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
+                  if ((avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) && wordCount >= 3) {
+                    console.log('[BARGE-IN] User speaking with transcript (' + wordCount + ' words) - stopping audio and sending interrupt');
                     // CRITICAL: Stop audio playback immediately on client side
                     streamingVoice.stop();
                     // Also notify server to stop generating
@@ -3039,8 +3671,58 @@ export function StreamingVoiceChat({
                   setOpenMicState('silence_issue');
                 }
               },
+              onGlReconnected: () => {
+                // GL-only reconnect (reconnect context): socket intact, GL session rebuilt
+                // server-side with Context Bridge. Clear stale error UI only.
+                console.log('[StreamingVoice] GL session restored (socket intact, reconnect context) — clearing error state');
+                setError(null);
+                setAvatarState('idle');
+                isAwaitingResponseRef.current = false;
+                isProcessingRef.current = false;
+                setIsProcessing(false);
+                // Restore open-mic readiness so the mic loop resumes listening immediately.
+                if (inputModeRef.current === 'open-mic') {
+                  setOpenMicState('idle');
+                }
+              },
               onReconnected: () => {
-                console.log('[StreamingVoice] Connection restored silently (reconnect context)');
+                console.log('[StreamingVoice] Connection restored after drop (reconnect context) — resetting UI state');
+
+                // AUTOSCALE RECOVERY: Same stale-state clear as the primary callback
+                setGlobalPlaybackState('idle');
+                setAvatarState('idle');
+                setIsRecording(false);
+                isRecordingRef.current = false;
+                isAwaitingResponseRef.current = false;
+                isProcessingRef.current = false;
+                // No toast — routine infrastructure reconnect, fully invisible to user.
+
+                // GREETING LOCK RESET: Clear the greeting lock and flag that a greeting is needed.
+                // GL is always a fresh WebSocket after reconnect — without a greeting Daniela
+                // waits silently and never responds to the user's first utterance.
+                // The greeting effect fires when connectionState becomes 'ready' (after GL init).
+                greetingRequestedRef.current = null;
+                clearGreetingLock();
+                needsGreetingAfterReconnectRef.current = true;
+
+                if (inputModeRef.current === 'open-mic') {
+                  setOpenMicState('idle');
+                  let retries = 0;
+                  const tryRestart = () => {
+                    const state = connectionStateRef.current;
+                    if ((state === 'ready' || state === 'processing') && startOpenMicRecordingRef.current) {
+                      console.log('[RECONNECT] Auto-restarting open mic after reconnect (reconnect context)');
+                      startOpenMicRecordingRef.current().catch((err: any) => {
+                        console.error('[RECONNECT] Failed to restart open mic (reconnect context):', err);
+                        setOpenMicState('idle');
+                      });
+                    } else if (retries < 20 && inputModeRef.current === 'open-mic') {
+                      retries++;
+                      setTimeout(tryRestart, 250);
+                    }
+                  };
+                  setTimeout(tryRestart, 300);
+                }
               },
               onTutorHandoff: (handoff) => {
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
@@ -3424,10 +4106,56 @@ export function StreamingVoiceChat({
     }
   };
 
+  const isUsersTurnComputed = (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'streaming') &&
+    !streamingVoice.state.isSwitchingTutor &&
+    (isPttButtonHeld || (!isProcessing && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle') || (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle'));
+
+  const voiceInputContextValue = {
+    inputMode,
+    setInputMode: setInputMode as (mode: VoiceInputMode) => void,
+    isRecording,
+    isMicPreparing,
+    isUsersTurn: isUsersTurnComputed,
+    playbackState: globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused',
+    onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
+    onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
+    onInterrupt: () => {
+      streamingVoice.stop();
+      streamingVoice.sendInterrupt();
+    },
+  };
+
+  // Sync voice input state to global store so ImmersiveOverlay (outside this Provider) can read it
+  useEffect(() => {
+    setGlobalVoiceInput({
+      inputMode,
+      setInputMode,
+      isRecording,
+      isMicPreparing,
+      isUsersTurn: isUsersTurnComputed,
+      playbackState: globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused',
+      onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
+      onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
+      onInterrupt: () => {
+        streamingVoice.stop();
+        streamingVoice.sendInterrupt();
+      },
+    });
+  }, [inputMode, isRecording, isMicPreparing, isUsersTurnComputed, globalPlaybackState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
+    <VoiceInputContext.Provider value={voiceInputContextValue}>
+    <div
+      className={`h-full flex flex-col overflow-hidden${backdropImageUrl ? '' : ' bg-background'}`}
+      data-testid="rest-voice-chat"
+      style={backdropImageUrl ? {
+        backgroundImage: `linear-gradient(rgba(0,0,0,0.22), rgba(0,0,0,0.38)), url(${backdropImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      } : undefined}
+    >
       {/* Incognito Mode Toggle - Founder/Honesty mode only */}
-      {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && streamingVoice.state.connectionState !== 'disconnected' && (
+      {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && (['connected', 'ready', 'processing', 'streaming', 'reconnecting'] as const).includes(streamingVoice.state.connectionState as any) && (
         <div className="absolute top-3 left-3 z-50">
           <Button
             size="sm"
@@ -3441,8 +4169,338 @@ export function StreamingVoiceChat({
           </Button>
         </div>
       )}
+      {/* Top-right controls: Submit Report + Micro-Ack Toggle */}
+      {useStreamingMode && (
+        <div className="absolute top-3 right-3 z-50 flex items-center gap-1">
+          <Button
+            size="sm"
+            variant={reportSubmitted ? "default" : "ghost"}
+            onClick={handleSubmitReport}
+            disabled={isSubmittingReport || reportSubmitted}
+            className="gap-1.5 opacity-70 hover:opacity-100"
+            data-testid="button-submit-report"
+            title="Flag an issue with this session"
+          >
+            {isSubmittingReport
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Flag className="w-3.5 h-3.5" />}
+          </Button>
+        </div>
+      )}
+      {/* TTS Unavailable Banner — suppressed from user view; fallback to text mode happens silently */}
+      {/* STT Degraded Banner — shown when Deepgram voice recognition has an error, auto-clears in 6s */}
+      {useStreamingMode && streamingVoice.state.sttDegraded && (
+        <div
+          className="absolute top-12 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted text-muted-foreground text-xs border"
+          data-testid="status-stt-degraded"
+        >
+          <MicOff className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{streamingVoice.state.sttDegradedMessage || 'Having trouble hearing you — please try again.'}</span>
+          {streamingVoice.state.sttSuggestPtt && inputMode !== 'push-to-talk' && (
+            <button
+              className="ml-1 underline underline-offset-2 text-foreground font-medium hover:text-foreground/80 transition-colors"
+              data-testid="button-switch-to-ptt"
+              onClick={() => setInputMode('push-to-talk')}
+            >
+              Switch to Push-to-Talk
+            </button>
+          )}
+        </div>
+      )}
+      {/* Active character indicator — shown when a secondary character is speaking */}
+      {useStreamingMode && streamingVoice.state.activeCharacter && (
+        <div
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-md bg-card text-card-foreground text-xs border shadow-sm"
+          data-testid="status-active-character"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="font-medium">{streamingVoice.state.activeCharacter.displayName}</span>
+          <span className="text-muted-foreground">{streamingVoice.state.activeCharacter.role}</span>
+        </div>
+      )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
+        {/* Lesson Notes Panel — accumulates vocab/grammar/culture notes during the session */}
+        {lessonNotes.length > 0 && (
+          <div className="absolute bottom-3 right-3 z-40 w-72 max-w-[calc(100vw-1.5rem)]">
+            {lessonNotesOpen ? (
+              <div className="bg-card border rounded-md shadow-md flex flex-col max-h-96">
+                <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
+                  <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
+                  <span className="text-xs font-semibold flex-1">Session Notes ({lessonNotes.length})</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    data-testid="button-lesson-notes-export"
+                    onClick={() => {
+                      const lines = lessonNotes.map(n => {
+                        const label = n.type.charAt(0).toUpperCase() + n.type.slice(1);
+                        return n.detail ? `[${label}] ${n.content} — ${n.detail}` : `[${label}] ${n.content}`;
+                      });
+                      const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'lesson-notes.txt';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    data-testid="button-lesson-notes-close"
+                    onClick={() => setLessonNotesOpen(false)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <ul className="overflow-y-auto p-2 space-y-1.5">
+                  {lessonNotes.map((note) => (
+                    <li
+                      key={note.id}
+                      className="text-xs rounded-md px-2 py-1.5 bg-muted/60"
+                      data-testid={`lesson-note-item-${note.id}`}
+                    >
+                      <span className={`inline-block mr-1.5 font-semibold ${
+                        note.type === 'vocab' ? 'text-blue-500' :
+                        note.type === 'grammar' ? 'text-amber-500' :
+                        note.type === 'culture' ? 'text-emerald-500' : 'text-muted-foreground'
+                      }`}>
+                        {note.type.charAt(0).toUpperCase() + note.type.slice(1)}
+                      </span>
+                      <span className="text-foreground">{note.content}</span>
+                      {note.detail && (
+                        <span className="text-muted-foreground"> — {note.detail}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shadow-md gap-1.5"
+                data-testid="button-lesson-notes-open"
+                onClick={() => setLessonNotesOpen(true)}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span className="text-xs">Notes ({lessonNotes.length})</span>
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Pronunciation Score — temporary word-by-word feedback overlay */}
+        {pronunciationScore && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-40 w-80 max-w-[calc(100vw-1.5rem)]">
+            <div className="bg-card border rounded-md shadow-md p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold flex-1 truncate">{pronunciationScore.phrase}</span>
+                <span className={`text-xs font-bold shrink-0 ${pronunciationScore.overallScore >= 80 ? 'text-emerald-500' : pronunciationScore.overallScore >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                  {pronunciationScore.overallScore}%
+                </span>
+                <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" data-testid="button-pronunciation-dismiss" onClick={() => { if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current); setPronunciationScore(null); }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {pronunciationScore.wordScores.map((ws, i) => (
+                  <div
+                    key={i}
+                    title={ws.tip}
+                    data-testid={`pronunciation-word-${i}`}
+                    className={`flex flex-col items-center px-2 py-1 rounded text-xs ${ws.score >= 80 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : ws.score >= 50 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}
+                  >
+                    <span className="font-medium">{ws.word}</span>
+                    <span className="text-[10px] opacity-70">{ws.score}%</span>
+                  </div>
+                ))}
+              </div>
+              {pronunciationScore.encouragement && (
+                <p className="text-xs text-muted-foreground mt-2">{pronunciationScore.encouragement}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Grammar Flag — temporary correction card */}
+        {grammarFlag && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-40 w-80 max-w-[calc(100vw-1.5rem)]">
+            <div className="bg-card border rounded-md shadow-md p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                {grammarFlag.ruleLabel && (
+                  <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide">{grammarFlag.ruleLabel}</span>
+                )}
+                <Button size="icon" variant="ghost" className="h-5 w-5 ml-auto" data-testid="button-grammar-flag-dismiss" onClick={() => { if (grammarFlagTimerRef.current) clearTimeout(grammarFlagTimerRef.current); setGrammarFlag(null); }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground line-through">{grammarFlag.original}</p>
+                <p className="text-sm font-semibold text-foreground">{grammarFlag.corrected}</p>
+                <p className="text-xs text-muted-foreground">{grammarFlag.explanation}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quiz Pop-in — interactive multiple-choice overlay */}
+        {/* Render-side guard: never mount the overlay with blank or malformed data */}
+        {activeQuiz &&
+          typeof activeQuiz.question === 'string' && activeQuiz.question.trim().length > 0 &&
+          Array.isArray(activeQuiz.options) && activeQuiz.options.length > 0 && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" data-testid="quiz-overlay">
+            <div className="bg-card border rounded-md shadow-xl p-4 w-80 max-w-[calc(100vw-2rem)] mx-4">
+              <p className="text-sm font-semibold mb-3" data-testid="quiz-question">{activeQuiz.question}</p>
+              <div className="space-y-2">
+                {activeQuiz.options.map((option, i) => {
+                  const isSelected = activeQuiz.selectedIndex === i;
+                  const isCorrect = i === activeQuiz.correctIndex;
+                  const showResult = activeQuiz.showResult;
+                  return (
+                    <button
+                      key={i}
+                      data-testid={`quiz-option-${i}`}
+                      disabled={showResult}
+                      onClick={() => {
+                        if (showResult) return;
+                        setActiveQuiz(prev => prev ? { ...prev, selectedIndex: i, showResult: true } : null);
+                        setTimeout(() => setActiveQuiz(null), 3000);
+                      }}
+                      className={`w-full text-left text-xs px-3 py-2.5 rounded-md border transition-colors ${
+                        showResult
+                          ? isCorrect
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                            : isSelected
+                              ? 'bg-red-500/20 border-red-500 text-red-600 dark:text-red-400'
+                              : 'bg-muted/30 border-transparent text-muted-foreground'
+                          : 'bg-muted/40 border-muted hover:bg-muted cursor-pointer'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              {activeQuiz.showResult && activeQuiz.explanation && (
+                <p className="text-xs text-muted-foreground mt-3 pt-2 border-t">{activeQuiz.explanation}</p>
+              )}
+              {!activeQuiz.showResult && (
+                <Button size="sm" variant="ghost" className="w-full mt-3 text-xs text-muted-foreground" data-testid="button-quiz-skip" onClick={() => setActiveQuiz(null)}>
+                  Skip
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Cultural Context — persistent floating card (top-left, opposite side from notes) */}
+        {culturalContext && (
+          <div className="absolute top-3 left-3 z-40 w-72 max-w-[calc(50vw-1rem)]" data-testid="cultural-context-panel">
+            <div className="bg-card border rounded-md shadow-md p-3">
+              <div className="flex items-start gap-2">
+                <Globe className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold leading-tight">{culturalContext.title}</p>
+                  {culturalContext.category && (
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{culturalContext.category}</p>
+                  )}
+                </div>
+                <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" data-testid="button-cultural-context-dismiss" onClick={() => setCulturalContext(null)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{culturalContext.text}</p>
+              {culturalContext.sourceUrl && (
+                <a
+                  href={culturalContext.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-blue-500 hover:underline mt-1.5 block truncate"
+                  data-testid="cultural-context-source-link"
+                >
+                  {culturalContext.sourceUrl}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Gap D — Shared Mission: Daniela holds activeMission internally for session guidance,
+            but we don't render it in the student UI — it's confusing and not student-initiated. */}
+
+        {/* Sofia student support widget — appears when Daniela flags a technical incident */}
+        {streamingVoice.state.sofiaIncident && (
+          <SofiaWidget
+            incident={streamingVoice.state.sofiaIncident}
+            onResolved={() => {/* all_clear WS event hides the widget via state */}}
+          />
+        )}
+
+        {/* Spotlight — full-screen dimmed overlay with message bubble */}
+        {spotlight && (
+          <div
+            className="absolute inset-0 z-50 bg-black/65 flex items-center justify-center"
+            onClick={() => { if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current); setSpotlight(null); }}
+            data-testid="spotlight-overlay"
+          >
+            <div className="bg-card border rounded-md shadow-xl px-6 py-5 max-w-xs mx-4 text-center" onClick={e => e.stopPropagation()}>
+              <Sparkles className="h-6 w-6 text-blue-400 mx-auto mb-3" />
+              <p className="text-sm font-medium leading-snug">{spotlight.message}</p>
+              {spotlight.zone !== 'screen' && (
+                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wide">{spotlight.zone}</p>
+              )}
+              <Button size="sm" variant="ghost" className="mt-3 text-xs text-muted-foreground" data-testid="button-spotlight-dismiss" onClick={() => { if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current); setSpotlight(null); }}>
+                Got it
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Vision toggles — opt-in webcam + screen share for Daniela */}
+        {useStreamingMode && visionIsConnected && vision.isVisionSupported && (
+          <div className="absolute bottom-24 right-3 z-50 flex flex-col gap-1.5 items-end">
+            <Button
+              size="icon"
+              variant={vision.webcamActive ? 'default' : 'ghost'}
+              onClick={vision.toggleWebcam}
+              className="opacity-70 hover:opacity-100"
+              data-testid="button-vision-webcam"
+              title={vision.webcamActive ? 'Stop sharing camera with Daniela' : 'Share your camera with Daniela'}
+            >
+              <Camera className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant={vision.screenActive ? 'default' : 'ghost'}
+              onClick={vision.toggleScreen}
+              className="opacity-70 hover:opacity-100"
+              data-testid="button-vision-screen"
+              title={vision.screenActive ? 'Stop sharing screen with Daniela' : 'Share your screen with Daniela'}
+            >
+              <Monitor className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Start-hint fallback: shown when greeting hasn't arrived after 5s */}
+        {showStartHint && (
+          <div
+            className="absolute inset-x-0 bottom-24 flex justify-center pointer-events-none z-50"
+            data-testid="text-greeting-start-hint"
+          >
+            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg px-4 py-2 text-sm text-muted-foreground animate-in fade-in duration-500">
+              She&apos;s ready — say hello to begin
+            </div>
+          </div>
+        )}
+
         <VoiceChatViewManager
           conversationId={conversationId}
           messages={messages}
@@ -3451,9 +4509,19 @@ export function StreamingVoiceChat({
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
-          isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering'}
+          isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering' || streamingVoice.microAckPlaying}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}
+          reconnectMessage={
+            // Surface a reconnect message for all WS drops so the user knows why Daniela is silent.
+            // Fast reconnects (~1-3s): generic "Reconnecting..." keeps users informed without alarm.
+            // Prolonged restarts (attempt >3): show the specific server restart message.
+            useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'
+              ? (streamingVoice.state.error?.includes('Server is restarting')
+                  ? streamingVoice.state.error
+                  : 'Reconnecting...')
+              : undefined
+          }
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
             // 1. Connection is 'ready' OR 'connected' OR 'streaming' (all valid working states)
@@ -3520,8 +4588,9 @@ export function StreamingVoiceChat({
           inputMode={inputMode}
           setInputMode={setInputMode}
           openMicState={openMicState}
+          showListeningPatience={showListeningPatience}
           isPttButtonHeld={isPttButtonHeld}
-          playbackState={globalPlaybackState}
+          playbackState={globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused'}
           onInterrupt={() => {
             streamingVoice.stop();
             streamingVoice.sendInterrupt();
@@ -3529,6 +4598,8 @@ export function StreamingVoiceChat({
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
           onHelpClick={() => setIsSupportModalOpen(true)}
+          microAckPlaying={streamingVoice.microAckPlaying}
+          backdropImageUrl={backdropImageUrl}
         />
       </div>
       
@@ -3543,5 +4614,6 @@ export function StreamingVoiceChat({
         mode="support"
       />
     </div>
+    </VoiceInputContext.Provider>
   );
 }

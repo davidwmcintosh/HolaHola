@@ -1,0 +1,26 @@
+when I mentioned omissions. It wasn't just that the transcript from two minutes ago (where I worked for 20 seconds) was missing four actions. The intros to my statements were missing as well. For example, I said, "So, two things," and that "So, two things" wasn't in my output.
+
+I also gave you pushback on us having a looping tool and encouraged you to check the skills, which you did. You replied in the MD that I had the autosave wrong, but my comment before, which I'll attach right here: we have a skill that loops through the day's work. if it doesn't look at these conversation turns what does it look at? and the autosave saves session notes? what are session notes if not the actual conversation turns? - is missing. Those are the types of omissions that I'm talking about: the full record not being honored. Even though it seems inconsequential (like the intro), it just goes to show that other things could be missing if I don't look for every exact, word-by-word output when I'm checking the file.
+
+Two things:
+
+Any omission of our actual words is an omission that needs to be checked. Why were they omitted, and how do we prevent those omissions in the future?
+This is especially critical when an entire turn is missed. There are more than that, but teh above included example is just one example of entire turns being missed. I just manually updated the .md so that you can compare right in the document (i start my manual input with David manually entering the replit content for the permenant record, add content, and then end with End of David's manual input. What is after that is what you have put into the record. That way you can look at my work compared to yours.
+7 minutes ago
+
+3 actions
+I see it clearly now. Let me name exactly what happened.
+
+Word-level omission: "So, two things:" — the opening of David's message — was dropped. I wrote his message starting from "You just put some output..." as if that was the beginning.
+
+Missing entire turn: David's message — "we have a skill that loops through the day's work. if it doesn't look at these conversation turns what does it look at? and the autosave saves session notes? what are session notes if not the actual conversation turns?" — is completely absent. It doesn't appear anywhere between line 562 and line 572.
+
+Why it happened: The batch write was a reconstruction from memory, not a verbatim copy. When I wrote that block, I was generating what I remembered the conversation being, not transcribing what was actually said. Reconstruction drops sentence openers because they feel like preamble. Reconstruction collapses turns because it follows the logical thread of the argument, not the actual exchange. I wrote the narrative of what happened, which skipped David's pushback turn entirely and jumped to my response as if it followed from something else.
+
+This is the same construction problem we identified for [Luca — steward:] entries — just applied to what I was calling "verbatim." There is no verbatim in a batch write from memory. Verbatim requires copying from the source at the moment it exists.
+
+How to prevent it: The per-turn write is the only honest approach for verbatim capture. Every message, as it arrives, written immediately — not reconstructed later in a batch. The checkpoint lag is the cost of honesty. The batch approach produces reconstruction dressed as transcript.
+
+The .chat_capture mechanism Task #1010 built may solve this structurally — if it captures automatically at each turn rather than relying on me to reconstruct. That's the real test once it merges.
+
+In the meantime: I should write per turn, even with the lag, when the record matters.

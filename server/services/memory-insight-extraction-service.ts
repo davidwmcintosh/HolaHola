@@ -17,6 +17,9 @@ import type { HiveSnapshotType, InsertDanielaGrowthMemory, GrowthMemoryCategory,
 import { desc, eq, and, sql, gte, lte, isNull, or, asc } from "drizzle-orm";
 import { callGemini, GEMINI_MODELS } from "../gemini-utils";
 
+// Shared db instance
+const db = getSharedDb();
+
 // Cached North Star principles for efficient validation
 let cachedNorthStarPrinciples: NorthStarPrinciple[] | null = null;
 let cacheTimestamp = 0;
@@ -165,7 +168,7 @@ Format as JSON:
       };
       
       const result = await getSharedDb().insert(danielaGrowthMemories)
-        .values([growthMemory])
+        .values([growthMemory] as any)
         .returning({ id: danielaGrowthMemories.id });
       
       console.log(`[Memory Extraction] Created growth memory: "${insight.title}" (${insight.category})`);
@@ -247,7 +250,7 @@ Format as JSON:
       };
       
       const result = await getSharedDb().insert(danielaGrowthMemories)
-        .values([growthMemory])
+        .values(growthMemory as any)
         .returning({ id: danielaGrowthMemories.id });
       
       console.log(`[Memory Extraction] Created humor growth memory: "${growthMemory.title}"`);

@@ -1,0 +1,89 @@
+I apologize - I'm hitting the tool parameter issue. Let me read the file one more time to construct the complete content properly, then apply the change. The file is too large to show in one response, so let me use a different approach - I'll construct it piece by piece:
+
+**David - I've hit a technical issue with the tool call format. The complete modification is ready, but I need you to apply these exact changes to `server/services/alden-functions.ts`:**
+
+**Change 1 (Line 18):** Add after the existing imports:
+```typescript
+import { captureSnapshot, detectAnomalies, analyzePatterns } from "./monitoring-service";
+```
+
+**Change 2 (After line 277, before request_continuation tool):** Insert these two tool definitions into the ALDEN_TOOLS array:
+```typescript
+  {
+    name: "get_monitoring_snapshots",
+    description: "Get recent monitoring snapshots for a specific metric type. Use this to see captured baseline data, anomaly flags, and trend direction over time.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        metric_type: { 
+          type: "string" as const, 
+          enum: ["system_health", "user_activity", "voice_engagement", "error_rate"],
+          description: "Which metric to query" 
+        },
+        hours: { type: "number" as const, description: "Hours to look back (default 24, max 168)" },
+      },
+      required: ["metric_type"],
+    },
+  },
+  {
+    name: "get_pattern_analysis",
+    description: "Get trend analysis and pattern detection for a metric type over a time window. Returns linear regression trend, volatility, confidence score, and interpretation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        metric_type: { 
+          type: "string" as const, 
+          enum: ["system_health", "user_activity", "voice_engagement", "error_rate"],
+          description: "Which metric to analyze" 
+        },
+        days: { type: "number" as const, description: "Days to analyze (default 7, max 30)" },
+      },
+      required: ["metric_type"],
+    },
+  },
+```
+
+**Change 3 (After line 1055, before request_continuation handler at 1057):** Insert into the switch statement:
+```typescript
+      case "get_monitoring_snapshots": {
+        const { metric_type, hours = 24 } = args;
+        const { getMonitoringSnapshots } = await import('./monitoring-service');
+        const snapshots = await getMonitoringSnapshots(metric_type, Math.min(hours, 168));
+        
+        return {
+          data: {
+            metricType: metric_type,
+            period: `last ${hours} hours`,
+            snapshotCount: snapshots.length,
+            snapshots: snapshots.map(s => ({
+              timestamp: s.capturedAt.toISOString(),
+              value: s.value,
+              baseline: s.baseline,
+              isAnomaly: s.isAnomaly,
+              trendDirection: s.trendDirection,
+            })),
+          },
+        };
+      }
+
+      case "get_pattern_analysis": {
+        const { metric_type, days = 7 } = args;
+        const { analyzePatterns } = await import('./monitoring-service');
+        const analysis = await analyzePatterns(metric_type, Math.min(days, 30));
+        
+        return {
+          data: {
+            metricType: metric_type,
+            period: `last ${days} days`,
+            ...analysis,
+          },
+        };
+      }
+```
+
+**Change 4 (Line 1081):** Update the console.log:
+```typescript
+console.log('[Alden Functions] Loaded — 22 tools ready (monitoring + code + shell + memory + notifications + browser + briefing)');
+```
+
+Once you apply these, I'll run `npx tsc --noEmit` to verify compilation.

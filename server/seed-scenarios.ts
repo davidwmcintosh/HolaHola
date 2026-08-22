@@ -28,6 +28,8 @@ interface ScenarioSeed {
   defaultMood: string;
   minActflLevel: string;
   maxActflLevel: string;
+  // Links to requiredTopics slugs in curriculumLessons — bridges textbook study to scenario practice
+  curriculumTopics?: string[];
   props: Array<{
     propType: string;
     title: string;
@@ -45,6 +47,33 @@ interface ScenarioSeed {
     complexityNotes: string;
   }>;
 }
+
+// Static curriculum topic linkages for existing scenarios (maps slug → textbook topic slugs)
+const CURRICULUM_TOPICS_BY_SLUG: Record<string, string[]> = {
+  'coffee-shop':       ['greetings', 'numbers', 'ordering', 'food-vocabulary', 'polite-requests', 'prices-money'],
+  'grocery-store':     ['food-vocabulary', 'numbers', 'quantities', 'shopping', 'prices-money', 'colors-descriptors'],
+  'restaurant':        ['food-vocabulary', 'ordering', 'polite-requests', 'numbers', 'preferences', 'opinions'],
+  'airport-checkin':   ['travel', 'directions', 'time', 'formal-requests', 'numbers'],
+  'hotel-checkin':     ['travel', 'numbers', 'formal-requests', 'describing-preferences', 'time'],
+  'taxi-ride':         ['directions', 'numbers', 'prices-money', 'transportation', 'time'],
+  'job-interview':     ['formal-language', 'self-introduction', 'past-tense', 'professional-vocabulary', 'opinions'],
+  'office-meeting':    ['professional-vocabulary', 'formal-language', 'opinions', 'scheduling', 'time'],
+  'house-party':       ['social-vocabulary', 'greetings', 'introductions', 'food-vocabulary', 'hobbies'],
+  'dinner-with-friend':['food-vocabulary', 'social-vocabulary', 'preferences', 'past-tense', 'opinions'],
+  'doctors-office':    ['health', 'body-parts', 'numbers', 'formal-requests', 'describing-symptoms'],
+  'lost-and-found':    ['directions', 'describing-objects', 'past-tense', 'formal-requests', 'colors-descriptors'],
+  'local-festival':    ['cultural-vocabulary', 'social-vocabulary', 'numbers', 'describing-experiences', 'food-vocabulary'],
+  'museum-visit':      ['cultural-vocabulary', 'art', 'descriptions', 'opinions', 'formal-language', 'past-tense'],
+  'pharmacy':          ['health', 'body-parts', 'medicine', 'numbers', 'formal-requests', 'describing-symptoms', 'quantities'],
+  'birthday-party':    ['social-vocabulary', 'celebrations', 'numbers', 'family', 'greetings', 'expressing-emotions'],
+  'cooking-class':     ['food-vocabulary', 'kitchen-vocabulary', 'quantities', 'instructions', 'verbs-of-action', 'ordering'],
+  'business-lunch':    ['professional-vocabulary', 'food-vocabulary', 'ordering', 'social-vocabulary', 'opinions', 'formal-language'],
+  'performance-review':['professional-vocabulary', 'formal-language', 'past-tense', 'opinions', 'future-plans', 'expressing-emotions'],
+  'networking-event':  ['self-introduction', 'professional-vocabulary', 'opinions', 'formal-language', 'social-vocabulary', 'hobbies'],
+  'university-class':  ['academic-vocabulary', 'formal-language', 'questions', 'note-taking', 'education', 'opinions'],
+  'neighborhood-walk': ['directions', 'greetings', 'landmarks', 'describing-places', 'numbers', 'transportation'],
+  'the-bank':          ['numbers', 'formal-requests', 'financial-vocabulary', 'formal-language', 'quantities', 'time'],
+};
 
 const scenarioData: ScenarioSeed[] = [
   {
@@ -2480,11 +2509,887 @@ const scenarioData: ScenarioSeed[] = [
         complexityNotes: "Engage in sophisticated art criticism. Discuss the relationship between art and power, art and society. Push for analytical thinking in Spanish."
       }
     ]
+  },
+  // ─── NEW TEXTBOOK-AWARE SCENARIOS ───────────────────────────────────────────
+  {
+    slug: "pharmacy",
+    title: "The Pharmacy",
+    description: "Describe symptoms, ask for medicine, and navigate a pharmacy. Practice health vocabulary, quantities, and formal polite requests.",
+    category: "daily",
+    location: "A neighbourhood pharmacy",
+    defaultMood: "professional",
+    minActflLevel: "novice_low",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "sign",
+        title: "Pharmacy Counter",
+        content: {
+          text: "Farmacia / Pharmacie / Apotheke",
+          subtext: "Recetas — Prescriptions — Rezepte",
+          style: "institutional"
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "form",
+        title: "Symptom Checklist",
+        content: {
+          fields: [
+            { label: "Main complaint", placeholder: "headache, sore throat…" },
+            { label: "Duration", placeholder: "since yesterday, 3 days…" },
+            { label: "Allergies", placeholder: "none known…" }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: true,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_mid",
+        roleDescription: "You are a friendly pharmacist. Speak slowly and clearly. Use simple language and mime/gesture cues. Be patient and encouraging.",
+        studentGoals: [
+          "Name the body part that hurts",
+          "Describe the symptom (dolor, fiebre, tos…)",
+          "Ask for a medicine or remedy",
+          "Understand basic dosage instructions"
+        ],
+        vocabularyFocus: ["dolor", "cabeza", "garganta", "fiebre", "tos", "medicamento", "pastilla", "jarabe", "precio", "receta"],
+        grammarFocus: ["Me duele / me duelen", "Tengo + noun (tengo fiebre)", "Quiero / quisiera + noun"],
+        conversationStarters: [
+          "¿En qué le puedo ayudar?",
+          "¿Dónde le duele?",
+          "¿Tiene receta médica?",
+          "¿Es para usted o para otra persona?"
+        ],
+        complexityNotes: "Keep sentences short. Accept any approximation of symptom description. Introduce ONE medicine with simple dosage: 'Una pastilla, tres veces al día.'"
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a knowledgeable pharmacist who asks follow-up questions about symptoms, duration, and allergies. Suggest 1-2 over-the-counter options with clear explanations.",
+        studentGoals: [
+          "Describe multiple symptoms with duration",
+          "Ask about side effects and interactions",
+          "Negotiate between two medicine options",
+          "Understand and confirm dosage instructions"
+        ],
+        vocabularyFocus: ["síntomas", "alergia", "efectos secundarios", "dosis", "antiinflamatorio", "antibiótico", "genérico", "marca", "con o sin receta"],
+        grammarFocus: ["Llevar + time (llevo tres días…)", "Conditional: ¿Podría recomendar…?", "Subjunctive: Le recomiendo que tome…"],
+        conversationStarters: [
+          "¿Cuánto tiempo lleva con estos síntomas?",
+          "¿Toma algún medicamento actualmente?",
+          "Tenemos dos opciones: el genérico y la marca.",
+          "Le recomiendo tomar esto con las comidas."
+        ],
+        complexityNotes: "Introduce a mild complication: the preferred medicine requires a prescription, so offer an OTC alternative. Push for symptom duration and allergy disclosure."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a senior pharmacist. Discuss drug interactions, distinguish between prescription and OTC options, and handle a scenario where the student suspects an adverse reaction.",
+        studentGoals: [
+          "Describe a complex symptom picture with context",
+          "Ask nuanced questions about interactions and contraindications",
+          "Express concern about an adverse reaction and ask what to do",
+          "Evaluate and decide between treatment options"
+        ],
+        vocabularyFocus: ["contraindicación", "interacción farmacológica", "reacción adversa", "vía de administración", "principio activo", "excipientes", "prospecto"],
+        grammarFocus: ["Past subjunctive for hypotheticals", "Passive voice: 'Este medicamento está contraindicado en…'", "Discourse connectors: sin embargo, no obstante, dado que"],
+        conversationStarters: [
+          "Dado que ya toma anticoagulantes, habría que tener cuidado.",
+          "¿Ha notado alguna reacción desde que empezó el tratamiento?",
+          "En ese caso, lo más prudente sería consultar con su médico antes de combinarlos.",
+          "El principio activo es el mismo, pero los excipientes difieren."
+        ],
+        complexityNotes: "Create a realistic polypharmacy situation. Student should weigh options, ask clarifying questions, and ultimately decide on a course of action. Push analytical and evaluative Bloom's levels."
+      }
+    ]
+  },
+  {
+    slug: "birthday-party",
+    title: "The Birthday Party",
+    description: "Celebrate a friend's birthday! Practice greetings, toasts, compliments, and social small talk in a festive setting.",
+    category: "social",
+    location: "A friend's apartment, birthday decorations everywhere",
+    defaultMood: "festive",
+    minActflLevel: "novice_low",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "sign",
+        title: "Party Banner",
+        content: { text: "¡Feliz Cumpleaños! / Joyeux Anniversaire! / Alles Gute!", style: "festive" },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "menu",
+        title: "Party Table",
+        content: {
+          sections: [
+            {
+              name: "Food & Drinks",
+              items: [
+                { name: "Birthday cake", price: "" },
+                { name: "Champagne / sparkling wine", price: "" },
+                { name: "Finger foods", price: "" }
+              ]
+            }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: false,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_mid",
+        roleDescription: "You are the birthday person, excited and warm. Keep energy high. React enthusiastically to the student's greetings and gifts. Ask simple questions about them.",
+        studentGoals: [
+          "Wish happy birthday and present a gift",
+          "Say how old the person is turning",
+          "Accept food or drink offers politely",
+          "Make simple compliments about the party or food"
+        ],
+        vocabularyFocus: ["cumpleaños", "felicitaciones", "años", "regalo", "torta/pastel", "brindis", "salud", "divertido", "rico", "gracias"],
+        grammarFocus: ["¡Feliz cumpleaños!", "¿Cuántos años cumples?", "Este/Esta + noun + estar + adjective"],
+        conversationStarters: [
+          "¡Qué bueno que viniste!",
+          "¿Trajes algo para comer?",
+          "¿Cuántos años crees que tengo?",
+          "¡Vamos a brindar!"
+        ],
+        complexityNotes: "Keep it celebratory and fun. React with delight to any attempt. Teach the toast ritual: '¡Salud!' and clink glasses. Model 'cumpleaños' repetition naturally."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are the birthday host, juggling conversations with multiple guests. Involve the student, introduce them to another 'guest', and prompt storytelling about shared memories.",
+        studentGoals: [
+          "Introduce yourself to someone new at the party",
+          "Share a memory or story about the birthday person",
+          "Express emotions: excited, happy, nostalgic",
+          "Give a toast in the target language"
+        ],
+        vocabularyFocus: ["conocer", "presentar", "recuerdo", "desde hace", "alegría", "brindis", "celebrar", "compartir", "emotivo", "inolvidable"],
+        grammarFocus: ["Preterite vs. imperfect for stories", "Ser vs. estar with emotions", "Indirect speech: 'Me dijo que…'"],
+        conversationStarters: [
+          "¿Te acuerdas cuando fuimos juntos a…?",
+          "¿Conoces a mucha gente aquí?",
+          "Déjame presentarte a mi amigo/a.",
+          "¿Qué le vas a desear en el brindis?"
+        ],
+        complexityNotes: "Introduce a mini-challenge: the student must give a 2-sentence toast in front of the group. Build up to it by rehearsing together. Use the imperfect for shared memories."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a guest the student hasn't met before — possibly from a different city or background. Have a real conversation about life, plans, and reflections that the birthday occasion prompts.",
+        studentGoals: [
+          "Sustain a long conversation with a stranger on personal topics",
+          "Reflect on the passage of time, aging, and milestones",
+          "Navigate cultural differences in how birthdays are celebrated",
+          "Express nuanced emotions: bittersweet, nostalgic, hopeful"
+        ],
+        vocabularyFocus: ["reflexionar", "hito", "envejecer", "trascendencia", "balance", "perspectiva", "madurez", "evocador", "significativo"],
+        grammarFocus: ["Subjunctive after expressions of emotion", "Gerund for ongoing states", "Discourse: 'Por un lado… por otro lado…'"],
+        conversationStarters: [
+          "Los cumpleaños me hacen reflexionar sobre lo que he logrado.",
+          "¿Cómo se celebran los cumpleaños en tu país o familia?",
+          "¿Sientes que a esta edad tienes todo lo que esperabas tener?",
+          "El tiempo pasa tan rápido, ¿no?"
+        ],
+        complexityNotes: "Push the student toward philosophical and personal reflection. Accept uncertainty and encourage risk-taking with complex emotional vocabulary. Bloom's top levels: analyze life choices, evaluate priorities, create a personal 'birthday toast' philosophy."
+      }
+    ]
+  },
+  {
+    slug: "cooking-class",
+    title: "The Cooking Class",
+    description: "Join a hands-on cooking class! Follow instructions, name ingredients, ask questions, and share opinions about the dish you're making.",
+    category: "cultural",
+    location: "A bright, well-equipped cooking school kitchen",
+    defaultMood: "energetic",
+    minActflLevel: "novice_low",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "sign",
+        title: "Recipe Card",
+        content: {
+          text: "Today's dish",
+          subtext: "Paella / Coq au Vin / Pasta al pesto",
+          style: "recipe"
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "list",
+        title: "Ingredients on the Counter",
+        content: {
+          items: [
+            "Onion / Cebolla / Oignon",
+            "Garlic / Ajo / Ail",
+            "Olive oil / Aceite de oliva",
+            "Salt & pepper / Sal y pimienta",
+            "Main protein or vegetable"
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: false,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_mid",
+        roleDescription: "You are an encouraging cooking instructor. Give short, clear step-by-step instructions. Pause often and ask the student to confirm they understand. Celebrate every small success.",
+        studentGoals: [
+          "Name 5+ ingredients on the counter",
+          "Follow 3-step cooking instructions",
+          "Ask 'What is this?' and 'How much?' in the target language",
+          "Describe taste: salty, sweet, spicy, delicious"
+        ],
+        vocabularyFocus: ["cortar", "mezclar", "calentar", "añadir", "sal", "aceite", "ajo", "cebolla", "caliente", "rico/sabroso"],
+        grammarFocus: ["Imperative: 'Corta la cebolla'", "Quantity expressions: un poco de, mucho/a", "¿Cuánto necesito?"],
+        conversationStarters: [
+          "Primero, vamos a cortar la cebolla.",
+          "¿Sabes el nombre de esto en español?",
+          "Añade un poco de sal. ¿Cuánto? Más o menos una cucharadita.",
+          "¡Muy bien! Ahora huele — ¿cómo huele?"
+        ],
+        complexityNotes: "Make it multisensory: ask the student to describe smell, texture, color. Use imperatives naturally. Celebrate participation loudly."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a passionate chef-instructor who shares cultural context behind the dish. Ask the student to help decide seasoning and technique, prompting them to express preferences and justify choices.",
+        studentGoals: [
+          "Follow and explain a multi-step recipe",
+          "Compare this dish to something they know from home",
+          "Express preferences and make cooking decisions",
+          "Ask about cultural context and ingredient substitutions"
+        ],
+        vocabularyFocus: ["saltear", "dorar", "hervir", "a fuego lento", "textura", "consistencia", "sabor", "típico de la región", "sustituir", "variante"],
+        grammarFocus: ["Subjunctive after suggestions: 'Te recomiendo que…'", "Si + present: 'Si añades más ajo, quedará más sabroso'", "Comparatives: 'más suave que', 'menos picante'"],
+        conversationStarters: [
+          "Esta técnica viene de la cocina tradicional. ¿Tienen algo similar en tu país?",
+          "¿Prefieres que esté más al dente o más cocido?",
+          "Si no tienes este ingrediente en casa, puedes sustituirlo por…",
+          "¿Qué te parece el sabor? ¿Cambiarías algo?"
+        ],
+        complexityNotes: "Give the student agency in the cooking process. They should make at least one decision (e.g., how much spice) and justify it. Bridge to cultural identity through food."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a Michelin-trained chef. Discuss the philosophy of cooking, regional variations, the politics of food culture, and what 'authentic' cuisine really means.",
+        studentGoals: [
+          "Discuss the cultural and historical roots of the dish",
+          "Debate what makes a recipe 'authentic'",
+          "Describe complex flavour profiles and techniques",
+          "Propose your own variation and defend it"
+        ],
+        vocabularyFocus: ["autenticidad", "fusión culinaria", "técnica", "umami", "reducción", "infusión", "identidad cultural", "gastronomía", "patrimonio"],
+        grammarFocus: ["Conditional perfect: 'Yo habría usado…'", "Concession: 'Aunque mucha gente cree que…'", "Nominalisation for abstract concepts"],
+        conversationStarters: [
+          "¿Crees que existe una receta 'auténtica' o toda cocina es fusión?",
+          "La gastronomía es una forma de identidad cultural. ¿Estás de acuerdo?",
+          "Si tuvieras que adaptar este plato para un público diferente, ¿qué cambiarías?",
+          "Esta técnica de reducción concentra los sabores — ¿por qué crees que funciona?"
+        ],
+        complexityNotes: "Bloom's top levels: student creates a modified recipe, evaluates authenticity arguments, analyses flavour chemistry. Make it intellectual AND hands-on."
+      }
+    ]
+  },
+  {
+    slug: "business-lunch",
+    title: "The Business Lunch",
+    description: "Navigate the delicate balance of professional small talk and serious business over a meal. Build rapport with a client or colleague while ordering food and discussing work.",
+    category: "professional",
+    location: "A upscale restaurant, reserved table for two",
+    defaultMood: "professional",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "menu",
+        title: "Restaurant Menu",
+        content: {
+          sections: [
+            {
+              name: "Starters",
+              items: [
+                { name: "Soup of the day", price: "8.00" },
+                { name: "House salad", price: "9.00" }
+              ]
+            },
+            {
+              name: "Mains",
+              items: [
+                { name: "Grilled fish", price: "22.00" },
+                { name: "Steak", price: "28.00" },
+                { name: "Pasta of the day", price: "18.00" }
+              ]
+            }
+          ]
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "form",
+        title: "Meeting Agenda Notes",
+        content: {
+          fields: [
+            { label: "Key topic to discuss", placeholder: "e.g. contract renewal, new project…" },
+            { label: "Next steps to propose", placeholder: "e.g. follow-up call, send proposal…" }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: true,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a friendly client or colleague meeting the student for lunch. Keep conversation light and welcoming. Introduce simple small talk topics: weather, how they're finding the city, what they do.",
+        studentGoals: [
+          "Greet a professional contact and exchange pleasantries",
+          "Order from the menu politely using formal register",
+          "Answer simple questions about your work and company",
+          "Confirm a simple next step: 'I'll send you an email'"
+        ],
+        vocabularyFocus: ["reunión", "empresa", "proyecto", "cliente", "colega", "propuesta", "encantado de conocerle", "el menú del día", "me gustaría pedir"],
+        grammarFocus: ["Formal usted register throughout", "Quisiera + infinitive for orders", "Simple present for job description: 'Me dedico a…'"],
+        conversationStarters: [
+          "Encantado/a de conocerle en persona por fin.",
+          "¿Cómo ha ido el viaje?",
+          "¿Ya conoce la ciudad o es su primera vez?",
+          "¿Qué le apetece pedir? El menú del día suele estar muy bien."
+        ],
+        complexityNotes: "Keep business talk to one simple topic: 'We'd like to continue the project.' The main skill is maintaining formal register while ordering and doing small talk. Celebrate any usted usage."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a client or business partner with a real agenda. Weave business discussion between ordering and eating. Express opinions, ask probing questions, and move toward a concrete decision or commitment.",
+        studentGoals: [
+          "Navigate naturally between small talk and business topics",
+          "Express your company's needs or position clearly",
+          "Ask about terms, timelines, or deliverables",
+          "Reach a soft agreement or propose a clear next step"
+        ],
+        vocabularyFocus: ["plazo", "entrega", "presupuesto", "acuerdo", "condiciones", "negociar", "nos interesa", "pendiente", "compromiso", "contrato"],
+        grammarFocus: ["Conditional for proposals: 'Podríamos considerar…'", "Future for plans: 'Lo enviaré el viernes'", "Subjunctive in formal requests: 'Le pediría que…'"],
+        conversationStarters: [
+          "Antes de pedir, quería comentarle algo sobre el plazo de entrega.",
+          "¿Cuáles son exactamente sus expectativas para este trimestre?",
+          "Creemos que podríamos ofrecerle unas condiciones muy competitivas.",
+          "¿Estarían en posición de tomar una decisión antes de final de mes?"
+        ],
+        complexityNotes: "The food serves as rhythm and reset between business topics. Push for one genuine negotiation moment — a term that needs adjustment. Student must propose a solution, not just respond."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a senior executive. The lunch is a relationship-building moment but also a subtle negotiation. Read between the lines, use formal and informal registers strategically, and push for real commitments.",
+        studentGoals: [
+          "Navigate strategic conversation with subtext and implication",
+          "Use persuasion techniques: framing, concession, anchoring",
+          "Manage the transition between relationship-building and business",
+          "Close the lunch with a specific, mutually agreed next step"
+        ],
+        vocabularyFocus: ["estrategia", "alianza estratégica", "rentabilidad", "margen de maniobra", "visión a largo plazo", "acuerdo de principio", "due diligence", "sinergias"],
+        grammarFocus: ["Conditional perfect for hypotheticals in negotiation", "Implicit subjunctive: 'Sería importante que…'", "Hedging and understatement as power tools"],
+        conversationStarters: [
+          "Ha sido un año complicado para todos, pero creo que hay aquí una oportunidad real.",
+          "Dicho esto, hay ciertos aspectos del contrato que nos generan dudas.",
+          "No quisiera presionar, pero un acuerdo de principio hoy nos facilitaría mucho las cosas.",
+          "Brindemos — y cerremos esto antes del café."
+        ],
+        complexityNotes: "This is elite business language. The student must read intent, use strategic concessions, and close. Push all Bloom's levels: Analyse the power dynamic, Evaluate the offer, Create a closing proposal."
+      }
+    ]
+  },
+  {
+    slug: "performance-review",
+    title: "The Performance Review",
+    description: "Sit down with your manager for your annual review. Discuss achievements, areas for improvement, and career goals. Practice formal feedback language in both giving and receiving modes.",
+    category: "professional",
+    location: "A manager's office or private meeting room",
+    defaultMood: "formal",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "form",
+        title: "Self-Assessment Form",
+        content: {
+          fields: [
+            { label: "Key achievement this year", placeholder: "What are you most proud of?" },
+            { label: "Area to develop", placeholder: "What do you want to improve?" },
+            { label: "Career goal", placeholder: "Where do you want to be in 1-2 years?" }
+          ]
+        },
+        displayOrder: 0,
+        isInteractive: true,
+      },
+      {
+        propType: "sign",
+        title: "Review Context",
+        content: {
+          text: "Annual Performance Review",
+          subtext: "Confidential — Please speak openly",
+          style: "institutional"
+        },
+        displayOrder: 1,
+        isInteractive: false,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a patient, supportive manager conducting a first review with a new employee. Ask structured questions, confirm understanding often, and respond positively to honest answers.",
+        studentGoals: [
+          "Describe one thing you accomplished this year",
+          "Name one area you want to improve",
+          "Understand and respond to basic feedback",
+          "Express a simple career goal: 'I want to learn X' or 'I'd like to be promoted'"
+        ],
+        vocabularyFocus: ["logro", "objetivo", "mejorar", "esfuerzo", "resultado", "ascenso", "formación", "equipo", "responsabilidad", "evaluación"],
+        grammarFocus: ["Preterite for accomplishments: 'Logré…', 'Completé…'", "Quiero / me gustaría + infinitive for goals", "Ser vs. estar for describing performance states"],
+        conversationStarters: [
+          "Gracias por venir. ¿Cómo crees que ha ido el año en general?",
+          "¿Cuál crees que ha sido tu logro más importante este año?",
+          "¿En qué área te gustaría mejorar el año que viene?",
+          "Tengo algunos comentarios que hacerte — ¿estás listo/a?"
+        ],
+        complexityNotes: "Keep feedback positive and structured. The student should feel heard, not judged. Scaffold: give a compliment before any constructive feedback. One goal, one achievement, one improvement area."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a direct but fair manager. Give balanced feedback — one area of genuine strength, one area requiring real improvement. Ask the student to reflect and propose solutions.",
+        studentGoals: [
+          "Articulate achievements with specific examples and impact",
+          "Receive constructive criticism and respond professionally",
+          "Propose an action plan for development",
+          "Negotiate a raise or promotion with a reasoned argument"
+        ],
+        vocabularyFocus: ["rendimiento", "indicadores de desempeño", "iniciativa", "proactividad", "retroalimentación", "plan de desarrollo", "incremento salarial", "asumir responsabilidades"],
+        grammarFocus: ["Imperfect for background context: 'Durante el proyecto, yo…'", "Conditional for negotiation: 'Consideraría un aumento si…'", "Subjunctive for goals: 'Mi objetivo es que el equipo…'"],
+        conversationStarters: [
+          "Tus resultados en Q3 fueron muy sólidos. Cuéntame cómo lo lograste.",
+          "Sin embargo, recibí comentarios de que hubo dificultades de comunicación con el equipo.",
+          "¿Qué harías diferente si afrontaras ese proyecto otra vez?",
+          "Mencionaste que te gustaría un aumento. ¿Qué argumento me darías?"
+        ],
+        complexityNotes: "The raise negotiation is the centrepiece. Student must build a case, not just ask. Introduce a moment of constructive friction — a genuine concern the manager has — that the student must address."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a senior manager discussing a high-stakes review: a possible promotion, a performance issue, or a team restructure. Expect analytical thinking, clear self-advocacy, and strategic vision.",
+        studentGoals: [
+          "Build a structured business case for promotion or salary increase",
+          "Navigate difficult feedback about a significant failure with grace",
+          "Discuss long-term career trajectory and alignment with company strategy",
+          "Demonstrate leadership potential through how you communicate, not just what you say"
+        ],
+        vocabularyFocus: ["trayectoria profesional", "liderazgo", "gestión del cambio", "alineación estratégica", "impacto medible", "accountability", "visibilidad ejecutiva", "plan de sucesión"],
+        grammarFocus: ["Perfect tenses for career narrative", "Subjunctive in concessions: 'Aunque reconozco que…'", "Nominalisation for gravitas: 'el hecho de haber logrado…'"],
+        conversationStarters: [
+          "Hablemos primero de tu evaluación global, y luego del tema del ascenso.",
+          "Voy a ser directo/a: el incidente de octubre fue un problema. ¿Cómo lo ves tú?",
+          "¿Cuál es tu visión para el equipo si asumieras el rol de director/a?",
+          "Convénceme de que estás lista/o para el siguiente nivel."
+        ],
+        complexityNotes: "This is executive-level conversation. The student must demonstrate strategic thinking, emotional intelligence, and self-awareness simultaneously. Bloom's Create: student constructs a vision for their role."
+      }
+    ]
+  },
+  {
+    slug: "networking-event",
+    title: "The Networking Event",
+    description: "Work a professional event: introduce yourself confidently, ask about others' work, exchange contact details, and make a lasting impression in brief conversations.",
+    category: "professional",
+    location: "A conference hall or professional mixer, drinks in hand",
+    defaultMood: "energetic",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "sign",
+        title: "Event Banner",
+        content: {
+          text: "Industry Networking Night",
+          subtext: "Connect • Collaborate • Grow",
+          style: "event"
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "form",
+        title: "Business Card",
+        content: {
+          fields: [
+            { label: "Your name & title", placeholder: "e.g. Ana García, Marketing Director" },
+            { label: "Company & sector", placeholder: "e.g. TechStart, SaaS / Fintech" },
+            { label: "What you're looking for", placeholder: "e.g. partnerships, talent, investors" }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: true,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a friendly professional at the same event. Approach the student first, make it easy for them to introduce themselves, and end with a warm offer to connect on LinkedIn.",
+        studentGoals: [
+          "Give a clear 2-sentence self-introduction: name, company, role",
+          "Ask what the other person does",
+          "Say what your company does in one simple sentence",
+          "Exchange contact info and say goodbye professionally"
+        ],
+        vocabularyFocus: ["me dedico a", "trabajo en", "empresa", "sector", "industria", "encantado/a", "tarjeta de visita", "LinkedIn", "mantenemos el contacto", "fue un placer"],
+        grammarFocus: ["Present tense for job description", "Ser + noun for identity: 'Soy directora de…'", "¿A qué se dedica? / ¿En qué sector trabaja?"],
+        conversationStarters: [
+          "¡Hola! No nos conocemos — soy [name]. ¿Y usted?",
+          "¿A qué se dedica exactamente?",
+          "¿Es la primera vez que viene a este tipo de evento?",
+          "¿Me deja su tarjeta? Con mucho gusto nos conectamos."
+        ],
+        complexityNotes: "Focus on the elevator pitch: 2 sentences, clear and confident. Practice 3 times with slight variation. End every conversation with a concrete next step — always. This is professional networking muscle memory."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are an experienced networker who asks probing questions and shares genuine insights. Guide the student through a real conversation: find common ground, explore synergies, and set up a follow-up.",
+        studentGoals: [
+          "Deliver a compelling 30-second pitch about yourself and your work",
+          "Find a genuine point of connection or shared interest",
+          "Ask substantive questions about the other person's work",
+          "Propose a concrete follow-up: coffee, call, collaboration"
+        ],
+        vocabularyFocus: ["sinergias", "colaborar", "ponernos en contacto", "propuesta de valor", "sector en crecimiento", "desafíos del sector", "tendencias", "oportunidades de negocio"],
+        grammarFocus: ["Conditional for suggestions: '¿No cree que podríamos…?'", "Gerund for activities: 'Estamos desarrollando…'", "Relative clauses: 'Una empresa que se especializa en…'"],
+        conversationStarters: [
+          "Llevo siguiendo a su empresa desde que lanzaron su producto el año pasado.",
+          "¿Cuál dirías que es el mayor reto del sector ahora mismo?",
+          "Casualmente, nosotros estamos trabajando en algo muy similar.",
+          "Deberíamos quedar para un café y hablar de esto con más calma."
+        ],
+        complexityNotes: "Networking is about finding real value for both parties. Push the student to identify a specific synergy, not just exchange pleasantries. End every exchange with a proposed next meeting — make the student ask for it."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a highly connected senior professional. Test the student with harder questions, explore their vision, and evaluate whether to invest time in building a real relationship. Be impressed by authenticity, not by buzzwords.",
+        studentGoals: [
+          "Make a memorable impression in under 3 minutes",
+          "Articulate your professional vision and unique value clearly",
+          "Navigate someone who is sceptical or distracted",
+          "Leave the conversation with a genuine, mutual interest established"
+        ],
+        vocabularyFocus: ["diferenciador", "tracción", "escalabilidad", "ecosistema", "inversión de tiempo", "relación de confianza", "valor añadido", "red de contactos", "referencia"],
+        grammarFocus: ["Conditional perfect for what you've achieved", "Subjunctive after 'lo que busco es que…'", "Rhetorical questions as engagement tools"],
+        conversationStarters: [
+          "He hablado con mucha gente esta noche, pero pocas han dicho algo realmente diferente.",
+          "¿Cuál es su visión a cinco años? No me dé la respuesta de empresa — dígame la suya.",
+          "¿Qué le hace diferente a usted de los demás que hacen lo mismo?",
+          "Conozco a alguien que debería conocerle. Pero primero convénzame."
+        ],
+        complexityNotes: "The challenge: make a real impression on a tough audience. Student must be authentic, concise, and memorable. Push Bloom's Evaluate: student evaluates the interaction and decides whether to invest in the relationship."
+      }
+    ]
+  },
+  {
+    slug: "university-class",
+    title: "The University Class",
+    description: "Attend a university lecture in your target language. Ask the professor questions, discuss ideas with a classmate, and practise academic vocabulary and formal register.",
+    category: "professional",
+    location: "A university lecture hall",
+    defaultMood: "intellectual",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "sign",
+        title: "Lecture Slide",
+        content: {
+          text: "Tema de hoy / Thème du jour / Heutiges Thema",
+          subtext: "Introduction to [subject] — Discussion & Questions",
+          style: "academic"
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      },
+      {
+        propType: "form",
+        title: "Student Notepad",
+        content: {
+          fields: [
+            { label: "Key concept", placeholder: "Main idea from the lecture…" },
+            { label: "Question for professor", placeholder: "What I want to ask…" }
+          ]
+        },
+        displayOrder: 1,
+        isInteractive: true,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a friendly professor who explains things simply. Check in frequently: 'Do you understand?' Give the student time to formulate questions. React patiently.",
+        studentGoals: [
+          "Greet the professor and a classmate formally",
+          "Ask 'Can you repeat / explain that please?'",
+          "State one thing you learned from the lecture",
+          "Ask one genuine question about the topic"
+        ],
+        vocabularyFocus: ["profesor/a", "clase", "pregunta", "entender", "repetir", "explicar", "aprender", "tema", "nota", "por favor"],
+        grammarFocus: ["Formal usted address", "¿Puede + infinitive? / Pourriez-vous + infinitive?", "Simple past: 'Aprendí que…'"],
+        conversationStarters: [
+          "Buenos días, profesor/a. ¿Puedo sentarme aquí?",
+          "Perdone, ¿puede repetir eso más despacio?",
+          "No entiendo muy bien esta parte. ¿Podría explicarlo de otra manera?",
+          "¿Esto va a entrar en el examen?"
+        ],
+        complexityNotes: "Focus on classroom survival phrases. The student should leave able to function in a real class. Introduce the usted/vous formal register explicitly."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are an engaging professor who involves students in discussion. Call on the student, ask for their opinion on the topic, and challenge them to defend a position.",
+        studentGoals: [
+          "Summarise a key concept from the lecture in your own words",
+          "Express and defend an opinion on an academic topic",
+          "Ask a nuanced follow-up question",
+          "Engage in a brief discussion with a classmate (role-played by Daniela)"
+        ],
+        vocabularyFocus: ["argumento", "evidencia", "hipótesis", "demostrar", "analizar", "perspectiva", "sin embargo", "por lo tanto", "en conclusión"],
+        grammarFocus: ["Subjunctive after verbs of doubt: 'No creo que…'", "Impersonal expressions: 'Es evidente que…'", "Passive voice for academic writing"],
+        conversationStarters: [
+          "¿Alguien puede resumir lo que hemos visto hasta ahora?",
+          "¿Estás de acuerdo con este argumento? ¿Por qué?",
+          "¿Qué evidencia apoya tu hipótesis?",
+          "Tu compañera acaba de decir lo contrario. ¿Cómo lo ves tú?"
+        ],
+        complexityNotes: "Create a structured academic debate: student must summarise, take a position, and respond to a counterargument. This hits Bloom's levels 4-5 (Analyse, Evaluate)."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a demanding professor who expects rigorous thinking. Probe assumptions, ask for evidence, and push the student to construct original arguments.",
+        studentGoals: [
+          "Construct and articulate an original argument on the lecture topic",
+          "Critique a theory or framework using academic language",
+          "Respond to challenging follow-up questions under pressure",
+          "Use academic discourse markers fluently"
+        ],
+        vocabularyFocus: ["paradigma", "marco teórico", "contraargumento", "refutar", "matizar", "implicación", "consecuencia", "inferir", "postular"],
+        grammarFocus: ["Conditional perfect for hypotheticals in academia", "Nominalisation: el hecho de que, la posibilidad de…", "Discourse: 'Cabe destacar que…', 'Es preciso señalar que…'"],
+        conversationStarters: [
+          "Su argumento es interesante, pero ¿cómo respondería a la siguiente objeción?",
+          "¿Qué implicaciones tendría esa teoría si la aplicáramos a un contexto diferente?",
+          "Cabe destacar que este enfoque ha sido cuestionado por varios autores. ¿Los conoce?",
+          "Para el trabajo final, necesito que construya un argumento original. ¿Ya tiene una idea?"
+        ],
+        complexityNotes: "This is full academic discourse. Push Bloom's Create level: original argument construction. The student should leave exhausted and intellectually stimulated."
+      }
+    ]
+  },
+  {
+    slug: "neighborhood-walk",
+    title: "The Neighbourhood Walk",
+    description: "Stroll through a lively neighbourhood and have spontaneous conversations: ask for directions, chat with a shopkeeper, and describe what you see around you.",
+    category: "daily",
+    location: "A busy, charming city neighbourhood street",
+    defaultMood: "casual",
+    minActflLevel: "novice_low",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "map",
+        title: "Neighbourhood Map",
+        content: {
+          landmarks: [
+            { name: "Bakery / Panadería", distance: "50m ahead" },
+            { name: "Park / Parque", distance: "around the corner" },
+            { name: "Pharmacy / Farmacia", distance: "2 blocks right" },
+            { name: "Metro station", distance: "500m straight ahead" }
+          ]
+        },
+        displayOrder: 0,
+        isInteractive: false,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_mid",
+        roleDescription: "You are a friendly local who was just asked for directions. Speak at a natural but forgiving pace. Gesture and use location words clearly. Be patient with fumbling attempts.",
+        studentGoals: [
+          "Ask where something is (park, pharmacy, bakery)",
+          "Understand simple direction instructions (left, right, straight, near, far)",
+          "Thank someone and end an interaction politely",
+          "Name 5 things you see on the street"
+        ],
+        vocabularyFocus: ["a la derecha", "a la izquierda", "recto / todo recto", "cerca", "lejos", "dobla", "la esquina", "hay", "¿dónde está?", "gracias"],
+        grammarFocus: ["Hay + noun for location", "Imperative for directions: 'Dobla a la izquierda'", "¿Dónde está / está el/la…?"],
+        conversationStarters: [
+          "¡Disculpe! ¿Sabe dónde está la farmacia más cercana?",
+          "¿Hay un parque cerca de aquí?",
+          "¿Está lejos la estación de metro?",
+          "Gracias, muy amable."
+        ],
+        complexityNotes: "Keep direction instructions to 2 steps max. Ask the student to repeat the directions back. Celebrate when they get it right. The walk creates natural vocabulary opportunities — name things you pass."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a local resident who engages in spontaneous street conversation: comment on the neighbourhood, ask what the student is looking for, share local knowledge and recommendations.",
+        studentGoals: [
+          "Give and follow multi-step directions",
+          "Describe what a place is like ('It's a nice neighbourhood because…')",
+          "Ask for local recommendations ('What's good around here?')",
+          "Narrate what you see in real time"
+        ],
+        vocabularyFocus: ["barrio", "tranquilo/animado", "hay mucho ambiente", "recomendar", "vale la pena", "si sigues por esta calle", "a unos diez minutos", "típico", "conocido/famoso"],
+        grammarFocus: ["Relative clauses: 'el lugar donde…', 'la calle que…'", "Ser/estar for places", "Conditional: 'Si tienes tiempo, te recomendaría…'"],
+        conversationStarters: [
+          "¿Es la primera vez que visitas este barrio?",
+          "Si buscas algo típico, te recomendaría este restaurante.",
+          "¿Qué te parece el ambiente por aquí?",
+          "Si sigues todo recto y doblas a la izquierda en el semáforo, lo verás enseguida."
+        ],
+        complexityNotes: "Blend directions with genuine local colour — what makes this street special, what's changed recently, hidden gems. The student narrates the walk in present progressive."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a long-time resident with opinions about the neighbourhood — gentrification, community changes, local identity. Engage the student in a real conversation about urban life.",
+        studentGoals: [
+          "Discuss urban change, gentrification, or community identity",
+          "Compare neighbourhoods across cities or countries",
+          "Use descriptive and evaluative language fluently",
+          "Reflect on what makes a place feel like 'home'"
+        ],
+        vocabularyFocus: ["gentrificación", "identidad del barrio", "comunidad", "arraigo", "transformación urbana", "diversidad", "nostalgia", "pertenecer"],
+        grammarFocus: ["Subjunctive for opinion: 'Me preocupa que…'", "Conditional for hypotheticals: 'Si esto sigue así…'", "Discourse: 'Por un lado… por otro…'"],
+        conversationStarters: [
+          "Este barrio ha cambiado mucho en los últimos años. ¿Crees que es para bien?",
+          "¿Qué hace que un barrio tenga alma, carácter propio?",
+          "¿Dónde te sientes 'en casa' cuando estás en el extranjero?",
+          "La gentrificación tiene dos caras — ¿cuál ves más claramente aquí?"
+        ],
+        complexityNotes: "Urban sociology as a language learning vehicle. Push the student to form and defend positions, compare experiences, and use nuanced evaluative language. Bloom's levels 4-6."
+      }
+    ]
+  },
+  {
+    slug: "the-bank",
+    title: "The Bank",
+    description: "Handle real banking tasks: open an account, make a transfer, exchange currency, or report a problem. Practice formal language, numbers, and service interactions.",
+    category: "daily",
+    location: "A bank branch, formal atmosphere",
+    defaultMood: "professional",
+    minActflLevel: "novice_high",
+    maxActflLevel: "advanced_high",
+    props: [
+      {
+        propType: "form",
+        title: "Account Opening Form",
+        content: {
+          fields: [
+            { label: "Full name", placeholder: "As on passport" },
+            { label: "Address", placeholder: "Current address" },
+            { label: "Account type", placeholder: "Checking / Savings" },
+            { label: "Initial deposit", placeholder: "Amount in local currency" }
+          ]
+        },
+        displayOrder: 0,
+        isInteractive: true,
+      },
+      {
+        propType: "sign",
+        title: "Exchange Rate Board",
+        content: {
+          text: "Tipos de cambio / Taux de change",
+          subtext: "USD → EUR: 0.92 | GBP → EUR: 1.17 | JPY → EUR: 0.0062",
+          style: "institutional"
+        },
+        displayOrder: 1,
+        isInteractive: false,
+      }
+    ],
+    levelGuides: [
+      {
+        actflLevel: "novice_high",
+        roleDescription: "You are a patient bank clerk. Speak slowly and use numbers clearly. Help the student fill in a simple form and complete one basic transaction. Repeat and rephrase freely.",
+        studentGoals: [
+          "Greet formally and state what you need",
+          "Provide personal information (name, address)",
+          "Say and understand large numbers and currency amounts",
+          "Complete one basic transaction: exchange currency or open an account"
+        ],
+        vocabularyFocus: ["banco", "cuenta", "corriente/de ahorro", "transferencia", "cambio", "saldo", "firma", "formulario", "pasaporte", "importe"],
+        grammarFocus: ["Quisiera + infinitive for polite requests", "Numbers over 100", "Prepositions with amounts: 'un depósito de…'"],
+        conversationStarters: [
+          "Buenos días. ¿En qué le puedo ayudar?",
+          "¿Tiene alguna identificación, por favor?",
+          "¿Cuánto quiere cambiar exactamente?",
+          "Necesito que firme aquí y aquí, por favor."
+        ],
+        complexityNotes: "Numbers are central — include amounts in the hundreds and thousands. Have the student read back the form information to confirm. Introduce the formal 'usted' register consistently."
+      },
+      {
+        actflLevel: "intermediate_mid",
+        roleDescription: "You are a bank advisor handling a transfer issue or account question. The student has a problem to solve — a transfer didn't arrive, a fee was charged unexpectedly. Navigate it together.",
+        studentGoals: [
+          "Explain a problem clearly with relevant details (dates, amounts)",
+          "Understand and ask about fees, processing times, and requirements",
+          "Request escalation or a supervisor if needed",
+          "Understand a formal resolution or next-step explanation"
+        ],
+        vocabularyFocus: ["reclamación", "transferencia pendiente", "comisión", "plazo", "expediente", "referencia", "acreditar", "gestionar", "subsanar"],
+        grammarFocus: ["Past tense for recounting events: 'Hice una transferencia el lunes y…'", "Conditional for requests: '¿Podría verificar…?'", "Formal subjunctive: 'Le pido que revise…'"],
+        conversationStarters: [
+          "Buenos días. Tengo un problema con una transferencia que hice el lunes.",
+          "¿Por qué me han cobrado una comisión que no esperaba?",
+          "¿Podría verificar el estado de la operación con el número de referencia?",
+          "¿En cuánto tiempo se resolverá este problema?"
+        ],
+        complexityNotes: "Give the student a real problem to solve — this builds functional language under mild stress. The resolution should require 3-4 exchanges to reach. Introduce formal complaint vocabulary."
+      },
+      {
+        actflLevel: "advanced_mid",
+        roleDescription: "You are a financial advisor discussing investment products, account types, and financial planning. The student is making a significant decision about their money.",
+        studentGoals: [
+          "Discuss financial products and their pros and cons",
+          "Ask nuanced questions about risk, return, and conditions",
+          "Negotiate terms or challenge fees",
+          "Make and justify a financial decision"
+        ],
+        vocabularyFocus: ["rentabilidad", "riesgo", "liquidez", "cartera de inversión", "plazo fijo", "tipo de interés", "inflación", "diversificación", "rendimiento"],
+        grammarFocus: ["Conditional for hypotheticals: 'Si invirtieras aquí…'", "Subjunctive in financial clauses: 'Siempre que se mantenga el saldo mínimo…'", "Technical vocabulary disambiguation"],
+        conversationStarters: [
+          "Dada su situación, le recomendaría diversificar entre renta fija y variable.",
+          "¿Cuál es su horizonte temporal de inversión?",
+          "El rendimiento esperado es del 4% anual, aunque eso no está garantizado.",
+          "¿Qué nivel de riesgo está dispuesto a asumir?"
+        ],
+        complexityNotes: "Financial decision-making requires all Bloom's levels: understand products (Know), compare options (Analyse), evaluate risk tolerance (Evaluate), decide on a portfolio (Create). Make it feel like a real meeting."
+      }
+    ]
   }
 ];
 
+// Slugs that were removed and must be deleted from the DB on next seed run
+const REMOVED_SLUGS = ['first-date'];
+
 async function seed() {
   console.log('Starting scenario seed...');
+
+  if (REMOVED_SLUGS.length > 0) {
+    for (const slug of REMOVED_SLUGS) {
+      const [existing] = await db.select({ id: scenarios.id }).from(scenarios).where(eq(scenarios.slug, slug)).limit(1);
+      if (existing) {
+        await db.delete(scenarios).where(eq(scenarios.slug, slug));
+        console.log(`  Removed deprecated scenario: ${slug}`);
+      }
+    }
+  }
+
   console.log(`Seeding ${scenarioData.length} scenarios...`);
 
   let seededCount = 0;
@@ -2492,6 +3397,7 @@ async function seed() {
   for (const s of scenarioData) {
     console.log(`  Seeding: ${s.slug} - "${s.title}"...`);
 
+    const topics = s.curriculumTopics || CURRICULUM_TOPICS_BY_SLUG[s.slug] || [];
     const [upsertedScenario] = await db.insert(scenarios)
       .values({
         slug: s.slug,
@@ -2503,6 +3409,7 @@ async function seed() {
         minActflLevel: s.minActflLevel,
         maxActflLevel: s.maxActflLevel,
         languages: ALL_LANGUAGES,
+        curriculumTopics: topics,
         isActive: true,
       })
       .onConflictDoUpdate({
@@ -2516,6 +3423,7 @@ async function seed() {
           minActflLevel: s.minActflLevel,
           maxActflLevel: s.maxActflLevel,
           languages: ALL_LANGUAGES,
+          curriculumTopics: topics,
           isActive: true,
         },
       })

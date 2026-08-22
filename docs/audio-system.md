@@ -34,11 +34,14 @@ Fetches pre-generated audio for a specific drill item.
 #### POST `/api/tts/pronunciation`
 Generates pronunciation audio for arbitrary text on-demand. **Now with database-backed caching!**
 
+> **Design note for new textbook components:** Always use this endpoint — never `POST /api/voice/synthesize` — for any audio button in the interactive textbook. Always pass `gender` from `useLanguage()`. See `docs/textbook-component-tts-stt-guide.md` for the full design rule and anti-pattern list.
+
 **Request:**
 ```json
 {
   "text": "Buenos días",
-  "language": "spanish"
+  "language": "spanish",
+  "gender": "female"
 }
 ```
 
@@ -54,6 +57,7 @@ Generates pronunciation audio for arbitrary text on-demand. **Now with database-
 **Validation:**
 - `text`: Required, max 500 characters
 - `language`: Required, 2-10 characters
+- `gender`: Optional (`'female'` | `'male'`). When omitted the server falls back to the user's DB `tutorGender`, but **always pass it explicitly** so voice is consistent regardless of DB state.
 
 **Caching Behavior:**
 - First request for any text+language+voice combination: generates audio via TTS, stores in database, returns `cacheHit: false`
@@ -438,7 +442,683 @@ This is now on the roadmap for Phase 3.
 
 ---
 
-## 6. Future Enhancements
+## 6. Live Voice Pipeline — Concurrency & Rate Limits
+
+The live voice session (Daniela talking to a student in real-time) runs on a different infrastructure stack from the textbook audio system. Two pipelines exist:
+
+### Legacy Pipeline (Deepgram + Google Chirp HD)
+
+Each active voice session consumes from **two separate quotas simultaneously**:
+
+| Service | Role | Limit |
+|---|---|---|
+| **Deepgram STT** (Nova-3) | Student speech → text | ~45 concurrent WebSocket streams (tripled Feb 2026; was ~15) |
+| **Google Cloud Chirp HD TTS** | Daniela's voice → audio | 100 requests/min per project (~12–16 concurrent heavy users) |
+
+The real bottleneck is Deepgram — one persistent WebSocket stream per student for the entire session duration. At 45 concurrent streams, that's the ceiling for simultaneous live sessions. The Chirp HD 100 RPM limit is softer in practice because TTS calls are short HTTP requests (~200ms each) and sessions have natural silence gaps.
+
+### Gemini Live Pipeline (`GEMINI_LIVE_VOICE=true`)
+
+Gemini Live **replaces both** Deepgram STT and Chirp HD TTS with a single persistent bidirectional session — one connection handles all audio in and out.
+
+| Tier | Concurrent Sessions | How to reach |
+|---|---|---|
+| Free | ~3 | Default (no billing) |
+| Tier 1 | ~50 | Enable Cloud billing (instant) |
+| Tier 2 | ~1,000 | $250+ cumulative spend on the project |
+| Enterprise | Custom | Contact Google |
+
+**Per-session hard limits (Gemini Live 2.0 era — see §6.1 for 3.1 figures):**
+- Max session length: 15 minutes (audio-only); connection terminates with a going-away notification so reconnection can be handled
+- Context window: 128k tokens *(was 2.0; Gemini Live 3.1 / gemini-2.5-flash architecture → 1M tokens)*
+- Audio in: PCM16, 16kHz mono
+- Audio out: PCM16, 24kHz mono
+
+### Side-by-side comparison
+
+| | Legacy (Deepgram + Chirp HD) | Gemini Live Tier 1 | Gemini Live Tier 2 |
+|---|---|---|---|
+| Max concurrent sessions | ~45 (Deepgram ceiling) | ~50 | ~1,000 |
+| Quota sources to manage | 2 (Deepgram + GCP) | 1 (Gemini API) | 1 (Gemini API) |
+| Session duration | Unlimited | 15 min (reconnect supported) | 15 min (reconnect supported) |
+| Latency profile | STT + LLM + TTS in series | Single stream, lower end-to-end latency | Same |
+
+**Key takeaway:** At current scale the pipelines are roughly equivalent on concurrency (~45 vs ~50). The Gemini Live advantage appears at Tier 2 — a 20× jump to 1,000 concurrent sessions with no additional engineering work, just spend threshold.
+
+---
+
+## 6.1 GPT-4o Realtime vs Gemini Live — Viability Assessment
+
+**Date:** May 2026  
+**Context:** OpenAI has updated the GPT-4o Realtime API (latest preview model is newer than the `gpt-4o-realtime-preview-2024-12-17` currently hardcoded in `server/realtime-proxy.ts`). This section records the head-to-head evaluation against our current Gemini Live 3.1 stack before deciding whether to wire in a comparison toggle.
+
+Our `/chat` route currently runs `gemini-3.1-flash-live-preview` (set via `GEMINI_LIVE_MODEL` env var in `server/services/gemini-live-session.ts`).
+
+---
+
+### Criteria Matrix
+
+| Criterion | **Gemini Live 3.1** ← current /chat | GPT-4o Realtime (full) | GPT-4o Mini Realtime |
+|---|---|---|---|
+| **Native tool/function calling** | ✅ Full — powers Daniela's entire whiteboard, play_audio, voice_adjust, update_image, pronunciation tools | ✅ Supported in API spec | ✅ Supported in API spec |
+| **Our codebase tool support** | ✅ Battle-tested (30+ tools wired) | ❌ Proxy is pass-through only — no tool interception implemented | ❌ Same |
+| **Max concurrent sessions** | ~50 (Tier 1) / ~1,000 (Tier 2, $250+ spend) | ~100 (Tier 5, OpenAI's highest tier) | ~100 (Tier 5) |
+| **Concurrency path to scale** | Tier 2 auto-unlocks at spend threshold — no code change | Requires OpenAI org tier upgrades, account review | Same |
+| **Cost per minute (approx)** | ~$0.03/min (audio in + out combined) | ~$0.30/min — **10× more expensive** | ~$0.03/min — comparable |
+| **Languages (voice output)** | 30+ languages, all 9 HolaHola languages natively supported in voice | Native audio end-to-end (no separate STT step) — model understands many languages, but the 8 generated voices were trained primarily on English data; non-English voice output quality degrades noticeably vs Gemini | Same — English-optimized voice output |
+| **Latency (time to first audio)** | ~300–600ms | ~320–500ms | ~400–600ms |
+| **Session length limit** | 15 min hard cap (auto-reconnect implemented and working) | No hard cap — longer sessions supported | No hard cap |
+| **Available voices** | 30+ prebuilt (Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Perseus, and others) — some multilingual | 8 voices (alloy, ash, ballad, coral, echo, sage, shimmer, verse) — English-optimized | Same 8 voices |
+| **Voice emotional range** | Moderate — some expressiveness but no Cartesia-level emotion tags | Moderate — natural prosody, no external emotion control | Same |
+| **Fine-tune / train LLM** | ❌ Vertex AI fine-tuning exists for Gemini models, but **fine-tuned models are not available via the Live API** — base model only in Live sessions | ❌ GPT-4o fine-tuning exists, but **fine-tuned models cannot be used with the Realtime API** — explicitly documented as a current limitation | ❌ Same |
+| **Session context window** | **~1M tokens** (Gemini 2.5 Flash architecture; significant upgrade from 2.0's 128K) | 128K tokens | 128K tokens |
+| **System prompt capacity** | Full — Daniela's ~13K-token prompt loads entirely | ⚠️ **Hard-capped at 4,000 chars in our proxy** (`realtime-proxy.ts:306`) — this is a **self-imposed conservative workaround**, not a model limit. Simply raising/removing the cap restores full prompt. Neural-net approach (minimal identity prompt + retrieval) can reduce the need for a large system prompt entirely — see §6.2. | ⚠️ Same cap — same fix |
+| **Actual model string** | `gemini-3.1-flash-live-preview` (overridable via `GEMINI_LIVE_MODEL`) | **Outdated** — proxy hardcodes `gpt-4o-realtime-preview-2024-12-17`, needs updating to latest preview | Proxy uses `gpt-4o-mini-realtime-preview-2024-12-17` |
+
+---
+
+### The Fine-Tuning Blocker (Both Providers)
+
+This is the one criterion where both providers are tied — and both are blocking us the same way.
+
+**What we want:** Use a fine-tuned or instruction-tuned version of the underlying LLM so Daniela's personality, pedagogical approach, and language expertise are baked into the model weights — not just injected via system prompt at runtime.
+
+**Where both providers are today:**
+
+| Provider | Fine-tune available? | Usable in Live/Realtime? |
+|---|---|---|
+| Google Gemini | ✅ Via Vertex AI (supervised fine-tuning, RLHF) | ❌ Live API uses base model only |
+| OpenAI GPT-4o | ✅ Standard fine-tuning API | ❌ Realtime API does not accept fine-tuned models |
+
+Both providers have publicly indicated intent to close this gap, but neither has shipped it as of this writing. This means the comparison today is base model vs base model — Daniela's character lives entirely in the system prompt either way.
+
+**Why this matters for HolaHola:** If and when one provider ships fine-tune + realtime support first, it becomes a significant competitive advantage — we could bake Daniela's ACTFL pedagogy, error correction style, and encouragement patterns directly into the weights rather than relying on prompt injection. That provider wins our primary stack at that point.
+
+---
+
+### Tool Calling Gap (Critical for Daniela)
+
+This is the biggest practical blocker for a full GPT-4o Realtime comparison.
+
+**Gemini Live today:** Daniela calls ~30 tools in a live session — `update_whiteboard`, `play_audio`, `voice_adjust`, `update_image`, `save_vocabulary`, `check_drill_status`, and many more. These fire naturally during conversation and drive the entire whiteboard + study UI.
+
+**GPT-4o Realtime today:** The Realtime API supports function calling via a different event flow:
+1. Model emits `response.output_item.added` with type `function_call`
+2. Server must intercept, execute the tool, and inject a `conversation.item.create` event with type `function_call_output`
+3. Model resumes
+
+Our existing `realtime-proxy.ts` is a **pure pass-through** — it forwards all events between client and OpenAI without any interception layer. Daniela's tools would never fire. She'd be conversational-only: no whiteboard updates, no play_audio, no study cards, no vocabulary saves.
+
+**What a proper comparison requires:** Either (a) accept that we're comparing "lobotomized Daniela on GPT" vs "full Daniela on Gemini" which isn't apples-to-apples, or (b) implement a tool interception layer in the realtime proxy (estimated medium effort — probably a day of work to wire in even a subset of tools).
+
+For a quick voice quality listen, option (a) is fine. For a real pedagogical comparison, we'd need (b).
+
+---
+
+### Cost Reality Check
+
+At meaningful usage (say 200 active students, 30 min/day average):
+
+| Model | Monthly cost estimate |
+|---|---|
+| Gemini Live 2.0 Flash | ~$0.03 × 30 min × 200 students × 30 days = **~$5,400/month** |
+| GPT-4o Mini Realtime | ~$0.03 × 30 min × 200 students × 30 days = **~$5,400/month** (comparable) |
+| GPT-4o Realtime (full) | ~$0.30 × 30 min × 200 students × 30 days = **~$54,000/month** (10× — untenable) |
+
+The mini model is the only cost-comparable option. The full gpt-4o-realtime at 10× cost is not viable for production at any meaningful student volume.
+
+---
+
+### Voices — What's Actually Available
+
+**Gemini Live voices** (current validated set in `gemini-live-session.ts`):
+
+> Aoede, Charon, Fenrir, Kore, Leda, Orus, Puck, Perseus — plus additional voices; some have multilingual capability
+
+Daniela currently uses **Aoede** (female, warm, clear). The variety gives us room to differentiate Daniela's voice by language (e.g., a Spanish-accented voice for immersion mode).
+
+**GPT-4o Realtime voices:**
+
+> alloy, ash, ballad, coral, echo, sage, shimmer, verse
+
+These are 8 English-optimized voices. They sound natural in English but the multi-language quality drop is noticeable in testing. For a Spanish/French/Japanese tutoring app this matters.
+
+---
+
+### Viability Verdict
+
+| Question | Answer |
+|---|---|
+| Can we wire in a quick "hear what it sounds like" toggle? | ✅ Yes — mini model, no tools, same UI. Probably 1–2 hours. |
+| Is it a fair comparison to Gemini Live? | ❌ Not without implementing tool calling in the proxy. It's "chat-only GPT" vs "full Daniela on Gemini." |
+| Is the full gpt-4o-realtime viable for production? | ❌ 10× cost makes it untenable at scale. |
+| Is gpt-4o-mini-realtime cost-competitive? | ✅ Yes — roughly comparable to Gemini Live Flash. |
+| Does GPT-4o Realtime solve our fine-tuning limitation? | ❌ Same blocker — fine-tuned models not usable in Realtime API. |
+| Which provider is likely to unlock fine-tune + realtime first? | 🔍 Watch both. OpenAI has been faster historically at API feature releases. Google's Vertex AI fine-tuning infrastructure is more mature. No clear winner. |
+| Should we wire in the toggle now? | ✅ Yes if the goal is voice quality comparison. ⏳ Defer if the goal is a real pedagogical comparison — need tool calling first. |
+
+**Recommendation:** Wire in the mini model toggle for voice quality listening. Note in the UI that tools (whiteboard, vocab saves) are disabled in GPT mode. Update the proxy to the latest model version at the same time. **Remove the self-imposed 4,000-char cap before testing — it's a workaround, not a real limit.** Set a reminder to re-evaluate both providers' fine-tune + realtime roadmap quarterly — whoever ships that first should be our default.
+
+---
+
+## 6.2 Voice Engine Landscape — Other Native Voice-to-Voice Pipelines
+
+**"Native" definition for this section:** Audio-in → LLM → audio-out without a separate STT or TTS step. The LLM itself processes and generates audio directly.
+
+### Hume AI — EVI 2 (Deep Dive)
+
+Hume AI's **Empathic Voice Interface 2** (EVI 2) is the most pedagogically interesting alternative to Gemini Live for HolaHola, for a reason no other provider offers: **it understands prosody and emotional tone in the student's voice**, not just the words.
+
+**What makes EVI 2 different:**
+
+EVI 2 is built on Hume's foundational research into vocal expression. It parses the emotional signal in a student's voice — hesitancy, frustration, confidence, boredom — and can use that signal to shape its responses. For a language tutor, this is non-trivial. A student saying *"sí, yo entiendo"* can mean two very different things depending on whether they sound certain or deflated. A conventional LLM can't tell the difference from text alone. EVI 2 can.
+
+**Technical spec:**
+
+| Property | EVI 2 Detail |
+|---|---|
+| **Architecture** | Native voice-to-voice — single model handles audio in and out |
+| **Emotional intelligence** | Detects valence, arousal, and discrete emotion categories (e.g., hesitance, confusion, enthusiasm) from the student's voice |
+| **Interruption / barge-in** | Full real-time barge-in support — model stops speaking when student starts |
+| **Latency** | ~500–700ms to first audio chunk |
+| **Languages** | Multilingual — documented support for Spanish, French, German, Japanese, and others. Emotional parsing trained primarily on English prosody; non-English emotional inference is less validated. |
+| **Voices** | Multiple prebuilt voices; custom voice cloning available |
+| **Tool / function calling** | ✅ Supported — via `tool_call` events in the EVI WebSocket protocol. Interception required server-side (similar to GPT-4o Realtime). |
+| **Context window** | ~200K tokens |
+| **Session length** | Configurable — no hard 15-min cap |
+| **Cost** | ~$0.07–$0.12/min depending on tier — 2–4× Gemini Live Flash, but below full GPT-4o Realtime |
+| **System prompt equivalent** | "System Prompt" field in EVI config — no documented hard character cap |
+| **API shape** | WebSocket, similar pattern to Gemini Live; Hume provides an official React SDK (`@humeai/voice-react`) |
+| **Fine-tuning** | ❌ Not available for EVI 2 as of this writing |
+
+**Correction (May 13, 2026):** The original analysis below was partially wrong. Gemini Live 3.1 *does* interpret vocal stress, sarcasm, and hesitation from audio input natively — this is a documented Live API capability, not something that needs to be configured. The model processes raw audio holistically and understands these cues automatically. What was missing was not the capability but the *instructions to act on it* — Daniela had no prompt telling her to use what she hears. That has now been added as a "Voice Perception" line in her classroom environment. See §6.4 for the audio tags investigation.
+
+**Where it fits vs Gemini Live (corrected):**
+
+| | Gemini Live 3.1 | EVI 2 |
+|---|---|---|
+| Reads vocal stress / hesitation from student audio | ✅ **Yes — automatic, built into the Live API** | ✅ Yes — same |
+| Emotional signal is *explicit / queryable* | ❌ Implicit — shapes model response, not exposed as data | ✅ Structured emotional signal you can route logic against |
+| Daniela instructed to act on what she hears | ✅ Now yes — "Voice Perception" added to classroom | ✅ By design |
+| Voice quality | High | High |
+| Multilingual voice output | ✅ Native | Partial — less validated non-English emotional parsing |
+| Tool calling (our codebase) | ✅ 30+ tools wired | ❌ Would need full interception layer (same gap as GPT-4o) |
+| Cost | ~$0.03/min | ~$0.07–$0.12/min |
+| Concurrency | ~50–1,000 (tiered) | Contact for scale tiers |
+| Daniela's classroom portability | ✅ Full | Partial — environment text can port, emotional config is new |
+
+**Revised verdict:** The gap between Gemini Live 3.1 and EVI 2 on the emotional input side is much smaller than originally assessed. Both models interpret the student's vocal signal. The real remaining difference is that EVI 2 *exposes* the emotional read as structured data — you could programmatically trigger a tool call when `frustration > 0.7`. Gemini absorbs the signal silently and factors it into its next response. For most pedagogical use cases, Gemini's implicit handling is sufficient and simpler. EVI 2's explicit signal would only matter if you wanted to build hard logic against emotional thresholds (e.g., auto-trigger a "take a break" card when frustration is sustained). That's a future feature consideration, not a current gap.
+
+---
+
+### Full Landscape — Native Voice-to-Voice (May 2026)
+
+| Provider | Model | Truly native? | Why interesting | Production-ready? | Cost vs Gemini |
+|---|---|---|---|---|---|
+| **Google** | Gemini Live 3.1 | ✅ | Current stack — tools wired, 1M context, 30+ voices | ✅ | Baseline |
+| **OpenAI** | GPT-4o Mini Realtime | ✅ | Cost-comparable, no session cap, large STT language coverage | ✅ | ~1× |
+| **OpenAI** | GPT-4o Realtime (full) | ✅ | Higher quality than mini; better reasoning | ✅ | ~10× — untenable |
+| **Hume AI** | EVI 2 | ✅ | Only provider with emotional/prosodic intelligence | ✅ | ~3–4× |
+| **Kyutai** | Moshi | ✅ | Open source, true full-duplex (speaks and listens simultaneously), no latency from turn-taking | ❌ Experimental | Free (self-host) |
+| **ElevenLabs** | Conversational AI | ❌ Assembled | Best-in-class TTS quality; polished SDK | ✅ | ~2× |
+| **Retell / Vapi / Play.ai** | Various | ❌ Assembled | Orchestration layers — fast to deploy, not native intelligence | ✅ | Varies |
+| **Sesame** | TBD | Likely native | Early demo showed very natural conversational voice AI | ❌ Not public | Unknown |
+| **Anthropic / Meta / xAI** | Claude / LLaMA / Grok | ❌ None | No Live/Realtime API equivalent as of this writing | ❌ | N/A |
+
+**The "assembled vs native" distinction matters:** Assembled pipelines (ElevenLabs, Retell, etc.) run text through the seam between STT and LLM — meaning they lose prosodic information (tone, hesitation, emotional charge) at that conversion point. Native voice-to-voice models receive raw audio and can use everything in it.
+
+**Watch list:** Moshi (Kyutai) is the most interesting open-source entry. When it reaches production quality it removes the vendor dependency entirely. Sesame's team has serious AI voice credentials; if they open an API it's worth an immediate evaluation.
+
+---
+
+### System Prompt Cap — Correction
+
+The 4,000-character limit in `server/realtime-proxy.ts` (line 306) was added as an explicit temporary workaround during early testing of the mini model:
+
+```
+// CRITICAL FIX: Trim instructions to avoid server_error
+// Testing with very conservative limit (4000 chars) for mini model
+const MAX_INSTRUCTION_LENGTH = 4000;
+```
+
+This is not a model-imposed limit. GPT-4o mini realtime accepts much larger system prompts. Removing or raising this cap to 32,000+ chars is the immediate fix before any meaningful voice quality comparison.
+
+**Longer-term — the neural-net-first approach:** HolaHola's architecture preference is to push knowledge into the neural net (memory embeddings, structured procedural tables) and keep the system prompt as a minimal identity anchor. If taken to its logical conclusion for GPT-4o Mini:
+
+- **Minimal identity prompt (~500–800 chars):** Who Daniela is, the student's name, language, level
+- **Neural net retrieval at session start:** ACTFL procedures, error correction style, student personal facts, recent notes — retrieved as context turns rather than injected into the system config
+- **Classroom environment as a context turn:** The full `buildClassroomEnvironment()` output (~4,000–7,000 chars) can be injected as a first "assistant context" turn after session setup, which GPT-4o Realtime supports via `conversation.item.create`
+
+This approach aligns with the product direction and would make the system prompt limit a non-issue for any provider.
+
+---
+
+## 6.3 Daniela's Classroom — What It Is and How It Ports
+
+### What Daniela "Sees"
+
+`server/services/classroom-environment.ts` builds a structured environment string that Daniela receives at session start — her "room." It's not decoration; it drives her pedagogical decisions each turn. The builder produces ~4,000–7,000 characters of structured context.
+
+**Sections of her room:**
+
+| Section | What it contains | How it's generated |
+|---|---|---|
+| **Clock** | Current time (gives her time-of-day awareness for greetings, pacing) | System clock at session start |
+| **Mode / Phase / Exchanges** | Current teaching mode (drill, conversation, textbook), how many exchanges into the session | Session state from DB |
+| **Student** | Name, ACTFL level, target language, native language | `users` table |
+| **Student's Screen** | What the student currently sees on their side (whiteboard state, active card, textbook page) | Live state, updated via tool calls |
+| **Whiteboard** | Current content of the shared whiteboard | `sessions` table |
+| **Photo Wall** | Active vocabulary images on display | Image state |
+| **Active Scene** | If a scenario/roleplay is active: the scenario, Daniela's role, student's role, goals | `scenarios` table |
+| **Resonance Shelf** | Student's personal facts Daniela has gathered | `learner_personal_facts` table |
+| **Empathy Window** | Emotional read on the student this session — tone, energy, affect | Daniela-authored per session |
+| **Pedagogical Lamp** | Color-coded teaching signal: "Bright teal" (flow) / "Amber" (struggle) / "Red" (confusion) | Computed from session patterns |
+| **Growth Vine** | Student's progress arc — what they've mastered, what's sprouting | `learning_progress` |
+| **Classroom Window** | Daniela's chosen view (e.g., "Rolling green mountains at golden hour") | `productConfig` table, key `daniela_classroom_window`; changeable via `change_classroom_window` tool |
+| **North Star Polaroid** | Daniela's core identity anchor — who she is in one paragraph | `agent_north_star` |
+| **My Notes to Self** | Last 8 personal notes she's written (reflections, teaching rhythms, affirmations) | `daniela_notes` table, `take_note` tool |
+| **North Star Wall** | Full teaching principles — ACTFL philosophy, error correction approach, encouragement style | `tutor_procedures` table |
+| **Student Progress Board** | Specific grammar targets, recent struggles, current arc | `learning_progress` + session data |
+| **Lesson Textbook Context** | If a textbook page is active: the passage, vocabulary, exercises | `textbook_pages` table |
+| **Pattern Compass** | Live tracking of grammatical wobble (errors seen this session) vs stability (mastery confirmed) | Updated turn-by-turn |
+| **Rehearsal Stage Notes** | (Beta testers only) Instructions to be experimental, ask for feedback, handle role reversal | `users.isBetaTester` flag |
+| **Tool Rack** | Full list of her available function calls with brief descriptions | `daniela-function-registry.ts` |
+
+### Notes to Self
+
+Daniela writes notes using the `take_note` tool (categories: `session_reflection`, `teaching_rhythm`, `self_affirmation`, others). They're stored in `daniela_notes`. The last 8 are retrieved at session start and injected into her room. These are **not** part of the system prompt by default — they're part of the classroom environment context block, so they're always fresh without increasing the static prompt size.
+
+### The Classroom Window
+
+The window is a user-modifiable string stored in `productConfig` under the key `daniela_classroom_window`. Default: "Rolling green mountains at golden hour, light coming through the window." Daniela can change it mid-session via the `change_classroom_window` tool. It's purely atmospheric — it influences her language (seasonal metaphors, weather-based greetings) and gives her a persistent aesthetic anchor she can reference conversationally.
+
+### Beta Tester Flag
+
+`users.isBetaTester` (boolean). When true, adds the "Rehearsal Stage Notes" section to her room:
+- Be experimental, ask for technical feedback
+- Share when trying something new — perfection not the goal
+- **Role Reversal:** If the tester coaches Daniela on her voice or personality, receive it as coaching about delivery, acknowledge, adjust, ask if that was closer
+
+Controlled via the admin Command Center (`client/src/pages/admin/CommandCenter.tsx`). No UI for students — admin-only toggle.
+
+---
+
+### Portability — Can This Room Move to GPT-4o or Hume?
+
+The classroom environment is a **text string** — architecturally, it's completely portable. Here's the status per engine:
+
+| Element | Gemini Live 3.1 | GPT-4o Mini Realtime | Hume EVI 2 |
+|---|---|---|---|
+| **Full classroom context block** | ✅ Injected at session start (context turn) | ✅ Injectable via `conversation.item.create` (first turn) | ✅ Injectable as first conversation turn |
+| **Classroom Window** | ✅ Full | ✅ Text carries over | ✅ Text carries over; Hume's emotional layer adds tone coloring |
+| **Notes to Self** | ✅ Full | ✅ Text carries over | ✅ Text carries over |
+| **Beta Tester flag** | ✅ Full section injected | ✅ Text carries over | ✅ Text carries over |
+| **Pedagogical Lamp** | ✅ Full | ✅ Text carries over | 🔶 Text carries over + EVI 2 can *independently* detect the student's emotional state via prosody — potential for a second signal |
+| **Pattern Compass (live updates)** | ✅ Daniela calls `update_pattern_compass` tool | ❌ No tool interception in our proxy | ❌ Tool interception not implemented |
+| **Tool Rack** | ✅ All 30+ tools wired | ❌ Tools not available without proxy rewrite | ❌ Tools not available without proxy rewrite |
+| **Student's Screen updates** | ✅ Live via tool calls | ❌ No tool interception | ❌ No tool interception |
+
+**Summary:** The static parts of the classroom (identity, window, notes, student facts, North Star Wall) port to any provider with zero code change — they're just text in a context turn. The dynamic parts (Pattern Compass live updates, whiteboard state sync, Student's Screen) require tool calling interception, which is the same gap that blocks the full comparison on all non-Gemini engines.
+
+**Potential upgrade with EVI 2:** The Pedagogical Lamp is currently Daniela's own judgment call. EVI 2 could give us a *second, independent signal* from actual prosody — we could compare Daniela's read ("student sounds like they're in flow") against EVI 2's emotional detection ("student voice shows moderate uncertainty") and surface that divergence as a teaching signal. This has no equivalent in any other voice provider.
+
+---
+
+## 6.4 Audio Tags — Should We Use Them With Daniela?
+
+### Background
+
+Gemini 3.1 Flash TTS (the standalone text-to-speech API) supports 200+ audio tags — explicit markers embedded in text that tell the synthesizer how to speak: `[pause]`, `[whisper]`, `[slow]`, `[fast]`, `[sigh]`, `[laugh]`, `[emphasis]`, and many more. The question is whether these tags should be used in Daniela's Gemini Live sessions to improve her expressive output.
+
+### What the two Gemini audio APIs actually are
+
+| | **Gemini TTS API** (`gemini-2.5-flash-preview-tts`) | **Gemini Live API** (`gemini-3.1-flash-live-preview`) |
+|---|---|---|
+| **Role** | Text-in → audio-out converter | Full conversation model — understands, reasons, and speaks |
+| **How output audio is generated** | From tagged/styled text you provide | From the model's own generated response, synthesized in the same pass |
+| **Where audio tags fit** | Natural — you control the text, you embed the tags | Ambiguous — you don't control the text the model generates |
+| **Used in our codebase** | `server/services/gemini-tts-streaming.ts` (textbook audio, vocabulary) | `server/services/gemini-live-session.ts` (all /chat voice sessions) |
+
+### The case against injecting audio tags into Live sessions
+
+The user's instinct is right: **audio tags are likely to confuse Daniela rather than improve her.** Here's the reasoning:
+
+**1. The model already has native prosodic intelligence.**
+Gemini Live 3.1 processes audio natively and generates spoken output with contextually appropriate prosody. When Daniela says "That was *exactly* right — well done," the model naturally stresses the right words, softens appropriately after corrections, and varies pacing based on the conversation state. This emerges from the model's understanding of context, not from explicit instructions.
+
+**2. Audio tags are a workaround for a dumber system.**
+The TTS API (standalone) is a pure converter — it receives text and produces audio with no understanding of what's happening in a conversation. Audio tags exist to compensate for the absence of contextual intelligence. Daniela already has that intelligence. Giving her tags is like giving a fluent speaker a pronunciation guide — it's likely to make them sound more mechanical, not less.
+
+**3. The Live API may not process tags the way the TTS API does.**
+The two APIs have different audio generation paths. In the Live API, the model generates text internally and synthesizes audio in the same pass. Embedding tags in Daniela's *instructions* might cause the model to read the tags aloud, ignore them, or produce inconsistent behavior. The TTS API is explicitly designed to parse tagged text. The Live API is not documented to process the same tags the same way.
+
+**4. Tags create rigidity where flexibility is needed.**
+Language tutoring requires moment-to-moment emotional calibration. A student who just nailed a subjunctive clause for the first time needs spontaneous warmth, not a scripted `[enthusiastic]` tag. Tags are static; Daniela's prosodic intelligence is dynamic.
+
+**5. The `word_emphasis` tool already exists as the right abstraction.**
+When Daniela explicitly wants to model pronunciation or stress a key word, she calls `word_emphasis()` — which triggers a self-instruction to speak that word with more care. This is the correct layer: Daniela decides *when* emphasis is needed based on her pedagogical read of the moment, and executes it through natural speech rather than markup. The tool is already in her Tool Rack.
+
+### The case for investigating tags (devil's advocate)
+
+- For specific, predictable moments (e.g., always slow down when introducing a new vocabulary word), tags could provide consistency
+- The 200+ tag set includes non-prosodic markers that might be useful (pronunciation guides for difficult phonemes, for example)
+- If the Live API *does* respect tags, it could be an additional control surface without replacing natural prosody
+
+### Recommendation
+
+**Do not inject audio tags into Daniela's Live sessions.** Trust the model's native prosodic intelligence. The "Voice Perception" addition to her classroom environment (added May 13, 2026) gives her explicit permission to use what she hears in the student's voice to shape how she responds — this is the right intervention. Natural intelligence over markup.
+
+**For textbook audio** (`gemini-tts-streaming.ts`): Audio tags *are* appropriate here because that pipeline is a pure TTS converter. Consider adding them to textbook vocabulary and example sentence audio to improve pronunciation modeling clarity. This is a separate investigation from the Live session question.
+
+**If you want to test:** Add a single benign tag (e.g., `[slow]`) to Daniela's instruction for introducing new vocabulary and listen to whether it helps or creates artifacts. Do this in a development session, not with a real student.
+
+---
+
+## 6.5 Gemini Live 3.1 — Wishlist / Roadmap Watch
+
+*Last updated: May 13, 2026. Features marked 🗓️ are on Google's public roadmap. Features marked 🔍 have no committed timeline.*
+
+### On Google's Public Roadmap (confirmed "coming soon")
+
+**🗓️ Asynchronous function calling**
+
+Currently all tool calls in Live sessions are synchronous — the model is officially blocked while waiting for the function result. In practice this means when Daniela calls `generate_visual()` (~10s image generation), she has to manage the dead air with a prompt-hack workaround ("keep talking naturally while the image generates"). True async would fire the tool, let the audio stream continue uninterrupted, and inject the result as a callback when ready. This is the single highest-impact missing feature for HolaHola — image generation mid-conversation would become seamless.
+
+*Current workaround:* Tool description instructs Daniela to announce the action conversationally and keep talking. Works, but the model can get slightly awkward during long tool waits.
+
+**🗓️ Proactive audio**
+
+The Live API is currently strictly reactive — Daniela can only speak when a student sends audio or text. She cannot initiate. This blocks:
+- Session-opening greetings (we trigger them with a client-side text inject — a hack)
+- Spontaneous silence check-ins ("Take your time — still with me?")
+- The SMS absence nudge system ever becoming a real in-session voice push from Daniela
+- Server-push audio notifications (credit warnings, teacher alerts)
+
+Once proactive audio ships, Daniela truly owns the rhythm of the conversation.
+
+**🗓️ Effective dialogue (full-duplex improvement)**
+
+Google's term for smarter turn-taking. Currently the VAD (voice activity detection) uses a time-based heuristic — our `silenceDurationMs: 2500` gives students 2.5 seconds of silence before the model treats them as done. This is deliberately long because language learners pause mid-sentence while searching for words. Effective dialogue means the model understands "they're still mid-thought" from semantic and prosodic context, not just silence length. It also handles natural overlap more gracefully when the student starts responding before Daniela finishes. Will let us reduce the silence buffer and make turn-taking feel more natural.
+
+*Current workaround:* `silenceDurationMs: 2500`, `END_SENSITIVITY_LOW` in VAD config. Works, but blunt.
+
+---
+
+### No Committed Timeline — But We'd Want Them
+
+| Feature | Why we want it | Impact |
+|---|---|---|
+| **🔍 Fine-tuned models in Live API** | Daniela's character lives entirely in the classroom environment context block — model weights are generic Gemini. Fine-tuning would bake her ACTFL pedagogy, error correction style, and encouragement patterns into the weights permanently, making the system prompt shorter and her behavior more consistent. | Highest architectural impact — changes the foundation |
+| **🔍 Custom voice / voice cloning** | Daniela's voice is Aoede — a prebuilt voice that sounds different across languages and isn't truly *hers*. Custom voice cloning would give her a persistent, unique voice identity consistent in Spanish, French, Japanese, and all 9 languages. | Brand-level impact — Daniela would sound like Daniela |
+| **🔍 Native pronunciation assessment** | Scoring phoneme accuracy currently requires a separate Azure Speech Services round-trip after the student speaks — a second API in the audio pipeline. Ideally the Live API would natively score pronunciation and provide phoneme-level feedback as part of the same audio understanding pass. | Simplifies architecture, reduces latency |
+| **🔍 Multi-participant audio sessions** | Voice-native Team Room requires multiple student audio streams in one session. Currently impossible — you'd need separate sessions per participant and some orchestration layer. | Unlocks a whole product feature |
+| **🔍 Audio-native memory** | We remember *what* a student said but not *how they sounded* — a student's hesitant vs confident voice pattern across sessions is lost. Only text descriptions persist in the neural net. | Richer longitudinal learner modeling |
+| **🔍 Real-time audio translation** | Immersion mode could have Daniela speak Spanish while the student simultaneously hears English — simultaneous interpretation in the same audio stream. Currently the student gets one language or the other. | Premium immersion feature |
+| **🔍 Tool calling during model speech** | Daniela can't fire a tool while she's speaking. She finishes speaking → calls tool → waits → resumes. True concurrency would make transitions seamless. | Quality-of-life, conversation smoothness |
+| **🔍 Longer session without reconnect** | 15-min hard cap requires our reconnection logic, which adds ~1–2s and risks context loss at the seam. Unlimited sessions would remove this engineering surface. | Reliability, simplicity |
+
+---
+
+### Priority Order — If Google Ships One Tomorrow, Which Do We Want Most?
+
+1. **Async function calling** — immediate quality improvement, images mid-conversation become clean
+2. **Proactive audio** — Daniela finally owns the conversation start and can initiate check-ins
+3. **Fine-tuning in Live** — deepest architectural improvement; Daniela's teaching philosophy in the weights
+4. **Native pronunciation assessment** — collapses multi-API round-trip into the existing audio stream
+5. **Effective dialogue** — removes VAD tuning guesswork, makes overlap natural
+6. **Custom voice** — Daniela gets a voice that's truly hers across all languages
+7. **Multi-participant audio** — unlocks voice-native Team Room
+
+---
+
+### Watch Signal
+
+Monitor the [Gemini Live API changelog](https://ai.google.dev/gemini-api/docs/changelog) and the `@google/genai` SDK release notes for these features. The first three (async, proactive, effective dialogue) are explicitly listed as coming. Fine-tuning in Live has been noted as a desired roadmap item with no committed date — whoever ships fine-tune + realtime first (Google or OpenAI) wins the architecture decision.
+
+---
+
+## 6.6 Multi-Character Voice Scenarios — speak_as / resume_tutor
+
+*Last updated: May 13, 2026.*
+
+### What we have today — and how it actually works
+
+HolaHola already supports genuine dual-voice roleplay. Daniela calls `speak_as(character, text)` to voice a secondary character (el mesero, el doctor, carlos, etc.) and `resume_tutor(text)` to return to herself. This is fully wired end-to-end.
+
+**The pipeline under the hood:**
+
+| Who | Audio source | Voice | Pipeline |
+|---|---|---|---|
+| Daniela | Gemini Live 3.1 native audio | `es-US-Chirp3-HD-Aoede` | Live WebSocket session — end-to-end audio |
+| El mesero | Google Chirp 3 HD TTS (separate call) | `es-US-Chirp3-HD-Charon` | `speak_as` → server → Cloud TTS API → audio |
+| Carlos (friend) | Google Chirp 3 HD TTS | `es-US-Chirp3-HD-Puck` | same |
+| Elena (friend) | Google Chirp 3 HD TTS | `es-US-Chirp3-HD-Kore` | same |
+
+Each character has a dedicated voice from the Chirp3-HD pool, with tutor voices (`Aoede`, `Fenrir`) reserved and never reused. When `speak_as` fires, the session swaps `voiceId` and `ttsProvider`, routes the character's text through Chirp TTS, and notifies the client with a `character_change` event. `resume_tutor` restores the tutor's saved voice. See `server/services/character-registry.ts` for the full roster and `server/services/native-fc-handlers.ts:192` for the handler.
+
+---
+
+### Why Chirp instead of Gemini Live voices?
+
+Gemini Live locks the voice at session initialization — Aoede is set in `speechConfig` when the `/chat` WebSocket opens and **cannot change while the session is alive**. There is no mid-session voice-switching API. To produce a different voice for the character, a separate TTS call is the only option. We use Google Chirp 3 HD because it shares the same underlying voice model family as Gemini Live (Aoede, Charon, Puck etc. are all Chirp3-HD voices) — so the timbre and language quality are consistent even though the pipeline differs.
+
+The one meaningful difference: Daniela's Live audio has Gemini's prosodic intelligence applied (the model shapes intonation based on meaning and context). The character's Chirp output is straight text-to-audio. For short NPC lines (1–3 sentences), this difference is imperceptible in practice.
+
+---
+
+### Two API calls per turn — does it matter?
+
+Technically yes: each character turn requires one Gemini Live inference pass (Daniela generating the scene) plus one Chirp TTS call (the character speaking). In practice the Chirp call for a 1–3 sentence NPC line takes ~100–200ms. The gap between Daniela's last word and the character's first word is imperceptible to a student. This is not a problem worth solving today.
+
+The ideal long-term architecture: Gemini Live adds mid-session voice config updates, and Daniela can generate the character's line in the same audio stream with a different voice — one pipeline, zero extra calls. This is not yet in the Live API but fits naturally alongside other roadmap features (effective dialogue, multi-participant audio).
+
+---
+
+### Voice puppet is the right model
+
+Daniela scripts the character's lines. The character doesn't think — a TTS engine speaks Daniela's words through a different voice. This is the correct architecture:
+
+- Daniela is the teacher running the roleplay, not a bystander watching a second AI perform
+- She controls what the waiter says pedagogically — she can calibrate difficulty, introduce target vocabulary on cue, and extend or cut the scene based on how the student is doing
+- Roleplays in language teaching aren't improvisational theater; they're structured scenes with a learning goal. Daniela authors that goal in real time.
+- A second AI playing the waiter autonomously would introduce unpredictability that could derail the lesson
+
+The voice puppet model gives the student the audio experience of talking to a real character while keeping Daniela in full control of the teaching arc.
+
+---
+
+### Would LiveKit or Pipecat help here?
+
+**LiveKit — not for this; yes for something else**
+
+LiveKit's multi-agent system would be the right tool if you wanted *autonomous* NPCs — each character running its own Gemini Live session, with its own understanding of the conversation, capable of reacting independently to things the student or Daniela says. You'd spin up a second LiveKit Agent Worker for el mesero (Charon voice, restaurant persona) and it would genuinely listen, think, and respond on its own.
+
+But for the voice puppet model (Daniela scripts lines → TTS speaks them), LiveKit adds nothing. You'd have an idle second WebSocket session waiting for Daniela to write its lines for it. More infrastructure, same result.
+
+Where LiveKit *does* become relevant: Team Room voice — multiple students in one voice session with Daniela. That requires multi-participant audio, which LiveKit handles natively. The current Gemini Live API does not.
+
+**Pipecat — not specifically for speak_as**
+
+Pipecat is a Python framework for composing voice AI pipelines (STT → LLM → TTS → transport). It has solid support for multi-agent orchestration and could make the speak_as → Chirp TTS path more elegant (overlapping streams, declarative pipeline). But we already have a custom orchestrator (`streaming-voice-orchestrator.ts`) that handles this well. Pipecat would not improve the current speak_as implementation — it's a benefit only if you're starting fresh or migrating the whole pipeline.
+
+**Summary:**
+
+| Problem | LiveKit helps? | Pipecat helps? | Real fix |
+|---|---|---|---|
+| Character needs its own voice | No — already solved via Chirp TTS | No | Already built |
+| Two API calls per turn | No | No | Wait for Gemini mid-session voice switching |
+| Characters should react autonomously | Yes — second Agent Worker per character | Partially — pipeline composition | Architecture decision: voice puppet is fine |
+| Multiple students in one voice session (Team Room) | Yes — primary use case | Yes | Future work, separate from speak_as |
+| Character audio quality matches Daniela's | No | No | Wait for mid-session voice config in Live API |
+
+---
+
+### Upgrade path if it ever matters
+
+If autonomous NPC intelligence becomes a requirement (characters that listen and react without Daniela scripting them), the cleanest upgrade is a server-side Gemini inference call triggered by `speak_as` with no `text` argument:
+
+1. Daniela calls `speak_as("el_mesero")` — no text
+2. Server makes a fast non-streaming Gemini call with the character's persona + recent conversation turns
+3. Character's generated response is TTS'd through Charon
+4. Student hears a genuinely reactive waiter, Daniela remains in pedagogical control via scene framing
+
+This gives characters real reactivity without a second Live session, LiveKit, or any infrastructure change.
+
+---
+
+## 6.7 LiveKit — Full Evaluation for HolaHola
+
+*Last updated: May 13, 2026. Based on LiveKit Agents v1.x, LiveKit Cloud pricing current as of that date.*
+
+### What LiveKit actually is
+
+LiveKit is an open-source WebRTC SFU (Selective Forwarding Unit) with a managed cloud layer and a production agent framework on top. It's what OpenAI uses for ChatGPT Voice, what Character.ai runs on, and what Meta uses for real-time media. The Agents framework (v1.0 April 2025, now v1.5.x) is the piece relevant to HolaHola — it's a Python-first framework for building, deploying, and scaling voice AI agents with built-in STT→LLM→TTS pipeline composition, semantic turn detection, and multi-participant audio rooms.
+
+---
+
+### Current HolaHola audio infrastructure (relevant baseline)
+
+Before evaluating LiveKit, it's important to know what already exists:
+
+- **`/chat` route:** Fully custom Gemini Live WebSocket session handler in Node.js/Express (~6,000 lines across `gemini-live-session.ts`, `native-fc-handlers.ts`, `streaming-voice-orchestrator.ts`). Manages VAD config, function call routing, voice switching, reconnection at 15-min boundary, classroom environment injection, speak_as pipeline. No WebRTC — a server-side pipe to Google's audio stream.
+- **Team Room:** Socket.io text messaging + queued REST TTS calls for AI voices (Daniela, Alden, Claude). Student voice input is PTT only. No live simultaneous audio, no real WebRTC voice room.
+- **Outbound calling:** Fully built Twilio VoIP bridge — Daniela places real outbound phone calls. When student answers, `twilio-voip-bridge.ts` bridges audio bidirectionally (Twilio μ-law 8kHz ↔ Gemini Live PCM16 16kHz), max 3-min call duration, call is recorded and Deepgram-transcribed on completion. Falls back to SMS + Gemini TTS-rendered voice note if no answer. Consent-gated throughout.
+
+---
+
+### Feature-by-feature evaluation
+
+**Tier 1 — High value: unlocks capabilities that don't exist today**
+
+| LiveKit feature | HolaHola application | Verdict |
+|---|---|---|
+| **Multi-participant audio rooms** | Team Room becomes a real voice room — students and AI participants have live simultaneous audio, not queued TTS turns. Daniela, Alden, and Claude each get their own audio stream. Students can speak and hear each other. | Build it. Team Room voice is a net-new product feature with no migration risk — start fresh on LiveKit. |
+| **Multi-agent architecture** | In Team Room, each AI participant (Daniela, Alden, Claude) runs as an independent LiveKit Agent Worker — they can genuinely listen and react to each other, not just post text turns. | Dependent on Team Room voice build. |
+
+**Tier 2 — Medium value: meaningful quality improvements**
+
+| LiveKit feature | HolaHola application | Verdict |
+|---|---|---|
+| **Semantic turn detection** | A transformer model that understands "still mid-thought" vs. "done" — exactly what language learners need when pausing mid-sentence to search for a word. We currently work around this with `silenceDurationMs: 2500`, `END_SENSITIVITY_LOW` in VAD config. LiveKit has this *today*. Google's equivalent ("effective dialogue") is on their roadmap but not shipped. | High value if `/chat` is ever migrated to LiveKit. Low value without that migration. |
+| **Built-in noise cancellation** | Students in noisy environments (cafeteria, home with siblings, outdoors). Cleaner audio into both Gemini Live and Azure pronunciation scoring. No noise cancellation exists in the current pipeline. | Applicable to both `/chat` and Team Room voice. Worth having — but only accessible if we're running audio through LiveKit's transport layer. |
+| **Session recording / egress** | Voice session recordings for student self-review, teacher auditing, pronunciation comparison over time. | No session recording exists today. Twilio call recording exists for outbound calls but not for normal `/chat` sessions. Would require routing audio through LiveKit. |
+| **Observability / automatic transcripts** | Automatic session transcripts stored and searchable. Today we have no transcript of `/chat` sessions in the DB — Daniela writes session notes, but not a word-for-word record. | Good data asset for neural net training and teacher review. Again requires routing through LiveKit. |
+
+**Tier 3 — Lower priority / longer horizon**
+
+| LiveKit feature | HolaHola application | Notes |
+|---|---|---|
+| **Virtual avatars (lip-synced)** | Daniela gets a visual presence in voice sessions — lip sync, facial animation | Engagement feature. Interesting for the future; not urgent. |
+| **Screen sharing** | Team Room: share a whiteboard, student work, or an image generated by Daniela | Team Room has artifacts/screenshots already. This extends it. |
+| **Built-in testing framework** | Automated voice behavior regression testing for Daniela | We have no automated voice tests. Valuable for catching regressions after classroom environment changes. |
+| **MCP tool support** | Daniela's tool registry served via Model Context Protocol | Architecture direction, not an immediate need. |
+| **LiveKit Inference (50+ models, no API keys)** | Could replace some of our manual API key management for STT/TTS providers | Convenience; not a compelling standalone reason. |
+
+---
+
+### Outbound calling — LiveKit SIP vs. existing Twilio VoIP bridge
+
+**LiveKit SIP would NOT improve outbound calling** — because the Twilio VoIP bridge is already fully built and doing exactly what LiveKit SIP would do.
+
+**What already exists (`twilio-voip-bridge.ts`, `voice-call-sender.ts`):**
+
+```
+Absence detected → Daniela's Express Lane nudge
+ → Daniela calls leave_for_next_session
+ → voice-call-sender checks consent
+ → initiateCall() → Twilio outbound call placed
+ → Student answers → voice-answer webhook fires
+ → twilio-voip-bridge streams audio:
+     Twilio μ-law 8kHz → PCM16 16kHz → GeminiLiveSession
+     GeminiLiveSession F32LE 24kHz → μ-law 8kHz → Twilio
+ → Live bidirectional Daniela ↔ student phone call (max 3 min)
+ → Call recorded, Deepgram-transcribed on completion
+ → No answer → falls back to SMS + Gemini TTS voice note
+```
+
+LiveKit SIP would replace "Twilio Media Streams WebSocket" with "LiveKit SIP trunk" — same result (live AI phone call to student), different plumbing. The codec conversion (`twilio-voip-bridge.ts`) would be replaced by LiveKit's native SIP audio handling, which is marginally cleaner — but the Twilio bridge is already working and battle-tested. Not worth rebuilding.
+
+**Cost comparison** (for reference):
+
+| Path | Telephony cost | Agent/compute | Notes |
+|---|---|---|---|
+| **Current (Twilio VoIP)** | ~$0.013–0.022/min (Twilio call) | $0 (uses existing Gemini Live session) | Already built, working |
+| **LiveKit SIP** | $0.003–0.004/min (LiveKit SIP) | +$0.01/min (LiveKit agent) | Would need full bridge rewrite |
+
+LiveKit's SIP rate is cheaper per minute of telephony, but the LiveKit agent hosting adds $0.01/min that doesn't exist in the Twilio path (we reuse the existing Gemini Live session). Net cost is similar. Not a meaningful saving.
+
+---
+
+### Cost model — what LiveKit actually adds
+
+**For Team Room voice (new feature, greenfield build):**
+
+| Cost component | Rate | 10 students × 60 min/month |
+|---|---|---|
+| LiveKit agent session | $0.01/min | $6.00 |
+| WebRTC per participant | $0.0005/min | $3.00 (10 students) |
+| Gemini inference for AI turns | $0.03/min (while AI speaking) | Variable |
+| **Plan:** Ship ($50/mo) | Includes ~5,000 agent minutes | Easily covers early Team Room volume |
+
+**For `/chat` route migration (not recommended — see below):**
+
+| Current | With LiveKit | Delta |
+|---|---|---|
+| Gemini Live: $0.03/min | Gemini Live: $0.03/min + LiveKit agent: $0.01/min + WebRTC: $0.0005/min | +$0.0105/min ≈ +35% on that route |
+| 1,000 sessions/month | 1,000 sessions/month | +$10.50/month |
+
+---
+
+### Migration question — should `/chat` move to LiveKit?
+
+**No, not now.** The current `/chat` handler is ~6,000 lines of carefully tuned Node.js:
+
+- VAD config (`silenceDurationMs`, `END_SENSITIVITY_LOW`, `prefixPaddingMs`)
+- 15-min reconnection logic with context preservation
+- Full speak_as / resume_tutor voice switching pipeline
+- Native function call routing for 80+ Daniela tools
+- Classroom environment injection and hot-reload
+- Character registry, voice provider switching
+
+LiveKit Agents is primarily Python. Migrating means a language change *and* an architecture change simultaneously, rewriting all of the above in a new framework. The risk is high and the immediate benefit is limited — we'd gain semantic turn detection and noise cancellation, but we're already waiting for Google to ship these natively.
+
+**Trigger conditions for reconsideration:**
+- Google never ships "effective dialogue" (semantic turn detection) and the VAD workaround becomes a real product problem
+- Fine-tuning + Live becomes a provider decision point and we're evaluating engines anyway
+- Team Room voice is built on LiveKit and it becomes compelling to unify all audio through one system
+
+---
+
+### Recommended build order
+
+| Priority | Feature | Rationale |
+|---|---|---|
+| **1** | Team Room voice on LiveKit | Greenfield build, no migration risk, enables a new product feature entirely |
+| **2** | Multi-agent voices in Team Room | Natural extension once the room infrastructure is in place |
+| **3** | Session recording for `/chat`  | Valuable data asset; requires deciding whether to route `/chat` audio through LiveKit or build a separate recording layer |
+| **Skip (for now)** | `/chat` migration | High risk, marginal gain, wait for a forcing function |
+| **Skip entirely** | Outbound calling via LiveKit SIP | Twilio VoIP bridge already does this. Don't rebuild. |
+
+---
+
+### Plan cost summary
+
+LiveKit Cloud plans as of May 2026:
+
+| Plan | Monthly | Included agent minutes | Best for |
+|---|---|---|---|
+| **Build** | Free | 1,000 | Prototyping Team Room voice |
+| **Ship** | $50 | ~5,000 | Small production volume |
+| **Scale** | $500 | 50,000 | Meaningful student usage |
+| **Enterprise** | Custom | Custom | — |
+
+Overage on all paid plans: $0.01/min agent sessions. WebRTC participant minutes: $0.0005/min. SIP (if ever used): $0.003–0.004/min.
+
+Cold start warning: Build (free) plan shuts agents down between sessions — up to 10–20s delay when a new session starts. Paid plans keep agents warm.
+
+---
+
+## 7. Future Enhancements
 
 1. **Speed Control UI**: Add slow/normal/fast buttons to textbook audio players
 2. **Audio Caching**: Pre-generate and cache common drill audio

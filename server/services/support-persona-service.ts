@@ -13,7 +13,10 @@
  * Anthropic is reserved only for Hive collaboration (Editor ↔ Daniela ↔ Wren)
  */
 
+import { createHash } from 'crypto';
 import { GoogleGenAI } from "@google/genai";
+import { costTracker } from './cost-tracker';
+import { acquireBackgroundSlot, isVoiceActive } from './gemini-priority-gate';
 import { db, getUserDb, getSharedDb } from "../db";
 import { 
   supportTickets,
@@ -34,23 +37,19 @@ import { voiceSessions, messages } from "@shared/schema";
 import type { HealthTransition } from "./voice-health-monitor";
 
 // Initialize Gemini client (consistent with Daniela and Aris)
-// Uses fallback pattern: AI_INTEGRATIONS_GEMINI_API_KEY || GEMINI_API_KEY
+// Uses fallback pattern: GEMINI_API_KEY || GEMINI_API_KEY
 let geminiClient: GoogleGenAI | null = null;
 
 function getGeminiClient(): GoogleGenAI {
   if (geminiClient) return geminiClient;
   
-  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn('[Sofia] No Gemini API key found - support responses will fail');
   }
   
   geminiClient = new GoogleGenAI({
     apiKey: apiKey || '',
-    httpOptions: {
-      apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-    },
   });
   return geminiClient;
 }
@@ -206,28 +205,40 @@ class SupportPersonaService {
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     
     // Generate Sofia's analysis if requested
+    // During an active voice session, defer the Gemini analysis call so it doesn't
+    // compete with the live conversation response. Detection + alerting still fire immediately.
     let sofiaAnalysis: string | undefined;
     if (params.generateAnalysis !== false) {
-      try {
-        sofiaAnalysis = await this.generateIssueAnalysis({
-          issueType: params.issueType,
-          userDescription: params.userDescription,
-          voiceDiagnostics: params.voiceDiagnostics,
-          deviceInfo: params.deviceInfo,
-          clientTelemetry: params.clientTelemetry,
-          mode: params.mode,
-          environment,
-        });
-        
-        // Update the report with the analysis
-        if (sofiaAnalysis) {
-          await getUserDb().update(sofiaIssueReports)
-            .set({ sofiaAnalysis })
-            .where(eq(sofiaIssueReports.id, report.id));
-          console.log(`[Sofia] Generated analysis for report ${report.id}`);
+      const runAnalysis = async () => {
+        try {
+          const analysis = await this.generateIssueAnalysis({
+            issueType: params.issueType,
+            userDescription: params.userDescription,
+            voiceDiagnostics: params.voiceDiagnostics,
+            deviceInfo: params.deviceInfo,
+            clientTelemetry: params.clientTelemetry,
+            mode: params.mode,
+            environment,
+          });
+          if (analysis) {
+            await getUserDb().update(sofiaIssueReports)
+              .set({ sofiaAnalysis: analysis })
+              .where(eq(sofiaIssueReports.id, report.id));
+            console.log(`[Sofia] Generated analysis for report ${report.id}`);
+          }
+        } catch (e) {
+          console.warn('[Sofia] Failed to generate analysis:', e);
         }
-      } catch (e) {
-        console.warn('[Sofia] Failed to generate analysis:', e);
+      };
+      if (isVoiceActive()) {
+        // Defer 35s — enough for the current voice turn to complete before calling Gemini
+        console.log(`[Sofia] Voice session active — deferring analysis for report ${report.id} by 35s`);
+        setTimeout(runAnalysis, 35_000);
+      } else {
+        // Always defer — never block the HTTP response on a Gemini call.
+        // Flag-button submissions need to return immediately, especially on unstable connections.
+        console.log(`[Sofia] Deferring analysis for report ${report.id} (500ms background)`);
+        setTimeout(runAnalysis, 500);
       }
     }
     
@@ -269,6 +280,11 @@ class SupportPersonaService {
   }): Promise<void> {
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     
+    // In development, runtime faults are expected artifacts — auto-resolve immediately
+    // to prevent them filling the pending queue. Track the suppression count for Lyra.
+    const isDev = environment === 'development';
+    if (isDev) costTracker.incrementDevAutoResolved();
+
     try {
       // Create an issue report for this runtime fault
       const [report] = await getUserDb().insert(sofiaIssueReports)
@@ -277,7 +293,9 @@ class SupportPersonaService {
           ticketId: params.ticketId,
           issueType: `runtime_fault:${params.errorType}`,
           userDescription: `[SOFIA RUNTIME FAULT] ${params.errorMessage}`,
-          sofiaAnalysis: `Error occurred in ${environment}. Code: ${params.errorCode || 'N/A'}. This is an automated fault report - Sofia's LLM subsystem encountered an error.`,
+          sofiaAnalysis: isDev
+            ? `[Auto-resolved] Development environment runtime fault — non-actionable. Code: ${params.errorCode || 'N/A'}.`
+            : `Error occurred in ${environment}. Code: ${params.errorCode || 'N/A'}. This is an automated fault report - Sofia's LLM subsystem encountered an error.`,
           diagnosticSnapshot: {
             errorType: params.errorType,
             errorMessage: params.errorMessage,
@@ -285,27 +303,29 @@ class SupportPersonaService {
             stackTrace: params.errorStack,
             timestamp: new Date().toISOString(),
             nodeEnv: process.env.NODE_ENV,
-            hasGeminiKey: !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY),
-            hasGeminiBaseUrl: !!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+            hasGeminiKey: !!(process.env.GEMINI_API_KEY),
+            hasGeminiBaseUrl: true,
           },
           clientTelemetry: params.context || null,
           environment,
-          status: 'pending',
-          syncStatus: 'pending_sync', // Mark for sync to dev environment
+          status: isDev ? 'resolved' : 'pending',
+          syncStatus: isDev ? 'synced' : 'pending_sync',
         })
         .returning();
       
-      console.log(`[Sofia] Runtime fault reported: ${params.errorType} (${report.id}) in ${environment}`);
+      console.log(`[Sofia] Runtime fault ${isDev ? 'auto-resolved (dev)' : 'reported'}: ${params.errorType} (${report.id}) in ${environment}`);
       
-      // Emit EXPRESS Lane alert for immediate founder visibility
-      founderCollabService.emitSofiaIssueAlert({
-        reportId: report.id,
-        issueType: `runtime_fault:${params.errorType}`,
-        userDescription: `[RUNTIME] ${params.errorMessage}`,
-        environment,
-        hasVoiceDiagnostics: false,
-        hasClientTelemetry: !!params.context,
-      }).catch(e => console.warn('[Sofia] Failed to emit fault alert:', e));
+      // Only emit EXPRESS Lane alert for production runtime faults
+      if (!isDev) {
+        founderCollabService.emitSofiaIssueAlert({
+          reportId: report.id,
+          issueType: `runtime_fault:${params.errorType}`,
+          userDescription: `[RUNTIME] ${params.errorMessage}`,
+          environment,
+          hasVoiceDiagnostics: false,
+          hasClientTelemetry: !!params.context,
+        }).catch(e => console.warn('[Sofia] Failed to emit fault alert:', e));
+      }
       
     } catch (e) {
       // Last resort - just log, don't throw
@@ -416,6 +436,7 @@ class SupportPersonaService {
         sql`(
           ${sofiaIssueReports.issueType} LIKE 'runtime_fault:%' 
           OR ${sofiaIssueReports.issueType} LIKE 'voice_fault:%'
+          OR ${sofiaIssueReports.issueType} LIKE 'billing_fault:%'
           OR ${sofiaIssueReports.issueType} IN ('no_audio', 'connection', 'double_audio', 'latency')
         )`,
       ))
@@ -478,7 +499,7 @@ class SupportPersonaService {
     mode?: 'user' | 'dev';
     environment: string;
   }): Promise<string | undefined> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn('[Sofia] No Gemini API key - cannot generate analysis');
       return undefined;
@@ -516,6 +537,7 @@ ${diagnosticsContext ? `\n(Technical context available for diagnosis)` : ''}
 Acknowledge their issue, provide helpful guidance, and let them know you're here to help.`;
     
     try {
+      await acquireBackgroundSlot('sofia-analysis');
       const response = await gemini.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: params.userDescription }] }],
@@ -858,7 +880,7 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     try {
       const gemini = getGeminiClient();
       
-      const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         console.error('[Sofia Helpline] CRITICAL: No Gemini API key available');
         return {
@@ -1316,8 +1338,8 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       await this.runMonitoringCheck();
     }, intervalMs);
     
-    // Run initial check after 30 seconds
-    setTimeout(() => this.runMonitoringCheck(), 30000);
+    // Delay initial check to 3 minutes — gives quota headroom for early voice sessions
+    setTimeout(() => this.runMonitoringCheck(), 3 * 60 * 1000);
   }
   
   /**
@@ -1332,6 +1354,22 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
   }
   
   /**
+   * Trigger an immediate out-of-band monitoring check without waiting for the 5-minute interval.
+   * Call this after filing a high-severity flare report so Sofia acts within seconds, not minutes.
+   * Silently no-ops if another check is already in progress.
+   */
+  triggerImmediateCheck(): void {
+    // Fire-and-forget; use a short debounce so back-to-back flares don't pile on
+    if ((this as any)._immediateCheckDebounce) return;
+    (this as any)._immediateCheckDebounce = setTimeout(() => {
+      (this as any)._immediateCheckDebounce = null;
+      this.runMonitoringCheck().catch(err =>
+        console.warn('[Sofia Monitor] Immediate check error:', err.message),
+      );
+    }, 2000); // 2s debounce — collapses flare storms into a single check
+  }
+
+  /**
    * Run a single monitoring check - detect patterns and emit summary
    */
   private async runMonitoringCheck(): Promise<void> {
@@ -1340,6 +1378,26 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       const lastCheck = this.lastCheckTime || new Date(Date.now() - 5 * 60 * 1000);
       const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
       
+      // Stale issue cleanup: auto-resolve old pending reports that will never be actioned.
+      // Development issues are ephemeral test noise; production issues get more time.
+      const staleDays = environment === 'production' ? 30 : 7;
+      const staleCutoff = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+      const staleResult = await getSharedDb()
+        .update(sofiaIssueReports)
+        .set({
+          status: 'resolved',
+          founderNotes: `Auto-resolved: stale pending issue (>${staleDays}d old, no action taken)`,
+          reviewedAt: now,
+        })
+        .where(and(
+          eq(sofiaIssueReports.status, 'pending'),
+          sql`${sofiaIssueReports.createdAt} < ${staleCutoff}`,
+        ));
+      const staleResolved = (staleResult as any).rowCount ?? 0;
+      if (staleResolved > 0) {
+        console.log(`[Sofia Monitor] Auto-resolved ${staleResolved} stale pending issues (>${staleDays}d old)`);
+      }
+
       // Get all reports from the last hour for pattern detection
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       const recentReports = await getUserDb().select()
@@ -1389,6 +1447,17 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
         environment,
       });
       
+      // Predictive detection: 24h window for sustained low-level patterns
+      await this.runPredictiveCheck();
+
+      // GL reconnect mid-turn watch — pings the Agent when the gl_audio_reset path fires in prod.
+      // This confirms the double-audio fix is exercised and lets the Agent verify playback quality.
+      await this.checkGlReconnectMidTurn(lastCheck);
+
+      // Assessment restart blocked watch — fires an agent note if GL calls START_PLACEMENT_ASSESSMENT
+      // more than once per session. Frequent hits = GL forgetting state, rubric needs higher priority.
+      await this.checkAssessmentRestartBlocked(lastCheck);
+
       this.lastCheckTime = now;
       console.log(`[Sofia Monitor] Check complete: ${allPending.length} pending, ${newSinceLastCheck} new`);
       
@@ -1396,7 +1465,404 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       console.error('[Sofia Monitor] Error in monitoring check:', error);
     }
   }
+
+  /**
+   * Predictive detection: look for issue types accumulating over 24h
+   * even if they haven't hit the 1h cluster threshold yet.
+   * Fires a "sustained pattern" warning to the Express Lane.
+   */
+  private async runPredictiveCheck(): Promise<void> {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentReports24h = await getUserDb().select()
+        .from(sofiaIssueReports)
+        .where(and(
+          sql`${sofiaIssueReports.createdAt} > ${twentyFourHoursAgo}`,
+          eq(sofiaIssueReports.status, 'pending'),
+        ))
+        .orderBy(desc(sofiaIssueReports.createdAt));
+
+      const byType24h: Record<string, typeof recentReports24h> = {};
+      for (const r of recentReports24h) {
+        const t = r.issueType || 'unknown';
+        if (!byType24h[t]) byType24h[t] = [];
+        byType24h[t].push(r);
+      }
+
+      const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+      const PREDICTIVE_THRESHOLD = 3;
+      const PREDICTIVE_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h cooldown per type
+
+      for (const [issueType, reports] of Object.entries(byType24h)) {
+        if (reports.length < PREDICTIVE_THRESHOLD) continue;
+
+        // Check if the 1h alert already fired for this type (skip if so — not predictive)
+        const hourCooldownKey = `${issueType}-${environment}`;
+        const lastHourAlert = this.patternAlertCooldown.get(hourCooldownKey);
+        if (lastHourAlert && (Date.now() - lastHourAlert.getTime()) < 30 * 60 * 1000) continue;
+
+        // Check predictive cooldown
+        const predictKey = `predict-24h-${issueType}-${environment}`;
+        const lastPredict = this.patternAlertCooldown.get(predictKey);
+        if (lastPredict && (Date.now() - lastPredict.getTime()) < PREDICTIVE_COOLDOWN_MS) continue;
+
+        console.log(`[Sofia Monitor] Predictive: ${reports.length}x ${issueType} in 24h — elevated risk`);
+        await founderCollabService.emitSofiaPatternAlert({
+          patternType: 'cluster',
+          issueType,
+          count: reports.length,
+          timeWindowMinutes: 1440,
+          environment,
+          recentReportIds: reports.slice(0, 5).map(r => r.id),
+          recommendation: `Sustained ${reports.length} "${issueType}" reports in 24h — pre-flagging as elevated risk before it hits critical cluster threshold.`,
+        });
+        this.patternAlertCooldown.set(predictKey, new Date());
+
+        // Also escalate to Alden for investigation — sustained 24h pattern is worth triage
+        // even if it hasn't hit the 1h acute threshold yet.
+        this.escalateToAlden(
+          issueType,
+          reports,
+          1440,
+          `Sustained ${reports.length}x "${issueType}" in 24h — investigate before it clusters acutely.`
+        ).catch(err =>
+          console.error(`[Sofia→Alden] Predictive escalation error for "${issueType}":`, err.message)
+        );
+      }
+    } catch (err: any) {
+      console.warn('[Sofia Monitor] Predictive check error:', err.message);
+    }
+  }
   
+  /**
+   * Returns true when a diagnostic fingerprint matches a known-benign pattern
+   * that has been investigated dozens of times and confirmed safe. These are
+   * structural false-positives — the monitoring is working correctly but the
+   * event is a normal part of session lifecycle, not a real issue.
+   *
+   * Benign catalogue (confirmed by Alden across 60+ triage sessions):
+   *  • double_audio + no diagnostic data → dedup system blocking retransmissions at session start
+   *  • no_audio + expected==received → Tier-2 failsafe fired after audio already played (by design)
+   *  • connection + context=unknown → diagnostic snapshot fired before audio initialized
+   *  • voice_health_transition in development → single-user (David) testing noise
+   */
+  private isKnownBenignFingerprint(
+    issueType: string,
+    environment: string,
+    diagnosticFingerprint: string,
+    reports: typeof sofiaIssueReports.$inferSelect[]
+  ): boolean {
+    // double_audio with no diagnostic data = dedup blocking s0_c0/s0_c1 retransmissions at
+    // session start. The dedup system is doing its job; these are never real bugs.
+    if (issueType === 'double_audio') {
+      const allUnknown = diagnosticFingerprint.split('|').every(f => f === '?:?:?:?');
+      if (allUnknown) return true;
+    }
+
+    // no_audio where expected == received = audio was delivered successfully; the Tier-2
+    // 45-second failsafe fired afterward (by design, to clear stuck AudioWorklet states).
+    if (issueType === 'no_audio') {
+      const allDelivered = diagnosticFingerprint.split('|').every(f => {
+        const [expected, received] = f.split(':');
+        return expected !== '?' && received !== '?' && expected === received;
+      });
+      if (allDelivered) return true;
+    }
+
+    // connection with context=unknown = diagnostic snapshot fired before the audio pipeline
+    // initialised (expected=?, received=0). Sessions complete successfully afterward.
+    if (issueType === 'connection') {
+      const allEarlyConnect = diagnosticFingerprint.split('|').every(f => {
+        const parts = f.split(':');
+        const context = parts[3] ?? '';
+        const received = parts[1] ?? '';
+        return context === 'unknown' && received === '0';
+      });
+      if (allEarlyConnect) return true;
+    }
+
+    // voice_health_transition = server-generated health monitor events (userId: 'system').
+    // These are single-user session quality signals, not multi-user production outages.
+    // Green↔yellow oscillation on a single device (e.g. 4G) is expected and not actionable.
+    // Suppress in any environment when all reports come from a single user/source.
+    if (issueType === 'voice_health_transition') {
+      const userIds = new Set(reports.map(r => r.userId).filter(Boolean));
+      if (userIds.size <= 1) return true;
+    }
+
+    return false;
+  }
+
+  private async escalateToAlden(
+    issueType: string,
+    reports: typeof sofiaIssueReports.$inferSelect[],
+    timeWindowMinutes: number,
+    recommendation: string | undefined
+  ): Promise<void> {
+    const sharedDb = getSharedDb();
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+
+    // 1. Write to support_patterns — with deduplication via signatureHash.
+    //    The same issueType+environment combo gets ONE row; repeat detections
+    //    increment the count and update lastSeen rather than spawning a new
+    //    Alden investigation (which was generating 40+ duplicate notifications).
+    let patternId: string | null = null;
+    let isNewPattern = true;
+    try {
+      // Build a diagnostic fingerprint from report details so that
+      // genuinely different failure modes (e.g. expected=0 vs expected=1)
+      // get separate hash rows rather than being silently merged.
+      //
+      // voice_health_transition reports never contain the expected=/received=/playing=/context=
+      // fields, so the regex-based fingerprint always produces ?:?:?:?  repeated N times where
+      // N = how many reports happen to be in the window at detection time.  Variable N → variable
+      // hash → new support_patterns row every single detection cycle (root cause of the 63-row
+      // accumulation).  Use a fixed fingerprint for this issue type so the hash is stable.
+      const diagnosticFingerprint = issueType === 'voice_health_transition'
+        ? 'vht'
+        : reports.slice(0, 5).map(r => {
+            const desc = (r as any).description || '';
+            const expectedMatch = desc.match(/expected=(\?|\d+)/);
+            const receivedMatch = desc.match(/received=(\d+)/);
+            const audioMatch = desc.match(/playing=(\w+)/);
+            const contextMatch = desc.match(/context=(\w+)/);
+            return `${expectedMatch?.[1] || '?'}:${receivedMatch?.[1] || '?'}:${audioMatch?.[1] || '?'}:${contextMatch?.[1] || '?'}`;
+          }).join('|');
+
+      // Fast-path: suppress patterns we've investigated dozens of times and confirmed benign.
+      // These are structural false-positives (normal session lifecycle events, not real bugs).
+      // Suppressing here prevents DB writes and Alden triage calls entirely.
+      if (this.isKnownBenignFingerprint(issueType, environment, diagnosticFingerprint, reports)) {
+        console.log(`[Sofia→Alden] Suppressed known-benign pattern: ${issueType} (fingerprint: ${diagnosticFingerprint.substring(0, 60)})`);
+        return;
+      }
+
+      const signatureHash = createHash('sha256')
+        .update(`${issueType}:${environment}:${diagnosticFingerprint}`)
+        .digest('hex')
+        .substring(0, 64);
+
+      // Check for existing pattern.
+      // known_benign rows suppress indefinitely (no time limit) — they've been investigated
+      // and confirmed harmless; we never want a new row for them regardless of age.
+      // All other statuses use a 30-day rolling window so genuinely recurring issues
+      // that have gone quiet can resurface for fresh investigation.
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const existing = await sharedDb
+        .select({ id: supportPatterns.id, status: supportPatterns.status, occurrenceCount: supportPatterns.occurrenceCount })
+        .from(supportPatterns)
+        .where(and(
+          eq(supportPatterns.signatureHash, signatureHash),
+          or(
+            eq(supportPatterns.status, 'known_benign'),
+            gte(supportPatterns.updatedAt, thirtyDaysAgo),
+          ),
+        ))
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Known pattern — increment counter, update lastSeen, do NOT re-dispatch Alden
+        isNewPattern = false;
+        patternId = existing[0].id;
+        const newCount = (existing[0].occurrenceCount ?? 1) + reports.length;
+        await sharedDb.update(supportPatterns)
+          .set({
+            occurrenceCount: newCount,
+            lastSeen: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(supportPatterns.id, patternId));
+        console.log(`[Sofia→Alden] Known pattern ${patternId} (${issueType}, ${existing[0].status}) — count now ${newCount}. Skipping duplicate escalation.`);
+      } else {
+        // New pattern — insert and let Alden investigate
+        const reportSummary = reports.slice(0, 5).map(r =>
+          `[${r.issueType}] ${r.userDescription?.substring(0, 120) || '(no description)'}`
+        ).join('\n');
+
+        const [pattern] = await sharedDb.insert(supportPatterns).values({
+          patternType: `cluster_${issueType}`,
+          description: `Sofia detected ${reports.length}x "${issueType}" in ${timeWindowMinutes}min (${environment}). Escalated to Alden.\n\nRecent reports:\n${reportSummary}`,
+          occurrenceCount: reports.length,
+          status: 'investigating',
+          developerNotes: `Alden investigation pending. Recommendation: ${recommendation || 'None'}`,
+          signatureHash,
+        }).returning({ id: supportPatterns.id });
+        patternId = pattern?.id || null;
+        console.log(`[Sofia→Alden] New pattern recorded: ${patternId} (${issueType} ×${reports.length}, hash: ${signatureHash.substring(0, 8)}…)`);
+      }
+    } catch (err: any) {
+      console.warn('[Sofia→Alden] Failed to write support_patterns:', err.message);
+    }
+
+    // Early-exit for known patterns — no need to invoke Alden again
+    if (!isNewPattern) return;
+
+    // 2. Build Alden's investigation prompt
+    const issueFileHints: Record<string, string> = {
+      no_audio: 'client/src/hooks/useStreamingVoice.ts (failsafe logic), client/src/lib/audioUtils.ts (StreamingAudioPlayer), server/services/streaming-voice-orchestrator.ts',
+      connection: 'client/src/services/streamingVoiceClient.ts (WebSocket reconnect), server/services/streaming-voice-orchestrator.ts, client/src/hooks/useStreamingVoice.ts',
+      double_audio: 'client/src/lib/audioUtils.ts (processedChunks dedup), client/src/hooks/useStreamingVoice.ts (audio_chunk handler)',
+      latency: 'server/services/streaming-voice-orchestrator.ts (TTS pipeline), server/services/native-fc-handlers.ts',
+      microphone: 'client/src/hooks/useStreamingVoice.ts (VAD / mic start), client/src/components/StreamingVoiceChat.tsx',
+    };
+    const fileHint = issueFileHints[issueType] || 'client/src/hooks/useStreamingVoice.ts, server/services/streaming-voice-orchestrator.ts';
+
+    const recentSummaries = reports.slice(0, 8).map((r, i) => {
+      const desc = r.userDescription?.substring(0, 200) || '(auto-detected, no description)';
+      const analysis = r.sofiaAnalysis?.substring(0, 150);
+      return `Report ${i + 1}: ${desc}${analysis ? `\nSofia analysis: ${analysis}` : ''}`;
+    }).join('\n\n');
+
+    const taskPrompt = `[AUTONOMOUS TRIAGE TASK from Sofia — do not wait for David to respond]
+
+Sofia has detected a recurring issue cluster that needs your attention:
+
+PATTERN: ${reports.length}x "${issueType}" events in the last ${timeWindowMinutes} minutes (${environment})
+PATTERN ID: ${patternId || 'untracked'}
+RECOMMENDATION: ${recommendation || 'Investigate root cause'}
+
+RELEVANT FILES TO START WITH:
+${fileHint}
+
+RECENT REPORTS:
+${recentSummaries}
+
+YOUR TASK:
+1. Use search_code and read_file to understand the current implementation of the affected area
+2. Determine if this is a code bug you can fix safely with a small targeted change
+3. If YES → use patch_file to apply the fix, then verify with "npx tsc --noEmit". Update the pattern status in support_patterns (id: ${patternId}) by patching developerNotes and status to 'fixed' or 'investigated'
+4. If NO (too complex, risky, or requires David's judgment) → use notify_david with a clear summary of what you found and why you're escalating. Update the pattern status to 'open' with your findings in developerNotes.
+
+GUARDRAILS for autonomous fixes:
+- Safe to fix: timeout values, logic conditions, missing null checks, off-by-one errors, wrong default values
+- Escalate to David: schema changes, billing logic, authentication, anything touching >3 files, architectural changes
+- When in doubt, escalate — a clear analysis is more valuable than a risky autonomous fix
+
+Use request_continuation to work across multiple phases if needed. This task was triggered automatically — treat it as your highest priority.`;
+
+    // 3. Fire-and-forget: invoke Alden with the task prompt
+    import('./alden-persona-service').then(({ generateAldenResponse }) => {
+      console.log(`[Sofia→Alden] Dispatching triage task for "${issueType}" cluster (${reports.length} reports)`);
+      return generateAldenResponse({
+        userMessage: taskPrompt,
+        founderName: 'David',
+      });
+    }).then(result => {
+      console.log(`[Sofia→Alden] Triage complete for "${issueType}". Tools used: ${result.toolsUsed.join(', ')}. Summary: ${result.response.substring(0, 200)}`);
+    }).catch(err => {
+      console.error(`[Sofia→Alden] Triage error for "${issueType}":`, err.message);
+    });
+  }
+
+  /**
+   * GL mid-turn reconnect watch — fires an agent note when the gl_audio_reset path
+   * is exercised in production. Lets the Agent verify the double-audio fix is working.
+   * 4-hour cooldown to avoid noise; production-only to skip dev test noise.
+   */
+  private async checkGlReconnectMidTurn(since: Date): Promise<void> {
+    try {
+      const COOLDOWN_KEY = 'gl_reconnect_mid_turn';
+      const COOLDOWN_MS = 4 * 60 * 60 * 1000;
+
+      // Skip if we already alerted within the cooldown window
+      const lastAlert = this.patternAlertCooldown.get(COOLDOWN_KEY);
+      if (lastAlert && Date.now() - lastAlert.getTime() < COOLDOWN_MS) return;
+
+      const result = await getSharedDb().execute(sql`
+        SELECT COUNT(*) AS count,
+               MAX(created_at) AS last_seen,
+               string_agg(DISTINCT COALESCE(session_id, 'unknown'), ', ') AS sessions
+        FROM voice_pipeline_events
+        WHERE event_type = 'gl_reconnect_mid_turn'
+          AND created_at > ${since.toISOString()}
+      `);
+
+      const row = result.rows[0] as { count: string; last_seen: string | null; sessions: string | null };
+      const count = parseInt(row?.count ?? '0', 10);
+      if (count === 0) return;
+
+      const lastSeen = row.last_seen ? new Date(row.last_seen).toISOString() : 'unknown';
+      const sessions = row.sessions ?? 'unknown';
+
+      // Post a note to the Agent so they can verify audio quality around this event
+      await getUserDb().execute(sql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, created_at)
+        VALUES (
+          gen_random_uuid(),
+          'alden',
+          'agent',
+          ${'[Sofia Watch] GL mid-turn reconnect fired — double-audio fix exercised'},
+          ${`Sofia detected ${count} GL mid-turn reconnect event(s) since the last monitoring check.\n\nLast seen: ${lastSeen}\nSessions: ${sessions}\n\nThe gl_audio_reset path was exercised — the client should have called player.stop() + resetForNewTurn() to prevent double audio. Worth checking voice session quality reports around this timestamp to confirm no double-audio complaints came in.\n\nThis is an informational ping, not an incident. No action needed unless complaints correlate.`},
+          'Sofia Monitor — GL Reconnect Watch',
+          NOW()
+        )
+      `);
+
+      console.log(`[Sofia Monitor] GL mid-turn reconnect detected (${count}x since last check) — agent note filed`);
+
+      // Set cooldown so we don't spam
+      this.patternAlertCooldown.set(COOLDOWN_KEY, new Date());
+      setTimeout(() => this.patternAlertCooldown.delete(COOLDOWN_KEY), COOLDOWN_MS);
+
+    } catch (err) {
+      console.warn('[Sofia Monitor] GL reconnect watch error:', (err as Error).message);
+    }
+  }
+
+  /**
+   * Assessment restart blocked watch — fires an agent note when GL calls
+   * START_PLACEMENT_ASSESSMENT a second time mid-session. Per Gemini Round 6 audit:
+   * if this fires frequently, GL is forgetting its rubric context and the rubric
+   * should be moved to a higher-priority position in the system prompt.
+   * Threshold: >1 event since last check. 4-hour cooldown to avoid noise.
+   */
+  private async checkAssessmentRestartBlocked(since: Date): Promise<void> {
+    try {
+      const COOLDOWN_KEY = 'assessment_restart_blocked';
+      const COOLDOWN_MS = 4 * 60 * 60 * 1000;
+      const THRESHOLD = 1; // alert on any occurrence
+
+      const lastAlert = this.patternAlertCooldown.get(COOLDOWN_KEY);
+      if (lastAlert && Date.now() - lastAlert.getTime() < COOLDOWN_MS) return;
+
+      const result = await getSharedDb().execute(sql`
+        SELECT COUNT(*) AS count,
+               MAX(created_at) AS last_seen,
+               string_agg(DISTINCT COALESCE(session_id, 'unknown'), ', ') AS sessions
+        FROM voice_pipeline_events
+        WHERE event_type = 'assessment_restart_blocked'
+          AND created_at > ${since.toISOString()}
+      `);
+
+      const row = result.rows[0] as { count: string; last_seen: string | null; sessions: string | null };
+      const count = parseInt(row?.count ?? '0', 10);
+      if (count <= THRESHOLD) return;
+
+      const lastSeen = row.last_seen ? new Date(row.last_seen).toISOString() : 'unknown';
+      const sessions = row.sessions ?? 'unknown';
+
+      await getUserDb().execute(sql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, created_at)
+        VALUES (
+          gen_random_uuid(),
+          'alden',
+          'agent',
+          ${'[Sofia Watch] Assessment restart blocked — GL forgetting rubric state'},
+          ${`Sofia detected ${count} assessment_restart_blocked event(s) since the last monitoring check.\n\nLast seen: ${lastSeen}\nSession(s): ${sessions}\n\nThis means Daniela called START_PLACEMENT_ASSESSMENT a second time while an assessment was already in progress. The restart guard caught it, so no state was corrupted — but frequent occurrences indicate GL is losing its rubric context faster than expected.\n\nPer Gemini Round 6 audit recommendation: if this happens regularly, the assessment rubric should be moved to a higher-priority position in the system prompt (earlier, not appended at the end) so GL's attention head weights it more heavily.\n\nAction: review voice session logs around these events. If pattern persists across multiple students, escalate for system prompt restructuring.`},
+          'Sofia Monitor — Assessment Restart Watch',
+          NOW()
+        )
+      `);
+
+      console.log(`[Sofia Monitor] Assessment restart blocked detected (${count}x since last check) — agent note filed`);
+      this.patternAlertCooldown.set(COOLDOWN_KEY, new Date());
+      setTimeout(() => this.patternAlertCooldown.delete(COOLDOWN_KEY), COOLDOWN_MS);
+
+    } catch (err) {
+      console.warn('[Sofia Monitor] Assessment restart watch error:', (err as Error).message);
+    }
+  }
+
   /**
    * Detect patterns in issue reports and emit alerts
    */
@@ -1415,6 +1881,9 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     }
     
     // Check for clusters (3+ of same type in the time window)
+    // staggerIndex staggers AI-heavy calls (screenshot + Alden triage) so multiple
+    // patterns detected in one sweep don't all hit the AI APIs simultaneously.
+    let staggerIndex = 0;
     for (const [issueType, typeReports] of Object.entries(byType)) {
       const count = typeReports.length;
       
@@ -1454,8 +1923,30 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
         
         // Set cooldown
         this.patternAlertCooldown.set(cooldownKey, new Date());
-        
-        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType}`);
+
+        // Stagger AI-heavy work (screenshot + Alden triage) — 45s apart per pattern
+        // so multiple patterns in one sweep don't saturate the quota simultaneously.
+        const aiDelayMs = staggerIndex * 45_000;
+        const capturedIssueType = issueType;
+        const capturedTypeReports = typeReports;
+        const capturedRecommendation = recommendation;
+
+        setTimeout(() => {
+          // CAP-009: Visual verification — screenshot the likely affected page
+          import('./playwright-browser-service').then(({ sofiaIssueScreenshot }) => {
+            sofiaIssueScreenshot(capturedIssueType, count).catch(err =>
+              console.error(`[Sofia Monitor] Screenshot error for "${capturedIssueType}":`, err.message)
+            );
+          }).catch(() => {});
+
+          // Route to Alden for autonomous triage and potential auto-fix.
+          this.escalateToAlden(capturedIssueType, capturedTypeReports, timeWindowMinutes, capturedRecommendation).catch(err =>
+            console.error(`[Sofia→Alden] Escalation error for "${capturedIssueType}":`, err.message)
+          );
+        }, aiDelayMs);
+
+        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType} → escalated to Alden (delay: ${aiDelayMs / 1000}s)`);
+        staggerIndex++;
       }
     }
   }
@@ -1480,6 +1971,10 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     const { analysis, actions } = await this.runSofiaHealthAgent(transition);
 
     await this.recordHealthDigest(transition, analysis, actions);
+
+    if (transition.direction === 'degraded' || transition.direction === 'worsened') {
+      await this.writeHealthTransitionAgentNote('voice', transition, analysis, actions);
+    }
   }
 
   async handleContextHealthTransition(transition: {
@@ -1510,6 +2005,10 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       timestamp: transition.timestamp,
     };
     await this.recordHealthDigest(healthTransition, `[CONTEXT] ${analysis}`, actions);
+
+    if (transition.direction === 'degraded' || transition.direction === 'worsened') {
+      await this.writeHealthTransitionAgentNote('context', healthTransition, analysis, actions);
+    }
   }
 
   private async runSofiaContextHealthAgent(transition: {
@@ -1523,7 +2022,7 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;
   }> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       const fallback = `Context health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Reasons: ${transition.reasons.join('; ')}`;
       return { analysis: fallback, actions: [] };
@@ -1653,7 +2152,7 @@ Investigate and take appropriate remediation actions.`;
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;
   }> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       const fallback = `Voice health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Reasons: ${transition.reasons.join('; ')}`;
       console.log(`[Sofia Agent] No API key — using fallback`);
@@ -1830,6 +2329,10 @@ Investigate this transition using your tools, take any appropriate remediation a
       timestamp: transition.timestamp,
     };
     await this.recordHealthDigest(healthTransition, `[BRAIN] ${analysis}`, actions);
+
+    if (transition.direction === 'degraded' || transition.direction === 'worsened') {
+      await this.writeHealthTransitionAgentNote('brain', healthTransition, analysis, actions);
+    }
   }
 
   private async runSofiaBrainHealthAgent(transition: {
@@ -1843,7 +2346,7 @@ Investigate this transition using your tools, take any appropriate remediation a
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;
   }> {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return {
         analysis: `Brain health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. ${transition.reasons.join('; ')}`,
@@ -2022,6 +2525,21 @@ Investigate the degraded dimensions, take appropriate remediation actions, and p
         })
         .returning();
 
+      // When health recovers, retroactively resolve all prior actionable VHT records.
+      // Degradation events stay actionable until recovery — this keeps the queue clean.
+      if (transition.direction === 'recovered') {
+        const resolved = await getUserDb().update(sofiaIssueReports)
+          .set({ status: 'resolved', reviewedAt: new Date() })
+          .where(
+            and(
+              eq(sofiaIssueReports.issueType, 'voice_health_transition'),
+              eq(sofiaIssueReports.status, 'actionable'),
+              eq(sofiaIssueReports.environment, environment),
+            )
+          );
+        console.log(`[Sofia Agent] Health recovered — resolved prior actionable VHT records in ${environment}`);
+      }
+
       console.log(`[Sofia Agent] Digest recorded: ${report.id} (${transition.direction}, ${appliedActions.length} actions applied)`);
 
       await founderCollabService.emitSofiaIssueAlert({
@@ -2043,6 +2561,54 @@ Investigate the degraded dimensions, take appropriate remediation actions, and p
       .where(eq(sofiaIssueReports.issueType, 'voice_health_transition'))
       .orderBy(desc(sofiaIssueReports.createdAt))
       .limit(limit);
+  }
+
+  /**
+   * Write an agent_notes row so Luca sees Sofia's health degradation at session start.
+   * Fires for degraded/worsened transitions only — recovered transitions are informational.
+   * Naturally rate-limited by healthDigestCooldown (already checked before callers run).
+   */
+  private async writeHealthTransitionAgentNote(
+    domain: 'voice' | 'context' | 'brain',
+    transition: { previousStatus: string; newStatus: string; direction: string; reasons: string[] },
+    analysis: string,
+    actions: Array<{ action: string; result: string; applied: boolean }>
+  ): Promise<void> {
+    try {
+      const appliedActions = actions
+        .filter(a => a.applied)
+        .map(a => `• ${a.action}: ${a.result}`)
+        .join('\n');
+      const domainLabel = domain === 'voice' ? 'Voice pipeline' : domain === 'context' ? 'Context injection' : 'Brain/memory';
+      const subject = `[Sofia] ${domainLabel} health degraded: ${transition.previousStatus} → ${transition.newStatus}`;
+      const body = [
+        `${domainLabel} health transitioned ${transition.previousStatus} → ${transition.newStatus} (${transition.direction}).`,
+        '',
+        `Reasons:`,
+        ...transition.reasons.map(r => `• ${r}`),
+        '',
+        `Sofia's analysis: ${analysis}`,
+        ...(appliedActions ? ['', 'Actions taken:', appliedActions] : []),
+        '',
+        'Check voice session logs and the open-bugs list for related incidents.',
+      ].join('\n');
+
+      await getUserDb().execute(sql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, created_at)
+        VALUES (
+          gen_random_uuid(),
+          'alden',
+          'agent',
+          ${subject},
+          ${body},
+          ${'Sofia Health Monitor'},
+          NOW()
+        )
+      `);
+      console.log(`[Sofia Agent] Agent note filed — ${domainLabel} ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}`);
+    } catch (err) {
+      console.warn('[Sofia Agent] Failed to write health transition agent note:', (err as Error).message);
+    }
   }
 }
 

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AudioPlayButton } from "@/components/AudioPlayButton";
+import { VocabImageGrid, type VocabImageGridItem } from "@/components/VocabImageCard";
 import {
   Play,
   Pause,
@@ -40,6 +41,13 @@ interface TextbookSection {
   drills: DrillItem[];
   conversationTopic: string | null;
   conversationPrompt: string | null;
+  /**
+   * Optional vocab image cards. When populated (e.g. for a vocabulary
+   * lesson type), the section renders a VocabImageGrid above the drill
+   * list. Both target-language and native-language labels are always
+   * visible here — textbook is reference material, not a test.
+   */
+  vocabImages?: VocabImageGridItem[];
 }
 
 interface ContentBlock {
@@ -89,7 +97,8 @@ function DrillPreviewCard({ drills, onStartDrill }: {
     ? Math.round((masteredCount / drills.length) * 100) 
     : 0;
 
-  const previewItems = drills.slice(0, 4);
+  const PREVIEW_CAP = 12;
+  const previewItems = drills.slice(0, PREVIEW_CAP);
 
   return (
     <Card className="bg-muted/30 border-dashed">
@@ -128,9 +137,9 @@ function DrillPreviewCard({ drills, onStartDrill }: {
           ))}
         </div>
 
-        {drills.length > 4 && (
+        {drills.length > PREVIEW_CAP && (
           <p className="text-xs text-muted-foreground text-center mb-3">
-            +{drills.length - 4} more drills
+            +{drills.length - PREVIEW_CAP} more drills
           </p>
         )}
 
@@ -257,7 +266,7 @@ function VocabularyBlock({ words }: { words: { word: string; translation: string
 interface TextbookSectionRendererProps {
   section: TextbookSection;
   onStartDrill?: () => void;
-  onStartConversation?: () => void;
+  onStartConversation?: (lessonId?: string) => void;
   className?: string;
 }
 
@@ -320,6 +329,20 @@ export function TextbookSectionRenderer({
           topic={section.conversationTopic}
           onStart={onStartConversation}
         />
+      )}
+
+      {/* Vocab image grid — only shown for vocabulary sections that have images.
+          Both target-language (Spanish) and native-language (English) labels are
+          always visible here. Contrast: whiteboard cards blur the native label
+          and require a tap to reveal so students can self-test. */}
+      {section.vocabImages && section.vocabImages.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Book className="h-4 w-4" />
+            Vocabulary
+          </h4>
+          <VocabImageGrid items={section.vocabImages} />
+        </div>
       )}
 
       {section.drills && section.drills.length > 0 && (

@@ -38,22 +38,22 @@ export default function Vocabulary() {
       toast({ title: "Select a language first", description: "Please select a language to export vocabulary.", variant: "destructive" });
       return;
     }
-    
+
     setIsExporting(true);
     try {
       const response = await fetch(`/api/vocabulary/export?language=${encodeURIComponent(language)}&format=${format}`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error('Export failed');
       }
-      
+
       const blob = await response.blob();
-      const filename = format === 'anki' 
-        ? `vocabulary_${language}_anki.txt` 
+      const filename = format === 'anki'
+        ? `vocabulary_${language}_anki.txt`
         : `vocabulary_${language}.csv`;
-      
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -62,10 +62,10 @@ export default function Vocabulary() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
-      toast({ 
-        title: "Export complete", 
-        description: `Downloaded ${filename}` 
+
+      toast({
+        title: "Export complete",
+        description: `Downloaded ${filename}`
       });
     } catch (error) {
       toast({ title: "Export failed", description: "Could not export vocabulary.", variant: "destructive" });
@@ -103,8 +103,8 @@ export default function Vocabulary() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {(Object.keys(timeFilterLabels) as TimeFilter[]).map((filter) => (
-                <DropdownMenuItem 
-                  key={filter} 
+                <DropdownMenuItem
+                  key={filter}
                   onClick={() => setTimeFilter(filter)}
                   data-testid={`menu-item-vocabulary-filter-${filter}`}
                 >
@@ -113,7 +113,7 @@ export default function Vocabulary() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" disabled={isExporting} data-testid="dropdown-vocabulary-export">
@@ -126,7 +126,7 @@ export default function Vocabulary() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => handleExport('csv')}
                 data-testid="menu-item-export-csv"
               >
@@ -134,7 +134,7 @@ export default function Vocabulary() {
                 Export as CSV
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => handleExport('anki')}
                 data-testid="menu-item-export-anki"
               >
@@ -158,7 +158,7 @@ export default function Vocabulary() {
           <li>Cards you get right will appear less frequently</li>
           <li>Cards you struggle with will be reviewed more often</li>
           <li>Use "Show Due Only" to focus on cards that need review</li>
-          <li>The system optimizes your learning schedule automatically</li>
+          <li>Words mastered in scenes are automatically added to your queue</li>
         </ul>
       </Card>
     </div>

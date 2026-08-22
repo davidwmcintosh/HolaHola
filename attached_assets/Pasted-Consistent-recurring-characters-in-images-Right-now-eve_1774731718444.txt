@@ -1,0 +1,126 @@
+Consistent recurring characters in images
+Right now every image prompt describes a nameless, visually unspecified person — so DALL-E invents a different character each time. This means "buenos días", "buenas tardes", and "buenas noches" each show a different-looking person, even though they are the same concept (time-of-day greetings) and would be far more memorable if the same character appeared in all three scenes.
+
+The fix is to define a small set of named characters, each with a precise, consistent physical description (age, hair, skin tone, clothing), and embed that exact description into every prompt belonging to that character's group. DALL-E cannot remember characters between generations, so the description must be reproduced verbatim in each prompt — but a well-written description produces visually stable results.
+
+Now let me read the remaining portion of the vocab-image-seed-service.ts file to see what else is there:
+
+Now I have a clear picture of the file. Let me now implement the changes. I need to:
+
+Define CHARACTER_PROFILES constant with 2-3 characters per language
+Update Spanish greeting prompts (time-of-day and farewell groups) to embed character descriptions
+Update French, German, Italian, and Portuguese greeting prompts similarly
+Clear cached images for updated prompts
+Let me now implement all the changes to vocab-image-seed-service.ts:
+
+Now I have all the context I need. Let me implement the changes. I'll update the SCENE_OVERRIDES in vocab-image-seed-service.ts to add the CHARACTER_PROFILES constant and update all the greeting prompts to embed consistent character descriptions.
+
+Now let me add the shorthand aliases and update the SCENE_OVERRIDES for greetings:
+
+I need to move the import statements before the constant declarations (TypeScript doesn't allow import after code). Let me fix this:
+
+I need to restructure the file properly - the imports need to come before the constants. Let me rewrite the beginning of the file to put imports first:
+
+Good, the imports are now properly placed. Now let me update the Spanish greeting and farewell prompts to use the character profiles:
+
+Now let me update the French greeting prompts:
+
+Now update German greeting prompts:
+
+Now update Italian greeting prompts:
+
+Now update Portuguese greeting prompts:
+
+Now I need to handle the cache-busting for the updated prompts. The task says to clear cached images for the updated prompts. I need to look at how admin routes are set up for this purpose, specifically to find an existing endpoint that busts the greetings cache, and potentially run it or add a new admin action:
+
+The existing fix-greetings admin endpoint already busts the greetings cache and re-seeds images. Since the prompts have changed, I need to make sure the cache for all affected greeting words is cleared. Let me check if there's a way to run this programmatically on startup, or if I should just document that the admin needs to run fix-greetings for each language.
+
+Looking at the task requirements again: "Any cached/seeded images for the updated prompts are cleared or flagged for regeneration so the new prompts take effect."
+
+The existing GREETINGS_CACHE_KEYS and bustVocabImageCache infrastructure already handles this - the admin fix-greetings endpoint will bust and re-seed. However, I should also ensure the cache is cleared automatically when the service starts with the new prompts.
+
+Let me check if there's an auto-bust mechanism or if I should add a database deletion:
+
+The admin has a working fix-greetings endpoint. However, the task says to "clear cached images for updated prompts" - this should happen automatically when the app boots, not require manual admin action. Let me add an automatic cache-bust on server startup for the greeting words whose prompts changed.
+
+Let me look at how the server starts up:
+
+The task says to "clear cached images for updated prompts" - the best approach is to add a startup cache-bust function that clears all greeting cache keys for all 5 languages. This way when the server restarts with the new prompts, old cached images are automatically cleared and regeneration happens on next request.
+
+Let me look at the server's main entry point to find the right place to add a startup bust:
+
+Rather than modify the startup code (which would cause a cache-bust on every restart), a better approach is to use a targeted SQL DELETE that clears the affected greetings rows once. I'll add an exported bustGreetingsCache function that can be called from the admin endpoint, but also provide instructions in the code comments about re-running fix-greetings from the admin panel.
+
+Actually, re-reading the task: "Identify rows in the database whose prompt text has changed and either delete them or mark them as stale so the next request regenerates with the new prompt. This can be done with a targeted SQL delete or by bumping a prompt-version field."
+
+The best approach here is to write a migration/one-time script that deletes the greeting rows. Since the existing admin fix-greetings endpoint already does exactly this, I should make sure it's noted. However, I should also add an automated mechanism so it runs when the code changes are deployed.
+
+Let me look at how other migrations are done to see if there's a migration system:
+
+Given the complexity of the migration system and the fact that the existing admin endpoint (fix-greetings) already provides a clean way to bust and re-seed, the best approach is:
+
+The code changes are complete (prompts updated)
+Add a new exported constant that lists all greeting words that changed, so we can programmatically bust them
+Add a note in the code and also a one-time auto-bust triggered from a new migration
+Let me look at an existing migration to understand the pattern:
+
+The migration orchestrator is perfect for a one-time cache bust. Let me add a migration entry that busts the greeting cache for all 5 languages. Let me read more of the migration file to understand the pattern:
+
+Now let me add the migration entry to bust greeting image caches. Let me find the last migration version:
+
+Now I'll add a migration entry to clear the greeting cache. This is the right approach — it runs once on startup and clears all greeting images for all 5 languages, letting them regenerate with the new character-consistent prompts:
+
+I notice an issue in the migration — the prefix.replace('vocab_', '').replace('_', '') logic is wrong (it would remove the trailing _ incorrectly for the prefix building). Let me fix the migration logic:
+
+Good. Now let me verify the file compiles correctly by restarting the workflow and checking the logs:
+
+The migration ran successfully and cleared 76 stale greeting image cache entries across 5 languages. The server is running correctly.
+
+Let me verify the prompts look correct by spot-checking the file:
+
+Everything looks perfect. The server is running, the migration ran successfully and cleared 76 stale greeting image entries. Let me now write the commit message and mark the task complete:
+
+The code review caught a valid issue: the migration uses manually-written normalized keys but the actual toCacheKey function strips punctuation differently (e.g., excusez-moi → excusezmoi, not excusez moi). I need to fix the migration to use the existing GREETINGS_CACHE_KEYS export instead of hand-written strings.
+
+The fix is clear: I need to use GREETINGS_CACHE_KEYS from the service instead of manually constructed keys. Let me update the migration to use the proper normalization by importing from the service:
+
+The migration now imports GREETINGS_CACHE_KEYS directly from the service, ensuring the exact same normalization logic (toCacheKey) is used for generating the cache keys to delete. The (result as any) cast is also replaced with a proper typed cast (result as { rowCount?: number }).
+
+Note that migration 002 already ran in this session (it deleted 76 entries). Since it's already marked as applied in the database, I need to think about how the fix will apply. The migration already ran during this session, so the fix for the excusez-moi key specifically matters for the initial run — but since migration 002 already ran and recorded itself, it won't re-run.
+
+However, the actual important thing here is: the excusez-moi stale row (if it existed) would have been missed. The migration already ran and recorded 002 as applied. To ensure the edge case is handled, I should check if there's a way to force-delete the specific problematic key, or I should add a 003 migration for the edge cases.
+
+Actually, let me think more carefully. The migration already ran and deleted 76 entries. The code review says excusez-moi → vocab_french_excusezmoi (the hyphen gets stripped). The migration had excusez moi (with space) which would produce vocab_french_excusez moi. These are different keys.
+
+But wait — did any images exist for excusez-moi? Let me check the GREETINGS_WORDS list to see what the actual key would be:
+
+Looking at GREETINGS_WORDS:
+
+french: ['olá', 'bom dia', ..., 'excusez-moi', ...] wait, let me check again:
+From the file I read earlier (line 607-610):
+
+french: [
+  'bonjour','bonsoir','bonne nuit','au revoir','salut','à bientôt',
+  's\'il vous plaît','merci','merci beaucoup','de rien','excusez-moi','pardon','enchanté',
+],
+The toCacheKey function does:
+
+toLowerCase() → excusez-moi
+.normalize('NFD') → no change (no diacritics)
+.replace(/[\u0300-\u036f]/g, '') → no change
+.replace(/[^a-z0-9\s]/g, '') → removes - → excusez moi (wait, hyphen is stripped and the space between 'excusez' and 'moi' stays? No... after the hyphen is removed: excusezmoi with no space)
+Actually: excusez-moi after removing non-alphanumeric-non-space chars ([^a-z0-9\s]): the hyphen - is removed → excusezmoi. Then .replace(/\s+/g, ' ') → still excusezmoi. So the cache key is vocab_french_excusezmoi.
+
+The migration I already ran would have had excusez moi (hand-written, with space), generating key vocab_french_excusez moi. That wouldn't match the actual cache key vocab_french_excusezmoi.
+
+Since migration 002 already ran and was recorded as applied, I need to add migration 003 that covers this edge case using the correct keys from GREETINGS_CACHE_KEYS:
+
+Now let me restart the workflow so migration 003 runs:
+
+The log was captured mid-run. Let me check if migration 003 completed successfully:
+
+Migration 003 ran successfully:
+
+[MIGRATIONS] 003: Cleared 15 additional stale greeting image cache entries (normalization-correct keys)
+[MIGRATIONS] ✓ Applied 003_bust-greeting-image-cache-complete
+The fix is complete. All caches are now properly cleared using the correct normalized keys from GREETINGS_CACHE_KEYS. Let me update the commit message:

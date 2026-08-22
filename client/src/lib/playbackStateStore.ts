@@ -7,12 +7,12 @@
  * 
  * Usage:
  *   import { usePlaybackState, setGlobalPlaybackState } from '@/lib/playbackStateStore';
- *   const playbackState = usePlaybackState(); // Returns 'idle' | 'buffering' | 'playing' | 'paused'
+ *   const playbackState = usePlaybackState(); // Returns 'idle' | 'thinking' | 'buffering' | 'playing' | 'paused'
  */
 
 import { useSyncExternalStore } from 'react';
 
-export type PlaybackState = 'idle' | 'buffering' | 'playing' | 'paused';
+export type PlaybackState = 'idle' | 'thinking' | 'buffering' | 'playing' | 'paused';
 
 // Global state stored on window for HMR resilience
 declare global {

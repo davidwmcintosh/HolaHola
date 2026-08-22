@@ -1,0 +1,1018 @@
+/**
+ * daniela-truth-pipeline-report.ts
+ *
+ * Assembles a chronological truth-pipeline trace for a single Daniela GL
+ * session — from memory retrieval all the way through to audio output.
+ *
+ * Shows (in timestamp order):
+ *   1. Memory fetches — neural-net teaching searches (query, domains, result count)
+ *   2. Guardian attempts — lookup through delivery evidence and terminal outcome
+ *   3. Grounding queries — grounding_query tool calls (what was searched)
+ *   4. All tool calls — name, args summary, result summary, status
+ *   5. Audio delivery — gl_audio_subturn_sealed + gl_transcripts_flushed events
+ *   6. Turn-level summaries — student input → Daniela output (time-scoped to session)
+ *
+ * Each row is labelled with timestamp and turn ID so leaks are visible as
+ * gaps or repeats in the chain.
+ *
+ * Session-ID resolution
+ * ─────────────────────
+ * voice_pipeline_events.session_id was historically written with the streaming
+ * session ID (stream_*).  As of the Aug 2026 fix, new sessions write
+ * dbSessionId (the voice_sessions UUID) instead.  This script handles both:
+ *
+ *   • Primary   — filter voice_pipeline_events WHERE session_id = <dbSessionId>
+ *   • Fallback  — filter WHERE event_data->>'conversationId' = <conversation_id>
+ *                 (works for tool_call + guardian_fire rows from older sessions)
+ *
+ * Audio events (gl_audio_subturn_sealed, gl_transcripts_flushed) don't embed
+ * conversationId so for pre-fix sessions they will not appear.  Run the report
+ * against a session captured after the Aug 2026 fix for full coverage.
+ *
+ * Usage:
+ *   npx tsx server/scripts/daniela-truth-pipeline-report.ts <session_id>
+ *   npx tsx server/scripts/daniela-truth-pipeline-report.ts --recent
+ */
+
+import { neon } from '@neondatabase/serverless';
+import {
+  getContextLineageAvailability,
+  isFactualStreamProxyReference,
+  isContextLineageCaptureEnabled,
+} from '../services/context-lineage-service';
+
+// ─── ANSI helpers ─────────────────────────────────────────────────────────────
+const G    = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const R    = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const B    = (s: string) => `\x1b[34m${s}\x1b[0m`;
+const Y    = (s: string) => `\x1b[33m${s}\x1b[0m`;
+const M    = (s: string) => `\x1b[35m${s}\x1b[0m`;
+const C    = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const DIM  = (s: string) => `\x1b[2m${s}\x1b[0m`;
+const BOLD = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const sep  = (char = '─', w = 80) => console.log(char.repeat(w));
+const sep2 = () => sep('═');
+
+// ─── Unified timeline event ────────────────────────────────────────────────────
+type EventKind = 'tool_call' | 'guardian_fire' | 'guardian_trace' | 'memory_search' | 'student_memory_search' | 'message' | 'audio_subturn' | 'audio_flush';
+
+interface TimelineEvent {
+  kind: EventKind;
+  ts: Date;
+  turnId?: string;
+  payload: Record<string, unknown>;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtTs(d: Date): string {
+  return d.toISOString().replace('T', ' ').slice(0, 23);
+}
+
+function fmtTurnId(id: string | undefined): string {
+  if (!id) return DIM('turn?');
+  return DIM(`turn:${id.slice(0, 8)}`);
+}
+
+function trunc(s: string | null | undefined, n = 150): string {
+  if (!s) return DIM('(none)');
+  const clean = s.replace(/\s+/g, ' ').trim();
+  return clean.length <= n ? clean : clean.slice(0, n) + '…';
+}
+
+function findLineageSequenceGaps(rows: any[]): string[] {
+  const gaps: string[] = [];
+  let previous = 0;
+  for (const row of rows) {
+    const current = Number(row.sequence_number);
+    if (!Number.isFinite(current) || current <= previous) continue;
+    if (current > previous + 1) {
+      gaps.push(previous + 1 === current - 1
+        ? String(previous + 1)
+        : `${previous + 1}-${current - 1}`);
+    }
+    previous = current;
+  }
+  return gaps;
+}
+
+function streamProxyEventId(payload: unknown): string | null {
+  let value = payload;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== 'object') return null;
+  const proxy = (value as { streamProxy?: unknown }).streamProxy;
+  if (!proxy || typeof proxy !== 'object') return null;
+  const eventId = (proxy as { eventId?: unknown }).eventId;
+  return typeof eventId === 'string' && eventId.trim() ? eventId : null;
+}
+
+function isDirectLineageSend(row: any): boolean {
+  return row.delivery_channel === 'sendClientContent' || row.delivery_channel === 'sendToolResponse';
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+async function main() {
+  const arg = process.argv[2];
+  if (!arg) {
+    console.error(R('Usage: npx tsx server/scripts/daniela-truth-pipeline-report.ts <session_id>'));
+    console.error(R('       npx tsx server/scripts/daniela-truth-pipeline-report.ts --recent'));
+    process.exit(1);
+  }
+
+  const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
+  if (!DATABASE_URL) {
+    console.error(R('FATAL: NEON_SHARED_DATABASE_URL is not set'));
+    process.exit(1);
+  }
+
+  const sql = neon(DATABASE_URL);
+
+  // ── Resolve session ID ──────────────────────────────────────────────────────
+  let sessionId: string;
+
+  if (arg === '--recent') {
+    const rows = await sql`
+      SELECT id FROM voice_sessions
+      WHERE exchange_count > 0
+      ORDER BY started_at DESC
+      LIMIT 1
+    `;
+    if (!rows.length) {
+      console.error(R('No sessions found in voice_sessions.'));
+      process.exit(1);
+    }
+    sessionId = rows[0].id as string;
+    console.log(Y(`Resolved --recent → session ${sessionId}`));
+  } else {
+    sessionId = arg;
+  }
+
+  // ── Fetch session header ────────────────────────────────────────────────────
+  const sessionRows = await sql`
+    SELECT
+      vs.id, vs.conversation_id, vs.started_at, vs.ended_at,
+      EXTRACT(EPOCH FROM (COALESCE(vs.ended_at, NOW()) - vs.started_at))/60 AS duration_min,
+      vs.exchange_count, vs.language,
+      vs.guardian_fires   AS gf_total,
+      vs.guardian_heard   AS gf_heard,
+      vs.guardian_missed  AS gf_missed,
+      vs.guardian_hard_walls AS gf_hard_walls,
+      vs.guardian_carry_forward AS gf_carry,
+      vs.llm_input_tokens, vs.llm_output_tokens,
+      u.first_name, u.email
+    FROM voice_sessions vs
+    LEFT JOIN users u ON u.id::text = vs.user_id
+    WHERE vs.id = ${sessionId}
+    LIMIT 1
+  `;
+
+  if (!sessionRows.length) {
+    console.error(R(`Session not found: ${sessionId}`));
+    process.exit(1);
+  }
+
+  const session = sessionRows[0];
+  const conversationId  = session.conversation_id as string | null;
+  const sessionStart    = session.started_at as string;
+  const sessionEnd      = session.ended_at as string | null;
+
+  // ── Fetch all data in parallel ──────────────────────────────────────────────
+  // voice_pipeline_events is filtered by EITHER:
+  //   (a) session_id = dbSessionId  — new sessions (Aug 2026+)
+  //   (b) event_data->>'conversationId' = conversationId — old sessions
+  // Both paths are unioned so the report works for all historical data.
+  //
+  // Audio events (gl_audio_subturn_sealed, gl_transcripts_flushed) do not
+  // embed conversationId, so they are only returned for new sessions in path (a).
+
+  // Pipeline events: query by DB session ID (new scheme) and by conversationId
+  // embedded in JSONB (old scheme, where streaming session ID was used).
+  // Run both queries and deduplicate by row id.
+  const PIPELINE_TYPES = "('gl_tool_call','gl_guardian_fire','gl_guardian_trace','gl_audio_subturn_sealed','gl_transcripts_flushed')";
+  const PIPELINE_SELECT = `
+    SELECT
+      id, created_at, event_type, event_data,
+      event_data->>'toolName'           AS tool_name,
+      event_data->>'legacyType'         AS legacy_type,
+      event_data->>'status'             AS status,
+      (event_data->>'durationMs')::int  AS duration_ms,
+      event_data->>'turnId'             AS turn_id,
+      event_data->>'argsPreview'        AS args,
+      event_data->>'resultPreview'      AS result_preview,
+      event_data->>'path'               AS gf_path,
+      event_data->>'phrase'             AS gf_phrase,
+      event_data->>'outcome'            AS gf_outcome,
+      (event_data->>'charsInjected')::int AS gf_chars_injected,
+      event_data->>'groundingPreview'   AS gf_grounding,
+      event_data->>'label'              AS audio_label,
+      (event_data->>'sentenceIndex')::int AS audio_sentence_index,
+      (event_data->>'totalSentences')::int AS audio_total_sentences
+    FROM voice_pipeline_events
+    WHERE event_type IN ${PIPELINE_TYPES}
+  `;
+
+  // Always query by session_id = dbSessionId (new scheme)
+  const fetchBySessionId = sql`
+    SELECT
+      id, created_at, event_type, event_data,
+      event_data->>'toolName'           AS tool_name,
+      event_data->>'legacyType'         AS legacy_type,
+      event_data->>'status'             AS status,
+      (event_data->>'durationMs')::int  AS duration_ms,
+      event_data->>'turnId'             AS turn_id,
+      event_data->>'argsPreview'        AS args,
+      event_data->>'resultPreview'      AS result_preview,
+      event_data->>'path'               AS gf_path,
+      event_data->>'phrase'             AS gf_phrase,
+      event_data->>'outcome'            AS gf_outcome,
+      (event_data->>'charsInjected')::int AS gf_chars_injected,
+      event_data->>'groundingPreview'   AS gf_grounding,
+      event_data->>'label'              AS audio_label,
+      (event_data->>'sentenceIndex')::int AS audio_sentence_index,
+      (event_data->>'totalSentences')::int AS audio_total_sentences
+    FROM voice_pipeline_events
+    WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_guardian_trace','gl_audio_subturn_sealed','gl_transcripts_flushed')
+      AND session_id = ${sessionId}
+    ORDER BY created_at ASC
+  `;
+
+  // Student-memory search events (written by searchMemory telemetry patch)
+  const fetchStudentMemory = sql`
+    SELECT
+      id, created_at,
+      event_data->>'query'                    AS query,
+      (event_data->>'resultCount')::int        AS result_count,
+      (event_data->>'durationMs')::int         AS duration_ms,
+      event_data->'domains'                    AS domains_json,
+      event_data->>'conversationId'            AS conversation_id,
+      event_data->>'source'                    AS source
+    FROM voice_pipeline_events
+    WHERE event_type = 'gl_student_memory_search'
+      AND session_id = ${sessionId}
+    ORDER BY created_at ASC
+  `;
+
+  // Fallback: query by conversationId embedded in JSONB (old streaming-ID scheme,
+  // where voice_pipeline_events.session_id held the transient "stream_*" ID).
+  // Only gl_tool_call and gl_guardian_fire embed conversationId in their payload.
+  //
+  // CRITICAL: scope by session start/end so we don't merge events from other
+  // sessions that share the same conversation_id (conversations are reused
+  // across multiple voice sessions).  Use the same 5-minute end grace applied
+  // to message scoping, to capture events written slightly after session close.
+  const fetchByConversationId = conversationId ? (
+    sessionEnd ? sql`
+      SELECT
+        id, created_at, event_type, event_data,
+        event_data->>'toolName'           AS tool_name,
+        event_data->>'legacyType'         AS legacy_type,
+        event_data->>'status'             AS status,
+        (event_data->>'durationMs')::int  AS duration_ms,
+        event_data->>'turnId'             AS turn_id,
+        event_data->>'argsPreview'        AS args,
+        event_data->>'resultPreview'      AS result_preview,
+        event_data->>'path'               AS gf_path,
+        event_data->>'phrase'             AS gf_phrase,
+        event_data->>'outcome'            AS gf_outcome,
+        (event_data->>'charsInjected')::int AS gf_chars_injected,
+        event_data->>'groundingPreview'   AS gf_grounding,
+        event_data->>'label'              AS audio_label,
+        (event_data->>'sentenceIndex')::int AS audio_sentence_index,
+        (event_data->>'totalSentences')::int AS audio_total_sentences
+      FROM voice_pipeline_events
+      WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_guardian_trace')
+        AND event_data->>'conversationId' = ${conversationId}
+        AND created_at >= ${sessionStart}::timestamptz
+        AND created_at <= (${sessionEnd}::timestamptz + INTERVAL '5 minutes')
+      ORDER BY created_at ASC
+    ` : sql`
+      SELECT
+        id, created_at, event_type, event_data,
+        event_data->>'toolName'           AS tool_name,
+        event_data->>'legacyType'         AS legacy_type,
+        event_data->>'status'             AS status,
+        (event_data->>'durationMs')::int  AS duration_ms,
+        event_data->>'turnId'             AS turn_id,
+        event_data->>'argsPreview'        AS args,
+        event_data->>'resultPreview'      AS result_preview,
+        event_data->>'path'               AS gf_path,
+        event_data->>'phrase'             AS gf_phrase,
+        event_data->>'outcome'            AS gf_outcome,
+        (event_data->>'charsInjected')::int AS gf_chars_injected,
+        event_data->>'groundingPreview'   AS gf_grounding,
+        event_data->>'label'              AS audio_label,
+        (event_data->>'sentenceIndex')::int AS audio_sentence_index,
+        (event_data->>'totalSentences')::int AS audio_total_sentences
+      FROM voice_pipeline_events
+      WHERE event_type IN ('gl_tool_call','gl_guardian_fire','gl_guardian_trace')
+        AND event_data->>'conversationId' = ${conversationId}
+        AND created_at >= ${sessionStart}::timestamptz
+      ORDER BY created_at ASC
+    `
+  ) : Promise.resolve([]);
+
+  // Messages scoped to session time window
+  const fetchMessages = conversationId ? (
+    sessionEnd ? sql`
+      SELECT role, content, thought_content, created_at
+      FROM messages
+      WHERE conversation_id = ${conversationId}
+        AND created_at >= ${sessionStart}::timestamptz
+        AND created_at <= (${sessionEnd}::timestamptz + INTERVAL '5 minutes')
+      ORDER BY created_at ASC
+    ` : sql`
+      SELECT role, content, thought_content, created_at
+      FROM messages
+      WHERE conversation_id = ${conversationId}
+        AND created_at >= ${sessionStart}::timestamptz
+      ORDER BY created_at ASC
+    `
+  ) : Promise.resolve([]);
+
+  // Neural-net teaching-domain memory searches
+  const fetchMemory = sql`
+    SELECT
+      created_at, query, domains_searched, result_count,
+      formatted_character_length AS chars_returned,
+      search_duration_ms,
+      idiom_count, cultural_count, procedure_count,
+      principle_count, error_pattern_count,
+      situational_pattern_count
+    FROM neural_network_telemetry
+    WHERE voice_session_id = ${sessionId}
+    ORDER BY created_at ASC
+  `;
+
+  // Turn latency rollup
+  const fetchLatency = sql`
+    SELECT
+      created_at,
+      (event_data->>'avgMs')::float AS avg_ms,
+      (event_data->>'p95Ms')::float AS p95_ms
+    FROM voice_pipeline_events
+    WHERE event_type = 'gl_turn_latency'
+      AND session_id = ${sessionId}
+    ORDER BY created_at ASC
+  `;
+
+  // The ledger is diagnostic infrastructure. A missing table or a read failure
+  // must be reported as unavailable rather than hiding the whole legacy report.
+  const fetchLineage = Promise.all([
+    sql`
+      SELECT
+        id, trace_id, sequence_number, source_route, event_type,
+        delivery_channel, delivery_status, student_turn_epoch,
+        payload_sha256, payload_json, observed_at, recorded_at
+      FROM context_lineage_events
+      WHERE session_id = ${sessionId}
+      ORDER BY sequence_number ASC, observed_at ASC
+    `,
+    sql`
+      SELECT
+        id, trace_id, from_event_id, to_event_id, link_type, observed_at
+      FROM context_lineage_links
+      WHERE session_id = ${sessionId}
+      ORDER BY observed_at ASC
+    `,
+  ]).then(([events, links]) => ({
+    events: events as any[],
+    links: links as any[],
+    error: null as string | null,
+  })).catch((error: unknown) => ({
+    events: [] as any[],
+    links: [] as any[],
+    error: error instanceof Error ? error.message : String(error),
+  }));
+
+  const [bySessionId, byConversationId, memoryRows, messageRows, latencyRows, studentMemoryRows, lineage] = await Promise.all([
+    fetchBySessionId, fetchByConversationId, fetchMemory, fetchMessages, fetchLatency, fetchStudentMemory, fetchLineage,
+  ]);
+
+  const lineageEvents = lineage.events;
+  const lineageLinks = lineage.links;
+  const lineageSequenceGaps = findLineageSequenceGaps(lineageEvents);
+  const observedStreamProxyEvents = new Map(
+    lineageEvents
+      .filter(row => row.event_type === 'stream_event_observed' && row.delivery_status === 'observed')
+      .map(row => [row.id, {
+        id: row.id as string,
+        traceId: row.trace_id as string,
+        sequenceNumber: Number(row.sequence_number),
+        eventType: row.event_type as string,
+        deliveryStatus: row.delivery_status as string,
+      }] as const),
+  );
+  const lineageAvailability = getContextLineageAvailability({
+    captureEnabled: isContextLineageCaptureEnabled(),
+    eventCount: lineageEvents.length,
+    linkCount: lineageLinks.length,
+    persistenceState: lineage.error
+      ? 'unavailable'
+      : lineageSequenceGaps.length > 0
+      ? 'degraded'
+      : 'healthy',
+    unavailableReason: lineage.error,
+  });
+
+  // Merge and deduplicate pipeline events (prefer bySessionId which is authoritative)
+  const seenIds = new Set<string>();
+  const pipelineEvents: any[] = [];
+  for (const r of [...(bySessionId as any[]), ...(byConversationId as any[])]) {
+    if (!seenIds.has(r.id)) {
+      seenIds.add(r.id);
+      pipelineEvents.push(r);
+    }
+  }
+  pipelineEvents.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  // Split pipeline events by type
+  const toolRows      = pipelineEvents.filter((r: any) => r.event_type === 'gl_tool_call');
+  const guardianRows  = pipelineEvents.filter((r: any) => r.event_type === 'gl_guardian_fire');
+  const guardianTraceRows = pipelineEvents.filter((r: any) => r.event_type === 'gl_guardian_trace');
+  const audioSubRows  = pipelineEvents.filter((r: any) => r.event_type === 'gl_audio_subturn_sealed');
+  const audioFlushRows = pipelineEvents.filter((r: any) => r.event_type === 'gl_transcripts_flushed');
+
+  // Determine whether audio telemetry is available (only for new-scheme sessions)
+  const hasAudioTelemetry = audioSubRows.length > 0 || audioFlushRows.length > 0;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SESSION HEADER
+  // ═══════════════════════════════════════════════════════════════════════════
+  sep2();
+  console.log(BOLD(B('  DANIELA TRUTH-PIPELINE REPORT')));
+  sep2();
+
+  const studentLabel = session.first_name
+    ? `${session.first_name} (${session.email ?? 'no-email'})`
+    : (session.email ?? DIM('unknown student'));
+  const durMin = typeof session.duration_min === 'number'
+    ? (session.duration_min as number).toFixed(1) : '?';
+
+  console.log(`  ${BOLD('Session:')}   ${sessionId}`);
+  console.log(`  ${BOLD('Student:')}   ${studentLabel}`);
+  console.log(`  ${BOLD('Language:')}  ${session.language ?? DIM('?')}`);
+  console.log(`  ${BOLD('Started:')}   ${fmtTs(new Date(sessionStart))}`);
+  console.log(`  ${BOLD('Ended:')}     ${sessionEnd ? fmtTs(new Date(sessionEnd)) : Y('still active')}`);
+  console.log(`  ${BOLD('Duration:')}  ${durMin} min    ${BOLD('Exchanges:')} ${session.exchange_count ?? 0}`);
+  console.log(`  ${BOLD('Tokens:')}    in=${session.llm_input_tokens ?? '?'}  out=${session.llm_output_tokens ?? '?'}`);
+
+  if ((latencyRows as any[]).length) {
+    const allAvg = (latencyRows as any[]).map(r => r.avg_ms).filter(Boolean) as number[];
+    const allP95 = (latencyRows as any[]).map(r => r.p95_ms).filter(Boolean) as number[];
+    if (allAvg.length) {
+      const mean = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      console.log(`  ${BOLD('Latency:')}   avg=${mean(allAvg).toFixed(0)}ms  p95=${Math.max(...allP95).toFixed(0)}ms`);
+    }
+  }
+
+  const latestTraceByAttempt = new Map<string, any>();
+  for (const row of guardianTraceRows as any[]) {
+    const attemptId = row.event_data?.attemptId as string | undefined;
+    if (attemptId) latestTraceByAttempt.set(attemptId, row);
+  }
+  const terminalOutcomes = [...latestTraceByAttempt.values()]
+    .map(row => row.event_data?.terminalOutcome)
+    .filter(Boolean);
+  const traceDelivered = terminalOutcomes.filter(outcome => outcome === 'injected_with_related_archive_call').length;
+  const traceUnknown = terminalOutcomes.filter(outcome => outcome === 'injected_delivery_unknown' || outcome === 'delivery_unknown').length;
+  const gHW = session.gf_hard_walls ?? 0;
+  const gCF = session.gf_carry ?? 0;
+  const traceLabel = guardianTraceRows.length
+    ? `${latestTraceByAttempt.size} attempts  ${G(`${traceDelivered} Archive-linked`)}  ${traceUnknown ? Y(`${traceUnknown} delivery unknown`) : G('0 delivery unknown')}`
+    : `${guardianRows.length} legacy fire row(s) — no attempt trace`;
+  console.log(`  ${BOLD('Guardian:')}  ${traceLabel}  ${gHW} hard-walls  ${gCF} carry-forward`);
+
+  if (!hasAudioTelemetry) {
+    console.log(`  ${DIM('Audio tel: not available for this session (pre-Aug 2026 or no audio turns)')}`);
+  } else {
+    const totalSentences = audioFlushRows.reduce((acc: number, r: any) => acc + (r.audio_total_sentences ?? 0), 0);
+    console.log(`  ${BOLD('Audio:')}     ${audioSubRows.length} sub-turns sealed  ${totalSentences} sentences delivered`);
+  }
+  console.log(`  ${BOLD('Lineage:')}   ${lineageAvailability.status}  ${lineageEvents.length} events  ${lineageLinks.length} links`);
+  console.log(`             ${DIM(lineageAvailability.message)}`);
+  sep();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD UNIFIED TIMELINE
+  // ═══════════════════════════════════════════════════════════════════════════
+  const timeline: TimelineEvent[] = [];
+
+  for (const r of memoryRows as any[]) {
+    timeline.push({ kind: 'memory_search', ts: new Date(r.created_at), payload: r });
+  }
+  for (const r of studentMemoryRows as any[]) {
+    timeline.push({ kind: 'student_memory_search', ts: new Date(r.created_at), payload: r });
+  }
+  for (const r of guardianRows as any[]) {
+    timeline.push({ kind: 'guardian_fire', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
+  }
+  for (const r of guardianTraceRows as any[]) {
+    const event = ((r.event_data ?? {}) as Record<string, any>).event ?? {};
+    timeline.push({
+      kind: 'guardian_trace',
+      ts: new Date(r.created_at),
+      turnId: event.modelTurnId != null ? String(event.modelTurnId) : undefined,
+      payload: r,
+    });
+  }
+  for (const r of toolRows as any[]) {
+    timeline.push({ kind: 'tool_call', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
+  }
+  for (const r of audioSubRows as any[]) {
+    timeline.push({ kind: 'audio_subturn', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
+  }
+  for (const r of audioFlushRows as any[]) {
+    timeline.push({ kind: 'audio_flush', ts: new Date(r.created_at), turnId: r.turn_id ?? undefined, payload: r });
+  }
+  for (const r of messageRows as any[]) {
+    timeline.push({ kind: 'message', ts: new Date(r.created_at), payload: r });
+  }
+
+  timeline.sort((a, b) => a.ts.getTime() - b.ts.getTime());
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER TIMELINE
+  // ═══════════════════════════════════════════════════════════════════════════
+  console.log(BOLD(B('  CHRONOLOGICAL TRUTH-PIPELINE TRACE')));
+  sep();
+
+  if (timeline.length === 0) {
+    console.log(Y('  No events found for this session.'));
+    if (pipelineEvents.length === 0) {
+      console.log(DIM(`  Note: voice_pipeline_events returned 0 rows for session_id=${sessionId}`));
+      console.log(DIM('  and conversationId=' + (conversationId ?? 'null')));
+      console.log(DIM('  This may mean the session predates the dbSessionId fix (Aug 2026)'));
+      console.log(DIM('  or the session had no GL tool/guardian activity.'));
+    }
+  }
+
+  let lastTurnId: string | undefined;
+
+  for (const ev of timeline) {
+    const tsLabel = DIM(`[${fmtTs(ev.ts)}]`);
+    const turnLabel = fmtTurnId(ev.turnId);
+
+    if (ev.turnId && ev.turnId !== lastTurnId) {
+      console.log('');
+      sep('·', 80);
+      console.log(C(`  ▶ TURN ${ev.turnId.slice(0, 12)}`));
+      lastTurnId = ev.turnId;
+    }
+
+    switch (ev.kind) {
+
+      case 'memory_search': {
+        const p = ev.payload;
+        const domains = Array.isArray(p.domains_searched)
+          ? (p.domains_searched as string[]).join(', ')
+          : (p.domains_searched as string ?? '?');
+        const hits = Number(p.result_count ?? 0);
+        const dur  = p.search_duration_ms ? `${p.search_duration_ms}ms` : '?ms';
+        const chars = p.chars_returned ? `${p.chars_returned}ch` : '';
+        const hitsLabel = hits === 0 ? R('0 results') : G(`${hits} results`);
+        console.log(`${tsLabel} ${M('🧠 MEM-SEARCH')}  ${turnLabel}`);
+        console.log(`           query:    ${Y(trunc(p.query as string, 200))}`);
+        console.log(`           domains:  ${domains}`);
+        console.log(`           ${hitsLabel}  ${DIM(dur)}  ${DIM(chars)}`);
+        const domainBreakdown = [
+          ['idiom', p.idiom_count], ['cultural', p.cultural_count],
+          ['procedure', p.procedure_count], ['principle', p.principle_count],
+          ['error', p.error_pattern_count], ['situational', p.situational_pattern_count],
+        ].filter(([, v]) => Number(v) > 0).map(([l, v]) => `${l}:${v}`).join('  ');
+        if (domainBreakdown) console.log(`           breakdown: ${DIM(domainBreakdown)}`);
+        break;
+      }
+
+      case 'student_memory_search': {
+        const p = ev.payload;
+        const hits = Number(p.result_count ?? 0);
+        const dur  = p.duration_ms ? `${p.duration_ms}ms` : '?ms';
+        const hitsLabel = hits === 0 ? R('0 results ⚠') : G(`${hits} results`);
+        const srcLabel = (p.source as string) || 'student_memory';
+        let domainsStr = '';
+        try {
+          const d = typeof p.domains_json === 'string' ? JSON.parse(p.domains_json) : p.domains_json;
+          if (Array.isArray(d) && d.length > 0) domainsStr = (d as string[]).join(', ');
+        } catch { /* ignore */ }
+        console.log(`${tsLabel} ${C('👤 STU-MEM')}    ${turnLabel}  ${DIM(`source:${srcLabel}`)}`);
+        console.log(`           query:   ${Y(trunc(p.query as string, 200))}`);
+        if (domainsStr) console.log(`           domains: ${domainsStr}`);
+        console.log(`           ${hitsLabel}  ${DIM(dur)}`);
+        break;
+      }
+
+      case 'guardian_fire': {
+        const p = ev.payload;
+        const path    = (p.gf_path as string) ?? 'unknown';
+        const phrase  = p.gf_phrase as string | null;
+        const outcome = p.gf_outcome as string | null;
+        const chars   = p.gf_chars_injected;
+        const grnd    = p.gf_grounding as string | null;
+        const pathColor = path.includes('hard') ? R(path) :
+                          path.includes('carry') ? Y(path) : C(path);
+        const oLabel = outcome
+          ? DIM('LEGACY / NON-AUTHORITATIVE HEURISTIC')
+          : DIM('legacy fire only — see attempt timeline for delivery evidence');
+        console.log(`${tsLabel} ${Y('🛡  GUARDIAN')}    ${pathColor}  ${oLabel}  ${turnLabel}`);
+        if (phrase)   console.log(`           phrase:    ${DIM(trunc(phrase, 120))}`);
+        if (chars)    console.log(`           injected:  ${chars} chars`);
+        if (grnd)     console.log(`           grounding: ${DIM(trunc(grnd, 180))}`);
+        break;
+      }
+
+      case 'guardian_trace': {
+        const data = (ev.payload.event_data ?? {}) as Record<string, any>;
+        const trace = (data.event ?? {}) as Record<string, any>;
+        const attempt = String(data.attemptId ?? '?').slice(0, 8);
+        const type = String(trace.type ?? 'unknown');
+        const outcome = data.terminalOutcome ? ` → ${data.terminalOutcome}` : '';
+        console.log(`${tsLabel} ${M('🧭 ATTEMPT')}  ${attempt}  ${B(type)}${outcome ? Y(outcome) : ''}  ${turnLabel}`);
+        if (trace.archiveTool) console.log(`           archive:   ${G(String(trace.archiveTool))}`);
+        if (trace.channel) console.log(`           channel:   ${DIM(String(trace.channel))}`);
+        if (trace.toolBatchSequence != null) console.log(`           batch:     ${DIM(String(trace.toolBatchSequence))}`);
+        if (trace.detail) console.log(`           detail:    ${DIM(trunc(String(trace.detail), 180))}`);
+        break;
+      }
+
+      case 'tool_call': {
+        const p = ev.payload;
+        const toolName  = (p.tool_name as string) ?? '(unnamed)';
+        const status    = (p.status as string) ?? 'unknown';
+        const dur       = p.duration_ms ? `${p.duration_ms}ms` : '';
+        const isGround  = toolName === 'grounding_query';
+        const statusLabel = status === 'ok' ? G('✅') : status === 'error' ? R('❌') : Y('⚠');
+        const icon      = isGround ? '🔎' : '🔧';
+        const nameColor = isGround ? B(toolName) : G(toolName);
+        console.log(`${tsLabel} ${icon} TOOL      ${nameColor}  ${statusLabel}  ${DIM(dur)}  ${turnLabel}`);
+        if (p.args)         console.log(`           args:     ${DIM(trunc(p.args as string, 160))}`);
+        if (status === 'error' && p.result_preview) {
+          console.log(`           error:    ${R(trunc(p.result_preview as string, 200))}`);
+        } else if (p.result_preview) {
+          console.log(`           result:   ${DIM(trunc(p.result_preview as string, 160))}`);
+        }
+        break;
+      }
+
+      case 'audio_subturn': {
+        const p = ev.payload;
+        console.log(`${tsLabel} ${G('🔊 AUDIO')}      sub-turn sealed  ${DIM(`label:${p.audio_label ?? '?'}  sentence#${p.audio_sentence_index ?? '?'}`)}  ${turnLabel}`);
+        break;
+      }
+
+      case 'audio_flush': {
+        const p = ev.payload;
+        const total = Number(p.audio_total_sentences ?? 0);
+        const deliveryLabel = total === 0 ? R('0 sentences — no audio delivered') : G(`${total} sentences flushed`);
+        console.log(`${tsLabel} ${G('🔊 AUDIO')}      ${deliveryLabel}  ${turnLabel}`);
+        break;
+      }
+
+      case 'message': {
+        const p = ev.payload;
+        const role    = p.role as string;
+        const content = p.content as string | null;
+        const thought = p.thought_content as string | null;
+        if (role === 'user') {
+          console.log(`${tsLabel} ${C('👤 STUDENT')}     ${trunc(content, 160)}`);
+        } else if (role === 'assistant') {
+          console.log(`${tsLabel} ${G('🤖 DANIELA')}     ${trunc(content, 160)}`);
+          if (hasAudioTelemetry) {
+            console.log(`           ${DIM('└─ audio: see gl_audio_subturn_sealed / gl_transcripts_flushed above')}`);
+          } else {
+            console.log(`           ${DIM('└─ 🔊 audio: telemetry not available (pre-Aug 2026 session)')}`);
+          }
+          if (thought) console.log(`           ${M('thought:')} ${DIM(trunc(thought, 240))}`);
+        } else {
+          console.log(`${tsLabel} ${DIM(`[${role}]`)}  ${trunc(content, 120)}`);
+        }
+        break;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECTION SUMMARIES
+  // ═══════════════════════════════════════════════════════════════════════════
+  sep2();
+  console.log(BOLD(B('  SECTION SUMMARIES')));
+  sep2();
+
+  // 1. Memory searches (teaching + student)
+  console.log(BOLD('\n  1. MEMORY SEARCHES'));
+  sep('─', 60);
+
+  console.log(BOLD('  a) Teaching-domain (neural-net):'));
+  if ((memoryRows as any[]).length === 0) {
+    console.log(DIM('     No teaching-domain searches recorded.'));
+  } else {
+    (memoryRows as any[]).forEach((r: any, i: number) => {
+      const hits = Number(r.result_count ?? 0);
+      const label = hits === 0 ? R('⚠  0 results') : G(`${hits} results`);
+      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${r.search_duration_ms ?? '?'}ms`);
+      console.log(`      query: ${Y(trunc(r.query, 180))}`);
+    });
+  }
+
+  console.log(BOLD('\n  b) Student-memory (personal facts):'));
+  if ((studentMemoryRows as any[]).length === 0) {
+    console.log(DIM('     No student-memory searches recorded for this session.'));
+    console.log(DIM('     (These appear after the Aug 2026 searchMemory telemetry patch.)'));
+  } else {
+    (studentMemoryRows as any[]).forEach((r: any, i: number) => {
+      const hits = Number(r.result_count ?? 0);
+      const label = hits === 0 ? R('⚠  0 results — MISS') : G(`${hits} results`);
+      const srcLabel = (r.source as string) || 'student_memory';
+      let domainsStr = '';
+      try {
+        const d = typeof r.domains_json === 'string' ? JSON.parse(r.domains_json) : r.domains_json;
+        if (Array.isArray(d) && d.length > 0) domainsStr = `  domains: ${(d as string[]).join(', ')}`;
+      } catch { /* ignore */ }
+      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${r.duration_ms ?? '?'}ms  source:${srcLabel}${domainsStr}`);
+      console.log(`      query: ${Y(trunc(r.query as string, 180))}`);
+    });
+  }
+
+  // 1a. Canonical context-lineage evidence
+  console.log(BOLD('\n  CONTEXT LINEAGE AVAILABILITY (canonical ledger)'));
+  sep('─', 60);
+  console.log(`  Status: ${lineageAvailability.status}`);
+  console.log(`  Capture configured: ${lineageAvailability.captureEnabled ? G('enabled') : Y('disabled')}`);
+  console.log(`  Evidence: ${lineageEvents.length} event(s) · ${lineageLinks.length} link(s)`);
+  console.log(`  ${DIM(lineageAvailability.message)}`);
+
+  if (lineageAvailability.status === 'unavailable') {
+    console.log(Y('  Ledger rows could not be read. This is an unavailable diagnostic boundary, not evidence about delivery or model receipt.'));
+  } else if (lineageEvents.length === 0) {
+    console.log(Y('  No canonical lineage rows are present. Absence of rows does not prove a send was not attempted, delivered, or received by the model.'));
+  } else {
+    const traceCount = new Set(lineageEvents.map(row => row.trace_id)).size;
+    console.log(`  Traces: ${traceCount}`);
+    if (lineageSequenceGaps.length > 0) {
+      console.log(Y(`  Partial persistence: missing sequence number(s) ${lineageSequenceGaps.join(', ')}.`));
+    }
+    for (const row of lineageEvents) {
+      const channel = row.delivery_channel ? ` channel:${row.delivery_channel}` : '';
+      const hash = row.payload_sha256 ? ` sha:${String(row.payload_sha256).slice(0, 12)}` : '';
+      console.log(`  [${String(row.sequence_number).padStart(3)}] ${fmtTs(new Date(row.observed_at))}  ${row.source_route} → ${row.event_type}  status:${row.delivery_status}${channel}${hash}`);
+      if (isDirectLineageSend(row)) {
+        const proxyEventId = streamProxyEventId(row.payload_json);
+        const proxyEvent = observedStreamProxyEvents.get(proxyEventId ?? '');
+        const hasFactualProxy = isFactualStreamProxyReference({
+          traceId: row.trace_id,
+          sequenceNumber: Number(row.sequence_number),
+        }, proxyEventId, proxyEvent);
+        if (hasFactualProxy && proxyEvent) {
+          console.log(`        ${G(`Stream proxy observed: ${proxyEvent.eventType} ${String(proxyEvent.id).slice(0, 8)}.`)} ${DIM('This is transport evidence only; model receipt remains unknown.')}`);
+        } else {
+          console.log(`        ${Y('Send receipt unknown — no linked observed stream event was recorded. Model receipt is unknown.')}`);
+        }
+      }
+    }
+  }
+
+  // 2. Guardian attempts
+  console.log(BOLD('\n  2. GUARDIAN ATTEMPTS'));
+  sep('─', 60);
+  if (guardianTraceRows.length === 0) {
+    console.log(DIM('  No traceable Guardian attempts recorded.'));
+    if (guardianRows.length > 0) {
+      console.log(DIM(`  ${guardianRows.length} legacy Guardian fire row(s) exist without attempt-level evidence.`));
+    }
+  } else {
+    const latestByAttempt = new Map<string, any>();
+    for (const row of guardianTraceRows as any[]) {
+      const attemptId = row.event_data?.attemptId as string | undefined;
+      if (attemptId) latestByAttempt.set(attemptId, row);
+    }
+    for (const [attemptId, row] of latestByAttempt.entries()) {
+      const data = row.event_data ?? {};
+      const outcome = data.terminalOutcome ?? 'in progress';
+      const outcomeLabel = outcome === 'injected_with_related_archive_call'
+        ? G(outcome)
+        : outcome === 'injected_delivery_unknown' || outcome === 'delivery_unknown'
+        ? Y(outcome)
+        : DIM(outcome);
+      console.log(`  ${attemptId.slice(0, 8)}  ${C(data.path ?? '?')}  ${outcomeLabel}`);
+      console.log(`      student: ${DIM(trunc(data.studentUtterance, 150))}`);
+      console.log(`      claim:   ${DIM(trunc(data.candidateAssertion, 150))}`);
+    }
+  }
+
+  // 3. Grounding queries
+  const groundingCalls = (toolRows as any[]).filter(r => r.tool_name === 'grounding_query');
+  console.log(BOLD('\n  3. GROUNDING QUERIES (tool calls)'));
+  sep('─', 60);
+  if (groundingCalls.length === 0) {
+    console.log(DIM('  No grounding_query tool calls this session.'));
+  } else {
+    groundingCalls.forEach((r: any, i: number) => {
+      const ok = r.status === 'ok' ? G('✅') : R('❌');
+      console.log(`  [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${ok}  ${r.duration_ms ?? '?'}ms`);
+      if (r.args)           console.log(`      args:   ${DIM(trunc(r.args, 180))}`);
+      if (r.result_preview) console.log(`      result: ${DIM(trunc(r.result_preview, 160))}`);
+    });
+  }
+
+  // 4. Tool call timeline + frequency
+  console.log(BOLD('\n  4. TOOL CALL TIMELINE'));
+  sep('─', 60);
+  if (toolRows.length === 0) {
+    console.log(DIM('  No tool calls recorded.'));
+  } else {
+    const freq: Record<string, number> = {};
+    const errTools = new Set<string>();
+    for (const r of toolRows as any[]) {
+      const n = r.tool_name ?? '(unknown)';
+      freq[n] = (freq[n] ?? 0) + 1;
+      if (r.status === 'error') errTools.add(n);
+    }
+    console.log('  Frequency:');
+    Object.entries(freq)
+      .sort(([, a], [, b]) => b - a)
+      .forEach(([name, count]) => {
+        const errFlag = errTools.has(name) ? R(' (has errors)') : '';
+        console.log(`    ${String(count).padStart(3)}×  ${name}${errFlag}`);
+      });
+
+    const errRows = (toolRows as any[]).filter(r => r.status === 'error');
+    if (errRows.length) {
+      console.log(R(`\n  ⚠  ${errRows.length} error(s):`));
+      errRows.forEach((r: any) => {
+        console.log(`    ${fmtTs(new Date(r.created_at))} ${r.tool_name}: ${trunc(r.result_preview, 200)}`);
+      });
+    }
+
+    console.log('\n  Ordered sequence:');
+    (toolRows as any[]).forEach((r: any, i: number) => {
+      const ok  = r.status === 'ok' ? G('✅') : R('❌');
+      const dur = r.duration_ms ? `${r.duration_ms}ms` : '';
+      console.log(`    [${String(i + 1).padStart(2)}] ${fmtTs(new Date(r.created_at))} ${ok} ${G(r.tool_name ?? '?')} ${DIM(dur)} ${fmtTurnId(r.turn_id)}`);
+      if (r.args)           console.log(`         args:   ${DIM(trunc(r.args, 120))}`);
+      if (r.status === 'error' && r.result_preview) {
+        console.log(`         error:  ${R(trunc(r.result_preview, 120))}`);
+      } else if (r.result_preview) {
+        console.log(`         result: ${DIM(trunc(r.result_preview, 120))}`);
+      }
+    });
+  }
+
+  // 5. Audio delivery
+  console.log(BOLD('\n  5. AUDIO DELIVERY'));
+  sep('─', 60);
+  if (!hasAudioTelemetry) {
+    console.log(DIM('  Audio telemetry (gl_audio_subturn_sealed / gl_transcripts_flushed) not available.'));
+    console.log(DIM('  Sessions captured after the Aug 2026 dbSessionId fix will include this section.'));
+  } else {
+    console.log(`  Sub-turns sealed: ${audioSubRows.length}`);
+    (audioSubRows as any[]).forEach((r: any, i: number) => {
+      console.log(`    [${i + 1}] ${fmtTs(new Date(r.created_at))}  label:${r.audio_label ?? '?'}  sentence#${r.audio_sentence_index ?? '?'}  ${fmtTurnId(r.turn_id)}`);
+    });
+    console.log('');
+    console.log(`  Transcript flushes: ${audioFlushRows.length}`);
+    (audioFlushRows as any[]).forEach((r: any, i: number) => {
+      const total = Number(r.audio_total_sentences ?? 0);
+      const label = total === 0 ? R('0 sentences — no PCM delivered') : G(`${total} sentences`);
+      console.log(`    [${i + 1}] ${fmtTs(new Date(r.created_at))}  ${label}  ${fmtTurnId(r.turn_id)}`);
+    });
+  }
+
+  // 6. Turn-level summary
+  console.log(BOLD('\n  6. TURN-LEVEL SUMMARY'));
+  sep('─', 60);
+  if (!conversationId) {
+    console.log(DIM('  No conversation_id on this session.'));
+  } else if ((messageRows as any[]).length === 0) {
+    console.log(DIM(`  No messages found in conversation ${conversationId} within session time window.`));
+    console.log(DIM(`  Window: ${fmtTs(new Date(sessionStart))} → ${sessionEnd ? fmtTs(new Date(sessionEnd)) : 'now + 5m'}`));
+  } else {
+    let turnNum = 0;
+    let lastRole: string | null = null;
+    for (const r of messageRows as any[]) {
+      const role = r.role as string;
+      if (role === 'user' && lastRole !== 'user') {
+        turnNum++;
+        console.log('');
+        console.log(`  ${BOLD(`Turn ${turnNum}`)}  ${DIM(fmtTs(new Date(r.created_at)))}`);
+      }
+      if (role === 'user') {
+        console.log(`    ${C('Student:')}  ${trunc(r.content as string, 200)}`);
+      } else if (role === 'assistant') {
+        const audioNote = hasAudioTelemetry
+          ? DIM('(see audio section for PCM delivery status)')
+          : DIM('audio: telemetry not available');
+        console.log(`    ${G('Daniela:')}  ${trunc(r.content as string, 200)}`);
+        console.log(`    ${DIM('Audio:')}    ${audioNote}`);
+        if (r.thought_content) console.log(`    ${M('Thought:')} ${DIM(trunc(r.thought_content as string, 220))}`);
+      }
+      lastRole = role;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DIAGNOSIS
+  // ═══════════════════════════════════════════════════════════════════════════
+  sep2();
+  console.log(BOLD(B('  DIAGNOSIS')));
+  sep2();
+
+  const issues: string[] = [];
+  const notes:  string[] = [];
+
+  const zeroHitSearches = (memoryRows as any[]).filter(r => Number(r.result_count ?? 0) === 0);
+  if (zeroHitSearches.length > 0) {
+    issues.push(R(`${zeroHitSearches.length} teaching-domain search(es) returned 0 results — Daniela got nothing back from the neural net.`));
+  }
+
+  // Break out zero-result student-memory misses per source so unified_recall and
+  // search_learner_history misses are identified separately in the diagnosis section.
+  const zeroHitStudentBySource = new Map<string, any[]>();
+  for (const r of studentMemoryRows as any[]) {
+    if (Number(r.result_count ?? 0) === 0) {
+      const src = (r.source as string) || 'student_memory';
+      if (!zeroHitStudentBySource.has(src)) zeroHitStudentBySource.set(src, []);
+      zeroHitStudentBySource.get(src)!.push(r);
+    }
+  }
+  for (const [src, rows] of zeroHitStudentBySource) {
+    const queries = rows.map((r: any) => `"${trunc(r.query as string, 60)}"`).join(', ');
+    issues.push(R(`${rows.length} ${src} search(es) returned 0 results — Daniela asked about the student but got nothing back: ${queries}`));
+  }
+
+  if (traceUnknown > 0) {
+    notes.push(Y(`${traceUnknown} Guardian attempt(s) reached an explicit unknown-delivery state. This is evidence to investigate, not a “miss” attributed to Daniela.`));
+  }
+
+  if (lineageAvailability.status === 'capture_disabled') {
+    notes.push(Y('Context-lineage capture was disabled for this report environment. The absence of lineage rows cannot be used to assess delivery or model receipt.'));
+  } else if (lineageAvailability.status === 'no_evidence_yet') {
+    notes.push(Y('Context-lineage capture is enabled but no rows exist for this session yet. This is a missing observation boundary, not confirmation of delivery or model receipt.'));
+  } else if (lineageAvailability.status === 'degraded_partial') {
+    issues.push(R(`Context-lineage evidence is partial (${lineageSequenceGaps.length} sequence gap(s)); do not treat the trace as complete.`));
+  } else if (lineageAvailability.status === 'unavailable') {
+    issues.push(R('Context-lineage diagnostics could not be queried; delivery and model receipt remain unknown.'));
+  }
+
+  const errored = (toolRows as any[]).filter(r => r.status === 'error');
+  if (errored.length > 0) {
+    issues.push(R(`${errored.length} tool call(s) errored: ${[...new Set(errored.map((r: any) => r.tool_name))].join(', ')}`));
+  }
+
+  if (hasAudioTelemetry) {
+    const zeroSentenceFlushs = (audioFlushRows as any[]).filter(r => Number(r.audio_total_sentences ?? 0) === 0);
+    if (zeroSentenceFlushs.length > 0) {
+      issues.push(R(`${zeroSentenceFlushs.length} transcript flush(es) delivered 0 PCM sentences — audio pipeline stalled on those turns.`));
+    }
+  }
+
+  if (groundingCalls.length === 0 && guardianRows.length > 0) {
+    notes.push(Y('Guardian fired but no grounding_query tool calls logged — grounding may be flowing through the concat channel (no separate tool record, which is expected in default mode).'));
+  }
+
+  if ((memoryRows as any[]).length === 0) {
+    notes.push(Y('No teaching-domain memory searches logged — Daniela relied on context-window knowledge only, or no memory_lookup tool was called this session.'));
+  }
+
+  if ((studentMemoryRows as any[]).length === 0) {
+    notes.push(DIM('No student-memory searches logged — either no memory_lookup was called, or this session predates the Aug 2026 searchMemory telemetry patch.'));
+  }
+
+  if (!hasAudioTelemetry) {
+    notes.push(DIM('Audio telemetry absent — session predates the Aug 2026 dbSessionId fix or had no audio turns. Re-run against a newer session for end-to-end audio visibility.'));
+  }
+
+  if (pipelineEvents.length === 0 && (memoryRows as any[]).length === 0 && (messageRows as any[]).length === 0) {
+    issues.push(R('No events found at all. The session may predate the dbSessionId fix AND not have a matching conversationId in event JSONB. Check voice_pipeline_events manually with the streaming session ID.'));
+  }
+
+  if (issues.length === 0) {
+    console.log(G('  Backend was tight. No issues found.\n'));
+    console.log(G('  ✅ Memory searches returned results, Guardian delivery states are traceable,'));
+    console.log(G('     all tool calls succeeded' + (hasAudioTelemetry ? ', audio sentences were delivered.' : '.')));
+  } else {
+    console.log(Y(`  Backend had ${issues.length} issue(s):\n`));
+    issues.forEach((msg, i) => { console.log(`  [${i + 1}] ${msg}\n`); });
+  }
+
+  if (notes.length > 0) {
+    console.log(DIM('\n  Notes:'));
+    notes.forEach(n => console.log(`  • ${n}`));
+  }
+
+  sep();
+  const totalEvents = pipelineEvents.length + (memoryRows as any[]).length + (studentMemoryRows as any[]).length + (messageRows as any[]).length + lineageEvents.length + lineageLinks.length;
+  console.log(DIM(`  Events: ${toolRows.length} tool calls · ${guardianRows.length} legacy guardian fires · ${guardianTraceRows.length} Guardian trace events · ${(memoryRows as any[]).length} teaching-mem searches · ${(studentMemoryRows as any[]).length} student-mem searches · ${audioSubRows.length} audio sub-turns · ${audioFlushRows.length} audio flushes · ${(messageRows as any[]).length} messages`));
+  console.log(DIM(`          ${lineageEvents.length} canonical lineage events · ${lineageLinks.length} canonical lineage links`));
+  console.log(DIM(`  Total:  ${totalEvents} events in timeline`));
+  sep2();
+}
+
+main().catch(err => {
+  console.error(R(`Fatal error: ${err?.message ?? err}`));
+  if (err?.stack) console.error(DIM(err.stack));
+  process.exit(1);
+});

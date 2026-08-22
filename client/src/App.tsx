@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -24,6 +24,8 @@ import { SystemAlertBanner } from "@/components/SystemAlertBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PendingJoinCodeHandler } from "@/components/PendingJoinCodeHandler";
 import { BUILD_TIME } from "./buildtime";
+import { TermsGate } from "@/components/TermsGate";
+import { DanielaSessionProvider } from "@/contexts/DanielaSessionContext";
 
 function lazyWithRetry(importFn: () => Promise<any>, retries = 3, delay = 1500) {
   return lazy(() => {
@@ -70,7 +72,14 @@ const AdminNorthStar = lazyWithRetry(() => import("@/pages/admin/NorthStar"));
 const AdminDeveloperDashboard = lazyWithRetry(() => import("@/pages/admin/DeveloperDashboard"));
 const AdminBrainHealth = lazyWithRetry(() => import("@/pages/admin/BrainHealth"));
 const AdminSessionEconomics = lazyWithRetry(() => import("@/pages/admin/SessionEconomics"));
+const AdminAICostMonitor = lazyWithRetry(() => import("@/pages/admin/AICostMonitor"));
+const AdminCallQuality = lazyWithRetry(() => import("@/pages/admin/CallQuality"));
+const AdminLiveMonitor = lazyWithRetry(() => import("@/pages/admin/LiveMonitor"));
+const AdminImageEngineTest = lazyWithRetry(() => import("@/pages/admin/ImageEngineTest"));
+const AgentVisualTest = lazyWithRetry(() => import("@/pages/agent-visual-test"));
+const DanielaDiary = lazyWithRetry(() => import("@/pages/daniela-diary"));
 const Lessons = lazyWithRetry(() => import("@/pages/lessons"));
+const LanguageHub = lazyWithRetry(() => import("@/pages/language-hub"));
 const ReviewHub = lazyWithRetry(() => import("@/pages/review-hub"));
 const ArisPractice = lazyWithRetry(() => import("@/pages/aris-practice"));
 const ScenarioBrowser = lazyWithRetry(() => import("@/pages/scenario-browser"));
@@ -82,9 +91,13 @@ const HistoryTutor = lazyWithRetry(() => import("@/pages/history-tutor"));
 const MathTutor = lazyWithRetry(() => import("@/pages/math-tutor"));
 const BusinessTutor = lazyWithRetry(() => import("@/pages/business-tutor"));
 const AldenPage = lazyWithRetry(() => import("@/pages/alden"));
+const AgentSpace = lazyWithRetry(() => import("@/pages/AgentSpace"));
+const FineTuningCurator = lazyWithRetry(() => import("@/pages/fine-tuning-curator"));
 const TeamRoom = lazyWithRetry(() => import("@/pages/TeamRoom"));
+const StudyMode = lazyWithRetry(() => import("@/pages/StudyMode"));
 const ReadingLibrary = lazyWithRetry(() => import("@/pages/reading-library"));
 const ProgressReport = lazyWithRetry(() => import("@/pages/progress-report"));
+const VoiceMessage = lazyWithRetry(() => import("@/pages/voice-message"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 const Login = lazyWithRetry(() => import("@/pages/auth/Login"));
@@ -96,6 +109,21 @@ const ClassDetail = lazyWithRetry(() => import("@/pages/ClassDetail"));
 const CompleteRegistration = lazyWithRetry(() => import("@/pages/auth/CompleteRegistration"));
 const ForgotPassword = lazyWithRetry(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = lazyWithRetry(() => import("@/pages/auth/ResetPassword"));
+
+// Closes sidebar when entering /chat, reopens when leaving
+function SidebarRouteController() {
+  const [location] = useLocation();
+  const { setOpen } = useSidebar();
+  // Keep a ref so the effect always calls the latest setOpen without re-triggering
+  // when setOpen's reference changes (it recreates on every open/close state change).
+  const setOpenRef = useRef(setOpen);
+  useEffect(() => { setOpenRef.current = setOpen; });
+
+  useEffect(() => {
+    setOpenRef.current(location !== "/chat");
+  }, [location]);
+  return null;
+}
 
 // Loading fallback component
 function PageLoader() {
@@ -134,7 +162,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   
   // Only chat page is full-height for authenticated users
   // Landing page (/) is full-height for unauthenticated users
-  const isFullHeightPage = location === "/chat" || location === "/admin/mission" || (!isAuthenticated && !isLoading && location === "/");
+  const isFullHeightPage = location === "/chat" || location === "/team-room" || location === "/admin/mission" || location === "/study-mode" || location === "/alden" || location === "/agent-space" || (!isAuthenticated && !isLoading && location === "/");
 
   const content = (
     <Suspense fallback={<PageLoader />}>
@@ -191,6 +219,7 @@ function Router() {
           <Route path="/complete-registration" component={CompleteRegistration} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
+          <Route path="/vm/:id" component={VoiceMessage} />
           <Route component={NotFound} />
         </Switch>
       </PageWrapper>
@@ -200,14 +229,17 @@ function Router() {
   // For authenticated users, always define all routes
   // ReviewHub is the main landing page (Language Hub)
   return (
+    <>
+    {/* ToS gate — shown as overlay when user hasn't accepted yet */}
+    {user && !user.tosAcceptedAt && <TermsGate>{null}</TermsGate>}
     <PageWrapper>
       <ScrollToTop />
       <Switch>
-        <Route path="/" component={ReviewHub} />
+        <Route path="/" component={LanguageHub} />
         <Route path="/dashboard" component={ReviewHub} />
         <Route path="/legacy-dashboard" component={Dashboard} />
         <Route path="/onboarding" component={Onboarding} />
-        <Route path="/chat">{() => <WidgetErrorBoundary name="Voice Chat"><Chat /></WidgetErrorBoundary>}</Route>
+        <Route path="/chat" component={Chat} />
         {/* Voice tutor route aliases - all redirect to /chat */}
         <Route path="/voice-tutor"><Redirect to="/chat" /></Route>
         <Route path="/voice"><Redirect to="/chat" /></Route>
@@ -233,7 +265,11 @@ function Router() {
         <Route path="/reading-library" component={ReadingLibrary} />
         <Route path="/progress-report" component={ProgressReport} />
         <Route path="/alden" component={AldenPage} />
+        <Route path="/agent-space" component={AgentSpace} />
+        <Route path="/fine-tuning" component={FineTuningCurator} />
         <Route path="/team-room" component={TeamRoom} />
+        <Route path="/study-mode" component={StudyMode} />
+        <Route path="/diary" component={DanielaDiary} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
@@ -257,6 +293,11 @@ function Router() {
         <Route path="/admin/developer" component={AdminDeveloperDashboard} />
         <Route path="/admin/brain-health" component={AdminBrainHealth} />
         <Route path="/admin/session-economics" component={AdminSessionEconomics} />
+        <Route path="/admin/ai-costs" component={AdminAICostMonitor} />
+        <Route path="/admin/calls" component={AdminCallQuality} />
+        <Route path="/admin/live-monitor" component={AdminLiveMonitor} />
+        <Route path="/admin/image-test" component={AdminImageEngineTest} />
+        <Route path="/admin/visual-test" component={AgentVisualTest} />
         <Route path="/admin" component={CommandCenter} />
         
         <Route path="/settings" component={Settings} />
@@ -269,9 +310,11 @@ function Router() {
         <Route path="/login"><Redirect to="/" /></Route>
         <Route path="/signup"><Redirect to="/" /></Route>
         
+        <Route path="/vm/:id" component={VoiceMessage} />
         <Route component={NotFound} />
       </Switch>
     </PageWrapper>
+    </>
   );
 }
 
@@ -310,23 +353,26 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
     <LanguageProvider>
       <UsageProvider>
         <LearningFilterProvider>
-          <PendingJoinCodeHandler />
-          <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full max-w-full overflow-hidden">
-              {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
-              <AppSidebar />
-              <div className="flex flex-col flex-1 relative min-w-0 overflow-hidden">
-                <main className="flex-1 overflow-x-hidden overflow-y-auto">
-                  <Router />
-                </main>
-                {/* Floating menu button - works on all screen sizes */}
-                <FloatingMenuButton />
+          <DanielaSessionProvider>
+            <PendingJoinCodeHandler />
+            <SidebarProvider defaultOpen={typeof window !== 'undefined' ? window.location.pathname !== '/chat' : true} style={style as React.CSSProperties}>
+              <SidebarRouteController />
+              <div className="flex h-screen w-full max-w-full overflow-hidden">
+                {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
+                <AppSidebar />
+                <div className="flex flex-col flex-1 relative min-w-0 overflow-hidden">
+                  <main className="flex-1 overflow-x-hidden overflow-y-auto relative">
+                    <Router />
+                  </main>
+                  {/* Floating menu button - bottom-left */}
+                  <FloatingMenuButton />
+                </div>
               </div>
-            </div>
-            <OfflineIndicator />
-            <SystemAlertBanner />
-            <PWAInstallPrompt />
-          </SidebarProvider>
+              <OfflineIndicator />
+              <SystemAlertBanner />
+              <PWAInstallPrompt />
+            </SidebarProvider>
+          </DanielaSessionProvider>
         </LearningFilterProvider>
       </UsageProvider>
     </LanguageProvider>
@@ -337,6 +383,9 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
 // Uses fixed positioning with safe area insets for mobile devices
 function FloatingMenuButton() {
   const { toggleSidebar } = useSidebar();
+  const [location] = useLocation();
+  // Chat page manages its own full-screen layout — sidebar toggle would overlap the Studio pane
+  if (location === '/chat') return null;
   
   return (
     <Button

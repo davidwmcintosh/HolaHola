@@ -12,12 +12,10 @@ import { SENTENCE_CHUNKING_CONFIG } from "@shared/streaming-voice-types";
 import { 
   createDanielaTools, 
   extractFunctionCalls, 
-  FUNCTION_TO_COMMAND_MAP,
   type ExtractedFunctionCall,
 } from "./gemini-function-declarations";
 
 // Re-export types and utilities for convenience
-export { FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
 export type { ExtractedFunctionCall } from "./gemini-function-declarations";
 
 /**
@@ -32,6 +30,10 @@ export type { ExtractedFunctionCall } from "./gemini-function-declarations";
  * Uses balanced bracket matching for tags with complex nested content (JSON, quotes)
  */
 function stripInternalNotationTags(text: string): string {
+  // Strip <thought>...</thought> blocks first — Gemini internal reasoning that must NEVER be spoken or saved.
+  // Strip the entire block (tags + content) before any other processing.
+  text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+
   // Strip COLLAB tags first (have closing tags)
   text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
   
@@ -401,7 +403,7 @@ export interface StreamingGenerationConfig {
   systemPrompt: string;
   conversationHistory: Array<ConversationHistoryEntry>;
   userMessage: string;
-  model?: string;  // Default: gemini-3-flash-preview
+  model?: string;  // Default: gemini-2.5-flash
   temperature?: number;
   maxOutputTokens?: number;
   onSentence: OnSentenceCallback;
@@ -420,6 +422,12 @@ export interface StreamingGenerationConfig {
   enableContextCaching?: boolean;  // Enable system prompt caching (90% cost reduction)
   // Early abort signal - allows caller to stop stream iteration when all needed content is received
   abortSignal?: { aborted: boolean };
+  // Token usage callback - called when stream completes with actual Gemini token counts
+  onTokenUsage?: (inputTokens: number, outputTokens: number) => void;
+  // Pass-through session reference for function execution context
+  session?: any;
+  // Thought signature callback (extended Gemini feature)
+  onThoughtSignatures?: (signatures: any[]) => void;
 }
 
 /**
@@ -431,6 +439,8 @@ export interface StreamingGenerationResult {
   totalTokens: number;
   durationMs: number;
   functionCallCount?: number;  // Number of native function calls processed
+  inputTokens?: number;   // Actual prompt token count from Gemini usageMetadata
+  outputTokens?: number;  // Actual completion token count from Gemini usageMetadata
 }
 
 /**
@@ -471,26 +481,27 @@ const CACHE_TTL_SECONDS = 55 * 60;
 const CACHE_FAILURE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * Models known to support context caching
- * Includes versioned models (-001, -002) and preview models
- * Gemini 3 Flash Preview supports caching per Google documentation (Dec 2025)
+ * Models known to support context caching WITH tools in the same GenerateContent call.
+ * Gemini 3 and Gemini 2.5 Pro are excluded: they reject cachedContent + tools together
+ * (INVALID_ARGUMENT 400 — must embed tools inside the cache itself).
+ * Gemini 1.5 versioned models are the only confirmed safe caching targets.
  */
 const CACHE_COMPATIBLE_MODELS = [
   'gemini-1.5-flash-001',
   'gemini-1.5-flash-002', 
   'gemini-1.5-pro-001',
   'gemini-1.5-pro-002',
-  'gemini-2.0-flash-001',
-  'gemini-2.5-flash-001',
-  'gemini-2.5-pro-001',
-  'gemini-3-flash-preview',  // Confirmed cache support (Dec 2025)
+  // gemini-3-flash-preview: NOT listed here — it does NOT support cachedContent combined with
+  // tools/tool_config in the same GenerateContent call (API returns INVALID_ARGUMENT 400).
+  // The gemini-3 null-guard in getCacheCompatibleModel handles this correctly.
+  // gemini-2.5-pro: excluded for same reason (tools conflict with cachedContent at request time).
 ];
 
 /**
  * Default cache-compatible model for when caching is enabled
  * Used as fallback when the requested model doesn't support caching
  */
-const DEFAULT_CACHE_MODEL = 'gemini-2.5-flash-001';
+const DEFAULT_CACHE_MODEL = 'gemini-2.5-flash';
 
 /**
  * Check if a model supports context caching
@@ -505,27 +516,31 @@ function isCacheCompatibleModel(model: string): boolean {
 }
 
 /**
- * Get a cache-compatible version of a model
- * Returns the original model if compatible, or a fallback versioned model
- * Gemini 3 Flash Preview now supports caching (Dec 2025) - no downgrade needed
+ * Get a cache-compatible version of a model.
+ * For preview/alias models (e.g. gemini-2.5-flash-preview), returns the versioned
+ * stable equivalent so caching is possible.
+ * Returns null for models that have NO cache-compatible equivalent (e.g. gemini-2.5-flash).
+ * 
+ * IMPORTANT: The returned model must match what is used in the actual generation call.
+ * A cache created with model X cannot be referenced by a call using model Y.
  */
-function getCacheCompatibleModel(model: string): string {
+function getCacheCompatibleModel(model: string): string | null {
   if (isCacheCompatibleModel(model)) {
     return model;
   }
   
-  // Gemini 3 Flash: Now in CACHE_COMPATIBLE_MODELS, so this is a fallback
-  // for any future Gemini 3 variant not yet listed
+  // Gemini 3 models: preview does NOT support cachedContents — no fallback possible
+  // (cannot use a gemini-2.5 cache in a gemini-3 call)
   if (model.includes('gemini-3')) {
-    return 'gemini-3-flash-preview';  // Use preview which supports caching
+    return null;
   }
   
-  // Map preview models to their versioned equivalents
+  // Map preview models to their versioned equivalents (same model family)
   if (model.includes('gemini-2.5')) {
-    return DEFAULT_CACHE_MODEL;  // Use 2.5 flash for caching
+    return DEFAULT_CACHE_MODEL;  // gemini-2.5-flash → gemini-2.5-flash
   }
   if (model.includes('gemini-2.0')) {
-    return 'gemini-2.0-flash-001';
+    return DEFAULT_CACHE_MODEL;  // gemini-2.0 → fallback to gemini-2.5-flash
   }
   if (model.includes('gemini-1.5-pro')) {
     return 'gemini-1.5-pro-002';
@@ -584,13 +599,7 @@ export class GeminiStreamingService {
   
   constructor() {
     this.client = new GoogleGenAI({
-      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '',
-      httpOptions: {
-        apiVersion: "",
-        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-        // Extended timeout for complex AI responses (default is 60s which can timeout on long conversations)
-        timeout: 180000, // 3 minutes in milliseconds
-      },
+      apiKey: process.env.GEMINI_API_KEY || '',
     });
     // Using Gemini 3 Flash preview for latest capabilities
     this.defaultModel = 'gemini-3-flash-preview';
@@ -613,8 +622,9 @@ export class GeminiStreamingService {
    * Get or create a context cache for the given system prompt
    * Returns the cache name if successful, null if caching not possible
    * 
-   * Note: Automatically maps to a cache-compatible model if the requested model
-   * doesn't support caching (e.g., gemini-3-flash-preview -> gemini-2.5-flash-001)
+   * Note: Preview models are mapped to their versioned equivalents for caching
+   * (e.g. gemini-2.5-flash-preview → gemini-2.5-flash-001). Models with no
+   * cache-compatible equivalent (e.g. gemini-2.5-flash) return null immediately.
    */
   private async getOrCreateContextCache(
     systemPrompt: string,
@@ -622,6 +632,12 @@ export class GeminiStreamingService {
   ): Promise<string | null> {
     // Get a cache-compatible model (may differ from requested model)
     const cacheModel = getCacheCompatibleModel(requestedModel);
+    
+    // No cache-compatible equivalent — skip caching entirely
+    if (!cacheModel) {
+      return null;
+    }
+    
     const promptHash = hashString(systemPrompt);
     const cacheKey = `${cacheModel}:${promptHash}`;
     
@@ -787,6 +803,8 @@ export class GeminiStreamingService {
       enableContextCaching = false,
       // Early abort
       abortSignal,
+      // Token usage callback
+      onTokenUsage,
     } = config;
     
     // Clean up expired caches periodically
@@ -851,6 +869,9 @@ export class GeminiStreamingService {
     // Stream timeout state (declared here so catch block can clean up)
     let streamTimeoutId: NodeJS.Timeout | null = null;
     
+    // Abort poll ID (declared here so catch block can clean up even if throw happens before streaming starts)
+    let abortPollId: NodeJS.Timeout | null = null;
+    
     // SENTENCE-LEVEL PIPELINING: Process TTS in order without blocking Gemini stream
     // Instead of `await onSentence(chunk)` which blocks token streaming while TTS runs,
     // we queue sentences and process them sequentially in the background.
@@ -878,7 +899,9 @@ export class GeminiStreamingService {
       } finally {
         sentenceQueueProcessing = false;
         if (sentenceQueueDone && sentenceQueue.length === 0 && sentenceQueueResolve) {
-          sentenceQueueResolve();
+          const resolveNow = sentenceQueueResolve;
+          sentenceQueueResolve = null;
+          resolveNow();
         }
       }
     };
@@ -899,7 +922,16 @@ export class GeminiStreamingService {
       }
       return new Promise<void>((resolve) => {
         sentenceQueueResolve = resolve;
-        // If queue isn't currently processing, kick it off
+        // Race condition guard: queue may have emptied and processing may have finished
+        // between setting sentenceQueueDone=true above and setting sentenceQueueResolve here.
+        // processSentenceQueue's finally block only resolves if sentenceQueueResolve is set,
+        // so we must re-check here and self-resolve if the queue is already done.
+        if (sentenceQueue.length === 0 && !sentenceQueueProcessing) {
+          sentenceQueueResolve = null;
+          resolve();
+          return;
+        }
+        // If queue isn't currently processing but has items, kick it off
         if (!sentenceQueueProcessing && sentenceQueue.length > 0) {
           processSentenceQueue();
         }
@@ -907,6 +939,7 @@ export class GeminiStreamingService {
         setTimeout(() => {
           if (sentenceQueueResolve === resolve) {
             console.warn(`[Gemini Streaming] Sentence queue drain timeout after 30s (${sentenceQueue.length} items remaining, processing=${sentenceQueueProcessing})`);
+            sentenceQueueResolve = null;
             resolve();
           }
         }, 30000);
@@ -979,14 +1012,14 @@ export class GeminiStreamingService {
               usingCachedContext = true;
               // CRITICAL: Must use the cache-compatible model for the request
               // Otherwise Gemini won't honor the cached content
-              requestModel = getCacheCompatibleModel(model);
+              requestModel = getCacheCompatibleModel(model) || requestModel;
             } else {
               // Fall back to inline system instruction
-              generationConfig.systemInstruction = systemPrompt;
+              generationConfig.systemInstruction = systemPrompt ?? undefined;
             }
           } else {
             // No caching - use inline system instruction
-            generationConfig.systemInstruction = systemPrompt;
+            generationConfig.systemInstruction = systemPrompt ?? undefined;
           }
           
           // Add thinking level if model supports it (Gemini 3+)
@@ -1043,7 +1076,7 @@ export class GeminiStreamingService {
           lastError = error;
           const status = error.status || error.code;
           const errorMessage = error.message || '';
-          const isRateLimit = status === 429 || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Too Many Requests');
+          const isRateLimit = status === 429 || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Too Many Requests') || errorMessage.includes('RATELIMIT_EXCEEDED') || errorMessage.includes('Rate limit exceeded');
           const isServerError = status >= 500 && status < 600;
           
           // Retry on rate limit (429) or server errors (5xx)
@@ -1065,6 +1098,9 @@ export class GeminiStreamingService {
       // Track function calls across the stream
       let functionCallsProcessed = 0;
       let pendingFunctionCallPromise: Promise<void> | null = null;
+      
+      // Track real token usage from Gemini usageMetadata (last chunk has final totals)
+      let lastUsageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | null = null;
       
       // Track streaming partial function calls (Gemini 3)
       // Maps callIndex -> accumulated state as args stream in
@@ -1128,7 +1164,6 @@ export class GeminiStreamingService {
         }, timeoutMs);
       };
       
-      let abortPollId: NodeJS.Timeout | null = null;
       if (abortSignal) {
         abortPollId = setInterval(() => {
           if (abortSignal.aborted && !streamAborted) {
@@ -1169,6 +1204,11 @@ export class GeminiStreamingService {
         
         resetStreamTimeout();
         chunkCount++;
+        
+        // Capture usageMetadata - the last chunk with this field has the final totals
+        if ((chunk as any).usageMetadata) {
+          lastUsageMetadata = (chunk as any).usageMetadata;
+        }
         
         // Log TTFB on first chunk
         if (!firstChunkReceived) {
@@ -1499,14 +1539,24 @@ export class GeminiStreamingService {
       const functionCallLog = functionCallsProcessed > 0 ? `, ${functionCallsProcessed} function calls` : '';
       const timeoutLog = streamTimedOut ? ' [TIMED OUT]' : '';
       const finishReasonLog = lastFinishReason && lastFinishReason !== 'STOP' ? ` [${lastFinishReason}]` : '';
-      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}${finishReasonLog}`);
+      const realInputTokens = lastUsageMetadata?.promptTokenCount ?? 0;
+      const realOutputTokens = lastUsageMetadata?.candidatesTokenCount ?? 0;
+      const tokenLog = realInputTokens > 0 ? ` [${realInputTokens}in/${realOutputTokens}out tokens]` : '';
+      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}${finishReasonLog}${tokenLog}`);
+      
+      // Fire token usage callback if provided (for session-level cost tracking)
+      if (onTokenUsage && (realInputTokens > 0 || realOutputTokens > 0)) {
+        try { onTokenUsage(realInputTokens, realOutputTokens); } catch {}
+      }
       
       return {
         fullText,
         sentenceCount: sentenceIndex,
-        totalTokens: Math.ceil(fullText.length / 4), // Rough estimate
+        totalTokens: realInputTokens + realOutputTokens || Math.ceil(fullText.length / 4),
         durationMs,
         functionCallCount: functionCallsProcessed || undefined,
+        inputTokens: realInputTokens || undefined,
+        outputTokens: realOutputTokens || undefined,
       };
       
     } catch (error: any) {
@@ -1550,11 +1600,18 @@ export class GeminiStreamingService {
         await drainSentenceQueue();
         
         const durationMs = Date.now() - startTime;
+        const recoveryInputTokens = 0;
+        const recoveryOutputTokens = 0;
+        if (onTokenUsage && (recoveryInputTokens > 0 || recoveryOutputTokens > 0)) {
+          try { onTokenUsage(recoveryInputTokens, recoveryOutputTokens); } catch {}
+        }
         return {
           fullText,
           sentenceCount: sentenceIndex,
-          totalTokens: Math.ceil(fullText.length / 4),
+          totalTokens: recoveryInputTokens + recoveryOutputTokens || Math.ceil(fullText.length / 4),
           durationMs,
+          inputTokens: recoveryInputTokens || undefined,
+          outputTokens: recoveryOutputTokens || undefined,
         };
       }
       

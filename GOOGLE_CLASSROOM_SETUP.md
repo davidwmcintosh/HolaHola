@@ -1,6 +1,6 @@
 # Google Classroom Integration Setup Guide
 
-This guide walks you through setting up Google Classroom integration for LinguaFlow. Complete these steps to enable automatic roster sync, assignment sync, and grade passback.
+This guide walks you through setting up Google Classroom integration for HolaHola. Complete these steps to enable automatic roster sync, assignment sync, and grade passback.
 
 ---
 
@@ -9,8 +9,8 @@ This guide walks you through setting up Google Classroom integration for LinguaF
 **What you'll enable:**
 - ✅ **Single Sign-On (SSO)**: Teachers and students log in with Google accounts
 - ✅ **Auto-Roster Sync**: Student lists automatically import from Google Classroom
-- ✅ **Assignment Sync**: Assignments created in Classroom appear in LinguaFlow
-- ✅ **Grade Passback**: LinguaFlow scores sync back to Classroom gradebook
+- ✅ **Assignment Sync**: Assignments created in Classroom appear in HolaHola
+- ✅ **Grade Passback**: HolaHola scores sync back to Classroom gradebook
 
 **Time Required:** 30-45 minutes (plus 2-4 weeks for Google verification if going public)
 
@@ -32,7 +32,7 @@ This guide walks you through setting up Google Classroom integration for LinguaF
 2. **Create New Project**
    - Click the project dropdown (top left, next to "Google Cloud")
    - Click "NEW PROJECT"
-   - **Project Name:** `LinguaFlow-Classroom-Integration`
+   - **Project Name:** `HolaHola-Classroom-Integration`
    - **Organization:** Leave as "No organization" (unless you have Google Workspace)
    - Click **CREATE**
 
@@ -68,10 +68,10 @@ This guide walks you through setting up Google Classroom integration for LinguaF
    - Click **CREATE**
 
 3. **App Information**
-   - **App name:** `LinguaFlow`
+   - **App name:** `HolaHola`
    - **User support email:** Your email address
-   - **App logo:** (Optional) Upload LinguaFlow logo
-   - **Application home page:** `https://linguaflow.replit.app` (or your custom domain)
+   - **App logo:** (Optional) Upload HolaHola logo
+   - **Application home page:** `https://holahola.replit.app` (or your custom domain)
    - **Application privacy policy link:** Add your privacy policy URL
    - **Application terms of service link:** Add your terms of service URL
    - **Authorized domains:** Add `replit.app` (or your custom domain)
@@ -113,19 +113,19 @@ This guide walks you through setting up Google Classroom integration for LinguaF
 
 3. **Configure OAuth Client**
    - **Application type:** Web application
-   - **Name:** `LinguaFlow Web Client`
+   - **Name:** `HolaHola Web Client`
    
    - **Authorized JavaScript origins:**
      ```
      https://YOUR_REPL_URL.replit.dev
-     https://linguaflow.replit.app
+     https://holahola.replit.app
      ```
      (Add both your development and production URLs)
    
    - **Authorized redirect URIs:**
      ```
      https://YOUR_REPL_URL.replit.dev/api/auth/google/callback
-     https://linguaflow.replit.app/api/auth/google/callback
+     https://holahola.replit.app/api/auth/google/callback
      ```
    
    - Click **CREATE**
@@ -167,7 +167,7 @@ This guide walks you through setting up Google Classroom integration for LinguaF
 
 ## Step 6: Test the Integration
 
-Once credentials are added, the LinguaFlow agent will automatically:
+Once credentials are added, the HolaHola agent will automatically:
 1. Set up OAuth routes (`/api/auth/google`, `/api/auth/google/callback`)
 2. Implement roster sync endpoints
 3. Add assignment sync logic
@@ -178,7 +178,7 @@ Once credentials are added, the LinguaFlow agent will automatically:
 2. Navigate to `/teacher/dashboard`
 3. Click "Connect Google Classroom" button
 4. Authorize with your Google account
-5. Your Classroom classes should appear in LinguaFlow!
+5. Your Classroom classes should appear in HolaHola!
 
 ---
 
@@ -218,7 +218,7 @@ https://YOUR_REPL_URL.replit.dev/api/auth/google/callback
 ```
 
 ### "This app isn't verified"
-**Solution:** This is normal during development. Click "Advanced" → "Go to LinguaFlow (unsafe)" to proceed. For production, complete Step 7 (verification).
+**Solution:** This is normal during development. Click "Advanced" → "Go to HolaHola (unsafe)" to proceed. For production, complete Step 7 (verification).
 
 ### "Access blocked: This app's request is invalid"
 **Solution:** Ensure all required scopes are added in Step 3. Check that:
@@ -270,7 +270,7 @@ https://YOUR_REPL_URL.replit.dev/api/auth/google/callback
 ## Next Steps
 
 After completing this setup:
-1. ✅ Inform the LinguaFlow agent: "Google Classroom credentials are ready"
+1. ✅ Inform the HolaHola agent: "Google Classroom credentials are ready"
 2. ✅ Agent will build the integration endpoints
 3. ✅ Test with your Google Classroom account
 4. ✅ Roll out to teachers!

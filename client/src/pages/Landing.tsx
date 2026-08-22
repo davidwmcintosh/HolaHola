@@ -1,8 +1,8 @@
 import { Link } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight } from "lucide-react";
+import { languageAccentColors } from "@/lib/tutor-avatars";
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
@@ -40,31 +40,15 @@ const mindMapLobes = [
 ];
 
 export default function Landing() {
-  // Fetch all tutor voices from database (Voice Lab is source of truth)
-  const { data: allTutorVoices } = useQuery<{
-    id: string;
-    language: string;
-    gender: string;
-    voiceName: string;
-    isActive: boolean;
-  }[]>({
-    queryKey: ['/api/tutor-voices'],
-  });
-
-  // Build featured tutors list with database names (fallback to static)
-  const extractFirstName = (voiceName: string) => voiceName.split(/\s*-\s*/)[0].trim();
-  const featuredTutors = featuredTutorsConfig.map(tutor => {
-    const voiceData = allTutorVoices?.find(
-      v => v.language.toLowerCase() === tutor.language.toLowerCase() && v.gender === tutor.gender
-    );
-    const dbName = voiceData ? extractFirstName(voiceData.voiceName) : null;
-    return {
-      avatar: tutor.avatar,
-      name: dbName || tutor.fallbackName,
-      language: tutor.language.charAt(0).toUpperCase() + tutor.language.slice(1),
-      borderColor: tutor.borderColor,
-    };
-  });
+  // Build featured tutors list from static config — character names are canonical here.
+  // DB tutor_voices stores TTS identifiers (Aoede, Fenrir, etc.), NOT character names.
+  const featuredTutors = featuredTutorsConfig.map(tutor => ({
+    avatar: tutor.avatar,
+    name: tutor.fallbackName,
+    language: tutor.language.charAt(0).toUpperCase() + tutor.language.slice(1),
+    borderColor: tutor.borderColor,
+    accentColor: languageAccentColors[tutor.language as keyof typeof languageAccentColors] ?? '#6366f1',
+  }));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 overflow-hidden">
@@ -165,7 +149,10 @@ export default function Landing() {
               <div className="flex justify-center gap-2 md:gap-3 lg:gap-4 overflow-x-auto pb-2">
                 {featuredTutors.map((tutor, index) => (
                   <div key={index} className="flex flex-col items-center gap-1 flex-shrink-0">
-                    <div className={`w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-full border-2 ${tutor.borderColor} bg-white dark:bg-gray-800 shadow-md overflow-hidden`}>
+                    <div
+                      className={`w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-full border-2 ${tutor.borderColor} shadow-md overflow-hidden`}
+                      style={{ backgroundColor: tutor.accentColor + '30' }}
+                    >
                       <img 
                         src={tutor.avatar} 
                         alt={tutor.name}

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Send, Sparkles } from "lucide-react";
+import { Loader2, Send, Sparkles, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -15,39 +15,67 @@ type Message = {
   content: string;
 };
 
-const INITIAL_MESSAGE = "Hi! I'm your language learning assistant. I'm excited to help you on your language learning journey! What language would you like to learn? (English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew)";
+type Step = "language" | "experience" | "placement" | "tutor_gender" | "native" | "complete";
+
+const INITIAL_MESSAGE =
+  "Hi! I'm your language learning assistant. I'm excited to help you on your language learning journey! What language would you like to learn? (English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew)";
+
+const SUPPORTED_LANGUAGES = [
+  "english", "spanish", "french", "german", "italian",
+  "portuguese", "japanese", "mandarin", "korean", "mandarin chinese", "hebrew",
+];
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { setLanguage } = useLanguage();
+
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: INITIAL_MESSAGE }
+    { role: "assistant", content: INITIAL_MESSAGE },
   ]);
   const [input, setInput] = useState("");
-  const [step, setStep] = useState<"language" | "native" | "complete">("language");
+  const [step, setStep] = useState<Step>("language");
+  const [targetLanguage, setTargetLanguage] = useState("");
+  const [placementSessionId, setPlacementSessionId] = useState<string | null>(null);
+  const [placementLoading, setPlacementLoading] = useState(false);
+  const [placementDone, setPlacementDone] = useState(false);
+  const [assessedLevel, setAssessedLevel] = useState<string | null>(null);
+  const [tutorGenderLoading, setTutorGenderLoading] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
+
+  // School-enrolled students skip the self-directed placement flow entirely —
+  // their teacher manages placement via the class management panel.
+  const { data: enrollments } = useQuery<{ id: string; classId: string; isActive: boolean }[]>({
+    queryKey: ["/api/user/class-enrollments"],
+    enabled: !!user,
+  });
+  const isSchoolEnrolled = (enrollments ?? []).some((e) => e.isActive);
 
   const updatePreferencesMutation = useMutation({
     mutationFn: async (preferences: {
       targetLanguage?: string;
       nativeLanguage?: string;
       onboardingCompleted?: boolean;
+      selfDirectedPlacementDone?: boolean;
+      tutorGender?: 'male' | 'female' | 'no_preference';
     }) => {
-      console.log("Updating preferences:", preferences);
       const result = await apiRequest("PUT", "/api/user/preferences", preferences);
-      console.log("Preferences updated:", result);
       return result;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
     },
-    onError: (error) => {
-      console.error("Failed to update preferences:", error);
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to save your preferences. Please try again.",
@@ -56,65 +84,231 @@ export default function Onboarding() {
     },
   });
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  // ── Language step ───────────────────────────────────────────────────────────
+  const handleLanguageInput = async (userInput: string) => {
+    const lower = userInput.toLowerCase().trim();
+    const targetLang = SUPPORTED_LANGUAGES.find((lang) => lower.includes(lang));
 
-    const userMessage: Message = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMessage]);
-    const userInput = input.toLowerCase().trim();
-    setInput("");
+    if (targetLang) {
+      const normalized = targetLang === "mandarin chinese" ? "mandarin" : targetLang;
+      await updatePreferencesMutation.mutateAsync({ targetLanguage: normalized });
+      setLanguage(normalized);
+      setTargetLanguage(normalized);
 
-    const languages = ["english", "spanish", "french", "german", "italian", "portuguese", "japanese", "mandarin", "korean", "mandarin chinese", "hebrew"];
+      const langDisplay = normalized.charAt(0).toUpperCase() + normalized.slice(1);
 
-    try {
-      if (step === "language") {
-        const targetLang = languages.find((lang) => userInput.includes(lang));
-        if (targetLang) {
-          const normalizedLang = targetLang === "mandarin chinese" ? "mandarin" : targetLang;
-          await updatePreferencesMutation.mutateAsync({ targetLanguage: normalizedLang });
-          
-          // Immediately update LanguageContext with the target language
-          setLanguage(normalizedLang);
-          
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: `Great choice! Learning ${targetLang} will open up so many opportunities. Now, what's your native language? This helps me explain things in a way that makes sense to you.`,
-            },
-          ]);
-          setStep("native");
-        } else {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "I didn't quite catch that. Please choose one of: English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew.",
-            },
-          ]);
-        }
-      } else if (step === "native") {
-        // Complete onboarding - the AI tutor will naturally assess level through conversation
-        // No self-selection of difficulty; the tutor adapts organically based on student responses
-        await updatePreferencesMutation.mutateAsync({ 
-          nativeLanguage: userInput,
-          onboardingCompleted: true 
-        });
-        
+      // School-enrolled students skip self-directed placement — teacher manages assessment
+      if (isSchoolEnrolled) {
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `Perfect! I'll explain things in ${userInput}. Your AI tutor will adapt to your level naturally as you practice together - no need to guess where you're starting. Just talk, and I'll meet you where you are. Let's begin your language learning journey!`,
+            content: `${langDisplay} — great! Since you're enrolled in a class, your teacher will handle your placement assessment. One quick thing — do you have a preference for your tutor's voice?`,
           },
         ]);
-        setStep("complete");
-        
-        // Wait for preferences to save and query to refresh, then redirect to home
-        // Router will automatically direct to chat since onboarding is complete
+        setStep("tutor_gender");
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Great choice! ${langDisplay} opens up so many doors. One quick question — have you studied ${langDisplay} before, or is this your first time?`,
+        },
+      ]);
+      setStep("experience");
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I didn't quite catch that. Please choose one of: English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew.",
+        },
+      ]);
+    }
+  };
+
+  // ── Experience step: "yes" branch → start placement ────────────────────────
+  const handleExperienceYes = async () => {
+    const langDisplay = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: "Yes, I have some experience" },
+      {
+        role: "assistant",
+        content: `Wonderful! Let's have a short conversation so I can understand exactly where you are — that way I can meet you right at your level. I'll ask about your experience with ${langDisplay} and we'll just chat naturally. Ready?`,
+      },
+    ]);
+    setStep("placement");
+    await startPlacement();
+  };
+
+  // ── Experience step: "no" branch → novice_low, go to tutor_gender ──────────
+  const handleExperienceNo = async () => {
+    const langDisplay = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: "No, this is my first time" },
+      {
+        role: "assistant",
+        content: `Perfect — we'll build a solid foundation from the very beginning. ${langDisplay} is such a rewarding language to learn! One quick thing — do you have a preference for your tutor's voice?`,
+      },
+    ]);
+    // Mark placement done with novice_low, no conversation needed
+    try {
+      await apiRequest("POST", "/api/placement/novice", { language: targetLanguage });
+    } catch {
+      // Non-fatal: preferences will still be set as completed
+    }
+    setStep("tutor_gender");
+  };
+
+  // ── Tutor gender step ────────────────────────────────────────────────────────
+  const handleTutorGenderSelect = async (preference: 'male' | 'female' | 'no_preference') => {
+    setTutorGenderLoading(true);
+    try {
+      if (preference !== 'no_preference') {
+        await updatePreferencesMutation.mutateAsync({ tutorGender: preference });
+      }
+    } catch {
+      // Non-fatal — continue to native language step regardless
+    } finally {
+      setTutorGenderLoading(false);
+    }
+
+    const choiceLabel =
+      preference === 'male' ? 'Male voice' :
+      preference === 'female' ? 'Female voice' :
+      'No preference';
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: choiceLabel },
+      {
+        role: "assistant",
+        content: "Got it! Last question — what's your native language? This helps me explain things in a way that makes sense to you.",
+      },
+    ]);
+    setStep("native");
+  };
+
+  // ── Placement: start session ────────────────────────────────────────────────
+  const startPlacement = async () => {
+    setPlacementLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/placement/start", {
+        language: targetLanguage,
+        testMode: false,
+      });
+      const data = await res.json();
+      setPlacementSessionId(data.sessionId);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.message },
+      ]);
+    } catch (err: any) {
+      toast({
+        title: "Couldn't start placement",
+        description: "Let's skip the assessment and start fresh.",
+        variant: "destructive",
+      });
+      // Graceful fallback: go straight to native
+      setStep("native");
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Let's move on — what's your native language?",
+        },
+      ]);
+    } finally {
+      setPlacementLoading(false);
+    }
+  };
+
+  // ── Placement: send message to Daniela ─────────────────────────────────────
+  const handlePlacementMessage = async (userInput: string) => {
+    if (!placementSessionId) return;
+    setPlacementLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/placement/message", {
+        sessionId: placementSessionId,
+        message: userInput,
+      });
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.message },
+      ]);
+
+      if (data.complete) {
+        setPlacementDone(true);
+        setAssessedLevel(data.actflLevel ?? null);
+        // Brief pause so the student reads Daniela's closing, then ask tutor preference
         setTimeout(() => {
-          setLocation("/");
-        }, 1500);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: "One quick thing before we wrap up — do you have a preference for your tutor's voice?",
+            },
+          ]);
+          setStep("tutor_gender");
+        }, 1800);
+      }
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPlacementLoading(false);
+    }
+  };
+
+  // ── Native language step → complete ────────────────────────────────────────
+  const handleNativeInput = async (userInput: string) => {
+    await updatePreferencesMutation.mutateAsync({
+      nativeLanguage: userInput.toLowerCase().trim(),
+      onboardingCompleted: true,
+    });
+
+    const levelNote = assessedLevel
+      ? ` I've set your starting level based on our conversation.`
+      : "";
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: `Perfect! I'll explain things in ${userInput}.${levelNote} Let's begin your language learning journey!`,
+      },
+    ]);
+    setStep("complete");
+
+    setTimeout(() => {
+      setLocation("/");
+    }, 1500);
+  };
+
+  // ── Main send handler ───────────────────────────────────────────────────────
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const userInput = input.trim();
+    setMessages((prev) => [...prev, { role: "user", content: userInput }]);
+    setInput("");
+
+    try {
+      if (step === "language") {
+        await handleLanguageInput(userInput);
+      } else if (step === "placement") {
+        await handlePlacementMessage(userInput);
+      } else if (step === "native") {
+        await handleNativeInput(userInput);
       }
     } catch (error) {
       console.error("Error in onboarding flow:", error);
@@ -132,6 +326,9 @@ export default function Onboarding() {
       handleSend();
     }
   };
+
+  const isLoading = updatePreferencesMutation.isPending || placementLoading || tutorGenderLoading;
+  const showInput = step !== "complete" && step !== "experience" && step !== "tutor_gender";
 
   if (!user) {
     return (
@@ -151,6 +348,7 @@ export default function Onboarding() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Message thread */}
           <div className="space-y-4 max-h-96 overflow-y-auto p-4 border rounded-md">
             {messages.map((msg, idx) => (
               <div
@@ -168,30 +366,106 @@ export default function Onboarding() {
                 </div>
               </div>
             ))}
+            {(isLoading && step === "placement") && (
+              <div className="flex justify-start">
+                <div className="bg-muted rounded-lg px-4 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {step !== "complete" && (
+          {/* Experience step: yes/no buttons */}
+          {step === "experience" && (
+            <div className="flex gap-3 justify-center pt-1">
+              <Button
+                data-testid="button-experience-yes"
+                onClick={handleExperienceYes}
+                disabled={isLoading}
+                variant="default"
+              >
+                Yes, I have some experience
+              </Button>
+              <Button
+                data-testid="button-experience-no"
+                onClick={handleExperienceNo}
+                disabled={isLoading}
+                variant="outline"
+              >
+                No, this is my first time
+              </Button>
+            </div>
+          )}
+
+          {/* Tutor gender preference step */}
+          {step === "tutor_gender" && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs text-muted-foreground text-center">You can change this at any time in your settings.</p>
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Button
+                  data-testid="button-tutor-gender-female"
+                  onClick={() => handleTutorGenderSelect('female')}
+                  disabled={isLoading}
+                  variant="outline"
+                >
+                  Female voice
+                </Button>
+                <Button
+                  data-testid="button-tutor-gender-male"
+                  onClick={() => handleTutorGenderSelect('male')}
+                  disabled={isLoading}
+                  variant="outline"
+                >
+                  Male voice
+                </Button>
+                <Button
+                  data-testid="button-tutor-gender-skip"
+                  onClick={() => handleTutorGenderSelect('no_preference')}
+                  disabled={isLoading}
+                  variant="ghost"
+                >
+                  No preference
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Text input (all steps except experience + complete) */}
+          {showInput && (
             <div className="flex gap-2">
               <Input
                 data-testid="input-onboarding-message"
-                placeholder="Type your answer..."
+                placeholder={
+                  step === "placement"
+                    ? "Reply to Daniela..."
+                    : "Type your answer..."
+                }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                disabled={updatePreferencesMutation.isPending}
+                disabled={isLoading || placementDone}
               />
               <Button
                 data-testid="button-send-message"
                 onClick={handleSend}
-                disabled={!input.trim() || updatePreferencesMutation.isPending}
+                disabled={!input.trim() || isLoading || placementDone}
                 size="icon"
               >
-                {updatePreferencesMutation.isPending ? (
+                {isLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
               </Button>
+            </div>
+          )}
+
+          {/* Complete state */}
+          {step === "complete" && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center py-2">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              All set! Taking you to your dashboard…
             </div>
           )}
         </CardContent>

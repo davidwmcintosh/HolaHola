@@ -73,12 +73,12 @@ export async function prefetchAllSyllabusModules(): Promise<void> {
         try {
           await getOrGenerateModule(item.topic, subject);
           console.info(`[Prefetch] Generated: "${item.label}" (${subject})`);
-          // Pause between generations to avoid rate limiting external APIs
-          await new Promise(r => setTimeout(r, 800));
+          // Small yield between prefetch generations
+          await new Promise(r => setTimeout(r, 100));
         } catch (err: any) {
           console.warn(`[Prefetch] Failed for "${item.label}" (${subject}): ${err.message}`);
           // Continue with next chapter even if one fails
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 300));
         }
       }
 

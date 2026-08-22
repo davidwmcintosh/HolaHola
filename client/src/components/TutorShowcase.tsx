@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
@@ -12,14 +11,6 @@ import {
   type SupportedLanguage,
   type TutorGender 
 } from "@/lib/tutor-avatars";
-
-interface TutorVoice {
-  id: string;
-  language: string;
-  gender: 'male' | 'female';
-  voiceName: string;
-  isActive: boolean;
-}
 
 interface TutorCardProps {
   tutor: TutorShowcaseData;
@@ -101,38 +92,9 @@ export function TutorShowcase({
   filterSlot,
   className = '' 
 }: TutorShowcaseProps) {
-  // Fetch tutor voices from database for dynamic names
-  const { data: tutorVoices } = useQuery<TutorVoice[]>({
-    queryKey: ['/api/tutor-voices'],
-  });
-
-  // Build tutor data, using database names when available
-  const allTutors = useMemo(() => {
-    const baseTutors = getAllTutorsForShowcase();
-    
-    if (!tutorVoices || tutorVoices.length === 0) {
-      return baseTutors;
-    }
-
-    // Override names from database where available
-    return baseTutors.map(tutor => {
-      const dbVoice = tutorVoices.find(
-        v => v.language.toLowerCase() === tutor.language.toLowerCase() && 
-             v.gender === tutor.gender &&
-             v.isActive
-      );
-      
-      if (dbVoice) {
-        const rawName = dbVoice.voiceName.split(/\s*-\s*/)[0].trim();
-        const googleVoiceNames = ['Aoede', 'Kore', 'Leda', 'Zephyr', 'Puck', 'Charon', 'Fenrir', 'Orus'];
-        const isGoogleVoiceName = googleVoiceNames.some(gv => rawName.startsWith(gv));
-        const firstName = isGoogleVoiceName ? tutor.name : rawName;
-        return { ...tutor, name: firstName };
-      }
-      
-      return tutor;
-    });
-  }, [tutorVoices]);
+  // Character names come from tutor-avatars.ts (canonical source).
+  // DB tutor_voices stores TTS identifiers (Aoede, Fenrir…), NOT character names.
+  const allTutors = useMemo(() => getAllTutorsForShowcase(), []);
   
   const languageTutors = useMemo(() => {
     // Normalize the language to handle variants like 'mandarin' -> 'chinese'

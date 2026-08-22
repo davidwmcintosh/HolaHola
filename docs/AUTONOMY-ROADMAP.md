@@ -69,107 +69,225 @@ pivots, and anything that materially changes what the product is or who it serve
 ---
 
 ### CAP-002: Alden as Initiative Tracker
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Alden
 **Priority:** High
 
-Alden should compile a weekly summary of what the team surfaced — bugs found, fixes
-made, insights generated, content gaps, security posture — and open a Team Room
-conversation around priorities for the coming week. This happens without David initiating
-it.
-
-**Scope:**
-- Weekly digest: every Monday (or when the next session opens after the weekend)
-- Sources: Express Lane history, Wren security findings, Lyra analysis, Sofia issue list,
-  recent Tier 1 fixes performed autonomously
-- Output: a brief Team Room message from Alden with 3-5 prioritized items and a
-  recommendation on sequencing
-- Alden does NOT implement — he proposes. The team discusses. David confirms or redirects.
+**What was built:**
+- `server/services/alden-digest-worker.ts` — weekly digest worker that gathers data from
+  Wren's security stats, Lyra's analytics stats, Sofia's pending issue queue, and recent
+  Express Lane session activity; passes it to Claude (Opus) to generate a natural 3-5 item
+  prioritized agenda in Alden's voice; posts to active Team Room via `postToActiveTeamRoom`
+- Fires 3 minutes after server startup, then every 7 days
+- Deduplication guard: skips if a digest was posted within the last 3 days
+- If no active Team Room is open when the digest is ready, `lastDigestTime` is reset so
+  it retries the next time the trigger runs or is called manually
+- Manual trigger: `POST /api/team-room/trigger-weekly-digest` (founder only)
+- Alden does NOT implement — he proposes. The team discusses. David decides.
 
 ---
 
 ### CAP-003: Wren Auto-Patches Fixable Bugs
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Wren
 **Priority:** High
 
-When Wren's security audit or architectural review identifies a clearly broken pattern
-with a known fix, she should implement the fix herself under Tier 1 rules. She already
-has read access to the codebase. This extends that to targeted write access for bug fixes.
+**What was built:**
+- `server/services/wren-auto-patch-service.ts` — context-aware patch reviewer that runs
+  after every security audit. For each finding, it reads the surrounding code (±18 lines),
+  calls Gemini Flash to assess: real issue or false positive? if real, is it safely auto-patchable?
+- Three outcomes for each finding:
+  1. **Patched** — Gemini generates the exact replacement lines, service writes them to disk,
+     posts before/after to Express Lane
+  2. **Dismissed (false positive)** — Finding is registered in an in-memory false-positive registry
+     so it is never re-reviewed; documented reasoning posted to Express Lane
+  3. **Escalated** — Real issue that doesn't meet auto-patch criteria; stays in the queue for
+     Team Room discussion
+- Auto-patch criteria enforced by Gemini: change ≤5 lines, no new npm packages, localized,
+  reversible, no behavior change — only hardening
+- False-positive registry persists for the server's lifetime; restarts reset it (re-review happens
+  once per boot, then cached)
+- The Team Room proactive poster now filters out known false positives before posting alerts,
+  so dismissed findings no longer generate noise
+- Manual trigger: `POST /api/team-room/trigger-auto-patch` (founder only, re-runs full audit + patch)
 
-**Scope of autonomous fixes (must meet ALL criteria):**
-- The issue is provably broken, not a code style or opinion disagreement
-- The fix is localized to one function or file
-- No new dependencies introduced
-- Fix is reversible via the checkpoint system
-- Wren posts a clear summary to Express Lane: what was broken, what she changed, the
-  commit-equivalent description
-
-**Examples of qualifying fixes:**
-- `ON CONFLICT DO NOTHING` for duplicate-key inserts (like NeuralSync — already fixed manually)
-- Missing null checks causing crashes
-- Wrong variable referenced in a calculation
-- Dead code causing a worker to silently fail
-
-**Examples that do NOT qualify (go to Team Room first):**
-- Performance refactors
-- Changing how a feature behaves
-- Modifying any user-facing API
-- Anything touching auth, billing, or security boundaries
+**First run results (2026-03-08):**
+- `dangerouslySetInnerHTML` in `chart.tsx:81` → **Dismissed as false positive** (CSS variables
+  injected into a `<style>` tag, developer-controlled color config, not user input, not HTML)
+- `pool.query` template literal in `server/scripts/fix-cross-db-fks.ts:55` → **Dismissed as
+  false positive** (migration script with hardcoded table/constraint names, not API handler,
+  not user input)
 
 ---
 
 ### CAP-004: Lyra Triggers Content Generation for Detected Gaps
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Lyra
 **Priority:** Medium
 
-Lyra's analysis already identifies topics with no cache (currently 0 for most non-core
-subjects). Instead of logging this and stopping, she should be able to trigger the
-existing syllabus pre-generation pipeline for those topics automatically.
+**What was built:**
+- `server/services/lyra-content-trigger-service.ts` — after each analysis run, when Lyra
+  detects lessons missing ACTFL level alignment, she uses Gemini Flash to infer the
+  appropriate ACTFL proficiency level for each lesson based on name, lesson type, and language
+- Assignments are applied directly to the `curriculum_lessons` table
+- A detailed report is posted to Lyra's Express Lane session: which lessons were updated,
+  what levels were assigned, and why
+- The assignment runs after the main analysis + enrichment, before closing out the run
+- If Gemini inference fails, the error is logged and the next run retries
+- Manual trigger: `POST /api/team-room/trigger-content-fix` (founder only, re-runs full
+  analysis + content fix)
 
-**Scope:**
-- On each analysis run, collect topics where `cached = 0` and students have enrolled
-- Call the existing `/api/syllabus/prefetch` or equivalent internal endpoint
-- Report what was generated to Express Lane
+**ACTFL assignment criteria:** Lesson name, type (drill, conversation, grammar, etc.), and
+language determine the level. Greetings/numbers → novice; present tense → novice_high;
+past/future → intermediate; abstract topics → advanced.
 
 ---
 
 ### CAP-005: Sofia Closes the Loop on Known Non-Issues
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Sofia
 **Priority:** Medium
 
-Sofia tracks 536 pending issues. The count never decreases because she never dismisses
-anything. Many of these are historical artifacts from before certain features were
-built. She needs the ability to mark known non-issues as resolved so the list reflects
-actual open problems.
-
-**Scope:**
-- Sofia reviews pending issues older than 30 days
-- Cross-references against: current system health, known-good features, recent fixes
-- Marks dismissible items as resolved with a reason
-- Reports net change to Express Lane: "Resolved 47 historical artifacts. 489 remain."
+**What was built:**
+- `server/services/sofia-issue-cleanup-worker.ts` — weekly cleanup worker that reviews
+  pending issues older than 30 days, groups them by issue type, passes each group to
+  Gemini Flash with current system health context, and marks resolvable groups as resolved
+- Resolved issues are stamped with: `[Sofia Auto-Resolved] <reason> Resolved <date> after
+  30+ days in queue.` in the `founder_notes` field; `reviewed_at` is set to now
+- Retained issues stay pending for founder review — Sofia does not dismiss anything she
+  is not confident about
+- Posts a detailed report to Sofia's Express Lane session: what was resolved, what was
+  retained, running queue count
+- If any issues were resolved and the Team Room is active, Sofia posts there too
+- Fires 90 seconds after startup, then every 7 days; 3-day dedup guard prevents double-runs
+- Manual trigger: `POST /api/team-room/trigger-sofia-cleanup` (founder only)
+- Sofia acts under Tier 1 rules — resolving historical artifacts, not making judgment calls
 
 ---
 
 ### CAP-006: Memory-Driven Proactive Check-Ins from Alden
-**Status:** Not started
+**Status:** SHIPPED — 2026-03-08
 **Owner:** Alden
 **Priority:** Medium-Low
 
-Alden has access to David's stored learning facts (1,278 facts as of 2026-03-08). These
-currently inform session responses but are never used proactively. Alden could use this
-context to open relevant Team Room conversations — noting when a topic David expressed
-interest in has new content available, or when a student-facing area he cares about
-shows new data from Lyra.
+**What was built:**
+- `server/services/alden-checkin-service.ts` — after each Lyra analysis run, Alden
+  loads David's stored memory (up to 100 top facts from `learner_personal_facts` filtered
+  to `preference`, `goal`, `work`, `notable_mention` types) plus `editorInsights`
+- Gemini Flash cross-references Lyra's significant findings (HIGH/CRITICAL/needsReview)
+  against the memory and returns a confidence-rated decision (1-10 scale)
+- Only fires if confidence >= 6 — Alden is conservative and avoids noise
+- If triggered: posts a short, warm, memory-anchored check-in to Team Room AND Alden's
+  Express Lane session with the specific memory anchor cited
+- 4-hour minimum gap between check-ins prevents spam across multiple analysis runs
+- Integrated into `lyra-analytics-worker.ts` after each full analysis
+- Manual trigger: `POST /api/team-room/trigger-alden-checkin` with `{ findings: [...] }`
 
-**Scope:**
-- Triggered by Lyra or Daniela analysis events, not on a fixed schedule
-- Alden cross-references findings with David's stored preferences and prior discussions
-- If relevant, opens a Team Room conversation with the connection surfaced
-- Example: "Lyra flagged a content gap in history. You mentioned wanting to expand that
-  curriculum in March. Want to discuss it?"
+**Memory sources (1,278+ facts):**
+- David's `learner_personal_facts` (preference, goal, work, notable_mention)
+- `editorInsights` (architectural decisions, platform philosophy)
+
+**Example connection:** Lyra finds Spanish lessons have low completion + David's memory
+has "I want HolaHola to be the #1 Spanish learning app for beginners" → Alden posts
+"Lyra's latest analysis shows the Spanish beginner lessons have lower completion than
+other paths. You've mentioned making this our strongest track. Worth a deeper look?"
+
+---
+
+### CAP-007: Alden as Architectural Code Reviewer
+**Status:** SHIPPED — 2026-03-09
+**Owner:** Alden (reviewer) + Wren (proposer)
+**Priority:** High
+
+**What was built:**
+- `server/services/alden-code-review-service.ts` — Alden reviews Wren's proposed fixes
+  using Claude Opus + `editorInsights` architectural memory
+- `shared/schema.ts` — `proposed_code_changes` table + `proposed_change_status` enum
+  (pending_review, approved, applied, rejected, revised, escalated)
+- `server/services/wren-auto-patch-service.ts` — modified: Wren now **proposes** fixes
+  (stores to `proposed_code_changes`) instead of applying them directly
+- `server/services/wren-security-audit-worker.ts` — wired: after proposing, triggers
+  `runReviewQueue()` so the full cycle (audit → propose → review → apply → sync) runs
+  in one pass
+- `server/services/alden-digest-worker.ts` — weekly digest now includes code review
+  stats: applied, revised, escalated (escalated items named explicitly for David)
+
+**Authority boundary (enforced by Claude Opus prompt):**
+- **APPROVE autonomously:** ≤15 lines changed, bug fixes, security patches, no new
+  dependencies, no schema changes, no auth/payment/data model changes
+- **REVISE:** correct intent but wrong approach — Alden explains specifically what to change
+- **ESCALATE to David:** architectural changes, new files/services, dependency additions,
+  schema changes, auth/payment logic, anything uncertain
+
+**On approval:** file is patched, `scripts/sync-to-github.sh` syncs to GitHub with
+commit message `[AUTO-FIX] <finding title> — reviewed by Alden`
+
+**Trigger routes:**
+- `POST /api/team-room/trigger-code-review` — manually run review queue (founder only)
+- `GET /api/team-room/proposed-changes` — list all proposed changes with status (founder only)
+
+---
+
+### CAP-008: Real-Time Collaborative Building in the Team Room
+**Status:** SHIPPED — 2026-03-09
+**Owner:** Alden (architect/implementer) + Daniela (co-planner)
+**Priority:** High
+
+**What was built:**
+- `server/services/alden-build-service.ts` — full build pipeline:
+  - `classifyBuildIntent()` — Gemini Flash classifies David's messages as
+    feature_request, bug_fix_request, question, discussion, or feedback
+  - `loadCodeContext()` — Gemini identifies relevant files (max 5), reads them
+    with line numbers for Claude; skips files > 120KB
+  - `getDanielaBuildPerspective()` — Daniela fires as co-founder and the AI
+    who will use the feature: API/function call design, ROI, student experience
+  - `planBuild()` — Claude Opus produces structured JSON plan with exact file
+    changes (filePath, lineStart, lineEnd, beforeCode, afterCode, rationale)
+  - `applyBuildPlan()` — applies each change to disk; runs
+    `scripts/sync-to-github.sh "[FEATURE] name"` on success
+  - `runBuildPipeline()` — orchestrator: classify → ack → load context →
+    Daniela posts → Alden plans (with Daniela's input) → artifact → implement
+    → GitHub sync → completion report
+- `server/routes.ts` — `POST /api/team-room/sessions/:id/messages` now checks
+  build intent first; if detected, fires pipeline async and returns HTTP
+  response immediately (WebSocket handles all subsequent updates)
+
+**Build flow:**
+1. David sends a feature request in the Team Room
+2. Gemini Flash classifies it (~500ms) — if build intent detected, pipeline fires
+3. Alden posts immediate ack: "On it — loading context for X"
+4. Context loaded from relevant files (with line numbers for accuracy)
+5. Daniela posts her perspective (co-founder + AI-who-uses-it angle)
+6. Alden plans with Claude Opus — Daniela's input is in the planning prompt
+7. Plan posted as Artifact to Team Room (file-by-file breakdown)
+8. Alden posts "Implementing — N changes across M files"
+9. Changes applied to disk; GitHub synced with `[FEATURE]` commit
+10. Completion report: files changed, line count, what to test
+
+**Daniela's role in CAP-008:**
+- NOT just pedagogical — she is a full co-planner
+- For function calls/tools: describes what she needs from the interface (params,
+  response format, edge cases she'll hit as the AI invoking them)
+- For UI features: how real students behave with this, ROI justification
+- For backend: impact on the learner loop, competes/compounds with existing
+- Always includes business angle: right thing to build right now?
+- Her output is passed to Claude Opus before planning — influences the final plan
+
+**If build intent NOT detected:** normal Team Room evaluation runs (all participants
+evaluate and respond per their domain — no change to existing behavior).
+
+**CAP-008 Verification Enhancement (Guardian Process):**
+- Before applying ANY file change: backups saved, manifest written to `/tmp/alden-guardian-manifest.json`
+- A detached Node.js guardian process spawned (`scripts/alden-build-guardian.js`) — runs
+  independently of tsx, survives the hot reload that kills the main server process
+- Guardian waits 14s for tsx to detect changes + restart, then polls `/api/health` for up to 35s
+- SUCCESS path: GitHub sync runs from guardian, guardian POSTs to `/api/team-room/internal/guardian-complete`
+  → Alden posts "Verified clean. Server restarted healthy. Synced to GitHub."
+- FAILURE path: guardian restores every backup file → tsx re-detects, server comes back with
+  original code → guardian reports "Rolled back" with exact list of restored files
+- GitHub sync is GATED on successful health check — broken code never reaches GitHub
+- `/api/health` endpoint added for guardian polling
+- Guardian token (`X-Guardian-Token` header) prevents abuse of the internal completion endpoint
 
 ---
 
@@ -194,13 +312,15 @@ place:
 
 ## Tracking Progress
 
-| Capability | Status | Est. Start |
-|------------|--------|------------|
-| CAP-001: Workers → Team Room | Not started | TBD |
-| CAP-002: Alden weekly digest | Not started | TBD |
-| CAP-003: Wren auto-patch | Not started | TBD |
-| CAP-004: Lyra content trigger | Not started | TBD |
-| CAP-005: Sofia issue cleanup | Not started | TBD |
-| CAP-006: Alden memory check-ins | Not started | TBD |
+| Capability | Status | Shipped |
+|------------|--------|---------|
+| CAP-001: Workers → Team Room | **SHIPPED** | 2026-03-08 |
+| CAP-002: Alden weekly digest | **SHIPPED** | 2026-03-08 |
+| CAP-003: Wren auto-patch | **SHIPPED** | 2026-03-08 |
+| CAP-004: Lyra content trigger | **SHIPPED** | 2026-03-08 |
+| CAP-005: Sofia issue cleanup | **SHIPPED** | 2026-03-08 |
+| CAP-006: Alden memory check-ins | **SHIPPED** | 2026-03-08 |
+| CAP-007: Alden as code reviewer | **SHIPPED** | 2026-03-09 |
+| CAP-008: Real-time collaborative building | **SHIPPED** | 2026-03-09 |
 
 As capabilities are built, update status to: **In progress → Review → Live**.

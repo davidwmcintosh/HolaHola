@@ -55,7 +55,7 @@ export function TextbookWhiteboardBridge({
       
       toast({
         title: "Pinned to Voice Session",
-        description: `"${content.title}" will appear on Daniela's whiteboard in your next voice session.`,
+        description: `"${content.title}" will appear on your tutor's whiteboard in your next voice session.`,
       });
     } catch (error) {
       console.error('Failed to pin content:', error);

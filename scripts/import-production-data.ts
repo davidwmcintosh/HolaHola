@@ -184,6 +184,7 @@ async function importVoiceSessions(rows: any[]): Promise<{ imported: number; ski
         classId: row.class_id || null,
         isTestSession: row.is_test_session || false,
         tutorMode: row.tutor_mode || 'main',
+        environment: row.environment || 'production',
       });
       imported++;
     } catch (err: any) {

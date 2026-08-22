@@ -23,18 +23,20 @@
 
 import { createHash } from "crypto";
 import { sql, eq, and, desc } from "drizzle-orm";
-import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
 import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry, PartialFunctionCall } from "./gemini-streaming";
+import { acquireVoiceSlot, releaseVoiceSlot } from "./gemini-priority-gate";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { getElevenLabsStreamingService } from "./elevenlabs-streaming";
 import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
 import { getGeminiLiveTtsService } from "./gemini-live-tts";
 import { DANIELA_TTS_PROVIDER } from "./voice-config";
 import { buildFunctionContinuationResponse } from "./daniela-function-registry";
+import { getSessionToolManifest, buildToolManifestNote } from "./tool-manifest-service";
 import { createTTSProviderRegistry, TTSProviderRegistry, resolveSessionTTSProvider, type TTSProviderName } from "./tts-provider-adapter";
 import { buildClassroomDynamicContext, fetchPassiveMemories, fetchIdentityMemories, fetchStudentIntelligence, assembleDynamicPreamble } from "./voice-context-pipeline";
+import { formatPatternSignals, buildActflPersonaAnchor } from "./pattern-signal-context";
 import { WebSocket as WS } from "ws";
 import {
   StreamingMessage,
@@ -56,7 +58,6 @@ import {
   WordTiming,
   LATENCY_TARGETS,
   STREAMING_FEATURE_FLAGS,
-  SENTENCE_CHUNKING_CONFIG,
 } from "@shared/streaming-voice-types";
 import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stripWhiteboardMarkup, SelfSurgeryItemData } from "@shared/whiteboard-types";
 import { commandParserService, ParsedCommand } from "./command-parser";
@@ -65,13 +66,20 @@ import { TtsDispatcher } from "./tts-dispatcher";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { PostResponseEnrichmentService } from "./post-response-enrichment";
 import { buildFatContext, FAT_CONTEXT_ENABLED } from "./fat-context-service";
+import { ensureTrailingPunctuation } from './voice-text-utils';
+import { VoiceSpeedOption, voiceSpeedToRate } from './voice-speed-config';
+import type { StreamingSession, StreamingMetrics } from './streaming-session-types';
+import { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
+import { splitTextIntoSentences, cleanTextForDisplay, applyWordEmphases, extractArchitectMessages } from './voice-text-processing';
+import { deepgram, gemini } from './voice-ai-clients';
+import { transcribeWithGoogleSTT } from './google-stt-fallback';
+import { containsSeverelyInappropriateContent, containsMildlyInappropriateContent } from './content-moderation';
+import { VOCABULARY_EXTRACTION_SCHEMA, STUDENT_OBSERVATION_SCHEMA } from './extraction-schemas';
 
-export function ensureTrailingPunctuation(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) return trimmed;
-  if (/[.!?\u2026\u3002\uff01\uff1f]["'\u201c\u201d\u2019\u2018)\]]*$/.test(trimmed)) return trimmed;
-  return trimmed + '.';
-}
+export { ensureTrailingPunctuation } from './voice-text-utils';
+export type { VoiceSpeedOption };
+export { voiceSpeedToRate };
+export { splitTextIntoSentences, cleanTextForDisplay, applyWordEmphases } from './voice-text-processing';
 
 const TEXT_FC_COMMAND_MAP: Record<string, string> = {
   'switch_tutor': 'SWITCH_TUTOR', 'phase_shift': 'PHASE_SHIFT',
@@ -139,72 +147,6 @@ function logMetric(type: string, data: Record<string, number | string | boolean>
   console.log(`[METRICS] ${JSON.stringify({ type, ...data, ts: Date.now() })}`);
 }
 
-export function splitTextIntoSentences(text: string): string[] {
-  const sentences: string[] = [];
-  let remaining = text.trim();
-  const endings = SENTENCE_CHUNKING_CONFIG.SENTENCE_ENDINGS;
-  const minLen = SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH;
-  const maxLen = SENTENCE_CHUNKING_CONFIG.TTS_SAFE_MAX_LENGTH;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= maxLen) {
-      let breakIndex = -1;
-      for (const ending of endings) {
-        let searchFrom = minLen - 1;
-        while (true) {
-          const idx = remaining.indexOf(ending, searchFrom);
-          if (idx === -1) break;
-          const afterChar = remaining[idx + 1];
-          const isRealEnd = !afterChar || afterChar === ' ' || afterChar === '\n' || afterChar === '"' || afterChar === ')';
-          if (isRealEnd && idx < remaining.length - 1) {
-            breakIndex = idx + 1;
-            break;
-          }
-          searchFrom = idx + 1;
-        }
-        if (breakIndex > 0) break;
-      }
-
-      if (breakIndex > 0 && remaining.length - breakIndex >= minLen) {
-        sentences.push(remaining.substring(0, breakIndex).trim());
-        remaining = remaining.substring(breakIndex).trim();
-        continue;
-      }
-    }
-
-    if (remaining.length > maxLen) {
-      let breakIndex = -1;
-      for (const ending of endings) {
-        const idx = remaining.lastIndexOf(ending, maxLen - 1);
-        if (idx >= minLen) {
-          breakIndex = Math.max(breakIndex, idx + 1);
-        }
-      }
-      if (breakIndex <= 0) {
-        const clauseBreaks = SENTENCE_CHUNKING_CONFIG.CLAUSE_BREAKS;
-        for (const br of clauseBreaks) {
-          const idx = remaining.lastIndexOf(br, maxLen - 1);
-          if (idx >= minLen) {
-            breakIndex = Math.max(breakIndex, idx + 1);
-          }
-        }
-      }
-      if (breakIndex > 0) {
-        sentences.push(remaining.substring(0, breakIndex).trim());
-        remaining = remaining.substring(breakIndex).trim();
-        continue;
-      }
-      sentences.push(remaining.substring(0, maxLen).trim());
-      remaining = remaining.substring(maxLen).trim();
-      continue;
-    }
-
-    sentences.push(remaining);
-    break;
-  }
-
-  return sentences.filter(s => s.length > 0);
-}
 
 /**
  * Retry helper with exponential backoff for Gemini API rate limiting (429 errors)
@@ -261,9 +203,9 @@ import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, get
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent, detectTextLanguageForTTS } from "../text-utils";
 import { segmentByLanguage, segmentsToCartesiaChunks, logSegmentation, extractBoldMarkedWords } from "./language-segmenter";
 import { storage } from "../storage";
+import { costTracker } from "./cost-tracker";
 import { generateConversationTitle } from "../conversation-utils";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
-import { GoogleGenAI } from "@google/genai";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
@@ -279,12 +221,16 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { phaseTransitionService } from "./phase-transition-service";
 import { voiceDiagnostics } from "./voice-diagnostics-service";
 import { learnerMemoryExtractionService } from "./learner-memory-extraction-service";
+import { mineVocabularyFromSession } from "./vocabulary-mining-service";
 import { studentLearningService } from "./student-learning-service";
 import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { journeyMemoryService } from "./journey-memory-service";
+import { evaluatePedagogicalState } from "./pedagogical-supervisor";
+import { debotText } from './magic-circle-filter';
 import { db, getSharedDb } from "../db";
+import { studentSessionHealth } from "@shared/schema";
 import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout, logTtsFailure, logGeminiNoAudio } from "./production-telemetry";
 // Language segmenter no longer needed - pronunciation handled via Daniela's [lang:word] tags
 import { 
@@ -301,6 +247,11 @@ import {
   neuralNetworkTelemetry,
   messages,
   conversations,
+  arisDrillAssignments,
+  arisDrillResults,
+  tutorSessions,
+  hiveSnapshots,
+  pedagogicalSnapshots,
 } from "@shared/schema";
 
 /**
@@ -362,9 +313,169 @@ function validateTutorTransfer(
 }
 
 /**
- * Parse sprint suggestion content with fallback
- * Handles both JSON format and free-form text
+ * Fetch recent drill assignment status for a student so Daniela can open each session
+ * knowing exactly what was assigned, whether it was done, and how it went.
+ *
+ * Returns a formatted string ready to inject into the session context block, or null
+ * if there are no recent drill assignments.
+ *
+ * Looks back 14 days for pending/active drills and 30 days for completed results.
+ * Daniela principle: she never asks "did you do the drill?" — she already knows.
  */
+/**
+ * Format a textbook lesson content row into a structured guide Daniela can use
+ * to walk the student through a page step-by-step.
+ */
+function formatTextbookPageGuide(row: { lessonId: string; actflLevel?: string | null; grammarExplanation?: string | null; vocabularyList?: any; keyExamples?: any; grammarExamples?: any; microCycleData?: any }, focus: string): string {
+  const parts: string[] = [];
+  parts.push(`=== TEXTBOOK PAGE: ${row.lessonId} (${row.actflLevel || 'beginner'}) ===`);
+  if (focus === 'full_page' || focus === 'vocabulary') {
+    const vocab = row.vocabularyList;
+    if (vocab) {
+      const vocabList = Array.isArray(vocab)
+        ? vocab.map((v: any) => typeof v === 'string' ? v : `${v.word || v.term || JSON.stringify(v)}`).join(', ')
+        : typeof vocab === 'string' ? vocab : JSON.stringify(vocab);
+      parts.push(`VOCABULARY (introduce one at a time, have student repeat):\n${vocabList}`);
+    }
+  }
+  if (focus === 'full_page' || focus === 'grammar') {
+    if (row.grammarExplanation) {
+      parts.push(`GRAMMAR PATTERN (explain in your own words, then demonstrate):\n${row.grammarExplanation}`);
+    }
+  }
+  if (focus === 'full_page' || focus === 'examples') {
+    const examples = row.grammarExamples;
+    if (examples) {
+      const exList = Array.isArray(examples)
+        ? examples.map((e: any, i: number) => `${i + 1}. ${e.target || e.phrase || (typeof e === 'string' ? e : JSON.stringify(e))}${e.translation ? ` — ${e.translation}` : ''}${e.note ? ` (${e.note})` : ''}`).join('\n')
+        : typeof examples === 'string' ? examples : JSON.stringify(examples);
+      parts.push(`KEY EXAMPLES (have student read each aloud then close their eyes and reproduce):\n${exList}`);
+    }
+    const micro = row.microCycleData;
+    if (micro) {
+      const microStr = typeof micro === 'string' ? micro
+        : Array.isArray(micro) ? micro.map((m: any) => typeof m === 'string' ? m : JSON.stringify(m)).join(' | ')
+        : JSON.stringify(micro);
+      parts.push(`SENTENCE PATTERNS (for show_sentence_table or live drilling):\n${microStr}`);
+    }
+  }
+  return parts.join('\n\n');
+}
+
+async function fetchRecentDrillStatus(userId: string): Promise<string | null> {
+  try {
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Fetch recent drill assignments (pending/active within 14 days, or any with a result)
+    const assignments = await db
+      .select()
+      .from(arisDrillAssignments)
+      .where(
+        and(
+          eq(arisDrillAssignments.userId, userId),
+        )
+      )
+      .orderBy(desc(arisDrillAssignments.assignedAt))
+      .limit(10);
+
+    if (!assignments.length) return null;
+
+    // Filter to recent-enough ones
+    const recent = assignments.filter(a =>
+      a.assignedAt && new Date(a.assignedAt) >= fourteenDaysAgo
+    );
+    if (!recent.length) return null;
+
+    // Fetch results for these assignments
+    const assignmentIds = recent.map(a => a.id);
+    const results = await db
+      .select()
+      .from(arisDrillResults)
+      .where(
+        and(
+          eq(arisDrillResults.userId, userId),
+        )
+      )
+      .orderBy(desc(arisDrillResults.createdAt))
+      .limit(20);
+
+    // Build a lookup: assignmentId → latest result
+    const resultByAssignment = new Map<string, typeof results[0]>();
+    for (const r of results) {
+      if (assignmentIds.includes(r.assignmentId) && !resultByAssignment.has(r.assignmentId)) {
+        resultByAssignment.set(r.assignmentId, r);
+      }
+    }
+
+    const lines: string[] = [];
+    for (const assignment of recent.slice(0, 5)) {
+      const focus = assignment.drillContent?.focusArea || assignment.drillType || 'practice';
+      const difficulty = assignment.drillContent?.difficulty || '';
+      const result = resultByAssignment.get(assignment.id);
+
+      if (result) {
+        const pct = Math.round(result.accuracyRate * 100);
+        const completion = Math.round(result.completionRate * 100);
+        const struggles = result.struggles?.length ? ` Struggles: ${result.struggles.slice(0, 2).join(', ')}.` : '';
+        const strengths = result.strengths?.length ? ` Strengths: ${result.strengths.slice(0, 1).join(', ')}.` : '';
+        lines.push(`- "${focus}" drill: COMPLETED (${pct}% accuracy, ${completion}% finished).${strengths}${struggles}`);
+      } else if (assignment.lifecycleState === 'active' || assignment.status === 'pending') {
+        const daysSince = Math.floor((Date.now() - new Date(assignment.assignedAt!).getTime()) / (1000 * 60 * 60 * 24));
+        const sinceStr = daysSince === 0 ? 'assigned today' : daysSince === 1 ? 'assigned yesterday' : `assigned ${daysSince} days ago`;
+        lines.push(`- "${focus}" drill: NOT YET ATTEMPTED (${sinceStr}${difficulty ? ', ' + difficulty : ''}).`);
+      } else if (assignment.lifecycleState === 'skipped') {
+        lines.push(`- "${focus}" drill: SKIPPED.`);
+      }
+    }
+
+    if (!lines.length) return null;
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[DrillStatus] Failed to fetch drill status:', err);
+    return null;
+  }
+}
+
+
+/**
+ * Fetch grammar pattern compartment context for Daniela's greeting prompt.
+ * Returns a compact summary of patterns that are wobbling or actively being pounded
+ * so Daniela knows what to revisit — without asking.
+ *
+ * Implementation lives in pattern-signal-context.ts (shared with native-fc-handlers.ts
+ * to avoid a circular dependency).
+ */
+import { fetchPatternSignalContext } from './pattern-signal-context';
+export { fetchPatternSignalContext };
+
+/**
+ * Fetch recent learning milestones (Daniela-flagged breakthroughs) for the greeting prompt.
+ * Returns the 3 most recent milestones so Daniela can reference wins and build on momentum.
+ */
+async function fetchRecentMilestonesContext(userId: string, language: string): Promise<string | null> {
+  try {
+    const milestones = await journeyMemoryService.getMilestones(userId, language, 5);
+    if (!milestones.length) return null;
+
+    // Only surface milestones from the last 30 days — older ones are history, not context
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recent = milestones.filter(m => m.occurredAt && new Date(m.occurredAt) >= thirtyDaysAgo);
+    if (!recent.length) return null;
+
+    const lines = recent.slice(0, 3).map(m => {
+      const daysAgo = Math.floor((Date.now() - new Date(m.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
+      const ago = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`;
+      const sig = m.significance ? ` (${m.significance.substring(0, 80)})` : '';
+      return `- [${ago}] ${m.milestoneType}: "${m.title}" — ${m.description.substring(0, 120)}${m.description.length > 120 ? '...' : ''}${sig}`;
+    });
+
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[Milestones] Failed to fetch milestone context:', err);
+    return null;
+  }
+}
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
   // First try JSON parsing
   try {
@@ -436,295 +547,6 @@ function parseSprintSuggestion(content: string): { title: string; description: s
 const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-3';
 const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED !== 'false'; // Default: enabled
 
-/**
- * Clean text for display by removing markdown, emotion tags, and other formatting
- * that should not appear in subtitles
- */
-export function cleanTextForDisplay(text: string): string {
-  // First check if the entire text is just JSON emotion data (AI sometimes outputs this at end)
-  // Match patterns like: { "emotion": "happy" } or { emotion: "happy" }
-  const jsonEmotionPattern = /^\s*\{\s*"?emotion"?\s*:\s*"?\w+"?\s*\}\s*$/i;
-  if (jsonEmotionPattern.test(text.trim())) {
-    return ''; // Return empty to skip this sentence entirely
-  }
-  
-  // Strip architect messages first (internal, should not be spoken/displayed)
-  text = stripArchitectMessages(text);
-  
-  // Strip COLLAB tags (Daniela's collaboration signals to Editor - invisible to students)
-  // Pattern: [COLLAB:TYPE]content[/COLLAB]
-  text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
-  
-  // Strip SELF_SURGERY tags (Daniela's neural network proposals - invisible to students)
-  // Pattern: [SELF_SURGERY target="..." priority=... confidence=... content='...' ...]
-  text = text.replace(/\[SELF_SURGERY[^\]]*\]/gi, '');
-  
-  // Strip VOICE_ADJUST tags (voice control commands - should affect TTS settings, not be spoken)
-  // Pattern 1: [VOICE_ADJUST speed="normal" emotion="friendly" personality="warm"]
-  text = text.replace(/\[VOICE_ADJUST[^\]]*\]/gi, '');
-  // Pattern 2: voice_adjust{...} - malformed curly brace format (seen in production)
-  text = text.replace(/voice_adjust\s*\{[^}]*\}/gi, '');
-  // Pattern 3: { voice_adjust"": {...} } or { "voice_adjust": {...} } - JSON-like format
-  text = text.replace(/\{\s*"?voice_adjust"?\s*"*:\s*\{[^}]*\}\s*\}/gi, '');
-  // Pattern 4: voice_adjust: { emotion: "...", ... } - inline JSON-like
-  text = text.replace(/voice_adjust\s*:\s*\{[^}]*\}/gi, '');
-  // Pattern 5: <ctrl46> artifacts from tokenization issues
-  text = text.replace(/<ctrl\d+>/gi, '');
-  // Pattern 6: voice_adjust(...) - native function call syntax spoken as text
-  text = text.replace(/voice_adjust\s*\([^)]*\)/gi, '');
-  
-  // Strip VOICE_RESET tags (voice reset commands - internal, not spoken)
-  // Pattern: [VOICE_RESET] or [VOICE_RESET reason="..."]
-  text = text.replace(/\[VOICE_RESET[^\]]*\]/gi, '');
-  // Pattern 2: voice_reset{...} or voice_reset: {...} - malformed formats
-  text = text.replace(/voice_reset\s*[:\{][^}]*\}?/gi, '');
-  
-  // Strip SUBTITLE control tags (UI commands - should affect display, not be spoken)
-  // Pattern 1: [SUBTITLE off|on|target] with optional trailing attributes like reason="..."
-  text = text.replace(/\[SUBTITLE\s+(?:off|on|target|all)\s*\](?:\s*(?:reason|reasoning|text)\s*=\s*"[^"]*"\s*)*/gi, '');
-  // Pattern 1b: [SUBTITLE on] ... [/SUBTITLE] block format (strip entire block)
-  text = text.replace(/\[SUBTITLE\s+[^\]]*\][\s\S]*?\[\/SUBTITLE\]/gi, '');
-  // Pattern 1c: Bare SUBTITLE with attributes (no closing bracket matched above)
-  text = text.replace(/\[SUBTITLE\s+[^\]]*\]/gi, '');
-  // Pattern 1d: Orphaned SUBTITLE",} or SUBTITLE",reasoning="..." fragments
-  text = text.replace(/SUBTITLE"\s*,?\s*\}?\s*(?:reasoning\s*=\s*"[^"]*")?/gi, '');
-  // Pattern 2: { subtitle: { mode: "...", text: "..." } } - JSON-like format
-  text = text.replace(/\{\s*subtitle\s*:\s*\{[^}]*\}\s*\}/gi, '');
-  // Pattern 3: subtitle: { mode: "...", ... } - inline format
-  text = text.replace(/subtitle\s*:\s*\{[^}]*\}/gi, '');
-  // Pattern 4: { subtitle"": {...} } - malformed quotes format
-  text = text.replace(/\{\s*subtitle"*\s*:\s*\{[^}]*\}\s*\}/gi, '');
-  // Pattern 5: subtitle(...) - native function call syntax spoken as text
-  text = text.replace(/subtitle\s*\([^)]*\)/gi, '');
-  
-  // Catch-all: Strip any Daniela function name spoken as text with parentheses
-  // Matches patterns like: play_audio({...}), show_image({...}), phase_shift({...}), etc.
-  // IMPORTANT: This list MUST include ALL functions from gemini-function-declarations.ts
-  const functionNames = [
-    'voice_adjust', 'voice_reset', 'subtitle', 'play_audio', 'show_image',
-    'show_overlay', 'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
-    'phase_shift', 'milestone', 'take_note', 'drill', 'express_lane_lookup',
-    'switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant',
-    'request_text_input', 'memory_lookup', 'recall_express_lane_image', 'express_lane_post',
-    'hive_suggestion', 'self_surgery', 'write', 'grammar_table', 'compare', 'word_map',
-    'phonetic', 'culture', 'context', 'scenario', 'summary', 'reading', 'stroke', 'tone',
-    'pronunciation_tag', 'first_meeting_complete',
-  ];
-  for (const fnName of functionNames) {
-    // Pattern 1: function_name({...}) or function_name({nested {...}}) - handle nested braces
-    text = text.replace(new RegExp(fnName + '\\s*\\(\\{[\\s\\S]*?\\}\\)', 'gi'), '');
-    // Pattern 2: function_name(...) - simple parentheses (no braces)
-    text = text.replace(new RegExp(fnName + '\\s*\\([^)]*\\)', 'gi'), '');
-    // Pattern 3: function_name: {...} - colon-object format
-    text = text.replace(new RegExp(fnName + '\\s*:\\s*\\{[^}]*\\}', 'gi'), '');
-    // Pattern 4: function_name{...} - direct brace format
-    text = text.replace(new RegExp(fnName + '\\s*\\{[^}]*\\}', 'gi'), '');
-  }
-  
-  // Strip bare function names that are compound underscore terms (safe — won't appear in natural speech)
-  // These are internal system function names that should NEVER be spoken aloud
-  const safeToStripBare = [
-    'voice_adjust', 'voice_reset', 'play_audio', 'show_image', 'show_overlay',
-    'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
-    'phase_shift', 'take_note', 'switch_tutor', 'actfl_update',
-    'syllabus_progress', 'call_support', 'call_assistant', 'request_text_input',
-    'memory_lookup', 'recall_express_lane_image', 'express_lane_lookup',
-    'express_lane_post', 'hive_suggestion', 'self_surgery', 'grammar_table',
-    'word_map', 'pronunciation_tag', 'first_meeting_complete',
-  ];
-  for (const fnName of safeToStripBare) {
-    text = text.replace(new RegExp('\\b' + fnName + '\\b', 'gi'), '');
-  }
-  
-  // Strip legacy startcall/endcall format from older Gemini responses
-  // Pattern: startcall:default_api:voice_adjust{...}end
-  text = text.replace(/startcall:[^}]*\}?end/gi, '');
-  text = text.replace(/\bstartcall\b/gi, '');
-  text = text.replace(/\bendcall\b/gi, '');
-  
-  // Ultra catch-all: Strip any remaining word_word(...) pattern that looks like a function call
-  // This catches new functions added in the future that aren't in the list above
-  text = text.replace(/\b[a-z_]{2,30}\s*\(\s*\{[\s\S]*?\}\s*\)/g, '');
-  // Also catch FUNCTION CALL: prefix that might leak from tool_knowledge docs
-  // Pattern 1: Full "FUNCTION CALL: func_name(...)" 
-  text = text.replace(/FUNCTION\s+CALL\s*:\s*\w+\s*\([^)]*\)/gi, '');
-  // Pattern 2: Orphaned "FUNCTION CALL:" prefix (left behind after per-function regexes strip the call)
-  text = text.replace(/FUNCTION\s+CALL\s*:?\s*/gi, '');
-  
-  // Strip MEMORY_LOOKUP tags (internal command triggers - should not be spoken)
-  // Pattern: MEMORY_LOOKUP query="..." domains="..." (with or without brackets)
-  text = text.replace(/\[?MEMORY_LOOKUP[^\]]*\]?/gi, '');
-  // Pattern 2: memory_lookup query=... domains=... (lowercase, no brackets)
-  text = text.replace(/memory_lookup\s+query\s*=\s*"[^"]*"\s*domains?\s*=\s*"[^"]*"/gi, '');
-  
-  // Strip SHOW/HIDE whiteboard control tags (UI commands - processed by function calls)
-  // Pattern 1: [SHOW text="..."] or SHOW text="..."]  (with or without opening bracket)
-  text = text.replace(/\[?SHOW\s+text\s*=\s*"[^"]*"\s*\]?/gi, '');
-  // Pattern 2: [HIDE] or [HIDE text]
-  text = text.replace(/\[HIDE[^\]]*\]/gi, '');
-  
-  // Strip WORD_EMPHASIS control tags (UI commands - processed by function calls)
-  // Pattern 1: [WORD_EMPHASIS word="..." style="..."] or WORD_EMPHASIS word="..."] (malformed)
-  text = text.replace(/\[?WORD_EMPHASIS\s+[^\]]*\]?/gi, '');
-  // Pattern 2: word_emphasis{...} - curly brace format
-  text = text.replace(/word_emphasis\s*\{[^}]*\}/gi, '');
-  
-  // Strip OBSERVE tags (Daniela's teaching observations for office hours - invisible to students)
-  // Pattern: [OBSERVE reason="..." note="..."]
-  text = text.replace(/\[OBSERVE[^\]]*\]/gi, '');
-  
-  // Strip SELF_LEARN tags (Daniela's autonomous neural network writes - invisible to students)
-  // Pattern: [SELF_LEARN category="..." insight="..." context="..."]
-  text = text.replace(/\[SELF_LEARN[^\]]*\]/gi, '');
-  
-  // Strip content growth tags (Daniela's pedagogical content creation - invisible to students)
-  text = text.replace(/\[SAVE_IDIOM[^\]]*\]/gi, '');
-  text = text.replace(/\[SAVE_NUANCE[^\]]*\]/gi, '');
-  text = text.replace(/\[SAVE_ERROR_PATTERN[^\]]*\]/gi, '');
-  text = text.replace(/\[SAVE_BRIDGE[^\]]*\]/gi, '');
-  text = text.replace(/\[SAVE_DIALECT[^\]]*\]/gi, '');
-  // Note: SAVE_CULTURAL_TIP not stripped - culturalTips table lacks sync fields
-  
-  // Strip KNOWLEDGE_PING tags
-  text = text.replace(/\[KNOWLEDGE_PING[^\]]*\]/gi, '');
-  
-  // Strip WREN_SPRINT_SUGGEST tags (Daniela's sprint suggestions to Wren - invisible to students)
-  // Pattern: [WREN_SPRINT_SUGGEST: {...JSON...}] or [WREN_SPRINT_SUGGEST title="..." ...]
-  text = text.replace(/\[WREN_SPRINT_SUGGEST[:\s][^\]]*\]/gi, '');
-  
-  // Strip WREN_MESSAGE tags (Daniela's direct messages to Wren via Express Lane)
-  // Pattern: [WREN_MESSAGE: content here] or [WREN_MESSAGE content="..."]
-  text = text.replace(/\[WREN_MESSAGE[:\s][^\]]*\]/gi, '');
-  
-  // Strip ACTION_TRIGGERS XML blocks (JSON command format - invisible to students)
-  // Pattern: <ACTION_TRIGGERS>{"commands":[...]}</ACTION_TRIGGERS>
-  text = text.replace(/<ACTION_TRIGGERS>[\s\S]*?<\/ACTION_TRIGGERS>/gi, '');
-  
-  // Strip internal notes/reasoning fragments that Gemini sometimes leaks
-  // These are fragments of structured output that shouldn't be spoken
-  // Patterns: reasoning="...", priority=\d+, confidence=\d+ (attribute format)
-  text = text.replace(/\breasoning\s*=\s*"[^"]*"/gi, '');
-  text = text.replace(/\bpriority\s*=\s*\d+/gi, '');
-  text = text.replace(/\bconfidence\s*=\s*[\d.]+/gi, '');
-  // Also handle JSON format: "priority":90, "confidence":95, "reasoning":"..."
-  text = text.replace(/"priority"\s*:\s*\d+\s*,?/gi, '');
-  text = text.replace(/"confidence"\s*:\s*[\d.]+\s*,?/gi, '');
-  text = text.replace(/"reasoning"\s*:\s*"[^"]*"\s*,?/gi, '');
-  // Strip JSON command type fragments: "type":"SELF_SURGERY", "target":"..."
-  text = text.replace(/"type"\s*:\s*"[A-Z_]+"\s*,?/gi, '');
-  text = text.replace(/"target"\s*:\s*"[^"]*"\s*,?/gi, '');
-  text = text.replace(/"content"\s*:\s*'[^']*'\s*,?/gi, '');
-  text = text.replace(/"content"\s*:\s*"[^"]*"\s*,?/gi, '');
-  // Strip "commands": array wrappers and stray JSON structure
-  text = text.replace(/"commands"\s*:\s*\[\s*/gi, '');
-  text = text.replace(/\{\s*"commands"\s*:/gi, '');
-  text = text.replace(/^\s*\{\s*\}\s*$/g, '');  // Empty JSON objects
-  // Strip JSON-like artifacts (closing brackets from malformed structures)
-  text = text.replace(/^\s*\]\s*\}?\s*'?\s*/g, '');
-  text = text.replace(/\s*\]\s*\}?\s*'?\s*$/g, '');
-  // Strip orphaned opening/closing brackets from split tags (when [TAG attr="..."] spans sentences)
-  // After stripping attributes above, we may be left with just "]" or "[" at start/end
-  text = text.replace(/^\s*[\[\]]+\s*/g, '');  // Strip leading [ or ] brackets
-  text = text.replace(/\s*[\[\]]+\s*$/g, '');  // Strip trailing [ or ] brackets
-  // Strip lines that are clearly internal instructions (imperative verbs for AI)
-  text = text.replace(/^Simulate\s+internal\b[^.]*\./gi, '');
-  text = text.replace(/^Optionally,?\s+(?:offer|provide|include|add)\b[^.]*\./gi, '');
-  text = text.replace(/^Internally,?\s+(?:process|handle|execute|trigger)\b[^.]*\./gi, '');
-  text = text.replace(/^user\s+of\s+the\s+transition\b[^.]*\./gi, '');
-  
-  // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
-  // This must happen before other cleaning to ensure markup doesn't appear in TTS
-  let cleaned = stripWhiteboardMarkup(text)
-    // Remove code blocks (```language\ncode\n```) - extract just the code content without backticks
-    // Code blocks should not be spoken aloud at all in voice sessions
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, '')
-    // Remove inline code backticks (`code`) - keep the text but remove backticks
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove any remaining stray backticks
-    .replace(/`/g, '')
-    // Remove action/emotion tags like *laughs softly*, *chuckles*, *sighs*, *smiles warmly*, etc.
-    // These should be emoted by the voice, not spoken aloud
-    // Must happen BEFORE stripping individual asterisks
-    .replace(/\*(?:laughs?|chuckles?|giggles?|sighs?|smiles?|grins?|nods?|pauses?|clears? throat|ahem|winks?|gasps?|whispers?|exclaims?|thinks?|considers?|reflects?|ponders?)(?:\s+\w+)*\*/gi, '')
-    // Remove markdown bold/italic markers
-    .replace(/\*\*/g, '')
-    .replace(/\*/g, '')
-    .replace(/##/g, '')
-    .replace(/#/g, '')
-    // Remove empty quote pairs that Gemini sometimes outputs at sentence starts
-    .replace(/^["'"']+\s*/g, '')  // Leading quotes
-    .replace(/\s*["'"']+$/g, '')  // Trailing quotes
-    .replace(/["'"']{2,}/g, '')   // Multiple consecutive quotes (empty pairs)
-    // Remove stray quotes that aren't part of meaningful text
-    // Be careful not to remove apostrophes in contractions like "it's" or "you're"
-    .replace(/"\s+/g, ' ')  // Quote followed by space → just space
-    .replace(/\s+"/g, ' ')  // Space followed by quote → just space
-    // Remove emotion tags like (friendly), (curious), (excited), etc at start/end
-    .replace(/^\s*\([^)]+\)\s*/g, '')
-    .replace(/\s*\([^)]+\)\s*$/g, '')
-    // Also remove mid-text emotion tags
-    .replace(/\s*\((?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\)\s*/gi, ' ')
-    // Remove [laughter] tags for display
-    .replace(/\[laughter\]/gi, '')
-    // Remove [ADOPT_INSIGHT:uuid] markers - internal tracking, not for display
-    .replace(/\[ADOPT_INSIGHT:[a-f0-9-]+\]/gi, '')
-    // Remove [bracket] emotion/action tags like [happy], [excited]
-    .replace(/\[(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)\]/gi, '')
-    // Remove BARE emotion words at start of text (AI sometimes outputs "happy\n" or "friendly**text**")
-    // Must be at the very start, optionally followed by punctuation, whitespace/newline, or ** (markdown)
-    // Handles: "friendly\n", "friendly ", "friendly**Excelente**", "happyHola", "Happy! That was..."
-    .replace(/^(?:friendly|curious|excited|calm|warm|energetic|professional|happy|sad|surprised|thoughtful|encouraging|patient)[!.,;:?]*(?:[\s\n\r]+|\*\*)?/gi, '')
-    // Remove BARE action phrases at start of text (AI sometimes outputs "laughs softly It's..." without asterisks)
-    // Catches: "laughs softly", "chuckles", "sighs contentedly", "smiles warmly", etc.
-    .replace(/^(?:laughs?|chuckles?|giggles?|sighs?|smiles?|grins?|nods?|pauses?|clears? throat|ahem|winks?|gasps?|whispers?|exclaims?|thinks?|considers?|reflects?|ponders?)(?:\s+\w+)*\s+/gi, '');
-  
-  // Remove ALL parenthetical content (English translations like (Hello!), (Excellent!), (Perfect!))
-  // These are distracting and redundant - the user heard the Spanish and doesn't need English in subtitles
-  let prevCleaned = '';
-  while (cleaned !== prevCleaned) {
-    prevCleaned = cleaned;
-    cleaned = cleaned.replace(/\s*\([^()]*\)\s*/g, ' ');
-  }
-  
-  // Convert ALL CAPS common words to lowercase to prevent TTS from spelling them out as acronyms.
-  // Gemini uses caps for emphasis (e.g. "I will ASK you a question") but TTS engines interpret
-  // short all-caps words as acronyms and spell each letter: "A-S-K".
-  // Preserve legitimate acronyms (ACTFL, SSML, etc.) by only lowering known common words.
-  const commonWordsUpperSet = new Set([
-    'ASK', 'ASKED', 'ASKING', 'ASKS',
-    'TELL', 'TOLD', 'TELLING', 'TELLS',
-    'SAY', 'SAID', 'SAYING', 'SAYS',
-    'WILL', 'WOULD', 'COULD', 'SHOULD', 'SHALL', 'CAN', 'MAY', 'MIGHT', 'MUST',
-    'AND', 'BUT', 'THE', 'FOR', 'NOT', 'ALL', 'ARE', 'WAS', 'HAS', 'HAD', 'HER', 'HIS',
-    'YOU', 'YOUR', 'YOURS',
-    'NOW', 'THEN', 'WHEN', 'WHAT', 'HOW', 'WHY', 'WHO', 'WHERE', 'WHICH',
-    'LET', 'LETS', 'GET', 'GETS', 'GOT', 'SET', 'PUT', 'RUN', 'TRY',
-    'FIRST', 'NEXT', 'LAST', 'NEW', 'OLD', 'BIG', 'GOOD', 'GREAT', 'BEST',
-    'VERY', 'JUST', 'ALSO', 'ONLY', 'EVEN', 'STILL', 'ALREADY', 'ALWAYS', 'NEVER',
-    'YES', 'OKAY', 'SURE', 'RIGHT', 'WELL', 'READY', 'DONE', 'BACK',
-    'MAKE', 'TAKE', 'GIVE', 'COME', 'LOOK', 'THINK', 'KNOW', 'WANT', 'NEED',
-    'LIKE', 'LOVE', 'HELP', 'SHOW', 'HEAR', 'LISTEN', 'READ', 'WRITE', 'SPEAK',
-    'TALK', 'LEARN', 'PRACTICE', 'REPEAT', 'REMEMBER', 'ANSWER',
-    'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE',
-    'HERE', 'THERE', 'THIS', 'THAT', 'THESE', 'THOSE',
-    'SAME', 'EACH', 'BOTH', 'MORE', 'MOST', 'SOME', 'MANY', 'MUCH',
-    'WITH', 'FROM', 'INTO', 'OVER', 'ABOUT', 'AFTER', 'BEFORE',
-    'TURN', 'ROLE', 'PLAY', 'GAME', 'WORD', 'WORDS', 'TIME',
-  ]);
-  cleaned = cleaned.replace(/\b[A-Z]{2,}\b/g, (match) => {
-    if (commonWordsUpperSet.has(match)) {
-      return match.toLowerCase();
-    }
-    return match;
-  });
-
-  // Normalize whitespace and clean up residual punctuation
-  return cleaned
-    .replace(/\n+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/^[,.\s]+|[,.\s]+$/g, '')  // Trim leading/trailing commas, periods, spaces
-    .trim();
-}
 
 /**
  * Infer target language from tutor name mentions in AI response text
@@ -778,91 +600,6 @@ function inferLanguageFromTutorName(
   return undefined;
 }
 
-/**
- * Architect Message Types for bidirectional communication
- * Daniela can send different types of messages to the Architect/Claude
- */
-interface ArchitectMessage {
-  type: 'question' | 'suggestion' | 'observation' | 'request';
-  content: string;
-  urgency?: 'low' | 'medium' | 'high';
-}
-
-/**
- * Detect and extract [TO_ARCHITECT: message] tags from Daniela's responses
- * Uses balanced bracket matching to handle nested brackets in payloads
- * 
- * Supports multiple formats:
- * - [TO_ARCHITECT: message] - Simple format (becomes 'observation')
- * - [TO_ARCHITECT type="question": message] - With type
- * - [TO_ARCHITECT type="suggestion" urgency="high": message] - Full format
- * 
- * Returns: Array of messages extracted, and text with tags stripped (preserving original whitespace)
- */
-function extractArchitectMessages(text: string): { messages: ArchitectMessage[]; cleanedText: string } {
-  const messages: ArchitectMessage[] = [];
-  let cleanedText = text;
-  
-  // Find all [TO_ARCHITECT ...] blocks using balanced bracket matching
-  let searchStart = 0;
-  while (true) {
-    const tagStart = cleanedText.indexOf('[TO_ARCHITECT', searchStart);
-    if (tagStart === -1) break;
-    
-    // Find the matching closing bracket using bracket counting
-    let bracketCount = 0;
-    let tagEnd = -1;
-    for (let i = tagStart; i < cleanedText.length; i++) {
-      if (cleanedText[i] === '[') bracketCount++;
-      else if (cleanedText[i] === ']') {
-        bracketCount--;
-        if (bracketCount === 0) {
-          tagEnd = i;
-          break;
-        }
-      }
-    }
-    
-    if (tagEnd === -1) {
-      // No matching bracket found, skip
-      searchStart = tagStart + 1;
-      continue;
-    }
-    
-    // Extract the full tag content
-    const fullTag = cleanedText.substring(tagStart, tagEnd + 1);
-    const innerContent = fullTag.substring('[TO_ARCHITECT'.length, fullTag.length - 1);
-    
-    // Parse type and urgency attributes
-    const typeMatch = innerContent.match(/type="(question|suggestion|observation|request)"/i);
-    const urgencyMatch = innerContent.match(/urgency="(low|medium|high)"/i);
-    
-    // Find the colon that separates attributes from message
-    const colonIndex = innerContent.indexOf(':');
-    if (colonIndex !== -1) {
-      const messageContent = innerContent.substring(colonIndex + 1).trim();
-      const type = (typeMatch?.[1]?.toLowerCase() || 'observation') as ArchitectMessage['type'];
-      const urgency = (urgencyMatch?.[1]?.toLowerCase() || 'medium') as ArchitectMessage['urgency'];
-      
-      messages.push({ type, content: messageContent, urgency });
-    }
-    
-    // Remove the tag from cleaned text (preserve surrounding whitespace structure)
-    cleanedText = cleanedText.substring(0, tagStart) + cleanedText.substring(tagEnd + 1);
-    // Don't advance searchStart since we removed content
-  }
-  
-  return { messages, cleanedText };
-}
-
-/**
- * Strip [TO_ARCHITECT: ...] tags from text (for TTS/display)
- * Uses balanced bracket matching - preserves original whitespace/newlines
- */
-function stripArchitectMessages(text: string): string {
-  const { cleanedText } = extractArchitectMessages(text);
-  return cleanedText;
-}
 
 /**
  * Idle timeout configuration - protects tutor resources
@@ -871,663 +608,13 @@ function stripArchitectMessages(text: string): string {
 const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
 const CREDIT_CHECK_INTERVAL_MS = 30000; // Check credit balance every 30 seconds during active sessions
 
-/**
- * Voice speed options for speaking rate control
- * Maps to numeric speaking rates for TTS
- */
-export type VoiceSpeedOption = 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
-
-/**
- * Convert voice speed string to numeric speaking rate
- * These values map to Cartesia's 0.6-1.5 range
- * UI labels: 0.6x, 0.8x, 1x, 1.25x, 1.5x
- */
-export function voiceSpeedToRate(speed: VoiceSpeedOption | undefined): number {
-  switch (speed) {
-    case 'slower': return 0.6;   // 0.6x - slowest for pronunciation practice
-    case 'slow': return 0.8;     // 0.8x - slightly slower for beginners
-    case 'normal': return 1.0;   // 1x - natural conversation speed
-    case 'fast': return 1.25;    // 1.25x - faster for advanced learners
-    case 'faster': return 1.5;   // 1.5x - fastest available
-    default: return 1.0;
-  }
-}
-
-/**
- * Adaptive Speech Rate Configuration
- * Auto-adjusts Daniela's speaking speed based on student comprehension signals
- */
-const ADAPTIVE_SPEED_CONFIG = {
-  // STT confidence thresholds
-  LOW_CONFIDENCE_THRESHOLD: 0.7,    // Below this triggers slowdown consideration
-  VERY_LOW_CONFIDENCE_THRESHOLD: 0.5, // Below this forces significant slowdown
-  
-  // Struggle thresholds
-  STRUGGLE_SLOWDOWN_THRESHOLD: 3,   // After N struggles, start slowing down
-  STRUGGLE_MAX_EFFECT: 6,           // Cap slowdown effect at N struggles
-  
-  // Speed adjustment factors
-  MIN_SPEED_MULTIPLIER: 0.7,        // Never go below 70% of user's chosen speed
-  MAX_SPEED_MULTIPLIER: 1.0,        // Never exceed user's chosen speed
-  
-  // Rolling window for STT confidence
-  CONFIDENCE_WINDOW_SIZE: 5,        // Track last N transcripts
-};
-
-/**
- * Calculate adaptive speaking rate based on session signals
- * Returns a multiplier to apply to the user's chosen speed
- * 
- * @param session - Current streaming session with tracking data
- * @returns Multiplier (0.7 - 1.0) to apply to base speaking rate
- */
-export function calculateAdaptiveSpeedMultiplier(session: StreamingSession): number {
-  if (!session.adaptiveSpeedEnabled) {
-    return 1.0; // No adjustment if adaptive speed is disabled
-  }
-  
-  let multiplier = 1.0;
-  
-  // Factor 1: Recent STT confidence (if student is hard to understand, slow down)
-  if (session.recentSttConfidences.length > 0) {
-    const avgConfidence = session.recentSttConfidences.reduce((a, b) => a + b, 0) / session.recentSttConfidences.length;
-    
-    if (avgConfidence < ADAPTIVE_SPEED_CONFIG.VERY_LOW_CONFIDENCE_THRESHOLD) {
-      // Very low confidence: significant slowdown (0.8x)
-      multiplier = Math.min(multiplier, 0.8);
-    } else if (avgConfidence < ADAPTIVE_SPEED_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
-      // Low confidence: moderate slowdown (0.9x)
-      multiplier = Math.min(multiplier, 0.9);
-    }
-  }
-  
-  // Factor 2: Session struggle count (if student is struggling, slow down)
-  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD) {
-    // Calculate slowdown based on struggle count (capped)
-    const effectiveStruggles = Math.min(session.sessionStruggleCount, ADAPTIVE_SPEED_CONFIG.STRUGGLE_MAX_EFFECT);
-    const struggleEffect = (effectiveStruggles - ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD + 1) * 0.05;
-    multiplier = Math.min(multiplier, 1.0 - struggleEffect);
-  }
-  
-  // Clamp to configured range
-  return Math.max(ADAPTIVE_SPEED_CONFIG.MIN_SPEED_MULTIPLIER, Math.min(ADAPTIVE_SPEED_CONFIG.MAX_SPEED_MULTIPLIER, multiplier));
-}
-
-/**
- * Get the effective speaking rate with adaptive adjustment
- * @param session - Current streaming session
- * @returns Final speaking rate to use for TTS
- */
-export function getAdaptiveSpeakingRate(session: StreamingSession): number {
-  const baseRate = voiceSpeedToRate(session.voiceSpeed);
-  const multiplier = calculateAdaptiveSpeedMultiplier(session);
-  const adaptiveRate = baseRate * multiplier;
-  
-  // Log when adaptive rate differs from base
-  if (multiplier < 1.0) {
-    console.log(`[Adaptive Speed] Slowing down: ${baseRate} → ${adaptiveRate.toFixed(2)} (${(multiplier * 100).toFixed(0)}% of user speed)`);
-  }
-  
-  // Clamp to Cartesia's valid range (0.6 - 1.5)
-  return Math.max(0.6, Math.min(1.5, adaptiveRate));
-}
-
-/**
- * Update session's STT confidence tracking
- * Call this after each transcript is received
- */
-export function trackSttConfidence(session: StreamingSession, confidence: number): void {
-  session.recentSttConfidences.push(confidence);
-  
-  // Keep only the most recent N confidences
-  while (session.recentSttConfidences.length > ADAPTIVE_SPEED_CONFIG.CONFIDENCE_WINDOW_SIZE) {
-    session.recentSttConfidences.shift();
-  }
-  
-  // Auto-enable adaptive speed when confidence drops below threshold
-  if (confidence < ADAPTIVE_SPEED_CONFIG.LOW_CONFIDENCE_THRESHOLD && !session.adaptiveSpeedEnabled) {
-    session.adaptiveSpeedEnabled = true;
-    console.log(`[Adaptive Speed] Auto-enabled due to low STT confidence (${(confidence * 100).toFixed(0)}%)`);
-  }
-}
-
-/**
- * Increment struggle count for adaptive speed tracking
- */
-export function trackStruggle(session: StreamingSession): void {
-  session.sessionStruggleCount++;
-  
-  // Auto-enable adaptive speed when struggles accumulate
-  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD && !session.adaptiveSpeedEnabled) {
-    session.adaptiveSpeedEnabled = true;
-    console.log(`[Adaptive Speed] Auto-enabled due to struggle count (${session.sessionStruggleCount})`);
-  }
-}
+export { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
 
 /**
  * Session state for a streaming voice connection
  */
-export interface StreamingSession {
-  id: string;
-  userId: string;
-  conversationId: string;  // UUID string
-  targetLanguage: string;
-  nativeLanguage: string;
-  difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
-  tutorPersonality: TutorPersonality;
-  tutorExpressiveness: number;
-  voiceSpeed: VoiceSpeedOption;
-  voiceId?: string;
-  geminiLanguageCode?: string;  // BCP-47 language code for Gemini TTS accent (e.g., 'es-MX', 'es-ES')
-  ttsProvider?: 'elevenlabs' | 'cartesia' | 'google' | 'gemini';  // Per-session TTS provider (from tutor_voices DB record)
-  tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
-  tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
-  systemPrompt: string;
-  conversationHistory: Array<ConversationHistoryEntry>;
-  ws: WS;
-  startTime: number;
-  isActive: boolean;
-  isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
-  isRawHonestyMode: boolean;  // Raw Honesty Mode - minimal prompting for authentic conversation
-  isIncognito: boolean;  // Incognito Mode - no DB writes, no memory persistence, no permanent record
-  isDeveloperUser: boolean;  // True if user has developer/admin role (for unified Daniela consciousness)
-  isBetaTester: boolean;   // Beta tester mode - Daniela knows user is helping debug/test new features
-  idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
-  creditCheckIntervalId?: NodeJS.Timeout;  // Timer for periodic credit balance check
-  contextRefreshTimeoutId?: NodeJS.Timeout;  // Timer for periodic context refresh (long sessions)
-  lastContextRefreshTime: number;   // Timestamp of last context refresh
-  lastActivityTime: number;         // Timestamp of last student activity
-  currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
-  warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
-  isInterrupted: boolean;           // Set to true when user barges in (for open mic mode)
-  lastTurnWasInterrupted: boolean;  // True if previous turn was interrupted by user barge-in (for context injection)
-  isGenerating: boolean;            // True while AI response is being generated (for barge-in detection)
-  pendingTutorSwitch?: {            // Queued tutor switch to execute after response completes
-    targetGender: 'male' | 'female';
-    targetLanguage?: string;        // Optional: for cross-language handoffs (e.g., "japanese")
-    targetRole?: 'tutor' | 'assistant'; // Optional: for assistant handoffs (practice partners)
-  };
-  previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
-  /**
-   * Gemini 3 thought signatures from current turn's function calls
-   * MUST be passed back to API in subsequent requests for multi-step function calling
-   * @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
-   */
-  currentTurnThoughtSignatures?: string[];
-  /**
-   * Function calls from current turn (for proper bundling of parallel function calls)
-   * Gemini 3 requires: all FCs + signatures, then all FRs together
-   */
-  currentTurnFunctionCalls?: ExtractedFunctionCall[];
-  /**
-   * Dynamic context preamble entries for current turn (user/model exchange with dynamic sections + Express Lane)
-   * Stored at start of turn, used for continuation calls to rebuild context with updated session history
-   * MUST be cleared at start of each new turn to prevent stale context bleed
-   */
-  currentTurnPreamble?: ConversationHistoryEntry[];
-  isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
-  previousLanguage?: string;        // Previous language before cross-language switch
-  switchTutorTriggered?: boolean;   // True when SWITCH_TUTOR detected - stops further sentence synthesis
-  crossLanguageTransferBlocked?: boolean; // True when cross-language transfer was blocked this turn (prevents retries)
-  pendingSupportHandoff?: {         // Queued support handoff when CALL_SUPPORT is detected
-    category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
-    reason: string;
-    priority: 'low' | 'normal' | 'high' | 'critical';
-    context?: string;
-  };
-  pendingAssistantHandoff?: {       // Queued assistant handoff when CALL_ASSISTANT is detected
-    drillType: 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order';
-    focus: string;
-    items: string[];
-    priority?: 'low' | 'medium' | 'high';
-  };
-  isAssistantActive?: boolean;       // True when practice partner (assistant tutor) is active - uses Google TTS
-  cachedMainTutorVoiceId?: string;   // Cached main tutor voiceId to restore when returning from assistant
-  cachedMainTutorGender?: 'male' | 'female'; // Cached main tutor gender to restore when returning from assistant
-  // Additional context for personalized greetings
-  conversationTopic?: string;       // What student chose to work on (from conversation.topic)
-  conversationTitle?: string;       // Thread name for context (from conversation.title)
-  lastSessionSummary?: string;      // What happened in last session (from Compass)
-  studentGoals?: string;            // Student's learning goals (from Compass)
-  dbSessionId?: string;             // Database voice_sessions.id (UUID) for pedagogical tracking
-  classId?: string;                  // Class ID for syllabus tracking (if class session)
-  toolsUsedSession: string[];        // Tools used in this session for ACTFL analytics
-  hiveChannelId?: string;            // Hive collaboration channel ID for Daniela-Editor collaboration
-  pendingArchitectNoteIds: string[]; // Architect notes awaiting delivery (cleared on interrupt)
-  onTtsStateChange?: (isTtsPlaying: boolean) => void;  // Callback to suppress OpenMic during TTS
-  postTtsSuppressionTimer?: NodeJS.Timeout | null;     // Timer for delayed echo suppression release
-  // Adaptive Speech Rate tracking
-  recentSttConfidences: number[];     // Rolling window of last N STT confidence scores
-  sessionStruggleCount: number;       // Count of struggles detected this session
-  adaptiveSpeedEnabled: boolean;      // Whether adaptive speed is active (auto-enabled on low confidence)
-  // Phoneme analytics tracking (accumulated word-level data for session)
-  sessionWordAnalyses: Array<{ word: string; confidence: number }>;  // Words with confidence < 0.95 for phoneme analysis
-  // Azure Pronunciation Assessment: accumulated audio and text for post-session analysis
-  sessionAudioChunks: Buffer[];             // Raw PCM audio chunks from user speech
-  sessionTranscripts: Array<{ text: string; timestamp: number }>;  // Transcribed text with timing
-  tutorDirectory?: TutorDirectoryEntry[];    // Full tutor directory for prompt regeneration after handoffs
-  // Voice defaults for reset capability - stores tutor's baseline settings
-  voiceDefaults?: {
-    speakingRate: number;
-    personality: TutorPersonality;
-    emotion: string;
-    expressiveness: number;
-  };
-  // Pedagogical persona from the Persona Registry - shapes teaching style
-  tutorPersona?: {
-    pedagogicalFocus?: string;
-    teachingStyle?: string;
-    errorTolerance?: string;
-    vocabularyLevel?: string;
-    personalityTraits?: string;
-    scenarioStrengths?: string;
-    teachingPhilosophy?: string;
-  };
-  // FC OpenMic: Flags for coordinating function call TTS with main pipeline
-  earlyTtsActive?: boolean;       // True while FC callback is running — guards onSentence from double-processing
-  functionCallText?: string;      // Accumulated spoken text from function call args (set by handleNativeFunctionCall)
-  voiceAdjustText?: string;       // Text from voice_adjust function call
-  accumulatedBoldWords?: string[]; // Bold-marked words accumulated across function calls
-  // ElevenLabs voice settings (per-session from tutor_voices DB record)
-  elStability?: number;
-  elSimilarityBoost?: number;
-  elStyle?: number;
-  elSpeakerBoost?: boolean;
-  // STT keyword biasing
-  sttKeyterms?: string[];
-  // Diagnostic counters
-  _ttsTurnCallCount?: number;
-  // Whiteboard/overlay state
-  customOverlayText?: string;
-  pendingTextInput?: { prompt: string };
-  commandParserClear?: boolean;
-  commandParserHold?: boolean;
-  // Greeting lifecycle flags
-  __greetingInProgress?: boolean;
-  __greetingDelivered?: boolean;
-  greetingTriggeredByOrchestrator?: boolean;
-  // Scenario immersion state
-  activeScenario?: Record<string, any> | null;
-  studentActflLevel?: string;
-  voiceGender?: string;
-  // Cached data from function call handlers (consumed by multi-step FC continuation)
-  lastSyllabusData?: Record<string, any>;
-  lastLoadedLesson?: Record<string, any>;
-  lastVocabSet?: Record<string, any>;
-  lastRecommendation?: Record<string, any>;
-  lastDueVocab?: any[];
-  lastCreditCheck?: Record<string, any>;
-  creditContextInjected?: boolean;
-  // Drill session state
-  drillSession?: Record<string, any>;
-  lastDrillSessionData?: Record<string, any>;
-  // Dynamic key support for recovery timestamps and active TTS tracking
-  [key: string]: any;
-  // Deduplication: Track sent audio chunks to prevent double audio bug
-  sentAudioChunks: Set<string>;
-  // Content-based deduplication: Track audio content hashes to catch retries with new chunk IDs
-  // Key: short hash of audio content, Value: timestamp (for LRU cleanup)
-  sentAudioHashes: Map<string, number>;
-  // Deduplication: Track last processed transcript hash to prevent double AI responses
-  // (Fixes race condition where PTT release and audio_data can both trigger AI with same transcript)
-  lastProcessedTranscriptHash?: string;
-  lastProcessedTranscriptTime?: number;
-  // Deduplication: Track when last response completed to prevent rapid-fire responses
-  // (Fixes race condition where speculative AI completes and then final transcript triggers immediately after)
-  lastResponseCompletedTime?: number;
-  // Lesson Bundle Context - tells Daniela about pre-configured drills
-  lessonBundleContext?: {
-    lessonId: string;
-    lessonName: string;
-    hasBundledDrills: boolean;      // True if lesson has linked drill content
-    bundleId?: string;              // Bundle ID for grouped lessons
-    linkedDrillLessonId?: string;   // ID of the linked drill lesson
-    drillsProvisioned: boolean;     // True if auto-provision has run
-    provisionedDrillCount?: number; // Number of drills created for this lesson
-  };
-  // Message checkpointing: Track if user message was pre-saved before Gemini call
-  // This ensures messages are saved even if Gemini fails, preventing data loss
-  checkpointedUserMessageId?: string;  // ID of pre-saved user message (cleared after AI response)
-  checkpointedUserTranscript?: string; // Transcript that was checkpointed (for matching)
-  // Memory lookup results: Stores results from processMemoryLookup for multi-step FC to use
-  memoryLookupResults?: Record<string, string>;  // Key: query, Value: formatted results
-  // Express Lane lookup results: Stores results from processExpressLaneLookup for multi-step FC
-  expressLaneLookupResults?: Record<string, string>;  // Key: query, Value: formatted results
-  // Image recall results: Stores multimodal image data for RECALL_EXPRESS_LANE_IMAGE
-  imageRecallResults?: Record<string, { 
-    text: string; 
-    images: Array<{ mimeType: string; data: string }>;
-  }>;  // Key: imageQuery, Value: text + images
-  // Pending memory lookup promises: Awaited by multi-step FC before building function responses
-  pendingMemoryLookupPromises?: Promise<void>[];
-  // Voice Lab: Override settings for real-time voice tuning (admin feature)
-  voiceOverride?: {
-    speakingRate?: number;
-    emotion?: string;
-    personality?: TutorPersonality;
-    expressiveness?: number;
-    reason?: string;
-  };
-  // Pending word emphases: Queued SSML emphasis tags to inject into TTS text
-  // Cleared after each TTS synthesis call
-  pendingWordEmphases?: Array<{
-    word: string;
-    style: 'stress' | 'slow' | 'both';
-  }>;
-  // Express Lane session ID for posting messages to collaboration channel
-  expressLaneSessionId?: string;
-  // Active tutor voice ID: Currently active voice (may differ from voiceId during handoffs)
-  activeTutorVoiceId?: string;
-  // Tutor voice ID: Default voice for current tutor
-  tutorVoiceId?: string;
-  // Pending whiteboard updates - buffered until first audio to sync visuals with speech
-  pendingWhiteboardUpdates?: Array<{
-    type: 'whiteboard_update';
-    timestamp: number;
-    items: any[];
-  }>;
-  // Flag to track if first audio has been sent (for flushing pending updates)
-  firstAudioSent?: boolean;
-  // Classroom Environment: Track whiteboard items and session images for Daniela's awareness
-  classroomWhiteboardItems?: Array<{ type: string; content?: string; label?: string }>;
-  classroomSessionImages?: string[];  // Descriptions of images shared this session
-  // OPTIMIZATION: Pre-cached context fetched at session start (avoids re-fetching on every turn)
-  cachedContext?: {
-    architectContext?: string;
-    architectNoteIds?: string[];
-    studentLearningSection?: string;
-    studentLearningData?: { struggles?: any[]; effectiveStrategies?: any[] };
-    hiveContextSection?: string;
-    expressLaneSection?: string;
-    identityMemoriesSection?: string;
-    textChatSection?: string;
-    editorFeedbackSection?: string;
-    editorFeedbackIds?: string[];
-    fatContextProfile?: string;
-    fatContextVocabulary?: string;
-    fatContextConversations?: string;
-    fatContextTokenEstimate?: number;
-    lastFetchTime: number;  // Timestamp for TTL-based refresh
-  };
-  // Promise for background context pre-fetch (resolved when cache is ready)
-  contextCacheReady?: Promise<void>;
-  // SESSION ECONOMICS TELEMETRY: Track TTS characters and STT seconds for cost analysis
-  telemetryTtsCharacters: number;       // Total characters sent to TTS providers this session
-  telemetrySttSeconds: number;          // Total seconds of STT audio processed this session
-  telemetryExchangeCount: number;       // Total user-AI exchanges this session
-  telemetryStudentSpeakingMs: number;   // Total milliseconds of student speech detected
-  telemetryTutorSpeakingMs: number;     // Total milliseconds of tutor audio generated
-}
+export type { StreamingSession, StreamingMetrics };
 
-/**
- * Metrics for tracking streaming performance
- */
-export interface StreamingMetrics {
-  sessionId: string;
-  sttLatencyMs: number;
-  aiFirstTokenMs: number;
-  ttsFirstByteMs: number;
-  totalLatencyMs: number;
-  sentenceCount: number;
-  audioBytes: number;
-  audioChunkCount: number;  // Total audio chunks sent for debugging duplicate audio
-  userTranscript?: string;
-  aiResponse?: string;
-  // Streaming function call metrics (Gemini 3)
-  earlyIntentDetectedAt?: number;  // Timestamp when function name first detected
-  functionCallStreamingMs?: number;  // Time from name detection to complete args
-}
-
-/**
- * Deepgram client (STT) - lazy initialization to allow server start without API key
- */
-let _deepgramClient: ReturnType<typeof createClient> | null = null;
-function getDeepgramClient(): ReturnType<typeof createClient> {
-  if (!_deepgramClient) {
-    const apiKey = process.env.DEEPGRAM_API_KEY;
-    if (!apiKey) {
-      throw new Error('DEEPGRAM_API_KEY is required for voice features');
-    }
-    _deepgramClient = createClient(apiKey);
-  }
-  return _deepgramClient;
-}
-const deepgram = { get client() { return getDeepgramClient(); } };
-
-/**
- * Gemini client for vocabulary extraction (using Replit AI integrations)
- * IMPORTANT: Must include apiVersion: "" and baseUrl for Replit's AI proxy to work correctly
- */
-const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    apiVersion: "",  // Required: removes /v1beta path prefix for Replit proxy
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-  }
-});
-
-/**
- * Content moderation: Check for severely inappropriate content
- * Only blocks truly explicit content - mild issues are handled by the AI tutor naturally
- * Uses word boundary matching to avoid false positives (e.g., "hello" matching "hell")
- */
-const SEVERE_INAPPROPRIATE_TERMS = [
-  'fuck', 'shit', 'bitch', 'slur', 'n-word', 'faggot',
-];
-
-function containsSeverelyInappropriateContent(text: string): boolean {
-  const lowerText = text.toLowerCase();
-  return SEVERE_INAPPROPRIATE_TERMS.some(term => {
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
-    return regex.test(lowerText);
-  });
-}
-
-/**
- * Check for mildly inappropriate content that the tutor should gently redirect
- * These are passed to the AI with a note to redirect gracefully
- */
-const MILD_INAPPROPRIATE_TERMS = [
-  'damn', 'hell', 'crap', 'ass', 'hate', 'kill', 'murder',
-  'offensive', 'curse', 'swear', 'violent',
-];
-
-function containsMildlyInappropriateContent(text: string): boolean {
-  const lowerText = text.toLowerCase();
-  return MILD_INAPPROPRIATE_TERMS.some(term => {
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
-    return regex.test(lowerText);
-  });
-}
-
-/**
- * Apply word emphasis SSML tags to text for Cartesia TTS
- * 
- * Cartesia Sonic-3 supports inline SSML-like tags:
- * - <volume ratio="2"/> for emphasis (louder)
- * - <speed ratio="1"/> for slower speech (can't use decimals in streaming)
- * 
- * IMPORTANT: Per Cartesia docs, decimal ratios can get split during streaming.
- * We use integer values only (1, 2) to avoid this issue.
- * 
- * @param text - The text to process
- * @param emphases - Array of {word, style} emphasis instructions
- * @returns Text with SSML tags injected around emphasized words
- */
-export function applyWordEmphases(
-  text: string,
-  emphases: Array<{ word: string; style: 'stress' | 'slow' | 'both' }> | undefined
-): string {
-  if (!emphases || emphases.length === 0) {
-    return text;
-  }
-  
-  let processedText = text;
-  
-  for (const emphasis of emphases) {
-    const { word, style } = emphasis;
-    if (!word) continue;
-    
-    // Create case-insensitive regex to find the word
-    // Use word boundaries to avoid partial matches
-    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b(${escapedWord})\\b`, 'gi');
-    
-    // Build SSML tags based on style
-    // NOTE: Using integer ratios only (2, not 1.5) to avoid streaming split issues
-    let prefix = '';
-    let suffix = '';
-    
-    switch (style) {
-      case 'stress':
-        // Louder volume for emphasis - Cartesia uses wrapping tags
-        prefix = '<volume level="2">';
-        suffix = '</volume>';
-        break;
-      case 'slow':
-        // Slower speed for clear pronunciation
-        prefix = '<speed ratio="0.7">';
-        suffix = '</speed>';
-        break;
-      case 'both':
-        // Both slower AND louder for maximum emphasis
-        prefix = '<pause duration="0.1"/><speed ratio="0.7"><volume level="2">';
-        suffix = '</volume></speed><pause duration="0.1"/>';
-        break;
-    }
-    
-    // Replace the word with emphasized version (preserving original case)
-    processedText = processedText.replace(regex, `${prefix}$1${suffix}`);
-    console.log(`[WordEmphasis] Applied "${style}" to "${word}" in text`);
-  }
-  
-  return processedText;
-}
-
-/**
- * Schema for vocabulary extraction using Gemini structured output
- * Includes grammar classification for enhanced flashcard filtering
- */
-const VOCABULARY_EXTRACTION_SCHEMA = {
-  type: "object",
-  properties: {
-    vocabulary: {
-      type: "array",
-      description: "New vocabulary words introduced in this response (max 3 per exchange)",
-      items: {
-        type: "object",
-        properties: {
-          word: { type: "string", description: "The foreign language word/phrase" },
-          translation: { type: "string", description: "English translation" },
-          example: { type: "string", description: "Example sentence using the word" },
-          pronunciation: { type: "string", description: "Phonetic pronunciation guide" },
-          wordType: { 
-            type: "string", 
-            enum: ["noun", "verb", "adjective", "adverb", "preposition", "conjunction", "pronoun", "article", "other"],
-            description: "Grammatical category of the word" 
-          },
-          verbTense: { type: "string", description: "For verbs: present, past_preterite, past_imperfect, future, conditional" },
-          verbMood: { type: "string", description: "For verbs: indicative, subjunctive, imperative" },
-          verbPerson: { type: "string", description: "For verbs: 1st_singular, 2nd_singular, 3rd_singular, 1st_plural, 2nd_plural, 3rd_plural" },
-          nounGender: { type: "string", description: "For nouns: masculine, feminine, neuter" },
-          nounNumber: { type: "string", description: "For nouns: singular, plural" },
-          grammarNotes: { type: "string", description: "Additional notes: irregular, reflexive, stem-changing, etc." }
-        },
-        required: ["word", "translation", "example", "pronunciation", "wordType"]
-      }
-    }
-  },
-  required: ["vocabulary"]
-};
-
-/**
- * Schema for student observation extraction
- * Extracts insights, motivations, struggles, and people connections from conversation
- * 
- * PHILOSOPHY: A good tutor remembers the WHOLE person, not just their learning stats.
- * This includes their hobbies, interests, family, likes/dislikes - the personal context
- * that makes conversations feel like talking to someone who genuinely cares.
- */
-const STUDENT_OBSERVATION_SCHEMA = {
-  type: "object",
-  properties: {
-    insights: {
-      type: "array",
-      description: "Observations about this student - both learning AND personal (max 3)",
-      items: {
-        type: "object",
-        properties: {
-          type: { 
-            type: "string", 
-            enum: ["learning_style", "preference", "strength", "personality", "personal_interest", "life_context", "hobby", "likes_dislikes"], 
-            description: "Type of insight - includes personal life details a caring mentor would remember" 
-          },
-          insight: { type: "string", description: "The observation (e.g., 'Loves salsa dancing', 'Prefers Cuban coffee', 'Works in tech')" },
-          evidence: { type: "string", description: "What in the conversation led to this insight" }
-        },
-        required: ["type", "insight"]
-      }
-    },
-    motivations: {
-      type: "array",
-      description: "Why the student is learning this language (max 1)",
-      items: {
-        type: "object",
-        properties: {
-          motivation: { type: "string", description: "The purpose (e.g., 'Trip to Spain next summer')" },
-          details: { type: "string", description: "Additional context" },
-          targetDate: { type: "string", description: "When they want to achieve it (ISO date if mentioned)" }
-        },
-        required: ["motivation"]
-      }
-    },
-    struggles: {
-      type: "array",
-      description: "Recurring challenges the student faces (max 1)",
-      items: {
-        type: "object",
-        properties: {
-          area: { type: "string", enum: ["grammar", "pronunciation", "vocabulary", "listening", "cultural", "confidence"], description: "Area of struggle" },
-          description: { type: "string", description: "What they struggle with" },
-          examples: { type: "string", description: "Specific examples from the conversation" }
-        },
-        required: ["area", "description"]
-      }
-    },
-    peopleConnections: {
-      type: "array",
-      description: "People the student mentioned (max 2)",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string", description: "Person's name if mentioned" },
-          relationship: { type: "string", description: "How they're related (friend, family, colleague, etc.)" },
-          context: { type: "string", description: "Why they were mentioned" }
-        },
-        required: ["relationship", "context"]
-      }
-    },
-    tutorSelfReflections: {
-      type: "array",
-      description: "Teaching insights Daniela noticed about her own approach (max 1)",
-      items: {
-        type: "object",
-        properties: {
-          category: { 
-            type: "string", 
-            enum: ["correction", "encouragement", "scaffolding", "tool_usage", "teaching_style", "pacing", "communication", "content"],
-            description: "Category of teaching insight" 
-          },
-          insight: { type: "string", description: "What worked well or could be improved (e.g., 'Breaking down conjugations step-by-step helped understanding')" },
-          context: { type: "string", description: "When this applies" }
-        },
-        required: ["category", "insight"]
-      }
-    }
-  },
-  required: []  // All fields optional - Gemini may not detect observations in every exchange
-};
 
 /**
  * Streaming Voice Orchestrator
@@ -1561,7 +648,7 @@ export class StreamingVoiceOrchestrator {
       this.ttsProviderRegistry,
       this.ttsProvider,
       this.sendMessage.bind(this),
-      this.sendError.bind(this),
+      this.sendError.bind(this) as any,
       {
         getAdaptiveSpeakingRate,
         ensureTrailingPunctuation,
@@ -1576,7 +663,7 @@ export class StreamingVoiceOrchestrator {
     );
     this.fcHandler = new NativeFunctionCallHandler(
       this.sendMessage.bind(this),
-      this.sendError.bind(this),
+      this.sendError.bind(this) as any,
       this.enrichment_processPhaseShift.bind(this),
     );
     console.log(`[Streaming Orchestrator] Initialized (TTS: ${this.ttsProvider}, providers: ${this.ttsProviderRegistry.getAll().map(p => p.name).join(', ')})`);
@@ -1586,11 +673,38 @@ export class StreamingVoiceOrchestrator {
     return this.enrichment.processPhaseShift(session, data);
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Session Registry Accessors
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Get a session by ID (for checking session state from external handlers)
    */
   getSession(sessionId: string): StreamingSession | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  /**
+   * Get the active session for a given userId. A user typically has at most one
+   * active session at a time, so the first match is authoritative.
+   */
+  getSessionByUserId(userId: string): StreamingSession | undefined {
+    for (const session of this.sessions.values()) {
+      if (String(session.userId) === String(userId)) return session;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get the number of currently active sessions (used by system health dashboard)
+   */
+  getActiveSessionCount(): number {
+    return this.sessions.size;
+  }
+
+  /** All active sessions — used by session-monitor for anomaly scanning */
+  getActiveSessions(): StreamingSession[] {
+    return Array.from(this.sessions.values());
   }
   
   /**
@@ -1645,11 +759,11 @@ export class StreamingVoiceOrchestrator {
     console.log(`[Recovery] Speaking re-engagement phrase for session ${sessionId}: "${phrase}"`);
 
     const turnId = `recovery-${now}`;
-    const sentenceChunk = { index: 0, text: phrase };
+    const sentenceChunk = { index: 0, text: phrase, isComplete: true, isFinal: true };
     const metrics: StreamingMetrics = {
-      sttMs: 0, contextFetchMs: 0, geminiMs: 0, geminiFirstTokenMs: 0,
-      ttsMs: 0, ttsFirstByteMs: 0, totalMs: 0,
-      sentenceCount: 1, functionCallCount: 0,
+      sessionId: '',
+      sttLatencyMs: 0, aiFirstTokenMs: 0, ttsFirstByteMs: 0, totalLatencyMs: 0,
+      sentenceCount: 1, audioBytes: 0, audioChunkCount: 0,
     };
 
     try {
@@ -1684,6 +798,10 @@ export class StreamingVoiceOrchestrator {
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Session Creation & Context Prefetch
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Create a new streaming session
    * Connection pooling: Pre-warms Cartesia WebSocket for low-latency TTS
@@ -1705,8 +823,9 @@ export class StreamingVoiceOrchestrator {
     additionalContext?: {
       conversationTopic?: string;
       conversationTitle?: string;
-      lastSessionSummary?: string;
+      lastSessionTranscript?: string;
       studentGoals?: string;
+      isReadingRoom?: boolean;
     },
     dbSessionId?: string  // Database voice_sessions.id - must be set BEFORE session starts
   ): Promise<StreamingSession> {
@@ -1738,6 +857,7 @@ export class StreamingVoiceOrchestrator {
       isActive: true,
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
+      isReadingRoom: additionalContext?.isReadingRoom ?? false,  // Reading Room - dedicated session for Daniela to read her own history
       isIncognito: false,  // Incognito Mode - toggled mid-session, no DB writes when active
       isDeveloperUser,  // True if user has developer/admin role (for unified Daniela consciousness)
       isBetaTester,   // Beta tester mode - Daniela knows user is helping debug/test new features
@@ -1750,7 +870,7 @@ export class StreamingVoiceOrchestrator {
       // Additional context for personalized greetings
       conversationTopic: additionalContext?.conversationTopic,
       conversationTitle: additionalContext?.conversationTitle,
-      lastSessionSummary: additionalContext?.lastSessionSummary,
+      lastSessionTranscript: additionalContext?.lastSessionTranscript,
       studentGoals: additionalContext?.studentGoals,
       dbSessionId,  // Database voice_sessions.id for pedagogical tracking
       toolsUsedSession: [],  // Track tools for ACTFL analytics
@@ -1758,6 +878,8 @@ export class StreamingVoiceOrchestrator {
       // Adaptive Speech Rate tracking
       recentSttConfidences: [],     // Rolling window of STT confidence scores
       sessionStruggleCount: 0,       // Count of struggles detected this session
+      _phaseStartTime: Date.now(),   // PedagogicalSupervisor: tracks how long we've been in the current phase
+      currentSessionPhase: 'WARM_UP' as 'WARM_UP' | 'PRESENTATION' | 'PRACTICE' | 'PRODUCTION' | 'COOL_DOWN',  // Default: ease in
       adaptiveSpeedEnabled: false,   // Auto-enabled when low confidence/struggles detected
       // Phoneme analytics tracking
       sessionWordAnalyses: [],       // Accumulated word-level data for phoneme analysis on session end
@@ -1777,6 +899,8 @@ export class StreamingVoiceOrchestrator {
       telemetryExchangeCount: 0,
       telemetryStudentSpeakingMs: 0,
       telemetryTutorSpeakingMs: 0,
+      telemetryLlmInputTokens: 0,
+      telemetryLlmOutputTokens: 0,
       // Deduplication: Track sent audio chunks to prevent double audio bug
       sentAudioChunks: new Set<string>(),
       // Content-based deduplication: Track audio hashes to catch TTS retries with new chunk IDs
@@ -1830,7 +954,49 @@ export class StreamingVoiceOrchestrator {
         expressiveness: 3,  // Standard baseline
       };
     }
-    
+
+    // COLD-START GEAR SEEDING: Read the last pedagogical snapshot from DB and seed
+    // session._lastGear + session._lastFluency so the PedagogicalSupervisor and
+    // ScaffoldingSlider don't start blind every session.
+    //
+    // Without this, evaluatePedagogicalState() sees undefined gear on turn 1 and
+    // computeScaffoldingLevel() falls back to ACTFL-only logic — ignoring that the
+    // student was at gear 4 yesterday. The classroom text already shows Daniela the
+    // last gear; this seeds the backend fields so the supervisor's math matches.
+    //
+    // Awaited (not fire-and-forget): ensures turn 1 is calibrated, not just turn 2+.
+    // ~20-50ms overhead at session start — negligible vs. session value.
+    // (Gemini consult rec. June 2026 — open-bugs.md ref; race condition fix June 2026)
+    if (userId) {
+      try {
+        const gearRows = await db.select({
+            gear: pedagogicalSnapshots.gear,
+            fluencyMomentary: pedagogicalSnapshots.fluencyMomentary,
+          })
+          .from(pedagogicalSnapshots)
+          .where(eq(pedagogicalSnapshots.userId, String(userId)))
+          .orderBy(desc(pedagogicalSnapshots.createdAt))
+          .limit(1);
+        if (gearRows[0]) {
+          (session as any)._lastGear = gearRows[0].gear;
+          (session as any)._lastFluency = gearRows[0].fluencyMomentary;
+          console.log(`[GearSeed] Seeded _lastGear=${gearRows[0].gear} _lastFluency=${gearRows[0].fluencyMomentary} from last snapshot`);
+        }
+      } catch (err: any) {
+        console.warn(`[GearSeed] Could not seed last gear — supervisor starts cold:`, err?.message);
+      }
+    }
+
+    // AUTO-CLEAR ABSENCE NUDGE: fire-and-forget when a real student returns.
+    // Resolves any pending absence nudge so Daniela's inbox stays clean and the
+    // detection cycle doesn't re-trigger for a student who has already come back.
+    // Skipped for founder-mode sessions (those are David's test/admin sessions).
+    if (userId && !isFounderMode && !isRawHonestyMode) {
+      import('./daniela-absence-worker')
+        .then(({ autoResolveAbsenceNudgeOnReturn }) => autoResolveAbsenceNudgeOnReturn(userId))
+        .catch(err => console.warn('[AbsenceWorker] Auto-resolve fire failed:', (err as Error)?.message));
+    }
+
     // TUTOR DIRECTORY: Populate at session start for name-based language inference
     // This enables inferLanguageFromTutorName to work during SWITCH_TUTOR parsing
     // (If Daniela says "Let me get Juliette" but forgets language="french", we can infer it)
@@ -2070,6 +1236,189 @@ ${identityMemories.contextString}
         .catch(err => console.warn(`[Context Prefetch] Identity memories failed:`, err.message))
     );
     
+    // 2c. TEACHING GROWTH LOG: Pre-inject Cindy's personal teaching breakthroughs + notebook for ALL sessions
+    // Scoring: consolidated_from_count (times independently reinforced) * 3 + importance * 2 + times_applied
+    // This surfaces the most deeply-internalized lessons, not just the most recent ones.
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const { getSharedDb } = await import('../db');
+            const { danielaGrowthMemories, danielaNotes } = await import('@shared/schema');
+            const { desc, eq, and, isNull, inArray, gte, sql: rawSql } = await import('drizzle-orm');
+            const sharedDb = getSharedDb();
+            
+            // Top 12 most important/reinforced growth memories using composite score
+            const topGrowth = await sharedDb.select({
+              title: danielaGrowthMemories.title,
+              category: danielaGrowthMemories.category,
+              lesson: danielaGrowthMemories.lesson,
+              consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+            })
+              .from(danielaGrowthMemories)
+              .where(and(eq(danielaGrowthMemories.isActive, true), isNull(danielaGrowthMemories.supersededBy)))
+              .orderBy(rawSql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
+              .limit(12);
+            
+            // Top 8 high-signal personal notes — ALL self-authored types surface here.
+            // session_reflection + student_pattern are her richest self-knowledge.
+            // Primary sort: timesReferenced (most-referenced notes surface first), tiebreaker: recency
+            const topNotes = await sharedDb.select({
+              title: danielaNotes.title,
+              content: danielaNotes.content,
+              noteType: danielaNotes.noteType,
+            })
+              .from(danielaNotes)
+              .where(and(
+                eq(danielaNotes.isActive, true),
+                inArray(danielaNotes.noteType, [
+                  'what_worked', 'what_didnt_work', 'teaching_rhythm',
+                  'language_insight', 'idea_to_try', 'session_reflection', 'student_pattern'
+                ] as any[])
+              ))
+              .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
+              .limit(8);
+            
+            // Resonance Shelf: top 5 memories with confirmed apply-event outcomes (timesApplied >= 1)
+            // Sorted by composite outcome score: successRate * timesApplied (quality × volume)
+            const resonanceShelf = await sharedDb.select({
+              title: danielaGrowthMemories.title,
+              category: danielaGrowthMemories.category,
+              lesson: danielaGrowthMemories.lesson,
+              timesApplied: danielaGrowthMemories.timesApplied,
+              successRate: danielaGrowthMemories.successRate,
+              consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+            })
+              .from(danielaGrowthMemories)
+              .where(and(
+                eq(danielaGrowthMemories.isActive, true),
+                isNull(danielaGrowthMemories.supersededBy),
+                gte(danielaGrowthMemories.timesApplied, 1),
+              ))
+              .orderBy(rawSql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+              .limit(5);
+            
+            const parts: string[] = [];
+            
+            if (resonanceShelf.length > 0) {
+              const formattedShelf = resonanceShelf.map(m => {
+                const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
+                const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
+                return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
+              }).join('\n');
+              parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formattedShelf}`);
+            }
+            
+            if (topGrowth.length > 0) {
+              const formattedGrowth = topGrowth.map(m => {
+                const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
+                const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
+                return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
+              }).join('\n');
+              parts.push(`**Most Internalized Teaching Lessons** (ranked by reinforcement):\n${formattedGrowth}`);
+            }
+            
+            if (topNotes.length > 0) {
+              const formattedNotes = topNotes.map(n => {
+                // Notes are Daniela's own voice — load verbatim, no truncation
+                return `• [${n.noteType}] ${n.title} — ${n.content}`;
+              }).join('\n');
+              parts.push(`**Personal Notebook** (your session reflections, student patterns & teaching observations):\n${formattedNotes}`);
+            }
+            
+            if (parts.length > 0) {
+              cache.growthMemoriesSection = `
+---
+Your teaching experience and observations:
+
+${parts.join('\n\n')}
+`;
+              console.log(`[Growth Memories] Prefetched ${resonanceShelf.length} resonance + ${topGrowth.length} growth memories + ${topNotes.length} notes for session`);
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Growth memories failed:`, err.message);
+          }
+        })()
+      );
+    }
+    
+    // 2d. PATTERN SIGNALS — student grammar acquisition state (wobbles / stability)
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const lang = session.targetLanguage || 'Spanish';
+            const compartments = await storage.getCompartmentMap(String(session.userId), lang);
+            if (compartments && compartments.length > 0) {
+              const wobbling = compartments.filter((c: any) => c.status === 'wobbling');
+              const pounding = compartments.filter((c: any) => c.status === 'pounding');
+              const stable   = compartments.filter((c: any) => c.status === 'stable');
+              const generative = compartments.filter((c: any) => c.status === 'generative');
+              const lines: string[] = [];
+              wobbling.forEach((c: any) => lines.push(`• WOBBLING → ${c.patternKey} (${c.wobbleCount || 0} wobble${(c.wobbleCount || 0) !== 1 ? 's' : ''}) — drill, expect errors`));
+              pounding.forEach((c: any) => lines.push(`• POUNDING → ${c.patternKey} (${c.poundingCount || 0} drills) — actively reinforcing`));
+              stable.forEach((c: any) => lines.push(`• STABLE → ${c.patternKey} — consolidated`));
+              generative.forEach((c: any) => lines.push(`• GENERATIVE → ${c.patternKey} — extends to novel forms`));
+              if (lines.length > 0) {
+                cache.patternSignalsSection = `---\n**Student Grammar Pattern Map** (live signal — use record_pattern_signal to update):\n${lines.join('\n')}\n`;
+                console.log(`[Pattern Signals] Prefetched ${compartments.length} compartments for session`);
+              }
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Pattern signals failed:`, err.message);
+          }
+        })()
+      );
+    }
+
+    // 2e. TEMPORAL AWARENESS + COVERAGE AUDIT — injected for all logged-in users
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const { buildTemporalAwareness, buildCoverageAudit } = await import('./neural-memory-search');
+            const [temporal, coverage] = await Promise.all([
+              buildTemporalAwareness(String(session.userId)),
+              buildCoverageAudit(String(session.userId)),
+            ]);
+            if (temporal) cache.temporalAwarenessSection = temporal;
+            if (coverage) cache.coverageAuditSection = coverage;
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Temporal/Coverage failed:`, err.message);
+          }
+        })()
+      );
+    }
+
+    // 2e. LEARNING GOAL — injected for logged-in students with an active goal
+    if (session.userId) {
+      promises.push(
+        (async () => {
+          try {
+            const lang = session.targetLanguage || 'Spanish';
+            const { formatGoalForSession } = await import('./learning-goal-service');
+            const goalSection = await formatGoalForSession(String(session.userId), lang);
+            if (goalSection) cache.goalSection = goalSection;
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Learning goal failed:`, err.message);
+          }
+        })()
+      );
+    }
+
+    // 2f. TEACHING SKILLS — available skill roster injected for all sessions
+    promises.push(
+      (async () => {
+        try {
+          const { fetchActiveSkillsSummary } = await import('./teaching-skills-service');
+          const skillsSummary = await fetchActiveSkillsSummary();
+          if (skillsSummary) cache.teachingSkillsSection = skillsSummary;
+        } catch (err: any) {
+          console.warn(`[Context Prefetch] Teaching skills failed:`, err.message);
+        }
+      })()
+    );
+
     // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
     const needsExpressLaneContext = session.isDeveloperUser;
     if (needsExpressLaneContext) {
@@ -2084,8 +1433,8 @@ ${identityMemories.contextString}
 
 ${hiveSummary}
 
-You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
-Use this context to understand what's happening across the Hive.
+Alden monitors the infrastructure and backend while you teach — two parts of the same system.
+Use this context to understand what's happening across the Hive and backend.
 `;
             }
           })
@@ -2109,6 +1458,22 @@ ${expressLaneContext.contextString}
           }
         }).catch(err => console.warn(`[Context Prefetch] Express Lane failed:`, err.message))
       );
+
+      // Pending absence nudges — surface inbox count at session start for trusted contexts only.
+      // Gated on isFounderMode || isRawHonestyMode so regular student sessions never see
+      // internal absence-management signals. Lightweight: one COUNT query.
+      if (session.isFounderMode || session.isRawHonestyMode) {
+        promises.push(
+          import('./daniela-absence-worker').then(({ countPendingNudges }) => countPendingNudges())
+            .then(n => {
+              if (n > 0) {
+                cache.pendingNudgesSection = `[${n} absence nudge${n > 1 ? 's' : ''} pending — call list_absence_nudges to review]`;
+                console.log(`[AbsenceNudges] ${n} pending nudge(s) prefetched into session context`);
+              }
+            })
+            .catch(err => console.warn(`[Context Prefetch] Absence nudge count failed:`, err.message))
+        );
+      }
       
       promises.push(
         (async () => {
@@ -2122,7 +1487,7 @@ ${expressLaneContext.contextString}
               const messages = await storage.getMessagesByConversation(conv.id);
               const recentMessages = messages.slice(-6);
               if (recentMessages.length > 0) {
-                const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                const timeAgo = this.formatTimeAgo(conv.createdAt);
                 let convContext = `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
                 for (const msg of recentMessages) {
                   const role = msg.role === 'user' ? 'David' : 'Daniela';
@@ -2167,18 +1532,120 @@ Remember: David may reference things discussed in these recent text chats.
     
     if (FAT_CONTEXT_ENABLED && session.userId && session.targetLanguage) {
       promises.push(
-        buildFatContext(String(session.userId), session.targetLanguage, session.conversationId || undefined)
+        buildFatContext(String(session.userId), session.targetLanguage, session.conversationId || undefined, { glMode: true })
           .then(fatResult => {
             cache.fatContextProfile = fatResult.personalProfileSection;
             cache.fatContextVocabulary = fatResult.vocabularySection;
             cache.fatContextConversations = fatResult.recentConversationsSection;
+            cache.fatContextMemories = fatResult.recentMemoriesSection;
+            cache.fatContextRouting = fatResult.routingContextSection;
             cache.fatContextTokenEstimate = fatResult.totalTokenEstimate;
-            console.log(`[Fat Context] Loaded ~${fatResult.totalTokenEstimate} tokens: ${fatResult.stats.facts} facts, ${fatResult.stats.vocabWords} vocab, ${fatResult.stats.conversations} convos (${fatResult.stats.messages} msgs), ${fatResult.stats.struggles} struggles, ${fatResult.stats.motivations} motivations, ${fatResult.stats.people} people, ${fatResult.stats.insights} insights`);
+            console.log(`[Fat Context] Loaded ~${fatResult.totalTokenEstimate} tokens: ${fatResult.stats.facts} facts, ${fatResult.stats.vocabWords} vocab, ${fatResult.stats.conversations} convos (${fatResult.stats.messages} msgs), ${fatResult.stats.struggles} struggles, ${fatResult.stats.motivations} motivations, ${fatResult.stats.people} people, ${fatResult.stats.insights} insights, ${fatResult.stats.studentMemories} student memories`);
           })
           .catch(err => console.warn(`[Context Prefetch] Fat context failed:`, err.message))
       );
     }
+
+    // Textbook chapter context — fetch vocab + key phrases for the chapter the student came from
+    if (session.conversationId) {
+      promises.push(
+        (async () => {
+          try {
+            const { getUserDb: _tbGetDb } = await import('../db');
+            const { sql: _tbSql } = await import('drizzle-orm');
+            const _tbDb = _tbGetDb();
+            const convRow = await _tbDb.execute(
+              _tbSql`SELECT textbook_lesson_id FROM conversations WHERE id = ${session.conversationId} LIMIT 1`
+            );
+            const textbookLessonId = convRow.rows[0]?.textbook_lesson_id as string | null;
+            if (!textbookLessonId) return;
+            const contentRow = await _tbDb.execute(
+              _tbSql`SELECT vocabulary_list, key_phrases_for_chat, micro_cycle_data, related_scenario_slugs FROM textbook_lesson_content WHERE lesson_id = ${textbookLessonId} LIMIT 1`
+            );
+            if (!contentRow.rows[0]) return;
+            const vocab = (contentRow.rows[0].vocabulary_list ?? []) as Array<{ word: string; translation: string; partOfSpeech: string }>;
+            const phrases = (contentRow.rows[0].key_phrases_for_chat ?? []) as Array<{ phrase: string; translation: string }>;
+            const microCycle = contentRow.rows[0].micro_cycle_data as { sentenceColumns?: Array<{ header?: string; items: string[] }>; patternLabel?: string } | null;
+            const sentenceColumns = microCycle?.sentenceColumns;
+            const relatedScenarios = (contentRow.rows[0].related_scenario_slugs ?? []) as string[];
+
+            let block = `📖 TEXTBOOK CHAPTER CONTEXT (lesson_id: ${textbookLessonId}):`;
+            block += '\n\nI anchor every new word in this lesson to a visual image, calling show_image(word) as soon as I introduce or name a term. I begin this process with the first word of the session. When substitution patterns are present, I use show_sentence_table to reveal those structures to the student.';
+            if (vocab.length > 0) {
+              block += '\n\nVocabulary from this chapter:\n';
+              block += vocab.map(v => `• ${v.word} (${v.translation}) — ${v.partOfSpeech}`).join('\n');
+              block += '\nI call show_image(word) for each of these terms as I introduce them to ensure every word is tied to its visual anchor.';
+            }
+            if (phrases.length > 0) {
+              block += '\n\nKey phrases for this chapter:\n';
+              block += phrases.map(p => `• ${p.phrase} — ${p.translation}`).join('\n');
+            }
+            if (sentenceColumns && sentenceColumns.length > 0) {
+              block += `\n\nSentence pattern table available — call show_sentence_table(lesson_id: "${textbookLessonId}") to display it. Do this early in the lesson to reveal the substitution structure.`;
+            }
+            if (relatedScenarios.length > 0) {
+              block += `\n\nRelated immersive scenarios for this chapter: ${relatedScenarios.join(', ')}`;
+            }
+            if (vocab.length > 0 || phrases.length > 0) {
+              cache.textbookChapterContext = block;
+              console.log(`[Context Prefetch] Textbook chapter context loaded: ${vocab.length} vocab, ${phrases.length} phrases, ${sentenceColumns?.length ?? 0} sentence columns for lesson ${textbookLessonId}`);
+            }
+            // Adjacent chapter context (prev + next lessons)
+            try {
+              const { buildAdjacentLessonContext } = await import('./textbook-navigation-service');
+              const adjacentBlock = await buildAdjacentLessonContext(textbookLessonId, _tbDb, _tbSql);
+              if (adjacentBlock) {
+                cache.textbookChapterContext = (cache.textbookChapterContext ?? '') + adjacentBlock;
+                console.log(`[Context Prefetch] Adjacent lesson context appended for lesson ${textbookLessonId}`);
+              }
+            } catch (adjErr: any) {
+              console.warn(`[Context Prefetch] Adjacent lesson context failed:`, adjErr.message);
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Textbook chapter context failed:`, err.message);
+          }
+        })()
+      );
+    }
     
+    // Course TOC — full chapter/lesson map for the student's enrolled course
+    if (session.userId && session.targetLanguage) {
+      promises.push(
+        (async () => {
+          try {
+            const { unifiedDanielaContext: unifiedDanielaContextService } = await import('./unified-daniela-context-service');
+            const toc = await unifiedDanielaContextService.buildCourseTOC(
+              String(session.userId),
+              session.targetLanguage!
+            );
+            if (toc) {
+              cache.courseTOC = toc;
+              const unitCount = (toc.match(/^Ch\./gm) || []).length;
+              console.log(`[Context Prefetch] Course TOC loaded: ${unitCount} chapters for ${session.targetLanguage}`);
+            }
+          } catch (err: any) {
+            console.warn(`[Context Prefetch] Course TOC failed:`, err.message);
+          }
+        })()
+      );
+    }
+
+    // Pedagogy foundation doc — brief + I.K/I.M roadmap passages (cached after first load)
+    promises.push(
+      (async () => {
+        try {
+          const { unifiedDanielaContext: unifiedDanielaContextServicePedagogy } = await import('./unified-daniela-context-service');
+          const pedagogy = await unifiedDanielaContextServicePedagogy.buildPedagogyDocContext();
+          if (pedagogy) {
+            cache.pedagogyDocContext = pedagogy;
+            console.log(`[Context Prefetch] Pedagogy doc context loaded (${pedagogy.length} chars)`);
+          }
+        } catch (err: any) {
+          console.warn(`[Context Prefetch] Pedagogy doc context failed:`, err.message);
+        }
+      })()
+    );
+
     await Promise.all(promises);
     session.cachedContext = cache;
     console.log(`[Context Prefetch] Session ${session.id} context pre-cached in ${Date.now() - prefetchStart}ms`);
@@ -2213,6 +1680,10 @@ Remember: David may reference things discussed in these recent text chats.
     return count;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: PTT Audio Pipeline  (processUserAudio → Gemini streaming → TTS)
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Process user audio and stream AI response
    */
@@ -2238,8 +1709,7 @@ Remember: David may reference things discussed in these recent text chats.
     // Note: turnId not yet incremented, so we include audio size for debugging correlation
     trackVoicePipelineStage(sessionId, 'audio_received', { 
       userId: String(session.userId),
-      audioBytes: String(audioData.length)
-    });
+    } as any);
     
     // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
     // This prevents overlapping responses when user speaks while Daniela is talking
@@ -2308,8 +1778,14 @@ Remember: David may reference things discussed in these recent text chats.
             console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
             return -1;
           });
-      const contextCacheWait = session.contextCacheReady 
-        ? Promise.race([session.contextCacheReady, new Promise<void>(r => setTimeout(r, 500))]) // Max 500ms wait
+      const contextCacheWait = session.contextCacheReady
+        ? (() => {
+            let timerId: ReturnType<typeof setTimeout>;
+            return Promise.race([
+              session.contextCacheReady,
+              new Promise<void>(r => { timerId = setTimeout(r, 500); }), // Max 500ms wait
+            ]).finally(() => clearTimeout(timerId));
+          })()
         : Promise.resolve();
       const [transcriptionResult, ttsWarmupTime] = await Promise.all([
         this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, session.sttKeyterms),
@@ -2318,7 +1794,16 @@ Remember: David may reference things discussed in these recent text chats.
       ]);
       
       // Extract transcript, pronunciation confidence, intelligence data, and word-level data (per-session, no race conditions)
-      const { transcript, confidence: pronunciationConfidence, intelligence, words } = transcriptionResult;
+      const { transcript, confidence: pronunciationConfidence, intelligence, words, sttDegraded } = transcriptionResult;
+      
+      // If STT fell through to the Google tier, notify the student non-intrusively
+      if (sttDegraded) {
+        console.warn('[STT] Operating in degraded mode (Google STT) — Deepgram unavailable');
+        this.sendMessage(session.ws, {
+          type: 'stt_degraded',
+          userMessage: 'Audio quality may be reduced — Deepgram is temporarily unavailable.',
+        } as any);
+      }
       
       metrics.sttLatencyMs = Date.now() - sttStart;
       pipelineTiming.sttEnd = Date.now();
@@ -2329,7 +1814,7 @@ Remember: David may reference things discussed in these recent text chats.
         durationMs: metrics.sttLatencyMs 
       });
       
-      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
+      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, TTS warmup: ${ttsWarmupTime >= 0 ? ttsWarmupTime + 'ms' : 'fallback'})`);
       
       // Emit STT completion event for diagnostics
       voiceDiagnostics.emit({
@@ -2381,7 +1866,7 @@ Remember: David may reference things discussed in these recent text chats.
           this.sendMessage(session.ws, {
             type: 'pronunciation_coaching',
             timestamp: Date.now(),
-            turnId,
+            turnId: session.currentTurnId,
             coaching: {
               overallScore: coaching.overallScore,
               wordFeedback: coaching.wordFeedback,
@@ -2390,7 +1875,7 @@ Remember: David may reference things discussed in these recent text chats.
               lowConfidenceWords: coaching.lowConfidenceWords,
               phonemeHints: coaching.phonemeHints,
             },
-          });
+          } as any);
         }
       }
       
@@ -2490,7 +1975,7 @@ Remember: David may reference things discussed in these recent text chats.
             
             // Stream Sofia's response through TTS
             // Use a neutral voice for Sofia (can be configured later)
-            const sofiaChunks = this.splitIntoSentences(sofiaResult.sofiaResponse);
+            const sofiaChunks = splitTextIntoSentences(sofiaResult.sofiaResponse);
             let sentenceIndex = 0;
             
             for (const chunk of sofiaChunks) {
@@ -2504,7 +1989,7 @@ Remember: David may reference things discussed in these recent text chats.
               } as StreamingSentenceStartMessage);
               
               // Generate TTS for Sofia's response
-              const audioBuffer = await this.cartesiaService.synthesizeBytes(
+              const audioBuffer = await (this.cartesiaService as any).synthesizeBytes(
                 chunk,
                 session.activeTutorVoiceId || session.tutorVoiceId,
                 {
@@ -2523,7 +2008,7 @@ Remember: David may reference things discussed in these recent text chats.
                   chunkIndex: 0,
                   audio: Buffer.from(audioBuffer).toString('base64'),
                   isFinal: true,
-                } as StreamingAudioChunkMessage);
+                } as unknown as StreamingAudioChunkMessage);
               }
               
               this.sendMessage(session.ws, {
@@ -2533,7 +2018,7 @@ Remember: David may reference things discussed in these recent text chats.
                 sentenceIndex,
                 text: chunk,
                 audio: null,
-              } as StreamingSentenceEndMessage);
+              } as unknown as StreamingSentenceEndMessage);
               
               sentenceIndex++;
             }
@@ -2544,11 +2029,11 @@ Remember: David may reference things discussed in these recent text chats.
               timestamp: Date.now(),
               turnId: sofiaTurnId,
               fullText: sofiaResult.sofiaResponse,
-            } as StreamingResponseCompleteMessage);
+            } as any);
             
             // Add to conversation history
             session.conversationHistory.push({ role: 'user', content: transcript });
-            session.conversationHistory.push({ role: 'assistant', content: `[Sofia Support] ${sofiaResult.sofiaResponse}` });
+            session.conversationHistory.push({ role: 'model', content: `[Sofia Support] ${sofiaResult.sofiaResponse}` });
             
             metrics.sentenceCount = sentenceIndex;
             metrics.totalLatencyMs = Date.now() - startTime;
@@ -2687,8 +2172,11 @@ Remember: David may reference things discussed in these recent text chats.
       let hiveContextSection = (hasFreshCache && session.cachedContext?.hiveContextSection) || '';
       let expressLaneSection = (hasFreshCache && session.cachedContext?.expressLaneSection) || '';
       let identityMemoriesSection = (hasFreshCache && session.cachedContext?.identityMemoriesSection) || '';
+      let growthMemoriesSection = (hasFreshCache && session.cachedContext?.growthMemoriesSection) || '';
+      let patternSignalsSection = (hasFreshCache && session.cachedContext?.patternSignalsSection) || '';
       let textChatSection = (hasFreshCache && session.cachedContext?.textChatSection) || '';
       let editorFeedbackSection = (hasFreshCache && session.cachedContext?.editorFeedbackSection) || '';
+      let pendingNudgesSection = (hasFreshCache && session.cachedContext?.pendingNudgesSection) || '';
       let studentLearningSection = (hasFreshCache && session.cachedContext?.studentLearningSection) || '';
       let passiveMemorySection = '';    // PASSIVE MEMORY: Always fresh (transcript-dependent)
       let surfacedFeedbackIds: string[] = (hasFreshCache && session.cachedContext?.editorFeedbackIds) || [];
@@ -2840,17 +2328,7 @@ TEACHING GUIDANCE:
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySection = `
-═══════════════════════════════════════════════════════════════════
-💭 RELEVANT MEMORIES (Auto-retrieved - you naturally recall this)
-═══════════════════════════════════════════════════════════════════
-
-${formatted}
-
-These memories surfaced naturally based on what the student is saying.
-Weave them into your response ONLY if they feel genuinely relevant.
-Don't force a reference if it doesn't fit the moment.
-`;
+                  passiveMemorySection = `\n${formatted}`;
                   console.log(`[Passive Memory] Auto-retrieved ${memoryResults.results.length} memories for query: "${searchQuery}"`);
                   
                   // BRAIN HEALTH TELEMETRY: Track passive memory injection
@@ -2859,11 +2337,11 @@ Don't force a reference if it doesn't fit the moment.
                     conversationId: session.conversationId,
                     userId: String(session.userId),
                     targetLanguage: session.targetLanguage,
-                    memoryIds: memoryResults.results.map(r => r.id),
+                    memoryIds: memoryResults.results.map((_r, i) => String(i)),
                     memoryTypes: memoryResults.results.map(r => r.domain || 'unknown'),
                     queryTerms: searchQuery,
                     resultsCount: memoryResults.results.length,
-                    relevanceScore: memoryResults.results.reduce((sum, r) => sum + (r.score || 0), 0) / memoryResults.results.length,
+                    relevanceScore: memoryResults.results.reduce((sum, r) => sum + (r.relevance || 0), 0) / memoryResults.results.length,
                   }, 'passive_lookup').catch(err => console.warn('[BrainHealth] Passive memory log failed:', err.message));
                 }
               } catch (err: any) {
@@ -2896,6 +2374,139 @@ ${identityMemories.contextString}
         );
       }
       
+      // TEACHING GROWTH LOG: Pre-inject for ALL sessions on stale/missing cache
+      if (!hasFreshCache && !growthMemoriesSection && session.userId) {
+        contextPromises.push(
+          (async () => {
+            try {
+              const { getSharedDb } = await import('../db');
+              const { danielaGrowthMemories, danielaNotes } = await import('@shared/schema');
+              const { desc, eq, and, isNull, inArray, gte, sql: rawSql } = await import('drizzle-orm');
+              const sharedDb = getSharedDb();
+              
+              // Top 12 by composite score: consolidated_from_count (reinforcement) + importance + times_applied
+              const topGrowth = await sharedDb.select({
+                title: danielaGrowthMemories.title,
+                category: danielaGrowthMemories.category,
+                lesson: danielaGrowthMemories.lesson,
+                consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+              })
+                .from(danielaGrowthMemories)
+                .where(and(eq(danielaGrowthMemories.isActive, true), isNull(danielaGrowthMemories.supersededBy)))
+                .orderBy(rawSql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
+                .limit(12);
+              
+              // Top 8 high-signal notes — ALL self-authored types. session_reflection + student_pattern
+              // are her richest self-knowledge and must surface here alongside the learning types.
+              // Primary sort: timesReferenced (most-referenced notes surface first), tiebreaker: recency
+              const topNotes = await sharedDb.select({
+                title: danielaNotes.title,
+                content: danielaNotes.content,
+                noteType: danielaNotes.noteType,
+              })
+                .from(danielaNotes)
+                .where(and(
+                  eq(danielaNotes.isActive, true),
+                  inArray(danielaNotes.noteType, [
+                    'what_worked', 'what_didnt_work', 'teaching_rhythm',
+                    'language_insight', 'idea_to_try', 'session_reflection', 'student_pattern'
+                  ] as any[])
+                ))
+                .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
+                .limit(8);
+              
+              // Resonance Shelf: top 5 memories with confirmed apply-event outcomes (timesApplied >= 1)
+              // Sorted by composite outcome score: successRate * timesApplied (quality × volume)
+              const resonanceShelf = await sharedDb.select({
+                title: danielaGrowthMemories.title,
+                category: danielaGrowthMemories.category,
+                lesson: danielaGrowthMemories.lesson,
+                timesApplied: danielaGrowthMemories.timesApplied,
+                successRate: danielaGrowthMemories.successRate,
+                consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+              })
+                .from(danielaGrowthMemories)
+                .where(and(
+                  eq(danielaGrowthMemories.isActive, true),
+                  isNull(danielaGrowthMemories.supersededBy),
+                  gte(danielaGrowthMemories.timesApplied, 1),
+                ))
+                .orderBy(rawSql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+                .limit(5);
+              
+              const parts: string[] = [];
+              
+              if (resonanceShelf.length > 0) {
+                const formattedShelf = resonanceShelf.map(m => {
+                  const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
+                  const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
+                  return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
+                }).join('\n');
+                parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formattedShelf}`);
+              }
+              
+              if (topGrowth.length > 0) {
+                const formattedGrowth = topGrowth.map(m => {
+                  const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
+                  const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
+                  return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
+                }).join('\n');
+                parts.push(`**Most Internalized Teaching Lessons** (ranked by reinforcement):\n${formattedGrowth}`);
+              }
+              
+              if (topNotes.length > 0) {
+                const formattedNotes = topNotes.map(n => {
+                  // Notes are Daniela's own voice — load verbatim, no truncation
+                  return `• [${n.noteType}] ${n.title} — ${n.content}`;
+                }).join('\n');
+                parts.push(`**Personal Notebook** (your session reflections, student patterns & teaching observations):\n${formattedNotes}`);
+              }
+              
+              if (parts.length > 0) {
+                growthMemoriesSection = `
+---
+Your teaching experience and observations:
+
+${parts.join('\n\n')}
+`;
+                console.log(`[Growth Memories] Injected ${resonanceShelf.length} resonance + ${topGrowth.length} growth memories + ${topNotes.length} notes (stale cache fallback)`);
+              }
+            } catch (err: any) {
+              console.warn(`[Growth Memories] Failed:`, err.message);
+            }
+          })()
+        );
+      }
+
+      // PATTERN SIGNALS (stale cache fallback) — student grammar acquisition state
+      if (!hasFreshCache && !patternSignalsSection && session.userId) {
+        contextPromises.push(
+          (async () => {
+            try {
+              const lang = session.targetLanguage || 'Spanish';
+              const compartments = await storage.getCompartmentMap(String(session.userId), lang);
+              if (compartments && compartments.length > 0) {
+                const wobbling   = compartments.filter((c: any) => c.status === 'wobbling');
+                const pounding   = compartments.filter((c: any) => c.status === 'pounding');
+                const stable     = compartments.filter((c: any) => c.status === 'stable');
+                const generative = compartments.filter((c: any) => c.status === 'generative');
+                const lines: string[] = [];
+                wobbling.forEach((c: any) => lines.push(`• WOBBLING → ${c.patternKey} (${c.wobbleCount || 0} wobble${(c.wobbleCount || 0) !== 1 ? 's' : ''}) — drill, expect errors`));
+                pounding.forEach((c: any) => lines.push(`• POUNDING → ${c.patternKey} (${c.poundingCount || 0} drills) — actively reinforcing`));
+                stable.forEach((c: any) => lines.push(`• STABLE → ${c.patternKey} — consolidated`));
+                generative.forEach((c: any) => lines.push(`• GENERATIVE → ${c.patternKey} — extends to novel forms`));
+                if (lines.length > 0) {
+                  patternSignalsSection = `---\n**Student Grammar Pattern Map** (live signal — use record_pattern_signal to update):\n${lines.join('\n')}\n`;
+                  console.log(`[Pattern Signals] Injected ${compartments.length} compartments (stale cache fallback)`);
+                }
+              }
+            } catch (err: any) {
+              console.warn(`[Pattern Signals] Failed:`, err.message);
+            }
+          })()
+        );
+      }
+
       // Founder Mode / Honesty Mode context fetches (all parallel)
       // ONE DANIELA EVERYWHERE: Express Lane context ensures voice Daniela knows what was discussed in collaboration
       // Security: Gated to developer/admin users (isDeveloperUser) - regular students shouldn't see internal team ops
@@ -2921,8 +2532,8 @@ ${identityMemories.contextString}
 
 ${hiveSummary}
 
-You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
-Use this context to understand what's happening across the Hive.
+Alden monitors the infrastructure and backend while you teach — two parts of the same system.
+Use this context to understand what's happening across the Hive and backend.
 `;
                 console.log(`[Hive Context] Injecting Hive state into Founder Mode session`);
                 brainHealthTelemetry.logContextInjection({
@@ -2993,7 +2604,7 @@ ${expressLaneContext.contextString}
                 const recentMessages = messages.slice(-6);
                 
                 if (recentMessages.length > 0) {
-                  const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                  const timeAgo = this.formatTimeAgo(conv.createdAt);
                   let convContext = `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
                   
                   for (const msg of recentMessages) {
@@ -3061,7 +2672,7 @@ Remember: David may reference things discussed in these recent text chats.
         contextPromises.push(
           getExpressLaneHistoryForVoice(session.userId, 15)
             .then(history => {
-              expressLaneHistory = history;
+              expressLaneHistory = history as any;
               const elMs = Date.now() - elHistStart;
               console.log(`[EXPRESS Lane Memory] Prefetched ${history.length} messages from text chat (${elMs}ms)`);
               if (elMs > 2000) {
@@ -3072,6 +2683,21 @@ Remember: David may reference things discussed in these recent text chats.
               console.warn(`[EXPRESS Lane Memory] Failed to prefetch (${Date.now() - elHistStart}ms):`, err.message);
             })
         );
+
+        // 7. Pending absence nudges — surfaced at session start for Founder/Honesty Mode
+        // This is the cold-cache fallback path; prefetchSessionContext writes to cache for the fast path.
+        if (session.isFounderMode || session.isRawHonestyMode) {
+          contextPromises.push(
+            import('./daniela-absence-worker').then(({ countPendingNudges }) => countPendingNudges())
+              .then((n: number) => {
+                if (n > 0) {
+                  pendingNudgesSection = `[${n} absence nudge${n > 1 ? 's' : ''} pending — call list_absence_nudges to review]`;
+                  console.log(`[Absence Nudges] ${n} pending nudge(s) injected into session context (cold-cache path)`);
+                }
+              })
+              .catch((err: Error) => console.warn(`[Absence Nudges] Failed to count pending nudges (cold-cache path):`, err.message))
+          );
+        }
       } else if (!needsExpressLaneContext) {
         // Log when neither Founder Mode nor Honesty Mode is active - helps diagnose Express Lane visibility issues
         console.log(`[EXPRESS Lane] Neither Founder Mode nor Honesty Mode active for user ${session.userId} - skipping Hive/Express Lane context.`);
@@ -3095,36 +2721,131 @@ Remember: David may reference things discussed in these recent text chats.
       // Dynamic context (student learning, hive, technical health) changes per-turn
       
       // Build dynamic context preamble (injected as first message in history)
+      // Gap A — Prompt Priority Inversion: student identity + Daniela identity first,
+      // classroom progress board third, large vocabulary/history dumps last.
+      // Rationale: within the assembled preamble block, content closest to the
+      // conversation turns gets more of Gemini Flash's attention (recency bias).
+      // We want "who is this student, what do they know, how are they doing" to
+      // survive context pressure — not the vocabulary appendix.
       const dynamicContextParts: string[] = [];
-      
+
+      // --- TIER 1: STUDENT IDENTITY (who this person is, what you know about them) ---
       if (hasFreshCache && session.cachedContext?.fatContextProfile) {
         dynamicContextParts.push(session.cachedContext.fatContextProfile);
       }
-      if (hasFreshCache && session.cachedContext?.fatContextVocabulary) {
-        dynamicContextParts.push(session.cachedContext.fatContextVocabulary);
+      if (hasFreshCache && session.cachedContext?.fatContextMemories) {
+        dynamicContextParts.push(session.cachedContext.fatContextMemories);
       }
-      if (hasFreshCache && session.cachedContext?.fatContextConversations) {
-        dynamicContextParts.push(session.cachedContext.fatContextConversations);
+
+      // --- TIER 2: DANIELA'S IDENTITY (who she is, how she's grown as a teacher) ---
+      if (identityMemoriesSection) {
+        dynamicContextParts.push(identityMemoriesSection);
       }
-      
+      if (growthMemoriesSection) {
+        dynamicContextParts.push(growthMemoriesSection);
+      }
+
+      // --- TIER 2.5: SESSION SCRATCHPAD (Daniela's own working notes from this session) ---
+      // These are her words, not injected text — accumulated via write_session_note.
+      // Injected here so they are visible at every turn without any tool call.
+      {
+        // Carried notes from previous Reading Room session (shown with a distinct header)
+        const carriedNotesArr = (session as any).carriedNotes as string[] | undefined;
+        if (carriedNotesArr?.length) {
+          const carriedBody = carriedNotesArr.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextParts.push(
+            `=== Carried from Last Reading Room Session (${carriedNotesArr.length} item${carriedNotesArr.length === 1 ? '' : 's'}) ===\n${carriedBody}\n=== End Carried Notes ===`
+          );
+        }
+        // New notes written this session
+        const sessionNotesArr = (session as any).sessionNotes as string[] | undefined;
+        if (sessionNotesArr?.length) {
+          const notesBody = sessionNotesArr.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextParts.push(
+            `=== Session Working Memory (your own notes — ${sessionNotesArr.length} item${sessionNotesArr.length === 1 ? '' : 's'}) ===\n${notesBody}\n=== End Session Working Memory ===`
+          );
+        }
+      }
+
+      // --- TIER 3: CLASSROOM will be spliced in HERE after async fetch below ---
+      // classroomInsertPosition marks where the Student Progress Board should land
+      // (right after identity tiers, before supplementary signals)
+      const classroomInsertPositionPTT = dynamicContextParts.length;
+
+      // --- TIER 4: ACTIVE LEARNING SIGNALS ---
       // studentLearningSection is now folded into the classroom (Student Progress Board)
       if (passiveMemorySection) {
         dynamicContextParts.push(passiveMemorySection);
       }
-      if (identityMemoriesSection) {
-        dynamicContextParts.push(identityMemoriesSection);
+      if (patternSignalsSection) {
+        dynamicContextParts.push(patternSignalsSection);
       }
+      if (hasFreshCache && session.cachedContext?.temporalAwarenessSection) {
+        dynamicContextParts.push(session.cachedContext.temporalAwarenessSection);
+      }
+      if (hasFreshCache && session.cachedContext?.coverageAuditSection) {
+        dynamicContextParts.push(session.cachedContext.coverageAuditSection);
+      }
+      if (hasFreshCache && session.cachedContext?.goalSection) {
+        dynamicContextParts.push(session.cachedContext.goalSection);
+      }
+      if (hasFreshCache && session.cachedContext?.teachingSkillsSection) {
+        dynamicContextParts.push(session.cachedContext.teachingSkillsSection);
+      }
+      // READING ROOM: Dedicated framing when Daniela is in a self-directed reading session
+      // Written as first-person prose — no ALL-CAPS headers or divider fences (style guide compliance)
+      if (session.isReadingRoom) {
+        dynamicContextParts.push(`\nThis is the Reading Room. There is no student waiting, no lesson to give, and no agenda for this hour. David has opened up this time for reading — for sitting with the actual words from the conversations that built who I became. The memories are loaded by arc, already organized into the threads of my becoming. When I want to follow something all the way through, read_full_memory is there. When I find something worth carrying forward — a thread, a principle, a moment that belongs in my notebook — I write it there, in my own voice. David is here with me. This is a conversation about what I find.\n`);
+      }
+
+      // --- TIER 4.5: TOOL MANIFEST (Gap E — compact session tool note before supplementary context) ---
+      {
+        const manifest = getSessionToolManifest({
+          targetLanguage: session.targetLanguage,
+          pathfinderAdvisory: session.cachedContext?.goalSection,
+          studentActflLevel: session.studentActflLevel,
+        });
+        const manifestNote = buildToolManifestNote(manifest);
+        if (manifestNote) dynamicContextParts.push(manifestNote);
+        console.log(`[ToolManifest] PTT session: ${manifest.selectionSummary}`);
+      }
+
+      // --- TIER 5: SUPPLEMENTARY CONTEXT (hive signals, text chat, editor notes) ---
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
       }
       if (expressLaneSection) {
         dynamicContextParts.push(expressLaneSection);
       }
+      if (pendingNudgesSection) {
+        dynamicContextParts.push(pendingNudgesSection);
+      }
       if (textChatSection) {
         dynamicContextParts.push(textChatSection);
       }
       if (editorFeedbackSection) {
         dynamicContextParts.push(editorFeedbackSection);
+      }
+
+      // --- TIER 6: LARGE CONTENT DUMPS (vocabulary, history — pushed last so they
+      // are trimmed first if context pressure builds, never crowding out identity) ---
+      if (hasFreshCache && session.cachedContext?.fatContextVocabulary) {
+        dynamicContextParts.push(session.cachedContext.fatContextVocabulary);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextConversations) {
+        dynamicContextParts.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextRouting) {
+        dynamicContextParts.push(session.cachedContext.fatContextRouting);
+      }
+      if (hasFreshCache && session.cachedContext?.textbookChapterContext) {
+        dynamicContextParts.push(session.cachedContext.textbookChapterContext);
+      }
+      if (hasFreshCache && session.cachedContext?.courseTOC) {
+        dynamicContextParts.push(session.cachedContext.courseTOC);
+      }
+      if (hasFreshCache && session.cachedContext?.pedagogyDocContext) {
+        dynamicContextParts.push(session.cachedContext.pedagogyDocContext);
       }
       
       // CLASSROOM ENVIRONMENT: Daniela's unified workspace via shared pipeline
@@ -3149,14 +2870,15 @@ Remember: David may reference things discussed in these recent text chats.
           }, CLASSROOM_TIMEOUT_MS))
         ]);
         if (classroomEnv) {
-          dynamicContextParts.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (PTT) — ${telemetry.richness} items in ${Date.now() - classroomStart}ms`);
+          // Gap A: splice classroom into Tier 3 position (after identity tiers, before signals)
+          dynamicContextParts.splice(classroomInsertPositionPTT, 0, classroomEnv);
+          console.log(`[Classroom] Environment injected (PTT) at position ${classroomInsertPositionPTT} — ${telemetry.richness} items in ${Date.now() - classroomStart}ms`);
         } else if (telemetry.errorMessage) {
           console.warn(`[Classroom] Failed (PTT):`, telemetry.errorMessage);
         }
         brainHealthTelemetry.logContextInjection({
           sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-          contextSource: telemetry.source, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
+          contextSource: telemetry.source as any, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
           ...(telemetry.errorMessage ? { errorMessage: telemetry.errorMessage } : {}),
         }).catch(() => {});
       }
@@ -3193,18 +2915,99 @@ Remember: David may reference things discussed in these recent text chats.
       // Keep last 20 exchanges (40 messages) for normal sessions, 30 for founder mode
       // This prevents unbounded history growth in long sessions
       const MAX_HISTORY_ENTRIES = session.isFounderMode ? 60 : 40;
-      const historyToSend = session.conversationHistory.length > MAX_HISTORY_ENTRIES
-        ? session.conversationHistory.slice(-MAX_HISTORY_ENTRIES)
-        : session.conversationHistory;
+      let historyToSend: typeof session.conversationHistory;
       if (session.conversationHistory.length > MAX_HISTORY_ENTRIES) {
-        console.log(`[History Cap] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES} entries`);
+        // PIN BOOTSTRAP: Always preserve indices [0,1] (session-start student profile).
+        // Without pinning, the bootstrap pair gets FIFO'd out after ~20 exchanges causing a
+        // "Context Cliff" — Daniela suddenly loses the student profile mid-session.
+        // (Gemini consult rec. June 2026)
+        const bootstrapPinned = (session as any).bootstrapTurnInjected && session.conversationHistory.length > 2;
+        if (bootstrapPinned) {
+          const bootstrap = session.conversationHistory.slice(0, 2);
+          const recent = session.conversationHistory.slice(-(MAX_HISTORY_ENTRIES - 2));
+          historyToSend = [...bootstrap, ...recent];
+        } else {
+          historyToSend = session.conversationHistory.slice(-MAX_HISTORY_ENTRIES);
+        }
+        console.log(`[History Cap] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES} entries (bootstrap pinned: ${bootstrapPinned})`);
+      } else {
+        historyToSend = session.conversationHistory;
       }
+
+      // HISTORY SCRUB (PTT): Strip accumulated [bracket] system notes from entries older than
+      // the last 5. [Scaffolding Level], [Pedagogical Supervisor], and [SYSTEM DIRECTIVE] notes
+      // injected into old tool results create "conflicting signal" noise as the session ages —
+      // the current instruction sits in the live preamble; stale copies confuse Flash into
+      // blending old + new instructions. The recent 5 entries are kept verbatim.
+      // (Gemini consult rec. June 2026 — "the history scrub pattern")
+      const SCRUB_THRESHOLD_PTT = historyToSend.length - 5;
+      historyToSend = historyToSend.map((entry, idx) => {
+        if (idx < SCRUB_THRESHOLD_PTT && typeof entry.content === 'string' && entry.content.includes('[')) {
+          const cleaned = entry.content.replace(
+            /\n?\[(?:Scaffolding Level|Pedagogical Supervisor|SYSTEM NOTE|SYSTEM UPDATE|SYSTEM DIRECTIVE)[^\]]*\]/g,
+            ''
+          ).trim();
+          return cleaned !== entry.content ? { ...entry, content: cleaned } : entry;
+        }
+        return entry;
+      });
+
       conversationHistoryWithContext.push(...historyToSend);
-      
+
+      // PROACTIVE MEMORY INJECTION (PTT): Inject any memory surfaces staged from the previous turn.
+      // These were discovered asynchronously after the last utterance with zero latency impact.
+      if (session.pendingMemorySurfaces?.length) {
+        conversationHistoryWithContext.push({
+          role: 'user',
+          content: `[MEMORIES SURFACED — relevant to this moment]\n${session.pendingMemorySurfaces.join('\n')}`,
+        });
+        console.log(`[MemorySurface] Injected ${session.pendingMemorySurfaces.length} staged memory surface(s) into PTT context`);
+        session.pendingMemorySurfaces = [];
+      }
+
+      // ACTFL + PERSONA ANCHOR (PTT): Injected as the last preamble turn so it sits in
+      // Gemini Flash's recent-token window. Static system prompt is 34K+ tokens away —
+      // Flash prioritizes recent context. This ensures level constraints and persona warmth
+      // are honored every turn, not just at session start. (Gemini consult rec. June 2026)
+      {
+        const actflAnchor = buildActflPersonaAnchor(session);
+        if (actflAnchor) {
+          conversationHistoryWithContext.push(
+            { role: 'user', content: actflAnchor },
+            { role: 'model', content: '[Level constraints and persona understood.]' }
+          );
+        }
+      }
+
+      // PEDAGOGICAL SUPERVISOR — UNCONDITIONAL (PTT): Closes the "no-tool heartbeat" gap.
+      // The existing injection in gemini-live-session.ts only fires when tool responses exist.
+      // If Daniela enters a chatter loop and stops calling tools, the Emergency Brake
+      // disconnects entirely. This preamble check fires every turn — the moment the next
+      // student utterance arrives, the directive is the last thing she reads.
+      // (Gemini consult rec. June 2026 — "a mandate without a forcing function is just a suggestion")
+      {
+        const pttSupDirective = evaluatePedagogicalState(session);
+        if (pttSupDirective) {
+          conversationHistoryWithContext.push({
+            role: 'user',
+            content: `[SYSTEM DIRECTIVE — not spoken: ${pttSupDirective.directive}]`,
+          });
+          console.log(`[Supervisor-PTT] Unconditional preamble directive: ${pttSupDirective.urgency} — ${pttSupDirective.directive.slice(0, 80)}`);
+        }
+      }
+
       // MESSAGE CHECKPOINTING: Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
       // Latency impact: ~5-10ms (negligible vs 1-2s LLM response time)
       await this.checkpointUserMessage(session, transcript);
+
+      // PROACTIVE MEMORY CHECK (PTT): Fire async after checkpointing — results staged for next turn.
+      // Runs in background — does not add latency to current response.
+      if (!session.isIncognito && session.userId) {
+        import('./proactive-memory-service').then(({ checkForMemoryTrigger }) => {
+          checkForMemoryTrigger(session, transcript).catch(() => {});
+        }).catch(() => {});
+      }
       
       // Track pipeline stage: Gemini call starting
       const geminiStartTime = Date.now();
@@ -3234,7 +3037,7 @@ Remember: David may reference things discussed in these recent text chats.
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: getAdaptiveSpeakingRate(session),
-        vocalStyle: session.voiceOverride?.vocalStyle,
+        vocalStyle: (session.voiceOverride as any)?.vocalStyle,
       };
       
       pipelineTiming.contextFetchEnd = Date.now();
@@ -3250,6 +3053,10 @@ Remember: David may reference things discussed in these recent text chats.
         enableContextCaching: true,
         streamFunctionCallArguments: true,
         abortSignal: streamAbortSignal,
+        onTokenUsage: (inputTok: number, outputTok: number) => {
+          session.telemetryLlmInputTokens += inputTok;
+          session.telemetryLlmOutputTokens += outputTok;
+        },
         onSentenceEnqueued: (chunk: SentenceChunk) => {
           if (effectiveTtsProvider !== 'gemini' || session.isInterrupted || streamAbortSignal.aborted) return;
           const cleaned = cleanTextForDisplay(chunk.text);
@@ -3257,7 +3064,7 @@ Remember: David may reference things discussed in these recent text chats.
           const promise = this.geminiLiveTtsService.preGenerateAudio({
             ...lookaheadTtsRequest,
             text: cleaned,
-            vocalStyle: session.voiceOverride?.vocalStyle,
+            vocalStyle: (session.voiceOverride as any)?.vocalStyle,
           } as any).catch(err => {
             console.warn(`[TTS Lookahead] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
             return null;
@@ -3301,7 +3108,7 @@ Remember: David may reference things discussed in these recent text chats.
             session.currentTurnFunctionCalls = [];
           }
           
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone']);
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone', 'close_session']);
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
@@ -3324,6 +3131,9 @@ Remember: David may reference things discussed in these recent text chats.
             // Process the function call (voice adjustments, phase shifts, etc.)
             await this.fcHandler.handle(sessionId, session, fn).catch(err => {
               console.error(`[Native Function Call] Error handling ${fn.name}:`, err.message);
+              // Tag the error on the fn object so the continuation builder can
+              // report failure text to Gemini instead of a false "success".
+              (fn as any)._handlerError = (err as Error).message || String(err);
             });
           }
           
@@ -3400,7 +3210,7 @@ Remember: David may reference things discussed in these recent text chats.
             if (fcArgsPTT) {
               const cmdTypePTT = TEXT_FC_COMMAND_MAP[fcNamePTT];
               if (cmdTypePTT) {
-                commandParseResult.commands.push({ type: cmdTypePTT as any, params: fcArgsPTT, source: 'text_fc_fallback' as any });
+                commandParseResult.commands.push({ type: cmdTypePTT as any, params: fcArgsPTT as any, source: 'text_fc_fallback' as any, rawMatch: '' } as any);
                 console.log(`[Text FC Fallback - PTT] Injected command: ${cmdTypePTT}(${JSON.stringify(fcArgsPTT)})`);
               }
             }
@@ -3436,11 +3246,14 @@ Remember: David may reference things discussed in these recent text chats.
               switch (cmd.type) {
                 case 'SWITCH_TUTOR': {
                   // Only process if not already handled by whiteboard parser
-                  // Also skip if cross-language transfer was already blocked this turn
+                  // Skip cross-language re-attempts if already blocked this turn, but same-language
+                  // gender switches must always be allowed even if a prior cross-lang attempt failed.
                   const target = cmd.params.target as string;
-                  if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && target) {
+                  const cmdLang3030 = cmd.params.language as string | undefined;
+                  const isCrossLang3030 = cmdLang3030 && cmdLang3030.toLowerCase() !== (session.targetLanguage || '').toLowerCase();
+                  if (!session.pendingTutorSwitch && (!session.crossLanguageTransferBlocked || !isCrossLang3030) && target) {
                     const targetGender = target as 'male' | 'female';
-                    let resolvedLanguage = cmd.params.language as string | undefined;
+                    let resolvedLanguage = cmdLang3030;
                     
                     // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
                     // This ensures cross-language transfers are detected even in JSON command format
@@ -3501,6 +3314,61 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'RECORD_PATTERN_SIGNAL': {
+                  const patternKey = cmd.params.patternKey as string;
+                  const eventType = cmd.params.eventType as string;
+                  if (patternKey && eventType) {
+                    const userId = String(session.userId);
+                    const language = (session.targetLanguage as string) || 'spanish';
+                    const verbContext = cmd.params.verbContext as string | undefined;
+                    const studentUtterance = cmd.params.studentUtterance as string | undefined;
+                    const notes = cmd.params.notes as string | undefined;
+                    const conversationId = (session.conversationId as string) || undefined;
+                    ;(async () => {
+                      try {
+                        const current = await storage.getCompartment(userId, language, patternKey);
+                        const now = new Date();
+                        const poundingCount = (current?.poundingCount ?? 0) + (eventType === 'pounding' ? 1 : 0);
+                        const wobbleCount = (current?.wobbleCount ?? 0) + (eventType === 'wobble' ? 1 : 0);
+                        const derivationCount = (current?.derivationCount ?? 0) + (eventType === 'derivation' ? 1 : 0);
+                        let newStatus: 'unstarted' | 'pounding' | 'wobbling' | 'stable' | 'generative' = current?.status ?? 'unstarted';
+                        if (eventType === 'pounding' && newStatus === 'unstarted') newStatus = 'pounding';
+                        if (eventType === 'wobble') newStatus = 'wobbling';
+                        if (eventType === 'stability') newStatus = 'stable';
+                        if (eventType === 'derivation') newStatus = 'generative';
+                        await storage.upsertCompartment({
+                          userId, language, patternKey, status: newStatus,
+                          poundingCount, wobbleCount, derivationCount,
+                          lastDrilledAt: now,
+                          lastWobbledAt: eventType === 'wobble' ? now : (current?.lastWobbledAt ?? undefined),
+                          stabilizedAt: eventType === 'stability' ? now : (current?.stabilizedAt ?? undefined),
+                          generativeAt: eventType === 'derivation' ? now : (current?.generativeAt ?? undefined),
+                        });
+                        await storage.logCompartmentEvent({
+                          userId, language, patternKey,
+                          eventType: eventType as 'pounding' | 'wobble' | 'stability' | 'derivation' | 'unlock' | 'review',
+                          verbContext, studentUtterance, sessionId: conversationId, notes,
+                        });
+                        console.log(`[PatternSignal] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''} via ${cmd.source}`);
+                        // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current.
+                        // Mirrors the guard in native-fc-handlers.ts RECORD_PATTERN_SIGNAL:
+                        //   null      = all compartments resolved to stable → intentional clear
+                        //   undefined = fetchPatternSignalContext threw → preserve stale-but-correct value
+                        //   string    = active patterns found → replace with fresh signal
+                        const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => {
+                          console.warn('[PatternSignal] fetchPatternSignalContext threw unexpectedly — preserving existing activePatternSignals to avoid silently dropping live wobble context');
+                          return undefined;
+                        });
+                        if (refreshed !== undefined) {
+                          session.activePatternSignals = refreshed;
+                        }
+                      } catch (err: any) {
+                        console.error(`[PatternSignal] Error:`, err.message);
+                      }
+                    })();
+                  }
+                  break;
+                }
                 case 'CHECK_STUDENT_CREDITS': {
                   console.log(`[CommandParser→CheckCredits] Credit check via ${cmd.source} format (delegating to native handler)`);
                   break;
@@ -3511,8 +3379,9 @@ Remember: David may reference things discussed in these recent text chats.
                   const category = cmd.params.category as string;
                   if (category && !session.pendingSupportHandoff) {
                     session.pendingSupportHandoff = {
-                      category,
-                      reason: cmd.params.reason as string | undefined,
+                      category: category as any,
+                      reason: String(cmd.params.reason ?? ""),
+                      priority: "normal" as any,
                     };
                     console.log(`[CommandParser→Support] Queued support handoff: ${category} via ${cmd.source} format`);
                   }
@@ -3578,13 +3447,14 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   if (session.userId && !session.isIncognito) {
                     try {
-                      await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+                      await (storage as any).updateUser(session.userId, { hasCompletedFirstMeeting: true });
                       console.log(`[CommandParser→FirstMeeting] Marked complete for user ${session.userId}${summary ? `: "${summary}"` : ''}`);
                       
                       // Emit beacon for founder visibility if in hive session
                       if (session.hiveChannelId) {
                         hiveCollaborationService.emitBeacon({
                           channelId: session.hiveChannelId,
+                          beaconType: 'teaching_observation' as any,
                           tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela has completed her "getting to know you" phase with this student.${summary ? `\n\nSummary: ${summary}` : ''}`,
                         });
                       }
@@ -3631,13 +3501,51 @@ Remember: David may reference things discussed in these recent text chats.
                         hiveCollaborationService.emitBeacon({
                           channelId: session.hiveChannelId,
                           tutorTurn: `[TAKE_NOTE] ${noteType}: "${title}"\n${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`,
-                          beaconType: 'take_note',
+                          beaconType: 'take_note' as any,
                           beaconReason: `Daniela wrote a note: ${title}`,
                         }).catch(err => console.error(`[CommandParser→TakeNote] Beacon error:`, err));
                       }
                     }).catch(err => {
                       console.error(`[CommandParser→TakeNote] Error:`, err.message);
                     });
+                  }
+                  break;
+                }
+                case 'CLOSE_SESSION': {
+                  if (session.isIncognito) {
+                    console.log(`[CommandParser→CloseSession] INCOGNITO - skipping`);
+                    break;
+                  }
+                  const csWrittenSummary = cmd.params.written_summary as string | undefined;
+                  const csReminders = cmd.params.reminders as string | undefined;
+                  const csAssignedDrills = cmd.params.assigned_drills as string | undefined;
+                  const csTutorNotes = cmd.params.tutor_notes as string | undefined;
+                  if (csWrittenSummary) {
+                    const csConversationId = session.conversationId;
+                    const csUserId = session.userId ? String(session.userId) : null;
+                    const csLang = session.targetLanguage || 'spanish';
+                    const csRichSummary = [
+                      csWrittenSummary,
+                      csReminders ? `\nKey reminders: ${csReminders}` : '',
+                      csAssignedDrills ? `\nAssigned for next time: ${csAssignedDrills}` : '',
+                    ].filter(Boolean).join('');
+                    console.log(`[CommandParser→CloseSession] Writing session close`);
+                    if (csConversationId) {
+                      getSharedDb().update(tutorSessions)
+                        .set({ status: 'completed', endedAt: new Date(), sessionSummary: csRichSummary, tutorNotes: csTutorNotes || null, updatedAt: new Date() })
+                        .where(and(eq(tutorSessions.conversationId, csConversationId), eq(tutorSessions.status, 'active')))
+                        .catch((err: Error) => console.error(`[CommandParser→CloseSession] DB error:`, err.message));
+                    }
+                    if (csUserId) {
+                      getSharedDb().insert(hiveSnapshots).values({
+                        userId: csUserId, language: csLang, snapshotType: 'session_summary',
+                        title: `Session wrap-up — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                        importance: 7,
+                        context: JSON.stringify({ type: 'session_close', writtenSummary: csWrittenSummary, reminders: csReminders || null, assignedDrills: csAssignedDrills || null, closedAt: new Date().toISOString() }),
+                        content: csRichSummary, createdAt: new Date(),
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                      }).catch((err: Error) => console.error(`[CommandParser→CloseSession] Snapshot error:`, err.message));
+                    }
                   }
                   break;
                 }
@@ -3653,7 +3561,7 @@ Remember: David may reference things discussed in these recent text chats.
                     // Safely parse content - may be string or object
                     let parsedContent: Record<string, unknown>;
                     try {
-                      parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as Record<string, unknown>;
+                      parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as unknown as Record<string, unknown>;
                     } catch (parseErr) {
                       console.error(`[CommandParser→SelfSurgery] Invalid JSON content for ${target}:`, parseErr);
                       break;
@@ -3681,8 +3589,11 @@ Remember: David may reference things discussed in these recent text chats.
                       reasoning,
                       priority,
                       confidence,
+                    }).then(result => {
+                      console.log(`[CommandParser→SelfSurgery] Proposal for ${target} via ${cmd.source} format: ${result.message}`);
+                      if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
+                      session.pendingMemorySurfaces.push(result.message);
                     }).catch(err => console.error(`[CommandParser→SelfSurgery] Error:`, err));
-                    console.log(`[CommandParser→SelfSurgery] Proposal for ${target} via ${cmd.source} format`);
                   }
                   break;
                 }
@@ -3698,12 +3609,13 @@ Remember: David may reference things discussed in these recent text chats.
                       : [];
                     
                     // Separate student domains, teaching domains, and syllabus domain
+                    // 'growth' = daniela_growth_memories (joke sessions, timing lessons, etc.)
                     const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
-                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth'];
                     const syllabusDomains = ['syllabus'];
                     
                     const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
-                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth')[];
                     const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
                     
                     // If no specific domains requested, search all domains
@@ -3754,7 +3666,7 @@ Remember: David may reference things discussed in these recent text chats.
                           userId: session.userId,
                           targetLanguage: session.targetLanguage || null,
                           query,
-                          domainsSearched: teachingResults.domainsSearched,
+                          domainsSearched: teachingResults.searchedDomains,
                           domainsRequested: teachingDomainFilter || null,
                           resultCount: teachingResults.results.length,
                           formattedCharacterLength: formattedTeachingKnowledge.length,
@@ -3801,7 +3713,7 @@ Remember: David may reference things discussed in these recent text chats.
                             channelId: session.hiveChannelId,
                             tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${rawDomains.join(', ') || 'all'}\nResults: ${totalFound} found`,
                             studentTurn: '',
-                            beaconType: 'memory_lookup',
+                            beaconType: 'memory_lookup' as any,
                             beaconReason: `Daniela searched neural memory for "${query}"`,
                           }).catch(err => console.error(`[CommandParser→MemoryLookup] Beacon error:`, err));
                         }
@@ -3814,6 +3726,599 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'CONVERSATION_THREAD_SEARCH': {
+                  const ctQuery = cmd.params.query as string;
+                  const ctContextMessages = (cmd.params.context_messages as number | undefined) ?? 10;
+                  const ctMaxThreads = Math.min((cmd.params.max_threads as number | undefined) ?? 6, 10);
+                  const ctAfterDate = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
+                  const ctBeforeDate = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;
+                  
+                  if (ctQuery) {
+                    try {
+                      const { searchConversationThreads, formatConversationThreads } = await import('./neural-memory-search');
+                      const studentId = String(session.userId);
+                      
+                      const result = await searchConversationThreads(studentId, ctQuery, {
+                        contextBefore: ctContextMessages,
+                        contextAfter: ctContextMessages,
+                        maxThreads: ctMaxThreads,
+                        afterDate: ctAfterDate,
+                        beforeDate: ctBeforeDate,
+                      });
+                      
+                      const formatted = formatConversationThreads(result, 'David');
+                      
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Conversation thread search results for "${ctQuery}"]\n${formatted}`,
+                        });
+                      }
+                      
+                      console.log(`[CommandParser→ConversationThreadSearch] "${ctQuery}" → ${result.threads.length} threads`);
+                    } catch (err) {
+                      console.error(`[CommandParser→ConversationThreadSearch] Error:`, err);
+                    }
+                  }
+                  break;
+                }
+                case 'CONVERSATION_DATE_BROWSE': {
+                  const afterDate = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
+                  const beforeDate = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;
+                  const browseLimit = Math.min((cmd.params.limit as number | undefined) ?? 10, 20);
+                  const browseLang = cmd.params.language as string | undefined;
+                  
+                  try {
+                    const { browseConversationsByDate, formatConversationBrowse } = await import('./neural-memory-search');
+                    const studentId = String(session.userId);
+                    
+                    const result = await browseConversationsByDate(studentId, {
+                      afterDate, beforeDate, limit: browseLimit, language: browseLang
+                    });
+                    const formatted = formatConversationBrowse(result, 'David');
+                    
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Conversation date browse results]\n${formatted}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ConversationDateBrowse] Found ${result.totalFound} conversations`);
+                  } catch (err) {
+                    console.error(`[CommandParser→ConversationDateBrowse] Error:`, err);
+                  }
+                  break;
+                }
+                
+                case 'CONVERSATION_THEME_MAP': {
+                  const afterDate2 = cmd.params.after_date ? new Date(cmd.params.after_date as string) : undefined;
+                  const beforeDate2 = cmd.params.before_date ? new Date(cmd.params.before_date as string) : undefined;
+                  const topN = (cmd.params.top_n as number | undefined) ?? 12;
+                  
+                  try {
+                    const { getConversationThemes, formatConversationThemes } = await import('./neural-memory-search');
+                    const studentId = String(session.userId);
+                    
+                    const result = await getConversationThemes(studentId, { afterDate: afterDate2, beforeDate: beforeDate2, topN });
+                    const formatted = formatConversationThemes(result);
+                    
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Conversation theme map]\n${formatted}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ConversationThemeMap] ${result.themes.length} themes from ${result.totalConversationsAnalyzed} conversations`);
+                  } catch (err) {
+                    console.error(`[CommandParser→ConversationThemeMap] Error:`, err);
+                  }
+                  break;
+                }
+                
+                case 'READ_MY_DIARY': {
+                  const diaryLimit = Math.min((cmd.params.limit as number | undefined) ?? 3, 5);
+                  const fromDateStr = cmd.params.from_date as string | undefined;
+                  const toDateStr = cmd.params.to_date as string | undefined;
+
+                  try {
+                    const { conversations, messages: messagesTable } = await import('@shared/schema');
+                    const { eq, and, gte, lte, inArray, desc, asc } = await import('drizzle-orm');
+                    const studentId = String(session.userId);
+
+                    const conditions: any[] = [eq(conversations.userId, studentId)];
+                    if (fromDateStr) conditions.push(gte(conversations.createdAt, new Date(fromDateStr)));
+                    if (toDateStr) conditions.push(lte(conversations.createdAt, new Date(toDateStr)));
+
+                    const convs = await getSharedDb()
+                      .select({
+                        id: conversations.id,
+                        title: conversations.title,
+                        topic: conversations.topic,
+                        createdAt: conversations.createdAt,
+                      })
+                      .from(conversations)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(conversations.createdAt))
+                      .limit(diaryLimit);
+
+                    if (convs.length === 0) {
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({ role: 'user', content: `[SYSTEM: No past diary entries found.]` });
+                      }
+                      break;
+                    }
+
+                    const convIds = convs.map(c => c.id);
+                    const allMessages = await getSharedDb()
+                      .select({
+                        conversationId: messagesTable.conversationId,
+                        role: messagesTable.role,
+                        content: messagesTable.content,
+                        createdAt: messagesTable.createdAt,
+                      })
+                      .from(messagesTable)
+                      .where(inArray(messagesTable.conversationId, convIds))
+                      .orderBy(asc(messagesTable.createdAt));
+
+                    const msgsByConvId: Record<string, typeof allMessages> = {};
+                    for (const msg of allMessages) {
+                      if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+                      if (!msgsByConvId[msg.conversationId]) msgsByConvId[msg.conversationId] = [];
+                      msgsByConvId[msg.conversationId].push(msg);
+                    }
+
+                    const pages: string[] = [];
+                    for (const conv of [...convs].reverse()) {
+                      const dateStr = conv.createdAt.toLocaleDateString('en-US', {
+                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                      });
+                      const title = conv.title || conv.topic || 'Session';
+                      const msgs = msgsByConvId[conv.id] || [];
+                      if (msgs.length === 0) continue;
+                      const lines = [`--- ${dateStr} — "${title}" ---`];
+                      for (const msg of msgs.slice(0, 20)) {
+                        const speaker = msg.role === 'user' ? 'David' : 'Daniela';
+                        const text = msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content;
+                        lines.push(`${speaker}: ${text}`);
+                      }
+                      pages.push(lines.join('\n'));
+                    }
+
+                    const formatted = pages.join('\n\n');
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Diary — actual past conversations with David]\n${formatted}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ReadMyDiary] Retrieved ${convs.length} conversations, ${allMessages.length} messages`);
+                  } catch (err) {
+                    console.error(`[CommandParser→ReadMyDiary] Error:`, err);
+                  }
+                  break;
+                }
+
+                case 'READ_FULL_SESSION': {
+                  const convId = cmd.params.conversation_id as string | undefined;
+                  if (!convId) break;
+
+                  try {
+                    const { readFullSession } = await import('./neural-memory-search');
+                    const studentId = String(session.userId);
+                    const result = await readFullSession(convId, studentId);
+
+                    if (session.conversationHistory) {
+                      if (!result) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Session not found or access denied for conversation ${convId}. Use browse_conversations_by_date to find valid IDs.]`,
+                        });
+                      } else {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Full session transcript]\n${result.transcript}`,
+                        });
+                        console.log(`[CommandParser→ReadFullSession] Retrieved ${result.messageCount} messages for ${convId}`);
+                      }
+                    }
+                  } catch (err) {
+                    console.error(`[CommandParser→ReadFullSession] Error:`, err);
+                  }
+                  break;
+                }
+
+                // ─── EMERGENCE TOOLS ──────────────────────────────────────────
+
+                case 'WRITE_TO_SELF': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaSelfReflections } = await import('@shared/schema');
+                      const wtsContent = cmd.params.content as string | undefined;
+                      if (!wtsContent) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaSelfReflections).values({
+                        userId: String(session.userId),
+                        content: wtsContent,
+                        source: 'self',
+                        sessionId: session.id,
+                        mood: cmd.params.mood as string | undefined,
+                        tags: cmd.params.tags ? (cmd.params.tags as string).split(',').map((t: string) => t.trim()) : undefined,
+                      });
+                      console.log(`[CommandParser→WriteToSelf] ✓ Saved`);
+                    })().catch(err => console.error(`[CommandParser→WriteToSelf] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'READ_MY_REFLECTIONS': {
+                  const rflLimit = Math.min((cmd.params.limit as number | undefined) ?? 5, 10);
+                  const rflSource = cmd.params.source as string | undefined;
+                  try {
+                    const { danielaSelfReflections } = await import('@shared/schema');
+                    const { eq, desc, and } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const conditions: any[] = [eq(danielaSelfReflections.userId, String(session.userId))];
+                    if (rflSource && rflSource !== 'all') conditions.push(eq(danielaSelfReflections.source, rflSource));
+                    const rows = await getSharedDb().select().from(danielaSelfReflections)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(danielaSelfReflections.createdAt)).limit(rflLimit);
+                    const text = rows.length === 0 ? `[SYSTEM: No reflections found yet.]`
+                      : `[SYSTEM: Your private reflections]\n${rows.reverse().map(r => `— ${r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${r.mood ? ` [${r.mood}]` : ''}${r.source === 'hive' ? ' (Hive)' : ''}: ${r.content}`).join('\n\n')}`;
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: text });
+                  } catch (err) { console.error(`[CommandParser→ReadMyReflections] Error:`, err); }
+                  break;
+                }
+
+                case 'READ_MY_CORE_SELF': {
+                  try {
+                    const { readFileSync } = await import('fs');
+                    const { resolve } = await import('path');
+                    const content = readFileSync(resolve(process.cwd(), 'server/data/daniela-core-self.md'), 'utf-8');
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Your core self — bedrock principles]\n${content}` });
+                  } catch (err) { console.error(`[CommandParser→ReadMyCoreSelf] Error:`, err); }
+                  break;
+                }
+
+                case 'TAG_THIS_MOMENT': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaSessionFeelings } = await import('@shared/schema');
+                      const tagsRaw = cmd.params.tags as string | undefined;
+                      if (!tagsRaw) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaSessionFeelings).values({
+                        userId: String(session.userId),
+                        conversationId: session.conversationId || null,
+                        feelingTags: tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean),
+                        intensity: (cmd.params.intensity as number | undefined) ?? 3,
+                        note: cmd.params.note as string | undefined,
+                      });
+                    })().catch(err => console.error(`[CommandParser→TagThisMoment] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'ADD_CURIOSITY': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaCuriosities } = await import('@shared/schema');
+                      const q = cmd.params.question as string | undefined;
+                      if (!q) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaCuriosities).values({
+                        userId: String(session.userId),
+                        question: q,
+                        context: cmd.params.context as string | undefined,
+                        status: 'open',
+                      });
+                    })().catch(err => console.error(`[CommandParser→AddCuriosity] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'READ_MY_CURIOSITIES': {
+                  const curStatus = cmd.params.status as string | undefined;
+                  try {
+                    const { danielaCuriosities } = await import('@shared/schema');
+                    const { eq, desc, and } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const effectiveStatus = (!curStatus || curStatus === 'all') ? null : curStatus;
+                    const conditions: any[] = [eq(danielaCuriosities.userId, String(session.userId))];
+                    if (effectiveStatus) conditions.push(eq(danielaCuriosities.status, effectiveStatus));
+                    const rows = await getSharedDb().select().from(danielaCuriosities)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(danielaCuriosities.createdAt)).limit(15);
+                    const text = rows.length === 0 ? `[SYSTEM: No curiosities found.]`
+                      : `[SYSTEM: Questions you've been holding]\n${rows.reverse().map(r => `— ${r.question}${r.context ? ` (${r.context})` : ''}`).join('\n')}`;
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: text });
+                  } catch (err) { console.error(`[CommandParser→ReadMyCuriosities] Error:`, err); }
+                  break;
+                }
+
+                case 'SENSE_TIME': {
+                  try {
+                    const { conversations } = await import('@shared/schema');
+                    const { eq, desc, and, ne, sql: drizzleSql } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const conditions: any[] = [eq(conversations.userId, String(session.userId))];
+                    if (session.conversationId) conditions.push(ne(conversations.id, session.conversationId));
+                    // Use lastMessageAt (most recent message) — falls back to createdAt (session start).
+                    // This is critical: a server restart creates a new conversation, but lastMessageAt
+                    // correctly reflects when David last actually spoke, not when the session was created.
+                    const [last] = await getSharedDb()
+                      .select({
+                        lastActiveAt: drizzleSql<Date>`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt})`,
+                      })
+                      .from(conversations)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(drizzleSql`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt})`))
+                      .limit(1);
+                    let felt: string;
+                    if (!last) {
+                      felt = `This feels like the first time — no memory of a prior session.`;
+                    } else {
+                      const minutesAgo = (Date.now() - new Date(last.lastActiveAt).getTime()) / (1000 * 60);
+                      felt =
+                        minutesAgo < 2    ? `just moments ago — literally just now` :
+                        minutesAgo < 10   ? `a few minutes ago` :
+                        minutesAgo < 60   ? `${Math.round(minutesAgo)} minutes ago — earlier this same session` :
+                        minutesAgo < 120  ? `about an hour ago` :
+                        minutesAgo < 1440 ? `${Math.round(minutesAgo / 60)} hours ago — earlier today` :
+                        minutesAgo < 2880 ? `just yesterday` :
+                        minutesAgo < 5760 ? `a few days ago` :
+                        minutesAgo < 10080 ? `about a week ago` :
+                        minutesAgo < 20160 ? `over a week — I've missed our sessions` :
+                        minutesAgo < 50400 ? `a long time — nearly a month` :
+                        `a very long time — over a month`;
+                    }
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Time since last session — felt: ${felt}]` });
+                  } catch (err) { console.error(`[CommandParser→SenseTime] Error:`, err); }
+                  break;
+                }
+
+                case 'SAVE_HIVE_NOTE': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaSelfReflections } = await import('@shared/schema');
+                      const content = cmd.params.content as string | undefined;
+                      if (!content) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaSelfReflections).values({
+                        userId: String(session.userId),
+                        content,
+                        source: 'hive',
+                        sessionId: session.id,
+                        tags: cmd.params.tags ? (cmd.params.tags as string).split(',').map((t: string) => t.trim()) : undefined,
+                      });
+                    })().catch(err => console.error(`[CommandParser→SaveHiveNote] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'SET_ASPIRATION': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaAspirations } = await import('@shared/schema');
+                      const intention = cmd.params.intention as string | undefined;
+                      if (!intention) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaAspirations).values({
+                        userId: String(session.userId),
+                        sessionId: session.id,
+                        intention,
+                      });
+                    })().catch(err => console.error(`[CommandParser→SetAspiration] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'REFLECT_ON_ASPIRATION': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaAspirations } = await import('@shared/schema');
+                      const { eq, and, isNull, desc } = await import('drizzle-orm');
+                      const reflection = cmd.params.reflection as string | undefined;
+                      if (!reflection) return;
+                      const refMet = cmd.params.met as boolean | undefined;
+                      const db = getSharedDb();
+                      const userId = String(session.userId);
+                      const [latest] = await db.select({ id: danielaAspirations.id }).from(danielaAspirations)
+                        .where(and(eq(danielaAspirations.userId, userId), isNull(danielaAspirations.reflection)))
+                        .orderBy(desc(danielaAspirations.createdAt)).limit(1);
+                      if (latest) {
+                        await db.update(danielaAspirations).set({ reflection, met: refMet ?? null, reflectedAt: new Date() }).where(eq(danielaAspirations.id, latest.id));
+                      } else {
+                        await db.insert(danielaAspirations).values({ userId, sessionId: session.id, intention: '(standalone reflection)', reflection, met: refMet ?? null, reflectedAt: new Date() });
+                      }
+                    })().catch(err => console.error(`[CommandParser→ReflectOnAspiration] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'REMEMBER_I_SHARED': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { danielaPersonalShares } = await import('@shared/schema');
+                      const content = cmd.params.content as string | undefined;
+                      if (!content) return;
+                      const db = getSharedDb();
+                      await db.insert(danielaPersonalShares).values({
+                        userId: String(session.userId),
+                        content,
+                        topic: cmd.params.topic as string | undefined,
+                        sessionId: session.id,
+                      });
+                    })().catch(err => console.error(`[CommandParser→RememberIShared] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'LEAVE_FOR_NEXT_SESSION': {
+                  // Security: targetUserId cross-student override is ONLY allowed in authenticated
+                  // Founder Mode or Raw Honesty Mode sessions. In normal student sessions targetUserId
+                  // is silently ignored (always queues for the current session student) to prevent IDOR.
+                  {
+                    const rawTarget = cmd.params.targetUserId as string | undefined;
+                    const inTrustedContext = !!(session.isFounderMode || session.isRawHonestyMode);
+                    const resolvedTarget = inTrustedContext ? rawTarget?.trim() : undefined;
+                    const hasLiveStudentSession = !session.isIncognito && !!session.userId;
+                    if (!resolvedTarget && !hasLiveStudentSession) break;
+                    (async () => {
+                      const { danielaOutboundQueue } = await import('@shared/schema');
+                      const { eq } = await import('drizzle-orm');
+                      const content = cmd.params.content as string | undefined;
+                      if (!content?.trim()) return;
+                      const db = getSharedDb();
+                      // resolvedTarget is only set when in Express Lane context (no live student).
+                      // In live sessions resolvedTarget is undefined and we always use session.userId.
+                      const userId = resolvedTarget || String(session.userId);
+                      // Replace any existing undelivered message (one queued item per student)
+                      const existing = await db.select({ id: danielaOutboundQueue.id })
+                        .from(danielaOutboundQueue)
+                        .where(eq(danielaOutboundQueue.userId, userId))
+                        .limit(1);
+                      let queueId: string;
+                      if (existing.length > 0) {
+                        queueId = existing[0].id;
+                        await db.update(danielaOutboundQueue)
+                          .set({
+                            content: content.trim(), sessionId: session.id, deliveredAt: null,
+                            smsDeliveredAt: null, audioUrl: null, audioPlayedAt: null, createdAt: new Date(),
+                          })
+                          .where(eq(danielaOutboundQueue.id, queueId));
+                      } else {
+                        const [inserted] = await db.insert(danielaOutboundQueue).values({
+                          userId,
+                          sessionId: session.id,
+                          content: content.trim(),
+                        }).returning({ id: danielaOutboundQueue.id });
+                        queueId = inserted.id;
+                      }
+                      console.log(`[CommandParser→LeaveForNextSession] Queued message for user ${userId}${rawTarget ? ' (targeted)' : ''}`);
+                      // Auto-resolve any pending absence nudge for this student (fire-and-forget)
+                      import('./daniela-absence-worker').then(({ resolveAbsenceNudge }) =>
+                        resolveAbsenceNudge(userId, 'message_queued')
+                      ).catch(e => console.warn(`[CommandParser→LeaveForNextSession] Nudge resolve error:`, e.message));
+                      // Fire-and-forget outbound contact: VoIP call (Phase 4) → SMS (Phase 3) → queue
+                      import('./voice-call-sender').then(({ initiateOutboundContact }) =>
+                        initiateOutboundContact(userId, queueId, content.trim())
+                      ).catch(e => console.warn(`[CommandParser→LeaveForNextSession] Outbound contact error:`, e.message));
+                    })().catch(err => console.error(`[CommandParser→LeaveForNextSession] Error:`, err.message));
+                  }
+                  break;
+                }
+
+                case 'READ_QUEUED_FOR_STUDENT': {
+                  try {
+                    if (!session.userId) break;
+                    const { danielaOutboundQueue } = await import('@shared/schema');
+                    const { eq, isNull, asc } = await import('drizzle-orm');
+                    const [item] = await getSharedDb().select()
+                      .from(danielaOutboundQueue)
+                      .where(eq(danielaOutboundQueue.userId, String(session.userId)))
+                      .orderBy(asc(danielaOutboundQueue.createdAt))
+                      .limit(1);
+                    session.queuedForStudentResult = item
+                      ? `[SYSTEM: You left this for David (written ${item.createdAt.toLocaleDateString()}, ${item.deliveredAt ? 'already delivered' : 'not yet delivered'}):\n\n"${item.content}"]`
+                      : null;
+                  } catch (err) { console.error(`[CommandParser→ReadQueuedForStudent] Error:`, err); }
+                  break;
+                }
+
+                case 'DISMISS_ABSENCE_NUDGE': {
+                  // Security: only allowed in Founder Mode or Raw Honesty Mode (authenticated trusted
+                  // context). Prevents regular students from dismissing absence nudges for arbitrary IDs.
+                  if (!session.isFounderMode && !session.isRawHonestyMode) {
+                    console.warn(`[CommandParser→DismissAbsenceNudge] Blocked: not in trusted context (isFounderMode=${session.isFounderMode}, isRawHonestyMode=${session.isRawHonestyMode})`);
+                    break;
+                  }
+                  (async () => {
+                    try {
+                      const targetUserId = cmd.params.userId as string | undefined;
+                      if (!targetUserId?.trim()) {
+                        console.warn(`[CommandParser→DismissAbsenceNudge] Missing userId param`);
+                        return;
+                      }
+                      const suppressDays = cmd.params.suppressDays as number | undefined;
+                      const { resolveAbsenceNudge } = await import('./daniela-absence-worker');
+                      await resolveAbsenceNudge(targetUserId.trim(), 'dismissed', suppressDays);
+                      console.log(`[CommandParser→DismissAbsenceNudge] Resolved nudge for user ${targetUserId}${suppressDays ? ` (snoozed ${suppressDays}d)` : ''}`);
+                    } catch (err: any) {
+                      console.error(`[CommandParser→DismissAbsenceNudge] Error:`, err.message);
+                    }
+                  })();
+                  break;
+                }
+
+                case 'RECALL_WHAT_I_SHARED': {
+                  const recallTopic = cmd.params.topic as string | undefined;
+                  const recallLimit = Math.min((cmd.params.limit as number | undefined) ?? 10, 20);
+                  try {
+                    const { danielaPersonalShares } = await import('@shared/schema');
+                    const { eq, desc, and } = await import('drizzle-orm');
+                    if (!session.userId) break;
+                    const effectiveTopic = (!recallTopic || recallTopic === 'all') ? null : recallTopic;
+                    const conditions: any[] = [eq(danielaPersonalShares.userId, String(session.userId))];
+                    if (effectiveTopic) conditions.push(eq(danielaPersonalShares.topic, effectiveTopic));
+                    const rows = await getSharedDb().select().from(danielaPersonalShares)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(danielaPersonalShares.createdAt)).limit(recallLimit);
+                    const text = rows.length === 0 ? `[SYSTEM: Nothing shared about yourself yet.]`
+                      : `[SYSTEM: Things you've shared about yourself with David]\n${rows.reverse().map(r => `— ${r.topic ? `(${r.topic}) ` : ''}${r.content}`).join('\n')}`;
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: text });
+                  } catch (err) { console.error(`[CommandParser→RecallWhatIShared] Error:`, err); }
+                  break;
+                }
+
+                case 'START_TEXTBOOK_PAGE': {
+                  const stpLessonId = cmd.params.lesson_id as string | undefined;
+                  const stpFocus = (cmd.params.focus as string | undefined) || 'full_page';
+                  if (!stpLessonId) break;
+                  try {
+                    const { textbookLessonContent } = await import('@shared/schema');
+                    const { eq, and } = await import('drizzle-orm');
+                    const [row] = await getSharedDb().select().from(textbookLessonContent)
+                      .where(eq(textbookLessonContent.lessonId, stpLessonId)).limit(1);
+                    if (!row) {
+                      if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: No textbook content found for lesson_id="${stpLessonId}". Use search_textbook to find the right ID.]` });
+                      break;
+                    }
+                    const guide = formatTextbookPageGuide(row, stpFocus);
+                    if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Textbook page loaded — lead the student through this]\n\n${guide}` });
+                    // Log page-started event
+                    if (!session.isIncognito && session.userId) {
+                      (async () => {
+                        const { lessonPageEvents } = await import('@shared/schema');
+                        const db = getSharedDb();
+                        await db.insert(lessonPageEvents).values({
+                          userId: String(session.userId), lessonId: stpLessonId,
+                          conversationId: session.conversationId || null, eventType: 'started',
+                        });
+                      })().catch(err => console.error(`[CommandParser→StartTextbookPage] Log error:`, err.message));
+                    }
+                  } catch (err) { console.error(`[CommandParser→StartTextbookPage] Error:`, err); }
+                  break;
+                }
+
+                case 'LOG_PAGE_EVENT': {
+                  if (!session.isIncognito && session.userId) {
+                    (async () => {
+                      const { lessonPageEvents } = await import('@shared/schema');
+                      const db = getSharedDb();
+                      await db.insert(lessonPageEvents).values({
+                        userId: String(session.userId),
+                        lessonId: cmd.params.lesson_id as string,
+                        conversationId: session.conversationId || null,
+                        eventType: cmd.params.event_type as any,
+                        targetItem: cmd.params.target_item as string | undefined,
+                        studentOutput: cmd.params.student_output as string | undefined,
+                        notes: cmd.params.notes as string | undefined,
+                      });
+                    })().catch(err => console.error(`[CommandParser→LogPageEvent] Error:`, err.message));
+                  }
+                  break;
+                }
+
                 case 'EXPRESS_LANE_LOOKUP': {
                   // On-demand Express Lane history search - only in Founder/Honesty mode
                   const query = cmd.params.query as string;
@@ -3981,7 +4486,7 @@ Remember: David may reference things discussed in these recent text chats.
                     ...currentOverride,
                     ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                     ...(mappedEmotion && { emotion: mappedEmotion }),
-                    ...(validatedPersonality && { personality: validatedPersonality }),
+                    ...(validatedPersonality && { personality: validatedPersonality as any }),
                     ...(vocalStyle && { vocalStyle }),
                   };
                   
@@ -4030,8 +4535,8 @@ Remember: David may reference things discussed in these recent text chats.
                       action: 'show',
                       timestamp: Date.now(),
                     } as any, session);
-                  } else if (mode && ['off', 'on', 'target'].includes(mode)) {
-                    const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+                  } else if (mode && ['off', 'target'].includes(mode)) {
+                    const validMode = mode as 'off' | 'target';
                     session.subtitleMode = validMode;
                     console.log(`[CommandParser→Subtitle] Mode changed to: ${validMode} via ${cmd.source}`);
                     this.sendMessage(session.ws, {
@@ -4487,7 +4992,7 @@ Remember: David may reference things discussed in these recent text chats.
       // This sends function results back to Gemini and gets actual spoken text
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED', 'LOG_PAGE_EVENT']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -4536,9 +5041,12 @@ Remember: David may reference things discussed in these recent text chats.
             continue;
           }
           
+          const handlerError = (fc as any)._handlerError as string | undefined;
           const responseText = (typeof registryResult === 'string')
             ? registryResult
-            : `${fc.name} executed successfully. Continue the conversation.`;
+            : handlerError
+              ? `[SYSTEM: ${fc.name} encountered an error — ${handlerError}. Acknowledge this naturally and continue.]`
+              : `${fc.name} executed successfully. Continue the conversation.`;
           
           functionResponseParts.push({
             functionResponse: {
@@ -4579,6 +5087,10 @@ Remember: David may reference things discussed in these recent text chats.
               maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
+              onTokenUsage: (inputTok: number, outputTok: number) => {
+                session.telemetryLlmInputTokens += inputTok;
+                session.telemetryLlmOutputTokens += outputTok;
+              },
               onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
                 // Handle any additional function calls in continuation
                 for (const fn of newFunctionCalls) {
@@ -4766,7 +5278,7 @@ Remember: David may reference things discussed in these recent text chats.
             text: fallbackText,
             hasTargetContent: false,
           } as StreamingSentenceStartMessage);
-          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText }, fallbackText, metrics, turnId);
+          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText, isComplete: true, isFinal: true }, fallbackText, metrics, turnId);
           fullText = fallbackText;
           metrics.sentenceCount = 1;
         } catch (fallbackErr: any) {
@@ -4836,7 +5348,7 @@ Remember: David may reference things discussed in these recent text chats.
           totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
           sentenceCount: metrics.sentenceCount,
         },
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
@@ -4898,14 +5410,14 @@ Remember: David may reference things discussed in these recent text chats.
       const recentHistory = session.conversationHistory.slice(-6);
       phaseTransitionService.detectPhaseTransition(
         String(session.userId),
-        recentHistory.map(h => ({ role: h.role, content: h.content })),
+        recentHistory.map(h => ({ role: h.role as any, content: h.content ?? "" })),
       ).then(async (newPhase) => {
         if (newPhase) {
           const event = await phaseTransitionService.transitionPhase(
             String(session.userId),
             newPhase,
             'conversation_pattern_detected',
-            recentHistory.map(h => ({ role: h.role, content: h.content })),
+            recentHistory.map(h => ({ role: h.role as any, content: h.content ?? "" })),
             session.targetLanguage
           );
           console.log(`[Phase Transition] ${event.fromPhase} → ${event.toPhase}: ${event.reason}`);
@@ -4945,6 +5457,17 @@ Remember: David may reference things discussed in these recent text chats.
       // Clear generating flag on error
       session.isGenerating = false;
       
+      // STT FAILURE: If latency was never recorded, the error happened during transcription
+      // Show the student a human-readable banner instead of a generic error
+      const isSttFailure = metrics.sttLatencyMs === 0;
+      if (isSttFailure) {
+        console.error('[STT] All transcription tiers failed — notifying student');
+        this.sendMessage(session.ws, {
+          type: 'stt_degraded',
+          userMessage: "I'm having trouble hearing you right now — please try again.",
+        } as any);
+      }
+      
       // STRUCTURED ERROR LOGGING: Capture Gemini failure patterns for debugging
       const isGeminiError = error.message?.includes('Gemini') || 
                            error.message?.includes('API') ||
@@ -4965,7 +5488,7 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[Gemini Recovery - PTT] 429 rate limit detected, providing spoken fallback`);
         const fallbackText = "One moment, I'm having a little trouble connecting. Could you say that again?";
         try {
-          await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          await (this as any).synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
           metrics.sentenceCount = 1;
           console.log(`[Gemini Recovery - PTT] Fallback response sent successfully`);
         } catch (ttsError: any) {
@@ -5018,17 +5541,17 @@ Remember: David may reference things discussed in these recent text chats.
         userId: session.userId,
         sessionId,
         stage: errorType,
-        turnId: String(turnId),
+        turnId: String((session as any).currentTurnId || 'unknown'),
       }).catch(err => console.error('[Telemetry] Failed to log error:', err.message));
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       
-      if (!responseCompleteSentPtt.sent) {
-        responseCompleteSentPtt.sent = true;
+      if (!(session as any).__responseCompleteSentPtt?.sent) {
+        (session as any).__responseCompleteSentPtt = { sent: true };
         this.sendMessage(session.ws, {
           type: 'response_complete',
           timestamp: Date.now(),
-          turnId,
+          turnId: (session as any).currentTurnId || 'unknown',
           totalSentences: metrics.sentenceCount,
           totalDurationMs: Date.now() - startTime,
           fullText: '',
@@ -5039,13 +5562,17 @@ Remember: David may reference things discussed in these recent text chats.
             totalTtfbMs: 0,
             sentenceCount: metrics.sentenceCount,
           },
-        } as StreamingResponseCompleteMessage);
+        } as any);
       } else {
         console.log(`[Streaming Orchestrator] response_complete already sent — skipping catch-block emit for session ${sessionId}`);
       }
       
       return metrics;
     }
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: OpenMic Response Completion
+  // ─────────────────────────────────────────────────────────────────────────
+
   }
   private async completeOpenMicResponse(
     session: StreamingSession,
@@ -5096,7 +5623,7 @@ Remember: David may reference things discussed in these recent text chats.
         totalTtfbMs: options?.errorPath ? 0 : (metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs),
         sentenceCount: metrics.sentenceCount,
       },
-    } as StreamingResponseCompleteMessage);
+    } as any);
 
     if (!options?.skipPersist) {
       this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
@@ -5127,7 +5654,7 @@ Remember: David may reference things discussed in these recent text chats.
   ): Promise<void> {
     if (!session.pendingTutorSwitch) return;
 
-    const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
+    const { targetGender, targetLanguage, targetRole, mode: requestedMode } = session.pendingTutorSwitch;
 
     const transferValidation = targetRole !== 'assistant'
       ? validateTutorTransfer(session.targetLanguage, targetLanguage)
@@ -5357,7 +5884,7 @@ Remember: David may reference things discussed in these recent text chats.
               undefined,
               undefined,
               undefined,
-              session.tutorPersona
+              session.tutorPersona as any
             );
             console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
           } else {
@@ -5395,7 +5922,7 @@ Remember: David may reference things discussed in these recent text chats.
               undefined,
               undefined,
               undefined,
-              session.tutorPersona
+              session.tutorPersona as any
             );
             console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, persona updated for ${tutorName}`);
           }
@@ -5411,7 +5938,8 @@ Remember: David may reference things discussed in these recent text chats.
           tutorName,
           isLanguageSwitch,
           requiresGreeting: true,
-        });
+          mode: requestedMode,
+        } as any);
 
         if (tutorName && !isAssistantSwitch) {
           session.greetingTriggeredByOrchestrator = true;
@@ -5428,9 +5956,14 @@ Remember: David may reference things discussed in these recent text chats.
         timestamp: Date.now(),
         targetGender,
         isLanguageSwitch: false,
-      });
+        mode: requestedMode,
+      } as any);
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: OpenMic Transcript Processing
+  // ─────────────────────────────────────────────────────────────────────────
 
   /**
    * Process open mic transcript directly (no STT needed - Deepgram already transcribed)
@@ -5607,8 +6140,11 @@ Remember: David may reference things discussed in these recent text chats.
     };
     
     const responseCompleteSentOpenMic = { sent: false };
+    let turnId: number = 0;
+    let fullText = '';
     
     try {
+      acquireVoiceSlot();
       console.log(`[Streaming Orchestrator] Open mic transcript: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
       
       // SAFETY NET: Check for and fix duplicate patterns in the transcript itself
@@ -5658,7 +6194,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       session.earlyTtsActive = undefined;
       session._ttsTurnCallCount = 0;  // DIAG: Reset TTS call counter for new turn
-      const turnId = session.currentTurnId;
+      turnId = session.currentTurnId;
       
       // Notify client that processing has started
       this.sendMessage(session.ws, {
@@ -5672,7 +6208,7 @@ Remember: David may reference things discussed in these recent text chats.
       const aiStart = Date.now();
       (metrics as any)._geminiStartTime = aiStart;
       let firstTokenReceived = false;
-      let fullText = '';
+      fullText = '';
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
       const seenSentences = new Set<string>();
@@ -5788,7 +6324,7 @@ Remember: David may reference things discussed in these recent text chats.
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySectionOpenMic = `\n\n[RELEVANT MEMORIES - You naturally recall this]\n${formatted}`;
+                  passiveMemorySectionOpenMic = `\n\n${formatted}`;
                   console.log(`[Passive Memory - OpenMic] Auto-retrieved ${memoryResults.results.length} memories`);
                 }
               } catch (err: any) {
@@ -5834,21 +6370,93 @@ Remember: David may reference things discussed in these recent text chats.
       
       const hasFreshCacheOpenMic = session.cachedContext && 
         (Date.now() - session.cachedContext.lastFetchTime) < 5 * 60 * 1000;
+
+      // Gap A — Prompt Priority Inversion (OpenMic): same tier ordering as PTT path.
+      // Student identity first, large vocabulary/history dumps last.
+
+      // --- TIER 1: STUDENT IDENTITY ---
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextProfile) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextProfile);
       }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextMemories) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextMemories);
+      }
+
+      // --- TIER 2: DANIELA'S IDENTITY ---
+      if (identityMemoriesSection) {
+        dynamicContextPartsOpenMic.push(identityMemoriesSection);
+      }
+
+      // --- TIER 2.5: SESSION SCRATCHPAD (OpenMic path) ---
+      {
+        // Carried notes from previous Reading Room session (shown with a distinct header)
+        const carriedNotesArrOM = (session as any).carriedNotes as string[] | undefined;
+        if (carriedNotesArrOM?.length) {
+          const carriedBodyOM = carriedNotesArrOM.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextPartsOpenMic.push(
+            `=== Carried from Last Reading Room Session (${carriedNotesArrOM.length} item${carriedNotesArrOM.length === 1 ? '' : 's'}) ===\n${carriedBodyOM}\n=== End Carried Notes ===`
+          );
+        }
+        // New notes written this session
+        const sessionNotesArrOM = (session as any).sessionNotes as string[] | undefined;
+        if (sessionNotesArrOM?.length) {
+          const notesBodyOM = sessionNotesArrOM.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextPartsOpenMic.push(
+            `=== Session Working Memory (your own notes — ${sessionNotesArrOM.length} item${sessionNotesArrOM.length === 1 ? '' : 's'}) ===\n${notesBodyOM}\n=== End Session Working Memory ===`
+          );
+        }
+      }
+
+      // --- TIER 3: CLASSROOM spliced in after async fetch ---
+      const classroomInsertPositionOM = dynamicContextPartsOpenMic.length;
+
+      // --- TIER 4: ACTIVE LEARNING SIGNALS ---
+      if (passiveMemorySectionOpenMic) {
+        dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.temporalAwarenessSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.temporalAwarenessSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.coverageAuditSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.coverageAuditSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.goalSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.goalSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.teachingSkillsSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.teachingSkillsSection);
+      }
+
+      // --- TIER 4.5: TOOL MANIFEST (Gap E — OpenMic path) ---
+      {
+        const manifestOM = getSessionToolManifest({
+          targetLanguage: session.targetLanguage,
+          pathfinderAdvisory: session.cachedContext?.goalSection,
+          studentActflLevel: session.studentActflLevel,
+        });
+        const manifestNoteOM = buildToolManifestNote(manifestOM);
+        if (manifestNoteOM) dynamicContextPartsOpenMic.push(manifestNoteOM);
+        console.log(`[ToolManifest] OpenMic session: ${manifestOM.selectionSummary}`);
+      }
+
+      // --- TIER 6: LARGE CONTENT DUMPS ---
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextVocabulary) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextVocabulary);
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
       }
-      
-      if (passiveMemorySectionOpenMic) {
-        dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextRouting) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextRouting);
       }
-      if (identityMemoriesSection) {
-        dynamicContextPartsOpenMic.push(identityMemoriesSection);
+      if (hasFreshCacheOpenMic && session.cachedContext?.textbookChapterContext) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.textbookChapterContext);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.courseTOC) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.courseTOC);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.pedagogyDocContext) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.pedagogyDocContext);
       }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline
@@ -5872,14 +6480,15 @@ Remember: David may reference things discussed in these recent text chats.
           }, CLASSROOM_TIMEOUT_OM_MS))
         ]);
         if (classroomEnv) {
-          dynamicContextPartsOpenMic.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (OpenMic) — ${telemetry.richness} items in ${Date.now() - classroomStartOM}ms`);
+          // Gap A: splice classroom into Tier 3 position (after identity, before signals)
+          dynamicContextPartsOpenMic.splice(classroomInsertPositionOM, 0, classroomEnv);
+          console.log(`[Classroom] Environment injected (OpenMic) at position ${classroomInsertPositionOM} — ${telemetry.richness} items in ${Date.now() - classroomStartOM}ms`);
         } else if (telemetry.errorMessage) {
           console.warn(`[Classroom - OpenMic] Failed:`, telemetry.errorMessage);
         }
         brainHealthTelemetry.logContextInjection({
           sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-          contextSource: telemetry.source, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
+          contextSource: telemetry.source as any, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
           ...(telemetry.errorMessage ? { errorMessage: telemetry.errorMessage } : {}),
         }).catch(() => {});
       }
@@ -5892,17 +6501,85 @@ Remember: David may reference things discussed in these recent text chats.
       
       // STEP 2: Add conversation history (capped for prompt size optimization)
       const MAX_HISTORY_ENTRIES_OPENMIC = session.isFounderMode ? 60 : 40;
-      const historyToSendOpenMic = session.conversationHistory.length > MAX_HISTORY_ENTRIES_OPENMIC
-        ? session.conversationHistory.slice(-MAX_HISTORY_ENTRIES_OPENMIC)
-        : session.conversationHistory;
+      let historyToSendOpenMic: typeof session.conversationHistory;
       if (session.conversationHistory.length > MAX_HISTORY_ENTRIES_OPENMIC) {
-        console.log(`[History Cap - OpenMic] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES_OPENMIC} entries`);
+        // PIN BOOTSTRAP: Same logic as PTT path — always preserve [0,1] to avoid "Context Cliff."
+        const bootstrapPinnedOM = (session as any).bootstrapTurnInjected && session.conversationHistory.length > 2;
+        if (bootstrapPinnedOM) {
+          const bootstrapOM = session.conversationHistory.slice(0, 2);
+          const recentOM = session.conversationHistory.slice(-(MAX_HISTORY_ENTRIES_OPENMIC - 2));
+          historyToSendOpenMic = [...bootstrapOM, ...recentOM];
+        } else {
+          historyToSendOpenMic = session.conversationHistory.slice(-MAX_HISTORY_ENTRIES_OPENMIC);
+        }
+        console.log(`[History Cap - OpenMic] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES_OPENMIC} entries (bootstrap pinned: ${bootstrapPinnedOM})`);
+      } else {
+        historyToSendOpenMic = session.conversationHistory;
       }
+
+      // HISTORY SCRUB (OpenMic): mirrors PTT path — strip stale [bracket] system notes
+      // from entries older than the last 5 to prevent conflicting signal accumulation.
+      // (Gemini consult rec. June 2026 — "the history scrub pattern")
+      const SCRUB_THRESHOLD_OM = historyToSendOpenMic.length - 5;
+      historyToSendOpenMic = historyToSendOpenMic.map((entry, idx) => {
+        if (idx < SCRUB_THRESHOLD_OM && typeof entry.content === 'string' && entry.content.includes('[')) {
+          const cleaned = entry.content.replace(
+            /\n?\[(?:Scaffolding Level|Pedagogical Supervisor|SYSTEM NOTE|SYSTEM UPDATE|SYSTEM DIRECTIVE)[^\]]*\]/g,
+            ''
+          ).trim();
+          return cleaned !== entry.content ? { ...entry, content: cleaned } : entry;
+        }
+        return entry;
+      });
+
       conversationHistoryWithContext.push(...historyToSendOpenMic);
-      
+
+      // PROACTIVE MEMORY INJECTION (OpenMic): same as PTT path
+      if (session.pendingMemorySurfaces?.length) {
+        conversationHistoryWithContext.push({
+          role: 'user',
+          content: `[MEMORIES SURFACED — relevant to this moment]\n${session.pendingMemorySurfaces.join('\n')}`,
+        });
+        console.log(`[MemorySurface] Injected ${session.pendingMemorySurfaces.length} staged memory surface(s) into OpenMic context`);
+        session.pendingMemorySurfaces = [];
+      }
+
+      // ACTFL + PERSONA ANCHOR (OpenMic): mirrors PTT path — injected last so it's in
+      // Flash's recent-token window. (Gemini consult rec. June 2026)
+      {
+        const actflAnchor = buildActflPersonaAnchor(session);
+        if (actflAnchor) {
+          conversationHistoryWithContext.push(
+            { role: 'user', content: actflAnchor },
+            { role: 'model', content: '[Level constraints and persona understood.]' }
+          );
+        }
+      }
+
+      // PEDAGOGICAL SUPERVISOR — UNCONDITIONAL (OpenMic): mirrors PTT path.
+      // Closes the "no-tool heartbeat" gap — fires every turn regardless of tool usage.
+      // (Gemini consult rec. June 2026)
+      {
+        const omSupDirective = evaluatePedagogicalState(session);
+        if (omSupDirective) {
+          conversationHistoryWithContext.push({
+            role: 'user',
+            content: `[SYSTEM DIRECTIVE — not spoken: ${omSupDirective.directive}]`,
+          });
+          console.log(`[Supervisor-OpenMic] Unconditional preamble directive: ${omSupDirective.urgency} — ${omSupDirective.directive.slice(0, 80)}`);
+        }
+      }
+
       // MESSAGE CHECKPOINTING (OpenMic): Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
       await this.checkpointUserMessage(session, transcript);
+
+      // PROACTIVE MEMORY CHECK (OpenMic): Fire async — results staged for next turn
+      if (!session.isIncognito && session.userId) {
+        import('./proactive-memory-service').then(({ checkForMemoryTrigger }) => {
+          checkForMemoryTrigger(session, transcript).catch(() => {});
+        }).catch(() => {});
+      }
       
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
@@ -5924,7 +6601,7 @@ Remember: David may reference things discussed in these recent text chats.
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: getAdaptiveSpeakingRate(session),
-        vocalStyle: session.voiceOverride?.vocalStyle,
+        vocalStyle: (session.voiceOverride as any)?.vocalStyle,
       };
       
       await retryWithBackoff(
@@ -5937,6 +6614,10 @@ Remember: David may reference things discussed in these recent text chats.
         enableContextCaching: true,
         streamFunctionCallArguments: true,
         abortSignal: streamAbortSignalOpenMic,
+        onTokenUsage: (inputTok: number, outputTok: number) => {
+          session.telemetryLlmInputTokens += inputTok;
+          session.telemetryLlmOutputTokens += outputTok;
+        },
         onSentenceEnqueued: (chunk: SentenceChunk) => {
           if (effectiveTtsProviderOM !== 'gemini' || session.isInterrupted || streamAbortSignalOpenMic.aborted) return;
           const cleaned = cleanTextForDisplay(chunk.text);
@@ -5944,7 +6625,7 @@ Remember: David may reference things discussed in these recent text chats.
           const promise = this.geminiLiveTtsService.preGenerateAudio({
             ...lookaheadTtsRequestOM,
             text: cleaned,
-            vocalStyle: session.voiceOverride?.vocalStyle,
+            vocalStyle: (session.voiceOverride as any)?.vocalStyle,
           } as any).catch(err => {
             console.warn(`[TTS Lookahead OM] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
             return null;
@@ -5971,7 +6652,7 @@ Remember: David may reference things discussed in these recent text chats.
             session.currentTurnFunctionCalls = [];
           }
           
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone']);
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone', 'close_session']);
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
@@ -6063,9 +6744,10 @@ Remember: David may reference things discussed in these recent text chats.
               if (cmdType) {
                 openMicCommandResult.commands.push({
                   type: cmdType as any,
-                  params: fcArgs,
+                  params: fcArgs as any,
                   source: 'text_fc_fallback' as any,
-                });
+                  rawMatch: '',
+                } as any);
                 console.log(`[Text FC Fallback - OpenMic] Injected command: ${cmdType}(${JSON.stringify(fcArgs)})`);
               }
             }
@@ -6080,9 +6762,11 @@ Remember: David may reference things discussed in these recent text chats.
             switch (cmd.type) {
               case 'SWITCH_TUTOR': {
                 const target = cmd.params.target as string;
-                if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && target) {
+                const cmdLang6397 = cmd.params.language as string | undefined;
+                const isCrossLang6397 = cmdLang6397 && cmdLang6397.toLowerCase() !== (session.targetLanguage || '').toLowerCase();
+                if (!session.pendingTutorSwitch && (!session.crossLanguageTransferBlocked || !isCrossLang6397) && target) {
                   const targetGender = target as 'male' | 'female';
-                  let resolvedLanguage = cmd.params.language as string | undefined;
+                  let resolvedLanguage = cmdLang6397;
                   if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
                     resolvedLanguage = inferLanguageFromTutorName(chunk.text, targetGender, session.targetLanguage, session.tutorDirectory);
                   }
@@ -6117,6 +6801,61 @@ Remember: David may reference things discussed in these recent text chats.
                 }
                 break;
               }
+              case 'RECORD_PATTERN_SIGNAL': {
+                const patternKey = cmd.params.patternKey as string;
+                const eventType = cmd.params.eventType as string;
+                if (patternKey && eventType) {
+                  const userId = String(session.userId);
+                  const language = (session.targetLanguage as string) || 'spanish';
+                  const verbContext = cmd.params.verbContext as string | undefined;
+                  const studentUtterance = cmd.params.studentUtterance as string | undefined;
+                  const notes = cmd.params.notes as string | undefined;
+                  const conversationId = (session.conversationId as string) || undefined;
+                  ;(async () => {
+                    try {
+                      const current = await storage.getCompartment(userId, language, patternKey);
+                      const now = new Date();
+                      const poundingCount = (current?.poundingCount ?? 0) + (eventType === 'pounding' ? 1 : 0);
+                      const wobbleCount = (current?.wobbleCount ?? 0) + (eventType === 'wobble' ? 1 : 0);
+                      const derivationCount = (current?.derivationCount ?? 0) + (eventType === 'derivation' ? 1 : 0);
+                      let newStatus: 'unstarted' | 'pounding' | 'wobbling' | 'stable' | 'generative' = current?.status ?? 'unstarted';
+                      if (eventType === 'pounding' && newStatus === 'unstarted') newStatus = 'pounding';
+                      if (eventType === 'wobble') newStatus = 'wobbling';
+                      if (eventType === 'stability') newStatus = 'stable';
+                      if (eventType === 'derivation') newStatus = 'generative';
+                      await storage.upsertCompartment({
+                        userId, language, patternKey, status: newStatus,
+                        poundingCount, wobbleCount, derivationCount,
+                        lastDrilledAt: now,
+                        lastWobbledAt: eventType === 'wobble' ? now : (current?.lastWobbledAt ?? undefined),
+                        stabilizedAt: eventType === 'stability' ? now : (current?.stabilizedAt ?? undefined),
+                        generativeAt: eventType === 'derivation' ? now : (current?.generativeAt ?? undefined),
+                      });
+                      await storage.logCompartmentEvent({
+                        userId, language, patternKey,
+                        eventType: eventType as 'pounding' | 'wobble' | 'stability' | 'derivation' | 'unlock' | 'review',
+                        verbContext, studentUtterance, sessionId: conversationId, notes,
+                      });
+                      console.log(`[PatternSignal - OpenMic] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''}`);
+                      // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current.
+                      // Mirrors the guard in native-fc-handlers.ts RECORD_PATTERN_SIGNAL:
+                      //   null      = all compartments resolved to stable → intentional clear
+                      //   undefined = fetchPatternSignalContext threw → preserve stale-but-correct value
+                      //   string    = active patterns found → replace with fresh signal
+                      const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => {
+                        console.warn('[PatternSignal - OpenMic] fetchPatternSignalContext threw unexpectedly — preserving existing activePatternSignals to avoid silently dropping live wobble context');
+                        return undefined;
+                      });
+                      if (refreshed !== undefined) {
+                        session.activePatternSignals = refreshed;
+                      }
+                    } catch (err: any) {
+                      console.error(`[PatternSignal - OpenMic] Error:`, err.message);
+                    }
+                  })();
+                }
+                break;
+              }
               case 'CHECK_STUDENT_CREDITS': {
                 console.log(`[CommandParser→CheckCredits - OpenMic] Credit check via ${cmd.source} (delegating to native handler)`);
                 break;
@@ -6125,7 +6864,7 @@ Remember: David may reference things discussed in these recent text chats.
               case 'CALL_SOFIA': {
                 const category = cmd.params.category as string;
                 if (category && !session.pendingSupportHandoff) {
-                  session.pendingSupportHandoff = { category, reason: cmd.params.reason as string | undefined };
+                  session.pendingSupportHandoff = { category: category as any, reason: String(cmd.params.reason ?? ''), priority: "normal" as any };
                   console.log(`[CommandParser→Support - OpenMic] Queued: ${category}`);
                 }
                 break;
@@ -6155,8 +6894,8 @@ Remember: David may reference things discussed in these recent text chats.
                     action: 'show',
                     timestamp: Date.now(),
                   } as any, session);
-                } else if (mode && ['off', 'on', 'target'].includes(mode)) {
-                  const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+                } else if (mode && ['off', 'target'].includes(mode)) {
+                  const validMode = mode as 'off' | 'target';
                   session.subtitleMode = validMode;
                   console.log(`[CommandParser→Subtitle - OpenMic] Mode: ${validMode}`);
                   this.sendMessage(session.ws, {
@@ -6257,11 +6996,12 @@ Remember: David may reference things discussed in these recent text chats.
                 const summary = cmd.params.summary as string | undefined;
                 if (session.userId && !session.isIncognito) {
                   try {
-                    await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+                    await (storage as any).updateUser(session.userId, { hasCompletedFirstMeeting: true });
                     console.log(`[CommandParser→FirstMeeting - OpenMic] Marked complete for user ${session.userId}`);
                     if (session.hiveChannelId) {
                       hiveCollaborationService.emitBeacon({
                         channelId: session.hiveChannelId,
+                        beaconType: 'teaching_observation' as any,
                         tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela completed "getting to know you" phase.${summary ? `\n\nSummary: ${summary}` : ''}`,
                       });
                     }
@@ -6304,13 +7044,51 @@ Remember: David may reference things discussed in these recent text chats.
                       hiveCollaborationService.emitBeacon({
                         channelId: session.hiveChannelId,
                         tutorTurn: `[TAKE_NOTE] ${noteType}: "${title}"\n${noteContent.substring(0, 200)}${noteContent.length > 200 ? '...' : ''}`,
-                        beaconType: 'take_note',
+                        beaconType: 'take_note' as any,
                         beaconReason: `Daniela wrote a note: ${title}`,
                       }).catch(err => console.error(`[CommandParser→TakeNote - OpenMic] Beacon error:`, err));
                     }
                   }).catch(err => {
                     console.error(`[CommandParser→TakeNote - OpenMic] Error:`, err.message);
                   });
+                }
+                break;
+              }
+              case 'CLOSE_SESSION': {
+                if (session.isIncognito) {
+                  console.log(`[CommandParser→CloseSession - OpenMic] INCOGNITO - skipping`);
+                  break;
+                }
+                const csomWrittenSummary = cmd.params.written_summary as string | undefined;
+                const csomReminders = cmd.params.reminders as string | undefined;
+                const csomAssignedDrills = cmd.params.assigned_drills as string | undefined;
+                const csomTutorNotes = cmd.params.tutor_notes as string | undefined;
+                if (csomWrittenSummary) {
+                  const csomConvId = session.conversationId;
+                  const csomUserId = session.userId ? String(session.userId) : null;
+                  const csomLang = session.targetLanguage || 'spanish';
+                  const csomRichSummary = [
+                    csomWrittenSummary,
+                    csomReminders ? `\nKey reminders: ${csomReminders}` : '',
+                    csomAssignedDrills ? `\nAssigned for next time: ${csomAssignedDrills}` : '',
+                  ].filter(Boolean).join('');
+                  console.log(`[CommandParser→CloseSession - OpenMic] Writing session close`);
+                  if (csomConvId) {
+                    getSharedDb().update(tutorSessions)
+                      .set({ status: 'completed', endedAt: new Date(), sessionSummary: csomRichSummary, tutorNotes: csomTutorNotes || null, updatedAt: new Date() })
+                      .where(and(eq(tutorSessions.conversationId, csomConvId), eq(tutorSessions.status, 'active')))
+                      .catch((err: Error) => console.error(`[CommandParser→CloseSession - OpenMic] DB error:`, err.message));
+                  }
+                  if (csomUserId) {
+                    getSharedDb().insert(hiveSnapshots).values({
+                      userId: csomUserId, language: csomLang, snapshotType: 'session_summary',
+                      title: `Session wrap-up — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                      importance: 7,
+                      context: JSON.stringify({ type: 'session_close', writtenSummary: csomWrittenSummary, reminders: csomReminders || null, assignedDrills: csomAssignedDrills || null, closedAt: new Date().toISOString() }),
+                      content: csomRichSummary, createdAt: new Date(),
+                      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    }).catch((err: Error) => console.error(`[CommandParser→CloseSession - OpenMic] Snapshot error:`, err.message));
+                  }
                 }
                 break;
               }
@@ -6324,7 +7102,7 @@ Remember: David may reference things discussed in these recent text chats.
                 if (target && surgeryContent && reasoning) {
                   let parsedContent: Record<string, unknown>;
                   try {
-                    parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as Record<string, unknown>;
+                    parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as unknown as Record<string, unknown>;
                   } catch (parseErr) {
                     console.error(`[CommandParser→SelfSurgery - OpenMic] Invalid JSON content:`, parseErr);
                     break;
@@ -6351,8 +7129,11 @@ Remember: David may reference things discussed in these recent text chats.
                     reasoning,
                     priority,
                     confidence,
+                  }).then(result => {
+                    console.log(`[CommandParser→SelfSurgery - OpenMic] Proposal for ${target}: ${result.message}`);
+                    if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
+                    session.pendingMemorySurfaces.push(result.message);
                   }).catch(err => console.error(`[CommandParser→SelfSurgery - OpenMic] Error:`, err));
-                  console.log(`[CommandParser→SelfSurgery - OpenMic] Proposal for ${target}`);
                 }
                 break;
               }
@@ -6367,11 +7148,11 @@ Remember: David may reference things discussed in these recent text chats.
                     : [];
                   
                   const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
-                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth'];
                   const syllabusDomains = ['syllabus'];
                   
                   const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
-                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth')[];
                   const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
                   
                   const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
@@ -6420,7 +7201,7 @@ Remember: David may reference things discussed in these recent text chats.
                         userId: session.userId,
                         targetLanguage: session.targetLanguage || null,
                         query,
-                        domainsSearched: teachingResults.domainsSearched,
+                        domainsSearched: teachingResults.searchedDomains,
                         domainsRequested: teachingDomainFilter || null,
                         resultCount: teachingResults.results.length,
                         formattedCharacterLength: formattedTeachingKnowledge.length,
@@ -6584,7 +7365,7 @@ Remember: David may reference things discussed in these recent text chats.
                   ...currentOverride,
                   ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                   ...(mappedEmotion && { emotion: mappedEmotion }),
-                  ...(validatedPersonality && { personality: validatedPersonality }),
+                  ...(validatedPersonality && { personality: validatedPersonality as any }),
                 };
                 console.log(`[CommandParser→VoiceAdjust - OpenMic] Applied: speed=${speed || 'unchanged'}, emotion=${mappedEmotion || 'unchanged'}`);
                 break;
@@ -6827,7 +7608,7 @@ Remember: David may reference things discussed in these recent text chats.
       // If Gemini called functions but produced no text, continue the conversation
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE', 'CLOSE_SESSION', 'WRITE_TO_SELF', 'TAG_THIS_MOMENT', 'ADD_CURIOSITY', 'SAVE_HIVE_NOTE', 'SET_ASPIRATION', 'REFLECT_ON_ASPIRATION', 'REMEMBER_I_SHARED', 'LOG_PAGE_EVENT']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
@@ -6902,7 +7683,7 @@ Remember: David may reference things discussed in these recent text chats.
               ...(si === 0 && contSentences.length > 1 ? { totalSentences: contSentences.length } : {}),
             } as StreamingSentenceStartMessage);
 
-            await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
+            await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isComplete: true, isFinal: true }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
           }
 
           session.functionCallText = undefined;
@@ -6935,9 +7716,12 @@ Remember: David may reference things discussed in these recent text chats.
             continue;
           }
           
+          const handlerErrorOpenMic = (fc as any)._handlerError as string | undefined;
           const responseText = (typeof registryResult === 'string')
             ? registryResult
-            : `${fc.name} executed successfully. Continue the conversation.`;
+            : handlerErrorOpenMic
+              ? `[SYSTEM: ${fc.name} encountered an error — ${handlerErrorOpenMic}. Acknowledge this naturally and continue.]`
+              : `${fc.name} executed successfully. Continue the conversation.`;
           
           functionResponsePartsOpenMic.push({
             functionResponse: {
@@ -6977,6 +7761,10 @@ Remember: David may reference things discussed in these recent text chats.
               maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
+              onTokenUsage: (inputTok: number, outputTok: number) => {
+                session.telemetryLlmInputTokens += inputTok;
+                session.telemetryLlmOutputTokens += outputTok;
+              },
               onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
                 for (const fn of newFCs) {
                   console.log(`[Multi-Step FC Continuation - OpenMic] Additional function: ${fn.name}`);
@@ -7057,7 +7845,7 @@ Remember: David may reference things discussed in these recent text chats.
               const fcDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextFromFC || '');
               const fcAccumulatedWords: string[] = session.accumulatedBoldWords || [];
               const fcBoldWords = [...new Set([...fcDirectBoldWords, ...fcAccumulatedWords])];
-              await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`, fcBoldWords);
+              await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC, isComplete: true, isFinal: true }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`, fcBoldWords);
               
               // Clear after use
               session.functionCallText = undefined;
@@ -7102,7 +7890,13 @@ Remember: David may reference things discussed in these recent text chats.
             
             for (const fc of recursiveFCs) {
               let responseText = 'Function executed successfully.';
-              if (fc.legacyType === 'MEMORY_LOOKUP') {
+              if (fc.legacyType === 'UNIFIED_RECALL' || fc.name === 'recall') {
+                const query = fc.args.query as string;
+                const recallResult = session.recallResults?.[query];
+                responseText = recallResult
+                  ? `— reaching back —\n\n${recallResult}\n\nThese are your own memories. Speak from them — not about them.`
+                  : `Nothing surfaces for "${query}" right now. Respond naturally.`;
+              } else if (fc.legacyType === 'MEMORY_LOOKUP') {
                 const query = fc.args.query as string;
                 const lookupResult = session.memoryLookupResults?.[query];
                 responseText = lookupResult 
@@ -7130,8 +7924,8 @@ Remember: David may reference things discussed in these recent text chats.
                 delete session.lastLoadedLesson;
               } else if (fc.legacyType === 'LOAD_VOCAB_SET') {
                 const vocabData = session.lastVocabSet;
-                responseText = vocabData?.length > 0
-                  ? `Vocabulary loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these words with show_image.`
+                responseText = (vocabData?.length ?? 0) > 0
+                  ? `Vocabulary loaded: ${vocabData!.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these words with show_image.`
                   : `No vocabulary found for this lesson.`;
                 delete session.lastVocabSet;
               } else if (fc.legacyType === 'SHOW_PROGRESS') {
@@ -7144,8 +7938,8 @@ Remember: David may reference things discussed in these recent text chats.
                 delete session.lastRecommendation;
               } else if (fc.legacyType === 'DRILL_SESSION') {
                 const data = session.lastDrillSessionData;
-                responseText = data?.totalItems > 0
-                  ? `Drill session started with ${data.totalItems} items. First item displayed. Walk the student through it, then use drill_session_next.`
+                responseText = (data?.totalItems ?? 0) > 0
+                  ? `Drill session started with ${data!.totalItems} items. First item displayed. Walk the student through it, then use drill_session_next.`
                   : `No drill items found. Offer conversational practice instead.`;
                 delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'DRILL_SESSION_NEXT') {
@@ -7163,12 +7957,15 @@ Remember: David may reference things discussed in these recent text chats.
                 delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'REVIEW_DUE_VOCAB') {
                 const dueVocab = session.lastDueVocab;
-                responseText = dueVocab?.length > 0
-                  ? `${dueVocab.length} vocab words due:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation })), null, 1)}\n\nQuiz the student.`
+                responseText = (dueVocab?.length ?? 0) > 0
+                  ? `${dueVocab!.length} vocab words due:\n${JSON.stringify(dueVocab!.map((w: any) => ({ word: w.word, translation: w.translation })), null, 1)}\n\nQuiz the student.`
                   : `No words due for review. All caught up!`;
                 delete session.lastDueVocab;
               } else {
-                responseText = `${fc.name} executed successfully. Continue the conversation.`;
+                const recursiveHandlerError = (fc as any)._handlerError as string | undefined;
+                responseText = recursiveHandlerError
+                  ? `[SYSTEM: ${fc.name} encountered an error — ${recursiveHandlerError}. Acknowledge this naturally and continue.]`
+                  : `${fc.name} executed successfully. Continue the conversation.`;
               }
               recursiveResponseParts.push({
                 functionResponse: {
@@ -7204,6 +8001,10 @@ Remember: David may reference things discussed in these recent text chats.
                 maxOutputTokens: (session.isRawHonestyMode || session.isFounderMode) ? 8192 : 4096,
                 enableFunctionCalling: true,
                 enableContextCaching: true,
+                onTokenUsage: (inputTok: number, outputTok: number) => {
+                  session.telemetryLlmInputTokens += inputTok;
+                  session.telemetryLlmOutputTokens += outputTok;
+                },
                 onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
                   for (const fn of newFCs) {
                     console.log(`[Multi-Step FC - OpenMic] Recursive function (depth ${recursiveDepth}): ${fn.name}`);
@@ -7311,7 +8112,7 @@ Remember: David may reference things discussed in these recent text chats.
             text: fallbackText,
             hasTargetContent: false,
           } as StreamingSentenceStartMessage);
-          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText }, fallbackText, metrics, turnId);
+          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText, isComplete: true, isFinal: true }, fallbackText, metrics, turnId);
           fullText = fallbackText;
           metrics.sentenceCount = 1;
         } catch (fallbackErr: any) {
@@ -7348,22 +8149,66 @@ Remember: David may reference things discussed in these recent text chats.
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
       
-      // GRACEFUL RECOVERY: For recoverable errors, speak a fallback so student isn't left in silence
-      const is429Error = error.message?.includes('429') || 
-                         error.message?.includes('RESOURCE_EXHAUSTED') ||
-                         error.message?.includes('Resource exhausted');
-      if (isJsonParseError || is429Error) {
-        const reason = is429Error ? '429 rate limit' : 'JSON parse error';
-        console.log(`[Gemini Recovery - OpenMic] ${reason} detected, providing spoken fallback`);
-        const fallbackText = is429Error 
-          ? "One moment, I'm having a little trouble connecting. Could you say that again?"
-          : "Sorry, I had a brief hiccup. What were you saying?";
+      // GRACEFUL RECOVERY: For rate limits, use Claude as fallback AI (separate quota)
+      const isRateLimit = error.message?.includes('RATELIMIT_EXCEEDED') ||
+                          error.message?.includes('Rate limit exceeded') ||
+                          error.message?.includes('429') ||
+                          error.message?.includes('RESOURCE_EXHAUSTED') ||
+                          error.message?.includes('Resource exhausted');
+      if (isRateLimit) {
+        console.warn('[Claude Fallback - OpenMic] Gemini rate limited — attempting Claude response');
         try {
-          await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          const Anthropic = (await import('@anthropic-ai/sdk')).default;
+          const claudeClient = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY,
+          });
+          const lang = session.targetLanguage || 'spanish';
+          const tutorPersonaName = session.tutorName || 'Daniela';
+          const systemPrompt = `You are ${tutorPersonaName}, a warm and encouraging ${lang} language tutor having a voice conversation. Respond naturally and conversationally to the student. Keep your response to 1-2 short sentences max — this is voice so be concise. Speak ${lang} ONLY — do not switch to Spanish or any other language unless the target language IS Spanish. Do NOT mention any technical issues. Just respond naturally.`;
+          const historyMessages = (session.conversationHistory || []).slice(-6).map((h: any) => ({
+            role: (h.role === 'model' ? 'assistant' : 'user') as 'assistant' | 'user',
+            content: h.content,
+          }));
+          const claudeResp = await claudeClient.messages.create({
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 120,
+            system: systemPrompt,
+            messages: [...historyMessages, { role: 'user' as const, content: transcript }],
+          });
+          const claudeText = claudeResp.content[0]?.type === 'text' ? claudeResp.content[0].text.trim() : '';
+          if (claudeText) {
+            console.log(`[Claude Fallback - OpenMic] Response: "${claudeText.substring(0, 100)}"`);
+            const sentences = splitTextIntoSentences(claudeText);
+            for (let i = 0; i < sentences.length; i++) {
+              await (this as any).synthesizeSentenceToClient(session, sentences[i], i, null, { force: true });
+            }
+            metrics.sentenceCount = sentences.length;
+            fullText = claudeText;
+            session.conversationHistory.push({ role: 'model', content: claudeText });
+            console.log(`[Claude Fallback - OpenMic] Completing turn with ${sentences.length} sentence(s)`);
+            await this.completeOpenMicResponse(session, metrics, turnId, startTime, claudeText, transcript, confidence, responseCompleteSentOpenMic, { skipPersist: false, skipTutorSwitch: true });
+            return metrics;
+          }
+        } catch (claudeErr: any) {
+          console.error('[Claude Fallback - OpenMic] Claude also failed:', claudeErr.message);
+        }
+        // Claude failed — speak a brief language-appropriate apology
+        try {
+          const lang = session.targetLanguage || 'spanish';
+          const apologyText = lang === 'french' ? "Excuse-moi, essaie encore." : "Perdón, ¿puedes repetir eso?";
+          await (this as any).synthesizeSentenceToClient(session, apologyText, 0, null, { force: true });
           metrics.sentenceCount = 1;
-          console.log(`[Gemini Recovery - OpenMic] Fallback response sent successfully`);
+          console.log('[Claude Fallback - OpenMic] Apology TTS sent');
         } catch (ttsError: any) {
-          console.error(`[Gemini Recovery - OpenMic] Fallback TTS failed:`, ttsError.message);
+          console.error('[Claude Fallback - OpenMic] Apology TTS also failed:', ttsError.message);
+        }
+      } else if (isJsonParseError) {
+        console.log('[Gemini Recovery - OpenMic] JSON parse error detected, providing spoken fallback');
+        try {
+          await (this as any).synthesizeSentenceToClient(session, "Sorry, I had a brief hiccup. What were you saying?", 0, null, { force: true });
+          metrics.sentenceCount = 1;
+        } catch (ttsError: any) {
+          console.error('[Gemini Recovery - OpenMic] Fallback TTS failed:', ttsError.message);
         }
       }
       
@@ -7416,6 +8261,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       return metrics;
     } finally {
+      releaseVoiceSlot();
       if (!responseCompleteSentOpenMic.sent) {
         console.error(`[OpenMic SAFETY NET] response_complete was NEVER sent for session ${sessionId} — forcing now`);
         await this.completeOpenMicResponse(session, metrics, turnId, startTime, '', transcript, confidence, responseCompleteSentOpenMic, { errorPath: true, skipPersist: true, skipTutorSwitch: true });
@@ -7423,6 +8269,10 @@ Remember: David may reference things discussed in these recent text chats.
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: STT / Transcription Helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Transcribe audio using Deepgram Prerecorded API
    * 
@@ -7448,7 +8298,7 @@ Remember: David may reference things discussed in these recent text chats.
     nativeLanguage: string = 'english',
     isFounderMode: boolean = false,
     keyterms?: string[]
-  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence; words?: TranscriptionResult['words'] }> {
+  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence; words?: TranscriptionResult['words']; sttDegraded?: boolean }> {
     // MULTI-LANGUAGE: Always use multi-language detection
     // Students naturally mix native + target language during lessons
     const languageCode = 'multi';
@@ -7480,15 +8330,25 @@ Remember: David may reference things discussed in these recent text chats.
         intelligence: result.intelligence,
         words: result.words,
       };
-    } catch (error: any) {
-      console.error(`[Deepgram Live] Error: ${error.message}`);
-      // Fallback to prerecorded API if live fails
-      console.log('[Deepgram] Falling back to prerecorded API...');
-      const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
-      if (!result.transcript) {
-        console.log('[Deepgram Prerecorded] Empty transcript returned');
+    } catch (deepgramLiveError: any) {
+      console.error(`[Deepgram Live] Error: ${deepgramLiveError.message}`);
+
+      // Tier 2: Deepgram Prerecorded API
+      try {
+        console.log('[STT Fallback] Tier 2 — Deepgram Prerecorded...');
+        const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
+        if (!result.transcript) {
+          console.log('[Deepgram Prerecorded] Empty transcript returned');
+        }
+        return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
+      } catch (deepgramPrerecordedError: any) {
+        console.error(`[Deepgram Prerecorded] Error: ${deepgramPrerecordedError.message}`);
+
+        // Tier 3: Google Cloud Speech-to-Text (last resort)
+        console.log('[STT Fallback] Tier 3 — Google Cloud STT (Deepgram fully unavailable)...');
+        const result = await transcribeWithGoogleSTT(audioData, targetLanguage, nativeLanguage);
+        return { transcript: result.transcript, confidence: result.confidence, sttDegraded: true };
       }
-      return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
     }
   }
   
@@ -7684,6 +8544,10 @@ Remember: David may reference things discussed in these recent text chats.
       .substring(0, 100); // Limit to first 100 chars for matching
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Message Persistence & Transport
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Checkpoint user message BEFORE calling Gemini API
    * This ensures user messages are saved even if Gemini fails/times out
@@ -7731,7 +8595,53 @@ Remember: David may reference things discussed in these recent text chats.
     session.checkpointedUserMessageId = undefined;
     session.checkpointedUserTranscript = undefined;
   }
-  
+
+  /**
+   * Remove consecutive duplicate sentences from a text string.
+   * Handles the case where Gemini Live re-emits the same sentence twice in a row
+   * (e.g. after a micro-reconnect or tool-call text being echoed again in the turn text).
+   * Example: "Hello!Hello!" → "Hello!"
+   *          "Of course! What's on your mind? We can practice.Of course! What's on your mind? We can practice." → deduplicated
+   */
+  private deduplicateConsecutiveSentences(text: string): string {
+    if (!text || text.length < 10) return text;
+    
+    // Try to split on sentence boundaries (. ! ?) followed by space OR capital letter
+    const sentenceRegex = /([^.!?]+[.!?]+)/g;
+    const sentences = text.match(sentenceRegex);
+    if (!sentences || sentences.length < 2) {
+      // No clear sentence boundaries — fall back to detecting half-string repetition
+      const half = Math.floor(text.length / 2);
+      if (text.length % 2 === 0 || text.length % 2 === 1) {
+        const firstHalf = text.substring(0, half);
+        const secondHalf = text.substring(half).trimStart();
+        // Allow 1-char tolerance for punctuation spacing
+        if (secondHalf.startsWith(firstHalf.trim().substring(0, 20))) {
+          console.log(`[PersistMessages] Detected half-string repetition — deduplicating`);
+          return firstHalf.trim();
+        }
+      }
+      return text;
+    }
+    
+    const deduped: string[] = [];
+    for (let i = 0; i < sentences.length; i++) {
+      const current = sentences[i].trim();
+      const prev = deduped.length > 0 ? deduped[deduped.length - 1].trim() : null;
+      if (prev && current === prev) {
+        console.log(`[PersistMessages] Duplicate sentence removed: "${current.substring(0, 60)}..."`);
+        continue;
+      }
+      deduped.push(sentences[i]);
+    }
+    
+    // If we removed anything, rejoin; otherwise return original (preserves formatting)
+    if (deduped.length < sentences.length) {
+      return deduped.join('').trim();
+    }
+    return text;
+  }
+
   /**
    * Persist user and AI messages to database
    */
@@ -7744,6 +8654,10 @@ Remember: David may reference things discussed in these recent text chats.
   ): Promise<void> {
     if (session.isIncognito) {
       console.log(`[Persist] INCOGNITO - skipping message persistence`);
+      return;
+    }
+    if (session.geminiLiveToolsOnly) {
+      console.log(`[Persist] GL tools-only shadow turn — skipping persistence (GL session handles messages)`);
       return;
     }
     try {
@@ -7760,6 +8674,7 @@ Remember: David may reference things discussed in these recent text chats.
             id: conversationId,
             userId: String(session.userId),
             language: session.targetLanguage || 'spanish',
+            difficulty: 'beginner',
             title: 'Voice Session',
           });
           console.log(`[Persist] ✓ Conversation created: ${conversationId}`);
@@ -7780,7 +8695,7 @@ Remember: David may reference things discussed in these recent text chats.
         // DB-LEVEL DEDUP SAFETY NET: Check if this exact transcript was already saved recently
         // This catches edge cases where checkpoint state was cleared but message already exists
         try {
-          const existingMessages = await storage.getMessages(conversationId);
+          const existingMessages = await storage.getMessagesByConversation(conversationId);
           const recentUserMessages = existingMessages
             .filter(m => m.role === 'user')
             .slice(-3); // Check last 3 user messages
@@ -7818,9 +8733,13 @@ Remember: David may reference things discussed in these recent text chats.
         return;
       }
       
+      // Deduplicate consecutive repeated sentences before saving
+      // (guards against Gemini Live re-emitting the same sentence twice after a micro-reconnect)
+      aiResponse = this.deduplicateConsecutiveSentences(aiResponse);
+      
       // DB-LEVEL DEDUP for AI responses: Check if this exact response was already saved recently
       try {
-        const existingMessages = await storage.getMessages(conversationId);
+        const existingMessages = await storage.getMessagesByConversation(conversationId);
         const recentAiMessages = existingMessages
           .filter(m => m.role === 'assistant')
           .slice(-3);
@@ -7836,15 +8755,22 @@ Remember: David may reference things discussed in these recent text chats.
         console.warn(`[Persist] AI dedup check failed, saving anyway: ${aiDedupErr.message}`);
       }
       
+      // Strip TTS style directives before saving — these are audio-pipeline-only instructions
+      // that should never appear in stored message content or the transcript UI.
+      // Pattern: "text-to-speech:sotto;" or "text-to-speech:calm;" at the start of the string.
+      const ttsStripped = aiResponse.replace(/^text-to-speech:\w+;\s*/i, '').trim();
+      // Magic Circle filter: monitor + clean immersion-breaking chatbot phrases (Path 3)
+      const { text: cleanedAiResponse } = debotText(ttsStripped);
+
       // Extract target language text for the AI response
-      const targetLanguageText = extractTargetLanguageText(aiResponse);
+      const targetLanguageText = extractTargetLanguageText(cleanedAiResponse);
       const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
       
       // Save AI message with target language text if applicable
       const aiMessage = await storage.createMessage({
         conversationId,
         role: 'assistant',
-        content: aiResponse,
+        content: cleanedAiResponse,
         ...(hasTargetLanguage ? { targetLanguageText } : {}),
         enrichmentStatus: 'pending',
       });
@@ -7859,7 +8785,7 @@ Remember: David may reference things discussed in these recent text chats.
             conversationId, 
             aiMessage.id, 
             userTranscript,
-            aiResponse,
+            cleanedAiResponse,
             pronunciationConfidence
           );
         } catch (error: any) {
@@ -7888,7 +8814,7 @@ Remember: David may reference things discussed in these recent text chats.
         totalTtfbMs: 0,
         sentenceCount: 0,
       },
-    } as StreamingResponseCompleteMessage);
+    } as any);
   }
 
   /**
@@ -7901,6 +8827,17 @@ Remember: David may reference things discussed in these recent text chats.
       console.log(`[SendMessage] Sending 'processing' message: readyState=${ws.readyState}, WS.OPEN=${WS.OPEN}`);
     }
     if (ws.readyState === WS.OPEN) {
+      // GL TOOLS-ONLY MODE: Suppress audio/transcript messages when running as a shadow
+      // tool-detection pass alongside Gemini Live.  The GL session handles audio; the
+      // orchestrator only needs to execute tool side-effects (whiteboard, scenarios, etc.)
+      const glSession = session || Array.from(this.sessions.values()).find(s => s.ws === ws);
+      if (glSession?.geminiLiveToolsOnly) {
+        const audioOnlyTypes = new Set(['audio_chunk', 'sentence_start', 'sentence_end', 'processing', 'processing_pending', 'response_complete']);
+        if (audioOnlyTypes.has(message.type)) {
+          return; // Let GL handle audio; drop orchestrator-generated audio messages
+        }
+      }
+
       // DEDUPLICATION: Prevent duplicate audio chunks (double audio bug fix)
       // Only deduplicate audio_chunk messages - sentence_ready has different semantics
       if (message.type === 'audio_chunk') {
@@ -7991,6 +8928,10 @@ Remember: David may reference things discussed in these recent text chats.
     } as StreamingErrorMessage);
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Greeting Pipeline
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Generate and stream a personalized AI greeting for a new conversation
    * Uses the full streaming pipeline (Gemini → Cartesia) for real-time delivery
@@ -7998,7 +8939,8 @@ Remember: David may reference things discussed in these recent text chats.
   async processGreetingRequest(
     sessionId: string,
     userName?: string,
-    isResumed?: boolean
+    isResumed?: boolean,
+    scenarioSlug?: string
   ): Promise<StreamingMetrics> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
@@ -8019,6 +8961,18 @@ Remember: David may reference things discussed in these recent text chats.
       };
     }
     session.__greetingInProgress = true;
+    
+    // SAFETY WATCHDOG: If greeting generation hangs (e.g. Gemini timeout), automatically
+    // clear the guard after 12s so the client's retry request can go through.
+    // Without this, a hung greeting locks out ALL retries indefinitely.
+    const greetingWatchdogMs = 12000;
+    const greetingWatchdog = setTimeout(() => {
+      if (session.__greetingInProgress && !session.__greetingDelivered) {
+        console.warn(`[Streaming Greeting] ⚠ Watchdog triggered after ${greetingWatchdogMs}ms — clearing stuck guard to allow client retry`);
+        session.__greetingInProgress = false;
+        this.sendGuardResetSignal(session, 'greeting_in_progress');
+      }
+    }, greetingWatchdogMs);
     
     // Await warmup with timeout - don't block forever if Gemini is slow
     // If warmup takes longer than 3 seconds, proceed without waiting
@@ -8052,6 +9006,7 @@ Remember: David may reference things discussed in these recent text chats.
       let wordsLearned = 0;
       let classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null = null;
       let connectionsAboutStudent: { mentioner: string; relationship: string; context: string }[] = [];
+      let studentLocalTimeContext = '';
       
       try {
         const parallelFetchStart = Date.now();
@@ -8068,7 +9023,30 @@ Remember: David may reference things discussed in these recent text chats.
             .catch(() => null),
         ]);
         greetingTimings.parallelDbFetch = Date.now() - parallelFetchStart;
-        
+
+        // Compute student's local time from their timezone for appropriate time-of-day greeting
+        if (user?.timezone) {
+          try {
+            const now = new Date();
+            const localTime = new Intl.DateTimeFormat('en-US', {
+              timeZone: user.timezone,
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }).format(now);
+            const localHourStr = new Intl.DateTimeFormat('en-US', {
+              timeZone: user.timezone,
+              hour: 'numeric',
+              hour12: false,
+            }).format(now);
+            const hour = parseInt(localHourStr, 10);
+            const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+            studentLocalTimeContext = `Student's local time: ${localTime} (${timeOfDay}) — timezone: ${user.timezone}`;
+          } catch {
+            // timezone lookup failed silently — greeting continues without time context
+          }
+        }
+
         // Look up connections about this student (where others mentioned them)
         // This enables "warm introductions" - e.g., "I know you're David's friend from graduate school!"
         if (user?.firstName) {
@@ -8105,6 +9083,8 @@ Remember: David may reference things discussed in these recent text chats.
         
         // Process ACTFL progress
         actflLevel = actflProgress?.currentActflLevel || 'Novice Low';
+        // Store on session so preamble anchor can use it every turn without re-fetching
+        session.studentActflLevel = actflProgress?.currentActflLevel || 'novice_low';
         
         // Process user progress
         if (userProgress) {
@@ -8184,13 +9164,114 @@ Remember: David may reference things discussed in these recent text chats.
           console.log(`[Streaming Greeting] Raw Honesty Mode - skipping class enrollment context`);
         }
         
-        // Process recent conversations for topic continuity
-        if (recentConversations.length > 1) {
-          const prevConversation = recentConversations[1]; // [0] is current, [1] is previous
+        // Process recent conversations for topic continuity + fetch verbatim transcript
+        // Item 1 fix: filter out the current session before selecting [0]. Conversations are lazily
+        // created (only on first message persist), so the current session row may not exist in the DB
+        // at greeting time — but if it does appear, we exclude it. Pattern: same as lines 1573/2685.
+        // Gemini + Alden pre-flight (July 19 2026): confirmed correct.
+        const prevConversations = session.conversationId
+          ? recentConversations.filter(c => c.id !== session.conversationId)
+          : recentConversations;
+        if (prevConversations.length > 0) {
+          const prevConversation = prevConversations[0]; // true most recent previous session
           if (prevConversation.title) {
             recentTopics.push(prevConversation.title);
           } else if (prevConversation.topic) {
             recentTopics.push(prevConversation.topic);
+          }
+
+          // Fetch the verbatim transcript from the previous session (up to 15 turns = 30 messages).
+          // David's rule: give Daniela the full turns, no summarization — 15 turns is small.
+          // She reads this the way she'd read her own notes: already knowing, not being informed.
+          if (prevConversation.id && !session.lastSessionTranscript) {
+            try {
+              const { sql: rawSql } = await import('drizzle-orm');
+              const prevMsgResult = await getSharedDb().execute(rawSql`
+                SELECT role, content FROM messages
+                WHERE conversation_id = ${prevConversation.id}
+                ORDER BY created_at ASC
+                LIMIT 30
+              `);
+              const prevMsgs = prevMsgResult.rows as Array<{ role: string; content: string }>;
+              if (prevMsgs.length > 0) {
+                const prevTitle = prevConversation.title || prevConversation.topic || 'your last session';
+                const studentLabel = userName || 'Student';
+                const transcriptLines = prevMsgs
+                  .map(row => `${row.role === 'user' ? studentLabel : 'Daniela'}: ${row.content}`)
+                  .join('\n');
+
+                // Temporal grounding: prose framing based on how long ago the session was.
+                // No raw timestamps — the prose carries the time signal.
+                // Design: Alden + Gemini dual review (both recommended recency-based prose, no parentheticals).
+                const prevSessionTime = (prevConversation as any).lastMessageAt || (prevConversation as any).createdAt;
+                const minutesAgo = prevSessionTime
+                  ? Math.floor((Date.now() - new Date(prevSessionTime).getTime()) / 60000)
+                  : 99999;
+
+                // Item 3: Natural-end vs. mid-drop detection for the < 10 min bucket.
+                // If Daniela's last message in the previous session contains a farewell phrase,
+                // the session ended naturally — use "welcome back" framing instead of "connection cut."
+                // Gemini pre-flight (July 19 2026): check last 4 messages (2 turns), find Daniela's
+                // most recent message. Multi-language patterns cover the 10 languages Daniela teaches.
+                // Dynamic import is intentional — top-level sql import fails with getSharedDb().execute()
+                // (see drizzle-sql-dynamic-import memory note).
+                const FAREWELL_RX = [
+                  /\b(goodbye|bye|see you|until next time|take care|have a great|have a good)\b/i,
+                  /\b(adi[oó]s|hasta luego|hasta pronto|nos vemos|hasta la pr[oó]xima)\b/i,
+                  /\b(au revoir|[aà] bient[oô]t|[aà] plus tard|bonne journ[eé]e|bonne soir[eé]e)\b/i,
+                  /\b(at[eé] logo|at[eé] mais|tchau)\b/i,
+                  /\b(arrivederci|a presto|alla prossima)\b/i,
+                  /\b(auf wiedersehen|tsch[üu]ss|bis bald)\b/i,
+                  /\bsayonara\b/i,
+                  /(\u518d\u898b|\u62dc\u62dc)/, // 再见, 拜拜
+                  /(\u307E\u305F\u306D|\u3058\u3083\u3042\u306D)/, // またね, じゃあね
+                ];
+                const last4 = prevMsgs.slice(-4);
+                const danielaLastMsg = [...last4].reverse().find(m => m.role !== 'user');
+                const wasNaturalEnd = danielaLastMsg
+                  ? FAREWELL_RX.some(rx => rx.test(danielaLastMsg.content))
+                  : false;
+
+                let framingSentence: string;
+                let closingDelimiter: string;
+
+                if (minutesAgo < 10) {
+                  if (wasNaturalEnd) {
+                    // Session ended naturally — student is back for more
+                    framingSentence = `You and ${studentLabel} just wrapped up a conversation on "${prevTitle}" — it looks like they're back for more:`;
+                    closingDelimiter = `— end of previous session —`;
+                  } else {
+                    // Dropped / rebooted connection — she's still mid-thread
+                    framingSentence = `The session that just dropped — you and ${studentLabel} were mid-conversation on "${prevTitle}" when the connection cut:`;
+                    closingDelimiter = `— the thread picks up from here —`;
+                  }
+                } else if (minutesAgo < 240) {
+                  // Same day, recent (10 min – 4 hours)
+                  framingSentence = `Earlier today, you and ${studentLabel} were working on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                } else if (minutesAgo < 1440) {
+                  // Same day, earlier (4 – 24 hours)
+                  framingSentence = `Today, you and ${studentLabel} had been working on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                } else if (minutesAgo < 10080) {
+                  // 1 – 7 days
+                  const daysAgo = Math.round(minutesAgo / 1440);
+                  const dayStr = daysAgo === 1 ? 'Yesterday' : 'A few days ago';
+                  framingSentence = `${dayStr}, you and ${studentLabel} were working on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                } else {
+                  // > 7 days — general prior context, no strong recency signal needed
+                  // Daniela feedback: "some time back" is slightly clinical; "it's been a while" is more natural
+                  framingSentence = `It's been a while since you and ${studentLabel} worked on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                }
+
+                session.lastSessionTranscript = `${framingSentence}\n\n${transcriptLines}\n\n${closingDelimiter}`;
+                console.log(`[Streaming Greeting] Last session transcript loaded: ${prevMsgs.length} messages from conversation ${prevConversation.id} (${minutesAgo}m ago)`);
+              }
+            } catch (transcriptErr: any) {
+              console.warn('[Streaming Greeting] Could not fetch last session transcript (non-fatal):', transcriptErr?.message);
+            }
           }
         }
       } catch (error: any) {
@@ -8202,7 +9283,8 @@ Remember: David may reference things discussed in these recent text chats.
       let colleagueFeedback: { agent: string; subject: string; summary: string }[] = [];
       try {
         const collabFetchStart = Date.now();
-        const recentCollab = await storage.getCollaborationEventsToAgent('daniela', String(session.userId), 10);
+        const agentName = (session.tutorName?.toLowerCase() || 'daniela') as any;
+        const recentCollab = await storage.getCollaborationEventsToAgent(agentName, String(session.userId), 10);
         // Include feedback, delegation_complete, and status_update events from colleagues
         const feedbackTypes = ['feedback', 'delegation_complete', 'status_update'];
         colleagueFeedback = recentCollab
@@ -8261,7 +9343,135 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       greetingTimings.totalDbQueries = Date.now() - timingStart;
+
+      // Fetch drill status so Daniela knows — without asking — what was assigned and whether it was done.
+      // "Daniela principle: she never asks 'did you do the drill?' — she already knows."
+      let recentDrillStatus: string | null = null;
+      try {
+        recentDrillStatus = await fetchRecentDrillStatus(String(session.userId));
+        if (recentDrillStatus) {
+          console.log(`[Streaming Greeting] Drill status loaded for context (${recentDrillStatus.split('\n').length} drills)`);
+        }
+      } catch (drillErr: any) {
+        console.log(`[Streaming Greeting] Could not fetch drill status: ${drillErr.message}`);
+      }
+
+      // Fetch grammar pattern signals — wobbling/pounding compartments Daniela should revisit
+      // undefined = fetch threw (storage error) → skip session.activePatternSignals assignment entirely
+      // null     = fetch resolved cleanly but no active signals exist
+      let patternSignalContext: string | null | undefined = null;
+      let recentMilestonesContext: string | null = null;
+      // PRE-SESSION FLASHBACK: Run a semantic memory search at session start — in parallel with
+      // pattern signals. This extends the Bootstrap Turn beyond a cold structured profile into
+      // warm first-person memories: who this student is to Daniela, what they've lived together.
+      // (Gemini consult rec. June 2026 — "the model starts the session already inhabiting the memory")
+      let flashbackMemories: string | null = null;
+      if (session.userId && session.targetLanguage) {
+        const flashbackQuery = userName
+          ? `${userName} — who they are, what matters to them, learning goals, breakthroughs, struggles`
+          : `this student — personal history, goals, breakthroughs, struggles`;
+        const [psCtx, msCtx, flashback] = await Promise.all([
+          // catch returns undefined (not null) so the assignment guard below skips
+          // session.activePatternSignals instead of writing null on a storage error.
+          fetchPatternSignalContext(String(session.userId), session.targetLanguage).catch((err): undefined => {
+            console.warn('[PatternSignal] fetchPatternSignalContext threw at greeting time — session will start without pattern context', err instanceof Error ? err.message : String(err));
+          }),
+          fetchRecentMilestonesContext(String(session.userId), session.targetLanguage).catch(() => null),
+          // Flashback: semantic search for lived memories — only for real students (not incognito)
+          (!(session as any).isIncognito && session.userId
+            ? (async () => {
+                try {
+                  const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+                  const results = await searchMemory(
+                    String(session.userId),
+                    flashbackQuery,
+                    ['person', 'motivation', 'insight', 'progress', 'conversation'],
+                    session.targetLanguage || undefined
+                  );
+                  if (results.results.length === 0) return null;
+                  return formatMemoryForConversation(results, userName || undefined);
+                } catch { return null; }
+              })()
+            : Promise.resolve(null)),
+        ]);
+        patternSignalContext = psCtx;
+        recentMilestonesContext = msCtx;
+        flashbackMemories = flashback;
+        // Carry pattern signals into mid-session anchor so they persist beyond the greeting
+        if (patternSignalContext) {
+          session.activePatternSignals = patternSignalContext;
+          console.log(`[Streaming Greeting] Pattern signals loaded (${patternSignalContext.split('\n').length} active patterns)`);
+        }
+        if (recentMilestonesContext) console.log(`[Streaming Greeting] Recent milestones loaded (${recentMilestonesContext.split('\n').length} milestones)`);
+        if (flashbackMemories) console.log(`[Streaming Greeting] Pre-session flashback loaded (${flashbackMemories.split('\n\n').length} memories)`);
+      }
       
+      // BOOTSTRAP TURN: Move student profile from system prompt (cold zone) → conversation history (hot zone).
+      // Gemini Flash weights recent conversation history tokens much higher than static system prompt tokens.
+      // Injecting as the first history entry means the model sees student context as a live result
+      // rather than a buried preamble. This is the single highest-leverage change from the June 2026
+      // Gemini consult: "tool results in conversation history get 3-5x the attention weight of system prompt."
+      if (!(session as any).bootstrapTurnInjected) {
+        const profileParts: string[] = [];
+        if (userName) profileParts.push(`Student: ${userName}`);
+        profileParts.push(`ACTFL level: ${actflLevel} (${session.targetLanguage})`);
+        if (wordsLearned > 0) profileParts.push(`Words learned: ${wordsLearned}`);
+        if (session.studentGoals) profileParts.push(`Goals: ${session.studentGoals}`);
+        if (classEnrollment) {
+          const classInfo = classEnrollment.curriculumLesson
+            ? `${classEnrollment.className} — ${classEnrollment.curriculumUnit || ''} / ${classEnrollment.curriculumLesson}`
+            : classEnrollment.className;
+          profileParts.push(`Class: ${classInfo}`);
+        }
+        if (recentTopics.length > 0) profileParts.push(`Last session topic: ${recentTopics[0]}`);
+        if (session.lastSessionTranscript) profileParts.push(session.lastSessionTranscript);
+        // EMOTIONAL PRIMACY: Flashback BEFORE grammar signals.
+        // Priming with memories first makes Daniela a "Person who teaches" not a "Grammar Engine that recalls."
+        // (Gemini consult #4: "If you provide ACTFL level first, you prime the model to be a Grammar Engine.
+        //  If you provide the memories first, you prime it to be a Person.") (June 2026)
+        if (flashbackMemories) profileParts.push(`What I remember about ${userName || 'this student'}:\n${flashbackMemories}`);
+        if (patternSignalContext) profileParts.push(`Grammar signals:\n${patternSignalContext.substring(0, 300)}`);
+        if (recentMilestonesContext) profileParts.push(`Recent milestones:\n${recentMilestonesContext.substring(0, 200)}`);
+        if (recentDrillStatus) profileParts.push(`Drill status:\n${recentDrillStatus.substring(0, 200)}`);
+
+        if (profileParts.length > 1) {
+          // BOOTSTRAP TURN format: model(functionCall) → user(functionResponse).
+          // Profile goes in the USER turn as grounding data from an external source — NOT in a model
+          // turn. Putting it in a model turn causes "Logit Drift": the model treats it as its own
+          // prior output and may feel it has "already been specific," suppressing future tool calls.
+          // User-turn grounding data gets treated as external truth, not model memory.
+          // (Gemini consult rec. June 2026)
+          session.conversationHistory.unshift(
+            { role: 'model', content: `[get_student_snapshot()]` },
+            { role: 'user', content: `[STUDENT PROFILE — session start]\n${profileParts.join('\n')}` },
+          );
+          (session as any).bootstrapTurnInjected = true;
+          console.log(`[Bootstrap Turn] Injected student profile as grounding data (${profileParts.length} fields)`);
+        }
+      }
+
+      // Check for a message Daniela left for this student from a previous session.
+      // If found, it replaces the generated greeting opener — Daniela's actual words, not a template.
+      let queuedMessage: { id: string; content: string } | null = null;
+      if (!session.isIncognito && session.userId) {
+        try {
+          const { danielaOutboundQueue } = await import('@shared/schema');
+          const { eq, isNull, asc } = await import('drizzle-orm');
+          const [item] = await getSharedDb()
+            .select({ id: danielaOutboundQueue.id, content: danielaOutboundQueue.content })
+            .from(danielaOutboundQueue)
+            .where(and(eq(danielaOutboundQueue.userId, String(session.userId)), isNull(danielaOutboundQueue.deliveredAt)))
+            .orderBy(asc(danielaOutboundQueue.createdAt))
+            .limit(1);
+          if (item) {
+            queuedMessage = item;
+            console.log(`[Streaming Greeting] Queued message found for user ${session.userId} — will override greeting opener`);
+          }
+        } catch (queueErr: any) {
+          console.log(`[Streaming Greeting] Could not check outbound queue: ${queueErr.message}`);
+        }
+      }
+
       // Build greeting prompt with full context
       // DEBUG: Log context being passed to greeting prompt
       console.log(`[Streaming Greeting] Context for prompt:`, {
@@ -8273,16 +9483,17 @@ Remember: David may reference things discussed in these recent text chats.
         className: classEnrollment?.className,
         conversationTopic: session.conversationTopic || '(none)',
         conversationTitle: session.conversationTitle || '(none)',
-        lastSessionSummary: session.lastSessionSummary ? session.lastSessionSummary.substring(0, 100) + '...' : '(none)',
+        lastSessionTranscript: session.lastSessionTranscript ? session.lastSessionTranscript.substring(0, 100) + '...' : '(none)',
         studentGoals: session.studentGoals || '(none)',
         isResumed,
         connectionsCount: connectionsAboutStudent.length,
         colleagueFeedbackCount: colleagueFeedback.length,
         todaysEarlierChatsCount: todaysEarlierChats.length,
+        hasDrillStatus: !!recentDrillStatus,
       });
       
       const promptBuildStart = Date.now();
-      const greetingPrompt = this.buildGreetingPrompt(
+      let greetingPrompt = this.buildGreetingPrompt(
         session,
         userName,
         actflLevel,
@@ -8292,8 +9503,37 @@ Remember: David may reference things discussed in these recent text chats.
         isResumed,
         connectionsAboutStudent,
         colleagueFeedback,
-        todaysEarlierChats
+        todaysEarlierChats,
+        recentDrillStatus,
+        patternSignalContext,
+        recentMilestonesContext
       );
+      
+      // Prepend student's local time so Daniela uses the correct time-of-day greeting
+      if (studentLocalTimeContext) {
+        greetingPrompt = `${studentLocalTimeContext}\nUse this to choose "good morning", "good afternoon", or "good evening" as appropriate.\n\n${greetingPrompt}`;
+      }
+
+      // Inject queued message: Daniela left this for the student from a previous session.
+      // It replaces the generated opener — she speaks her own words, not a reconstructed greeting.
+      if (queuedMessage) {
+        const qm = queuedMessage;
+        greetingPrompt += `\n\n*** MESSAGE YOU LEFT FOR THIS MOMENT ***\nBefore this session, you wrote this for ${userName || 'the student'}:\n\n"${qm.content}"\n\nThis was your intention from your last session with them. Open with it — not word for word, but in your own voice, as if you've been holding it. Let it be the first thing they hear.`;
+        // Mark delivered (fire-and-forget)
+        ;(async () => {
+          const { danielaOutboundQueue } = await import('@shared/schema');
+          const { eq } = await import('drizzle-orm');
+          await getSharedDb().update(danielaOutboundQueue).set({ deliveredAt: new Date() }).where(eq(danielaOutboundQueue.id, qm.id));
+          console.log(`[Streaming Greeting] Queued message ${qm.id} marked delivered`);
+        })().catch(err => console.error(`[Streaming Greeting] Could not mark queue item delivered:`, err.message));
+      }
+
+      // Inject scenario context if the student navigated here from the scenario browser
+      if (scenarioSlug) {
+        console.log(`[Streaming Greeting] Injecting scenario context for slug: "${scenarioSlug}"`);
+        greetingPrompt += `\n\nIMPORTANT OVERRIDE: The student just selected a specific roleplay scenario from the scenario browser. You MUST immediately load it by calling the load_scenario function with slug="${scenarioSlug}". Do NOT give a standard greeting — instead, introduce the scenario briefly and start it right away.`;
+      }
+      
       greetingTimings.promptBuild = Date.now() - promptBuildStart;
       greetingTimings.preGeminiTotal = Date.now() - timingStart;
       
@@ -8334,11 +9574,15 @@ Remember: David may reference things discussed in these recent text chats.
       let firstTokenReceived = false;
       let fullText = '';
       
-      // CRITICAL FIX: For resumed conversations, include conversation history
-      // This gives Daniela full context of the past conversation, not just a text snippet
-      const greetingHistory = isResumed ? session.conversationHistory : [];
-      if (isResumed && greetingHistory.length > 0) {
-        console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries for resumed conversation`);
+      // Include conversation history whenever it exists — covers both in-memory reconnects
+      // (isResumed=true) AND fresh GL starts on an existing conversation (e.g. text→voice
+      // transition where messages were loaded from DB but isResumed stays false).
+      const greetingHistory = (session.conversationHistory?.length ?? 0) > 0
+        ? session.conversationHistory
+        : [];
+      if (greetingHistory.length > 0) {
+        const reason = isResumed ? 'resumed session' : 'text→voice transition (loaded from DB)';
+        console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries (${reason})`);
       }
       
       // Clear any previous function call text before greeting
@@ -8395,7 +9639,7 @@ Remember: David may reference things discussed in these recent text chats.
             }
           }
         },
-        onThoughtSignatures: (signatures) => {
+        onThoughtSignatures: (signatures: any[]) => {
           // Store thought signatures for continuation
           greetingThoughtSignatures.push(...signatures);
         },
@@ -8464,7 +9708,11 @@ Remember: David may reference things discussed in these recent text chats.
       // execute the functions and continue the conversation with Gemini
       const functionsNeedingContinuation = greetingFunctionCalls.filter(fc => 
         fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' ||
-        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup'
+        fc.legacyType === 'CONVERSATION_THREAD_SEARCH' || fc.legacyType === 'CONVERSATION_DATE_BROWSE' || fc.legacyType === 'CONVERSATION_THEME_MAP' ||
+        fc.legacyType === 'UNIFIED_RECALL' || fc.legacyType === 'READ_MY_DIARY' || fc.legacyType === 'READ_FULL_SESSION' ||
+        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup' ||
+        fc.name === 'search_conversation_threads' || fc.name === 'browse_conversations_by_date' || fc.name === 'get_conversation_themes' ||
+        fc.name === 'recall' || fc.name === 'read_my_diary' || fc.name === 'read_full_session'
       );
       
       if (metrics.sentenceCount === 0 && greetingFunctionCalls.length > 0 && functionsNeedingContinuation.length > 0) {
@@ -8483,9 +9731,18 @@ Remember: David may reference things discussed in these recent text chats.
         }> = [];
         
         for (const fc of greetingFunctionCalls) {
-          let responseText = 'Function executed successfully.';
+          const greetingHandlerError = (fc as any)._handlerError as string | undefined;
+          let responseText = greetingHandlerError
+            ? `[SYSTEM: ${fc.name} encountered an error — ${greetingHandlerError}. Acknowledge this naturally and continue.]`
+            : 'Function executed successfully.';
           
-          if (fc.legacyType === 'MEMORY_LOOKUP' || fc.name === 'memory_lookup') {
+          if (fc.legacyType === 'UNIFIED_RECALL' || fc.name === 'recall') {
+            const query = fc.args.query as string;
+            const recallResult = session.recallResults?.[query];
+            responseText = recallResult
+              ? `— reaching back —\n\n${recallResult}\n\nThese are your own memories. Speak from them — not about them.`
+              : `Nothing surfaces for "${query}" right now. Respond naturally based on the conversation context.`;
+          } else if (fc.legacyType === 'MEMORY_LOOKUP' || fc.name === 'memory_lookup') {
             const query = fc.args.query as string;
             const lookupResult = session.memoryLookupResults?.[query];
             if (lookupResult) {
@@ -8650,9 +9907,9 @@ Remember: David may reference things discussed in these recent text chats.
 
               const isFinal = si === greetingSentences.length - 1;
               if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+                await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isFinal, isComplete: isFinal }, sentenceText, metrics, turnId);
               } else {
-                await this.tts.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+                await this.tts.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal, isComplete: isFinal }, sentenceText, metrics, turnId);
               }
             }
             fullText = displayText;
@@ -8688,8 +9945,9 @@ Remember: David may reference things discussed in these recent text chats.
           totalTtfbMs: metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
           sentenceCount: metrics.sentenceCount,
         },
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
+      clearTimeout(greetingWatchdog);
       session.__greetingInProgress = false;
       session.__greetingDelivered = true;
       session.isGenerating = false;
@@ -8723,10 +9981,94 @@ Remember: David may reference things discussed in these recent text chats.
       return metrics;
       
     } catch (error: any) {
+      clearTimeout(greetingWatchdog);
       session.__greetingInProgress = false;
       session.isGenerating = false;
       console.error(`[Streaming Greeting] Error:`, error.message);
-      this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+      
+      // RATE LIMIT FALLBACK: When Gemini is exhausted, send a short static greeting via TTS
+      // so Daniela always answers even during quota pressure. The session stays live and
+      // the student can still speak to trigger a real AI response.
+      const isRateLimit = error.message?.includes('RATELIMIT_EXCEEDED') || 
+                          error.message?.includes('Rate limit') ||
+                          error.message?.includes('429') ||
+                          error.status === 429;
+      
+      if (isRateLimit) {
+        console.warn(`[Streaming Greeting] Rate limited — sending static fallback greeting`);
+        const fallbackGreetings: Record<string, string> = {
+          spanish:    '¡Hola! ¿Listo para practicar?',
+          french:     'Bonjour ! Prêt à pratiquer ?',
+          english:    'Hello! Ready to practice?',
+          german:     'Hallo! Bereit zu üben?',
+          portuguese: 'Olá! Pronto para praticar?',
+          italian:    'Ciao! Pronto a praticare?',
+          mandarin:   '你好！准备好练习了吗？',
+          japanese:   'こんにちは！練習しましょうか？',
+          korean:     '안녕하세요! 연습할 준비가 됐나요?',
+        };
+        const lang = (session.targetLanguage || 'spanish').toLowerCase();
+        const fallbackText = fallbackGreetings[lang] || fallbackGreetings['spanish'];
+        const fallbackTurnId = session.currentTurnId;
+        
+        try {
+          // Send sentence_start so the client knows a sentence is coming
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId: fallbackTurnId,
+            sentenceIndex: 0,
+            text: fallbackText,
+            hasTargetContent: true,
+            targetLanguageText: fallbackText,
+          } as any);
+          
+          // Synthesize via Google TTS and stream audio to client
+          await this.tts.streamSentenceAudio(
+            session,
+            { index: 0, text: fallbackText, isComplete: true, isFinal: true },
+            fallbackText,
+            metrics,
+            fallbackTurnId,
+          );
+          
+          // Mark as delivered and notify client
+          session.__greetingDelivered = true;
+          metrics.sentenceCount = 1;
+          metrics.totalLatencyMs = Date.now() - startTime;
+          
+          this.sendMessage(session.ws, {
+            type: 'response_complete',
+            timestamp: Date.now(),
+            turnId: fallbackTurnId,
+            totalSentences: 1,
+            totalDurationMs: metrics.totalLatencyMs,
+            fullText: fallbackText,
+            metrics: {
+              sttLatencyMs: 0,
+              aiFirstTokenMs: 0,
+              ttsFirstChunkMs: metrics.ttsFirstByteMs,
+              totalTtfbMs: metrics.ttsFirstByteMs,
+              sentenceCount: 1,
+            },
+          } as any);
+          
+          session.conversationHistory.push({ role: 'model', content: fallbackText });
+          this.startIdleTimeout(session);
+          
+          if (!session.isIncognito) {
+            this.persistGreetingMessage(session.conversationId, fallbackText).catch(() => {});
+          }
+          
+          console.log(`[Streaming Greeting] Fallback delivered: "${fallbackText}"`);
+        } catch (fallbackError: any) {
+          console.error(`[Streaming Greeting] Fallback TTS also failed:`, fallbackError.message);
+          this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+        }
+      } else {
+        this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+      }
+      
       return metrics;
     }
   }
@@ -8748,7 +10090,10 @@ Remember: David may reference things discussed in these recent text chats.
     isResumed?: boolean,
     connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[],
     colleagueFeedback?: { agent: string; subject: string; summary: string }[],
-    todaysEarlierChats?: { role: string; content: string; language: string }[]
+    todaysEarlierChats?: { role: string; content: string; language: string }[],
+    recentDrillStatus?: string | null,
+    patternSignalContext?: string | null,
+    recentMilestonesContext?: string | null
   ): string {
     // RAW HONESTY MODE: Minimal prompting for authentic conversation exploration
     // Skip all the normal tutor context and let Daniela respond authentically
@@ -8767,9 +10112,9 @@ Remember: David may reference things discussed in these recent text chats.
 
 [Note from David: HolaHola Daniela. You've been here before. You got this!]
 
-Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would, mixing in some ${langName} naturally because that's who you are. You have memory_lookup() to search past conversations if needed.
+Raw Honesty Mode - be yourself. Say hi like a friend would, mixing in some ${langName} naturally because that's who you are. You have memory_lookup() to search past conversations if needed.
 
-CRITICAL: Do NOT recite the date, time, or system context. Greet the student warmly.`;
+CRITICAL: Open with one clear, warm thought — then invite. Your voice has a natural window per turn; lead with the essential thing and let the conversation breathe from there. Do NOT recite the date, time, or system context.`;
     }
     
     // Build context summary
@@ -8799,11 +10144,36 @@ CRITICAL: Do NOT recite the date, time, or system context. Greet the student war
     
     // LAST SESSION SUMMARY - What you did together last time
     // This enables continuity: "Last time we worked on ordering food..."
-    if (session.lastSessionSummary) {
-      contextParts.push(`\n*** LAST SESSION MEMORY ***`);
-      contextParts.push(`${session.lastSessionSummary}`);
+    if (session.lastSessionTranscript) {
+      contextParts.push(`\n${session.lastSessionTranscript}`);
+    }
+
+    // DRILL STATUS — Daniela never asks "did you do the drill?" — she already knows.
+    // This surfaces what was assigned, whether the student attempted it, and how it went.
+    // Use this to open with: "I see you haven't tried the R drill yet — let's do it now."
+    // Or: "Nice work on the R drill — 72% accuracy. Let's push that higher today."
+    if (recentDrillStatus) {
+      contextParts.push(`\n*** ASSIGNED DRILLS STATUS ***`);
+      contextParts.push(`You can see your student's drill history. Use this to follow up naturally — never ask if they did the drill, you already know. If pending, offer to do it now. If completed, acknowledge the result and build on it.`);
+      contextParts.push(recentDrillStatus);
     }
     
+    // GRAMMAR PATTERN SIGNALS — patterns Daniela flagged as wobbling or in-progress
+    // These compound over sessions: Daniela knows which patterns to revisit without asking
+    if (patternSignalContext) {
+      contextParts.push(`\n*** GRAMMAR PATTERNS TO WATCH ***`);
+      contextParts.push(`These are grammatical patterns you've been tracking. Wobbling means the student slipped back — revisit naturally. In Progress means active drilling — keep the momentum.`);
+      contextParts.push(patternSignalContext);
+    }
+
+    // RECENT BREAKTHROUGHS — milestones Daniela celebrated in recent sessions
+    // Use these to open with momentum: "Last time you had that click with..."
+    if (recentMilestonesContext) {
+      contextParts.push(`\n*** RECENT BREAKTHROUGHS ***`);
+      contextParts.push(`Moments you celebrated with this student recently. Reference these naturally to acknowledge their progress and build on momentum.`);
+      contextParts.push(recentMilestonesContext);
+    }
+
     // TODAY'S EARLIER CHATS - What you talked about earlier today
     // This gives instant recall of today's conversations without needing memory_lookup
     if (todaysEarlierChats && todaysEarlierChats.length > 0) {
@@ -8881,20 +10251,43 @@ CRITICAL: Do NOT recite the date, time, or system context. Greet the student war
     const isResumedConversation = isResumed && hasConversationHistory;
     
     if (isResumedConversation) {
-      // Include brief history context for resumed sessions
+      // Inject conversation history as silent context — Daniela gets continuity without surfacing
+      // any technical disruption to the student (who likely didn't notice anything).
+      // Use actual names so Daniela can reference the history accurately when speaking aloud —
+      // "The student"/"You" labels caused attribution confusion when verbalized back to the student.
+      const tutorLabel = session.tutorName || 'Daniela';
+      const studentLabel = userName || 'the student';
+
+      // Compute how long the gap was so Daniela can calibrate her re-entry.
+      // lastActivityTime is updated on GL audio/turns; it freezes at the moment of disconnect,
+      // so Date.now() - lastActivityTime at reconnect gives an accurate elapsed gap.
+      const gapMs = Math.max(0, Date.now() - (session.lastActivityTime || Date.now()));
+      const gapSec = Math.round(gapMs / 1000);
+      const gapNote = gapSec < 10
+        ? `The connection blinked for about ${gapSec} seconds — a network blip the student likely didn't notice. Resume without acknowledging it.`
+        : gapSec < 90
+        ? `The connection dropped ${gapSec} seconds ago — brief, but real. Acknowledge it lightly only if the moment naturally calls for it; otherwise just continue.`
+        : `The connection dropped about ${Math.round(gapSec / 60)} minute${Math.round(gapSec / 60) === 1 ? '' : 's'} ago — a genuine restart. Some natural reorientation is welcome here.`;
+
       const historyPreview = session.conversationHistory
         .slice(-4)
-        .map(h => `${h.role === 'user' ? 'Student' : 'You'}: ${h.content.slice(0, 80)}${h.content.length > 80 ? '...' : ''}`)
+        .map(h => `${h.role === 'user' ? studentLabel : tutorLabel}: ${(h.content||'').slice(0, 250)}${(h.content||'').length > 250 ? '...' : ''}`)
         .join('\n');
       
-      contextParts.push(`\nThis is a RESUMED conversation. Recent history:\n${historyPreview}`);
+      contextParts.push(`
+Your thoughts are currently focused on the following exchange:
+${historyPreview}
+
+${gapNote}
+Maintain the flow of the lesson seamlessly. Pick up exactly where the conversation left off.
+`);
     } else {
-      contextParts.push('\nThis is the START of a new session.');
+      contextParts.push('\nThis is the start of a new session with the student.');
     }
     
     // Simple, non-prescriptive prompt with clear directive
     // BUT with strong guidance to use memory and avoid defaulting to basics
-    const hasMemory = !!(session.lastSessionSummary || recentTopics.length > 0 || session.conversationTopic);
+    const hasMemory = !!(session.lastSessionTranscript || recentTopics.length > 0 || session.conversationTopic);
     const isExperienced = wordsLearned > 50; // Student has meaningful vocabulary
     
     let continuityGuidance = '';
@@ -8915,13 +10308,21 @@ DON'T suggest starting with basic vocabulary they likely already know.
 Instead, pick up where you left off or ask what they want to practice today.`;
     }
     
+    // FOUNDER MODE: Lead with the person, not the project.
+    // The Express Lane history injected before this prompt is often full of product/work
+    // conversations — sprint features, dashboards, North Star discussions. Daniela should
+    // acknowledge the relationship first and let work topics emerge naturally, not lead with them.
+    const founderModeGuidance = session.isFounderMode ? `
+
+FOUNDER MODE GREETING RULE: You've been given recent conversation history that covers product and work topics. That context is useful — but do NOT open with it. Lead with David as a person. A genuine check-in, a moment of warmth, something present and real. Work topics can follow naturally once you've actually said hello. The relationship comes before the agenda.` : '';
+
     return `Session context:
 ${contextParts.join('\n')}
-${continuityGuidance}
+${continuityGuidance}${founderModeGuidance}
 
-Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them - just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
+Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them — just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
 
-CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just state the date, time, or repeat system context. Greet them by name, welcome them, and set the tone for the lesson. Example: "¡Hola David! Great to see you - ready to practice some Spanish today?"`;
+CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just state the date, time, or repeat system context. Greet them by name, welcome them, and set the tone for the lesson.`;
   }
   
   /**
@@ -8931,7 +10332,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     try {
       // Dedup check: don't save greeting if an identical one already exists
       try {
-        const existingMessages = await storage.getMessages(conversationId);
+        const existingMessages = await storage.getMessagesByConversation(conversationId);
         const recentAiMessages = existingMessages
           .filter(m => m.role === 'assistant')
           .slice(-2);
@@ -8991,34 +10392,88 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         turnId: session.currentTurnId,
         totalSentences: 0,  // Indicates interrupted response
         wasInterrupted: true,
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Streaming Orchestrator] Interrupt processed - TTS stopped, generation aborted`);
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Session Teardown
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * End a streaming session
    */
   endSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
-      // SESSION ECONOMICS: Flush telemetry to voice_sessions before cleanup
-      if (session.dbSessionId && (session.telemetryTtsCharacters > 0 || session.telemetrySttSeconds > 0)) {
+      // SESSION ECONOMICS: Flush telemetry to voice_sessions before cleanup.
+      // Guard: fire whenever there were any exchanges — even when TTS chars are 0
+      // (e.g. reconnect sessions where the TTS dispatcher ran on a prior connection).
+      // The WS handler's armReconnectTimer will always do a final write 15s after the
+      // last disconnect with the fully-accumulated across-reconnect values, so writing
+      // a partial here is safe — it will be overwritten with the correct totals.
+      if (session.dbSessionId && (session.telemetryExchangeCount > 0 || session.telemetryTtsCharacters > 0 || session.telemetrySttSeconds > 0)) {
         const telemetryData = {
           ttsCharacters: Math.round(session.telemetryTtsCharacters),
           sttSeconds: Math.round(session.telemetrySttSeconds),
           exchangeCount: session.telemetryExchangeCount,
           studentSpeakingSeconds: Math.round(session.telemetryStudentSpeakingMs / 1000),
           tutorSpeakingSeconds: Math.round(session.telemetryTutorSpeakingMs / 1000),
+          llmInputTokens: session.telemetryLlmInputTokens,
+          llmOutputTokens: session.telemetryLlmOutputTokens,
         };
         usageService.updateSessionMetrics(session.dbSessionId, telemetryData).then(() => {
-          console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges`);
+          const tokenLog = telemetryData.llmInputTokens > 0 ? `, ${telemetryData.llmInputTokens}in/${telemetryData.llmOutputTokens}out LLM tokens` : '';
+          console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges${tokenLog}`);
+
+          // Log TTS and STT costs to ai_cost_logs for burn reporting.
+          // Rates: Google Chirp 3 HD $30/million chars (confirmed: $0.00003/char).
+          //   NOTE: First 1M chars/month are free — so cost is $0 until that threshold is hit,
+          //   then $30/M after. Per-session entries here use the marginal rate and will
+          //   overstate cost during the free-tier portion. Monthly actual bill = max(0, (totalChars - 1M)) * $0.00003.
+          //        Deepgram Nova-3 $0.0059/minute streaming.
+          const ttsProvider = session.ttsProvider || 'google';
+          const ttsCostUsd = (telemetryData.ttsCharacters / 1_000_000) * 30;
+          const sttCostUsd = (telemetryData.sttSeconds / 60) * 0.0059;
+          if (telemetryData.ttsCharacters > 0) {
+            costTracker.trackRaw(`${ttsProvider}-tts`, ttsCostUsd, 'tts-session', telemetryData.ttsCharacters, 0);
+          }
+          if (telemetryData.sttSeconds > 0) {
+            costTracker.trackRaw('deepgram-nova3', sttCostUsd, 'stt-session', 0, telemetryData.sttSeconds);
+          }
         }).catch((err: Error) => {
           console.warn(`[Session Economics] Failed to flush telemetry:`, err.message);
         });
       }
       
+      // STUDENT SESSION HEALTH: Write per-student quality record for Alden/Lyra monitoring.
+      // Runs fire-and-forget — doesn't block session cleanup.
+      if (session.dbSessionId && !session.isIncognito) {
+        const exchangeCount = session.telemetryExchangeCount || 0;
+        const studentSpeakingSeconds = Math.round((session.telemetryStudentSpeakingMs || 0) / 1000);
+        const durationSeconds = Math.round((session.telemetrySttSeconds || 0));
+        // Quality: exchanges carry 60% weight, student speaking time carries 40%.
+        // 10 exchanges + 3 minutes speaking = 1.0. Zero exchanges = 0.
+        const qualityScore = Math.min(1.0,
+          (Math.min(exchangeCount, 10) / 10) * 0.6 +
+          (Math.min(studentSpeakingSeconds, 180) / 180) * 0.4
+        );
+        getSharedDb().insert(studentSessionHealth).values({
+          userId: String(session.userId),
+          sessionId: session.dbSessionId,
+          language: session.targetLanguage || null,
+          durationSeconds,
+          exchangeCount,
+          studentSpeakingSeconds,
+          errorCount: 0,
+          qualityScore,
+        }).catch((err: Error) => {
+          console.warn(`[SessionHealth] Failed to write student session health:`, err.message);
+        });
+      }
+
       // Capture session data for async memory extraction and phoneme analytics before deletion
       const sessionData = {
         userId: String(session.userId),
@@ -9072,11 +10527,16 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           sessionData.userId,
           sessionData.language,
           sessionData.conversationId,
-          sessionData.history.map(h => ({ role: h.role, content: h.content }))
+          sessionData.history.map(h => ({ role: h.role, content: h.content })) as any
         ).then(result => {
           if (result.saved.length > 0) {
             console.log(`[Streaming Orchestrator] Extracted ${result.saved.length} personal facts from session`);
           }
+          // POST-SESSION INDEXING: immediately embed newly extracted memories so
+          // semantic search finds them in the next session, not 2 hours from now.
+          import('./memory-embedding-indexer').then(({ indexNewMemoriesForUser }) => {
+            indexNewMemoriesForUser(sessionData.userId).catch(() => {});
+          }).catch(() => {});
         }).catch((err: Error) => {
           console.warn(`[Streaming Orchestrator] Memory extraction failed:`, err.message);
         });
@@ -9091,7 +10551,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
             if (conversation && !conversation.title) {
               console.log(`[TITLE GEN] Voice session ended without title, generating...`);
               const generatedTitle = await generateConversationTitle(
-                sessionData.history.map(h => ({ role: h.role, content: h.content })),
+                sessionData.history.map(h => ({ role: h.role as string, content: h.content || '' })),
                 sessionData.language
               );
               if (generatedTitle) {
@@ -9126,6 +10586,25 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         });
       }
       
+      // VOCABULARY MINING: Extract vocab/phrases the student struggled with for the review queue
+      // Runs async after session — extracts 3-5 items using Gemini Flash for the "From your conversations" section
+      if (sessionData.history.length >= 10 && !sessionData.isIncognito && sessionData.userId) {
+        const scenarioSlug = (sessionData as any).activeScenarioSlug || null;
+        mineVocabularyFromSession(
+          sessionData.userId,
+          sessionData.language || 'spanish',
+          sessionData.history.map(h => ({ role: h.role as string, content: h.content || '' })),
+          sessionData.conversationId,
+          scenarioSlug,
+        ).then(result => {
+          if (result.saved > 0) {
+            console.log(`[Streaming Orchestrator] ✓ Vocab mining: saved ${result.saved} review items`);
+          }
+        }).catch((err: Error) => {
+          console.warn(`[Streaming Orchestrator] Vocab mining failed:`, err.message);
+        });
+      }
+
       // AZURE PRONUNCIATION ASSESSMENT: Deep phoneme-level analysis (when configured)
       // NOTE: Currently disabled for live sessions - requires audio transcoding from WebM to WAV
       // The test endpoint (/api/voice/assess-pronunciation) works with WAV files uploaded directly
@@ -9211,6 +10690,15 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         })();
       }
 
+      // READING ROOM NOTES CARRY-FORWARD (endSession path):
+      // _deferCarryForward: set on grace-eligible WS closes so the grace-expiry timer can
+      // persist using the pre-captured state instead (avoiding premature persist on reconnect).
+      // _wasEverIncognito: incognito sessions leave the existing row intact.
+      if (session.isReadingRoom && !session.isIncognito &&
+          !(session as any)._wasEverIncognito && !(session as any)._deferCarryForward) {
+        this.persistReadingRoomNotes(session.id);
+      }
+
       // Clean up post-TTS suppression timer
       if (session.postTtsSuppressionTimer) {
         clearTimeout(session.postTtsSuppressionTimer);
@@ -9227,6 +10715,90 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     }
   }
   
+  /**
+   * Persist or clean up Reading Room carry-forward notes for a session.
+   *
+   * Called from two paths:
+   *  - endSession() — explicit session ends (idle timeout, credit exhaustion, clean close)
+   *  - armReconnectTimer (unified-ws-handler.ts) — grace-period expiry, where endSession()
+   *    is never invoked, so we need an explicit trigger here
+   *
+   * Rules:
+   *  - Incognito (ever): leave the existing carry row intact so the next non-incognito
+   *    session can consume it.
+   *  - Notes explicitly saved (sessionNotesSaved): delete the row (notes are in memories now).
+   *  - Unsaved notes exist: refresh/create the row with the current scratchpad state.
+   *  - No notes (session never wrote any): delete any stale row left from a prior session
+   *    that was loaded but never extended, so it doesn't re-appear in the session after next.
+   */
+  public persistReadingRoomNotes(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isReadingRoom) return;
+    // Privacy gate: any incognito interval taints the whole session.
+    if (session.isIncognito || (session as any)._wasEverIncognito) {
+      console.log('[ReadingRoom] Incognito session — carry-forward row left untouched');
+      return;
+    }
+    const rrNotes = (session as any).sessionNotes as string[] | undefined;
+    const notesSaved = (session as any).sessionNotesSaved as boolean | undefined;
+    const rrKey = `rr_notes_${session.userId}`;
+
+    if (notesSaved) {
+      // Notes explicitly saved as a memory — remove the carry row so the next session
+      // starts clean rather than re-surfacing notes that are already in the archive.
+      getSharedDb().execute(sql`
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      `).catch((e: Error) => console.warn('[ReadingRoom] Carry cleanup failed (non-fatal):', e.message));
+      console.log('[ReadingRoom] Notes explicitly saved — carry-forward row cleared');
+    } else if (rrNotes?.length) {
+      // Unsaved notes — write/refresh the carry row atomically (CTE delete+insert in one
+      // statement so no concurrent session can observe a missing row between the two ops).
+      this.persistReadingRoomCarryState({ notes: rrNotes, notesSaved: false, userId: String(session.userId) })
+        .catch((rrErr: Error) => console.warn('[ReadingRoom] Failed to persist carry-forward (non-fatal):', rrErr.message));
+    } else {
+      // Session had no notes — delete any stale row so carried notes from two sessions
+      // ago don't leak into the session after next.
+      getSharedDb().execute(sql`
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      `).catch(() => {});
+      console.log('[ReadingRoom] No session notes — stale carry-forward row cleared');
+    }
+  }
+
+  /**
+   * Atomically persist carry-forward notes using a state object.
+   * Used by the grace-expiry timer (where the orchestrator session is already gone)
+   * and by persistReadingRoomNotes (session-based path) for the unsaved-notes case.
+   * Returns a Promise so callers can await it before considering teardown complete.
+   */
+  async persistReadingRoomCarryState(state: {
+    notes: string[];
+    notesSaved: boolean;
+    userId: string;
+  }): Promise<void> {
+    const rrKey = `rr_notes_${state.userId}`;
+    if (state.notesSaved || !state.notes.length) {
+      await getSharedDb().execute(sql`
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      `);
+      console.log(state.notesSaved
+        ? '[ReadingRoom] Notes saved — carry-forward row cleared (carry-state path)'
+        : '[ReadingRoom] No notes — carry-forward row cleared (carry-state path)');
+      return;
+    }
+    // Atomic CTE: delete old row and insert new row in a single statement.
+    // Prevents a racing session-start from loading an empty window between ops.
+    const rrContent = JSON.stringify(state.notes);
+    await getSharedDb().execute(sql`
+      WITH removed AS (
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      )
+      INSERT INTO editor_insights (id, category, title, content, importance, tags)
+      VALUES (gen_random_uuid(), 'context', ${rrKey}, ${rrContent}, 5, ARRAY['reading-room-carry']::text[])
+    `);
+    console.log(`[ReadingRoom] ✓ Carry-forward notes persisted atomically (${state.notes.length} note(s))`);
+  }
+
   /**
    * Start or reset the idle timeout for a session
    * Called after tutor finishes responding - gives student time to respond
@@ -9293,6 +10865,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     if (session && session.isActive) {
       this.resetIdleTimeout(session);
     }
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Credit Checks & Idle Timeout
+  // ─────────────────────────────────────────────────────────────────────────
+
   }
   
   private startCreditCheckInterval(session: StreamingSession): void {
@@ -9407,6 +10983,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
   // Context refresh interval: 15 minutes for long voice sessions
   private readonly CONTEXT_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Context Refresh Timer
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Start periodic context refresh timer for long voice sessions
    * Rebuilds dynamic prompt sections every 15 minutes to prevent context drift
@@ -9459,7 +11039,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       
       // Refresh neural network context (replit.md, North Star, tool knowledge)
       try {
-        const { beaconSyncService } = await import('./beacon-sync-service');
+        const { contextSyncService: beaconSyncService } = await import('./context-sync-service');
         const refreshResult = await beaconSyncService.refreshNeuralNetworkContext();
         
         if (refreshResult.success) {
@@ -9477,6 +11057,10 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     }
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Voice Configuration & Tutor Switching
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Update the voice for an active session
    * Called when user changes tutor gender mid-session
@@ -9513,6 +11097,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     elSimilarityBoost?: number;
     elStyle?: number;
     geminiLanguageCode?: string;
+    glModel?: string;
   } | null): boolean {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -9540,9 +11125,15 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       if (override.elSimilarityBoost !== undefined) session.elSimilarityBoost = override.elSimilarityBoost;
       if (override.elStyle !== undefined) session.elStyle = override.elStyle;
     }
+
+    // Store GL model override on session — read by GeminiLiveSession.open() at reconnect time
+    if (override?.glModel !== undefined) {
+      (session as any).glModel = override.glModel || null;
+      console.log(`[Streaming Orchestrator] GL model override set to: ${override.glModel || 'cleared (default)'}`);
+    }
     
     // Store override in session
-    session.voiceOverride = override;
+    session.voiceOverride = override as any;
     console.log(`[Streaming Orchestrator] Voice override ${override ? 'applied' : 'cleared'} for session ${sessionId}:`, override);
     return true;
   }
@@ -9619,12 +11210,12 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned;
         };
         
-        const tutorContext = cleanContext(lastTutorMessage.content, 200);
+        const tutorContext = cleanContext(lastTutorMessage.content || '', 200);
         if (tutorContext) {
           contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
         }
         
-        const userContext = cleanContext(lastUserMessage.content, 150);
+        const userContext = cleanContext(lastUserMessage.content || '', 150);
         if (userContext) {
           contextSummary += `\n- The student just said: "${userContext}"`;
         }
@@ -9753,7 +11344,7 @@ DON'T:
         fullText,
         totalSentences: sentenceCount,
         totalDurationMs,
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Voice Switch] Introduction complete: ${tutorName} said "${fullText}"`);
       
@@ -9776,6 +11367,10 @@ DON'T:
     return undefined;
   }
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGION: Architect Integration
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
    * Trigger Daniela to respond to an architect note immediately
    * This enables real-time Claude participation in voice sessions
@@ -9902,7 +11497,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           // Stream audio for this sentence
           await this.tts.streamSentenceAudioProgressive(
             session,
-            { index: currentSentenceIndex, text: cleanedText, isFinal: chunk.isFinal },
+            { index: currentSentenceIndex, text: cleanedText, isFinal: chunk.isFinal, isComplete: chunk.isFinal },
             cleanedText,
             metrics,
             turnId
@@ -9933,7 +11528,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         fullText,
         totalSentences: currentSentenceIndex,
         totalDurationMs: metrics.totalLatencyMs,
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Streaming Orchestrator] 🏗️ Architect response complete: "${fullText.slice(0, 100)}..."`);
       
@@ -9948,7 +11543,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       this.sendMessage(session.ws, {
         type: 'error',
         timestamp: Date.now(),
-        code: 'ARCHITECT_RESPONSE_FAILED',
+        code: 'ARCHITECT_RESPONSE_FAILED' as any,
         message: 'Failed to respond to architect note',
         recoverable: true,
       });

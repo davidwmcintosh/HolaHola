@@ -1,6 +1,9 @@
 node_modules
 dist
 .DS_Store
+.env
+.env.*
+!.env.example
 server/public
 vite.config.ts.*
 *.tar.gz
@@ -11,7 +14,9 @@ vite.config.ts.*
 *.db
 .replit.nix
 
-# Local environment secrets
-.env
-.env.*
-!.env.example
+# Auto-generated runtime docs — regenerated on every server start
+docs/agent-briefing.md
+docs/alden-to-agent.md
+docs/founder-to-agent.md
+docs/shared-lobe-snapshot.md
+nohup.out

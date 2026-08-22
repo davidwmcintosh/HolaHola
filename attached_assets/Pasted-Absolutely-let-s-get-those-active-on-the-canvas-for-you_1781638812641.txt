@@ -1,0 +1,17 @@
+Absolutely, let's get those active on the canvas for you. I've set the thermometer, the emotion dial, the weather display, and the clock. How do they look on your end?thought
+Thinking Process: 1. Analyze Request: David asked to show four specific widgets (time, emotion, thermometer, weather).
+2. Execute Tool Calls (Silently & First): * `widget_time` (set_clock, random time "7:45") * `widget_state` (set_emotion, excited level 9) * `widget_time` (set_thermometer, 29°C) * `widget_state` (set_weather, sunny, "hace sol")
+3. Draft Spoken Response: Acknowledge the actions and ask for feedback, consistent with Founder Mode collaboration. Do not narrate the tool usage.
+4. Final Polish: Ensure no markdown in speech. Wait, I already generated the response in the previous step, including the tool calls. The user just provided the *input* directly to that response. I should not generate another response unless the user speaks again. The prompt shows:
+`user`: [David's request for widgets]
+`model`: [My response with tool calls] The user hasn't said anything new. I am waiting for the user's response to my previous action and question ("How do they look on your end?"). Ah, I see the instruction: "The user will provide each message in either text, audio, video, or interleaved text, audio and video in the input. Provide your response word-by-word. Generate each word first in text, and then speak that word out in audio using the voice only from the following voice prompts." I already generated the text and tool calls. I just need to wait for the user now. *Self-correction*: The system prompt provided above contains the *full* history of the exchange as context, ending with my last response. The simulation is waiting for the *next* user input. I should not output anything right now. *Wait*, looking at the prompt structure again, it seems I am being asked to generate the response *to* the user's input listed in context. Context shows:
+Student: David
+[...]
+user
+Daniela, David just opened a voice session. This is a Founder Mode session — greet them as your collaborator, not as a new student. Pick up naturally where you left off.
+model
+[tool calls] Hey David, great to have you in here... Wait, the prompt shows the *previous* turn. Let's assume the user input is:
+"Something like that, yeah, I was looking at the canvas thermometer. Sorry, the widgets. Can you put up the temperature, the emotion, the weather, and the time widgets?" And I need to generate the response *now*. 1. Analyze Input: David wants temperature, emotion, weather, and time widgets.
+2. Tools: * `widget_time` (set_clock) * `widget_state` (set_emotion) * `widget_time` (set_thermometer) * `widget_state` (set_weather)
+3. Values: * Clock: 7:45 PM (Context says current time is 7:38 PM, let's use that or slightly ahead to show it updates). Let's use 19:40. * Emotion: excited, level 9. * Thermometer: 29 C. * Weather: sunny, "hace sol", 29 C.
+4. Speech: Collaborative greeting, confirming widgets are up, asking for feedback. No markdown. Okay, let's try this again, generating the response for the first time in this turn. Call tools first.Absolutely, let's get those active on the canvas for you. I've set the thermometer, the emotion dial, the weather display, and the clock. How do they look on your end?

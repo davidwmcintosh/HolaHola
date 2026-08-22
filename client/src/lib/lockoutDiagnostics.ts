@@ -80,6 +80,9 @@ interface DiagnosticSnapshot {
     timeSinceResponseComplete: number | null;
     timeSinceFirstAudio: number | null;
     timeSinceConnect: number | null;
+    avgTurnLatencyMs: number | null;
+    p95TurnLatencyMs: number | null;
+    turnLatencySampleCount: number;
     failsafeTier: string | null;
   };
 
@@ -99,6 +102,9 @@ declare global {
       responseCompleteTimestamp: number | null;
       firstAudioTimestamp: number | null;
       connectTimestamp: number | null;
+      speechEndTimestamp: number | null;   // When user finished speaking (PTT release / VAD end)
+      turnLatencySamples: number[];        // Rolling per-turn latency samples (ms): speech_end → first_audio
+      lastLatencyReportAt: number;         // Timestamp of last latency_snapshot report sent to backend
       timeline: TimelineEvent[];
       isProcessingFn: (() => boolean) | null;
       pendingAudioCountFn: (() => number) | null;
@@ -141,6 +147,9 @@ function getDiagStore() {
       responseCompleteTimestamp: null,
       firstAudioTimestamp: null,
       connectTimestamp: null,
+      speechEndTimestamp: null,
+      turnLatencySamples: [],
+      lastLatencyReportAt: 0,
       timeline: [],
       isProcessingFn: null,
       pendingAudioCountFn: null,
@@ -201,12 +210,38 @@ export function diagMarkConnect() {
   diagEvent('session_connect');
 }
 
+// Minimum interval between automatic latency snapshot reports (5 minutes)
+const LATENCY_REPORT_INTERVAL_MS = 5 * 60 * 1000;
+// Minimum turn samples needed before sending a latency report
+const LATENCY_MIN_SAMPLES = 3;
+
 export function diagMarkFirstAudio() {
   const store = getDiagStore();
   if (!store.firstAudioTimestamp) {
-    store.firstAudioTimestamp = Date.now();
-    const latency = store.connectTimestamp ? Date.now() - store.connectTimestamp : null;
-    diagEvent('first_audio', { latencyMs: latency });
+    const now = Date.now();
+    store.firstAudioTimestamp = now;
+    const greetingLatencyMs = store.connectTimestamp ? now - store.connectTimestamp : null;
+    // Per-turn E2E latency: speech_end → first_audio_chunk (the real UX latency)
+    const turnLatencyMs = store.speechEndTimestamp ? now - store.speechEndTimestamp : null;
+    if (turnLatencyMs !== null) {
+      store.turnLatencySamples.push(turnLatencyMs);
+      if (store.turnLatencySamples.length > 20) store.turnLatencySamples.shift(); // rolling window
+
+      // Periodically snapshot latency to the backend for Sofia health monitoring.
+      // Fires at most once per LATENCY_REPORT_INTERVAL_MS and only when we have
+      // enough samples to compute a meaningful p95.
+      const enoughSamples = store.turnLatencySamples.length >= LATENCY_MIN_SAMPLES;
+      const cooldownElapsed = (now - store.lastLatencyReportAt) >= LATENCY_REPORT_INTERVAL_MS;
+      if (enoughSamples && cooldownElapsed) {
+        store.lastLatencyReportAt = now;
+        const snapshot = captureSnapshot('latency_snapshot');
+        void sendSnapshot(snapshot);
+      }
+    }
+    diagEvent('first_audio', {
+      latencyMs: greetingLatencyMs,
+      turnLatencyMs,
+    });
   }
 }
 
@@ -220,10 +255,17 @@ export function diagMarkDisconnect(reason?: string) {
   diagEvent('disconnect', { reason });
 }
 
+export function diagMarkSpeechEnd(source: 'ptt' | 'vad') {
+  const store = getDiagStore();
+  store.speechEndTimestamp = Date.now();
+  diagEvent('speech_end', { source });
+}
+
 export function diagMarkTurnStart() {
   const store = getDiagStore();
   store.responseCompleteTimestamp = null;
   store.firstAudioTimestamp = null;
+  store.speechEndTimestamp = null;
   diagEvent('turn_start');
 }
 
@@ -341,6 +383,14 @@ function captureSnapshot(trigger: string): DiagnosticSnapshot {
       timeSinceConnect: store.connectTimestamp
         ? Date.now() - store.connectTimestamp
         : null,
+      // E2E turn latency: speech_end → first_audio (the real UX latency users feel)
+      avgTurnLatencyMs: store.turnLatencySamples.length > 0
+        ? Math.round(store.turnLatencySamples.reduce((a, b) => a + b, 0) / store.turnLatencySamples.length)
+        : null,
+      p95TurnLatencyMs: store.turnLatencySamples.length >= 3
+        ? (() => { const s = [...store.turnLatencySamples].sort((a, b) => a - b); return s[Math.floor(s.length * 0.95)]; })()
+        : null,
+      turnLatencySampleCount: store.turnLatencySamples.length,
       failsafeTier: null,
     },
 
@@ -406,7 +456,11 @@ export function startLockoutWatchdog(): ReturnType<typeof setTimeout> {
 
     const isProc = store.isProcessingFn?.() ?? false;
     const playbackState = window.__playbackStateStore?.state;
-    if (isProc && playbackState !== 'playing') {
+    // Only fire if Daniela has no active output state. 'thinking' means she is
+    // generating a response; 'buffering' means audio is arriving but not yet playing.
+    // Both are expected periods of mic silence and should not trigger the watchdog.
+    const activeOutputStates = ['playing', 'thinking', 'buffering'];
+    if (isProc && !activeOutputStates.includes(playbackState ?? '')) {
       reportDiagnostic('lockout_watchdog_8s');
     }
   }, 8000);

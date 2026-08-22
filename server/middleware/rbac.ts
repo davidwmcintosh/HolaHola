@@ -1,6 +1,7 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { User } from "../../shared/schema";
 import crypto from "crypto";
+import { touchFounderPresence } from "../services/founder-presence";
 
 // Role hierarchy: admin > developer > teacher > student
 const roleHierarchy = {
@@ -27,10 +28,24 @@ export interface AuthenticatedRequest extends Request {
  * Middleware to require a minimum role level
  * Usage: app.get('/api/admin/users', requireRole('admin'), handler)
  */
-export function requireRole(minRole: UserRole) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function requireRole(...minRoles: UserRole[]): RequestHandler {
+  const minRole = minRoles[0];
+  return async (req: any, res: Response, next: NextFunction) => {
     try {
-      // User must be authenticated
+      // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
+      const sessionUserId = (req.session as any)?.userId;
+      if (sessionUserId) {
+        if (!req.authenticatedUser) {
+          return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
+        }
+        const userRole = req.authenticatedUser.role as UserRole;
+        if (roleHierarchy[userRole] < roleHierarchy[minRole]) {
+          return res.status(403).json({ error: "Insufficient permissions", required: minRole, current: userRole });
+        }
+        return next();
+      }
+
+      // OIDC / Replit Auth path
       if (!req.user?.claims?.sub) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -63,8 +78,8 @@ export function requireRole(minRole: UserRole) {
  * Middleware to allow specific roles (OR condition)
  * Usage: app.get('/api/content', allowRoles(['teacher', 'admin']), handler)
  */
-export function allowRoles(allowedRoles: UserRole[]) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
+  return async (req: any, res: Response, next: NextFunction) => {
     try {
       // User must be authenticated
       if (!req.user?.claims?.sub) {
@@ -100,8 +115,8 @@ export function allowRoles(allowedRoles: UserRole[]) {
  * Should run after isAuthenticated middleware
  * This populates req.authenticatedUser with full user object including role
  */
-export function loadAuthenticatedUser(storage: any) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function loadAuthenticatedUser(storage: any): RequestHandler {
+  return async (req: any, res: Response, next: NextFunction) => {
     try {
       // Skip if not authenticated - check both password auth and OIDC
       const userId = (req.session as any)?.userId || req.user?.claims?.sub;
@@ -205,20 +220,33 @@ export function isFounder(user: User | undefined): boolean {
  * Middleware to require founder access only
  * Usage: app.get('/api/admin/voice-health', requireFounder, handler)
  */
-export function requireFounder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function requireFounder(req: Request, res: Response, next: NextFunction) {
+  const _req = req as AuthenticatedRequest;
   try {
-    if (!req.user?.claims?.sub) {
+    // Password auth path: session.userId set directly (covers AI browser + password login)
+    const sessionUserId = (req.session as any)?.userId;
+    if (sessionUserId === FOUNDER_USER_ID) {
+      if (!_req.authenticatedUser) {
+        return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
+      }
+      touchFounderPresence();
+      return next();
+    }
+
+    // OIDC / Replit Auth path
+    if (!_req.user?.claims?.sub) {
       return res.status(401).json({ error: "Authentication required" });
     }
     
-    if (!req.authenticatedUser) {
+    if (!_req.authenticatedUser) {
       return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
     }
     
-    if (req.authenticatedUser.id !== FOUNDER_USER_ID) {
+    if (_req.authenticatedUser.id !== FOUNDER_USER_ID) {
       return res.status(403).json({ error: "Founder access required" });
     }
-    
+
+    touchFounderPresence();
     next();
   } catch (error) {
     console.error("[RBAC] Error in requireFounder middleware:", error);
@@ -330,4 +358,30 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
     logAgentAction('auth_error', req.path, false, String(error));
     return res.status(500).json({ error: 'Agent authorization check failed' });
   }
+}
+
+/**
+ * Dual-auth: agent token OR founder session — whichever comes first wins.
+ * Used for monitoring endpoints that Luca (agent) reads directly but founders
+ * can also access via browser.
+ * Usage: app.get('/api/admin/live-monitor', requireFounderOrAgent, handler)
+ */
+export function requireFounderOrAgent(req: Request, res: Response, next: NextFunction) {
+  // Fast path: valid agent token → pass through without needing a session
+  try {
+    const providedToken = req.headers['x-agent-token'] as string;
+    if (providedToken && REPLIT_AGENT_TOKEN && providedToken.length === REPLIT_AGENT_TOKEN.length) {
+      const tokenBuffer = Buffer.from(providedToken);
+      const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN);
+      if (crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
+        logAgentAction('auth_success', req.path, true);
+        return next();
+      }
+    }
+  } catch {
+    // fall through to founder check
+  }
+
+  // Founder session path
+  return requireFounder(req, res, next);
 }

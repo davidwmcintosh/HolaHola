@@ -30,7 +30,7 @@ import {
   type UserMotivationAlert,
   type LearnerPersonalFact,
 } from '@shared/schema';
-import { eq, and, desc, sql, gte, ilike, or, count, ne } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, ilike, or, count, ne, isNull } from 'drizzle-orm';
 import { storage } from '../storage';
 import { neuralNetworkSync } from './neural-network-sync';
 import crypto from 'crypto';
@@ -445,14 +445,14 @@ export class StudentLearningService {
       .where(
         and(
           eq(learnerPersonalFacts.studentId, studentId),
-          eq(learnerPersonalFacts.isActive, true),
+          isNull(learnerPersonalFacts.validTo),
           or(
             eq(learnerPersonalFacts.language, language),
             sql`${learnerPersonalFacts.language} IS NULL`
           )
         )
       )
-      .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+      .orderBy(desc(learnerPersonalFacts.mentionCount), desc(learnerPersonalFacts.lastMentionedAt));
     
     // Aggregate effective strategies across all struggles
     const effectiveStrategies = new Set<string>();
@@ -718,11 +718,12 @@ export class StudentLearningService {
     ].filter(Boolean).join('\n');
     
     await getSharedDb().insert(hiveSnapshots).values({
+      title: `Breakthrough: ${struggleArea}`,
       snapshotType: 'breakthrough',
       userId: studentId,
       language,
       content,
-      importance: occurrenceCount >= 5 ? 'high' : occurrenceCount >= 3 ? 'medium' : 'low',
+      importance: occurrenceCount >= 5 ? 10 : occurrenceCount >= 3 ? 7 : 4,
       metadata: {
         struggleArea,
         description,
@@ -2264,7 +2265,7 @@ export class StudentLearningService {
         and(
           eq(learnerPersonalFacts.studentId, input.studentId),
           eq(learnerPersonalFacts.factType, input.factType),
-          eq(learnerPersonalFacts.isActive, true)
+          isNull(learnerPersonalFacts.validTo)
         )
       );
     
@@ -2302,6 +2303,37 @@ export class StudentLearningService {
       return updated;
     }
     
+    // ── Mem0-style conflict resolution ────────────────────────────────────────
+    // Trigram similarity found no duplicates, but the new fact may still
+    // CONTRADICT an existing one (e.g., "Austin" vs "Dallas" for location).
+    // For stateful and time-sensitive fact types, ask an LLM to classify
+    // the relationship and act accordingly (add/update/merge/skip).
+    const { needsConflictResolution, resolveMemoryConflict, applyConflictResolution } =
+      await import('./memory-conflict-resolver');
+
+    if (needsConflictResolution(input.factType) && existingFacts.length > 0) {
+      const candidates = existingFacts.map(f => ({
+        id: f.id,
+        fact: f.fact,
+        mentionCount: f.mentionCount ?? 0,
+        lastMentionedAt: f.lastMentionedAt ? new Date(f.lastMentionedAt) : null,
+      }));
+
+      const decision = await resolveMemoryConflict(input.fact, input.factType, candidates);
+      const { shouldSave, resolvedFact } = await applyConflictResolution(decision);
+
+      if (!shouldSave) {
+        // Duplicate detected by LLM — return the existing fact rather than creating a new one
+        return existingFacts[0];
+      }
+
+      // Use merged text if provided, otherwise use original
+      if (resolvedFact) {
+        input = { ...input, fact: resolvedFact };
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    
     // Create new fact - use passed confidence or default to 0.8
     const confidence = input.confidenceScore ?? 0.8;
     
@@ -2323,6 +2355,8 @@ export class StudentLearningService {
         mentionCount: 1,
         lastMentionedAt: new Date(),
         isActive: true,
+        validFrom: new Date(),
+        validTo: null,
       })
       .returning();
     
@@ -2340,7 +2374,7 @@ export class StudentLearningService {
    */
   private async syncToHiveSnapshot(fact: LearnerPersonalFact): Promise<void> {
     // Only sync high-confidence facts (>= 0.75)
-    if (fact.confidenceScore < 0.75) return;
+    if ((fact.confidenceScore ?? 0) < 0.75) return;
     
     // Only sync meaningful fact types
     const meaningfulTypes = ['life_event', 'goal', 'travel', 'work', 'family'];
@@ -2358,7 +2392,7 @@ export class StudentLearningService {
         title: `${fact.factType}: ${fact.fact.slice(0, 50)}`,
         content: fact.fact,
         context: fact.context || `Extracted from conversation`,
-        importance: Math.round(fact.confidenceScore * 10), // Convert to 1-10 scale
+        importance: Math.round((fact.confidenceScore ?? 0) * 10), // Convert to 1-10 scale
         metadata: {
           personalFactId: fact.id,
           factType: fact.factType,
@@ -2383,7 +2417,7 @@ export class StudentLearningService {
   ): Promise<LearnerPersonalFact[]> {
     const conditions = [
       eq(learnerPersonalFacts.studentId, studentId),
-      eq(learnerPersonalFacts.isActive, true),
+      isNull(learnerPersonalFacts.validTo),
     ];
     
     if (language) {
@@ -2399,7 +2433,7 @@ export class StudentLearningService {
       .select()
       .from(learnerPersonalFacts)
       .where(and(...conditions))
-      .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+      .orderBy(desc(learnerPersonalFacts.mentionCount), desc(learnerPersonalFacts.lastMentionedAt));
   }
   
   /**
@@ -2415,7 +2449,7 @@ export class StudentLearningService {
       .where(
         and(
           eq(learnerPersonalFacts.studentId, studentId),
-          eq(learnerPersonalFacts.isActive, true),
+          isNull(learnerPersonalFacts.validTo),
           gte(learnerPersonalFacts.relevantDate, now),
           sql`${learnerPersonalFacts.relevantDate} <= ${threeMonthsFromNow.toISOString()}`
         )
@@ -2919,13 +2953,22 @@ export class StudentLearningService {
     
     const timeline: DrillProgressEntry[] = [];
     
+    const phonemeLabel = (row: { description?: string | null; specificExamples?: string | null }): string => {
+      const extracted = this.extractPhonemeFromDescription(row.description || '');
+      if (extracted) return extracted;
+      const raw = (row.description && row.description !== 'Pronunciation challenge')
+        ? row.description
+        : (row.specificExamples || 'Pronunciation pattern');
+      return raw.length > 50 ? raw.slice(0, 50) + '…' : raw;
+    };
+
     // Add breakthrough entries
     for (const b of breakthroughs) {
-      const extractedPhoneme = this.extractPhonemeFromDescription(b.description || '');
-      if (phoneme && extractedPhoneme !== phoneme) continue;
+      const label = phonemeLabel(b);
+      if (phoneme && label !== phoneme) continue;
       
       timeline.push({
-        phoneme: extractedPhoneme || 'unknown',
+        phoneme: label,
         status: 'mastered',
         date: b.resolvedAt || b.updatedAt || new Date(),
         daysToMastery: b.timeToMasteryDays || 0,
@@ -2936,15 +2979,15 @@ export class StudentLearningService {
     
     // Add active struggle entries
     for (const a of activeStruggles) {
-      const extractedPhoneme = this.extractPhonemeFromDescription(a.description || '');
-      if (phoneme && extractedPhoneme !== phoneme) continue;
+      const label = phonemeLabel(a);
+      if (phoneme && label !== phoneme) continue;
       
       const daysSinceStart = a.createdAt 
         ? Math.round((Date.now() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
       
       timeline.push({
-        phoneme: extractedPhoneme || 'unknown',
+        phoneme: label,
         status: 'in_progress',
         date: a.lastOccurredAt || a.createdAt || new Date(),
         daysInProgress: daysSinceStart,

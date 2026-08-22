@@ -1,4 +1,4 @@
-# LinguaFlow Administrator Backend Guide
+# HolaHola Administrator Backend Guide
 
 **Last Updated:** December 1, 2025  
 **For:** System Administrators and Backend Database Managers
@@ -37,7 +37,7 @@ This guide is for administrators who need to:
 
 - Access to the PostgreSQL database
 - Familiarity with SQL queries
-- Understanding of the LinguaFlow data model
+- Understanding of the HolaHola data model
 
 ### Database Access
 
@@ -163,13 +163,13 @@ npm run db:push --force
 
 ```bash
 # Full database backup
-pg_dump $DATABASE_URL > linguaflow_backup_$(date +%Y%m%d).sql
+pg_dump $DATABASE_URL > holahola_backup_$(date +%Y%m%d).sql
 
 # Specific table backup
 pg_dump $DATABASE_URL -t users > users_backup.sql
 
 # Restore from backup
-psql $DATABASE_URL < linguaflow_backup_20251124.sql
+psql $DATABASE_URL < holahola_backup_20251124.sql
 ```
 
 ---
@@ -1683,7 +1683,7 @@ When reporting system issues, include:
 
 ### Overview
 
-LinguaFlow tracks learner proficiency using ACTFL World-Readiness Standards with real-time FACT criteria assessment.
+HolaHola tracks learner proficiency using ACTFL World-Readiness Standards with real-time FACT criteria assessment.
 
 ### Viewing ACTFL Progress
 
@@ -1804,4 +1804,4 @@ Users need 70%+ pronunciation confidence for Novice Low (higher for advanced lev
 ---
 
 **Last Updated:** November 28, 2025  
-**Maintainer:** LinguaFlow Development Team
+**Maintainer:** HolaHola Development Team

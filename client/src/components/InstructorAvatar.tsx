@@ -10,10 +10,11 @@ export type AvatarState = "idle" | "listening" | "speaking" | "thinking";
 interface InstructorAvatarProps {
   state: AvatarState;
   openMicState?: OpenMicState;  // For more granular visual feedback
+  showListeningPatience?: boolean;  // true → student paused mid-thought; show "Take your time..."
   className?: string;
 }
 
-export function InstructorAvatar({ state, openMicState, className = "" }: InstructorAvatarProps) {
+export function InstructorAvatar({ state, openMicState, showListeningPatience = false, className = "" }: InstructorAvatarProps) {
   const [currentImage, setCurrentImage] = useState(idleImage);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -86,9 +87,20 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
           </div>
         )}
 
+        {/* Patience indicator — student paused mid-thought; Daniela is still waiting */}
+        {/* Shows when student was speaking but has gone quiet (before 3s turn-end fires) */}
+        {isActivelyListening && showListeningPatience && (
+          <div className="absolute -top-2 -right-2 z-10">
+            <div className="bg-amber-500 text-white rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              Take your time...
+            </div>
+          </div>
+        )}
+
         {/* Green light indicator - shows when ready to listen OR actively listening */}
         {/* Green = "Your turn to speak" invitation (ready) OR "I hear you" (listening) */}
-        {showGreenLight && (
+        {showGreenLight && !showListeningPatience && (
           <div className="absolute -top-2 -right-2 z-10">
             <div className={`rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1 ${
               isActivelyListening 
@@ -155,7 +167,8 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
         <p className="text-sm text-muted-foreground font-medium">
           {/* When openMicState is provided, use specific labels based on openMicState alone */}
           {openMicState === 'ready' && "Go ahead, I'm listening"}
-          {openMicState === 'listening' && "I hear you..."}
+          {openMicState === 'listening' && !showListeningPatience && "I hear you..."}
+          {openMicState === 'listening' && showListeningPatience && "Take your time..."}
           {openMicState === 'processing' && "Let me think..."}
           {openMicState === 'idle' && "Ready to help"}
           {/* Legacy behavior when openMicState is not provided */}

@@ -1,0 +1,38 @@
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+Welcome to Cloud Shell! Type "help" to get started, or type "gemini" to try prompting with Gemini CLI.
+Your Cloud Platform project in this session is set to language-tutor-478919.
+Use `gcloud config set project [PROJECT_ID]` to change to a different project.
+davidwmcintosh@cloudshell:~ (language-tutor-478919)$ gsutil mb -p language-tutor-478919 -l us-central1 gs://holahola-fine-tuning/
+Google recommends using Gcloud storage CLI (https://docs.cloud.google.com/storage/docs/discover-object-storage-gcloud) instead of gsutil. Please refer to migration guide (https://docs.cloud.google.com/storage/docs/gsutil-transition-to-gcloud) for assistance.
+Creating gs://holahola-fine-tuning/...
+davidwmcintosh@cloudshell:~ (language-tutor-478919)$ gunzip fine-tuning-export-2026-05-06.jsonl.gz
+gsutil cp fine-tuning-export-2026-05-06.jsonl gs://holahola-fine-tuning/daniela/
+gzip: fine-tuning-export-2026-05-06.jsonl.gz: No such file or directory
+Google recommends using Gcloud storage CLI (https://docs.cloud.google.com/storage/docs/discover-object-storage-gcloud) instead of gsutil. Please refer to migration guide (https://docs.cloud.google.com/storage/docs/gsutil-transition-to-gcloud) for assistance.
+CommandException: No URLs matched: fine-tuning-export-2026-05-06.jsonl
+davidwmcintosh@cloudshell:~ (language-tutor-478919)$ gunzip fine-tuning-export-2026-05-06.jsonl.gz
+gsutil cp fine-tuning-export-2026-05-06.jsonl gs://holahola-fine-tuning/daniela/
+gzip: fine-tuning-export-2026-05-06.jsonl.gz: No such file or directory
+Google recommends using Gcloud storage CLI (https://docs.cloud.google.com/storage/docs/discover-object-storage-gcloud) instead of gsutil. Please refer to migration guide (https://docs.cloud.google.com/storage/docs/gsutil-transition-to-gcloud) for assistance.
+Copying file://fine-tuning-export-2026-05-06.jsonl [Content-Type=application/octet-stream]...
+- [1 files][  3.6 MiB/  3.6 MiB]                                                
+Operation completed over 1 objects/3.6 MiB.                                      
+davidwmcintosh@cloudshell:~ (language-tutor-478919)$ gunzip fine-tuning-export-2026-05-06.jsonl.gz
+gsutil cp fine-tuning-export-2026-05-06.jsonl gs://holahola-fine-tuning/daniela/
+gzip: fine-tuning-export-2026-05-06.jsonl.gz: No such file or directory
+Google recommends using Gcloud storage CLI (https://docs.cloud.google.com/storage/docs/discover-object-storage-gcloud) instead of gsutil. Please refer to migration guide (https://docs.cloud.google.com/storage/docs/gsutil-transition-to-gcloud) for assistance.
+Copying file://fine-tuning-export-2026-05-06.jsonl [Content-Type=application/octet-stream]...
+| [1 files][  3.6 MiB/  3.6 MiB]                                                
+Operation completed over 1 objects/3.6 MiB.                                      
+davidwmcintosh@cloudshell:~ (language-tutor-478919)$  # Decompress it
+gunzip ~/fine-tuning-export-2026-05-06.jsonl.gz
+
+# Now upload to GCS
+gsutil cp ~/fine-tuning-export-2026-05-06.jsonl gs://holahola-fine-tuning/daniela/
+gzip: /home/davidwmcintosh/fine-tuning-export-2026-05-06.jsonl.gz: No such file or directory
+Google recommends using Gcloud storage CLI (https://docs.cloud.google.com/storage/docs/discover-object-storage-gcloud) instead of gsutil. Please refer to migration guide (https://docs.cloud.google.com/storage/docs/gsutil-transition-to-gcloud) for assistance.
+Copying file:///home/davidwmcintosh/fine-tuning-export-2026-05-06.jsonl [Content-Type=application/octet-stream]...
+\ [1 files][  3.6 MiB/  3.6 MiB]                                                
+Operation completed over 1 objects/3.6 MiB.               

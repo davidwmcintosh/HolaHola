@@ -203,7 +203,7 @@ Guidelines:
 
     try {
       const result = await gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
@@ -262,7 +262,7 @@ Guidelines:
       }
     }
     
-    const drillItems = await this.generateDrillItems(language, targetPhonemes, difficulty, 10);
+    const drillItems = await this.generateDrillItems(language, targetPhonemes, difficulty, 5);
     
     const session: PronunciationDrillSession = {
       sessionId,

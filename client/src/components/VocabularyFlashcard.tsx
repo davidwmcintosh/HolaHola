@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showDueOnly, setShowDueOnly] = useState(false);
+  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Get classId from learning context when filtering by class
@@ -67,11 +68,22 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
     setIsFlipped(false);
   }, [timeFilter]);
 
-  // Filter cards based on due status
+  // When fresh server data arrives, clear the optimistic-removal set —
+  // reviewed cards will now be naturally absent from the due list.
+  const prevAllWordsRef = useRef(allWords);
+  useEffect(() => {
+    if (allWords !== prevAllWordsRef.current) {
+      prevAllWordsRef.current = allWords;
+      setReviewedIds(new Set());
+    }
+  }, [allWords]);
+
+  // Filter cards based on due status, minus any just-reviewed (optimistic removal)
   const vocabularyWords = useMemo(() => {
-    if (!showDueOnly) return allWords;
-    return allWords.filter(word => isDue(word.nextReviewDate));
-  }, [allWords, showDueOnly]);
+    let words = showDueOnly ? allWords.filter(word => isDue(word.nextReviewDate)) : allWords;
+    if (reviewedIds.size > 0) words = words.filter(word => !reviewedIds.has(word.id));
+    return words;
+  }, [allWords, showDueOnly, reviewedIds]);
 
   // Clamp index if the card list shrinks (e.g. after data refresh or due-only filter changes)
   useEffect(() => {
@@ -92,16 +104,24 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
     mutationFn: async ({ id, isCorrect }: { id: string; isCorrect: boolean }) => {
       return await apiRequest("PATCH", `/api/vocabulary/${id}/review`, { isCorrect });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/vocabulary/filtered"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vocabulary"] });
-      
-      toast({
-        title: variables.isCorrect ? "Correct!" : "Keep practicing!",
-        description: variables.isCorrect 
-          ? "Great job! Your next review has been scheduled."
-          : "Don't worry, you'll see this card again soon.",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/mastery-stats"] });
+
+      if (data?.newlyMastered) {
+        toast({
+          title: "Word mastered!",
+          description: `You've locked in "${vocabularyWords[currentIndex]?.word ?? 'this word'}" — your tutor will notice.`,
+        });
+      } else {
+        toast({
+          title: variables.isCorrect ? "Correct!" : "Keep practicing!",
+          description: variables.isCorrect
+            ? "Great job! Your next review has been scheduled."
+            : "Don't worry, you'll see this card again soon.",
+        });
+      }
     },
   });
 
@@ -158,11 +178,22 @@ export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardP
   };
 
   const handleReview = (isCorrect: boolean) => {
-    reviewMutation.mutate({ id: currentCard.id, isCorrect });
-    // Move to next card after a short delay
-    setTimeout(() => {
-      handleNext();
-    }, 300);
+    const reviewedId = currentCard.id;
+    reviewMutation.mutate({ id: reviewedId, isCorrect });
+
+    if (showDueOnly) {
+      // Optimistically remove the reviewed card from the due list immediately.
+      // This prevents the race where setTimeout advances the index first and then
+      // the refetch shrinks the array, causing the index to point to the wrong card.
+      // The card at currentIndex stays the same number — it now points to whichever
+      // card slid into that position after the reviewed one was removed.
+      setReviewedIds(prev => { const s = new Set(prev); s.add(reviewedId); return s; });
+      setIsFlipped(false);
+    } else {
+      setTimeout(() => {
+        handleNext();
+      }, 300);
+    }
   };
 
   return (

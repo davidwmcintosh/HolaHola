@@ -84,6 +84,7 @@ interface ImmersiveTutorProps {
   isPlaying: boolean;
   isConnecting?: boolean;
   isReconnecting?: boolean;
+  reconnectMessage?: string;
   isUsersTurn?: boolean;
   onToggleView?: () => void;
   onEndCall?: () => void;
@@ -107,7 +108,7 @@ interface ImmersiveTutorProps {
   onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   onTextInputSubmit?: (itemId: string, response: string) => void;
   subtitleState?: StreamingSubtitleState;
-  // Regular subtitle mode: 'off' (default), 'all', or 'target'
+  // Regular subtitle mode: 'off' (default) or 'target'
   regularSubtitleMode?: SubtitleMode;
   // Custom overlay text (independent from regular subtitles)
   customOverlayText?: string | null;
@@ -115,6 +116,7 @@ interface ImmersiveTutorProps {
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
   openMicState?: OpenMicState;
+  showListeningPatience?: boolean;
   // Track if PTT button is being held (for stable instruction text during speculative processing)
   isPttButtonHeld?: boolean;
   // Playback state for guards - 'buffering' happens before 'playing'
@@ -126,6 +128,10 @@ interface ImmersiveTutorProps {
   onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
   // Help button callback - opens support modal
   onHelpClick?: () => void;
+  // Micro-ack playing — forces avatar to 'talking' state while ack clip plays
+  microAckPlaying?: boolean;
+  // Broadcast mode backdrop — when set, the Live view background is transparent so the outer backdrop shows
+  backdropImageUrl?: string;
 }
 
 export function ImmersiveTutor({
@@ -138,6 +144,7 @@ export function ImmersiveTutor({
   isPlaying,
   isConnecting = false,
   isReconnecting = false,
+  reconnectMessage,
   isUsersTurn = true,
   onToggleView,
   onEndCall,
@@ -165,12 +172,15 @@ export function ImmersiveTutor({
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
+  showListeningPatience = false,
   isPttButtonHeld = false,
   playbackState: propPlaybackState = 'idle',
   onInterrupt,
   voiceOverride,
   onVoiceOverrideChange,
   onHelpClick,
+  microAckPlaying = false,
+  backdropImageUrl,
 }: ImmersiveTutorProps) {
   // CRITICAL: Use global playback state store instead of prop
   // This bypasses React prop drilling which becomes stale during HMR
@@ -336,7 +346,7 @@ export function ImmersiveTutor({
     // - Don't rely on isPlaying prop which goes through extra React state cycle
     let avatarState: TutorState = 'idle';
     const isStreamingAudio = playbackState === 'playing' || playbackState === 'buffering';
-    if (isStreamingAudio) avatarState = 'talking';
+    if (isStreamingAudio || microAckPlaying) avatarState = 'talking';
     else if (isProcessing) avatarState = 'thinking';
     else if (isRecording) avatarState = 'listening';
     
@@ -344,6 +354,7 @@ export function ImmersiveTutor({
     console.log('[IMMERSIVE AVATAR DEBUG]', {
       playbackState,
       isStreamingAudio,
+      microAckPlaying,
       isProcessing,
       isRecording,
       derivedAvatarState: avatarState,
@@ -362,7 +373,7 @@ export function ImmersiveTutor({
     // CRITICAL: Use playbackState directly for immediate response
     // Buffering happens between sentences during multi-sentence responses
     const isStreamingAudio = playbackState === 'playing' || playbackState === 'buffering';
-    if (isStreamingAudio) return "speaking";
+    if (isStreamingAudio || microAckPlaying) return "speaking";
     // Thinking = processing user input (and NOT in any playback state)
     if (isProcessing) return "thinking";
     // Listening = user is recording/speaking
@@ -371,7 +382,7 @@ export function ImmersiveTutor({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden items-center relative">
+    <div className={`flex flex-col h-full overflow-hidden items-center relative${backdropImageUrl ? '' : ' bg-background'}`}>
       {/* Voice Switcher - Fixed at top-left for easy access */}
       {setTutorGender && (
         <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-full p-1 shadow-lg border">
@@ -662,10 +673,8 @@ export function ImmersiveTutor({
         </Sheet>
       )}
       
-      {/* Main content area - scrollable if needed, fills available space */}
-      <div className="flex-1 min-h-0 w-full overflow-y-auto flex flex-col items-center">
-        {/* Top spacer for vertical centering */}
-        <div className="flex-1 min-h-4" />
+      {/* Main content area - centers avatar vertically in the space above controls */}
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center">
       
       {/* Fixed Tutor Visual - larger avatar container */}
       <div className="flex-shrink-0 relative w-full max-w-lg mx-auto aspect-square max-h-[45vh] flex items-center justify-center">
@@ -696,35 +705,25 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Thinking Indicator - Shows during AI response generation (both modes) */}
-        {/* In Open Mic, isRecording stays true (mic is always hot), so we use isProcessing as the authority */}
-        {/* isProcessing is set by both processing_pending (early signal) and processing (server confirmed) */}
-        {isProcessing && !isPlaying && (!isRecording || inputMode === 'open-mic') && (
-          <div 
-            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
-            data-testid="indicator-thinking"
-          >
-            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium">Thinking...</span>
-          </div>
-        )}
+        {/* Thinking Indicator removed — latency is low enough that the brief blip was distracting */}
         
-        {/* Open Mic Status - Minimal indicator like a real phone call */}
-        {/* Green dot when mic is live, hidden when thinking indicator is showing */}
-        {inputMode === 'open-mic' && !(isProcessing && !isPlaying) && (
-          <>
-            {isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening' ? (
-              <div 
-                className="absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg"
-                data-testid="indicator-mic-hot"
-              />
-            ) : (
-              <div 
-                className="absolute top-4 right-4 w-4 h-4 bg-gray-400 rounded-full shadow-lg opacity-50"
-                data-testid="indicator-mic-off"
-              />
-            )}
-          </>
+        {/* Open Mic Status - always green; pulses when your voice is being recorded */}
+        {inputMode === 'open-mic' && (
+          <div 
+            className={`absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg transition-opacity ${isRecording ? 'animate-pulse' : ''}`}
+            data-testid={isRecording ? "indicator-mic-recording" : "indicator-mic-hot"}
+          />
+        )}
+
+        {/* Listening patience indicator — student paused mid-thought, Daniela is still waiting */}
+        {/* Appears 1200ms after VAD speech start; disappears at utterance end (3s silence cutoff) */}
+        {openMicState === 'listening' && showListeningPatience && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+            <div className="bg-amber-500/90 text-white rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1 backdrop-blur-sm">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              Take your time...
+            </div>
+          </div>
         )}
         
         
@@ -786,7 +785,7 @@ export function ImmersiveTutor({
         {/* Debug: Log instruction text state changes */}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
           {isReconnecting
-            ? "Reconnecting..."
+            ? (reconnectMessage || "Reconnecting...")
             : isConnecting 
               ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
               : inputMode === 'open-mic'

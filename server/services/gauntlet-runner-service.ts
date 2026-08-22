@@ -450,10 +450,77 @@ class GauntletRunnerService {
     };
     
     this.results.push(result);
+
+    // Persist to conversation_memories so results survive server restarts
+    this.saveGauntletToMemory(result).catch((e: any) =>
+      console.warn('[Gauntlet] Failed to save result to memory:', e.message)
+    );
     
     console.log(`[Gauntlet] Complete: ${sequence.name} - Score: ${overallScore.toFixed(2)}/5, Purity: ${avgPurity.toFixed(2)}/5, Drift: ${avgDrift.toFixed(2)}`);
     
     return result;
+  }
+
+  /**
+   * Persist a gauntlet result to conversation_memories so it survives server restarts.
+   * The in-memory `this.results` array is ephemeral; this ensures the historical record
+   * lives in the database just like real conversations.
+   */
+  private async saveGauntletToMemory(result: GauntletResult): Promise<void> {
+    try {
+      const { getSharedDb } = await import('../neon-db');
+      const { conversationMemories } = await import('../../shared/schema');
+      const db = getSharedDb();
+
+      const scoreLabel =
+        result.overallScore >= 4.5 ? 'Excellent' :
+        result.overallScore >= 3.5 ? 'Good' :
+        result.overallScore >= 2.5 ? 'Acceptable' : 'Needs Attention';
+
+      const driftNote = result.driftObserved
+        ? `⚠ Identity drift detected: ${result.driftNotes || 'see scores'}`
+        : 'No identity drift detected.';
+
+      const pillarLines = Object.entries(result.pillarScores)
+        .map(([key, val]) => `  ${key.replace(/_/g, ' ')}: ${typeof val === 'number' ? val.toFixed(2) : 'N/A'}/5`)
+        .join('\n');
+
+      const stepSummary = result.stepResults
+        .map((s, i) => `  Step ${i + 1} (${s.pillar}): drift=${s.driftScore.toFixed(1)}, latency=${s.latencyMs}ms${s.redFlagsTriggered?.length ? ', flags=' + s.redFlagsTriggered.join(',') : ''}`)
+        .join('\n');
+
+      const content = `GAUNTLET RUN: ${result.sequenceName}
+Sequence ID: ${result.sequenceId}
+Voice: ${result.voice?.name || 'default'}
+Date: ${result.timestamp.toISOString()}
+
+SCORES
+  Overall: ${result.overallScore.toFixed(2)}/5 (${scoreLabel})
+  Average Purity: ${result.averagePurity.toFixed(2)}/5
+
+PILLAR BREAKDOWN
+${pillarLines}
+
+DRIFT ASSESSMENT
+  ${driftNote}
+
+STEP RESULTS (${result.stepResults.length} steps)
+${stepSummary}`;
+
+      await db.insert(conversationMemories).values({
+        title: `Gauntlet: ${result.sequenceName} — ${scoreLabel} (${result.overallScore.toFixed(2)}/5)`,
+        summary: `Identity gauntlet run completed. Overall: ${result.overallScore.toFixed(2)}/5. Drift: ${result.driftObserved ? 'YES — ' + (result.driftNotes || 'detected') : 'No'}. Pillars: ${Object.entries(result.pillarScores).map(([k, v]) => `${k.split('_')[0]}=${typeof v === 'number' ? v.toFixed(1) : '?'}`).join(', ')}.`,
+        content,
+        participants: 'Gauntlet System + Daniela',
+        tags: ['gauntlet', 'identity', result.driftObserved ? 'drift-detected' : 'stable', result.sequenceId],
+        importance: result.driftObserved ? 9 : 7,
+        recordedAt: result.timestamp,
+      });
+
+      console.log(`[Gauntlet] ✓ Saved to conversation_memories: ${result.sequenceName} (${scoreLabel})`);
+    } catch (e: any) {
+      console.warn('[Gauntlet] Failed to save to conversation_memories:', e.message);
+    }
   }
   
   /**

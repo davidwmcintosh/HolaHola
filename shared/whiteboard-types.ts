@@ -18,6 +18,8 @@
  * - Auto-vocabulary extraction from [WRITE] tags
  */
 
+import type { TextbookChapterKey } from './textbook-chapter-keys';
+
 /**
  * Whiteboard markup tags
  * 
@@ -73,7 +75,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'comparison' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'center_backdrop' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card' | 'word_echo';
 
 /**
  * Drill types for inline micro-exercises
@@ -133,12 +135,53 @@ export interface FalseFriendOption {
 
 /**
  * Image item metadata
+ *
+ * labelMode controls what Daniela chooses to show:
+ *   'teach'  — show target-language word + native translation (both labels)
+ *   'target' — show native translation only (e.g. "apple") — student must produce the target word (e.g. "manzana")
+ *   'quiz'   — image only, no labels — student must produce the target word with no hint
+ *
+ * labelMode is set by Daniela via show_image(label_mode=...).
+ * Students have no control over labels.
  */
 export interface ImageItemData {
   word: string;
+  translation?: string;
+  /**
+   * Latin-script romanization for non-Latin scripts.
+   * Korean: Revised Romanization (e.g. "annyeonghaseyo")
+   * Mandarin: Pinyin with tone marks (e.g. "nǐ hǎo")
+   * Japanese: Romaji (e.g. "konnichiwa")
+   * Hebrew: Transliteration (e.g. "shalom")
+   * Displayed between the script word and the translation (three-line format).
+   */
+  latinScript?: string;
   description: string;
   imageUrl?: string;
   isLoading?: boolean;
+  labelMode?: 'teach' | 'target' | 'quiz';
+  /**
+   * Multi-subject labels — used when one image depicts several vocabulary
+   * words (e.g. a family photo covering madre, padre, hermano, hermana, bebé).
+   * When present, rendered as chips below the image instead of the single
+   * word/translation header. labelMode still controls visibility:
+   *   'teach'  → word chip + translation chip
+   *   'target' → translation chip only  (student produces the target word)
+   *   'quiz'   → no chips               (student produces all words)
+   */
+  labels?: { word: string; translation?: string; latinScript?: string }[];
+  /**
+   * Studio pane slot — controls which zone this image occupies.
+   *   'scene'   → main scene area (replaces any previous scene image)
+   *   'context' → left vertical strip (stacks by category — same category replaces)
+   *   undefined → default: replaces all images (vocab/standalone use)
+   *
+   * Context categories: 'weather' | 'time' | 'emotion' | 'calendar' | 'event' | string
+   * Markup: [IMAGE]word|description|slot=scene[/IMAGE]
+   *         [IMAGE]word|description|slot=context|category=weather[/IMAGE]
+   */
+  slot?: 'scene' | 'context';
+  category?: string;
 }
 
 /**
@@ -326,16 +369,27 @@ export interface PlayItemData {
  * - situation: What's happening (e.g., "ordering your first café con leche")
  * - mood: Optional atmosphere (e.g., "casual", "formal", "busy")
  */
+export interface ScenarioZoneInfo {
+  id: string;
+  zoneOrder: number;
+  name: string;
+  imageUrl?: string | null;
+}
+
 export interface ScenarioItemData {
   location: string;
   situation: string;
   mood?: string;
+  title?: string;
   imageUrl?: string;
   isLoading?: boolean;
   scenarioId?: string;
   scenarioSlug?: string;
   props?: ScenarioLoadedProp[];
   levelGuide?: ScenarioLevelGuideData | null;
+  zones?: ScenarioZoneInfo[];
+  currentZoneIndex?: number;
+  currentZoneName?: string | null;
 }
 
 export interface ScenarioLoadedProp {
@@ -464,6 +518,30 @@ export interface PhoneticItem extends WhiteboardItemBase {
 export interface CompareItem extends WhiteboardItemBase {
   type: 'compare';
   content: string;
+}
+
+/**
+ * ComparisonItem — DOM-rendered side-by-side concept contrast widget.
+ * Replaces the AI-image-generated comparison (which garbled text labels).
+ * concept_a / concept_b are always rendered as DOM text.
+ * imageUrl (optional) is a label-free background scene image.
+ */
+export interface ComparisonItemData {
+  concept_a: string;        // Left panel label (DOM text), e.g. "POR"
+  concept_b: string;        // Right panel label (DOM text), e.g. "PARA"
+  a_meaning?: string;       // Brief meaning for left panel
+  b_meaning?: string;       // Brief meaning for right panel
+  a_example?: string;       // Target-language example sentence for left panel
+  b_example?: string;       // Target-language example sentence for right panel
+  student_example?: string; // What the student said incorrectly
+  language?: string;        // Target language (used for RTL, colour theming)
+  imageUrl?: string;        // Optional background scene image — NO text in the image
+}
+
+export interface ComparisonItem extends WhiteboardItemBase {
+  type: 'comparison';
+  content: string;
+  data: ComparisonItemData;
 }
 
 export interface ImageItem extends WhiteboardItemBase {
@@ -749,7 +827,9 @@ export type SelfSurgeryTarget =
   | 'learner_error_patterns'
   | 'dialect_variations'
   | 'linguistic_bridges'
-  | 'creativity_templates';
+  | 'creativity_templates'
+  | 'personal_facts'
+  | 'capability_gap';
 
 export interface SelfSurgeryItemData {
   targetTable: SelfSurgeryTarget;     // Which neural network table to update
@@ -757,6 +837,7 @@ export interface SelfSurgeryItemData {
   reasoning: string;                  // Why Daniela is proposing this
   priority?: number;                  // 1-100 importance scale (default 50)
   confidence?: number;                // 1-100 how confident she is (default 70)
+  acknowledgment?: string;            // Optional brief note from Daniela about what she observed (personal_facts / capability_gap only)
 }
 
 export interface SelfSurgeryItem extends WhiteboardItemBase {
@@ -783,10 +864,428 @@ export interface DialogueItem extends WhiteboardItemBase {
   data: DialogueItemData;
 }
 
+// ─── Interactive Scene Canvas ─────────────────────────────────────────────────
+
+/**
+ * A single prop layer rendered on the live scene canvas.
+ * Coordinates (cx, cy, scale) are resolved server-side from POSITION_MAP
+ * so the client can simply place the image at `left: cx*100%, top: cy*100%`.
+ */
+export interface SceneCanvasProp {
+  name: string;         // prop identifier (e.g. "glass")
+  label: string;        // target-language word shown as label (e.g. "el vaso")
+  nativeLabel?: string; // native-language word shown below label (e.g. "glass")
+  state?: string;       // world mutation state: 'success' | 'cold' | undefined
+  vocab?: { word: string; translation: string }[]; // diegetic vocabulary anchored to this prop
+  position: string;     // position key (e.g. "on_table")
+  cx: number;           // 0..1 horizontal center
+  cy: number;           // 0..1 vertical center
+  scale: number;        // 0..1 size relative to canvas width
+  imageUrl: string;     // zone_image_url (transparent PNG)
+  rotate?: number;      // clockwise rotation in degrees (0-359); default 0
+  flipH?: boolean;      // mirror the image horizontally; default false
+  z?: number;           // stacking order 1-10 (higher = in front); default 5
+  richContent?: SceneCanvasRichContent; // optional tap-to-open content (menu, bill)
+}
+
+/**
+ * Rich tap-to-open content attached to a canvas prop.
+ * When present, the prop is tappable in immersive mode and opens a bottom sheet.
+ */
+export interface SceneCanvasRichContent {
+  type: 'menu' | 'bill';
+  title: string;
+  content: any;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Phase 2 Grammar Canvas data types
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** A single cell in a conjugation table. `form` is null until Daniela reveals it. */
+export interface ConjugationCell {
+  pronoun: string;      // "yo", "tú", "il/elle", etc.
+  pronounAlt?: string;  // secondary pronoun label, e.g. "vos" or "vous (pl.)"
+  form: string | null;  // conjugated form, null = not yet revealed
+  isNew?: boolean;      // true for the most recently revealed cell (drives CSS animation)
+}
+
+/** Full conjugation table state — grows as Daniela fills cells one by one. */
+export interface ConjugationTableData {
+  verb: string;                // infinitive, e.g. "hablar"
+  tense: string;               // display label, e.g. "presente de indicativo"
+  cells: ConjugationCell[];    // ordered list of rows
+  highlightPronoun?: string;   // optional: bold-highlight a specific pronoun row
+}
+
+/** Body diagram data — highlights one or more body regions. */
+export interface BodyDiagramData {
+  highlightParts: string[];              // e.g. ['head', 'left_arm', 'knee'] — supports aliases like 'eyes', 'hands', 'legs'
+  labels?: Record<string, string>;       // part slug → target-language label shown below the diagram (e.g. "la cabeza")
+  nativeLabels?: Record<string, string>; // part slug → native-language label (e.g. "head" for English speakers)
+}
+
+/** Face close-up diagram — highlights detailed facial features. */
+export interface FaceDiagramData {
+  highlightParts: string[];              // e.g. ['nose', 'lips', 'left_eye'] — see FACE_PARTS for full slug list
+  labels?: Record<string, string>;       // part slug → target-language label shown below the diagram (e.g. "la nariz")
+  nativeLabels?: Record<string, string>; // part slug → native-language label (e.g. "nose" for English speakers)
+}
+
+/** Hand close-up diagram — highlights fingers, palm, knuckles, etc. */
+export interface HandDiagramData {
+  highlightParts: string[];              // e.g. ['thumb', 'index_finger', 'palm'] — see HAND_PARTS for full slug list
+  labels?: Record<string, string>;       // part slug → target-language label shown below the diagram (e.g. "el pulgar")
+  nativeLabels?: Record<string, string>; // part slug → native-language label (e.g. "thumb" for English speakers)
+  hand?: 'left' | 'right';              // which hand to show (default: right)
+}
+
+/** Thermometer data — shows a temperature reading. */
+export interface ThermometerData {
+  celsius: number;          // -30 to 60
+  labelText?: string;       // optional spoken description, e.g. "Hace mucho calor — It's very hot"
+  showFahrenheit?: boolean; // if true, also show °F equivalent
+}
+
+/** Emotion face data — shows an expressive face with a label. */
+export interface EmotionData {
+  emotion: string;   // 'happy'|'sad'|'angry'|'surprised'|'afraid'|'confused'|'excited'|'tired'|'nervous'|'disgusted'|'bored'
+  label?: string;    // target-language word for the emotion, e.g. "feliz", "triste", "enojado"
+}
+
+/** Weather data — shows a weather condition icon and optional temperature. */
+export interface WeatherData {
+  condition: string;  // 'sunny'|'cloudy'|'partly_cloudy'|'rainy'|'stormy'|'snowy'|'windy'|'foggy'|'hot'|'cold'
+  label?: string;     // target-language description, e.g. "hace sol", "está nublado", "llueve"
+  celsius?: number;   // optional temperature badge
+}
+
+/** World map data — highlights Spanish-speaking (or other) countries. */
+export interface WorldMapData {
+  highlightCountries: string[];    // slug list, e.g. ['spain','mexico','colombia']
+  labels?: Record<string, string>; // country slug → target-language label override
+}
+
+/** Calendar data — highlights a specific day/month and optionally a day-of-week. */
+export interface CalendarData {
+  month: string;          // display label in target language, e.g. "marzo" or "März"
+  monthNumber: number;    // 1-12 — used to compute the calendar grid
+  year: number;           // e.g. 2026 — used to compute the calendar grid
+  dayNames: string[];     // 7 short day names starting from startDow, in target language, e.g. ["Lu","Ma","Mi","Ju","Vi","Sa","Do"]
+  highlightDay?: number;  // 1-31 — the specific date to highlight
+  highlightDowIndex?: number; // 0-6 index into dayNames array — highlights the entire column
+  markedDays?: number[];  // additional days to mark (lighter highlight)
+  startDow?: number;      // 0 = Sunday, 1 = Monday (default 1, Mon-first as in most of world)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Full state of the live scene canvas.
+ * The server always sends the complete state so the client can simply
+ * replace any existing scene_canvas item with this one.
+ *
+ * Grammar canvas types (conjugationTable, calendarData) are mutually exclusive
+ * with the spatial scene (environment + props). When a grammar canvas is active
+ * the SceneCanvas component renders the grammar view full-width instead of the
+ * background scene. Call open_scene to return to the spatial view.
+ */
+export interface SceneCanvasItemData {
+  environment: string;
+  environmentImageUrl: string;
+  environmentLabel?: string;
+  props: SceneCanvasProp[];
+  clockTime?: string;              // "H:MM" — renders analog clock overlay when set
+  clockLabel?: string;             // Target-language time expression (e.g. "son las tres y media")
+  clockShowLabel?: boolean;        // false = quiz mode (hide label so student must recall)
+  conjugationTable?: ConjugationTableData;   // Phase 2 — grammar canvas
+  calendarData?: CalendarData;               // Phase 2 — calendar canvas
+  bodyDiagram?: BodyDiagramData;             // Phase 2 — body diagram
+  faceDiagram?: FaceDiagramData;             // Phase 2 — face close-up
+  handDiagram?: HandDiagramData;             // Phase 2 — hand close-up
+  thermometerData?: ThermometerData;         // Phase 2 — thermometer
+  emotionData?: EmotionData;                 // Phase 2 — emotion face
+  weatherData?: WeatherData;                 // Phase 2 — weather icon
+  worldMapData?: WorldMapData;               // Phase 2 — world map
+  canvasAction:
+    | 'open_scene' | 'add_prop' | 'move_prop' | 'remove_prop' | 'set_clock' | 'clear_scene'
+    | 'init_conjugation' | 'fill_conjugation' | 'clear_conjugation'
+    | 'set_calendar' | 'clear_calendar'
+    | 'set_body_part' | 'clear_body_diagram'
+    | 'set_face_part' | 'clear_face_diagram'
+    | 'set_hand_part' | 'clear_hand_diagram'
+    | 'set_thermometer' | 'clear_thermometer'
+    | 'set_emotion' | 'clear_emotion'
+    | 'set_weather' | 'clear_weather'
+    | 'highlight_country' | 'clear_world_map';
+}
+
+export interface SceneCanvasItem extends WhiteboardItemBase {
+  type: 'scene_canvas';
+  content: string;
+  data: SceneCanvasItemData;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sentence table item data — Madrigal-style substitution drill
+ * Renders a column grid where changing one column produces a new valid sentence.
+ * Daniela calls show_sentence_table(lesson_id) and the backend fetches micro_cycle_data.sentenceColumns.
+ */
+export interface SentenceColumn {
+  header?: string;
+  items: string[];
+}
+
+export interface SentenceTableItemData {
+  patternLabel?: string;         // e.g. "Voy al/a la ___" — the sentence pattern being drilled
+  columns: SentenceColumn[];     // 2-4 columns; swapping within a column = new valid sentence
+  lessonId?: string;             // Source lesson (for reference)
+  isLoading?: boolean;
+}
+
+export interface SentenceTableItem extends WhiteboardItemBase {
+  type: 'sentence_table';
+  content: string;
+  data: SentenceTableItemData;
+}
+
+/**
+ * Textbook search result item — returned when Daniela calls search_textbook(query)
+ * Displays matching chapters/lessons with excerpts so student can see what was found.
+ */
+export interface TextbookSearchMatch {
+  unitName: string;
+  lessonName: string;
+  lessonId: string;
+  chapterNumber?: number;
+  excerpt: string;               // Short excerpt from the matched field (grammar_explanation, etc.)
+  matchField: 'lesson_name' | 'unit_name' | 'grammar_explanation' | 'cultural_note' | 'conversation_topic';
+}
+
+export interface TextbookSearchItemData {
+  query: string;
+  matches: TextbookSearchMatch[];
+  isLoading?: boolean;
+}
+
+export interface TextbookSearchItem extends WhiteboardItemBase {
+  type: 'textbook_search';
+  content: string;
+  data: TextbookSearchItemData;
+}
+
+// ─── Textbook Page ─────────────────────────────────────────────────────────────
+
+/**
+ * A single vocabulary entry on a textbook page.
+ */
+export interface TextbookPageVocabItem {
+  word: string;
+  translation?: string;
+}
+
+/**
+ * A key example sentence from the textbook page.
+ */
+export interface TextbookPageExample {
+  target: string;
+  translation?: string;
+  note?: string;
+}
+
+/**
+ * Structured content for a loaded textbook lesson page.
+ * Sent when Daniela calls start_textbook_page — the student sees the same
+ * lesson content Daniela is teaching from.
+ */
+export interface TextbookPageItemData {
+  lessonId: string;
+  actflLevel?: string;
+  focus: 'full_page' | 'vocabulary' | 'grammar' | 'examples';
+  vocabulary?: TextbookPageVocabItem[];
+  grammarPattern?: string;
+  examples?: TextbookPageExample[];
+  sentencePatterns?: string;
+}
+
+export interface TextbookPageItem extends WhiteboardItemBase {
+  type: 'textbook_page';
+  content: string;
+  data: TextbookPageItemData;
+}
+
+// ─── Teaching Card ─────────────────────────────────────────────────────────────
+
+/**
+ * A temporary "sticky note" teaching card — appears on the student's screen
+ * mid-conversation and auto-dismisses. Ideal for quick vocab/grammar reminders
+ * without breaking conversational flow.
+ */
+export interface TeachingCardItemData {
+  word?: string;
+  translation?: string;
+  grammarRule?: string;
+  examples?: string[];
+  autoDismissMs?: number;
+}
+
+export interface TeachingCardItem extends WhiteboardItemBase {
+  type: 'teaching_card';
+  content: string;
+  data: TeachingCardItemData;
+}
+
+// ─── Vocab Card ───────────────────────────────────────────────────────────────
+
+export interface VocabCardItemData {
+  word: string;
+  definition: string;
+  imageUrl?: string;
+  language?: string;
+  autoDismissMs?: number;
+  showTranslation?: boolean;  // false = hide definition (quiz mode — student must recall the meaning)
+}
+
+export interface VocabCardItem extends WhiteboardItemBase {
+  type: 'vocab_card';
+  content: string;
+  data: VocabCardItemData;
+}
+
+// ─── Word Echo ────────────────────────────────────────────────────────────────
+// Brief image flash when a previously-taught vocab word is mentioned again.
+// Auto-dismissed after durationMs (default 2500ms). Never adds to the
+// persistent item list — it is a transient overlay signal.
+
+export interface WordEchoItemData {
+  word: string;
+  imageUrl: string;
+  durationMs?: number;
+}
+
+export interface WordEchoItem extends WhiteboardItemBase {
+  type: 'word_echo';
+  content: string;
+  data: WordEchoItemData;
+}
+
+// ─── Lesson Note ──────────────────────────────────────────────────────────────
+
+export type LessonNoteType = 'vocab' | 'grammar' | 'culture' | 'note';
+
+export interface LessonNote {
+  id: string;
+  type: LessonNoteType;
+  content: string;
+  detail?: string;
+  timestamp: number;
+}
+
+// ─── Overlay Panel ─────────────────────────────────────────────────────────────
+
+/**
+ * A single vocabulary word card in the vocab-grid panel.
+ */
+export interface OverlayPanelVocabWord {
+  text: string;          // target-language word (e.g. "el mercado")
+  translation: string;   // native-language translation (e.g. "the market")
+  imageQuery: string;    // image search/generation query used to fetch the image
+  imageUrl?: string;     // resolved image URL (may be absent while loading)
+  isLoading?: boolean;
+}
+
+/**
+ * A single item in a sentence-builder column.
+ * Matches ColumnItem from SentenceColumnGenerator.tsx.
+ */
+export interface OverlayPanelColumnItem {
+  text: string;
+  translation: string;
+  imageQuery?: string;  // optional: fetch a thumbnail for Madrigal noun columns
+}
+
+/**
+ * A single column in the sentence-builder panel.
+ * Matches SentenceColumn from SentenceColumnGenerator.tsx.
+ */
+export interface OverlayPanelColumn {
+  label?: string;
+  items: OverlayPanelColumnItem[];
+}
+
+/**
+ * Discriminated union of overlay panel content types.
+ */
+export type OverlayPanel =
+  | { type: 'vocab-grid'; words: OverlayPanelVocabWord[]; title?: string }
+  | { type: 'sentence-builder'; columns: OverlayPanelColumn[]; patternLabel?: string; title?: string }
+  | { type: 'textbook-section'; chapterKey: TextbookChapterKey; title?: string };
+
+export interface OverlayPanelItemData {
+  panel: OverlayPanel;
+}
+
+export interface OverlayPanelItem extends WhiteboardItemBase {
+  type: 'overlay_panel';
+  content: string;
+  data: OverlayPanelItemData;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Daily plan agenda item — one line in the student's daily agenda
+ */
+export interface DailyPlanAgendaItem {
+  id: string;
+  /** Determines the icon shown next to the item */
+  type: 'vocab_review' | 'lesson' | 'assignment' | 'practice' | 'conversation';
+  /** Short label shown in the agenda (e.g. "Review 7 vocab words") */
+  label: string;
+  /** Secondary detail line (e.g. "Due today · Unit 3: Food & Dining") */
+  detail?: string;
+  /** 'due' = assigned/due, 'suggested' = Daniela's recommendation */
+  urgency: 'due' | 'suggested';
+  /** Message Daniela should receive if the student taps "Start" for this item */
+  startPrompt?: string;
+}
+
+/**
+ * Daily plan card data — shown at session start via show_daily_plan tool
+ */
+export interface DailyPlanItemData {
+  /** Personalized greeting shown in the card header, e.g. "Good morning, Sofia!" */
+  greeting: string;
+  /** Formatted date, e.g. "Wednesday, June 4" */
+  dateLabel: string;
+  /** Ordered list of today's agenda items */
+  agenda: DailyPlanAgendaItem[];
+  /** Quick stats for the bottom bar */
+  stats: {
+    dueVocabCount: number;
+    sessionsThisWeek: number;
+    goalSessionsPerWeek: number;
+    streakDays?: number;
+  };
+  /** Target language (e.g. "spanish") */
+  language: string;
+}
+
+export interface DailyPlanItem extends WhiteboardItemBase {
+  type: 'daily_plan';
+  content: string;
+  data: DailyPlanItemData;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
   | CompareItem 
+  | ComparisonItem
   | ImageItem 
   | DrillItem 
   | PronunciationItem
@@ -810,7 +1309,17 @@ export type WhiteboardItem =
   | PhaseShiftItem
   | HiveItem
   | SelfSurgeryItem
-  | DialogueItem;
+  | DialogueItem
+  | SceneCanvasItem
+  | CenterBackdropItem
+  | SentenceTableItem
+  | TextbookSearchItem
+  | OverlayPanelItem
+  | DailyPlanItem
+  | TextbookPageItem
+  | TeachingCardItem
+  | VocabCardItem
+  | WordEchoItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -834,10 +1343,9 @@ export interface WhiteboardState {
 /**
  * Subtitle mode for regular speech display
  * - 'off': No subtitles shown (default - Daniela opts in when needed)
- * - 'all': Show all speech with karaoke highlighting
- * - 'target': Show only target language words (bold extraction)
+ * - 'target': Show target language speech with karaoke highlighting
  */
-export type SubtitleMode = 'off' | 'all' | 'target';
+export type SubtitleMode = 'off' | 'target';
 
 /**
  * Result of parsing a tutor response for whiteboard content
@@ -1046,11 +1554,20 @@ export function normalizeSwitchTutorAttributes(
  */
 function parseImageContent(content: string): ImageItemData {
   const parts = content.split('|').map(p => p.trim());
-  return {
+  const result: ImageItemData = {
     word: parts[0] || content,
     description: parts[1] || parts[0] || content,
     isLoading: true,
   };
+  for (let i = 2; i < parts.length; i++) {
+    const match = parts[i].match(/^(\w+)=(.+)$/);
+    if (!match) continue;
+    const [, key, val] = match;
+    if (key === 'slot' && (val === 'scene' || val === 'context')) result.slot = val as 'scene' | 'context';
+    if (key === 'category') result.category = val;
+    if (key === 'latin' || key === 'romanization') result.latinScript = val;
+  }
+  return result;
 }
 
 /**
@@ -2281,7 +2798,9 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     WHITEBOARD_PATTERNS.SUBTITLE.lastIndex = 0;
     const subtitleMatch = WHITEBOARD_PATTERNS.SUBTITLE.exec(text);
     if (subtitleMatch) {
-      subtitleMode = subtitleMatch[1].toLowerCase() as SubtitleMode;
+      const rawMode = subtitleMatch[1].toLowerCase();
+      // Map legacy 'on' → 'target' (graceful migration)
+      subtitleMode = (rawMode === 'on' ? 'target' : rawMode) as SubtitleMode;
     }
   }
   WHITEBOARD_PATTERNS.SUBTITLE_TARGET.lastIndex = 0;
@@ -2485,6 +3004,13 @@ export const whiteboardExamples = {
 };
 
 /**
+ * Type guard for checking if an item is a comparison item (DOM two-column contrast widget)
+ */
+export function isComparisonItem(item: WhiteboardItem): item is ComparisonItem {
+  return item.type === 'comparison';
+}
+
+/**
  * Type guard for checking if an item is an image item
  */
 export function isImageItem(item: WhiteboardItem): item is ImageItem {
@@ -2607,6 +3133,58 @@ export function isDialogueItem(item: WhiteboardItem): item is DialogueItem {
   return item.type === 'dialogue';
 }
 
+export function isSceneCanvasItem(item: WhiteboardItem): item is SceneCanvasItem {
+  return item.type === 'scene_canvas';
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Center Backdrop — sets a background image ONLY behind Daniela's avatar
+ * in the center panel. Studio Pane (left) and Whiteboard (right) stay fully
+ * accessible. Used for broadcast mode, location calls, and green-screen roleplay.
+ * Triggered by open_scene with target: 'center'.
+ */
+export interface CenterBackdropItemData {
+  environment: string;
+  imageUrl: string;
+  label?: string;
+}
+
+export interface CenterBackdropItem extends WhiteboardItemBase {
+  type: 'center_backdrop';
+  content: string;
+  data: CenterBackdropItemData;
+}
+
+export function isCenterBackdropItem(item: WhiteboardItem): item is CenterBackdropItem {
+  return item.type === 'center_backdrop';
+}
+
+export function isSentenceTableItem(item: WhiteboardItem): item is SentenceTableItem {
+  return item.type === 'sentence_table';
+}
+
+export function isTextbookSearchItem(item: WhiteboardItem): item is TextbookSearchItem {
+  return item.type === 'textbook_search';
+}
+
+export function isTextbookPageItem(item: WhiteboardItem): item is TextbookPageItem {
+  return item.type === 'textbook_page';
+}
+
+export function isTeachingCardItem(item: WhiteboardItem): item is TeachingCardItem {
+  return item.type === 'teaching_card';
+}
+
+export function isVocabCardItem(item: WhiteboardItem): item is VocabCardItem {
+  return item.type === 'vocab_card';
+}
+
+export function isWordEchoItem(item: WhiteboardItem): item is WordEchoItem {
+  return item.type === 'word_echo';
+}
+
 /**
  * Check if a drill item is a matching drill
  */
@@ -2640,6 +3218,14 @@ export function isDictationDrill(item: DrillItem): boolean {
 
 export function isSpeakDrill(item: DrillItem): boolean {
   return !!item.data && item.data.drillType === 'speak' && !!item.data.textToSpeak;
+}
+
+export function isOverlayPanelItem(item: WhiteboardItem): item is OverlayPanelItem {
+  return item.type === 'overlay_panel';
+}
+
+export function isDailyPlanItem(item: WhiteboardItem): item is DailyPlanItem {
+  return item.type === 'daily_plan';
 }
 
 export function isCognateMatchDrill(item: DrillItem): boolean {

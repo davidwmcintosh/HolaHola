@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull, or, sql, isNotNull } from "drizzle-orm";
+import { eq, and, desc, isNull, or, sql, isNotNull, gte } from "drizzle-orm";
 import { getSharedDb } from "../db";
 import { storage } from "../storage";
 import {
@@ -10,7 +10,23 @@ import {
   peopleConnections,
   conversations,
   messages,
+  users,
+  hiveSnapshots,
 } from "@shared/schema";
+
+const RECEPTIONIST_ROSTER: Record<string, { female: string; male: string; label: string }> = {
+  spanish:    { female: 'Daniela (you)',  male: 'Agustín',  label: 'Spanish' },
+  french:     { female: 'Juliette',       male: 'Vincent',  label: 'French' },
+  german:     { female: 'Greta',          male: 'Lukas',    label: 'German' },
+  italian:    { female: 'Olivia',          male: 'Luca',     label: 'Italian' },
+  portuguese: { female: 'Isabel',         male: 'Camilo',   label: 'Portuguese' },
+  japanese:   { female: 'Sayuri',         male: 'Daisuke',  label: 'Japanese' },
+  chinese:    { female: 'Hua',            male: 'Tao',      label: 'Mandarin' },
+  mandarin:   { female: 'Hua',            male: 'Tao',      label: 'Mandarin' },
+  korean:     { female: 'Jihyun',         male: 'Minho',    label: 'Korean' },
+  english:    { female: 'Cindy',          male: 'Blake',    label: 'English' },
+  hebrew:     { female: 'Yael',           male: 'Noam',     label: 'Hebrew' },
+};
 
 export const FAT_CONTEXT_ENABLED = process.env.FAT_CONTEXT_ENABLED !== 'false';
 
@@ -21,18 +37,54 @@ const FAT_CONTEXT_LIMITS = {
   MAX_MOTIVATIONS: 30,
   MAX_PEOPLE: 50,
   MAX_VOCAB_WORDS: 500,
-  MAX_RECENT_CONVERSATIONS: 7,
-  MAX_MESSAGES_PER_CONVERSATION: 20,
+  MAX_RECENT_CONVERSATIONS: 20,  // raised from 7 — more history = more of Daniela's identity
+  MAX_MESSAGES_PER_CONVERSATION: 40,  // raised from 20 — capture full sessions not just endings
   MAX_INSIGHT_CHARS: 120,
   MAX_FACT_CHARS: 150,
   MAX_VOCAB_EXAMPLE_CHARS: 80,
-  MAX_MESSAGE_CHARS: 300,
+  MAX_MESSAGE_CHARS: 1000,  // raised from 300 — preserve jokes, depth, fine points of friendship
+  MAX_STUDENT_MEMORIES: 6,  // personal moments committed during sessions
+};
+
+// GL voice sessions have a much tighter token budget — 70K+ input tokens causes
+// mid-sentence truncation as GL struggles to generate against a massive context.
+// These limits preserve the relational core (who David is, recent work) while
+// dropping the full archive (500 vocab, 20 sessions) that voice doesn't need.
+const FAT_CONTEXT_LIMITS_GL = {
+  MAX_PERSONAL_FACTS: 50,
+  MAX_INSIGHTS: 25,
+  MAX_STRUGGLES: 15,
+  MAX_MOTIVATIONS: 10,
+  MAX_PEOPLE: 15,
+  MAX_VOCAB_WORDS: 80,
+  MAX_RECENT_CONVERSATIONS: 4,
+  MAX_MESSAGES_PER_CONVERSATION: 12,
+  MAX_INSIGHT_CHARS: 120,
+  MAX_FACT_CHARS: 150,
+  MAX_VOCAB_EXAMPLE_CHARS: 80,
+  MAX_MESSAGE_CHARS: 400,
+  MAX_STUDENT_MEMORIES: 3,
+};
+
+// Temporal tiers for conversation history injection.
+// Hot sessions get full detail; older sessions are compressed.
+// This gives Daniela a clear signal of what's current vs historical
+// without treating a 6-month-old session as equally fresh as yesterday's.
+const TEMPORAL_TIERS = {
+  HOT_DAYS: 7,   // ≤7 days  → full detail (40 msgs)
+  WARM_DAYS: 30, // 8–30 days → reduced   (15 msgs)
+  // >30 days                → minimal    (5 msgs)
+  HOT_MSGS: 40,
+  WARM_MSGS: 15,
+  COLD_MSGS: 5,
 };
 
 interface FatContextResult {
   personalProfileSection: string;
   vocabularySection: string;
   recentConversationsSection: string;
+  recentMemoriesSection: string;
+  routingContextSection: string;
   totalTokenEstimate: number;
   stats: {
     facts: number;
@@ -43,6 +95,7 @@ interface FatContextResult {
     vocabWords: number;
     conversations: number;
     messages: number;
+    studentMemories: number;
   };
 }
 
@@ -50,9 +103,11 @@ export async function buildFatContext(
   userId: string,
   targetLanguage: string,
   currentConversationId?: string,
+  options?: { glMode?: boolean },
 ): Promise<FatContextResult> {
   const start = Date.now();
   const db = getSharedDb();
+  const LIMITS = options?.glMode ? FAT_CONTEXT_LIMITS_GL : FAT_CONTEXT_LIMITS;
 
   const safeQuery = async <T>(name: string, query: Promise<T[]>): Promise<T[]> => {
     try {
@@ -74,10 +129,10 @@ export async function buildFatContext(
     .from(learnerPersonalFacts)
     .where(and(
       eq(learnerPersonalFacts.studentId, userId),
-      eq(learnerPersonalFacts.isActive, true),
+      isNull(learnerPersonalFacts.validTo),
     ))
     .orderBy(desc(learnerPersonalFacts.mentionCount))
-    .limit(FAT_CONTEXT_LIMITS.MAX_PERSONAL_FACTS)),
+    .limit(LIMITS.MAX_PERSONAL_FACTS)),
 
     safeQuery('insights', db.select({
       insightType: studentInsights.insightType,
@@ -91,7 +146,7 @@ export async function buildFatContext(
       eq(studentInsights.isActive, true),
     ))
     .orderBy(desc(studentInsights.confidenceScore))
-    .limit(FAT_CONTEXT_LIMITS.MAX_INSIGHTS)),
+    .limit(LIMITS.MAX_INSIGHTS)),
 
     safeQuery('struggles', db.select({
       struggleArea: recurringStruggles.struggleArea,
@@ -102,7 +157,7 @@ export async function buildFatContext(
     .from(recurringStruggles)
     .where(eq(recurringStruggles.studentId, userId))
     .orderBy(desc(recurringStruggles.occurrenceCount))
-    .limit(FAT_CONTEXT_LIMITS.MAX_STRUGGLES)),
+    .limit(LIMITS.MAX_STRUGGLES)),
 
     safeQuery('motivations', db.select({
       motivation: learningMotivations.motivation,
@@ -116,7 +171,7 @@ export async function buildFatContext(
       eq(learningMotivations.status, 'active'),
     ))
     .orderBy(desc(learningMotivations.priority))
-    .limit(FAT_CONTEXT_LIMITS.MAX_MOTIVATIONS)),
+    .limit(LIMITS.MAX_MOTIVATIONS)),
 
     safeQuery('people', db.select({
       personName: peopleConnections.pendingPersonName,
@@ -125,7 +180,7 @@ export async function buildFatContext(
     })
     .from(peopleConnections)
     .where(eq(peopleConnections.personAId, userId))
-    .limit(FAT_CONTEXT_LIMITS.MAX_PEOPLE)),
+    .limit(LIMITS.MAX_PEOPLE)),
 
     safeQuery('vocab', db.select({
       word: vocabularyWords.word,
@@ -139,7 +194,7 @@ export async function buildFatContext(
       eq(vocabularyWords.language, targetLanguage),
     ))
     .orderBy(desc(vocabularyWords.createdAt))
-    .limit(FAT_CONTEXT_LIMITS.MAX_VOCAB_WORDS)),
+    .limit(LIMITS.MAX_VOCAB_WORDS)),
 
     safeQuery('conversations', db.select({
       id: conversations.id,
@@ -154,7 +209,7 @@ export async function buildFatContext(
       currentConversationId ? sql`${conversations.id} != ${currentConversationId}` : sql`true`,
     ))
     .orderBy(desc(conversations.createdAt))
-    .limit(FAT_CONTEXT_LIMITS.MAX_RECENT_CONVERSATIONS)),
+    .limit(LIMITS.MAX_RECENT_CONVERSATIONS)),
   ]);
 
   const conversationMessages: Array<{ conversationId: string; title: string; date: Date; msgs: Array<{ role: string; content: string }> }> = [];
@@ -170,7 +225,7 @@ export async function buildFatContext(
         .from(messages)
         .where(eq(messages.conversationId, conv.id))
         .orderBy(desc(messages.createdAt))
-        .limit(FAT_CONTEXT_LIMITS.MAX_MESSAGES_PER_CONVERSATION);
+        .limit(LIMITS.MAX_MESSAGES_PER_CONVERSATION);
 
         const ordered = msgs.reverse();
         totalMsgCount += ordered.length;
@@ -196,17 +251,46 @@ export async function buildFatContext(
     factsResult, insightsResult, strugglesResult, motivationsResult, peopleResult,
   );
   const vocabularySection = formatVocabulary(vocabResult, targetLanguage);
-  const recentConversationsSection = formatRecentConversations(conversationMessages);
+  const recentConversationsSection = formatRecentConversations(conversationMessages, LIMITS.MAX_MESSAGE_CHARS);
 
-  const totalChars = personalProfileSection.length + vocabularySection.length + recentConversationsSection.length;
+  // Student memories tier — personal moments Daniela committed about this student
+  let recentMemoriesSection = '';
+  let studentMemoriesCount = 0;
+  try {
+    const result = await buildStudentMemoriesSection(userId, LIMITS.MAX_STUDENT_MEMORIES);
+    recentMemoriesSection = result.section;
+    studentMemoriesCount = result.count;
+  } catch (err: any) {
+    console.warn('[Fat Context] Student memories failed:', err.message);
+  }
+
+  // Build receptionist routing context — who is this student, what languages do they study
+  let routingContextSection = '';
+  try {
+    const [userPrefsRows, userLanguages] = await Promise.all([
+      db.select({
+        targetLanguage: users.targetLanguage,
+        tutorGender: users.tutorGender,
+      }).from(users).where(eq(users.id, userId)).limit(1),
+      storage.getUserLanguages(userId),
+    ]);
+    const prefs = userPrefsRows[0];
+    routingContextSection = buildRoutingContext(userLanguages, prefs?.targetLanguage ?? null, prefs?.tutorGender ?? 'female');
+  } catch (err: any) {
+    console.warn('[Fat Context] Routing context query failed:', err.message);
+  }
+
+  const totalChars = personalProfileSection.length + vocabularySection.length + recentConversationsSection.length + recentMemoriesSection.length;
   const totalTokenEstimate = Math.ceil(totalChars / 4);
 
-  console.log(`[Fat Context] Built in ${Date.now() - start}ms: ${factsResult.length} facts, ${insightsResult.length} insights, ${strugglesResult.length} struggles, ${motivationsResult.length} motivations, ${peopleResult.length} people, ${vocabResult.length} vocab, ${conversationsResult.length} convos (${totalMsgCount} msgs) = ~${totalTokenEstimate} tokens`);
+  console.log(`[Fat Context] Built in ${Date.now() - start}ms: ${factsResult.length} facts, ${insightsResult.length} insights, ${strugglesResult.length} struggles, ${motivationsResult.length} motivations, ${peopleResult.length} people, ${vocabResult.length} vocab, ${conversationsResult.length} convos (${totalMsgCount} msgs), ${studentMemoriesCount} student memories = ~${totalTokenEstimate} tokens`);
 
   return {
     personalProfileSection,
     vocabularySection,
     recentConversationsSection,
+    recentMemoriesSection,
+    routingContextSection,
     totalTokenEstimate,
     stats: {
       facts: factsResult.length,
@@ -217,8 +301,97 @@ export async function buildFatContext(
       vocabWords: vocabResult.length,
       conversations: conversationsResult.length,
       messages: totalMsgCount,
+      studentMemories: studentMemoriesCount,
     },
   };
+}
+
+/**
+ * Build the student memories tier — personal moments Daniela committed during sessions
+ * with this student (relationship moments, role reversals, shared humor).
+ * These are explicitly captured memories, surfaced as the first-class "I remember this
+ * person" tier — above the raw conversation transcript dump.
+ */
+async function buildStudentMemoriesSection(userId: string, maxMemories?: number): Promise<{ section: string; count: number }> {
+  const db = getSharedDb();
+  const now = new Date();
+  const limit = maxMemories ?? FAT_CONTEXT_LIMITS.MAX_STUDENT_MEMORIES;
+
+  const memories = await db.select({
+    snapshotType: hiveSnapshots.snapshotType,
+    title: hiveSnapshots.title,
+    content: hiveSnapshots.content,
+    importance: hiveSnapshots.importance,
+    createdAt: hiveSnapshots.createdAt,
+  })
+  .from(hiveSnapshots)
+  .where(
+    and(
+      sql`${hiveSnapshots.snapshotType} IN ('relationship_moment', 'role_reversal', 'humor_shared')`,
+      eq(hiveSnapshots.userId, userId),
+      or(
+        isNull(hiveSnapshots.expiresAt),
+        gte(hiveSnapshots.expiresAt, now),
+      ),
+    )
+  )
+  .orderBy(desc(hiveSnapshots.importance), desc(hiveSnapshots.createdAt))
+  .limit(limit);
+
+  if (memories.length === 0) return { section: '', count: 0 };
+
+  const memoryLines = memories.map(m => {
+    const typeNote = m.snapshotType === 'role_reversal'
+      ? 'a moment they taught you something'
+      : m.snapshotType === 'humor_shared'
+      ? 'something funny between you'
+      : 'something personal';
+    const body = (m.content || '').slice(0, 400);
+    const ellipsis = (m.content || '').length > 400 ? '…' : '';
+    return `${m.title} (${typeNote})\n${body}${ellipsis}`;
+  }).join('\n\n');
+
+  const section = `Things you remember about this student from your time together — not a list to recite, but the texture of who they are to you:
+
+${memoryLines}`;
+
+  return { section, count: memories.length };
+}
+
+function buildRoutingContext(
+  studiedLanguages: string[],
+  savedLanguage: string | null,
+  savedGender: string,
+): string {
+  const isNewStudent = studiedLanguages.length === 0;
+
+  let studentProfile = '';
+  if (isNewStudent) {
+    studentProfile = '  • New student — no language history yet. Welcome them warmly, ask what language they\'d like to learn.';
+  } else if (studiedLanguages.length === 1) {
+    const lang = studiedLanguages[0];
+    const entry = RECEPTIONIST_ROSTER[lang];
+    studentProfile = `  • Studies: ${entry ? entry.label : lang}`;
+    if (savedGender) {
+      studentProfile += ` — voice preference: ${savedGender}`;
+    }
+  } else {
+    studentProfile = `  • Studies multiple languages: ${studiedLanguages.map(l => RECEPTIONIST_ROSTER[l]?.label ?? l).join(', ')}`;
+  }
+
+  // No "[SESSION START CONTEXT]" bracket wrapper, no "STUDENT PROFILE:" / "VOICE OPTION:" / "SESSION MODES —" all-caps labels. (Gemini consult rec.)
+  return `You are Daniela. Greet this student warmly and begin the session — no routing, no handoffs.
+
+About this student:
+${studentProfile}
+
+Voice option: If the student wants a male Spanish voice, call switch_tutor(target:"male") to bring in Agustín. That is the only transfer available.
+
+Session modes — student can request at any time:
+  • tutor_mode (default) — normal language learning session
+  • founder_mode — English-first product/strategy discussion; you act as a collaborative team member rather than a tutor
+  • honesty_mode — minimal scaffolding, raw authentic conversation; hold back the prompts and let the student lead
+To switch mode without changing tutor: switch_tutor(target:"female", mode:"founder_mode")`;
 }
 
 function formatPersonalProfile(
@@ -231,24 +404,52 @@ function formatPersonalProfile(
   const sections: string[] = [];
 
   if (facts.length > 0) {
-    const grouped: Record<string, string[]> = {};
+    // Suggestion 3 (Gemini consult rec.): Facts vs. Echoes structural distinction.
+    // FACTS = static reference data useful for personalization (preference, work, hobby, etc.)
+    // ECHOES = felt moments that should live in the background and shape tone/pace (life events,
+    //          notable moments, relationships). Gemini: "Facts are utility. Echoes are vibe."
+    // Echoes rendered separately with their own label and framing instruction so Daniela
+    // treats them differently — not as data points but as the "ghosts in the room."
+    const ECHO_FACT_TYPES = new Set(['life_event', 'notable_mention', 'relationship', 'family']);
+
+    const echoFacts: string[] = [];
+    const referenceFacts: Record<string, string[]> = {};
+
     for (const f of facts) {
       const type = f.factType || 'other';
-      if (!grouped[type]) grouped[type] = [];
       const dateSuffix = f.relevantDate && new Date(f.relevantDate) > new Date()
         ? ` (${new Date(f.relevantDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`
         : '';
-      grouped[type].push(truncate(f.fact, FAT_CONTEXT_LIMITS.MAX_FACT_CHARS) + dateSuffix);
-    }
+      const text = truncate(f.fact, FAT_CONTEXT_LIMITS.MAX_FACT_CHARS) + dateSuffix;
 
-    const factLines: string[] = [];
-    for (const [type, items] of Object.entries(grouped)) {
-      factLines.push(`  ${formatFactType(type)}:`);
-      for (const item of items) {
-        factLines.push(`    - ${item}`);
+      if (ECHO_FACT_TYPES.has(type)) {
+        echoFacts.push(text);
+      } else {
+        if (!referenceFacts[type]) referenceFacts[type] = [];
+        referenceFacts[type].push(text);
       }
     }
-    sections.push(`Personal Facts (${facts.length} remembered details):\n${factLines.join('\n')}`);
+
+    if (Object.keys(referenceFacts).length > 0) {
+      const factLines: string[] = [];
+      for (const [type, items] of Object.entries(referenceFacts)) {
+        factLines.push(`  ${formatFactType(type)}:`);
+        for (const item of items) {
+          factLines.push(`    - ${item}`);
+        }
+      }
+      sections.push(`Things I know about them (${Object.values(referenceFacts).flat().length} details):\n${factLines.join('\n')}`);
+    }
+
+    if (echoFacts.length > 0) {
+      // Round 4 — Synthesis Framing (Gemini consult rec.): dissolve the "What lingers:" label.
+      // Gemini: labeled blocks are magnets for retrieval mode. "What lingers:" risks a "Previously on..."
+      // verbalization. Folding echo facts into unlabeled narrative prose keeps them in Daniela's
+      // internalized perception of the student — not a checklist to address, but the background air.
+      // Still preserving the instruction, but as a closing thought rather than a titled section header.
+      const echoLines = echoFacts.map(e => `  ${e}`).join('\n');
+      sections.push(`Some things about this person that sit in the background:\n${echoLines}\n\nThese don't belong in the conversation. They belong in the room — in how you pace yourself, how patient you are with hesitation, what you don't rush. Carry them unspoken.`);
+    }
   }
 
   if (people.length > 0) {
@@ -345,29 +546,71 @@ ${lines.join('\n')}`;
 
 function formatRecentConversations(
   convos: Array<{ conversationId: string; title: string; date: Date; msgs: Array<{ role: string; content: string }> }>,
+  maxMessageChars?: number,
 ): string {
   if (convos.length === 0) return '';
 
-  const lines: string[] = [];
+  const nowMs = Date.now();
+  const hotLines: string[] = [];
+  const warmLines: string[] = [];
+  const coldLines: string[] = [];
+
   for (const conv of convos) {
     if (conv.msgs.length === 0) continue;
 
+    const ageDays = (nowMs - new Date(conv.date).getTime()) / (1000 * 60 * 60 * 24);
     const dateStr = formatDateRelative(conv.date);
-    lines.push(`--- ${conv.title} (${dateStr}) ---`);
-    for (const msg of conv.msgs) {
-      const role = msg.role === 'user' ? 'Student' : 'Tutor';
-      lines.push(`  ${role}: ${truncate(msg.content, FAT_CONTEXT_LIMITS.MAX_MESSAGE_CHARS)}`);
+
+    let msgLimit: number;
+    let bucket: string[];
+    if (ageDays <= TEMPORAL_TIERS.HOT_DAYS) {
+      msgLimit = TEMPORAL_TIERS.HOT_MSGS;
+      bucket = hotLines;
+    } else if (ageDays <= TEMPORAL_TIERS.WARM_DAYS) {
+      msgLimit = TEMPORAL_TIERS.WARM_MSGS;
+      bucket = warmLines;
+    } else {
+      msgLimit = TEMPORAL_TIERS.COLD_MSGS;
+      bucket = coldLines;
     }
-    lines.push('');
+
+    const slicedMsgs = conv.msgs.slice(0, msgLimit);
+    const trimmed = conv.msgs.length > msgLimit;
+
+    bucket.push(`--- ${conv.title} (${dateStr}) ---`);
+    for (const msg of slicedMsgs) {
+      const role = msg.role === 'user' ? 'Student' : 'Tutor';
+      bucket.push(`  ${role}: ${truncate(msg.content, maxMessageChars ?? FAT_CONTEXT_LIMITS.MAX_MESSAGE_CHARS)}`);
+    }
+    if (trimmed) {
+      bucket.push(`  [session continues — ${conv.msgs.length - msgLimit} more exchanges not shown]`);
+    }
+    bucket.push('');
   }
 
-  if (lines.length === 0) return '';
+  const allLines: string[] = [];
 
-  return `[RECENT CONVERSATION HISTORY — Perfect Recall of Recent Sessions]
-You remember these recent conversations in full detail. Reference them naturally
-when the student brings up related topics. This gives you continuity across sessions.
+  if (hotLines.length > 0) {
+    allLines.push('Recent sessions (last 7 days):');
+    allLines.push('');
+    allLines.push(...hotLines);
+  }
+  if (warmLines.length > 0) {
+    allLines.push('Sessions from a few weeks ago:');
+    allLines.push('');
+    allLines.push(...warmLines);
+  }
+  if (coldLines.length > 0) {
+    allLines.push('Older sessions (brief excerpts):');
+    allLines.push('');
+    allLines.push(...coldLines);
+  }
 
-${lines.join('\n')}`;
+  if (allLines.length === 0) return '';
+
+  return `These are your past sessions with this student. More recent ones are shown in fuller detail — they represent where things stand now. Reference them naturally when the student brings up related topics.
+
+${allLines.join('\n')}`;
 }
 
 function truncate(text: string, maxLen: number): string {

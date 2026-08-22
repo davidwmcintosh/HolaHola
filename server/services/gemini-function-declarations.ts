@@ -12,7 +12,7 @@
 import { FunctionDeclaration } from "@google/genai";
 import {
   DANIELA_FUNCTION_DECLARATIONS as REGISTRY_DECLARATIONS,
-  FUNCTION_TO_COMMAND_MAP as REGISTRY_COMMAND_MAP,
+  lookupLegacyType,
   buildFunctionContinuationResponse,
   getFilteredFunctionDeclarations,
 } from "./daniela-function-registry";
@@ -23,8 +23,6 @@ export {
 };
 
 export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = REGISTRY_DECLARATIONS;
-
-export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = REGISTRY_COMMAND_MAP;
 
 /**
  * Create Gemini tools config with Daniela functions
@@ -80,7 +78,7 @@ export function extractFunctionCalls(chunk: any): ExtractedFunctionCall[] {
         calls.push({
           name,
           args,
-          legacyType: FUNCTION_TO_COMMAND_MAP[name] || name.toUpperCase(),
+          legacyType: lookupLegacyType(name),
           thoughtSignature,
         });
       }

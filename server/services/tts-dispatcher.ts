@@ -63,7 +63,10 @@ export class TtsDispatcher {
     turnId?: number
   ): Promise<void> {
     const { text: originalText, index } = chunk;
-    
+
+    // SESSION ECONOMICS: Track characters sent to TTS (non-progressive path)
+    session.telemetryTtsCharacters += (displayText || '').length;
+
     if (session.isAssistantActive) {
       await this.streamSentenceAudioWithGoogle(session, chunk, displayText, metrics, turnId);
       return;
@@ -104,7 +107,7 @@ export class TtsDispatcher {
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
         geminiLanguageCode: session.geminiLanguageCode,
-        voiceId: session.voiceId,
+        voiceId: (voiceOverride as any)?.voiceId ?? session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion as CartesiaEmotion,
         personality: effectivePersonality,
@@ -120,7 +123,7 @@ export class TtsDispatcher {
         const ttsService = getTTSService();
         await ttsService.streamSynthesizeWithGoogle({
           text: textWithEmphases,
-          voiceId: session.voiceId || '',
+          voiceId: ((voiceOverride as any)?.voiceId ?? session.voiceId) || '',
           speakingRate: effectiveSpeakingRate,
           targetLanguage: session.targetLanguage,
           accentLanguageCode: session.geminiLanguageCode || undefined,
@@ -663,7 +666,7 @@ export class TtsDispatcher {
         targetLanguage: session.targetLanguage,
         nativeLanguage: session.nativeLanguage || 'english',
         geminiLanguageCode: session.geminiLanguageCode,
-        voiceId: session.voiceId,
+        voiceId: (voiceOverride as any)?.voiceId ?? session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion as CartesiaEmotion,
         personality: effectivePersonality,
@@ -863,7 +866,7 @@ export class TtsDispatcher {
       
       await ttsService.streamSynthesizeWithGoogle({
         text: textWithEmphases,
-        voiceId: session.voiceId || '',
+        voiceId: progressiveRequest.voiceId || session.voiceId || '',
         speakingRate: effectiveSpeakingRate,
         targetLanguage: session.targetLanguage,
         accentLanguageCode: session.geminiLanguageCode || undefined,
@@ -1044,6 +1047,14 @@ export class TtsDispatcher {
       session.voiceAdjustText = undefined;
       session.accumulatedBoldWords = undefined;
       session.earlyTtsActive = undefined;
+      // SPEAK_CHARACTER_LINE atomic restore: revert to tutor voice now that character line is done
+      if (session._restoreVoiceAfterLine) {
+        session.voiceId = session._restoreVoiceAfterLine.voiceId;
+        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider as any;
+        session._restoreVoiceAfterLine = null;
+        session.activeCharacter = null;
+        console.log(`[TTS] Auto-restored tutor voice after character line. voiceId=${session.voiceId}`);
+      }
       return { spokenText: embeddedText, sentenceCount: 1 };
     } else {
       for (let si = 0; si < sentences.length; si++) {
@@ -1073,6 +1084,14 @@ export class TtsDispatcher {
       session.voiceAdjustText = undefined;
       session.accumulatedBoldWords = undefined;
       session.earlyTtsActive = undefined;
+      // SPEAK_CHARACTER_LINE atomic restore: revert to tutor voice now that character line is done
+      if (session._restoreVoiceAfterLine) {
+        session.voiceId = session._restoreVoiceAfterLine.voiceId;
+        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider as any;
+        session._restoreVoiceAfterLine = null;
+        session.activeCharacter = null;
+        console.log(`[TTS] Auto-restored tutor voice after character line. voiceId=${session.voiceId}`);
+      }
       return { spokenText: embeddedText, sentenceCount: sentences.length };
     }
   }

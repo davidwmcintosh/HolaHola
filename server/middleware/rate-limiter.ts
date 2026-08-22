@@ -1,11 +1,20 @@
 import rateLimit from 'express-rate-limit';
 import { Request, Response } from 'express';
+import { getSharedDb } from '../db';
+import { sql } from 'drizzle-orm';
 
 function rateLimitHandler(req: Request, res: Response) {
   const userId = (req as any).user?.id;
   const key = userId ? `user:${userId}` : `ip:${req.ip}`;
   console.warn(`[Rate Limit] Exceeded for ${key} on ${req.path}`);
-  
+
+  // Persist rate-limit hits so Alden/Sofia can detect scraping or abuse patterns.
+  const payload = JSON.stringify({ key, path: req.path, method: req.method });
+  getSharedDb().execute(sql`
+    INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+    VALUES (gen_random_uuid(), null, ${String(userId ?? '')}, 'rate_limit_exceeded', ${payload}::jsonb, NOW())
+  `).catch(() => {});
+
   res.status(429).json({
     error: 'Too many requests',
     message: 'You have exceeded the rate limit. Please try again later.',

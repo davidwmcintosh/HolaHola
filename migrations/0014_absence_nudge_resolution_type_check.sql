@@ -1,0 +1,1 @@
+ALTER TABLE "daniela_absence_nudges" ADD CONSTRAINT "chk_daniela_absence_nudges_resolution_type" CHECK ("daniela_absence_nudges"."resolution_type" IS NULL OR "daniela_absence_nudges"."resolution_type" IN ('message_queued', 'dismissed', 'student_returned'));

@@ -15,7 +15,66 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+function AldenMarkdown({ content }: { content: string }) {
+  const blocks = content.split(/\n\n+/);
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, bi) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        if (/^---+$/.test(trimmed)) {
+          return <hr key={bi} className="border-border my-1" />;
+        }
+
+        const lines = trimmed.split('\n');
+        const isList = lines.every(l => /^[-*]\s/.test(l.trim()) || l.trim() === '');
+        if (isList) {
+          return (
+            <ul key={bi} className="list-disc list-inside space-y-0.5 pl-1">
+              {lines.filter(l => l.trim()).map((l, li) => (
+                <li key={li}>{inlineFormat(l.replace(/^[-*]\s/, ''))}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        const isHr = lines.length === 1 && /^---+$/.test(trimmed);
+        if (isHr) return <hr key={bi} className="border-border my-1" />;
+
+        return (
+          <p key={bi} className="leading-relaxed">
+            {lines.map((line, li) => (
+              <span key={li}>
+                {inlineFormat(line)}
+                {li < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function inlineFormat(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  let last = 0;
+  let match;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match[2]) parts.push(<strong key={key++}>{match[2]}</strong>);
+    else if (match[3]) parts.push(<em key={key++}>{match[3]}</em>);
+    else if (match[4]) parts.push(<code key={key++} className="font-mono text-xs bg-background/50 px-1 rounded">{match[4]}</code>);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : <>{parts}</>;
+}
 
 interface AldenMessage {
   id: string;
@@ -24,6 +83,7 @@ interface AldenMessage {
   timestamp: Date;
   toolsUsed?: string[];
   fromHistory?: boolean;
+  phaseTitle?: string;
 }
 
 interface SessionHistory {
@@ -62,33 +122,58 @@ export function AldenChat() {
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
 
-  // Load conversation history on mount
+  // Load conversation history and surface any unread notifications on mount
   useEffect(() => {
     async function loadHistory() {
       try {
-        const res = await fetch('/api/alden/session', { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to load session');
-        const data: SessionHistory = await res.json();
+        // Fetch history and unread notifications in parallel
+        const [sessionRes, notifRes] = await Promise.all([
+          fetch('/api/alden/session', { credentials: 'include' }),
+          fetch('/api/alden/notifications', { credentials: 'include' }),
+        ]);
 
+        const data: SessionHistory = sessionRes.ok ? await sessionRes.json() : { messages: [], sessionId: null, sessionTitle: null, startedAt: null };
+        const notifications: Array<{ id: string; content: string; severity: string; createdAt: string }> =
+          notifRes.ok ? await notifRes.json() : [];
+
+        // Build message list
+        let loaded: AldenMessage[] = [];
         if (data.messages.length === 0) {
-          setMessages([{
+          loaded = [{
             id: 'initial',
             role: 'alden',
             content: WELCOME,
             timestamp: new Date(),
-          }]);
+          }];
         } else {
           setSessionTitle(data.sessionTitle);
           setSessionStartedAt(data.startedAt);
-          const loaded: AldenMessage[] = data.messages.map(m => ({
+          loaded = data.messages.map(m => ({
             id: m.id,
             role: m.role === 'david' ? 'user' : 'alden',
             content: m.content,
             timestamp: new Date(m.createdAt),
             fromHistory: true,
           }));
-          setMessages(loaded);
         }
+
+        // Prepend any unread notifications as Alden-initiated messages
+        if (notifications.length > 0) {
+          const notifMessages: AldenMessage[] = notifications.map(n => ({
+            id: `notif-${n.id}`,
+            role: 'alden' as const,
+            content: n.content,
+            timestamp: new Date(n.createdAt),
+            fromHistory: true,
+          }));
+          loaded = [...notifMessages, ...loaded];
+          // Mark all as read and clear sidebar badge
+          fetch('/api/alden/notifications/read', { method: 'POST', credentials: 'include' })
+            .then(() => queryClient.invalidateQueries({ queryKey: ['/api/alden/notifications/unread-count'] }))
+            .catch(() => {});
+        }
+
+        setMessages(loaded);
       } catch {
         setMessages([{
           id: 'initial',
@@ -231,18 +316,32 @@ export function AldenChat() {
 
       const data = await response.json();
 
-      const aldenMessage: AldenMessage = {
-        id: `alden-${Date.now()}`,
-        role: 'alden',
-        content: data.reply,
-        timestamp: new Date(),
-        toolsUsed: data.toolsUsed,
-      };
-
-      setMessages(prev => [...prev, aldenMessage]);
-
-      if (audioEnabled) {
-        synthesizeAndPlay(data.reply);
+      if (data.phases && data.phases.length > 1) {
+        // Multi-phase response — add each phase as a separate message
+        const phaseMessages: AldenMessage[] = data.phases.map((phase: { phaseTitle?: string; response: string; toolsUsed: string[] }, idx: number) => ({
+          id: `alden-${Date.now()}-phase${idx}`,
+          role: 'alden' as const,
+          content: phase.response,
+          timestamp: new Date(Date.now() + idx),
+          toolsUsed: phase.toolsUsed,
+          phaseTitle: phase.phaseTitle,
+        }));
+        setMessages(prev => [...prev, ...phaseMessages]);
+        if (audioEnabled) {
+          synthesizeAndPlay(data.phases[data.phases.length - 1].response);
+        }
+      } else {
+        const aldenMessage: AldenMessage = {
+          id: `alden-${Date.now()}`,
+          role: 'alden',
+          content: data.reply,
+          timestamp: new Date(),
+          toolsUsed: data.toolsUsed,
+        };
+        setMessages(prev => [...prev, aldenMessage]);
+        if (audioEnabled) {
+          synthesizeAndPlay(data.reply);
+        }
       }
     } catch (error) {
       console.error('[AldenChat] Error:', error);
@@ -357,7 +456,7 @@ export function AldenChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-16rem)] max-h-[700px]" data-testid="alden-chat-container">
+    <div className="flex flex-col flex-1 min-h-0" data-testid="alden-chat-container">
       <div className="flex items-center gap-3 mb-4 px-1">
         <Avatar className="h-10 w-10 border-2 border-primary/20">
           <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
@@ -392,7 +491,7 @@ export function AldenChat() {
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div
           ref={scrollRef}
           className="flex-1 overflow-y-auto p-4 space-y-4"
@@ -442,16 +541,28 @@ export function AldenChat() {
                     </Avatar>
                   )}
                   <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {msg.phaseTitle && (
+                      <div className="flex items-center gap-1.5 px-1 mb-0.5">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                          {msg.phaseTitle}
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    )}
                     <div
-                      className={`rounded-md px-3 py-2 text-sm whitespace-pre-wrap ${
+                      className={`rounded-md px-3 py-2 text-sm ${
                         msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
                           : msg.fromHistory
                           ? 'bg-muted/60 text-foreground/80'
                           : 'bg-muted'
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === 'user'
+                        ? msg.content
+                        : <AldenMarkdown content={msg.content} />
+                      }
                     </div>
                     {msg.toolsUsed && msg.toolsUsed.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">

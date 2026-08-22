@@ -3,7 +3,7 @@ import { agentObservations, supportObservations, systemAlerts, synthesizedInsigh
 import { desc, and, gte, lte, sql, eq, isNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
 /**
  * v23: Observation Summarization Service
@@ -147,7 +147,7 @@ Respond in this exact JSON format:
 Only output valid JSON, no other text.`;
 
       const result = await this.genAI.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
       });
       const text = result.text || '';

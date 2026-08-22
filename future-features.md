@@ -68,11 +68,11 @@ This document tracks potential features and improvements for future development.
   - Automatic student account creation
   - Class membership updates
 - **Assignment Sync**: Bidirectional assignment synchronization
-  - Create LinguaFlow assignments from Classroom coursework
-  - Auto-publish new Classroom assignments to LinguaFlow
+  - Create HolaHola assignments from Classroom coursework
+  - Auto-publish new Classroom assignments to HolaHola
   - Track completion status across both platforms
 - **Grade Passback**: Automatic grade synchronization
-  - LinguaFlow scores sync to Classroom gradebook
+  - HolaHola scores sync to Classroom gradebook
   - Support for point-based and letter grades
   - Configurable grade mapping (ACTFL levels → letter grades)
 

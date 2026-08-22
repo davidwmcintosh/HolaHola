@@ -1,0 +1,209 @@
+import { createHash, randomUUID } from 'crypto';
+
+import { asc, eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+
+import {
+  rawReplitCaptureEvents,
+  rawReplitClassificationRevisions,
+  rawReplitCaptureStreams,
+  rawReplitProjectionLinks,
+} from '../../shared/schema';
+import {
+  linkRawReplitCaptureToProjection,
+  persistRawReplitCapture,
+  setRawReplitCaptureDbForTest,
+} from '../services/raw-replit-capture';
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function expect(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message);
+}
+
+async function main(): Promise<void> {
+  const testId = randomUUID();
+  const sourceKey = `raw-replit-integration:${testId}`;
+  const pool = new Pool({
+    connectionString: process.env.NEON_SHARED_DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+  });
+  const db = drizzle(pool);
+  const events = [
+    {
+      sequenceNumber: 2,
+      eventType: 'luca-output',
+      payloadText: 'Luca source\nUTF-8 preserved: ñ',
+      payloadBytes: Buffer.from('Luca source\nUTF-8 preserved: ñ', 'utf8'),
+      idempotencyKey: 'luca',
+    },
+    {
+      sequenceNumber: 1,
+      eventType: 'david-message',
+      payloadText: 'David source',
+      payloadBytes: Buffer.from('David source', 'utf8'),
+      idempotencyKey: 'david',
+    },
+    {
+      sequenceNumber: 3,
+      eventType: 'raw-window-attachment',
+      payloadText: '[ATTACHMENT: replit-window.png] [CLASSIFICATION: UNKNOWN]',
+      // Deliberately non-UTF-8 bytes: attachment retention must never rely on
+      // payloadText being a lossless representation of a visible window.
+      payloadBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]),
+      idempotencyKey: 'attachment',
+    },
+  ];
+
+  const rollback = new Error('raw-replit-capture integration rollback');
+  try {
+    await db.transaction(async tx => {
+      setRawReplitCaptureDbForTest(tx);
+      const capture = await persistRawReplitCapture({
+      sourceKey,
+      sourceRoute: 'raw-replit-capture-integration',
+      events,
+      metadata: { testId, purpose: 'migrated-table integration regression' },
+    });
+      await linkRawReplitCaptureToProjection({
+      capture,
+      targetKind: 'raw-replit-capture-integration',
+      targetKey: testId,
+      disposition: 'evidence',
+      captureStartByteOffset: 7,
+      captureEndByteOffset: 49,
+    });
+
+      const [stream] = await tx
+      .select()
+      .from(rawReplitCaptureStreams)
+      .where(eq(rawReplitCaptureStreams.id, capture.streamId))
+      .limit(1);
+      const storedEvents = await tx
+      .select()
+      .from(rawReplitCaptureEvents)
+      .where(eq(rawReplitCaptureEvents.streamId, capture.streamId))
+      .orderBy(asc(rawReplitCaptureEvents.sequenceNumber));
+      const links = await tx
+      .select()
+      .from(rawReplitProjectionLinks)
+      .where(eq(rawReplitProjectionLinks.streamId, capture.streamId));
+
+    const orderedPayloads = ['David source', 'Luca source\nUTF-8 preserved: ñ'];
+    const attachmentBytes = events.find(event => event.idempotencyKey === 'attachment')!.payloadBytes!;
+    const expectedBytes = orderedPayloads.reduce(
+      (total, payload) => total + Buffer.byteLength(payload, 'utf8'),
+      attachmentBytes.byteLength,
+    );
+    const expectedAggregate = sha256(
+      [
+        `1:david-message:${sha256(orderedPayloads[0]!)}\n`,
+        `2:luca-output:${sha256(orderedPayloads[1]!)}\n`,
+        `3:raw-window-attachment:${createHash('sha256').update(attachmentBytes).digest('hex')}\n`,
+      ].join(''),
+    );
+
+    expect(stream?.status === 'complete', 'Raw test stream did not close as complete.');
+    expect(stream?.persistedEventCount === 3, 'Raw test stream did not persist all source events.');
+    expect(stream?.persistedByteCount === expectedBytes, 'Raw test stream byte count differs from UTF-8 source.');
+    expect(stream?.aggregateSha256 === expectedAggregate, 'Raw test stream aggregate hash differs from ordered source.');
+    expect(storedEvents.length === 3, 'Raw test events were not stored.');
+      expect(
+      storedEvents.map(event => event.sequenceNumber).join(',') === '1,2,3',
+      'Raw test events were not returned in canonical source order.',
+    );
+    const storedAttachment = storedEvents[2];
+    expect(
+      storedAttachment?.eventType === 'raw-window-attachment'
+      && Buffer.from(storedAttachment.payloadBytes).equals(attachmentBytes)
+      && storedAttachment.payloadSha256 === createHash('sha256').update(attachmentBytes).digest('hex')
+      && storedAttachment.payloadByteCount === attachmentBytes.byteLength,
+      'Binary attachment bytes, hash, or byte count differ from the source.',
+    );
+    expect(
+      storedEvents.slice(0, 2).every((event, index) =>
+        event.payloadText === orderedPayloads[index]
+        && event.payloadSha256 === sha256(orderedPayloads[index]!)
+        && event.payloadByteCount === Buffer.byteLength(orderedPayloads[index]!, 'utf8'),
+      ),
+      'Raw test event payload, SHA-256, or UTF-8 byte count differs from source.',
+    );
+    expect(
+      links.length === 3
+      && links.every(link =>
+        link.targetKind === 'raw-replit-capture-integration'
+        && link.targetKey === testId
+        && link.disposition === 'evidence'
+        && link.captureStartByteOffset === 7
+        && link.captureEndByteOffset === 49,
+      ),
+      'Raw test projection links are missing or differ from the acknowledged target.',
+    );
+
+      await tx.insert(rawReplitClassificationRevisions).values({
+        rawEventId: capture.eventIds[0]!,
+        revisionKey: `${testId}:unknown`,
+        sourceSha256: sha256(orderedPayloads[0]!),
+        classification: 'unknown',
+        reason: 'Source retained before attribution review.',
+        revisedBy: 'raw-replit-capture-integration',
+      });
+      await tx.insert(rawReplitClassificationRevisions).values({
+        rawEventId: capture.eventIds[0]!,
+        revisionKey: `${testId}:tool-status`,
+        sourceSha256: sha256(orderedPayloads[0]!),
+        classification: 'tool-status',
+        reason: 'Later review classified the source without changing bytes.',
+        revisedBy: 'raw-replit-capture-integration',
+      });
+      const revisions = await tx.select().from(rawReplitClassificationRevisions)
+        .where(eq(rawReplitClassificationRevisions.rawEventId, capture.eventIds[0]!));
+      expect(revisions.length === 2, 'Classification revisions were not recorded append-only.');
+      expect(
+        revisions.map(revision => revision.classification).join(',') === 'unknown,tool-status',
+        'Classification history did not preserve unknown-to-classified progression.',
+      );
+      async function expectRejected(action: (nested: any) => Promise<void>): Promise<boolean> {
+        const unexpectedlySucceeded = new Error('Mutation unexpectedly succeeded.');
+        try {
+          await tx.transaction(async nested => {
+            await action(nested);
+            throw unexpectedlySucceeded;
+          });
+          return false;
+        } catch (error) {
+          if (error === unexpectedlySucceeded) return false;
+          return true;
+        }
+      }
+      const updateRejected = await expectRejected(nested => nested.update(rawReplitCaptureEvents)
+        .set({ payloadText: 'mutation must be rejected' })
+        .where(eq(rawReplitCaptureEvents.id, capture.eventIds[0]!)));
+      const deleteRejected = await expectRejected(nested => nested.delete(rawReplitProjectionLinks)
+        .where(eq(rawReplitProjectionLinks.streamId, capture.streamId)));
+      const revisionMutationRejected = await expectRejected(nested => nested.update(rawReplitClassificationRevisions)
+        .set({ classification: 'rewritten' })
+        .where(eq(rawReplitClassificationRevisions.id, revisions[0]!.id)));
+      expect(updateRejected, 'Raw event mutation was not rejected by the database.');
+      expect(deleteRejected, 'Raw projection-link deletion was not rejected by the database.');
+      expect(revisionMutationRejected, 'Classification revision mutation was not rejected by the database.');
+
+      console.log('[raw-replit-capture-integration] PASS — migrated raw stream, exact bytes/hashes/order, links, and append-only classification revisions verified.');
+      throw rollback;
+    });
+  } catch (error) {
+    if (error !== rollback) throw error;
+  } finally {
+    setRawReplitCaptureDbForTest(undefined);
+    await pool.end();
+  }
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -1,0 +1,110 @@
+uploads = []
+
+[[generated]]
+id = "6DfwcDb6F9DVojCmGFfCH"
+uri = "file://client/public/strips/panel-0-0.png"
+type = "image"
+title = "Marco waving hello"
+
+[[generated]]
+id = "6KE5czQs8qrnyXkJGEGQo"
+uri = "file://client/public/strips/panel-0-1.png"
+type = "image"
+title = "Daniela happy greeting"
+
+[[generated]]
+id = "2dtXVUr8rFUz3E8g6mFo0"
+uri = "file://client/public/strips/panel-0-2.png"
+type = "image"
+title = "Marco thumbs up"
+
+[[generated]]
+id = "ptm-iZxpOCDGYXOFe95Bv"
+uri = "file://client/public/strips/panel-0-3.png"
+type = "image"
+title = "Daniela waving goodbye"
+
+[[generated]]
+id = "YxAVgHDGr_sKNKjExNtSh"
+uri = "file://client/public/strips/panel-1-0.png"
+type = "image"
+title = "Marco introducing himself"
+
+[[generated]]
+id = "cqM_IgmbhHBsloj9EoMAS"
+uri = "file://client/public/strips/panel-1-1.png"
+type = "image"
+title = "Daniela nice to meet you"
+
+[[generated]]
+id = "ymD6QS0vmjCDXeRlTooTW"
+uri = "file://client/public/strips/panel-1-2.png"
+type = "image"
+title = "Marco pleased expression"
+
+[[generated]]
+id = "pXJUfIwTZgeTzmDkmOUVm"
+uri = "file://client/public/strips/panel-2-0.png"
+type = "image"
+title = "Marco formal greeting grandma"
+
+[[generated]]
+id = "xpoqvFaMdLSC_rPE2IYaR"
+uri = "file://client/public/strips/panel-2-1.png"
+type = "image"
+title = "Rosa grandma welcoming"
+
+[[generated]]
+id = "L0NY3MicOyxwppWkEHbhN"
+uri = "file://client/public/strips/panel-2-2.png"
+type = "image"
+title = "Marco smiling at grandma"
+
+[[outputs]]
+id = "cXTsXlRbm3VEWLtKy1l6a"
+uri = "file://fine-tuning-export-2026-05-06.jsonl.gz"
+type = "unspecified"
+title = "Daniela Fine-Tuning Dataset — 185 examples (download & decompress)"
+
+[[outputs]]
+id = "JuvrZ5DKdfMpmNMv2e3Qa"
+uri = "file://attached_assets/daniela_response_session1.mp3"
+type = "audio"
+title = "Daniela's voice — responding to Alex speaking Spanish"
+
+[[outputs]]
+id = "87CI-Hlt5pXseOJ4U1XKr"
+uri = "file://attached_assets/daniela_s004_t1.mp3"
+type = "audio"
+title = "Session 002 — Turn 1: Daniela sets the scene (Madrid restaurant)"
+
+[[outputs]]
+id = "I7y5eTvcD1ZaT9YfDkSiL"
+uri = "file://attached_assets/daniela_s004_t2.mp3"
+type = "audio"
+title = "Session 002 — Turn 2: Vocab grid with food images"
+
+[[outputs]]
+id = "QR6tv9Kn6OM2TeoCbsnoS"
+uri = "file://docs/episodes/episode-07-the-foundation-session.md"
+type = "text"
+title = "Episode 8 — The Foundation Session (January 25, 2026)"
+
+[[outputs]]
+id = "C6H-EOfBBL9MHerHX1F5h"
+uri = "file://docs/episode-15.md"
+type = "text"
+title = "Episode 15: \"Nueve\""
+
+[[outputs]]
+id = "_9rW9UMQdgZljbEvyWZDJ"
+uri = "file://docs/episode-17.md"
+type = "text"
+title = "Episode 17 — The Guardian in the Room"
+
+[[outputs]]
+id = "WMHnAmAeXeJCCzAy0gYE0"
+uri = "file://docs/episode-25.md"
+type = "text"
+title = "Episode 25: \"The Common Room\""
+description = "Still rolling — 'The Two Puppets' section appended August 7 evening."

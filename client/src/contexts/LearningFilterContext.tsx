@@ -76,8 +76,8 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // "founder-mode" and "honesty-mode" are valid for developers only
-    if (learningContext === "founder-mode" || learningContext === "honesty-mode") {
+    // "founder-mode", "honesty-mode", and "reading-room" are valid for developers only
+    if (learningContext === "founder-mode" || learningContext === "honesty-mode" || learningContext === "reading-room") {
       // Non-developers should not be in these modes - reset to self-directed
       if (!isDeveloper) {
         setLearningContext("self-directed");
@@ -107,6 +107,7 @@ export function LearningFilterProvider({ children }: { children: ReactNode }) {
     if (learningContext === "self-directed") return "Self-Directed";
     if (learningContext === "founder-mode") return "Founder Mode";
     if (learningContext === "honesty-mode") return "Honesty Mode";
+    if (learningContext === "reading-room") return "Reading Room";
     if (learningContext === "all-classes") return "All Classes";
     if (learningContext === "all-learning") return "All Learning";
     const cls = enrolledClasses.find(e => e.classId === learningContext);

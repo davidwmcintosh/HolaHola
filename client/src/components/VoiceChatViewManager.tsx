@@ -1,4 +1,4 @@
-import { useState, useRef, TouchEvent } from "react";
+import { useState, useRef, useEffect, TouchEvent } from "react";
 import { ImmersiveTutor } from "./ImmersiveTutor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ interface VoiceChatViewManagerProps {
   isPlaying: boolean;
   isConnecting?: boolean;
   isReconnecting?: boolean;
+  reconnectMessage?: string;
   isUsersTurn?: boolean;
   onEndCall?: () => void;
   tutorGender?: 'male' | 'female';
@@ -50,6 +51,7 @@ interface VoiceChatViewManagerProps {
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
   openMicState?: OpenMicState;
+  showListeningPatience?: boolean;
   // Track if PTT button is being held (for stable instruction text during speculative processing)
   isPttButtonHeld?: boolean;
   // Playback state for guards - 'buffering' happens before 'playing'
@@ -61,6 +63,10 @@ interface VoiceChatViewManagerProps {
   onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
   // Help button callback - opens support modal
   onHelpClick?: () => void;
+  // Micro-ack playing state — drives avatar to 'talking' during ack clip
+  microAckPlaying?: boolean;
+  // Broadcast mode backdrop URL — passed through to ImmersiveTutor so its background becomes transparent
+  backdropImageUrl?: string;
 }
 
 export function VoiceChatViewManager({
@@ -74,6 +80,7 @@ export function VoiceChatViewManager({
   isPlaying,
   isConnecting = false,
   isReconnecting = false,
+  reconnectMessage,
   isUsersTurn = true,
   onEndCall,
   tutorGender = "female",
@@ -99,16 +106,26 @@ export function VoiceChatViewManager({
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
+  showListeningPatience = false,
   isPttButtonHeld = false,
   playbackState = 'idle',
   onInterrupt,
   voiceOverride,
   onVoiceOverrideChange,
   onHelpClick,
+  microAckPlaying = false,
+  backdropImageUrl,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (view === 'history' && historyScrollRef.current) {
+      historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight;
+    }
+  }, [view, messages]);
 
   // Fetch conversation metadata (includes resume info) - Week 1 Feature
   const { data: conversationData } = useQuery<Conversation & { resumeMetadata?: { 
@@ -159,7 +176,7 @@ export function VoiceChatViewManager({
       {/* View Indicator Badges - Live and History only */}
       {/* Subtitle controls removed: tutor decides when to display via whiteboard */}
       {/* User can still configure subtitle preference in Settings */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+      <div className="absolute top-5 right-10 z-10 flex gap-2">
         {/* Live Button - Primary when active */}
         <Badge
           variant={view === "live" ? "default" : "outline"}
@@ -183,8 +200,14 @@ export function VoiceChatViewManager({
         </Badge>
       </div>
 
-      {/* View Content */}
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      {/* View Content.
+          Root is absolute inset-0 flex flex-col, so flex-1 min-h-0 here gets definite bounds.
+          History: overflow-y-auto lets content scroll within the bounded flex allocation.
+          Live: flex-col + overflow-hidden for ImmersiveTutor layout. */}
+      <div
+        ref={view === "history" ? historyScrollRef : undefined}
+        className={`flex-1 min-h-0 ${view === "history" ? "overflow-y-auto" : "flex flex-col overflow-hidden"}`}
+      >
         {view === "live" ? (
           conversationId ? (
             <div className="flex-1 min-h-0 overflow-hidden">
@@ -198,6 +221,7 @@ export function VoiceChatViewManager({
                 isPlaying={isPlaying}
                 isConnecting={isConnecting}
                 isReconnecting={isReconnecting}
+                reconnectMessage={reconnectMessage}
                 isUsersTurn={isUsersTurn}
                 onToggleView={toggleView}
                 onEndCall={onEndCall}
@@ -225,12 +249,15 @@ export function VoiceChatViewManager({
                 inputMode={inputMode}
                 setInputMode={setInputMode}
                 openMicState={openMicState}
+                showListeningPatience={showListeningPatience}
                 isPttButtonHeld={isPttButtonHeld}
                 playbackState={playbackState}
                 onInterrupt={onInterrupt}
                 voiceOverride={voiceOverride}
                 onVoiceOverrideChange={onVoiceOverrideChange}
                 onHelpClick={onHelpClick}
+                microAckPlaying={microAckPlaying}
+                backdropImageUrl={backdropImageUrl}
               />
             </div>
           ) : (
@@ -239,7 +266,7 @@ export function VoiceChatViewManager({
             </div>
           )
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16 pb-20">
+          <div className="p-4 md:p-6 pt-16 pb-20">
             <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
               {/* Resume conversation indicator - Week 1 Feature */}
               {conversationData?.resumeMetadata?.isResuming && (
@@ -267,7 +294,10 @@ export function VoiceChatViewManager({
                   className={`flex gap-2 md:gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <Card className={`p-3 md:p-4 max-w-[85%] md:max-w-2xl rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">
+                      {/* Safety-net: strip any <thought>...</thought> that slipped past server-side cleaning */}
+                      {msg.content.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim()}
+                    </p>
                   </Card>
                 </div>
               ))}

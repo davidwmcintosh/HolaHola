@@ -29,7 +29,10 @@ const publicLanguages = [
   { value: "hebrew", label: "Hebrew" },
 ];
 
-const hiddenLanguages: { value: string; label: string }[] = [];
+// Developer-only: Luca sessions (agent ↔ Daniela conversations)
+const developerLanguages: { value: string; label: string }[] = [
+  { value: "luca", label: "Luca Sessions" },
+];
 
 interface LanguageOption {
   value: string;
@@ -58,9 +61,9 @@ export function LearningContextFilter({
   const { user: authUser } = useAuth();
   const isDeveloper = authUser?.role === 'developer' || authUser?.role === 'admin';
   
-  // Include hidden languages for privileged users
+  // Include developer-only languages (Luca sessions) for privileged users
   const allLanguages: LanguageOption[] = isDeveloper 
-    ? [...publicLanguages, ...hiddenLanguages]
+    ? [...publicLanguages, ...developerLanguages]
     : publicLanguages;
 
   // Get user's target language for self-directed learning

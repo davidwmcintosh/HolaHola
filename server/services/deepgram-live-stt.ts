@@ -385,6 +385,38 @@ export function getDeepgramLanguageCode(language: string): string {
 }
 
 /**
+ * Checks whether a transcript appears to be a linguistically complete sentence.
+ * Used at UtteranceEnd to decide whether to extend the silence window rather than
+ * cutting the student off mid-thought (e.g. "I'm going to go to the..." needs more time).
+ *
+ * Covers English, Spanish, French, Portuguese, German trailing words.
+ * Conservative by design — only blocks submission for clear incomplete signals.
+ * False negatives (missing an incomplete sentence) are less harmful than false
+ * positives (stalling after a genuinely complete sentence).
+ */
+function isLikelySentenceComplete(transcript: string): boolean {
+  const t = transcript.trim().toLowerCase();
+  if (!t) return true;
+
+  // Explicit pause requests — student has asked for more time
+  if (/\b(give me a second|let me think|hold on a|un momento|dame un segundo|espera un|d[eé]jame pensar)/.test(t)) return false;
+
+  // Trailing articles — nothing complete ends with "the", "el", "la", "un", etc.
+  if (/\b(the|el|la|los|las|un|una|unos|unas|le|les|une?|du|des|um|uma|der|die|das|eine?)$/.test(t)) return false;
+
+  // Trailing prepositions
+  if (/\b(to|of|in|at|on|for|with|by|from|into|en|de|con|por|para|sobre|sin|hacia|dans|sur|par|avec|em|com|até)$/.test(t)) return false;
+
+  // Trailing coordinating conjunctions
+  if (/\b(and|but|or|because|although|y|pero|porque|aunque|mas|et|mais|ou|und|aber|oder|weil)$/.test(t)) return false;
+
+  // Trailing incomplete verb constructions
+  if (/\b(going to|want to|need to|have to|trying to|voy a|vamos a|quiero|tengo que|vou|quero|preciso)$/.test(t)) return false;
+
+  return true;
+}
+
+/**
  * Open Mic Streaming Session
  * 
  * Continuous audio streaming with VAD events for natural conversation flow.
@@ -426,9 +458,12 @@ export class OpenMicSession {
   private isSuppressed = false;
   private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
   private emptySpeechFinalTimeout: NodeJS.Timeout | null = null;
+  private lingeringSpeechTimeout: NodeJS.Timeout | null = null;  // Safety net: force utterance end if speech_final never arrives
+  private incompleteExtensionTimeout: NodeJS.Timeout | null = null;  // Extended window when sentence appears incomplete
   private consecutiveEmptyCount = 0;
   private suppressionEndedAt = 0;
   private lastSuccessfulTranscriptAt = 0;
+  private emptyUtteranceHandledAt = 0;  // Guard against double-firing when UtteranceEnd arrives after immediate empty handling
   
   constructor(language: string, events: OpenMicEvents, keyterms?: string[]) {
     this.language = language;
@@ -450,6 +485,10 @@ export class OpenMicSession {
         this.currentIntelligence = {};
         this.lastFinalSegment = '';
         this.bestInterimForSegment = '';
+        if (this.incompleteExtensionTimeout) {
+          clearTimeout(this.incompleteExtensionTimeout);
+          this.incompleteExtensionTimeout = null;
+        }
       } else {
         this.suppressionEndedAt = Date.now();
         this.consecutiveEmptyCount = 0;
@@ -482,11 +521,11 @@ export class OpenMicSession {
       };
       
       try {
-        // MULTI-LANGUAGE: Always use 'multi' for bilingual detection
-        // Students naturally mix native + target language during lessons
-        // Better to get 85% accurate bilingual transcript than miss English entirely
-        // CRITICAL: nova-3 is FORCED here because nova-2 + 'multi' returns empty transcripts
-        // This overrides DEEPGRAM_MODEL env var for open-mic mode specifically
+        // MULTI-LANGUAGE: Always use 'multi' for bilingual detection across ALL sessions.
+        // Students naturally mix native + target language (e.g. a Japanese student studying
+        // English will mix Japanese and English mid-sentence — 'multi' catches both).
+        // CRITICAL: nova-3 is FORCED here because nova-2 + 'multi' returns empty transcripts.
+        // This overrides DEEPGRAM_MODEL env var for open-mic mode specifically.
         const languageCode = 'multi';
         const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
         console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
@@ -497,12 +536,12 @@ export class OpenMicSession {
           punctuate: true,
           smart_format: true,
           vad_events: true,
-          utterance_end_ms: 1400, // Allow ~1.4s pause for natural thinking without cutting off
+          utterance_end_ms: 3500, // 3.5s pause required before UtteranceEnd fires — gives users time to think mid-sentence
           interim_results: true,
           encoding: 'linear16',
           sample_rate: 16000,
           channels: 1,
-          endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
+          endpointing: 500, // 500ms silence before speech_final — less aggressive than 300ms, reduces mid-sentence cutoffs
           // Intelligence features only when plan supports them
           ...(DEEPGRAM_INTELLIGENCE_ENABLED && {
             diarize: true,           // Speaker separation
@@ -541,6 +580,15 @@ export class OpenMicSession {
           console.log('[OpenMic] Speech started (VAD)');
           // If we get a SpeechStarted event, connection is definitely open
           resolveOnce();
+
+          // INCOMPLETE EXTENSION CANCEL: Student resumed speaking — cancel the extended window.
+          // Their new words will naturally append to currentTranscript (not reset yet) and
+          // the next UtteranceEnd will re-evaluate completeness with the longer transcript.
+          if (this.incompleteExtensionTimeout) {
+            clearTimeout(this.incompleteExtensionTimeout);
+            this.incompleteExtensionTimeout = null;
+            console.log('[OpenMic] Extension cancelled — student resumed speaking');
+          }
           
           // ECHO SUPPRESSION: Don't emit VAD events while TTS is playing
           // Browser echo cancellation isn't perfect, Deepgram picks up TTS output
@@ -554,11 +602,25 @@ export class OpenMicSession {
         this.connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
           console.log(`[OpenMic] Utterance end - transcript: "${this.currentTranscript}"`);
           
-          // Clear the safety timeout since real UtteranceEnd arrived
+          // Clear all pending safety timeouts since real UtteranceEnd arrived
           if (this.emptySpeechFinalTimeout) {
             clearTimeout(this.emptySpeechFinalTimeout);
             this.emptySpeechFinalTimeout = null;
           }
+          if (this.lingeringSpeechTimeout) {
+            clearTimeout(this.lingeringSpeechTimeout);
+            this.lingeringSpeechTimeout = null;
+          }
+
+          // DOUBLE-FIRE GUARD: If we already handled an empty utterance immediately
+          // (from speech_final handler), skip this UtteranceEnd to avoid double-firing.
+          // The UtteranceEnd arrives ~1.4s after the empty speech_final we already handled.
+          if (this.emptyUtteranceHandledAt > 0 && Date.now() - this.emptyUtteranceHandledAt < 3000) {
+            console.log('[OpenMic] UtteranceEnd skipped — already handled as empty speech_final');
+            this.emptyUtteranceHandledAt = 0;
+            return;
+          }
+          this.emptyUtteranceHandledAt = 0;
           
           // ECHO SUPPRESSION: Don't process utterance end while TTS is playing
           if (this.isSuppressed) {
@@ -586,6 +648,31 @@ export class OpenMicSession {
             this.lastSuccessfulTranscriptAt = Date.now();
           }
           
+          // LINGUISTIC COMPLETENESS CHECK: If the transcript ends with a trailing article,
+          // preposition, conjunction, or incomplete verb construction, the student almost
+          // certainly has more to say. Extend the silence window by 3s rather than cutting
+          // them off. When student speaks again, SpeechStarted cancels this timer so their
+          // new words naturally append to currentTranscript before the next UtteranceEnd fires.
+          // Only applies to non-empty transcripts — empty transcripts always go through as EMPTY.
+          if (this.currentTranscript.trim() && !isLikelySentenceComplete(this.currentTranscript.trim())) {
+            console.log(`[OpenMic] INCOMPLETE SENTENCE: "${this.currentTranscript.trim()}" — extending silence window +3s`);
+            this.lastFinalSegment = '';  // Allow new speech to accumulate without dedup block
+            if (this.incompleteExtensionTimeout) clearTimeout(this.incompleteExtensionTimeout);
+            this.incompleteExtensionTimeout = setTimeout(() => {
+              this.incompleteExtensionTimeout = null;
+              if (this.isSuppressed || !this.currentTranscript.trim()) return;
+              console.log(`[OpenMic] Extension fired — submitting: "${this.currentTranscript.trim()}"`);
+              const extIntel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
+              this.events.onUtteranceEnd?.(this.currentTranscript.trim(), this.currentConfidence, extIntel);
+              this.currentTranscript = '';
+              this.currentConfidence = 0;
+              this.currentIntelligence = {};
+              this.lastFinalSegment = '';
+              this.bestInterimForSegment = '';
+            }, 3000);
+            return;  // Don't emit yet — wait for more speech or the extension timeout
+          }
+
           const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
           this.events.onUtteranceEnd?.(this.currentTranscript.trim() || '[EMPTY_TRANSCRIPT]', this.currentConfidence, intel);
           
@@ -763,6 +850,35 @@ export class OpenMicSession {
                 // Reset best interim for next segment
                 this.bestInterimForSegment = '';
                 console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
+                
+                // RACE CONDITION FIX: Real speech arrived — cancel any pending empty-speech safety
+                // timer. Without this, if background noise triggered the timer right before the
+                // user spoke, the timer would fire mid-utterance, wipe currentTranscript, and
+                // cause the utterance to submit as [EMPTY_TRANSCRIPT] even though words arrived.
+                if (this.emptySpeechFinalTimeout) {
+                  clearTimeout(this.emptySpeechFinalTimeout);
+                  this.emptySpeechFinalTimeout = null;
+                }
+                
+                // LINGERING TRANSCRIPT SAFETY NET: With `multi` language model, background noise
+                // at ~-66dB keeps Deepgram's VAD active, preventing speech_final from ever firing
+                // for real speech. Without this timer, the transcript accumulates but is never
+                // submitted — Daniela never responds. If speech_final doesn't arrive within 5s
+                // after a real final transcript, force-submit via utterance end.
+                if (!this.isSuppressed) {
+                  if (this.lingeringSpeechTimeout) clearTimeout(this.lingeringSpeechTimeout);
+                  this.lingeringSpeechTimeout = setTimeout(() => {
+                    this.lingeringSpeechTimeout = null;
+                    if (this.isSuppressed || !this.currentTranscript.trim()) return;
+                    console.log(`[OpenMic] LINGERING SAFETY: speech_final never arrived — forcing utterance end for: "${this.currentTranscript}"`);
+                    this.events.onUtteranceEnd?.(this.currentTranscript.trim(), this.currentConfidence, Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined);
+                    this.currentTranscript = '';
+                    this.currentConfidence = 0;
+                    this.currentIntelligence = {};
+                    this.lastFinalSegment = '';
+                    this.bestInterimForSegment = '';
+                  }, 5000); // 5s safety net — enough time for mid-sentence pauses + dev CPU lag
+                }
                 // CRITICAL: Also notify PTT handler of accumulated transcript
                 // This ensures PTT mode sees the full accumulated text, not just interim fragments
                 this.events.onInterimTranscript?.(this.currentTranscript);
@@ -775,6 +891,24 @@ export class OpenMicSession {
                 ? this.currentTranscript + ' ' + transcript 
                 : transcript;
               this.events.onInterimTranscript?.(fullTranscript);
+              
+              // RACE CONDITION FIX (interim path): Real speech detected — cancel pending timers
+              if (transcript.trim()) {
+                if (this.emptySpeechFinalTimeout) {
+                  clearTimeout(this.emptySpeechFinalTimeout);
+                  this.emptySpeechFinalTimeout = null;
+                }
+                // DOUBLE-RESPONSE FIX: Cancel lingering safety timer when new interim arrives.
+                // The lingering timer fires if speech_final never comes (e.g. background VAD keeps
+                // DG active). But if the user is STILL SPEAKING we see new interim transcripts —
+                // cancelling here prevents the timer from submitting a partial utterance mid-sentence
+                // and causing two separate Cindy responses (which also produces double audio).
+                if (this.lingeringSpeechTimeout) {
+                  clearTimeout(this.lingeringSpeechTimeout);
+                  this.lingeringSpeechTimeout = null;
+                  console.log('[OpenMic] LINGERING CANCELLED: Interim speech arrived — user still talking, safety timer reset');
+                }
+              }
               
               // Track the best (longest) interim for this segment - these often capture
               // Spanish words that get dropped in the final transcript
@@ -796,6 +930,11 @@ export class OpenMicSession {
           // This gives users more time to pause and think without being cut off
           if (data.speech_final) {
             console.log(`[OpenMic] Speech final detected (NOT auto-submitting - waiting for UtteranceEnd)`);
+            // Cancel lingering safety — speech_final arrived, UtteranceEnd will handle submission
+            if (this.lingeringSpeechTimeout) {
+              clearTimeout(this.lingeringSpeechTimeout);
+              this.lingeringSpeechTimeout = null;
+            }
             
             // EARLY THINKING SIGNAL: Notify client immediately that user has finished a phrase
             // This fires ~1.4s before UtteranceEnd, allowing the UI to show "thinking" sooner
@@ -804,22 +943,24 @@ export class OpenMicSession {
               this.events.onSpeechFinal?.(accumulatedSoFar);
             }
             
-            // SAFETY: When speech_final fires with empty transcript, Deepgram may never
-            // send UtteranceEnd (no real utterance to end). Set a fallback timeout to
-            // prevent the user from being stuck in limbo forever.
+            // IMMEDIATE RESET: When speech_final fires with empty transcript, Deepgram
+            // detected a noise burst but couldn't transcribe it. Don't wait 2 seconds —
+            // fire utterance end immediately so the user isn't stuck waiting for nothing.
+            // With `multi` language, Deepgram's VAD fires on background noise at ~-66dB
+            // every few seconds, and each 2s wait stacks up to a 20+ second delay.
             if (!this.currentTranscript.trim() && !transcript.trim()) {
               if (this.emptySpeechFinalTimeout) clearTimeout(this.emptySpeechFinalTimeout);
-              this.emptySpeechFinalTimeout = setTimeout(() => {
-                this.emptySpeechFinalTimeout = null;
-                if (this.isSuppressed) return;
-                console.log('[OpenMic] SAFETY: UtteranceEnd never arrived after empty speech_final - forcing utterance end');
+              this.emptySpeechFinalTimeout = null;
+              if (!this.isSuppressed) {
+                console.log('[OpenMic] Empty speech_final — immediately resetting (no wait for UtteranceEnd)');
+                this.emptyUtteranceHandledAt = Date.now();
                 this.events.onUtteranceEnd?.('[EMPTY_TRANSCRIPT]', 0);
                 this.currentTranscript = '';
                 this.currentConfidence = 0;
                 this.currentIntelligence = {};
                 this.lastFinalSegment = '';
                 this.bestInterimForSegment = '';
-              }, 2000);
+              }
             }
           }
         });
@@ -978,6 +1119,14 @@ export class OpenMicSession {
     if (this.emptySpeechFinalTimeout) {
       clearTimeout(this.emptySpeechFinalTimeout);
       this.emptySpeechFinalTimeout = null;
+    }
+    if (this.lingeringSpeechTimeout) {
+      clearTimeout(this.lingeringSpeechTimeout);
+      this.lingeringSpeechTimeout = null;
+    }
+    if (this.incompleteExtensionTimeout) {
+      clearTimeout(this.incompleteExtensionTimeout);
+      this.incompleteExtensionTimeout = null;
     }
     
     if (this.connection) {

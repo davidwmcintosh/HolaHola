@@ -55,6 +55,7 @@ import {
   ClientTelemetryEventType,
 } from '../../../shared/streaming-voice-types';
 import { isVerboseLoggingEnabled } from './audioUtils';
+import { getGlobalPlaybackState } from './playbackStateStore';
 
 // ============================================================================
 // CLIENT TELEMETRY EMITTER (End-to-End Voice Diagnostics)
@@ -174,7 +175,7 @@ export interface StreamingSessionConfig {
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
+  subtitleMode: 'off' | 'target';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
@@ -182,6 +183,7 @@ export interface StreamingSessionConfig {
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
   isReconnect?: boolean;  // True when reconnecting after a drop — prevents duplicate audio/greetings
+  inputMode?: string;  // Voice input mode (ptt, open-mic, etc.)
 }
 
 /**
@@ -197,6 +199,7 @@ type StreamingEventType =
   | 'sessionStart'
   | 'processing'
   | 'processing_pending'  // Immediate thinking signal on PTT release
+  | 'functionExecuting'  // Server-side tool call in progress — re-arms thinking avatar
   | 'sentenceStart'
   | 'sentenceReady'      // NEW: Atomic first audio + first timing (prevents timing race)
   | 'audioChunk'
@@ -210,6 +213,8 @@ type StreamingEventType =
   | 'openMicSessionClosed' // Open mic: Server session closed (e.g., Deepgram timeout)
   | 'openMicSilenceLoop'  // Open mic: Consecutive empty transcripts detected
   | 'reconnected'         // Successfully reconnected after a drop
+  | 'glAudioReset'        // GL mid-turn reconnect — client must stop() + resetForNewTurn()
+  | 'proactive_reconnect' // Intentional 4.5-min WS cycle before Replit proxy 5-min kill
   | 'inputModeChanged'   // Input mode switched
   | 'responseComplete'
   | 'feedback'
@@ -222,6 +227,36 @@ type StreamingEventType =
   | 'textInputRequest'   // Server command to request text input
   | 'scenarioLoaded'     // Immersive scenario loaded from library
   | 'scenarioEnded'      // Active scenario ended
+  | 'propUpdate'         // Scenario prop updated
+  | 'immersiveMode'      // Enter/exit immersive fullscreen mode
+  | 'zoneAdvanced'       // Scenario zone advanced to next zone
+  | 'zoneImageReady'     // Lazy-generated zone image is now available
+  | 'incognitoChanged'   // Server confirmed incognito toggle
+  | 'expectedSentenceCount'
+  | 'ttsError'
+  | 'sttDegraded'
+  | 'noSpeechDetected'
+  | 'transcript'
+  | 'danielaTranscript'
+  | 'characterChange'
+  | 'idleTimeout'
+  | 'creditWarning'
+  | 'sessionConflict'
+  | 'server_restarting'  // Server SIGTERM — deploy rotation, drain window in progress
+  | 'greetingRetry'      // Server auto-retrying silent greeting — client resets 15s watchdog
+  | 'glReconnecting'
+  | 'glReconnected'
+  | 'voiceError'
+  | 'lessonNoteAdded'
+  | 'pronunciationScoreShown'
+  | 'grammarFlagShown'
+  | 'quizPresented'
+  | 'culturalContextShown'
+  | 'spotlightShown'
+  | 'missionSet'
+  | 'sofiaIncidentCreated'     // Daniela called escalate_to_support — incident logged
+  | 'sofiaSupportMessage'      // Sofia worker sent guidance to student
+  | 'sofiaAllClear'            // Sofia resolved the incident
   | 'error';
 
 /**
@@ -234,7 +269,7 @@ export class StreamingVoiceClient {
   private callbacks: Partial<StreamingVoiceCallbacks> = {};
   private state: StreamingConnectionState = 'disconnected';
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 12; // Covers server restarts (fast: 3 tries ~3s, slow: 9 tries ~3 min)
   private pendingBinaryData: ArrayBuffer | null = null;
   private currentSentenceIndex = -1;
   private eventListeners: Map<StreamingEventType, Set<EventListener>> = new Map();
@@ -251,13 +286,23 @@ export class StreamingVoiceClient {
   private consecutiveSessionErrors = 0;
   private readonly MAX_SESSION_ERRORS = 5;
   private _isReconnectedSession = false;  // True after reconnect — prevents greeting re-trigger
+  private _lastKnownInputMode: 'push-to-talk' | 'open-mic' = 'push-to-talk';  // Restored on reconnect
+  private _pendingChunks: Array<{audioData: ArrayBuffer, sequenceId: number}> = [];  // Buffer for reconnect gap
+  private readonly _PENDING_CHUNK_MAX = 100;  // ~1s of audio at 10ms chunks; prevents unbounded growth
   
   // Heartbeat state for fast drop detection
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private missedHeartbeats = 0;
   private readonly HEARTBEAT_INTERVAL_MS = 1000;  // Send ping every 1s
   private readonly MAX_MISSED_HEARTBEATS = 3;     // 3 missed = ~3s detection
-  
+
+  // Proactive reconnect — Replit's proxy enforces a hard 5-minute WebSocket lifetime.
+  // Measured precisely: drops happen at 301–302s after connect regardless of activity.
+  // We reconnect at 270s (4.5 min) so the handoff happens cleanly between turns
+  // rather than being force-killed mid-sentence by the proxy.
+  private proactiveReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly PROACTIVE_RECONNECT_MS = 270000;  // 4.5 minutes (30s before proxy's 5-min kill)
+
   // Warm-up state
   private isWarmedUp = false;  // Socket connected but no session started
   
@@ -455,6 +500,7 @@ export class StreamingVoiceClient {
           this.intentionalDisconnect = false;
           this.setState('connected');
           this.startHeartbeat();
+          this.startProactiveReconnect();
           resolve();
         };
         
@@ -506,7 +552,23 @@ export class StreamingVoiceClient {
         socket.on('heartbeat_ack', () => {
           this.missedHeartbeats = 0;
         });
-        
+
+        // GRACEFUL SHUTDOWN: Server sends this on SIGTERM (deploy rotation).
+        // The server now holds a 25s drain window before exiting, so we have time
+        // to let buffered audio finish playing before starting the reconnect.
+        socket.on('server_restarting', () => {
+          console.log('[StreamingVoice] Server shutdown imminent — letting audio drain, then reconnecting');
+          this.stopHeartbeat();
+          // Notify the UI immediately so a toast can be shown
+          this.emit('server_restarting', { drainSeconds: 25 });
+          // Wait 5s to let any buffered TTS audio finish playing, then disconnect.
+          // The server's 25s drain window gives us ample time.
+          setTimeout(() => {
+            console.log('[StreamingVoice] Drain delay elapsed — disconnecting to reconnect to new server');
+            socket.disconnect();
+          }, 5000);
+        });
+
         socket.on('binary', (data: ArrayBuffer) => {
           this.missedHeartbeats = 0;
           if (this.connectionId === currentConnectionId) {
@@ -590,6 +652,68 @@ export class StreamingVoiceClient {
       this.heartbeatInterval = null;
     }
     this.missedHeartbeats = 0;
+    // Always cancel proactive reconnect alongside heartbeat — same lifecycle
+    this.stopProactiveReconnect();
+  }
+
+  /**
+   * Schedule a proactive reconnect targeting 4.5 minutes after connection established.
+   * Replit's proxy kills WebSocket connections at exactly 5 minutes regardless of
+   * activity. We aim to reconnect between turns (when state is 'ready'), polling
+   * every 500ms if a turn is in-flight. An absolute deadline at 4min 55s ensures
+   * we still beat the proxy's hard kill even if a very long turn is active.
+   */
+  private startProactiveReconnect(): void {
+    this.stopProactiveReconnect();
+    // Absolute deadline: we MUST reconnect by 4min 55s to beat Replit proxy's 5-min hard kill.
+    // We target 4.5min (270s) but defer if a turn is in-flight, retrying every 500ms.
+    const ABSOLUTE_DEADLINE_MS = 295000; // 4min 55s
+    const scheduledAt = Date.now();
+
+    const attemptReconnect = () => {
+      this.proactiveReconnectTimer = null;
+      if (!this.socket?.connected || this.intentionalDisconnect) return;
+      if (!this.lastSessionConfig) return;
+
+      const elapsed = Date.now() - scheduledAt;
+      const isPastDeadline = elapsed >= ABSOLUTE_DEADLINE_MS;
+
+      // Defer if mid-turn (state === 'processing') OR audio is actively playing/buffering,
+      // UNLESS we've hit the absolute deadline. Connection state flips back to 'ready' as
+      // soon as response_complete arrives (all sentence audio has been SENT), but playback
+      // in the browser can still be ongoing for several more seconds — disconnecting then
+      // kills the socket mid-sentence for the listener even though the connection layer
+      // thinks the turn is over. This is the primary suspected cause of the chronic
+      // "cut off mid-sentence" / code-1000 drop pattern.
+      const audioActive = getGlobalPlaybackState() === 'playing' || getGlobalPlaybackState() === 'buffering';
+      if ((this.state === 'processing' || audioActive) && !isPastDeadline) {
+        console.log(
+          `[StreamingVoice] Proactive reconnect deferred — turn in-flight or audio playing (state=${this.state}, audio=${getGlobalPlaybackState()}), will retry in 500ms`
+        );
+        this.proactiveReconnectTimer = setTimeout(attemptReconnect, 500);
+        return;
+      }
+
+      console.log(
+        '[StreamingVoice] Proactive reconnect — cycling WS before proxy 5-min hard kill. State:',
+        this.state,
+        `(elapsed=${Math.round(elapsed / 1000)}s, pastDeadline=${isPastDeadline})`
+      );
+      this.emit('proactive_reconnect', { timestamp: Date.now(), state: this.state });
+      this.socket.disconnect();
+    };
+
+    this.proactiveReconnectTimer = setTimeout(attemptReconnect, this.PROACTIVE_RECONNECT_MS);
+  }
+
+  /**
+   * Cancel any pending proactive reconnect timer
+   */
+  private stopProactiveReconnect(): void {
+    if (this.proactiveReconnectTimer) {
+      clearTimeout(this.proactiveReconnectTimer);
+      this.proactiveReconnectTimer = null;
+    }
   }
   
   /**
@@ -604,15 +728,16 @@ export class StreamingVoiceClient {
     const { isReconnect, ...storedConfig } = config;
     this.lastSessionConfig = storedConfig;
     
-    // Clear reconnect flag on fresh sessions
+    // Clear reconnect flag and pending chunk buffer on fresh sessions
     if (!isReconnect) {
       this._isReconnectedSession = false;
+      this._pendingChunks = [];  // Discard any stale buffered chunks from a previous session
     }
     
-    const message: ClientStartSessionMessage = {
+    const message = {
       type: 'start_session',
       ...config,
-    };
+    } as ClientStartSessionMessage;
     
     this.socket!.emit('message', message);
   }
@@ -638,6 +763,11 @@ export class StreamingVoiceClient {
    */
   sendStreamingChunk(audioData: ArrayBuffer, sequenceId: number): boolean {
     if (!this.isReady()) {
+      // Buffer chunks during reconnect gap so they can be replayed after reconnect.
+      // Cap at _PENDING_CHUNK_MAX to prevent unbounded memory growth during long outages.
+      if (this._pendingChunks.length < this._PENDING_CHUNK_MAX) {
+        this._pendingChunks.push({ audioData: audioData.slice(0), sequenceId });
+      }
       return false;
     }
     
@@ -655,6 +785,21 @@ export class StreamingVoiceClient {
       return false;
     }
   }
+
+  /**
+   * Flush buffered chunks that accumulated during a reconnect gap.
+   * Called immediately after restoring open-mic mode on reconnect.
+   */
+  private _flushPendingChunks(): void {
+    if (this._pendingChunks.length === 0) return;
+    const chunks = this._pendingChunks.splice(0);
+    console.log(`[StreamingVoice] Flushing ${chunks.length} buffered chunk(s) from reconnect gap`);
+    for (const chunk of chunks) {
+      if (this.isReady()) {
+        this.sendStreamingChunk(chunk.audioData, chunk.sequenceId);
+      }
+    }
+  }
   
   /**
    * Stop streaming audio (open mic mode)
@@ -664,11 +809,30 @@ export class StreamingVoiceClient {
       this.socket.emit('message', { type: 'stop_streaming' });
     }
   }
+
+  /**
+   * Student-initiated one-tap retry after all GL auto-reconnect attempts are exhausted.
+   * Sends gl_retry_start to the server which resets the attempt counter and re-establishes
+   * the GL session with a fresh Context Bridge so Daniela resumes naturally.
+   * Clears intentionalDisconnect so the session can recover fully.
+   */
+  retryGlSession(): void {
+    if (!this.socket?.connected) {
+      console.warn('[StreamingVoice] retryGlSession: socket not connected — cannot retry');
+      return;
+    }
+    console.log('[StreamingVoice] retryGlSession — sending gl_retry_start to server');
+    // Allow future reconnect attempts again (this flag was set when the error arrived).
+    this.intentionalDisconnect = false;
+    this.setState('reconnecting');
+    this.socket.emit('message', { type: 'gl_retry_start' });
+  }
   
   /**
    * Set input mode (push-to-talk or open-mic)
    */
   setInputMode(mode: 'push-to-talk' | 'open-mic'): void {
+    this._lastKnownInputMode = mode;  // Track for reconnect restoration
     if (this.socket?.connected) {
       this.socket.emit('message', { type: 'set_input_mode', inputMode: mode });
     }
@@ -726,6 +890,8 @@ export class StreamingVoiceClient {
   
   private greetingTimer: ReturnType<typeof setTimeout> | null = null;
   private greetingRetried = false;
+  private lastGreetingParams: { userName?: string; isResumed?: boolean; scenarioSlug?: string } | null = null;
+  private isGeminiLiveSession = false;
 
   /**
    * Request AI-generated personalized greeting
@@ -733,32 +899,40 @@ export class StreamingVoiceClient {
    * @param userName - Optional student name for personalization
    * @param isResumed - True if resuming a previous conversation (triggers context-aware welcome back)
    */
-  requestGreeting(userName?: string, isResumed?: boolean): void {
+  requestGreeting(userName?: string, isResumed?: boolean, scenarioSlug?: string): void {
     if (!this.isReady()) {
       throw new Error('Socket.io not ready for greeting');
     }
     
+    this.lastGreetingParams = { userName, isResumed, scenarioSlug };
     this.socket!.emit('message', { 
       type: 'request_greeting',
       userName,
       isResumed,
+      scenarioSlug,
     });
 
     if (this.greetingTimer) clearTimeout(this.greetingTimer);
     this.greetingRetried = false;
-    this.greetingTimer = setTimeout(() => {
-      if (this.greetingRetried) return;
-      this.greetingRetried = true;
-      console.warn('[StreamingVoice] Greeting delivery timeout (8s) — re-requesting greeting');
-      if (this.isReady()) {
-        this.socket!.emit('message', {
-          type: 'request_greeting',
-          userName,
-          isResumed,
-          isRetry: true,
-        });
-      }
-    }, 8000);
+    // GL sessions: the server-side one-shot guard (geminiLiveGreetingSent) already blocks duplicate
+    // request_greeting, and the server's own silent-greeting auto-retry (max 2) is the sanctioned
+    // recovery path.  Firing a client retry only adds blocked duplicate requests and log noise.
+    if (!this.isGeminiLiveSession) {
+      this.greetingTimer = setTimeout(() => {
+        if (this.greetingRetried) return;
+        this.greetingRetried = true;
+        console.warn('[StreamingVoice] Greeting delivery timeout (8s) — re-requesting greeting');
+        if (this.isReady()) {
+          this.socket!.emit('message', {
+            type: 'request_greeting',
+            userName,
+            isResumed,
+            scenarioSlug,
+            isRetry: true,
+          });
+        }
+      }, 8000);
+    }
   }
 
   private clearGreetingTimer(): void {
@@ -804,7 +978,22 @@ export class StreamingVoiceClient {
       });
     }
   }
-  
+
+  /**
+   * Notify the server that the student tapped a scene prop.
+   * The server injects a context signal so Daniela reacts naturally to the object.
+   */
+  sendPropTap(prop: { propName: string; propLabel: string; nativeLabel?: string }): void {
+    if (this.socket?.connected) {
+      this.socket.emit('message', {
+        type: 'prop_tap',
+        propName: prop.propName,
+        propLabel: prop.propLabel,
+        nativeLabel: prop.nativeLabel,
+      });
+    }
+  }
+
   /**
    * Update the voice mid-session (when user changes tutor)
    */
@@ -827,6 +1016,7 @@ export class StreamingVoiceClient {
     expressiveness?: number;
     emotion?: string;
     geminiLanguageCode?: string;
+    glModel?: string;
   } | null): void {
     if (this.isReady()) {
       this.socket!.emit('message', { 
@@ -836,6 +1026,20 @@ export class StreamingVoiceClient {
     }
   }
   
+  /**
+   * Send a video frame to Daniela's GL session (webcam or screen share).
+   * Called at ~0.5fps by the useVisionCapture hook.
+   */
+  sendVideoFrame(base64Jpeg: string, source: 'webcam' | 'screen'): void {
+    if (this.isReady()) {
+      this.socket!.emit('message', {
+        type: 'video_frame',
+        data: base64Jpeg,
+        source,
+      });
+    }
+  }
+
   /**
    * Request a voice handoff - current tutor says goodbye, then new tutor introduces themselves
    * This provides a natural transition between tutors
@@ -990,6 +1194,21 @@ export class StreamingVoiceClient {
           this.handleProcessingPending(message as { type: string; timestamp: number; interimTranscript: string });
           break;
           
+        case 'function_executing':
+          // Server-side tool call in progress — refresh thinking avatar so it stays
+          // visible during long searches (memory recall, image generation, etc.)
+          this.emit('functionExecuting', message);
+          break;
+          
+        case 'gl_audio_reset':
+          // DOUBLE-AUDIO FIX: GL reconnected mid-turn (goAway→1007).
+          // Pre-reconnect AudioContext sources are still scheduled — player.stop()
+          // cancels them. resetForNewTurn() resets dedup so post-reconnect audio
+          // plays cleanly without duplication.
+          console.log('[WS CLIENT] gl_audio_reset received — clearing client audio buffer for reconnect');
+          this.emit('glAudioReset', message);
+          break;
+
         case 'sentence_start':
           this.handleSentenceStart(message as StreamingSentenceStartMessage);
           break;
@@ -1060,6 +1279,31 @@ export class StreamingVoiceClient {
           this.setState('error');
           this.intentionalDisconnect = true;
           break;
+
+        case 'session_idle_timeout':
+          console.warn('[WS CLIENT] Session ended due to inactivity');
+          this.emit('idleTimeout', { idleMinutes: message.idleMinutes ?? 5 });
+          this.intentionalDisconnect = true;
+          break;
+
+        case 'credit_warning':
+          // Mid-session credit balance warning emitted by periodic server sync
+          this.emit('creditWarning', {
+            level: message.level as 'low' | 'critical' | 'exhausted',
+            remainingSeconds: message.remainingSeconds as number,
+            percentRemaining: message.percentRemaining as number,
+          });
+          break;
+
+        case 'session_conflict':
+          // Server rejected this connection because user already has an active session elsewhere
+          console.warn('[WS CLIENT] Session conflict — already active in another tab/device');
+          this.emit('sessionConflict', {
+            message: message.message as string,
+            existingSessionId: message.existingSessionId as string | undefined,
+          });
+          this.intentionalDisconnect = true;
+          break;
           
         case 'feedback':
           // Pedagogical feedback (one-word rule, pronunciation tips, etc.)
@@ -1092,6 +1336,40 @@ export class StreamingVoiceClient {
           });
           break;
           
+        case 'gl_reconnecting':
+          // GL API WebSocket to Google closed unexpectedly; server is auto-reconnecting
+          console.log(`[WS CLIENT] GL reconnecting (attempt ${(message as any).attempt}/${(message as any).maxAttempts})`);
+          this.setState('reconnecting');
+          this.emit('glReconnecting', message as { type: string; attempt: number; maxAttempts: number; delayMs: number });
+          break;
+
+        case 'gl_reconnected':
+          // GL API WebSocket successfully re-established
+          console.log('[WS CLIENT] GL reconnected');
+          this.setState('ready');
+          this.emit('glReconnected', message);
+          break;
+
+        case 'voice_error': {
+          const veCode = (message as any).code as string;
+          const veMsg = (message as any).message as string;
+          const veRecoverable = (message as any).recoverable !== false; // default true
+          console.error('[WS CLIENT] Voice error:', veCode, veMsg, 'recoverable:', veRecoverable);
+          this.emit('voiceError', { code: veCode, message: veMsg, recoverable: veRecoverable });
+          this.emit('error', new Error(veMsg || 'Voice connection encountered an error. Please try again.'));
+          if (veRecoverable) {
+            // Recoverable = GL is reconnecting server-side; keep intentionalDisconnect false
+            // so any subsequent socket.io drop still triggers auto-reconnect.
+            // Set state to 'reconnecting' so the UI shows a spinner, not a hard error.
+            this.setState('reconnecting');
+          } else {
+            // Unrecoverable — block reconnect so we don't loop forever.
+            this.setState('error');
+            this.intentionalDisconnect = true;
+          }
+          break;
+        }
+
         case 'voice_updated':
           // Voice switch confirmation
           this.emit('voiceUpdated', message as { type: string; gender: string; voiceName: string; timestamp: number });
@@ -1109,6 +1387,7 @@ export class StreamingVoiceClient {
             isLanguageSwitch: boolean;
             requiresGreeting?: boolean; // True if client should request greeting after reconnecting
             isAssistant?: boolean;     // True if switching to assistant tutor (navigate to practice page)
+            mode?: 'tutor_mode' | 'founder_mode' | 'honesty_mode'; // Session mode for new tutor
             timestamp: number;
           });
           break;
@@ -1116,6 +1395,41 @@ export class StreamingVoiceClient {
         case 'whiteboard_update':
           // Whiteboard content from tutor
           this.emit('whiteboardUpdate', message as StreamingWhiteboardMessage);
+          break;
+
+        case 'greeting_retry':
+          // Server detected silent greeting and is auto-retrying — tell client to reset watchdog
+          this.emit('greetingRetry', message as { type: string; attempt: number });
+          break;
+
+        case 'lesson_note_added':
+          // Lesson note added by Daniela — accumulates in session notes panel
+          this.emit('lessonNoteAdded', message as { type: string; timestamp: number; note: any });
+          break;
+
+        case 'pronunciation_score_shown':
+          this.emit('pronunciationScoreShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'grammar_flag_shown':
+          this.emit('grammarFlagShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'quiz_presented':
+          this.emit('quizPresented', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'cultural_context_shown':
+          this.emit('culturalContextShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'spotlight_shown':
+          this.emit('spotlightShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'voice_mission_set':
+          // Gap D: Daniela set a shared session mission — show persistent badge in UI
+          this.emit('missionSet', message as { type: string; mission: string; timestamp: number });
           break;
           
         case 'vad_speech_started':
@@ -1129,6 +1443,21 @@ export class StreamingVoiceClient {
         case 'interim_transcript':
           this.emit('interimTranscript', message);
           break;
+
+        case 'transcript':
+          // Final user speech transcript from Gemini Live VAD
+          this.emit('transcript', message as { type: string; text: string; isFinal: boolean; source: string });
+          break;
+
+        case 'daniela_transcript':
+          // Daniela's spoken response transcription from Gemini Live
+          this.emit('danielaTranscript', message as { type: string; text: string; turnId: number });
+          break;
+
+        case 'incognito_changed':
+          // Server confirmed incognito toggle — drives authoritative client state
+          this.emit('incognitoChanged', message as { type: string; enabled: boolean; timestamp: number });
+          break;
           
         case 'input_mode_changed':
           this.emit('inputModeChanged', message);
@@ -1136,6 +1465,10 @@ export class StreamingVoiceClient {
           
         case 'open_mic_session_closed':
           this.emit('openMicSessionClosed', message);
+          break;
+          
+        case 'stt_degraded':
+          this.emit('sttDegraded', { userMessage: (message as any).userMessage });
           break;
           
         case 'open_mic_silence_loop':
@@ -1146,7 +1479,7 @@ export class StreamingVoiceClient {
         case 'subtitle_mode_change':
           // Server command to change subtitle mode (from tutor [SUBTITLE on/off/target] command)
           console.log('[StreamingVoice] Subtitle mode change from server:', message.mode);
-          this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'all' | 'target'; timestamp: number });
+          this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'target'; timestamp: number });
           break;
           
         case 'custom_overlay':
@@ -1160,9 +1493,39 @@ export class StreamingVoiceClient {
           this.emit('textInputRequest', message as { type: string; prompt: string; timestamp: number });
           break;
 
+        case 'character_change':
+          console.log('[StreamingVoice] Character change:', message.character?.displayName ?? 'tutor resumed');
+          this.emit('characterChange', message as { type: string; character: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null; timestamp: number });
+          break;
+
+        case 'sofia_incident_created':
+          console.log('[StreamingVoice] Sofia incident created:', message.incidentId, message.category);
+          this.emit('sofiaIncidentCreated', message as { type: string; incidentId: string; category: string; priority: string; issueDescription: string; status: string; timestamp: number });
+          break;
+
+        case 'sofia_support_message':
+          console.log('[StreamingVoice] Sofia support message for incident:', message.incidentId);
+          this.emit('sofiaSupportMessage', message as { type: string; incidentId: string; category: string; priority: string; message: string; timestamp: number });
+          break;
+
+        case 'sofia_all_clear':
+          console.log('[StreamingVoice] Sofia all_clear for incident:', message.incidentId);
+          this.emit('sofiaAllClear', message as { type: string; incidentId: string; timestamp: number });
+          break;
+
         case 'scenario_loaded':
-          console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
+          console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title, message.scenario?.zones?.length ? `(${message.scenario.zones.length} zones)` : '');
           this.emit('scenarioLoaded', message);
+          break;
+
+        case 'scene_zone_advanced':
+          console.log('[StreamingVoice] Scene zone advanced → zone', message.zoneIndex, message.zoneName ?? '(complete)');
+          this.emit('zoneAdvanced', message);
+          break;
+
+        case 'scene_zone_image_ready':
+          console.log('[StreamingVoice] Zone image ready for zone', message.zoneId);
+          this.emit('zoneImageReady', message);
           break;
 
         case 'scenario_ended':
@@ -1174,7 +1537,12 @@ export class StreamingVoiceClient {
           console.log('[StreamingVoice] Prop updated:', message.propTitle);
           this.emit('propUpdate', message);
           break;
-          
+
+        case 'immersive_mode':
+          console.log('[StreamingVoice] Immersive mode:', message.active ? 'entering' : 'exiting');
+          this.emit('immersiveMode', message);
+          break;
+
         case 'activity':
           // Keep-alive message from server during speculative PTT suppression
           // Intentionally ignored - just prevents heartbeat timeout
@@ -1196,8 +1564,9 @@ export class StreamingVoiceClient {
     }
   }
   
-  private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number }): void {
+  private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number; isGeminiLive?: boolean }): void {
     this.sessionId = message.sessionId;
+    this.isGeminiLiveSession = !!message.isGeminiLive;
     
     // Wire up telemetry emitter with session ID
     telemetryEmitter.setSessionId(message.sessionId);
@@ -1252,6 +1621,8 @@ export class StreamingVoiceClient {
     
     console.log(`[WS CLIENT] sentence_ready received: sentence=${sentenceIndex}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
     
+    // Audio is arriving — greeting was delivered, cancel any pending retry timer
+    this.clearGreetingTimer();
     this.currentSentenceIndex = sentenceIndex;
     this.setState('streaming');
     
@@ -1259,6 +1630,9 @@ export class StreamingVoiceClient {
   }
   
   private handleAudioChunk(message: StreamingAudioChunkMessage): void {
+    // Audio is arriving — greeting was delivered, cancel any pending retry timer.
+    // GL sessions send audio_chunk (not sentence_start), so this is the primary clear path for GL.
+    this.clearGreetingTimer();
     // Store metadata for the upcoming binary frame
     this.currentSentenceIndex = message.sentenceIndex;
     
@@ -1392,6 +1766,31 @@ export class StreamingVoiceClient {
     this.consecutiveSessionErrors = 0;
     // Transition back to 'ready' so client can send more audio
     this.setState('ready');
+
+    // GREETING FAST-RETRY (legacy pipeline only): If the orchestrator returns a silent empty
+    // turn (sentences=0) while we're still in the greeting window (greetingTimer is active,
+    // retry not yet fired), don't wait the full 8 seconds — retry after 1.5s.
+    // GL sessions skip this: the server-side one-shot guard blocks duplicate request_greeting
+    // and the server's own silent-greeting auto-retry (max 2) is the sanctioned recovery path.
+    if (!this.isGeminiLiveSession && message.totalSentences === 0 && this.greetingTimer && !this.greetingRetried) {
+      clearTimeout(this.greetingTimer);
+      this.greetingTimer = null;
+      this.greetingRetried = true;
+      const params = this.lastGreetingParams;
+      console.warn('[StreamingVoice] Empty greeting turn (sentences=0) — fast retry in 1.5s');
+      setTimeout(() => {
+        if (this.isReady() && params) {
+          this.socket!.emit('message', {
+            type: 'request_greeting',
+            userName: params.userName,
+            isResumed: params.isResumed,
+            scenarioSlug: params.scenarioSlug,
+            isRetry: true,
+          });
+        }
+      }, 1500);
+    }
+
     this.callbacks.onResponseComplete?.(message.fullText ?? '', message.totalSentences);
     this.emit('responseComplete', message);
   }
@@ -1492,19 +1891,29 @@ export class StreamingVoiceClient {
       return;
     }
     
-    // Attempt auto-reconnect with fast-first exponential backoff
-    // First attempt is near-instant (200ms) to minimize silence window
-    // Subsequent attempts: 1s, 2s, 4s
+    // Two-phase auto-reconnect:
+    // Phase 1 (attempts 1-3): Fast — covers brief drops / tab backgrounding (200ms, 1s, 2s)
+    // Phase 2 (attempts 4-12): Slow — covers server restarts / deployments (10s, 15s, 20s … 30s)
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = this.reconnectAttempts === 1 ? 200 : Math.min(Math.pow(2, this.reconnectAttempts - 2) * 1000, 5000);
+      const isServerRestartPhase = this.reconnectAttempts > 3;
+      const delay = this.reconnectAttempts === 1
+        ? 200
+        : this.reconnectAttempts <= 3
+          ? Math.pow(2, this.reconnectAttempts - 2) * 1000  // 1s, 2s
+          : Math.min((this.reconnectAttempts - 3) * 5000 + 10000, 30000); // 15s, 20s, 25s … 30s
       
       this.setState('reconnecting');
       
-      // Emit error event so UI can show reconnecting message
+      // Use distinct code so UI can show the right message
+      const code = isServerRestartPhase ? 'SERVER_RESTARTING' : 'RECONNECTING';
+      const slowAttempt = this.reconnectAttempts - 3;
+      const slowMax = this.maxReconnectAttempts - 3;
       this.emit('error', { 
-        code: 'RECONNECTING', 
-        message: `Connection lost. Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+        code,
+        message: isServerRestartPhase
+          ? `Server is restarting. Reconnecting automatically... (${slowAttempt}/${slowMax})`
+          : `Connection lost. Reconnecting... (${this.reconnectAttempts}/3)`,
         recoverable: true 
       });
       
@@ -1523,6 +1932,18 @@ export class StreamingVoiceClient {
             console.log('[StreamingVoice] Reconnected - reinitializing session (isReconnect=true)');
             this._isReconnectedSession = true;
             this.startSession({ ...this.lastSessionConfig, isReconnect: true });
+            
+            // RECONNECT FIX: Restore input mode immediately after start_session.
+            // The server always defaults to push-to-talk on a new WS connection.
+            // set_input_mode requires no auth so it takes effect before session creation
+            // completes — ensuring open-mic audio chunks route to the correct handler.
+            if (this._lastKnownInputMode === 'open-mic') {
+              console.log('[StreamingVoice] Restoring open-mic mode after reconnect');
+              this.socket!.emit('message', { type: 'set_input_mode', inputMode: 'open-mic' });
+              // Replay any audio chunks buffered during the reconnect gap so the
+              // student's in-flight utterance reaches the server instead of being silently dropped.
+              this._flushPendingChunks();
+            }
           }
 
           this.emit('reconnected', { timestamp: Date.now() });

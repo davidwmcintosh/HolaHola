@@ -123,7 +123,7 @@ export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): str
 The knowledge below is ready for immediate use during teaching:
 - When learners make errors, reference your **Common Learner Struggles** to explain WHY and apply the teaching strategies
 - Mention **Dialect Variations** when relevant to give learners real-world awareness
-- Leverage **Language Bridges** (especially cognates) to accelerate learning; WARN about false friends before they confuse the learner
+- **Cognate philosophy (critical):** Never use cognates as a primary teaching strategy. The immersion philosophy means students think *in* the target language directly — not English-word → Spanish-word. Cognates create a translation dependency and are a roadblock to true immersion. Only "back into" one if a student directly asks how to say something and they already know it from English (e.g., "connection" → "conexión") — treat it as a pleasant discovery, not a lesson plan.
 
 **ON-DEMAND RECALL (Query When Needed):**
 You have extensive knowledge that you can recall on-demand using memory_lookup:

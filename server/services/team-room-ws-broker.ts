@@ -9,12 +9,22 @@ function extractSessionFromRequest(req: IncomingMessage): boolean {
   return cookie.includes("connect.sid=") || cookie.includes("replit:authed=");
 }
 
+/** Returns true when the socket presents a valid agent token (Luca's identity). */
+function isAgentTokenAuth(socket: Socket): boolean {
+  const agentToken = (socket.handshake.auth as Record<string, unknown>)?.agentToken;
+  const configured = process.env.REPLIT_AGENT_TOKEN;
+  return !!(agentToken && configured && agentToken === configured);
+}
+
 export function initializeTeamRoomWS(io: SocketIOServer) {
   teamRoomNamespace = io.of("/team-room");
 
   teamRoomNamespace.use((socket, next) => {
-    const req = socket.request;
-    if (extractSessionFromRequest(req)) {
+    // Accept Luca's server-side connection (agent token) OR a browser session cookie
+    if (isAgentTokenAuth(socket)) {
+      (socket.data as Record<string, unknown>).identity = "luca";
+      next();
+    } else if (extractSessionFromRequest(socket.request)) {
       next();
     } else {
       console.log(`[TeamRoomWS] Rejected unauthenticated connection: ${socket.id}`);

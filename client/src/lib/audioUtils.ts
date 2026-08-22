@@ -127,6 +127,9 @@ export class AudioRecorder {
         audio: {
           channelCount: 1,
           sampleRate: 24000,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         } 
       });
 
@@ -357,6 +360,14 @@ export class StreamingAudioPlayer {
   // the same audio chunk to be delivered twice (via sentence_ready + audio_chunk, or retransmission)
   private processedChunks: Set<string> = new Set();
   
+  // Time of the last successfully enqueued chunk (ms). Used as a fallback new-turn
+  // detector: if a new turn's s0_c* arrives more than 20s after the last chunk, we
+  // force-clear the dedup set even if progressiveFirstChunkStarted is still true.
+  // This guards against the race where a `processing` WS message was dropped during
+  // reconnect (so resetForNewTurn was never called), leaving stale keys that block
+  // the first chunk of the genuinely-new turn.
+  private lastChunkEnqueuedAt = 0;
+  
   // CONTENT-HASH DEDUP: Last-resort dedup that catches same audio content
   // regardless of chunk/sentence index. Hashes first+last 64 floats of PCM data.
   // Cleared on new turn. Catches: transport retransmissions, proxy duplicates,
@@ -492,7 +503,7 @@ export class StreamingAudioPlayer {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           await ctx.resume();
-          if (ctx.state === 'running') {
+          if ((ctx.state as string) === 'running') {
             console.log(`[AudioPlayer] AudioContext resumed → running (attempt ${attempt})`);
             return;
           }
@@ -824,14 +835,29 @@ export class StreamingAudioPlayer {
     // Updated (Jan 9): Now checks sentenceIndex only, NOT chunkIndex
     // This handles edge case where Cartesia sends empty marker at chunkIndex=0, 
     // then real audio at chunkIndex=1 - we still need to detect this as new turn
-    const isNewTurnStarting = sentenceIndex === 0 && !this.progressiveFirstChunkStarted;
+    //
+    // Time-based fallback (March 2026): If `processing` WS message was dropped during
+    // a reconnect, resetForNewTurn is never called and progressiveFirstChunkStarted
+    // stays true from the old turn. Guard against this by treating s0_c* arriving
+    // 20+ seconds after the last chunk as a guaranteed new-turn start — stale dedup
+    // keys from a prior turn would otherwise block the new turn's audio.
+    const timeSinceLastChunk = this.lastChunkEnqueuedAt ? (Date.now() - this.lastChunkEnqueuedAt) : Infinity;
+    const isNewTurnStarting = sentenceIndex === 0 && (
+      !this.progressiveFirstChunkStarted || timeSinceLastChunk > 20000
+    );
     
     // For new turn, clear the deduplication set BEFORE checking for duplicates
     // BUT don't set progressiveFirstChunkStarted yet - wait until we confirm this isn't an empty marker chunk
     if (isNewTurnStarting) {
-      console.log(`[AUDIO PLAYER] New turn detected - clearing deduplication state`);
+      if (timeSinceLastChunk > 20000 && this.progressiveFirstChunkStarted) {
+        console.log(`[AUDIO PLAYER] Time-based new-turn detected (${Math.round(timeSinceLastChunk / 1000)}s gap) - force-clearing stale dedup state`);
+      } else {
+        console.log(`[AUDIO PLAYER] New turn detected - clearing deduplication state`);
+      }
       this.processedChunks.clear();
       this.sentenceChunkCounters.clear();
+      // Also reset progressive state so the rest of the new-turn logic works normally
+      this.progressiveFirstChunkStarted = false;
     }
     
     // DEDUPLICATION: Skip chunks we've already processed
@@ -886,6 +912,11 @@ export class StreamingAudioPlayer {
       console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
       return;
     }
+    
+    // Update last-received timestamp now that this chunk has cleared dedup.
+    // Used by the time-based new-turn detection above.
+    this.lastChunkEnqueuedAt = Date.now();
+    
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
     // NOTE: Held chunks are NOT added to dedup set - they'll be processed later
     if (this.playbackHeld) {
@@ -907,14 +938,35 @@ export class StreamingAudioPlayer {
     // NOTE: Empty chunks are NOT added to dedup set - they don't block real audio
     if (audio.byteLength === 0) {
       if (isLast) {
-        // Set the endCtxTime in the sentence schedule
+        // TRAILING SILENCE: The server sends (audio='', isLast=true) as a marker AFTER
+        // all real PCM chunks. This is where the silence must be scheduled — the fix at
+        // line ~1192 is on the real-audio path and never fires for these marker chunks.
+        // Without this, the AudioContext cuts hard on the final sample, clipping the
+        // natural decay of the last phoneme.
+        //
+        // ORDERING FIX: Schedule trailing silence BEFORE setting endCtxTime so the
+        // timing loop sees the correct sentence-end boundary (including the silence
+        // padding) and does not fire playback_ended while silence is still in the queue.
+        const trailingCtx = this.getAudioContext();
+        const TRAILING_SEC = 0.3;
+        if (trailingCtx.state === 'running' && this.progressiveScheduledTime > trailingCtx.currentTime) {
+          const silenceSamples = Math.round(TRAILING_SEC * sampleRate);
+          const silenceBuffer = trailingCtx.createBuffer(1, silenceSamples, sampleRate);
+          const silenceSource = trailingCtx.createBufferSource();
+          silenceSource.buffer = silenceBuffer;
+          silenceSource.connect(this.getMasterGain());
+          silenceSource.start(this.progressiveScheduledTime);
+          this.progressiveScheduledTime += TRAILING_SEC;
+        }
+
+        // Set endCtxTime AFTER trailing silence so timing loop measures to true end
         const entry = this.sentenceSchedule.get(sentenceIndex);
         let endCtxTimeSet = false;
         if (entry) {
-          entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+          entry.endCtxTime = this.progressiveScheduledTime; // includes trailing silence
           endCtxTimeSet = true;
         }
-        
+
         // Update debug panel with empty chunk info
         logEmptyChunkProcessed(sentenceIndex, endCtxTimeSet);
         
@@ -956,7 +1008,7 @@ export class StreamingAudioPlayer {
       } catch (resumeErr) {
         console.warn('[AudioPlayer] Failed to resume AudioContext at chunk:', resumeErr);
       }
-      if (ctx.state !== 'running') {
+      if ((ctx.state as string) !== 'running') {
         console.warn(`[AudioPlayer] AudioContext still ${ctx.state} after resume at chunk — audio may not play`);
       }
     }
@@ -983,9 +1035,16 @@ export class StreamingAudioPlayer {
         this.wordSchedule.clear();
         // NOTE: processedChunks already cleared above BEFORE dedup check
         this.activeSentenceInLoop = -1;
-        // Reset scheduled time with larger prebuffer for smoother playback
-        // Increased from 0.2s to 0.4s to reduce stuttering from network jitter
-        this.progressiveScheduledTime = ctx.currentTime + 0.4;
+        // OVERLAP FIX: Preserve progressiveScheduledTime if it's still in the future.
+        // processing_pending + first chunk can arrive while the previous turn's WebAudio
+        // sources are still playing (they are fire-and-forget; clearing sentenceSchedule
+        // doesn't stop them). Resetting to ctx.currentTime + 0.4 would schedule new-turn
+        // audio into the middle of old-turn playback. Use max() so the old schedule is
+        // honoured when audio is still in flight, and only reset when we're past the end.
+        this.progressiveScheduledTime = Math.max(
+          this.progressiveScheduledTime,
+          ctx.currentTime + 0.4,
+        );
         this.progressivePlaybackStartCtxTime = 0;
       }
       
@@ -1032,6 +1091,17 @@ export class StreamingAudioPlayer {
         const entry = this.sentenceSchedule.get(sentenceIndex);
         if (entry) {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+        }
+        // TRAILING SILENCE: safety net for near-empty chunks (1-3 bytes, truncated to 0 samples)
+        if (ctx.state === 'running' && this.progressiveScheduledTime > ctx.currentTime) {
+          const TRAILING_SEC = 0.3;
+          const silenceSamples = Math.round(TRAILING_SEC * sampleRate);
+          const silenceBuffer = ctx.createBuffer(1, silenceSamples, sampleRate);
+          const silenceSource = ctx.createBufferSource();
+          silenceSource.buffer = silenceBuffer;
+          silenceSource.connect(this.getMasterGain());
+          silenceSource.start(this.progressiveScheduledTime);
+          this.progressiveScheduledTime += TRAILING_SEC;
         }
         this.scheduleProgressiveSentenceEnd(sentenceIndex, 0);
       }
@@ -1126,14 +1196,17 @@ export class StreamingAudioPlayer {
     // Start or restart the timing loop when needed
     // - For first REAL audio of first sentence of a turn: always start
     // - For first chunk of any sentence after loop was stopped: restart
+    // - BUG FIX (March 2026): Also start if isPlaying was just set to true but loop isn't running
+    //   This catches the case where isNewSentence set isPlaying=true but neither start condition triggered
     // CRITICAL: Use wasPlayingBeforeThisChunk, NOT this.isPlaying
     // because isPlaying gets set to true earlier in this function for new sentences
     // NOTE: isNewTurnStarting is computed BEFORE progressiveFirstChunkStarted is set
     // NOTE (Jan 9): Loop starts for first real audio regardless of chunkIndex, handling empty-first scenarios
     const shouldStartLoop = isNewTurnStarting;
     const shouldRestartLoop = !wasPlayingBeforeThisChunk && isFirstChunkForSentence;
+    const loopNotRunning = !this.rafId;
     
-    if (shouldStartLoop || shouldRestartLoop) {
+    if (shouldStartLoop || shouldRestartLoop || (this.isPlaying && loopNotRunning)) {
       this.playbackStartTime = performance.now();
       this.isPlaying = true;
       const ctxState = this.audioContext?.state;
@@ -1156,6 +1229,21 @@ export class StreamingAudioPlayer {
     
     // Handle last chunk - set end time in schedule
     if (isLast) {
+      // TRAILING SILENCE: Schedule 300ms of zeros after the last audio chunk.
+      // Without this the browser's AudioContext cuts hard at the final sample,
+      // clipping the natural decay of the last phoneme ("dynamic" sounds cut off).
+      // The silence adds breathing room with zero latency cost — it only fires
+      // at end-of-turn, after all speech audio is already queued.
+      const TRAILING_SILENCE_SEC = 0.3;
+      const silenceSamples = Math.round(TRAILING_SILENCE_SEC * sampleRate);
+      const silenceBuffer = ctx.createBuffer(1, silenceSamples, sampleRate);
+      // createBuffer zeroes the channel data by default — no fill needed
+      const silenceSource = ctx.createBufferSource();
+      silenceSource.buffer = silenceBuffer;
+      silenceSource.connect(this.getMasterGain());
+      silenceSource.start(this.progressiveScheduledTime);
+      this.progressiveScheduledTime += TRAILING_SILENCE_SEC;
+
       const entry = this.sentenceSchedule.get(sentenceIndex);
       if (entry) {
         entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
@@ -1432,8 +1520,6 @@ export class StreamingAudioPlayer {
         // AudioContext.currentTime can slightly lead actual audio buffer playback due to buffering
         const AUDIO_END_GRACE_PERIOD = 0.15; // 150ms
         for (const [index, entry] of entries) {
-          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
-          
           // Mark sentences as started when their time arrives
           if (!entry.started && now >= entry.startCtxTime) {
             entry.started = true;
@@ -1441,8 +1527,12 @@ export class StreamingAudioPlayer {
             this.notifySentenceStart(index);
           }
           
-          // Mark sentences as ended when their time passes (with grace period)
-          if (!entry.ended && now >= endTime + AUDIO_END_GRACE_PERIOD) {
+          // Mark sentences as ended ONLY when endCtxTime is explicitly set (i.e. isLast:true arrived).
+          // Do NOT use the totalDuration fallback here — during a GL inter-sub-turn pause,
+          // endCtxTime is undefined and totalDuration reflects only the first sub-turn's audio.
+          // Using totalDuration would fire onSentenceEnd at the natural pause point and premature
+          // setState('idle'), cutting the response before the second sub-turn audio plays.
+          if (entry.endCtxTime !== undefined && !entry.ended && now >= entry.endCtxTime + AUDIO_END_GRACE_PERIOD) {
             entry.ended = true;
             if (!entry.started) entry.started = true;
             this.notifySentenceEnd(index);
@@ -1452,8 +1542,15 @@ export class StreamingAudioPlayer {
           if (!entry.ended) allEnded = false;
         }
         
-        // Stop loop when all sentences complete
-        if (anyStarted && allEnded && entries.length > 0) {
+        // Stop loop when all sentences complete.
+        // GUARD: Only stop if response_complete has been received (wsResponseCompleteReceived)
+        // or expectedSentenceCount is known and we have enough sentences.
+        // Without this guard, sentence N ending before sentence N+1 arrives from the server
+        // prematurely fires setState('idle'), flickering the avatar to 'listening' mid-response.
+        const minLoopDebugState = window.__debugTimingState;
+        const minLoopResponseComplete = minLoopDebugState?.wsResponseCompleteReceived === true;
+        const minLoopExpectedKnown = this.expectedSentenceCount !== null && this.sentenceSchedule.size >= this.expectedSentenceCount;
+        if (anyStarted && allEnded && entries.length > 0 && (minLoopResponseComplete || minLoopExpectedKnown)) {
           this.isPlaying = false;
           this.setState('idle');
           this.notifyComplete();
@@ -1519,26 +1616,28 @@ export class StreamingAudioPlayer {
       // Use Array.from for broader compatibility (avoids downlevelIteration issues)
       const scheduleEntries = Array.from(this.sentenceSchedule.entries());
       
-      // DEBUG: Log schedule size and verify consistency
+      // DEBUG: Log schedule size and verify consistency (every 10 frames)
       if (frameCount % 10 === 0) {
-        // CRITICAL: Check if scheduleEntries matches what we just logged above
+        // Real bug check: scheduleEntries snapshot should match live Map size
         const scheduleArrayFromAbove = Array.from(this.sentenceSchedule.entries());
         if (scheduleEntries.length !== scheduleArrayFromAbove.length) {
           console.error(`[BUG!] MISMATCH: scheduleEntries.length=${scheduleEntries.length} but Map.size=${scheduleArrayFromAbove.length}`);
         }
         
-        // CRITICAL DEBUG: Log ALL entries with their endCtxTime values
-        const entryDetails = scheduleEntries.map(([i, e]) => 
-          `S${i}(end=${e.endCtxTime !== undefined ? e.endCtxTime.toFixed(2) : 'UNDEF'})`
-        ).join(', ');
-        console.error(`[LOOP] Frame ${frameCount}: entries=[${entryDetails}] now=${now.toFixed(2)}`);
-        
-        // CRITICAL DEBUG: Check if any entries are missing endCtxTime
-        // Compare against what SHOULD exist based on logEmptyChunkProcessed
-        const entriesWithEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime !== undefined);
+        // Verbose-only: log all entry endCtxTime values (fires 6x/sec — keep behind flag)
+        if (isVerboseLoggingEnabled()) {
+          const entryDetails = scheduleEntries.map(([i, e]) => 
+            `S${i}(end=${e.endCtxTime !== undefined ? e.endCtxTime.toFixed(2) : 'UNDEF'})`
+          ).join(', ');
+          console.log(`[LOOP] Frame ${frameCount}: entries=[${entryDetails}] now=${now.toFixed(2)}`);
+        }
+      }
+      
+      // Watchdog: warn once per 60 frames if entries are missing endCtxTime (streaming lag)
+      if (frameCount % 60 === 0) {
         const entriesWithoutEndTime = scheduleEntries.filter(([_, e]) => e.endCtxTime === undefined);
         if (entriesWithoutEndTime.length > 0) {
-          console.error(`[LOOP WATCHDOG] ⚠️ ${entriesWithoutEndTime.length} entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
+          console.warn(`[LOOP WATCHDOG] ${entriesWithoutEndTime.length} entries WITHOUT endCtxTime: ${entriesWithoutEndTime.map(([i, e]) => 
             `S${i}(dur=${e.totalDuration.toFixed(2)})`
           ).join(', ')}`);
         }
@@ -1727,11 +1826,14 @@ export class StreamingAudioPlayer {
         let fallbackAllEnded = true;
         let fallbackAnyStarted = false;
         for (const [fbIdx, fbEntry] of fallbackEntries) {
-          const fbEndTime = fbEntry.endCtxTime ?? (fbEntry.startCtxTime + fbEntry.totalDuration);
           if (!fbEntry.started && now >= fbEntry.startCtxTime) {
             fbEntry.started = true;
           }
-          if (!fbEntry.ended && now >= fbEndTime + FALLBACK_GRACE) {
+          // Same endCtxTime-only guard as the minimal loop — do NOT use totalDuration fallback.
+          // During a GL inter-sub-turn pause, endCtxTime is undefined and totalDuration only
+          // covers the first sub-turn. Using totalDuration here would prematurely fire ended
+          // and trigger setState('idle') while more audio is still coming from GL.
+          if (fbEntry.endCtxTime !== undefined && !fbEntry.ended && now >= fbEntry.endCtxTime + FALLBACK_GRACE) {
             fbEntry.ended = true;
             if (!fbEntry.started) fbEntry.started = true;
             this.notifySentenceEnd(fbIdx);
@@ -1740,11 +1842,20 @@ export class StreamingAudioPlayer {
           if (!fbEntry.ended) fallbackAllEnded = false;
         }
         if (fallbackAnyStarted && fallbackAllEnded && fallbackEntries.length > 0) {
-          this.isPlaying = false;
-          this.setState('idle');
-          this.stopPrecisionTiming();
-          this.notifyComplete();
-          return;
+          // GUARD: Same as minimal loop — only stop if response_complete received or
+          // expectedSentenceCount is known. Without this guard the fallback fires setState('idle')
+          // mid-response during GL inter-sub-turn pauses, cutting the response at the pause point.
+          const fallbackResponseComplete = (window as any).__debugTimingState?.wsResponseCompleteReceived === true;
+          const fallbackExpectedKnown = this.expectedSentenceCount !== null && this.sentenceSchedule.size >= this.expectedSentenceCount;
+          if (!fallbackResponseComplete && !fallbackExpectedKnown) {
+            // Not done yet — don't fire completion
+          } else {
+            this.isPlaying = false;
+            this.setState('idle');
+            this.stopPrecisionTiming();
+            this.notifyComplete();
+            return;
+          }
         }
       }
       
@@ -1880,11 +1991,12 @@ export class StreamingAudioPlayer {
         return false;
       }
       
-      if (allHaveEnded) {
-        logResult(true, `ALL_ENDED: all ${allEntries.length} sentences have ended+endCtxTime (no response_complete needed)`);
-        return true;
-      }
-      logResult(false, 'expectedSentenceCount=null (waiting for response_complete)');
+      // DO NOT return true here — expectedSentenceCount is null, meaning response_complete
+      // hasn't arrived yet. More sentences may still be on the way from the server.
+      // Returning true here caused the avatar to flicker to 'listening' between sentences
+      // (sentence N ends before sentence N+1 is scheduled → premature idle → avatar snaps).
+      // Fall through to return false and keep the loop alive until response_complete arrives.
+      logResult(false, `expectedSentenceCount=null, wsResponseCompleteReceived=false — waiting (${allEntries.length} sentences ended but response may not be complete)`);
       return false;
     }
     
@@ -2397,7 +2509,11 @@ export class StreamingAudioPlayer {
         // Emit specific events for key transitions
         if (state === 'playing' && prevState === 'idle') {
           emitter.emit('playback_started' as ClientTelemetryEventType, {}, this.currentSentenceIndex);
-        } else if (state === 'idle' && prevState === 'playing') {
+        } else if (state === 'idle' && (prevState === 'playing' || prevState === 'buffering')) {
+          // Multi-sub-turn responses: sentence 1's first chunk calls setState('buffering') while
+          // sentence 0 is still playing, so the final idle transition arrives from 'buffering'
+          // rather than 'playing'. Without this guard, playback_ended is never emitted for
+          // two-sub-turn GL responses and the mic gate stays closed for the full 60s safety timeout.
           emitter.emit('playback_ended' as ClientTelemetryEventType, {}, this.currentSentenceIndex);
         }
       }
@@ -2432,5 +2548,71 @@ export class StreamingAudioPlayer {
   destroy(): void {
     this.stopPrecisionTiming();
     this.stop();
+  }
+
+  /**
+   * Nuclear reset: tear down the AudioContext and all progressive sources entirely.
+   * Called when failsafe_tier2_45s fires with AudioContext in "running" state but
+   * audio callbacks have silently stalled (AudioWorklet stuck state, common on Windows
+   * after a WebSocket reconnect mid-sentence).
+   *
+   * `stop()` alone only clears the state machine — it leaves the AudioContext and its
+   * worklet intact. This method closes the AudioContext completely so the next audio
+   * request triggers a fresh context + worklet from scratch.
+   */
+  resetAudioPipeline(): void {
+    console.warn('[AudioPlayer] resetAudioPipeline: tearing down AudioContext + worklet due to stuck-state recovery');
+
+    // 1. Stop all active progressive sources (best-effort)
+    for (const source of this.progressiveSources) {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (_) {}
+    }
+    this.progressiveSources = [];
+
+    // 2. Stop the PCM single-buffer source if active
+    if (this.currentPcmSource) {
+      try { this.currentPcmSource.stop(); } catch (_) {}
+      this.currentPcmSource = null;
+    }
+
+    // 3. Disconnect and close the AudioContext — this kills the AudioWorklet
+    if (this.masterGainNode) {
+      try { this.masterGainNode.disconnect(); } catch (_) {}
+      this.masterGainNode = null;
+    }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => {});
+    }
+    this.audioContext = null;
+
+    // 4. Now do the normal stop() to clean up state machine, queue, and object URLs
+    // (don't double-stop progressive sources — already handled above)
+    this.stopPrecisionTiming();
+    if (this.chunkFallbackTimer) {
+      clearTimeout(this.chunkFallbackTimer);
+      this.chunkFallbackTimer = null;
+    }
+    this.hasChunkEnded = false;
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.src = '';
+      this.currentAudio = null;
+    }
+    this.progressiveSentenceIndex = -1;
+    this.progressiveChunks = [];
+    this.progressiveTotalDuration = 0;
+    this.progressiveFirstChunkStarted = false;
+    this.progressivePlaybackStartCtxTime = 0;
+    this.progressiveScheduledTime = 0;
+    this.queue = [];
+    this.isPlaying = false;
+    this.updatePendingCount(0);
+    this.cleanupUrls();
+    this.setState('idle');
+
+    console.log('[AudioPlayer] resetAudioPipeline: complete — fresh AudioContext will be created on next audio chunk');
   }
 }

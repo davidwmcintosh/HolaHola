@@ -11,6 +11,7 @@ import {
   teacherClasses,
   assignments,
   assignmentSubmissions,
+  masteryEvidence,
 } from "@shared/schema";
 import { eq, and, gte, sql, desc } from "drizzle-orm";
 import { toExternalActflLevel } from "./actfl-utils";
@@ -42,6 +43,7 @@ export interface StudentProgressReport {
   };
   overallProgress: {
     wordsLearned: number;
+    sceneMasteredWords: number;
     practiceMinutes: number;
     totalHours: number;
     conversationsCompleted: number;
@@ -186,6 +188,18 @@ export async function generateStudentProgressReport(
     )
     .where(eq(studentCanDoProgress.userId, userId));
 
+  // Scene-mastered words count (from mastery_evidence — words proven in scenes)
+  const sceneMasteredRows = await getUserDb()
+    .select({ word: masteryEvidence.word })
+    .from(masteryEvidence)
+    .where(
+      and(
+        eq(masteryEvidence.userId, userId),
+        eq(masteryEvidence.language, user.targetLanguage || "spanish")
+      )
+    );
+  const sceneMasteredWords = sceneMasteredRows.length;
+
   // Calculate recent activity (last 7 and 30 days)
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -278,6 +292,7 @@ export async function generateStudentProgressReport(
     },
     overallProgress: {
       wordsLearned: progress?.wordsLearned || 0,
+      sceneMasteredWords,
       practiceMinutes: progress?.practiceMinutes || 0,
       totalHours: Math.round((progress?.practiceMinutes || 0) / 60),
       conversationsCompleted: userConversations.length,

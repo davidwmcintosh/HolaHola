@@ -2,14 +2,16 @@ import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
 import Anthropic from '@anthropic-ai/sdk';
+import * as fs from 'fs';
+import * as path from 'path';
+import { costTracker } from './cost-tracker';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export interface LyraInsight {
-  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement';
+  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement' | 'conversational_credit' | 'class_churn';
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   confidence: number;
   title: string;
@@ -28,11 +30,22 @@ interface ContentAuditData {
   templatedContent: Array<{ language: string; templated_count: number; total_count: number; pct_templated: number }>;
 }
 
+interface ClassChurnEntry {
+  classId: string;
+  className: string;
+  language: string;
+  enrolledCount: number;
+  atRiskCount: number;
+  coolingOffCount: number;
+  neverActiveCount: number;
+}
+
 interface StudentSuccessData {
   lessonDropoff: Array<{ lessonId: string; lessonName: string; unitName: string; language: string; startedCount: number; completedCount: number; completionRate: number }>;
   drillStruggles: Array<{ drillItemId: string; prompt: string; targetText: string; language: string; avgScore: number; attemptCount: number; userCount: number }>;
   streakBreakers: Array<{ language: string; avgStreak: number; brokenStreaks: number; activeUsers: number }>;
   actflBottlenecks: Array<{ language: string; avgTasksCompleted: number; avgPronunciation: number; userCount: number }>;
+  classChurn: ClassChurnEntry[];
 }
 
 interface OnboardingData {
@@ -55,6 +68,48 @@ interface TextbookEngagementData {
   userBreakdown: Array<{ firstName: string; sectionsTouched: number; completed: number; viewedOnly: number; drillsDone: number; timeSpentSeconds: number }>;
   languageBreakdown: Array<{ language: string; users: number; lastActivity: string }>;
   completionByType: Array<{ sectionType: string; viewed: number; completed: number }>;
+}
+
+interface ComponentCoverageGap {
+  language: string;
+  gaps: string[];
+  status: string;
+}
+
+interface ComponentCoverageData {
+  manifest: any | null;
+  gaps: ComponentCoverageGap[];
+  complete: string[];
+  lastUpdated: string;
+}
+
+interface CurriculumAuditData {
+  missingTextbook: Array<{
+    lessonId: string;
+    lessonName: string;
+    unitName: string;
+    language: string;
+    lessonType: string;
+  }>;
+  weakDrills: Array<{
+    lessonId: string;
+    lessonName: string;
+    unitName: string;
+    language: string;
+    vocabCount: number;
+  }>;
+  verboseTextbook: Array<{
+    language: string;
+    verboseCount: number;
+    totalCount: number;
+    avgGrammarLength: number;
+  }>;
+  unseededLanguages: Array<{
+    language: string;
+    lessonCount: number;
+    seededCount: number;
+  }>;
+  totalLessonsAudited: number;
 }
 
 export class LyraAnalyticsService {
@@ -200,7 +255,7 @@ export class LyraAnalyticsService {
     const drillStruggles = await db.execute(sql`
       SELECT udp.drill_item_id,
              di.prompt,
-             di.target_text,
+             di.targetText,
              di.target_language as language,
              ROUND(AVG(udp.average_score)::numeric, 2) as avg_score,
              SUM(udp.attempts) as attempt_count,
@@ -215,7 +270,7 @@ export class LyraAnalyticsService {
         AND u.id NOT LIKE 'cache-test-%'
         AND u.id NOT LIKE 'admin_%'
         AND u.first_name IS NOT NULL AND u.first_name != ''
-      GROUP BY udp.drill_item_id, di.prompt, di.target_text, di.target_language
+      GROUP BY udp.drill_item_id, di.prompt, di.targetText, di.target_language
       HAVING AVG(udp.average_score) < 0.6
       ORDER BY avg_score ASC
       LIMIT 20
@@ -257,11 +312,69 @@ export class LyraAnalyticsService {
       ORDER BY avg_tasks_completed ASC
     `);
 
+    // Class churn: find classes where enrolled students have gone silent
+    let classChurnRows: any[] = [];
+    try {
+      const churnResult = await db.execute(sql`
+        WITH class_activity AS (
+          SELECT
+            ce.class_id,
+            ce.student_id,
+            GREATEST(
+              MAX(vs.ended_at),
+              MAX(c.created_at)
+            ) AS last_activity
+          FROM class_enrollments ce
+          LEFT JOIN voice_sessions vs
+            ON vs.user_id = ce.student_id AND vs.class_id = ce.class_id
+          LEFT JOIN conversations c
+            ON c.user_id = ce.student_id AND c.class_id = ce.class_id
+          WHERE ce.is_active = true
+          GROUP BY ce.class_id, ce.student_id
+        )
+        SELECT
+          tc.id                                        AS class_id,
+          tc.name                                      AS class_name,
+          tc.language,
+          COUNT(DISTINCT ca.student_id)                AS enrolled_count,
+          COUNT(DISTINCT CASE
+            WHEN ca.last_activity < NOW() - INTERVAL '7 days'
+             AND ca.last_activity >= NOW() - INTERVAL '30 days'
+            THEN ca.student_id END)                   AS at_risk_count,
+          COUNT(DISTINCT CASE
+            WHEN ca.last_activity < NOW() - INTERVAL '3 days'
+             AND ca.last_activity >= NOW() - INTERVAL '7 days'
+            THEN ca.student_id END)                   AS cooling_off_count,
+          COUNT(DISTINCT CASE
+            WHEN ca.last_activity IS NULL
+            THEN ca.student_id END)                   AS never_active_count
+        FROM teacher_classes tc
+        JOIN class_activity ca ON ca.class_id = tc.id
+        WHERE tc.is_active = true
+        GROUP BY tc.id, tc.name, tc.language
+        HAVING COUNT(DISTINCT ca.student_id) > 0
+        ORDER BY at_risk_count DESC
+        LIMIT 20
+      `);
+      classChurnRows = (churnResult.rows || []) as any[];
+    } catch (err: any) {
+      // Class tables may not exist on all environments — non-fatal
+    }
+
     return {
       lessonDropoff: (lessonDropoff.rows || []) as any[],
       drillStruggles: (drillStruggles.rows || []) as any[],
       streakBreakers: (streakBreakers.rows || []) as any[],
       actflBottlenecks: (actflBottlenecks.rows || []) as any[],
+      classChurn: classChurnRows.map(r => ({
+        classId: r.class_id,
+        className: r.class_name,
+        language: r.language,
+        enrolledCount: Number(r.enrolled_count),
+        atRiskCount: Number(r.at_risk_count),
+        coolingOffCount: Number(r.cooling_off_count),
+        neverActiveCount: Number(r.never_active_count),
+      })),
     };
   }
 
@@ -311,10 +424,14 @@ export class LyraAnalyticsService {
       SELECT 
         ROUND(
           COUNT(DISTINCT u.id) FILTER (WHERE (
-            SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id
+            SELECT COUNT(*) FROM conversations c
+            WHERE c.user_id = u.id
+              AND c.created_at >= NOW() - INTERVAL '7 days'
           ) >= 2)::numeric * 100 
           / GREATEST(COUNT(DISTINCT u.id) FILTER (WHERE EXISTS (
-            SELECT 1 FROM conversations c WHERE c.user_id = u.id
+            SELECT 1 FROM conversations c
+            WHERE c.user_id = u.id
+              AND c.created_at >= NOW() - INTERVAL '7 days'
           )), 1), 1
         ) as return_rate_7d
       FROM real_users u
@@ -471,8 +588,8 @@ export class LyraAnalyticsService {
         severity: data.staleContent.length > 20 ? 'high' : 'medium',
         confidence: 0.95,
         title: `${data.staleContent.length} lessons haven't been updated in 90+ days`,
-        description: `The oldest is "${oldest.name}" in ${oldest.language} (${oldest.days_since_update} days). Stale content may contain outdated examples or cultural references.`,
-        data: { count: data.staleContent.length, oldest: oldest.name, oldestDays: oldest.days_since_update },
+        description: `The oldest is "${oldest.name}" in ${oldest.language} (${oldest.daysSinceUpdate} days). Stale content may contain outdated examples or cultural references.`,
+        data: { count: data.staleContent.length, oldest: oldest.name, oldestDays: oldest.daysSinceUpdate },
         recommendation: `Review and refresh the top 10 oldest lessons, prioritizing high-traffic languages.`,
         needsReview: false,
       });
@@ -506,15 +623,15 @@ export class LyraAnalyticsService {
 
     const coverageMap = data.languageCoverage;
     if (coverageMap.length > 0) {
-      const maxLessons = Math.max(...coverageMap.map(c => Number(c.lesson_count) || 0));
-      const underserved = coverageMap.filter(c => (Number(c.lesson_count) || 0) < maxLessons * 0.3);
+      const maxLessons = Math.max(...coverageMap.map(c => Number(c.lessonCount) || 0));
+      const underserved = coverageMap.filter(c => (Number(c.lessonCount) || 0) < maxLessons * 0.3);
       if (underserved.length > 0) {
         insights.push({
           category: 'coverage_gap',
           severity: 'medium',
           confidence: 0.9,
           title: `${underserved.length} language(s) have significantly less content`,
-          description: `Languages with thin content: ${underserved.map(l => `${l.language} (${l.lesson_count} lessons)`).join(', ')}. The most developed language has ${maxLessons} lessons.`,
+          description: `Languages with thin content: ${underserved.map(l => `${l.language} (${l.lessonCount} lessons)`).join(', ')}. The most developed language has ${maxLessons} lessons.`,
           data: { underserved, maxLessons },
           recommendation: `Prioritize content creation for underserved languages to ensure equitable learning experiences.`,
           needsReview: false,
@@ -522,37 +639,9 @@ export class LyraAnalyticsService {
       }
     }
 
-    if (data.templatedContent.length > 0) {
-      const totalTemplated = data.templatedContent.reduce((sum, t) => sum + Number(t.templated_count), 0);
-      const languagesAffected = data.templatedContent.filter(t => Number(t.pct_templated) > 20);
-      const worst = data.templatedContent[0];
-      insights.push({
-        category: 'content_quality',
-        severity: languagesAffected.length > 5 ? 'high' : 'medium',
-        confidence: 0.98,
-        title: `${totalTemplated} lessons across ${languagesAffected.length} languages still use templated placeholder descriptions`,
-        description: (() => {
-          const allLanguages = data.languageCoverage.map(c => c.language);
-          const templatedLanguages = new Set(data.templatedContent.map(t => t.language));
-          const cleanLanguages = allLanguages.filter(lang => !templatedLanguages.has(lang));
-          const cleanNote = cleanLanguages.length > 0 
-            ? ` ${cleanLanguages.join(', ')} ${cleanLanguages.length === 1 ? 'has' : 'have'} fully original descriptions.` 
-            : '';
-          return `${worst.language} has the most: ${worst.templated_count} of ${worst.total_count} lessons (${worst.pct_templated}%) use auto-generated descriptions like "Practice real conversations about..." instead of real pedagogical content.${cleanNote}`;
-        })(),
-        data: { 
-          totalTemplated, 
-          byLanguage: data.templatedContent.map(t => ({
-            language: t.language,
-            templated: Number(t.templated_count),
-            total: Number(t.total_count),
-            pct: Number(t.pct_templated),
-          }))
-        },
-        recommendation: `Replace templated descriptions with hand-crafted pedagogical content, starting with the highest-traffic languages after Spanish. Each description should explain what students will learn, prerequisite knowledge, and expected outcomes.`,
-        needsReview: false,
-      });
-    }
+    // Templated placeholder descriptions check retired June 21 2026:
+    // chapter.description is no longer rendered in the textbook UI, so boilerplate text
+    // in that field is invisible to students. Not a UX issue — data-only concern.
 
     return insights;
   }
@@ -560,14 +649,14 @@ export class LyraAnalyticsService {
   generateStudentInsights(data: StudentSuccessData): LyraInsight[] {
     const insights: LyraInsight[] = [];
 
-    const highDropoff = data.lessonDropoff.filter(l => Number(l.completion_rate) < 40);
+    const highDropoff = data.lessonDropoff.filter(l => Number(l.completionRate) < 40);
     if (highDropoff.length > 0) {
       insights.push({
         category: 'student_success',
         severity: highDropoff.length > 5 ? 'high' : 'medium',
         confidence: Math.min(0.95, 0.7 + (highDropoff.length * 0.02)),
         title: `${highDropoff.length} lessons have completion rates below 40%`,
-        description: `Lowest: "${highDropoff[0]?.lesson_name}" (${highDropoff[0]?.completion_rate}% completion, ${highDropoff[0]?.language}). These may be too difficult, poorly structured, or misaligned with student expectations.`,
+        description: `Lowest: "${highDropoff[0]?.lessonName}" (${highDropoff[0]?.completionRate}% completion, ${highDropoff[0]?.language}). These may be too difficult, poorly structured, or misaligned with student expectations.`,
         data: { lessons: highDropoff.slice(0, 10) },
         recommendation: `Investigate the lowest-completing lessons. Check if difficulty spikes, missing prerequisites, or unclear instructions are causing drop-off.`,
         needsReview: highDropoff.length < 3,
@@ -579,26 +668,78 @@ export class LyraAnalyticsService {
       insights.push({
         category: 'student_success',
         severity: data.drillStruggles.length > 10 ? 'high' : 'medium',
-        confidence: Math.min(0.92, 0.65 + (Number(hardest.user_count) * 0.03)),
+        confidence: Math.min(0.92, 0.65 + (Number(hardest.userCount) * 0.03)),
         title: `${data.drillStruggles.length} drill items have avg scores below 60%`,
-        description: `Hardest: "${hardest.prompt}" → "${hardest.target_text}" (${hardest.language}, avg score: ${hardest.avg_score}, ${hardest.user_count} students). These drills may need scaffolding or hints.`,
+        description: `Hardest: "${hardest.prompt}" → "${hardest.targetText}" (${hardest.language}, avg score: ${hardest.avgScore}, ${hardest.userCount} students). These drills may need scaffolding or hints.`,
         data: { drills: data.drillStruggles.slice(0, 10) },
         recommendation: `Add hints or intermediate steps for consistently difficult drills. Consider whether the difficulty is productive or blocking progress.`,
-        needsReview: Number(hardest.user_count) < 5,
+        needsReview: Number(hardest.userCount) < 5,
       });
     }
 
-    const brokenStreakLanguages = data.streakBreakers.filter(s => Number(s.broken_streaks) > 2);
+    const brokenStreakLanguages = data.streakBreakers.filter(s => Number(s.brokenStreaks) > 2);
     if (brokenStreakLanguages.length > 0) {
       insights.push({
         category: 'student_success',
         severity: 'medium',
         confidence: 0.75,
         title: `Streak retention issues in ${brokenStreakLanguages.length} language(s)`,
-        description: `Languages with many broken streaks: ${brokenStreakLanguages.map(s => `${s.language} (${s.broken_streaks} broken, avg streak: ${s.avg_streak} days)`).join('; ')}. Students are building habits but losing them.`,
+        description: `Languages with many broken streaks: ${brokenStreakLanguages.map(s => `${s.language} (${s.brokenStreaks} broken, avg streak: ${s.avgStreak} days)`).join('; ')}. Students are building habits but losing them.`,
         data: { languages: brokenStreakLanguages },
         recommendation: `Consider adding streak recovery mechanics or motivational nudges when students miss a day. Daniela could send encouraging follow-ups.`,
         needsReview: true,
+      });
+    }
+
+    // Class churn signals
+    const atRiskClasses = (data.classChurn || []).filter(c => c.atRiskCount > 0);
+    const coolingOffClasses = (data.classChurn || []).filter(c => c.coolingOffCount > 0 && c.atRiskCount === 0);
+    const neverActiveClasses = (data.classChurn || []).filter(c => c.neverActiveCount > 0);
+
+    if (atRiskClasses.length > 0) {
+      const totalAtRisk = atRiskClasses.reduce((sum, c) => sum + c.atRiskCount, 0);
+      const totalEnrolled = atRiskClasses.reduce((sum, c) => sum + c.enrolledCount, 0);
+      const riskRate = totalEnrolled > 0 ? Math.round((totalAtRisk / totalEnrolled) * 100) : 0;
+      const classLines = atRiskClasses.slice(0, 3).map(c =>
+        `"${c.className}" (${c.language}): ${c.atRiskCount}/${c.enrolledCount} at risk`
+      ).join('; ');
+      insights.push({
+        category: 'class_churn',
+        severity: riskRate > 40 ? 'high' : 'medium',
+        confidence: 0.82,
+        title: `${totalAtRisk} student(s) at churn risk across ${atRiskClasses.length} class(es)`,
+        description: `${riskRate}% of enrolled students have been silent for 7+ days after prior activity. Classes: ${classLines}. Teachers may not be aware. Proactive intervention can prevent silent dropout.`,
+        data: { classes: atRiskClasses },
+        recommendation: `Notify class teachers that students have gone quiet. Daniela could send a re-engagement nudge or prompt the teacher to check in. A 7-day silence threshold is an early warning — easier to recover at this stage than at 30 days.`,
+        needsReview: atRiskClasses.length > 0,
+      });
+    }
+
+    if (coolingOffClasses.length > 0) {
+      const totalCooling = coolingOffClasses.reduce((sum, c) => sum + c.coolingOffCount, 0);
+      insights.push({
+        category: 'class_churn',
+        severity: 'low',
+        confidence: 0.70,
+        title: `${totalCooling} student(s) cooling off (3-7 day gap) in ${coolingOffClasses.length} class(es)`,
+        description: `These students haven't engaged in 3-7 days after being previously active — a leading indicator of churn. Classes: ${coolingOffClasses.slice(0, 3).map(c => `"${c.className}" (${c.coolingOffCount})`).join(', ')}.`,
+        data: { classes: coolingOffClasses },
+        recommendation: `Monitor these students. If they don't return within 4 more days they'll enter the at-risk window. A Daniela nudge at the cooling-off stage is cheapest and most effective.`,
+        needsReview: false,
+      });
+    }
+
+    if (neverActiveClasses.length > 0) {
+      const totalNever = neverActiveClasses.reduce((sum, c) => sum + c.neverActiveCount, 0);
+      insights.push({
+        category: 'class_churn',
+        severity: 'info',
+        confidence: 0.90,
+        title: `${totalNever} enrolled student(s) have never started a session`,
+        description: `Enrolled but never activated across ${neverActiveClasses.length} class(es). These may be onboarding drop-offs or test accounts. Classes: ${neverActiveClasses.slice(0, 3).map(c => `"${c.className}" (${c.neverActiveCount})`).join(', ')}.`,
+        data: { classes: neverActiveClasses },
+        recommendation: `Check if these are real students who need an activation nudge, or test accounts that should be excluded. The join code may have been shared but orientation not completed.`,
+        needsReview: false,
       });
     }
 
@@ -745,20 +886,20 @@ export class LyraAnalyticsService {
       });
     }
 
-    const spanishOnlyIntros = true;
-    if (spanishOnlyIntros && languagesUsed.some(l => l !== 'spanish')) {
+    const allNineLanguagesHaveIntros = true;
+    if (allNineLanguagesHaveIntros && languagesUsed.length > 0) {
       insights.push({
         category: 'textbook_engagement',
-        severity: 'high',
-        confidence: 0.98,
-        title: `Chapter introductions (Daniela's narrative, infographics, cultural spotlights) only exist for Spanish`,
-        description: `The ChapterIntroduction component has hand-crafted narrative content with images, infographics (sun-arc greetings, formal/informal comparisons, phrase grids), and cultural spotlights — but only for 4 Spanish chapter topics. Students opening Italian, French, or any other language see blank chapter headers with no narrative context. This is the highest-impact visual gap.`,
+        severity: 'info',
+        confidence: 0.99,
+        title: `Chapter introductions now cover all 9 languages — grammar cards, cultural cards, phonetic guides, word families all wired`,
+        description: `As of March 2026, ChapterIntroduction.tsx has full grammar card, cultural card, phonetic guide, and word family rendering for all 9 languages (Spanish, French, Portuguese, German, Italian, Japanese, Korean, Mandarin, Hebrew). The chapter intro renders visual reference cards inline based on the lesson title classifier. Canvas vocab cards (weather/emotions/time/days/body/face/hand/temperature) also have all 9 language datasets.`,
         data: {
-          existingIntroTopics: ['greetings', 'numbers', 'family', 'daily routines'],
-          languagesWithoutIntros: languagesUsed.filter(l => l !== 'spanish'),
-          componentsAvailable: ['SunArcGreetings', 'FormalInformalComparison', 'QuickPhraseGrid', 'CulturalSpotlight'],
+          languages: ['spanish', 'french', 'portuguese', 'german', 'italian', 'japanese', 'korean', 'mandarin', 'hebrew'],
+          cardTypes: ['grammar_cards', 'cultural_cards', 'phonetic_guides', 'word_families', 'canvas_vocab_cards'],
+          completedDate: '2026-03-20',
         },
-        recommendation: `Extend ChapterIntroduction to support all active languages. The infographic components (SunArcGreetings, FormalInformalComparison, QuickPhraseGrid) are language-agnostic by design — they just need localized content data. Consider using AI to generate draft narrative content per chapter, then manually curate. Start with Italian (3 users) and French (1 user).`,
+        recommendation: 'No action needed. Monitor via docs/textbook-component-coverage.json — update the manifest whenever new card types are added or a language is extended.',
         needsReview: false,
       });
     }
@@ -811,7 +952,7 @@ export class LyraAnalyticsService {
         templatedContent: contentData.templatedContent,
       },
       studentSummary: {
-        lowCompletionLessons: studentData.lessonDropoff.filter(l => Number(l.completion_rate) < 40).length,
+        lowCompletionLessons: studentData.lessonDropoff.filter(l => Number(l.completionRate) < 40).length,
         hardDrills: studentData.drillStruggles.length,
         streakData: studentData.streakBreakers,
         actflProgress: studentData.actflBottlenecks,
@@ -866,6 +1007,10 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
           }
         ],
       });
+
+      if (response.usage) {
+        costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'lyra-analysis');
+      }
 
       const textBlock = response.content.find(b => b.type === 'text');
       return textBlock?.text || 'Analysis unavailable.';
@@ -940,6 +1085,308 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
     }
   }
 
+  async gatherCurriculumAuditData(): Promise<CurriculumAuditData> {
+    const db = getSharedDb();
+
+    // Check 1: Lessons with no textbook_lesson_content row
+    // Excludes: conversation (AI-chat only, no textbook needed) and vocabulary (visual content, not textbook)
+    const missingTextbookResult = await db.execute(sql`
+      SELECT cl.id as lesson_id, cl.name as lesson_name, cl.lesson_type,
+             cu.name as unit_name, cp.language
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+      WHERE cp.is_published = true
+        AND cl.lesson_type NOT IN ('conversation', 'vocabulary')
+        AND NOT EXISTS (
+          SELECT 1 FROM textbook_lesson_content tlc WHERE tlc.lesson_id = cl.id
+        )
+      ORDER BY cp.language, cu.order_index, cl.lesson_type
+      LIMIT 100
+    `);
+
+    // Check 2: Vocabulary/drill lessons with very few or zero required_vocabulary items
+    const weakDrillsResult = await db.execute(sql`
+      SELECT cl.id as lesson_id, cl.name as lesson_name,
+             cu.name as unit_name, cp.language,
+             COALESCE(cardinality(cl.required_vocabulary), 0) as vocab_count
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+      WHERE cp.is_published = true
+        AND cl.lesson_type IN ('vocabulary', 'drill')
+        AND COALESCE(cardinality(cl.required_vocabulary), 0) <= 5
+      ORDER BY cp.language, vocab_count ASC
+      LIMIT 50
+    `);
+
+    // Check 3: Verbosity regression — grammar_explanation > 800ch only.
+    // Introduction field is no longer rendered in the UI (removed June 21 2026), so intro length is not a UX issue.
+    const verbosityResult = await db.execute(sql`
+      SELECT
+        tlc.language,
+        COUNT(*) FILTER (
+          WHERE LENGTH(tlc.grammar_explanation) > 800
+        ) as verbose_count,
+        COUNT(*) as total_count,
+        ROUND(AVG(LENGTH(tlc.grammar_explanation)))::int as avg_grammar_length
+      FROM textbook_lesson_content tlc
+      JOIN curriculum_lessons cl ON cl.id = tlc.lesson_id
+      WHERE tlc.language IN ('spanish','french','portuguese','german','italian','korean')
+      GROUP BY tlc.language
+      HAVING COUNT(*) FILTER (
+        WHERE LENGTH(tlc.grammar_explanation) > 800
+      ) > 0
+      ORDER BY verbose_count DESC
+    `);
+
+    // Check 4: Per-language seeding coverage (what % of lessons have textbook content)
+    const unseededResult = await db.execute(sql`
+      SELECT cp.language,
+        COUNT(DISTINCT cl.id) as lesson_count,
+        COUNT(DISTINCT tlc.lesson_id) as seeded_count
+      FROM curriculum_paths cp
+      JOIN curriculum_units cu ON cu.curriculum_path_id = cp.id
+      JOIN curriculum_lessons cl ON cl.curriculum_unit_id = cu.id
+      LEFT JOIN textbook_lesson_content tlc ON tlc.lesson_id = cl.id
+      WHERE cp.is_published = true
+      GROUP BY cp.language
+      HAVING COUNT(DISTINCT cl.id) > COUNT(DISTINCT tlc.lesson_id)
+      ORDER BY (COUNT(DISTINCT cl.id) - COUNT(DISTINCT tlc.lesson_id)) DESC
+    `);
+
+    const totalResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+      JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
+      WHERE cp.is_published = true
+    `);
+    const total = parseInt(((totalResult.rows || [])[0] as any)?.total || '0');
+
+    return {
+      missingTextbook: (missingTextbookResult.rows || []).map((r: any) => ({
+        lessonId: r.lesson_id,
+        lessonName: r.lessonName,
+        unitName: r.unit_name,
+        language: r.language,
+        lessonType: r.lesson_type,
+      })),
+      weakDrills: (weakDrillsResult.rows || []).map((r: any) => ({
+        lessonId: r.lesson_id,
+        lessonName: r.lessonName,
+        unitName: r.unit_name,
+        language: r.language,
+        vocabCount: parseInt(r.vocab_count || '0'),
+      })),
+      verboseTextbook: (verbosityResult.rows || []).map((r: any) => ({
+        language: r.language,
+        verboseCount: parseInt(r.verbose_count || '0'),
+        totalCount: parseInt(r.total_count || '0'),
+        avgGrammarLength: parseInt(r.avg_grammar_length || '0'),
+      })),
+      unseededLanguages: (unseededResult.rows || []).map((r: any) => ({
+        language: r.language,
+        lessonCount: parseInt(r.lessonCount || '0'),
+        seededCount: parseInt(r.seeded_count || '0'),
+      })),
+      totalLessonsAudited: total,
+    };
+  }
+
+  generateCurriculumAuditInsights(data: CurriculumAuditData): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+
+    // Verbosity regression (highest priority — we just fixed this; if it comes back it's a seeding regression)
+    if (data.verboseTextbook.length > 0) {
+      const totalVerbose = data.verboseTextbook.reduce((s, r) => s + r.verboseCount, 0);
+      const affected = data.verboseTextbook.map(r => `${r.language} (${r.verboseCount}/${r.totalCount})`).join(', ');
+      insights.push({
+        category: 'content_quality',
+        severity: totalVerbose > 50 ? 'high' : 'medium',
+        confidence: 1.0,
+        title: `Textbook verbosity regression: ${totalVerbose} lessons have bloated grammar_explanation text`,
+        description: `Affected languages: ${affected}. Grammar explanations should be ≤ 800ch — concise, pattern-focused, no prose padding. Note: introduction field is no longer rendered in the UI (removed June 21 2026) so intro length is not flagged here.`,
+        data: { totalVerbose, affectedLanguages: data.verboseTextbook },
+        recommendation: `Review grammar_explanation content in affected languages. Trim to the core pattern + 1-2 examples. No "Welcome to..." preambles, no cultural preamble, no restatement of the lesson title.`,
+        needsReview: true,
+      });
+    }
+
+    // Missing textbook content
+    if (data.missingTextbook.length > 0) {
+      const byLanguage: Record<string, number> = {};
+      for (const r of data.missingTextbook) {
+        byLanguage[r.language] = (byLanguage[r.language] || 0) + 1;
+      }
+      const summary = Object.entries(byLanguage)
+        .sort((a, b) => b[1] - a[1])
+        .map(([lang, count]) => `${lang}: ${count}`)
+        .join(', ');
+      insights.push({
+        category: 'coverage_gap',
+        severity: data.missingTextbook.length > 30 ? 'high' : data.missingTextbook.length > 10 ? 'medium' : 'low',
+        confidence: 1.0,
+        title: `${data.missingTextbook.length} published lessons have no textbook content`,
+        description: `These lessons appear in the syllabus but have no textbook_lesson_content row — students will see empty chapter views. By language: ${summary}.`,
+        data: { count: data.missingTextbook.length, byLanguage, samples: data.missingTextbook.slice(0, 8) },
+        recommendation: `Run the textbook seeder for the affected lessons. Prioritize languages with the highest missing counts. The lesson IDs are available in the data field.`,
+        needsReview: false,
+      });
+    }
+
+    // Weak drills
+    if (data.weakDrills.length > 0) {
+      const zeroVocab = data.weakDrills.filter(r => r.vocabCount === 0);
+      const thinVocab = data.weakDrills.filter(r => r.vocabCount > 0 && r.vocabCount <= 5);
+      const desc = [
+        zeroVocab.length > 0 ? `${zeroVocab.length} with zero vocabulary items` : null,
+        thinVocab.length > 0 ? `${thinVocab.length} with 1–5 items (typical is 12–14)` : null,
+      ].filter(Boolean).join(', ');
+      insights.push({
+        category: 'content_quality',
+        severity: zeroVocab.length > 5 ? 'medium' : 'low',
+        confidence: 0.9,
+        title: `${data.weakDrills.length} vocabulary/drill lessons have thin required_vocabulary`,
+        description: `${desc}. Vocabulary and drill lessons with few items give Daniela insufficient material to work with during practice sessions. Typical drill lessons should have 12–14 items.`,
+        data: { total: data.weakDrills.length, zeroVocab: zeroVocab.length, thinVocab: thinVocab.length, samples: data.weakDrills.slice(0, 8) },
+        recommendation: `Review and expand the required_vocabulary for these lessons. Zero-item lessons are the most urgent — they prevent the drill system from functioning.`,
+        needsReview: false,
+      });
+    }
+
+    // Unseeded languages (partial seeding gaps)
+    if (data.unseededLanguages.length > 0) {
+      for (const lang of data.unseededLanguages) {
+        const missing = lang.lessonCount - lang.seededCount;
+        const pct = Math.round((lang.seededCount / lang.lessonCount) * 100);
+        insights.push({
+          category: 'coverage_gap',
+          severity: pct < 50 ? 'high' : pct < 80 ? 'medium' : 'low',
+          confidence: 1.0,
+          title: `${lang.language}: ${missing} lessons unseeded (${pct}% coverage)`,
+          description: `${lang.language} has ${lang.seededCount} of ${lang.lessonCount} lessons with textbook content. The remaining ${missing} lessons will show empty chapter views in the textbook.`,
+          data: { language: lang.language, lessonCount: lang.lessonCount, seededCount: lang.seededCount, missing, pct },
+          recommendation: `Run the textbook seeder targeting ${lang.language} to fill the remaining ${missing} lessons.`,
+          needsReview: false,
+        });
+      }
+    }
+
+    // All clear
+    if (insights.length === 0) {
+      insights.push({
+        category: 'content_quality',
+        severity: 'info',
+        confidence: 1.0,
+        title: `Curriculum audit: no structural issues found across ${data.totalLessonsAudited} lessons`,
+        description: `All published lessons have textbook content, no verbosity regression detected, vocabulary/drill lessons have adequate items, and all languages are fully seeded.`,
+        data: { totalLessonsAudited: data.totalLessonsAudited },
+        recommendation: 'No action needed. Lyra will continue monitoring on each analysis run.',
+        needsReview: false,
+      });
+    }
+
+    return insights;
+  }
+
+  gatherComponentCoverageData(): ComponentCoverageData {
+    const manifestPath = path.join(process.cwd(), 'docs', 'textbook-component-coverage.json');
+    let manifest: any = null;
+
+    try {
+      const raw = fs.readFileSync(manifestPath, 'utf-8');
+      manifest = JSON.parse(raw);
+    } catch (err: any) {
+      console.warn('[Lyra] Could not read textbook-component-coverage.json:', err.message);
+      return { manifest: null, gaps: [], complete: [], lastUpdated: 'unknown' };
+    }
+
+    const languages = manifest.languages as Record<string, any>;
+    const thresholds = manifest.card_types as Record<string, { minimum_expected: number; lyra_alert_below: number }>;
+
+    const gaps: ComponentCoverageGap[] = [];
+    const complete: string[] = [];
+
+    for (const [lang, data] of Object.entries(languages)) {
+      const langGaps: string[] = [];
+
+      for (const [cardType, threshold] of Object.entries(thresholds)) {
+        const cardData = (data as any)[cardType];
+        if (!cardData) {
+          langGaps.push(`${cardType} (missing entirely)`);
+          continue;
+        }
+        if (cardData.status !== 'complete') {
+          langGaps.push(`${cardType} (status: ${cardData.status})`);
+          continue;
+        }
+        if (typeof cardData.count === 'number' && cardData.count < threshold.lyra_alert_below) {
+          langGaps.push(`${cardType} (${cardData.count} components, alert threshold is ${threshold.lyra_alert_below})`);
+        }
+      }
+
+      if (langGaps.length === 0) {
+        complete.push(lang);
+      } else {
+        gaps.push({ language: lang, gaps: langGaps, status: (data as any).status });
+      }
+    }
+
+    return {
+      manifest,
+      gaps,
+      complete,
+      lastUpdated: manifest.last_updated || 'unknown',
+    };
+  }
+
+  generateComponentCoverageInsights(data: ComponentCoverageData): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+    if (!data.manifest) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'high',
+        confidence: 1.0,
+        title: 'Textbook component coverage manifest is missing',
+        description: 'The file docs/textbook-component-coverage.json could not be read. Lyra cannot verify which languages have grammar cards, cultural cards, phonetic guides, or word families. This is a documentation gap, not a code gap — the file should always be kept in sync with the component files.',
+        data: {},
+        recommendation: 'Recreate docs/textbook-component-coverage.json and keep it updated whenever a new language or card type is added.',
+        needsReview: true,
+      });
+      return insights;
+    }
+
+    if (data.gaps.length === 0) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'info',
+        confidence: 1.0,
+        title: `Textbook component coverage: all ${data.complete.length} languages fully covered`,
+        description: `All ${data.complete.length} languages (${data.complete.join(', ')}) have complete grammar cards, cultural cards, phonetic guides, word families, and canvas vocab datasets as of ${data.lastUpdated}. No gaps detected.`,
+        data: { completeLanguages: data.complete, lastUpdated: data.lastUpdated },
+        recommendation: 'No action needed. Continue updating the manifest when German is extended or new card types are added.',
+        needsReview: false,
+      });
+    } else {
+      for (const gap of data.gaps) {
+        const isMissing = gap.gaps.some(g => g.includes('missing entirely') || g.includes('status:'));
+        insights.push({
+          category: 'textbook_engagement',
+          severity: isMissing ? 'high' : 'medium',
+          confidence: 0.97,
+          title: `Component coverage gap: ${gap.language} — ${gap.gaps.length} card type(s) below threshold`,
+          description: `The ${gap.language} textbook reference library is incomplete. Gaps: ${gap.gaps.join('; ')}. Students studying ${gap.language} will see blank chapter introductions or missing reference cards for these lesson types.`,
+          data: { language: gap.language, gaps: gap.gaps, status: gap.status },
+          recommendation: `Build the missing ${gap.language} card types following the pattern of an existing complete language (e.g. French or Spanish). Each card type typically requires 1 new file: Textbook${gap.language.charAt(0).toUpperCase() + gap.language.slice(1)}[CardType].tsx. Wire it into ChapterIntroduction.tsx.`,
+          needsReview: false,
+        });
+      }
+    }
+
+    return insights;
+  }
+
   private buildFallbackReport(insights: LyraInsight[]): string {
     const bySeverity = {
       critical: insights.filter(i => i.severity === 'critical').length,
@@ -960,14 +1407,139 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
 *Lyra — Learning Experience Analyst (AI summary unavailable)*`;
   }
 
-  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData }> {
+  /**
+   * Collects data for credit sensitivity monitoring.
+   * Examines recent mastery patterns to detect potential over-crediting.
+   */
+  async collectCreditSensitivityData(runtimeStats: import('./conversational-credit-service').CreditRuntimeStats): Promise<{
+    runtimeStats: import('./conversational-credit-service').CreditRuntimeStats;
+    avgCreditsPerTurn: number;
+    highCreditTurnRate: number; // % of turns with ≥5 credits (over-credit risk)
+    correctionSkipRate: number; // % of eligible words skipped due to correction markers
+    masteryVelocity: Array<{ userId: string; language: string; masteredLast24h: number }>; // unusually fast masterers
+  }> {
+    const db = getSharedDb();
+
+    const avgCreditsPerTurn = runtimeStats.turnsProcessed > 0
+      ? Math.round((runtimeStats.wordsCredited / runtimeStats.turnsProcessed) * 10) / 10
+      : 0;
+    const highCreditTurnRate = runtimeStats.turnsProcessed > 0
+      ? Math.round((runtimeStats.highCreditTurns / runtimeStats.turnsProcessed) * 1000) / 10
+      : 0;
+    const correctionSkipRate = runtimeStats.wordsCredited + runtimeStats.skippedDueToCorrection > 0
+      ? Math.round((runtimeStats.skippedDueToCorrection / (runtimeStats.wordsCredited + runtimeStats.skippedDueToCorrection)) * 1000) / 10
+      : 0;
+
+    // Flag users mastering unusually many words in the past 24h (may indicate over-crediting)
+    let masteryVelocity: Array<{ userId: string; language: string; masteredLast24h: number }> = [];
+    try {
+      const velocity = await db.execute(sql`
+        SELECT uri.user_id, uri.language, COUNT(*)::int AS mastered_last_24h
+        FROM user_review_items uri
+        WHERE uri.mastered = true
+          AND uri.created_at >= NOW() - INTERVAL '24 hours'
+        GROUP BY uri.user_id, uri.language
+        HAVING COUNT(*) >= 10
+        ORDER BY COUNT(*) DESC
+        LIMIT 20
+      `);
+      masteryVelocity = (velocity.rows || []).map((r: any) => ({
+        userId: r.user_id,
+        language: r.language,
+        masteredLast24h: parseInt(r.mastered_last_24h || '0'),
+      }));
+    } catch { /* non-critical */ }
+
+    return { runtimeStats, avgCreditsPerTurn, highCreditTurnRate, correctionSkipRate, masteryVelocity };
+  }
+
+  generateCreditInsights(data: Awaited<ReturnType<typeof this.collectCreditSensitivityData>>): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+    const { runtimeStats, avgCreditsPerTurn, highCreditTurnRate, correctionSkipRate, masteryVelocity } = data;
+
+    // Not enough data yet — low traffic since last restart
+    if (runtimeStats.turnsProcessed < 10) {
+      insights.push({
+        category: 'conversational_credit',
+        severity: 'info',
+        confidence: 1.0,
+        title: `Conversational credit: ${runtimeStats.turnsProcessed} turns processed since last restart`,
+        description: `The credit engine has run on ${runtimeStats.turnsProcessed} turns, awarding ${runtimeStats.wordsCredited} word credits and marking ${runtimeStats.masteredViaChat} words as mastered via conversation. Not enough volume yet for sensitivity analysis.`,
+        data: runtimeStats,
+        recommendation: 'Continue monitoring as volume grows. Re-evaluate after 50+ turns.',
+        needsReview: false,
+      });
+      return insights;
+    }
+
+    // Healthy baseline report
+    insights.push({
+      category: 'conversational_credit',
+      severity: 'info',
+      confidence: 0.95,
+      title: `Conversational credit: ${runtimeStats.wordsCredited} credits across ${runtimeStats.turnsProcessed} turns (avg ${avgCreditsPerTurn}/turn)`,
+      description: `${runtimeStats.masteredViaChat} words reached mastery via conversation. Correction markers fired on ${runtimeStats.correctionMarkerHits} turns, blocking ${runtimeStats.skippedDueToCorrection} potential credits (${correctionSkipRate}% skip rate).`,
+      data: { ...runtimeStats, avgCreditsPerTurn, highCreditTurnRate, correctionSkipRate },
+      recommendation: 'Healthy credit flow. Keep an eye on high-credit turns and mastery velocity.',
+      needsReview: false,
+    });
+
+    // Over-crediting signal: more than 20% of turns have ≥5 credits
+    if (highCreditTurnRate > 20) {
+      insights.push({
+        category: 'conversational_credit',
+        severity: highCreditTurnRate > 40 ? 'high' : 'medium',
+        confidence: 0.80,
+        title: `${highCreditTurnRate}% of turns awarding 5+ credits — possible over-crediting`,
+        description: `When 5 or more vocabulary words are credited in a single turn, it typically means the student is writing rich target-language content OR the word-matching heuristic is too broad. High-credit turns: ${runtimeStats.highCreditTurns} of ${runtimeStats.turnsProcessed}.`,
+        data: { highCreditTurnRate, highCreditTurns: runtimeStats.highCreditTurns, turnsProcessed: runtimeStats.turnsProcessed },
+        recommendation: 'Sample a few high-credit turns manually. If students are writing short English messages but still getting credits, the token matching needs tightening.',
+        needsReview: true,
+      });
+    }
+
+    // Correction skip rate too low: markers may not be catching enough corrections
+    if (runtimeStats.turnsProcessed >= 20 && correctionSkipRate < 2 && runtimeStats.correctionMarkerHits < 3) {
+      insights.push({
+        category: 'conversational_credit',
+        severity: 'low',
+        confidence: 0.65,
+        title: `Low correction skip rate (${correctionSkipRate}%) — correction markers may be under-catching`,
+        description: `Only ${runtimeStats.correctionMarkerHits} turns triggered correction detection, blocking ${runtimeStats.skippedDueToCorrection} words. If Daniela is correcting students frequently but those corrections aren't being caught, wrong-usage words may be getting credited.`,
+        data: { correctionSkipRate, correctionMarkerHits: runtimeStats.correctionMarkerHits, skippedDueToCorrection: runtimeStats.skippedDueToCorrection },
+        recommendation: `Review recent Daniela responses for correction patterns not in the current marker list. Consider adding language-specific phrases (e.g. "En realidad...", "La conjugación correcta es...").`,
+        needsReview: false,
+      });
+    }
+
+    // Unusual mastery velocity — possible credit noise
+    if (masteryVelocity.length > 0) {
+      const top = masteryVelocity[0];
+      insights.push({
+        category: 'conversational_credit',
+        severity: masteryVelocity.length > 3 ? 'high' : 'medium',
+        confidence: 0.75,
+        title: `${masteryVelocity.length} user(s) mastered 10+ words in the last 24h — verify credit quality`,
+        description: `Unusually high mastery velocity may indicate genuine rapid learning OR that the credit heuristic is being too generous. Top: user ${top.userId.slice(0, 8)}... mastered ${top.masteredLast24h} ${top.language} items.`,
+        data: { masteryVelocity: masteryVelocity.slice(0, 5) },
+        recommendation: 'Spot-check conversation transcripts for these users. Genuine fluency looks like complex sentence usage; over-crediting looks like single-word appearances in English-dominant messages.',
+        needsReview: true,
+      });
+    }
+
+    return insights;
+  }
+
+  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData; componentCoverageData: ComponentCoverageData; curriculumAuditData: CurriculumAuditData }> {
     const startTime = Date.now();
     console.log('[Lyra] Starting full learning experience analysis...');
 
     let contentData: ContentAuditData = { staleContent: [], emptyDescriptions: [], missingActflLevels: [], orphanedDrills: [], languageCoverage: [], templatedContent: [] };
-    let studentData: StudentSuccessData = { lessonDropoff: [], drillStruggles: [], streakBreakers: [], actflBottlenecks: [] };
+    let studentData: StudentSuccessData = { lessonDropoff: [], drillStruggles: [], streakBreakers: [], actflBottlenecks: [], classChurn: [] };
     let onboardingData: OnboardingData = { totalUsers: 0, usersWithConversation: 0, conversionRate: 0, avgDaysToFirstChat: 0, returnRate7d: 0, recentSignups: [] };
     let textbookData: TextbookEngagementData = { totalSections: 0, totalViewed: 0, totalCompleted: 0, uniqueUsers: 0, uniqueLessons: 0, totalLessons: 0, visualAssetCount: 0, userBreakdown: [], languageBreakdown: [], completionByType: [] };
+    let componentCoverageData: ComponentCoverageData = { manifest: null, gaps: [], complete: [], lastUpdated: 'unknown' };
+    let curriculumAuditData: CurriculumAuditData = { missingTextbook: [], weakDrills: [], verboseTextbook: [], unseededLanguages: [], totalLessonsAudited: 0 };
 
     try {
       contentData = await this.gatherContentAuditData();
@@ -998,11 +1570,40 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
       console.error('[Lyra] Textbook analysis failed:', err.message);
     }
 
+    try {
+      componentCoverageData = this.gatherComponentCoverageData();
+      const gapCount = componentCoverageData.gaps.length;
+      console.log(`[Lyra] Component coverage: ${componentCoverageData.complete.length} complete, ${gapCount} with gaps (manifest: ${componentCoverageData.lastUpdated})`);
+    } catch (err: any) {
+      console.error('[Lyra] Component coverage check failed:', err.message);
+    }
+
+    try {
+      curriculumAuditData = await this.gatherCurriculumAuditData();
+      const issueCount = curriculumAuditData.missingTextbook.length + curriculumAuditData.weakDrills.length + curriculumAuditData.verboseTextbook.length + curriculumAuditData.unseededLanguages.length;
+      console.log(`[Lyra] Curriculum audit: ${curriculumAuditData.totalLessonsAudited} lessons checked, ${issueCount} issues (${curriculumAuditData.missingTextbook.length} missing textbook, ${curriculumAuditData.weakDrills.length} weak drills, ${curriculumAuditData.verboseTextbook.length} verbose regressions)`);
+    } catch (err: any) {
+      console.error('[Lyra] Curriculum audit failed:', err.message);
+    }
+
+    let creditData: Awaited<ReturnType<typeof this.collectCreditSensitivityData>> | null = null;
+    try {
+      const { getCreditRuntimeStats } = await import('./conversational-credit-service');
+      const runtimeStats = getCreditRuntimeStats();
+      creditData = await this.collectCreditSensitivityData(runtimeStats);
+      console.log(`[Lyra] Credit sensitivity: ${runtimeStats.turnsProcessed} turns, ${runtimeStats.wordsCredited} credits, ${runtimeStats.masteredViaChat} mastered via chat`);
+    } catch (err: any) {
+      console.error('[Lyra] Credit sensitivity check failed:', err.message);
+    }
+
     const insights: LyraInsight[] = [
       ...this.generateContentInsights(contentData),
       ...this.generateStudentInsights(studentData),
       ...this.generateOnboardingInsights(onboardingData),
       ...this.generateTextbookInsights(textbookData),
+      ...this.generateComponentCoverageInsights(componentCoverageData),
+      ...this.generateCurriculumAuditInsights(curriculumAuditData),
+      ...(creditData ? this.generateCreditInsights(creditData) : []),
     ];
 
     insights.sort((a, b) => {
@@ -1013,7 +1614,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     const elapsed = Date.now() - startTime;
     console.log(`[Lyra] Analysis complete: ${insights.length} insights in ${elapsed}ms`);
 
-    return { insights, contentData, studentData, onboardingData, textbookData };
+    return { insights, contentData, studentData, onboardingData, textbookData, componentCoverageData, curriculumAuditData };
   }
 }
 

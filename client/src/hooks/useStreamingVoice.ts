@@ -13,8 +13,15 @@ import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, Str
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
 import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackStateStore';
-import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
+import { useGlobalPropTap } from '../lib/propTapStore';
+import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkSpeechEnd, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
+import { validateSpotlightMessage } from '../lib/spotlight-guard';
+import { validatePronunciationScorePayload } from '../lib/pronunciation-score-guard';
+import { validateGrammarFlagPayload } from '../lib/grammar-flag-guard';
+import { validateQuizPayload } from '../lib/quiz-guard';
+import { validateCulturalContextPayload } from '../lib/cultural-context-guard';
+import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
 import { 
   STREAMING_FEATURE_FLAGS,
   type StreamingClientState,
@@ -40,11 +47,19 @@ export interface StreamingVoiceState {
   isProcessing: boolean;
   isPlaying: boolean;
   isSwitchingTutor: boolean;  // True during tutor handoff - mic should stay locked
+  sofiaIncident: { incidentId: string; category: string; priority: string; message: string; timestamp: number } | null;  // Active Sofia support incident
+  ttsUnavailable: boolean;    // True when TTS fails; clears after 8s
+  sttDegraded: boolean;       // True when Deepgram STT has an error; clears after 6s
+  sttDegradedMessage: string; // User-facing message for STT degraded state
+  sttSuggestPtt: boolean;     // True when repeated open-mic failures suggest switching to PTT
   currentText: string;
   currentWordIndex: number;
   visibleWordCount: number;
   error: string | null;
   metrics: StreamingMetrics | null;
+  activeCharacter: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null;
+  serverRestarting: boolean;  // True when server sent SIGTERM — deploy rotation in progress
+  glDisconnectedForRetry: boolean;  // True when GL retries exhausted — student can tap to retry
 }
 
 /**
@@ -55,30 +70,54 @@ export interface StreamingSessionConfig {
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
+  subtitleMode: 'off' | 'target';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'normal' | 'slow';
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode flag - only true when user selects "Founder Mode" context
+  inputMode?: string;  // Voice input mode (ptt, open-mic, etc.)
   onResponseComplete?: (conversationId: string) => void;
+  /** Called when processing_pending arrives — sets component-level thinking state immediately */
+  onProcessingPending?: () => void;
   /** Called when server detects no speech during PTT - resets processing state */
   onNoSpeechDetected?: () => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
+  /** Called when Daniela adds an item to the session lesson notes */
+  onLessonNoteAdded?: (note: { id: string; type: string; content: string; detail?: string; timestamp: number }) => void;
+  /** Called when Daniela shows a pronunciation score card */
+  onPronunciationScoreShown?: (data: { id: string; phrase: string; wordScores: Array<{ word: string; score: number; tip?: string }>; overallScore: number; encouragement?: string; timestamp?: number }) => void;
+  /** Called when Daniela flags a grammar correction */
+  onGrammarFlagShown?: (data: { id: string; original: string; corrected: string; explanation: string; ruleLabel?: string; timestamp: number }) => void;
+  /** Called when Daniela presents a quiz */
+  onQuizPresented?: (data: { id: string; question: string; options: string[]; correctIndex: number; explanation?: string; timestamp: number }) => void;
+  /** Called when Daniela shows a cultural context card */
+  onCulturalContextShown?: (data: { id: string; title: string; text: string; category?: string; sourceUrl?: string; timestamp: number }) => void;
+  /** Called when Daniela spotlights a UI element */
+  onSpotlightShown?: (data: { id: string; zone: string; message: string; durationMs: number; timestamp: number }) => void;
+  /** Called when Daniela sets a shared session mission (Gap D) */
+  onMissionSet?: (mission: string) => void;
   /** Called when VAD detects speech start (open mic mode) */
   onVadSpeechStarted?: () => void;
   /** Called when VAD detects utterance end (open mic mode) */
   onVadUtteranceEnd?: (transcript: string, empty?: boolean) => void;
   /** Called when interim transcript available (open mic mode) */
   onInterimTranscript?: (transcript: string) => void;
+  /** Called for each Gemini Live real-time speech chunk (GL mode only). Distinct from onInterimTranscript
+   *  which is shared with Deepgram. Accumulate chunks to build the live user caption bar. */
+  onGlUserTranscript?: (chunk: string) => void;
   /** Called when open mic session closes (e.g., Deepgram timeout) */
   onOpenMicSessionClosed?: () => void;
   /** Called when OpenMic detects consecutive empty transcripts (silence loop) */
   onOpenMicSilenceLoop?: (consecutiveEmptyCount: number, msSinceLastSuccessfulTranscript: number) => void;
   /** Called when connection is successfully restored after a drop */
   onReconnected?: () => void;
+  /** Called when GL 1008 reconnect begins — server building Context Bridge; show "gathering thoughts" */
+  onReconnecting?: () => void;
+  /** Called when the GL WebSocket is re-established after a drop (Socket.io never dropped) — clear error UI, resume listening */
+  onGlReconnected?: () => void;
   /** 
    * Called when voice-initiated tutor handoff occurs (student asked to switch tutors)
    * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
@@ -87,7 +126,7 @@ export interface StreamingSessionConfig {
   /** Called when pronunciation coaching feedback is received from Deepgram word-level analysis */
   onPronunciationCoaching?: (coaching: PronunciationCoachingData) => void;
   /** Called when server commands a subtitle mode change (tutor [SUBTITLE on/off/target] command) */
-  onSubtitleModeChange?: (mode: 'off' | 'all' | 'target') => void;
+  onSubtitleModeChange?: (mode: 'off' | 'target') => void;
   /** Called when server commands a custom overlay show/hide (tutor [SHOW: text] / [HIDE] commands) */
   onCustomOverlay?: (action: 'show' | 'hide', text?: string) => void;
   /** Called when server requests text input from student (tutor [TEXT_INPUT: prompt] command) */
@@ -98,6 +137,14 @@ export interface StreamingSessionConfig {
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
   /** Called when a scenario prop is updated (e.g., bill filled in with items/total) */
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
+  /** Called when Daniela enters or exits immersive fullscreen mode */
+  onImmersiveModeChange?: (active: boolean) => void;
+  /** Called when the AI advances to the next scene zone within a scenario */
+  onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
+  /** Called when server confirms the incognito toggle (authoritative state source) */
+  onIncognitoChanged?: (enabled: boolean) => void;
+  /** Called when server pushes a mid-session credit balance warning (every 2 min periodic check) */
+  onCreditWarning?: (data: { level: 'low' | 'critical' | 'exhausted'; remainingSeconds: number; percentRemaining: number }) => void;
 }
 
 /**
@@ -131,6 +178,7 @@ export interface TutorHandoffInfo {
   isLanguageSwitch: boolean;  // True if this is a cross-language handoff
   requiresGreeting?: boolean; // True if client should request greeting after reconnecting
   isAssistant?: boolean;      // True if switching to assistant tutor (navigate to practice page)
+  mode?: string;              // Optional mode to apply after handoff
 }
 
 /**
@@ -142,7 +190,7 @@ export interface UseStreamingVoiceReturn {
   connect: (config: StreamingSessionConfig) => Promise<void>;
   disconnect: () => void;
   sendAudio: (audioData: ArrayBuffer) => Promise<void>;
-  requestGreeting: (userName?: string, isResumed?: boolean) => void;
+  requestGreeting: (userName?: string, isResumed?: boolean, scenarioSlug?: string) => void;
   updateVoice: (tutorGender: 'male' | 'female') => void;
   stop: () => void;
   isSupported: () => boolean;
@@ -164,8 +212,11 @@ export interface UseStreamingVoiceReturn {
     emotion?: string;
     geminiLanguageCode?: string;
   } | null) => void;
+  sendVideoFrame: (base64Jpeg: string, source: string) => void;
   sendToggleIncognito: (enabled: boolean) => void;
   forceResetProcessing: () => void;
+  retryGlSession: () => void;
+  microAckPlaying: boolean;
 }
 
 /**
@@ -179,19 +230,69 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const isProcessingRef = useRef(false);
   isProcessingRef.current = isProcessing;
   const [isSwitchingTutor, setIsSwitchingTutor] = useState(false);  // Mic lockout during tutor handoff
+  const [sofiaIncident, setSofiaIncident] = useState<{ incidentId: string; category: string; priority: string; message: string; timestamp: number } | null>(null);
   const isSwitchingTutorRef = useRef(false);
   isSwitchingTutorRef.current = isSwitchingTutor;
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<StreamingMetrics | null>(null);
+  const [ttsUnavailable, setTtsUnavailable] = useState(false);
+  const ttsUnavailableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sttDegraded, setSttDegraded] = useState(false);
+  const sttDegradedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sttDegradedMessage, setSttDegradedMessage] = useState<string>('');
+  const [sttSuggestPtt, setSttSuggestPtt] = useState(false);
+
+  // Micro-ack: short ack clip played immediately after user stops speaking
+  const [microAckPlaying, setMicroAckPlaying] = useState(false);
+  const [serverRestarting, setServerRestarting] = useState(false);
+  const [glDisconnectedForRetry, setGlDisconnectedForRetry] = useState(false);
+  const microAckPlayingRef = useRef(false);
+  const microAckMsgBufferRef = useRef<StreamingAudioChunkMessage[]>([]);
+  const microAckFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ref used by fireMicroAck to replay buffered audio chunks after ack ends
+  const handleAudioChunkRef = useRef<((msg: StreamingAudioChunkMessage) => void) | null>(null);
   
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Fire-and-forget client-side error reporter — sends to server for pipeline event log
+  const reportVoiceClientError = useCallback((eventType: string, errorMsg: string, extraMs?: number) => {
+    try {
+      const conversationId = sessionConfigRef.current?.conversationId;
+      fetch('/api/telemetry/voice-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType,
+          sessionId: conversationId ?? 'unknown',
+          error: errorMsg,
+          durationMs: extraMs,
+        }),
+      }).catch(() => {}); // truly fire-and-forget
+    } catch {
+      // never throw from a diagnostic helper
+    }
+  }, []);
+
   // Ref for processing timeout (stuck thinking recovery)
   // If no activity for 30+ seconds while isProcessing=true, reset state
   // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const PROCESSING_TIMEOUT_MS = 60000;  // 60 seconds max "thinking" time (Gemini TTS can take 40-50s for long responses)
+  
+  // Ref for greeting silence watchdog (cleanup on disconnect)
+  const greetingSilenceWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Speculative thinking timer — fires 700ms after the last inputTranscription chunk
+  // to switch the avatar to 'thinking' before the real processing_pending arrives.
+  // Cancelled if processing_pending arrives first (the authoritative signal).
+  const speculativeThinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set true on first audio chunk — prevents greeting_retry from resetting watchdog after audio already arrived.
+  const greetingAudioArrivedRef = useRef(false);
+
+  // Prop-to-dialogue binding — watches global prop tap store, sends socket signal
+  const activePropTap = useGlobalPropTap();
+  const prevPropTapTimestampRef = useRef<number>(0);
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -204,9 +305,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // 2. No pending audio chunks (pendingAudioCount = 0)
   // 3. Audio has actually started playing (or no audio was sent)
   const responseCompleteRef = useRef(false);
+  
+  // Track connection state in a ref so closures (failsafes, timeouts) can read it
+  const connectionStateRef = useRef<StreamingClientState>('disconnected');
   const pendingAudioCountRef = useRef(0);
   const setIsProcessingRef = useRef(setIsProcessing);
   setIsProcessingRef.current = setIsProcessing;
+
+  // Track when sentence playback last started — used by the tier-2 failsafe to avoid
+  // nuclear reset while a long sentence (e.g. greeting) is still actively playing.
+  // onSentenceStart clears audioReceivedInTurnRef (so the healthy-turn guard can't help),
+  // but audio can still be playing for 20-30s after that. This timestamp fills the gap.
+  const lastSentenceStartedAtRef = useRef(0);
   
   // Turn counter: prevents stale failsafe timers from old turns from firing during
   // new turns. Each timer captures the turn number at creation time and bails if
@@ -229,6 +339,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   // Track difficulty level for ACTFL-aware subtitle timing
   const [difficultyLevel, setDifficultyLevel] = useState<string>('beginner');
+
+  // Active secondary character (null = Daniela is speaking)
+  const [activeCharacter, setActiveCharacter] = useState<{ id: string; displayName: string; role: string; gender: 'male' | 'female' } | null>(null);
   
   // Helper to check if we can clear isProcessing
   // Note: Does NOT reset responseCompleteRef - that's done when new request starts
@@ -322,6 +435,20 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         // Use ref to ensure we always call the current setPlaybackState
         setPlaybackStateRef.current(state);
         (window as any).__playbackStateSetCount = ((window as any).__playbackStateSetCount || 0) + 1;
+        
+        // GL/PCM PATH FIX: In the Gemini Live path, audio goes through
+        // enqueueProgressivePcmChunk which bypasses the traditional sentence
+        // queue's playNext() → notifyComplete() chain. This means onComplete
+        // never fires, so checkAndClearProcessing is never retried after
+        // onSentenceStart clears the audioReceivedInTurnRef guard.
+        // When the player transitions to 'idle' and response_complete has
+        // already arrived, we know the turn is truly done — clear the guard
+        // and re-run the check so the hook's isProcessing clears immediately
+        // instead of waiting for the 10-second deferred timeout.
+        if (state === 'idle' && responseCompleteRef.current) {
+          audioReceivedInTurnRef.current = false;
+          checkAndClearProcessing();
+        }
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting with actual duration for rescaling
@@ -332,6 +459,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         if (isVerboseLoggingEnabled()) {
           console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
         }
+        // Record when this sentence started playing — the tier-2 failsafe uses this to
+        // avoid nuclear reset while a long sentence (greeting, etc.) is still active.
+        lastSentenceStartedAtRef.current = Date.now();
         // Audio is now actually playing - clear the audioReceived guard
         // so that onComplete/checkAndClearProcessing can clear isProcessing
         audioReceivedInTurnRef.current = false;
@@ -486,14 +616,39 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * CRITICAL: Must reset audio player to clear previous turn's schedule,
    * preventing stale onSentenceStart callbacks from mixing with new turn.
    */
+  const handleGreetingRetry = useCallback((msg: { type: string; attempt: number }) => {
+    if (greetingAudioArrivedRef.current) {
+      console.log(`[StreamingVoice] Greeting retry #${msg.attempt} ignored — audio already arrived`);
+      return;
+    }
+    console.log(`[StreamingVoice] Greeting retry #${msg.attempt} — resetting 15s silence watchdog`);
+    if (greetingSilenceWatchdogRef.current) {
+      clearTimeout(greetingSilenceWatchdogRef.current);
+    }
+    greetingSilenceWatchdogRef.current = startGreetingSilenceWatchdog();
+  }, []);
+
   const handleProcessing = useCallback((msg: StreamingProcessingMessage) => {
     if (isVerboseLoggingEnabled()) {
       console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
     }
     
+    // CRITICAL: Reset turn-start diagnostics so the lockout watchdog doesn't fire mid-turn.
+    // The PTT path calls diagMarkTurnStart() in sendAudio(); open-mic never did, leaving
+    // responseCompleteTimestamp set from the previous turn. If the new turn takes > 8 s
+    // (e.g. Gemini + function-call chain), the watchdog would fire a false positive.
+    // The server's 'processing' message is the authoritative "new turn started" signal
+    // for both PTT and open-mic, so this is the correct place to reset it.
+    diagMarkTurnStart();
+    
     // CRITICAL: Set processing state when server indicates new turn is processing
     // This ensures thinking indicator shows for server-initiated responses (tutor handoffs, etc.)
     setIsProcessing(true);
+    // Guard: never overwrite 'playing' or 'buffering' — audio may already be streaming
+    // (race condition: audio chunk arrives before the processing signal in the GL path)
+    if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+      setGlobalPlaybackState('thinking');
+    }
     
     // Reset audio received flag for new turn
     audioReceivedInTurnRef.current = false;
@@ -507,6 +662,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state + playback');
+      reportVoiceClientError('processing_timeout', 'Processing timeout — handleProcessing', PROCESSING_TIMEOUT_MS);
       setIsProcessing(false);
       setError('Response timeout - please try again');
       setGlobalPlaybackState('idle');
@@ -529,12 +685,44 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * This fires right when PTT is released, before Deepgram finalization wait.
    * Triggers thinking avatar immediately for better perceived responsiveness.
    */
-  const handleProcessingPending = useCallback((msg: { type: string; timestamp: number; interimTranscript: string }) => {
-    console.log(`[StreamingVoice] Processing pending: "${msg.interimTranscript.substring(0, 30)}..."`);
+  const handleProcessingPending = useCallback((msg: { type: string; timestamp: number; interimTranscript?: string }) => {
+    console.log(`[StreamingVoice] Processing pending: "${(msg.interimTranscript ?? '').substring(0, 30)}..."`);
     
+    // Cancel any speculative thinking timer — real signal arrived.
+    if (speculativeThinkingTimerRef.current) {
+      clearTimeout(speculativeThinkingTimerRef.current);
+      speculativeThinkingTimerRef.current = null;
+    }
+
     // IMMEDIATELY show thinking indicator
     setIsProcessing(true);
+    // Guard: never overwrite 'playing' or 'buffering' — in the GL path, processing_pending
+    // fires on the same first audio chunk, so audio may already be streaming by the time
+    // this handler runs. Overwriting 'playing' with 'thinking' causes the avatar to get
+    // stuck on the thinking state for the entire duration of the response.
+    if (getGlobalPlaybackState() !== 'playing' && getGlobalPlaybackState() !== 'buffering') {
+      setGlobalPlaybackState('thinking');
+    }
     audioReceivedInTurnRef.current = false;
+    
+    // GL PATH FIX: Reset the audio player's deduplication state for the new turn.
+    // In the GL path, only processing_pending fires (never the 'processing' event),
+    // so resetForNewTurn() was never called between turns. The dedup set from the
+    // previous turn persisted, causing early chunks of the new turn (s0_c0, s0_c1, …)
+    // to be incorrectly blocked as "already seen" — chopping off the first few seconds
+    // of every GL response after the first. This is idempotent: calling it in both
+    // handleProcessingPending and handleProcessing (PTT path) is safe.
+    playerRef.current?.resetForNewTurn?.();
+    
+    // Pre-warm the AudioContext so the first audio samples don't fade in from silence.
+    // processing_pending fires just before audio arrives — an ideal time to resume.
+    playerRef.current?.resumeAudioContext?.();
+    
+    // Notify component so it can set its own isProcessing state immediately.
+    // This drives the thinking avatar via the component-level isProcessing prop
+    // (which is properly cleared by onResponseComplete), avoiding the hook's
+    // internal timing issues with checkAndClearProcessing in the PCM audio path.
+    sessionConfigRef.current?.onProcessingPending?.();
     
     // Start processing timeout (same as handleProcessing)
     if (processingTimeoutRef.current) {
@@ -542,6 +730,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Processing timeout (pending) - resetting stuck thinking state + playback');
+      reportVoiceClientError('processing_timeout', 'Processing timeout — handleProcessingPending', PROCESSING_TIMEOUT_MS);
       setIsProcessing(false);
       setError('Response timeout - please try again');
       setGlobalPlaybackState('idle');
@@ -559,6 +748,31 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (sessionConfigRef.current?.onNoSpeechDetected) {
       sessionConfigRef.current.onNoSpeechDetected();
     }
+  }, []);
+
+  /**
+   * Handle function_executing message — server is running a tool call (memory search,
+   * image generation, etc.). Refreshes the thinking state so the avatar stays in
+   * "thinking" mode for the full duration of the tool call, not just until processing_pending.
+   */
+  const handleFunctionExecuting = useCallback((msg: { type: string; functionName?: string; timestamp?: number }) => {
+    console.log(`[StreamingVoice] Function executing: ${msg.functionName || 'unknown'} — refreshing thinking state`);
+    // Guard: never override active audio playback
+    if (getGlobalPlaybackState() === 'playing' || getGlobalPlaybackState() === 'buffering') return;
+    // Refresh thinking state and re-arm the processing timeout so the avatar doesn't
+    // time out during a long tool call (e.g. 15-30s image generation).
+    setIsProcessing(true);
+    setGlobalPlaybackState('thinking');
+    if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Function-executing timeout — resetting stuck state');
+      reportVoiceClientError('processing_timeout', 'Processing timeout — functionExecuting', PROCESSING_TIMEOUT_MS);
+      setIsProcessing(false);
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
+    }, PROCESSING_TIMEOUT_MS);
+    // Notify component so it keeps its own isProcessing ref active
+    sessionConfigRef.current?.onProcessingPending?.();
   }, []);
   
   /**
@@ -616,6 +830,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (msg.chunkIndex === 0) {
       audioReceivedInTurnRef.current = true;
+      greetingAudioArrivedRef.current = true;  // guard: greeting_retry is a no-op once audio lands
     }
     
     diagMarkFirstAudio();
@@ -646,7 +861,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.warn('[StreamingVoice] Audio chunk received but no player - DROPPING AUDIO');
       return;
     }
-    
+
+    // Buffer main response chunks while micro-ack is playing (max 700ms hold via safety timer)
+    if (microAckPlayingRef.current) {
+      microAckMsgBufferRef.current.push(msg);
+      return;
+    }
+
     const formatLabel = msg.audioFormat === 'pcm_f32le' ? 'PCM' : 'MP3';
     // Ensure chunkIndex is a number, not a string
     const chunkIndex = typeof msg.chunkIndex === 'number' ? msg.chunkIndex : parseInt(msg.chunkIndex as any, 10) || 0;
@@ -736,7 +957,40 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Always update subtitle hook for UI state (both modes)
     subtitlesRef.current.setWordTimings(msg.sentenceIndex, msg.turnId, msg.timings, msg.expectedDurationMs);
   }, []);
-  
+
+  // Keep ref in sync so fireMicroAck can flush buffered chunks
+  handleAudioChunkRef.current = handleAudioChunk;
+
+  /**
+   * Fire a micro-ack clip immediately after the user stops speaking.
+   * Sets microAckPlayingRef while the clip plays, buffering any incoming
+   * main-response audio chunks. Flushes the buffer as soon as ack ends
+   * (or after a 700ms safety timeout).
+   */
+  const fireMicroAck = (transcript: string) => {
+    const clip = selectMicroAck(transcript);
+    if (!clip) return;
+
+    microAckPlayingRef.current = true;
+    setMicroAckPlaying(true);
+
+    const flush = () => {
+      if (microAckFlushTimerRef.current) {
+        clearTimeout(microAckFlushTimerRef.current);
+        microAckFlushTimerRef.current = null;
+      }
+      microAckPlayingRef.current = false;
+      setMicroAckPlaying(false);
+      const buffered = microAckMsgBufferRef.current.splice(0);
+      buffered.forEach(msg => handleAudioChunkRef.current?.(msg));
+    };
+
+    // Safety: flush after 700ms even if audio hasn't ended
+    microAckFlushTimerRef.current = setTimeout(flush, 700);
+
+    playMicroAck(clip).then(flush);
+  };
+
   /**
    * PROGRESSIVE STREAMING: Handle incremental word timing update
    * These arrive as words are timestamped during progressive TTS
@@ -804,6 +1058,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Safety timeout after sentence_ready - resetting stuck state + playback');
+      reportVoiceClientError('processing_timeout', 'Safety timeout after sentence_ready', 45000);
       setIsProcessing(false);
       setError('Response timeout - please try again');
       setGlobalPlaybackState('idle');
@@ -940,10 +1195,28 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences${msg.wasInterrupted ? ' (INTERRUPTED)' : ''}`);
     }
     
+    // GUARD-RESET GUARD: The server sends synthetic response_complete messages with
+    // turnId="guard-reset-<timestamp>" (a string, not a numeric turn sequence) when it
+    // decides NOT to process an utterance (dedup, rapid-fire, greeting-in-progress, etc).
+    // These are meant to reset client state ONLY when no real turn is in flight. If a
+    // real turn IS currently streaming/playing audio, this synthetic message must be
+    // ignored entirely — otherwise it prematurely clears isProcessing/pending audio and
+    // cuts off the real response mid-playback (previously slipped past the stale-turn
+    // guard below because a string turnId compared with `<` against a number is always
+    // false, so it was never recognized as "stale").
+    const isGuardResetMsg = typeof msg.turnId === 'string' && (msg.turnId as string).startsWith('guard-reset-');
+    if (isGuardResetMsg) {
+      const realTurnInFlight = audioReceivedInTurnRef.current || pendingAudioCountRef.current > 0 || !responseCompleteRef.current;
+      if (realTurnInFlight) {
+        console.log(`[StreamingVoice] Ignoring guard-reset response_complete — real turn is in flight (pending=${pendingAudioCountRef.current}, audioReceived=${audioReceivedInTurnRef.current})`);
+        return;
+      }
+    }
+
     // STALE TURN GUARD: Ignore response_complete from a previous turn.
     // This prevents the greeting's response_complete from poisoning the OpenMic turn state
     // when both run concurrently (causes freeze: client thinks turn ended with no audio).
-    if (msg.turnId !== undefined && msg.turnId < currentTurnIdRef.current) {
+    if (msg.turnId !== undefined && !isGuardResetMsg && msg.turnId < currentTurnIdRef.current) {
       console.log(`[StreamingVoice] Ignoring stale response_complete: turnId=${msg.turnId}, current=${currentTurnIdRef.current}`);
       return;
     }
@@ -997,14 +1270,24 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // FIX: If the brain produced zero sentences (e.g., pure tool call turn, or error path
     // that sent response_complete with totalSentences=0), no audio will ever arrive.
-    // Immediately clear isProcessing here so Carol doesn't stay stuck waiting for audio
-    // that will never come. Don't go through checkAndClearProcessing which might defer
-    // on the audioReceivedInTurnRef guard.
+    // HOWEVER: GL sometimes fires a thinking-only generationComplete (no audio sub-turns)
+    // immediately BEFORE the real audio response begins. Clearing isProcessing immediately
+    // opens the mic gate while Daniela's audio is about to play — speaker echo feeds back
+    // into the live mic, VAD fires, and she gets cut off mid-sentence.
+    // Grace period: wait 400ms. If audio chunks start arriving, keep mic closed and let
+    // the audio lifecycle handle cleanup. Only clear if truly no audio comes in that window.
     if (msg.totalSentences === 0) {
-      console.log('[StreamingVoice] response_complete with totalSentences=0 — immediately clearing isProcessing (no audio will arrive)');
-      audioReceivedInTurnRef.current = false;
-      pendingAudioCountRef.current = 0;
-      setIsProcessingRef.current(false);
+      const graceTurn = turnCounterRef.current;
+      console.log('[StreamingVoice] response_complete totalSentences=0 — 400ms grace before opening mic (echo-barge-in guard)');
+      setTimeout(() => {
+        if (turnCounterRef.current !== graceTurn) return;  // new non-zero-sentence turn started
+        if (audioReceivedInTurnRef.current) return;         // audio arrived — keep mic closed
+        if (pendingAudioCountRef.current > 0) return;       // audio in flight — keep mic closed
+        console.log('[StreamingVoice] totalSentences=0 grace elapsed — no audio, clearing isProcessing');
+        audioReceivedInTurnRef.current = false;
+        pendingAudioCountRef.current = 0;
+        setIsProcessingRef.current(false);
+      }, 400);
       return;
     }
     
@@ -1057,18 +1340,53 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 20000);
     
-    // Tier 2 (45s): Catches stuck states where AudioContext is "running" but audio
-    // callbacks silently failed. Playback-aware: if audio is actively playing or
-    // buffering, defer to 90s instead of force-stopping.
+    // Tier 2 (8s, or immediate when WS is disconnected): Catches stuck states where
+    // AudioContext is "running" but audio callbacks silently failed.
+    //
+    // Why 8s is the right floor:
+    //   - The nuclear reset tears down the audio rendering stack only. The GL WebSocket
+    //     and conversation thread are untouched — nobody notices, nobody loses their place.
+    //   - TTS first-chunk delivery is typically <500ms after response_complete (streaming
+    //     synthesis runs sentence-by-sentence during GL generation). Worst case on slow
+    //     mobile: ~3-4s. 8s gives a 2× safety margin without sitting on a broken worklet.
+    //   - The audioReceivedInTurnRef guard eliminates false positives on healthy turns:
+    //     if audio already played successfully this turn and nothing is pending, there is
+    //     no stuck worklet to fix — bail early and skip the reset entirely.
+    //   - "Just a second" pauses are safe: if the student pauses mid-conversation, GL is
+    //     still listening and the session is alive. When the next exchange generates audio,
+    //     it plays on the fresh worklet with no hiccup.
+    //
+    // When the connection is already gone (WS dropped), audio will never arrive —
+    // clear immediately without waiting 8s.
+    // Playback-aware: if audio is actively playing or buffering, unlock mic and defer 45s.
     setTimeout(() => {
       if (turnCounterRef.current !== thisTurn) return;
       if (!responseCompleteRef.current) return;
+      // Fast path: WS disconnected, no audio received — clear immediately
+      const wsState = connectionStateRef.current;
+      if ((wsState === 'disconnected' || wsState === 'reconnecting') && !audioReceivedInTurnRef.current) {
+        console.log(`[StreamingVoice] Tier-2 fast path: WS ${wsState} + no audio — clearing stuck state (turn=${thisTurn})`);
+        diagMarkFailsafe('tier2_45s', { ctxState: 'ws_disconnected', pending: pendingAudioCountRef.current });
+        reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_ws_drop' });
+        pendingAudioCountRef.current = 0;
+        audioReceivedInTurnRef.current = false;
+        setIsProcessingRef.current(false);
+        setGlobalPlaybackState('idle');
+        return;
+      }
+      // Healthy-turn guard: audio already arrived and played, nothing pending — pipeline is
+      // fine. Resetting a healthy AudioContext is harmless but pointless; bail now.
+      if (audioReceivedInTurnRef.current && pendingAudioCountRef.current === 0) {
+        return;
+      }
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       const currentPlayback = getGlobalPlaybackState();
       
       if (currentPlayback === 'playing' || currentPlayback === 'buffering') {
-        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio active (${currentPlayback}) — deferring to 90s, unlocking mic (turn=${thisTurn})`);
+        // Audio is genuinely active — unlock the mic now so the student isn't blocked,
+        // but give the playback 45 more seconds before the final force-clear.
+        console.log(`[StreamingVoice] Tier-2 failsafe (8s): audio active (${currentPlayback}) — unlocking mic, deferring force-clear 45s (turn=${thisTurn})`);
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
@@ -1078,7 +1396,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           if (!responseCompleteRef.current) return;
           const finalPlayback = getGlobalPlaybackState();
           const finalCtxState = player?.getAudioContextState?.() || 'unknown';
-          console.log(`[StreamingVoice] Tier-2 extended failsafe (90s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState}, turn=${thisTurn})`);
+          console.log(`[StreamingVoice] Tier-2 extended failsafe (53s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState}, turn=${thisTurn})`);
           diagMarkFailsafe('tier2_90s', { ctxState: finalCtxState, pending: pendingAudioCountRef.current });
           reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_90s' });
           pendingAudioCountRef.current = 0;
@@ -1088,21 +1406,42 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           player?.stop?.();
         }, 45000);
       } else {
-        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio NOT active (${currentPlayback}) — force-clear (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
+        // No audio playing, AudioContext "running" but callbacks stalled — stuck worklet.
+        // Nuclear reset: close + recreate AudioContext so the next turn starts clean.
+        // GL WebSocket is unaffected; the conversation thread is intact.
+        //
+        // GUARD: onSentenceStart clears audioReceivedInTurnRef so the healthy-turn guard
+        // above can't protect turns where a long sentence is still playing (greeting audio
+        // can run 20-30s). Use lastSentenceStartedAtRef to detect this: if a sentence
+        // started within the last 30s, the audio is likely still playing — skip the nuclear
+        // reset and just clear isProcessing so the mic unlocks. The audio finishes naturally.
+        const msSinceSentenceStart = Date.now() - lastSentenceStartedAtRef.current;
+        const sentenceRecentlyStarted = lastSentenceStartedAtRef.current > 0 && msSinceSentenceStart < 30000;
+        console.log(`[StreamingVoice] Tier-2 failsafe (8s): audio NOT active (${currentPlayback}), msSinceSentenceStart=${msSinceSentenceStart}, sentenceRecentlyStarted=${sentenceRecentlyStarted} (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
         diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
-        setGlobalPlaybackState('idle');
-        if (ctxState === 'suspended') {
-          console.log('[StreamingVoice] Tier-2: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
-          player?.resumeAudioContext?.().catch(() => {});
+        if (sentenceRecentlyStarted) {
+          // Audio is likely still playing (long sentence, state sync lag). Don't nuke the
+          // pipeline — just unlock the mic and let playback finish naturally.
+          console.log(`[StreamingVoice] Tier-2: sentence started ${msSinceSentenceStart}ms ago — skipping nuclear reset, audio may still be playing`);
         } else {
-          player?.stop?.();
+          setGlobalPlaybackState('idle');
+          if (ctxState === 'suspended') {
+            console.log('[StreamingVoice] Tier-2: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
+            player?.resumeAudioContext?.().catch(() => {});
+          } else {
+            // AudioContext is "running" but audio callbacks stalled (AudioWorklet stuck state).
+            // stop() alone leaves the broken pipe intact — use nuclear reset to close and
+            // recreate the AudioContext so the next turn starts with a fresh worklet.
+            console.warn('[StreamingVoice] Tier-2: AudioContext running but stalled — nuclear reset to clear stuck AudioWorklet');
+            player?.resetAudioPipeline?.();
+          }
         }
       }
-    }, 45000);
+    }, 8000);
     
     startLockoutWatchdog();
   }, [checkAndClearProcessing]);
@@ -1119,14 +1458,31 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const handleTtsError = useCallback((data: { code: string; message: string }) => {
     diagMarkTtsError(data.code, data.message);
-    if (import.meta.env.DEV) {
-      console.warn(`[StreamingVoice] TTS audio failed (dev-only): ${data.message}`);
+    console.warn(`[StreamingVoice] TTS audio failed: ${data.message}`);
+    // Show a brief "audio unavailable" indicator so the user knows what happened
+    setTtsUnavailable(true);
+    if (ttsUnavailableTimerRef.current) clearTimeout(ttsUnavailableTimerRef.current);
+    ttsUnavailableTimerRef.current = setTimeout(() => setTtsUnavailable(false), 8000);
+  }, []);
+
+  const handleSttDegraded = useCallback((data: { userMessage?: string; suggestPtt?: boolean }) => {
+    const msg = data?.userMessage || 'Having trouble hearing you — please try again.';
+    const suggest = Boolean(data?.suggestPtt);
+    console.warn('[StreamingVoice] STT degraded:', msg, suggest ? '(suggest PTT)' : '');
+    setSttDegraded(true);
+    setSttDegradedMessage(msg);
+    setSttSuggestPtt(suggest);
+    if (sttDegradedTimerRef.current) clearTimeout(sttDegradedTimerRef.current);
+    // Persistent failures stay visible; transient ones auto-clear after 6s
+    if (!suggest) {
+      sttDegradedTimerRef.current = setTimeout(() => setSttDegraded(false), 6000);
     }
   }, []);
 
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
     diagMarkError('ws_error', err.message);
+    reportVoiceClientError('voice_error', err.message);
     const isCreditsError = err.message?.includes('credits have been used up') || err.message?.includes('Insufficient tutoring hours');
     if (!isCreditsError) {
       reportDiagnostic('error');
@@ -1148,7 +1504,34 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     setIsSwitchingTutor(false);
   }, []);
-  
+
+  const handleIdleTimeout = useCallback(({ idleMinutes }: { idleMinutes: number }) => {
+    console.warn(`[StreamingVoice] Session ended due to ${idleMinutes} min inactivity`);
+    setError(`Session ended after ${idleMinutes} minutes of inactivity. Tap the button to start a new session.`);
+    setIsProcessing(false);
+    setGlobalPlaybackState('idle');
+    playerRef.current?.stop?.();
+  }, []);
+
+  const handleCreditWarning = useCallback(({ level, remainingSeconds, percentRemaining }: {
+    level: 'low' | 'critical' | 'exhausted';
+    remainingSeconds: number;
+    percentRemaining: number;
+  }) => {
+    console.warn(`[StreamingVoice] Credit warning: ${level} (${remainingSeconds}s / ${percentRemaining.toFixed(1)}% remaining)`);
+    if (sessionConfigRef.current?.onCreditWarning) {
+      sessionConfigRef.current.onCreditWarning({ level, remainingSeconds, percentRemaining });
+    }
+  }, []);
+
+  const handleSessionConflict = useCallback(({ message }: { message: string; existingSessionId?: string }) => {
+    console.warn('[StreamingVoice] Session conflict:', message);
+    setError(message || 'A session is already active in another tab. Please close it and try again.');
+    setIsProcessing(false);
+    setGlobalPlaybackState('idle');
+    playerRef.current?.stop?.();
+  }, []);
+
   /**
    * Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
    */
@@ -1159,6 +1542,84 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (sessionConfigRef.current?.onWhiteboardUpdate && message.items) {
       sessionConfigRef.current.onWhiteboardUpdate(message.items, message.shouldClear || false);
+    }
+  }, []);
+
+  const handleLessonNoteAdded = useCallback((message: { type: string; timestamp: number; note: any }) => {
+    if (sessionConfigRef.current?.onLessonNoteAdded && message.note) {
+      sessionConfigRef.current.onLessonNoteAdded(message.note);
+    }
+  }, []);
+
+  const handlePronunciationScoreShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (!sessionConfigRef.current?.onPronunciationScoreShown || !message.data) return;
+    // Guard: validatePronunciationScorePayload drops malformed payloads before they
+    // reach the component (missing phrase, empty wordScores, non-numeric overallScore).
+    // It also sanitises whitespace-only encouragement strings.
+    const payload = validatePronunciationScorePayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] Dropped malformed pronunciation_score_shown — phrase or wordScores invalid', message.data);
+      return;
+    }
+    sessionConfigRef.current.onPronunciationScoreShown(payload);
+  }, []);
+
+  const handleGrammarFlagShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (!sessionConfigRef.current?.onGrammarFlagShown || !message.data) return;
+    const payload = validateGrammarFlagPayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] handleGrammarFlagShown: malformed grammar flag data (blank original, corrected, or explanation)', message.data);
+      return;
+    }
+    sessionConfigRef.current.onGrammarFlagShown(payload);
+  }, []);
+
+  const handleQuizPresented = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (!sessionConfigRef.current?.onQuizPresented || !message.data) return;
+    const payload = validateQuizPayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] handleQuizPresented: malformed data, skipping', message.data);
+      return;
+    }
+    sessionConfigRef.current.onQuizPresented(payload);
+  }, []);
+
+  const handleCulturalContextShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (!sessionConfigRef.current?.onCulturalContextShown || !message.data) return;
+    const payload = validateCulturalContextPayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] handleCulturalContextShown: malformed cultural context data', message.data);
+      return;
+    }
+    sessionConfigRef.current.onCulturalContextShown(payload);
+  }, []);
+
+  const handleSpotlightShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (!sessionConfigRef.current?.onSpotlightShown || !message.data) return;
+    const d = validateSpotlightMessage(message.data);
+    if (!d) {
+      console.warn('[useStreamingVoice] handleSpotlightShown: malformed spotlight data (empty message)', message.data);
+      return;
+    }
+    sessionConfigRef.current.onSpotlightShown(d as any);
+  }, []);
+
+  // Gap D — Shared Mission
+  const handleSofiaSupportMessage = useCallback((message: { type: string; incidentId: string; category: string; priority: string; message: string; timestamp: number }) => {
+    setSofiaIncident({ incidentId: message.incidentId, category: message.category, priority: message.priority, message: message.message, timestamp: message.timestamp });
+  }, []);
+
+  const handleSofiaAllClear = useCallback((_message: { type: string; incidentId: string; timestamp: number }) => {
+    setSofiaIncident(null);
+  }, []);
+
+  const handleMissionSet = useCallback((message: { type: string; mission: string; timestamp: number }) => {
+    if (message.mission) {
+      // Update global store so ImmersiveOverlay (outside StreamingVoiceChat tree) can render it
+      import('@/lib/missionStore').then(({ setGlobalMission }) => setGlobalMission(message.mission));
+      if (sessionConfigRef.current?.onMissionSet) {
+        sessionConfigRef.current.onMissionSet(message.mission);
+      }
     }
   }, []);
   
@@ -1211,6 +1672,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (isVerboseLoggingEnabled()) {
       console.log('[StreamingVoice] VAD utterance end, transcript:', message.transcript, 'empty:', message.empty);
     }
+    // Mark speech end for E2E latency tracking (speech_end → first_audio) — skip empty VAD pings
+    if (!message.empty) {
+      diagMarkSpeechEnd('vad');
+      fireMicroAck(message.transcript || '');
+    }
     sessionConfigRef.current?.onVadUtteranceEnd?.(message.transcript || '', message.empty);
   }, []);
   
@@ -1240,15 +1706,127 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sessionConfigRef.current?.onOpenMicSilenceLoop?.(message.consecutiveEmptyCount, message.msSinceLastSuccessfulTranscript);
   }, []);
 
-  const handleReconnected = useCallback((_message: { timestamp: number }) => {
-    console.log('[StreamingVoice] Successfully reconnected after connection drop');
-    sessionConfigRef.current?.onReconnected?.();
+  // ── Gemini Live transcript events ──────────────────────────────────────────
+  const handleTranscript = useCallback((message: { type: string; text: string; isFinal: boolean; source: string }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] User transcript (Gemini Live):', message.text.substring(0, 60));
+    }
+    // Forward as barge-in signal (same as Deepgram interim, drives open-mic state machine)
+    sessionConfigRef.current?.onInterimTranscript?.(message.text);
+    // Also fire dedicated GL callback so the component can accumulate the live caption bar
+    // without conflating it with Deepgram interim transcripts.
+    sessionConfigRef.current?.onGlUserTranscript?.(message.text);
+
+    // Speculative thinking: restart the 700ms debounce on each new GL inputTranscription chunk.
+    // When chunks stop arriving, GL has committed the student's turn and is generating.
+    // Switching the avatar to 'thinking' here closes the gap between the student's last
+    // word and the real processing_pending (which arrives with the first audio/transcription).
+    // Guard: only fire if not already in a generating/playing state.
+    if (speculativeThinkingTimerRef.current) {
+      clearTimeout(speculativeThinkingTimerRef.current);
+    }
+    speculativeThinkingTimerRef.current = setTimeout(() => {
+      speculativeThinkingTimerRef.current = null;
+      const state = getGlobalPlaybackState();
+      if (state !== 'thinking' && state !== 'playing' && state !== 'buffering') {
+        console.log('[StreamingVoice] Speculative thinking — GL inputTranscription stopped, student turn likely done');
+        setGlobalPlaybackState('thinking');
+      }
+    }, 700);
   }, []);
-  
+
+  const handleDanielaTranscript = useCallback((message: { type: string; text: string; turnId: number }) => {
+    if (isVerboseLoggingEnabled()) {
+      console.log('[StreamingVoice] Daniela transcript (Gemini Live):', message.text.substring(0, 60));
+    }
+  }, []);
+
+  const handleReconnected = useCallback((_message: { timestamp: number }) => {
+    console.log('[StreamingVoice] Successfully reconnected after connection drop — clearing stale processing state');
+
+    // AUTOSCALE RECOVERY: The server instance that was mid-sentence is gone.
+    // Reset all processing/playback state so the client isn't stuck waiting
+    // for audio that will never arrive from the old instance.
+    playerRef.current?.stop();
+    subtitles.stopPlayback();
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
+    setIsProcessingRef.current(false);
+
+    sessionConfigRef.current?.onReconnected?.();
+  }, [subtitles]);
+
+  /**
+   * GL 1008 reconnect initiated — server is rebuilding the GL session with a Context Bridge.
+   * Show "gathering thoughts" state so there's no silent gap for the student.
+   */
+  const handleGlReconnecting = useCallback((_message: { type: string }) => {
+    console.log('[StreamingVoice] gl_reconnecting — Daniela is rebuilding session context');
+    // Clear any stale "connection failed" error so the UI shows the transient
+    // reconnecting indicator (driven by connectionState === 'reconnecting')
+    // instead of a hard error popup while the server rebuilds the GL session.
+    setError(null);
+    // Clear the retry prompt — the student already tapped or the server is auto-reconnecting.
+    setGlDisconnectedForRetry(false);
+    setGlobalPlaybackState('thinking');
+    sessionConfigRef.current?.onReconnecting?.();
+  }, []);
+
+  /**
+   * GL reconnect succeeded — server re-established the Gemini Live WebSocket
+   * (e.g. after a 1008 drop) and injected the Context Bridge. The Socket.io
+   * connection to the client never dropped, so the session is fully usable:
+   * clear any error popup and stuck processing/playback state so the student
+   * can keep talking without a page reload.
+   */
+  const handleGlReconnected = useCallback((_message: { type: string }) => {
+    console.log('[StreamingVoice] gl_reconnected — GL session restored, resuming without reload');
+    setError(null);
+    setGlDisconnectedForRetry(false);
+    setIsProcessingRef.current(false);
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
+    // ECHO GUARD: pre-drop Daniela audio may still be scheduled in the AudioContext
+    // (the server only sends gl_audio_reset when hadAudioInCurrentSubturn is true,
+    // which can be cleared by a server-side seal before client playback finishes).
+    // Stop the player FIRST so no stale audio keeps playing into an open mic,
+    // then reset dedup state for the post-reconnect turn and stop subtitles.
+    playerRef.current?.stop?.();
+    playerRef.current?.resetForNewTurn?.();
+    subtitles.stopPlayback();
+    // Clear the 'thinking' state set by handleGlReconnecting (if no audio follows,
+    // it would otherwise stick and gate the mic indefinitely). Safe now that the
+    // player has been stopped above.
+    setGlobalPlaybackState('idle');
+    sessionConfigRef.current?.onGlReconnected?.();
+  }, [subtitles]);
+
+  /**
+   * GL internal reconnect reset — fired when GL disconnects mid-turn (goAway→1007).
+   * Cancels all scheduled AudioContext sources and resets dedup so the re-generated
+   * response plays cleanly without double audio.
+   */
+  const handleGlAudioReset = useCallback((_message: { type: string; reason: string }) => {
+    console.log('[StreamingVoice] gl_audio_reset received — stopping player and resetting for reconnect');
+    // stop() cancels all scheduled AudioBufferSource nodes (prevents pre-reconnect audio replaying)
+    playerRef.current?.stop?.();
+    // resetForNewTurn() clears dedup sets so post-reconnect audio is accepted cleanly
+    playerRef.current?.resetForNewTurn?.();
+  }, []);
+
+  /**
+   * Proactive 4.5-minute WS cycle — fired before Replit's proxy kills the connection at 5min.
+   * Logs a diagnostic event so we can distinguish intentional cycles from real drops.
+   */
+  const handleProactiveReconnect = useCallback((_message: { timestamp: number; state: string }) => {
+    console.log('[StreamingVoice] Proactive WS cycle initiated — logging diagnostic event');
+    diagEvent('proactive_reconnect', { state: _message.state });
+  }, []);
+
   /**
    * Handle subtitle mode change from server (tutor [SUBTITLE on/off/target] command)
    */
-  const handleSubtitleModeChange = useCallback((message: { type: string; mode: 'off' | 'all' | 'target'; timestamp: number }) => {
+  const handleSubtitleModeChange = useCallback((message: { type: string; mode: 'off' | 'target'; timestamp: number }) => {
     const { mode } = message;
     console.log('[StreamingVoice] Subtitle mode change from tutor:', mode);
     sessionConfigRef.current?.onSubtitleModeChange?.(mode);
@@ -1274,7 +1852,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handleScenarioLoaded = useCallback((message: any) => {
     console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
+    // New scenario = fresh start; clear any lingering mission from a previous scene.
+    import('@/lib/missionStore').then(({ setGlobalMission }) => setGlobalMission(null));
     sessionConfigRef.current?.onScenarioLoaded?.(message.scenario);
+  }, []);
+
+  const handleZoneAdvanced = useCallback((message: any) => {
+    // Zone change = new scene context; clear mission so old objective doesn't ghost.
+    // Daniela can re-set it immediately if the mission spans scenes.
+    import('@/lib/missionStore').then(({ setGlobalMission }) => setGlobalMission(null));
+    sessionConfigRef.current?.onSceneZoneAdvanced?.({
+      zoneIndex: message.zoneIndex,
+      zoneName: message.zoneName ?? null,
+      imageUrl: message.imageUrl ?? null,
+      isChain: message.isChain ?? false,
+      nextScenarioSlug: message.nextScenarioSlug ?? null,
+      isComplete: message.isComplete ?? false,
+    });
   }, []);
 
   const handleScenarioEnded = useCallback((message: any) => {
@@ -1289,6 +1883,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handlePropUpdate = useCallback((message: any) => {
     console.log('[StreamingVoice] Prop updated:', message.propTitle);
     sessionConfigRef.current?.onPropUpdate?.(message);
+  }, []);
+
+  const handleImmersiveMode = useCallback((message: any) => {
+    console.log('[StreamingVoice] Immersive mode change:', message.active);
+    sessionConfigRef.current?.onImmersiveModeChange?.(Boolean(message.active));
+  }, []);
+
+  const handleCharacterChange = useCallback((message: { type: string; character: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null }) => {
+    setActiveCharacter(message.character);
+  }, []);
+
+  const handleIncognitoChanged = useCallback((message: { type: string; enabled: boolean; timestamp: number }) => {
+    sessionConfigRef.current?.onIncognitoChanged?.(message.enabled);
   }, []);
   
   /**
@@ -1357,6 +1964,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Tracks which voice errors arrived so GL-disconnect retry state can be set.
+   * Only GEMINI_LIVE_DISCONNECTED (non-recoverable, retries exhausted) arms the
+   * one-tap retry prompt. Other error codes are left to their existing handlers.
+   * Declared before connect() so connect()'s listener registration is not a forward reference.
+   */
+  const handleVoiceError = useCallback((event: { code: string; message: string; recoverable: boolean }) => {
+    if (event.code === 'GEMINI_LIVE_DISCONNECTED' && !event.recoverable) {
+      setGlDisconnectedForRetry(true);
+    }
+  }, []);
+
+  /**
    * Connect to streaming voice service and start a session
    */
   const connect = useCallback(async (config: StreamingSessionConfig) => {
@@ -1369,6 +1988,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // Update difficulty level for ACTFL-aware subtitle timing
     setDifficultyLevel(config.difficultyLevel);
+
+    // Pre-warm micro-ack clips in the background — fire-and-forget
+    preWarmMicroAcks(config.targetLanguage, config.tutorGender || 'female');
     
     // CRITICAL: Pre-warm AudioContext in user gesture context
     // This MUST happen during the click handler, not later when audio chunks arrive
@@ -1390,9 +2012,67 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current = getStreamingVoiceClient();
       
       // Set up callbacks
-      clientRef.current.on('stateChange', setConnectionState);
+      clientRef.current.on('stateChange', (state) => {
+        connectionStateRef.current = state;
+        setConnectionState(state);
+
+        // Keep the lockout-diagnostics connectionStatus in sync so snapshots
+        // show the real WS state instead of the stale initial 'disconnected'.
+        const diagStatus = (
+          state === 'connected' || state === 'ready' || state === 'processing' ? 'connected' :
+          state === 'streaming'    ? 'streaming'   :
+          state === 'connecting'   ? 'connecting'  :
+          state === 'reconnecting' ? 'connecting'  :
+          state === 'error'        ? 'error'        :
+          'disconnected'
+        ) as 'disconnected' | 'connecting' | 'connected' | 'streaming' | 'error';
+        updateDebugTimingState({ connectionStatus: diagStatus });
+
+        // Fast recovery: if WS drops while we're waiting for audio that will never
+        // arrive (response_complete received but TTS chunks were in-flight over the
+        // now-dead socket), don't make the user wait 45s. Clear in 8s instead.
+        if ((state === 'reconnecting' || state === 'disconnected') &&
+            isProcessingRef.current &&
+            responseCompleteRef.current &&
+            !audioReceivedInTurnRef.current) {
+          const thisTurn = turnCounterRef.current;
+          console.log('[StreamingVoice] WS dropped while waiting for audio — scheduling 8s fast recovery');
+          setTimeout(() => {
+            if (turnCounterRef.current !== thisTurn) return;
+            if (!isProcessingRef.current) return;
+            console.log('[StreamingVoice] Fast recovery: clearing stuck processing state after WS drop');
+            pendingAudioCountRef.current = 0;
+            audioReceivedInTurnRef.current = false;
+            setIsProcessingRef.current(false);
+            setGlobalPlaybackState('idle');
+          }, 8000);
+        }
+        
+        // Animation desync fix: if WS drops while audio is actively playing/buffering,
+        // the avatar can get stuck showing the "speaking/hand-up" state because no more
+        // audio chunks will arrive but the player state stays non-idle.
+        // Schedule a fast check: if the player hasn't naturally drained within 4s of the
+        // WS drop, force-clear the playback state so the avatar returns to idle.
+        if ((state === 'reconnecting' || state === 'disconnected') &&
+            (getGlobalPlaybackState() === 'playing' || getGlobalPlaybackState() === 'buffering')) {
+          const thisTurn = turnCounterRef.current;
+          const capturedPlaybackStateAtDrop = getGlobalPlaybackState();
+          console.log(`[StreamingVoice] WS dropped during active audio (${capturedPlaybackStateAtDrop}) — scheduling 4s avatar-desync guard`);
+          setTimeout(() => {
+            if (turnCounterRef.current !== thisTurn) return;
+            const currentPlayback = getGlobalPlaybackState();
+            if (currentPlayback === 'playing' || currentPlayback === 'buffering') {
+              console.log(`[StreamingVoice] Avatar-desync guard: playback still ${currentPlayback} 4s after WS drop — forcing idle to restore avatar`);
+              setGlobalPlaybackState('idle');
+              playerRef.current?.stop?.();
+            }
+          }, 4000);
+        }
+      });
+      clientRef.current.on('greetingRetry', handleGreetingRetry);  // Server auto-retrying silent greeting
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
+      clientRef.current.on('functionExecuting', handleFunctionExecuting);   // Tool call in progress — refresh thinking
       clientRef.current.on('sentenceStart', handleSentenceStart);
       clientRef.current.on('expectedSentenceCount', handleExpectedSentenceCount);
       clientRef.current.on('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
@@ -1402,23 +2082,51 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
+      clientRef.current.on('lessonNoteAdded', handleLessonNoteAdded);  // Session lesson notes
+      clientRef.current.on('pronunciationScoreShown', handlePronunciationScoreShown);
+      clientRef.current.on('grammarFlagShown', handleGrammarFlagShown);
+      clientRef.current.on('quizPresented', handleQuizPresented);
+      clientRef.current.on('culturalContextShown', handleCulturalContextShown);
+      clientRef.current.on('spotlightShown', handleSpotlightShown);
+      clientRef.current.on('missionSet', handleMissionSet);  // Gap D: shared session mission badge
+      clientRef.current.on('sofiaSupportMessage', handleSofiaSupportMessage);  // Sofia student support
+      clientRef.current.on('sofiaAllClear', handleSofiaAllClear);  // Sofia incident resolved
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
+      clientRef.current.on('sttDegraded', handleSttDegraded);
       clientRef.current.on('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
       clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
       clientRef.current.on('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop detection
+      clientRef.current.on('transcript', handleTranscript);  // Gemini Live final user transcript
+      clientRef.current.on('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
+      clientRef.current.on('voiceError', handleVoiceError);  // GL exhausted retries or non-retriable error
       clientRef.current.on('reconnected', handleReconnected);  // Successful reconnection after drop
+      clientRef.current.on('glReconnecting', handleGlReconnecting);  // GL 1008 reconnect — context bridge loading
+      clientRef.current.on('glReconnected', handleGlReconnected);  // GL 1008 reconnect succeeded — resume without reload
+      clientRef.current.on('glAudioReset', handleGlAudioReset);  // GL mid-turn reconnect — clear audio buffer
+      clientRef.current.on('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
       clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.on('customOverlay', handleCustomOverlay);  // Server custom overlay command
       clientRef.current.on('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.on('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.on('scenarioEnded', handleScenarioEnded);
+      clientRef.current.on('zoneAdvanced', handleZoneAdvanced);
       clientRef.current.on('propUpdate', handlePropUpdate);
+      clientRef.current.on('immersiveMode', handleImmersiveMode);
+      clientRef.current.on('characterChange', handleCharacterChange);
+      clientRef.current.on('incognitoChanged', handleIncognitoChanged);
+      clientRef.current.on('idleTimeout', handleIdleTimeout);
+      clientRef.current.on('creditWarning', handleCreditWarning);
+      clientRef.current.on('sessionConflict', handleSessionConflict);
+      clientRef.current.on('server_restarting', () => {
+        console.log('[StreamingVoice] server_restarting event — showing update banner');
+        setServerRestarting(true);
+      });
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -1443,7 +2151,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         isSwitchingTutorFn: () => isSwitchingTutorRef.current,
       });
       diagMarkConnect();
-      startGreetingSilenceWatchdog();
+      // Store timer ID so we can clean it up on disconnect
+      greetingAudioArrivedRef.current = false;  // reset on each new connection
+      if (greetingSilenceWatchdogRef.current) {
+        clearTimeout(greetingSilenceWatchdogRef.current);
+      }
+      greetingSilenceWatchdogRef.current = startGreetingSilenceWatchdog();
       
       (await import('@/lib/consoleCapture')).startSessionCapture({
         conversationId: config.conversationId,
@@ -1478,7 +2191,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleGlReconnecting, handleGlReconnected, handleGlAudioReset, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown]);
   
   /**
    * Disconnect from streaming voice service
@@ -1493,6 +2206,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
+      clientRef.current.off('greetingRetry', handleGreetingRetry);  // Server auto-retrying silent greeting
       clientRef.current.off('processing', handleProcessing);
       clientRef.current.off('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.off('sentenceStart', handleSentenceStart);
@@ -1504,6 +2218,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.off('responseComplete', handleResponseComplete);
       clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
+      clientRef.current.off('lessonNoteAdded', handleLessonNoteAdded);  // Session lesson notes
+      clientRef.current.off('pronunciationScoreShown', handlePronunciationScoreShown);
+      clientRef.current.off('grammarFlagShown', handleGrammarFlagShown);
+      clientRef.current.off('quizPresented', handleQuizPresented);
+      clientRef.current.off('culturalContextShown', handleCulturalContextShown);
+      clientRef.current.off('spotlightShown', handleSpotlightShown);
+      clientRef.current.off('missionSet', handleMissionSet);  // Gap D
+      clientRef.current.off('sofiaSupportMessage', handleSofiaSupportMessage);
+      clientRef.current.off('sofiaAllClear', handleSofiaAllClear);
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
@@ -1511,13 +2234,27 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.off('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop
+      clientRef.current.off('transcript', handleTranscript);  // Gemini Live final user transcript
+      clientRef.current.off('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
+      clientRef.current.off('voiceError', handleVoiceError);  // GL exhausted retries or non-retriable error
       clientRef.current.off('reconnected', handleReconnected);  // Successful reconnection
+      clientRef.current.off('glReconnecting', handleGlReconnecting);  // GL 1008 context bridge
+      clientRef.current.off('glReconnected', handleGlReconnected);  // GL 1008 reconnect succeeded
+      clientRef.current.off('glAudioReset', handleGlAudioReset);  // GL mid-turn reconnect
+      clientRef.current.off('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.off('customOverlay', handleCustomOverlay);  // Server custom overlay command
       clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.off('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.off('scenarioEnded', handleScenarioEnded);
+      clientRef.current.off('zoneAdvanced', handleZoneAdvanced);
       clientRef.current.off('propUpdate', handlePropUpdate);
+      clientRef.current.off('immersiveMode', handleImmersiveMode);
+      clientRef.current.off('characterChange', handleCharacterChange);
+      clientRef.current.off('incognitoChanged', handleIncognitoChanged);
+      clientRef.current.off('idleTimeout', handleIdleTimeout);
+      clientRef.current.off('creditWarning', handleCreditWarning);
+      clientRef.current.off('sessionConflict', handleSessionConflict);
       clientRef.current.disconnect();
       clientRef.current = null;
     }
@@ -1525,6 +2262,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Stop playback
     playerRef.current?.stop();
     subtitles.reset();
+    // Bug 6 fix: clear any custom overlay text from the previous session so Japanese/foreign
+    // text doesn't persist into a new session (e.g. [SHOW: そうですね] never followed by [HIDE]).
+    sessionConfigRef.current?.onCustomOverlay?.('hide', undefined);
     
     // Reset state
     responseCompleteRef.current = false;
@@ -1545,7 +2285,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleGlReconnecting, handleGlReconnected, handleGlAudioReset, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown, subtitles]);
   
   /**
    * Send audio for processing
@@ -1649,9 +2389,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Also releases audio playback to start playing buffered audio
    */
   const sendPttRelease = useCallback(() => {
+    // Mark speech end for E2E latency tracking (speech_end → first_audio)
+    diagMarkSpeechEnd('ptt');
     // Release audio playback - any buffered audio will now play
     playerRef.current?.releasePlayback();
     clientRef.current?.sendPttRelease();
+    // Fire micro-ack immediately — transcript not available yet, so use empty string
+    // (defaults to affirmative pool in selectMicroAck)
+    fireMicroAck('');
   }, []);
 
   const sendToggleIncognito = useCallback((enabled: boolean) => {
@@ -1664,14 +2409,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * @param userName - Optional student name for personalization
    * @param isResumed - True if resuming a previous conversation (triggers context-aware welcome back)
    */
-  const requestGreeting = useCallback((userName?: string, isResumed?: boolean) => {
+  const requestGreeting = useCallback((userName?: string, isResumed?: boolean, scenarioSlug?: string) => {
     if (!clientRef.current || !clientRef.current.isReady()) {
       console.error('[StreamingVoice] Cannot request greeting - not ready');
       return;
     }
     
     if (isVerboseLoggingEnabled()) {
-      console.log(`[StreamingVoice] Requesting AI greeting... (resumed: ${isResumed || false})`);
+      console.log(`[StreamingVoice] Requesting AI greeting... (resumed: ${isResumed || false}, scenario: ${scenarioSlug || 'none'})`);
     }
     
     // Reset state for greeting
@@ -1696,8 +2441,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Clear stored audio
     playerRef.current?.clearStoredAudio();
     
-    // Request greeting from server
-    clientRef.current.requestGreeting(userName, isResumed);
+    // Request greeting from server (forward scenarioSlug so server can inject load_scenario prompt)
+    clientRef.current.requestGreeting(userName, isResumed, scenarioSlug);
   }, [subtitles]);
   
   /**
@@ -1778,6 +2523,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
   
+  const sendVideoFrame = useCallback((base64Jpeg: string, source: string) => {
+    if (clientRef.current) {
+      (clientRef.current as any).sendVideoFrame(base64Jpeg, source);
+    }
+  }, []);
+
+  const retryGlSession = useCallback(() => {
+    setGlDisconnectedForRetry(false);
+    clientRef.current?.retryGlSession();
+  }, []);
+
   const forceResetProcessing = useCallback(() => {
     console.warn('[StreamingVoice] forceResetProcessing called — clearing all audio and processing state');
     setIsProcessing(false);
@@ -1797,7 +2553,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
   
-  // Cleanup on unmount only (empty dependency array)
+  // Send prop_tap signal to server whenever the student taps a scene prop
+  useEffect(() => {
+    if (!activePropTap || activePropTap.timestamp === prevPropTapTimestampRef.current) return;
+    prevPropTapTimestampRef.current = activePropTap.timestamp;
+    clientRef.current?.sendPropTap(activePropTap);
+  }, [activePropTap]);
+
   useEffect(() => {
     return () => {
       disconnectRef.current();
@@ -1812,11 +2574,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       isProcessing,
       isPlaying: playbackState === 'playing',
       isSwitchingTutor,  // Mic lockout during tutor handoff
+      sofiaIncident,    // Active Sofia support incident (null = no active incident)
+      ttsUnavailable,    // True when TTS fails; clears after 8s
+      sttDegraded,       // True when Deepgram STT has an error; clears after 6s
+      sttDegradedMessage, // User-facing message for STT degraded state
+      sttSuggestPtt,     // True when repeated open-mic failures suggest switching to PTT
       currentText: subtitles.state.fullText,
       currentWordIndex: subtitles.state.currentWordIndex,
+      activeCharacter,   // Currently speaking secondary character (null = Daniela)
       visibleWordCount: subtitles.state.visibleWordCount,
       error,
       metrics,
+      serverRestarting,
+      glDisconnectedForRetry,
     },
     subtitles,
     connect,
@@ -1839,6 +2609,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendDrillResult,
     sendTextInput,
     sendVoiceOverride,
+    sendVideoFrame,
     forceResetProcessing,
+    retryGlSession,
+    microAckPlaying,
   };
 }

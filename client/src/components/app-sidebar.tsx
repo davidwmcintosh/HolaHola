@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin, Microscope, Landmark, Library, ClipboardList, FlaskConical, Calculator, Atom, BookMarked, Telescope, Leaf, TrendingUp, Building2, Users, Briefcase, BrainCircuit, Compass, ScrollText, Phone } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -32,10 +32,12 @@ const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
 const libraryMenuItems = [
   { title: "Scenarios", url: "/scenarios", icon: MapPin },
+  { title: "Study Mode", url: "/study-mode", icon: BookMarked },
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },
   { title: "Can-Do Progress", url: "/can-do-progress", icon: Award },
+  { title: "Daniela's Diary", url: "/diary", icon: ScrollText },
 ];
 
 const resourceMenuItems = [
@@ -51,6 +53,7 @@ const teacherMenuItems = [
 
 const adminMenuItems = [
   { title: "Command Center", url: "/admin", icon: Shield },
+  { title: "Call Quality", url: "/admin/calls", icon: Phone },
 ];
 
 const TOOLS_ITEMS = [
@@ -155,14 +158,45 @@ function getSubjectIcon(subject: string): LucideIcon {
 }
 
 function getSubjectLabel(subject: string, syllabus: SubjectSyllabus): string {
-  const cfg = SUBJECT_CONFIG[subject.toLowerCase()];
-  if (cfg?.tutorLabel) return cfg.tutorLabel;
   return syllabus.bookTitle ?? subject.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function getSubjectUrl(subject: string): string {
   const cfg = SUBJECT_CONFIG[subject.toLowerCase()];
   return cfg?.tutorPath ?? `/reading-library?subject=${subject}`;
+}
+
+function AldenNavItem({ location, closeSidebar }: { location: string; closeSidebar: () => void }) {
+  const { data } = useQuery<{ count: number }>({
+    queryKey: ['/api/alden/notifications/unread-count'],
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+  const unread = data?.count ?? 0;
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={location.startsWith('/alden')}
+        data-testid="link-talk-to-alden"
+      >
+        <Link href="/alden" onClick={closeSidebar}>
+          <BrainCircuit className="h-4 w-4" />
+          <span className="flex-1">Talk to Alden</span>
+          {unread > 0 && (
+            <Badge
+              variant="destructive"
+              className="ml-auto text-xs h-5 min-w-5 flex items-center justify-center no-default-active-elevate"
+              data-testid="badge-alden-unread"
+            >
+              {unread}
+            </Badge>
+          )}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
 }
 
 export function AppSidebar() {
@@ -365,15 +399,18 @@ export function AppSidebar() {
                 );
               })}
               {isAdmin && (
+                <AldenNavItem location={location} closeSidebar={closeSidebar} />
+              )}
+              {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={location.startsWith('/alden')}
-                    data-testid="link-talk-to-alden"
+                    isActive={location.startsWith('/agent-space')}
+                    data-testid="link-agent-space"
                   >
-                    <Link href="/alden" onClick={closeSidebar}>
-                      <BrainCircuit className="h-4 w-4" />
-                      <span>Talk to Alden</span>
+                    <Link href="/agent-space" onClick={closeSidebar}>
+                      <Compass className="h-4 w-4" />
+                      <span>Agent Space</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

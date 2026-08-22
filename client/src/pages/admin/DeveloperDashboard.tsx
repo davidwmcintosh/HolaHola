@@ -24,7 +24,11 @@ import {
   Globe,
   Database,
   CheckCircle,
-  XCircle
+  XCircle,
+  Image,
+  Trash2,
+  ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 
 interface AnalyticsData {
@@ -101,6 +105,20 @@ export default function DeveloperDashboard() {
   const [reloadingClassId, setReloadingClassId] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState("Spanish");
   const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [davidNoteInput, setDavidNoteInput] = useState("");
+
+  const { data: davidNoteData, refetch: refetchDavidNote } = useQuery<{ note: string | null }>({
+    queryKey: ["/api/admin/classroom/david-note"],
+  });
+
+  const saveDavidNoteMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/classroom/david-note', { note: davidNoteInput }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: 'Note saved', description: "Daniela will see your note at the top of her classroom next session." });
+      refetchDavidNote();
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
     queryKey: ["/api/developer/analytics", { period, userType }],
@@ -194,15 +212,58 @@ export default function DeveloperDashboard() {
           </div>
 
           <Tabs defaultValue="testing" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="testing" data-testid="tab-testing">Testing Tools</TabsTrigger>
-              <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
-              <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
-              <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto w-full">
+              <TabsList className="flex w-max">
+                <TabsTrigger value="testing" data-testid="tab-testing">Testing Tools</TabsTrigger>
+                <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
+                <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
+                <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
+                <TabsTrigger value="image-audit" data-testid="tab-image-audit">
+                  <ShieldAlert className="h-3.5 w-3.5 mr-1 text-destructive" />
+                  Image Audit
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Testing Tools Tab */}
             <TabsContent value="testing" className="space-y-6">
+              {/* Note from David to Daniela */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Note to Daniela
+                  </CardTitle>
+                  <CardDescription>
+                    Leave a personal note that appears at the top of Daniela's classroom at the start of every session.
+                    {davidNoteData?.note && (
+                      <span className="block mt-1 text-xs text-muted-foreground italic">Current: "{davidNoteData.note.substring(0, 80)}{davidNoteData.note.length > 80 ? '…' : ''}"</span>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <textarea
+                      value={davidNoteInput || (davidNoteData?.note ?? '')}
+                      onChange={e => setDavidNoteInput(e.target.value)}
+                      placeholder="e.g. Focus on warmth today — David had a rough week. Lean into the connection."
+                      className="w-full h-24 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                      data-testid="input-david-note"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => saveDavidNoteMutation.mutate()}
+                      disabled={saveDavidNoteMutation.isPending || !davidNoteInput.trim()}
+                      data-testid="button-save-david-note"
+                    >
+                      {saveDavidNoteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      Save Note
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Quick Actions */}
               <Card>
                 <CardHeader>
@@ -751,6 +812,16 @@ export default function DeveloperDashboard() {
             <TabsContent value="neon" className="space-y-6">
               <NeonMigrationPanel />
             </TabsContent>
+
+            {/* Vocab Images Tab */}
+            <TabsContent value="vocab-images" className="space-y-6">
+              <VocabImagesPanel />
+            </TabsContent>
+
+            {/* Image Audit Tab */}
+            <TabsContent value="image-audit" className="space-y-6">
+              <ImageAuditPanel />
+            </TabsContent>
           </Tabs>
         </div>
   );
@@ -940,6 +1011,707 @@ function NeonMigrationPanel() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+const VOCAB_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+interface ComparisonBg {
+  id: string;
+  searchQuery: string;
+  url: string;
+  usageCount: number;
+  createdAt: string;
+}
+
+const COMPARISON_LANGUAGES = [
+  'arabic', 'french', 'german', 'italian', 'japanese',
+  'korean', 'mandarin', 'portuguese', 'russian', 'spanish',
+];
+
+function ComparisonBackgroundsPanel() {
+  const { toast } = useToast();
+  const [bustingLang, setBustingLang] = useState<string | null>(null);
+  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
+
+  const { data: images = [], isLoading, refetch } = useQuery<ComparisonBg[]>({
+    queryKey: ['/api/admin/comparison-backgrounds'],
+  });
+
+  // Build a lookup: language → cached shared image (vocab_${lang}_comparison_bg format only)
+  const imageByLang = images.reduce<Record<string, ComparisonBg>>((acc, img) => {
+    const m = img.searchQuery.match(/^vocab_([^_]+)_comparison_bg$/);
+    if (m) acc[m[1]] = img;
+    return acc;
+  }, {});
+
+  const regenBackground = async (lang: string) => {
+    setBustingLang(lang);
+    try {
+      const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: lang });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generate failed');
+      toast({ title: 'Generating', description: `New ${lang} background generating in background (~15s)` });
+      setTimeout(() => { refetch(); }, 16000);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Failed', description: e.message });
+    } finally {
+      setBustingLang(null);
+    }
+  };
+
+  return (
+    <>
+      {/* Fullscreen overlay */}
+      {fullscreenUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer"
+          onClick={() => setFullscreenUrl(null)}
+        >
+          <img src={fullscreenUrl} alt="Comparison background fullscreen" className="max-w-full max-h-full object-contain" />
+        </div>
+      )}
+
+      <Card className="bg-muted/30">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Comparison Widget Backgrounds
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                One shared background per language. Click image to fullscreen. Hover for regenerate.
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-compare-bgs">
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+              {COMPARISON_LANGUAGES.map(lang => <Skeleton key={lang} className="aspect-video rounded-md" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+              {COMPARISON_LANGUAGES.map(lang => {
+                const img = imageByLang[lang];
+                const isBusting = bustingLang === lang;
+                return (
+                  <div key={lang} className="space-y-1.5" data-testid={`card-compare-bg-${lang}`}>
+                    <div className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20">
+                      {img ? (
+                        <>
+                          <img
+                            src={img.url}
+                            alt={lang}
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => setFullscreenUrl(img.url)}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-background/90 text-xs"
+                              onClick={(e) => { e.stopPropagation(); regenBackground(lang); }}
+                              disabled={isBusting}
+                              data-testid={`button-regen-compare-${lang}`}
+                            >
+                              {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RotateCcw className="h-3 w-3 mr-1" />}
+                              Regenerate
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <Image className="h-6 w-6 opacity-30" />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={() => regenBackground(lang)}
+                            disabled={isBusting}
+                            data-testid={`button-gen-compare-${lang}`}
+                          >
+                            {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
+                            Generate
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium capitalize">{lang}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// ── Image Audit Panel ──────────────────────────────────────────────────────
+
+const F_GRADE_IMAGES = [
+  {
+    conceptKey: 'vocab_adj_caliente_frio',
+    label: 'caliente / frío',
+    reason: '"Warm" + "Vs" English text printed on image',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS anywhere in the image. Watercolor illustration. A single steaming red ceramic mug on the left half of the image on a warm orange background. A single glass packed full of ice cubes on the right half on an icy blue background. The steam rising from the mug and the ice cubes tell the story of hot and cold with no need for any labels. No dividers, no arrows, no words, no annotations.',
+  },
+  {
+    conceptKey: 'vocab_places_casa',
+    label: 'casa (house)',
+    reason: '"(casa)" Spanish label text printed on image',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS anywhere in the image. Watercolor illustration. A cheerful small house: bright red triangular roof, a brown wooden front door centered below the roof, one square window on each side of the door, a small chimney on the roof with a wisp of smoke. Plain pale sky background. Simple iconic shape like a child\'s drawing of a house. No garden furniture, no fences, no decorations. No labels, no words, no signs.',
+  },
+  {
+    conceptKey: 'vocab_color_blanco',
+    label: 'blanco (white)',
+    reason: '"WHITE" English label baked into image',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS anywhere in the image. Watercolor illustration. A fluffy white rabbit sitting upright and facing forward on a plain bright green meadow. The rabbit\'s fur is brilliant pure white — the most visually prominent thing in the image. Round body, long white ears, small pink nose. Clean simple composition. The white fur against the green background is the entire message. No labels, no words, no signs of any kind.',
+  },
+  {
+    conceptKey: 'vocab_place_farmacia',
+    label: 'farmacia (pharmacy)',
+    reason: '"PHARMACY" printed twice in English on signage',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS anywhere in the image. Watercolor illustration. A single large bold bright green cross symbol centred on a clean white background. The green cross glows with a soft light, thick arms, perfect symmetry. Nothing else in the image — no building, no door, no window, no storefront, no people. Just the glowing green cross on white. The green cross is the international pharmacy symbol and requires no text.',
+  },
+  {
+    conceptKey: 'vocab_emo_nervioso',
+    label: 'nervioso (nervous)',
+    reason: '"stess" [sic] English text + undressed figure',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS, NO SPEECH BUBBLES anywhere in the image. Watercolor illustration. A cartoon character wearing a striped shirt and plain dark trousers. Exaggerated nervous expression: very wide round eyes, raised eyebrows nearly touching the hairline, a wobbly frown, both hands clutching each other in front of the body, small drops of sweat flying off the forehead and temples. White background. Full body visible. Fully clothed. No labels, no thought bubbles, no words.',
+  },
+  {
+    conceptKey: 'vocab_weather_temperature_scale',
+    label: 'temperature scale',
+    reason: '"CELSIUS" and "FAHRENHEIT" English headers baked in',
+    prompt: 'NO TEXT, NO NUMBERS, NO DEGREE MARKS, NO WORDS anywhere in the image. Watercolor illustration. A single large glass thermometer on a white background. The liquid column inside the glass tube shows a bold colour gradient: vivid red-orange at the very top, fading through amber and yellow in the middle, to crisp icy blue at the very bottom bulb. A tiny yellow cartoon sun sits beside the top of the thermometer. A tiny white snowflake sits beside the bottom of the thermometer. Nothing else. No tick marks, no scale, no units, no numbers.',
+  },
+  {
+    conceptKey: 'vocab_time_dias_semana',
+    label: 'días de la semana (days of week)',
+    reason: '"MONDAY", "WEDNESDAY", "SATURDAY" English day names baked in',
+    prompt: 'NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS anywhere in the image. Watercolor illustration. Seven round glowing sun icons arranged in a neat horizontal row on a plain white background. Each sun is a different colour of the rainbow: the first sun is red-orange, then orange, yellow, lime-green, teal, blue, and the last is soft purple. Each sun has a circular glowing centre and short radiating rays around it. The seven differently-coloured suns represent seven days. No calendar, no grid, no columns, no labels, no day names in any language, no numbers.',
+  },
+] as const;
+
+type AuditState = {
+  previewing: boolean;
+  applying: boolean;
+  previewDataUrl: string | null;
+  appliedTs: number | null;
+  error: string | null;
+};
+
+function ImageAuditPanel() {
+  const { toast } = useToast();
+  const [states, setStates] = useState<Record<string, AuditState>>(() =>
+    Object.fromEntries(F_GRADE_IMAGES.map(img => [img.conceptKey, { previewing: false, applying: false, previewDataUrl: null, appliedTs: null, error: null }]))
+  );
+
+  const patch = (key: string, update: Partial<AuditState>) =>
+    setStates(prev => ({ ...prev, [key]: { ...prev[key], ...update } }));
+
+  const generatePreview = async (conceptKey: string, prompt: string) => {
+    patch(conceptKey, { previewing: true, previewDataUrl: null, error: null });
+    try {
+      const res = await apiRequest('POST', '/api/admin/vocab-images/regen-preview-key', { conceptKey, prompt });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      patch(conceptKey, { previewing: false, previewDataUrl: data.previewDataUrl });
+    } catch (e: any) {
+      patch(conceptKey, { previewing: false, error: e.message });
+      toast({ variant: 'destructive', title: 'Preview failed', description: e.message });
+    }
+  };
+
+  const applyPreview = async (conceptKey: string) => {
+    patch(conceptKey, { applying: true, error: null });
+    try {
+      const res = await apiRequest('POST', '/api/admin/vocab-images/regen-apply-key', { conceptKey });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Apply failed');
+      patch(conceptKey, { applying: false, previewDataUrl: null, appliedTs: Date.now() });
+      toast({ title: 'Applied', description: `${conceptKey}.png replaced in GCS` });
+    } catch (e: any) {
+      patch(conceptKey, { applying: false, error: e.message });
+      toast({ variant: 'destructive', title: 'Apply failed', description: e.message });
+    }
+  };
+
+  const discard = (conceptKey: string) => patch(conceptKey, { previewDataUrl: null, error: null });
+
+  const appliedCount = Object.values(states).filter(s => s.appliedTs !== null).length;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-destructive" />
+            F-Grade Image Regen Queue
+          </CardTitle>
+          <CardDescription>
+            7 images failed the visual quality audit — each contains English text labels baked in by DALL-E.
+            Click <strong>Generate Preview</strong> to see a candidate (~25s), then <strong>Apply</strong> to write it to GCS,
+            or <strong>Retry</strong> for a different attempt. Nothing overwrites until you click Apply.
+            {appliedCount > 0 && (
+              <span className="ml-2 font-medium text-green-600 dark:text-green-400">
+                {appliedCount}/7 applied this session.
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {F_GRADE_IMAGES.map(img => {
+              const s = states[img.conceptKey];
+              const currentSrc = s.appliedTs
+                ? `/api/media/ai-image/${img.conceptKey}.png?t=${s.appliedTs}`
+                : `/api/media/ai-image/${img.conceptKey}.png`;
+              const hasPreview = !!s.previewDataUrl;
+
+              return (
+                <Card key={img.conceptKey} className="flex flex-col" data-testid={`card-audit-${img.conceptKey}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <CardTitle className="text-sm font-semibold">{img.label}</CardTitle>
+                      {s.appliedTs
+                        ? <Badge className="bg-green-600 text-white text-xs no-default-active-elevate">Applied</Badge>
+                        : hasPreview
+                          ? <Badge variant="outline" className="text-xs no-default-active-elevate">Preview Ready</Badge>
+                          : <Badge variant="destructive" className="text-xs no-default-active-elevate">F-Grade</Badge>
+                      }
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-snug">{img.reason}</p>
+                  </CardHeader>
+
+                  <CardContent className="flex-1 flex flex-col gap-3 pb-4">
+                    {/* Image comparison area */}
+                    <div className={`grid gap-2 ${hasPreview ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      <div className="space-y-1">
+                        <p className="text-xs text-center text-muted-foreground">
+                          {hasPreview ? 'Current' : s.appliedTs ? 'Applied' : 'Current'}
+                        </p>
+                        <img
+                          src={currentSrc}
+                          alt={`current ${img.label}`}
+                          className="w-full aspect-video object-contain rounded-md border bg-muted/20"
+                          data-testid={`img-current-${img.conceptKey}`}
+                        />
+                      </div>
+                      {hasPreview && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-center font-medium text-amber-600 dark:text-amber-400">Candidate</p>
+                          <img
+                            src={s.previewDataUrl!}
+                            alt={`candidate ${img.label}`}
+                            className="w-full aspect-video object-contain rounded-md border border-amber-400/50 bg-muted/20"
+                            data-testid={`img-preview-${img.conceptKey}`}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {s.error && (
+                      <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{s.error}</p>
+                    )}
+
+                    {/* Action buttons */}
+                    {hasPreview ? (
+                      <div className="flex gap-2 mt-auto">
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          disabled={s.applying}
+                          onClick={() => applyPreview(img.conceptKey)}
+                          data-testid={`button-apply-${img.conceptKey}`}
+                        >
+                          {s.applying ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle className="h-3 w-3 mr-1.5" />}
+                          Apply
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={s.applying || s.previewing}
+                          onClick={() => generatePreview(img.conceptKey, img.prompt)}
+                          data-testid={`button-retry-${img.conceptKey}`}
+                          title="Generate another candidate"
+                        >
+                          {s.previewing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1"
+                          disabled={s.applying}
+                          onClick={() => discard(img.conceptKey)}
+                          data-testid={`button-discard-${img.conceptKey}`}
+                        >
+                          Discard
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant={s.appliedTs ? 'outline' : 'default'}
+                        className="w-full mt-auto"
+                        disabled={s.previewing}
+                        onClick={() => generatePreview(img.conceptKey, img.prompt)}
+                        data-testid={`button-preview-${img.conceptKey}`}
+                      >
+                        {s.previewing ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                            Generating (~25s)…
+                          </>
+                        ) : s.appliedTs ? (
+                          <>
+                            <RotateCcw className="h-3 w-3 mr-1.5" />
+                            Generate Another
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-3 w-3 mr-1.5" />
+                            Generate Preview
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function VocabImagesPanel() {
+  const { toast } = useToast();
+  const [language, setLanguage] = useState('spanish');
+  const [fixNumbersResult, setFixNumbersResult] = useState<any>(null);
+  const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
+  const [fixClassroomResult, setFixClassroomResult] = useState<any>(null);
+  const [fixAdjectivesResult, setFixAdjectivesResult] = useState<any>(null);
+  const [seedResult, setSeedResult] = useState<any>(null);
+  const [fixWordInput, setFixWordInput] = useState('');
+  const [fixWordResult, setFixWordResult] = useState<any>(null);
+  const [fixWordPreview, setFixWordPreview] = useState<{ currentUrl: string | null; previewUrl: string; previewKey: string; cacheKey: string; word: string; language: string } | null>(null);
+
+  const fixNumbersMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixNumbersResult(data);
+      toast({ title: 'Numbers/Days cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixGreetingsMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-greetings', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixGreetingsResult(data);
+      toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixClassroomMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-classroom', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixClassroomResult(data);
+      toast({ title: 'Classroom phrases cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAdjectivesMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-adjectives', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAdjectivesResult(data);
+      toast({ title: 'Adjective pairs cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding with split-panel prompts.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/seed', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setSeedResult(data);
+      toast({ title: 'Seed started', description: `Job ${data.jobId} — seeding all ${language} vocab images in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixWordMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-word', { language, word: fixWordInput.trim() }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/textbook/vocab-images'] });
+      toast({ title: 'Image regenerated', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const previewFixMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/preview-fix', { language, word: fixWordInput.trim() }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordPreview({ currentUrl: data.currentUrl, previewUrl: data.previewUrl, previewKey: data.previewKey, cacheKey: data.cacheKey, word: data.word, language: data.language });
+      toast({ title: 'Preview ready', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Preview failed', description: e.message }),
+  });
+
+  const applyPreviewMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/apply-preview', {
+      language: fixWordPreview!.language,
+      word: fixWordPreview!.word,
+      previewKey: fixWordPreview!.previewKey,
+      previewUrl: fixWordPreview!.previewUrl,
+    }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordPreview(null);
+      setFixWordResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/textbook/vocab-images'] });
+      toast({ title: 'Image applied', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Apply failed', description: e.message }),
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Image className="h-5 w-5" />
+            Vocab Image Cache Tools
+          </CardTitle>
+          <CardDescription>
+            Fix stale cached images, bust specific word categories, or reseed all vocab images for a language.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium w-20">Language</span>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-48" data-testid="select-vocab-language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOCAB_LANGUAGES.map(l => (
+                  <SelectItem key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Numbers &amp; Days</p>
+                <p className="text-xs text-muted-foreground">Bust stale number/day-of-week images and reseed with correct numeral illustrations.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixNumbersMutation.mutate()}
+                  disabled={fixNumbersMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-numbers"
+                >
+                  {fixNumbersMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Numbers / Days
+                </Button>
+                {fixNumbersResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixNumbersResult.deleted} cached entries. Job: {fixNumbersResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Greetings &amp; Farewells</p>
+                <p className="text-xs text-muted-foreground">Bust stale greeting/farewell images and reseed with scene-based illustrations.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixGreetingsMutation.mutate()}
+                  disabled={fixGreetingsMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-greetings"
+                >
+                  {fixGreetingsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Greetings
+                </Button>
+                {fixGreetingsResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixGreetingsResult.deleted} cached entries. Job: {fixGreetingsResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Classroom Survival Phrases</p>
+                <p className="text-xs text-muted-foreground">Bust stale classroom phrase images and reseed with character-scene illustrations (repeat, speak slowly, don't understand, how do you say).</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixClassroomMutation.mutate()}
+                  disabled={fixClassroomMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-classroom"
+                >
+                  {fixClassroomMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Classroom Phrases
+                </Button>
+                {fixClassroomResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixClassroomResult.deleted} cached entries. Job: {fixClassroomResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Adjective Pairs</p>
+                <p className="text-xs text-muted-foreground">Bust stale adjective images and reseed with split-panel contrast illustrations (bien/mal, grande/pequeño, etc.).</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fixAdjectivesMutation.mutate()}
+                  disabled={fixAdjectivesMutation.isPending}
+                  className="w-full"
+                  data-testid="button-fix-adjectives"
+                >
+                  {fixAdjectivesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  Fix Adjectives
+                </Button>
+                {fixAdjectivesResult && (
+                  <p className="text-xs text-muted-foreground">Deleted {fixAdjectivesResult.deleted} cached entries. Job: {fixAdjectivesResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-medium">Full Reseed</p>
+                <p className="text-xs text-muted-foreground">Reseed all vocab images for the selected language (generates missing images only).</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => seedMutation.mutate()}
+                  disabled={seedMutation.isPending}
+                  className="w-full"
+                  data-testid="button-seed-vocab"
+                >
+                  {seedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Seed All
+                </Button>
+                {seedResult && (
+                  <p className="text-xs text-muted-foreground">Job started: {seedResult.jobId?.slice(-8)}</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <ComparisonBackgroundsPanel />
+
+          <Card className="bg-muted/30">
+            <CardContent className="p-4 space-y-3">
+              <div>
+                <p className="text-sm font-medium">Fix Single Word</p>
+                <p className="text-xs text-muted-foreground">Generate a candidate image and preview it before applying. The original stays safe until you click Apply. Accepts any script (hola, こんにちは, שלום, etc.).</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={fixWordInput}
+                  onChange={e => { setFixWordInput(e.target.value); setFixWordResult(null); setFixWordPreview(null); }}
+                  onKeyDown={e => { if (e.key === 'Enter' && fixWordInput.trim()) previewFixMutation.mutate(); }}
+                  placeholder="e.g. buenos días"
+                  className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  data-testid="input-fix-word"
+                  dir="auto"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => previewFixMutation.mutate()}
+                  disabled={previewFixMutation.isPending || applyPreviewMutation.isPending || !fixWordInput.trim()}
+                  data-testid="button-fix-word"
+                >
+                  {previewFixMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Preview
+                </Button>
+              </div>
+
+              {fixWordPreview && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground text-center">Current</p>
+                      {fixWordPreview.currentUrl
+                        ? <img src={fixWordPreview.currentUrl} alt="current" className="w-full rounded-md object-contain border aspect-square" />
+                        : <div className="w-full aspect-square rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground bg-muted/40">No image</div>
+                      }
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground text-center">Candidate</p>
+                      <img src={fixWordPreview.previewUrl} alt="candidate" className="w-full rounded-md object-contain border aspect-square" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => applyPreviewMutation.mutate()}
+                      disabled={applyPreviewMutation.isPending}
+                      data-testid="button-apply-preview"
+                      className="flex-1"
+                    >
+                      {applyPreviewMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      Apply
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => previewFixMutation.mutate()}
+                      disabled={previewFixMutation.isPending || applyPreviewMutation.isPending}
+                      data-testid="button-retry-preview"
+                    >
+                      {previewFixMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setFixWordPreview(null)}
+                      disabled={applyPreviewMutation.isPending}
+                      data-testid="button-discard-preview"
+                      className="flex-1"
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {fixWordResult && !fixWordPreview && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">{fixWordResult.message}</p>
+                  {fixWordResult.url && (
+                    <img src={fixWordResult.url} alt={fixWordInput} className="w-full rounded-md object-contain border" />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </CardContent>
+      </Card>
     </div>
   );
 }

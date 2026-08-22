@@ -8,7 +8,6 @@ const apiKey = process.env.USER_OPENAI_API_KEY;
 
 console.log('\n🔍 Testing Realtime API Access\n');
 console.log('API Key exists:', !!apiKey);
-console.log('API Key prefix:', apiKey?.substring(0, 10) + '...');
 console.log('\nTesting model: gpt-4o-mini-realtime-preview-2025-09-25\n');
 
 async function testRealtimeAccess() {
@@ -42,7 +41,10 @@ async function testRealtimeAccess() {
     }
 
     console.log('Response Data:');
-    console.log(JSON.stringify(data, null, 2));
+    // Redact sensitive token fields before logging
+    const safeData = { ...data };
+    if (safeData.client_secret) safeData.client_secret = { value: '[REDACTED]', expires_at: safeData.client_secret?.expires_at };
+    console.log(JSON.stringify(safeData, null, 2));
 
     if (response.ok) {
       console.log('\n✅ SUCCESS! Realtime API access confirmed!');

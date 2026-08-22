@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,10 @@ import {
   CheckCircle2,
   Lock,
   Sparkles,
-  GraduationCap
+  GraduationCap,
+  Globe,
 } from "lucide-react";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Select,
   SelectContent,
@@ -25,7 +27,19 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link, useLocation } from "wouter";
 import { TextbookChapterView } from "@/components/TextbookChapterView";
-import { apiRequest } from "@/lib/queryClient";
+
+const AUDIT_LANGUAGES = [
+  { value: "spanish",    label: "Spanish" },
+  { value: "french",     label: "French" },
+  { value: "german",     label: "German" },
+  { value: "italian",    label: "Italian" },
+  { value: "portuguese", label: "Portuguese" },
+  { value: "japanese",   label: "Japanese" },
+  { value: "korean",     label: "Korean" },
+  { value: "mandarin",   label: "Mandarin" },
+  { value: "hebrew",     label: "Hebrew" },
+  { value: "english",    label: "English" },
+];
 
 interface DrillItem {
   id: string;
@@ -50,6 +64,8 @@ interface Section {
   objectives?: string[];
   conversationTopic?: string;
   drills?: DrillItem[];
+  textbookRead?: boolean;
+  danielaCovered?: boolean;
 }
 
 interface Chapter {
@@ -208,22 +224,26 @@ function ChapterListView({
   chapters,
   textbookData,
   languageDisplayName,
+  auditLanguage,
   totalProgress,
   isLoading,
   error,
   onOpenChapter,
   onPathChange,
+  onLanguageChange,
   savedPositionChapterId,
   recommendation,
 }: {
   chapters: Chapter[];
   textbookData?: TextbookData;
   languageDisplayName: string;
+  auditLanguage: string;
   totalProgress: number;
   isLoading: boolean;
   error: Error | null;
   onOpenChapter: (chapter: Chapter) => void;
   onPathChange?: (pathId: string) => void;
+  onLanguageChange?: (lang: string) => void;
   savedPositionChapterId?: string | null;
   recommendation?: Recommendation | null;
 }) {
@@ -270,40 +290,54 @@ function ChapterListView({
             <BookOpen className="h-7 w-7 text-primary" />
             Interactive Textbook
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Your {languageDisplayName} visual learning guide
-          </p>
-          {textbookData?.curriculumPath && textbookData.allPaths && textbookData.allPaths.length > 1 ? (
-            <div className="flex items-center gap-2 mt-1">
-              <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
-              <Select
-                value={textbookData.curriculumPath.id}
-                onValueChange={(pathId) => {
-                  if (onPathChange) onPathChange(pathId);
-                }}
-              >
-                <SelectTrigger className="h-7 text-xs w-auto min-w-[160px]" data-testid="select-curriculum-path">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {textbookData.allPaths.map(p => (
-                    <SelectItem key={p.id} value={p.id} data-testid={`option-path-${p.id}`}>
-                      {p.name.replace(/ - High School| - Advanced/g, '')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {textbookData.studentActflLevel && (
-                <Badge variant="outline" className="text-xs" data-testid="badge-actfl-level">
-                  {formatActflLevel(textbookData.studentActflLevel)}
-                </Badge>
-              )}
-            </div>
-          ) : textbookData?.curriculumPath ? (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {textbookData.curriculumPath.name}
-            </p>
-          ) : null}
+
+          {/* ── Audit controls: language + level ─────────────────────────── */}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Select
+              value={auditLanguage}
+              onValueChange={(lang) => { if (onLanguageChange) onLanguageChange(lang); }}
+            >
+              <SelectTrigger className="h-7 text-xs w-auto min-w-[130px]" data-testid="select-audit-language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AUDIT_LANGUAGES.map(l => (
+                  <SelectItem key={l.value} value={l.value} data-testid={`option-lang-${l.value}`}>
+                    {l.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {textbookData?.curriculumPath && textbookData.allPaths && textbookData.allPaths.length > 1 && (
+              <>
+                <GraduationCap className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <Select
+                  value={textbookData.curriculumPath.id}
+                  onValueChange={(pathId) => { if (onPathChange) onPathChange(pathId); }}
+                >
+                  <SelectTrigger className="h-7 text-xs w-auto min-w-[160px]" data-testid="select-curriculum-path">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {textbookData.allPaths.map(p => (
+                      <SelectItem key={p.id} value={p.id} data-testid={`option-path-${p.id}`}>
+                        {p.name.replace(/ - High School| - Advanced/g, '')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {textbookData?.studentActflLevel && (
+              <Badge variant="outline" className="text-xs" data-testid="badge-actfl-level">
+                {formatActflLevel(textbookData.studentActflLevel)}
+              </Badge>
+            )}
+          </div>
+          {/* ─────────────────────────────────────────────────────────────── */}
         </div>
         
         <div className="flex items-center gap-3">
@@ -435,15 +469,24 @@ function ChapterListView({
 }
 
 export default function InteractiveTextbook() {
-  const { language } = useLanguage();
+  const { language: contextLanguage } = useLanguage();
   const [, setLocation] = useLocation();
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [deepLinkChapterId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('chapterId');
+  });
   const [selectedPathId, setSelectedPathId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('pathId');
   });
-  
-  const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
+
+  // Audit override — lets you browse any language's textbook regardless of your active language
+  const [auditLanguage, setAuditLanguage] = useState<string>(contextLanguage);
+  const language = auditLanguage;
+
+  const languageDisplayName = AUDIT_LANGUAGES.find(l => l.value === language)?.label
+    ?? (language.charAt(0).toUpperCase() + language.slice(1));
   
   const pathQuery = selectedPathId ? `?pathId=${selectedPathId}` : '';
   const { data: textbookData, isLoading, error } = useQuery<TextbookData>({
@@ -472,6 +515,16 @@ export default function InteractiveTextbook() {
   });
   
   const chapters = textbookData?.chapters || [];
+
+  // Auto-open chapter from deep-link (?chapterId=<id>) — used by scenario "Textbook prep" links
+  useEffect(() => {
+    if (!deepLinkChapterId || chapters.length === 0 || selectedChapter) return;
+    const target = chapters.find(ch => ch.id === deepLinkChapterId && !ch.isLocked);
+    if (target) {
+      setSelectedChapter(target);
+      savePositionMutation.mutate({ chapterId: target.id });
+    }
+  }, [deepLinkChapterId, chapters]);
   
   const totalProgress = chapters.length > 0
     ? Math.round(chapters.reduce((acc, ch) => acc + ch.progress, 0) / chapters.length)
@@ -482,9 +535,12 @@ export default function InteractiveTextbook() {
     savePositionMutation.mutate({ chapterId: chapter.id });
   }, [savePositionMutation]);
 
-  const handleStartConversation = useCallback(() => {
-    const lessonContext = selectedChapter ? `textbook_chapter=${encodeURIComponent(selectedChapter.title)}` : '';
-    setLocation(lessonContext ? `/chat?${lessonContext}` : '/chat');
+  const handleStartConversation = useCallback((lessonId?: string) => {
+    const params = new URLSearchParams();
+    if (selectedChapter) params.set('textbook_chapter', selectedChapter.title);
+    if (lessonId) params.set('lesson_id', lessonId);
+    const qs = params.toString();
+    setLocation(qs ? `/chat?${qs}` : '/chat');
   }, [setLocation, selectedChapter]);
 
   const handleStartDrill = useCallback((sectionId: string) => {
@@ -503,12 +559,26 @@ export default function InteractiveTextbook() {
     setSelectedChapter(null);
   }, []);
 
+  const handleAuditLanguageChange = useCallback((lang: string) => {
+    setAuditLanguage(lang);
+    setSelectedPathId(null); // reset path — each language has its own paths
+    setSelectedChapter(null);
+  }, []);
+
+  const handleNavigateChapter = useCallback((chapter: Chapter) => {
+    setSelectedChapter(chapter);
+    savePositionMutation.mutate({ chapterId: chapter.id });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [savePositionMutation]);
+
   if (selectedChapter) {
     return (
       <TextbookChapterView
         chapter={selectedChapter}
         language={language}
+        allChapters={chapters}
         onBack={() => setSelectedChapter(null)}
+        onNavigate={handleNavigateChapter}
         onStartConversation={handleStartConversation}
         onStartDrill={handleStartDrill}
         onReviewFlashcards={handleReviewFlashcards}
@@ -521,11 +591,13 @@ export default function InteractiveTextbook() {
       chapters={chapters}
       textbookData={textbookData}
       languageDisplayName={languageDisplayName}
+      auditLanguage={language}
       totalProgress={totalProgress}
       isLoading={isLoading}
       error={error as Error | null}
       onOpenChapter={handleOpenChapter}
       onPathChange={handlePathChange}
+      onLanguageChange={handleAuditLanguageChange}
       savedPositionChapterId={positionData?.position?.lastChapterId}
       recommendation={recommendationData?.recommendation}
     />

@@ -47,7 +47,11 @@ export function estimateProgressWithinLevel(progress: ActflProgress | null | und
   
   const grammarScore = progress.grammarScore || 0;
   const vocabScore = progress.vocabularyScore || 0;
-  const pronunciationScore = progress.avgPronunciationConfidence || 0;
+  // Only use pronunciation confidence if there are actual voice messages recorded;
+  // a default value of 1.0 with 0 voice messages would artificially inflate the score.
+  const pronunciationScore = (progress.totalVoiceMessages || 0) > 0
+    ? (progress.avgPronunciationConfidence || 0)
+    : 0;
   const factAverage = (grammarScore + vocabScore + pronunciationScore) / 3;
   
   const weights = { messages: 0.3, days: 0.15, practice: 0.15, fact: 0.4 };

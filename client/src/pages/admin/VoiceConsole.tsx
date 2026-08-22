@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear, Globe, Bot } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, Globe, Bot, Mic } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -86,60 +86,82 @@ interface GeminiVoice {
   provider: string;
 }
 
+interface GeminiLiveVoice {
+  id: string;
+  name: string;
+  gender: 'male' | 'female';
+  provider: string;
+  description: string;
+}
+
 interface GoogleVoiceOption {
   id: string;
   name: string;
   gender: 'male' | 'female';
 }
 
+// Persona names for each voice speaker + language combination.
+// Female voices: Aoede, Leda, Kore, Zephyr
+// Male voices:   Puck, Orus, Fenrir, Charon
 const DEFAULT_TUTOR_NAMES: Record<string, Record<string, string>> = {
   'Aoede': {
     'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
-    'italian': 'Liv', 'japanese': 'Sayuri', 'mandarin chinese': 'Hua',
-    'korean': 'Jihyun', 'german': 'Aoede', 'portuguese': 'Aoede', 'hebrew': 'Yael',
+    'italian': 'Olivia', 'japanese': 'Sayuri', 'mandarin chinese': 'Hua',
+    'korean': 'Jihyun', 'german': 'Greta', 'portuguese': 'Isabel', 'hebrew': 'Yael',
   },
   'Puck': {
-    'spanish': 'Agustin', 'french': 'Vincent', 'portuguese': 'Camilo',
-    'korean': 'Minho', 'english': 'Puck', 'german': 'Puck',
-    'italian': 'Puck', 'japanese': 'Puck', 'mandarin chinese': 'Puck', 'hebrew': 'Puck',
+    'spanish': 'Agustín', 'french': 'Vincent', 'portuguese': 'Camilo',
+    'korean': 'Minho', 'english': 'Blake', 'german': 'Lukas',
+    'italian': 'Luca', 'japanese': 'Daisuke', 'mandarin chinese': 'Tao', 'hebrew': 'Noam',
   },
   'Orus': {
     'english': 'Blake', 'italian': 'Luca', 'german': 'Lukas',
-    'mandarin chinese': 'Tao', 'spanish': 'Orus', 'french': 'Orus',
-    'portuguese': 'Orus', 'japanese': 'Orus', 'korean': 'Orus', 'hebrew': 'Orus',
+    'mandarin chinese': 'Tao', 'spanish': 'Agustín', 'french': 'Vincent',
+    'portuguese': 'Camilo', 'japanese': 'Daisuke', 'korean': 'Minho', 'hebrew': 'Noam',
   },
   'Leda': {
-    'german': 'Greta', 'portuguese': 'Isabel',
-    'english': 'Leda', 'spanish': 'Leda', 'french': 'Leda',
-    'italian': 'Leda', 'japanese': 'Leda', 'mandarin chinese': 'Leda',
-    'korean': 'Leda', 'hebrew': 'Leda',
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'german': 'Greta', 'portuguese': 'Isabel', 'italian': 'Olivia',
+    'japanese': 'Sayuri', 'mandarin chinese': 'Hua', 'korean': 'Jihyun', 'hebrew': 'Yael',
   },
   'Fenrir': {
-    'japanese': 'Daisuke', 'english': 'Augustine',
-    'spanish': 'Fenrir', 'french': 'Fenrir', 'german': 'Fenrir',
-    'italian': 'Fenrir', 'portuguese': 'Fenrir', 'mandarin chinese': 'Fenrir',
-    'korean': 'Fenrir', 'hebrew': 'Fenrir',
+    'japanese': 'Daisuke', 'english': 'Blake', 'spanish': 'Agustín',
+    'french': 'Vincent', 'german': 'Lukas', 'italian': 'Luca',
+    'portuguese': 'Camilo', 'mandarin chinese': 'Tao', 'korean': 'Minho', 'hebrew': 'Noam',
   },
   'Kore': {
-    'english': 'Kore', 'spanish': 'Kore', 'french': 'Kore',
-    'german': 'Kore', 'italian': 'Kore', 'portuguese': 'Kore',
-    'japanese': 'Kore', 'mandarin chinese': 'Kore', 'korean': 'Kore', 'hebrew': 'Kore',
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'german': 'Greta', 'italian': 'Olivia', 'portuguese': 'Isabel',
+    'japanese': 'Sayuri', 'mandarin chinese': 'Hua', 'korean': 'Jihyun', 'hebrew': 'Yael',
   },
   'Charon': {
-    'english': 'Charon', 'spanish': 'Charon', 'french': 'Charon',
-    'german': 'Charon', 'italian': 'Charon', 'portuguese': 'Charon',
-    'japanese': 'Charon', 'mandarin chinese': 'Charon', 'korean': 'Charon', 'hebrew': 'Charon',
+    'english': 'Blake', 'spanish': 'Agustín', 'french': 'Vincent',
+    'german': 'Lukas', 'italian': 'Luca', 'portuguese': 'Camilo',
+    'japanese': 'Daisuke', 'mandarin chinese': 'Tao', 'korean': 'Minho', 'hebrew': 'Noam',
   },
   'Zephyr': {
-    'english': 'Zephyr', 'spanish': 'Zephyr', 'french': 'Zephyr',
-    'german': 'Zephyr', 'italian': 'Zephyr', 'portuguese': 'Zephyr',
-    'japanese': 'Zephyr', 'mandarin chinese': 'Zephyr', 'korean': 'Zephyr', 'hebrew': 'Zephyr',
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'german': 'Greta', 'italian': 'Olivia', 'portuguese': 'Isabel',
+    'japanese': 'Sayuri', 'mandarin chinese': 'Hua', 'korean': 'Jihyun', 'hebrew': 'Yael',
   },
 };
+
+// Raw Gemini/Chirp speaker names — any voiceName matching these is a technical placeholder
+const RAW_VOICE_NAMES = new Set(Object.keys(DEFAULT_TUTOR_NAMES));
 
 function getDefaultTutorName(voiceId: string, language: string): string {
   const baseVoice = voiceId.includes('-') ? voiceId.split('-').pop() || voiceId : voiceId;
   return DEFAULT_TUTOR_NAMES[baseVoice]?.[language] || baseVoice;
+}
+
+// Returns a human-readable persona name for display. If the stored voiceName is a raw
+// technical voice name (e.g. "Aoede", "Orus"), resolve it to the proper persona name.
+function resolveDisplayName(voice: { voiceName: string; voiceId: string; language: string }): string {
+  if (!RAW_VOICE_NAMES.has(voice.voiceName)) return voice.voiceName;
+  const baseVoice = voice.voiceId.includes('-') ? voice.voiceId.split('-').pop() || voice.voiceId : voice.voiceId;
+  const resolved = DEFAULT_TUTOR_NAMES[voice.voiceName]?.[voice.language]
+    ?? DEFAULT_TUTOR_NAMES[baseVoice]?.[voice.language];
+  return resolved || voice.voiceName;
 }
 
 const SUPPORTED_LANGUAGES = [
@@ -212,6 +234,12 @@ export function VoiceConsoleContent() {
   const [auditionPersonality, setAuditionPersonality] = useState<PersonalityType>('warm');
   const [auditionExpressiveness, setAuditionExpressiveness] = useState(3);
   const [auditionEmotion, setAuditionEmotion] = useState('friendly');
+
+  // GL Live audition state (mic → real GL 3.1 session → WAV playback)
+  type GlPhase = 'idle' | 'recording' | 'waiting' | 'playing';
+  const [glPhase, setGlPhase] = useState<GlPhase>('idle');
+  const [glCountdown, setGlCountdown] = useState(3);
+  const glCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [formData, setFormData] = useState({
     language: '',
@@ -245,14 +273,20 @@ export function VoiceConsoleContent() {
   });
 
   // Fetch accent variants for Gemini TTS and Google Cloud TTS
-  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean }[]>>({
+  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean; gl35Supported: boolean }[]>>({
     queryKey: ['/api/admin/accent-variants'],
-    enabled: globalProvider === 'gemini' || globalProvider === 'google',
+    enabled: globalProvider === 'gemini' || globalProvider === 'gemini-live' || globalProvider === 'gemini-live-35' || globalProvider === 'google'
+      || formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'gemini-live-35' || formData.provider === 'google',
   });
   const allLanguageAccents = accentVariants?.[formData.language] || [];
+  const isGlProvider = (p: string) => p === 'gemini-live' || p === 'gemini-live-35';
   const languageAccents = formData.provider === 'google'
     ? allLanguageAccents.filter(v => v.googleSupported)
-    : allLanguageAccents;
+    : formData.provider === 'gemini-live-35'
+      ? allLanguageAccents.filter(v => v.gl35Supported)
+      : isGlProvider(formData.provider)
+        ? allLanguageAccents.filter(v => v.geminiLiveSupported)
+        : allLanguageAccents;
 
   // Fetch available Cartesia voices based on selected language and gender
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
@@ -332,12 +366,29 @@ export function VoiceConsoleContent() {
       isPublic: true,
     }));
 
-  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : cartesiaVoices;
-  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isLoadingCartesiaVoices;
+  const { data: geminiLiveVoices, isLoading: isLoadingGeminiLiveVoices } = useQuery<GeminiLiveVoice[]>({
+    queryKey: ['/api/admin/gemini-live-voices'],
+    enabled: isGlProvider(globalProvider) || isGlProvider(formData.provider),
+  });
+
+  const geminiLiveVoicesAsCv: CartesiaVoice[] = (geminiLiveVoices || [])
+    .filter(v => !formData.gender || v.gender === formData.gender)
+    .map(v => ({
+      id: v.id,
+      name: `${v.name} — ${v.description}`,
+      description: 'Gemini Live (real-time audio)',
+      language: '',
+      gender: v.gender,
+      isPublic: true,
+    }));
+
+  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : isGlProvider(formData.provider) ? geminiLiveVoicesAsCv : cartesiaVoices;
+  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isGlProvider(formData.provider) ? isLoadingGeminiLiveVoices : isLoadingCartesiaVoices;
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("POST", "/api/admin/tutor-voices", data);
+      const payload = editingVoice?.id ? { ...data, id: editingVoice.id } : data;
+      return apiRequest("POST", "/api/admin/tutor-voices", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
@@ -370,7 +421,7 @@ export function VoiceConsoleContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
-      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : 'Cartesia';
+      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Cartesia';
       toast({ title: "Success", description: `All tutor voices switched to ${providerLabel}` });
     },
     onError: (error: any) => {
@@ -586,6 +637,78 @@ export function VoiceConsoleContent() {
     await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, voice.id, voice.languageCode);
   };
 
+  // GL Live audition: record 3s of mic audio → real GL 3.1 session → play WAV
+  const handleGlAudition = async () => {
+    if (glPhase !== 'idle') return;
+    const voiceId = formData.voiceId || 'Aoede';
+    // Derive BCP-47 from the voice's configured language when no explicit accent is saved
+    const LANG_TO_BCP47: Record<string, string> = {
+      english: 'en-US', spanish: 'es-ES', french: 'fr-FR',
+      german: 'de-DE', italian: 'it-IT', portuguese: 'pt-BR',
+      japanese: 'ja-JP', 'mandarin chinese': 'zh-CN', chinese: 'zh-CN',
+      korean: 'ko-KR', hebrew: 'he-IL',
+    };
+    const langCode = formData.geminiLanguageCode || LANG_TO_BCP47[formData.language?.toLowerCase() || ''] || 'en-US';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+      setGlPhase('recording');
+      setGlCountdown(3);
+      glCountdownRef.current = setInterval(() => setGlCountdown(c => Math.max(0, c - 1)), 1000);
+
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const buffers: Float32Array[] = [];
+      processor.onaudioprocess = (e) => buffers.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      processor.disconnect(); source.disconnect();
+      stream.getTracks().forEach(t => t.stop());
+      await audioCtx.close();
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+
+      // Float32 → Int16 PCM → base64
+      const totalLen = buffers.reduce((n, b) => n + b.length, 0);
+      const pcm16 = new Int16Array(totalLen);
+      let offset = 0;
+      for (const buf of buffers)
+        for (let i = 0; i < buf.length; i++) {
+          const s = Math.max(-1, Math.min(1, buf[i]));
+          pcm16[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+      const bytes = new Uint8Array(pcm16.buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192)
+        binary += String.fromCharCode(...(bytes.subarray(i, i + 8192) as any));
+      const base64Audio = btoa(binary);
+
+      setGlPhase('waiting');
+      const glModel = globalProvider === 'gemini-live-35'
+        ? 'gemini-2.5-flash-native-audio-preview-12-2025'
+        : 'gemini-3.1-flash-live-preview';
+      const res = await fetch('/api/admin/gl-audition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId, model: glModel }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'GL audition failed'); }
+
+      setGlPhase('playing');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => { URL.revokeObjectURL(url); setGlPhase('idle'); };
+      await audio.play();
+    } catch (error: any) {
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+      setGlPhase('idle');
+      toast({ title: 'GL Audition failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleEdit = (voice: TutorVoice) => {
     setEditingVoice(voice);
     // Load saved emotion settings into form
@@ -598,7 +721,10 @@ export function VoiceConsoleContent() {
     
     let mappedVoiceId = voice.voiceId;
     let mappedVoiceName = voice.voiceName;
-    if (!providerMatchesVoice) {
+    if (voice.provider && voice.provider !== globalProvider) {
+      // Voice has its own explicit provider — always use its own voiceId/name as-is.
+      // Cross-provider ID mapping only applies when the user switches the global provider.
+    } else if (!providerMatchesVoice) {
       if (globalProvider === 'google' && !voice.voiceId.includes('Chirp3-HD')) {
         // Bare Gemini name (e.g. "Aoede") maps directly to Google base speaker
         mappedVoiceId = voice.voiceId;
@@ -615,10 +741,14 @@ export function VoiceConsoleContent() {
       const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
       if (match) mappedVoiceId = match[1];
     }
+    // Auto-resolve raw voice names (e.g. "Aoede", "Orus") to proper persona names
+    if (RAW_VOICE_NAMES.has(mappedVoiceName)) {
+      mappedVoiceName = resolveDisplayName({ voiceName: mappedVoiceName, voiceId: mappedVoiceId, language: voice.language }) || mappedVoiceName;
+    }
     setFormData({
       language: voice.language,
       gender: voice.gender,
-      provider: globalProvider,
+      provider: voice.provider || globalProvider,
       voiceId: mappedVoiceId,
       voiceName: mappedVoiceName,
       languageCode: voice.languageCode,
@@ -632,8 +762,11 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: voice.elSimilarityBoost ?? 0.75,
       elStyle: voice.elStyle ?? 0.0,
       elSpeakerBoost: voice.elSpeakerBoost ?? true,
-      // Gemini TTS accent variant
-      geminiLanguageCode: voice.geminiLanguageCode || '',
+      // Gemini TTS accent variant — fall back to the voice's languageCode so
+      // gemini-live voices always have a sensible default selected in the dropdown
+      geminiLanguageCode: voice.geminiLanguageCode || (
+        (voice.provider === 'gemini' || voice.provider === 'gemini-live' || voice.provider === 'gemini-live-35') ? (voice.languageCode || '') : ''
+      ),
     });
     // Sync audition controls with saved values so preview uses saved emotion
     setAuditionPersonality(savedPersonality);
@@ -692,7 +825,7 @@ export function VoiceConsoleContent() {
       elSpeakerBoost: pendingProvider === 'elevenlabs' ? true : prev.elSpeakerBoost,
       speakingRate: pendingProvider === 'cartesia' 
         ? Math.max(0.7, Math.min(1.3, prev.speakingRate))
-        : pendingProvider === 'gemini'
+        : pendingProvider === 'gemini' || pendingProvider === 'gemini-live' || pendingProvider === 'gemini-live-35'
         ? Math.max(0.25, Math.min(4.0, prev.speakingRate))
         : prev.speakingRate,
     }));
@@ -715,7 +848,11 @@ export function VoiceConsoleContent() {
     if (!acc[voice.language]) {
       acc[voice.language] = { male: null, female: null };
     }
-    acc[voice.language][voice.gender] = voice;
+    const existing = acc[voice.language][voice.gender];
+    // Prefer active voices over inactive ones when duplicates exist
+    if (!existing || voice.isActive || !existing.isActive) {
+      acc[voice.language][voice.gender] = voice;
+    }
     return acc;
   }, {} as Record<string, { male: TutorVoice | null; female: TutorVoice | null }>);
 
@@ -747,7 +884,7 @@ export function VoiceConsoleContent() {
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : 'Cartesia Sonic-3'}.
+                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1 (Flash Preview)' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 (Native Audio)' : 'Cartesia Sonic-3'}.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -834,12 +971,17 @@ export function VoiceConsoleContent() {
                       </div>
                     )}
 
-                    {/* Regional Accent Variant (Gemini + Google Cloud TTS) */}
-                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'google') && (
+                    {/* Regional Accent Variant (Gemini + Gemini Live + Google Cloud TTS) */}
+                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'gemini-live' || formData.provider === 'gemini-live-35' || formData.provider === 'google') && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
                           <Label>Regional Accent</Label>
+                          {isGlProvider(formData.provider) && (
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              {formData.provider === 'gemini-live-35' ? 'GL 3.5' : 'GL 3.1'}
+                            </span>
+                          )}
                         </div>
                         <Select
                           value={formData.geminiLanguageCode || '__default__'}
@@ -860,7 +1002,9 @@ export function VoiceConsoleContent() {
                         <p className="text-xs text-muted-foreground">
                           {formData.provider === 'google'
                             ? 'Changes the locale prefix on the voice name (e.g. en-US → en-GB for British accent)'
-                            : 'Controls the regional pronunciation accent for Gemini TTS'}
+                            : isGlProvider(formData.provider)
+                              ? 'Sets the regional language code sent to Gemini Live (affects accent and STT recognition)'
+                              : 'Controls the regional pronunciation accent for Gemini TTS'}
                         </p>
                       </div>
                     )}
@@ -1099,60 +1243,98 @@ export function VoiceConsoleContent() {
                     {formData.voiceId && (
                       <div className="space-y-2">
                         <Label>Audition</Label>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              const selectedVoice = activeVoices.find(v => v.id === formData.voiceId);
-                              handleAudition(
-                                formData.voiceId,
-                                formData.voiceName,
-                                formData.language,
-                                formData.languageCode,
-                                formData.speakingRate,
-                                formData.provider,
-                                formData.provider === 'elevenlabs' ? {
-                                  elStability: formData.elStability,
-                                  elSimilarityBoost: formData.elSimilarityBoost,
-                                  elStyle: formData.elStyle,
-                                  elSpeed: formData.speakingRate,
-                                } : undefined,
-                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
-                                undefined,
-                                (formData.provider === 'gemini' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
-                              );
-                            }}
-                            data-testid="button-audition"
-                            className="flex-1"
-                          >
-                            {playingVoiceId === formData.voiceId ? (
-                              <>
-                                <Pause className="h-4 w-4 mr-2" />
-                                {auditionPhase === 'target' ? 'Playing Target Language...' : 'Playing English...'}
-                              </>
-                            ) : (
-                              <>
-                                <Languages className="h-4 w-4 mr-2" />
-                                Audition Voice
-                              </>
-                            )}
-                          </Button>
-                          {playingVoiceId === formData.voiceId && (
-                            <Badge variant="secondary">
-                              {auditionPhase === 'target' 
-                                ? SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label 
-                                : 'English'}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Heart className="h-3 w-3" />
-                          <span>Using <strong className="capitalize">{auditionEmotion}</strong> emotion ({auditionPersonality} personality)</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'} at selected speed
-                        </p>
+                        {isGlProvider(formData.provider) ? (
+                          /* GL Live: mic-based audition using real GL session (3.1 or 3.5) */
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={handleGlAudition}
+                              disabled={glPhase !== 'idle'}
+                              data-testid="button-gl-audition"
+                            >
+                              {glPhase === 'recording' ? (
+                                <Mic className="h-4 w-4 mr-2 text-red-500 animate-pulse" />
+                              ) : glPhase === 'waiting' || glPhase === 'playing' ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Mic className="h-4 w-4 mr-2" />
+                              )}
+                              {glPhase === 'recording'
+                                ? `Recording… ${glCountdown}s`
+                                : glPhase === 'waiting'
+                                ? 'Waiting for GL response…'
+                                : glPhase === 'playing'
+                                ? 'Playing GL response…'
+                                : formData.provider === 'gemini-live-35'
+                                ? 'Audition with GL 3.5 Native Audio'
+                                : 'GL 3.1 Audition (live mic)'
+                              }
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              Records 3s of your voice and sends it to a real {formData.provider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Gemini Live 3.1'} session with the selected voice and accent
+                            </p>
+                          </>
+                        ) : (
+                          /* Standard TTS audition for all other providers */
+                          <>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  const selectedVoice = activeVoices.find(v => v.id === formData.voiceId);
+                                  handleAudition(
+                                    formData.voiceId,
+                                    formData.voiceName,
+                                    formData.language,
+                                    formData.languageCode,
+                                    formData.speakingRate,
+                                    formData.provider,
+                                    formData.provider === 'elevenlabs' ? {
+                                      elStability: formData.elStability,
+                                      elSimilarityBoost: formData.elSimilarityBoost,
+                                      elStyle: formData.elStyle,
+                                      elSpeed: formData.speakingRate,
+                                    } : undefined,
+                                    selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
+                                    undefined,
+                                    (formData.provider === 'gemini' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
+                                  );
+                                }}
+                                data-testid="button-audition"
+                                className="flex-1"
+                              >
+                                {playingVoiceId === formData.voiceId ? (
+                                  <>
+                                    <Pause className="h-4 w-4 mr-2" />
+                                    {auditionPhase === 'target' ? 'Playing Target Language...' : 'Playing English...'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Languages className="h-4 w-4 mr-2" />
+                                    Audition Voice
+                                  </>
+                                )}
+                              </Button>
+                              {playingVoiceId === formData.voiceId && (
+                                <Badge variant="secondary">
+                                  {auditionPhase === 'target'
+                                    ? SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label
+                                    : 'English'}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Heart className="h-3 w-3" />
+                              <span>Using <strong className="capitalize">{auditionEmotion}</strong> emotion ({auditionPersonality} personality)</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Plays a sample in {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label || 'the target language'}{formData.language !== 'english' && ', then in English'} at selected speed
+                            </p>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -1198,6 +1380,8 @@ export function VoiceConsoleContent() {
                     <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
                     <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
                     <SelectItem value="gemini">Gemini (2.5 Flash TTS)</SelectItem>
+                    <SelectItem value="gemini-live">Gemini Live 3.1 (Flash Preview)</SelectItem>
+                    <SelectItem value="gemini-live-35">Gemini Live 3.5 (Native Audio)</SelectItem>
                   </SelectContent>
                 </Select>
                 {bulkProviderMutation.isPending && (
@@ -1207,52 +1391,13 @@ export function VoiceConsoleContent() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-teaching-persona">
-            <CardContent className="py-4 px-5">
-              <div className="flex items-center gap-3 mb-3">
-                <GraduationCap className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm">Daniela's Teaching Persona</p>
-                  <p className="text-xs text-muted-foreground">
-                    Universal defaults applied across all languages and voices
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
-                  <Scale className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium">Teaching Focus</p>
-                    <p className="text-xs text-muted-foreground">Balanced across grammar, vocabulary, pronunciation, and culture</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
-                  <Sparkles className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium">Teaching Style</p>
-                    <p className="text-xs text-muted-foreground">Adaptive to student energy, blending structure with free conversation</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
-                  <Ear className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium">Error Correction</p>
-                    <p className="text-xs text-muted-foreground">Balanced — corrects important errors without interrupting flow</p>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3 italic">
-                These defaults are defined in the system prompt. To change them, update buildPedagogicalPersonaSection in system-prompt.ts.
-              </p>
-            </CardContent>
-          </Card>
 
           <Dialog open={!!pendingProvider} onOpenChange={(open) => { if (!open) setPendingProvider(null); }}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Switch TTS Provider</DialogTitle>
                 <DialogDescription>
-                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live 3.1 (requires GEMINI_LIVE_VOICE=true)' : pendingProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio (requires GEMINI_LIVE_VOICE=true — preview pricing ~5-20× higher)' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">
@@ -1332,7 +1477,7 @@ export function VoiceConsoleContent() {
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               <span className="text-sm capitalize w-14 flex-shrink-0">{gender}</span>
-                              <span className="font-medium text-sm truncate">{voice.voiceName}</span>
+                              <span className="font-medium text-sm truncate">{resolveDisplayName(voice)}</span>
                               <span className="text-xs text-muted-foreground truncate">({voice.voiceId})</span>
                               <Badge variant="outline" className="text-xs flex-shrink-0">
                                 {voice.speakingRate === 0.7 ? 'Slow' : 
@@ -1718,7 +1863,7 @@ function AssistantVoiceCard() {
                             <User className="h-4 w-4" />
                           </div>
                           <div>
-                            <div className="font-medium text-sm">{voice.voiceName}</div>
+                            <div className="font-medium text-sm">{resolveDisplayName(voice)}</div>
                             <div className="text-xs text-muted-foreground capitalize">
                               {voice.gender} · {voice.languageCode} · {voice.speakingRate}x
                             </div>
@@ -2208,7 +2353,7 @@ function SofiaVoiceCard() {
                             <User className="h-4 w-4" />
                           </div>
                           <div>
-                            <div className="font-medium text-sm">{voice.voiceName}</div>
+                            <div className="font-medium text-sm">{resolveDisplayName(voice)}</div>
                             <div className="text-xs text-muted-foreground capitalize">
                               {voice.gender} · {voice.languageCode} · {voice.speakingRate}x
                             </div>

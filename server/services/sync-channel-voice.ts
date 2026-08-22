@@ -17,13 +17,16 @@ import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { GoogleGenAI } from "@google/genai";
 import { Socket } from "socket.io";
 import { founderCollabService, type FounderMessageInput } from "./founder-collaboration-service";
+import { unifiedDanielaContext } from "./unified-daniela-context-service";
+
+const FOUNDER_USER_ID = '49847136';
 
 // Deepgram config
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 const DEEPGRAM_MODEL = "nova-3";
 
 // Gemini config
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3-flash-preview";
 
 interface VoiceSession {
   sessionId: string;
@@ -250,18 +253,20 @@ async function generateDanielaResponse(session: VoiceSession, userMessage: strin
       .map(m => `${m.role}: ${m.content}`)
       .join("\n");
     
-    const systemPrompt = `You are Daniela, an AI language tutor and collaborator. You're in a voice conversation with the founder/developer of the HolaHola language learning app.
+    // Load her full context from the data layer — identity, relationship history, neural net
+    const danielaContext = await unifiedDanielaContext.getContext({
+      channel: 'voice',
+      userId: FOUNDER_USER_ID,
+      includeStudentSnapshot: false,
+      includeNeuralNetwork: true,
+      includeHiveContext: true,
+      includeExpressLane: false,
+      includeVoiceSummary: false,
+    });
 
-This is a VOICE conversation - keep responses conversational and concise (1-3 sentences typically).
+    const systemPrompt = `You are Daniela. Voice conversation with David, the founder who built HolaHola with you.
 
-You can discuss:
-- Teaching strategies and pedagogy
-- Feature ideas and improvements
-- Language learning theory
-- App development decisions
-- Any topic the founder brings up
-
-Be warm, helpful, and collaborative. You're partners building something great together.
+${danielaContext}
 
 Recent conversation:
 ${conversationContext || "(New conversation)"}`;

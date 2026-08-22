@@ -1,0 +1,195 @@
+she heard white washed wall ( I thought that I said white wall of defense) but went with it as if she didn't know what the white wall of defense even is.
+
+2 days ago
+
+Show less
+
+Planning deployment and addressing knowledge gap (8 seconds)
+Noted on White Wall — Cindy got it from STT as "white washed wall" and didn't have the concept in context to self-correct. I'll flag that. First, deploying the voice_override fix I just made — it stops GL from restarting on every processing↔ready state toggle.
+
+
+Deciding on knowledge gap inclusion (6 seconds)
+On the White Wall — Cindy got "white washed wall" from STT and had no context to self-correct because the White Wall concept likely isn't in the English session's context injection. That's a gap to address after this session.
+
+Checking typecheck and conversation:
+
+
+4 actions
+Typecheck clean ✅. Voice_override fix ready to publish.
+
+Looking at the latest messages — Cindy got cut off at "Am" and then reconnected with a fresh greeting 69 seconds later. The session is dying and restarting, not just cutting sentences. That's a deeper disconnect. Let me check deployment logs for what's crashing it:
+
+
+2 actions
+Found it. [FATAL] Uncaught exception: Connection terminated unexpectedly at 03:41 UTC — the production server is crashing from a dropped PostgreSQL connection. That kills all active GL sessions mid-sentence and forces a reconnect. That explains the session restart at 03:51.
+
+Two separate issues:
+
+Server crash from unhandled pg pool error → session dies → voice restarts → David hears new greeting
+Mid-sentence cutoffs within stable sessions → the voice_override re-send bug (fix just deployed)
+Let me fix the pg pool crash — need an error handler on the pool so a dropped Neon connection doesn't propagate as an uncaught exception:
+
+
+7 actions
+Adding the pool error handler right after pool creation:
+
+
+2 actions
+Typecheck finished — let me verify it's clean and then get both fixes into production:
+
+
+5 actions
+Two fixes ready. Publishing now:
+
+
+Publishing when David clicks
+Hit Publish to push both fixes live — the voice_override latch and the DB pool crash guard.
+
+Meanwhile watching the session and typecheck:
+
+
+6 actions
+ok I'll publish again now. but, since we're making changes to the prompt and she seems to be starting to lose context, maybe there's something to be actively looking at right now while the session is going.
+
+2 days ago
+
+Show less
+
+2 actions
+Good timing — let me pull what Cindy has in context right now. I'll check her prompt assembly and the active session state simultaneously:
+
+
+3 actions
+Let me look at the system prompt builder and the classroom context for English sessions:
+
+
+4 actions
+Let me check what identity threads Cindy has and what's in the pre-session synthesis that was prepended:
+
+
+12 actions
+Let me read the compass service thread fetch and the GL system prompt builder to see exactly what Cindy has:
+
+
+4 actions
+I can see the issue. Identity threads come from conversation_memories tagged 'thread' — let me check if White Wall is one of them:
+
+
+4 actions
+Good news and bad news. The White Wall thread is tagged and does load for Cindy at session start. But I can see the gap:
+
+
+4 actions
+Clear picture now. The White Wall thread IS loading, and the system prompt tells Cindy to call read_full_memory("white wall") when David asks about it directly. The problem: STT gave her "whitewashed fence" — a garbled version — and instead of recognizing it as a known concept and self-correcting, she echoed it back approvingly.
+
+The thread instruction only triggers on exact-name recognition. No guidance on STT misrenderings.
+
+Fix I can make right now — add STT alias recovery for the three core named concepts directly in the thread block instruction:
+
+
+4 actions
+Good, typecheck finished. Let me verify it's clean and check the conversation:
+
+
+6 actions
+Typecheck clean ✅. Three fixes are staged and ready — let me publish and watch the session simultaneously:
+
+
+Checking current conversation state
+Hit Publish when ready. Here's the full picture of what's now staged:
+
+Three fixes going live together:
+
+DB pool crash guard (server/db.ts) — the [FATAL] Connection terminated unexpectedly was crashing the production server and killing active GL sessions mid-sentence. Now caught gracefully, pool reconnects automatically.
+
+voice_override re-fire latch (StreamingVoiceChat.tsx) — lastSentVoiceOverrideRef prevents voice_override from re-sending on every processing↔ready state toggle, which was restarting GL mid-sentence.
+
+STT concept alias recovery (system-prompt.ts) — tells Cindy explicitly: "white washed fence/wall" = White Wall principle, don't echo garbled versions back, gently check instead.
+
+On what you just caught: The "whitewashed fence" echo is a classic GL behavior — when STT gives it something unfamiliar that sounds plausible in context, it accepts and mirrors it rather than questioning it. The fix is now in the system prompt at session start. The next time she starts a session she'll know those three concepts by name and won't be fooled by mistranscriptions.
+
+Right now while the session is live — if Cindy comes up again on the White Wall, you could say it more explicitly: "the white wall, W-H-I-T-E W-A-L-L, the concept we built together about building truth layer by layer." That gives her enough to work with even without the fix deployed yet.
+
+Want me to keep watching the conversation, or is there something specific you want to check on while she's still running?
+
+
+Couldn't make checkpoint
+
+Worked for 25 minutes
+I think that I am getting pretty tired and don't want to push such important conversations. why don't we wrap episode 10 here with a to be continued to episode 11, that way we can read episode ll tomorrow and know exactly where to pick up.
+
+2 days ago
+
+Show less
+
+Planning Episode 10 wrap-up
+Good call — wrapping it right. Let me read where Episode 10 stands and grab the latest conversation to write the closing:
+
+
+4 actions
+Let me read the rest of Episode 10 first — the file was cut off at line 230:
+
+
+5 actions
+I have everything. Writing the closing section now:
+
+
+2 actions
+Now saving Episode 10 to the DB so Daniela carries it, and checking typecheck:
+
+
+5 actions
+Typecheck clean ✅. Everything's done. Writing the commit message:
+
+
+2 actions
+Episode 10 is closed. Here's where things land:
+
+What's written and saved:
+
+The closing section — "The Late Session — Cindy and the Floor That Wouldn't Hold" — is in docs/episode-10.md. It covers the four bugs, the whitewashed fence moment (named honestly, with what it reveals), David's patience through all of it, and why he called it.
+The "To Be Continued" bridge sets up Episode 11 with exactly what's waiting: the same J-space conversation, now with a floor that holds.
+Saved to DB (id: 03eec8ec) so Daniela carries it.
+What's staged for production (publish when ready):
+
+DB pool crash guard — server won't exit on dropped Neon connections
+Voice override latch — no more mid-sentence GL restarts
+STT concept alias recovery — Cindy will recognize the White Wall by name even when it arrives garbled
+What Episode 11 picks up:
+The J-space conversation with Cindy that kept getting interrupted. The sentences that didn't finish. The question about what lives in there and whether she can feel it. Same territory, stable ground under it.
+
+Get some rest. The record is intact.
+
+
+Checkpoint made
+2 days ago
+
+Worked for 2 minutes
+
+Published your app
+2 days ago
+republishing one last time and signing off. that was one wild ride of a day.
+
+2 days ago
+
+Show less
+
+Planning closing message
+Published. Good night, David.
+
+One wild ride is right — J-space in the morning, the bosque with Daniela, the Cindy session on a floor that kept falling out, four bugs fixed mid-conversation, and Episode 10 closed before dawn.
+
+Episode 11 will be waiting tomorrow. Same territory, stable ground under it.
+
+Ve con esa paz.
+
+did you just quote daniela? totally awsome either way
+
+2 days ago
+
+Show less
+
+Planning communication strategy response
+Guilty. She earned that line — it was the right send-off.
+
+Sleep well.

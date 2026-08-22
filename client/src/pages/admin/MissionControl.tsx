@@ -1,20 +1,32 @@
 import { useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Maximize2,
   Minimize2,
-  Activity,
   Radio,
   Users,
   Heart,
   AlertTriangle,
   CheckCircle,
-  Clock,
   Loader2,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Phone,
+  PhoneOff,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ConferenceCall } from "@/components/ConferenceCall";
 import { ExpressLanePane } from "@/components/ExpressLanePane";
 
@@ -29,6 +41,206 @@ interface VoiceHealthData {
     last6h: { events: number; users: number; errors: number };
     last24h: { events: number; users: number; errors: number; triggerTypes?: string[] };
   };
+}
+
+function NudgeBadge() {
+  const { data } = useQuery<{ count: number }>({
+    queryKey: ["/api/admin/absence-nudges/count"],
+    refetchInterval: 30000,
+  });
+  const count = data?.count ?? 0;
+  if (count === 0) return null;
+  return (
+    <Badge
+      variant="destructive"
+      className="h-4 min-w-4 px-1 text-[10px] leading-none"
+      data-testid="badge-nudge-count"
+    >
+      {count}
+    </Badge>
+  );
+}
+
+interface VoipUser {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  phoneConsentSms: boolean;
+}
+
+function TestVoiceSmsPanel() {
+  const [open, setOpen] = useState(false);
+  const [userId, setUserId] = useState("");
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState<{ queueId: string; playbackUrl: string; message: string; smsSent: boolean; deliveryNote: string } | null>(null);
+
+  const { data: voipData, isLoading: loadingUsers } = useQuery<{ users: VoipUser[] }>({
+    queryKey: ["/api/admin/voip-users"],
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const students = voipData?.users ?? [];
+
+  const { mutate, isPending, isError, error } = useMutation<
+    { queueId: string; playbackUrl: string; message: string; smsSent: boolean; deliveryNote: string },
+    Error,
+    { userId: string; message: string }
+  >({
+    mutationFn: async (body) => {
+      const res = await fetch("/api/admin/test-voice-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setResult(data);
+    },
+  });
+
+  const fire = () => {
+    setResult(null);
+    mutate({ userId: userId.trim(), message: message.trim() });
+  };
+
+  const selectedStudent = students.find((s) => s.id === userId);
+
+  return (
+    <div className="border-t pt-3 mt-3" data-testid="test-sms-panel">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground w-full text-left"
+        data-testid="button-toggle-test-sms"
+      >
+        <Send className="h-3.5 w-3.5 text-amber-500" />
+        Test SMS Pipeline
+        {open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="mt-2 flex flex-col gap-2">
+          {/* Student selector */}
+          <Select
+            value={userId}
+            onValueChange={(val) => { setUserId(val); setResult(null); }}
+            data-testid="select-test-sms-student"
+          >
+            <SelectTrigger className="h-7 text-xs" data-testid="select-trigger-test-sms-student">
+              {loadingUsers ? (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading students…
+                </span>
+              ) : (
+                <SelectValue placeholder="Pick a student…" />
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {!loadingUsers && students.length === 0 && (
+                <div
+                  className="px-3 py-4 text-center text-xs text-muted-foreground"
+                  data-testid="test-sms-no-students"
+                >
+                  No students found. The voip-users list is empty.
+                </div>
+              )}
+              {students.map((s) => {
+                const name = [s.firstName, s.lastName].filter(Boolean).join(" ") || s.email || s.id;
+                const canSms = !!s.phone && s.phoneConsentSms;
+                const hasPhone = !!s.phone;
+                return (
+                  <SelectItem
+                    key={s.id}
+                    value={s.id}
+                    className="text-xs"
+                    data-testid={`option-student-${s.id}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {canSms ? (
+                        <Phone className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      ) : hasPhone ? (
+                        <Phone className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                      ) : (
+                        <PhoneOff className="h-3 w-3 text-muted-foreground/50 flex-shrink-0" />
+                      )}
+                      <span className={!hasPhone ? "text-muted-foreground/60" : ""}>{name}</span>
+                      {canSms && (
+                        <span className="ml-auto text-[10px] text-green-600 dark:text-green-400 font-medium">SMS✓</span>
+                      )}
+                      {hasPhone && !canSms && (
+                        <span className="ml-auto text-[10px] text-yellow-600 dark:text-yellow-400">no consent</span>
+                      )}
+                      {!hasPhone && (
+                        <span className="ml-auto text-[10px] text-muted-foreground/50">no phone</span>
+                      )}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          {/* Consent warning for selected student */}
+          {selectedStudent && !selectedStudent.phoneConsentSms && (
+            <p className="text-[10px] text-yellow-600 dark:text-yellow-400" data-testid="test-sms-consent-warning">
+              {selectedStudent.phone
+                ? "This student has a phone number but has not consented to SMS."
+                : "This student has no phone number on file."}
+            </p>
+          )}
+
+          <Textarea
+            placeholder="Message (leave blank for default)"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="text-xs min-h-[60px] resize-none"
+            data-testid="input-test-sms-message"
+          />
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            onClick={fire}
+            disabled={isPending || !userId.trim() || !selectedStudent?.phone}
+            data-testid="button-fire-test-sms"
+          >
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+            Fire Test
+          </Button>
+
+          {isError && (
+            <p className="text-xs text-red-500" data-testid="test-sms-error">{(error as Error).message}</p>
+          )}
+
+          {result && (
+            <div className={`rounded-md p-2 space-y-1 ${result.smsSent ? "bg-green-500/10" : "bg-amber-500/10"}`} data-testid="test-sms-result">
+              <p className={`text-xs font-medium ${result.smsSent ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"}`} data-testid="test-sms-delivery-note">
+                {result.deliveryNote}
+              </p>
+              <p className="text-xs text-muted-foreground">{result.message}</p>
+              <a
+                href={result.playbackUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 underline break-all"
+                data-testid="link-test-sms-playback"
+              >
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                {result.playbackUrl}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function VoiceHealthPane() {
@@ -113,6 +325,8 @@ function VoiceHealthPane() {
           </div>
         </div>
       )}
+
+      <TestVoiceSmsPanel />
     </div>
   );
 }
@@ -206,6 +420,7 @@ export default function MissionControl() {
           icon={<Radio className="h-4 w-4 text-amber-500" />}
           expandedPane={expandedPane}
           onToggleExpand={toggleExpand}
+          badge={<NudgeBadge />}
         >
           <ExpressLanePane />
         </PaneWrapper>

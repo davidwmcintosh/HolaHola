@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
-export type SubtitleMode = "off" | "target" | "all";
+export type SubtitleMode = "off" | "target";
 export type TutorGender = "male" | "female";
 export type VoiceSpeed = "slower" | "slow" | "normal" | "fast" | "faster";
 
@@ -48,8 +48,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return savedName;
   });
   const [subtitleMode, setSubtitleModeState] = useState<SubtitleMode>(() => {
-    const saved = localStorage.getItem("subtitleMode") as SubtitleMode;
-    const mode = saved && ["off", "target", "all"].includes(saved) ? saved : "target";
+    const saved = localStorage.getItem("subtitleMode");
+    // Migrate legacy 'all' → 'target'; treat any unknown value as 'target'
+    const mode: SubtitleMode = (saved === "off" || saved === "target") ? saved : "target";
     console.log('[LanguageContext] Initializing with subtitleMode:', mode, '(from localStorage)');
     return mode;
   });

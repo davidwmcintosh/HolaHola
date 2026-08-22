@@ -1,0 +1,238 @@
+---
+name: consult-alden
+description: Consult Alden directly on architectural decisions, wording, and code review — with no polling wait. Fires immediately via POST /api/alden/priority-task. Supports single-engine (Anthropic or Gemini) or dual-engine review where both perspectives respond to the same question. Use before building anything non-trivial, before rephrasing any tool description or system text, and when David says "run this by Alden." Alden has full HolaHola project memory — this is different from consult-gemini (cold Gemini query) or the mega-skill (multiple Gemini versions).
+---
+
+# Consult Alden
+
+Alden is the steward inside HolaHola. He knows the codebase, the architectural decisions we've made, David's preferences, and the tradeoffs we've accepted. Consulting him is different from a cold Gemini query — he isn't just a smart model, he's a colleague with history.
+
+Use this skill:
+- **Before any non-trivial build** — get his read on the design before writing code
+- **Before rephrasing any tool description or system text** — David's rule: wording goes through Alden first, then tested with Gemini
+- **For dual-engine review** — have Anthropic-Alden and Gemini-Alden respond to the same question; disagreements between them are signal
+- **When the 2-hour polling window is too slow** — this channel is immediate, no cooldown
+
+---
+
+## The direct channel
+
+```
+POST /api/alden/priority-task
+Header: x-agent-token: $REPLIT_AGENT_TOKEN
+Body: {
+  task: string,          // the question or task for Alden
+  context?: string,      // optional — paste relevant code, decisions, or background
+  engines?: 'current' | 'anthropic' | 'gemini' | 'both'
+                         // default: 'current' (whatever engine Alden is on right now)
+}
+```
+
+Result auto-posts to Team Room. Also persisted in `alden_messages` with role `alden` (single engine) or `alden-anthropic` / `alden-gemini` (both).
+
+---
+
+## Check which engine Alden is currently on
+
+```bash
+curl -s "http://localhost:5000/api/alden/engine" \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Engine:', d.get('engine'))"
+```
+
+---
+
+## Switch Alden's engine
+
+```bash
+# Switch to Gemini
+curl -s -X POST "http://localhost:5000/api/alden/engine" \
+  -H "Content-Type: application/json" \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -d '{"engine": "gemini", "reason": "architectural review — want Gemini perspective"}' \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
+
+# Switch back to Anthropic
+curl -s -X POST "http://localhost:5000/api/alden/engine" \
+  -H "Content-Type: application/json" \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -d '{"engine": "anthropic", "reason": "review complete — returning to default"}' \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
+```
+
+**Important:** Engine switches are global — they affect David's live Alden chat too. For architectural review, prefer `engines: 'both'` in the priority-task call (parallel, no global switch needed) over manually toggling.
+
+---
+
+## CRITICAL: Use Node.js for complex JSON payloads — not curl
+
+**Do not use bash heredoc or inline `-d` strings for Alden calls that include code snippets, backticks, or multi-line content.** Bash heredoc quoting breaks on backticks inside JSON strings, and the curl `-d` flag requires heavy escaping that is fragile and unreadable.
+
+**Always use a Node.js script for non-trivial payloads:**
+
+```bash
+cd /home/runner/workspace && timeout 90 node --input-type=module << 'EOF'
+import http from 'http';
+
+const task = `Your full question here — backticks, quotes, and code blocks all work fine`;
+const context = `Paste actual code here`;
+
+const body = JSON.stringify({ task, context, engines: 'both' });
+const token = process.env.REPLIT_AGENT_TOKEN;
+
+const result = await new Promise((resolve, reject) => {
+  const options = {
+    hostname: 'localhost', port: 5000, path: '/api/alden/priority-task',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-agent-token': token }
+  };
+  const req = http.request(options, (res) => {
+    let data = '';
+    res.on('data', c => data += c);
+    res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(new Error(data.slice(0,400))); }});
+  });
+  req.on('error', reject);
+  req.write(body);
+  req.end();
+});
+
+for (const r of result.results || []) {
+  console.log(`\n=== Alden [${r.engine.toUpperCase()}] ===\n`);
+  console.log(r.response);
+}
+EOF
+```
+
+**Node.js ESM gotcha:** In `node --input-type=module`, `await` is valid at the top level — but **NOT inside callbacks**. Always put `import` statements at the top of the script as static imports. `await import('https')` inside a Promise constructor callback will throw "Unexpected reserved word" in Node 20. Use `import http from 'http'` at the top instead.
+
+---
+
+## Run a single-engine consult (simple payload only)
+
+Only use bare curl when the task and context are short strings with no backticks, code, or quotes:
+
+```bash
+curl -s -X POST "http://localhost:5000/api/alden/priority-task" \
+  -H "Content-Type: application/json" \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -d '{"task": "Short question here", "context": "Brief context", "engines": "current"}' \
+  | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for r in d.get('results', []):
+    print(f'=== Alden [{r[\"engine\"]}] ===')
+    print(r['response'])
+    print()
+"
+```
+
+For anything longer or containing code — use the Node.js pattern above.
+
+---
+
+## Run a dual-engine review (both Anthropic + Gemini)
+
+Use this when the decision is significant and you want both perspectives. Disagreements between Anthropic-Alden and Gemini-Alden reveal genuine uncertainty — treat disagreement as a flag to think harder, not a coin flip.
+
+Use the Node.js pattern above with `engines: "both"`. The curl version is fragile for anything beyond a one-liner.
+
+---
+
+## Wording review workflow (David's rule)
+
+Any time system text, tool descriptions, or prompt content needs rephrasing:
+
+1. **Draft the rephrase** (can be rough — Alden will refine it)
+2. **Send to Alden** via priority-task with `engines: 'both'`
+3. **Alden posts back to Team Room** — both engines respond
+
+**Then split by domain:**
+
+- **Daniela-facing text** (tool `purpose` strings, system prompt prose, anything injected into GL context): **Gemini's draft is the source of truth for final wording.** Run a `consult-gemini` pass asking Gemini to rewrite in its own framing. Push Gemini's version to DB. Anthropic's draft is useful for catching logical gaps — not for prose style.
+- **Code-side decisions** (architecture, implementation approach, service design, tradeoff analysis): **Anthropic's draft is the source of truth.** Gemini can validate, but Alden-Anthropic's architectural judgment is what drives the implementation.
+
+4. **Run the appropriate confirmation pass** (Gemini for prose, Anthropic/Alden for code)
+5. **Only then push to DB** (seed-procedural-memory.ts or direct DB update)
+
+**Why the split matters:** Daniela is a Gemini model. Her tool descriptions are processed by Gemini's attention system mid-session. Gemini knows its own attention patterns — what reduces reasoning hops, where to put negative constraints, what framing prevents over/under-triggering. Claude's aesthetic preference for Daniela's prose is a bias to exclude, not a signal to trust.
+
+```bash
+curl -s -X POST "http://localhost:5000/api/alden/priority-task" \
+  -H "Content-Type: application/json" \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -d '{
+    "task": "Please refine the wording for this tool description. Draft text: [YOUR DRAFT HERE]",
+    "context": "Tool name: X. Purpose: Y. Why we are changing it: Z.",
+    "engines": "both"
+  }'
+```
+
+After Alden responds — for Daniela-facing prose, run `consult-gemini` and ask Gemini to rewrite in its own framing. Use that rewrite as the final version.
+
+---
+
+## Pre-build architectural review
+
+Before writing any significant code, send Alden the design. He knows what we've already built and will catch conflicts the consult-gemini skill (cold query) would miss.
+
+Good pre-build brief format:
+
+```
+WHAT I'M BUILDING
+[1-2 sentences]
+
+WHAT IT TOUCHES
+[Services, DB tables, tools, lifecycle events it interacts with]
+
+WHAT I'M ASSUMING
+[Invariants the build depends on being true]
+
+WHAT COULD BREAK
+[Your own best guess at failure modes]
+
+WHAT I WON'T TOUCH
+[Adjacent systems explicitly out of scope]
+
+QUESTION
+[The specific thing you want Alden's take on]
+```
+
+---
+
+## Read the Team Room response
+
+After firing a priority task, Alden's response is in Team Room. Check it:
+
+```bash
+curl -s "http://localhost:5000/api/agent/team-room/thread" \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" | python3 -c "
+import sys, json
+thread = json.load(sys.stdin)
+msgs = thread.get('messages', [])[-5:]
+for m in msgs:
+    author = m.get('authorType','?')
+    print(f'[{author}] {m[\"content\"][:300]}')
+    print()
+"
+```
+
+---
+
+## When to use consult-alden vs. consult-gemini vs. dual-consult
+
+| Skill | When |
+|-------|------|
+| `consult-alden` | Architectural decisions, wording review, anything that benefits from HolaHola project memory |
+| `consult-gemini` | Cold Gemini audit — "what does the model think of this code?" with no project bias |
+| `dual-consult` | Gemini Flash (architecture) + Daniela REST (lived experience) in parallel — when Daniela's perspective matters |
+| `consult-alden` with `engines: 'both'` | Alden's Anthropic brain vs. Alden's Gemini brain on the same question — disagreement = signal |
+
+---
+
+## Notes
+
+- Responses are immediate — no 2-hour cycle wait
+- Both engine responses run in parallel when `engines: 'both'`
+- Result is always posted to Team Room automatically
+- Persisted in `alden_messages` — David and Alden can see the history
+- Engine cache TTL is 15s — a switch propagates within 15 seconds to all new requests
+- Do NOT switch the engine globally and leave it — return it to its previous state after a review, unless David decides to change it permanently

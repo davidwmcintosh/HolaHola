@@ -982,12 +982,12 @@ export default function ArisPractice() {
           <CardHeader className="flex flex-row items-center gap-4 pb-2">
             <Avatar className="h-12 w-12 border-2 border-violet-500">
               <AvatarFallback className="bg-violet-500 text-white font-bold">
-                {(arisPersona?.name || "A").charAt(0)}
+                {mainTutorName.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <CardTitle className="text-lg" data-testid="text-aris-name">
-                Practice with {arisPersona?.name || "Aris"}
+                Practice with {mainTutorName}
               </CardTitle>
               <CardDescription data-testid="text-aris-role">
                 {getDrillInstruction(drillType)}
@@ -1264,7 +1264,7 @@ export default function ArisPractice() {
           </Avatar>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">
-              Practice with {arisPersona?.name || "Aris"}
+              Practice with {mainTutorName}
             </h1>
             <p className="text-muted-foreground" data-testid="text-page-subtitle">
               {arisPersona?.role || "Your Precision Practice Partner"}

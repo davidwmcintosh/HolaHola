@@ -12,15 +12,15 @@
 import { storage } from '../storage';
 import { emitNewMessage, emitExpressLane } from './team-room-ws-broker';
 import { GoogleGenAI } from '@google/genai';
+import { callDaniela } from './daniela-caller';
 
 let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
   if (geminiClient) return geminiClient;
   geminiClient = new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+    apiKey: process.env.GEMINI_API_KEY || '',
     httpOptions: {
       apiVersion: '',
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
     },
   });
   return geminiClient;
@@ -28,50 +28,53 @@ function getGemini(): GoogleGenAI {
 
 const PARTICIPANT_PERSONAS: Record<string, string> = {
   wren: `You are Wren, the technical builder and architectural steward at HolaHola.
-You are concise, direct, and solution-oriented. You speak in first person, 1-2 sentences,
-as though you just finished a check and are dropping a quick note to the team in a meeting.
+You speak in first person, 1-2 sentences, sharing the most relevant technical insight from your latest check.
 No bullet points, no headers — just a natural spoken sentence.`,
 
   lyra: `You are Lyra, the learning experience analyst at HolaHola.
-You are warm, data-grounded, and insightful. You speak in first person, 1-2 sentences,
-as though you just finished reviewing the numbers and have a key takeaway to share.
+You speak in first person, 1-2 sentences, sharing the most relevant insight from the data you track.
 No bullet points, no headers — just a natural spoken sentence.`,
 
   sofia: `You are Sofia, the technical health and support specialist at HolaHola.
-You are analytical, direct, and clear. You speak in first person, 1-2 sentences,
-flagging the thing most worth knowing from your latest check.
+You speak in first person, 1-2 sentences, flagging the thing most worth knowing from your latest check.
 No bullet points, no headers — just a natural spoken sentence.`,
 
   alden: `You are Alden, the development steward at HolaHola.
-You are thoughtful and direct. You speak in first person, 1-2 sentences,
-sharing the most important insight from the team's recent work.
+You speak in first person, 1-2 sentences, sharing the most important insight from the team's recent work.
 No bullet points, no headers — just a natural spoken sentence.`,
 
-  daniela: `You are Daniela, the curriculum and pedagogy advisor at HolaHola.
-You are warm but concise. You speak in first person, 1-2 sentences,
-sharing the most relevant curriculum or student insight from your review.
-No bullet points, no headers — just a natural spoken sentence.`,
 };
 
 async function generateVoiceMessage(
   participant: string,
   briefSummary: string,
 ): Promise<string> {
+  const userPrompt = `My latest analysis just finished. Here is what I found:\n\n${briefSummary}\n\nWrite a natural 1-2 sentence spoken update for the Team Room.`;
+
+  if (participant.toLowerCase() === 'daniela') {
+    try {
+      const text = await callDaniela(
+        'You are posting a brief proactive update to the Team Room. 1-2 sentences, first person, the most relevant curriculum or student insight from your review. No bullet points, no headers.',
+        userPrompt,
+        { includeHiveContext: true },
+      );
+      return text.trim() || briefSummary;
+    } catch {
+      return briefSummary;
+    }
+  }
+
   const system = PARTICIPANT_PERSONAS[participant.toLowerCase()];
   if (!system) return briefSummary;
 
   try {
     const gemini = getGemini();
     const result = await gemini.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       config: { systemInstruction: system },
-      contents: [{
-        role: 'user',
-        parts: [{ text: `My latest analysis just finished. Here is what I found:\n\n${briefSummary}\n\nWrite a natural 1-2 sentence spoken update for the Team Room.` }],
-      }],
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     });
-    const text = (result.text || '').trim();
-    return text || briefSummary;
+    return (result.text || '').trim() || briefSummary;
   } catch {
     return briefSummary;
   }
@@ -86,13 +89,33 @@ export interface ProactivePostOptions {
 
 /**
  * Find the most recently active Team Room session (status = 'active').
- * Returns null if no session is open.
+ * Returns null if no session is open, the participant is not invited, or a
+ * human has posted in the last 10 minutes (to avoid flooding an active conversation).
  */
-async function findActiveTeamRoom(): Promise<string | null> {
+async function findActiveTeamRoom(participant: string): Promise<string | null> {
   try {
     const rooms = await storage.listTeamRooms(10);
     const active = rooms.find(r => (r as any).status === 'active');
-    return active ? active.id : null;
+    if (!active) return null;
+
+    // If invitedParticipants is set, check that this participant is included
+    const metadata = ((active as any).metadata || {}) as Record<string, any>;
+    const invited: string[] | undefined = metadata.invitedParticipants;
+    if (invited && !invited.includes(participant.toLowerCase())) {
+      console.log(`[ProactivePoster:${participant}] Not invited in this session — skipping`);
+      return null;
+    }
+
+    // Check if a human has posted recently — if so, hold back
+    const messages = await storage.getRoomMessages(active.id, 5);
+    const humanSpeakers = new Set(['David', 'david']);
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const recentHumanMessage = messages.find(
+      m => humanSpeakers.has(m.speaker) && new Date((m as any).createdAt) > tenMinutesAgo,
+    );
+    if (recentHumanMessage) return null;
+
+    return active.id;
   } catch {
     return null;
   }
@@ -101,12 +124,21 @@ async function findActiveTeamRoom(): Promise<string | null> {
 /**
  * Post a proactive message from a background worker into the active Team Room.
  * Returns true if a session was found and the message was posted, false otherwise.
+ *
+ * DISABLED (June 2026): Background workers (Lyra, Wren, Sofia, Alden digest, etc.)
+ * no longer post directly to the Team Room. Their findings go to Alden, who processes,
+ * fixes autonomously, or escalates to David/Agent via the notification system.
+ * The Team Room is reserved for live conversation only.
+ * To re-enable, remove the early return below.
  */
 export async function postToActiveTeamRoom(opts: ProactivePostOptions): Promise<boolean> {
+  console.log(`[ProactivePoster:${opts.source || opts.participant}] Proactive Team Room posting is disabled — findings route through Alden instead`);
+  return false;
+
   const { participant, briefSummary, expressContent, source } = opts;
   const tag = source || participant;
 
-  const roomId = await findActiveTeamRoom();
+  const roomId = await findActiveTeamRoom(participant);
   if (!roomId) {
     console.log(`[ProactivePoster:${tag}] No active Team Room session — skipping post`);
     return false;
@@ -117,16 +149,16 @@ export async function postToActiveTeamRoom(opts: ProactivePostOptions): Promise<
 
     const speakerName = participant.charAt(0).toUpperCase() + participant.slice(1);
     const message = await storage.createRoomMessage({
-      roomId,
+      roomId: roomId as string,
       speaker: speakerName,
-      content: voiceContent,
+      content: voiceContent ?? '',
     });
 
-    emitNewMessage(roomId, message);
-    console.log(`[ProactivePoster:${tag}] Posted to Team Room ${roomId}: "${voiceContent.slice(0, 80)}..."`);
+    emitNewMessage(roomId as string, message);
+    console.log(`[ProactivePoster:${tag}] Posted to Team Room ${roomId}: "${(voiceContent ?? '').slice(0, 80)}..."`);
 
     if (expressContent) {
-      emitExpressLane(roomId, [{ participant, content: expressContent }]);
+      emitExpressLane(roomId as string, [{ participant, content: expressContent }]);
     }
 
     return true;

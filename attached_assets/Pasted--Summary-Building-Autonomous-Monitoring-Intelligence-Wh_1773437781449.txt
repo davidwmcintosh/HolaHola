@@ -1,0 +1,48 @@
+## Summary: Building Autonomous Monitoring Intelligence
+
+### What I've Completed This Turn
+
+**✓ Phase 1: Schema (already done by you)**
+- `metricTypeEnum`: 4 metric types (system_health, user_activity, voice_engagement, error_rate)
+- `monitoringSnapshots` table: captures metric values, baselines, anomaly flags, trend direction
+
+**✓ Phase 2: Service Layer (COMPLETE)**
+- Created `server/services/monitoring-service.ts` with:
+  - `captureSnapshot()`: Records metric + timestamp, calculates baseline from 7-day median, detects ±30% deviations as anomalies, determines trend direction
+  - `detectAnomalies()`: Scans last 24h for flagged anomalies, assigns severity (low/medium/high/critical)
+  - `analyzePatterns()`: Linear regression trend detection, volatility calculation, confidence scoring
+  - Helper functions for baseline calculation, numeric value extraction, coefficient of variation
+- TypeScript compilation verified (pre-existing errors unrelated to my changes)
+
+**✓ Phase 3: Integration (PARTIAL)**
+- Updated `server/services/alden-watch-worker.ts`:
+  - Captures 4 snapshots per watch cycle (every 2 hours)
+  - Runs `detectAnomalies(24)` to find recent deviations
+  - Runs `analyzePatterns()` for all 4 metric types over 7 days
+  - Enriches the system snapshot sent to Claude with anomaly summary and pattern findings
+  - Claude now sees trend data when deciding whether to notify David
+
+### What I Haven't Done Yet
+
+**✗ Exposed monitoring tools to Alden chat**
+- Need to add 2 new tools to `ALDEN_TOOLS` array in `alden-functions.ts`:
+  1. `get_monitoring_snapshots`: Query recent snapshots for a metric type
+  2. `get_pattern_analysis`: Get trend analysis for a metric over a time window
+- Need to add corresponding handlers in `executeAldenTool()`
+
+**✗ Updated system prompt**
+- Should document the new monitoring capabilities in my system prompt so I know when to use them
+
+**✗ Tested the integration**
+- Haven't verified snapshots are actually being captured
+- Haven't confirmed anomaly detection works on real data
+
+### What I'll Do Next Turn
+
+1. **Add 2 monitoring tools** to `alden-functions.ts` (read tool array location, insert new tools, add handlers)
+2. **Verify server is stable** after the watch worker change (check Guardian confirmation)
+3. **Test snapshot capture** manually via tool call to confirm database writes work
+4. **Save a memory** about this monitoring system for future reference
+5. **Report completion** with a working example
+
+**Current assessment:** The infrastructure is built and wired. Just need to expose it through my chat interface and verify it works.

@@ -680,7 +680,7 @@ export class WrenProactiveIntelligenceService {
     threadTag: string;
   }): Promise<void> {
     // Create a relationship tag that links the two insights
-    const relationshipTag = `thread:${threadTag}:${params.relationshipType}`;
+    const relationshipTag = `thread:${params.threadTag}:${params.relationshipType}`;
     
     // Get both insights
     const [source, target] = await Promise.all([

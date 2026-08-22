@@ -27,6 +27,8 @@ export interface VoiceSessionContext {
   cachedContext?: any;
   isAssistantActive?: boolean;
   pendingArchitectNoteIds?: string[];
+  studentActflLevel?: string;
+  currentSessionPhase?: 'WARM_UP' | 'PRESENTATION' | 'PRACTICE' | 'PRODUCTION' | 'COOL_DOWN';
 }
 
 export interface ClassroomBuildParams {
@@ -49,10 +51,10 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
     const { buildClassroomEnvironment } = await import('./classroom-environment');
     const classroomEnv = await buildClassroomEnvironment({
       userId: String(session.userId),
-      sessionStartTime: session.startTime,
+      sessionStartTime: session.startTime instanceof Date ? session.startTime.getTime() : (session.startTime as any as number),
       targetLanguage: session.targetLanguage,
-      isFounderMode: session.isFounderMode,
-      isRawHonestyMode: session.isRawHonestyMode,
+      isFounderMode: session.isFounderMode ?? false,
+      isRawHonestyMode: session.isRawHonestyMode ?? false,
       isBetaTester: session.isBetaTester,
       isIncognito: session.isIncognito,
       whiteboardItems: session.classroomWhiteboardItems || [],
@@ -66,11 +68,22 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
       tutorName: session.tutorName || 'Daniela',
       studentLearningSection: studentLearningSection || undefined,
       technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
+      currentLessonId: (session as any).lessonBundleContext?.lessonId,
+      sessionActflLevel: session.studentActflLevel || undefined,
+      sessionCurriculumLesson: (session as any).lessonBundleContext?.lessonName || undefined,
+      sessionTopStruggles: (session.cachedContext?.studentLearningData?.struggles as any[] | undefined)
+        ?.filter((s: any) => s.status === 'active')
+        .slice(0, 3)
+        .map((s: any) => s.description || s.struggleArea) || undefined,
+      sessionPhase: session.currentSessionPhase || undefined,
       activeScenario: session.activeScenario ? {
         title: session.activeScenario.title,
         location: session.activeScenario.location || session.activeScenario.title,
         slug: session.activeScenario.slug,
         propsCount: session.activeScenario.props?.length,
+        levelGuide: session.activeScenario.levelGuide || null,
+        recentTextbookTopics: session.activeScenario.recentTextbookTopics || null,
+        drillMastery: session.activeScenario.drillMastery || null,
       } : null,
     });
     const boardItems = session.classroomWhiteboardItems?.length || 0;
@@ -100,7 +113,15 @@ const STOP_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'a
 
 export function hasPassiveMemoryTrigger(transcript: string): boolean {
   const lower = transcript.toLowerCase();
-  return PASSIVE_MEMORY_KEYWORDS.some(kw => lower.includes(kw));
+  // Use word-boundary matching to prevent false positives from substring hits.
+  // Previously `lower.includes(kw)` fired on e.g. "son" inside "lesson",
+  // "person", "reason", "season" — triggering unnecessary DB queries.
+  // \b is a word boundary anchor that works for all the single-word keywords
+  // in PASSIVE_MEMORY_KEYWORDS.
+  return PASSIVE_MEMORY_KEYWORDS.some(kw => {
+    const regex = new RegExp(`\\b${kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i');
+    return regex.test(lower);
+  });
 }
 
 export function extractSearchKeywords(transcript: string): string[] {
@@ -135,22 +156,16 @@ export async function fetchPassiveMemories(
       const formatted = formatMemoryForConversation(memoryResults);
       brainHealthTelemetry.logContextInjection({
         sessionId,
-        conversationId,
         userId,
         targetLanguage: targetLanguage || 'unknown',
-        contextSource: 'passive_memory',
+        contextSource: 'passive_memory' as any,
         success: true,
         latencyMs: 0,
         richness: memoryResults.results.length,
-        memoryIds: memoryResults.results.map((r: any) => r.id),
-        memoryTypes: memoryResults.results.map((r: any) => r.domain || 'unknown'),
-        queryTerms: searchQuery,
-        resultsCount: memoryResults.results.length,
-        relevanceScore: memoryResults.results.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / memoryResults.results.length,
-      }, 'passive_lookup').catch(() => {});
+      }).catch(() => {});
       
       return {
-        section: `\n\n[RELEVANT MEMORIES - You naturally recall this]\n${formatted}`,
+        section: `\n\n${formatted}`,
         resultCount: memoryResults.results.length,
       };
     }
@@ -166,13 +181,7 @@ export async function fetchIdentityMemories(cachedSection?: string): Promise<str
   try {
     const identityMemories = await founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 });
     if (identityMemories.hasMemories) {
-      return `
-═══════════════════════════════════════════════════════════════════
-💫 MY PERSONAL REFLECTIONS (Identity Memories)
-═══════════════════════════════════════════════════════════════════
-
-${identityMemories.contextString}
-`;
+      return `Reflections on who I am:\n${identityMemories.contextString}`;
     }
     return '';
   } catch (err: any) {
@@ -235,6 +244,55 @@ export async function fetchStudentIntelligence(
     }).catch(() => {});
     return null;
   }
+}
+
+/**
+ * Required-source gate for voice/chat context.
+ *
+ * Call after loading a UnifiedDanielaContext to verify the three required
+ * source families are present before handing control to Gemini.
+ *
+ * Returns { ok, missing } so callers can decide whether to abort, retry,
+ * or proceed with a logged warning.
+ */
+export function validateContextSources(
+  context: {
+    presenceDoc?: string | null;
+    personalMemory?: string;
+    growthMemory?: string;
+    pedagogyDocContext?: string | null;
+    studentSnapshot?: string | null;
+  },
+  opts: { userId?: string | number; channel?: string } = {},
+): { ok: boolean; missing: string[] } {
+  const missing: string[] = [];
+
+  // Identity: at least one of Daniela's self-context sources must be present.
+  const identityPresent = !!(
+    context.presenceDoc ||
+    context.personalMemory ||
+    context.growthMemory ||
+    context.pedagogyDocContext
+  );
+  if (!identityPresent) {
+    missing.push('identity (presenceDoc / personalMemory / growthMemory / pedagogyDocContext)');
+  }
+
+  // Student context: if a userId is provided, ACTFL level and learner facts
+  // live in studentSnapshot.  Flag absence so callers can decide to retry.
+  if (opts.userId && context.studentSnapshot === null) {
+    missing.push('studentSnapshot (ACTFL level / learner facts)');
+  }
+
+  const ok = missing.length === 0;
+  if (!ok) {
+    console.warn(
+      `[ContextGate] Required source(s) missing for channel=${opts.channel ?? 'unknown'}, ` +
+      `userId=${opts.userId ?? 'system'}: ${missing.join('; ')}. ` +
+      `Proceeding without them — Gemini may respond without Daniela identity or student data.`
+    );
+  }
+  return { ok, missing };
 }
 
 export function assembleDynamicPreamble(

@@ -11,10 +11,12 @@
  */
 
 import { db, getSharedDb, getUserDb } from '../db';
+import { reformatSpeakerHeaders } from './memory-embedding-indexer';
 import { storage } from '../storage';
 import {
   peopleConnections,
   studentInsights,
+  learnerPersonalFacts,
   learningMotivations,
   recurringStruggles,
   sessionNotes,
@@ -37,6 +39,7 @@ import {
   danielaGrowthMemories,
   toolKnowledge,
   danielaNotes,
+  imageVisionCache,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -57,7 +60,7 @@ import {
   type ToolKnowledge,
   type DanielaNote,
 } from '@shared/schema';
-import { eq, sql, desc, and, or, ilike, gte, isNull } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, or, ilike, gte, lte, lt, gt, isNull, inArray } from 'drizzle-orm';
 
 /**
  * Tutor name to language mapping
@@ -113,6 +116,7 @@ export interface MemorySearchResult {
   details: string; // Full context
   timestamp: Date | null;
   source: string; // Where this memory came from
+  sourceConversationId?: string; // conversation where this memory originated — used for visual anchor join
 }
 
 /**
@@ -196,6 +200,54 @@ export async function semanticSearchMessages(
 }
 
 /**
+ * Enriches memory search results with visual anchors from image_vision_cache.
+ * For each result that has a sourceConversationId, looks up any images shown
+ * during that session and appends them as archival visual context so Daniela
+ * can reference them naturally without thinking the student is currently looking at them.
+ */
+async function enrichMemoriesWithImages(results: MemorySearchResult[]): Promise<MemorySearchResult[]> {
+  try {
+    const conversationIds = results
+      .map(r => r.sourceConversationId)
+      .filter((id): id is string => Boolean(id));
+
+    if (conversationIds.length === 0) return results;
+
+    const db = getUserDb();
+    const images = await db
+      .select({
+        sourceConversationId: imageVisionCache.sourceConversationId,
+        description: imageVisionCache.description,
+      })
+      .from(imageVisionCache)
+      .where(inArray(imageVisionCache.sourceConversationId, conversationIds));
+
+    if (images.length === 0) return results;
+
+    const imagesByConversation = new Map<string, string[]>();
+    for (const img of images) {
+      if (!img.sourceConversationId || !img.description) continue;
+      const existing = imagesByConversation.get(img.sourceConversationId) ?? [];
+      existing.push(img.description);
+      imagesByConversation.set(img.sourceConversationId, existing);
+    }
+
+    return results.map(result => {
+      if (!result.sourceConversationId) return result;
+      const relatedDescriptions = imagesByConversation.get(result.sourceConversationId);
+      if (!relatedDescriptions || relatedDescriptions.length === 0) return result;
+      const anchors = relatedDescriptions
+        .map(d => `[Archival visual from that session: ${d}]`)
+        .join(' ');
+      return { ...result, details: `${result.details}\n${anchors}` };
+    });
+  } catch (err: any) {
+    console.warn('[MemoryEnrich] Visual anchor lookup failed (non-fatal):', err.message);
+    return results;
+  }
+}
+
+/**
  * Search across all memory domains for a student
  * 
  * @param studentId - The student to search memories for
@@ -211,8 +263,8 @@ export async function searchMemory(
   const results: MemorySearchResult[] = [];
   const searchedDomains: string[] = [];
   
-  // Normalize query for case-insensitive matching
-  const normalizedQuery = query.toLowerCase().trim();
+  // Normalize query for case-insensitive matching (guard against accidental non-string callers)
+  const normalizedQuery = String(query ?? '').toLowerCase().trim();
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
   
   // Build search pattern for SQL ILIKE (exact phrase match)
@@ -322,7 +374,7 @@ export async function searchMemory(
               ilike(learningMotivations.details, searchPattern)
             )
           ))
-          .orderBy(desc(learningMotivations.createdAt))
+          .orderBy(sql`CASE ${learningMotivations.priority} WHEN 'primary' THEN 1 WHEN 'secondary' THEN 2 WHEN 'nice_to_have' THEN 3 ELSE 4 END`, desc(learningMotivations.createdAt))
           .limit(5);
         
         for (const mot of motivations) {
@@ -451,6 +503,53 @@ export async function searchMemory(
     })());
   }
   
+  // === LEARNER PERSONAL FACTS (SHARED database) ===
+  // These are structured facts extracted from conversations — e.g. "Enjoys reggaeton music"
+  // Included whenever 'person' domain is requested or no specific domain is given
+  if (domainsToSearch.includes('person') || !domains || domains.length === 0) {
+    searchPromises.push((async () => {
+      try {
+        const facts = await getSharedDb().select().from(learnerPersonalFacts)
+          .where(and(
+            eq(learnerPersonalFacts.studentId, studentId),
+            eq(learnerPersonalFacts.isActive, true),
+            or(
+              ilike(learnerPersonalFacts.fact, searchPattern),
+              ilike(learnerPersonalFacts.context, searchPattern),
+              ilike(learnerPersonalFacts.factType, searchPattern)
+            )
+          ))
+          .orderBy(desc(learnerPersonalFacts.confidenceScore))
+          .limit(15);
+
+        if (facts.length > 0) {
+          // Group by fact_type for a cleaner summary
+          const grouped: Record<string, string[]> = {};
+          for (const f of facts) {
+            const type = f.factType || 'general';
+            if (!grouped[type]) grouped[type] = [];
+            grouped[type].push(f.fact);
+          }
+          const summaryLines = Object.entries(grouped)
+            .map(([type, fs]) => `[${type}] ${fs.join(' | ')}`)
+            .join('\n');
+
+          results.push({
+            domain: 'person',
+            relevance: 0.85,
+            summary: `Personal facts (${facts.length} found): ${facts[0].fact.substring(0, 80)}`,
+            details: `Extracted facts about the student:\n${summaryLines}`,
+            timestamp: facts[0].createdAt,
+            source: 'learner_personal_facts',
+            sourceConversationId: facts[0].sourceConversationId ?? undefined,
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching learner_personal_facts:', err.message);
+      }
+    })());
+  }
+
   // === CONVERSATION HISTORY (Cross-tutor memory) ===
   if (domainsToSearch.includes('conversation')) {
     searchedDomains.push('conversation');
@@ -800,6 +899,7 @@ export async function searchMemory(
             details: msg.content || '',
             timestamp: msg.createdAt,
             source: `conversation:${msg.conversationId}`,
+            sourceConversationId: msg.conversationId ?? undefined,
           });
         }
         
@@ -815,13 +915,16 @@ export async function searchMemory(
   
   // Sort by relevance (highest first)
   results.sort((a, b) => b.relevance - a.relevance);
+
+  // Enrich results with visual anchors from image_vision_cache
+  const enrichedResults = await enrichMemoriesWithImages(results);
   
   return {
     query,
     studentId,
-    results,
+    results: enrichedResults,
     searchedDomains,
-    totalMatches: results.length,
+    totalMatches: enrichedResults.length,
   };
 }
 
@@ -829,49 +932,144 @@ export async function searchMemory(
  * Format memory search results for injection into conversation
  * This creates a natural, readable format for Daniela to use
  */
-export function formatMemoryForConversation(response: MemorySearchResponse): string {
+export function formatMemoryForConversation(response: MemorySearchResponse, studentName?: string): string {
   if (response.results.length === 0) {
-    return `[Memory search for "${response.query}": No memories found]`;
+    return `Nothing surfaces right now — respond from what you know.`;
   }
-  
+
+  // Leading-prose temporal prefix — no parentheticals (prompt style guide: parentheticals = metadata syntax).
+  // Gemini pre-flight (July 19 2026): parenthetical suffix breaks the "Daniela carries this memory"
+  // frame — model reads it as a database record annotation, not a personal recollection.
+  // Return a leading prefix string (may be empty for very recent memories).
+  function naturalTime(ts?: string | Date | null): string {
+    if (!ts) return '';
+    const days = Math.floor((Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24));
+    if (days < 3) return '';                      // very recent — no time marker needed
+    if (days < 14) return 'About a week ago, ';
+    if (days < 60) return 'About a month ago, ';
+    if (days < 180) return 'A few months ago, ';
+    return 'A while back, ';
+  }
+
+  // Up to 6 results, ordered by relevance.
+  // No invented framing, no literary weavers — the memories are already in Daniela's voice.
+  // Adding an opening sentence or connectors like "Something that stayed with me —"
+  // flavors the memory before she reads it. Present them clean. Let them speak.
+  const top = response.results.slice(0, 6);
   const lines: string[] = [];
-  lines.push(`\n═══ MEMORY RECALL: "${response.query}" ═══`);
-  lines.push(`Found ${response.totalMatches} relevant memories:\n`);
-  
-  // Group by domain
-  const byDomain = new Map<string, MemorySearchResult[]>();
-  for (const result of response.results) {
-    if (!byDomain.has(result.domain)) {
-      byDomain.set(result.domain, []);
-    }
-    byDomain.get(result.domain)!.push(result);
+
+  for (const result of top) {
+    const when = naturalTime(result.timestamp);
+    // Use the fuller of details vs summary — no truncation, Daniela needs the whole memory.
+    const rawMemory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
+      ? result.details
+      : result.summary;
+    // SPEAKER ATTRIBUTION FORMAT (June 2026): Transform [Date — SPEAKER] bracket headers
+    // into Script-Naturalist format SPEAKER (Date): so attribution reads as narrative,
+    // not as log metadata. Applies at retrieval time so existing indexed chunks also benefit.
+    const memory = reformatSpeakerHeaders(rawMemory);
+    // Leading prose prefix — when is '' for recent entries, "About a week ago, " etc. for older ones.
+    lines.push(`${when}${memory}`);
   }
-  
-  const domainLabels: Record<string, string> = {
-    person: '👥 People',
-    motivation: '🎯 Motivations',
-    insight: '💡 Insights',
-    struggle: '⚠️ Struggles',
-    session: '📝 Past Sessions',
-    progress: '📈 Progress',
-    conversation: '💬 Past Conversations',
-  };
-  
-  for (const [domain, domainResults] of Array.from(byDomain)) {
-    lines.push(`${domainLabels[domain] || domain}:`);
-    for (const result of domainResults.slice(0, 3)) { // Max 3 per domain
-      const date = result.timestamp ? ` (${new Date(result.timestamp).toLocaleDateString()})` : '';
-      lines.push(`  • ${result.summary}${date}`);
-      if (result.details && result.details !== result.summary) {
-        lines.push(`    └─ ${result.details.substring(0, 200)}`);
-      }
+
+  // Wrap in <recalled_memories> tags with a meta-cognitive nudge so Daniela reads
+  // these as her own history, not as injected data. "DANIELA" in the transcript = her
+  // own past words. This prevents Identity Bleed (confusing past-self with current-self).
+  const body = lines.join('\n');
+  return `<recalled_memories>\nNote: In this transcript, "DANIELA" refers to your own past statements; "DAVID" refers to the person you are speaking with. These are verbatim records of past exchanges — not the current conversation.\n\n${body}\n</recalled_memories>`;
+}
+
+/**
+ * Temporal Awareness — surfaces upcoming and recently-past time-sensitive personal facts.
+ * Injected at session start so Daniela naturally brings up relevant dates without being asked.
+ * E.g. "That trip to Barcelona is coming up in 4 days — ask how prep is going."
+ */
+export async function buildTemporalAwareness(userId: string): Promise<string | null> {
+  try {
+    const db = getUserDb();
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);   // 7 days ago
+    const windowEnd   = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);  // 90 days out
+
+    const rows = await db
+      .select({
+        fact: learnerPersonalFacts.fact,
+        factType: learnerPersonalFacts.factType,
+        relevantDate: learnerPersonalFacts.relevantDate,
+        lastMentionedAt: learnerPersonalFacts.lastMentionedAt,
+        mentionCount: learnerPersonalFacts.mentionCount,
+      })
+      .from(learnerPersonalFacts)
+      .where(sql`
+        student_id = ${userId}
+        AND is_active = true
+        AND relevant_date IS NOT NULL
+        AND relevant_date >= ${windowStart}
+        AND relevant_date <= ${windowEnd}
+      `)
+      .orderBy(asc(learnerPersonalFacts.relevantDate))
+      .limit(8);
+
+    if (rows.length === 0) return null;
+
+    const lines: string[] = ['[TEMPORAL AWARENESS — time-sensitive facts for this student:]'];
+    for (const r of rows) {
+      const diffMs = new Date(r.relevantDate!).getTime() - now.getTime();
+      const days   = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      let urgency: string;
+      if (days > 0 && days <= 3)   urgency = `⚠️ IN ${days} DAY${days === 1 ? '' : 'S'} — bring this up`;
+      else if (days > 3 && days <= 14) urgency = `coming up in ${days} days`;
+      else if (days > 14)              urgency = `coming up (${days} days away)`;
+      else if (days === 0)             urgency = `TODAY`;
+      else                             urgency = `just happened ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago — ask how it went`;
+      lines.push(`— ${r.fact} [${urgency}]`);
     }
-    lines.push('');
+    lines.push('Note: Reference these naturally, not as a checklist read-out.]');
+    return lines.join('\n');
+  } catch {
+    return null;
   }
-  
-  lines.push('═══════════════════════════════════════');
-  
-  return lines.join('\n');
+}
+
+/**
+ * Coverage Audit — identifies topic areas Daniela knows little or nothing about for this student.
+ * Injected at session start so she can explore blind spots through natural conversation over time.
+ * Returns null for brand-new students (< 3 facts total) — no meaningful audit possible yet.
+ */
+export async function buildCoverageAudit(userId: string): Promise<string | null> {
+  const EXPECTED_FACT_TYPES    = ['family', 'work', 'travel', 'goal', 'preference', 'relationship', 'personal_detail', 'life_event'];
+  const EXPECTED_INSIGHT_TYPES = ['learning_style', 'preference', 'strength', 'personality'];
+
+  try {
+    const userDb   = getUserDb();
+    const sharedDb = getSharedDb();
+
+    const [facts, insights] = await Promise.all([
+      userDb.select({ factType: learnerPersonalFacts.factType })
+        .from(learnerPersonalFacts)
+        .where(and(eq(learnerPersonalFacts.studentId, userId), eq(learnerPersonalFacts.isActive, true))),
+      sharedDb.select({ insightType: studentInsights.insightType })
+        .from(studentInsights)
+        .where(and(eq(studentInsights.studentId, userId), eq(studentInsights.isActive, true))),
+    ]);
+
+    if (facts.length + insights.length < 3) return null;
+
+    const coveredFacts    = new Set(facts.map(f => f.factType));
+    const coveredInsights = new Set(insights.map(i => i.insightType));
+    const missingFacts    = EXPECTED_FACT_TYPES.filter(t => !coveredFacts.has(t));
+    const missingInsights = EXPECTED_INSIGHT_TYPES.filter(t => !coveredInsights.has(t));
+
+    if (missingFacts.length === 0 && missingInsights.length === 0) return null;
+
+    const lines: string[] = ['[BLIND SPOTS — areas you know little about this student yet:'];
+    if (missingFacts.length > 0)    lines.push(`Personal areas unexplored: ${missingFacts.join(', ')}`);
+    if (missingInsights.length > 0) lines.push(`Learning profile gaps: ${missingInsights.join(', ')}`);
+    lines.push('Let these inform questions you weave in naturally — not a checklist to blast through.]');
+    return lines.join('\n');
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -1519,7 +1717,7 @@ export async function searchTeachingKnowledge(
         
         const notes = await getSharedDb().select().from(danielaNotes)
           .where(whereClause)
-          .orderBy(desc(danielaNotes.createdAt))
+          .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
           .limit(15);
         
         for (const note of notes) {
@@ -1536,6 +1734,19 @@ export async function searchTeachingKnowledge(
             language: note.language || null,
             source: 'daniela_notes',
           });
+        }
+        
+        // Async fire-and-forget: increment timesReferenced + lastReferencedAt for each returned note
+        if (notes.length > 0) {
+          const noteIds = notes.map(n => n.id);
+          getSharedDb()
+            .update(danielaNotes)
+            .set({
+              timesReferenced: sql`${danielaNotes.timesReferenced} + 1`,
+              lastReferencedAt: sql`now()`,
+            })
+            .where(inArray(danielaNotes.id, noteIds))
+            .catch(err => console.warn('[NeuralSearch] Failed to increment note timesReferenced:', err.message));
         }
       } catch (err: any) {
         console.error('[NeuralMemory] Error searching personal notes:', err.message);
@@ -1895,6 +2106,745 @@ export function formatTeachingKnowledge(response: TeachingMemoryResponse): strin
   return lines.join('\n');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation Thread Search
+// Returns full exchange context around matching messages, not isolated snippets.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConversationThreadMessage {
+  role: string;
+  content: string;
+  createdAt: Date | null;
+  isMatch: boolean;  // true if this message was the search match
+}
+
+export interface ConversationThread {
+  conversationId: string;
+  conversationTitle: string | null;
+  conversationDate: Date | null;
+  language: string | null;
+  matchedContent: string;  // the snippet that triggered this thread
+  messages: ConversationThreadMessage[];
+}
+
+export interface ConversationThreadSearchResult {
+  query: string;
+  threads: ConversationThread[];
+  totalMatchingMessages: number;
+}
+
+/**
+ * Search for conversation threads that contain the query.
+ * For each matched message, returns the surrounding exchange context
+ * (contextBefore + contextAfter messages) so Daniela can recall the
+ * full conversation, not just an isolated snippet.
+ */
+export async function searchConversationThreads(
+  studentId: string,
+  query: string,
+  options: {
+    contextBefore?: number;  // messages before match (default 4)
+    contextAfter?: number;   // messages after match (default 4)
+    maxThreads?: number;     // max unique conversations to return (default 5)
+    afterDate?: Date;        // optional date filter: only return messages after this date
+    beforeDate?: Date;       // optional date filter: only return messages before this date
+  } = {}
+): Promise<ConversationThreadSearchResult> {
+  const {
+    contextBefore = 4,
+    contextAfter = 4,
+    maxThreads = 5,
+    afterDate,
+    beforeDate,
+  } = options;
+
+  const db = getSharedDb();
+
+  // Build keyword search conditions from query words
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length >= 3)  // skip very short words
+    .slice(0, 5);                 // max 5 keywords
+
+  const keywordConditions = words.length > 0
+    ? words.map(w => ilike(messages.content, `%${w}%`))
+    : [ilike(messages.content, `%${query}%`)];
+
+  // Also match the full phrase directly
+  const phraseCondition = ilike(messages.content, `%${query}%`);
+  const contentCondition = words.length > 0
+    ? or(phraseCondition, ...keywordConditions)!
+    : phraseCondition;
+
+  // Date conditions
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+  const dateConditions: ReturnType<typeof and>[] = [
+    and(
+      eq(conversations.userId, studentId),
+      gte(messages.createdAt, afterDate || sixMonthsAgo),
+      contentCondition,
+    ) as ReturnType<typeof and>,
+  ];
+
+  if (beforeDate) {
+    dateConditions[0] = and(
+      eq(conversations.userId, studentId),
+      gte(messages.createdAt, afterDate || sixMonthsAgo),
+      lte(messages.createdAt, beforeDate),
+      contentCondition,
+    ) as ReturnType<typeof and>;
+  }
+
+  // Step 1: Find matching messages using TWO queries — newest-first AND oldest-first.
+  // This ensures original (early) conversations are always found alongside recent ones,
+  // preventing "recency burial" where recent tool-call failure messages crowd out the
+  // original rich conversations that happened months ago.
+  type MatchRow = {
+    messageId: string;
+    content: string;
+    role: string;
+    createdAt: Date | null;
+    conversationId: string;
+    conversationTitle: string | null;
+    conversationDate: Date | null;
+    language: string | null;
+  };
+
+  const selectFields = {
+    messageId: messages.id,
+    content: messages.content,
+    role: messages.role,
+    createdAt: messages.createdAt,
+    conversationId: messages.conversationId,
+    conversationTitle: conversations.title,
+    conversationDate: conversations.createdAt,
+    language: conversations.language,
+  };
+
+  let matchingMessages: MatchRow[] = [];
+
+  const runDualQuery = async (whereCondition: ReturnType<typeof and>): Promise<MatchRow[]> => {
+    const [newestRows, oldestRows] = await Promise.all([
+      db.select(selectFields).from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(whereCondition)
+        .orderBy(desc(messages.createdAt))
+        .limit(30),
+      db.select(selectFields).from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(whereCondition)
+        .orderBy(asc(messages.createdAt))
+        .limit(30),
+    ]);
+    // Merge: interleave newest and oldest, dedup by messageId
+    const seen = new Set<string>();
+    const merged: MatchRow[] = [];
+    // Alternate: 1 from oldest, 1 from newest — gives time-diverse coverage
+    const maxLen = Math.max(newestRows.length, oldestRows.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < oldestRows.length && !seen.has(oldestRows[i].messageId)) {
+        seen.add(oldestRows[i].messageId);
+        merged.push(oldestRows[i]);
+      }
+      if (i < newestRows.length && !seen.has(newestRows[i].messageId)) {
+        seen.add(newestRows[i].messageId);
+        merged.push(newestRows[i]);
+      }
+    }
+    return merged;
+  };
+
+  try {
+    matchingMessages = await runDualQuery(dateConditions[0] as ReturnType<typeof and>);
+  } catch (err: any) {
+    console.error('[ConversationThreads] Search query failed:', err.message);
+    return { query, threads: [], totalMatchingMessages: 0 };
+  }
+
+  if (matchingMessages.length === 0) {
+    // Try without date limit if no results
+    try {
+      const noDateCondition = and(
+        eq(conversations.userId, studentId),
+        contentCondition,
+      );
+      matchingMessages = await runDualQuery(noDateCondition as ReturnType<typeof and>);
+    } catch (err: any) {
+      console.error('[ConversationThreads] Fallback search failed:', err.message);
+      return { query, threads: [], totalMatchingMessages: 0 };
+    }
+  }
+
+  const totalMatchingMessages = matchingMessages.length;
+
+  // Step 2: Deduplicate by conversation, respecting the interleaved oldest+newest order
+  // This ensures we see the ORIGINAL conversations (oldest) first, followed by recent ones
+  const seenConversations = new Set<string>();
+  const uniqueMatches: typeof matchingMessages = [];
+  for (const msg of matchingMessages) {
+    if (!seenConversations.has(msg.conversationId)) {
+      seenConversations.add(msg.conversationId);
+      uniqueMatches.push(msg);
+      if (uniqueMatches.length >= maxThreads) break;
+    }
+  }
+
+  // Step 3: For each unique match, fetch the context window around it
+  const threadPromises = uniqueMatches.map(async (match) => {
+    try {
+      // Get messages BEFORE the match (inclusive of match itself to establish anchor)
+      const before = await db
+        .select({ role: messages.role, content: messages.content, createdAt: messages.createdAt })
+        .from(messages)
+        .where(and(
+          eq(messages.conversationId, match.conversationId),
+          lte(messages.createdAt, match.createdAt!),
+        ))
+        .orderBy(desc(messages.createdAt))
+        .limit(contextBefore + 1);  // +1 to include the match itself
+
+      // Get messages AFTER the match
+      const after = await db
+        .select({ role: messages.role, content: messages.content, createdAt: messages.createdAt })
+        .from(messages)
+        .where(and(
+          eq(messages.conversationId, match.conversationId),
+          gt(messages.createdAt, match.createdAt!),
+        ))
+        .orderBy(asc(messages.createdAt))
+        .limit(contextAfter);
+
+      // Combine: before (reversed to chronological) + after
+      const beforeChron = [...before].reverse();
+      const thread: ConversationThreadMessage[] = [
+        ...beforeChron.map((m, i) => ({
+          role: m.role,
+          content: m.content || '',
+          createdAt: m.createdAt,
+          isMatch: i === beforeChron.length - 1,  // last of "before" is the match
+        })),
+        ...after.map(m => ({
+          role: m.role,
+          content: m.content || '',
+          createdAt: m.createdAt,
+          isMatch: false,
+        })),
+      ];
+
+      return {
+        conversationId: match.conversationId,
+        conversationTitle: match.conversationTitle,
+        conversationDate: match.conversationDate,
+        language: match.language,
+        matchedContent: match.content || '',
+        messages: thread,
+      } satisfies ConversationThread;
+    } catch (err: any) {
+      console.error(`[ConversationThreads] Context fetch failed for ${match.conversationId}:`, err.message);
+      return null;
+    }
+  });
+
+  const threadResults = await Promise.all(threadPromises);
+  const threads = threadResults.filter((t): t is ConversationThread => t !== null);
+
+  console.log(`[ConversationThreads] "${query}" → ${totalMatchingMessages} matches across ${threads.length} conversation threads`);
+
+  return { query, threads, totalMatchingMessages };
+}
+
+/**
+ * Format conversation thread search results for Daniela's use.
+ * Returns readable thread excerpts that show the actual exchange, not just snippets.
+ */
+export function formatConversationThreads(result: ConversationThreadSearchResult, studentName = 'David'): string {
+  if (result.threads.length === 0) {
+    return `No conversation threads found for "${result.query}". The conversation may have happened before our recorded history or under different terms.`;
+  }
+
+  // No all-caps headers, no stats lines, no match markers.
+  // These are remembered conversations — format them like a journal, not a search report. (Gemini consult rec.)
+  const lines: string[] = [];
+  lines.push(`When I reach back for "${result.query}", I find these:\n`);
+
+  for (const thread of result.threads) {
+    const dateStr = thread.conversationDate
+      ? formatThreadDate(new Date(thread.conversationDate))
+      : 'sometime back';
+    const title = thread.conversationTitle || 'a session';
+    const langLabel = thread.language ? ` (${thread.language})` : '';
+    lines.push(`— ${title}${langLabel}, ${dateStr}:`);
+
+    for (const msg of thread.messages) {
+      const speaker = msg.role === 'user' ? studentName : 'Daniela';
+      lines.push(`${speaker}: ${msg.content}`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+function formatThreadDate(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+  if (diffDays < 365) return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation Date Browser
+// Temporal browsing without a keyword — "What did we talk about in January?"
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConversationSummary {
+  conversationId: string;
+  title: string | null;
+  date: Date | null;
+  language: string | null;
+  messageCount: number;
+  firstMessage: string;
+  lastMessage: string;
+}
+
+export interface ConversationBrowseResult {
+  afterDate: Date | null;
+  beforeDate: Date | null;
+  conversations: ConversationSummary[];
+  totalFound: number;
+}
+
+/**
+ * Browse conversations by date range without a keyword query.
+ * Returns conversation summaries so Daniela can orient herself temporally.
+ * "Show me what we were talking about in January" → list of sessions from that period.
+ */
+export async function browseConversationsByDate(
+  studentId: string,
+  options: {
+    afterDate?: Date;
+    beforeDate?: Date;
+    limit?: number;
+    language?: string;
+  } = {}
+): Promise<ConversationBrowseResult> {
+  const {
+    limit = 10,
+    afterDate,
+    beforeDate,
+    language,
+  } = options;
+
+  const db = getSharedDb();
+
+  try {
+    const base = eq(conversations.userId, studentId);
+
+    const dateConditions = [
+      base,
+      ...(afterDate ? [gte(conversations.createdAt, afterDate)] : []),
+      ...(beforeDate ? [lte(conversations.createdAt, beforeDate)] : []),
+      ...(language ? [eq(conversations.language, language)] : []),
+    ];
+
+    const convRows = await db
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        createdAt: conversations.createdAt,
+        language: conversations.language,
+      })
+      .from(conversations)
+      .where(and(...dateConditions))
+      .orderBy(desc(conversations.createdAt))
+      .limit(limit);
+
+    if (convRows.length === 0) {
+      return { afterDate: afterDate || null, beforeDate: beforeDate || null, conversations: [], totalFound: 0 };
+    }
+
+    // For each conversation, get message count and first/last message
+    const summaries = await Promise.all(convRows.map(async (conv) => {
+      try {
+        const [countRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(messages)
+          .where(eq(messages.conversationId, conv.id));
+
+        const firstMsg = await db
+          .select({ content: messages.content, role: messages.role })
+          .from(messages)
+          .where(eq(messages.conversationId, conv.id))
+          .orderBy(asc(messages.createdAt))
+          .limit(1);
+
+        const lastMsg = await db
+          .select({ content: messages.content, role: messages.role })
+          .from(messages)
+          .where(eq(messages.conversationId, conv.id))
+          .orderBy(desc(messages.createdAt))
+          .limit(1);
+
+        const firstContent = firstMsg[0]?.content || '';
+        const lastContent = lastMsg[0]?.content || '';
+
+        return {
+          conversationId: conv.id,
+          title: conv.title,
+          date: conv.createdAt,
+          language: conv.language,
+          messageCount: countRow?.count || 0,
+          firstMessage: firstContent.substring(0, 200),
+          lastMessage: lastContent.substring(0, 200),
+        } satisfies ConversationSummary;
+
+      } catch {
+        return {
+          conversationId: conv.id,
+          title: conv.title,
+          date: conv.createdAt,
+          language: conv.language,
+          messageCount: 0,
+          firstMessage: '',
+          lastMessage: '',
+        } satisfies ConversationSummary;
+      }
+    }));
+
+    console.log(`[ConversationBrowse] Found ${summaries.length} conversations in date range`);
+
+    return {
+      afterDate: afterDate || null,
+      beforeDate: beforeDate || null,
+      conversations: summaries,
+      totalFound: summaries.length,
+    };
+  } catch (err: any) {
+    console.error('[ConversationBrowse] Error:', err.message);
+    return { afterDate: afterDate || null, beforeDate: beforeDate || null, conversations: [], totalFound: 0 };
+  }
+}
+
+// ─── Full Session Transcript ─────────────────────────────────────────────────
+
+export interface FullSessionTranscript {
+  conversationId: string;
+  title: string | null;
+  date: Date | null;
+  language: string | null;
+  messageCount: number;
+  transcript: string;
+}
+
+/**
+ * Read every message in a specific conversation in chronological order.
+ * No windowing, no truncation, no keyword filter — the complete record.
+ *
+ * Security: verifies the conversation belongs to `studentId` before returning anything.
+ */
+export async function readFullSession(
+  conversationId: string,
+  studentId: string,
+): Promise<FullSessionTranscript | null> {
+  const db = getSharedDb();
+
+  // Ownership check
+  const [conv] = await db
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+      topic: conversations.topic,
+      createdAt: conversations.createdAt,
+      language: conversations.language,
+    })
+    .from(conversations)
+    .where(and(eq(conversations.id, conversationId), eq(conversations.userId, studentId)))
+    .limit(1);
+
+  if (!conv) return null; // not found or not owned by this student
+
+  const allMessages = await db
+    .select({
+      role: messages.role,
+      content: messages.content,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(and(
+      eq(messages.conversationId, conversationId),
+      // Only user/assistant turns — skip system prompts
+    ))
+    .orderBy(asc(messages.createdAt));
+
+  const turns = allMessages.filter(m => m.role === 'user' || m.role === 'assistant');
+
+  const dateStr = conv.createdAt
+    ? new Date(conv.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : 'Unknown date';
+  const title = conv.title || conv.topic || 'Session';
+  const langLabel = conv.language ? ` [${conv.language}]` : '';
+
+  // No all-caps "FULL TRANSCRIPT" header or "N messages — complete record" stats.
+  // This is a remembered conversation, not a database export. (Gemini consult rec.)
+  const lines: string[] = [
+    `${title}${langLabel} — ${dateStr}`,
+    ``,
+  ];
+
+  for (const msg of turns) {
+    const speaker = msg.role === 'user' ? 'David' : 'Daniela';
+    lines.push(`${speaker}: ${msg.content}`);
+  }
+
+  return {
+    conversationId,
+    title: conv.title,
+    date: conv.createdAt,
+    language: conv.language,
+    messageCount: turns.length,
+    transcript: lines.join('\n'),
+  };
+}
+
+export function formatConversationBrowse(result: ConversationBrowseResult, studentName = 'David'): string {
+  if (result.conversations.length === 0) {
+    const range = [
+      result.afterDate ? `after ${formatThreadDate(result.afterDate)}` : null,
+      result.beforeDate ? `before ${formatThreadDate(result.beforeDate)}` : null,
+    ].filter(Boolean).join(' and ');
+    return `No conversations found${range ? ` ${range}` : ''}. The date range may be outside the recorded history.`;
+  }
+
+  const lines: string[] = [];
+  const range = [
+    result.afterDate ? `after ${result.afterDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : null,
+    result.beforeDate ? `before ${result.beforeDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : null,
+  ].filter(Boolean).join(' and ');
+
+  // No all-caps headers or stats counters — journal framing, not a database browser. (Gemini consult rec.)
+  lines.push(`Sessions from ${range || 'our history'}:\n`);
+
+  for (const conv of result.conversations) {
+    const dateStr = conv.date ? formatThreadDate(new Date(conv.date)) : 'sometime back';
+    const title = conv.title || 'Untitled session';
+    const langLabel = conv.language ? ` (${conv.language})` : '';
+    lines.push(`${title}${langLabel} — ${dateStr}`);
+    lines.push(`  id: ${conv.conversationId}`);
+    if (conv.firstMessage) {
+      lines.push(`  Started with: "${conv.firstMessage.substring(0, 120)}"`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`To read any of these fully, call read_full_session with the id above.`);
+  return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation Topic Map
+// A high-level view of what themes have emerged across all of David's sessions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConversationTheme {
+  theme: string;
+  conversationCount: number;
+  messageCount: number;
+  mostRecentDate: Date | null;
+  earliestDate: Date | null;
+  exampleTitles: string[];
+}
+
+export interface ConversationThemeMap {
+  themes: ConversationTheme[];
+  totalConversationsAnalyzed: number;
+  dateRange: { earliest: Date | null; mostRecent: Date | null };
+}
+
+/**
+ * Analyze conversation titles and session notes to build a topic map.
+ * Groups by common keywords to surface recurring themes across all sessions.
+ * Gives Daniela a view of the full arc of the student's learning journey.
+ */
+export async function getConversationThemes(
+  studentId: string,
+  options: {
+    afterDate?: Date;
+    beforeDate?: Date;
+    topN?: number;
+  } = {}
+): Promise<ConversationThemeMap> {
+  const { afterDate, beforeDate, topN = 15 } = options;
+  const db = getSharedDb();
+
+  try {
+    const dateConditions = [
+      eq(conversations.userId, studentId),
+      ...(afterDate ? [gte(conversations.createdAt, afterDate)] : []),
+      ...(beforeDate ? [lte(conversations.createdAt, beforeDate)] : []),
+    ];
+
+    // Get all conversation titles + dates
+    const convRows = await db
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        createdAt: conversations.createdAt,
+        language: conversations.language,
+      })
+      .from(conversations)
+      .where(and(...dateConditions))
+      .orderBy(desc(conversations.createdAt))
+      .limit(2000);  // analyze up to 2000 conversations
+
+    if (convRows.length === 0) {
+      return { themes: [], totalConversationsAnalyzed: 0, dateRange: { earliest: null, mostRecent: null } };
+    }
+
+    // Also pull session notes summaries for richer theme detection
+    const noteRows = await db
+      .select({
+        conversationId: sessionNotes.conversationId,
+        summary: sessionNotes.summary,
+        wins: sessionNotes.wins,
+        nextSteps: sessionNotes.nextSteps,
+      })
+      .from(sessionNotes)
+      .where(eq(sessionNotes.studentId, studentId))
+      .limit(2000);
+
+    const notesByConv = new Map<string, typeof noteRows[0]>();
+    for (const note of noteRows) {
+      if (note.conversationId) notesByConv.set(note.conversationId, note);
+    }
+
+    // Build a text corpus per conversation: title + notes
+    const corpusEntries = convRows.map(conv => {
+      const note = notesByConv.get(conv.id);
+      const text = [
+        conv.title || '',
+        note?.summary || '',
+        note?.wins || '',
+        note?.nextSteps || '',
+      ].join(' ').toLowerCase();
+      return { id: conv.id, title: conv.title, createdAt: conv.createdAt, language: conv.language, text };
+    });
+
+    // Keyword → theme mapping
+    // These are the themes we look for — organized by semantic cluster
+    const themeKeywords: Array<{ theme: string; keywords: string[] }> = [
+      { theme: 'Music & Culture', keywords: ['music', 'song', 'reggaeton', 'cumbia', 'salsa', 'merengue', 'playlist', 'rhythm', 'beat', 'concert', 'musician', 'artist', 'listen', 'genre'] },
+      { theme: 'Humor & Comedy', keywords: ['joke', 'humor', 'funny', 'laugh', 'comedy', 'punchline', 'timing', 'witty', 'scarecrow', 'award', 'recipient'] },
+      { theme: 'Grammar & Structure', keywords: ['grammar', 'conjugat', 'subjunctive', 'tense', 'preterite', 'imperfect', 'ser', 'estar', 'por', 'para', 'noun', 'verb', 'adjective', 'syntax'] },
+      { theme: 'Vocabulary & Words', keywords: ['vocab', 'word', 'vocabulary', 'phrase', 'expression', 'idiom', 'meaning', 'definition', 'translate'] },
+      { theme: 'Speaking & Pronunciation', keywords: ['speaking', 'pronunciation', 'accent', 'fluency', 'spoken', 'voice', 'speak', 'say', 'pronounce', 'intonation'] },
+      { theme: 'Reading & Writing', keywords: ['reading', 'writing', 'text', 'article', 'paragraph', 'essay', 'read', 'write', 'written'] },
+      { theme: 'Travel & Places', keywords: ['travel', 'trip', 'country', 'city', 'spain', 'mexico', 'colombia', 'argentina', 'latin', 'puerto rico', 'vacation', 'visit', 'place'] },
+      { theme: 'Personal Growth & Identity', keywords: ['goal', 'progress', 'journey', 'growth', 'confidence', 'identity', 'self', 'improve', 'better', 'motivation', 'why', 'reason'] },
+      { theme: 'Food & Dining', keywords: ['food', 'eat', 'restaurant', 'cook', 'meal', 'recipe', 'cuisine', 'dish', 'drink', 'taste'] },
+      { theme: 'Family & Relationships', keywords: ['family', 'friend', 'relationship', 'partner', 'parent', 'child', 'mother', 'father', 'sister', 'brother', 'love', 'connect'] },
+      { theme: 'Work & Business', keywords: ['work', 'job', 'business', 'career', 'professional', 'meeting', 'colleague', 'office', 'company', 'startup', 'product'] },
+      { theme: 'Philosophy & Deep Thoughts', keywords: ['philosophy', 'meaning', 'integrity', 'ethics', 'values', 'purpose', 'truth', 'beauty', 'life', 'exist', 'conscious', 'belief'] },
+      { theme: 'Conversation Practice', keywords: ['conversation', 'practice', 'dialogue', 'role play', 'scenario', 'chat', 'discuss', 'talk', 'exchange'] },
+      { theme: 'News & Current Events', keywords: ['news', 'event', 'politics', 'economy', 'society', 'culture', 'world', 'history', 'today', 'happen'] },
+      { theme: 'Emotions & Feelings', keywords: ['feel', 'emotion', 'happy', 'sad', 'excited', 'nervous', 'anxious', 'joy', 'frustrat', 'confid'] },
+    ];
+
+    // Score each conversation against each theme
+    const themeScores = new Map<string, {
+      conversationIds: string[];
+      titles: string[];
+      dates: Date[];
+    }>();
+
+    for (const { theme } of themeKeywords) {
+      themeScores.set(theme, { conversationIds: [], titles: [], dates: [] });
+    }
+
+    for (const entry of corpusEntries) {
+      for (const { theme, keywords } of themeKeywords) {
+        const matches = keywords.some(kw => entry.text.includes(kw));
+        if (matches) {
+          const bucket = themeScores.get(theme)!;
+          bucket.conversationIds.push(entry.id);
+          if (entry.title) bucket.titles.push(entry.title);
+          if (entry.createdAt) bucket.dates.push(new Date(entry.createdAt));
+        }
+      }
+    }
+
+    // Build theme results, sorted by conversation count
+    const themes: ConversationTheme[] = [];
+    for (const { theme } of themeKeywords) {
+      const bucket = themeScores.get(theme)!;
+      if (bucket.conversationIds.length === 0) continue;
+
+      const sortedDates = bucket.dates.sort((a, b) => a.getTime() - b.getTime());
+      const exampleTitles = [...new Set(bucket.titles)].slice(0, 3);
+
+      themes.push({
+        theme,
+        conversationCount: bucket.conversationIds.length,
+        messageCount: 0,  // expensive to compute — skip for now
+        mostRecentDate: sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null,
+        earliestDate: sortedDates.length > 0 ? sortedDates[0] : null,
+        exampleTitles,
+      });
+    }
+
+    themes.sort((a, b) => b.conversationCount - a.conversationCount);
+
+    const dates = convRows.map(c => c.createdAt).filter(Boolean) as Date[];
+    const sortedAll = dates.map(d => new Date(d)).sort((a, b) => a.getTime() - b.getTime());
+
+    console.log(`[ConversationThemes] Analyzed ${corpusEntries.length} conversations → ${themes.length} themes for student ${studentId}`);
+
+    return {
+      themes: themes.slice(0, topN),
+      totalConversationsAnalyzed: corpusEntries.length,
+      dateRange: {
+        earliest: sortedAll[0] || null,
+        mostRecent: sortedAll[sortedAll.length - 1] || null,
+      },
+    };
+  } catch (err: any) {
+    console.error('[ConversationThemes] Error:', err.message);
+    return { themes: [], totalConversationsAnalyzed: 0, dateRange: { earliest: null, mostRecent: null } };
+  }
+}
+
+export function formatConversationThemes(result: ConversationThemeMap): string {
+  if (result.themes.length === 0) {
+    return `No conversation themes found. The conversation history may be empty or too short to detect patterns.`;
+  }
+
+  const lines: string[] = [];
+  const rangeStr = [
+    result.dateRange.earliest ? result.dateRange.earliest.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null,
+    result.dateRange.mostRecent ? result.dateRange.mostRecent.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null,
+  ].filter(Boolean).join(' → ');
+
+  lines.push(`CONVERSATION THEME MAP`);
+  lines.push(`Analyzed ${result.totalConversationsAnalyzed} conversations${rangeStr ? ` (${rangeStr})` : ''}\n`);
+
+  for (const theme of result.themes) {
+    const recentStr = theme.mostRecentDate ? `last: ${formatThreadDate(new Date(theme.mostRecentDate))}` : '';
+    lines.push(`${theme.theme} — ${theme.conversationCount} sessions (${recentStr})`);
+    if (theme.exampleTitles.length > 0) {
+      lines.push(`  e.g. "${theme.exampleTitles[0]}"`);
+    }
+  }
+
+  lines.push(`\nUse search_conversation_threads or browse_conversations_by_date to explore any theme further.`);
+  return lines.join('\n');
+}
+
 // Export singleton-style functions
 export const neuralMemorySearch = {
   search: searchMemory,
@@ -1907,4 +2857,14 @@ export const neuralMemorySearch = {
   // Syllabus/curriculum lookup (Phase 2)
   searchSyllabi,
   formatSyllabi: formatSyllabusSearch,
+  // Conversation thread search (Phase 3)
+  searchThreads: searchConversationThreads,
+  formatThreads: formatConversationThreads,
+  // Date browser + theme map (Phase 4)
+  browseByDate: browseConversationsByDate,
+  formatBrowse: formatConversationBrowse,
+  getThemes: getConversationThemes,
+  formatThemes: formatConversationThemes,
+  // Full session transcript (Phase 5)
+  readFullSession,
 };

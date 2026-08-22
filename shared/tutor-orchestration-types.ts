@@ -222,6 +222,8 @@ export interface OrchestratorResponse {
     latencyMs?: number;
     whiteboardCommands?: any[];
     emotionDetected?: string;
+    inputTokens?: number;   // Actual Gemini prompt token count
+    outputTokens?: number;  // Actual Gemini completion token count
   };
   
   error?: {

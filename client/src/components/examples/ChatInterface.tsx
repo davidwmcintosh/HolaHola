@@ -1,5 +1,13 @@
+import { useState } from "react";
 import { ChatInterface } from "../ChatInterface";
 
 export default function ChatInterfaceExample() {
-  return <ChatInterface />;
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  return (
+    <ChatInterface
+      conversationId={conversationId}
+      setConversationId={setConversationId}
+      setCurrentConversationOnboarding={() => {}}
+    />
+  );
 }

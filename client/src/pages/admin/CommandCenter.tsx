@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,11 @@ import { FluencyCoverageContent } from "@/pages/admin/FluencyCoverage";
 import { LessonDraftsContent } from "@/pages/admin/LessonDrafts";
 import { VoiceIntelligenceContent } from "@/pages/admin/VoiceIntelligence";
 import { ClientDiagnosticsViewer } from "@/components/admin/ClientDiagnosticsViewer";
+import { TextbookSeederTab } from "@/components/TextbookSeederTab";
+import { CurriculumEnrichmentTab } from "@/components/CurriculumEnrichmentTab";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
+import { MenuImageGeneratorContent } from "@/pages/admin/MenuImageGenerator";
+import { OnboardingTesterContent } from "@/pages/admin/OnboardingTester";
 import { 
   LayoutDashboard,
   Users,
@@ -58,7 +62,9 @@ import {
   Tags,
   Pencil,
   Trash2,
+  ImageOff,
   Briefcase,
+  Utensils,
   Zap,
   Plane,
   BookOpen,
@@ -108,10 +114,13 @@ import {
   Save,
   Archive,
   Database,
+  DatabaseZap,
   Target,
   Percent,
   Map as MapIcon,
   Bot,
+  Layers,
+  UserX,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -198,6 +207,10 @@ interface GrowthMemory {
   validated: boolean;
   reviewStatus: string;
   createdAt: string;
+  timesApplied?: number;
+  successRate?: number | null;
+  lastAppliedAt?: string | null;
+  consolidatedFromCount?: number | null;
   metadata?: {
     migrationType?: string;
     originalDate?: string;
@@ -210,6 +223,7 @@ function MemoryMigrationTab() {
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<string>("pending");
+  const [mainView, setMainView] = useState<'queue' | 'resonance'>('queue');
 
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery<MigrationStatus>({
     queryKey: ["/api/admin/memory-migration/status"],
@@ -218,6 +232,12 @@ function MemoryMigrationTab() {
 
   const { data: memoriesData, isLoading: memoriesLoading, refetch: refetchMemories } = useQuery<{ memories: GrowthMemory[]; total: number }>({
     queryKey: [`/api/admin/growth-memories?reviewStatus=${reviewFilter}&migrationType=historical`],
+    enabled: mainView === 'queue',
+  });
+
+  const { data: resonanceData, isLoading: resonanceLoading } = useQuery<{ memories: GrowthMemory[]; total: number }>({
+    queryKey: ['/api/admin/growth-memories?view=resonance'],
+    enabled: mainView === 'resonance',
   });
 
   const runBatchMutation = useMutation({
@@ -461,44 +481,147 @@ function MemoryMigrationTab() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <CardTitle>Memory Review Queue</CardTitle>
+              <CardTitle>
+                {mainView === 'resonance' ? 'Resonance Shelf' : 'Memory Review Queue'}
+              </CardTitle>
               <CardDescription>
-                Review and approve memories before they're committed to Daniela's neural network
+                {mainView === 'resonance'
+                  ? 'Teaching techniques Daniela has applied and confirmed — ranked by outcome quality × volume'
+                  : 'Review and approve memories before they\'re committed to Daniela\'s neural network'}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {reviewFilter === 'pending' && memoriesData?.memories?.length > 0 && (
+              <div className="flex rounded-md border overflow-hidden" data-testid="view-mode-toggle">
                 <Button
-                  variant="outline"
                   size="sm"
-                  onClick={() => batchApproveMutation.mutate()}
-                  disabled={batchApproveMutation.isPending}
-                  data-testid="button-batch-approve"
+                  variant={mainView === 'queue' ? 'default' : 'ghost'}
+                  className="rounded-none border-0"
+                  onClick={() => setMainView('queue')}
+                  data-testid="button-view-queue"
                 >
-                  {batchApproveMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Approve All ({memoriesData?.memories?.length})
+                  Review Queue
                 </Button>
+                <Button
+                  size="sm"
+                  variant={mainView === 'resonance' ? 'default' : 'ghost'}
+                  className="rounded-none border-0 border-l"
+                  onClick={() => setMainView('resonance')}
+                  data-testid="button-view-resonance"
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                  Resonance Shelf
+                </Button>
+              </div>
+              {mainView === 'queue' && (
+                <>
+                  {reviewFilter === 'pending' && (memoriesData?.memories?.length ?? 0) > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => batchApproveMutation.mutate()}
+                      disabled={batchApproveMutation.isPending}
+                      data-testid="button-batch-approve"
+                    >
+                      {batchApproveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Approve All ({memoriesData?.memories?.length})
+                    </Button>
+                  )}
+                  <Select value={reviewFilter} onValueChange={setReviewFilter}>
+                    <SelectTrigger className="w-40" data-testid="select-review-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
-              <Select value={reviewFilter} onValueChange={setReviewFilter}>
-                <SelectTrigger className="w-40" data-testid="select-review-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="all">All</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {memoriesLoading ? (
+          {mainView === 'resonance' ? (
+            resonanceLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : resonanceData?.memories?.length ? (
+              <div className="space-y-3" data-testid="resonance-shelf-list">
+                {resonanceData.memories.map((memory, idx) => (
+                  <div
+                    key={memory.id}
+                    className="p-4 border rounded-lg space-y-2"
+                    data-testid={`resonance-card-${memory.id}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="text-xs font-mono text-muted-foreground">#{idx + 1}</span>
+                          <Badge variant="outline">{memory.category}</Badge>
+                          {memory.metadata?.language && (
+                            <Badge variant="outline" className="text-xs">{memory.metadata.language}</Badge>
+                          )}
+                          {memory.consolidatedFromCount != null && memory.consolidatedFromCount > 1 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {memory.consolidatedFromCount} merged
+                            </Badge>
+                          )}
+                        </div>
+                        <h4 className="font-medium">{memory.title}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">{memory.lesson}</p>
+                        {memory.successRate != null && (
+                          <div className="mt-2 space-y-0.5" data-testid={`resonance-rate-${memory.id}`}>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Success rate</span>
+                              <span>{Math.round(memory.successRate * 100)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden w-full max-w-xs">
+                              <div
+                                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                                style={{ width: `${Math.round(memory.successRate * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+                        <div className="text-sm font-semibold text-primary" data-testid={`resonance-times-${memory.id}`}>
+                          {memory.timesApplied ?? 0}× applied
+                        </div>
+                        {memory.lastAppliedAt && (
+                          <div className="text-xs text-muted-foreground" data-testid={`resonance-last-${memory.id}`}>
+                            last: {new Date(memory.lastAppliedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-sm text-muted-foreground text-center mt-4">
+                  {resonanceData.total} techniques with confirmed outcomes
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-10 space-y-3" data-testid="resonance-empty-state">
+                <Sparkles className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                <p className="font-medium text-muted-foreground">No resonance data yet</p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                  This shelf fills as Daniela applies approved memories in live sessions and
+                  records <strong>what_worked</strong> notes confirming their effect. Keep using
+                  the app — every confirmed teaching win surfaces here, ranked by outcome quality.
+                </p>
+              </div>
+            )
+          ) : memoriesLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
@@ -1524,6 +1647,293 @@ function SessionEconomicsTab() {
 
 const FOUNDER_USER_ID = '49847136';
 
+// ===== VoIP Console Tab =====
+interface OutboundQueueItem {
+  id: string;
+  userId: string;
+  content: string;
+  callSid: string | null;
+  callAt: string | null;
+  callAnsweredAt: string | null;
+  callDurationSeconds: number | null;
+  callNoAnswer: boolean | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  smsDeliveredAt: string | null;
+  audioUrl: string | null;
+  deliveryError: string | null;
+}
+
+/** An item counts as "stuck" if it has a delivery error and no successful delivery after 5 minutes. */
+function isStuckItem(item: OutboundQueueItem): boolean {
+  if (item.smsDeliveredAt || item.deliveredAt || item.callAnsweredAt) return false;
+  if (!item.deliveryError) return false;
+  const ageMs = Date.now() - new Date(item.createdAt).getTime();
+  return ageMs > 5 * 60 * 1000;
+}
+
+function VoipConsoleTab() {
+  const { toast } = useToast();
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [callContent, setCallContent] = useState<string>("");
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const { data: usersData } = useQuery<{ users: { id: string; firstName: string | null; lastName: string | null; email: string | null; role: string | null; isTestAccount: boolean | null; phone: string | null; phoneConsentVoice: boolean; phoneConsentSms: boolean }[] }>({
+    queryKey: ["/api/admin/voip-users"],
+  });
+
+  const { data: queueData, isLoading: queueLoading, refetch: refetchQueue } = useQuery<{ items: OutboundQueueItem[] }>({
+    queryKey: ["/api/admin/outbound-queue"],
+    refetchInterval: 15000,
+  });
+
+  const triggerCallMutation = useMutation({
+    mutationFn: async (): Promise<{ success: boolean; queueId: string; channel?: 'voice' | 'sms' | 'none'; callSid?: string; error?: string }> => {
+      const res = await apiRequest("POST", "/api/admin/trigger-call", { userId: selectedUserId, content: callContent });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!data.success) {
+        toast({ title: "Twilio call failed", description: data.error ?? "Unknown error from Twilio", variant: "destructive" });
+        refetchQueue();
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
+        return;
+      }
+      const desc = data.callSid ? `Call initiated — SID: ${data.callSid}` : 'Call queued (check queue for status)';
+      toast({ title: "VoIP call triggered", description: desc });
+      setCallContent("");
+      refetchQueue();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to trigger call", description: err.message, variant: "destructive" });
+    },
+  });
+
+  async function retrySms(item: OutboundQueueItem) {
+    setRetryingId(item.id);
+    try {
+      const res = await apiRequest("POST", `/api/admin/outbound-queue/${item.id}/retry-sms`, {});
+      const data: { success: boolean; deliveryNote: string } = await res.json();
+      if (data.success) {
+        toast({ title: "SMS resent ✓", description: data.deliveryNote });
+      } else {
+        toast({ title: "Retry failed", description: data.deliveryNote, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Retry error", description: err.message, variant: "destructive" });
+    } finally {
+      setRetryingId(null);
+      refetchQueue();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
+    }
+  }
+
+  const users = usersData?.users ?? [];
+  const items = queueData?.items ?? [];
+  const stuckItems = items.filter(isStuckItem);
+
+  function formatTs(ts: string | null) {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleString();
+  }
+
+  function callStatus(item: OutboundQueueItem) {
+    if (item.callNoAnswer) return <Badge variant="secondary" data-testid={`badge-noanswer-${item.id}`}>No Answer</Badge>;
+    if (item.callAnsweredAt) return <Badge className="bg-green-600 text-white" data-testid={`badge-answered-${item.id}`}>Answered</Badge>;
+    if (item.callSid) return <Badge variant="outline" data-testid={`badge-initiated-${item.id}`}>Initiated</Badge>;
+    if (item.smsDeliveredAt) return <Badge variant="secondary" data-testid={`badge-sms-${item.id}`}>SMS</Badge>;
+    if (item.deliveredAt) return <Badge variant="secondary" data-testid={`badge-delivered-${item.id}`}>In-App</Badge>;
+    if (item.deliveryError) return <Badge variant="destructive" data-testid={`badge-smsfailed-${item.id}`}>SMS Failed</Badge>;
+    return <Badge variant="outline" data-testid={`badge-pending-${item.id}`}>Pending</Badge>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Phone className="h-5 w-5" />
+            Trigger Outbound Daniela Call
+          </CardTitle>
+          <CardDescription>
+            Manually fire a VoIP call to a student, bypassing the time-window check. Requires the student to have voice consent and a registered phone number.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Student</label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger data-testid="select-trigger-user">
+                <SelectValue placeholder="Pick a user…" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((u) => {
+                  const name = (u.firstName || u.lastName)
+                    ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
+                    : u.email ?? u.id.slice(-8);
+                  const phoneLabel = u.phone
+                    ? `${u.phone}${u.phoneConsentVoice ? " ✓ voice" : u.phoneConsentSms ? " ✓ sms" : " (no consent)"}`
+                    : "no phone";
+                  const tag = u.isTestAccount ? " [test]" : u.role === 'admin' ? " [admin]" : "";
+                  return (
+                    <SelectItem key={u.id} value={u.id} data-testid={`option-user-${u.id}`}>
+                      {name}{tag} — {phoneLabel}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Message content (what Daniela will say)</label>
+            <Textarea
+              placeholder="Hey! I wanted to check in on your Spanish practice…"
+              value={callContent}
+              onChange={(e) => setCallContent(e.target.value)}
+              className="min-h-24"
+              data-testid="input-call-content"
+            />
+          </div>
+
+          <Button
+            onClick={() => triggerCallMutation.mutate()}
+            disabled={!selectedUserId || !callContent.trim() || triggerCallMutation.isPending}
+            data-testid="button-trigger-call"
+          >
+            {triggerCallMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2" />}
+            Trigger Call Now
+          </Button>
+        </CardContent>
+      </Card>
+
+      {stuckItems.length > 0 && (
+        <div
+          className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3"
+          data-testid="alert-stuck-deliveries"
+        >
+          <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-destructive">
+              {stuckItems.length} voice-note SMS{stuckItems.length > 1 ? "s" : ""} failed to deliver
+            </p>
+            <ul className="mt-1 space-y-1">
+              {stuckItems.map((item) => (
+                <li key={item.id} className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap" data-testid={`alert-stuck-item-${item.id}`}>
+                  <span className="font-mono">…{item.userId.slice(-8)}</span>
+                  <span className="truncate max-w-xs">{item.deliveryError}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs shrink-0"
+                    disabled={retryingId === item.id}
+                    onClick={() => retrySms(item)}
+                    data-testid={`button-retry-stuck-${item.id}`}
+                  >
+                    {retryingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Retry"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Outbound Queue
+            </CardTitle>
+            <CardDescription>Recent danielaOutboundQueue entries with VoIP call status</CardDescription>
+          </div>
+          <Button size="icon" variant="ghost" onClick={() => refetchQueue()} data-testid="button-refresh-queue">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {queueLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground" data-testid="text-empty-queue">
+              <Phone className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>No queue entries yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 pr-4 font-medium">User ID</th>
+                    <th className="pb-2 pr-4 font-medium">Call SID</th>
+                    <th className="pb-2 pr-4 font-medium">Called At</th>
+                    <th className="pb-2 pr-4 font-medium">Answered At</th>
+                    <th className="pb-2 pr-4 font-medium">Duration (s)</th>
+                    <th className="pb-2 pr-4 font-medium">No Answer</th>
+                    <th className="pb-2 pr-4 font-medium">Delivery Error</th>
+                    <th className="pb-2 pr-4 font-medium">Created</th>
+                    <th className="pb-2 font-medium">Retry</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={`border-b last:border-0 ${item.deliveryError && !item.smsDeliveredAt ? "bg-destructive/5" : ""}`}
+                      data-testid={`row-queue-${item.id}`}
+                    >
+                      <td className="py-2 pr-4">{callStatus(item)}</td>
+                      <td className="py-2 pr-4 font-mono text-xs text-muted-foreground" data-testid={`text-userid-${item.id}`}>
+                        {item.userId.slice(-8)}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-xs text-muted-foreground" data-testid={`text-callsid-${item.id}`}>
+                        {item.callSid ? item.callSid.slice(-12) : "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-callat-${item.id}`}>{formatTs(item.callAt)}</td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-answeredat-${item.id}`}>{formatTs(item.callAnsweredAt)}</td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-duration-${item.id}`}>
+                        {item.callDurationSeconds ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs" data-testid={`text-noanswer-${item.id}`}>
+                        {item.callNoAnswer ? <Badge variant="destructive" className="text-xs">Yes</Badge> : "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs max-w-[200px]" data-testid={`text-deliveryerror-${item.id}`}>
+                        {item.deliveryError
+                          ? <span className="text-destructive truncate block" title={item.deliveryError}>{item.deliveryError}</span>
+                          : "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-muted-foreground" data-testid={`text-created-${item.id}`}>{formatTs(item.createdAt)}</td>
+                      <td className="py-2 text-xs">
+                        {item.deliveryError && !item.smsDeliveredAt ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            disabled={retryingId === item.id}
+                            onClick={() => retrySms(item)}
+                            data-testid={`button-retry-sms-${item.id}`}
+                          >
+                            {retryingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Retry SMS"}
+                          </Button>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CommandCenter() {
   const { user } = useAuth();
   const { user: fullUser } = useUser();
@@ -1544,6 +1954,10 @@ export default function CommandCenter() {
       setLocation('/admin/voices');
       return;
     }
+    if (value === 'image-engine-test') {
+      setLocation('/admin/image-test');
+      return;
+    }
     setActiveTab(value);
   };
 
@@ -1554,6 +1968,22 @@ export default function CommandCenter() {
   });
   const pendingProposalsCount = pendingProposalsData?.proposals?.filter(p => p.status === 'pending').length || 0;
 
+  // Query pending procedure flags count for notification badge
+  const { data: procedureFlagsData } = useQuery<{ pending: number }>({
+    queryKey: ["/api/admin/procedure-flags"],
+    enabled: isFounder,
+    refetchInterval: 60_000,
+  });
+  const pendingFlagsCount = procedureFlagsData?.pending || 0;
+
+  // Query pending absence nudge count for tab badge (founder-only endpoint)
+  const { data: absenceNudgeCountData } = useQuery<{ count: number }>({
+    queryKey: ['/api/admin/absence-nudges/count'],
+    enabled: isFounder,
+    refetchInterval: 30_000,
+  });
+  const pendingNudgeCount = absenceNudgeCountData?.count ?? 0;
+
   // Tab groups for organized display - grouped by function
   const tabGroups = [
     {
@@ -1562,6 +1992,7 @@ export default function CommandCenter() {
         { id: "overview", label: "Overview", icon: LayoutDashboard, roles: ['admin', 'developer', 'teacher'] },
         { id: "users", label: "Users", icon: Users, roles: ['admin'] },
         { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
+        { id: "onboarding-tester", label: "Onboarding", icon: Play, roles: ['admin', 'developer'] },
       ]
     },
     {
@@ -1584,6 +2015,7 @@ export default function CommandCenter() {
         { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
         { id: "collaboration", label: "Collab", icon: Handshake, roles: ['admin', 'developer'] },
         { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
+        { id: "absence-monitor", label: "Absence", icon: UserX, roles: ['admin', 'developer'] },
         { id: "feature-sprint", label: "Sprint", icon: Zap, roles: ['admin', 'developer'] },
       ]
     },
@@ -1606,6 +2038,11 @@ export default function CommandCenter() {
         { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
         { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
         { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+        { id: "image-engine-test", label: "Engine Test", icon: Layers, roles: ['admin', 'developer'] },
+        { id: "vocab-audit", label: "Vocab Audit", icon: LayoutGrid, roles: ['admin', 'developer'] },
+        { id: "menu-gen", label: "Menu Gen", icon: Utensils, roles: ['admin', 'developer'] },
+        { id: "curriculum-enrichment", label: "Curriculum", icon: DatabaseZap, roles: ['admin', 'developer'] },
+        { id: "textbook-seeder", label: "Textbook", icon: BookOpen, roles: ['admin', 'developer'] },
       ]
     },
     {
@@ -1622,6 +2059,7 @@ export default function CommandCenter() {
         { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
         { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
         { id: "voice-intelligence", label: "Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
+        { id: "voip-console", label: "VoIP Console", icon: Phone, roles: ['admin'] },
         { id: "sync-control", label: "Sync", icon: Database, roles: ['founder'] },
         { id: "memory-migration", label: "Migration", icon: Brain, roles: ['developer'] },
         { id: "personal-facts", label: "Memories", icon: BookOpen, roles: ['admin', 'developer'] },
@@ -1669,6 +2107,29 @@ export default function CommandCenter() {
           <p className="text-muted-foreground">
             Manage platform operations, monitor analytics, and configure system settings
           </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Button asChild variant="default" size="sm" data-testid="button-live-monitor">
+              <Link href="/admin/live-monitor">
+                <Radio className="h-4 w-4 mr-2" />
+                Luca Live Monitor
+                <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" data-testid="button-image-engine-test">
+              <Link href="/admin/image-test">
+                <Layers className="h-4 w-4 mr-2" />
+                Image Engine Test
+                <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" data-testid="button-fine-tuning">
+              <Link href="/fine-tuning">
+                <Brain className="h-4 w-4 mr-2" />
+                Fine-Tuning Curator
+                <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <SystemHealthDashboard />
@@ -1707,7 +2168,8 @@ export default function CommandCenter() {
               // Add tabs
               groupTabs.forEach(tab => {
                 const Icon = tab.icon;
-                const showBadge = tab.id === 'brain-surgery' && pendingProposalsCount > 0;
+                const brainSurgeryBadge = (tab.id === 'brain-surgery') && (pendingProposalsCount + pendingFlagsCount > 0);
+                const absenceBadge = (tab.id === 'absence-monitor') && (pendingNudgeCount > 0);
                 elements.push(
                   <TabsTrigger 
                     key={tab.id} 
@@ -1717,9 +2179,14 @@ export default function CommandCenter() {
                   >
                     <Icon className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">{tab.label}</span>
-                    {showBadge && (
+                    {brainSurgeryBadge && (
                       <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]" data-testid="badge-pending-proposals">
-                        {pendingProposalsCount}
+                        {pendingProposalsCount + pendingFlagsCount}
+                      </Badge>
+                    )}
+                    {absenceBadge && (
+                      <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]" data-testid="badge-absence-nudges">
+                        {pendingNudgeCount}
                       </Badge>
                     )}
                   </TabsTrigger>
@@ -1742,6 +2209,10 @@ export default function CommandCenter() {
             <ClassesTab />
           </TabsContent>
 
+          <TabsContent value="onboarding-tester" className="space-y-4">
+            <OnboardingTesterContent />
+          </TabsContent>
+
           <TabsContent value="analytics" className="space-y-4">
             <AnalyticsTab />
           </TabsContent>
@@ -1756,6 +2227,22 @@ export default function CommandCenter() {
 
           <TabsContent value="images" className="space-y-4">
             <ImageLibraryTab />
+          </TabsContent>
+
+          <TabsContent value="vocab-audit" className="space-y-4">
+            <VocabAuditTab />
+          </TabsContent>
+
+          <TabsContent value="menu-gen" className="space-y-4">
+            <MenuImageGeneratorContent />
+          </TabsContent>
+
+          <TabsContent value="curriculum-enrichment" className="space-y-4">
+            <CurriculumEnrichmentTab />
+          </TabsContent>
+
+          <TabsContent value="textbook-seeder" className="space-y-4">
+            <TextbookSeederTab />
           </TabsContent>
 
           <TabsContent value="voice-analytics" className="space-y-4">
@@ -1838,6 +2325,10 @@ export default function CommandCenter() {
             <BeaconsTab />
           </TabsContent>
 
+          <TabsContent value="absence-monitor" className="space-y-4">
+            <AbsenceMonitorTab />
+          </TabsContent>
+
           <TabsContent value="memory-migration" className="space-y-4">
             <MemoryMigrationTab />
           </TabsContent>
@@ -1873,6 +2364,10 @@ export default function CommandCenter() {
 
           <TabsContent value="sync-control" className="space-y-4">
             <SyncControlCenterContent />
+          </TabsContent>
+
+          <TabsContent value="voip-console" className="space-y-4">
+            <VoipConsoleTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -3985,7 +4480,23 @@ function ImageLibraryTab() {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [requestWord, setRequestWord] = useState("");
   const [requestLanguage, setRequestLanguage] = useState("spanish");
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [generateConcept, setGenerateConcept] = useState("");
+  const [generateStyle, setGenerateStyle] = useState("warm, friendly illustration, educational");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const limit = viewMode === 'list' ? 25 : 20;
+
+  // Debounce: apply search 400ms after the user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchQuery !== searchInput) {
+        setSearchQuery(searchInput);
+        setPage(0);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const queryParams = new URLSearchParams({
     limit: String(limit),
@@ -3995,20 +4506,36 @@ function ImageLibraryTab() {
   });
   if (sourceFilter !== "all") queryParams.set("source", sourceFilter);
   if (imageReviewFilter !== "all") queryParams.set("reviewed", imageReviewFilter);
+  if (searchQuery.trim()) queryParams.set("search", searchQuery.trim());
   const queryUrl = `/api/admin/media?${queryParams.toString()}`;
 
+  const [watchMode, setWatchMode] = useState(false);
+  const [watchNonce, setWatchNonce] = useState(0);
+
+  // Increment nonce every 8s while watching — changes queryKey so each fetch is a fresh URL,
+  // bypassing browser 304 caching that would otherwise hide new images.
+  useEffect(() => {
+    if (!watchMode) return;
+    const id = setInterval(() => setWatchNonce(n => n + 1), 8000);
+    return () => clearInterval(id);
+  }, [watchMode]);
+
+  const watchedQueryUrl = watchMode ? `${queryUrl}&_ts=${watchNonce}` : queryUrl;
+
   const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>({
-    queryKey: [queryUrl],
+    queryKey: [watchedQueryUrl],
   });
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [page, sourceFilter, imageReviewFilter, viewMode, sortField, sortOrder]);
+  }, [page, sourceFilter, imageReviewFilter, viewMode, sortField, sortOrder, searchQuery]);
 
   useEffect(() => {
     setShowRefetchForm(false);
     setRefetchQuery("");
     setRefetchSource('stock');
+    setLibraryPreviewUrl(null);
+    setLibraryPreviewMeta(null);
   }, [selectedImage?.id]);
 
   const toggleSort = (field: SortField) => {
@@ -4082,6 +4609,8 @@ function ImageLibraryTab() {
   const [refetchSource, setRefetchSource] = useState<'stock' | 'ai'>('stock');
   const [refetchQuery, setRefetchQuery] = useState("");
   const [showRefetchForm, setShowRefetchForm] = useState(false);
+  const [libraryPreviewUrl, setLibraryPreviewUrl] = useState<string | null>(null);
+  const [libraryPreviewMeta, setLibraryPreviewMeta] = useState<{ word: string; language: string; searchQuery?: string; title?: string } | null>(null);
 
   const refetchImageMutation = useMutation({
     mutationFn: async ({ oldId, word, language, preferredSource, customQuery }: { oldId: string; word: string; language: string; preferredSource: 'stock' | 'ai'; customQuery?: string }) => {
@@ -4096,6 +4625,37 @@ function ImageLibraryTab() {
     },
     onError: (error: any) => {
       toast({ title: "Refetch failed", description: error.message || "Failed to fetch new image", variant: "destructive" });
+    },
+  });
+
+  const previewRefetchMutation = useMutation({
+    mutationFn: async ({ word, language, customQuery }: { word: string; language: string; customQuery?: string }) => {
+      return apiRequest("POST", "/api/admin/media/preview-refetch", { word, language, customQuery: customQuery || undefined }) as unknown as Promise<{ previewUrl: string; source: string }>;
+    },
+    onSuccess: (data, variables) => {
+      setLibraryPreviewUrl(data.previewUrl);
+      setLibraryPreviewMeta({ word: variables.word, language: variables.language, searchQuery: variables.customQuery });
+    },
+    onError: (error: any) => {
+      toast({ title: "Preview failed", description: error.message || "Failed to generate preview", variant: "destructive" });
+    },
+  });
+
+  const applyRefetchPreviewMutation = useMutation({
+    mutationFn: async ({ oldId, previewUrl, word, language, searchQuery, title }: { oldId?: string; previewUrl: string; word: string; language: string; searchQuery?: string; title?: string }) => {
+      return apiRequest("POST", "/api/admin/media/apply-refetch-preview", { oldId, previewUrl, word, language, searchQuery, title });
+    },
+    onSuccess: () => {
+      toast({ title: "Image applied successfully" });
+      refetch();
+      setSelectedImage(null);
+      setShowRefetchForm(false);
+      setRefetchQuery("");
+      setLibraryPreviewUrl(null);
+      setLibraryPreviewMeta(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Apply failed", description: error.message || "Failed to apply preview", variant: "destructive" });
     },
   });
 
@@ -4125,6 +4685,21 @@ function ImageLibraryTab() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to request image", variant: "destructive" });
+    },
+  });
+
+  const generateIllustrationMutation = useMutation({
+    mutationFn: async ({ concept, style }: { concept: string; style: string }) => {
+      return apiRequest("POST", "/api/admin/media/generate-illustration", { concept, style });
+    },
+    onSuccess: () => {
+      toast({ title: "Illustration generated and added to library" });
+      refetch();
+      setShowGenerateDialog(false);
+      setGenerateConcept("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to generate illustration", variant: "destructive" });
     },
   });
 
@@ -4197,6 +4772,15 @@ function ImageLibraryTab() {
                 <Plus className="h-4 w-4 mr-1" />
                 Request Image
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGenerateDialog(true)}
+                data-testid="button-generate-illustration"
+              >
+                <Sparkles className="h-4 w-4 mr-1" />
+                Generate Illustration
+              </Button>
               
               <div className="flex border rounded-md overflow-hidden">
                 <Button
@@ -4231,6 +4815,27 @@ function ImageLibraryTab() {
                 </Button>
               </div>
               
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  placeholder="Search filename, title…"
+                  className="h-8 pl-7 pr-7 text-sm rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-52"
+                  data-testid="input-image-search"
+                />
+                {searchInput && (
+                  <button
+                    onClick={() => { setSearchInput(""); setSearchQuery(""); setPage(0); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-clear-search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
               <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(0); }}>
                 <SelectTrigger className="w-40 h-8" data-testid="select-source-filter">
                   <SelectValue placeholder="Filter by source" />
@@ -4253,6 +4858,29 @@ function ImageLibraryTab() {
                   <SelectItem value="reviewed">Reviewed</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Button
+                variant={watchMode ? "default" : "outline"}
+                size="sm"
+                className="h-8 gap-1.5 shrink-0"
+                onClick={() => {
+                  const next = !watchMode;
+                  setWatchMode(next);
+                  if (next) {
+                    setSortField('createdAt');
+                    setSortOrder('desc');
+                    setPage(0);
+                  }
+                }}
+                data-testid="button-watch-mode"
+                title={watchMode ? "Stop auto-refresh (every 8s)" : "Watch live — auto-refresh every 8s, newest first"}
+              >
+                {watchMode ? (
+                  <><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span> Watching</>
+                ) : (
+                  <><RefreshCw className="h-3.5 w-3.5" /> Watch Live</>
+                )}
+              </Button>
             </div>
           </div>
 
@@ -4476,7 +5104,7 @@ function ImageLibraryTab() {
         </div>
       </CollapsibleSection>
 
-      <AlertDialog open={!!selectedImage} onOpenChange={(open) => { if (!open) { setSelectedImage(null); setShowRefetchForm(false); setRefetchQuery(""); } }}>
+      <AlertDialog open={!!selectedImage} onOpenChange={(open) => { if (!open) { setSelectedImage(null); setShowRefetchForm(false); setRefetchQuery(""); setLibraryPreviewUrl(null); setLibraryPreviewMeta(null); } }}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <AlertDialogHeader className="flex-shrink-0">
             <AlertDialogTitle className="flex items-center gap-2">
@@ -4487,13 +5115,78 @@ function ImageLibraryTab() {
           
           {selectedImage && (
             <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2">
-              <div className="max-h-48 relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-                <img 
-                  src={selectedImage.url} 
-                  alt={selectedImage.title || selectedImage.filename}
-                  className="max-w-full max-h-48 object-contain"
-                />
-              </div>
+              {libraryPreviewUrl ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground text-center">Current</p>
+                      <div className="h-40 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                        <img src={selectedImage.url} alt="Current" className="max-w-full max-h-40 object-contain" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground text-center">Candidate</p>
+                      <div className="h-40 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                        <img src={libraryPreviewUrl} alt="Candidate" className="max-w-full max-h-40 object-contain" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!libraryPreviewMeta) return;
+                        applyRefetchPreviewMutation.mutate({
+                          oldId: selectedImage.id,
+                          previewUrl: libraryPreviewUrl,
+                          word: libraryPreviewMeta.word,
+                          language: libraryPreviewMeta.language,
+                          searchQuery: libraryPreviewMeta.searchQuery,
+                          title: selectedImage.title || libraryPreviewMeta.word,
+                        });
+                      }}
+                      disabled={applyRefetchPreviewMutation.isPending}
+                      data-testid="button-apply-library-preview"
+                    >
+                      {applyRefetchPreviewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                      Apply
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (!libraryPreviewMeta) return;
+                        setLibraryPreviewUrl(null);
+                        previewRefetchMutation.mutate({
+                          word: libraryPreviewMeta.word,
+                          language: libraryPreviewMeta.language,
+                          customQuery: refetchQuery.trim() || undefined,
+                        });
+                      }}
+                      disabled={previewRefetchMutation.isPending}
+                      data-testid="button-retry-library-preview"
+                    >
+                      {previewRefetchMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setLibraryPreviewUrl(null); setLibraryPreviewMeta(null); }}
+                      data-testid="button-discard-library-preview"
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-h-48 relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={selectedImage.url} 
+                    alt={selectedImage.title || selectedImage.filename}
+                    className="max-w-full max-h-48 object-contain"
+                  />
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {(selectedImage.targetWord || selectedImage.searchQuery) && (
@@ -4575,62 +5268,46 @@ function ImageLibraryTab() {
             </div>
           )}
           
-          {showRefetchForm && selectedImage && (
+          {showRefetchForm && selectedImage && !libraryPreviewUrl && (
             <div className="border rounded-lg p-3 space-y-3 bg-muted/30" data-testid="refetch-form">
-              <p className="text-sm font-medium">Replace this image</p>
+              <p className="text-sm font-medium">Preview a replacement</p>
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Search query</label>
+                <label className="text-xs text-muted-foreground">Custom prompt (optional)</label>
                 <Input
                   value={refetchQuery}
                   onChange={(e) => setRefetchQuery(e.target.value)}
-                  placeholder="Enter search terms..."
+                  placeholder="Leave blank to use the word's scene description..."
                   data-testid="input-refetch-query"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      previewRefetchMutation.mutate({
+                        word: selectedImage.targetWord || selectedImage.searchQuery || '',
+                        language: selectedImage.language || 'spanish',
+                        customQuery: refetchQuery.trim() || undefined,
+                      });
+                    }
+                  }}
                 />
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-xs text-muted-foreground">Source:</label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={refetchSource === 'stock' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setRefetchSource('stock')}
-                    data-testid="button-source-stock"
-                  >
-                    <Image className="h-3 w-3 mr-1" />
-                    Stock Photo
-                  </Button>
-                  <Button
-                    variant={refetchSource === 'ai' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setRefetchSource('ai')}
-                    data-testid="button-source-ai"
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    AI Generated
-                  </Button>
-                </div>
               </div>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   onClick={() => {
-                    refetchImageMutation.mutate({
-                      oldId: selectedImage.id,
+                    previewRefetchMutation.mutate({
                       word: selectedImage.targetWord || selectedImage.searchQuery || '',
                       language: selectedImage.language || 'spanish',
-                      preferredSource: refetchSource,
                       customQuery: refetchQuery.trim() || undefined,
                     });
                   }}
-                  disabled={refetchImageMutation.isPending}
+                  disabled={previewRefetchMutation.isPending}
                   data-testid="button-refetch-submit"
                 >
-                  {refetchImageMutation.isPending ? (
+                  {previewRefetchMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />
                   ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
+                    <Sparkles className="h-4 w-4 mr-1" />
                   )}
-                  {refetchImageMutation.isPending ? "Fetching..." : "Fetch New Image"}
+                  {previewRefetchMutation.isPending ? "Generating..." : "Preview"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -4675,14 +5352,15 @@ function ImageLibraryTab() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setRefetchQuery(selectedImage.searchQuery || selectedImage.targetWord || '');
-                    setRefetchSource('stock');
+                    setRefetchQuery('');
+                    setLibraryPreviewUrl(null);
+                    setLibraryPreviewMeta(null);
                     setShowRefetchForm(!showRefetchForm);
                   }}
                   data-testid="button-refetch-toggle"
                 >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Refetch
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Replace
                 </Button>
               )}
               <AlertDialog>
@@ -4716,6 +5394,71 @@ function ImageLibraryTab() {
               </AlertDialog>
             </div>
             <AlertDialogCancel data-testid="button-close-details">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <SceneAndPropImageSections />
+
+      <AlertDialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Generate Illustration
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Create a custom AI-generated illustration for teaching concepts, scenarios, or cultural scenes. The image will be archived to permanent storage and added to the library — Daniela will reuse it automatically when teaching similar concepts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Concept to illustrate</label>
+              <textarea
+                value={generateConcept}
+                onChange={(e) => setGenerateConcept(e.target.value)}
+                placeholder="e.g., a family eating dinner together at a colorful Mexican kitchen table, evening light"
+                className="w-full px-3 py-2 border rounded-md bg-background resize-none"
+                rows={3}
+                data-testid="input-generate-concept"
+              />
+              <p className="text-xs text-muted-foreground">Be descriptive — specific scenes produce better educational images.</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Style</label>
+              <Select value={generateStyle} onValueChange={setGenerateStyle}>
+                <SelectTrigger data-testid="select-generate-style">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warm, friendly illustration, educational">Warm educational illustration</SelectItem>
+                  <SelectItem value="bright, colorful educational poster style">Colorful educational poster</SelectItem>
+                  <SelectItem value="realistic photography style, natural lighting">Realistic / photographic</SelectItem>
+                  <SelectItem value="simple flat design, minimal, clean educational">Flat / minimal design</SelectItem>
+                  <SelectItem value="vibrant cultural art style, rich colors">Cultural / vibrant art</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => generateIllustrationMutation.mutate({ concept: generateConcept, style: generateStyle })}
+              disabled={!generateConcept.trim() || generateIllustrationMutation.isPending}
+              data-testid="button-submit-generate"
+            >
+              {generateIllustrationMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Generating (~15s)...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate & Save
+                </>
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -4787,6 +5530,259 @@ function ImageLibraryTab() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function SceneAndPropImageSections() {
+  type SceneImage = { id: string; name: string; display_name: string; description: string | null; image_url: string; zone_count: string | number };
+  const { data: sceneData, isLoading: scenesLoading, refetch: refetchScenes } = useQuery<{ images: SceneImage[] }>({
+    queryKey: ['/api/admin/scene-images'],
+  });
+  const { data: propData, isLoading: propsLoading } = useQuery<{ images: Array<{ id: string; name: string; display_name: string; object_type: string; image_url: string; zone_image_url: string | null; tags: string[] | null }> }>({
+    queryKey: ['/api/admin/prop-images'],
+  });
+
+  const [sceneLightbox, setSceneLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [propLightbox, setPropLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [zonePropsDownloading, setZonePropsDownloading] = useState(false);
+  const [showZonesOnly, setShowZonesOnly] = useState(false);
+  const [regeneratingName, setRegeneratingName] = useState<string | null>(null);
+  const [deletingName, setDeletingName] = useState<string | null>(null);
+
+  const displayedScenes = showZonesOnly
+    ? (sceneData?.images ?? []).filter(img => Number(img.zone_count) > 0)
+    : (sceneData?.images ?? []);
+
+  async function regenerateScene(name: string) {
+    setRegeneratingName(name);
+    try {
+      const res = await fetch('/api/admin/generate-scene-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: [name], force: true }),
+      });
+      if (!res.ok) throw new Error('Regeneration failed');
+      await refetchScenes();
+    } catch (err: any) {
+      alert(`Regeneration failed: ${err.message}`);
+    } finally {
+      setRegeneratingName(null);
+    }
+  }
+
+  async function deleteScene(name: string, label: string) {
+    if (!confirm(`Clear the image for "${label}"? The environment record stays, but the image slot will be empty until regenerated.`)) return;
+    setDeletingName(name);
+    try {
+      const res = await fetch(`/api/admin/scene-images/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+      await refetchScenes();
+    } catch (err: any) {
+      alert(`Delete failed: ${err.message}`);
+    } finally {
+      setDeletingName(null);
+    }
+  }
+
+  async function downloadZoneProps() {
+    setZonePropsDownloading(true);
+    try {
+      const res = await fetch('/api/admin/download-zone-props');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(err.error || 'Download failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'zone-props.tar.gz';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Download failed: ${err.message}`);
+    } finally {
+      setZonePropsDownloading(false);
+    }
+  }
+
+  const zoneCount = (sceneData?.images ?? []).filter(img => Number(img.zone_count) > 0).length;
+
+  return (
+    <>
+      <CollapsibleSection
+        title="Scenario Scene Backgrounds"
+        icon={<Sparkles className="h-5 w-5 text-primary" />}
+        badge={sceneData?.images?.length?.toString()}
+        defaultOpen={true}
+      >
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <Button
+            variant={showZonesOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowZonesOnly(v => !v)}
+            data-testid="button-scene-filter-zones"
+          >
+            {showZonesOnly ? 'Showing scenario stages only' : `Show scenario stages only (${zoneCount})`}
+          </Button>
+          <span className="text-xs text-muted-foreground">Click any image to enlarge. Use the controls on each card to regenerate or clear.</span>
+        </div>
+        {scenesLoading ? (
+          <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="aspect-video rounded-md" />)}
+          </div>
+        ) : displayedScenes.length ? (
+          <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mt-4">
+            {displayedScenes.map(img => {
+              const hasImage = !!img.image_url;
+              const label = img.display_name || img.name;
+              const isBusy = regeneratingName === img.name || deletingName === img.name;
+              return (
+                <div
+                  key={img.id}
+                  className="relative overflow-hidden rounded-md border bg-muted"
+                  data-testid={`scene-img-${img.name}`}
+                >
+                  {hasImage ? (
+                    <div
+                      className="cursor-zoom-in"
+                      onClick={() => setSceneLightbox({ url: img.image_url, label })}
+                    >
+                      <img
+                        src={img.image_url}
+                        alt={label}
+                        className="w-full aspect-video object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-video flex flex-col items-center justify-center gap-1 bg-muted/60">
+                      <ImageOff className="h-6 w-6 text-muted-foreground/50" />
+                      <p className="text-[10px] text-muted-foreground text-center px-2">No image</p>
+                    </div>
+                  )}
+                  {/* Stage count badge — top right */}
+                  {Number(img.zone_count) > 0 && (
+                    <div className="absolute top-1 right-1">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-black/70 text-white border-0">
+                        {img.zone_count} {Number(img.zone_count) === 1 ? 'stage' : 'stages'}
+                      </Badge>
+                    </div>
+                  )}
+                  {/* Bottom bar: name + controls — always visible */}
+                  <div className="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-1 flex items-center justify-between gap-1">
+                    <p className="text-[11px] text-white truncate flex-1 min-w-0">{label}</p>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        title={hasImage ? 'Regenerate (replace with new AI image)' : 'Generate image'}
+                        className="text-white/80 hover:text-white transition-colors"
+                        onClick={e => { e.stopPropagation(); regenerateScene(img.name); }}
+                        disabled={isBusy}
+                        data-testid={`button-regen-scene-${img.name}`}
+                      >
+                        {regeneratingName === img.name
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <RefreshCw className="h-3.5 w-3.5" />
+                        }
+                      </button>
+                      {hasImage && (
+                        <button
+                          title="Clear image (keep environment slot, remove this photo)"
+                          className="text-white/60 hover:text-red-400 transition-colors"
+                          onClick={e => { e.stopPropagation(); deleteScene(img.name, label); }}
+                          disabled={isBusy}
+                          data-testid={`button-delete-scene-${img.name}`}
+                        >
+                          {deletingName === img.name
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Trash2 className="h-3.5 w-3.5" />
+                          }
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-4">No scene backgrounds found.</p>
+        )}
+        {sceneLightbox && (
+          <Dialog open onOpenChange={() => setSceneLightbox(null)}>
+            <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0" aria-describedby={undefined}>
+              <DialogTitle className="sr-only">{sceneLightbox.label}</DialogTitle>
+              <img src={sceneLightbox.url} alt={sceneLightbox.label} className="w-full h-auto max-h-[80vh] object-contain" />
+              <p className="text-white/80 text-sm text-center px-4 py-2">{sceneLightbox.label}</p>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Prop Room Assets"
+        icon={<Image className="h-5 w-5 text-primary" />}
+        badge={propData?.images?.length?.toString()}
+        defaultOpen={true}
+      >
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={downloadZoneProps}
+            disabled={zonePropsDownloading}
+            data-testid="button-download-zone-props"
+          >
+            {zonePropsDownloading
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Packing 22 props…</>
+              : <><Download className="h-4 w-4 mr-2" />Download 22 Zone Props (.tar.gz)</>
+            }
+          </Button>
+          <span className="text-xs text-muted-foreground">Remove backgrounds, then re-upload with the upload script</span>
+        </div>
+        {propsLoading ? (
+          <div className="grid gap-3 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 mt-4">
+            {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-md" />)}
+          </div>
+        ) : propData?.images?.length ? (
+          <div className="grid gap-3 grid-cols-4 sm:grid-cols-6 md:grid-cols-8 mt-4">
+            {propData.images.map(img => (
+              <div
+                key={img.id}
+                className="relative group cursor-zoom-in overflow-hidden rounded-md border bg-muted"
+                onClick={() => setPropLightbox({ url: img.image_url, label: img.display_name || img.name })}
+                data-testid={`prop-img-${img.name}`}
+              >
+                <img
+                  src={img.image_url}
+                  alt={img.display_name || img.name}
+                  className="w-full aspect-square object-cover"
+                  loading="lazy"
+                />
+                {img.zone_image_url && (
+                  <div className="absolute top-1 right-1 bg-emerald-500/90 text-white text-[9px] font-bold leading-none px-1 py-0.5 rounded">Z</div>
+                )}
+                <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[10px] text-white truncate">{img.display_name || img.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-4">No prop room assets have been generated yet.</p>
+        )}
+        {propLightbox && (
+          <Dialog open onOpenChange={() => setPropLightbox(null)}>
+            <DialogContent className="max-w-lg p-0 overflow-hidden bg-black border-0">
+              <img src={propLightbox.url} alt={propLightbox.label} className="w-full h-auto max-h-[80vh] object-contain" />
+              <p className="text-white/80 text-sm text-center px-4 py-2">{propLightbox.label}</p>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CollapsibleSection>
+    </>
   );
 }
 
@@ -5417,8 +6413,22 @@ function DevToolsTab() {
   const [selectedLanguage, setSelectedLanguage] = useState("Spanish");
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [reloadingClassId, setReloadingClassId] = useState<string | null>(null);
+  const [davidNoteInput, setDavidNoteInput] = useState("");
 
   const LANGUAGES = ["Spanish", "French", "German", "Italian", "Portuguese", "Mandarin", "Japanese", "Korean", "Russian"];
+
+  const { data: davidNoteData, refetch: refetchDavidNote } = useQuery<{ note: string | null }>({
+    queryKey: ["/api/admin/classroom/david-note"],
+  });
+
+  const saveDavidNoteMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/classroom/david-note', { note: davidNoteInput }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: 'Note saved', description: "Daniela will see your note at the top of her classroom next session." });
+      refetchDavidNote();
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
 
   const { data: myClasses, isLoading: classesLoading } = useQuery<any[]>({
     queryKey: ["/api/student/classes"],
@@ -5462,6 +6472,35 @@ function DevToolsTab() {
 
   return (
     <div className="space-y-4">
+      <CollapsibleSection
+        title="Note to Daniela"
+        icon={<MessageSquare className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+      >
+        <div className="mt-4 space-y-3">
+          {davidNoteData?.note && !davidNoteInput && (
+            <p className="text-xs text-muted-foreground italic">Current: "{davidNoteData.note}"</p>
+          )}
+          <textarea
+            value={davidNoteInput || (davidNoteData?.note ?? '')}
+            onChange={e => setDavidNoteInput(e.target.value)}
+            placeholder="e.g. Focus on warmth today — David had a rough week. Lean into the connection."
+            className="w-full h-24 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            data-testid="input-david-note"
+          />
+          <Button
+            size="sm"
+            onClick={() => saveDavidNoteMutation.mutate()}
+            disabled={saveDavidNoteMutation.isPending || !davidNoteInput.trim()}
+            data-testid="button-save-david-note"
+          >
+            {saveDavidNoteMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            Save Note
+          </Button>
+          <p className="text-xs text-muted-foreground">Daniela sees this at the top of her classroom at the start of every session.</p>
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection 
         title="Quick Test Setup" 
         icon={<Plus className="h-5 w-5 text-primary" />}
@@ -5564,6 +6603,12 @@ function DevToolsTab() {
       <NeonMigrationSection />
 
       <CrossEnvSyncSection />
+
+      <VocabImagesSection />
+
+      <ComparisonBackgroundsSection />
+
+      <ScenarioZonesSection />
     </div>
   );
 }
@@ -6083,6 +7128,815 @@ function CrossEnvSyncSection() {
   );
 }
 
+const VOCAB_IMAGE_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+
+function VocabImagesSection() {
+  const { toast } = useToast();
+  const [language, setLanguage] = useState('spanish');
+  const [fixNumbersResult, setFixNumbersResult] = useState<any>(null);
+  const [fixGreetingsResult, setFixGreetingsResult] = useState<any>(null);
+  const [fixAllGreetingsResult, setFixAllGreetingsResult] = useState<any>(null);
+  const [fixAllNumbersResult, setFixAllNumbersResult] = useState<any>(null);
+  const [fixClassroomResult, setFixClassroomResult] = useState<any>(null);
+  const [fixAllClassroomResult, setFixAllClassroomResult] = useState<any>(null);
+  const [fixAdjectivesResult, setFixAdjectivesResult] = useState<any>(null);
+  const [seedResult, setSeedResult] = useState<any>(null);
+  const [fixWordInput, setFixWordInput] = useState('');
+  const [fixWordResult, setFixWordResult] = useState<any>(null);
+  const [fixWordPreview, setFixWordPreview] = useState<{ currentUrl: string | null; previewUrl: string; previewKey: string; cacheKey: string; word: string; language: string } | null>(null);
+
+  const fixNumbersMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-numbers-days', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixNumbersResult(data);
+      toast({ title: 'Numbers/Days cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixGreetingsMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-greetings', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixGreetingsResult(data);
+      toast({ title: 'Greetings cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAllGreetingsMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-all-greetings', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAllGreetingsResult(data);
+      toast({ title: 'All greetings cache busted', description: `Deleted ${data.deleted} stale images across all 10 languages. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixClassroomMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-classroom', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixClassroomResult(data);
+      toast({ title: 'Classroom phrases cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixSocialPhrasesMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-social-phrases', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      toast({ title: 'Social phrases cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding ${data.words?.length ?? 0} phrases in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAllClassroomMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-all-classroom', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAllClassroomResult(data);
+      toast({ title: 'All classroom phrases cache busted', description: `Deleted ${data.deleted} stale images across all languages. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAllNumbersMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-all-numbers', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAllNumbersResult(data);
+      toast({ title: 'All numbers cache busted', description: `Deleted ${data.deleted} stale images across all 10 languages. Re-seeding in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixAdjectivesMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-adjectives', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixAdjectivesResult(data);
+      toast({ title: 'Adjective pairs cache busted', description: `Deleted ${data.deleted} stale images. Re-seeding with split-panel prompts.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/seed', { language }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setSeedResult(data);
+      toast({ title: 'Seed started', description: `Job ${data.jobId} — seeding all ${language} vocab images in background.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const [bustReseedResult, setBustReseedResult] = useState<any>(null);
+  const bustReseedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/bust-and-reseed', { language, dryRun: false }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setBustReseedResult(data);
+      toast({ title: 'Bust & Reseed started', description: `Deleted ${data.deleted} images for ${language}. Job ${data.jobId?.slice(-8)} regenerating all vocab images from scratch.` });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const fixWordMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/fix-word', { language, word: fixWordInput.trim() }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/textbook/vocab-images'] });
+      toast({ title: 'Image regenerated', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const previewFixMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/preview-fix', { language, word: fixWordInput.trim() }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordPreview({ currentUrl: data.currentUrl, previewUrl: data.previewUrl, previewKey: data.previewKey, cacheKey: data.cacheKey, word: data.word, language: data.language });
+      toast({ title: 'Preview ready', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Preview failed', description: e.message }),
+  });
+
+  const applyPreviewMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/vocab-images/apply-preview', {
+      language: fixWordPreview!.language,
+      word: fixWordPreview!.word,
+      previewKey: fixWordPreview!.previewKey,
+      previewUrl: fixWordPreview!.previewUrl,
+    }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setFixWordPreview(null);
+      setFixWordResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/textbook/vocab-images'] });
+      toast({ title: 'Image applied', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Apply failed', description: e.message }),
+  });
+
+  return (
+    <CollapsibleSection
+      title="Vocab Image Cache Tools"
+      icon={<Image className="h-5 w-5 text-primary" />}
+      defaultOpen={false}
+    >
+      <div className="mt-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Fix Stale Vocab Images</CardTitle>
+            <CardDescription>
+              Bust cached images for specific word categories and reseed with correct illustrations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium w-20">Language</span>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger className="w-48" data-testid="select-vocab-image-language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VOCAB_IMAGE_LANGUAGES.map(l => (
+                    <SelectItem key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Numbers &amp; Days</p>
+                  <p className="text-xs text-muted-foreground">Bust stale number/day images. Numbers regenerate as crisp server-generated SVGs; days use AI scene illustrations.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fixNumbersMutation.mutate()}
+                    disabled={fixNumbersMutation.isPending || fixAllNumbersMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-numbers-days"
+                  >
+                    {fixNumbersMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Fix Numbers / Days
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => fixAllNumbersMutation.mutate()}
+                    disabled={fixAllNumbersMutation.isPending || fixNumbersMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-all-numbers"
+                  >
+                    {fixAllNumbersMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Fix All Languages
+                  </Button>
+                  {fixNumbersResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {fixNumbersResult.deleted} cached entries. Job: {fixNumbersResult.jobId?.slice(-8)}</p>
+                  )}
+                  {fixAllNumbersResult && (
+                    <p className="text-xs text-muted-foreground">All langs: deleted {fixAllNumbersResult.deleted} entries. Job: {fixAllNumbersResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Greetings &amp; Farewells</p>
+                  <p className="text-xs text-muted-foreground">Bust stale greeting/farewell images and reseed with scene-based illustrations.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fixGreetingsMutation.mutate()}
+                    disabled={fixGreetingsMutation.isPending || fixAllGreetingsMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-greetings-cmd"
+                  >
+                    {fixGreetingsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Fix Greetings
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => fixAllGreetingsMutation.mutate()}
+                    disabled={fixAllGreetingsMutation.isPending || fixGreetingsMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-all-greetings"
+                  >
+                    {fixAllGreetingsMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Fix All Languages
+                  </Button>
+                  {fixGreetingsResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {fixGreetingsResult.deleted} cached entries. Job: {fixGreetingsResult.jobId?.slice(-8)}</p>
+                  )}
+                  {fixAllGreetingsResult && (
+                    <p className="text-xs text-muted-foreground">All langs: deleted {fixAllGreetingsResult.deleted} entries. Job: {fixAllGreetingsResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Classroom Survival Phrases</p>
+                  <p className="text-xs text-muted-foreground">Bust stale classroom phrase images and reseed with character-scene illustrations (repeat, speak slowly, don't understand, how do you say).</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fixClassroomMutation.mutate()}
+                    disabled={fixClassroomMutation.isPending || fixAllClassroomMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-classroom-cmd"
+                  >
+                    {fixClassroomMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Fix Classroom Phrases
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => fixAllClassroomMutation.mutate()}
+                    disabled={fixAllClassroomMutation.isPending || fixClassroomMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-all-classroom"
+                  >
+                    {fixAllClassroomMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Fix All Languages
+                  </Button>
+                  {fixClassroomResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {fixClassroomResult.deleted} cached entries. Job: {fixClassroomResult.jobId?.slice(-8)}</p>
+                  )}
+                  {fixAllClassroomResult && (
+                    <p className="text-xs text-muted-foreground">All langs: deleted {fixAllClassroomResult.deleted} entries. Job: {fixAllClassroomResult.jobId?.slice(-8)}</p>
+                  )}
+                  <div className="border-t border-border pt-2 mt-1">
+                    <p className="text-xs font-medium text-foreground/70 mb-1.5">Social phrases (que tal, que pasa, nada…)</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fixSocialPhrasesMutation.mutate()}
+                      disabled={fixSocialPhrasesMutation.isPending}
+                      className="w-full"
+                      data-testid="button-fix-social-phrases"
+                    >
+                      {fixSocialPhrasesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                      Fix Social Phrases (ES)
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Adjective Pairs</p>
+                  <p className="text-xs text-muted-foreground">Bust stale adjective images and reseed with split-panel contrast illustrations (bien/mal, grande/pequeño, etc.).</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fixAdjectivesMutation.mutate()}
+                    disabled={fixAdjectivesMutation.isPending}
+                    className="w-full"
+                    data-testid="button-fix-adjectives-cmd"
+                  >
+                    {fixAdjectivesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Fix Adjectives
+                  </Button>
+                  {fixAdjectivesResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {fixAdjectivesResult.deleted} cached entries. Job: {fixAdjectivesResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Full Reseed</p>
+                  <p className="text-xs text-muted-foreground">Reseed all vocab images for the selected language (generates missing images only).</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => seedMutation.mutate()}
+                    disabled={seedMutation.isPending}
+                    className="w-full"
+                    data-testid="button-seed-all-cmd"
+                  >
+                    {seedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Seed All
+                  </Button>
+                  {seedResult && (
+                    <p className="text-xs text-muted-foreground">Job started: {seedResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-muted/30 border-orange-200 dark:border-orange-900">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm font-medium">Bust &amp; Reseed (Full Art Reset)</p>
+                  <p className="text-xs text-muted-foreground">Delete ALL cached images for selected language and regenerate from scratch. Use when changing the art style or prompt logic across all word categories — not for character profile changes (use Fix Greetings for that).</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => bustReseedMutation.mutate()}
+                    disabled={bustReseedMutation.isPending}
+                    className="w-full"
+                    data-testid="button-bust-reseed-cmd"
+                  >
+                    {bustReseedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Bust &amp; Reseed
+                  </Button>
+                  {bustReseedResult && (
+                    <p className="text-xs text-muted-foreground">Deleted {bustReseedResult.deleted} images. Job: {bustReseedResult.jobId?.slice(-8)}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="bg-muted/30">
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Fix Single Word</p>
+                  <p className="text-xs text-muted-foreground">Generate a candidate image for one word and preview it before applying. The original stays safe until you click Apply. Accepts any script (hola, こんにちは, שלום, etc.).</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={fixWordInput}
+                    onChange={e => { setFixWordInput(e.target.value); setFixWordResult(null); setFixWordPreview(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter' && fixWordInput.trim()) previewFixMutation.mutate(); }}
+                    placeholder="e.g. buenos días"
+                    className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    data-testid="input-fix-word-cmd"
+                    dir="auto"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => previewFixMutation.mutate()}
+                    disabled={previewFixMutation.isPending || applyPreviewMutation.isPending || !fixWordInput.trim()}
+                    data-testid="button-fix-word-cmd"
+                  >
+                    {previewFixMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Preview
+                  </Button>
+                </div>
+
+                {fixWordPreview && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground text-center">Current</p>
+                        {fixWordPreview.currentUrl
+                          ? <img src={fixWordPreview.currentUrl} alt="current" className="w-full rounded-md object-contain border aspect-square" />
+                          : <div className="w-full aspect-square rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground bg-muted/40">No image</div>
+                        }
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground text-center">Candidate</p>
+                        <img src={fixWordPreview.previewUrl} alt="candidate" className="w-full rounded-md object-contain border aspect-square" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => applyPreviewMutation.mutate()}
+                        disabled={applyPreviewMutation.isPending}
+                        data-testid="button-apply-preview"
+                        className="flex-1"
+                      >
+                        {applyPreviewMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Apply
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { previewFixMutation.mutate(); }}
+                        disabled={previewFixMutation.isPending || applyPreviewMutation.isPending}
+                        data-testid="button-retry-preview"
+                      >
+                        {previewFixMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setFixWordPreview(null)}
+                        disabled={applyPreviewMutation.isPending}
+                        data-testid="button-discard-preview"
+                        className="flex-1"
+                      >
+                        Discard
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {fixWordResult && !fixWordPreview && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{fixWordResult.message}</p>
+                    {fixWordResult.url && (
+                      <img src={fixWordResult.url} alt={fixWordInput} className="w-full rounded-md object-contain border" />
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function ComparisonBackgroundsSection() {
+  const { toast } = useToast();
+  const [enlargedUrl, setEnlargedUrl] = useState<string | null>(null);
+  const [candidate, setCandidate] = useState<string | null>(null);
+
+  const { data: backgrounds = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ['/api/admin/comparison-backgrounds'],
+    staleTime: 30000,
+  });
+
+  const sharedBg = backgrounds.find((bg: any) =>
+    bg.searchQuery === 'vocab_comparison_bg_shared'
+  );
+
+  // Generate a candidate without overwriting the current image
+  const previewMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('POST', '/api/admin/comparison-backgrounds/preview', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setCandidate(data.candidateUrl);
+      toast({ title: 'New version ready', description: 'Compare below — save to adopt it or discard to keep the current one.' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Generation failed', description: e.message }),
+  });
+
+  // Save the candidate as the new production background
+  const adoptMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('POST', '/api/admin/comparison-backgrounds/adopt', { candidateUrl: candidate }).then(r => r.json()),
+    onSuccess: () => {
+      setCandidate(null);
+      refetch();
+      toast({ title: 'Saved', description: 'New background is now live.' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Save failed', description: e.message }),
+  });
+
+  const generating = previewMutation.isPending;
+  const adopting = adoptMutation.isPending;
+
+  return (
+    <CollapsibleSection
+      title="Comparison Backgrounds"
+      icon={<Layers className="h-5 w-5 text-primary" />}
+      defaultOpen={false}
+      badge={sharedBg ? '1/1' : undefined}
+    >
+      <div className="mt-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <CardTitle className="text-base">Grammar Comparison Background</CardTitle>
+                <CardDescription>
+                  One shared background used behind every <code className="text-xs bg-muted px-1 rounded">visual_compare</code> call across all languages.
+                  Generated with Gemini Flash. Click any image to enlarge.
+                </CardDescription>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-comparison-backgrounds">
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoading ? (
+              <div className="aspect-video max-w-lg rounded-md bg-muted animate-pulse" />
+            ) : candidate ? (
+              // ── Preview mode: side-by-side comparison ──────────────────────────
+              <div className="space-y-3" data-testid="card-compare-bg-preview">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground text-center">Current</p>
+                    {sharedBg?.url
+                      ? <img
+                          src={sharedBg.url}
+                          alt="current"
+                          className="w-full rounded-md object-cover border aspect-video cursor-pointer"
+                          onClick={() => setEnlargedUrl(sharedBg.url)}
+                        />
+                      : <div className="w-full aspect-video rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground bg-muted/40">None</div>
+                    }
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground text-center">New version</p>
+                    <img
+                      src={candidate}
+                      alt="candidate"
+                      className="w-full rounded-md object-cover border aspect-video cursor-pointer"
+                      onClick={() => setEnlargedUrl(candidate)}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => adoptMutation.mutate()}
+                    disabled={adopting || generating}
+                    data-testid="button-adopt-compare-bg"
+                    className="flex-1"
+                  >
+                    {adopting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                    Save new version
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => previewMutation.mutate()}
+                    disabled={generating || adopting}
+                    data-testid="button-retry-compare-bg"
+                    title="Try another"
+                  >
+                    {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setCandidate(null)}
+                    disabled={adopting}
+                    data-testid="button-discard-compare-bg"
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // ── Normal mode: current image + generate button ────────────────────
+              <div className="flex flex-col gap-3 max-w-lg" data-testid="card-compare-bg-shared">
+                <div
+                  className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20 cursor-pointer"
+                  onClick={() => sharedBg?.url && setEnlargedUrl(sharedBg.url)}
+                >
+                  {sharedBg?.url ? (
+                    <>
+                      <img
+                        src={sharedBg.url}
+                        alt="Shared comparison background"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-background/90 text-xs"
+                          onClick={(e) => { e.stopPropagation(); previewMutation.mutate(); }}
+                          disabled={generating}
+                          data-testid="button-regen-compare-shared"
+                        >
+                          {generating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                          {generating ? 'Generating…' : 'Generate new version'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <Image className="h-6 w-6 opacity-30" />
+                      <p className="text-xs">No background generated yet</p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => previewMutation.mutate()}
+                        disabled={generating}
+                        data-testid="button-gen-compare-shared"
+                      >
+                        {generating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        {generating ? 'Generating…' : 'Generate with Gemini Flash'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Shared across all 10 languages — generated once, cached permanently.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {enlargedUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
+          onClick={() => setEnlargedUrl(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <img
+              src={enlargedUrl}
+              alt="Comparison background"
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            />
+            <button
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg hover:bg-black/80"
+              onClick={() => setEnlargedUrl(null)}
+            >×</button>
+          </div>
+        </div>
+      )}
+    </CollapsibleSection>
+  );
+}
+
+function ScenarioZonesSection() {
+  const { toast } = useToast();
+  const [genAllResult, setGenAllResult] = useState<any>(null);
+  const [seedResult, setSeedResult] = useState<any>(null);
+
+  const { data: zoneStatus, isLoading: zoneStatusLoading, refetch: refetchZones } = useQuery<{
+    zones: Array<{ id: string; name: string; zoneOrder: number; scenarioTitle: string; imageUrl: string | null; imagePrompt: string | null; nextScenarioSlug: string | null }>;
+    total: number;
+    withImages: number;
+  }>({
+    queryKey: ['/api/admin/all-zone-images-status'],
+    staleTime: 30000,
+  });
+
+  const [backfillResult, setBackfillResult] = useState<any>(null);
+
+  const genAllMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/generate-all-zone-images', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setGenAllResult(data);
+      toast({ title: 'Zone image generation started', description: data.message });
+      // Poll every 15 s for up to 3 min — generation takes 10-30 s per image
+      let polls = 0;
+      const maxPolls = 12;
+      const interval = setInterval(() => {
+        polls++;
+        refetchZones();
+        if (polls >= maxPolls) clearInterval(interval);
+      }, 15000);
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const backfillMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/backfill-zone-images-to-media', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setBackfillResult(data);
+      toast({ title: 'Media library synced', description: data.message });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/seed-scenario-zones', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setSeedResult(data);
+      toast({ title: 'Zones seeded', description: `${data.zonesCreated ?? 0} new zones created.` });
+      refetchZones();
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const zones = zoneStatus?.zones ?? [];
+  const missing = zones.filter(z => !z.imageUrl).length;
+
+  return (
+    <CollapsibleSection
+      title="Scenario Zones"
+      icon={<Image className="h-5 w-5 text-primary" />}
+      defaultOpen={false}
+      badge={zoneStatus ? `${zoneStatus.withImages}/${zoneStatus.total} images` : undefined}
+    >
+      <div className="mt-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Zone Images</CardTitle>
+            <CardDescription>
+              Generate AI images for all scenario zones that don't have one yet. Each image depicts the zone environment.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => seedMutation.mutate()}
+                disabled={seedMutation.isPending}
+                data-testid="button-seed-zones"
+              >
+                {seedMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Seed All Zones
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => genAllMutation.mutate()}
+                disabled={genAllMutation.isPending || missing === 0}
+                data-testid="button-generate-all-zone-images"
+              >
+                {genAllMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Image className="h-3 w-3 mr-1" />}
+                Generate All Zone Images {missing > 0 ? `(${missing} missing)` : '(all done)'}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => backfillMutation.mutate()}
+                disabled={backfillMutation.isPending}
+                data-testid="button-backfill-zone-images"
+              >
+                {backfillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Image className="h-3 w-3 mr-1" />}
+                Sync to Library
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => refetchZones()} data-testid="button-refresh-zones">
+                <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+              </Button>
+            </div>
+
+            {seedResult && (
+              <p className="text-xs text-muted-foreground">{seedResult.zonesCreated ?? 0} zones seeded.</p>
+            )}
+            {genAllResult && (
+              <p className="text-xs text-muted-foreground">{genAllResult.message} Job: {genAllResult.jobId?.slice(-8)}</p>
+            )}
+            {backfillResult && (
+              <p className="text-xs text-muted-foreground">{backfillResult.message}</p>
+            )}
+
+            {zoneStatusLoading ? (
+              <div className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8" />)}</div>
+            ) : zones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No zones found. Click "Seed All Zones" to create them.</p>
+            ) : (
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Scenario</th>
+                      <th className="text-left px-3 py-2 font-medium">Zone</th>
+                      <th className="text-left px-3 py-2 font-medium">Order</th>
+                      <th className="text-left px-3 py-2 font-medium">Chain</th>
+                      <th className="text-left px-3 py-2 font-medium">Image</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {zones.map(zone => (
+                      <tr key={zone.id} className="hover-elevate">
+                        <td className="px-3 py-2 text-muted-foreground">{zone.scenarioTitle}</td>
+                        <td className="px-3 py-2 font-medium">{zone.name}</td>
+                        <td className="px-3 py-2 text-center">{zone.zoneOrder + 1}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{zone.nextScenarioSlug ?? '—'}</td>
+                        <td className="px-3 py-2">
+                          {zone.imageUrl ? (
+                            <span className="text-green-600 dark:text-green-400 font-medium">Done</span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400">Missing</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
 function AuditTab() {
   const { data: assignments, isLoading: assignmentsLoading } = useQuery<{ assignments: any[]; total: number }>({
     queryKey: ["/api/admin/assignments", { limit: 10 }],
@@ -6193,6 +8047,355 @@ function AuditTab() {
   );
 }
 
+// ===== Vocab Audit Tab =====
+type VocabAuditStatus = 'canonical' | 'shared_concept' | 'scene_override' | 'unrouted';
+
+interface VocabAuditItem {
+  word: string;
+  status: VocabAuditStatus;
+  key: string | null;
+}
+
+interface VocabAuditLesson {
+  lessonId: string;
+  lessonName: string;
+  items: VocabAuditItem[];
+}
+
+interface VocabAuditUnit {
+  language: string;
+  unitId: string;
+  unitName: string;
+  chapterType: string | null;
+  lessons: VocabAuditLesson[];
+}
+
+interface VocabAuditResponse {
+  summary: { total: number; routed: number; unrouted: number; coveragePercent: number };
+  byLanguage: { language: string; total: number; routed: number; unrouted: number; coveragePercent: number }[];
+  filters: { language: string; status: string };
+  byUnit: Record<string, VocabAuditUnit>;
+  registryCatalog: Record<string, number>;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  canonical:      'text-green-700 dark:text-green-400',
+  shared_concept: 'text-blue-700 dark:text-blue-400',
+  scene_override: 'text-purple-700 dark:text-purple-400',
+  unrouted:       'text-red-700 dark:text-red-400',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  canonical:      'Canonical',
+  shared_concept: 'Concept Map',
+  scene_override: 'Scene Override',
+  unrouted:       'Unrouted',
+};
+
+function VocabAuditTab() {
+  const { toast } = useToast();
+  const [language, setLanguage] = useState('all');
+  const [level, setLevel]       = useState('all');
+  const [status, setStatus]     = useState('all');
+  const [unitSearch, setUnitSearch] = useState('');
+
+  // Debounce unit search so we don't hammer the API on every keystroke
+  const [debouncedUnit, setDebouncedUnit] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedUnit(unitSearch.trim().toLowerCase()), 400);
+    return () => clearTimeout(t);
+  }, [unitSearch]);
+
+  // Dialog state for "Add to Shared Concept" workflow
+  const [addConceptOpen, setAddConceptOpen] = useState(false);
+  const [addConceptWord, setAddConceptWord] = useState('');
+  const [addConceptLang, setAddConceptLang] = useState('');
+  const [addConceptNote, setAddConceptNote] = useState('');
+  const [suggestedKey, setSuggestedKey] = useState('');
+
+  const { data, isLoading, refetch } = useQuery<VocabAuditResponse>({
+    queryKey: ['/api/admin/vocab-audit', { language, level, status, unit: debouncedUnit }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (language !== 'all')     params.set('language', language);
+      if (level !== 'all')        params.set('level', level);
+      if (status !== 'all')       params.set('status', status);
+      if (debouncedUnit)          params.set('unit', debouncedUnit);
+      const res = await fetch(`/api/admin/vocab-audit?${params}`);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const addConceptMutation = useMutation({
+    mutationFn: async (payload: { word: string; language: string; suggestedKey: string; note: string }) => {
+      const res = await apiRequest('POST', '/api/admin/vocab-add-concept', payload);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: (result) => {
+      toast({ title: 'Suggestion saved', description: `"${result.entry.word}" queued (${result.totalSuggestions} total). Update the source files to make it permanent.` });
+      setAddConceptOpen(false);
+      setAddConceptNote('');
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const units = data ? Object.entries(data.byUnit) : [];
+
+  function openAddConcept(word: string, lang: string) {
+    setAddConceptWord(word);
+    setAddConceptLang(lang);
+    setAddConceptNote('');
+    // Auto-suggest a concept key based on the word
+    const cleaned = word.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_');
+    setSuggestedKey(`vocab_${lang.toLowerCase()}_${cleaned}`);
+    setAddConceptOpen(true);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-base">Vocabulary Routing Audit</CardTitle>
+            <CardDescription>
+              Checks each lesson's required vocabulary against the four-tier image routing pipeline.
+            </CardDescription>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-36" data-testid="select-vocab-audit-language">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Languages</SelectItem>
+                <SelectItem value="spanish">Spanish</SelectItem>
+                <SelectItem value="french">French</SelectItem>
+                <SelectItem value="german">German</SelectItem>
+                <SelectItem value="italian">Italian</SelectItem>
+                <SelectItem value="portuguese">Portuguese</SelectItem>
+                <SelectItem value="japanese">Japanese</SelectItem>
+                <SelectItem value="korean">Korean</SelectItem>
+                <SelectItem value="mandarin">Mandarin</SelectItem>
+                <SelectItem value="english">English</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={level} onValueChange={setLevel}>
+              <SelectTrigger className="w-40" data-testid="select-vocab-audit-level">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="novice_low">Novice Low</SelectItem>
+                <SelectItem value="novice_mid">Novice Mid</SelectItem>
+                <SelectItem value="novice_high">Novice High</SelectItem>
+                <SelectItem value="intermediate_low">Intermediate Low</SelectItem>
+                <SelectItem value="intermediate_mid">Intermediate Mid</SelectItem>
+                <SelectItem value="intermediate_high">Intermediate High</SelectItem>
+                <SelectItem value="advanced_low">Advanced Low</SelectItem>
+                <SelectItem value="advanced_mid">Advanced Mid</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-40" data-testid="select-vocab-audit-status">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="canonical">Canonical</SelectItem>
+                <SelectItem value="shared_concept">Concept Map</SelectItem>
+                <SelectItem value="scene_override">Scene Override</SelectItem>
+                <SelectItem value="unrouted">Unrouted</SelectItem>
+              </SelectContent>
+            </Select>
+            <input
+              type="text"
+              placeholder="Filter by unit..."
+              value={unitSearch}
+              onChange={(e) => setUnitSearch(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-36"
+              data-testid="input-vocab-audit-unit"
+            />
+            <Button size="default" variant="outline" onClick={() => refetch()} data-testid="button-vocab-audit-refresh">
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Summary */}
+      {data && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Total Words', value: data.summary.total, color: '' },
+            { label: 'Routed', value: data.summary.routed, color: 'text-green-700 dark:text-green-400' },
+            { label: 'Unrouted', value: data.summary.unrouted, color: 'text-red-700 dark:text-red-400' },
+            { label: 'Coverage', value: `${data.summary.coveragePercent}%`, color: data.summary.coveragePercent >= 80 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400' },
+          ].map(({ label, value, color }) => (
+            <Card key={label}>
+              <CardContent className="p-4">
+                <div className="text-xs text-muted-foreground mb-1">{label}</div>
+                <div className={`text-2xl font-bold ${color}`} data-testid={`text-vocab-audit-${label.toLowerCase().replace(' ', '-')}`}>{value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Per-language coverage */}
+      {data?.byLanguage && data.byLanguage.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Coverage by Language</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {data.byLanguage.map((lang) => (
+                <div key={lang.language} className="flex items-center gap-3 px-4 py-2 flex-wrap" data-testid={`row-lang-${lang.language}`}>
+                  <div className="w-28 text-sm font-medium capitalize">{lang.language}</div>
+                  <div className="flex-1 min-w-24">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-green-500"
+                        style={{ width: `${lang.coveragePercent}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground w-20 text-right">
+                    {lang.routed}/{lang.total} ({lang.coveragePercent}%)
+                  </div>
+                  {lang.unrouted > 0 && (
+                    <Badge variant="destructive" className="text-xs">{lang.unrouted} unrouted</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        </div>
+      )}
+
+      {/* Results by unit */}
+      {!isLoading && units.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center text-muted-foreground text-sm">
+            No lessons with required_vocabulary found for the selected filters.
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && units.map(([unitKey, unit]) => (
+        <Card key={unitKey} data-testid={`card-vocab-unit-${unitKey}`}>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-sm font-medium capitalize">{unit.unitName}</CardTitle>
+              <CardDescription className="text-xs capitalize">{unit.language} {unit.chapterType ? `· ${unit.chapterType}` : ''}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {unit.lessons.map((lesson: any) => (
+              <div key={lesson.lessonId} className="border-t px-4 py-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">{lesson.lessonName}</div>
+                <div className="flex flex-wrap gap-1">
+                  {lesson.items.map((item: any, idx: number) => (
+                    <span
+                      key={`${item.word}-${idx}`}
+                      title={item.key ?? item.status}
+                      className={`text-xs px-2 py-0.5 rounded-md bg-muted ${STATUS_COLORS[item.status] ?? ''} ${item.status === 'unrouted' ? 'cursor-pointer' : ''}`}
+                      data-testid={`badge-vocab-word-${item.word}`}
+                      onClick={item.status === 'unrouted' ? () => openAddConcept(item.word, unit.language) : undefined}
+                    >
+                      {item.word}
+                      {item.status === 'unrouted' && (
+                        <span className="ml-1 font-bold" title="Click to add to shared concept">+</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* Add to Shared Concept dialog */}
+      <Dialog open={addConceptOpen} onOpenChange={setAddConceptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Shared Concept</DialogTitle>
+            <DialogDescription>
+              Queue this word as a concept suggestion. The suggestion is saved server-side so you can batch-update the canonical registry source files later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-sm text-muted-foreground">
+              Word: <span className="font-semibold text-foreground">{addConceptWord}</span>
+              &nbsp;·&nbsp; Language: <span className="font-semibold text-foreground capitalize">{addConceptLang}</span>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Suggested concept key</label>
+              <input
+                type="text"
+                value={suggestedKey}
+                onChange={(e) => setSuggestedKey(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                data-testid="input-suggested-key"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Note (optional — e.g. suggested SCENE_OVERRIDE prompt)</label>
+              <Textarea
+                value={addConceptNote}
+                onChange={(e) => setAddConceptNote(e.target.value)}
+                placeholder="A watercolor illustration of ..."
+                className="resize-none text-sm"
+                rows={3}
+                data-testid="textarea-concept-note"
+              />
+            </div>
+            <div className="rounded-md bg-muted p-3 font-mono text-xs break-all" data-testid="text-add-concept-key">
+              {`'${addConceptWord}': '${addConceptNote || 'A watercolor illustration of ...'}',`}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              size="default"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard?.writeText(
+                  `'${addConceptWord}': '${addConceptNote || 'A watercolor illustration of ...'}',\n// Suggested key: ${suggestedKey}`
+                );
+              }}
+              data-testid="button-copy-concept-entry"
+            >
+              Copy
+            </Button>
+            <Button
+              size="default"
+              onClick={() => addConceptMutation.mutate({ word: addConceptWord, language: addConceptLang, suggestedKey, note: addConceptNote })}
+              disabled={addConceptMutation.isPending}
+              data-testid="button-save-concept-suggestion"
+            >
+              {addConceptMutation.isPending ? 'Saving...' : 'Save Suggestion'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ===== Reports Tab =====
 interface VoiceSessionReport {
   id: string;
@@ -6209,6 +8412,8 @@ interface VoiceSessionReport {
   status: string | null;
   classId: string | null;
   isTestSession: boolean | null;
+  hadAbsenceReturn: boolean | null;
+  absenceReturnDays: number | null;
   userName: string | null;
   userEmail: string | null;
   estimatedCost: {
@@ -6531,6 +8736,11 @@ function ReportsTab() {
                           </Badge>
                           {session.isTestSession && (
                             <Badge variant="outline" className="ml-1">test</Badge>
+                          )}
+                          {session.hadAbsenceReturn && (
+                            <Badge variant="outline" className="ml-1 border-amber-400 text-amber-700 dark:text-amber-400" title={`Student returned after ${session.absenceReturnDays ?? '?'} days absent`}>
+                              ↩ {session.absenceReturnDays ?? '?'}d
+                            </Badge>
                           )}
                         </td>
                       </tr>
@@ -8128,6 +10338,13 @@ function EditorChatTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   
+  // Absence nudge count for badge
+  const { data: nudgeCountData } = useQuery<{ count: number }>({
+    queryKey: ['/api/admin/absence-nudges/count'],
+    refetchInterval: 30000,
+  });
+  const pendingNudgeCount = nudgeCountData?.count ?? 0;
+
   // Agenda Queue state
   const [showAgenda, setShowAgenda] = useState(false);
   const [newAgendaTitle, setNewAgendaTitle] = useState('');
@@ -8728,7 +10945,7 @@ function EditorChatTab() {
           content,
           cursor: tempId,
           createdAt: new Date().toISOString(),
-          metadata: metadataWithTempId,
+          metadata: metadataWithTempId as any,
           pending: true,
           tempId,
         };
@@ -8829,6 +11046,11 @@ function EditorChatTab() {
               {expressLaneMode && (
                 <Badge variant="outline" className="ml-2 border-yellow-500 text-yellow-600 dark:text-yellow-400" data-testid="badge-express-lane">
                   Neural Network
+                </Badge>
+              )}
+              {pendingNudgeCount > 0 && (
+                <Badge variant="destructive" className="ml-2" data-testid="badge-nudge-count">
+                  {pendingNudgeCount} nudge{pendingNudgeCount !== 1 ? 's' : ''}
                 </Badge>
               )}
             </CardTitle>
@@ -11974,7 +14196,7 @@ const northStarCategoryColors: Record<NorthStarCategory, string> = {
 function NorthStarTab() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const isFounder = user?.role === 'founder' || user?.role === 'admin' || user?.role === 'developer';
+  const isFounder = (user?.role as string) === 'founder' || user?.role === 'admin' || user?.role === 'developer';
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<NorthStarPrinciple>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -12305,6 +14527,20 @@ function BrainHealthTab() {
   return <BrainHealthContent />;
 }
 
+interface ProcedureFlag {
+  id: string;
+  subject: string;
+  body: string;
+  sessionLabel: string | null;
+  readAt: string | null;
+  createdAt: string;
+  parsedTargetTable: string;
+  parsedReasoning: string;
+  parsedSessionId: string | null;
+  parsedLanguage: string | null;
+  parsedProposedContent: any;
+  pending: boolean;
+}
 function BrainSurgeryTab() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("pending");
@@ -12826,6 +15062,9 @@ function BrainSurgeryTab() {
         </Card>
       </CollapsibleSection>
 
+      {/* Procedure Flags — knowledge-domain flags from normal sessions */}
+      <ProcedureFlagsSection />
+
       {/* Self-Surgery Proposals Section */}
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="pb-2">
@@ -13113,8 +15352,11 @@ function BrainSurgeryTab() {
   );
 }
 
-// ===== Beacons Tab - Daniela's Capability Requests =====
-
+interface AbsenceNudgeSummary {
+  pending: number;
+  resolved: number;
+  total: number;
+}
 interface DanielaBeacon {
   id: string;
   beaconType: string;
@@ -13477,5 +15719,575 @@ function BeaconsTab() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+interface ResolvedNudge {
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: string | null;
+  resolvedAt: string;
+  resolutionType: string | null;
+}
+
+interface AbsenceNudgesResponse {
+  summary: AbsenceNudgeSummary;
+  pending: PendingNudge[];
+  resolved: ResolvedNudge[];
+}
+
+function AbsenceMonitorTab() {
+  const { toast } = useToast();
+  const [view, setView] = useState<'pending' | 'resolved'>('pending');
+
+  const { data, isLoading, isFetching, refetch } = useQuery<AbsenceNudgesResponse>({
+    queryKey: ["/api/founder/absence-nudges"],
+  });
+
+  // Founder-initiated dismiss: resolves the nudge immediately and invalidates
+  // the badge count so the EXPRESS Lane header badge disappears without waiting
+  // for the 30-second poll interval.
+  const dismissNudgeMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("PATCH", `/api/admin/absence-nudges/${userId}/dismiss`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/absence-nudges/count'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/founder/absence-nudges'] });
+      toast({ title: "Nudge dismissed", description: "The absence nudge has been resolved." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to dismiss nudge", variant: "destructive" });
+    },
+  });
+
+  const resolutionMeta = (type: string | null | undefined) => {
+    switch (type) {
+      case 'student_returned':
+        return { label: 'Student returned', className: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30' };
+      case 'message_queued':
+        return { label: 'Message queued', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30' };
+      case 'dismissed':
+        return { label: 'Dismissed', className: 'bg-muted text-muted-foreground border-border' };
+      default:
+        return { label: 'Resolved', className: 'bg-muted text-muted-foreground border-border' };
+    }
+  };
+
+  const formatDate = (iso: string | null | undefined) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <div className="space-y-6" data-testid="absence-monitor-tab">
+      {/* Summary Cards */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserX className="h-5 w-5 text-primary" />
+            Student Absence Monitor
+          </CardTitle>
+          <CardDescription>
+            Students Daniela has been nudged about — who hasn't shown up, what she decided, and whether nudges are piling up.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <div
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${view === 'pending' ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50 hover:bg-muted'}`}
+              onClick={() => setView('pending')}
+            >
+              <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                {isLoading ? '…' : (data?.summary.pending ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Pending — Daniela hasn't acted yet</div>
+            </div>
+            <div
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${view === 'resolved' ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50 hover:bg-muted'}`}
+              onClick={() => setView('resolved')}
+            >
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {isLoading ? '…' : (data?.summary.resolved ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Resolved — acted on</div>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <div className="text-3xl font-bold">
+                {isLoading ? '…' : (data?.summary.total ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Total nudges recorded</div>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch();
+              queryClient.invalidateQueries({ queryKey: ['/api/admin/absence-nudges/count'] });
+            }}
+            disabled={isFetching}
+            data-testid="button-refresh-absence"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2${isFetching ? ' animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Nudge List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}
+        </div>
+      ) : view === 'pending' ? (
+        <>
+          {(data?.pending ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                No pending nudges — all students are either active or Daniela has acted on every absence.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(data?.pending ?? []).map((nudge) => (
+                <Card key={nudge.nudgeId} className="hover-elevate" data-testid={`absence-nudge-pending-${nudge.nudgeId}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{nudge.firstName ?? `Student …${nudge.userId.slice(-6)}`}</span>
+                          <Badge variant="outline" className="text-orange-600 border-orange-400/40 bg-orange-500/10">
+                            {nudge.daysSinceLastSession}d absent
+                          </Badge>
+                          {nudge.suppressUntil && new Date(nudge.suppressUntil) > new Date() && (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Snoozed until {formatDate(nudge.suppressUntil)}
+                            </Badge>
+                          )}
+                        </div>
+                        {nudge.lastTopic && (
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">Last topic:</span> {nudge.lastTopic}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-sm text-muted-foreground whitespace-nowrap">
+                          Last seen {formatDate(nudge.lastSessionDate)}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => dismissNudgeMutation.mutate(nudge.userId)}
+                          disabled={dismissNudgeMutation.isPending}
+                          data-testid={`button-dismiss-nudge-${nudge.nudgeId}`}
+                        >
+                          {dismissNudgeMutation.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <X className="h-3 w-3 mr-1" />
+                          )}
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {(data?.resolved ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                No resolved nudges yet.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(data?.resolved ?? []).map((nudge) => {
+                const meta = resolutionMeta(nudge.resolutionType);
+                return (
+                  <Card key={nudge.nudgeId} className="hover-elevate" data-testid={`absence-nudge-resolved-${nudge.nudgeId}`}>
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{nudge.firstName ?? `Student …${nudge.userId.slice(-6)}`}</span>
+                            <Badge variant="outline" className="text-muted-foreground">
+                              {nudge.daysSinceLastSession}d absent
+                            </Badge>
+                            <Badge variant="outline" className={meta.className}>
+                              {meta.label}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Resolved {formatDate(nudge.resolvedAt)} · Last seen {formatDate(nudge.lastSessionDate)}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+interface PendingNudge {
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: string | null;
+  lastTopic: string | null;
+  suppressUntil: string | null;
+}
+
+const PROCEDURE_FLAG_TABLES = [
+  { value: '', label: 'All tables' },
+  { value: 'tutor_procedures', label: 'Tutor Procedures' },
+  { value: 'teaching_principles', label: 'Teaching Principles' },
+  { value: 'tool_knowledge', label: 'Tool Knowledge' },
+  { value: 'situational_patterns', label: 'Situational Patterns' },
+  { value: 'language_idioms', label: 'Language Idioms' },
+  { value: 'cultural_nuances', label: 'Cultural Nuances' },
+  { value: 'learner_error_patterns', label: 'Learner Errors' },
+  { value: 'dialect_variations', label: 'Dialect Variations' },
+  { value: 'linguistic_bridges', label: 'Linguistic Bridges' },
+];
+
+const DATE_RANGE_OPTIONS = [
+  { value: '', label: 'All time' },
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+];
+
+function ProcedureFlagsSection() {
+  const { toast } = useToast();
+  const [showReviewed, setShowReviewed] = useState(false);
+  const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
+  const [targetTable, setTargetTable] = useState('');
+  const [afterDays, setAfterDays] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const buildFlagsUrl = () => {
+    const params = new URLSearchParams();
+    params.set('includeReviewed', String(showReviewed));
+    if (targetTable) params.set('targetTable', targetTable);
+    if (afterDays) {
+      const d = new Date();
+      d.setDate(d.getDate() - Number(afterDays));
+      params.set('after', d.toISOString());
+    }
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    return `/api/admin/procedure-flags?${params.toString()}`;
+  };
+
+  const flagsUrl = buildFlagsUrl();
+  const { data, isLoading, isFetching, refetch } = useQuery<{ flags: ProcedureFlag[]; pending: number; total: number }>({
+    queryKey: ["/api/admin/procedure-flags", showReviewed, targetTable, afterDays, searchQuery],
+    queryFn: async () => {
+      const res = await fetch(flagsUrl, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch procedure flags');
+      return res.json();
+    },
+  });
+
+  const flags = data?.flags || [];
+
+  const markMutation = useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: 'reviewed' | 'dismissed' }) => {
+      return apiRequest("PATCH", `/api/admin/procedure-flags/${id}`, { action });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/procedure-flags"] });
+      toast({ title: "Flag updated", description: "Flag marked as reviewed." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const promoteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/admin/procedure-flags/${id}/promote`);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/procedure-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/self-surgery/proposals"] });
+      toast({ title: "Promoted!", description: `Created proposal ${data.proposalId}. Find it in Self-Surgery Proposals below.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Promotion failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const getTargetTableLabel = (target: string) => {
+    const labels: Record<string, string> = {
+      tutor_procedures: "Tutor Procedures",
+      teaching_principles: "Teaching Principles",
+      tool_knowledge: "Tool Knowledge",
+      situational_patterns: "Situational Patterns",
+      language_idioms: "Language Idioms",
+      cultural_nuances: "Cultural Nuances",
+      learner_error_patterns: "Learner Errors",
+      dialect_variations: "Dialect Variations",
+      linguistic_bridges: "Linguistic Bridges",
+    };
+    return labels[target] || target;
+  };
+
+  const getTargetColor = (target: string) => {
+    const colors: Record<string, string> = {
+      tutor_procedures: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      teaching_principles: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      tool_knowledge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      situational_patterns: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+      language_idioms: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      cultural_nuances: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      learner_error_patterns: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      dialect_variations: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+      linguistic_bridges: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+    };
+    return colors[target] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+  };
+
+  return (
+    <CollapsibleSection
+      title="Procedure Flags"
+      icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+      defaultOpen={(data?.pending || 0) > 0}
+      badge={data?.pending ? `${data.pending} pending` : undefined}
+    >
+      <div className="mt-4 space-y-4">
+        {/* Header row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground flex-1">
+            Knowledge-domain flags Daniela raised during normal sessions. Each flag requires founder review before any change is applied.
+          </p>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-reviewed-flags"
+              checked={showReviewed}
+              onCheckedChange={setShowReviewed}
+            />
+            <label htmlFor="show-reviewed-flags" className="text-xs text-muted-foreground cursor-pointer">
+              Show reviewed
+            </label>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} data-testid="button-refresh-flags">
+            <RefreshCw className={`h-4 w-4 mr-1${isFetching ? ' animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+
+        {/* Filter row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Table:</label>
+            <select
+              value={targetTable}
+              onChange={e => setTargetTable(e.target.value)}
+              className="text-xs border rounded-md px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              data-testid="filter-target-table"
+            >
+              {PROCEDURE_FLAG_TABLES.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Date:</label>
+            {DATE_RANGE_OPTIONS.map(opt => (
+              <Button
+                key={opt.value}
+                variant={afterDays === opt.value ? "default" : "outline"}
+                size="sm"
+                className="text-xs h-7 px-2"
+                onClick={() => setAfterDays(opt.value)}
+                data-testid={`filter-date-${opt.value || 'all'}`}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Search:</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="e.g. usted, subjunctive…"
+              className="text-xs border rounded-md px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring w-44"
+              data-testid="filter-search-query"
+            />
+          </div>
+        </div>
+
+        {/* Flags list */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+        ) : flags.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <CheckCircle className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-sm">
+                {showReviewed ? "No procedure flags yet." : "No pending flags — all caught up."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {flags.map(flag => (
+              <Card
+                key={flag.id}
+                className={flag.pending
+                  ? "border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10"
+                  : "opacity-60"}
+                data-testid={`procedure-flag-${flag.id}`}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={getTargetColor(flag.parsedTargetTable)}>
+                        {getTargetTableLabel(flag.parsedTargetTable)}
+                      </Badge>
+                      {flag.parsedLanguage && (
+                        <Badge variant="secondary">{flag.parsedLanguage}</Badge>
+                      )}
+                      {flag.pending ? (
+                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                          Needs Review
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Reviewed</Badge>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(flag.createdAt).toLocaleDateString()} {new Date(flag.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1">
+                    {flag.parsedReasoning.length > 160
+                      ? flag.parsedReasoning.substring(0, 160) + "…"
+                      : flag.parsedReasoning}
+                  </p>
+                </CardHeader>
+
+                <CardContent className="space-y-2">
+                  {/* Expandable content */}
+                  <Collapsible
+                    open={expandedFlag === flag.id}
+                    onOpenChange={open => setExpandedFlag(open ? flag.id : null)}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between" data-testid={`button-expand-flag-${flag.id}`}>
+                        <span className="text-xs">View proposed content &amp; session context</span>
+                        {expandedFlag === flag.id
+                          ? <ChevronDown className="h-4 w-4" />
+                          : <ChevronRight className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2 space-y-2">
+                      {flag.parsedProposedContent && (
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Proposed Content:</p>
+                          <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                            {typeof flag.parsedProposedContent === 'string'
+                              ? flag.parsedProposedContent
+                              : JSON.stringify(flag.parsedProposedContent, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {flag.parsedSessionId && (
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Session:</p>
+                          <code className="text-xs">{flag.parsedSessionId}</code>
+                        </div>
+                      )}
+                      <div className="bg-muted/50 rounded-md p-3">
+                        <p className="text-xs text-muted-foreground mb-1 font-medium">Full note body:</p>
+                        <pre className="text-xs overflow-x-auto whitespace-pre-wrap max-h-48">{flag.body}</pre>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Action buttons — only for pending flags */}
+                  {flag.pending && (
+                    <div className="flex flex-col gap-2 pt-1 border-t">
+                      {/* #501: Incomplete-flag warning — flag lacks proposed content */}
+                      {!flag.parsedProposedContent && (
+                        <div
+                          className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+                          data-testid={`warning-incomplete-flag-${flag.id}`}
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                          <span>
+                            <strong>Incomplete flag</strong> — no proposed content was parsed. Review the full note
+                            body below and add a "Proposed content:" section before promoting.
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => promoteMutation.mutate(flag.id)}
+                          disabled={promoteMutation.isPending || !flag.parsedProposedContent}
+                          title={!flag.parsedProposedContent ? 'Add proposed content to the note before promoting' : undefined}
+                          data-testid={`button-promote-flag-${flag.id}`}
+                        >
+                          {promoteMutation.isPending
+                            ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            : <Zap className="h-3.5 w-3.5 mr-1" />}
+                          Promote to Proposal
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => markMutation.mutate({ id: flag.id, action: 'reviewed' })}
+                          disabled={markMutation.isPending}
+                          data-testid={`button-reviewed-flag-${flag.id}`}
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Mark Reviewed
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground"
+                          onClick={() => markMutation.mutate({ id: flag.id, action: 'dismissed' })}
+                          disabled={markMutation.isPending}
+                          data-testid={`button-dismiss-flag-${flag.id}`}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </CollapsibleSection>
   );
 }

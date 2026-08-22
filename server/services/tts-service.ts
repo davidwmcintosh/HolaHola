@@ -9,13 +9,13 @@ import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
  * TTS Provider Interface
  * 
  * VOICE ARCHITECTURE:
- * - Daniela (main AI tutor, streaming voice chat): Deepgram Nova-3 (STT) → Gemini (LLM) → Cartesia Sonic-3 (TTS)
+ * - Daniela (main AI tutor, streaming voice chat): Deepgram Nova-3 (STT) → Gemini (LLM) → Google Chirp HD (TTS)
  * - Support/Assistant tutors: Google Cloud TTS
  * - OpenAI Realtime: Separate legacy proxy (realtime-proxy.ts), NOT used for Daniela
  * 
  * Providers:
- * - cartesia: Cartesia Sonic-3 (40ms latency, full SSML support, emotion tags) - PRIMARY for Daniela
- * - google: Google Cloud Chirp HD (500-1500ms latency, limited SSML) - For support/assistant tutors
+ * - google: Google Cloud Chirp 3 HD (PRIMARY — all tutors + secondary characters)
+ * - cartesia: Available for rollback via TTS_PRIMARY_PROVIDER=cartesia
  * - openai: OpenAI TTS (legacy, available if USER_OPENAI_API_KEY set)
  */
 export type TTSProvider = 'cartesia' | 'google' | 'openai';
@@ -203,9 +203,12 @@ export function getDefaultEmotion(personality: TutorPersonality = 'warm'): Carte
  * @returns Array of word timings with start/end times
  */
 export function estimateWordTimings(text: string, audioDurationSeconds: number): WordTiming[] {
-  // Replace laughter tags with space to preserve word count alignment
-  // Phonemes should only be added when sending to TTS, not passed here
-  const cleanedText = text.replace(/\[laughter\]/gi, ' ');
+  // Strip Cartesia phoneme markers <<...>> so they don't count as words.
+  // Also strip [laughter] tags. Both must go before splitting so word count
+  // matches what TTS actually speaks.
+  const cleanedText = text
+    .replace(/<<[^>]*>>/g, '')
+    .replace(/\[laughter\]/gi, ' ');
   
   const words = cleanedText
     .split(/\s+/)
@@ -337,16 +340,6 @@ const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> =
  * Chirp 3 HD doesn't support SSML - must use WaveNet/Neural2 for phoneme pronunciation
  */
 const GOOGLE_SSML_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
-  'spanish': { name: 'es-US-Neural2-A', languageCode: 'es-US' }, // Female Neural2
-  'english': { name: 'en-US-Neural2-F', languageCode: 'en-US' }, // Female Neural2
-  'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // Female Neural2
-  'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // Female Neural2
-  'italian': { name: 'it-IT-Neural2-A', languageCode: 'it-IT' }, // Female Neural2
-  'portuguese': { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' }, // Female Neural2
-  'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Female Neural2
-  'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Female Wavenet
-  'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Female Neural2
-  'hebrew': { name: 'he-IL-Wavenet-A', languageCode: 'he-IL' }, // Female Wavenet
 };
 
 /**
@@ -437,50 +430,50 @@ export function getAssistantVoice(
  * Selected voices optimized for language tutoring (conversational, clear pronunciation)
  */
 const CARTESIA_VOICE_MAP: Record<string, { voiceId: string; languageCode: string; name: string }> = {
-  'english': { 
+  'english': {
     voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', // Teacher Lady - perfect for teaching!
     languageCode: 'en',
-    name: 'Teacher Lady'
+    name: 'Teacher Lady',
   },
-  'spanish': { 
+  'spanish': {
     voiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', // Mexican Woman - natural Spanish
     languageCode: 'es',
-    name: 'Mexican Woman'
+    name: 'Mexican Woman',
   },
-  'french': { 
+  'french': {
     voiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', // French Conversational Lady
     languageCode: 'fr',
-    name: 'French Conversational Lady'
+    name: 'French Conversational Lady',
   },
-  'german': { 
+  'german': {
     voiceId: '3f4ade23-6eb4-4279-ab05-6a144947c4d5', // German Conversational Woman
     languageCode: 'de',
-    name: 'German Conversational Woman'
+    name: 'German Conversational Woman',
   },
-  'italian': { 
+  'italian': {
     voiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', // Italian Narrator Woman
     languageCode: 'it',
-    name: 'Italian Narrator Woman'
+    name: 'Italian Narrator Woman',
   },
-  'portuguese': { 
+  'portuguese': {
     voiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', // Pleasant Brazilian Lady
     languageCode: 'pt',
-    name: 'Pleasant Brazilian Lady'
+    name: 'Pleasant Brazilian Lady',
   },
-  'japanese': { 
+  'japanese': {
     voiceId: '2b568345-1d48-4047-b25f-7baccf842eb0', // Japanese Woman Conversational
     languageCode: 'ja',
-    name: 'Japanese Woman Conversational'
+    name: 'Japanese Woman Conversational',
   },
-  'mandarin chinese': { 
+  'mandarin chinese': {
     voiceId: 'e90c6678-f0d3-4767-9883-5d0ecf5894a8', // Chinese Female Conversational
     languageCode: 'zh',
-    name: 'Chinese Female Conversational'
+    name: 'Chinese Female Conversational',
   },
-  'korean': { 
+  'korean': {
     voiceId: '29e5f8b4-b953-4160-848f-40fae182235b', // Korean Calm Woman
     languageCode: 'ko',
-    name: 'Korean Calm Woman'
+    name: 'Korean Calm Woman',
   },
 };
 
@@ -599,10 +592,6 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'De nada': 'd|e|n|a|ð|a',           // Capitalized
     'lo siento': 'l|o|s|j|e|n|t|o',     // lo SIEN-to
     'Lo siento': 'l|o|s|j|e|n|t|o',     // Capitalized
-    'amigo': 'a|m|i|ɣ|o',               // friend
-    'Amigo': 'a|m|i|ɣ|o',               // Capitalized
-    'amiga': 'a|m|i|ɣ|a',               // friend (f)
-    'Amiga': 'a|m|i|ɣ|a',               // Capitalized
     'español': 'e|s|p|a|ɲ|o|l',         // Spanish
     'Español': 'e|s|p|a|ɲ|o|l',         // Capitalized
     'inglés': 'i|n|ɡ|l|e|s',            // English
@@ -786,51 +775,58 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
       console.log(`[Streaming Phonemes] Quoted "${word}" → <<${phonemes}>>`);
       return `<<${phonemes}>>`;
     }
-    return word;
+    // Return the full match (including surrounding quotes) to avoid stripping
+    // quote characters from words that have no phoneme substitution.
+    return match;
   });
 
   // PASS 2: Process UNQUOTED multi-word phrases FIRST (before single words)
   // This ensures "por favor" is matched as a phrase before "por" is matched alone
+  //
+  // Safety: split on existing <<...>> markers so PASS 2 NEVER touches already-tagged
+  // phoneme regions — avoids double-processing if a phoneme string coincidentally
+  // matches a dictionary entry.
   const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  
+
   // Sort by length (longest first) to match multi-word phrases before single words
   const sortedEntries = Object.entries(pronunciations).sort((a, b) => b[0].length - a[0].length);
-  
+
   console.log(`[Streaming Phonemes] Processing text: "${processedText.substring(0, 80)}..." for ${targetLanguage}`);
-  
+
+  // Split into plain-text segments (even indices) and phoneme tags (odd indices).
+  // We only run substitution on even-index (plain text) segments.
+  const PHONEME_TAG_RE = /(<<[^>]*>>)/g;
+  const segments = processedText.split(PHONEME_TAG_RE);
+
   for (const [word, phonemes] of sortedEntries) {
-    // Match words with flexible boundaries to handle punctuation like (adios) or adios.
-    // Use word boundaries but also handle cases where word is followed by punctuation
     const simpleRegex = new RegExp(
-      `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
+      `(?<!<)\\b(${escapeRegex(word)})\\b`,
       'gi'
     );
-    
-    const beforeCount = processedText.length;
-    processedText = processedText.replace(simpleRegex, (match) => {
-      hasReplacements = true;
-      console.log(`[Streaming Phonemes] Matched "${match}" → <<${phonemes}>>`);
-      return `<<${phonemes}>>`;
-    });
-    
-    // If no match with simple regex, try extended matching for edge cases:
-    // 1. After Spanish inverted punctuation (¿, ¡)
-    // 2. Before closing punctuation (., !, ?, ), ], etc.)
-    // IMPORTANT: Use word boundary at start to avoid matching substrings (e.g., "adios" in "estadios")
-    if (processedText.length === beforeCount) {
-      // Match standalone word with optional Spanish inverted punctuation before
-      // and punctuation/space/end after. Must have word boundary at start.
-      const extendedRegex = new RegExp(
-        `(?<!<)(?<=^|[\\s¿¡])(${escapeRegex(word)})(?=[?!.,;:)\\]\\s]|$)(?![^<]*>>)`,
-        'gi'
-      );
-      processedText = processedText.replace(extendedRegex, (match) => {
+    const extendedRegex = new RegExp(
+      `(?<!<)(?<=^|[\\s¿¡])(${escapeRegex(word)})(?=[?!.,;:)\\]\\s]|$)`,
+      'gi'
+    );
+
+    for (let i = 0; i < segments.length; i += 2) {
+      // Odd-indexed segments are <<phoneme>> tags — skip entirely
+      const beforeCount = segments[i].length;
+      segments[i] = segments[i].replace(simpleRegex, (match) => {
         hasReplacements = true;
-        console.log(`[Streaming Phonemes] Extended match "${match}" → <<${phonemes}>>`);
+        console.log(`[Streaming Phonemes] Matched "${match}" → <<${phonemes}>>`);
         return `<<${phonemes}>>`;
       });
+      if (segments[i].length === beforeCount) {
+        segments[i] = segments[i].replace(extendedRegex, (match) => {
+          hasReplacements = true;
+          console.log(`[Streaming Phonemes] Extended match "${match}" → <<${phonemes}>>`);
+          return `<<${phonemes}>>`;
+        });
+      }
     }
   }
+
+  processedText = segments.join('');
 
   if (hasReplacements) {
     console.log(`[Streaming Phonemes] Processed: "${processedText.substring(0, 100)}..."`);
@@ -1188,6 +1184,30 @@ export class TTSService {
         wordTimings, // Estimated timings for karaoke highlighting
       };
     } catch (error: any) {
+      // If the custom voiceId is stale/deleted (400), fall back to language default and retry once.
+      const isVoiceError = voiceId && (error?.status === 400 || error?.statusCode === 400 || String(error?.message).includes('400'));
+      if (isVoiceError) {
+        console.warn(`[Cartesia] Custom voiceId ${voiceId?.substring(0, 8)}... rejected (400) — falling back to language default ${voiceConfig.name}`);
+        try {
+          const stream = await this.cartesiaClient.tts.bytes({
+            modelId: this.cartesiaModel,
+            transcript: cleanedText,
+            voice: { mode: 'id', id: voiceConfig.voiceId },
+            language: cartesiaLanguageConfig.languageCode as 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh' | 'ko',
+            outputFormat: { container: 'mp3', sampleRate: 44100, bitRate: 128000 },
+            // @ts-ignore
+            generation_config: { speed: cartesiaSpeed, emotion: cartesiaEmotion },
+          });
+          const chunks: Buffer[] = [];
+          for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+          const audioBuffer = Buffer.concat(chunks);
+          console.log(`[Cartesia] ✓ Fallback generated ${audioBuffer.length} bytes with ${voiceConfig.name}`);
+          return { audioBuffer, contentType: 'audio/mpeg', wordTimings: estimateWordTimings(text, estimateAudioDuration(audioBuffer.length, 128)) };
+        } catch (fallbackErr: any) {
+          console.error(`[Cartesia] Fallback also failed: ${fallbackErr.message}`);
+          throw fallbackErr;
+        }
+      }
       console.error(`[Cartesia] Error: ${error.message}`);
       throw error;
     }
@@ -1609,7 +1629,10 @@ export class TTSService {
         const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
         voiceConfig = { name: voiceOverride, languageCode };
       } else if (!voiceOverride.includes('-')) {
-        const langCode = 'en-US';
+        // Bare Gemini speaker name (e.g. 'Aoede') — derive the correct language code
+        // from the actual target language instead of hardcoding 'en-US'.
+        const langConfig = GOOGLE_VOICE_MAP[selectedLanguage] || GOOGLE_VOICE_MAP['english'];
+        const langCode = langConfig.languageCode;
         voiceConfig = { name: `${langCode}-Chirp3-HD-${voiceOverride}`, languageCode: langCode };
       } else {
         const voiceParts = voiceOverride.split('-');

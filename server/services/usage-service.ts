@@ -1,5 +1,5 @@
 import { db, getUserDb, getSharedDb } from "../db";
-import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses } from "@shared/schema";
+import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses, sessionCostSummary } from "@shared/schema";
 import { eq, and, sql, gt, isNull, or, desc, sum } from "drizzle-orm";
 import type { VoiceSession, UsageLedger, InsertVoiceSession, InsertUsageLedger } from "@shared/schema";
 import { storage } from "../storage";
@@ -390,12 +390,16 @@ export class UsageService {
     // End any existing active sessions for this user
     await this.endAllActiveSessions(userId);
     
-    // Check if this is a test account or beta tester session (both excluded from production analytics)
+    // Check if this is a synthetic test account session (excluded from production analytics).
+    // NOTE: is_beta_tester is intentionally NOT included here — beta testers are real users
+    // whose session data is valuable. Only is_test_account (automated/Agent backend test accounts)
+    // should be excluded from monitoring. To flag an Agent backend test account, set
+    // is_test_account=true on that user row — no real person should ever have that flag.
     const [user] = await getUserDb()
-      .select({ isTestAccount: users.isTestAccount, isBetaTester: users.isBetaTester })
+      .select({ isTestAccount: users.isTestAccount })
       .from(users)
       .where(eq(users.id, userId));
-    const isTestSession = (user?.isTestAccount || user?.isBetaTester) ?? false;
+    const isTestSession = user?.isTestAccount ?? false;
     
     // Create new session
     const [session] = await db
@@ -408,6 +412,7 @@ export class UsageService {
         status: 'active',
         isTestSession,
         tutorMode,
+        environment: process.env.NODE_ENV as 'development' | 'production',
       })
       .returning();
     
@@ -425,6 +430,8 @@ export class UsageService {
       tutorSpeakingSeconds?: number;
       ttsCharacters?: number;
       sttSeconds?: number;
+      llmInputTokens?: number;
+      llmOutputTokens?: number;
     }
   ): Promise<void> {
     const sanitized = {
@@ -433,14 +440,18 @@ export class UsageService {
       ...(updates.tutorSpeakingSeconds != null && { tutorSpeakingSeconds: Math.round(updates.tutorSpeakingSeconds) }),
       ...(updates.sttSeconds != null && { sttSeconds: Math.round(updates.sttSeconds) }),
       ...(updates.ttsCharacters != null && { ttsCharacters: Math.round(updates.ttsCharacters) }),
+      ...(updates.llmInputTokens != null && { llmInputTokens: Math.round(updates.llmInputTokens) }),
+      ...(updates.llmOutputTokens != null && { llmOutputTokens: Math.round(updates.llmOutputTokens) }),
     };
+    // Guard: skip metric updates on completed sessions to prevent race writes
+    // that arrive after billing has already closed and read the final values.
     await db
       .update(voiceSessions)
       .set({
         ...sanitized,
         durationSeconds: sql`EXTRACT(EPOCH FROM (NOW() - ${voiceSessions.startedAt}))::integer`,
       })
-      .where(eq(voiceSessions.id, sessionId));
+      .where(and(eq(voiceSessions.id, sessionId), eq(voiceSessions.status, 'active')));
   }
   
   /**
@@ -467,6 +478,16 @@ export class UsageService {
       (endedAt.getTime() - new Date(session.startedAt).getTime()) / 1000
     );
     
+    // Snapshot balance BEFORE billing so we can record before/after in the cost summary.
+    // Read this before consuming credits — endSession is the only writer to the ledger here.
+    let creditBalanceBefore: number | null = null;
+    try {
+      const balanceBefore = await this.getBalance(session.userId);
+      creditBalanceBefore = balanceBefore.totalSeconds;
+    } catch (err: any) {
+      console.warn(`[UsageService] Could not read pre-billing balance for ${sessionId}:`, err.message);
+    }
+
     // Update session as completed
     const [updatedSession] = await db
       .update(voiceSessions)
@@ -477,7 +498,18 @@ export class UsageService {
       })
       .where(eq(voiceSessions.id, sessionId))
       .returning();
-    
+
+    // Re-read metrics from a fresh SELECT immediately after the status UPDATE.
+    // The UPDATE's RETURNING gives the state at UPDATE time, but a concurrent updateSessionMetrics
+    // call (e.g., from the orchestrator's fire-and-forget flush) may have landed on the same row
+    // before we ran the status UPDATE — the fresh SELECT catches that last commit.
+    // Note: updateSessionMetrics now guards against completed sessions so this is also the
+    // last safe read window before ghost writes are blocked.
+    const [freshRow] = await db
+      .select()
+      .from(voiceSessions)
+      .where(eq(voiceSessions.id, sessionId));
+
     // Record consumption in ledger (negative value)
     // Uses ACTUAL TRACKED METRICS (tts_characters, stt_seconds) as the single source of truth.
     // This prevents idle/frozen sessions from draining credits while ensuring healthy sessions
@@ -491,9 +523,15 @@ export class UsageService {
     // When TTS chars aren't tracked (e.g. session data gap), activeSpeakingSeconds = 0 and the
     // 120s floor applies — so any session with real exchanges is never charged 0, but also never
     // allowed to run uncapped on wall-clock alone.
-    const exchangeCount = updatedSession.exchangeCount || 0;
-    const ttsChars = updatedSession.ttsCharacters || 0;
-    const sttSecs = updatedSession.sttSeconds || 0;
+    const exchangeCount = freshRow?.exchangeCount ?? updatedSession.exchangeCount ?? 0;
+    const ttsChars = freshRow?.ttsCharacters ?? updatedSession.ttsCharacters ?? 0;
+    const sttSecs = freshRow?.sttSeconds ?? updatedSession.sttSeconds ?? 0;
+
+    const CHARS_PER_SECOND = 15;
+    const ACTIVITY_MULTIPLIER = 3;
+    const MIN_BILLABLE_SECONDS = 120;
+
+    let creditsConsumed = 0; // seconds of credit actually deducted
 
     if (durationSeconds <= 0) {
       // No duration, nothing to charge
@@ -503,10 +541,6 @@ export class UsageService {
       // UNIFIED PATH: Cross-check wall-clock against actual metered usage.
       // Sessions where TTS chars weren't recorded contribute 0 to the active estimate,
       // landing on the 120s floor — capping runaway wall-clock from idle/frozen sessions.
-      const CHARS_PER_SECOND = 15;
-      const ACTIVITY_MULTIPLIER = 3;
-      const MIN_BILLABLE_SECONDS = 120;
-
       const ttsDurationEstimate = Math.ceil(ttsChars / CHARS_PER_SECOND);
       const activeSpeakingSeconds = ttsDurationEstimate + sttSecs;
       const fairBillableSeconds = Math.max(activeSpeakingSeconds * ACTIVITY_MULTIPLIER, MIN_BILLABLE_SECONDS);
@@ -514,9 +548,50 @@ export class UsageService {
       if (durationSeconds > fairBillableSeconds && durationSeconds > 600) {
         console.log(`[UsageService] BILLING CAP: session ${sessionId} wall-clock=${durationSeconds}s, TTS=${ttsChars} chars (~${ttsDurationEstimate}s spoken), STT=${sttSecs}s, active=${activeSpeakingSeconds}s, fair cap=${fairBillableSeconds}s. Saved user ${durationSeconds - fairBillableSeconds}s`);
         await this.consumeCredits(session.userId, fairBillableSeconds, sessionId, session.classId || undefined);
+        creditsConsumed = fairBillableSeconds;
       } else {
         await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
+        creditsConsumed = durationSeconds;
       }
+    }
+
+    // Write session cost summary for audit trail and reporting.
+    // This is the single authoritative record per voice session of what was charged and why.
+    if (durationSeconds > 0) {
+      const creditsPerClockMinute = durationSeconds > 0
+        ? Math.round((creditsConsumed / (durationSeconds / 60)) * 100) / 100
+        : 0;
+      // creditBalanceBefore was read before consumeCredits ran;
+      // creditBalanceAfter = before - actual deduction (or re-read live if before wasn't captured).
+      const creditBalanceAfter = creditBalanceBefore != null
+        ? creditBalanceBefore - creditsConsumed
+        : null;
+      db.insert(sessionCostSummary).values({
+        voiceSessionId: sessionId,
+        userId: session.userId,
+        clockSeconds: durationSeconds,
+        creditsConsumed,
+        ttsCharacters: ttsChars,
+        sttSeconds: sttSecs,
+        creditsPerClockMinute,
+        creditBalanceBefore,
+        creditBalanceAfter,
+        classId: session.classId || null,
+        language: session.language || null,
+      }).onConflictDoUpdate({
+        target: sessionCostSummary.voiceSessionId,
+        set: {
+          clockSeconds: durationSeconds,
+          creditsConsumed,
+          ttsCharacters: ttsChars,
+          sttSeconds: sttSecs,
+          creditsPerClockMinute,
+          creditBalanceBefore,
+          creditBalanceAfter,
+        },
+      }).catch((err: Error) => {
+        console.warn(`[UsageService] Failed to write session_cost_summary for ${sessionId}:`, err.message);
+      });
     }
     
     // Update user streak and practice minutes (only count sessions with actual exchanges)
@@ -790,7 +865,7 @@ export class UsageService {
       .from(voiceSessions)
       .where(eq(voiceSessions.userId, userId))
       .orderBy(desc(voiceSessions.startedAt))
-      .limit(limit);
+      .limit(limit) as unknown as Promise<VoiceSession[]>;
   }
   
   /**

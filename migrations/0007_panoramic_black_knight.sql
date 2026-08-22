@@ -1,0 +1,2 @@
+ALTER TABLE "principle_feeling_links" ADD CONSTRAINT "principle_feeling_links_principle_id_compass_principles_id_fk" FOREIGN KEY ("principle_id") REFERENCES "public"."compass_principles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_principle_feeling_links_pair" ON "principle_feeling_links" USING btree ("reflection_id","principle_id");

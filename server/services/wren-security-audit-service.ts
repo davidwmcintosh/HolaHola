@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
 
 export interface SecurityFinding {
@@ -21,7 +22,8 @@ export type SecurityCategory =
   | 'input_validation'
   | 'rate_limiting'
   | 'xss_risk'
-  | 'insecure_config';
+  | 'insecure_config'
+  | 'dependency_vulnerability';
 
 const SCAN_DIRS = ['server', 'shared'];
 const SCAN_EXTENSIONS = ['.ts', '.js', '.tsx', '.jsx'];
@@ -354,6 +356,67 @@ export class WrenSecurityAuditService {
     return findings;
   }
 
+  scanForDependencyVulnerabilities(): SecurityFinding[] {
+    const findings: SecurityFinding[] = [];
+
+    let auditOutput: string;
+    try {
+      auditOutput = execSync('npm audit --json', {
+        cwd: process.cwd(),
+        timeout: 30_000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).toString();
+    } catch (err: any) {
+      // npm audit exits non-zero when vulnerabilities exist — output is still valid JSON
+      auditOutput = err.stdout?.toString() || '';
+      if (!auditOutput) return findings;
+    }
+
+    let auditData: any;
+    try {
+      auditData = JSON.parse(auditOutput);
+    } catch {
+      return findings;
+    }
+
+    const vulns: Record<string, any> = auditData.vulnerabilities || {};
+    const severityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+      critical: 'critical',
+      high: 'high',
+      moderate: 'medium',
+      low: 'low',
+    };
+
+    for (const [packageName, vuln] of Object.entries(vulns)) {
+      const severity = severityMap[vuln.severity] || 'low';
+      if (severity !== 'critical' && severity !== 'high') continue;
+
+      const fix = vuln.fixAvailable;
+      const fixNote = typeof fix === 'object' && fix !== null
+        ? `Fix available: ${fix.name}@${fix.version}${fix.isSemVerMajor ? ' (requires major version bump)' : ''}`
+        : fix === true ? 'Fix available via npm audit fix' : 'No fix available yet';
+
+      const via: string[] = (vuln.via || [])
+        .filter((v: any) => typeof v === 'object')
+        .map((v: any) => v.title || v.url || '')
+        .filter(Boolean)
+        .slice(0, 2);
+
+      findings.push({
+        category: 'dependency_vulnerability',
+        severity,
+        title: `Vulnerable dependency: ${packageName}@${vuln.nodes?.[0]?.split('@').pop() || 'unknown'}`,
+        description: via.length > 0 ? via.join('; ') : `${packageName} has a ${vuln.severity}-severity vulnerability.`,
+        filePath: 'package.json',
+        evidence: `npm audit: ${packageName} — severity: ${vuln.severity}`,
+        suggestedAction: fixNote,
+        relatedComponent: 'dependencies',
+      });
+    }
+
+    return findings;
+  }
+
   async runFullAudit(): Promise<SecurityFinding[]> {
     const startTime = Date.now();
     console.log(`[Wren Security] Starting full security audit...`);
@@ -366,6 +429,7 @@ export class WrenSecurityAuditService {
       { name: 'missing_auth', fn: () => this.scanForMissingAuth() },
       { name: 'input_validation', fn: () => this.scanForInputValidation() },
       { name: 'xss_risks', fn: () => this.scanForXssRisks() },
+      { name: 'dependency_vulnerabilities', fn: () => this.scanForDependencyVulnerabilities() },
     ];
 
     for (const scanner of scanners) {

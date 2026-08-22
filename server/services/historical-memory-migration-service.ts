@@ -63,6 +63,8 @@ interface MigrationResult {
   skipped: number;
 }
 
+const db = getSharedDb();
+
 class HistoricalMemoryMigrationService {
   
   /**

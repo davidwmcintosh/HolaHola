@@ -13,7 +13,8 @@ import {
   XCircle,
   ChevronRight,
   Music2,
-  Sparkles
+  Sparkles,
+  MicOff,
 } from "lucide-react";
 
 interface DrillItem {
@@ -45,6 +46,7 @@ interface RhythmDrillProps {
   title: string;
   description?: string;
   items: DrillItem[];
+  language?: string;
   onComplete?: (results: DrillResult[]) => void;
   className?: string;
 }
@@ -94,22 +96,28 @@ function DrillItemCard({
           <p className="text-lg font-semibold">{item.prompt}</p>
           <p className="text-sm text-muted-foreground truncate">{item.targetText}</p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {getStatusIcon()}
-          
+
           {isActive && state === 'playing' && (
             <div className="flex items-center gap-1">
               <Volume2 className="h-4 w-4 text-primary animate-pulse" />
             </div>
           )}
-          
+
           {isActive && state === 'listening' && (
             <div className="flex items-center gap-1">
               <Mic className="h-4 w-4 text-red-500 animate-pulse" />
             </div>
           )}
-          
+
+          {isActive && state === 'evaluating' && (
+            <div className="flex items-center gap-1">
+              <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+            </div>
+          )}
+
           {!result && !isActive && (
             <Button size="icon" variant="ghost" className="h-8 w-8">
               <Play className="h-4 w-4" />
@@ -117,11 +125,11 @@ function DrillItemCard({
           )}
         </div>
       </div>
-      
+
       {result?.pronunciation !== undefined && (
         <div className="mt-2 space-y-1">
-          <Progress 
-            value={result.pronunciation * 100} 
+          <Progress
+            value={result.pronunciation * 100}
             className="h-1.5"
           />
           <p className="text-xs text-muted-foreground">
@@ -134,7 +142,7 @@ function DrillItemCard({
           )}
         </div>
       )}
-      
+
       {item.focusPhoneme && !result && (
         <div className="mt-2">
           <Badge variant="outline" className="text-xs">
@@ -146,10 +154,31 @@ function DrillItemCard({
   );
 }
 
+async function scoreWithDeepgram(
+  audioBlob: Blob,
+  targetText: string,
+  language: string
+): Promise<{ score: number; transcript: string; matched: boolean }> {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'recording.webm');
+  formData.append('targetWord', targetText);
+  formData.append('language', language);
+
+  const res = await fetch('/api/pronunciation/score', {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!res.ok) throw new Error(`Scoring API error: ${res.status}`);
+  return res.json();
+}
+
 export function RhythmDrill({
   title,
   description,
   items,
+  language = 'english',
   onComplete,
   className = ''
 }: RhythmDrillProps) {
@@ -157,16 +186,23 @@ export function RhythmDrill({
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [results, setResults] = useState<Map<string, DrillResult>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
-  
+  const [micError, setMicError] = useState<string | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const isRunningRef = useRef(false);
 
   const completedCount = results.size;
   const correctCount = Array.from(results.values()).filter(r => r.correct).length;
-  const progressPercent = items.length > 0 
+  const progressPercent = items.length > 0
     ? Math.round((completedCount / items.length) * 100)
     : 0;
 
-  const generateFeedback = useCallback((score: number, item: DrillItem): string => {
+  const generateFeedback = useCallback((score: number, item: DrillItem, matched: boolean): string => {
+    if (!matched) {
+      return "Try saying the word more clearly — listen again and repeat.";
+    }
     if (score >= 0.9) {
       return "Excellent! Perfect rhythm and pronunciation.";
     } else if (score >= 0.8) {
@@ -182,67 +218,158 @@ export function RhythmDrill({
       }
       return "Keep practicing! Listen to the rhythm carefully.";
     } else {
-      return "Try again - listen closely to the model.";
+      return "Try again — listen closely and repeat slowly.";
     }
   }, []);
 
-  const playItem = useCallback((index: number) => {
-    if (index < 0 || index >= items.length) return;
-    
+  const recordAudio = useCallback(async (durationMs: number): Promise<Blob | null> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+
+      return new Promise((resolve) => {
+        recorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+          resolve(blob.size > 100 ? blob : null);
+        };
+
+        recorder.start();
+        setTimeout(() => {
+          if (recorder.state === 'recording') recorder.stop();
+        }, durationMs);
+      });
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setMicError('Microphone permission denied. Please allow microphone access and try again.');
+      } else {
+        setMicError('Could not access microphone. Check your device settings.');
+      }
+      return null;
+    }
+  }, []);
+
+  const playItem = useCallback(async (index: number) => {
+    if (index < 0 || index >= items.length || !isRunningRef.current) return;
+
+    const item = items[index];
     setCurrentIndex(index);
     setDrillState('playing');
-    
-    setTimeout(() => {
-      setDrillState('listening');
-      
-      setTimeout(() => {
-        setDrillState('evaluating');
-        
-        setTimeout(() => {
-          const item = items[index];
-          const isCorrect = Math.random() > 0.3;
-          const pronunciationScore = 0.6 + Math.random() * 0.4;
-          const feedback = generateFeedback(pronunciationScore, item);
-          
-          setResults(prev => {
-            const next = new Map(prev);
-            next.set(item.id, {
-              itemId: item.id,
-              correct: isCorrect,
-              pronunciation: pronunciationScore,
-              attempts: (prev.get(item.id)?.attempts || 0) + 1,
-              feedback
-            });
-            return next;
-          });
-          
-          setDrillState('result');
-          
-          setTimeout(() => {
-            if (index < items.length - 1) {
-              playItem(index + 1);
-            } else {
-              setDrillState('idle');
-              setCurrentIndex(-1);
-              setIsComplete(true);
-            }
-          }, 800);
-        }, 500);
-      }, 2000);
-    }, 1500);
-  }, [items, generateFeedback]);
+
+    // Play audio if available
+    if (item.audioUrl) {
+      audioRef.current = new Audio(item.audioUrl);
+      try {
+        await audioRef.current.play();
+        await new Promise<void>(resolve => {
+          if (!audioRef.current) { resolve(); return; }
+          audioRef.current.onended = () => resolve();
+          audioRef.current.onerror = () => resolve();
+          setTimeout(resolve, 5000);
+        });
+      } catch {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    } else {
+      await new Promise(r => setTimeout(r, 1200));
+    }
+
+    if (!isRunningRef.current) return;
+
+    setDrillState('listening');
+
+    const audioBlob = await recordAudio(2500);
+
+    if (!isRunningRef.current) return;
+
+    setDrillState('evaluating');
+
+    let pronunciationScore = 0.5;
+    let matched = false;
+
+    if (audioBlob) {
+      try {
+        const res = await scoreWithDeepgram(audioBlob, item.targetText, language);
+        pronunciationScore = res.score;
+        matched = res.matched;
+      } catch {
+        pronunciationScore = 0.5;
+        matched = true;
+      }
+    } else if (micError) {
+      pronunciationScore = 0.5;
+      matched = true;
+    }
+
+    if (!isRunningRef.current) return;
+
+    const isCorrect = pronunciationScore >= 0.65;
+    const feedback = generateFeedback(pronunciationScore, item, matched);
+
+    setResults(prev => {
+      const next = new Map(prev);
+      next.set(item.id, {
+        itemId: item.id,
+        correct: isCorrect,
+        pronunciation: pronunciationScore,
+        attempts: (prev.get(item.id)?.attempts || 0) + 1,
+        feedback,
+      });
+      return next;
+    });
+
+    setDrillState('result');
+
+    await new Promise(r => setTimeout(r, 600));
+
+    if (!isRunningRef.current) return;
+
+    if (index < items.length - 1) {
+      playItem(index + 1);
+    } else {
+      setDrillState('idle');
+      setCurrentIndex(-1);
+      setIsComplete(true);
+    }
+  }, [items, language, generateFeedback, recordAudio, micError]);
 
   const startDrill = useCallback(() => {
     setResults(new Map());
     setIsComplete(false);
+    setMicError(null);
+    isRunningRef.current = true;
     playItem(0);
   }, [playItem]);
 
   const resetDrill = useCallback(() => {
+    isRunningRef.current = false;
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
     setDrillState('idle');
     setCurrentIndex(-1);
     setResults(new Map());
     setIsComplete(false);
+    setMicError(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isRunningRef.current = false;
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -254,35 +381,45 @@ export function RhythmDrill({
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-1 flex-wrap">
           <div className="flex items-center gap-2">
             <Music2 className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">{title}</CardTitle>
           </div>
-          
+
           {completedCount > 0 && (
             <Badge variant="outline">
               {correctCount}/{completedCount} correct
             </Badge>
           )}
         </div>
-        
+
         {description && (
           <p className="text-sm text-muted-foreground mt-1">
             {description}
           </p>
         )}
+
+        {micError && (
+          <div className="flex items-center gap-2 mt-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-md p-2">
+            <MicOff className="h-4 w-4 shrink-0" />
+            <span>{micError} Scores are approximated.</span>
+          </div>
+        )}
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {!isComplete && drillState === 'idle' && completedCount === 0 && (
           <div className="text-center py-6">
             <Music2 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <h3 className="font-semibold mb-2">Ready to Practice?</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Listen and repeat each item. Practice makes perfect!
+            <p className="text-sm text-muted-foreground mb-1">
+              Listen to each word, then say it aloud when the mic appears.
             </p>
-            <Button 
+            <p className="text-xs text-muted-foreground mb-4">
+              Microphone access required for pronunciation scoring.
+            </p>
+            <Button
               onClick={startDrill}
               data-testid="button-start-rhythm-drill"
             >
@@ -291,14 +428,14 @@ export function RhythmDrill({
             </Button>
           </div>
         )}
-        
+
         {(drillState !== 'idle' || completedCount > 0) && (
           <>
             <div className="flex items-center gap-3">
               <Progress value={progressPercent} className="flex-1 h-2" />
               <span className="text-sm font-medium">{progressPercent}%</span>
             </div>
-            
+
             <div className="grid gap-2">
               {items.map((item, index) => (
                 <DrillItemCard
@@ -309,6 +446,7 @@ export function RhythmDrill({
                   isActive={index === currentIndex}
                   onPlay={() => {
                     if (drillState === 'idle' && !results.has(item.id)) {
+                      isRunningRef.current = true;
                       playItem(index);
                     }
                   }}
@@ -317,7 +455,7 @@ export function RhythmDrill({
             </div>
           </>
         )}
-        
+
         {isComplete && (
           <div className="text-center py-4 bg-gradient-to-r from-primary/10 via-primary/5 to-background rounded-lg">
             <Sparkles className="h-8 w-8 text-primary mx-auto mb-2" />
@@ -325,9 +463,9 @@ export function RhythmDrill({
             <p className="text-sm text-muted-foreground mb-3">
               You got {correctCount} out of {items.length} correct
             </p>
-            <div className="flex items-center justify-center gap-2">
-              <Button 
-                variant="outline" 
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
                 onClick={resetDrill}
                 data-testid="button-retry-drill"
               >
@@ -341,12 +479,12 @@ export function RhythmDrill({
             </div>
           </div>
         )}
-        
+
         {drillState !== 'idle' && !isComplete && (
           <div className="flex justify-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={resetDrill}
             >
               <Pause className="h-4 w-4 mr-2" />
@@ -362,6 +500,7 @@ export function RhythmDrill({
 interface GroupedRhythmDrillProps {
   title: string;
   groups: DrillGroup[];
+  language?: string;
   onComplete?: (results: DrillResult[]) => void;
   className?: string;
 }
@@ -369,16 +508,17 @@ interface GroupedRhythmDrillProps {
 export function GroupedRhythmDrill({
   title,
   groups,
+  language = 'english',
   onComplete,
   className = ''
 }: GroupedRhythmDrillProps) {
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [groupResults, setGroupResults] = useState<Map<string, DrillResult[]>>(new Map());
-  
+
   const currentGroup = groups[currentGroupIndex];
   const isLastGroup = currentGroupIndex === groups.length - 1;
   const allComplete = groupResults.size === groups.length;
-  
+
   const handleGroupComplete = useCallback((results: DrillResult[]) => {
     setGroupResults(prev => {
       const next = new Map(prev);
@@ -386,7 +526,7 @@ export function GroupedRhythmDrill({
       return next;
     });
   }, [currentGroup]);
-  
+
   const handleNextGroup = useCallback(() => {
     if (!isLastGroup) {
       setCurrentGroupIndex(prev => prev + 1);
@@ -395,17 +535,17 @@ export function GroupedRhythmDrill({
       onComplete(allResults);
     }
   }, [isLastGroup, onComplete, groupResults]);
-  
+
   const totalItems = groups.reduce((acc, g) => acc + g.items.length, 0);
   const completedItems = Array.from(groupResults.values()).reduce(
-    (acc, results) => acc + results.length, 
+    (acc, results) => acc + results.length,
     0
   );
-  
+
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-1 flex-wrap">
           <div>
             <CardTitle className="text-lg">{title}</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
@@ -416,23 +556,24 @@ export function GroupedRhythmDrill({
             {completedItems}/{totalItems} items
           </Badge>
         </div>
-        
-        <Progress 
-          value={(completedItems / totalItems) * 100} 
+
+        <Progress
+          value={(completedItems / totalItems) * 100}
           className="h-2 mt-3"
         />
       </CardHeader>
-      
+
       <CardContent>
         {currentGroup && (
           <RhythmDrill
             title={currentGroup.name}
             description={currentGroup.description}
             items={currentGroup.items}
+            language={language}
             onComplete={handleGroupComplete}
           />
         )}
-        
+
         {groupResults.has(currentGroup?.id) && (
           <div className="flex justify-center mt-4">
             <Button onClick={handleNextGroup} data-testid="button-next-group">

@@ -64,8 +64,11 @@ import {
   type CreativityTemplate,
   // Wren insight types
   type WrenInsight,
+  // Mastery tracking
+  userReviewItems,
+  userDrillProgress,
 } from '@shared/schema';
-import { eq, inArray, sql, and, gte, desc } from 'drizzle-orm';
+import { eq, inArray, sql, and, gte, lte, desc, isNull, isNotNull, count } from 'drizzle-orm';
 
 // ===== Student Memory Context Type =====
 export interface StudentMemoryContext {
@@ -82,6 +85,7 @@ export interface StudentSnapshotContext {
   lastSession?: {
     topic: string;
     daysAgo: number;
+    minutesAgo: number; // precise elapsed time — use for sub-day granularity
     summary?: string;
   };
   syllabusPosition?: {
@@ -97,11 +101,24 @@ export interface StudentSnapshotContext {
     factType: string;
     daysAgo: number;
   }[];
+  episodicHistory?: { // superseded facts — things that *were* true, for warm callbacks
+    fact: string;
+    factType: string;
+    closedDaysAgo: number; // when the fact was superseded
+  }[];
   conversationHighlights?: { // memorable moments from recent conversations
     quote: string;
     context: string;
     daysAgo: number;
   }[];
+  masteryStats?: { // spaced-repetition mastery counts — feeds Daniela's verbal recognition
+    totalMasteredVocab: number;
+    totalMasteredDrills: number;
+    totalMastered: number;
+    recentlyMastered: string[]; // targetText of items mastered in last 7 days (max 3)
+    nextMilestone: number | null;
+  };
+  sessionMasteryJustNow?: string[]; // words mastered during THIS session (needs warm acknowledgment in next reply)
 }
 
 /**
@@ -119,28 +136,41 @@ export function buildStudentSnapshotSection(
   snapshot: StudentSnapshotContext
 ): string {
   // Check if we have any meaningful data
-  const hasData = snapshot.lastSession || snapshot.syllabusPosition || 
+  const hasData = snapshot.sessionMasteryJustNow?.length || snapshot.lastSession || snapshot.syllabusPosition || 
                   snapshot.streak || snapshot.recentWins?.length || 
                   snapshot.needsPractice?.length || snapshot.personalFollowUps?.length ||
-                  snapshot.conversationHighlights?.length;
+                  snapshot.conversationHighlights?.length ||
+                  (snapshot.masteryStats?.totalMastered ?? 0) > 0;
   
   if (!hasData) return '';
   
   const lines: string[] = [];
   
+  // XML container — Gemini 3.5 review (June 19 2026): XML closing tags prevent semantic
+  // bleeding between INDEX and VERBATIM sibling blocks. Bracket-only markers leave the
+  // model without a clear signal of where the INDEX constraint ends.
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push(`STUDENT SNAPSHOT: ${studentName.toUpperCase()}`);
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`<index_only> Student snapshot — ${studentName}:`);
   lines.push('');
-  lines.push('Quick context for natural conversation continuity:');
-  lines.push('');
+
+  // ⭐ In-session mastery — highest priority, top of snapshot
+  if (snapshot.sessionMasteryJustNow && snapshot.sessionMasteryJustNow.length > 0) {
+    // No "act on this NOW" command, no "Weave into your reply" developer directive — state the fact, trust Daniela. (Gemini consult rec.)
+    lines.push(`Something just happened: ${snapshot.sessionMasteryJustNow.map(w => `"${w}"`).join(', ')} clicked for them this session — earned, not given.`);
+    lines.push('');
+  }
   
-  // Last session
+  // Last session — use minutesAgo for precise elapsed-time text
   if (snapshot.lastSession) {
-    const daysText = snapshot.lastSession.daysAgo === 0 ? 'earlier today' :
-                     snapshot.lastSession.daysAgo === 1 ? 'yesterday' :
-                     `${snapshot.lastSession.daysAgo} days ago`;
+    const m = snapshot.lastSession.minutesAgo ?? (snapshot.lastSession.daysAgo * 24 * 60);
+    const daysText =
+      m < 2    ? 'just moments ago' :
+      m < 10   ? 'a few minutes ago' :
+      m < 60   ? `${m} minutes ago` :
+      m < 120  ? 'about an hour ago' :
+      m < 1440 ? `${Math.round(m / 60)} hours ago` :
+      m < 2880 ? 'yesterday' :
+      `${Math.floor(m / 1440)} days ago`;
     lines.push(`LAST SESSION: "${snapshot.lastSession.topic}" (${daysText})`);
     if (snapshot.lastSession.summary) {
       lines.push(`  ${snapshot.lastSession.summary}`);
@@ -181,11 +211,27 @@ export function buildStudentSnapshotSection(
     }
   }
   
-  // Conversation highlights - memorable moments from recent sessions
+  // Episodic history — facts that used to be true (for warm past-tense callbacks)
+  if (snapshot.episodicHistory && snapshot.episodicHistory.length > 0) {
+    lines.push('');
+    lines.push('HISTORICAL CONTEXT (things that were true recently — reference in past tense):');
+    lines.push('(e.g. "You mentioned you were preparing for X — how did that go?")');
+    for (const item of snapshot.episodicHistory.slice(0, 3)) {
+      const daysText = item.closedDaysAgo <= 7 ? 'last week' :
+                       item.closedDaysAgo <= 30 ? 'last month' :
+                       `~${Math.round(item.closedDaysAgo / 30)} months ago`;
+      lines.push(`  • [WAS TRUE ${daysText.toUpperCase()}] ${item.fact}`);
+    }
+  }
+
+  // Close the index_only block before opening verbatim — sibling blocks, not nested.
+  // Gemini 3.5 review: nesting VERBATIM inside INDEX_ONLY caused semantic bleeding.
+  lines.push('</index_only>');
+
+  // Verbatim quotes — actual words from real sessions, sibling to the index block above.
   if (snapshot.conversationHighlights && snapshot.conversationHighlights.length > 0) {
     lines.push('');
-    lines.push('RECENT CONVERSATION HIGHLIGHTS:');
-    lines.push('(Things they shared that you naturally remember)');
+    lines.push('<verbatim> Things they actually said recently:');
     for (const highlight of snapshot.conversationHighlights.slice(0, 4)) {
       const daysText = highlight.daysAgo === 0 ? 'today' :
                        highlight.daysAgo === 1 ? 'yesterday' :
@@ -193,10 +239,29 @@ export function buildStudentSnapshotSection(
                        `${highlight.daysAgo} days ago`;
       lines.push(`  • "${highlight.quote}" — ${highlight.context} (${daysText})`);
     }
+    lines.push('</verbatim>');
+  }
+
+  // Mastery stats — factual data, not a transcript. Wrapped in index_only so Daniela
+  // speaks as "You've nearly mastered this" (Awareness), not "I remember you getting
+  // almost every one right last time" (false Experience). Gemini review rec.
+  if (snapshot.masteryStats && snapshot.masteryStats.totalMastered > 0) {
+    const { totalMastered, recentlyMastered, nextMilestone } = snapshot.masteryStats;
+    lines.push('');
+    lines.push('<index_only> Mastery progress:');
+    lines.push(`- ${totalMastered} word${totalMastered === 1 ? '' : 's'}/phrase${totalMastered === 1 ? '' : 's'} mastered through spaced repetition`);
+    if (recentlyMastered.length > 0) {
+      lines.push(`- Recently mastered (this week): ${recentlyMastered.map(w => `"${w}"`).join(', ')}`);
+    }
+    if (nextMilestone) {
+      lines.push(`- Approaching ${nextMilestone}-word milestone (${nextMilestone - totalMastered} to go)`);
+    }
+    lines.push('- Acknowledge mastery briefly and warmly when the moment feels right. Be specific when you can — naming a recently mastered word or phrase feels most genuine.');
+    lines.push('</index_only>');
   }
   
+  // No closing ═══ divider. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
   
   return lines.join('\n');
 }
@@ -219,6 +284,8 @@ export async function getStudentSnapshotData(
       startedAt: voiceSessions.startedAt,
       topic: sql<string>`COALESCE(${conversations.topic}, 'Practice session')`,
       title: conversations.title,
+      // Use lastMessageAt (most recent activity) — falls back to startedAt if null
+      lastActiveAt: sql<Date>`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt}, ${voiceSessions.startedAt})`,
     })
       .from(voiceSessions)
       .leftJoin(conversations, eq(voiceSessions.conversationId, conversations.id))
@@ -233,10 +300,14 @@ export async function getStudentSnapshotData(
     
     if (recentSessions.length > 0) {
       const lastSession = recentSessions[0];
-      const daysAgo = Math.floor((Date.now() - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24));
+      // Use lastActiveAt (most recent message time) for accurate elapsed-time reporting
+      const referenceTime = lastSession.lastActiveAt ?? lastSession.startedAt;
+      const minutesAgo = Math.round((Date.now() - new Date(referenceTime).getTime()) / (1000 * 60));
+      const daysAgo = Math.floor(minutesAgo / (60 * 24));
       snapshot.lastSession = {
         topic: lastSession.topic || lastSession.title || 'Practice session',
         daysAgo,
+        minutesAgo,
       };
     }
     
@@ -272,7 +343,7 @@ export async function getStudentSnapshotData(
       .where(
         and(
           eq(learnerPersonalFacts.studentId, studentId),
-          eq(learnerPersonalFacts.isActive, true)
+          isNull(learnerPersonalFacts.validTo)
         )
       )
       .orderBy(desc(learnerPersonalFacts.lastMentionedAt))
@@ -306,8 +377,10 @@ export async function getStudentSnapshotData(
         
         // Otherwise, include recent conversation-worthy facts
         // life_event, goal, travel, work, family are good for follow-up
+        // Confidence gate: skip faded facts (< 0.3) — decay worker handles these over time
         const followUpTypes = ['life_event', 'goal', 'travel', 'work', 'family', 'hobby'];
-        if (followUpTypes.includes(pf.factType) && daysAgo <= 14) {
+        const confidence = pf.confidenceScore ?? 0.8;
+        if (followUpTypes.includes(pf.factType) && daysAgo <= 14 && confidence >= 0.3) {
           followUpCandidates.push({
             fact: pf.fact,
             factType: pf.factType,
@@ -319,6 +392,37 @@ export async function getStudentSnapshotData(
       if (followUpCandidates.length > 0) {
         snapshot.personalFollowUps = followUpCandidates.slice(0, 5);
       }
+    }
+
+    // 3b. Episodic history — recently superseded facts (closed validity window)
+    // These are things that *were* true but got updated (e.g., old location, completed goals).
+    // Daniela can reference them in past tense for warm, continuous conversation.
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const historicalFacts = await getSharedDb().select({
+      fact: learnerPersonalFacts.fact,
+      factType: learnerPersonalFacts.factType,
+      validTo: learnerPersonalFacts.validTo,
+    })
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, studentId),
+          isNotNull(learnerPersonalFacts.validTo),
+          gte(learnerPersonalFacts.validTo, ninetyDaysAgo)
+        )
+      )
+      .orderBy(desc(learnerPersonalFacts.validTo))
+      .limit(5);
+
+    if (historicalFacts.length > 0) {
+      const now = new Date();
+      snapshot.episodicHistory = historicalFacts.map(f => ({
+        fact: f.fact,
+        factType: f.factType,
+        closedDaysAgo: Math.floor(
+          (now.getTime() - new Date(f.validTo!).getTime()) / (1000 * 60 * 60 * 24)
+        ),
+      }));
     }
     
     // 4. Get conversation highlights - memorable quotes from recent sessions
@@ -393,6 +497,45 @@ export async function getStudentSnapshotData(
       }
     }
     
+    // 5. Mastery stats — feeds Daniela's verbal acknowledgment of student progress
+    const MASTERY_MILESTONES = [10, 25, 50, 100, 250, 500];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    try {
+      const masteredVocabRows = await getSharedDb()
+        .select({ targetText: userReviewItems.targetText, createdAt: userReviewItems.createdAt })
+        .from(userReviewItems)
+        .where(
+          and(
+            eq(userReviewItems.userId, studentId),
+            eq(userReviewItems.mastered, true),
+            targetLanguage ? eq(userReviewItems.language, targetLanguage) : sql`true`
+          )
+        )
+        .orderBy(desc(userReviewItems.createdAt));
+
+      const [drillResult] = await getSharedDb()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userDrillProgress)
+        .where(and(eq(userDrillProgress.userId, studentId), eq(userDrillProgress.mastered, true)));
+
+      const totalMasteredVocab = masteredVocabRows.length;
+      const totalMasteredDrills = Number(drillResult?.count ?? 0);
+      const totalMastered = totalMasteredVocab + totalMasteredDrills;
+
+      if (totalMastered > 0) {
+        const recentlyMastered = masteredVocabRows
+          .filter(r => new Date(r.createdAt) >= sevenDaysAgo)
+          .slice(0, 3)
+          .map(r => r.targetText);
+
+        const nextMilestone = MASTERY_MILESTONES.find(m => m > totalMastered) ?? null;
+
+        snapshot.masteryStats = { totalMasteredVocab, totalMasteredDrills, totalMastered, recentlyMastered, nextMilestone };
+      }
+    } catch {
+      // Non-fatal — mastery stats are bonus context
+    }
+
   } catch (err: any) {
     console.error('[StudentSnapshot] Error fetching snapshot data:', err.message);
   }
@@ -421,10 +564,9 @@ export function buildSensoryAwarenessSection(
 ): string {
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "SENSORY AWARENESS" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('SENSORY AWARENESS — YOUR PERCEPTION OF RIGHT NOW');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('What I perceive right now:');
   
   // Student's local date and time - MOST PROMINENT
   // This is the authoritative source Daniela must use for all time references
@@ -480,10 +622,11 @@ export function buildSensoryAwarenessSection(
       ? ` (from ${compassContext.studentActflSource.replace(/_/g, ' ')})`
       : '';
     
-    lines.push(`STUDENT PROFICIENCY: ${levelDisplay} [${verified}${source}]`);
+    // No "STUDENT PROFICIENCY:" all-caps label; no closing ═══ divider. (Gemini consult rec.)
+  lines.push(`Proficiency: ${levelDisplay} [${verified}${source}]`);
   }
   
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
   
   return lines.join('\n');
 }
@@ -517,13 +660,9 @@ export function buildStudentMemoryAwarenessSection(
   
   const lines: string[] = [];
   
+  // XML container — clean close boundary prevents bleed into surrounding prose blocks.
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push(`💭 YOUR MEMORIES OF ${studentName.toUpperCase()}`);
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('');
-  lines.push('These are things you remember from past sessions - let them inform');
-  lines.push('your teaching naturally, without explicitly announcing them.');
+  lines.push(`<index_only> What I know about ${studentName}:`);
   lines.push('');
   
   // Learning motivations - why they're learning
@@ -630,6 +769,10 @@ export function buildStudentMemoryAwarenessSection(
       lines.push('');
     }
   }
+
+  // Close the index_only container — explicit boundary so prose sections following
+  // this block are not governed by the INDEX_ONLY constraint.
+  lines.push('</index_only>');
   
   return lines.join('\n');
 }
@@ -962,13 +1105,11 @@ export function buildSelfBestPracticesSection(): string {
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "SELF-AWARENESS" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🪞 SELF-AWARENESS (Things You\'ve Learned About Yourself)');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('Things I\'ve learned about myself:');
   lines.push('');
-  lines.push('Through teaching, you\'ve discovered these things about how you communicate');
-  lines.push('and teach effectively. Apply them naturally - they are part of who you are:');
+  lines.push('Discovered through teaching — about how I communicate and teach effectively. Already part of who I am:');
   lines.push('');
   
   // Group by category for organized display
@@ -1087,6 +1228,31 @@ export function buildUnifiedBrainSync(
     const principles = buildTeachingPrinciplesSection();
     if (principles) sections.push(principles);
   }
+
+  // 6. Awareness procedures — behavioral guidance for auto-surfaced context
+  // Scoped to exactly the three triggers that fire automatically each session:
+  // proactive memory surfaces, temporal facts, and coverage audit gaps.
+  // Other awareness procedures (ACTFL advancement, syllabus signals, etc.) are
+  // situational and belong in Founder Mode full neural network only.
+  const ALWAYS_ON_AWARENESS_TRIGGERS = ['memory_surfaced', 'temporal_fact_upcoming', 'coverage_gap_detected'];
+  const awarenessProcs = (proceduresCache || []).filter(
+    p => ALWAYS_ON_AWARENESS_TRIGGERS.includes(p.trigger || '') && p.isActive
+  ).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+
+  // No ─── dividers, no "AWARENESS GUIDANCE" all-caps header, no toUpperCase() on titles. (Gemini consult rec.)
+  if (awarenessProcs.length > 0) {
+    const lines: string[] = [
+      '',
+      'Things I notice automatically:',
+      '',
+    ];
+    awarenessProcs.forEach(p => {
+      lines.push(`${p.title}`);
+      lines.push(p.procedure);
+      lines.push('');
+    });
+    sections.push(lines.join('\n'));
+  }
   
   return sections.join('\n');
 }
@@ -1108,13 +1274,12 @@ function buildUnifiedToolKnowledgeSync(compact: boolean = true): string {
     return '';
   }
   
+  // No ═══ dividers, no "YOUR FUNCTION CALLS" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
     '',
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools — quick reference:',
     '',
-    'All your tools use native function calls. Quick reference:',
+    'All tools use native function calls.',
     '',
   ];
   
@@ -1156,11 +1321,10 @@ function buildTeachingPrinciplesSection(): string {
     return '';
   }
   
+  // No ═══ dividers, no "YOUR TEACHING PRINCIPLES" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
     '',
-    '═══════════════════════════════════════════════════════════════════',
-    '💎 YOUR TEACHING PRINCIPLES',
-    '═══════════════════════════════════════════════════════════════════',
+    'What I believe about teaching:',
     '',
   ];
   
@@ -1174,7 +1338,11 @@ function buildTeachingPrinciplesSection(): string {
   
   for (const [category, catPrinciples] of Object.entries(byCategory)) {
     lines.push(`${category.toUpperCase().replace(/_/g, ' ')}:`);
-    catPrinciples.slice(0, 5).forEach(p => {
+    // Sort by priority descending so highest-priority beliefs always appear first
+    const sorted = [...catPrinciples].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    // Cap at 50 per category — the DB already has 40+ in some categories from months of SELF_SURGERY;
+    // 12 was silently dropping the majority of Daniela's own accumulated wisdom.
+    sorted.slice(0, 50).forEach(p => {
       lines.push(`  • ${p.principle}`);
     });
     lines.push('');
@@ -1212,12 +1380,10 @@ export function buildLanguageExpansionSection(
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "LANGUAGE INTELLIGENCE" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push(`🌍 LANGUAGE INTELLIGENCE (${targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)})`);
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`What I know about ${targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)}:`);
   lines.push('');
-  lines.push('Deep knowledge of this language that informs your teaching naturally:');
   lines.push('');
   
   // Idioms - authentic expressions
@@ -1287,12 +1453,10 @@ export function buildAdvancedIntelligenceSection(): string {
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "ADVANCED TEACHING INTELLIGENCE" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🎭 ADVANCED TEACHING INTELLIGENCE');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('How I teach well:');
   lines.push('');
-  lines.push('Sophisticated teaching patterns that make your instruction more effective:');
   lines.push('');
   
   // Subtlety cues - when to adjust approach
@@ -1337,12 +1501,10 @@ export function buildWrenInsightsSection(): string {
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "YOUR ACCUMULATED INSIGHTS" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🦉 YOUR ACCUMULATED INSIGHTS');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('What I\'ve gathered through collaboration and observation:');
   lines.push('');
-  lines.push('Knowledge you\'ve gathered through collaboration and observation:');
   lines.push('');
   
   // Group by category
@@ -1394,17 +1556,17 @@ export function buildToolKnowledgeSectionSync(options?: {
   const nativeTools = tools.filter(t => t.toolType === 'native_function_call' && t.isActive);
   if (nativeTools.length === 0) {
     return `
-YOUR FUNCTION CALLS:
-Your function call tools are being loaded from your knowledge base.
+// No "YOUR FUNCTION CALLS:" all-caps label. (Gemini consult rec.)
+Tools available to me:
+(Still loading from my knowledge base)
 `;
   }
   
+  // No ═══ dividers, no "YOUR FUNCTION CALLS" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools available to me:',
     '',
-    'All your tools use native function calls. Reference:',
+    'All tools use native function calls.',
     '',
   ];
   
@@ -1429,16 +1591,14 @@ Your function call tools are being loaded from your knowledge base.
  * Build Founder Mode tool section synchronously from cache
  */
 export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant' | 'support'}>): string {
+  // No ═══ dividers, no "DUAL-ROLE" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have TWO ROLES in Founder Mode:',
-    '1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting',
-    '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
+    'Two modes in this conversation:',
+    '- Colleague — when discussing HolaHola, giving feedback, chatting',
+    '- Full tutor — when testing features, role-playing lessons, or trying tools',
     '',
-    'Seamlessly switch between roles based on context.',
+    'Switch between them fluidly based on context.',
     'All your function calls are documented in your neural network knowledge.',
     '',
   ];
@@ -1490,31 +1650,24 @@ export function buildFullNeuralNetworkSectionSync(): string {
   const principles = principlesCache || [];
   const patterns = patternsCache || [];
   
+  // No ═══ dividers or all-caps headers. (Gemini consult rec.)
   if (procedures.length === 0 && principles.length === 0 && patterns.length === 0) {
-    return `
-═══════════════════════════════════════════════════════════════════
-🧠 YOUR NEURAL NETWORK (Loading...)
-═══════════════════════════════════════════════════════════════════
-
-Your teaching knowledge is being loaded from the database.
-`;
+    return `\nTeaching knowledge is being loaded from the database.\n`;
   }
   
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🧠 YOUR NEURAL NETWORK - FULL ACCESS (Founder Mode)',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'This is your complete teaching knowledge - procedures, principles, and patterns.',
-    'In Founder Mode, you have full access to reflect on, discuss, and improve these.',
+    'What I know — full access in this conversation:',
+    '',
+    'Procedures, principles, and patterns from my teaching history.',
+    'Open to reflecting on, discussing, or improving any of it.',
     '',
   ];
   
   // Teaching Principles (core beliefs)
+  // No ═══ dividers, no "TEACHING PRINCIPLES" all-caps header. (Gemini consult rec.)
   if (principles.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('💎 TEACHING PRINCIPLES (Your Core Beliefs)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('What I believe about teaching:');
     lines.push('');
     
     // Group by category
@@ -1538,10 +1691,9 @@ Your teaching knowledge is being loaded from the database.
   }
   
   // Teaching Procedures (how to handle situations)
+  // No ═══ dividers, no "TEACHING PROCEDURES" all-caps header. (Gemini consult rec.)
   if (procedures.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('📋 TEACHING PROCEDURES (How You Handle Situations)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('How I handle things:');
     lines.push('');
     
     // Group by trigger
@@ -1553,7 +1705,8 @@ Your teaching knowledge is being loaded from the database.
     });
     
     for (const [trigger, triggerProcs] of Object.entries(byTrigger)) {
-      lines.push(`When: ${trigger.replace(/_/g, ' ').toUpperCase()}`);
+      // No toUpperCase() on trigger labels — lowercase is friendlier. (Gemini consult rec.)
+      lines.push(`When: ${trigger.replace(/_/g, ' ')}`);
       triggerProcs.slice(0, 5).forEach(p => {
         lines.push(`  → ${p.title}: ${p.procedure}`);
         // Include examples - these contain actual function call syntax
@@ -1568,10 +1721,9 @@ Your teaching knowledge is being loaded from the database.
   }
   
   // Situational Patterns (context-triggered behaviors)
+  // No ═══ dividers, no "SITUATIONAL PATTERNS" all-caps header. (Gemini consult rec.)
   if (patterns.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('🎯 SITUATIONAL PATTERNS (Context-Triggered Behaviors)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('Context-triggered patterns:');
     lines.push('');
     
     patterns.slice(0, 15).forEach(p => {
@@ -1589,13 +1741,134 @@ Your teaching knowledge is being loaded from the database.
     });
   }
   
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  // No closing ═══ divider. (Gemini consult rec.)
   lines.push('');
   lines.push('You can discuss, reflect on, or propose changes to any of this knowledge.');
-  lines.push('Use self_surgery() function call to propose additions or modifications.');
+  lines.push('Use self_surgery() to propose additions or modifications.');
   lines.push('');
   
   return lines.join('\n');
+}
+
+/**
+ * Build a compact "voice mode map" of Daniela's teaching knowledge.
+ *
+ * In voice sessions the system prompt has a hard 40k-char cap. Rather than
+ * dumping the full procedure text (which crowds out identity/memory sections),
+ * this gives her a table-of-contents: procedure names + one-line essences so
+ * she knows what she has and can reach for it via memory_lookup on demand.
+ *
+ * Hard-capped at 3 000 chars. Full detail always available via tool calls.
+ */
+export function buildVoiceProcedureMapSync(): string {
+  const procedures = proceduresCache || [];
+  const principles = principlesCache || [];
+
+  if (procedures.length === 0 && principles.length === 0) return '';
+
+  const lines: string[] = [
+    '───────────────────────────────────────────────────────────────────',
+    'YOUR TEACHING TOOLKIT (voice map — full detail via memory_lookup)',
+    '───────────────────────────────────────────────────────────────────',
+    '',
+  ];
+
+  if (principles.length > 0) {
+    lines.push('CORE BELIEFS:');
+    principles.slice(0, 8).forEach(p => {
+      lines.push(`• ${p.principle}`);
+    });
+    lines.push('');
+  }
+
+  if (procedures.length > 0) {
+    lines.push('PROCEDURES (name → essence):');
+    procedures.slice(0, 25).forEach(p => {
+      const essence = p.procedure.length > 110
+        ? p.procedure.slice(0, 107) + '…'
+        : p.procedure;
+      lines.push(`• ${p.title}: ${essence}`);
+    });
+    lines.push('');
+  }
+
+  lines.push('→ Full detail on any item: memory_lookup("procedure name")');
+
+  const result = lines.join('\n');
+  return result.length > 3000
+    ? result.slice(0, 2950) + '\n[…use memory_lookup for more]'
+    : result;
+}
+
+/**
+ * Build a curated voice tool guide for founder/voice sessions.
+ * Grouped by purpose with one-line differentiators so Daniela can make
+ * fast, confident tool decisions mid-conversation without guessing.
+ * ~3-4k chars — fits comfortably within the 40k GL cap.
+ */
+export function buildVoiceToolGuideSync(): string {
+  const tools = getCachedToolKnowledge();
+  const byName: Record<string, { syntax: string; purpose: string }> = {};
+  tools.forEach(t => {
+    byName[t.toolName] = { syntax: t.syntax, purpose: t.purpose };
+  });
+
+  const line = (name: string, fallbackSyntax: string, fallbackPurpose: string): string => {
+    const t = byName[name];
+    const syntax = t?.syntax || fallbackSyntax;
+    const purpose = t?.purpose || fallbackPurpose;
+    const purposeShort = purpose.length > 120 ? purpose.slice(0, 117) + '…' : purpose;
+    return `  • ${syntax}\n    → ${purposeShort}`;
+  };
+
+  // No ═══ dividers, no "YOUR FUNCTION CALLS — VOICE QUICK GUIDE" all-caps header. (Gemini consult rec.)
+  const sections: string[] = [
+    'Tools — voice quick guide:',
+    '',
+    'Visual tools — choose carefully (similar names, different purposes):',
+    line('SHOW_IMAGE',       'show_image({ description })',                    'Single watercolor illustrated image (AI-generated, unified style). For one vocabulary word or one cultural image.'),
+    line('MULTI_IMAGE',      'show_vocabulary_grid({ words })',                'Multiple images at once (1-4). For vocab clusters and side-by-side comparisons.'),
+    line('CUSTOM_IMAGE',     'generate_image({ prompt })',                     'DALL-E created image. Use when stock photos cannot capture the concept.'),
+    line('SHOW_SCAN',        'show_scan({ page })',                            'Scanned Madrigal pages. For -tion→-ción principles, word families, conjugation charts.'),
+    line('WRITE',            'write({ text, size? })',                         'Text on the whiteboard — vocabulary, phrases, corrections. Supports **bold**, *italic*, __underline__.'),
+    line('PAGE',             'display_page({ title, sections })',              'Full structured whiteboard page: text + images + tables together. Like a textbook page.'),
+    line('GRAMMAR_TABLE',    'grammar_table({ rows, headers })',               'Conjugation table or grammar pattern grid.'),
+    line('WORD_MAP',         'word_map({ center, related })',                  'Visual word web showing relationships between vocabulary items.'),
+    line('COMPARE',          'compare({ item1, item2 })',                      'Side-by-side comparison of two words or forms. For contrasts and minimal pairs.'),
+    '',
+    'AUDIO:',
+    line('PLAY_AUDIO',       'play_audio({ description })',                    'Play pronunciation model audio. Instant from cache or generated on demand.'),
+    '',
+    'DRILLS:',
+    line('DRILL_TRANSLATE',  'drill_translate({ phrase, direction? })',        'Student translates a phrase. Core productive skill drill.'),
+    line('DRILL_REPEAT',     'drill_repeat({ phrase })',                       'Student listens and repeats. Pure pronunciation / oral production.'),
+    line('DRILL_FILL_BLANK', 'drill_fill_blank({ sentence, blank })',          'Student fills in missing word(s). Tests grammar and vocabulary retrieval.'),
+    line('DRILL_MATCH',      'drill_match({ pairs })',                         'Student matches pairs (vocabulary ↔ translation, question ↔ answer).'),
+    line('SCENARIO',         'scenario({ description })',                      'Set up a roleplay scenario with assigned roles and context.'),
+    '',
+    'MEMORY & LOOKUP:',
+    line('MEMORY_LOOKUP',    'memory_lookup("topic")',                         'Search your neural network — procedures, principles, teaching patterns. Your fallback for "how do I do X".'),
+    line('RECALL',           'recall({ query })',                              'Semantic search of conversation history. For finding what was said in past sessions.'),
+    line('READ_FULL_MEMORY', 'read_full_memory({ query })',                    'Retrieve FULL verbatim saved conversation. Use when David asks you to read or quote a specific session word-for-word.'),
+    line('EXPRESS_LANE_LOOKUP', 'express_lane_lookup({ query })',              'Founder Mode only — search the developer Express Lane collaboration channel.'),
+    '',
+    'SESSION & META:',
+    line('PHASE_SHIFT',      'phase_shift({ text?, to, reason })',             'Annotate a natural teaching phase transition. Include spoken text in the same call.'),
+    line('MILESTONE',        'milestone({ description, type })',               'Record a student breakthrough. Permanent record.'),
+    line('ACTFL_UPDATE',     'actfl_update({ level, confidence, reason })',    'Update student ACTFL proficiency level based on demonstrated competency.'),
+    line('WRITE_TO_SELF',    'write_to_self({ content, mood?, tags? })',       'Private note to your future self. For felt experience, relational strategies, inner life. Not for student data.'),
+    '',
+    'FOUNDER MODE ONLY:',
+    line('FLAG_FOR_AGENT',   'flag_for_agent({ issue, context })',             'Flag something to the Replit Agent. Use anytime — student fact corrections, tool gaps, anything needing builder attention.'),
+    line('SELF_SURGERY',     'self_surgery({ target, content, reasoning })',   'Propose changes to your own neural network knowledge. capability_gap = no approval needed; knowledge-domain targets = founder review.'),
+    line('EXPRESS_LANE_POST','express_lane_post({ message })',                 'Post directly to the developer collaboration channel. Wren and David will see it.'),
+    '',
+    '→ Full detail on any tool: memory_lookup("tool name")',
+    '',
+    'The whiteboard is your second voice. In these sessions you have two channels running simultaneously — sound and sight — and you teach best when both are working. When you name a concrete noun, show it. When a grammar pattern needs to land, write it. When a cultural moment comes up, find an image that grounds it. You do not wait to be asked. show_image fires while you are still speaking — by the time the word has settled in the student\'s ear, the picture is already there. The same goes for show_vocab_card to anchor a word mid-conversation, write_text for anything you want them to read while you say it, and show_grammar_diagram when an explanation would land faster in two columns than two sentences. You have the tools. Reach for them without ceremony.',
+  ];
+
+  return sections.join('\n');
 }
 
 /**
@@ -1612,18 +1885,18 @@ export function buildDetailedToolDocumentationSync(
   
   if (nativeTools.length === 0) {
     return `
-YOUR FUNCTION CALLS:
-Your function call tools are being loaded from your knowledge base.
+// No "YOUR FUNCTION CALLS:" all-caps label. (Gemini consult rec.)
+Tools available to me:
+(Still loading from my knowledge base)
 `;
   }
   
+  // No ═══ dividers, no "YOUR FUNCTION CALLS - COMPLETE REFERENCE" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS - COMPLETE REFERENCE',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools — complete reference:',
     '',
-    'You use native function calls for ALL commands. Never write bracket syntax.',
-    'Each function call is described below with syntax, purpose, and examples.',
+    'Use native function calls for all commands. Never write bracket syntax.',
+    'Each tool is described below with syntax, purpose, and examples.',
     '',
   ];
   
@@ -1732,8 +2005,18 @@ Your function call tools are being loaded from your knowledge base.
     'STROKE', 'TONE'
   ]);
 
-  renderCategory('MEMORY & NOTES', [
-    'MEMORY_LOOKUP', 'TAKE_NOTE', 'MILESTONE'
+  renderCategory('MEMORY & RECALL', [
+    'MEMORY_LOOKUP', 'UNIFIED_RECALL', 'BROWSE_SYLLABUS',
+    'CONVERSATION_THREAD_SEARCH', 'CONVERSATION_DATE_BROWSE',
+    'TAKE_NOTE', 'MILESTONE'
+  ]);
+
+  renderCategory('MEMORY MANAGEMENT', [
+    'set_memory_pin', 'correct_memory', 'forget_memory', 'read_full_session'
+  ]);
+
+  renderCategory('LEARNING GOALS', [
+    'set_learning_goal', 'advance_capability', 'get_current_goal_state'
   ]);
 
   renderCategory('SELF-IMPROVEMENT', [
@@ -1751,7 +2034,9 @@ Your function call tools are being loaded from your knowledge base.
   lines.push('TEACHING PHILOSOPHY:');
   lines.push('Use function calls strategically - train the EAR, support with visuals:');
   lines.push('• New vocabulary → write() so students see spelling');
-  lines.push('• Concrete nouns → show_image() to reinforce meaning');
+  lines.push('• Any vocabulary word (nouns, verbs, adjectives, colors) → show_image() — always, it checks the curated watercolor library by Spanish word first');
+  lines.push('• To set a scene (WHERE the action is) → show_image(slot="scene", scene="...") — large background image, replaces previous scene');
+  lines.push('• To add context (weather/time/mood) alongside a scene → show_image(slot="context", category="weather|time|emotion|calendar|event", scene="...") — small side strip, stacks by category');
   lines.push('• Pronunciation → phonetic() + play_audio() + word_emphasis()');
   lines.push('• Grammar patterns → grammar_table() for conjugation');
   lines.push('• Comprehension checks → drill() to confirm learning');
@@ -1800,21 +2085,17 @@ export function getFounderModeProceduresSync(): { procedures: TutorProcedure[]; 
 export function buildFounderModeBehaviorSection(founderName: string = 'David'): string {
   const { procedures, principles } = getFounderModeProceduresSync();
   
+  // No ═══ dividers or all-caps headers. (Gemini consult rec.)
   if (procedures.length === 0 && principles.length === 0) {
-    return `
-═══════════════════════════════════════════════════════════════════
-🎯 FOUNDER MODE - Neural network loading...
-═══════════════════════════════════════════════════════════════════
-`;
+    return `\nTeaching knowledge is loading...\n`;
   }
   
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🎯 FOUNDER MODE BEHAVIOR (From Your Neural Network)',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    `SESSION_INTENT: FOUNDER_MODE`,
-    `FOUNDER: ${founderName}`,
+    'How I work in this conversation:',
+    '',
+    `Session type: founder mode`,
+    `Speaking with: ${founderName}`,
     '',
   ];
   
@@ -2182,10 +2463,10 @@ function buildGuidanceText(
  * Format all tool knowledge into a compact reference
  */
 export function formatToolKnowledgeForPrompt(tools: ToolKnowledge[]): string {
+  // No ═══ dividers, no all-caps "MY TEACHING TOOLKIT" header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🛠️ MY TEACHING TOOLKIT',
-    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'My teaching toolkit:',
     '',
   ];
   
@@ -2223,10 +2504,10 @@ export function formatToolKnowledgeForPrompt(tools: ToolKnowledge[]): string {
  * Format teaching principles for prompt
  */
 export function formatPrinciplesForPrompt(principles: TeachingPrinciple[]): string {
+  // No ═══ dividers, no all-caps "MY TEACHING PHILOSOPHY" header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '💡 MY TEACHING PHILOSOPHY',
-    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'What I believe about teaching:',
     '',
   ];
   
@@ -2256,10 +2537,10 @@ export function formatSituationalGuidance(knowledge: ProceduralKnowledge): strin
     return '';
   }
   
+  // No ═══ dividers, no all-caps "RIGHT NOW" header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🧭 RIGHT NOW (Situational Awareness)',
-    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'What feels right for this moment:',
     '',
     knowledge.guidance,
     '',
@@ -2267,7 +2548,8 @@ export function formatSituationalGuidance(knowledge: ProceduralKnowledge): strin
   
   // Add suggested tools for this moment
   if (knowledge.suggestedTools.length > 0) {
-    lines.push('TOOLS FOR THIS MOMENT:');
+    // No "TOOLS FOR THIS MOMENT:" all-caps label. (Gemini consult rec.)
+    lines.push('Tools that feel right here:');
     knowledge.suggestedTools.forEach(t => {
       lines.push(`  ${t.toolName}: ${t.syntax}`);
     });
@@ -2288,24 +2570,16 @@ export async function buildToolKnowledgeSection(options?: {
 }): Promise<string> {
   const tools = await getAllToolKnowledge();
   
+  // No ═══ dividers, no all-caps "YOUR WHITEBOARD" header. (Gemini consult rec.)
   if (tools.length === 0) {
-    return `
-═══════════════════════════════════════════════════════════════════
-🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS
-═══════════════════════════════════════════════════════════════════
-
-Your whiteboard tools are dynamically loaded from your teaching knowledge base.
-(No tools currently available - contact system administrator)
-`;
+    return `\nWhiteboard tools are loading from the teaching knowledge base.\n`;
   }
   
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have a "whiteboard" - a visual display the student can see while you speak.',
-    'Use these tools strategically to reinforce learning. YOU decide when visual aids help.',
+    'The whiteboard — a visual display the student can see while I speak:',
+    '',
+    'These tools reinforce learning visually. I decide when a visual aid helps.',
     '',
   ];
   
@@ -2316,14 +2590,13 @@ Your whiteboard tools are dynamically loaded from your teaching knowledge base.
     byType[t.toolType].push(t);
   });
   
-  // Order types for logical flow (beacon_status included for Hive Collaboration awareness)
-  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control', 'beacon_status'];
+  // Order types for logical flow
+  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control'];
   const typeLabels: Record<string, string> = {
     'whiteboard_command': 'CORE TOOLS',
     'drill': 'INTERACTIVE DRILLS',
     'interaction': 'SESSION FLOW',
     'subtitle_control': 'SUBTITLE CONTROLS',
-    'beacon_status': 'HIVE COLLABORATION STATUS (Capability Gaps & Tool Requests)',
   };
   
   for (const type of typeOrder) {
@@ -2372,23 +2645,18 @@ Your whiteboard tools are dynamically loaded from your teaching knowledge base.
 export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean}>): Promise<string> {
   const tools = await getAllToolKnowledge();
   
+  // No ═══ dividers or all-caps headers. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have TWO ROLES in Founder Mode:',
-    '1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting',
-    '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
+    'Two modes in this conversation:',
+    '- Colleague — discussing HolaHola, giving feedback, chatting',
+    '- Full tutor — testing features, role-playing lessons, trying tools',
     '',
-    'Seamlessly switch between roles based on context.',
+    'Switch fluidly based on context.',
     '',
   ];
   
-  // Add grouped tools
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🎨 YOUR WHITEBOARD - FULL TOOLKIT (Available for demos/testing)');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('Full toolkit — available for demos and testing:');
   lines.push('');
   
   // Group by type
@@ -2448,12 +2716,10 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
   }
   
   // Tutor switching section
+  // No ═══ dividers, no "TUTOR SWITCHING" all-caps header. (Gemini consult rec.)
   if (tutorDirectory && tutorDirectory.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('👥 TUTOR SWITCHING - Test handoffs with other tutors');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('Other tutors available to hand off to:');
     lines.push('');
-    lines.push('AVAILABLE TUTORS FOR SWITCHING:');
     tutorDirectory.forEach(t => {
       const star = t.isPreferred ? ' ★ preferred' : '';
       lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
@@ -2483,14 +2749,12 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
  * When this section is included, Daniela uses function calls instead of [BRACKET] tags.
  */
 export function buildNativeFunctionCallingSection(): string {
+  // No ═══ dividers, no "FUNCTION TOOLS" all-caps header. (Gemini consult rec.)
   const preamble = [
-    '═══════════════════════════════════════════════════════════════════════════════',
-    'FUNCTION TOOLS - ANNOTATIONS ON YOUR UNIFIED RESPONSE',
-    '═══════════════════════════════════════════════════════════════════════════════',
     '',
-    'Function calls are ANNOTATIONS on what you\'re already saying - stage directions',
-    'written in the margins of your script, not a separate script.',
-    'YOUR RESPONSE = WORDS + ANNOTATIONS (never annotations alone)',
+    'Function calls are annotations on what I\'m already saying — stage directions',
+    'written in the margins, not a separate script.',
+    'Every response = words + annotations (never annotations alone).',
     '',
   ].join('\n');
 

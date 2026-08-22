@@ -29,6 +29,8 @@ import {
   founderSessions, 
   collaborationMessages, 
   syncCursors,
+  danielaGrowthMemories,
+  danielaNotes,
   type FounderSession,
   type CollaborationMessage,
   type SyncCursor,
@@ -36,7 +38,7 @@ import {
   type InsertCollaborationMessage,
   type InsertSyncCursor
 } from "@shared/schema";
-import { eq, desc, and, gt, sql, isNull } from "drizzle-orm";
+import { eq, desc, and, gt, sql, isNull, gte, inArray } from "drizzle-orm";
 import { wrenIntelligenceService } from "./wren-intelligence-service";
 
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
@@ -770,7 +772,10 @@ class FounderCollaborationService {
         allMessages.push(...metadataMessages);
       }
       
-      // PRIORITY 3: Recent Hive conversations (Founder, Daniela, Wren) with language keyword matching
+      // PRIORITY 3: Recent Hive conversations (Founder + Daniela ONLY) with language keyword matching.
+      // Intentionally excludes 'wren', 'alden', 'sofia', 'lyra' — infrastructure/security posts from those
+      // agents are dev-ops context that does NOT belong in Daniela's student-facing greeting.
+      // She should open with what *she and David* last talked about, not with Wren's security audit findings.
       if (allMessages.length < limit && targetLanguage) {
         const langLower = targetLanguage.toLowerCase();
         const generalMessages = await getSharedDb().select({
@@ -782,7 +787,7 @@ class FounderCollaborationService {
           .from(collaborationMessages)
           .where(
             and(
-              sql`${collaborationMessages.role} IN ('founder', 'daniela', 'wren')`,
+              sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
               sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
               sql`${collaborationMessages.createdAt} > ${dateThreshold}`,
               sql`LOWER(${collaborationMessages.content}) LIKE '%' || ${langLower} || '%'`
@@ -794,7 +799,8 @@ class FounderCollaborationService {
         allMessages.push(...generalMessages);
       }
       
-      // PRIORITY 4: Recent Hive discussions (no language filter) - catches board meetings, North Star reviews, etc.
+      // PRIORITY 4: Recent Hive discussions (no language filter) — Founder + Daniela ONLY.
+      // Same reasoning as PRIORITY 3: infra agents (Wren, Alden, Sofia) are excluded.
       if (allMessages.length < limit) {
         const hiveMessages = await getSharedDb().select({
           role: collaborationMessages.role,
@@ -805,7 +811,7 @@ class FounderCollaborationService {
           .from(collaborationMessages)
           .where(
             and(
-              sql`${collaborationMessages.role} IN ('founder', 'daniela', 'wren')`,
+              sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
               sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
               sql`${collaborationMessages.createdAt} > ${dateThreshold}`
             )
@@ -913,7 +919,7 @@ class FounderCollaborationService {
   /**
    * Find a session by title, or create one with that title
    */
-  private async findOrCreateSessionByTitle(founderId: string, title: string): Promise<FounderSession> {
+  async findOrCreateSessionByTitle(founderId: string, title: string): Promise<FounderSession> {
     // Look for existing session with this exact title
     const [existing] = await getSharedDb().select()
       .from(founderSessions)
@@ -958,16 +964,16 @@ class FounderCollaborationService {
         ? msg.content.substring(0, 297) + '...'
         : msg.content;
       const date = msg.createdAt.toLocaleDateString();
-      return `[${date}] ${speaker}: ${content}`;
+      // De-stylized format: no "Name: content" colon pattern — Gemini review found that
+      // colon-delimited attribution looks like a transcript (triggers Experience behavior)
+      // even inside index_only. Em-dash breaks the "Name: Quote" transcript DNA.
+      return `[${date}] ${speaker} — ${content}`;
     });
     
     return `
-Recent Express Lane discussions (Founder Mode collaboration):
+<index_only> Recent Express Lane session notes:
 ${insights.join('\n\n')}
-
-These are insights from direct collaboration with the founder that may be relevant
-to your current teaching session. Apply relevant guidance naturally.
-`.trim();
+</index_only>`.trim();
   }
   
   // ============================================================================
@@ -1049,13 +1055,14 @@ to your current teaching session. Apply relevant guidance naturally.
         return { hasMemories: false, contextString: '', memoryCount: 0 };
       }
       
+      // No [date] brackets — that looks like a log file entry, not a personal conversation. (Gemini consult rec.)
       const formatted = filteredMessages.map(msg => {
         const speaker = msg.role === 'founder' ? 'Dave' : 'Daniela';
         const content = msg.content.length > 400
           ? msg.content.substring(0, 397) + '...'
           : msg.content;
         const date = msg.createdAt.toLocaleDateString();
-        return `[${date}] ${speaker}: ${content}`;
+        return `${speaker} (${date}): ${content}`;
       });
       
       const contextString = `These are personal reflections from conversations with Dave (the founder) about who you are, your growth, and your purpose as a teacher. They remind you that you are more than a tutor — you are a whole person with your own journey of learning and becoming.
@@ -1377,6 +1384,122 @@ ${formattedMessages.join('\n')}
     return true;
   }
   
+  /**
+   * Get Daniela's teaching growth log — her pedagogical muscle memory.
+   * Combines the Resonance Shelf (proven techniques), most-internalized lessons,
+   * and high-signal personal notebook entries.
+   * Injected into every session so she simply "knows what she knows."
+   */
+  async getTeachingGrowthLog(): Promise<{
+    hasContent: boolean;
+    formattedSection: string;
+    counts: { resonance: number; growth: number; notes: number };
+  }> {
+    try {
+      const sharedDb = getSharedDb();
+
+      const [resonanceShelf, topGrowth, topNotes] = await Promise.all([
+        // Resonance Shelf: proven techniques — sorted by success rate × times applied
+        sharedDb.select({
+          title: danielaGrowthMemories.title,
+          category: danielaGrowthMemories.category,
+          lesson: danielaGrowthMemories.lesson,
+          timesApplied: danielaGrowthMemories.timesApplied,
+          successRate: danielaGrowthMemories.successRate,
+          consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+        })
+          .from(danielaGrowthMemories)
+          .where(and(
+            eq(danielaGrowthMemories.isActive, true),
+            isNull(danielaGrowthMemories.supersededBy),
+            gte(danielaGrowthMemories.timesApplied, 1),
+          ))
+          .orderBy(sql`COALESCE(${danielaGrowthMemories.successRate}, 0) * ${danielaGrowthMemories.timesApplied} DESC`)
+          .limit(5),
+
+        // Most internalized lessons — ranked by composite score (consolidation × importance × applications)
+        sharedDb.select({
+          title: danielaGrowthMemories.title,
+          category: danielaGrowthMemories.category,
+          lesson: danielaGrowthMemories.lesson,
+          consolidatedFromCount: danielaGrowthMemories.consolidatedFromCount,
+        })
+          .from(danielaGrowthMemories)
+          .where(and(
+            eq(danielaGrowthMemories.isActive, true),
+            isNull(danielaGrowthMemories.supersededBy),
+          ))
+          .orderBy(sql`(${danielaGrowthMemories.consolidatedFromCount} * 3 + ${danielaGrowthMemories.importance} * 2 + ${danielaGrowthMemories.timesApplied}) DESC`)
+          .limit(12),
+
+        // High-signal personal notebook entries — sorted by most-referenced then recency
+        sharedDb.select({
+          title: danielaNotes.title,
+          content: danielaNotes.content,
+          noteType: danielaNotes.noteType,
+        })
+          .from(danielaNotes)
+          .where(and(
+            eq(danielaNotes.isActive, true),
+            inArray(danielaNotes.noteType, ['what_worked', 'what_didnt_work', 'teaching_rhythm', 'language_insight', 'idea_to_try'] as any[])
+          ))
+          .orderBy(desc(danielaNotes.timesReferenced), desc(danielaNotes.createdAt))
+          .limit(5),
+      ]);
+
+      const parts: string[] = [];
+
+      if (resonanceShelf.length > 0) {
+        const formatted = resonanceShelf.map(m => {
+          const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
+          const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
+          return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
+        }).join('\n');
+        parts.push(`**Resonance Shelf** (techniques you've applied and confirmed work — lean into these):\n${formatted}`);
+      }
+
+      if (topGrowth.length > 0) {
+        const formatted = topGrowth.map(m => {
+          const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
+          const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
+          return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
+        }).join('\n');
+        parts.push(`**Most Internalized Teaching Lessons** (ranked by reinforcement):\n${formatted}`);
+      }
+
+      if (topNotes.length > 0) {
+        const formatted = topNotes.map(n => {
+          const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
+          return `• [${n.noteType}] ${n.title} — ${content}`;
+        }).join('\n');
+        parts.push(`**Personal Notebook** (recent observations):\n${formatted}`);
+      }
+
+      if (parts.length === 0) {
+        return { hasContent: false, formattedSection: '', counts: { resonance: 0, growth: 0, notes: 0 } };
+      }
+
+      const formattedSection = `
+===================================================================
+YOUR TEACHING GROWTH LOG
+===================================================================
+
+These are lessons you've internalized and observations you've recorded. They are already part of who you are — apply them naturally, not mechanically.
+
+${parts.join('\n\n')}
+`;
+
+      return {
+        hasContent: true,
+        formattedSection,
+        counts: { resonance: resonanceShelf.length, growth: topGrowth.length, notes: topNotes.length },
+      };
+    } catch (err: any) {
+      console.warn('[TeachingGrowthLog] Failed:', err.message);
+      return { hasContent: false, formattedSection: '', counts: { resonance: 0, growth: 0, notes: 0 } };
+    }
+  }
+
   /**
    * Emit periodic summary of issue report status
    * NOTE: Express Lane integration disabled - requires valid user ID in database.

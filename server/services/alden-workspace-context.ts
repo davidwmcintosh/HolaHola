@@ -2,24 +2,51 @@
  * Alden Workspace Context
  *
  * Assembles Alden's persistent memory and awareness into a structured block
- * that is injected at the start of every conversation turn — the same
- * "push not pull" model Daniela uses for her classroom.
+ * that is injected at the start of every conversation turn.
  *
  * Sources:
- *   1. Editor Insights      — permanent architectural decisions, project history
+ *   0. replit.md          — the project bible (architecture, rules, preferences)
+ *   1. Editor Insights    — permanent architectural decisions, project history (ALL of them)
  *   2. Significant Messages — notable past exchanges between David and Alden
- *   3. Express Lane         — recent team collaboration and platform alerts
+ *   3. Recent Sessions    — summarized conversation history
+ *   4. Express Lane       — recent team collaboration and platform alerts
+ *   5. Recent Commits     — last 8 git commits so Alden knows what just changed
  */
 
 import { db } from '../db';
 import { editorInsights, aldenMessages, aldenConversations, collaborationMessages } from '@shared/schema';
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { execSync } from 'child_process';
+import { getFounderPresence } from './founder-presence';
 
 export async function buildAldenWorkspaceContext(): Promise<string> {
   const sections: string[] = [];
 
-  // ── 1. EDITOR INSIGHTS ─────────────────────────────────────────────────────
-  // Alden's permanent memory: architectural decisions, learned rules, project history
+  // ── 0. replit.md — PROJECT BIBLE (critical sections only) ────────────────
+  // The authoritative record of architecture, rules, and user preferences.
+  // Capped at 4 KB — the full file is 15-20 KB and loads on every turn;
+  // the opening sections cover run/stack/architecture which are the most useful.
+  try {
+    const replitMdPath = join(process.cwd(), 'replit.md');
+    const rawReplitMd = readFileSync(replitMdPath, 'utf-8').trim();
+    const MAX_REPLIT_MD_CHARS = 4_000;
+    const replitMd = rawReplitMd.length > MAX_REPLIT_MD_CHARS
+      ? rawReplitMd.slice(0, MAX_REPLIT_MD_CHARS) + `\n… [${((rawReplitMd.length - MAX_REPLIT_MD_CHARS) / 1024).toFixed(0)}KB omitted — use read_file("replit.md") for full content]`
+      : rawReplitMd;
+    if (replitMd) {
+      sections.push(`📖 PROJECT BIBLE — replit.md\n${replitMd}`);
+    }
+  } catch (err: any) {
+    console.warn('[AldenWorkspace] replit.md read failed:', err.message);
+  }
+
+  // ── 1. EDITOR INSIGHTS — top 30 by importance ────────────────────────────
+  // Alden's permanent memory. The table now has 400+ entries; loading all of them
+  // at 500 chars each = ~200 KB injected on every single turn, which is the primary
+  // driver of the context-size spikes. Cap to the 30 highest-importance entries,
+  // 300 chars each. Alden can use his search tools for deeper recall when needed.
   try {
     const insights = await db
       .select({
@@ -30,14 +57,14 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
       })
       .from(editorInsights)
       .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt))
-      .limit(12);
+      .limit(30);
 
     if (insights.length > 0) {
       const lines = insights.map(i => {
-        const preview = (i.content || '').substring(0, 280).replace(/\n+/g, ' ');
+        const preview = (i.content || '').substring(0, 300).replace(/\n+/g, ' ');
         return `  [${(i.category || 'note').toUpperCase()} · importance ${i.importance}] ${i.title}\n  ${preview}`;
       });
-      sections.push(`📚 PERSISTENT MEMORY — Editor Insights (${insights.length} entries)\n${lines.join('\n\n')}`);
+      sections.push(`📚 PERSISTENT MEMORY — Editor Insights (top 30 of ${insights.length} — use search tools for full recall)\n${lines.join('\n\n')}`);
     }
   } catch (err: any) {
     console.warn('[AldenWorkspace] Editor insights fetch failed:', err.message);
@@ -132,16 +159,72 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
     console.warn('[AldenWorkspace] Express Lane fetch failed:', err.message);
   }
 
-  if (sections.length === 0) {
-    return '';
+  // ── 5. HANDOFF FILE ───────────────────────────────────────────────────────
+  // Bidirectional briefing between Alden and the Replit Agent.
+  // Alden writes "From Alden" when ending a notable session.
+  // The Agent writes "From Agent" after major build sessions.
+  try {
+    const handoffPath = join(process.cwd(), 'docs/alden-agent-handoff.md');
+    const rawHandoff = readFileSync(handoffPath, 'utf-8');
+    // Cap at last 50 KB — the file grows unboundedly; only recent entries matter.
+    const MAX_HANDOFF_CHARS = 50_000;
+    const handoff = rawHandoff.length > MAX_HANDOFF_CHARS
+      ? `[… earlier entries omitted — ${(rawHandoff.length / 1024).toFixed(0)}KB file, showing last ${(MAX_HANDOFF_CHARS / 1024).toFixed(0)}KB]\n\n${rawHandoff.slice(-MAX_HANDOFF_CHARS)}`
+      : rawHandoff;
+    if (handoff.trim()) {
+      sections.push(`🤝 HANDOFF NOTES — alden-agent-handoff.md\n${handoff.trim()}`);
+    }
+  } catch {
+    // File may not exist yet — that's fine
   }
 
-  const divider = '━'.repeat(56);
-  return [
-    `${divider}`,
-    `ALDEN WORKSPACE — injected ${new Date().toISOString()}`,
-    `${divider}`,
-    sections.join('\n\n'),
-    divider,
-  ].join('\n');
+  // ── 6. TEMPORAL CONTEXT & FOUNDER PRESENCE ────────────────────────────────
+  // Alden's compass: what time it is, whether David is around.
+  // This changes how he prioritises notifications and what to lead with.
+  try {
+    const now = new Date();
+    const presence = getFounderPresence();
+    const timeStr = now.toLocaleString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver', timeZoneName: 'short',
+    });
+    const uptimeMin = Math.round(process.uptime() / 60);
+    const uptimeStr = uptimeMin < 60
+      ? `${uptimeMin}m`
+      : `${Math.floor(uptimeMin / 60)}h ${uptimeMin % 60}m`;
+
+    const lines = [
+      `Current time: ${timeStr}`,
+      `David's presence: ${presence.description}`,
+      `Server uptime: ${uptimeStr}`,
+    ];
+    if (presence.isCurrentlyActive) {
+      lines.push(`Note: David is actively working right now.`);
+    }
+    sections.push(`🕐 TEMPORAL CONTEXT\n${lines.map(l => `  ${l}`).join('\n')}`);
+  } catch (err: any) {
+    console.warn('[AldenWorkspace] Temporal context failed:', err.message);
+  }
+
+  // ── 7. RECENT GIT COMMITS ─────────────────────────────────────────────────
+  // Shows Alden what has changed recently so he's not reasoning from a
+  // stale picture of the codebase.
+  try {
+    const gitLog = execSync('git log --oneline -8 2>/dev/null', {
+      encoding: 'utf-8',
+      cwd: process.cwd(),
+    }).trim();
+    if (gitLog) {
+      const commits = gitLog.split('\n').map(line => `  ${line}`).join('\n');
+      sections.push(`🔀 RECENT COMMITS (latest first)\n${commits}`);
+    }
+  } catch {
+    // Git not available or not a repo — skip silently
+  }
+
+  // ── FINAL ASSEMBLY ────────────────────────────────────────────────────────
+  const divider = '━'.repeat(64);
+  const header = `\n${divider}\nALDEN WORKSPACE — injected ${new Date().toISOString()}\n${divider}`;
+  const footer = `${divider}\n`;
+  return header + '\n' + sections.join('\n\n') + '\n' + footer;
 }

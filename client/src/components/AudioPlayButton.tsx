@@ -131,6 +131,7 @@ export function AudioPlayButton({
 interface TextAudioPlayButtonProps {
   text: string;
   language: string;
+  gender?: 'male' | 'female';
   size?: "sm" | "default" | "icon";
   variant?: "ghost" | "outline" | "default";
   className?: string;
@@ -142,6 +143,7 @@ interface TextAudioPlayButtonProps {
 export function TextAudioPlayButton({
   text,
   language,
+  gender,
   size = "icon",
   variant = "ghost",
   className,
@@ -161,7 +163,7 @@ export function TextAudioPlayButton({
     setHasError(false);
 
     try {
-      const response = await apiRequest("POST", "/api/tts/pronunciation", { text, language });
+      const response = await apiRequest("POST", "/api/tts/pronunciation", { text, language, ...(gender ? { gender } : {}) });
       const data = await response.json();
       
       if (audioRef.current) {

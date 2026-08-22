@@ -45,7 +45,10 @@ export type BeaconType =
   | 'hardware_diagnosed'     // Sofia diagnosed mic/audio/device issue
   | 'support_escalation'     // Issue escalated to founder/human
   | 'support_resolution'     // Issue successfully resolved
-  | 'support_return';        // User returned to Daniela from Sofia
+  | 'support_return'         // User returned to Daniela from Sofia
+  // Student data flags (Daniela → Hive, visible to David and Alden)
+  | 'student_fact_flag'     // Daniela flagged a personal fact or capability gap for a student
+  | 'express_lane_lookup';  // On-demand Express Lane search result
 
 interface CreateChannelParams {
   conversationId: string;
@@ -306,6 +309,9 @@ class HiveCollaborationService {
       support_escalation: '🚨 Escalation Needed',
       support_resolution: '✅ Issue Resolved',
       support_return: '↩️ Returned to Tutor',
+      // Student data flags
+      student_fact_flag: '🏷️ Student Fact Flag',
+      express_lane_lookup: '🔍 Express Lane Lookup',
     };
     
     const label = typeLabels[snapshot.beaconType as BeaconType] || '💡 Insight';

@@ -29,6 +29,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Message, Conversation } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -56,6 +57,7 @@ interface VoiceChatProps {
 export function VoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: VoiceChatProps) {
   const { language, difficulty, userName } = useLanguage();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [transcript, setTranscript] = useState<Array<{ role: string; content: string; messageId?: string }>>([]);
@@ -68,8 +70,8 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   // VAD mode: 'push-to-talk' (manual), 'semantic_vad' (auto-detect with AI), 'server_vad' (simple auto-detect)
-  // DEFAULT: push-to-talk to avoid microphone permission errors on page load (browsers require user gesture)
-  const [vadMode, setVadMode] = useState<'push-to-talk' | 'semantic_vad' | 'server_vad'>('push-to-talk');
+  // DEFAULT: semantic_vad (Open Mic) — mic permission is requested on connect, not page load
+  const [vadMode, setVadMode] = useState<'push-to-talk' | 'semantic_vad' | 'server_vad'>('semantic_vad');
   const [isVadActive, setIsVadActive] = useState(false); // Is VAD currently detecting speech?
   
   const wsRef = useRef<WebSocket | null>(null);
@@ -336,6 +338,18 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               });
               const analysisResult = await analysisResponse.json();
 
+              // Server returns { error: 'pronunciation_unavailable', reason: '...' } when
+              // the OpenAI key is missing, expired, or rate-limited.
+              if (analysisResult.error === 'pronunciation_unavailable') {
+                console.warn("[pronunciation] Scoring unavailable:", analysisResult.reason);
+                toast({
+                  title: "Pronunciation feedback is temporarily unavailable",
+                  description: analysisResult.reason || "Scoring could not be completed right now.",
+                  variant: "destructive",
+                });
+                break;
+              }
+
               // Update pronunciation scores state
               setPronunciationScores(prev => new Map(prev).set(savedMessage.id, {
                 messageId: savedMessage.id,
@@ -346,6 +360,11 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               }));
             } catch (error) {
               console.error("Failed to analyze pronunciation:", error);
+              toast({
+                title: "Pronunciation feedback is temporarily unavailable",
+                description: "Scoring could not be completed right now.",
+                variant: "destructive",
+              });
               // Don't block the conversation if pronunciation analysis fails
             }
             break;
@@ -431,6 +450,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               const maxRetries = 3;
               if (retryCount < maxRetries) {
                 const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+                // Mark as reconnecting immediately so the onclose handler below
+                // doesn't surface "Connection lost" while we're still retrying.
+                isReconnectingRef.current = true;
                 setIsRetrying(true);
                 setRetryCount(prev => prev + 1);
                 
@@ -449,6 +471,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                     setError(null);
                   } catch (err) {
                     console.error('Retry failed:', err);
+                    isReconnectingRef.current = false;
                     setIsRetrying(false);
                   }
                 }, retryDelay);

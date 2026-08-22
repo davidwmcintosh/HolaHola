@@ -269,7 +269,7 @@ export async function editorToDaniela(
       priority: "high", 
       tags: ["brain-surgery"],
       selfSurgeryProposals: proposals.length > 0 ? proposals : undefined,
-    },
+    } as any,
     securityClassification: "public",
     status: "pending",
   });
@@ -868,7 +868,7 @@ Be specific and actionable in your feedback.`;
         tags: ["brain-surgery", "proposal-review"],
         proposalCount: proposals.length,
         proposalIds: proposals.map(p => p.proposalId).filter(Boolean),
-      },
+      } as any,
       securityClassification: "public",
       status: "pending",
     });
@@ -949,7 +949,7 @@ export async function editorToDanielaStreaming(
     systemPrompt: DANIELA_BRAIN_SURGERY_PERSONA,
     conversationHistory,
     userMessage: enhancedMessage,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
     onSentence: async (chunk) => {
       fullResponse += chunk.text + ' ';
       // Call onChunk synchronously - it just writes to SSE stream
@@ -1008,7 +1008,7 @@ export async function editorToDanielaStreaming(
       priority: "high", 
       tags: ["brain-surgery", "streaming"],
       selfSurgeryProposals: proposals.length > 0 ? proposals : undefined,
-    },
+    } as any,
     securityClassification: "public",
     status: "pending",
   });

@@ -1,0 +1,367 @@
+/**
+ * Regression test: syncEpisodeFile() rolling-episode record protection.
+ *
+ * Rolling episodes are DB-canonical: the Markdown file is an exact replica
+ * generated from the DB row. A filesystem event must therefore repair the
+ * file from DB and must never promote file contents into the record — not a
+ * shorter file (shrinkage) and not a longer file (unaudited promotion).
+ *
+ * Run: npx tsx server/scripts/test-rolling-sync-guard.ts
+ */
+
+import {
+  clearEpisodeRollingCacheForTest,
+  syncEpisodeFile,
+  setRollingReplicaRestoreEnabledForTest,
+} from '../services/agent-session-autosave';
+import { getSharedDb } from '../db';
+import { sql } from 'drizzle-orm';
+import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
+import { join } from 'path';
+
+const DOCS_DIR  = join(process.cwd(), 'docs');
+// Filename must match EPISODE_RE (/^episode-(\d+)\.md$/) so episodeTitleFromFilename
+// returns the correct title ("Episode 99") used in the DB lookup.
+const TEST_FILE  = 'episode-99.md';
+const TEST_PATH  = join(DOCS_DIR, TEST_FILE);
+const TEST_ID    = '99000000-0000-4000-8000-000000000099';
+const TEST_TITLE = 'Episode 99';
+
+const LONG_CONTENT  = '# Episode 99\n\n' + 'A'.repeat(8000);
+const SHORT_CONTENT = '# Episode 99\n\n' + 'B'.repeat(3000);
+
+const failures: string[] = [];
+
+const SELF_CHECK = process.argv.includes('--self-check');
+
+async function cleanup(db: ReturnType<typeof getSharedDb>) {
+  await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${TEST_ID}`);
+  if (existsSync(TEST_PATH)) unlinkSync(TEST_PATH);
+}
+
+/**
+ * Self-check: disable the DB→Markdown replica-restore early return and verify
+ * that Pass 3 (no Markdown promotion) now FAILS.
+ *
+ * Why this mutation models a real regression:
+ *   With the restore path present, a rolling sync repairs the .md from DB and
+ *   never writes file contents into the record. If that early return is ever
+ *   removed, syncEpisodeFile falls through to the legacy Markdown→DB upsert,
+ *   where a longer file IS promoted into the canonical record.
+ *
+ * With the seam disabled, LONGER_CONTENT (8037) overwrites LONG_CONTENT (8014)
+ * in DB — exactly the promotion Pass 3 exists to catch.
+ */
+async function runSelfCheck(db: ReturnType<typeof getSharedDb>): Promise<void> {
+  console.log('\n=== SELF-CHECK: verifying Pass 3 fails when the replica-restore path is removed ===\n');
+
+  // Setup: insert ROLLING episode with LONG content.
+  // created_at is pinned to 2020-01-01 so this record always sorts BELOW real
+  // rolling episodes in getCurrentRollingEpisodeFilename() (ORDER BY created_at DESC),
+  // preventing cross-test contamination even if cleanup fails.
+  await db.execute(sql`
+    INSERT INTO conversation_memories
+      (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+    VALUES (
+      ${TEST_ID},
+      ${TEST_TITLE},
+      ${'self-check summary'},
+      ${LONG_CONTENT},
+      ${9},
+      'episode',
+      ARRAY['episode', 'rolling']::text[],
+      'HolaHola Episodes',
+      '2020-01-01 00:00:00+00'
+    )
+    ON CONFLICT (id) DO UPDATE
+      SET content  = ${LONG_CONTENT},
+          tags     = ARRAY['episode', 'rolling']::text[],
+          created_at = '2020-01-01 00:00:00+00'
+  `);
+  console.log(`  Setup: inserted DB record (${LONG_CONTENT.length} chars)`);
+
+  // Warm the ID and rolling cache with a normal sync first
+  writeFileSync(TEST_PATH, LONG_CONTENT, 'utf-8');
+  await syncEpisodeFile(TEST_FILE);
+
+  // Disable the replica-restore early return — simulates the regression where
+  // the rolling DB→Markdown repair path is removed and file contents fall
+  // through to the legacy Markdown→DB upsert.
+  setRollingReplicaRestoreEnabledForTest(false);
+
+  try {
+    // Sync a LONGER file — with the restore path removed, the legacy upsert
+    // promotes the longer file into the canonical record (the regression).
+    const LONGER_CONTENT = LONG_CONTENT + '\n\nNew content appended.';
+    writeFileSync(TEST_PATH, LONGER_CONTENT, 'utf-8');
+    await syncEpisodeFile(TEST_FILE);
+
+    const r = await db.execute(sql`
+      SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+    `);
+    const len = Number((r as any).rows?.[0]?.len ?? (r as any)[0]?.len ?? 0);
+
+    if (len !== LONGER_CONTENT.length) {
+      // Restore path still protected the record — seam is not working
+      console.error(`  ✗ SELF-CHECK FAILED: DB stayed at ${len} chars even with the restore path disabled.`);
+      console.error('    The test would NOT have caught a removed-restore regression — investigate the seam.');
+      process.exit(1);
+    } else {
+      console.log(`  ✓ SELF-CHECK PASSED: with the restore path disabled, file contents reached DB (${len} chars)`);
+      console.log(`    (Markdown promotion occurred — Pass 3 would correctly report a failure).`);
+    }
+  } finally {
+    // Always restore the seam before exiting
+    setRollingReplicaRestoreEnabledForTest(true);
+    await cleanup(db);
+    console.log('  Cleanup: replica-restore seam restored, temp record and file removed');
+  }
+}
+
+async function main() {
+  console.log('\n=== ROLLING sync guard regression test ===\n');
+  const db = getSharedDb();
+
+  // Pre-cleanup: remove any leftover record from a previous failed run so the
+  // episode-99 'rolling' row doesn't pollute getCurrentRollingEpisodeFilename()
+  // for other CI tests (e.g. luca-reflection-episode-ci) that run after this one.
+  await cleanup(db);
+
+  if (SELF_CHECK) {
+    try {
+      await runSelfCheck(db);
+    } catch (err: any) {
+      setRollingReplicaRestoreEnabledForTest(true); // safety restore
+      await cleanup(db);
+      console.error('[test-rolling-sync-guard] Self-check fatal error:', err);
+      process.exit(1);
+    }
+    console.log('\nSelf-check complete.\n');
+    process.exit(0);
+  }
+
+  try {
+    // ── Setup: insert ROLLING episode in DB with the longer content ────────────
+    // created_at is pinned to 2020-01-01 so this test record always sorts BELOW
+    // real rolling episodes in getCurrentRollingEpisodeFilename() (ORDER BY created_at DESC),
+    // preventing cross-test contamination even if cleanup fails.
+    await db.execute(sql`
+      INSERT INTO conversation_memories
+        (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+      VALUES (
+        ${TEST_ID},
+        ${TEST_TITLE},
+        ${'test summary'},
+        ${LONG_CONTENT},
+        ${9},
+        'episode',
+        ARRAY['episode', 'rolling']::text[],
+        'HolaHola Episodes',
+        '2020-01-01 00:00:00+00'
+      )
+      ON CONFLICT (id) DO UPDATE
+        SET content    = ${LONG_CONTENT},
+            tags       = ARRAY['episode', 'rolling']::text[],
+            created_at = '2020-01-01 00:00:00+00'
+    `);
+    console.log(`  Setup: inserted DB record (${LONG_CONTENT.length} chars)`);
+
+    // ── Pass 1: cold ID cache — syncEpisodeFile with SHORT content ────────────
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
+    await syncEpisodeFile(TEST_FILE);
+
+    const r1 = await db.execute(sql`
+      SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+    `);
+    const len1 = Number((r1 as any).rows?.[0]?.len ?? (r1 as any)[0]?.len ?? 0);
+    if (len1 !== LONG_CONTENT.length) {
+      failures.push(
+        `Pass 1 (cold cache): DB shrank to ${len1} chars — expected ${LONG_CONTENT.length}. ` +
+        `isRolling guard did not fire.`
+      );
+    } else {
+      console.log(`  ✓ Pass 1 (cold cache): DB kept long content (${len1} chars) despite shorter sync`);
+    }
+
+    // ── Pass 2: warm ID cache + cold rolling cache ───────────────────────────
+    // DB-first append paths can warm episodeIdCache without populating
+    // episodeRollingCache. A subsequent file watcher event must re-read tags
+    // and restore the replica; it must never default to Markdown→DB behavior.
+    clearEpisodeRollingCacheForTest(TEST_FILE);
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
+    await syncEpisodeFile(TEST_FILE);
+
+    const r2 = await db.execute(sql`
+      SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+    `);
+    const len2 = Number((r2 as any).rows?.[0]?.len ?? (r2 as any)[0]?.len ?? 0);
+    const mdAfterCacheCold = existsSync(TEST_PATH) ? readFileSync(TEST_PATH, 'utf-8') : '';
+    if (len2 !== LONG_CONTENT.length) {
+      failures.push(
+        `Pass 2 (warm ID, cold rolling cache): DB shrank to ${len2} chars — expected ${LONG_CONTENT.length}. ` +
+        `A cached ID must not default the rolling record to Markdown-authoritative behavior.`
+      );
+    } else if (mdAfterCacheCold !== LONG_CONTENT) {
+      failures.push(
+        `Pass 2 (warm ID, cold rolling cache): DB stayed canonical but .md was not restored ` +
+        `(${mdAfterCacheCold.length} chars vs expected ${LONG_CONTENT.length}).`
+      );
+    } else {
+      console.log(`  ✓ Pass 2 (warm ID, cold rolling cache): DB kept ${len2} chars; .md restored from canonical DB`);
+    }
+
+    // ── Pass 3: a LONGER file must NOT be promoted into the canonical record ──
+    // Rolling episodes are DB-canonical: growth happens through the DB-first
+    // append path, never by editing the .md. A longer file is an unaudited
+    // edit; syncEpisodeFile must restore the .md from DB instead of upserting.
+    const LONGER_CONTENT = LONG_CONTENT + '\n\nNew content appended.';
+    writeFileSync(TEST_PATH, LONGER_CONTENT, 'utf-8');
+    await syncEpisodeFile(TEST_FILE);
+
+    const r3 = await db.execute(sql`
+      SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+    `);
+    const len3 = Number((r3 as any).rows?.[0]?.len ?? (r3 as any)[0]?.len ?? 0);
+    const mdAfter = existsSync(TEST_PATH) ? readFileSync(TEST_PATH, 'utf-8') : '';
+    if (len3 !== LONG_CONTENT.length) {
+      failures.push(
+        `Pass 3 (no Markdown promotion): DB is ${len3} chars — expected ${LONG_CONTENT.length}. ` +
+        `File contents must never be promoted into the canonical rolling record.`
+      );
+    } else if (mdAfter !== LONG_CONTENT) {
+      failures.push(
+        `Pass 3 (no Markdown promotion): DB kept canonical content but .md was not restored ` +
+        `(${mdAfter.length} chars vs expected ${LONG_CONTENT.length}).`
+      );
+    } else {
+      console.log(`  ✓ Pass 3 (no Markdown promotion): DB kept ${len3} chars; .md restored from canonical DB`);
+    }
+
+  } finally {
+    await cleanup(db);
+    console.log('  Cleanup: temp record and file removed');
+  }
+
+  // ── Pass 4: --force-push path (restore-rolling-episodes-from-db.ts) ─────────
+  // Inserts EP99 with long content in DB, writes a shorter .md, runs the
+  // generalised restore script with --force-push, then verifies the DB was
+  // updated to match the shorter .md — proving the flag bypasses the length guard.
+  console.log('\n  ── Pass 4: force-push path (restore-rolling-episodes-from-db.ts --force-push) ──');
+  try {
+    // Setup: long content in DB, short content in .md
+    await db.execute(sql`
+      INSERT INTO conversation_memories
+        (id, title, summary, content, importance, entry_type, tags, arc_name, created_at)
+      VALUES (
+        ${TEST_ID},
+        ${TEST_TITLE},
+        ${'force-push test summary'},
+        ${LONG_CONTENT},
+        ${9},
+        'episode',
+        ARRAY['episode', 'rolling']::text[],
+        'HolaHola Episodes',
+        '2020-01-01 00:00:00+00'
+      )
+      ON CONFLICT (id) DO UPDATE
+        SET content    = ${LONG_CONTENT},
+            tags       = ARRAY['episode', 'rolling']::text[],
+            created_at = '2020-01-01 00:00:00+00'
+    `);
+    console.log(`  Setup: DB record at ${LONG_CONTENT.length} chars (long)`);
+
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
+    console.log(`  Setup: .md file at ${SHORT_CONTENT.length} chars (short)`);
+
+    // Run restore-rolling-episodes-from-db.ts --force-push restricted to EP99
+    // only. The --episode-id filter prevents the script from touching any real
+    // rolling episodes (EP27, EP28) in the shared DB.
+    const scriptPath = join(process.cwd(), 'server', 'scripts', 'restore-rolling-episodes-from-db.ts');
+    try {
+      const output = execSync(
+        `npx tsx ${scriptPath} --force-push --episode-id=${TEST_ID}`,
+        { encoding: 'utf8', env: process.env },
+      );
+      console.log('  Script output (truncated to 800 chars):');
+      console.log(output.slice(0, 800).split('\n').map(l => '    ' + l).join('\n'));
+    } catch (err: any) {
+      failures.push(
+        `Pass 4 (force-push): restore-rolling-episodes-from-db.ts --force-push exited non-zero. ` +
+        `stderr: ${String(err?.stderr ?? '').slice(0, 300)}`
+      );
+    }
+
+    // Verify DB now has SHORT_CONTENT
+    const r4 = await db.execute(sql`
+      SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+    `);
+    const len4 = Number((r4 as any).rows?.[0]?.len ?? (r4 as any)[0]?.len ?? 0);
+    if (len4 !== SHORT_CONTENT.length) {
+      failures.push(
+        `Pass 4 (force-push): DB is ${len4} chars after --force-push — expected ${SHORT_CONTENT.length}. ` +
+        `The flag did not push the shorter .md to DB.`
+      );
+    } else {
+      console.log(`  ✓ Pass 4 (force-push): DB updated to ${len4} chars (matches shorter .md)`);
+      console.log(`    --force-push bypassed the length guard correctly.`);
+    }
+
+    // ── Pass 4b: conflict-marker guard — force-push must reject a conflicted .md ─
+    // Write a .md with unresolved git conflict markers, attempt force-push, and
+    // verify (a) the script exits non-zero and (b) the DB content is unchanged.
+    console.log('\n  ── Pass 4b: conflict-marker guard (force-push must reject conflicted .md) ──');
+    const CONFLICTED_CONTENT = SHORT_CONTENT + '\n<<<<<<< HEAD\nconflict\n=======\nother\n>>>>>>> branch\n';
+    writeFileSync(TEST_PATH, CONFLICTED_CONTENT, 'utf-8');
+    let conflictRejected = false;
+    try {
+      execSync(
+        `npx tsx ${scriptPath} --force-push --episode-id=${TEST_ID}`,
+        { encoding: 'utf8', env: process.env },
+      );
+      // If we reach here the script exited 0 — that is wrong
+      failures.push(
+        `Pass 4b (conflict-marker guard): script exited 0 despite conflict markers in .md — should have rejected.`
+      );
+    } catch {
+      conflictRejected = true;
+    }
+
+    if (conflictRejected) {
+      // Also verify DB was NOT updated (still SHORT_CONTENT length)
+      const r4b = await db.execute(sql`
+        SELECT LENGTH(content) AS len FROM conversation_memories WHERE id = ${TEST_ID}
+      `);
+      const len4b = Number((r4b as any).rows?.[0]?.len ?? (r4b as any)[0]?.len ?? 0);
+      if (len4b !== SHORT_CONTENT.length) {
+        failures.push(
+          `Pass 4b (conflict-marker guard): script correctly rejected, but DB was modified ` +
+          `(${len4b} chars vs expected ${SHORT_CONTENT.length}) — conflict check ran after DB write.`
+        );
+      } else {
+        console.log(`  ✓ Pass 4b (conflict-marker guard): script rejected conflicted .md (exit non-zero)`);
+        console.log(`    DB unchanged at ${len4b} chars — no write occurred.`);
+      }
+    }
+
+    // Restore SHORT_CONTENT to .md for cleanup consistency
+    writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
+  } finally {
+    await cleanup(db);
+    console.log('  Cleanup: temp record and file removed');
+  }
+
+  console.log(`\n=== Results: ${failures.length} failure(s) ===\n`);
+  if (failures.length > 0) {
+    for (const f of failures) console.error('  ✗', f);
+    process.exit(1);
+  }
+  console.log('ALL CHECKS PASSED — ROLLING sync guard is monotonic on both cold and warm cache paths.');
+  console.log('                     --force-push correctly bypasses the length guard.');
+  process.exit(0);
+}
+
+main().catch((err) => {
+  console.error('[test-rolling-sync-guard] Fatal error:', err);
+  process.exit(1);
+});

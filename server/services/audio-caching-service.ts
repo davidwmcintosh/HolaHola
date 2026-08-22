@@ -161,15 +161,26 @@ export async function getCachedPronunciationAudio(
   language: string,
   gender: AssistantVoiceGender = 'female',
   speed: AudioSpeed = 'normal',
-  options: Partial<GenerateOptions> = {}
+  options: Partial<GenerateOptions> = {},
+  voiceOverride?: string
 ): Promise<CachedAudio> {
+  // Use the override voice (actual tutor voice from DB e.g. Aeode/Orus) when provided,
+  // otherwise fall back to the hardcoded Neural2 assistant voice.
   const voiceConfig = getAssistantVoice(language, gender);
-  const voiceId = voiceConfig.name;
+  const voiceId = voiceOverride ?? voiceConfig.name;
+
+  // For bare Gemini speaker names (e.g. "Aoede", "Orus" — no hyphens), the resolved
+  // Chirp3-HD voice name includes the language code (e.g. "es-US-Chirp3-HD-Aoede").
+  // Embed the language into the cache voiceId so Spanish/French/etc entries never
+  // collide with old English entries that used the same bare name.
+  const cacheVoiceId = (voiceOverride && !voiceOverride.includes('-'))
+    ? `${language.toLowerCase()}:${voiceOverride}`
+    : voiceId;
   
   const cacheKey: CacheKey = {
     text: text.trim(),
     language: language.toLowerCase(),
-    voiceId,
+    voiceId: cacheVoiceId,
     speed,
   };
   
@@ -193,7 +204,10 @@ export async function getCachedPronunciationAudio(
   const result = await ttsService.synthesize({
     text,
     language,
-    voice: voiceConfig.name,
+    voice: voiceOverride ?? voiceConfig.name,
+    // Use forceProvider: 'google' when a Chirp3-HD override is present so the
+    // real tutor voice (Aeode / Orus) is used instead of the Neural2 fallback.
+    ...(voiceOverride ? { forceProvider: 'google' as const } : {}),
     speakingRate,
   });
   

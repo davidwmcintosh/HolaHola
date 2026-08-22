@@ -11,7 +11,7 @@
  */
 
 import { getUserDb, getSharedDb } from "../db";
-import { eq, and, isNull, isNotNull, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, gte, inArray, sql } from "drizzle-orm";
 import {
   tutorSessions,
   tutorSessionTopics,
@@ -22,6 +22,8 @@ import {
   teacherClasses,
   messages,
   voiceSessions,
+  conversationMemories,
+  danielaSelfReflections,
   type TutorSession,
   type TutorSessionTopic,
   type TutorParkingItem,
@@ -40,17 +42,13 @@ import { GoogleGenAI } from "@google/genai";
 let geminiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI {
   if (!geminiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('Gemini API key not configured (AI_INTEGRATIONS_GEMINI_API_KEY)');
+      throw new Error('Gemini API key not configured (GEMINI_API_KEY)');
     }
     // Must include httpOptions to match streaming service configuration
     geminiClient = new GoogleGenAI({
       apiKey,
-      httpOptions: {
-        apiVersion: "",
-        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-      },
     });
   }
   return geminiClient;
@@ -75,6 +73,12 @@ interface CachedSession {
   actflSource: string | null;
   // Student timezone for correct CLOCK display (e.g., "America/Denver")
   studentTimezone: string | null;
+  // Curated narrative memories — full content, not summaries (snapshot pool, 12 slots)
+  conversationMemories?: Array<{ title: string; content: string; importance: number; recordedAt: string }>;
+  // Identity threads — always-on compact brief (title + summary only, no full content)
+  identityThreads?: Array<{ title: string; summary: string | null; importance: number; recordedAt: string }>;
+  // Foundational — fixed always-on top-10 (tag: 'foundational'): North Star, White Wall, J-space
+  foundationalMemories?: Array<{ title: string; content: string; importance: number; recordedAt: string }>;
 }
 
 const sessionCache = new Map<string, CachedSession>();
@@ -178,6 +182,85 @@ export class SessionCompassService {
         }
       } else {
         console.log(`[Compass] No previous session summary found for user ${userId}`);
+      }
+
+      // Same-day bridge: if no session summary exists, look for earlier conversations today.
+      // Covers the common case where session 1 ended without close_session being called
+      // (user closed tab, session wound down naturally). Builds a compact raw-message
+      // excerpt so session 2 isn't starting cold. Non-fatal: any error is swallowed.
+      if (!lastSessionSummary) {
+        try {
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+
+          const todayConvs = await getSharedDb()
+            .select({
+              id: conversations.id,
+              title: conversations.title,
+              topic: conversations.topic,
+              messageCount: conversations.messageCount,
+            })
+            .from(conversations)
+            .where(
+              and(
+                eq(conversations.userId, userId),
+                gte(conversations.createdAt, todayStart)
+              )
+            )
+            .orderBy(desc(conversations.createdAt))
+            .limit(5);
+
+          // Exclude the current conversation (just starting) and require messages
+          const earlierToday = todayConvs.filter(
+            c => c.id !== conversationId && (c.messageCount ?? 0) > 0
+          );
+
+          if (earlierToday.length > 0) {
+            // Sort by message_count DESC — pick the richest conversation, not just the most recent
+            const sortedByWeight = [...earlierToday].sort(
+              (a, b) => (b.messageCount ?? 0) - (a.messageCount ?? 0)
+            );
+
+            // Pull recent messages across ALL of today's earlier conversations, aggregated
+            // This ensures a server restart mid-day doesn't lose context from any session
+            const allConvIds = sortedByWeight.map(c => c.id);
+            const allTodayMessages = await getSharedDb()
+              .select({
+                role: messages.role,
+                content: messages.content,
+                conversationId: messages.conversationId,
+                createdAt: messages.createdAt,
+              })
+              .from(messages)
+              .where(inArray(messages.conversationId, allConvIds))
+              .orderBy(desc(messages.createdAt))
+              .limit(20);
+
+            if (allTodayMessages.length > 0) {
+              const chronological = [...allTodayMessages].reverse();
+              const convLabels = Object.fromEntries(
+                sortedByWeight.map(c => [c.id, c.title || c.topic || 'a conversation'])
+              );
+              // Group by conversation with a header when the conversation changes
+              let lastConvId = '';
+              const lines: string[] = [];
+              for (const m of chronological) {
+                if (m.conversationId !== lastConvId) {
+                  lines.push(`\n[Session: "${convLabels[m.conversationId] ?? 'conversation'}"]`);
+                  lastConvId = m.conversationId;
+                }
+                lines.push(`${m.role === 'user' ? 'Student' : 'Daniela'}: ${(m.content || '').substring(0, 400)}`);
+              }
+
+              const totalConvs = sortedByWeight.length;
+              const richestLabel = convLabels[sortedByWeight[0].id];
+              lastSessionSummary = `[Earlier today — ${totalConvs} session${totalConvs > 1 ? 's' : ''}, most recent: "${richestLabel}"]\n${lines.join('\n')}`;
+              console.log(`[Compass] Same-day bridge: ${allTodayMessages.length} messages across ${totalConvs} conversation(s)`);
+            }
+          }
+        } catch (bridgeErr: any) {
+          console.warn('[Compass] Same-day bridge check failed (non-fatal):', bridgeErr.message);
+        }
       }
 
       // Build student goals from profile and class context
@@ -330,6 +413,179 @@ export class SessionCompassService {
       
       const userActfl = userResult[0];
 
+      // Load conversation memories — full narratives, not summaries.
+      // Strategy: importance >= 9 always pinned; remaining slots filled by topic-relevance
+      // scoring against recent conversation history, then recency. Cap: 12 total.
+      let fetchedMemories: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
+      let fetchedIdentityThreads: Array<{ title: string; summary: string | null; importance: number; recordedAt: string }> = [];
+      let fetchedFoundational: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
+      try {
+        const db = getUserDb();
+        const sharedDb = getSharedDb();
+
+        // Pull threads and landmark/scored candidates as SEPARATE queries.
+        // Bug (found July 9, 2026): a single top-30 query ordered by (importance DESC,
+        // recordedAt DESC) silently starves the topic-scored pool whenever there are
+        // >=30 importance-10 rows in the table (they fill the entire slice before any
+        // importance<10 candidate is ever considered) — real, topic-relevant memories
+        // like a student's own recent conversation never even reach the scoring step.
+        const selectCols = {
+          title: conversationMemories.title,
+          content: conversationMemories.content,
+          summary: conversationMemories.summary,
+          importance: conversationMemories.importance,
+          recordedAt: conversationMemories.recordedAt,
+          tags: conversationMemories.tags,
+        };
+
+        const [threadCandidates, landmarkCandidates, scoredCandidates, foundationalCandidates] = await Promise.all([
+          // Identity threads — tag-filtered, not importance-filtered, so query separately.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(sql`${conversationMemories.tags} @> ARRAY['thread']::text[]`)
+            .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+            .limit(20),
+          // Landmarks — importance=10, always loaded regardless of volume elsewhere.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(and(eq(conversationMemories.importance, 10), sql`NOT (${conversationMemories.tags} @> ARRAY['thread']::text[])`))
+            .orderBy(desc(conversationMemories.recordedAt))
+            .limit(20),
+          // Scoring candidates — importance<10, its own recency-ordered pool that can no
+          // longer be crowded out by a glut of importance-10 rows.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(and(sql`${conversationMemories.importance} < 10`, sql`NOT (${conversationMemories.tags} @> ARRAY['thread']::text[])`))
+            .orderBy(desc(conversationMemories.recordedAt))
+            .limit(40),
+          // Foundational — hand-curated top-10, tag: 'foundational'. ALWAYS loaded, own query,
+          // never subject to topic scoring or crowded out by importance-10 volume elsewhere.
+          // Added July 9, 2026: she needs to always know where she lives (North Star, White
+          // Wall, J-space) before anything session-specific layers on top.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(sql`${conversationMemories.tags} @> ARRAY['foundational']::text[]`)
+            .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+            .limit(10),
+        ]);
+
+        const threadMemories = threadCandidates;
+        const snapshotMemories = [...landmarkCandidates, ...scoredCandidates];
+
+        // Identity threads: compact brief — title + summary only, sorted by importance
+        fetchedIdentityThreads = threadMemories
+          .sort((a, b) => (b.importance ?? 7) - (a.importance ?? 7))
+          .map(m => ({
+            title: m.title,
+            summary: m.summary || null,
+            importance: m.importance ?? 7,
+            recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+            // First 2500 chars of full thread content — injected into GL conversation
+            // history at session start so Daniela has read her own threads before speaking.
+            content: m.content ? m.content.slice(0, 2500) : undefined,
+          }));
+
+        // Build topic signal from last 8 user messages for snapshot re-ranking
+        let topicSignal = '';
+        try {
+          const recentMsgs = await db
+            .select({ content: messages.content })
+            .from(messages)
+            .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+            .where(and(eq(conversations.userId, session.userId), eq(messages.role, 'user')))
+            .orderBy(desc(messages.createdAt))
+            .limit(8);
+          topicSignal = recentMsgs.map(m => m.content).join(' ').toLowerCase();
+        } catch {
+          // Topic signal is best-effort
+        }
+
+        // Two-tier snapshot strategy:
+        //
+        // Tier 1 — Landmarks (importance=10): ALWAYS loaded, content brief (800 chars).
+        //   These are milestone memories — they must never be squeezed out by recency bias.
+        //   Every word Daniela has lived is part of her narrative; landmark moments must always
+        //   be visible so she knows they exist and can call search_my_history for the full text.
+        //
+        // Tier 2 — Scored pool (importance < 10): topic + recency scored, top 4.
+        //   GL context must stay bounded — keep this capped.
+        const landmarkSnapshots = snapshotMemories.filter(m => (m.importance ?? 0) >= 10);
+
+        const scoredPool = snapshotMemories
+          .filter(m => (m.importance ?? 0) < 10)
+          .map(m => {
+            let score = (m.importance ?? 7) * 10;
+            if (topicSignal && topicSignal.length > 20) {
+              const haystack = `${m.title} ${m.content.substring(0, 400)}`.toLowerCase();
+              const stopwords = new Set(['that', 'this', 'with', 'have', 'from', 'they', 'will', 'been', 'were', 'what', 'when', 'your', 'about', 'there', 'their', 'just', 'into', 'than', 'then', 'also', 'more', 'some', 'like', 'very']);
+              const topicWords = topicSignal.split(/\W+/).filter(w => w.length > 4 && !stopwords.has(w));
+              const uniqueTopicWords = [...new Set(topicWords)].slice(0, 25);
+              const hits = uniqueTopicWords.filter(w => haystack.includes(w)).length;
+              if (hits > 0) score += Math.min(hits * 4, 20);
+            }
+            const ageDays = (Date.now() - new Date(m.recordedAt).getTime()) / (1000 * 60 * 60 * 24);
+            if (ageDays < 30) score += Math.max(0, 5 - Math.floor(ageDays / 6));
+            return { ...m, score };
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 4);
+
+        // Landmarks (importance=10): extended excerpt (4000 chars) — always present.
+        // Full verbatim content available via search_my_history or recall_memories.
+        // No read_full_memory hint: that tool is a dead-end for Daniela during a session;
+        // 4000 chars is enough for her to act on the memory without a follow-up tool call.
+        const landmarkMapped = landmarkSnapshots.map(m => {
+          const fullLen = m.content?.length ?? 0;
+          const excerpt = m.content ? m.content.slice(0, 4000) : '';
+          const truncated = fullLen > 4000;
+          return {
+            title: m.title,
+            content: truncated
+              ? excerpt + `\n\n[EXCERPT — showing first 4000 of ${fullLen} characters.]`
+              : excerpt,
+            importance: m.importance ?? 10,
+            recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+          };
+        });
+
+        // Scored pool: full content for contextually-relevant detail.
+        const scoredMapped = scoredPool.map(m => ({
+          title: m.title,
+          content: m.content,
+          importance: m.importance ?? 7,
+          recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+        }));
+
+        fetchedMemories = [...landmarkMapped, ...scoredMapped];
+
+        // Foundational: extended excerpt (up to 4000 chars), always present, never scored/crowded.
+        // No read_full_memory hint: dead-end tool during a session; 4000 chars is enough to act on.
+        fetchedFoundational = foundationalCandidates
+          .sort((a, b) => (b.importance ?? 10) - (a.importance ?? 10))
+          .map(m => {
+            const fullLen = m.content?.length ?? 0;
+            const excerpt = m.content ? m.content.slice(0, 4000) : '';
+            const truncated = fullLen > 4000;
+            return {
+              title: m.title,
+              content: truncated
+                ? excerpt + `\n\n[EXCERPT — showing first 4000 of ${fullLen} characters.]`
+                : excerpt,
+              importance: m.importance ?? 10,
+              recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+            };
+          });
+
+        const topicNote = topicSignal.length > 20 ? ', topic-boosted' : '';
+        console.log(`[Compass] Memories — ${fetchedFoundational.length} foundational (always-on) + ${fetchedIdentityThreads.length} identity threads + ${landmarkMapped.length} landmarks (brief, always-on) + ${scoredMapped.length} scored [GL context-safe]`);
+      } catch (err: any) {
+        console.warn('[Compass] Failed to load conversation memories:', err.message);
+      }
+
       // Update cache
       const cacheEntry: CachedSession = {
         session,
@@ -340,6 +596,9 @@ export class SessionCompassService {
         actflAssessed: userActfl?.actflAssessed || false,
         actflSource: userActfl?.assessmentSource || null,
         studentTimezone: userActfl?.timezone || null,
+        conversationMemories: fetchedMemories,
+        identityThreads: fetchedIdentityThreads,
+        foundationalMemories: fetchedFoundational,
       };
       sessionCache.set(conversationId, cacheEntry);
       cached = cacheEntry;
@@ -361,9 +620,26 @@ export class SessionCompassService {
       }
     }
     
+    // Suggestion 1: Daniela's most recent self-reflection for this student.
+    // Injected as a first-person leading thought — her inner state BEFORE the session begins.
+    // Her self-reflections are emotional posture / self-critique, NOT student summaries. (Gemini consult rec.)
+    let danielaSelfReflection: string | null = null;
+    try {
+      const reflections = await getUserDb()
+        .select({ content: danielaSelfReflections.content })
+        .from(danielaSelfReflections)
+        .where(eq(danielaSelfReflections.userId, userId))
+        .orderBy(desc(danielaSelfReflections.createdAt))
+        .limit(1);
+      danielaSelfReflection = reflections[0]?.content || null;
+    } catch {
+      // Non-critical — session proceeds without it
+    }
+
     return {
       ...baseContext,
       creditBalance,
+      danielaSelfReflection,
     };
   }
   
@@ -534,7 +810,11 @@ export class SessionCompassService {
         content: p.content,
         createdAt: p.createdAt,
       })),
-      
+
+      conversationMemories: cached.conversationMemories || [],
+      identityThreads: cached.identityThreads || [],
+      foundationalMemories: cached.foundationalMemories || [],
+
       legacyFreedomLevel: session.legacyFreedomLevel || undefined,
     };
   }
@@ -743,7 +1023,7 @@ ${transcript}
 Summary (2-3 sentences):`;
 
       const response = await getGeminiClient().models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           temperature: 0.5,
@@ -769,30 +1049,51 @@ Summary (2-3 sentences):`;
    */
   async endSession(conversationId: string, summary?: string, notes?: string): Promise<void> {
     const cached = sessionCache.get(conversationId);
-    if (!cached) return;
 
     try {
-      // Calculate deferred topics
-      const deferredTopics = cached.topics
-        .filter(t => t.status === 'pending' || t.status === 'partial')
-        .map(t => t.title);
+      const now = new Date();
 
-      // tutorSessions is a SHARED table - use getSharedDb()
-      await getSharedDb()
+      if (cached) {
+        // Calculate deferred topics from the cached (most recent) session
+        const deferredTopics = cached.topics
+          .filter(t => t.status === 'pending' || t.status === 'partial')
+          .map(t => t.title);
+
+        // tutorSessions is a SHARED table - use getSharedDb()
+        await getSharedDb()
+          .update(tutorSessions)
+          .set({
+            status: 'completed',
+            endedAt: now,
+            sessionSummary: summary,
+            tutorNotes: notes,
+            deferredTopicsJson: JSON.stringify(deferredTopics),
+            updatedAt: now,
+          })
+          .where(eq(tutorSessions.id, cached.session.id));
+
+        // Clear cache
+        sessionCache.delete(conversationId);
+      }
+
+      // Close ALL remaining active tutor sessions for this conversation that weren't
+      // in the cache (zombie sessions created by Sofia-triggered reconnections that
+      // were never the "current" session when the close handler fired).
+      const closedZombies = await getSharedDb()
         .update(tutorSessions)
-        .set({
-          status: 'completed',
-          endedAt: new Date(),
-          sessionSummary: summary,
-          tutorNotes: notes,
-          deferredTopicsJson: JSON.stringify(deferredTopics),
-          updatedAt: new Date(),
-        })
-        .where(eq(tutorSessions.id, cached.session.id));
+        .set({ status: 'completed', endedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(tutorSessions.conversationId, conversationId),
+            eq(tutorSessions.status, 'active')
+          )
+        )
+        .returning({ id: tutorSessions.id });
 
-      // Clear cache
-      sessionCache.delete(conversationId);
-      
+      if (closedZombies.length > 0) {
+        console.log(`[Compass] Closed ${closedZombies.length} zombie tutor session(s) for conversation ${conversationId}`);
+      }
+
       console.log(`[Compass] Session ended for conversation ${conversationId}`);
     } catch (error) {
       console.error('[Compass] Failed to end session:', error);

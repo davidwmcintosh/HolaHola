@@ -115,6 +115,8 @@ export class GeminiTtsStreamingService extends EventEmitter {
       .replace(/["'"]{2,}/g, '')
       .replace(/(?<![a-zA-Z])["'"](?![a-zA-Z])/g, '')
       .replace(emojiPattern, '')
+      // Collapse letter-by-letter spellings (e.g. "s-a-i-d" → "said") — TTS spells each letter
+      .replace(/\b([a-z](?:-[a-z])+)\b/gi, (match) => match.replace(/-/g, ''))
       .replace(/\s+/g, ' ')
       .trim();
   }

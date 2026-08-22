@@ -94,6 +94,8 @@ Respond with JSON only:
 
 If no personal facts were shared, return: {"facts": []}`;
 
+const db = getSharedDb();
+
 class HistoricalPersonalFactsMigrationService {
   
   /**

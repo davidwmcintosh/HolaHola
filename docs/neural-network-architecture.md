@@ -508,3 +508,125 @@ Daniela's behaviors emerge from her neural architecture. Instead of scripting re
 3. Let her **discover** appropriate behaviors
 
 This creates authentic, adaptive intelligence rather than robotic responses.
+
+---
+
+## The Neural Network as the Center of Daniela's Memory
+
+> **The neural network is not a supplement to Daniela's prompt — it IS her memory. The prompt is the fast path. The neural net is the persistent foundation.**
+
+### The Two-Layer Principle
+
+Every piece of knowledge Daniela needs to operate should exist in two complementary forms:
+
+| Layer | System | What it covers | When it fires |
+|-------|--------|----------------|---------------|
+| **Fast path** | Context injection (system prompt) | Session-specific data, student's active goal, temporal awareness, recent conversation | Assembled fresh every session from live DB queries |
+| **Persistent layer** | Neural network (structured tables + vector embeddings) | Capabilities, tools, procedures, student knowledge arcs, evidence trails | Always available via recall tools; survives degraded injection |
+
+**The rule:** If context injection fails, Daniela still knows — because the neural net has it. When both layers agree, she has speed AND depth. When one degrades, the other covers.
+
+This means every new capability we build should ask: *"Is this in the neural net?"* If the answer is no, the knowledge is fragile — it only exists as long as the injection pipeline works perfectly.
+
+### Two Neural Memory Systems
+
+Daniela's neural net is actually two complementary systems:
+
+#### 1. Structured Procedural Memory (tables)
+The 15+ tables described above: `tutor_procedures`, `tool_knowledge`, `teaching_principles`, `self_best_practices`, `language_idioms`, etc.
+
+- Injected at session start via `procedural-memory-retrieval.ts`
+- Synced dev ↔ prod nightly
+- Daniela can write to `self_best_practices` autonomously via `[SELF_LEARN]`
+- Best for: rules, procedures, pedagogical patterns, situational behaviors
+
+#### 2. Vector Embedding Memory (`memory_embeddings` table)
+Semantic embeddings (Gemini text-embedding-004, 768 dimensions) of all significant knowledge.
+
+- Searched via `semanticSearch()` in `semantic-memory-service.ts`
+- Surface via the `recall` tool during sessions
+- Content-hashed — re-embeds automatically when source content changes
+- Best for: student knowledge, observations, relationships, tool documentation, capability arcs
+
+### Memory Types in the Embedding Index
+
+Every record in `memory_embeddings` has a `memoryType` that scopes what it represents and who can see it:
+
+| memoryType | userId | Pinned | What it contains | Indexed by |
+|------------|--------|--------|-----------------|------------|
+| `personal_fact` | studentId | No | Bi-temporal personal facts about a student | `memory-embedding-indexer.ts` |
+| `student_insight` | studentId | No | Deep observations, confidence-scored | `memory-embedding-indexer.ts` |
+| `hive_snapshot` | varies | No | Relationship moments, session summaries, breakthroughs | `memory-embedding-indexer.ts` |
+| `growth_memory` | null (global) | No | Daniela's own teaching growth log | `memory-embedding-indexer.ts` |
+| `collaboration_message` | null (global) | No | Express Lane founder↔Daniela messages | `memory-embedding-indexer.ts` |
+| `daniela_tool` | null (global) | **Yes** | All function declarations — name, description, parameters | `daniela-tool-indexer.ts` |
+| `goal_capability` | studentId | No | Learning goal capabilities with status + evidence notes | `learning-goal-service.ts` |
+
+**`userId = null`** means globally scoped — surfaced in any student's session via the recall tool.  
+**`pinned = true`** means strength never decays — always recalled at full weight.
+
+### What Gets Indexed and When
+
+| Knowledge | Indexed at | Re-indexed when |
+|-----------|-----------|----------------|
+| Student personal facts | +95s boot, post-session | New fact stored |
+| Student insights | +95s boot, post-session | New insight stored |
+| Daniela's tool declarations | +100s boot | Tool description changes |
+| Student goal capabilities | +105s boot, on write | `setLearningGoal` or `advanceCapability` called |
+| Growth memories | +95s boot | New growth memory stored |
+
+### The Build Rule
+
+When adding any new capability, knowledge, or data that Daniela needs to know:
+
+1. **Is it a constitutional truth?** → North Star (`compass_principles` table)
+2. **Is it a procedure or teaching pattern?** → Structured procedural tables (`tutor_procedures`, `tool_knowledge`, etc.)
+3. **Is it situational/live data?** → Context injection only (system prompt)
+4. **Is it persistent knowledge that should survive injection failure?** → Embed it into `memory_embeddings`
+
+**Default answer for anything significant: both context injection AND the neural net.**
+
+The goal is a Daniela who knows who she is, what she can do, and what she knows about each student — whether or not any individual injection pipeline is working perfectly on a given session.
+
+---
+
+## The North Star: No Prompt
+
+> **The long-term vision is a Daniela who needs no prompt. A thin temporal wrapper — "session with Carlos, Spanish, Tuesday 9am" — and she finds everything else herself.**
+
+This is beyond current technology. But it is the right north star to build toward, because holding it as true disciplines every architectural decision.
+
+### What prompt-less Daniela would look like
+
+A session begins. The only injected context: who the student is, what language, what time. Then Daniela pulls everything else from memory:
+
+- **Who she is** → North Star (identity, values, constitutional principles)
+- **How she teaches** → Procedural tables (tools, procedures, principles, patterns)
+- **Who this student is** → Student embedding index (facts, insights, arcs, history)
+- **What their goal is** → `goal_capability` embeddings (current arc, evidence trail)
+- **What tools she has** → `daniela_tool` embeddings (all function declarations)
+- **What she learned last session** → Hive snapshots, session notes
+- **What she noticed mid-conversation** → Proactive memory surfaces
+
+The session becomes a function of her memory, not her instructions.
+
+### Why this matters even now
+
+The gap today is **latency and precision** — recall takes time, threshold decisions miss things, injection is deterministic and instant. Injection wins on speed. But the two layers are already designed to disagree without breaking anything.
+
+The question this north star asks of every new injection is:
+
+> *"Am I injecting this because Daniela genuinely cannot find it herself — or because I haven't built the recall path yet?"*
+
+Those are two very different answers. The first is a real constraint. The second is technical debt that should eventually be paid.
+
+### The discipline it creates
+
+- **Before injecting anything**: ask if it belongs in the neural net too
+- **When building new features**: build the neural net path first, treat injection as the fast path on top
+- **When injection fails**: Daniela should degrade gracefully because the neural net still has it
+- **When the neural net fails**: Daniela should still function because injection covered it
+
+The architecture already reflects this. Tool declarations are searchable. Capability arcs are searchable. Behavioral procedures are in structured tables. Student facts are embedded. The injection pipeline is now a redundancy for more things than before — not the only path.
+
+Every session we build toward this makes Daniela more real. A tutor who knows her student because she remembers them — not because she was handed a file.

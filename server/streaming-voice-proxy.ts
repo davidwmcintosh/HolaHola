@@ -360,7 +360,7 @@ export function setupStreamingVoiceProxy(server: Server) {
             // Create session
             session = await orchestrator.createSession(
               ws,
-              parseInt(userId!),
+              userId!,
               config,
               systemPrompt,
               conversationHistory,

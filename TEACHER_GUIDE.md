@@ -1,7 +1,7 @@
-# LinguaFlow Teacher Guide
+# HolaHola Teacher Guide
 
 **Last Updated:** December 1, 2025  
-**For:** Teachers and Educators using LinguaFlow
+**For:** Teachers and Educators using HolaHola
 
 ---
 
@@ -25,7 +25,7 @@
 
 ### Logging In
 
-1. Go to your LinguaFlow instance URL
+1. Go to your HolaHola instance URL
 2. Click **"Log in with Replit"** or use your existing credentials
 3. Once logged in, if you're a teacher, you'll see the **Teaching** section in the sidebar
 
@@ -109,7 +109,7 @@ Create a blank class and build your own syllabus.
    - Example: "ABC123"
 
 2. **Students Join the Class:**
-   - Students log in to LinguaFlow
+   - Students log in to HolaHola
    - Navigate to "Join Class" (usually in student menu)
    - Enter the 6-character code
    - Click "Join Class"
@@ -127,7 +127,7 @@ If students have trouble joining, contact your administrator to manually add the
 
 ## Customizing Your Class Syllabus
 
-When you create a class from a template, LinguaFlow gives you a copy of the syllabus that you can fully customize for your students.
+When you create a class from a template, HolaHola gives you a copy of the syllabus that you can fully customize for your students.
 
 ### Accessing the Syllabus Builder
 
@@ -231,7 +231,7 @@ For each level, you'll see:
 
 Coverage is based on lessons in your syllabus that are linked to ACTFL Can-Do statements:
 
-1. **Template Lessons**: Pre-built lessons from LinguaFlow templates have Can-Do statements already mapped
+1. **Template Lessons**: Pre-built lessons from HolaHola templates have Can-Do statements already mapped
 2. **Cloned Lessons**: When you create a class from a template, these mappings are preserved
 3. **Custom Lessons**: Lessons you create yourself don't automatically contribute to coverage (they may address standards not in our database)
 
@@ -278,7 +278,7 @@ Coverage is based on lessons in your syllabus that are linked to ACTFL Can-Do st
 
 ### Assignment Types
 
-LinguaFlow supports 4 assignment types:
+HolaHola supports 4 assignment types:
 - **Practice** - Informal practice activities
 - **Homework** - Regular homework assignments
 - **Quiz** - Assessments with scoring
@@ -372,7 +372,7 @@ LinguaFlow supports 4 assignment types:
 
 ## Browsing Syllabus Templates
 
-LinguaFlow provides pre-built syllabus templates across 9 languages that you can use when creating classes.
+HolaHola provides pre-built syllabus templates across 9 languages that you can use when creating classes.
 
 ### Syllabus Hierarchy
 
@@ -464,7 +464,7 @@ Click on a unit to see its lessons. Each lesson includes:
 
 ### Understanding ACTFL Proficiency Tracking
 
-LinguaFlow automatically tracks student progress using ACTFL World-Readiness Standards.
+HolaHola automatically tracks student progress using ACTFL World-Readiness Standards.
 
 **What Gets Tracked (FACT Criteria):**
 - **Functions**: Communication tasks performed (greetings, questions, introductions)
@@ -503,7 +503,7 @@ Students receive real-time feedback when they're ready to advance to the next pr
 
 ### Overview
 
-LinguaFlow's Syllabus-Aware Competency System automatically recognizes when students cover syllabus topics through natural AI conversations. This enables "early completion" - students can skip lessons they've already mastered organically.
+HolaHola's Syllabus-Aware Competency System automatically recognizes when students cover syllabus topics through natural AI conversations. This enables "early completion" - students can skip lessons they've already mastered organically.
 
 ### How It Works
 
@@ -674,7 +674,7 @@ A: Contact your administrator if you want to disable this feature.
 
 - **Technical Documentation:** See `replit.md` for system details
 - **Feature Guides:** Check `docs/institutional-standards-integration.md`
-- **Administrator:** Contact your school/district LinguaFlow admin for:
+- **Administrator:** Contact your school/district HolaHola admin for:
   - Teacher access issues
   - Database problems
   - Feature requests
@@ -721,4 +721,4 @@ When reporting a problem, include:
 
 ---
 
-**Questions?** Contact your LinguaFlow administrator or refer to the technical documentation in `replit.md`.
+**Questions?** Contact your HolaHola administrator or refer to the technical documentation in `replit.md`.

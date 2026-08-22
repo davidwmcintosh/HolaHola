@@ -16,7 +16,8 @@ import {
   MicOff,
   Trophy,
   Target,
-  MessageCircle
+  MessageCircle,
+  Brain
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -25,6 +26,7 @@ import type { CurriculumDrillItem, UserDrillProgress } from "@shared/schema";
 
 interface DrillItemWithProgress extends CurriculumDrillItem {
   progress: UserDrillProgress | null;
+  nativeTranslation?: string | null;
 }
 
 interface DrillProgressResponse {
@@ -40,6 +42,7 @@ interface DrillProgressResponse {
 interface DrillLessonProps {
   lessonId: string;
   language: string;
+  nativeLanguage?: string;
   lessonName?: string;
   conversationTopic?: string;
   onComplete?: () => void;
@@ -48,7 +51,7 @@ interface DrillLessonProps {
 
 type DrillMode = 'listen_repeat' | 'number_dictation' | 'translate_speak' | 'matching' | 'fill_blank';
 
-export function DrillLesson({ lessonId, language, lessonName, conversationTopic, onComplete, onPracticeConversation }: DrillLessonProps) {
+export function DrillLesson({ lessonId, language, nativeLanguage, lessonName, conversationTopic, onComplete, onPracticeConversation }: DrillLessonProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [showResult, setShowResult] = useState(false);
@@ -59,8 +62,18 @@ export function DrillLesson({ lessonId, language, lessonName, conversationTopic,
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
+  const nativeLangParam = nativeLanguage && nativeLanguage.toLowerCase() !== 'english' && nativeLanguage.toLowerCase() !== 'en'
+    ? nativeLanguage
+    : '';
+
   const { data: drillData, isLoading, error } = useQuery<DrillProgressResponse>({
-    queryKey: ['/api/drill-progress', lessonId],
+    queryKey: ['/api/drill-progress', lessonId, nativeLangParam],
+    queryFn: () => {
+      const url = nativeLangParam
+        ? `/api/drill-progress/${lessonId}?nativeLanguage=${encodeURIComponent(nativeLangParam)}`
+        : `/api/drill-progress/${lessonId}`;
+      return fetch(url, { credentials: 'include' }).then(r => r.json());
+    },
   });
 
   const recordAttemptMutation = useMutation({
@@ -244,12 +257,16 @@ export function DrillLesson({ lessonId, language, lessonName, conversationTopic,
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary" data-testid="badge-item-count">
             {currentIndex + 1} / {totalItems}
           </Badge>
           <Badge variant="outline" data-testid="badge-drill-type">
             {formatDrillType(currentItem.itemType)}
+          </Badge>
+          <Badge variant="outline" className="gap-1 text-muted-foreground" data-testid="badge-blooms-level">
+            <Brain className="h-3 w-3" />
+            {getBloomsLevel(currentItem.itemType)}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -274,6 +291,11 @@ export function DrillLesson({ lessonId, language, lessonName, conversationTopic,
             <div className="text-3xl font-bold text-center" data-testid="text-prompt">
               {currentItem.prompt}
             </div>
+            {currentItem.nativeTranslation && (
+              <div className="text-sm text-muted-foreground text-center" data-testid="text-native-translation">
+                {currentItem.nativeTranslation}
+              </div>
+            )}
             
             <Button
               size="lg"
@@ -626,4 +648,15 @@ function getDrillInstruction(type: DrillMode): string {
     fill_blank: 'Fill in the missing word',
   };
   return instructions[type] || 'Complete the exercise';
+}
+
+function getBloomsLevel(itemType: string): string {
+  const map: Record<string, string> = {
+    listen_repeat:    'Remember',
+    number_dictation: 'Remember',
+    matching:         'Understand',
+    fill_blank:       'Apply',
+    translate_speak:  'Analyze',
+  };
+  return map[itemType] || 'Understand';
 }

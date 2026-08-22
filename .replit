@@ -1,10 +1,10 @@
-modules = ["nodejs-20", "web", "postgresql-16"]
+modules = ["nodejs-20", "web", "python-3.11", "python3", "postgresql-16"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["imagemagick"]
+packages = ["chromium", "imagemagick", "gitleaks"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -34,17 +34,295 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "consolidated-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "replit-attribution-discipline-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "capture-status-ordering-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "prior-session-label-clears-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "episode-28-snapshot-write-guard-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "episode-28-startup-shrinkage-selfcheck"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "gl-reconnected-recovery-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "watchdog-inner-life-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "luca-auto-capture-episode-ci"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "raw-window-capture-alignment-selfcheck"
+
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
+args = "(git config merge.ours.driver true && echo '[merge.ours] driver configured' || echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2); (npx tsx server/scripts/restore-rolling-episodes-from-db.ts --check-shrinkage || echo '[rolling-restore] WARNING: shrinkage check failed — continuing' >&2); npm run dev"
+
+[[workflows.workflow]]
+name = "typecheck"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run check"
+
+[[workflows.workflow]]
+name = "test"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm test"
+
+[[workflows.workflow]]
+name = "consolidated-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash server/scripts/test-all-consolidated-ci.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "replit-attribution-discipline-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-replit-attribution-discipline.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "episode-28-gap-audit-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/audit-episode-28-gaps.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "luca-auto-capture-episode-ci"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-luca-auto-capture-episode.ts && npx tsx server/scripts/test-luca-auto-capture-episode.ts --self-check"
+
+[[workflows.workflow]]
+name = "prior-session-label-clears-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-prior-session-label-clears.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "rolling-episode-gap-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "rolling-tag-misroute-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-rolling-episode-gap-check.ts --rolling-tag-self-check"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "episode-28-startup-shrinkage-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/restore-episode-28-from-db.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "capture-status-ordering-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-capture-status-ordering.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "capture-status-db-only-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-capture-status-db-only.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "episode-28-snapshot-write-guard-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-snapshot-write-guard.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "episode-27-gap-audit"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/audit-episode-27-gaps.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "session-truth-pipeline"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/daniela-truth-pipeline-report.ts --recent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "truth-pipeline-unified-recall-diagnosis-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "capture-status-stale-escalation-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-capture-status-stale-escalation.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "build-session-dedup-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-build-session-dedup.ts && npx tsx server/scripts/test-build-session-dedup.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "retrieve-episode-dialogue-no-match-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-retrieve-episode-dialogue-no-match.ts && npx tsx server/scripts/test-retrieve-episode-dialogue-no-match-by-id.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+
+[[workflows.workflow]]
+name = "capture-watchdog"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/capture-watchdog.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
-integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0"]
+integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
 
 [userenv]
 
@@ -57,6 +335,11 @@ FROM_EMAIL = "noreply@getholahola.com"
 COMPASS_ENABLED = "true"
 DEEPGRAM_MODEL = "nova-3"
 DEEPGRAM_INTELLIGENCE_ENABLED = "true"
+GEMINI_LIVE_VOICE = "true"
+AWS_S3_REGION = "auto"
+DEFAULT_OBJECT_STORAGE_BUCKET_ID = "holaholar2bucket"
+PRIVATE_OBJECT_DIR = "/holaholar2bucket/.private"
+PUBLIC_OBJECT_SEARCH_PATHS = "/holaholar2bucket/public"
 
 [userenv.development]
 SYNC_PEER_URL = "https://getholahola.com"
@@ -65,3 +348,93 @@ NEON_STRICT_MODE = "true"
 [userenv.production]
 SYNC_PEER_URL = "https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev"
 NEON_STRICT_MODE = "true"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 480000
+
+[[workflows.workflow]]
+name = "inner-life-no-episode-row-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-inner-life-no-episode-row.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "gl-reconnected-recovery-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-gl-reconnected-client-recovery.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "semantic-arm-timeout-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-semantic-arm-timeout.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "record-exchange-4ch-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/record-exchange.ts --self-check-4ch"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "watchdog-inner-life-ci"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-watchdog-inner-life.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts --self-check"
+
+[[workflows.workflow]]
+name = "gl-game-session-detector-ci"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "raw-window-capture-alignment-selfcheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-raw-window-capture.ts --self-check"
+
+[workflows.workflow.metadata]
+isValidation = true
