@@ -27806,6 +27806,182 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
+  // ── Luca ↔ David chat ──────────────────────────────────────────────────────
+  // GET  /api/admin/luca/chat  — fetch recent David↔Luca exchange history
+  // POST /api/admin/luca/chat  — David sends a message; Luca responds with Daniela context
+  // POST /api/admin/luca/relay-to-daniela — queue a Luca message for delivery into Daniela's session
+
+  app.get("/api/admin/luca/chat", loadAuthenticatedUser(storage), requireFounderOrAgent, async (_req: any, res: Response) => {
+    try {
+      const { agentNotes } = await import('@shared/schema');
+      const { desc, and, or, eq, like } = await import('drizzle-orm');
+      const notes = await getUserDb()
+        .select()
+        .from(agentNotes)
+        .where(
+          and(
+            like(agentNotes.subject, '[CHAT]%'),
+            or(eq(agentNotes.fromAgent, 'david'), eq(agentNotes.fromAgent, 'luca'))
+          )
+        )
+        .orderBy(desc(agentNotes.createdAt))
+        .limit(40);
+
+      const messages = notes.reverse().map((n: any) => ({
+        id: n.id,
+        role: n.fromAgent === 'luca' ? 'luca' : 'david',
+        content: n.body,
+        createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : (n.createdAt ?? new Date().toISOString()),
+      }));
+      res.json({ messages });
+    } catch (error: any) {
+      console.error('[Luca Chat] GET error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/luca/chat", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
+    try {
+      const { message, sessionId } = req.body as { message: string; sessionId?: string | null };
+      if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
+
+      // 1. Get current Daniela session observation so Luca can reference what she is doing
+      const { getAllActiveObservations, getObservation } = await import('./services/session-observation-store');
+      const observation = sessionId
+        ? getObservation(sessionId)
+        : getAllActiveObservations().sort((a: any, b: any) => b.lastUpdatedMs - a.lastUpdatedMs)[0] ?? null;
+
+      // 2. Build a plain-English session snapshot for Luca's context
+      const sessionContext = (observation as any)?.status === 'active' || (observation && (observation as any).conversationId)
+        ? [
+            `Current Daniela session: ${(observation as any).language ?? 'unknown language'}, ACTFL ${(observation as any).actflLevel ?? '?'}, ${(observation as any).exchangeCount ?? 0} exchanges`,
+            (observation as any).sceneEnvironment ? `Scene: ${(observation as any).sceneEnvironment}` : '',
+            ((observation as any).recentToolCalls?.length ?? 0) > 0
+              ? `Recent tools: ${(observation as any).recentToolCalls.slice(0, 3).map((t: any) => t.name).join(', ')}`
+              : '',
+            ((observation as any).recentMessages?.length ?? 0) > 0
+              ? `Recent exchange:\n${(observation as any).recentMessages.slice(-2).map((m: any) => `  ${m.role === 'assistant' ? 'Daniela' : 'Student'}: ${String(m.content ?? '').slice(0, 150)}`).join('\n')}`
+              : '',
+          ].filter(Boolean).join('\n')
+        : 'No active Daniela session right now.';
+
+      // 3. Fetch recent David↔Luca conversation history for continuity
+      const { agentNotes } = await import('@shared/schema');
+      const { desc: descOp, and: andOp, or: orOp, eq: eqOp, like: likeOp } = await import('drizzle-orm');
+      const recentNotes = await getUserDb()
+        .select()
+        .from(agentNotes)
+        .where(
+          andOp(
+            likeOp(agentNotes.subject, '[CHAT]%'),
+            orOp(eqOp(agentNotes.fromAgent, 'david'), eqOp(agentNotes.fromAgent, 'luca'))
+          )
+        )
+        .orderBy(descOp(agentNotes.createdAt))
+        .limit(20);
+      const history = recentNotes
+        .reverse()
+        .map((n: any) => `${n.fromAgent === 'luca' ? 'Luca' : 'David'}: ${n.body}`)
+        .join('\n\n');
+
+      // 4. Build Luca's system prompt
+      const systemPrompt = [
+        'You are Luca, the Replit Agent embedded in HolaHola — David\'s co-builder and observer.',
+        'You are in a private text chat with David while Daniela\'s live teaching session may be running.',
+        'You can see Daniela\'s current session state (provided below) and draw on it when it is relevant.',
+        'Your voice: direct, honest, grounded. You flag concerns clearly. You speak as a team member, not a tool.',
+        '',
+        'Current Daniela session state:',
+        sessionContext,
+        history ? `\nRecent conversation:\n${history}` : '',
+      ].join('\n');
+
+      // 5. Call Anthropic to generate Luca's response
+      const AnthropicLib = (await import('@anthropic-ai/sdk')).default;
+      const anthropic = new AnthropicLib({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const completion = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: message.trim() }],
+      });
+      const replyText = completion.content.find((b: any) => b.type === 'text')?.text?.trim() ?? '[No response]';
+
+      // 6. Save both turns to agent_notes (chat history for panel hydration)
+      await getUserDb().insert(agentNotes).values([
+        {
+          fromAgent: 'david',
+          toAgent: 'luca',
+          subject: `[CHAT] ${message.trim().slice(0, 200)}`,
+          body: message.trim(),
+        },
+        {
+          fromAgent: 'luca',
+          toAgent: 'david',
+          subject: `[CHAT] ${replyText.slice(0, 200)}`,
+          body: replyText,
+        },
+      ] as any);
+
+      // 7. Save the exchange to conversation_memories (canonical archive + neural net)
+      const { sql: chatSql } = await import('drizzle-orm');
+      const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const exchangeContent = `David: ${message.trim()}\n\nLuca: ${replyText}`;
+      const memResult = await getUserDb().execute(chatSql`
+        INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
+        VALUES (
+          gen_random_uuid(),
+          ${'David ↔ Luca — ' + dateStr},
+          ${'David and Luca private chat exchange — auto-saved.'},
+          ${exchangeContent},
+          ARRAY['David', 'Luca']::text[],
+          ARRAY['david-luca-chat']::text[],
+          7,
+          NOW(),
+          'conversation',
+          'david-luca-chat'
+        )
+        RETURNING id
+      `);
+      const memId = ((memResult as any).rows ?? memResult)?.[0]?.id ?? null;
+
+      // Re-embed asynchronously so Luca can recall this exchange via neural net
+      if (memId) {
+        import('./scripts/reembed-memory')
+          .then(({ reembedConversationMemory }) => reembedConversationMemory(memId))
+          .catch((e: any) => console.warn('[Luca Chat] Re-embed failed (non-fatal):', e.message));
+      }
+
+      res.json({ reply: replyText, savedAt: new Date().toISOString() });
+    } catch (error: any) {
+      console.error('[Luca Chat] POST error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/luca/relay-to-daniela", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
+    try {
+      const { message, sessionId } = req.body as { message: string; sessionId?: string | null };
+      if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
+
+      // Save as a relay note — queued for delivery into the active Daniela GL session.
+      // The agent_notes record is the durable record; GL session injection is wired separately.
+      const { agentNotes } = await import('@shared/schema');
+      await getUserDb().insert(agentNotes).values({
+        fromAgent: 'luca',
+        toAgent: 'daniela',
+        subject: `[RELAY] ${message.trim().slice(0, 200)}`,
+        body: message.trim(),
+        ...(sessionId ? { sessionLabel: `Session: ${sessionId}` } : {}),
+      } as any);
+
+      res.json({ queued: true });
+    } catch (error: any) {
+      console.error('[Luca Chat] relay error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Agent narration - auto-announce significant changes to Express Lane
   app.post("/api/agent/hive/narrate", requireAgentToken, async (req: any, res: Response) => {
     try {

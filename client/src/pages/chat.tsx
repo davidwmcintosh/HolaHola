@@ -20,7 +20,7 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
-import { LucaObserverPanel } from "@/components/LucaObserverPanel";
+import { LucaChatPanel } from "@/components/LucaChatPanel";
 import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
 import { getTutorAvatar } from "@/lib/tutor-avatars";
 import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPanel, CenterBackdropItemData } from "@shared/whiteboard-types";
@@ -1182,9 +1182,9 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Luca Observer Panel - Founder Mode + Honesty Mode, shows Luca's live session observations */}
+        {/* Luca Chat Panel - Founder Mode + Honesty Mode, private David↔Luca conversation */}
         {(isFounderMode || isHonestyMode) && (
-          <LucaObserverPanel
+          <LucaChatPanel
             isOpen={lucaPanelOpen}
             onToggle={() => setLucaPanelOpen(!lucaPanelOpen)}
             sessionId={conversationId}
