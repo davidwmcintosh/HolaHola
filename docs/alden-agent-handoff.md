@@ -7266,3 +7266,18 @@ session from appearing to have an incomplete trace solely because its
 fire-and-forget writer had already begun flushing. Recorder outages remain
 visible as degraded/partial evidence; the audio and tool paths do not wait for
 the ledger.
+
+---
+
+## Addendum — August 22, 2026 (protected source-history archive)
+
+GitHub’s approved current tree remains a non-force source snapshot; it is not
+the archive for the original Replit graph because that graph includes an
+ordinary blob above GitHub’s size limit. The protected Replit and GitHub source
+tags, backup/reconciliation lineage tips, and named two-parent reconciliation
+merges are preserved in a private S3-compatible object-storage archive.
+
+Use `bash scripts/archive-reconciliation-history.sh --verify` to recheck the
+stored bundle. The companion recovery procedure restores into an isolated bare
+clone and explicitly forbids force-pushing, resetting, or overwriting GitHub
+`main`.

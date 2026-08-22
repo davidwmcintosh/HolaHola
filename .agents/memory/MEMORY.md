@@ -1,6 +1,7 @@
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
 - [GitHub source snapshot release](github-source-snapshot-release.md) — GitHub’s hard blob limit can require an approved non-force snapshot while protected tags retain original histories.
+- [Off-workspace reconciliation archive](offworkspace-reconciliation-archive.md) — Git-safe accepts only main; preserve the protected graph as a verified private object-store bundle and manifest.
 - [Git LFS range rewrite safety](git-lfs-range-rewrite-safety.md) — `git lfs migrate import` can rewrite unrelated refs; preserve heads first and rewrite only the non-shared lineage.
 - [Episode inviolability rule](episode-inviolability.md) — preserve source dialogue and Luca-authored narrative as authentic memories; distinguish authorship without downgrading either.
 - [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix applied Aug 15 2026.

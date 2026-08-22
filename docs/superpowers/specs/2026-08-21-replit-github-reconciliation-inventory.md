@@ -31,6 +31,20 @@ GitHub becomes the approved source of the current application tree. The
 protected tags remain the immutable record of the two pre-reconciliation
 commit histories.
 
+## Off-workspace protected-history archive
+
+The two source tags, their reconciliation/backup lineages, and explicit
+two-parent reconciliation merge refs are archived outside this workspace on
+the configured private S3-compatible object store under
+`history-archives/reconciliation-2026-08-21/`. The archive command rejects
+moved tags and conflicting stored bytes, validates a portable bundle plus the
+Git and LFS object graph, then downloads and fscks the stored bundle in an
+isolated recovery clone.
+
+See [Protected Replit History Archive](2026-08-22-replit-history-archive.md)
+for the archive contents, validation command, and a recovery procedure that
+never force-pushes or overwrites GitHub `main`.
+
 ## Unique-history inventory
 
 | Side | Unique commits | Paths changed from the common ancestor |

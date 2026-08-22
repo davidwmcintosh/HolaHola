@@ -4518,3 +4518,20 @@ An SDK dispatch is always an attempt, never a receipt or proof of model use.
 It may cite an earlier same-trace Gemini callback as provenance, but that does
 not upgrade delivery status. Writer failures remain visible as partial evidence
 without delaying audio, prompts, tools, or normal delivery behavior.
+
+---
+
+## Protected Replit-history archive — August 22, 2026
+
+The original Replit and pre-reconciliation GitHub histories are now preserved
+outside the workspace as an immutable-by-workflow Git bundle and manifest in
+the configured private S3-compatible object store. The archive holds both
+protected source tags, backup/reconciliation lineages, and the named
+two-parent reconciliation merge commits in its manifest. Its creator validates
+a portable bundle, strict Git objects, LFS pointers, and then independently
+downloads, checksums, and fscks the stored bundle before reporting success.
+
+Recovery is intentionally a separate namespace in a fresh or isolated clone.
+It never resets, merges into, force-pushes, or overwrites GitHub `main`; any
+future release must be a newly reviewed branch or commit derived from the
+recovered evidence.
