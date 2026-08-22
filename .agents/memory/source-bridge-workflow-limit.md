@@ -16,4 +16,6 @@ slot for each command.
 Source bridge, and Validation suite. Project may start the capture watchdog as a
 direct child task. Add new validation commands to the grouped runner rather than
 creating another named workflow, unless the command truly needs its own
-independent long-running lifecycle.
+independent long-running lifecycle. This consolidation requires explicit owner
+approval because grouped validation coverage must replace—not silently remove—
+the retired checks.
