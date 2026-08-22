@@ -133,7 +133,6 @@
 - [Chat episode attribution](chat-episode-attribution.md) — speaker label taxonomy for maybeAppendChatMessage: Daniela vs Daniela [consult] vs Gemini vs CI (noEpisode:true); options-object signature.
 - [Daniela inner-life synthesis](daniela-inner-life-synthesis.md) — synthesis now fetches danielaSelfReflections (source=self, limit 3, userId-scoped) so she arrives as a person with felt history not just teaching data; Heart+Continuity rules in DANIELA_SYNTHESIS_IDENTITY. Aug 14 2026.
 - [Capture-status stale escalation](capture-status-stale-escalation.md) — ⚠️ STALE fires at ≥10 min (not 60); alert routes to .local/stale-channel-alert.md; CI constants: STALE=11min, EXACT=10min, RECENT=9min. Aug 15 2026.
-- [esbuild isMain guard](esbuild-ismain-guard.md) — import.meta.url === process.argv[1] is always true inside a bundle; use argv[1]?.includes(scriptName) instead or the CLI IIFE fires at every server boot and calls process.exit(). Aug 13 2026.
 - [David task-capture ordering rule](david-task-capture.md) — David→Luca order requires staging: write task_ref to .task_ref_pending (or POST /api/internal/task-capture-start) BEFORE markTaskComplete; both turns append together in one drain batch. Aug 14 2026.
 - [Dev/prod isolation — working model](dev-prod-isolation.md) — David uses the deployed production URL for live sessions; dev restarts never affect him; edit dev freely without pausing for live-session concerns.
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
@@ -157,3 +156,4 @@
 - [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
 - [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
+- [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.

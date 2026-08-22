@@ -11,20 +11,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # v5 actions run on Node 24 internally. The application itself remains
+      # on Node 20 below, so the action-runtime deprecation warning is handled
+      # independently from application test failures.
+      - uses: actions/checkout@v5
 
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "npm"
 
+      - name: Normalize Replit lockfile URLs for GitHub
+        # Replit records some package tarballs through its internal npm proxy.
+        # Their integrity hashes are the public npm tarballs' hashes, but the
+        # proxy hostname is not resolvable from a GitHub-hosted runner.
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+
+          const lockfile = 'package-lock.json';
+          const replitRegistry = 'http://package-firewall.replit.local/npm/';
+          const publicRegistry = 'https://registry.npmjs.org/';
+          const original = readFileSync(lockfile, 'utf8');
+          const normalized = original.replaceAll(replitRegistry, publicRegistry);
+          const replacements = original === normalized
+            ? 0
+            : original.split(replitRegistry).length - 1;
+
+          if (replacements > 0) {
+            writeFileSync(lockfile, normalized);
+          }
+          console.log(`[ci] normalized ${replacements} Replit npm proxy URL(s) for GitHub`);
+          NODE
+
       - name: Install dependencies
-        run: npm ci
+        # `tsx` is a development dependency, and the tests must use this
+        # checked-in toolchain instead of letting npx download an unrelated
+        # temporary version.
+        run: npm ci --include=dev
+
+      - name: Verify local test runtime dependencies
+        run: |
+          test -x node_modules/.bin/tsx
+          node --input-type=module -e "
+            const { eq } = await import('drizzle-orm');
+            if (typeof eq !== 'function') throw new Error('drizzle-orm did not expose eq');
+            console.log('[ci] drizzle-orm resolves from the application import path');
+          "
 
       - name: Run tests
-        # npm test runs npx tsx --test with an explicit file list that includes
-        # client/src/components/floating-voice-widget-state.test.ts
-        # (26 cases: computeWidgetLabel, computeWidgetClasses, deriveVoiceStatus).
-        # Confirmed passing: 26/26 on 2026-07-31.
-        run: npm test
+        # This executes the same command chain as `npm test`, but emits one
+        # concise start/pass/fail line per command. A later independent failure
+        # therefore names its exact command instead of only npm's exit code.
+        run: npm run test:ci
