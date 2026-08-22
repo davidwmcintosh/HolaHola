@@ -377,6 +377,7 @@ group_body_workflow_safety() {
   run test-gl-game-session-detector.ts
   npx tsx server/scripts/test-gl-game-session-detector.ts --self-check
   npx tsx server/scripts/test-raw-window-capture.ts --self-check
+  run test-prod-auth-bypass-guard.ts
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────
