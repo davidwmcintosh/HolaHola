@@ -4561,3 +4561,17 @@ Recovery is intentionally a separate namespace in a fresh or isolated clone.
 It never resets, merges into, force-pushes, or overwrites GitHub `main`; any
 future release must be a newly reviewed branch or commit derived from the
 recovered evidence.
+
+---
+
+## Dedicated source-sync workflow consolidation — August 22, 2026
+
+The source bridge now has its own named console workflow rather than running as
+a child process of `Project`, so it can be independently started, observed, and
+stopped without touching the application server. The configured workflow list
+is below Replit's supported limit.
+
+No validation was removed: redundant named validation entries are covered by
+the existing consolidated CI groups, and the remaining standalone safeguards
+now run in its `workflow-safety` group. `docs/agent-workflows.md` records the
+direct commands for focused manual use as well as the group command.

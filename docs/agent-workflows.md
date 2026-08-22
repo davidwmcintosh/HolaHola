@@ -19,6 +19,61 @@ lock and writes its observable state to `.local/source-bridge-status.{json,md}`.
 Run focused safety coverage with `npm run test:source-bridge` and
 `npm run test:github-release-safety`.
 
+## Registered workflow consolidation
+
+With owner approval, the configured workflow set is intentionally kept below
+Replit's ten-workflow limit. `source-bridge` is a dedicated console workflow
+(`bash scripts/source-bridge.sh watch`), separate from the app server and from
+the `Project` parallel workflow. Start or stop it independently; it shares its
+lock with the post-merge bridge pass.
+
+The `consolidated-ci` validation workflow is the single automatic home for the
+retired named validation records. Its `workflow-safety` group retains the
+checks that were not already covered by another consolidated group:
+
+```bash
+npx tsx server/scripts/test-replit-attribution-discipline.ts
+npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
+npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
+npx tsx server/scripts/test-capture-status-ordering.ts
+npx tsx server/scripts/test-capture-status-stale-escalation.ts
+npx tsx server/scripts/test-inner-life-no-episode-row.ts
+npx tsx server/scripts/test-gl-reconnected-client-recovery.ts
+npx tsx server/scripts/test-gl-game-session-detector.ts
+npx tsx server/scripts/test-gl-game-session-detector.ts --self-check
+```
+
+All other retired named checks already run in a documented `consolidated-ci`
+group. Their direct manual commands remain:
+
+```bash
+npx tsx server/scripts/test-luca-auto-capture-episode.ts && npx tsx server/scripts/test-luca-auto-capture-episode.ts --self-check
+npx tsx server/scripts/test-prior-session-label-clears.ts
+npx tsx server/scripts/test-rolling-episode-gap-check.ts
+npx tsx server/scripts/test-rolling-episode-gap-check.ts --self-check
+npx tsx server/scripts/test-rolling-episode-gap-check.ts --rolling-tag-self-check
+npx tsx server/scripts/test-capture-status-db-only.ts
+npx tsx server/scripts/test-snapshot-write-guard.ts
+npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts
+npx tsx server/scripts/test-build-session-dedup.ts && npx tsx server/scripts/test-build-session-dedup.ts --self-check
+npx tsx server/scripts/test-retrieve-episode-dialogue-no-match.ts && npx tsx server/scripts/test-retrieve-episode-dialogue-no-match-by-id.ts
+npx tsx server/scripts/test-semantic-arm-timeout.ts
+npx tsx server/scripts/record-exchange.ts --self-check-4ch
+npx tsx server/scripts/test-watchdog-inner-life.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts --self-check
+npx tsx server/scripts/test-raw-window-capture.ts --self-check
+```
+
+Run a preserved group when focused diagnosis is needed:
+
+```bash
+bash server/scripts/test-all-consolidated-ci.sh --only=workflow-safety
+```
+
+`test-rolling-episode-gap-check.ts` remains a direct console diagnostic rather
+than part of the always-run gate: it reports real archive gaps for repair and
+must not be hidden or treated as a passing fixture. Its mutation self-checks
+continue to run in the `episode-sync` group.
+
 ---
 
 # HolaHola — Agent Workflows
