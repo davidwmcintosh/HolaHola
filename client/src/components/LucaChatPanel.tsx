@@ -32,7 +32,8 @@ export function LucaChatPanel({ isOpen, onToggle, sessionId }: LucaChatPanelProp
   const [inputText, setInputText] = useState("");
   // Optimistic messages appended before server confirms
   const [optimistic, setOptimistic] = useState<ChatMessage[]>([]);
-  const [relaySent, setRelaySent] = useState<Set<string>>(new Set());
+  // Maps message key → true (reached live session) | false (queued, no active session)
+  const [relayStatus, setRelayStatus] = useState<Map<string, boolean>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
@@ -88,14 +89,14 @@ export function LucaChatPanel({ isOpen, onToggle, sessionId }: LucaChatPanelProp
 
   const relayToDaniela = useMutation({
     mutationFn: async ({ content, key }: { content: string; key: string }) => {
-      await apiRequest("POST", "/api/admin/luca/relay-to-daniela", {
+      const data = await apiRequest("POST", "/api/admin/luca/relay-to-daniela", {
         message: content,
         sessionId: sessionId ?? null,
-      });
-      return key;
+      }) as unknown as { queued: boolean; injected: boolean };
+      return { key, injected: data.injected ?? false };
     },
-    onSuccess: (key) => {
-      setRelaySent(prev => new Set([...prev, key]));
+    onSuccess: ({ key, injected }) => {
+      setRelayStatus(prev => new Map([...prev, [key, injected]]));
     },
   });
 
@@ -189,30 +190,34 @@ export function LucaChatPanel({ isOpen, onToggle, sessionId }: LucaChatPanelProp
                   </div>
 
                   {/* Relay button — only on Luca's messages */}
-                  {!isDavid && (
-                    <button
-                      onClick={() =>
-                        relayToDaniela.mutate({ content: msg.content, key })
-                      }
-                      disabled={
-                        relaySent.has(key) || relayToDaniela.isPending
-                      }
-                      className={`flex items-center gap-1 text-[10px] px-1 transition-colors ${
-                        relaySent.has(key)
-                          ? "text-green-600 cursor-default"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {relaySent.has(key) ? (
-                        "sent to Daniela ✓"
-                      ) : (
-                        <>
-                          <ArrowRight className="h-2.5 w-2.5" />
-                          send to Daniela
-                        </>
-                      )}
-                    </button>
-                  )}
+                  {!isDavid && (() => {
+                    const sent = relayStatus.has(key);
+                    const injected = relayStatus.get(key);
+                    return (
+                      <button
+                        onClick={() =>
+                          relayToDaniela.mutate({ content: msg.content, key })
+                        }
+                        disabled={sent || relayToDaniela.isPending}
+                        className={`flex items-center gap-1 text-[10px] px-1 transition-colors ${
+                          sent
+                            ? injected
+                              ? "text-green-600 cursor-default"
+                              : "text-amber-500 cursor-default"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {sent ? (
+                          injected ? "✓ reached live session" : "⏳ queued (no live session)"
+                        ) : (
+                          <>
+                            <ArrowRight className="h-2.5 w-2.5" />
+                            send to Daniela
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
               );
             })}

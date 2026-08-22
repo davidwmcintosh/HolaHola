@@ -40,7 +40,7 @@ import {
   ClientTelemetryEvent,
 } from '@shared/streaming-voice-types';
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
-import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL } from './services/gemini-live-session';
+import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL, registerGlSession, unregisterGlSession } from './services/gemini-live-session';
 import { costTracker } from './services/cost-tracker';
 import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS, getDanielajGLFunctionDeclarationsForLanguage, GL_DISPATCHER_SYSTEM_PROMPT } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
@@ -3353,6 +3353,9 @@ ${lastNote.tutorNotes}`);
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+                // Register in the global GL session registry so the relay endpoint can
+                // inject messages into the live session without going through the WS closure.
+                if (conversationId) registerGlSession(conversationId, geminiLiveSession);
                 // Interruption Buffer: capture the in-flight GOAP intent on barge-in so
                 // selectStyleShaper can reference it next turn via session.interruptedIntent.
                 geminiLiveSession.onBargeIn = () => {
@@ -3537,6 +3540,7 @@ ${lastNote.tutorNotes}`);
                 }, GL_METRICS_SYNC_INTERVAL_MS);
               } catch (glErr: any) {
                 console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);
+                if (conversationId && geminiLiveSession) unregisterGlSession(conversationId, geminiLiveSession);
                 geminiLiveSession = null;
                 // Fall through — session still works via legacy pipeline
               }
@@ -4843,6 +4847,7 @@ ${lastNote.tutorNotes}`);
             console.log(`[GeminiLive] ${changeReason}, reconnecting…`);
             try {
               geminiLiveSession.stop();
+              if (conversationId) unregisterGlSession(conversationId, geminiLiveSession);
               geminiLiveSession = null;
 
               const glSendMessage = (targetWs: any, msg: any) => {
@@ -4854,6 +4859,8 @@ ${lastNote.tutorNotes}`);
                 } catch (_) {}
               };
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+              // Register reconnected session in the relay registry.
+              if (conversationId) registerGlSession(conversationId, geminiLiveSession);
               // Interruption Buffer (reconnect path — same wiring as initial session)
               geminiLiveSession.onBargeIn = () => {
                 if (session) {
@@ -4877,6 +4884,7 @@ ${lastNote.tutorNotes}`);
               }
             } catch (reconnErr: any) {
               console.error('[GeminiLive] Voice reconnect failed:', reconnErr.message);
+              if (conversationId && geminiLiveSession) unregisterGlSession(conversationId, geminiLiveSession);
               geminiLiveSession = null;
             }
           }
@@ -5110,6 +5118,7 @@ ${lastNote.tutorNotes}`);
         (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
       }
       geminiLiveSession.stop();
+      if (conversationId) unregisterGlSession(conversationId, geminiLiveSession);
       geminiLiveSession = null;
       // Clean up persisted resumption handle — session ended cleanly
       if (conversationId) clearPersistedHandle(conversationId);
@@ -5409,6 +5418,7 @@ ${lastNote.tutorNotes}`);
         }
       }
       geminiLiveSession.stop();
+      if (conversationId) unregisterGlSession(conversationId, geminiLiveSession);
       geminiLiveSession = null;
       // Clean up persisted resumption handle — session ended (error path)
       if (conversationId) clearPersistedHandle(conversationId);

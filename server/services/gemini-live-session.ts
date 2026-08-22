@@ -2179,8 +2179,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     }, 5000);
   }
 
-  sendTextTurn(text: string, opts?: { label?: string; isStudentInput?: boolean }): void {
-    if (!this.liveSession || this.isStopped) return;
+  sendTextTurn(text: string, opts?: { label?: string; isStudentInput?: boolean }): boolean {
+    if (!this.liveSession || this.isStopped) return false;
     // System Whisper (Gemini audit 2026-06-17 + review correction):
     // DO NOT prepend to student speech — Gemini review flagged this as a "read-aloud" failure risk
     // (GL may speak the reminder aloud if thinking phase is bypassed or prompt is misread).
@@ -2211,6 +2211,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.hasStudentInputSinceLastResponse = true;
       }
       console.log(`[GeminiLive] Text turn sent (${label}, ${text.length} chars): "${text.slice(0, 80)}"`);
+      return true;
     } catch (err) {
       this._recordContextLineage({
         sourceRoute: 'gemini-live',
@@ -2221,7 +2222,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         payloadJson: { purpose: label, error: err instanceof Error ? err.message : String(err) },
       });
       console.warn('[GeminiLive] Failed to send text turn:', err);
+      return false;
     }
+  }
+
+  /**
+   * Inject a relay message from another agent (e.g. Luca) into the live GL
+   * session. Delivered as a [SYSTEM — not spoken: from: message] user turn so
+   * GL receives the context without speaking it verbatim. Uses the same channel
+   * as the Archive Guardian injection path. Returns true only when sendClientContent
+   * succeeds — propagates the actual send result rather than the precheck.
+   */
+  injectAgentRelay(from: string, message: string): boolean {
+    if (!this.liveSession || this.isStopped) return false;
+    const text = `[SYSTEM — not spoken: ${from}: ${message}]`;
+    return this.sendTextTurn(text, { label: 'agent-relay' });
   }
 
   /**
@@ -6170,4 +6185,45 @@ export function releasePriorTurnGroundingCorrection(
     prior.binding,
     prior.groundingResult,
   );
+}
+
+// ── Active GL session registry ──────────────────────────────────────────────
+// Maps conversationId → active GeminiLiveSession so external routes (e.g. the
+// Luca relay endpoint) can reach a live session without going through the WS
+// closure. Registered by unified-ws-handler after createGeminiLiveSession;
+// unregistered on every path that sets geminiLiveSession = null.
+const _activeGlSessions = new Map<string, GeminiLiveSession>();
+
+export function registerGlSession(conversationId: string, session: GeminiLiveSession): void {
+  _activeGlSessions.set(conversationId, session);
+  console.log(`[GLRegistry] Registered GL session for conversation ${conversationId.substring(0, 8)}`);
+}
+
+/**
+ * Remove a GL session from the registry, but only when the stored entry is the
+ * same instance as the one being torn down. This prevents a stale cleanup call
+ * from deleting a newer replacement session for the same conversationId (which
+ * can happen when voice-override reconnects register a new session before the
+ * old connection's teardown path fires).
+ */
+export function unregisterGlSession(conversationId: string, session: GeminiLiveSession): void {
+  if (_activeGlSessions.get(conversationId) === session) {
+    _activeGlSessions.delete(conversationId);
+    console.log(`[GLRegistry] Unregistered GL session for conversation ${conversationId.substring(0, 8)}`);
+  } else {
+    console.log(`[GLRegistry] Skipped unregister for ${conversationId.substring(0, 8)} — newer session already registered`);
+  }
+}
+
+/** Return the active GL session for a specific conversationId, or null if not found. */
+export function getActiveGlSessionByConversation(conversationId: string): GeminiLiveSession | null {
+  return _activeGlSessions.get(conversationId) ?? null;
+}
+
+/** Return any active GL session (most recently registered), or null if none. */
+export function getAnyActiveGlSession(): GeminiLiveSession | null {
+  // Map iteration order is insertion order; return the last registered session.
+  let last: GeminiLiveSession | null = null;
+  for (const s of _activeGlSessions.values()) { last = s; }
+  return last;
 }

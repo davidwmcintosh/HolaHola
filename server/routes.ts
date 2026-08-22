@@ -27965,18 +27965,38 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { message, sessionId } = req.body as { message: string; sessionId?: string | null };
       if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
 
-      // Save as a relay note — queued for delivery into the active Daniela GL session.
-      // The agent_notes record is the durable record; GL session injection is wired separately.
+      const trimmed = message.trim();
+
+      // 1. Attempt live injection into the active GL session.
+      // When a sessionId is supplied, require an exact conversation match — never fall back to
+      // an arbitrary active session, which could deliver private content to the wrong student.
+      // When no sessionId is given, fall back to the most recently registered session (admin-only
+      // relay with no specific target, e.g. Luca knowing there is only one live session).
+      const { getActiveGlSessionByConversation, getAnyActiveGlSession } = await import('./services/gemini-live-session');
+      const glSession = sessionId
+        ? getActiveGlSessionByConversation(sessionId)
+        : getAnyActiveGlSession();
+
+      let injected = false;
+      if (glSession) {
+        injected = glSession.injectAgentRelay('Luca', trimmed);
+        if (injected) {
+          console.log(`[Luca Relay] Injected into live GL session (${trimmed.length} chars): "${trimmed.slice(0, 80)}"`);
+        }
+      }
+
+      // 2. Always save the durable agent_notes record.
+      //    When injected=false (no active session), this note is queued for session-start delivery.
       const { agentNotes } = await import('@shared/schema');
       await getUserDb().insert(agentNotes).values({
         fromAgent: 'luca',
         toAgent: 'daniela',
-        subject: `[RELAY] ${message.trim().slice(0, 200)}`,
-        body: message.trim(),
+        subject: `[RELAY] ${trimmed.slice(0, 200)}`,
+        body: trimmed,
         ...(sessionId ? { sessionLabel: `Session: ${sessionId}` } : {}),
       } as any);
 
-      res.json({ queued: true });
+      res.json({ queued: true, injected });
     } catch (error: any) {
       console.error('[Luca Chat] relay error:', error);
       res.status(500).json({ error: error.message });
