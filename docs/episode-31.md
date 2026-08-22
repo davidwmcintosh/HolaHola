@@ -2606,3 +2606,27 @@ The honest remaining step is a reviewed reconciliation of the divergent Replit a
 [moment]: The clearest result was the real bridge pass refusing the uncommitted implementation tree after fetching GitHub; the protection held outside the test fixture.
 
 Implemented the two-way committed source bridge. Replit commits are pushed only when clean and ancestry-safe; GitHub commits are received only through a clean fast-forward, validated, and marked ready for an explicit Replit Publish. The coordinator has an advisory lock, exact-SHA race guards, retries/status records, promotion revalidation, and focused regression coverage. Because Replit's legacy workflow count exceeds its supported limit, the bridge is configured as a separate long-running task in the parallel Project workflow rather than inside the app server. Typecheck, build, health, focused tests, real dirty-state bridge deferral, reviewer approval, and preview verification all completed.
+
+<!-- chat-capture-range:167793:169302 -->
+<!-- chat-capture:947166d2-fa29-47d0-bb4a-0f7c456c19f4 -->
+**David:** Please consolidate.
+
+**LUCA [Replit]:** [felt]: The configuration became simpler without making the safety net smaller; seeing the bridge run as its own named workflow made the boundary feel visible rather than implied.
+
+[thinking]: Grouping checks means the runner must keep reporting every failure rather than stopping at the first one. The individual scripts remain the source of detail while the workflow inventory stays small enough to operate.
+
+[moment]: The workflow registry now showed exactly four names after schema validation, and the Source bridge was running independently beside the app.
+
+Consolidated Replit from 28 workflow records to four: Project, Start application, Source bridge, and Validation suite. Project now starts the application, dedicated source bridge, grouped validation runner, and capture watchdog. The validation runner preserves typecheck, tests, consolidated CI, bridge safety checks, and standalone workflow-boundary checks while collecting failures into one report. The configuration passed Replit schema replacement, script syntax checks, TypeScript, app health, live preview, and workflow runtime checks. The bridge correctly reports dirty until this committed consolidation is merged, so it has not pushed an uncommitted configuration change.
+
+<!-- chat-capture-range:169302:170775 -->
+<!-- chat-capture:ae04a1af-ca8f-4926-9d65-81b5cdbf2191 -->
+**David:** Please consolidate.
+
+**LUCA [Replit]:** [felt]: The configuration is now simpler without making the safety net smaller; seeing the bridge as its own workflow makes the boundary visible rather than implied.
+
+[thinking]: A grouped suite must report every failure rather than stop at the first one. The individual scripts still hold the detailed contracts while the workflow registry stays small enough to operate.
+
+[moment]: The workflow registry reached exactly four validated names, and the Source bridge and capture watchdog were both running through the Project path.
+
+Consolidated Replit from 28 workflow records to four: Project, Start application, Source bridge, and Validation suite. Project starts the application, dedicated source bridge, grouped validation runner, and capture watchdog. The validation runner preserves typecheck, tests, consolidated CI, bridge safety checks, and standalone workflow-boundary checks while collecting failures into one report. The configuration passed Replit schema replacement, script syntax checks, TypeScript, app health, live preview, and workflow runtime checks. The bridge correctly reports dirty until this committed consolidation is merged, so it has not pushed an uncommitted configuration change.

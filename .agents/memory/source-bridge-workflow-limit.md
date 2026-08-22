@@ -1,17 +1,19 @@
 ---
-name: Source bridge workflow limit
-description: Why the source bridge is a separate Project task rather than a named Replit workflow.
+name: Source bridge workflow consolidation
+description: Why validation checks are grouped and Source bridge remains a dedicated named workflow.
 ---
 
-The workspace has more legacy workflow records than Replit's current configured
-workflow limit permits. Adding a new named workflow is rejected even after one
-legacy record is removed.
+Replit supports at most ten configured workflows. The legacy setup created one
+workflow record per validation command, which prevented the source bridge from
+having a dedicated workflow.
 
-**Why:** Source synchronization must run separately from the application server,
-but removing a broad set of existing validation workflows just to free a slot
-would disable safety checks without an explicit consolidation decision.
+**Why:** Source synchronization needs independent lifecycle visibility, while
+the validation commands must remain available. Grouping them behind one
+fail-collecting validation runner preserves the checks without using a workflow
+slot for each command.
 
-**How to apply:** Keep the source bridge as its own long-running `shell.exec`
-task in the parallel `Project` workflow. If the legacy records are later
-consolidated below the platform limit, it can be promoted to a named workflow
-without changing the bridge script or its lock/status contract.
+**How to apply:** Keep exactly four named workflows: Project, Start application,
+Source bridge, and Validation suite. Project may start the capture watchdog as a
+direct child task. Add new validation commands to the grouped runner rather than
+creating another named workflow, unless the command truly needs its own
+independent long-running lifecycle.

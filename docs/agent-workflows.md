@@ -19,6 +19,26 @@ lock and writes its observable state to `.local/source-bridge-status.{json,md}`.
 Run focused safety coverage with `npm run test:source-bridge` and
 `npm run test:github-release-safety`.
 
+## Replit workflow layout
+
+The Replit configuration intentionally contains four workflow records:
+
+- **Project** is the run-button entry point. It starts the application, Source
+  bridge, Validation suite, and capture watchdog in parallel.
+- **Start application** owns the web server and the rolling-episode startup
+  safeguards.
+- **Source bridge** is a dedicated console workflow running
+  `bash scripts/source-bridge.sh watch`. It is independently visible and
+  restartable, and it never publishes production.
+- **Validation suite** runs `server/scripts/run-validation-suite.sh`. That
+  runner preserves the typecheck, application tests, consolidated CI, bridge
+  safety checks, and workflow-boundary checks without consuming a workflow slot
+  for each command.
+
+Individual checks remain runnable directly from the shell. The suite continues
+after a failing check and returns a combined failure summary, so a single run
+reports the full health picture.
+
 ---
 
 # HolaHola — Agent Workflows
