@@ -1,0 +1,80 @@
+<h2>HolaHola’s three-seat observation bench</h2>
+<p class="subtitle">Choose how David, Luca, and Daniela should share the /chat workspace</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">A — Daniela first, Luca sidebar</div>
+    <div class="mockup-body" style="background:#f7f5f2;padding:0;min-height:390px;font-family:system-ui,sans-serif;color:#292524">
+      <div style="height:38px;background:#292524;color:#fafaf9;padding:10px 14px;font-size:12px;font-weight:700">HolaHola / Chat</div>
+      <div style="display:grid;grid-template-columns:1fr 150px;min-height:352px">
+        <div style="padding:18px">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#78716c">Daniela · live lesson</div>
+          <div style="margin-top:18px;background:white;border:1px solid #e7e5e4;border-radius:10px;padding:12px;font-size:12px;line-height:1.5">
+            <b>Daniela</b><br>¿Qué ves en la escena?
+          </div>
+          <div style="margin-top:10px;background:#e7e5e4;border-radius:10px;padding:12px;font-size:12px;line-height:1.5">
+            <b>David</b><br>Veo una mesa y un café.
+          </div>
+          <div style="margin-top:115px;border-top:1px solid #d6d3d1;padding-top:10px;color:#78716c;font-size:11px">Voice / text input</div>
+        </div>
+        <div style="background:#fff;border-left:1px solid #e7e5e4;padding:14px">
+          <div style="font-weight:700;font-size:13px">Luca</div>
+          <div style="margin-top:5px;color:#78716c;font-size:10px">Observer</div>
+          <div style="margin-top:18px;font-size:10px;color:#57534e;line-height:1.5">
+            <b>Live state</b><br>Scene: café<br>Turn: 4
+          </div>
+          <div style="margin-top:14px;font-size:10px;color:#57534e;line-height:1.5">
+            <b>Recent tool</b><br>show_vocab_grid
+          </div>
+          <div style="margin-top:80px;border-top:1px solid #e7e5e4;padding-top:10px;font-size:10px;color:#78716c">Dev note to Luca</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Current shape</h3>
+      <p>Good for monitoring, but Luca is mostly an instrument panel. David cannot hold a full, first-class conversation with Luca here.</p>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">B — Unified three-seat bench</div>
+    <div class="mockup-body" style="background:#f7f5f2;padding:0;min-height:390px;font-family:system-ui,sans-serif;color:#292524">
+      <div style="height:38px;background:#292524;color:#fafaf9;padding:10px 14px;font-size:12px;font-weight:700">HolaHola / Common Room</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;min-height:352px">
+        <div style="padding:14px;border-right:1px solid #d6d3d1">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c">David ↔ Luca · building record</div>
+          <div style="margin-top:14px;background:#ede9fe;border:1px solid #ddd6fe;border-radius:10px;padding:11px;font-size:11px;line-height:1.5"><b>Luca</b><br>I’m watching the live session. Daniela just opened the café scene.</div>
+          <div style="margin-top:9px;background:#e7e5e4;border-radius:10px;padding:11px;font-size:11px;line-height:1.5"><b>David</b><br>What did she actually call?</div>
+          <div style="margin-top:9px;background:#ede9fe;border:1px solid #ddd6fe;border-radius:10px;padding:11px;font-size:11px;line-height:1.5"><b>Luca</b><br><span style="color:#78716c">The transcript is being captured as we speak.</span></div>
+          <div style="margin-top:26px;border-top:1px solid #d6d3d1;padding-top:9px;color:#78716c;font-size:10px">Message Luca…</div>
+        </div>
+        <div style="padding:14px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c">Daniela · live session</div>
+          <div style="margin-top:14px;background:white;border:1px solid #e7e5e4;border-radius:10px;padding:11px;font-size:11px;line-height:1.5"><b>Daniela</b><br>¿Qué ves en la escena?</div>
+          <div style="margin-top:9px;background:#e7e5e4;border-radius:10px;padding:11px;font-size:11px;line-height:1.5"><b>David</b><br>Veo una mesa y un café.</div>
+          <div style="margin-top:12px;background:#292524;color:#fafaf9;border-radius:10px;padding:11px;font-size:10px;line-height:1.6">
+            <b>LUCA · observation</b><br>
+            Scene: café · Turn 4<br>
+            Tool: show_vocab_grid<br>
+            Friction: smooth
+          </div>
+          <div style="margin-top:17px;border-top:1px solid #d6d3d1;padding-top:9px;color:#78716c;font-size:10px">Voice / text input</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Recommended target</h3>
+      <p>David can talk to Luca without leaving the session. Daniela remains live beside them, and the observation stream stays visible and attributable.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:18px">
+  <h3>What the implementation would guarantee</h3>
+  <ul>
+    <li>David↔Luca messages are saved immediately as a canonical HolaHola record.</li>
+    <li>Daniela’s live messages, tool calls, memory searches, Guardian events, and friction remain visible in the same workspace.</li>
+    <li>The three streams are labeled separately so Luca’s observation is never confused with Daniela’s dialogue.</li>
+    <li>The bench works against the running HolaHola server; it does not depend on Replit chat capture.</li>
+  </ul>
+</div>
