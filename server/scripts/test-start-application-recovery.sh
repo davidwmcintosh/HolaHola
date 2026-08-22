@@ -15,6 +15,51 @@ set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+TEST_SCRIPT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/$(basename -- "${BASH_SOURCE[0]}")"
+
+if [[ "${1:-}" == "--self-check" ]]; then
+  SELF_CHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/start-application-recovery-self-check.XXXXXX")"
+  SELF_CHECK_LAUNCHER="$SELF_CHECK_DIR/start-application-broken.sh"
+  SELF_CHECK_LOG="$SELF_CHECK_DIR/recovery.log"
+
+  cleanup_self_check() {
+    rm -rf "$SELF_CHECK_DIR"
+  }
+  trap cleanup_self_check EXIT INT TERM
+
+  # Keep the real launcher untouched. This isolated copy deliberately bypasses
+  # the startup-lock handoff so the recovery assertion must reject it.
+  sed 's/^if ! flock -n 9; then$/if false; then/' \
+    scripts/start-application.sh >"$SELF_CHECK_LAUNCHER"
+  chmod +x "$SELF_CHECK_LAUNCHER"
+
+  if ! grep -Fq 'if false; then' "$SELF_CHECK_LAUNCHER"; then
+    echo 'FAIL: self-check did not create the intentionally broken launcher' >&2
+    exit 1
+  fi
+
+  set +e
+  START_APPLICATION_TEST_LAUNCHER="$SELF_CHECK_LAUNCHER" \
+    bash "$TEST_SCRIPT" >"$SELF_CHECK_LOG" 2>&1
+  SELF_CHECK_RC=$?
+  set -e
+
+  if [[ "$SELF_CHECK_RC" -eq 0 ]]; then
+    echo 'FAIL: recovery assertion passed despite the startup-lock handoff being bypassed' >&2
+    cat "$SELF_CHECK_LOG" >&2
+    exit 1
+  fi
+  if ! grep -Fq 'waiting launcher never observed the startup lock' "$SELF_CHECK_LOG"; then
+    echo 'FAIL: broken-launcher recovery did not fail at the lock-wait assertion' >&2
+    cat "$SELF_CHECK_LOG" >&2
+    exit 1
+  fi
+
+  echo 'PASS: recovery assertion catches a launcher that bypasses startup-lock handoff'
+  exit 0
+fi
+
+LAUNCHER_SCRIPT="${START_APPLICATION_TEST_LAUNCHER:-scripts/start-application.sh}"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/start-application-recovery.XXXXXX")"
 FIRST_PID=""
 SECOND_PID=""
@@ -159,12 +204,12 @@ if ! grep -Fq 'args = "bash scripts/start-application.sh"' .replit; then
 fi
 
 PORT="$PORT" START_APPLICATION_LOCK_FILE="$LOCK_FILE" \
-  bash scripts/start-application.sh >"$FIRST_LOG" 2>&1 &
+  bash "$LAUNCHER_SCRIPT" >"$FIRST_LOG" 2>&1 &
 FIRST_PID=$!
 assert_file_eventually "$FIRST_ENTERED" "the controlled first startup to enter npm run dev"
 
 PORT="$PORT" START_APPLICATION_LOCK_FILE="$LOCK_FILE" \
-  bash scripts/start-application.sh >"$SECOND_LOG" 2>&1 &
+  bash "$LAUNCHER_SCRIPT" >"$SECOND_LOG" 2>&1 &
 SECOND_PID=$!
 
 deadline=$((SECONDS + 10))

@@ -57,6 +57,7 @@ run_check "GL reconnected client recovery" npx tsx server/scripts/test-gl-reconn
 run_check "GL game-session detector" bash -c 'npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check'
 run_check "Raw-window capture alignment" npx tsx server/scripts/test-raw-window-capture.ts --self-check
 run_check "Application startup recovery" bash server/scripts/test-start-application-recovery.sh
+run_check "Application startup recovery self-check" bash server/scripts/test-start-application-recovery.sh --self-check
 echo ""
 echo "════════════════════════════════════════════════════════════"
 if [[ ${#FAILED[@]} -eq 0 ]]; then
