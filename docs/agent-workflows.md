@@ -24,13 +24,14 @@ Run focused safety coverage with `npm run test:source-bridge` and
 
 With owner approval, the configured workflow set is intentionally kept below
 Replit's ten-workflow limit. `source-bridge` is a dedicated console workflow
-(`bash scripts/source-bridge.sh watch`), separate from the app server and from
-the `Project` parallel workflow. Start or stop it independently; it shares its
-lock with the post-merge bridge pass.
+(`bash scripts/source-bridge.sh watch`), separate from the app server and
+independently visible/restartable even when `Project` starts it as a named
+child. It shares its lock with the post-merge bridge pass.
 
-The `consolidated-ci` validation workflow is the single automatic home for the
-retired named validation records. Its `workflow-safety` group retains the
-checks that were not already covered by another consolidated group:
+The `Validation suite` workflow runs the fast project, application-test, and
+bridge-transport checks. The separate `Consolidated CI` workflow is the
+automatic home for the retired named validation records and its
+`workflow-safety` group retains checks not already covered by another group:
 
 ```bash
 npx tsx server/scripts/test-replit-attribution-discipline.ts
@@ -44,8 +45,8 @@ npx tsx server/scripts/test-gl-game-session-detector.ts
 npx tsx server/scripts/test-gl-game-session-detector.ts --self-check
 ```
 
-All other retired named checks already run in a documented `consolidated-ci`
-group. Their direct manual commands remain:
+All other retired named checks already run in the documented
+`Consolidated CI` group. Their direct manual commands remain:
 
 ```bash
 npx tsx server/scripts/test-luca-auto-capture-episode.ts && npx tsx server/scripts/test-luca-auto-capture-episode.ts --self-check
@@ -79,10 +80,10 @@ continue to run in the `episode-sync` group.
 
 ## Replit workflow layout
 
-The Replit configuration intentionally contains four workflow records:
+The Replit configuration intentionally contains five workflow records:
 
 - **Project** is the run-button entry point. It starts the application, Source
-  bridge, Validation suite, and capture watchdog in parallel.
+  bridge, Validation suite, Consolidated CI, and capture watchdog in parallel.
 - **Start application** owns the web server and the rolling-episode startup
   safeguards. Its launcher takes `.local/start-application.lock` before
   starting `npm run dev` and reuses an already-listening port, so starting
@@ -97,9 +98,12 @@ The Replit configuration intentionally contains four workflow records:
   invocation reports lock contention as `retrying` and performs no Git work;
   the existing bridge remains the sole owner of synchronization.
 - **Validation suite** runs `server/scripts/run-validation-suite.sh`. That
-  runner preserves the typecheck, application tests, consolidated CI, bridge
-  safety checks, and workflow-boundary checks without consuming a workflow slot
-  for each command.
+  runner preserves the typecheck, application tests, and bridge transport
+  safety checks without consuming a workflow slot for each command.
+- **Consolidated CI** runs `server/scripts/test-all-consolidated-ci.sh`,
+  including the retired named-validation safeguards. It is separate because
+  the full check set cannot safely share one serial validation timeout with
+  the application test suite.
 
 Individual checks remain runnable directly from the shell. The suite continues
 after a failing check and returns a combined failure summary, so a single run
