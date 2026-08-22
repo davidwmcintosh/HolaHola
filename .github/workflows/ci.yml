@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: ["**"]
 
+# The three test jobs are intentionally independent so a late failure in one
+# group does not wait for the other groups to finish. The `test` job below is
+# the single aggregate status to keep required branch protection unchanged.
 jobs:
-  test:
+  test-unit:
+    name: Unit tests
     runs-on: ubuntu-latest
 
     steps:
@@ -60,8 +64,129 @@ jobs:
             console.log('[ci] drizzle-orm resolves from the application import path');
           "
 
-      - name: Run tests
-        # This executes the same command chain as `npm test`, but emits one
-        # concise start/pass/fail line per command. A later independent failure
-        # therefore names its exact command instead of only npm's exit code.
-        run: npm run test:ci
+      - name: Run unit tests
+        run: npm run test:ci:unit
+
+  test-guards:
+    name: Guard checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Normalize Replit lockfile URLs for GitHub
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+
+          const lockfile = 'package-lock.json';
+          const replitRegistry = 'http://package-firewall.replit.local/npm/';
+          const publicRegistry = 'https://registry.npmjs.org/';
+          const original = readFileSync(lockfile, 'utf8');
+          const normalized = original.replaceAll(replitRegistry, publicRegistry);
+          const replacements = original === normalized
+            ? 0
+            : original.split(replitRegistry).length - 1;
+
+          if (replacements > 0) {
+            writeFileSync(lockfile, normalized);
+          }
+          console.log(`[ci] normalized ${replacements} Replit npm proxy URL(s) for GitHub`);
+          NODE
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Verify local test runtime dependencies
+        run: |
+          test -x node_modules/.bin/tsx
+          node --input-type=module -e "
+            const { eq } = await import('drizzle-orm');
+            if (typeof eq !== 'function') throw new Error('drizzle-orm did not expose eq');
+            console.log('[ci] drizzle-orm resolves from the application import path');
+          "
+
+      - name: Run guard checks
+        run: npm run test:ci:guards
+
+  test-episodes:
+    name: Episode and North Star checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Normalize Replit lockfile URLs for GitHub
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+
+          const lockfile = 'package-lock.json';
+          const replitRegistry = 'http://package-firewall.replit.local/npm/';
+          const publicRegistry = 'https://registry.npmjs.org/';
+          const original = readFileSync(lockfile, 'utf8');
+          const normalized = original.replaceAll(replitRegistry, publicRegistry);
+          const replacements = original === normalized
+            ? 0
+            : original.split(replitRegistry).length - 1;
+
+          if (replacements > 0) {
+            writeFileSync(lockfile, normalized);
+          }
+          console.log(`[ci] normalized ${replacements} Replit npm proxy URL(s) for GitHub`);
+          NODE
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Verify local test runtime dependencies
+        run: |
+          test -x node_modules/.bin/tsx
+          node --input-type=module -e "
+            const { eq } = await import('drizzle-orm');
+            if (typeof eq !== 'function') throw new Error('drizzle-orm did not expose eq');
+            console.log('[ci] drizzle-orm resolves from the application import path');
+          "
+
+      - name: Run episode and North Star checks
+        run: npm run test:ci:episodes
+
+  test:
+    if: ${{ always() }}
+    needs:
+      - test-unit
+      - test-guards
+      - test-episodes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Report aggregate result
+        env:
+          UNIT_RESULT: ${{ needs.test-unit.result }}
+          GUARDS_RESULT: ${{ needs.test-guards.result }}
+          EPISODES_RESULT: ${{ needs.test-episodes.result }}
+        run: |
+          echo "[ci] unit tests: ${UNIT_RESULT}"
+          echo "[ci] guard checks: ${GUARDS_RESULT}"
+          echo "[ci] episode and North Star checks: ${EPISODES_RESULT}"
+
+          if [[ "${UNIT_RESULT}" != "success" ||
+                "${GUARDS_RESULT}" != "success" ||
+                "${EPISODES_RESULT}" != "success" ]]; then
+            echo "[ci] one or more test groups failed; see the named group job for the exact command"
+            exit 1
+          fi
+
+          echo "[ci] all test groups passed"

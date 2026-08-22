@@ -7316,3 +7316,19 @@ credentials.
 The recovery spec includes the replica download command. Both locations are
 evidence archives only: restore into an isolated clone or recovery namespace,
 and never force-push, reset, merge into, or overwrite GitHub `main`.
+
+---
+
+## Addendum — August 22, 2026 (parallel GitHub test feedback)
+
+The GitHub CI workflow now exposes three independent named jobs for the
+canonical application test chain: unit tests, guard checks, and the sequential
+episode/North Star checks. Each job repeats the portable clean-install,
+local-toolchain, and Drizzle import verification before running its own
+validated section of the canonical test command list.
+
+The workflow's existing `test` job remains as the sole aggregate branch
+protection status (`CI / test`). It always reports every named job's result and
+fails when any group fails; detailed runner output in the failing group names
+the exact command. Group boundaries fail closed if the canonical chain changes
+without being assigned contiguously.

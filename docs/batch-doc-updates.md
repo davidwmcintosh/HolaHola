@@ -4590,3 +4590,20 @@ and the rule that GitHub `main` must never be force-pushed or overwritten.
 Cloudflare R2 dashboard location labels are normalized to its S3 API region
 only for R2 endpoints; standard S3 region identifiers are otherwise passed
 through unchanged.
+
+---
+
+## Parallel GitHub test feedback — August 22, 2026
+
+GitHub Actions now runs the canonical application test chain in three named,
+independent jobs: unit test files, source and behavioral guard checks, and the
+sequential episode/North Star flow. Every test job performs its own clean
+dependency install, Replit lockfile normalization, local `tsx` verification,
+and Drizzle import check before it starts.
+
+The existing `CI / test` status remains the branch-protection entry point. It
+waits for all three named jobs and fails if any group fails, while the failing
+group's logs retain the exact canonical command number and command text. The
+canonical `npm test` chain remains the source of truth; group boundaries are
+validated against named commands so a future edit cannot silently omit or
+misclassify coverage.

@@ -1,9 +1,10 @@
 /**
- * Execute the commands in the canonical `npm test` chain one at a time.
+ * Execute commands in the canonical `npm test` chain one at a time.
  *
  * The local command intentionally remains the source of truth. CI uses this
  * runner only so a failure is reported with its exact command rather than the
- * opaque exit code produced by a long shell `&&` chain.
+ * opaque exit code produced by a long shell `&&` chain. Named groups allow
+ * independent portions of that chain to run in parallel in GitHub Actions.
  */
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -25,6 +26,63 @@ const commands = testChain
 if (commands.length === 0) {
   throw new Error('No executable commands were found in package.json scripts.test');
 }
+
+const GROUPS = {
+  unit: {
+    startsWith: 'npx tsx --test server/scripts/gemini-gate-check.test.ts',
+    endsWith: 'server/scripts/test-record-pattern-signal.test.ts',
+  },
+  guards: {
+    startsWith: 'npx tsx server/scripts/test-openai-pronunciation-error-notice.ts',
+    endsWith: 'server/scripts/test-reach-north-star-response-field.ts',
+  },
+  episodes: {
+    startsWith: 'npx tsx server/scripts/seed-episode1.ts',
+    endsWith: 'server/scripts/test-north-star-resync-debounce.ts',
+  },
+};
+
+function findGroupRange(name, definition) {
+  const start = commands.findIndex((command) => command.startsWith(definition.startsWith));
+  const end = commands.findIndex((command) => command.endsWith(definition.endsWith));
+
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error(
+      `Could not locate the ${name} CI test group boundaries in package.json scripts.test`,
+    );
+  }
+
+  return { start, end };
+}
+
+const groupRanges = Object.fromEntries(
+  Object.entries(GROUPS).map(([name, definition]) => [name, findGroupRange(name, definition)]),
+);
+
+const ranges = Object.values(groupRanges);
+const coveredCommandIndexes = ranges.flatMap(({ start, end }) =>
+  Array.from({ length: end - start + 1 }, (_, offset) => start + offset),
+);
+const expectedCommandIndexes = Array.from({ length: commands.length }, (_, index) => index);
+
+if (
+  coveredCommandIndexes.length !== expectedCommandIndexes.length ||
+  coveredCommandIndexes.some((index, position) => index !== expectedCommandIndexes[position])
+) {
+  throw new Error('CI test groups must cover the canonical test command chain contiguously');
+}
+
+const requestedGroup = process.argv.slice(2).find((argument) => argument.startsWith('--group='));
+const groupName = requestedGroup?.slice('--group='.length);
+
+if (groupName && !Object.hasOwn(groupRanges, groupName)) {
+  throw new Error(
+    `Unknown CI test group "${groupName}". Expected one of: ${Object.keys(groupRanges).join(', ')}`,
+  );
+}
+
+const selectedRange = groupName ? groupRanges[groupName] : { start: 0, end: commands.length - 1 };
+const selectedCommands = commands.slice(selectedRange.start, selectedRange.end + 1);
 
 // This DB-backed ownership test is deterministic on its own but races with
 // other test files when Node launches the large multi-file batch in parallel.
@@ -62,8 +120,11 @@ function commandParts(command) {
   ];
 }
 
-for (const [index, command] of commands.entries()) {
-  const label = `[ci:test ${index + 1}/${commands.length}]`;
+for (const [index, command] of selectedCommands.entries()) {
+  const canonicalIndex = selectedRange.start + index;
+  const label = groupName
+    ? `[ci:test:${groupName} ${index + 1}/${selectedCommands.length} (command ${canonicalIndex + 1}/${commands.length})]`
+    : `[ci:test ${index + 1}/${commands.length}]`;
   const parts = commandParts(command);
 
   for (const [partIndex, part] of parts.entries()) {
@@ -91,5 +152,6 @@ for (const [index, command] of commands.entries()) {
 }
 
 if (!process.exitCode) {
-  console.log(`[ci:test] ALL ${commands.length} COMMANDS PASSED`);
+  const suffix = groupName ? ` GROUP ${groupName}` : '';
+  console.log(`[ci:test] ALL ${selectedCommands.length} COMMANDS${suffix} PASSED`);
 }
