@@ -156,3 +156,4 @@
 - [Raw-window evidence boundary](raw-window-audit-boundary.md) — DB-first raw evidence stays separate from attributed dialogue; status reports unresolved or incomplete projections.
 - [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
+- [Source bridge workflow limit](source-bridge-workflow-limit.md) — legacy workflow count exceeds Replit’s supported limit; source bridge runs as its own Project task until workflow records are consolidated.

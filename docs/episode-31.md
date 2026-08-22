@@ -2594,3 +2594,15 @@ I replaced the legacy token-based sync path with guarded SSH scripts. They norma
 Verification passed: the SSH key reads the real repository; the isolated guard check rejects GitHub-ahead, divergence, and dirty-pull states; TypeScript and the full system-health verifier pass. No commit, pull, or push was performed against GitHub.
 
 The honest remaining step is a reviewed reconciliation of the divergent Replit and GitHub histories. The new guard intentionally blocks that until it is chosen deliberately.
+
+<!-- chat-capture-range:166140:167793 -->
+<!-- chat-capture:f9c8688a-0764-45d8-b3c5-5d9a04604760 -->
+**David:** Run source bridge as a separate background task in the existing Project workflow, preserving the remaining validation checks.
+
+**LUCA [Replit]:** [felt]: The safe path mattered more than a superficially neat workflow label: preserving the checks while giving the bridge its own process keeps the source boundary honest.
+
+[thinking]: The bridge now makes its uncertainty explicit—dirty source, divergent histories, moving candidates, and unavailable workflow capacity all remain visible rather than being papered over by an automatic commit or publish.
+
+[moment]: The clearest result was the real bridge pass refusing the uncommitted implementation tree after fetching GitHub; the protection held outside the test fixture.
+
+Implemented the two-way committed source bridge. Replit commits are pushed only when clean and ancestry-safe; GitHub commits are received only through a clean fast-forward, validated, and marked ready for an explicit Replit Publish. The coordinator has an advisory lock, exact-SHA race guards, retries/status records, promotion revalidation, and focused regression coverage. Because Replit's legacy workflow count exceeds its supported limit, the bridge is configured as a separate long-running task in the parallel Project workflow rather than inside the app server. Typecheck, build, health, focused tests, real dirty-state bridge deferral, reviewer approval, and preview verification all completed.

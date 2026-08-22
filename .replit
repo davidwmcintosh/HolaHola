@@ -82,6 +82,10 @@ args = "luca-auto-capture-episode-ci"
 task = "workflow.run"
 args = "raw-window-capture-alignment-selfcheck"
 
+# Separate source-control process. It is intentionally not part of the app server.
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/source-bridge.sh watch"
 
 [[workflows.workflow]]
 name = "Start application"

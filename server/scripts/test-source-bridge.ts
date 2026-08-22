@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const bridgePath = join(root, 'scripts/source-bridge.sh');
@@ -17,15 +17,24 @@ const syncToPath = join(root, 'scripts/sync-to-github.sh');
 function assertSourceContracts(): void {
   const bridge = readFileSync(bridgePath, 'utf8');
   const syncTo = readFileSync(syncToPath, 'utf8');
-  assert.match(bridge, /mkdir "\$LOCK_DIR"/, 'bridge must serialize operations with an exclusive lock');
+  assert.match(bridge, /flock -n "\$LOCK_FD"/, 'bridge must serialize operations with an advisory lock');
   assert.match(bridge, /git fetch --no-tags/, 'bridge must fetch before choosing a direction');
   assert.match(bridge, /sync-to-github\.sh" --committed-only/, 'automated pushes must use committed-only mode');
+  assert.match(bridge, /--expected-head "\$LOCAL_HEAD"/, 'pushes must pin the inspected Replit commit');
   assert.match(bridge, /sync-from-github\.sh"/, 'GitHub receives must keep using the reviewed fast-forward primitive');
+  assert.match(bridge, /--expected-local-head "\$LOCAL_HEAD"/, 'receives must pin the inspected Replit commit');
+  assert.match(bridge, /--expected-github-head "\$GITHUB_HEAD"/, 'receives must pin the inspected GitHub commit');
   assert.match(bridge, /ready_to_promote/, 'received validated source must wait for explicit promotion');
   assert.match(bridge, /record-promotion/, 'successful explicit publishing must be recordable by exact SHA');
   assert.doesNotMatch(bridge, /\bgit (add|commit|reset|push --force)\b/, 'bridge must not stage, commit, reset, or force-push');
   assert.match(syncTo, /--committed-only/, 'low-level push helper must reject dirty committed-only calls');
+  assert.match(syncTo, /--expected-head/, 'low-level push helper must reject an unexpected local head');
+  assert.match(syncFromPath(), /--expected-local-head/, 'low-level receive helper must reject an unexpected local head');
   assert.match(syncTo, /never stages or commits editor changes automatically/, 'committed-only refusal must be explicit');
+}
+
+function syncFromPath(): string {
+  return readFileSync(join(root, 'scripts/sync-from-github.sh'), 'utf8');
 }
 
 function writeFakeGit(dir: string): void {
@@ -80,6 +89,20 @@ esac
   chmodSync(path, 0o700);
 }
 
+function writeFakeNpm(dir: string): void {
+  const fakeNpm = `#!/usr/bin/env bash
+set -eu
+printf 'npm %s\\n' "$*" >> "$GIT_CALL_LOG"
+if [[ "\${FAKE_NPM_MUTATE_ON_CHECK:-0}" == 1 && "\${1:-}" == run && "\${2:-}" == check ]]; then
+  sed -i 's/^local=.*/local=local-raced/' "$FAKE_GIT_STATE"
+  sed -i 's/^scenario=.*/scenario=divergent/' "$FAKE_GIT_STATE"
+fi
+`;
+  const path = join(dir, 'npm');
+  writeFileSync(path, fakeNpm, { mode: 0o700 });
+  chmodSync(path, 0o700);
+}
+
 function writeState(dir: string, scenario: 'equal' | 'local-ahead' | 'github-ahead' | 'divergent', dirty = 0, failures = 0): string {
   const path = join(dir, 'git-state');
   const local = scenario === 'github-ahead' ? 'local-old' : 'local-new';
@@ -93,17 +116,28 @@ function runBridge(options: {
   command?: string[];
   dirty?: number;
   failures?: number;
-  lockPid?: number;
+  holdLock?: boolean;
+  skipValidation?: boolean;
+  validationMovesHead?: boolean;
 }): { status: number | null; calls: string; output: string; statusJson: Record<string, unknown>; tempDir: string } {
   const dir = mkdtempSync(join(tmpdir(), 'holahola-source-bridge-test-'));
   writeFakeGit(dir);
+  writeFakeNpm(dir);
   const statePath = writeState(dir, options.scenario, options.dirty, options.failures);
   const callsPath = join(dir, 'git-calls.log');
   const statusPath = join(dir, 'status.json');
-  const lockDir = join(dir, 'bridge.lock');
-  if (options.lockPid) {
-    mkdirSync(lockDir);
-    writeFileSync(join(lockDir, 'pid'), `${options.lockPid}\n`);
+  const lockFile = join(dir, 'bridge.lock');
+  let holder: ReturnType<typeof spawn> | undefined;
+  if (options.holdLock) {
+    const ready = join(dir, 'lock-ready');
+    holder = spawn('bash', ['-c', 'exec 9>"$1"; flock -n 9; : > "$2"; sleep 30', 'bash', lockFile, ready], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    for (let attempt = 0; attempt < 50 && !existsSync(ready); attempt += 1) {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+    assert.ok(existsSync(ready), 'test lock holder should acquire the advisory lock');
   }
 
   const result = spawnSync('bash', [bridgePath, ...(options.command ?? ['once'])], {
@@ -116,8 +150,9 @@ function runBridge(options: {
       FAKE_GIT_STATE: statePath,
       SOURCE_BRIDGE_STATUS_FILE: statusPath,
       SOURCE_BRIDGE_SUMMARY_FILE: join(dir, 'status.md'),
-      SOURCE_BRIDGE_LOCK_DIR: lockDir,
-      SOURCE_BRIDGE_SKIP_VALIDATION: '1',
+      SOURCE_BRIDGE_LOCK_FILE: lockFile,
+      SOURCE_BRIDGE_SKIP_VALIDATION: options.skipValidation === false ? '0' : '1',
+      FAKE_NPM_MUTATE_ON_CHECK: options.validationMovesHead ? '1' : '0',
       SOURCE_BRIDGE_RETRY_DELAY_SECONDS: '0',
       SOURCE_BRIDGE_RETRY_MAX: '2',
       HOLAHOLA_GITHUB_DEPLOY_KEY: '-----BEGIN OPENSSH PRIVATE KEY-----\\\\nprivate-test-material\\\\n-----END OPENSSH PRIVATE KEY-----',
@@ -126,6 +161,7 @@ function runBridge(options: {
   const calls = existsSync(callsPath) ? readFileSync(callsPath, 'utf8') : '';
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
   const statusJson = existsSync(statusPath) ? JSON.parse(readFileSync(statusPath, 'utf8')) as Record<string, unknown> : {};
+  if (holder?.pid) process.kill(-holder.pid, 'SIGTERM');
   return { status: result.status, calls, output, statusJson, tempDir: dir };
 }
 
@@ -151,6 +187,12 @@ function main(): void {
     assert.equal(status, 0, 'clean GitHub-ahead source should fast-forward successfully');
     assert.match(calls, /^merge --ff-only FETCH_HEAD/m, 'receive must use an explicit fast-forward');
     assert.equal(statusJson.state, 'ready_to_promote', 'received source must wait for explicit publish');
+  });
+
+  withFixture({ scenario: 'github-ahead', skipValidation: false, validationMovesHead: true }, ({ status, statusJson }) => {
+    assert.equal(status, 0, 'a moved checkout should defer through the next observed state');
+    assert.notEqual(statusJson.state, 'ready_to_promote', 'validation on a moved checkout must never become promotion-ready');
+    assert.equal(statusJson.replitSha, 'local-raced', 'status must report the real post-validation checkout head');
   });
 
   withFixture({ scenario: 'github-ahead', dirty: 1 }, ({ status, calls, statusJson }) => {
@@ -182,7 +224,7 @@ function main(): void {
     assert.equal(statusJson.state, 'failed', 'unvalidated promotion recording must be explicit');
   });
 
-  withFixture({ scenario: 'equal', lockPid: process.pid }, ({ status, calls, statusJson }) => {
+  withFixture({ scenario: 'equal', holdLock: true }, ({ status, calls, statusJson }) => {
     assert.equal(status, 0, 'an active bridge lock should defer rather than race');
     assert.equal(statusJson.state, 'retrying', 'lock contention must be visible');
     assert.equal(calls, '', 'lock contention must not inspect or mutate git state');

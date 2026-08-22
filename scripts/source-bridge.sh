@@ -14,7 +14,7 @@ BRANCH="${SOURCE_BRIDGE_BRANCH:-main}"
 REPO_URL="${GITHUB_REPO_URL:?GITHUB_REPO_URL must be configured by github-release-ssh.sh}"
 STATUS_FILE="${SOURCE_BRIDGE_STATUS_FILE:-.local/source-bridge-status.json}"
 SUMMARY_FILE="${SOURCE_BRIDGE_SUMMARY_FILE:-.local/source-bridge-status.md}"
-LOCK_DIR="${SOURCE_BRIDGE_LOCK_DIR:-.local/source-bridge.lock}"
+LOCK_FILE="${SOURCE_BRIDGE_LOCK_FILE:-.local/source-bridge.lock}"
 RETRY_MAX="${SOURCE_BRIDGE_RETRY_MAX:-3}"
 RETRY_DELAY_SECONDS="${SOURCE_BRIDGE_RETRY_DELAY_SECONDS:-10}"
 POLL_SECONDS="${SOURCE_BRIDGE_POLL_SECONDS:-300}"
@@ -23,6 +23,7 @@ ORIGIN="${SOURCE_BRIDGE_ORIGIN:-manual}"
 LOCAL_HEAD=""
 GITHUB_HEAD=""
 LAST_ERROR=""
+LOCK_FD=""
 
 usage() {
   cat <<'EOF'
@@ -82,6 +83,7 @@ const status = {
   promotedSha: value('SOURCE_BRIDGE_PROMOTED'),
   error: value('SOURCE_BRIDGE_ERROR'),
   updatedAt: now,
+  attemptAt: now,
 };
 
 for (const file of [statusFile, summaryFile]) mkdirSync(dirname(file), { recursive: true });
@@ -119,6 +121,7 @@ if (!existsSync(file)) process.exit(0);
 try {
   const value = JSON.parse(readFileSync(file, 'utf8'))[process.env.SOURCE_BRIDGE_FIELD];
   if (typeof value === 'string') process.stdout.write(value);
+  else if (value && typeof value === 'object') process.stdout.write(JSON.stringify(value));
 } catch {
   // A corrupt operational status must never become a source-control decision.
 }
@@ -140,33 +143,26 @@ ensure_main_and_key() {
 }
 
 acquire_lock() {
-  mkdir -p -- "$(dirname -- "$LOCK_DIR")"
-  if mkdir "$LOCK_DIR" 2>/dev/null; then
-    printf '%s\n' "$$" > "$LOCK_DIR/pid"
+  mkdir -p -- "$(dirname -- "$LOCK_FILE")"
+  # The advisory lock is tied to this open file descriptor. Unlike a
+  # mkdir+PID lock, there is no observable creation window another bridge can
+  # steal, and release cannot remove another process's lock.
+  exec {LOCK_FD}>"$LOCK_FILE"
+  if flock -n "$LOCK_FD"; then
     return 0
   fi
-
-  local owner=""
-  if [[ -r "$LOCK_DIR/pid" ]]; then
-    owner="$(<"$LOCK_DIR/pid")"
-  fi
-  if [[ "$owner" =~ ^[0-9]+$ ]] && kill -0 "$owner" 2>/dev/null; then
-    write_status "retrying" "Another source-bridge process (pid ${owner}) holds the lock."
-    return 2
-  fi
-
-  # A stale lock is removed only after its recorded process is confirmed gone.
-  rm -rf -- "$LOCK_DIR"
-  if mkdir "$LOCK_DIR"; then
-    printf '%s\n' "$$" > "$LOCK_DIR/pid"
-    return 0
-  fi
-  write_status "retrying" "Could not acquire the source-bridge lock."
+  exec {LOCK_FD}>&-
+  LOCK_FD=""
+  write_status "retrying" "Another source-bridge process holds the advisory lock."
   return 2
 }
 
 release_lock() {
-  rm -rf -- "$LOCK_DIR"
+  if [[ -n "$LOCK_FD" ]]; then
+    flock -u "$LOCK_FD" || true
+    exec {LOCK_FD}>&-
+    LOCK_FD=""
+  fi
 }
 
 with_lock() {
@@ -232,6 +228,22 @@ validate_candidate() {
   printf '%s' '{"typecheck":"passed","githubReleaseSafety":"passed","build":"passed"}'
 }
 
+verify_validated_candidate_is_current() {
+  local candidate="$1"
+  # Validation can take long enough for a Replit task merge/checkpoint to
+  # advance the checkout. Never mark a candidate ready based on a stale
+  # pre-validation snapshot: re-fetch and derive both heads again.
+  if ! worktree_is_clean; then
+    LAST_ERROR="Validated candidate became dirty before promotion readiness could be recorded."
+    return 1
+  fi
+  fetch_heads || return 1
+  if [[ "$LOCAL_HEAD" != "$candidate" || "$GITHUB_HEAD" != "$candidate" ]]; then
+    LAST_ERROR="Validated candidate is no longer the current equal Replit/GitHub commit."
+    return 1
+  fi
+}
+
 bridge_pass() {
   ensure_main_and_key || return 1
   fetch_heads || return 1
@@ -256,7 +268,7 @@ bridge_pass() {
 
   if git merge-base --is-ancestor "$GITHUB_HEAD" "$LOCAL_HEAD"; then
     write_status "replit_ahead" "Committed Replit source is pending a guarded GitHub push." "$LOCAL_HEAD"
-    if ! "$SCRIPT_DIR/sync-to-github.sh" --committed-only; then
+    if ! "$SCRIPT_DIR/sync-to-github.sh" --committed-only --expected-head "$LOCAL_HEAD"; then
       LAST_ERROR="Guarded committed-only GitHub push failed; source remains intact."
       return 1
     fi
@@ -271,7 +283,9 @@ bridge_pass() {
 
   if git merge-base --is-ancestor "$LOCAL_HEAD" "$GITHUB_HEAD"; then
     write_status "github_ahead" "GitHub source is pending a clean fast-forward into Replit." "$GITHUB_HEAD"
-    if ! "$SCRIPT_DIR/sync-from-github.sh"; then
+    if ! "$SCRIPT_DIR/sync-from-github.sh" \
+      --expected-local-head "$LOCAL_HEAD" \
+      --expected-github-head "$GITHUB_HEAD"; then
       LAST_ERROR="Guarded GitHub fast-forward failed; source remains intact."
       return 1
     fi
@@ -282,6 +296,7 @@ bridge_pass() {
     fi
     local validation
     validation="$(validate_candidate)" || return 1
+    verify_validated_candidate_is_current "$LOCAL_HEAD" || return 1
     write_status "ready_to_promote" "Received GitHub source passed validation; publish remains explicit." "$LOCAL_HEAD" "$validation"
     return 0
   fi
@@ -325,6 +340,7 @@ prepare_promotion() {
   fi
   local validation
   validation="$(validate_candidate)" || return 1
+  verify_validated_candidate_is_current "$LOCAL_HEAD" || return 1
   write_status "ready_to_promote" "Validation passed. Use Replit Publish explicitly; this command does not deploy." "$LOCAL_HEAD" "$validation"
 }
 
@@ -334,16 +350,21 @@ record_promotion() {
     echo "ERROR: record-promotion requires the exact published commit SHA." >&2
     return 1
   fi
+  ensure_main_and_key || return 1
+  fetch_heads || return 1
+  if ! worktree_is_clean; then
+    write_status "dirty" "Promotion recording refused because the worktree is dirty."
+    return 1
+  fi
+
   local status_state candidate
   status_state="$(read_status_field state)"
   candidate="$(read_status_field candidateSha)"
-  if [[ "$status_state" != "ready_to_promote" || "$candidate" != "$promoted_sha" ]]; then
-    write_status "failed" "Promotion recording refused: no matching validated ready_to_promote candidate exists."
+  if [[ "$status_state" != "ready_to_promote" || "$candidate" != "$promoted_sha" || "$LOCAL_HEAD" != "$promoted_sha" || "$GITHUB_HEAD" != "$promoted_sha" ]]; then
+    write_status "failed" "Promotion recording refused: the matching validated candidate is no longer the current equal Replit/GitHub commit."
     return 1
   fi
-  LOCAL_HEAD="$candidate"
-  GITHUB_HEAD="$candidate"
-  write_status "synced" "Explicit Replit publish recorded for the validated candidate." "$candidate" "$(read_status_field validation)" "$candidate"
+  write_status "synced" "Explicit Replit publish recorded for the current validated candidate." "$candidate" "$(read_status_field validation)" "$candidate"
 }
 
 main() {

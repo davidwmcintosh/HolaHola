@@ -9,11 +9,24 @@ BRANCH="main"
 REPO_URL="$GITHUB_REPO_URL"
 LOCK_FILE=".git/index.lock"
 COMMITTED_ONLY=0
+EXPECTED_HEAD=""
 
-if [[ "${1:-}" == "--committed-only" ]]; then
-  COMMITTED_ONLY=1
-  shift
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --committed-only)
+      COMMITTED_ONLY=1
+      shift
+      ;;
+    --expected-head)
+      EXPECTED_HEAD="${2:-}"
+      [[ -n "$EXPECTED_HEAD" ]] || { echo "ERROR: --expected-head requires a commit SHA." >&2; exit 64; }
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 
 if [[ -z "${HOLAHOLA_GITHUB_DEPLOY_KEY:-}" ]]; then
   echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY secret is not set. Add it in Replit Secrets." >&2
@@ -56,6 +69,11 @@ git fetch --no-tags "$REPO_URL" "$BRANCH"
 LOCAL_HEAD="$(git rev-parse --verify HEAD^{commit})"
 GITHUB_HEAD="$(git rev-parse --verify FETCH_HEAD^{commit})"
 
+if [[ -n "$EXPECTED_HEAD" && "$LOCAL_HEAD" != "$EXPECTED_HEAD" ]]; then
+  echo "ERROR: Local HEAD changed from the bridge's inspected commit. Refusing to push a different commit." >&2
+  exit 1
+fi
+
 # GitHub must already be an ancestor of the local commit. This check happens
 # before creating a local release commit, and the push below remains protected
 # against a remote race by Git's normal non-fast-forward rejection.
@@ -76,7 +94,12 @@ if [[ -z "$CHANGES" ]]; then
   fi
   echo "Nothing to commit — working tree is clean."
   echo "Pushing unpushed commits..."
-  git push "$REPO_URL" "HEAD:refs/heads/$BRANCH"
+  PUSH_HEAD="${EXPECTED_HEAD:-$LOCAL_HEAD}"
+  if [[ "$(git rev-parse --verify HEAD^{commit})" != "$PUSH_HEAD" ]]; then
+    echo "ERROR: Local HEAD changed before push. Refusing to publish an uninspected commit." >&2
+    exit 1
+  fi
+  git push "$REPO_URL" "${PUSH_HEAD}:refs/heads/$BRANCH"
   echo "Done. Your GitHub repo is up to date."
   exit 0
 fi
