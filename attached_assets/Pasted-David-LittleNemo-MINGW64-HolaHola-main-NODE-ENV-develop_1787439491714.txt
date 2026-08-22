@@ -1,0 +1,42 @@
+David@LittleNemo MINGW64 ~/HolaHola (main)
+$ NODE_ENV=development node --env-file=.env --import=tsx/esm server/index.ts
+[DB] ✓ Neon database configured
+[DB] Database pool initialized (max: 20, idle: 30s, timeout: 5s)
+[Rate Limiting] Configured for development environment
+[Rate Limiting] Rate limiting DISABLED in development mode
+[Rate Limiting] Hive External: 10 req/min (ENABLED in dev)
+[Deepgram] ✓ Client initialized (eager startup)
+[Email] Using Mailjet provider
+[Alden Functions] Loaded — 9 platform management tools ready
+[Alden Persona Service] Loaded — Alden voice chat ready (Claude)
+[Socket.io] Setting up voice streaming namespace...
+[Socket.io] ✓ Voice streaming ready on /voice namespace
+[FounderCollabWS] Broker initialized on namespace /founder-collab
+[TeamRoomWS] Namespace /team-room initialized
+[Unified WS] Setting up unified WebSocket handler...
+[Unified WS] ✓ Unified WebSocket handler ready
+[Unified WS] - Streaming Voice: /api/voice/stream/ws
+[Unified WS] - Realtime API: /api/realtime/ws
+Checking Stripe credentials...
+[Stripe] Using credentials from environment variables
+Initializing Stripe schema...
+[Neon] Pool warmed up in 372ms
+file:///C:/Users/David/HolaHola/node_modules/openid-client/build/index.js:89
+    const err = new TypeError(message, { cause });
+                ^
+
+TypeError: "clientId" must be a non-empty string
+    at CodedTypeError (C:\Users\David\HolaHola\node_modules\openid-client\src\index.ts:839:15)
+    at new Configuration (C:\Users\David\HolaHola\node_modules\openid-client\src\index.ts:1849:13)
+    at Module.discovery (C:\Users\David\HolaHola\node_modules\openid-client\src\index.ts:1281:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async memoize.maxAge (C:\Users\David\HolaHola\server\replitAuth.ts:14:12)
+    at async setupAuth (C:\Users\David\HolaHola\server\replitAuth.ts:92:18)
+    at async registerRoutes (C:\Users\David\HolaHola\server\routes.ts:560:3)
+    at async <anonymous> (C:\Users\David\HolaHola\server\index.ts:412:3) {
+  code: 'ERR_INVALID_ARG_TYPE',
+  [cause]: undefined
+}
+
+Node.js v24.19.0
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94
