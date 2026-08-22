@@ -89,6 +89,12 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // In local dev with bypass enabled, skip OIDC discovery entirely.
+  // REPL_ID is injected by Replit and is not available outside the platform.
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+    return;
+  }
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
