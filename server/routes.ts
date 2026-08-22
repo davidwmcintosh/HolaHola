@@ -27832,6 +27832,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         role: n.fromAgent === 'luca' ? 'luca' : 'david',
         content: n.body,
         createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : (n.createdAt ?? new Date().toISOString()),
+        isProactive: typeof n.subject === 'string' && n.subject.startsWith('[CHAT][AUTO]'),
       }));
       res.json({ messages });
     } catch (error: any) {
@@ -27905,7 +27906,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         system: systemPrompt,
         messages: [{ role: 'user', content: message.trim() }],
       });
-      const replyText = completion.content.find((b: any) => b.type === 'text')?.text?.trim() ?? '[No response]';
+      const replyText = (completion.content.find((b: any) => b.type === 'text') as any)?.text?.trim() ?? '[No response]';
 
       // 6. Save both turns to agent_notes (chat history for panel hydration)
       await getUserDb().insert(agentNotes).values([

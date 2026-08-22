@@ -181,6 +181,23 @@ function buildToolPatternReason(obs: SessionObservation, lastTurn: number): stri
   return `📊 Turns ${lastTurn + 1}–${latestTurn}: ${toolList}${archiveNote}`;
 }
 
+/**
+ * Write a proactive Luca note to agent_notes so it surfaces in the chat panel.
+ * Uses a short subject derived from the reason line (first ~60 chars after any emoji).
+ */
+async function postLucaAutoNote(reason: string, body: string): Promise<void> {
+  const { getUserDb } = await import('../db');
+  const { agentNotes } = await import('@shared/schema');
+  // Build a short subject from the first line of reason, trim to 120 chars
+  const shortReason = reason.replace(/[\r\n].*/s, '').slice(0, 120);
+  await getUserDb().insert(agentNotes).values({
+    fromAgent: 'luca',
+    toAgent: 'david',
+    subject: `[CHAT][AUTO] ${shortReason}`,
+    body,
+  });
+}
+
 function formatSurface(obs: SessionObservation, reason: string): string {
   const lang = obs.language ?? 'unknown language';
   const actfl = obs.actflLevel ?? '?';
@@ -229,6 +246,9 @@ async function poll(): Promise<void> {
       if (decision.surface && decision.reason) {
         const message = formatSurface(obs, decision.reason);
         await postAsLuca(message);
+        await postLucaAutoNote(decision.reason, message).catch((e: any) =>
+          console.warn('[LucaObserver] Failed to write auto-note to chat:', e.message)
+        );
         track.lastSurfacedAt = Date.now();
         track.lastSurfaceReason = decision.reason;
         if (decision.newFrictionTurn !== undefined) track.lastFrictionTurn = decision.newFrictionTurn;

@@ -16,6 +16,7 @@ interface ChatMessage {
   role: "david" | "luca";
   content: string;
   createdAt: string;
+  isProactive?: boolean;
 }
 
 interface ChatHistoryResponse {
@@ -43,7 +44,8 @@ export function LucaChatPanel({ isOpen, onToggle, sessionId }: LucaChatPanelProp
       return res.json();
     },
     enabled: isOpen,
-    staleTime: 30_000,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
   });
 
   // Merge server history with optimistic additions, deduplicating by content+role
@@ -162,16 +164,25 @@ export function LucaChatPanel({ isOpen, onToggle, sessionId }: LucaChatPanelProp
             {allMessages.map((msg, i) => {
               const key = `${msg.createdAt}-${i}`;
               const isDavid = msg.role === "david";
+              const isProactive = !isDavid && !!msg.isProactive;
               return (
                 <div
                   key={key}
                   className={`flex flex-col gap-0.5 ${isDavid ? "items-end" : "items-start"}`}
                 >
+                  {/* "Luca noticed" badge for unprompted observations */}
+                  {isProactive && (
+                    <span className="text-[9px] font-medium text-amber-500 px-1 flex items-center gap-0.5">
+                      <span>●</span> Luca noticed
+                    </span>
+                  )}
                   <div
                     className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-snug ${
                       isDavid
                         ? "bg-blue-500 text-white rounded-br-sm"
-                        : "bg-card border text-foreground rounded-bl-sm"
+                        : isProactive
+                          ? "bg-amber-50 border border-amber-200 text-foreground rounded-bl-sm dark:bg-amber-950/30 dark:border-amber-800"
+                          : "bg-card border text-foreground rounded-bl-sm"
                     }`}
                   >
                     {msg.content}
