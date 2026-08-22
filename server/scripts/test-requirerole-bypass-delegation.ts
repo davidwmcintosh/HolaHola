@@ -277,6 +277,121 @@ try {
   if (existsSync(MUTANT_RBAC)) unlinkSync(MUTANT_RBAC);
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PART 2b — Mutation self-check (requireFounder)
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 2b — Mutation self-check: inline bypass in requireFounder is detected'));
+sep();
+
+// Find the second occurrence of DELEGATION_STMT, which lives inside requireFounder.
+const secondIdx = rbacSrc.indexOf(DELEGATION_STMT, firstIdx + DELEGATION_STMT.length);
+
+assert(
+  'Mutation target: second isDevBypass() delegation statement found in rbac.ts (requireFounder)',
+  secondIdx !== -1,
+  `Could not find a second "${DELEGATION_STMT}" in ${RBAC} — expected one inside requireFounder`,
+);
+
+const MUTANT_RBAC_B = resolve(ROOT, 'server/middleware/rbac.BYPASS_DELEGATION_MUTANT_B.ts');
+
+let mutantSrcB = rbacSrc;
+if (secondIdx !== -1) {
+  mutantSrcB =
+    rbacSrc.slice(0, secondIdx) +
+    MUTANT_BYPASS_STMT +
+    rbacSrc.slice(secondIdx + DELEGATION_STMT.length);
+}
+
+assert(
+  'Mutant-B source differs from original (requireFounder replacement succeeded)',
+  mutantSrcB !== rbacSrc,
+  'Replacement did not change the source — second DELEGATION_STMT may not match',
+);
+
+assert(
+  'Mutant-B source contains the inline bypass without NODE_ENV gate',
+  mutantSrcB.includes(MUTANT_BYPASS_STMT),
+);
+
+assert(
+  'Mutant-B source still contains the original delegation in requireRole (only requireFounder was mutated)',
+  // The first occurrence should still be intact — count of original statements is same
+  // minus one (the replaced one).
+  mutantSrcB.split(DELEGATION_STMT).length < rbacSrc.split(DELEGATION_STMT).length,
+  'Mutant-B still contains the same number of delegation statements — mutation may have failed',
+);
+
+writeFileSync(MUTANT_RBAC_B, mutantSrcB, 'utf8');
+
+try {
+  const defPatternSource = IS_DEV_BYPASS_DEF_PATTERN.source;
+
+  const checkerB = `
+    import { readFileSync } from 'fs';
+
+    const src = readFileSync(${JSON.stringify(MUTANT_RBAC_B)}, 'utf8');
+
+    function extractFunctionBody(src, funcName) {
+      const startIdx = src.indexOf('function ' + funcName);
+      if (startIdx === -1) return null;
+      let depth = 0, inBody = false, i = startIdx;
+      while (i < src.length) {
+        const ch = src[i];
+        if (ch === '{') { depth++; inBody = true; }
+        else if (ch === '}') { depth--; if (inBody && depth === 0) return src.slice(startIdx, i + 1); }
+        i++;
+      }
+      return null;
+    }
+
+    // Strip the isDevBypass definition so its references do not count.
+    const stripped = src.replace(new RegExp(${JSON.stringify(defPatternSource)}), '/* stripped */');
+
+    const body = extractFunctionBody(stripped, 'requireFounder');
+    if (!body) {
+      console.error('[mutant-checker-b] requireFounder body not found');
+      process.exit(1);
+    }
+
+    // Check 1: requireFounder must call isDevBypass() — mutant should FAIL this.
+    if (!body.includes('isDevBypass()')) {
+      console.error('[mutant-checker-b] requireFounder does not call isDevBypass() — delegation missing');
+      process.exit(1);
+    }
+
+    // Check 2: requireFounder must not contain inline bypass refs — mutant ALSO FAILS this.
+    for (const needle of ['process.env.NODE_ENV', 'process.env.DEV_AUTH_BYPASS']) {
+      if (body.includes(needle)) {
+        console.error('[mutant-checker-b] requireFounder contains inline bypass reference: ' + needle);
+        process.exit(1);
+      }
+    }
+
+    // If we reach here on the mutant, the guard is too weak.
+    console.log('[mutant-checker-b] all checks passed — guard missed the regression');
+    process.exit(0);
+  `;
+
+  const resultB = spawnSync(
+    process.execPath,
+    ['--input-type=module'],
+    {
+      input: checkerB,
+      encoding: 'utf8',
+      env: { ...process.env, NODE_ENV: 'test' },
+    },
+  );
+
+  assert(
+    'Static-check sub-process exits non-zero on the requireFounder mutant (inline bypass is detected)',
+    resultB.status !== 0,
+    `Sub-process exited with ${resultB.status}; stdout: ${resultB.stdout.trim()}; stderr: ${resultB.stderr.trim()}`,
+  );
+} finally {
+  if (existsSync(MUTANT_RBAC_B)) unlinkSync(MUTANT_RBAC_B);
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 sep();
 console.log(`\n  Passed: ${G(String(passed))}   Failed: ${failed > 0 ? R(String(failed)) : String(failed)}\n`);
