@@ -3,6 +3,24 @@ import type { User } from "../../shared/schema";
 import crypto from "crypto";
 import { touchFounderPresence } from "../services/founder-presence";
 
+// ── Local dev bypass ──────────────────────────────────────────────────────────
+// Set DEV_AUTH_BYPASS=true in your local .env to skip auth entirely.
+// The NODE_ENV guard ensures this can never activate in production.
+const isDevBypass = () =>
+  process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true';
+
+// Minimal founder-shaped user injected when the bypass is active.
+// Enough for all downstream middleware that reads authenticatedUser.role / .id.
+const DEV_BYPASS_USER = {
+  id: '49847136',
+  email: 'dev@local',
+  username: 'dev-bypass',
+  role: 'admin' as const,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Role hierarchy: admin > developer > teacher > student
 const roleHierarchy = {
   student: 0,
@@ -32,6 +50,7 @@ export function requireRole(...minRoles: UserRole[]): RequestHandler {
   const minRole = minRoles[0];
   return async (req: any, res: Response, next: NextFunction) => {
     try {
+      if (isDevBypass()) return next();
       // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
       const sessionUserId = (req.session as any)?.userId;
       if (sessionUserId) {
@@ -118,6 +137,10 @@ export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
 export function loadAuthenticatedUser(storage: any): RequestHandler {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
+      if (isDevBypass()) {
+        req.authenticatedUser = DEV_BYPASS_USER;
+        return next();
+      }
       // Skip if not authenticated - check both password auth and OIDC
       const userId = (req.session as any)?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -223,6 +246,7 @@ export function isFounder(user: User | undefined): boolean {
 export function requireFounder(req: Request, res: Response, next: NextFunction) {
   const _req = req as AuthenticatedRequest;
   try {
+    if (isDevBypass()) return next();
     // Password auth path: session.userId set directly (covers AI browser + password login)
     const sessionUserId = (req.session as any)?.userId;
     if (sessionUserId === FOUNDER_USER_ID) {
@@ -367,6 +391,7 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
  * Usage: app.get('/api/admin/live-monitor', requireFounderOrAgent, handler)
  */
 export function requireFounderOrAgent(req: Request, res: Response, next: NextFunction) {
+  if (isDevBypass()) return next();
   // Fast path: valid agent token → pass through without needing a session
   try {
     const providedToken = req.headers['x-agent-token'] as string;

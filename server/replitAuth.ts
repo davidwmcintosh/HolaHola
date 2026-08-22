@@ -186,6 +186,15 @@ export function getRequestUserId(req: any): string {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // ── Local dev bypass ────────────────────────────────────────────────────────
+  // Set DEV_AUTH_BYPASS=true in your local .env to skip authentication entirely.
+  // The guard on NODE_ENV ensures this can never fire in production.
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+    (req as any).resolvedUserId = '49847136';
+    return next();
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   // Check for password auth first (userId stored directly in session)
   const sessionUserId = (req.session as any)?.userId;
   if (sessionUserId) {
