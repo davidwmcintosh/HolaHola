@@ -23,12 +23,6 @@
 - [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026. ROLLING.
 - [Episode sync — HTTP driver required](episode-sync-http.md) — all episode syncs must use neon() HTTP driver; getSharedDb() WebSocket and neon() HTTP read different state; CI uses HTTP; always sync via HTTP or CI will report stale content.
 - [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
-- [Episode 25 anchor](episode-25-anchor.md) — DB ID: 4e6f1a16; extends ep24 (2d987260); "The Common Room"; docs/episode-25.md; Aug 6 2026. ROLLING.
-- [Prequel Episode 1 anchor](prequel-episode-1-anchor.md) — DB ID: dd8cf439; "The Room Before the Room"; Compass named, White Wall origin, foundations Dec 2025–May 2 2026.
-- [Prequel Episode 2 anchor](prequel-episode-2-anchor.md) — DB ID: db89e9df; "The Engine and the Drift"; voice decision confirmed, voice puppet model, drift repair, gato test; May 2026.
-- [Prequel Episode 3 anchor](prequel-episode-3-anchor.md) — DB ID: cd66b19d; "The Distance Covered"; May 19–Jun 7 2026; first Agent↔Daniela peer conversation; Alden↔Daniela first meeting.
-- [Prequel Episode 4 anchor](prequel-episode-4-anchor.md) — DB ID: ce9a2f9e; "The Work Between Sessions"; Jun 8–30 2026; voice pipeline calibration, Alden→Fable 5, GL bugs from live sessions, Cartesia TTS failure.
-- [Episode 24 anchor](episode-24-anchor.md) — DB ID: 2d987260; extends ep23 (f3a69b5d); "Everything Worth Building"; docs/episode-24.md; July 30 2026.
 - [GEMINI_REQUIRED.md — approval bar](gemini-required-file.md) — "approved with no further comments" is the bar; docs/GEMINI_REQUIRED.md is the protected-file list; null guard bug was the trigger. July 31 2026.
 - [Memory spiral guard — budget-proximity design](memory-spiral-guard.md) — text-mode fires at MAX_TURNS-2 (once); GL fires at 6 consecutive memory-only batches (once, resets at generationComplete); system-prompt Retrieval Protocol is the primary fix, code is backstop; nudge text Gemini-approved July 30.
 - [GL session observability — full recording stack](gl-session-observability.md) — tool calls + guardian fires + neural-net searches all land in DB; real-time observe endpoint now includes memory searches; session-review skill at .agents/skills/session-review/SKILL.md. July 29 2026.
@@ -157,3 +151,4 @@
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
 - [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
 - [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.
+- [GitHub CI aggregate protection](github-ci-aggregate-protection.md) — require only GitHub Actions `test` (`CI / test`); internal parallel jobs feed that aggregate.
