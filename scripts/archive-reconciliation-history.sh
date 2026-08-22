@@ -8,12 +8,14 @@
 # Usage:
 #   bash scripts/archive-reconciliation-history.sh
 #   bash scripts/archive-reconciliation-history.sh --verify
+#   bash scripts/archive-reconciliation-history.sh --replicate
 
 set -Eeuo pipefail
 
 ARCHIVE_ID="reconciliation-2026-08-21"
 ARCHIVE_PREFIX="${RECONCILIATION_ARCHIVE_PREFIX:-history-archives/${ARCHIVE_ID}}"
 VERIFY_ONLY=false
+REPLICATE=false
 
 case "${1:-}" in
   "")
@@ -21,11 +23,21 @@ case "${1:-}" in
   --verify)
     VERIFY_ONLY=true
     ;;
+  --replicate)
+    REPLICATE=true
+    ;;
   *)
-    echo "Usage: bash scripts/archive-reconciliation-history.sh [--verify]" >&2
+    echo "Usage: bash scripts/archive-reconciliation-history.sh [--verify|--replicate]" >&2
     exit 2
     ;;
 esac
+
+if "$REPLICATE"; then
+  # Replication reads the primary archive and writes only to the explicitly
+  # configured independent account. It does not need the protected refs locally.
+  npx tsx scripts/reconciliation-history-object-storage.ts replicate
+  exit 0
+fi
 
 SOURCE_REFS=(
   "refs/tags/reconciliation/replit-main-2026-08-21"

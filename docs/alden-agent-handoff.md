@@ -7301,3 +7301,18 @@ Use `bash scripts/archive-reconciliation-history.sh --verify` to recheck the
 stored bundle. The companion recovery procedure restores into an isolated bare
 clone and explicitly forbids force-pushing, resetting, or overwriting GitHub
 `main`.
+
+---
+
+## Addendum — August 22, 2026 (independent protected-history replica)
+
+The protected source-history bundle and unchanged manifest now have a verified
+copy in a separately administered S3-compatible storage account. Replication
+downloads and validates the primary objects before copying, then downloads the
+replica again to compare checksums and byte counts. A separate immutable receipt
+records both recovery locations, verification markers, and redaction of
+credentials.
+
+The recovery spec includes the replica download command. Both locations are
+evidence archives only: restore into an isolated clone or recovery namespace,
+and never force-push, reset, merge into, or overwrite GitHub `main`.

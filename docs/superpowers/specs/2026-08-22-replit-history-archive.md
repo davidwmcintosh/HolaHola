@@ -73,6 +73,31 @@ For an intentional disaster-recovery copy, set
 separately configured private bucket/prefix. The default bucket is the active
 project object-storage bucket and the default prefix is the path above.
 
+To replicate the completed archive to a separately administered account, set
+the independent account's values in `RECONCILIATION_REPLICA_BUCKET`,
+`RECONCILIATION_REPLICA_ACCESS_KEY_ID`,
+`RECONCILIATION_REPLICA_SECRET_ACCESS_KEY`, and
+`RECONCILIATION_REPLICA_REGION`. Set
+`RECONCILIATION_REPLICA_ENDPOINT` for an S3-compatible provider and optionally
+set `RECONCILIATION_REPLICA_ACCOUNT_LABEL` for the credential-free receipt.
+For Cloudflare R2, the endpoint is the account's R2 S3 endpoint; the command
+accepts an R2 dashboard location label such as `Eastern North America (ENAM)`
+and sends the S3 API's required `auto` region.
+The replica uses the same prefix by default so the copied manifest remains
+byte-for-byte unchanged. The command rejects reuse of the primary access key,
+the exact primary bucket/endpoint, or a different prefix.
+
+```bash
+bash scripts/archive-reconciliation-history.sh --replicate
+```
+
+The command downloads and verifies the primary bundle and manifest, uploads
+both unchanged to the replica, downloads them again from the replica, compares
+SHA-256 and byte counts, and stores a
+`history-archives/reconciliation-2026-08-21/replication-receipt.txt` beside the
+replica objects. The receipt records locations, checksums, and verification
+status; it never records bucket credentials.
+
 ## Safe recovery procedure
 
 Recovery restores evidence into a fresh clone or a separate recovery
@@ -80,7 +105,8 @@ namespace. It never force-pushes, resets, merges into, or overwrites GitHub
 `main`.
 
 ```bash
-# Download performs an object-store metadata and SHA-256 check.
+# Download from the primary recovery location performs an object-store metadata
+# and SHA-256 check.
 npx tsx scripts/reconciliation-history-object-storage.ts download ./recovery-input
 
 # Verify the downloaded bundle and materialize it as an isolated bare clone.
@@ -93,6 +119,16 @@ git -C ./recovered.git branch recovery/replit-main \
   refs/tags/reconciliation/replit-main-2026-08-21
 git -C ./recovered.git branch recovery/github-main \
   refs/tags/reconciliation/github-main-2026-08-21
+```
+
+For the independent replica, configure its `RECONCILIATION_REPLICA_*` values
+and use the replica-specific download command, or use the
+`replication-receipt.txt` to identify the verified replica location.
+Both recovery locations are evidence archives; neither authorizes changing
+GitHub `main`.
+
+```bash
+npx tsx scripts/reconciliation-history-object-storage.ts download-replica ./replica-input
 ```
 
 `manifest.txt` records the two-parent reconciliation commit IDs and their

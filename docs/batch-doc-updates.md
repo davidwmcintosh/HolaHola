@@ -4575,3 +4575,18 @@ No validation was removed: redundant named validation entries are covered by
 the existing consolidated CI groups, and the remaining standalone safeguards
 now run in its `workflow-safety` group. `docs/agent-workflows.md` records the
 direct commands for focused manual use as well as the group command.
+
+---
+
+## Independent reconciliation archive replica — August 22, 2026
+
+The protected bundle and manifest are now copied byte-for-byte to a separately
+administered S3-compatible account. The replication path first verifies a fresh
+primary download, then validates an independent replica download against
+metadata, manifest SHA-256 values, and byte counts. The replica also holds an
+immutable credential-free receipt recording both verified recovery locations
+and the rule that GitHub `main` must never be force-pushed or overwritten.
+
+Cloudflare R2 dashboard location labels are normalized to its S3 API region
+only for R2 endpoints; standard S3 region identifiers are otherwise passed
+through unchanged.
