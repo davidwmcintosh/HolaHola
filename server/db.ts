@@ -1,10 +1,13 @@
-import { Pool, neon, neonConfig } from '@neondatabase/serverless';
+import { Pool as NeonPool, neon, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
+import { Pool as PostgresPool } from 'pg';
+import { drizzle as drizzlePostgres } from 'drizzle-orm/node-postgres';
 import ws from "ws";
 import { createRequire } from 'module';
 import path from 'path';
 import * as schema from "@shared/schema";
+import { getVerifiedCiDatabaseUrl } from './ci-database';
 
 // Patch ws ErrorEvent.message to add a no-op setter.
 // Fixes: ws 8.18.x+ made ErrorEvent.message getter-only, but @neondatabase/serverless
@@ -37,34 +40,55 @@ neonConfig.webSocketConstructor = ws;
 // ===== SINGLE DATABASE ARCHITECTURE =====
 // Consolidated to one Neon database for simplicity.
 // All tables now live in the same database.
-const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
+// CI uses a disposable PostgreSQL service rather than a Neon endpoint. Keep the
+// alternate URL explicit so a regular PostgreSQL URL cannot silently change the
+// application's production database transport.
+const CI_DATABASE_URL = getVerifiedCiDatabaseUrl();
+const DATABASE_URL = CI_DATABASE_URL ?? process.env.NEON_SHARED_DATABASE_URL;
+const usesCiDatabase = Boolean(CI_DATABASE_URL);
 
 if (!DATABASE_URL) {
   throw new Error("[DB] FATAL: NEON_SHARED_DATABASE_URL is required");
 }
-console.log("[DB] ✓ Neon database configured");
+console.log(usesCiDatabase ? "[DB] ✓ isolated CI PostgreSQL database configured" : "[DB] ✓ Neon database configured");
 
-let pool: Pool | null = null;
+type ApplicationDb = ReturnType<typeof drizzle>;
+let pool: NeonPool | PostgresPool | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
 
 function getDb() {
   if (!pool) {
-    pool = new Pool({
+    const poolOptions = {
       connectionString: DATABASE_URL,
       max: 25,
       idleTimeoutMillis: 120000,
       connectionTimeoutMillis: 20000,
-    });
-    _db = drizzle({ client: pool, schema });
+    };
+    if (usesCiDatabase) {
+      const ciPool = new PostgresPool(poolOptions);
+      pool = ciPool;
+      // Both Drizzle adapters expose the same query-builder contract. The cast
+      // preserves the long-standing Neon return type for existing callers.
+      _db = drizzlePostgres({ client: ciPool, schema }) as unknown as ApplicationDb;
+    } else {
+      const neonPool = new NeonPool(poolOptions);
+      pool = neonPool;
+      _db = drizzle({ client: neonPool, schema });
+    }
     console.log("[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)");
 
     // Prevent "Connection terminated unexpectedly" from propagating as an uncaught
     // exception and crashing the server (which kills all active GL voice sessions).
     // pg pools emit 'error' on idle client disconnects — without this handler the
     // error becomes an uncaught exception and node exits.
-    pool.on('error', (err) => {
+    const onPoolError = (err: Error) => {
       console.warn('[DB] Pool idle client error (non-fatal, pool will reconnect):', err.message);
-    });
+    };
+    if (usesCiDatabase) {
+      (pool as PostgresPool).on('error', onPoolError);
+    } else {
+      (pool as NeonPool).on('error', onPoolError);
+    }
 
     // Keepalive heartbeat — prevents Neon serverless compute from auto-suspending.
     // Neon suspends after ~5min idle; a query every 3min keeps it warm and avoids
@@ -88,6 +112,12 @@ function getDb() {
 // Use for SELECT-only calls; use getDb()/getUserDb() for writes.
 let _httpDb: ReturnType<typeof drizzleHttp<typeof schema>> | null = null;
 export function getMonitoringDb() {
+  // A local PostgreSQL service does not expose Neon's HTTP query endpoint.
+  // The CI database is single-node and disposable, so its standard pool is the
+  // authoritative read path for the same read-only callers.
+  if (usesCiDatabase) {
+    return getDb() as unknown as ReturnType<typeof drizzleHttp<typeof schema>>;
+  }
   if (!_httpDb) {
     const httpSql = neon(DATABASE_URL!);
     _httpDb = drizzleHttp(httpSql, { schema });

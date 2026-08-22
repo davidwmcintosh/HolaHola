@@ -1,0 +1,2 @@
+ALTER TABLE "voice_sessions" ADD COLUMN IF NOT EXISTS "had_absence_return" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "voice_sessions" ADD COLUMN IF NOT EXISTS "absence_return_days" integer;

@@ -14,6 +14,37 @@ const root = resolve(new URL('..', import.meta.url).pathname);
 const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 const testChain = packageJson.scripts?.test;
 
+function assertSafeCiDatabaseConfiguration() {
+  if (process.env.CI !== 'true') return;
+
+  const ciDatabaseUrl = process.env.CI_DATABASE_URL;
+  if (!ciDatabaseUrl) {
+    throw new Error(
+      'GitHub CI requires CI_DATABASE_URL for its isolated PostgreSQL service; refusing to fall back to a live database URL',
+    );
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(ciDatabaseUrl);
+  } catch {
+    throw new Error('CI_DATABASE_URL must be a valid PostgreSQL connection URL');
+  }
+
+  const safeHosts = new Set(['127.0.0.1', 'localhost', '::1']);
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol) || !safeHosts.has(parsed.hostname)) {
+    throw new Error('CI_DATABASE_URL must target the job-local PostgreSQL service, not an external database');
+  }
+
+  if (process.env.NEON_SHARED_DATABASE_URL !== ciDatabaseUrl) {
+    throw new Error(
+      'NEON_SHARED_DATABASE_URL must exactly match CI_DATABASE_URL in GitHub CI so DB-backed tests cannot use a live database',
+    );
+  }
+}
+
+assertSafeCiDatabaseConfiguration();
+
 if (typeof testChain !== 'string' || !testChain.trim()) {
   throw new Error('package.json must define a non-empty scripts.test command');
 }

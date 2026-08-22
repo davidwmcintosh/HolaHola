@@ -165,11 +165,24 @@ import { getSharedDb } from '../db';
 import { danielaAbsenceNudges } from '@shared/schema';
 import { eq, isNull } from 'drizzle-orm';
 
-// HTTP client for read-back assertions — bypasses the WebSocket pool so the
-// assertion always reads freshly committed state from Neon's primary.
-const _httpSql = neon(process.env.NEON_SHARED_DATABASE_URL!);
+// Production reads use Neon's primary HTTP endpoint. CI uses a disposable local
+// PostgreSQL service, so it reads through the same standard pool after the write.
+const _httpSql = process.env.CI_DATABASE_URL
+  ? null
+  : neon(process.env.NEON_SHARED_DATABASE_URL!);
 async function httpSelectNudge(userId: string): Promise<{ resolvedAt: Date | null; resolutionType: string | null } | null> {
-  const rows = await _httpSql`
+  if (process.env.CI_DATABASE_URL) {
+    const [row] = await getSharedDb()
+      .select({
+        resolvedAt: danielaAbsenceNudges.resolvedAt,
+        resolutionType: danielaAbsenceNudges.resolutionType,
+      })
+      .from(danielaAbsenceNudges)
+      .where(eq(danielaAbsenceNudges.userId, userId))
+      .limit(1);
+    return row ?? null;
+  }
+  const rows = await _httpSql!`
     SELECT resolved_at AS "resolvedAt", resolution_type AS "resolutionType"
     FROM daniela_absence_nudges
     WHERE user_id = ${userId}

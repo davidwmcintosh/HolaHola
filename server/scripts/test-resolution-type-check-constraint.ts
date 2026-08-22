@@ -27,6 +27,7 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { Pool } from 'pg';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -50,14 +51,26 @@ function fail(name: string, detail: string) {
 }
 
 // ── DB connection ─────────────────────────────────────────────────────────────
-// Uses the neon HTTP client (same DATABASE_URL used by the server).
-// We intentionally bypass the Drizzle ORM layer so the raw DB constraint fires.
-const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
+// Production uses Neon's HTTP client. GitHub CI instead uses a disposable local
+// PostgreSQL service, which intentionally has no Neon HTTP endpoint.
+const CI_DATABASE_URL = process.env.CI_DATABASE_URL;
+const DATABASE_URL = CI_DATABASE_URL ?? process.env.NEON_SHARED_DATABASE_URL;
 if (!DATABASE_URL) {
   console.error(R('[FATAL] NEON_SHARED_DATABASE_URL is not set — cannot run DB constraint test'));
   process.exit(1);
 }
-const sql = neon(DATABASE_URL);
+const localPool = CI_DATABASE_URL ? new Pool({ connectionString: CI_DATABASE_URL }) : null;
+const neonSql = CI_DATABASE_URL ? null : neon(DATABASE_URL);
+const sql = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+  if (localPool) {
+    const text = strings.reduce(
+      (query, segment, index) => query + segment + (index < values.length ? `$${index + 1}` : ''),
+      '',
+    );
+    return (await localPool.query(text, values)).rows;
+  }
+  return neonSql!(strings, ...values);
+};
 
 // ── Probe user ────────────────────────────────────────────────────────────────
 // We need a userId that satisfies any FK-style expectations (the column is varchar,
@@ -322,6 +335,7 @@ async function runTests() {
   // ── Summary ───────────────────────────────────────────────────────────────
   sep();
   await cleanUp();
+  await localPool?.end();
 
   console.log(`\n${B('Results:')} ${G(`${passed} passed`)}, ${failed > 0 ? R(`${failed} failed`) : `${failed} failed`}\n`);
 
@@ -336,5 +350,5 @@ async function runTests() {
 
 runTests().catch((err) => {
   console.error(R(`[FATAL] Unexpected error: ${err.message}`));
-  process.exit(1);
+  localPool?.end().finally(() => process.exit(1));
 });

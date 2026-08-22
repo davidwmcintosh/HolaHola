@@ -13,6 +13,23 @@ jobs:
   test-unit:
     name: Unit tests
     runs-on: ubuntu-latest
+    env:
+      CI_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/holahola_ci
+      NEON_SHARED_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/holahola_ci
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: holahola_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d holahola_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
 
     steps:
       # v5 actions run on Node 24 internally. The application itself remains
@@ -64,12 +81,35 @@ jobs:
             console.log('[ci] drizzle-orm resolves from the application import path');
           "
 
+      - name: Prepare isolated CI database
+        run: |
+          npx tsx server/scripts/test-ci-database-adapter-guard.ts
+          npx drizzle-kit migrate
+          npx tsx server/scripts/setup-ci-test-database.ts
+
       - name: Run unit tests
         run: npm run test:ci:unit
 
   test-guards:
     name: Guard checks
     runs-on: ubuntu-latest
+    env:
+      CI_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/holahola_ci
+      NEON_SHARED_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/holahola_ci
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: holahola_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d holahola_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
 
     steps:
       - uses: actions/checkout@v5
@@ -111,6 +151,12 @@ jobs:
             if (typeof eq !== 'function') throw new Error('drizzle-orm did not expose eq');
             console.log('[ci] drizzle-orm resolves from the application import path');
           "
+
+      - name: Prepare isolated CI database
+        run: |
+          npx tsx server/scripts/test-ci-database-adapter-guard.ts
+          npx drizzle-kit migrate
+          npx tsx server/scripts/setup-ci-test-database.ts
 
       - name: Run guard checks
         run: npm run test:ci:guards
@@ -118,6 +164,23 @@ jobs:
   test-episodes:
     name: Episode and North Star checks
     runs-on: ubuntu-latest
+    env:
+      CI_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/holahola_ci
+      NEON_SHARED_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/holahola_ci
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: holahola_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d holahola_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
 
     steps:
       - uses: actions/checkout@v5
@@ -159,6 +222,12 @@ jobs:
             if (typeof eq !== 'function') throw new Error('drizzle-orm did not expose eq');
             console.log('[ci] drizzle-orm resolves from the application import path');
           "
+
+      - name: Prepare isolated CI database
+        run: |
+          npx tsx server/scripts/test-ci-database-adapter-guard.ts
+          npx drizzle-kit migrate
+          npx tsx server/scripts/setup-ci-test-database.ts
 
       - name: Run episode and North Star checks
         run: npm run test:ci:episodes

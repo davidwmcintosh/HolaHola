@@ -148,6 +148,13 @@
       "when": 1787266000000,
       "tag": "0021_raw_replit_classification_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787500800000,
+      "tag": "0022_voice_session_absence_return_columns",
+      "breakpoints": true
     }
   ]
 }

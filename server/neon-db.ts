@@ -1,12 +1,17 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool as PostgresPool } from 'pg';
+import { drizzle as drizzlePostgres } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import ws from "ws";
 import * as schema from "@shared/schema";
+import { getVerifiedCiDatabaseUrl } from './ci-database';
 
 neonConfig.webSocketConstructor = ws;
 
-const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
+const CI_DATABASE_URL = getVerifiedCiDatabaseUrl();
+const DATABASE_URL = CI_DATABASE_URL ?? process.env.NEON_SHARED_DATABASE_URL;
+const usesCiDatabase = Boolean(CI_DATABASE_URL);
 
 // ===== SINGLE DATABASE ARCHITECTURE =====
 // All tables now live in one database. These exports remain for backwards compatibility.
@@ -22,7 +27,8 @@ export function getDbForTable(_tableName: string) {
   return getSharedDb();
 }
 
-let pool: Pool | null = null;
+type ApplicationDb = ReturnType<typeof drizzle>;
+let pool: NeonPool | PostgresPool | null = null;
 let db: ReturnType<typeof drizzle> | null = null;
 
 export function isNeonConfigured(): boolean {
@@ -35,13 +41,21 @@ function getDb() {
   }
   
   if (!pool) {
-    pool = new Pool({
+    const poolOptions = {
       connectionString: DATABASE_URL,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
-    });
-    db = drizzle({ client: pool, schema });
+    };
+    if (usesCiDatabase) {
+      const ciPool = new PostgresPool(poolOptions);
+      pool = ciPool;
+      db = drizzlePostgres({ client: ciPool, schema }) as unknown as ApplicationDb;
+    } else {
+      const neonPool = new NeonPool(poolOptions);
+      pool = neonPool;
+      db = drizzle({ client: neonPool, schema });
+    }
   }
   
   return db!;
@@ -69,7 +83,9 @@ export async function testNeonConnection(): Promise<{
   }
   
   try {
-    const testPool = new Pool({ connectionString: DATABASE_URL });
+    const testPool = usesCiDatabase
+      ? new PostgresPool({ connectionString: DATABASE_URL })
+      : new NeonPool({ connectionString: DATABASE_URL });
     const queryResult = await testPool.query('SELECT current_database(), current_user, version()');
     const row = queryResult.rows[0];
     const successResult = { 
