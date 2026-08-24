@@ -86,7 +86,7 @@ if ! git merge-base --is-ancestor "$GITHUB_HEAD" "$LOCAL_HEAD"; then
   exit 1
 fi
 
-CHANGES=$(git status --porcelain 2>/dev/null)
+CHANGES=$(git status --porcelain --untracked-files=no 2>/dev/null)
 if [[ -z "$CHANGES" ]]; then
   if [[ "$LOCAL_HEAD" == "$GITHUB_HEAD" ]]; then
     echo "Nothing to commit — working tree is clean and GitHub is up to date."
@@ -106,7 +106,7 @@ fi
 
 if [[ "$COMMITTED_ONLY" -eq 1 ]]; then
   echo "ERROR: Uncommitted local changes prevent a committed-only GitHub push." >&2
-  git status --short >&2
+  git status --short --untracked-files=no >&2
   echo "The source bridge never stages or commits editor changes automatically." >&2
   exit 2
 fi

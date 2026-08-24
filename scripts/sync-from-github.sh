@@ -42,10 +42,10 @@ if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
   exit 1
 fi
 
-CHANGES=$(git status --porcelain 2>/dev/null)
+CHANGES=$(git status --porcelain --untracked-files=no 2>/dev/null)
 if [[ -n "$CHANGES" ]]; then
   echo "ERROR: Uncommitted local changes prevent a safe GitHub release pull:" >&2
-  git status --short
+  git status --short --untracked-files=no
   echo "Commit or stash them first, then run this script again." >&2
   exit 1
 fi
