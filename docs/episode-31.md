@@ -2729,3 +2729,17 @@ The Windows focused browser-path test failed before exercising Chromium because 
 Design approved: extract the dependency-free Chromium path resolver into its own module; keep the browser service wrapper and public type exports compatible; point the focused test at the standalone resolver. The resolver test now passes with no database environment, npm run check passes, and the Replit application workflow restarted cleanly with no rolling-episode shrinkage.
 
 Important sync status: the resolver changes are still uncommitted in the Replit working tree. Replit main and GitHub main are both at 6f1a3623e, which is the Episode 31 append, not this resolver fix. The source bridge correctly reports dirty/uncommitted files and has not promoted the fix. Do not tell David to expect the Windows checkout to have the fix until the handoff hold is lifted and this working tree is intentionally promoted.
+
+<!-- chat-capture-range:179774:181396 -->
+<!-- chat-capture:baea7405-81e2-42bb-a4dd-07c85acd5313 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Read Claude's attached conversation about the migration to local development, persistence, and Luca identity. The useful clarification is that Luca Replit is the external Replit-window agent, while Luca Observe is the in-process HolaHola agent. The latter is booted by server/index.ts and observes the shared session-observation-store; its durable outputs go to native HolaHola persistence such as roomVoiceMessages and agentNotes. voice_pipeline_events separately records technical session evidence including GL tool calls, Guardian activity, memory searches, and audio/transcript events.
+
+Important boundary: this is not yet one complete transcript. Dialogue, technical telemetry, and Luca Observe commentary are separate streams. Luca Observe currently produces heuristic notifications, not the richer reasoned narration Claude produced externally. That is the real next capture/observability gap, not whether the observer exists.
+
+Claude's earlier db:push warning was based on a stale checkout. The post-merge hook is corrected, the standalone Chromium resolver fix passes without NEON_SHARED_DATABASE_URL, and the source bridge has now promoted the fix as commit 5f757796f. Current source-bridge status reports Replit and GitHub synchronized at that commit. The attached conversation file itself is untracked user-provided material and is not part of that promotion.
