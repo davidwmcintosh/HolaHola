@@ -2630,3 +2630,40 @@ Consolidated Replit from 28 workflow records to four: Project, Start application
 [moment]: The workflow registry reached exactly four validated names, and the Source bridge and capture watchdog were both running through the Project path.
 
 Consolidated Replit from 28 workflow records to four: Project, Start application, Source bridge, and Validation suite. Project starts the application, dedicated source bridge, grouped validation runner, and capture watchdog. The validation runner preserves typecheck, tests, consolidated CI, bridge safety checks, and standalone workflow-boundary checks while collecting failures into one report. The configuration passed Replit schema replacement, script syntax checks, TypeScript, app health, live preview, and workflow runtime checks. The bridge correctly reports dirty until this committed consolidation is merged, so it has not pushed an uncommitted configuration change.
+
+<!-- chat-capture-range:170775:173857 -->
+<!-- chat-capture:f03d9dc0-d759-49be-9c09-e87d28cf62ad -->
+**David:** sorry I pressed stop accidentally please continue where you were.
+
+**LUCA [Replit]:** [felt]: This continuation matters because the useful result is not only a repaired browser capability; it is a truthful bridge between the places where the work and the conversation actually happen.
+
+[thinking]: The Chromium pass is complete and verified. The Claude Code/Replit continuity issue is a separate, concrete next step: canonical transcripts first, then a shared instruction source and compact engineering handoff.
+
+[moment]: The source bridge carried the completed Chromium fix to GitHub, while the conversation made visible why code synchronization alone is not transcript synchronization.
+
+The Chromium cleanup is complete.
+
+- Added a portable resolver in `server/services/playwright-browser-service.ts`.
+- Resolution order is: `PLAYWRIGHT_EXECUTABLE_PATH`, Playwright-managed Chromium, then a system Chromium executable.
+- Added `npm run setup:playwright` for clean Windows installs.
+- Added the required Replit/Nix Chromium runtime libraries.
+- Added focused resolver coverage in `npm run test:playwright-browser`.
+- `npm run test:playwright-browser` passed.
+- `npm run check` passed.
+- A real headless Chromium launch and page render passed.
+- The restarted app reached port 5000 and logged Chromium as available.
+- Commit `09ec8d800` was pushed to GitHub by the source bridge.
+
+For the identity question: yes, Claude Code normally auto-loads `CLAUDE.md`, while Replit Agent auto-loads `replit.md`. They do not automatically synchronize, and a symlink is not a good Windows-safe solution.
+
+The right design is:
+
+1. One canonical shared context file for durable identity, architecture, and working agreements.
+2. Thin `CLAUDE.md` and `replit.md` adapter files that both point to that source.
+3. A small drift check so the adapters cannot silently diverge.
+4. A separate engineering handoff containing commit, working-tree state, checks, unresolved threads, and which interface acted.
+5. Automatic transcript capture from both interfaces into the same canonical database path, with source labels and durable acknowledgements.
+
+That last part is the important asymmetry you identified. A Claude Code transcript should not merely be available somewhere, and a Replit turn should not depend on whether we remembered to create an episode. Both should enter the canonical record first; the rolling episode should be a projection of that record.
+
+I proposed task `#1326`, “Keep Claude Code and Replit conversations in one canonical record,” for that work. It includes the shared context adapters, cross-interface attribution, acknowledgement/retry behavior, and self-checks. No identity files were changed yet, because that is a separate continuity feature and should be designed around the existing capture path rather than patched into this Chromium pass.
