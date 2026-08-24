@@ -150,6 +150,7 @@
 - [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
 - [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
+- [Source bridge supervision](source-bridge-supervision.md) — supervisor heartbeat and durable alert distinguish a live retry from a dead bridge child.
 - [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
 - [GitHub CI aggregate protection](github-ci-aggregate-protection.md) — require only GitHub Actions `test` (`CI / test`); internal parallel jobs feed that aggregate.
