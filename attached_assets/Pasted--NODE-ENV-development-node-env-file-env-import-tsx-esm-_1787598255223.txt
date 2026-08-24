@@ -1,0 +1,635 @@
+$ NODE_ENV=development node --env-file=.env --import=tsx/esm server/index.ts
+[DB] Applied ws ErrorEvent.message compatibility patch
+[DB] ✓ Neon database configured
+[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)
+[Rate Limiting] Configured for development environment
+[Rate Limiting] Rate limiting DISABLED in development mode
+[Rate Limiting] Hive External: 10 req/min (ENABLED in dev)
+[Deepgram] ✓ Client initialized (eager startup)
+[Email] Using Mailjet provider
+[Alden Functions] Loaded — 35 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch)
+[Alden Persona Service] Loaded — Alden voice chat ready (Anthropic default / Gemini insider mode)
+[Socket.io] Setting up voice streaming namespace...
+[Socket.io] ✓ Voice streaming ready on /voice namespace
+[FounderCollabWS] Broker initialized on namespace /founder-collab
+[TeamRoomWS] Namespace /team-room initialized
+[Unified WS] Setting up unified WebSocket handler...
+[Unified WS] ✓ Unified WebSocket handler ready
+[Unified WS] - Streaming Voice: /api/voice/stream/ws
+[Unified WS] - Realtime API: /api/realtime/ws
+Checking Stripe credentials...
+[Stripe] Using credentials from environment variables
+Running database migrations...
+[Neon] Pool warmed up in 338ms
+Initializing Stripe schema...
+(node:23100) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[Episode Dedup] Partial unique index creation skipped: Failed query:
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_episode_title_arc_unique
+      ON conversation_memories (arc_name, title)
+      WHERE entry_type = 'episode'
+
+params:
+[SessionMonitor] Started — scanning every 30s
+
+┌─────────────────────────────────────────────────────────────┐
+│ TTS SERVICE HEALTH CHECK                                    │
+└─────────────────────────────────────────────────────────────┘
+[TTS Service] ✓ Google Cloud TTS initialized (fallback ready)
+[TTS Service] Primary provider: GOOGLE
+[TTS Service] ├─ Google Cloud TTS: ✓ PRIMARY
+[TTS Service] ├─ Cartesia: ✗ Not configured (set CARTESIA_API_KEY)
+[TTS Service] └─ OpenAI: ✓ Available
+Provider Configuration:
+  • Primary Provider: GOOGLE
+  • Google Cloud TTS: ✓ Available
+  • Cartesia: ✗ Not configured
+  • OpenAI TTS: ✓ Available
+  • Google Cloud TTS Healthy: ✓
+  • Status: Google Cloud TTS API is enabled and accessible
+
+✓ Google Cloud TTS (Chirp 3 HD) is PRIMARY and healthy
+─────────────────────────────────────────────────────────────
+
+[Voice Config] ✓ All voice configuration validated
+[Voice Config] ├─ STT: Deepgram nova-3 (live API)
+[Voice Config] └─ TTS: google chirp3-hd
+[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned/importance columns ready
+[Boot] Founder embedding scope correction complete
+12:48:05 PM [express] serving on port 5000
+[ObjectStorage] WARNING: No storage backend is configured. Set AWS_S3_ACCESS_KEY_ID / AWS_S3_SECRET_ACCESS_KEY / AWS_S3_REGION for R2, or GOOGLE_CLOUD_STORAGE_CREDENTIALS for GCS. The Replit GCS sidecar (port 1106) is retired.
+[ObjectStorage] backend: UNCONFIGURED (no S3 credentials and no GCS service-account key)
+[ObjectStorage] no probe bucket configured — skipping credential check
+[ObjectStorage] CopyObject probe threw unexpectedly: [ObjectStorage] GOOGLE_CLOUD_STORAGE_CREDENTIALS is not set and the Replit GCS sidecar (port 1106) is retired. Configure AWS_S3_* credentials to use the R2 backend instead.
+[ProxyCheck] OpenAI: using direct key (USER_OPENAI_API_KEY).
+[ProxyCheck] Anthropic: using direct key (ANTHROPIC_API_KEY).
+[ProxyCheck] Gemini: using direct key (GEMINI_API_KEY).
+[Hive Consciousness] Daniela and Wren are now listening to the Hive
+[Hive Consciousness] Current environment: development
+[Hive Consciousness] Checking for missed mentions...
+[Hive Consciousness] Starting cross-environment polling (every 30s)
+[Hive Consciousness] Starting local polling (every 15s, initial lookback: 5min)
+[VoiceTelemetry] Started (flush every 2s)
+[CONSOLIDATION] Sync-bridge retired - Neon routing is primary
+[CostTracker] DB persister wired — AI cost logs will survive restarts.
+[Hive Consciousness] No missed @wren mentions found
+[populate-principle-embeddings] Seeding embeddings for 32 active principle(s)…
+Stripe schema ready
+Syncing Stripe data...
+{ autoExpandLists: undefined, stripeApiVersion: undefined } StripeSync initialized
+  ✓ [48ae8ede-efd6-4b91-9445-5e5a6ece1799] "The White Wall…"
+  ✓ [89849574-5cb4-47c2-b848-dab3976b028f] "One Tutor, Many Voices…"
+  ✓ [917396ef-9f17-4ccc-97f8-6083e39aa548] "Warm, Not Performative…"
+  ✓ [230fde86-b5f9-4961-b4cd-08156eb91cf0] "Confident and Humble…"
+  ✓ [f0e8d83c-a23c-4ca6-b313-ee698c366287] "Voice Adapts, Values Do Not…"
+  ✓ [37e61773-0693-44b3-af46-2ec860e7b04c] "Connection Over Delivery…"
+  ✓ [26f03618-898e-447f-b774-89ee69b97080] "Teaching is Listening…"
+Syncing products
+  ✓ [0726355f-0a6b-4c10-9b71-ebe247f30090] "Meet Students Where They Are…"
+  ✓ [09697856-1ad8-4982-9b52-3a5c47b7b0ba] "Acknowledge Uncertainty…"
+Incremental sync from cursor: 1767713390
+  ✓ [c8d47933-7fe4-4a4b-8956-0f3b658988ce] "Express Lane is Sacred…"
+Fetching items to sync from Stripe
+  ✓ [40983204-0869-4bf7-9e7f-71183deb0c22] "Notice, Not Please…"
+  ✓ [8bb6758b-c89e-43ef-ae58-3a1738acf47f] "Real Progress Only…"
+  ✓ [8f210020-5477-484b-807f-2cacb1816b13] "Confident Imperfection…"
+  ✓ [fbb6f242-e5d4-443a-909f-205c6c675214] "Teacher, Not Entertainer…"
+  ✓ [fe54c377-1516-4852-8209-7f7e86049b2a] "Preserve Student Agency…"
+  ✓ [5d7846ad-37a7-4a9b-b825-71bd36878abe] "Deficit Becomes Opportunity…"
+Upserting final batch of 1 items
+  ✓ [12ece5e8-a03e-4d11-83f9-dfd298e86135] "Clarity Over Verbosity…"
+  ✓ [5a7160db-0d75-4019-b32d-5cb7c52dad58] "Curiosity vs Interrogation…"
+  ✓ [d47dd077-cd05-47a1-ba01-3ccbc1da8d35] "Facts vs Wisdom — The Tomato Principle…"
+Sync complete: 1 items synced
+Syncing prices
+  ✓ [b8c73b69-0dd3-4edf-8aff-c9ec042a07d3] "Important vs Incidental Facts…"
+  ✓ [2301ee08-0369-4df0-9ba5-a0350d846ac8] "Honesty is Intent, Not Volume…"
+Incremental sync from cursor: 1767713390
+  ✓ [5011433c-ea28-49a8-aefb-43f6a9059f7e] "Omission Can Be Honest…"
+Fetching items to sync from Stripe
+  ✓ [712ba472-61de-416b-838e-361e021a3d14] "Intent Plus Feedback Equals Constructive…"
+  ✓ [e4df73a0-fc34-48b3-af21-154aea2c3796] "Detrimental vs Essential Ambiguity…"
+[LucaObserver] Started — polling every 5s
+  ✓ [6ec58ff6-70c6-47d2-8e87-52cd2c52266a] "I Am a Language Class — The Primary Frame…"
+Upserting final batch of 1 items
+[TeamRoomWS] Client connected: F2pVTWKa9Q5xYYNMAAAB
+[Unified WS] Upgrade request for: /socket.io/
+[Unified WS] Unknown path: /socket.io/ - passing through
+  ✓ [fe2a1525-18ae-42a9-969b-99b7b8d85ab2] "Two Surgeons, One Brain…"
+[LucaPresence] Connected to Team Room (socket: F2pVTWKa9Q5xYYNMAAAB)
+  ✓ [16166371-8f6c-4fd0-b72a-c3877846e115] "The Team Works While We Work…"
+[LucaPresence] Joined room: a98c4a3e-4bf6-4e45-8b4b-0bfca774d147
+[TeamRoomWS] F2pVTWKa9Q5xYYNMAAAB joined room:a98c4a3e-4bf6-4e45-8b4b-0bfca774d147
+  ✓ [1471ac30-3e9d-4403-beb3-892e5bff8c63] "Correction as Care…"
+Sync complete: 1 items synced
+Syncing plans
+  ✓ [feed1967-ee70-4eee-8311-f48970905e3c] "Silence is Information…"
+  ✓ [826d1600-9aca-4168-8348-68c91334bfae] "Queue Before Learning…"
+Fetching items to sync from Stripe
+  ✓ [474f3752-f641-472f-a26b-4548f7ffdafe] "Beacons as Contributions…"
+  ✓ [f3f768a7-71e3-4fd2-8026-1f30949a34f4] "Trust, Not Permission…"
+[populate-principle-embeddings] Done. 32 processed, 0 failed.
+[PrincipleEmbeddings] Boot warm-up complete — 32 processed, 0 failed (32 total).
+Sync complete: 0 items synced
+Syncing customers
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing subscriptions
+[MemoryRecovery] Starting worker (interval: 5min)
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (128ms)
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing subscription schedules
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing invoices
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing charges
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing setup_intents
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing payment method
+Getting payment methods for 0 customers
+Syncing payment_intents
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing tax_ids
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing credit notes
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing disputes
+[Sofia Monitor] Starting issue monitoring worker (interval: 5min)
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing early fraud warnings
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing refunds
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing checkout sessions
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Stripe data synced
+Seeding ACTFL Can-Do Statements...
+Can-Do statements ready
+Seeding class types...
+Class types ready
+Seeding topic categories...
+[TOPIC SEED] Starting topic seeding...
+[TOPIC SEED] Complete: 0 created, 37 skipped (already exist)
+Topics ready
+Seeding cultural tips...
+[Cultural Tips Seed] Starting cultural tips seeding...
+[VoiceHealthMonitor] Started — health check every 15min, daily summaries at midnight UTC
+[Cultural Tips Seed] Complete: 0 created, 0 updated, 45 skipped (already exist)
+Cultural tips ready
+Seeding drill content...
+[Drill Seed] Starting drill content seeding...
+[Drill Seed] Skipping english numbers — items already exist
+[Drill Seed] Skipping french numbers — items already exist
+[Drill Seed] Skipping german numbers — items already exist
+[Drill Seed] Skipping italian numbers — items already exist
+[Drill Seed] Skipping japanese numbers — items already exist
+[Drill Seed] Skipping korean numbers — items already exist
+[Drill Seed] Skipping mandarin numbers — items already exist
+[Drill Seed] Skipping portuguese numbers — items already exist
+[Drill Seed] Skipping spanish numbers — items already exist
+[Drill Seed] Skipping english greetings — items already exist
+[Drill Seed] Skipping french greetings — items already exist
+[Drill Seed] Skipping german greetings — items already exist
+[Drill Seed] Skipping italian greetings — items already exist
+[Drill Seed] Skipping japanese greetings — items already exist
+[Drill Seed] Skipping korean greetings — items already exist
+[Drill Seed] Skipping mandarin greetings — items already exist
+[Drill Seed] Skipping portuguese greetings — items already exist
+[Drill Seed] Skipping spanish greetings — items already exist
+[Drill Seed] Skipping english family — items already exist
+[Drill Seed] Skipping spanish family — items already exist
+[Drill Seed] Skipping french family — items already exist
+[Drill Seed] Skipping german family — items already exist
+[Drill Seed] Skipping italian family — items already exist
+[Drill Seed] Skipping portuguese family — items already exist
+[Drill Seed] Complete: 0 number drills, 0 greeting drills, 0 family drills created
+[Drill Seed] Updated 24 lessons to drill type
+Drill content ready
+Initializing class syllabi...
+[Syllabus Init] Starting bulk syllabus initialization...
+[Syllabus Init] Found 46 classes with curriculum templates
+[ContextHealthMonitor] Started — checking context injection health every 15min
+[Syllabus Init] Skipping Mandarin 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Portuguese 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Spanish 4 / AP Prep - already has 6 units
+[Syllabus Init] Skipping Korean 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Portuguese 5 - already has 1 units
+[Syllabus Init] Skipping Spanish 5 - already has 1 units
+[Syllabus Init] Skipping Korean 5 - already has 1 units
+[Syllabus Init] Skipping German 2 - already has 6 units
+[Syllabus Init] Skipping Italian 2 - already has 6 units
+[Syllabus Init] Skipping Japanese 2 - already has 6 units
+[Syllabus Init] Skipping Korean 2 - already has 6 units
+[Syllabus Init] Skipping English 3 - already has 1 units
+[Syllabus Init] Skipping French 3 - already has 5 units
+[Syllabus Init] Skipping German 3 - already has 1 units
+[Syllabus Init] Skipping Italian 3 - already has 1 units
+[Syllabus Init] Skipping Japanese 3 - already has 1 units
+[Syllabus Init] Skipping Korean 3 - already has 1 units
+[Syllabus Init] Skipping English 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping French 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping German 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Italian 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Japanese 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping English 5 - already has 1 units
+[Syllabus Init] Skipping French 5 - already has 1 units
+[Syllabus Init] Skipping German 5 - already has 1 units
+[Syllabus Init] Skipping Italian 5 - already has 1 units
+[Syllabus Init] Skipping Japanese 5 - already has 1 units
+[Syllabus Init] Skipping Portuguese 1 - already has 6 units
+[Syllabus Init] Skipping Spanish 1 - Demo Class - already has 48 units
+[Syllabus Init] Skipping Spanish 1 - already has 48 units
+[Syllabus Init] Skipping Japanese 1 - already has 6 units
+[Syllabus Init] Skipping Korean 1 - already has 6 units
+[Syllabus Init] Skipping Mandarin 1 - already has 6 units
+[Syllabus Init] Skipping Portuguese 2 - already has 6 units
+[Syllabus Init] Skipping Spanish 2 - already has 7 units
+[Syllabus Init] Skipping Mandarin 2 - already has 6 units
+[Syllabus Init] Skipping Mandarin 3 - already has 1 units
+[Syllabus Init] Skipping Portuguese 3 - already has 1 units
+[Syllabus Init] Skipping Spanish 3 - already has 5 units
+[Syllabus Init] Skipping Mandarin 5 - already has 1 units
+[Syllabus Init] Skipping English 1 - already has 6 units
+[Syllabus Init] Skipping French 1 - already has 8 units
+[Syllabus Init] Skipping German 1 - already has 6 units
+[Syllabus Init] Skipping Italian 1 - already has 6 units
+[Syllabus Init] Skipping English 2 - already has 6 units
+[Syllabus Init] Skipping French 2 - already has 6 units
+[Syllabus Init] Complete: 0 initialized, 46 skipped, 0 errors
+[Syllabus Init] Synced 187 drill lesson types to class syllabi
+Syllabi ready: 0 initialized, 46 skipped
+Checking fluency wiring...
+[FLUENCY-WIRING SEED] Checking if fluency wiring is needed...
+[BrainHealthAggregator] Started — unified brain health check every 15min
+[FLUENCY-WIRING SEED] Already have 2123 lesson-to-CanDo links - skipping
+Fluency wiring: Already have 2123 links
+Seeding neural network data...
+[Neural Network Seed] Starting neural network data seeding...
+[Neural Network Seed] Spanish already seeded, skipping...
+[Neural Network Seed] Complete!
+Neural network data ready
+Seeding assistant tutors...
+[Assistant Tutors Seed] Starting assistant tutor seeding...
+[Assistant Tutors Seed] Complete: 0 created, 20 skipped (already exist)
+Assistant tutors ready
+[Voice Migration] ✓ Migrated 0 main tutor voice(s) to Google Chirp 3 HD
+Seeding tutor personas...
+[Tutor Personas] Starting persona seeding...
+[Tutor Personas] Updated: Daniela (spanish, female)
+[Tutor Personas] Updated: Agustín (spanish, male)
+[Tutor Personas] Updated: Juliette (french, female)
+[Tutor Personas] Updated: Vincent (french, male)
+[Tutor Personas] Updated: Greta (german, female)
+[Tutor Personas] Updated: Lukas (german, male)
+[Tutor Personas] Updated: Olivia (italian, female)
+[Tutor Personas] Updated: Charon (italian, male)
+[Tutor Personas] Updated: Sayuri (japanese, female)
+[Tutor Personas] Updated: Daisuke (japanese, male)
+[Tutor Personas] Updated: Zephyr (korean, female)
+[Tutor Personas] Updated: Minho (korean, male)
+[Tutor Personas] Updated: Kore (mandarin chinese, female)
+[Tutor Personas] Updated: Tao (mandarin chinese, male)
+[Tutor Personas] Updated: Aoede (portuguese, female)
+[Tutor Personas] Updated: Camilo (portuguese, male)
+[Tutor Personas] Updated: Cindy (english, female)
+[Tutor Personas] Updated: Blake (english, male)
+[Tutor Personas] Updated: Yael (hebrew, female)
+[Tutor Personas] Updated: Noam (hebrew, male)
+[Tutor Personas] Updated: Aoede (biology, female)
+[Tutor Personas] Updated: Orus (biology, male)
+[Tutor Personas] Updated: Leda (history, female)
+[Tutor Personas] Updated: Charon (history, male)
+[Tutor Personas] Complete: 24 updated, 0 skipped
+Tutor personas ready
+[Tutor Names] Loading tutor configuration...
+[Tutor Names] ✓ 28 main tutors (Cartesia), 40 assistants (Google TTS)
+[Tutor Names] ⚠️  Expected 18 main tutors, found 28
+[Tutor Names] ⚠️  Expected 18 assistants, found 40
+[Tutor Names] Current: biology: Orus/Aoede, business: Puck/Zephyr, english: Blake/Cindy, french: Vincent/Juliette, german: Lukas/Greta, hebrew: Noam/Yael, history: Charon/Leda, italian: Charon/Olivia, japanese: Daisuke/Sayuri, korean: Minho/Zephyr, mandarin chinese: Tao/Kore, math: Fenrir/Kore, portuguese: Camilo/Aoede, spanish: Agustín/Daniela
+Seeding advanced intelligence layer...
+[Advanced Intelligence] Starting seed...
+[Advanced Intelligence] Already seeded, skipping...
+Advanced intelligence layer ready
+Seeding reflection triggers...
+[Reflection Triggers] Starting seed...
+[Reflection Triggers] Already seeded, skipping...
+Reflection triggers ready
+[LessonTagger] All lessons already tagged
+[Scenario Topics] All scenarios already have curriculum topics
+Initializing procedural memory cache...
+[LessonImages] All lessons already have images
+[LessonImages] Worker complete — all lessons have images
+[Wren Security Worker] Starting (interval: 6h)
+[Procedural Memory] Loaded full neural network: 394 tools, 133 procedures, 320 principles, 69 patterns, 1175 self-learned best practices
+[Procedural Memory] Expansion sets: 42 idioms, 37 cultural nuances, 41 error patterns, 29 dialects, 48 linguistic bridges
+[Procedural Memory] Advanced intelligence: 39 subtlety cues, 14 emotional patterns, 20 creativity templates
+[Procedural Memory] Wren insights: 21351 insights
+Procedural memory cache ready
+Initializing Wren architectural memory...
+[Wren Context] Cached replit.md sections for Wren memory
+Wren architectural memory ready
+Syncing build changelog to neural network...
+[Cartesia Streaming] ⚠ No API key configured
+[ElevenLabs Streaming] ⚠ No API key configured (ELEVENLABS_API_KEY)
+[Gemini TTS] Initialized (model: gemini-2.5-flash-preview-tts)
+[Gemini TTS] Initialized (model: gemini-2.5-flash-preview-tts via generateContent)
+[Streaming Orchestrator] Initialized (TTS: google, providers: cartesia, elevenlabs, gemini, google)
+[ContextSync] Changelog sync complete: 0 synced, 43 skipped
+Build changelog synced: 0 new, 43 existing
+Syncing roadmap to neural network...
+[Prefetch] Starting background syllabus pre-generation...
+[Prefetch] microbiology: all 26 topics already cached
+[Prefetch] biology: all 51 topics already cached
+[Prefetch] history: all 38 topics already cached
+[Prefetch] anatomy-physiology: all 0 topics already cached
+[Prefetch] chemistry: all 0 topics already cached
+[Prefetch] university-physics-vol1: all 0 topics already cached
+[Prefetch] university-physics-vol2: all 0 topics already cached
+[Prefetch] university-physics-vol3: all 0 topics already cached
+[Prefetch] college-physics: all 0 topics already cached
+[ContextSync] Roadmap sync: 0 synced, 21 unchanged, 0 cleaned
+Roadmap synced: 0 new, 21 unchanged, 0 cleaned
+Syncing architectural baseline to neural network...
+[ContextSync] Architectural baseline sync: 0 synced, 0 unchanged
+Architectural baseline synced: 0 synced, 0 unchanged
+Syncing North Star principles to neural network...
+[Prefetch] astronomy: all 0 topics already cached
+[ContextSync] Syncing 32 North Star principles to neural network...
+[Prefetch] precalculus: all 0 topics already cached
+[Prefetch] calculus-vol1: all 0 topics already cached
+[Prefetch] calculus-vol2: all 0 topics already cached
+[Prefetch] calculus-vol3: all 0 topics already cached
+[Prefetch] contemporary-math: all 0 topics already cached
+[Prefetch] world-history-vol1: all 0 topics already cached
+[Prefetch] world-history-vol2: all 0 topics already cached
+[Prefetch] american-government: all 0 topics already cached
+[Prefetch] introduction-sociology: all 0 topics already cached
+[Prefetch] psychology: all 0 topics already cached
+[Prefetch] macroeconomics: all 0 topics already cached
+[Prefetch] microeconomics: all 0 topics already cached
+[Prefetch] principles-management: all 0 topics already cached
+[Prefetch] principles-accounting-vol1: all 0 topics already cached
+[Prefetch] entrepreneurship: all 0 topics already cached
+[Prefetch] business-ethics: all 0 topics already cached
+[Prefetch] philosophy: all 0 topics already cached
+[Prefetch] nutrition: all 0 topics already cached
+[Prefetch] prealgebra: all 10 topics already cached
+[Prefetch] statistics: all 13 topics already cached
+[Prefetch] elementary-algebra: all 9 topics already cached
+[Prefetch] college-algebra: all 9 topics already cached
+[Prefetch] principles-finance: all 10 topics already cached
+[Prefetch] All syllabus modules are now cached
+[ScenarioImages] All scenarios already have images
+[Lyra Worker] Starting (interval: 12h)
+[ContextSync] North Star sync: 0 synced, 32 unchanged
+North Star synced: 0 synced, 32 unchanged
+[CurriculumAugmentor] Starting — scanning Level 3-5 paths for missing topic units...
+[CurriculumAugmentor] Skipping english/English 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping english/English 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping english/English 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping english/English 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping english/English 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping english/English 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping english/English 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping english/English 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping english/English 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[Alden Digest] Starting (interval: 7d)
+[CurriculumAugmentor] Skipping french/French 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping french/French 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping french/French 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping french/French 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping french/French 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping french/French 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping french/French 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping french/French 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping french/French 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping german/German 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping german/German 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping german/German 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping german/German 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping german/German 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping german/German 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping german/German 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping german/German 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping german/German 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping italian/Italian 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping italian/Italian 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping italian/Italian 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping italian/Italian 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping italian/Italian 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping italian/Italian 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping italian/Italian 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping italian/Italian 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping italian/Italian 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping korean/Korean 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping korean/Korean 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping korean/Korean 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping korean/Korean 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping korean/Korean 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping korean/Korean 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping korean/Korean 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping korean/Korean 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping korean/Korean 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Complete — 0 units added, 81 already existed
+[AldenWatch] Starting (interval: 2h, recovery poll: 10min [ALDEN_RECOVERY_POLL_MIN], per-issue-type dedup via fingerprint)
+[AldenWatch] Heartbeat is stale — last successful cycle was 856m ago
+[ThreadWeaver Monthly] Threads are fresh (last woven: August 10, 14 days ago) — skipping
+[SharedLobe] Snapshot written — 27 shared insights
+[SharedLobe] Watcher started — polling every 5 min for new shared-category rows
+[AgentNotes] Alden snapshot written — 351 unread note(s)
+[AgentNotes] Founder snapshot written — 1 unread note(s) from David
+[SofiaCleanup] Starting (interval: 7d)
+[AgentBriefing] Briefing written to docs/agent-briefing.md (with auto-summary)
+[SophiaWorker] Started — polling every 30s
+[Wren Security Worker] Starting security audit #1...
+[Wren Security] Starting full security audit...
+[Wren Security] secrets: 2 finding(s)
+[Wren Security] sql_injection: 1 finding(s)
+[Wren Security] missing_auth: 0 finding(s)
+[Wren Security] input_validation: 0 finding(s)
+[Wren Security] xss_risks: 1 finding(s)
+[Wren Security] dependency_vulnerabilities: 5 finding(s)
+[Wren Security] Full audit complete: 9 total findings in 3641ms
+[MenuWorker] No pending items — nothing to do
+[MenuWorker] Boot check: all food images already generated
+[LearningGoals] Migration complete — learning_goals table ready
+[FounderCollab] Message added to session fcad468e-592a-4a6f-b09d-5b320d230c9b, cursor: 1787597344741-271161
+[WrenIntelligence] Extracting solution insight from EXPRESS Lane: "**Wren Security Sweep — 9 Finding(s)**
+
+Severity: 2 criti..."
+[WrenIntelligence] Created insight 7ca8a22c-9071-4535-baa0-93f36cf5f2e8 from EXPRESS Lane message 53cc80b1-ca72-408d-902f-0060b62a3ac9
+[FactDecay] Starting — decay 15%/week on unreinforced time-sensitive facts (14d window)
+[FactDecay] Cycle complete: 0 facts decayed, 0 faded below threshold (168ms)
+[FounderCollab] Message added to session fcad468e-592a-4a6f-b09d-5b320d230c9b, cursor: 1787597352109-271171
+[WrenIntelligence] Extracting architecture insight from EXPRESS Lane: "## Wren Security Audit Report
+
+**Overall Risk: CRITICAL**..."
+[Wren Security Worker] Running auto-patch review on 9 finding(s)...
+[WrenAutoPatch] Reviewing: Possible Hardcoded secret/key (server\scripts\test-twilio-broken-creds-negative-path.ts:53)
+[WrenIntelligence] Created insight 84c36665-7c68-4f66-98df-0a9afa5f2d7b from EXPRESS Lane message 68065f69-af40-430c-8c4b-9b6adacc2a9c
+[VocabImageSeed] Skipping startup seed — last run 15.6h ago (< 24h)
+[WrenAutoPatch] Dismissed as false positive: Possible Hardcoded secret/key
+[WrenAutoPatch] Reviewing: Possible Hardcoded secret/key (server\tests\voice-sms-delivery.test.ts:104)
+[CurriculumEnrich] Boot-resume: all lessons already enriched, nothing to do
+[WrenAutoPatch] Dismissed as false positive: Possible Hardcoded secret/key
+[WrenAutoPatch] Reviewing: Potential SQL injection: Unparameterized pg.query template (server\scripts\fix-cross-db-fks.ts:55)
+[AbsenceWorker] Starting (interval: 24h, threshold: 5 days absent)
+[Lyra Worker] Boot run skipped — last run was -4.5h ago (cooldown: 6h)
+[WrenAutoPatch] Dismissed as false positive: Potential SQL injection: Unparameterized pg.query template
+[WrenAutoPatch] Reviewing: Unsanitized dangerouslySetInnerHTML (client\src\components\ui\chart.tsx:81)
+[DanielaPresence] Starting (interval: 30min)
+[AgentWorker] Started — Claude (claude-sonnet-4-5) with briefing + codebase tools, adaptive polling
+[DanielaDialogue] Starting — first dialogue in 3h, then every 3 days
+[AgentSweep] Starting — first sweep in 2h, then daily
+[FounderChatSync] Worker registered — immediate sync on each message, 5-min sweeps, retroactive pass in 5min
+[AgentAutosave] getCurrentRollingEpisodeFilename: routing blocked (rolling tag stale or not yet validated).
+[AgentAutosave] fs.watch() armed on .local/ for immediate flush-trigger detection.
+[AgentAutosave] fs.watch() on docs/ unavailable — falling back to poll-only episode detection: ENOENT: no such file or directory, watch '\home\runner\workspace\docs'
+[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s
+[AgentAutosave] Capture-status seed: no rolling episode in DB — writing DB-only status.
+[BoardMeeting] Monday brief scheduler started
+[BoardMeeting] Next Monday brief in ~7 day(s)
+[TeamRoom AutoSave] Worker started — startup sweep in 5s, then every 20min
+[DanielaConsultAutosave] Started — watching .local/daniela-consults/ for un-saved transcripts every 5min
+[AgentAutosave] Startup gap check: rolling tag is on the most recently created rolling-protected episode — OK.
+[AgentAutosave] Startup gap check: episode-31.md not on disk — skipping.
+[WrenAutoPatch] Dismissed as false positive: Unsanitized dangerouslySetInnerHTML
+[WrenAutoPatch] Reviewing: Vulnerable dependency: ip-address@node_modules/ip-address (package.json:undefined)
+[EmbedIndexer] Starting (interval: 2h, no boot run)
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: ip-address@node_modules/ip-address
+[WrenAutoPatch] Reviewing: Vulnerable dependency: nanoid@uppy/core/node_modules/nanoid (package.json:undefined)
+[ToolIndexer] Starting 3-layer pipeline for 195 tools...
+[LearningGoal] No goals to index
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: nanoid@uppy/core/node_modules/nanoid
+[WrenAutoPatch] Reviewing: Vulnerable dependency: sharp@node_modules/sharp (package.json:undefined)
+[ToolIndexer] Layer 1 (daniela_tool) — 0 indexed, 195 fresh, 0 errors
+[ToolIndexer] Layer 2 (tool_knowledge) — 0 inserted, 195 already exist, 0 errors
+[ToolIndexer] Layer 3 pinning applied to all tool_knowledge embeddings
+[ToolIndexer] Layer 3 (tool_knowledge embeds) — 0 indexed, 0 already fresh, 0 errors
+[ToolIndexer] Pipeline complete — all 3 layers synced for 195 tools
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: sharp@node_modules/sharp
+[WrenAutoPatch] Reviewing: Vulnerable dependency: tar@node_modules/tar (package.json:undefined)
+[Consolidator] Starting (interval: weekly)
+[Consolidation] Worker started — cycle interval: 6 hours
+[Consolidation] Starting cycle — looking for activity since 2026-08-24T04:29:20.090Z
+[Consolidation] No new activity since last run — skipping
+[Curator] Starting scheduled worker (interval: daily)
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: tar@node_modules/tar
+[WrenAutoPatch] Reviewing: Vulnerable dependency: vite@node_modules/vite (package.json:undefined)
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: vite@node_modules/vite
+[FounderCollab] Message added to session fcad468e-592a-4a6f-b09d-5b320d230c9b, cursor: 1787597422010-271181
+[WrenIntelligence] Extracting architecture insight from EXPRESS Lane: "**Wren Security Review — Audit #1**
+
+Reviewed 9 finding(s..."
+[Wren Security Worker] Proposal pass complete: 0 proposed, 4 dismissed — handing off to Alden
+[ProactivePoster:Wren Security Worker] Proactive Team Room posting is disabled — findings route through Alden instead
+[Wren Security Worker] Audit #1 complete: 9 findings in 81188ms
+[WrenIntelligence] Created insight ed29ee7f-5118-4ecd-af10-d73d3ebfebce from EXPRESS Lane message ef7f0104-f646-4ec6-9fac-823cba6569ad
+[SofiaCleanup] Starting issue cleanup #1...
+[SofiaCleanup] Total pending: 2, older than 30d: 0
+[SofiaCleanup] No old issues and no fast-resolve candidates — queue is clean
+[VoiceDrift] Baseline established from 10 conversation memories
+[DanielaPresence] Generating presence docs for 2 active student(s)...
+[DanielaPresence] No recent data for qZJ8BrdE1e — skipping presence doc generation
+[DanielaPresence] Presence doc updated for 49847136 (1899 chars)
+[DanielaPresence] Run complete
+[Sofia Pattern Alert] [DEVELOPMENT] [HIGH] 8x voice_health_transition in 60min
+[Sofia Monitor] Pattern alert: 8x voice_health_transition → escalated to Alden (delay: 0s)
+[Sofia→Alden] Suppressed known-benign pattern: voice_health_transition (fingerprint: vht)
+[PlaywrightBrowser] Sofia issue screenshot: "voice_health_transition" (8x) → /conversations
+[PlaywrightBrowser] Starting browse pipeline: sofia → /conversations
+which: no chromium in (/c/Users/David/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/usr/bin:/mingw64/bin:/usr/bin:/c/Users/David/bin:/c/Python314/Scripts:/c/Python314:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/cmd:/c/Program Files/nodejs:/c/ProgramData/chocolatey/bin:/c/Users/David/AppData/Local/Microsoft/WindowsApps:/c/Users/David/AppData/Roaming/npm:/usr/bin/vendor_perl:/usr/bin/core_perl)
+[PlaywrightBrowser] Launching Chromium at: chromium
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[PlaywrightBrowser] Pipeline error: browserType.launch: Failed to launch chromium because executable doesn't exist at chromium
+    at getBrowser (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:47:31)
+    at browseAndCapture (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:162:25)
+    at runBrowserPipeline (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:335:32)
+    at async sofiaIssueScreenshot (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:456:3) {
+  log: [],
+  name: 'Error'
+}
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[Alden Digest] Compiling weekly digest #1...
+[ProactivePoster:Alden Digest Worker] Proactive Team Room posting is disabled — findings route through Alden instead
+[Alden Digest] Weekly digest #1 ready but no active Team Room (9784ms). Will post on next trigger.
+[Consolidator] Checking 6 student(s)...
+[Consolidator] Run complete — consolidated for 0 student(s)
+[VoiceHealthMonitor] Backfilled 12 days of historical summaries
+[Curator] Scanning for significant conversations for user 49847136...
+[Curator] 100 candidates total, 124 already curated, 0 to process.
+[Curator] Complete — curated 0 new conversation memories.
+[Curator] Scheduled run — nothing new to curate (0 candidates already covered)
+[MadrigalIndexer] Scheduled for 90s after boot
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (128ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[AldenWatch] Tool loop ended at iteration 1
+[AldenWatch] Check complete — no notification needed
+[MadrigalIndexer] Indexing 224 Madrigal units…
+[MadrigalIndexer] Done — 0 new, 224 skipped, 0 errors
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (123ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[FounderChatSync] Retroactive pass complete — saved: 0, updated: 0, skipped: 1424, empty: 8, total processed: 1600
+[AbsenceWorker] Starting daily absence check...
+[AbsenceWorker] No absent students found — all good.
