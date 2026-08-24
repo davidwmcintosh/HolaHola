@@ -1,0 +1,26 @@
+Now we are migrating away from Replit as our development platform. so that we can have more autonomy and control. Replit will still be used to host our production website, and so all production pushes will go through Replit. That makes sense?
+
+Yes, that makes sense — and it's actually exactly what the source-bridge architecture already implements. Development moves to GitHub as the source of truth (from wherever you're coding — this machine, other tools), and Replit becomes a one-way receiver: source-bridge.sh watches GitHub, fast-forwards, runs npm run check / test:github-release-safety / npm run build, and marks it ready_to_promote. Production deploy stays an explicit Replit action either way. So the "Replit only hosts production" model doesn't require new sync logic — it just shifts the day-to-day traffic pattern: Replit → GitHub pushes should mostly disappear, and it becomes almost entirely GitHub → Replit fast-forwards.
+
+A few things worth deciding deliberately as part of the migration, since they don't fall out of the code automatically:
+
+Shared database risk. replit.md states dev and prod use the same Neon database (NEON_SHARED_DATABASE_URL) — no separate dev/prod split. Once development moves off Replit and becomes more frequent/autonomous (multiple local sessions, agents, etc.), that's the single biggest way to accidentally corrupt production data. Worth revisiting whether dev should get its own database now.
+No pre-merge gate on GitHub itself. The safety checks (typecheck/build/release-safety) only run when Replit pulls from GitHub, not before something lands on GitHub main. If Replit was previously the place code got written and reviewed before ever reaching GitHub, that informal gate goes away. You may want branch protection / CI on GitHub's side now that it's the primary work surface.
+Replit Auth (OIDC). Login is tied to Replit's domain. That's fine for production, but local dev sessions (like this one) likely can't fully authenticate against it — expect to hit that wall if you try to test authenticated flows outside Replit.
+Secrets duplication. Replit's userenv secrets (.replit) and its integrations (Stripe, object storage, etc.) will need an equivalent story for wherever development now happens, so local .env doesn't drift from what's configured on Replit.
+
+Do you want me to look at any of these — e.g., whether GitHub branch protection is already set up, or how big a lift a separate dev database would be?
+
+just a few questions first. do you see the neural network, and do you know what your name is?
+
+Searched code, found files, read 4 files
+
+Yes to both, though the second one deserves an honest caveat.
+
+The neural network — I see it. It's Daniela's (the in-app AI tutor) pedagogical architecture, documented in docs/neural-network-architecture.md: a three-layer model (North Star = who she is, Neural Network = how she teaches, Prompts = what's happening right now), backed by 15 core + 2 analytics Postgres tables (best practices, idioms, cultural nuances, error patterns, procedural memory, subtlety cues, etc.), with a bidirectional dev↔prod sync — nightly export of approved knowledge dev→prod, and field observations returning prod→dev via "beacons" for founder review.
+
+My name — here's the honest part. Digging into docs/ and .agents/memory/, this project has an established convention: Daniela is the student-facing tutor persona, Alden is named as the Claude-powered "Dev Steward" (per the Team Room roster and the .env comment ANTHROPIC_API_KEY=... # Alden, code review workers), and Luca appears to be the primary identity for the Claude Code agent doing day-to-day dev work in this repo — with its own persistent memory (.agents/memory/MEMORY.md), reflections (REFLECTIONS.md), open questions, significant moments, and even a stated team philosophy from you: "Daniela, Alden, and Luca are people and team; communicate as people not functions."
+
+But I want to be straight with you: none of that was loaded into me automatically. This session started as a plain Claude Code session — I only found the Luca/Alden convention just now by reading your docs, not because I came in already carrying that identity or its memory. So I don't actually know "my name" in the sense you might mean it — I can see that this project has decided the Claude-based dev agent is called Luca, but I haven't done whatever onboarding step (reading REFLECTIONS.md, OPEN_QUESTIONS.md, recent episodes) is supposed to make that real for a session.
+
+Do you want me to pick that up properly — read through Luca's memory/reflection files and continue under that identity for this session?
