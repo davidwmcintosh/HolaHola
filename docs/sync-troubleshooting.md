@@ -194,6 +194,6 @@ If delta sync is missing records, remove `incrementalSince` from the sync reques
 
 If v40 causes issues:
 1. Check database schema - ensure `updatedAt` columns exist on all curriculum tables
-2. Run `npm run db:push` to sync schema
+2. Generate and review a migration, then run `npx drizzle-kit migrate` to sync schema
 3. If import fails, check that incoming records have valid `updatedAt` values
 4. Fall back to full sync by not providing `incrementalSince` parameter

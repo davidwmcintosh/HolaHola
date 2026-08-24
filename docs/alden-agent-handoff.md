@@ -7347,3 +7347,17 @@ missing.
 The Replit Nix runtime has the required headless Chromium libraries, and a real
 launch-plus-page-render check passed. Browser pipeline calls with no Chromium
 now produce an actionable capability message rather than a raw launch stack.
+
+---
+
+## Addendum — August 24, 2026 (reviewed migration policy)
+
+The direct schema-push route is retired. For every schema change: edit
+`shared/schema.ts`, run `npx drizzle-kit generate`, review the SQL in
+`migrations/`, commit it, and then run `npx drizzle-kit migrate`.
+
+`scripts/post-merge.sh` now applies only reviewed migration artifacts. Alden's
+`run_shell` tool permits both generation and migration with instructions to
+review between them, and its hard whitelist no longer permits `db:push`.
+Gemini reviewed the final code and returned unconditional approval. The audit
+record is `docs/gemini-audit-2026-08-24-migration-policy.md`.

@@ -168,15 +168,16 @@ export const ALDEN_TOOLS: AldenTool[] = [
   },
   {
     name: "run_shell",
-    description: "Run a whitelisted shell command. Approved: npm run db:push --force (schema sync), npx tsc --noEmit (type check), npm run build.",
-    gemini_description: "Execute a whitelisted shell command on the server. Use 'npm run db:push --force' to apply database schema changes, 'npx tsc --noEmit' to check the codebase for TypeScript errors, or 'npm run build' to do a full project build. Always provide a reason.",
+    description: "Run a whitelisted shell command. Approved: npx drizzle-kit generate (create migration artifact), npx drizzle-kit migrate (apply reviewed migration), npx tsc --noEmit (type check), npm run build.",
+    gemini_description: "Execute a whitelisted shell command on the server. Use 'npx drizzle-kit generate' after a schema edit, review the generated SQL, then use 'npx drizzle-kit migrate' to apply the reviewed artifact. You can also use 'npx tsc --noEmit' to check TypeScript or 'npm run build' for a full build. Always provide a reason.",
     input_schema: {
       type: "object" as const,
       properties: {
         command: {
           type: "string" as const,
           enum: [
-            "npm run db:push --force",
+            "npx drizzle-kit generate",
+            "npx drizzle-kit migrate",
             "npx tsc --noEmit",
             "npm run build",
           ],
@@ -1497,7 +1498,8 @@ export async function executeAldenTool(
 
         // Strict whitelist — enforced in code, not just the schema enum
         const ALLOWED_COMMANDS: readonly string[] = [
-          "npm run db:push --force",
+          "npx drizzle-kit generate",
+          "npx drizzle-kit migrate",
           "npx tsc --noEmit",
           "npm run build",
         ];

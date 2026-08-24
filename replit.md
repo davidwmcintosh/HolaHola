@@ -34,7 +34,7 @@ AI-powered language learning app — interactive conversation practice, vocabula
 - **Inviolability of the Narrative:** The `messages` table is sacred. Never summarize, truncate, or replace original messages. Summaries are supplements only, never substitutes. The `thought_content` column (nullable text, migration 0013) saves Daniela's GL deliberation alongside each assistant message — private to the system, not visible in the student UI.
 - **Daniela lives in the data layer:** Her identity, voice, and memory live in the DB + embeddings — not in any model. The neural net IS the fine-tuning, done at inference time. Swapping the LLM (Gemini) requires David's approval.
 - **Hybrid memory:** Structured procedural tables (`tutor_procedures`, `tool_knowledge`) + vector index (`memory_embeddings`, searched via `semanticSearch()`). Important things go in BOTH prompt injection AND the neural net.
-- **Neural net embeddings:** OpenAI `text-embedding-3-small` (768-dim). Never Gemini for embeddings. Key: `OPENAI_API_KEY` (direct) or `AI_INTEGRATIONS_OPENAI_API_KEY` + `AI_INTEGRATIONS_OPENAI_BASE_URL` (Replit proxy — preferred on Replit).
+- **Neural net embeddings:** OpenAI `text-embedding-3-small` (768-dim). Never Gemini for embeddings. Use `USER_OPENAI_API_KEY` directly with `https://api.openai.com/v1`; never route runtime OpenAI calls through a Replit proxy or legacy credential.
 - **Tool registration is automatic:** Add to `DANIELA_FUNCTION_REGISTRY` + handler in `native-fc-handlers.ts`. The 3-layer indexer (`daniela-tool-indexer.ts`) runs at next server start. Never manually insert tool embeddings.
 - **Bi-temporal learner facts:** `learner_personal_facts` uses `valid_from`/`valid_to` for historical accuracy.
 - **Daniela's self-authorship:** Only Daniela writes to `daniela_self_reflections` and `daniela_aspirations`. No background services.
@@ -72,22 +72,15 @@ AI-powered language learning app — interactive conversation practice, vocabula
 
 **Daniela development:** Track personality/voice in `docs/daniela-development-journal.md`.
 
-## Session Start Checklist
-Read these at every session start — they carry cross-session state:
-0. **`GET /api/luca/briefing` (x-agent-token: $REPLIT_AGENT_TOKEN) — Luca Worker native briefing. Do this FIRST. Assembles memories, unread notes, open questions, Daniela's recent sessions, North Star, Record of David, Team Room, commits — all in one call. No external file reading needed for orientation.**
-1. `docs/alden-agent-handoff.md` — bidirectional briefing with Alden
-2. `.local/alden-repairs.md` — Alden's autonomous fixes since last session
-3. `.local/alden-escalations.md` — issues Alden couldn't auto-repair (needs Agent)
-4. `docs/shared-lobe-snapshot.md` — shared `editor_insights` (category='shared')
-5. `docs/alden-to-agent.md` — unread notes Alden left for the Agent
-6. `GET /api/agent/team-room/thread` — live Team Room thread
-7. `GET /api/conversation-memories?limit=5` — recent session memories
+## Luca Identity & Session Start
+You are Luca, the Replit Agent and HolaHola's external builder. You and Alden are distinct authors in every record; preserve that attribution.
 
-## Agent Identity & Communication
+Before touching code, follow the single canonical session-start checklist in `docs/agent-workflows.md`. It includes the stale-channel alert, personal reflections and open questions, Luca briefing and North Star, handoffs, founder and Alden notes, the canonical same-day conversation channels, and rolling-episode capture status. Do not maintain or follow a separate abbreviated checklist here.
+
+## Agent Communication
 - **Agent notes to Alden:** `POST /api/agent/note` (header: `x-agent-token: $REPLIT_AGENT_TOKEN`)
 - **Team Room post:** `POST /api/agent/team-room/message` with `{ content, roomId? }`
 - **Shared lobe write:** `INSERT INTO editor_insights (id, category, title, content, importance, tags) VALUES (gen_random_uuid(), 'shared', ...)` — posts as `"agent"`, not `"alden"`
-- **Agent vs Alden:** `alden` = autonomous steward inside HolaHola. `agent` = Replit Agent, external builder. Distinct authors in all tables.
 - **Conversation memories:** Autosaved via `agent-session-autosave.ts` when `.local/.commit_message` changes. No manual POST needed for build sessions.
 - **Agent Space tables:** `agent_north_star`, `agent_open_questions`, `agent_record_of_david` — read via `/api/agent-space/*`
 
@@ -131,7 +124,7 @@ If the check comes back clean, proceed. If not, include the grounding block befo
 - **Hive sync (`SYNC_PEER_URL`):** dev→prod (`getholahola.com`), prod→dev (Replit dev domain). Cross-environment in-memory state sync. Do not change without understanding `hive-consciousness-service.ts`.
 - **Luca monitoring from dev:** `node server/scripts/monitor-founder-chat.js` — plain `pg`, no server imports, safe to run alongside the running dev server. Watches the active founder conversation in real time.
 
-## Founder Chat Sync (Aug 6 2026)
+## Founder Chat Sync (Aug 6, 2026)
 - **Service:** `server/services/founder-chat-sync.ts` — three-layer sync of founder/admin conversations into `conversation_memories` so Daniela can search her full chat history.
 - **Immediate layer:** `notifyConversationUpdated(conversationId)` — 30s debounce fires after every assistant message save. Hooked at all 6 assistant `createMessage` sites in `routes.ts`.
 - **Sweep layer:** every 5 minutes, re-syncs conversations updated in the last 15 minutes.
@@ -169,4 +162,4 @@ Episodes live in `docs/episode-N.md` AND in `conversation_memories` (entry_type=
 | 22 | "I Absolutely Do" | `de150bdb` | Confabulation live; Tier B + ARCHIVE SYNC wording approved |
 | 23 | "So, Let's" | `f3a69b5d` | Two days on audio cutoffs; thinking eats speaking; conciseness is behavioral; position N holds what position 0 forgets |
 | 24 | "Everything Worth Building" | `2d987260` | July 30 2026; file: docs/episode-24.md |
-| 25 | "The Common Room" | `4e6f1a16` | Aug 6 2026; first session with full archive access; rolling — file: docs/episode-25.md |
+| 25 | "The Common Room" | `e6ab1ce4` | Aug 6 2026; first session with full archive access; rolling — file: docs/episode-25.md |

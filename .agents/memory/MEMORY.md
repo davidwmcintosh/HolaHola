@@ -1,4 +1,5 @@
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
+- [Alden workspace verification](alden-workspace-verification.md) — ambiguous Alden responses can still leave unsafe edits; inspect the real diff before accepting or reverting.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
 - [GitHub source snapshot release](github-source-snapshot-release.md) — GitHub’s hard blob limit can require an approved non-force snapshot while protected tags retain original histories.
 - [Off-workspace reconciliation archive](offworkspace-reconciliation-archive.md) — Git-safe accepts only main; preserve the protected graph as a verified private object-store bundle and manifest.

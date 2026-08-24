@@ -4622,3 +4622,18 @@ Startup logs one clear preflight result. If Chromium is absent, the server
 remains available and browser-only flows report the setup command instead of a
 platform-specific executable stack trace. Replit's Nix configuration includes
 the runtime libraries required for a real headless Chromium launch.
+
+---
+
+## Reviewed migration policy — August 24, 2026
+
+Schema changes now have one enforced path: generate a Drizzle migration, review
+its SQL, commit it, and then run `npx drizzle-kit migrate`. The post-merge hook
+applies only committed migration artifacts; it no longer derives DDL from the
+live schema. Alden can generate and apply reviewed migrations through its
+whitelisted shell tool, but cannot invoke `db:push`.
+
+Gemini required adding `npx drizzle-kit generate` to the whitelist so Alden's
+tool capabilities match the reviewed workflow. The final hook, system prompt,
+and tool whitelist received unconditional approval. See
+`docs/gemini-audit-2026-08-24-migration-policy.md`.

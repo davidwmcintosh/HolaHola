@@ -1,7 +1,7 @@
 #!/bin/bash
 # ── Gemini approval gate ──────────────────────────────────────────────────────
 # Standalone script: extracted from post-merge.sh so it can be called from CI
-# tests without triggering npm install / db:push.
+# tests without triggering npm install / migration steps.
 #
 # Scans the full commit range introduced by this merge for changes to
 # Daniela's protected context-injection / tool-description files.  If any

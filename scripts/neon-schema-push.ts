@@ -3,15 +3,15 @@ import ws from 'ws';
 
 neonConfig.webSocketConstructor = ws;
 
-async function pushSchemaToNeon() {
-  const dbUrl = process.env.DATABASE_URL;
+async function checkSchemaMigrationReadiness() {
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
 
   if (!dbUrl) {
-    console.error('Missing DATABASE_URL');
+    console.error('Missing NEON_SHARED_DATABASE_URL');
     process.exit(1);
   }
 
-  console.log('=== Neon Schema Push ===\n');
+  console.log('=== Neon Schema Migration Readiness ===\n');
 
   console.log('1. Testing connection...');
   
@@ -35,11 +35,12 @@ async function pushSchemaToNeon() {
 
   await pool.end();
 
-  console.log('\n3. Schema push instructions:');
-  console.log('   Run this command to push the schema:');
-  console.log('\n   npm run db:push');
+  console.log('\n3. Reviewed migration steps:');
+  console.log('   1. npx drizzle-kit generate');
+  console.log('   2. Review the generated SQL in migrations/');
+  console.log('   3. npx drizzle-kit migrate');
   
   console.log('\nDone!');
 }
 
-pushSchemaToNeon().catch(console.error);
+checkSchemaMigrationReadiness().catch(console.error);

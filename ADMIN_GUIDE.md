@@ -147,14 +147,16 @@ curriculumPaths → curriculumUnits → curriculumLessons
 
 ### Running Database Migrations
 
-**NEVER manually write SQL migrations.** Use Drizzle's push command:
+**Never use `drizzle-kit push` or `npm run db:push`.** Generate a migration artifact, review it, then apply that reviewed artifact:
 
 ```bash
-# Standard migration (safe)
-npm run db:push
+# 1. Edit shared/schema.ts
+npx drizzle-kit generate
 
-# Force migration (if needed, data loss warning)
-npm run db:push --force
+# 2. Review the generated SQL in migrations/
+
+# 3. Apply the reviewed migration
+npx drizzle-kit migrate
 ```
 
 **Schema File:** `shared/schema.ts`
@@ -476,15 +478,15 @@ echo $GOOGLE_CLOUD_TTS_CREDENTIALS
 
 #### Issue: Database migration failed
 
-**Error:** "Data loss warning" during `npm run db:push`
+**Error:** A generated migration contains unexpected destructive SQL
 
 **Solution:**
 ```bash
-# Force the migration (WARNING: May delete data)
-npm run db:push --force
+# Stop before applying the migration. Review and correct the schema or
+# migration artifact; never bypass the review with a direct schema push.
 
-# Always backup first!
-pg_dump $DATABASE_URL > backup_before_migration.sql
+# Back up the shared database before intentionally destructive migrations.
+pg_dump "$NEON_SHARED_DATABASE_URL" > backup_before_migration.sql
 ```
 
 ---

@@ -3,10 +3,10 @@ set -e
 
 # ── Gemini approval gate ──────────────────────────────────────────────────────
 # Run FIRST — before any mutating steps — so a failed check halts immediately
-# without running npm install or db:push.
+# without running npm install or a migration.
 #
 # Gate logic lives in scripts/gemini-gate-check.sh so it can be exercised by
-# CI tests without triggering the npm install / db:push steps below.
+# CI tests without triggering the npm install / migration steps below.
 #
 # Protected-file list is parsed at runtime from docs/GEMINI_REQUIRED.md —
 # the single authoritative source.  To add a new protected file, update that
@@ -32,7 +32,11 @@ git config merge.ours.driver true
 
 # ── Setup steps (run only after gate passes) ──────────────────────────────────
 npm install --legacy-peer-deps
-npm run db:push
+# Apply only reviewed, committed migration artifacts. `drizzle-kit migrate` is
+# idempotent; it does nothing when the merge contains no new migration files.
+# Never use db:push here: it derives DDL from the live schema without a reviewed
+# migration artifact.
+npx drizzle-kit migrate
 
 # ── Episode-27 rolling-episode shrinkage guard ────────────────────────────────
 # Episode 27 is currently ROLLING (live, being written in real time).

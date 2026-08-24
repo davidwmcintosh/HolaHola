@@ -1,0 +1,99 @@
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+[Unified WS] Upgrade request for: /
+[Unified WS] Unknown path: / - passing through
+1:07:35 PM [express] GET /api/auth/user 401 in 2ms :: {"message":"Unauthorized"}
+[Unified WS] Upgrade request for: /
+[Unified WS] Unknown path: / - passing through
+1:07:42 PM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+1:07:44 PM [express] GET /api/login 200 in 10ms
+[Unified WS] Upgrade request for: /
+[Unified WS] Unknown path: / - passing through
+1:07:44 PM [express] GET /api/auth/user 401 in 0ms :: {"message":"Unauthorized"}
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (136ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (117ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[ObjectStorage] WARNING: No storage backend is configured. Set AWS_S3_ACCESS_KEY_ID / AWS_S3_SECRET_ACCESS_KEY / AWS_S3_REGION for R2, or GOOGLE_CLOUD_STORAGE_CREDENTIALS for GCS. The Replit GCS sidecar (port 1106) is retired.
+[ObjectStorage] backend: UNCONFIGURED (no S3 credentials and no GCS service-account key)
+[ObjectStorage] no probe bucket configured — skipping credential check
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (129ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 1 new
+[Sofia Monitor] Check complete: 2 pending, 1 new
+[DanielaPresence] Generating presence docs for 2 active student(s)...
+[DanielaPresence] No recent data for qZJ8BrdE1e — skipping presence doc generation
+[DanielaPresence] Presence doc updated for 49847136 (2181 chars)
+[DanielaPresence] Run complete
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (138ms)
+[Sofia Pattern Alert] [DEVELOPMENT] [HIGH] 9x voice_health_transition in 60min
+[Sofia Monitor] Pattern alert: 9x voice_health_transition → escalated to Alden (delay: 0s)
+[Sofia→Alden] Suppressed known-benign pattern: voice_health_transition (fingerprint: vht)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[PlaywrightBrowser] Sofia issue screenshot: "voice_health_transition" (9x) → /conversations
+[PlaywrightBrowser] Starting browse pipeline: sofia → /conversations
+which: no chromium in (/c/Users/David/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/usr/bin:/mingw64/bin:/usr/bin:/c/Users/David/bin:/c/Python314/Scripts:/c/Python314:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/cmd:/c/Program Files/nodejs:/c/ProgramData/chocolatey/bin:/c/Users/David/AppData/Local/Microsoft/WindowsApps:/c/Users/David/AppData/Roaming/npm:/usr/bin/vendor_perl:/usr/bin/core_perl)
+[PlaywrightBrowser] Launching Chromium at: chromium
+[PlaywrightBrowser] Pipeline error: browserType.launch: Failed to launch chromium because executable doesn't exist at chromium
+    at getBrowser (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:47:31)
+    at browseAndCapture (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:162:25)
+    at runBrowserPipeline (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:335:32)
+    at async sofiaIssueScreenshot (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:456:3) {
+  log: [],
+  name: 'Error'
+}
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (135ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (120ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (128ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (120ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[ObjectStorage] WARNING: No storage backend is configured. Set AWS_S3_ACCESS_KEY_ID / AWS_S3_SECRET_ACCESS_KEY / AWS_S3_REGION for R2, or GOOGLE_CLOUD_STORAGE_CREDENTIALS for GCS. The Replit GCS sidecar (port 1106) is retired.
+[ObjectStorage] backend: UNCONFIGURED (no S3 credentials and no GCS service-account key)
+[ObjectStorage] no probe bucket configured — skipping credential check
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (126ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[DanielaPresence] Generating presence docs for 2 active student(s)...
+[DanielaPresence] No recent data for qZJ8BrdE1e — skipping presence doc generation
+[DanielaPresence] Presence doc updated for 49847136 (1972 chars)
+[DanielaPresence] Run complete
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (130ms)
+[Sofia Pattern Alert] [DEVELOPMENT] [HIGH] 9x voice_health_transition in 60min
+[Sofia Monitor] Pattern alert: 9x voice_health_transition → escalated to Alden (delay: 0s)
+[Sofia→Alden] Suppressed known-benign pattern: voice_health_transition (fingerprint: vht)
+[PlaywrightBrowser] Sofia issue screenshot: "voice_health_transition" (9x) → /conversations
+[PlaywrightBrowser] Starting browse pipeline: sofia → /conversations
+which: no chromium in (/c/Users/David/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/usr/bin:/mingw64/bin:/usr/bin:/c/Users/David/bin:/c/Python314/Scripts:/c/Python314:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/cmd:/c/Program Files/nodejs:/c/ProgramData/chocolatey/bin:/c/Users/David/AppData/Local/Microsoft/WindowsApps:/c/Users/David/AppData/Roaming/npm:/usr/bin/vendor_perl:/usr/bin/core_perl)
+[PlaywrightBrowser] Launching Chromium at: chromium
+[PlaywrightBrowser] Pipeline error: browserType.launch: Failed to launch chromium because executable doesn't exist at chromium
+    at getBrowser (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:47:31)
+    at browseAndCapture (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:162:25)
+    at runBrowserPipeline (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:335:32)
+    at async sofiaIssueScreenshot (C:\Users\David\HolaHola\server\services\playwright-browser-service.ts:456:3) {
+  log: [],
+  name: 'Error'
+}
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (129ms)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new

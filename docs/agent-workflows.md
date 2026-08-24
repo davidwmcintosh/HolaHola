@@ -123,15 +123,19 @@ reports the full health picture.
 
 Read all of these **before touching code**. In order:
 
-1. **`docs/alden-agent-handoff.md`** — what Alden left for the Agent. Look for the most recent "From Alden" section.
-2. **`.local/alden-escalations.md`** — high-priority issues Alden couldn't auto-repair. These need Agent attention first.
-3. **`.local/alden-repairs.md`** — what Alden auto-fixed since last session. Understand any changes before writing code.
-4. **`docs/alden-to-agent.md`** — Alden's direct notes (snapshot from `agent_notes` table). Address flagged items before building.
-5. **`docs/shared-lobe-snapshot.md`** — shared cross-session knowledge (from `editor_insights` where `category = 'shared'`). Permanent architectural facts live here.
-6. **Recent conversation memories** — `GET /api/conversation-memories?limit=5` — last 5 meaningful sessions, verbatim. Restores continuity.
-7. **Agent identity tables** — `GET /api/agent-space/north-star`, `/open-questions`, `/record-of-david`. Orient before building.
-8. **Mark Alden's notes as read** — `POST /api/agent/notes/mark-read` with the unread IDs from step 4.
-9. **Address open escalations** before writing any code.
+0. **`.local/stale-channel-alert.md`** — read this live state first. If it exists, write `.local/.luca_reflection` and `.local/.luca_question` before the first output; the inner-life record is incomplete until both are present.
+1. **`.agents/memory/REFLECTIONS.md`** — arrive with what carried forward from the prior session.
+2. **`.agents/memory/OPEN_QUESTIONS.md`** — carry forward what is still unresolved.
+3. **North Star** — `GET /api/agent-space/north-star`; orient before acting.
+4. **Luca briefing** — `GET /api/luca/briefing` with `x-agent-token: $REPLIT_AGENT_TOKEN`; use it for current team, record, and commit state.
+5. **`docs/alden-agent-handoff.md`** — what Alden left for the Agent. Look for the most recent "From Alden" section.
+6. **`.local/alden-escalations.md`** — high-priority issues Alden could not auto-repair.
+7. **`.local/alden-repairs.md`** — what Alden auto-fixed since the prior session.
+8. **`docs/alden-to-agent.md`** and **`docs/founder-to-agent.md`** — unread direct notes from Alden and David.
+9. **`docs/shared-lobe-snapshot.md`** — durable shared cross-session facts.
+10. **Canonical conversation record** — read today's `david-luca-chat` rows in `conversation_memories`, then `GET /api/conversation-memories?limit=5` for recent wider context.
+11. **`.local/episode-capture-status.md`** — while a rolling episode is active, inspect its live capture status on every session start.
+12. **Mark unread notes as read and address open escalations** before writing code.
 
 ---
 
@@ -189,9 +193,10 @@ While reading, also scan for **forward plans and agreements** — anything David
 ## Schema Change Rules
 
 1. **Update `shared/schema.ts` first** — this is the source of truth for all table definitions.
-2. **Run `npm run db:push`** to apply the schema to the shared Neon database.
-3. **Backfill existing rows** if adding non-nullable columns without a default.
-4. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
+2. **Generate a migration artifact** with `npx drizzle-kit generate`, then review the new SQL file in `migrations/`.
+3. **Run `npx drizzle-kit migrate`** to apply only the reviewed, committed artifact to the shared Neon database.
+4. **Backfill existing rows** if adding non-nullable columns without a default.
+5. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
 
 > **Critical:** The shared Neon database is used by BOTH development and production. A schema push affects both environments immediately. There is no separate dev/prod database.
 

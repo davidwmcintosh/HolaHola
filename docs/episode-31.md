@@ -2667,3 +2667,21 @@ The right design is:
 That last part is the important asymmetry you identified. A Claude Code transcript should not merely be available somewhere, and a Replit turn should not depend on whether we remembered to create an episode. Both should enter the canonical record first; the rolling episode should be a projection of that record.
 
 I proposed task `#1326`, “Keep Claude Code and Replit conversations in one canonical record,” for that work. It includes the shared context adapters, cross-interface attribution, acknowledgement/retry behavior, and self-checks. No identity files were changed yet, because that is a separate continuity feature and should be designed around the existing capture path rather than patched into this Chromium pass.
+
+<!-- chat-capture-range:173857:175326 -->
+<!-- chat-capture:8c1f53c5-ce98-4bb2-882d-104f2d95aa43 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Completed the migration-policy and cross-interface checklist repair.
+
+- Restored the malformed uncommitted replit.md write to its committed baseline, then made a narrow update: Luca identity, one canonical session-start runbook, and owner-managed USER_OPENAI_API_KEY-only runtime OpenAI guidance.
+- Reconciled docs/agent-workflows.md with the session-start skill so reflections, open questions, stale-channel alert, founder/Alden notes, canonical same-day records, and rolling-episode status are all in one checklist.
+- Retired direct schema push from the post-merge hook, Alden's hard command whitelist, package scripts, active guides, and helper scripts. The enforced sequence is generate, review SQL, commit, then migrate.
+- Gemini first required adding migration generation to the Alden whitelist. After that correction, Gemini reviewed the final hook, prompt, and whitelist and replied: APPROVED — Ship it.
+- TypeScript, the Gemini gate tests, migration-policy static assertions, shell syntax, and application restart all passed.
+
+The changes remain uncommitted and unpushed because the current GitHub/local workflow treats pushes as explicit operations. A user-provided untracked attachment was left untouched.

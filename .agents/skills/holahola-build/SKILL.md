@@ -59,7 +59,7 @@ The only valid exit condition is an unconditional response — no pending fixes,
 ## Critical reminders
 
 - **There is one shared Neon database** used by both dev and production — schema changes affect both immediately
-- **`npm run db:push`** applies schema changes — always follow with a backfill if adding non-nullable columns
+- **Schema changes use reviewed artifacts:** run `npx drizzle-kit generate`, review the generated SQL, then run `npx drizzle-kit migrate`; never use `db:push`
 - The `typecheck` validation command is registered — run it via the Replit validation system or `npm run typecheck` directly
 - **Pre-existing typecheck failures exist** (routes.ts implicit-any, some service type drift) — these are known and tracked; do not add to them
 
@@ -79,7 +79,7 @@ This checks every critical invariant: DB tables exist, seeded data has rows, cur
 - Paste the Summary line into the commit message or session notes as proof
 
 **What the verifier catches (things typecheck cannot):**
-- DB tables referenced in code but never migrated (`db:push` not run)
+- DB tables referenced in code but never migrated (reviewed migration not applied)
 - Workers written but not imported in `server/index.ts` or `unified-ws-handler.ts`
 - Seeded data rows that were never inserted
 - Curriculum unit counts below Spanish baseline (incomplete builds)
