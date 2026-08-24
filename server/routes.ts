@@ -27908,21 +27908,20 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       });
       const replyText = (completion.content.find((b: any) => b.type === 'text') as any)?.text?.trim() ?? '[No response]';
 
-      // 6. Save both turns to agent_notes (chat history for panel hydration)
-      await getUserDb().insert(agentNotes).values([
-        {
-          fromAgent: 'david',
-          toAgent: 'luca',
-          subject: `[CHAT] ${message.trim().slice(0, 200)}`,
-          body: message.trim(),
-        },
-        {
-          fromAgent: 'luca',
-          toAgent: 'david',
-          subject: `[CHAT] ${replyText.slice(0, 200)}`,
-          body: replyText,
-        },
-      ] as any);
+      // 6. Save both turns to agent_notes (chat history for panel hydration).
+      //    RETURNING id so the caller can identify and clean up test artifacts
+      //    without relying on time-window queries that could hit unrelated rows.
+      const { sql: noteSql } = await import('drizzle-orm');
+      const noteResult = await getUserDb().execute(noteSql`
+        INSERT INTO agent_notes (from_agent, to_agent, subject, body)
+        VALUES
+          ('david', 'luca', ${`[CHAT] ${message.trim().slice(0, 200)}`}, ${message.trim()}),
+          ('luca',  'david', ${`[CHAT] ${replyText.slice(0, 200)}`},  ${replyText})
+        RETURNING id
+      `);
+      const noteRows  = ((noteResult as any).rows ?? noteResult) as Array<{ id: string }>;
+      const davidNoteId = noteRows[0]?.id ?? null;
+      const lucaNoteId  = noteRows[1]?.id ?? null;
 
       // 7. Save the exchange to conversation_memories (canonical archive + neural net)
       const { sql: chatSql } = await import('drizzle-orm');
@@ -27953,7 +27952,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           .catch((e: any) => console.warn('[Luca Chat] Re-embed failed (non-fatal):', e.message));
       }
 
-      res.json({ reply: replyText, savedAt: new Date().toISOString() });
+      res.json({ reply: replyText, savedAt: new Date().toISOString(), memId, noteIds: { davidNoteId, lucaNoteId } });
     } catch (error: any) {
       console.error('[Luca Chat] POST error:', error);
       res.status(500).json({ error: error.message });
@@ -27970,12 +27969,12 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       // 1. Attempt live injection into the active GL session.
       // When a sessionId is supplied, require an exact conversation match — never fall back to
       // an arbitrary active session, which could deliver private content to the wrong student.
-      // When no sessionId is given, fall back to the most recently registered session (admin-only
-      // relay with no specific target, e.g. Luca knowing there is only one live session).
-      const { getActiveGlSessionByConversation, getAnyActiveGlSession } = await import('./services/gemini-live-session');
+      // When no sessionId is given, only inject if exactly one session is currently active;
+      // with 0 or ≥2 sessions the target is ambiguous and we queue instead of guessing.
+      const { getActiveGlSessionByConversation, getAnyActiveGlSession, getActiveGlSessionCount } = await import('./services/gemini-live-session');
       const glSession = sessionId
         ? getActiveGlSessionByConversation(sessionId)
-        : getAnyActiveGlSession();
+        : getActiveGlSessionCount() === 1 ? getAnyActiveGlSession() : null;
 
       let injected = false;
       if (glSession) {
@@ -27996,7 +27995,10 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         ...(sessionId ? { sessionLabel: `Session: ${sessionId}` } : {}),
       } as any);
 
-      res.json({ queued: true, injected });
+      // "stored" is accurate: the agent_notes row is persisted but no automatic
+      // delivery path picks it up at session-start yet.  Use injected=true to
+      // signal live delivery when that did happen.
+      res.json({ stored: true, injected });
     } catch (error: any) {
       console.error('[Luca Chat] relay error:', error);
       res.status(500).json({ error: error.message });

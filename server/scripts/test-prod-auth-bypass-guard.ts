@@ -73,12 +73,21 @@ sep();
 const replitAuthSrc = readFileSync(REPLIT_AUTH, 'utf8');
 const rbacSrc       = readFileSync(RBAC, 'utf8');
 
+// replitAuth.ts now delegates to the shared isDevBypass() predicate from rbac.ts.
+// Verify the delegation contract: it imports isDevBypass and calls it.
 assert(
-  'replitAuth.ts contains NODE_ENV+DEV_AUTH_BYPASS guard',
-  replitAuthSrc.includes(GUARD_NEEDLE),
-  `Expected to find: ${GUARD_NEEDLE}`,
+  "replitAuth.ts imports isDevBypass from rbac (centralized predicate)",
+  replitAuthSrc.includes('isDevBypass') && replitAuthSrc.includes('./middleware/rbac'),
+  `Expected replitAuth.ts to import isDevBypass from rbac.ts`,
 );
 
+assert(
+  "replitAuth.ts calls isDevBypass() (not inline guard)",
+  replitAuthSrc.includes('isDevBypass()'),
+  `Expected replitAuth.ts to call isDevBypass() — it must not duplicate the inline guard`,
+);
+
+// The full guard expression lives only in rbac.ts.
 assert(
   'rbac.ts contains NODE_ENV+DEV_AUTH_BYPASS guard',
   rbacSrc.includes(GUARD_NEEDLE),
@@ -86,11 +95,6 @@ assert(
 );
 
 // Also confirm the guard references 'production' (catches a typo like 'prod')
-assert(
-  "replitAuth.ts guard uses the string 'production'",
-  replitAuthSrc.includes("!== 'production'"),
-);
-
 assert(
   "rbac.ts guard uses the string 'production'",
   rbacSrc.includes("!== 'production'"),

@@ -85,8 +85,10 @@ function extractFunctionBody(src: string, funcName: string): string | null {
 // be stripped from the source before we inspect the middleware function bodies.
 // This prevents the definition's own NODE_ENV/DEV_AUTH_BYPASS references from
 // triggering false positives in the "no inline bypass" assertion.
+// The pattern handles both zero-argument and typed-parameter forms, and both
+// single-line and multi-line function bodies (ending with \n};).
 const IS_DEV_BYPASS_DEF_PATTERN =
-  /const isDevBypass\s*=\s*\(\)\s*=>[^\n]*\n[^\n]+;/;
+  /const isDevBypass\s*=\s*\([^)]*\)\s*=>[\s\S]*?\n\};/;
 
 const rbacSrc         = readFileSync(RBAC, 'utf8');
 const rbacWithoutDef  = rbacSrc.replace(IS_DEV_BYPASS_DEF_PATTERN, '/* isDevBypass-def-stripped */');

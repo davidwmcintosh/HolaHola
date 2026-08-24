@@ -8,6 +8,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { isDevBypass } from "./middleware/rbac";
 
 const getOidcConfig = memoize(
   async () => {
@@ -90,8 +91,9 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   app.use(passport.session());
 
   // In local dev with bypass enabled, skip OIDC discovery entirely.
-  // REPL_ID is injected by Replit and is not available outside the platform.
-  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+  // Delegates to the shared isDevBypass() predicate (NODE_ENV + flag + REPLIT_DEPLOYMENT gate)
+  // so the startup-time OIDC skip is consistent with the per-request auth bypass.
+  if (isDevBypass()) {
     return;
   }
 
@@ -193,9 +195,9 @@ export function getRequestUserId(req: any): string {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   // ── Local dev bypass ────────────────────────────────────────────────────────
-  // Set DEV_AUTH_BYPASS=true in your local .env to skip authentication entirely.
-  // The guard on NODE_ENV ensures this can never fire in production.
-  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+  // Delegates to the shared isDevBypass() predicate from rbac.ts so the policy
+  // (NODE_ENV + flag + REPLIT_DEPLOYMENT gate) is centralised in one place.
+  if (isDevBypass()) {
     (req as any).resolvedUserId = '49847136';
     return next();
   }

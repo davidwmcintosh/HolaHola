@@ -323,6 +323,14 @@ group_body_luca_inner_life() {
   npx tsx server/scripts/test-raw-window-capture.ts
   echo "  --- rolling four-channel continuity parser self-check ---"
   npx tsx server/scripts/audit-rolling-four-channel-continuity.ts --self-check
+
+  echo ""
+  echo "  --- test-luca-chat-canonical-save.ts (David↔Luca exchange → conversation_memories + embeddings) ---"
+  run test-luca-chat-canonical-save.ts
+
+  echo ""
+  echo "  --- test-luca-chat-canonical-save.ts --self-check (missing save → assertions caught) ---"
+  npx tsx server/scripts/test-luca-chat-canonical-save.ts --self-check
 }
 
 group_body_memory_recall() {

@@ -6221,6 +6221,10 @@ export function getActiveGlSessionByConversation(conversationId: string): Gemini
 }
 
 /** Return any active GL session (most recently registered), or null if none. */
+export function getActiveGlSessionCount(): number {
+  return _activeGlSessions.size;
+}
+
 export function getAnyActiveGlSession(): GeminiLiveSession | null {
   // Map iteration order is insertion order; return the last registered session.
   let last: GeminiLiveSession | null = null;

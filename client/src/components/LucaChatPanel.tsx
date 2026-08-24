@@ -89,11 +89,11 @@ export function LucaChatPanel({ isOpen, onToggle, sessionId }: LucaChatPanelProp
 
   const relayToDaniela = useMutation({
     mutationFn: async ({ content, key }: { content: string; key: string }) => {
-      const response = await apiRequest("POST", "/api/admin/luca/relay-to-daniela", {
+      const resp = await apiRequest("POST", "/api/admin/luca/relay-to-daniela", {
         message: content,
         sessionId: sessionId ?? null,
       });
-      const data = await response.json() as { queued: boolean; injected: boolean };
+      const data = await resp.json() as { stored: boolean; injected: boolean };
       return { key, injected: data.injected ?? false };
     },
     onSuccess: ({ key, injected }) => {

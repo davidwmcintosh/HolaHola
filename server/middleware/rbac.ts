@@ -5,9 +5,22 @@ import { touchFounderPresence } from "../services/founder-presence";
 
 // ── Local dev bypass ──────────────────────────────────────────────────────────
 // Set DEV_AUTH_BYPASS=true in your local .env to skip auth entirely.
-// The NODE_ENV guard ensures this can never activate in production.
-const isDevBypass = () =>
-  process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true';
+// Evaluated at call time but uses only startup-stable env vars so it behaves as
+// a startup-policy decision rather than a per-request socket check (which is
+// unreliable behind a trusted reverse proxy).
+// Three conditions must ALL hold:
+//   1. NODE_ENV !== 'production'       — literal string locked by CI
+//   2. DEV_AUTH_BYPASS === 'true'      — explicit operator opt-in
+//   3. REPLIT_DEPLOYMENT is unset      — Replit injects this in every deployed env
+export const isDevBypass = () => {
+  // Base gate — this exact expression is locked by the prod-auth-bypass-guard CI check.
+  const baseGate = process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true';
+  if (!baseGate) return false;
+  // Deployed environments (all Replit deployment tiers) have REPLIT_DEPLOYMENT set.
+  // Reject the bypass whenever this var is present, regardless of NODE_ENV.
+  if (process.env.REPLIT_DEPLOYMENT) return false;
+  return true;
+};
 
 // Minimal founder-shaped user injected when the bypass is active.
 // Enough for all downstream middleware that reads authenticatedUser.role / .id.
