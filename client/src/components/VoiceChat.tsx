@@ -1178,7 +1178,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                       <li>Get an OpenAI API key with Realtime API access at <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com</a></li>
                     )}
                     {capabilityCode === 'missing_api_key' && (
-                      <li>Set USER_OPENAI_API_KEY in Replit Secrets with your OpenAI API key</li>
+                      <li>Set OPENAI_API_KEY in your environment with your OpenAI API key</li>
                     )}
                     {capabilityCode === 'rate_limit' && (
                       <li>Check your OpenAI account billing and usage limits</li>

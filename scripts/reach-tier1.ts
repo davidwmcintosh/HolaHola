@@ -14,7 +14,7 @@
 
 import 'dotenv/config';
 
-const OPENAI_API_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TARGET_SPEND = 5.00; // $5 to reach Tier 1
 const MODEL = 'gpt-4o-mini';
 
@@ -103,7 +103,7 @@ async function main() {
   console.log(`Pricing: $${PRICE_INPUT}/1M input, $${PRICE_OUTPUT}/1M output\n`);
 
   if (!OPENAI_API_KEY) {
-    console.error('❌ Error: OPENAI_API_KEY or USER_OPENAI_API_KEY not found in environment');
+    console.error('❌ Error: OPENAI_API_KEY not found in environment');
     console.error('Please set your OpenAI API key in .env file');
     process.exit(1);
   }

@@ -127,32 +127,23 @@ Content-Type: audio/mpeg
 
 ## Dual OpenAI Client Architecture
 
-### Critical Distinction
-HolaHola uses **TWO separate OpenAI API keys**:
+### Key Configuration
+HolaHola uses a **single OpenAI API key** (`OPENAI_API_KEY`) for all features:
 
-1. **Replit AI Integrations** (`OPENAI_API_KEY`)
-   - Used for: Text chat completions
-   - Managed by: Replit platform
-   - Access: GPT-4o-mini (Free), GPT-4o (Pro)
+- Voice features (Whisper STT, TTS fallback, Realtime API)
+- Embeddings (`text-embedding-3-small`)
+- Pronunciation analysis
 
-2. **User's Personal Key** (`USER_OPENAI_API_KEY`)
-   - Used for: Voice features (Whisper, TTS)
-   - Managed by: User's OpenAI account
-   - Access: Full voice API suite
-   - **Required for voice chat to work**
-
-### Why Two Keys?
-- Replit AI Integrations don't support Whisper/TTS APIs
-- Separates text costs (Replit) from voice costs (user)
-- Allows voice features while maintaining text chat reliability
+On Replit, `AI_INTEGRATIONS_OPENAI_API_KEY` + `AI_INTEGRATIONS_OPENAI_BASE_URL` are used for proxy-routed calls when set. Outside Replit, only `OPENAI_API_KEY` is needed.
 
 ### Environment Variables
 ```bash
-# Replit AI Integration (text chat)
-OPENAI_API_KEY=sk-...        # Managed by Replit
+# Single key for all OpenAI features
+OPENAI_API_KEY=sk-...        # Required everywhere
 
-# User's personal key (voice features)
-USER_OPENAI_API_KEY=sk-proj-...  # User provides
+# Replit proxy (optional — only needed on Replit)
+AI_INTEGRATIONS_OPENAI_API_KEY=...
+AI_INTEGRATIONS_OPENAI_BASE_URL=https://...
 ```
 
 ---
@@ -313,7 +304,7 @@ function extractTextContent(response: any): string {
 
 ### API Key Test Script (`test-openai-key.ts`)
 
-**Purpose**: Verify `USER_OPENAI_API_KEY` works with all voice APIs
+**Purpose**: Verify `OPENAI_API_KEY` works with all voice APIs
 
 **Tests Performed**:
 1. ✅ Whisper (Speech-to-Text)
@@ -448,7 +439,7 @@ All interactive elements have proper ARIA labels:
 **Solution**: Grant microphone permission in browser settings
 
 #### "401 Unauthorized"
-**Cause**: `USER_OPENAI_API_KEY` missing or invalid  
+**Cause**: `OPENAI_API_KEY` missing or invalid  
 **Solution**: Run `tsx test-openai-key.ts` to verify key
 
 ---

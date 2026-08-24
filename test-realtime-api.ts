@@ -4,7 +4,7 @@
  * This will help us see the exact error from OpenAI
  */
 
-const apiKey = process.env.USER_OPENAI_API_KEY;
+const apiKey = process.env.OPENAI_API_KEY;
 
 console.log('\n🔍 Testing Realtime API Access\n');
 console.log('API Key exists:', !!apiKey);

@@ -25,7 +25,7 @@
  *
  * Requirements
  * ─────────────
- * - OPENAI_API_KEY or USER_OPENAI_API_KEY must be set (embedText is called).
+ * - OPENAI_API_KEY must be set (embedText is called).
  * - Run from the workspace root: npx tsx server/scripts/migrate-private-conversation-embeddings.ts
  *
  * Preview mode (no changes): add --dry-run flag.

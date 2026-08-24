@@ -34,9 +34,9 @@ async function testModel(modelName: string, apiKey: string) {
 async function main() {
   console.log('🎯 Testing Latest OpenAI Realtime Models\n');
   
-  const apiKey = process.env.USER_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.log('❌ USER_OPENAI_API_KEY not found!');
+    console.log('❌ OPENAI_API_KEY not found!');
     process.exit(1);
   }
 

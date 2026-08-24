@@ -57,7 +57,7 @@ APP_URL=https://getholahola.com             # Base URL of the deployed app.
 ```
 GEMINI_API_KEY=...                          # Google Gemini — LLM + Gemini Live voice
 GEMINI_LIVE_MODEL=gemini-3.1-flash-live-preview   # GL model. Do NOT change without David's approval.
-USER_OPENAI_API_KEY=...                     # OpenAI text-embedding-3-small (embeddings). REQUIRED.
+OPENAI_API_KEY=...                          # OpenAI — embeddings (text-embedding-3-small), Realtime API, TTS fallback. REQUIRED.
 ANTHROPIC_API_KEY=...                       # Anthropic Claude — Alden, code review workers
 ```
 
@@ -76,7 +76,7 @@ GOOGLE_CLOUD_TTS_CREDENTIALS=...           # JSON string of GCP service account 
 These keys route through Replit's managed AI proxy. **Outside Replit they are not needed** — the code falls back to the direct keys listed above.
 
 ```
-AI_INTEGRATIONS_OPENAI_API_KEY=...         # OpenAI via Replit proxy → falls back to USER_OPENAI_API_KEY / OPENAI_API_KEY
+AI_INTEGRATIONS_OPENAI_API_KEY=...         # OpenAI via Replit proxy → used WITH AI_INTEGRATIONS_OPENAI_BASE_URL for embeddings/pronunciation
 AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
 AI_INTEGRATIONS_ANTHROPIC_API_KEY=...      # Anthropic via Replit proxy → falls back to ANTHROPIC_API_KEY
 AI_INTEGRATIONS_ANTHROPIC_BASE_URL=https://api.anthropic.com
@@ -88,7 +88,7 @@ AI_INTEGRATIONS_GEMINI_BASE_URL=...
 
 | Proxy key | Falls back to | Used by |
 |-----------|---------------|---------|
-| `AI_INTEGRATIONS_OPENAI_API_KEY` | `USER_OPENAI_API_KEY` → `OPENAI_API_KEY` | pronunciation analysis, strip-card translations |
+| `AI_INTEGRATIONS_OPENAI_API_KEY` | `OPENAI_API_KEY` | pronunciation analysis, strip-card translations, embeddings |
 | `AI_INTEGRATIONS_ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY` | dev scripts only — production Alden uses `ANTHROPIC_API_KEY` directly |
 | `AI_INTEGRATIONS_GEMINI_API_KEY` | `GEMINI_API_KEY` | dev scripts only (gemini-benchmark, daniela-consultation) |
 

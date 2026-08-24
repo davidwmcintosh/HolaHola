@@ -18,7 +18,6 @@ export {}; // Required: makes this file a module so top-level await is valid.
 const OPENAI_KEY_VARS = [
   'AI_INTEGRATIONS_OPENAI_API_KEY',
   'AI_INTEGRATIONS_OPENAI_BASE_URL',
-  'USER_OPENAI_API_KEY',
   'OPENAI_API_KEY',
 ] as const;
 

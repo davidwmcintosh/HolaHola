@@ -8,7 +8,7 @@ Your OpenAI API key is still a **project-scoped key** (`sk-proj-*`) which doesn'
 ### Step 1: Update the Secret in Replit
 1. Look at the left sidebar in Replit
 2. Click on the **"Secrets"** tab (🔒 lock icon)
-3. Find `USER_OPENAI_API_KEY` in the list
+3. Find `OPENAI_API_KEY` in the list
 4. Click the **"Edit"** button next to it
 5. **Replace** the current value with your **new regular OpenAI API key** (starts with `sk-`, NOT `sk-proj-`)
 6. Click **"Save"**

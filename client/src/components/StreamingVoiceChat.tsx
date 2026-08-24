@@ -3953,7 +3953,7 @@ export function StreamingVoiceChat({
         errorMessage = 'Monthly voice limit reached. Please upgrade your plan or switch to text mode below.';
         allowRetry = false; // Quota errors can't be retried
       } else if (err.message?.includes('401') || err.message?.includes('API key') || err.message?.includes('authentication')) {
-        errorMessage = 'Invalid OpenAI API key. Please update your USER_OPENAI_API_KEY in the Secrets tab or switch to text mode.';
+        errorMessage = 'Invalid OpenAI API key. Please update your OPENAI_API_KEY in the Secrets tab or switch to text mode.';
         allowRetry = false; // Auth errors need manual intervention
       } else if (err.message?.includes('transcribe') || err.message?.includes('Whisper')) {
         errorMessage = 'Failed to transcribe audio. Try speaking more clearly or switch to text mode.';

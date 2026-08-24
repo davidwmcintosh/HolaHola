@@ -2,10 +2,10 @@ import OpenAI from 'openai';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const USER_API_KEY = process.env.USER_OPENAI_API_KEY;
+const USER_API_KEY = process.env.OPENAI_API_KEY;
 
 if (!USER_API_KEY) {
-  console.error('❌ USER_OPENAI_API_KEY not found in environment');
+  console.error('❌ OPENAI_API_KEY not found in environment');
   process.exit(1);
 }
 

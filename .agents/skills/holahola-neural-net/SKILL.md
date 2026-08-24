@@ -16,7 +16,7 @@ Use before adding procedures, embeddings, teaching principles, or anything touch
 ## The critical rules
 
 - **Read `docs/neural-network-architecture.md` first** — always, no exceptions
-- **Embedding model = OpenAI `text-embedding-3-small` (768-dim)** — NOT Gemini. Requires `USER_OPENAI_API_KEY`. Two separate AI systems.
+- **Embedding model = OpenAI `text-embedding-3-small` (768-dim)** — NOT Gemini. Requires `OPENAI_API_KEY` (direct) or `AI_INTEGRATIONS_OPENAI_API_KEY`+`AI_INTEGRATIONS_OPENAI_BASE_URL` (Replit proxy). Two separate AI systems.
 - **Both layers:** important things go in BOTH context injection AND the neural net. Only-in-prompt = fragile.
 - **Never manually index tool embeddings** — `daniela-tool-indexer.ts` runs automatically at server start
 

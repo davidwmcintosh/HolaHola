@@ -202,7 +202,7 @@ While reading, also scan for **forward plans and agreements** — anything David
 > Read `docs/neural-network-architecture.md` before any neural net changes.
 
 - **Three layers of memory:** North Star (who Daniela IS) → Neural Network / procedural tables (HOW she operates) → System prompt (WHAT is happening now in this session).
-- **Embedding model:** OpenAI `text-embedding-3-small` (768-dimensional). Requires `USER_OPENAI_API_KEY`. NOT Gemini. These are two separate AI systems with distinct roles.
+- **Embedding model:** OpenAI `text-embedding-3-small` (768-dimensional). Requires `OPENAI_API_KEY` (direct) or `AI_INTEGRATIONS_OPENAI_API_KEY`+`AI_INTEGRATIONS_OPENAI_BASE_URL` (Replit proxy). NOT Gemini. These are two separate AI systems with distinct roles.
 - **The build rule:** Important things go in BOTH context injection AND the neural net. If it's only in the prompt, it's fragile.
 - **Never manually index tool embeddings** — `server/services/daniela-tool-indexer.ts` handles the full 3-layer pipeline automatically at server start.
 - **Procedural tables:** `tutor_procedures`, `tool_knowledge`, `teaching_principles`, `situational_patterns`, `self_best_practices`, `language_idioms`, `cultural_nuances`, `learner_error_patterns`, `dialect_variations`, `linguistic_bridges`.

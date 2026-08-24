@@ -26,6 +26,19 @@ const EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_DIM = 768;
 const OPENAI_EMBED_URL = 'https://api.openai.com/v1/embeddings';
 
+/**
+ * Returns { apiKey, embedUrl } for the embedding call.
+ *
+ * Priority:
+ *  1. AI_INTEGRATIONS_OPENAI_API_KEY + AI_INTEGRATIONS_OPENAI_BASE_URL — uses the
+ *     Replit-managed proxy endpoint, which routes correctly and supports embeddings.
+ *  2. OPENAI_API_KEY alone — used outside Replit with a real direct key.
+ *
+ * The proxy key is NEVER sent to api.openai.com directly because it is only
+ * valid through its own base URL.  The direct key is NEVER sent through the
+ * proxy base URL because it would not be accepted there.
+ */
+
 export interface SemanticSearchResult {
   memoryType: string;
   memoryId: string;
@@ -53,20 +66,29 @@ export function hashContent(content: string): string {
 
 // ─── OpenAI embedding API ─────────────────────────────────────────────────────
 
-function getEmbedApiKey(): string {
-  // USER_OPENAI_API_KEY is a valid direct OpenAI key; OPENAI_API_KEY may be
-  // a managed/proxy key that doesn't support the embeddings endpoint.
-  return process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+function getEmbedConfig(): { apiKey: string; embedUrl: string } | null {
+  const proxyKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const proxyBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (proxyKey && proxyBase) {
+    // Use proxy endpoint — key is only valid through its own base URL
+    const base = proxyBase.replace(/\/$/, '');
+    return { apiKey: proxyKey, embedUrl: `${base}/embeddings` };
+  }
+  const directKey = process.env.OPENAI_API_KEY;
+  if (directKey) {
+    return { apiKey: directKey, embedUrl: OPENAI_EMBED_URL };
+  }
+  return null;
 }
 
 export async function embedText(text: string): Promise<number[]> {
-  const apiKey = getEmbedApiKey();
-  if (!apiKey) throw new Error('No OpenAI API key available for embeddings');
+  const cfg = getEmbedConfig();
+  if (!cfg) throw new Error('No OpenAI API key available for embeddings. Set OPENAI_API_KEY.');
 
-  const res = await fetch(OPENAI_EMBED_URL, {
+  const res = await fetch(cfg.embedUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${cfg.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -137,7 +159,28 @@ export async function generateAndStoreEmbedding(
     return false; // Content unchanged (no re-embed needed)
   }
 
-  const embedding = await embedText(content);
+  let embedding: number[];
+  try {
+    embedding = await embedText(content);
+  } catch (err: any) {
+    // Gracefully skip when no valid embedding key/endpoint is available.
+    // This covers: no key set, proxy that doesn't support /embeddings, etc.
+    // Auth failures (401) and transient errors still propagate so callers
+    // know a real key is present but broken.
+    const msg: string = err?.message ?? '';
+    const isConfigGap =
+      msg.includes('No OpenAI API key') ||
+      msg.includes('INVALID_ENDPOINT') ||
+      msg.includes('is not supported');
+    if (isConfigGap) {
+      console.warn(
+        `[SemanticMemory] Skipping embedding for ${memoryType}:${memoryId} — ` +
+        `no valid embedding endpoint configured (set OPENAI_API_KEY to a direct key).`
+      );
+      return false;
+    }
+    throw err;
+  }
 
   if (existing.length > 0) {
     // Update stale embedding — include userId and importance so they are always in sync

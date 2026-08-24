@@ -12,7 +12,7 @@ import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 import { archiveImageToPermanentStorage } from '../server/services/image-storage';
 
-const OPENAI_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || '';
+const OPENAI_KEY = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || '';
 const force = process.argv.includes('--force');
 
 const ZONE_STYLE = 'warm illustrated watercolor style, soft natural lighting, cozy interior atmosphere, no visible text or signs or labels on objects, language learning educational context, suitable for all ages, close-up interior view, flat clear surface prominently occupying the center and lower frame where objects can be placed, clean and uncluttered';
@@ -72,7 +72,7 @@ async function generateZoneImage(prompt: string, name: string): Promise<string> 
 
 async function main() {
   if (!OPENAI_KEY || OPENAI_KEY.startsWith('_DUMMY')) {
-    throw new Error('No valid OpenAI API key (USER_OPENAI_API_KEY, OPENAI_API_KEY, or AI_INTEGRATIONS_OPENAI_API_KEY)');
+    throw new Error('No valid OpenAI API key (OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY)');
   }
 
   console.log('=== Zone Environment Seeder ===\n');

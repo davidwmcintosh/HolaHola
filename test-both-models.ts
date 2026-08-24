@@ -45,12 +45,12 @@ async function testRealtimeModel(modelName: string, apiKey: string) {
 
 async function main() {
   console.log('\n🎯 LINGUAFLOW MODEL VERIFICATION TEST');
-  console.log('Testing both tier models with USER_OPENAI_API_KEY\n');
+  console.log('Testing both tier models with OPENAI_API_KEY\n');
 
-  const apiKey = process.env.USER_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   
   if (!apiKey) {
-    console.log('❌ USER_OPENAI_API_KEY environment variable not found!');
+    console.log('❌ OPENAI_API_KEY environment variable not found!');
     process.exit(1);
   }
 

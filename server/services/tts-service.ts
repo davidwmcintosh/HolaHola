@@ -16,7 +16,7 @@ import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
  * Providers:
  * - google: Google Cloud Chirp 3 HD (PRIMARY — all tutors + secondary characters)
  * - cartesia: Available for rollback via TTS_PRIMARY_PROVIDER=cartesia
- * - openai: OpenAI TTS (legacy, available if USER_OPENAI_API_KEY set)
+ * - openai: OpenAI TTS (legacy, available if OPENAI_API_KEY set)
  */
 export type TTSProvider = 'cartesia' | 'google' | 'openai';
 
@@ -893,9 +893,9 @@ export class TTSService {
     }
 
     // OpenAI client (legacy, not used for Daniela voice chat - see realtime-proxy.ts for OpenAI Realtime)
-    if (process.env.USER_OPENAI_API_KEY) {
+    if (process.env.OPENAI_API_KEY) {
       this.openaiClient = new OpenAI({
-        apiKey: process.env.USER_OPENAI_API_KEY,
+        apiKey: process.env.OPENAI_API_KEY,
         baseURL: 'https://api.openai.com/v1',
       });
     }
@@ -937,7 +937,7 @@ export class TTSService {
     // Validate at least one provider is available
     if (!this.cartesiaClient && !this.googleClient && !this.openaiClient) {
       console.error('[TTS Service] CRITICAL: No TTS provider configured!');
-      console.error('[TTS Service] Set GOOGLE_CLOUD_TTS_CREDENTIALS, CARTESIA_API_KEY, or OPENAI_API_KEY');
+      console.error('[TTS Service] Set GOOGLE_CLOUD_TTS_CREDENTIALS, CARTESIA_API_KEY, or OPENAI_API_KEY (for OpenAI TTS fallback)');
     }
   }
 
@@ -1933,7 +1933,7 @@ export class TTSService {
    */
   private async synthesizeWithOpenAI(text: string, voice?: string): Promise<TTSResponse> {
     if (!this.openaiClient) {
-      throw new Error('OpenAI TTS is not available. Please set USER_OPENAI_API_KEY or GOOGLE_CLOUD_TTS_CREDENTIALS.');
+      throw new Error('OpenAI TTS is not available. Please set OPENAI_API_KEY or GOOGLE_CLOUD_TTS_CREDENTIALS.');
     }
 
     const selectedVoice = voice || 'nova'; // nova has better multilingual support

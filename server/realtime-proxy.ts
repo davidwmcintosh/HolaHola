@@ -187,7 +187,7 @@ export function setupRealtimeProxy(server: Server) {
       console.log(`Using Realtime model: ${model} for tier: ${subscriptionTier}`);
 
       // Connect directly to OpenAI Realtime API with API key
-      const apiKey = process.env.USER_OPENAI_API_KEY;
+      const apiKey = process.env.OPENAI_API_KEY;
       const wsUrl = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
       
       console.log('[DIRECT CONNECTION] Connecting to OpenAI Realtime API...');

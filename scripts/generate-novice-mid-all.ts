@@ -19,7 +19,7 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 
-const OPENAI_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
 const BUCKET_ID  = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
 const DB_URL     = process.env.NEON_SHARED_DATABASE_URL || '';
 const SIDECAR    = 'http://127.0.0.1:1106';

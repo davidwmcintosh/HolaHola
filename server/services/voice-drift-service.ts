@@ -22,7 +22,7 @@
  * Time series: all scores appended to .local/voice-drift-scores.json
  *
  * Embedding model: OpenAI text-embedding-3-small (768-dim)
- * Requires: USER_OPENAI_API_KEY or OPENAI_API_KEY
+ * Requires: OPENAI_API_KEY
  */
 
 import { getSharedDb } from '../db';

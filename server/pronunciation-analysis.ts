@@ -2,12 +2,11 @@ import OpenAI from "openai";
 
 /**
  * Returns the effective OpenAI API key from env vars, or null if none is set.
- * Priority: AI_INTEGRATIONS_OPENAI_API_KEY → USER_OPENAI_API_KEY → OPENAI_API_KEY
+ * Priority: AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) → OPENAI_API_KEY (direct)
  */
 export function getEffectiveOpenAIKey(): string | null {
   return (
     process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
-    process.env.USER_OPENAI_API_KEY ||
     process.env.OPENAI_API_KEY ||
     null
   );
@@ -23,7 +22,7 @@ function createOpenAIClient(): OpenAI {
   if (!key) {
     throw new Error(
       '[pronunciation-analysis] No OpenAI API key configured. ' +
-      'Set AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) or OPENAI_API_KEY (direct).'
+      'Set OPENAI_API_KEY.'
     );
   }
   return new OpenAI({

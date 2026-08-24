@@ -9,29 +9,21 @@ The old Realtime WebSocket API is DEPRECATED and no longer used.
 
 ## 🔑 API Keys Configuration
 
-### 1. **USER_OPENAI_API_KEY** (User's Personal OpenAI Key)
-- **Purpose:** Voice Features (Whisper STT + TTS)
-- **Required Models:** `whisper-1` (STT), `tts-1` (TTS)
-- **Used By:** 
-  - `server/routes.ts` - `/api/voice/transcribe` (Whisper)
-  - `server/routes.ts` - `/api/voice/synthesize` (TTS)
-- **Status:** ✅ VERIFIED AND WORKING
-- **Note:** This key is separate from text chat to isolate voice costs
-
-### 2. **OPENAI_API_KEY** (Replit AI Integrations Key)
-- **Purpose:** Text Chat & AI Conversations
-- **Required Models:** `gpt-4o-mini`, `gpt-4o`
+### **OPENAI_API_KEY** (Single consolidated OpenAI Key)
+- **Purpose:** Voice features (Whisper STT, TTS fallback), embeddings, Realtime API
+- **Required Models:** `whisper-1`, `tts-1`, `text-embedding-3-small`, Realtime models
 - **Used By:**
-  - `server/routes.ts` - `/api/conversations/:id/messages` (chat)
-  - `server/routes.ts` - Text chat API endpoints
-- **Status:** ✅ ACTIVE
-- **Note:** Managed by Replit AI Integrations
+  - `server/routes.ts` — `/api/voice/transcribe`, `/api/realtime/token`
+  - `server/services/semantic-memory-service.ts` — embeddings
+  - `server/services/tts-service.ts` — OpenAI TTS fallback
+- **Status:** ✅ VERIFIED AND WORKING
+- **Note:** Single key used everywhere. On Replit, `AI_INTEGRATIONS_OPENAI_API_KEY` + base URL are used for proxy-routed calls (pronunciation, embeddings).
 
 ---
 
 ## 🤖 REST API Endpoints
 
-### Voice Features (using USER_OPENAI_API_KEY)
+### Voice Features (using OPENAI_API_KEY)
 
 #### POST /api/voice/transcribe
 **Purpose:** Speech-to-text using Whisper API  

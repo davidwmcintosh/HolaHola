@@ -190,11 +190,10 @@ function getDeepgramClient(): ReturnType<typeof createClient> {
 }
 
 // Keep OpenAI for legacy fallback during migration.
-// Prefer Replit AI integration proxy; fall back to direct OpenAI key in non-Replit environments.
+// Prefer Replit AI integration proxy; fall back to OPENAI_API_KEY in non-Replit environments.
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-    || process.env.USER_OPENAI_API_KEY
     || process.env.OPENAI_API_KEY,
 });
 
@@ -3674,13 +3673,13 @@ export async function registerRoutes(app: Application): Promise<void> {
         });
       }
 
-      const apiKey = process.env.USER_OPENAI_API_KEY;
+      const apiKey = process.env.OPENAI_API_KEY;
       
       // Check if we have the required credentials
       if (!apiKey) {
         const result = {
           available: false,
-          reason: 'Voice chat requires an OpenAI API key with Realtime API access. Please set USER_OPENAI_API_KEY in your Replit Secrets with a key from platform.openai.com.',
+          reason: 'Voice chat requires an OpenAI API key with Realtime API access. Please set OPENAI_API_KEY in your environment with a key from platform.openai.com.',
           code: 'missing_api_key',
           timestamp: Date.now(),
         };
@@ -3777,7 +3776,7 @@ export async function registerRoutes(app: Application): Promise<void> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const apiKey = process.env.USER_OPENAI_API_KEY;
+      const apiKey = process.env.OPENAI_API_KEY;
       
       if (!apiKey) {
         return res.status(503).json({ 

@@ -34,7 +34,7 @@ AI-powered language learning app — interactive conversation practice, vocabula
 - **Inviolability of the Narrative:** The `messages` table is sacred. Never summarize, truncate, or replace original messages. Summaries are supplements only, never substitutes. The `thought_content` column (nullable text, migration 0013) saves Daniela's GL deliberation alongside each assistant message — private to the system, not visible in the student UI.
 - **Daniela lives in the data layer:** Her identity, voice, and memory live in the DB + embeddings — not in any model. The neural net IS the fine-tuning, done at inference time. Swapping the LLM (Gemini) requires David's approval.
 - **Hybrid memory:** Structured procedural tables (`tutor_procedures`, `tool_knowledge`) + vector index (`memory_embeddings`, searched via `semanticSearch()`). Important things go in BOTH prompt injection AND the neural net.
-- **Neural net embeddings:** OpenAI `text-embedding-3-small` (768-dim). Never Gemini for embeddings. Key: `USER_OPENAI_API_KEY`.
+- **Neural net embeddings:** OpenAI `text-embedding-3-small` (768-dim). Never Gemini for embeddings. Key: `OPENAI_API_KEY` (direct) or `AI_INTEGRATIONS_OPENAI_API_KEY` + `AI_INTEGRATIONS_OPENAI_BASE_URL` (Replit proxy — preferred on Replit).
 - **Tool registration is automatic:** Add to `DANIELA_FUNCTION_REGISTRY` + handler in `native-fc-handlers.ts`. The 3-layer indexer (`daniela-tool-indexer.ts`) runs at next server start. Never manually insert tool embeddings.
 - **Bi-temporal learner facts:** `learner_personal_facts` uses `valid_from`/`valid_to` for historical accuracy.
 - **Daniela's self-authorship:** Only Daniela writes to `daniela_self_reflections` and `daniela_aspirations`. No background services.

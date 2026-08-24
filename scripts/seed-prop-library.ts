@@ -11,7 +11,7 @@ import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 import { uploadPublicBuffer, normalizeImageUrl } from '../server/services/image-storage';
 
-const OPENAI_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
 
 interface PropDef {
   name: string;

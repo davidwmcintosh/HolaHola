@@ -23,9 +23,9 @@ const PROXY_CONFIGS: ProxyCheckConfig[] = [
     label: 'OpenAI',
     proxyKeyVar: 'AI_INTEGRATIONS_OPENAI_API_KEY',
     proxyBaseVar: 'AI_INTEGRATIONS_OPENAI_BASE_URL',
-    directKeyVars: ['USER_OPENAI_API_KEY', 'OPENAI_API_KEY'],
+    directKeyVars: ['OPENAI_API_KEY'],
     defaultBaseUrl: 'https://api.openai.com/v1',
-    usedBy: 'pronunciation analysis, strip-card translations',
+    usedBy: 'pronunciation analysis, strip-card translations, embeddings, Realtime API',
   },
   {
     label: 'Anthropic',
@@ -85,7 +85,7 @@ export async function runProxyStartupChecks(): Promise<void> {
       if (cfg.label === 'OpenAI') {
         console.error(
           `${prefix} ⚠️  No OpenAI API key configured. ` +
-          `Set USER_OPENAI_API_KEY (direct) or AI_INTEGRATIONS_OPENAI_API_KEY (proxy). ` +
+          `Set OPENAI_API_KEY (direct) or AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy). ` +
           `Affects: ${cfg.usedBy}.`
         );
       }

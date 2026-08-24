@@ -17,7 +17,6 @@ import assert from 'node:assert/strict';
 const OPENAI_KEY_VARS = [
   'AI_INTEGRATIONS_OPENAI_API_KEY',
   'AI_INTEGRATIONS_OPENAI_BASE_URL',
-  'USER_OPENAI_API_KEY',
   'OPENAI_API_KEY',
 ] as const;
 

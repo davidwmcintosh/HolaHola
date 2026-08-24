@@ -74,7 +74,7 @@ async function checkAPIKeyHealth() {
   
   // Test basic API access
   const response = await fetch('https://api.openai.com/v1/models', {
-    headers: { 'Authorization': `Bearer ${process.env.USER_OPENAI_API_KEY}` }
+    headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` }
   });
   
   if (response.status !== 200) {
@@ -109,14 +109,14 @@ router.get('/admin/api-health', async (req, res) => {
 
 ## 📋 Rotation Checklist
 
-When rotating USER_OPENAI_API_KEY:
+When rotating OPENAI_API_KEY:
 
 1. **Go to:** https://platform.openai.com/api-keys
 2. **Create new key:** Click "Create new secret key"
 3. **Copy key:** Save it temporarily (you can only view once!)
 4. **Update Replit Secret:**
    - Tools → Secrets
-   - Find `USER_OPENAI_API_KEY`
+   - Find `OPENAI_API_KEY`
    - Replace value with new key
 5. **Restart workflow:** Auto-happens or use restart button
 6. **Test:** Run `tsx test-new-model.ts` to verify
@@ -129,7 +129,7 @@ When rotating USER_OPENAI_API_KEY:
 
 ### ✅ DO:
 - ✅ Store keys in Replit Secrets (encrypted)
-- ✅ Use environment variables (`process.env.USER_OPENAI_API_KEY`)
+- ✅ Use environment variables (`process.env.OPENAI_API_KEY`)
 - ✅ Rotate every 90 days
 - ✅ Monitor usage in OpenAI dashboard
 - ✅ Use separate keys for dev/staging/production (if applicable)
@@ -167,7 +167,7 @@ Upgrade to `gpt-realtime` for better performance and lower costs:
 
 ## 📊 Current Status
 
-**API Key:** `USER_OPENAI_API_KEY`
+**API Key:** `OPENAI_API_KEY`
 - **Created:** ~November 19, 2025 (recent)
 - **Length:** 164 characters ✅
 - **Status:** Active and healthy ✅

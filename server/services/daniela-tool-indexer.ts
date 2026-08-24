@@ -33,7 +33,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * Embedding model: OpenAI text-embedding-3-small (768-dimensional vectors).
- * Requires USER_OPENAI_API_KEY or OPENAI_API_KEY environment variable.
+ * Requires OPENAI_API_KEY environment variable.
  * This is the same model used by the entire semantic-memory-service layer.
  */
 

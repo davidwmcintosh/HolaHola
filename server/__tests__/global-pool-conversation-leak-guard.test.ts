@@ -242,7 +242,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
   });
 
   it('production write-path: reembedConversationMemory(id, userId) stores embedding under owner userId', async () => {
-    const hasKey = !!(process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+    const hasKey = !!(process.env.OPENAI_API_KEY);
     if (!hasKey) {
       // Skip when no API key is available (offline / CI environments without embeddings).
       console.log('  [SKIP] No OpenAI API key — production write-path test skipped');
@@ -385,7 +385,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
     // tagged 'founder-chat' but has no cid: tag, reembedConversationMemory must not
     // create ANY embedding (not even a null-scoped one), because null-scoped embeddings
     // enter the global recall pool accessible to ALL students.
-    const hasKey = !!(process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+    const hasKey = !!(process.env.OPENAI_API_KEY);
     if (!hasKey) {
       console.log('  [SKIP] No OpenAI API key — cid-absent guard test skipped');
       return;
@@ -444,7 +444,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
     // This subtest seeds a founder-chat straggler owned by FOUNDER2_USER_ID and confirms:
     //   • patchSingleStraggler returns 'patched'
     //   • the embedding is stored under FOUNDER2_USER_ID (not null, not a hard-coded ID)
-    const hasKey = !!(process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+    const hasKey = !!(process.env.OPENAI_API_KEY);
     if (!hasKey) {
       console.log('  [SKIP] No OpenAI API key — straggler ownership test skipped');
       return;
@@ -549,7 +549,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
     // For non-founder rows (episodes, teaching notes, team decisions), the
     // correct scope is userId=null (globally accessible), NOT a specific user's
     // private pool.  A null-scoped row is intentionally visible to all users.
-    const hasKey = !!(process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+    const hasKey = !!(process.env.OPENAI_API_KEY);
     if (!hasKey) {
       console.log('  [SKIP] No OpenAI API key — route global-scope test skipped');
       return;
@@ -614,7 +614,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
     // derived from the cid: tag → conversations.user_id.  Using a hard-coded admin
     // ID here would assign all founders' transcripts to one account, creating an
     // access-control breach (any founder would see another's private memories).
-    const hasKey = !!(process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+    const hasKey = !!(process.env.OPENAI_API_KEY);
     if (!hasKey) {
       console.log('  [SKIP] No OpenAI API key — route founder-ownership test skipped');
       return;
@@ -674,7 +674,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
   });
 
   it('fallback resolver: reembedConversationMemory without explicit userId uses cid: tag to find actual owner', async () => {
-    const hasKey = !!(process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+    const hasKey = !!(process.env.OPENAI_API_KEY);
     if (!hasKey) {
       console.log('  [SKIP] No OpenAI API key — fallback resolver test skipped');
       return;

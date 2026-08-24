@@ -216,7 +216,6 @@ console.log('\n[6] analyzePronunciation() throws (not silent) when no key — ma
   const OPENAI_KEY_VARS = [
     'AI_INTEGRATIONS_OPENAI_API_KEY',
     'AI_INTEGRATIONS_OPENAI_BASE_URL',
-    'USER_OPENAI_API_KEY',
     'OPENAI_API_KEY',
   ] as const;
 

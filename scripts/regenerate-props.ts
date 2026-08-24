@@ -17,7 +17,7 @@ import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 import { archiveImageToPermanentStorage } from '../server/services/image-storage';
 
-const OPENAI_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || '';
+const OPENAI_KEY = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || '';
 
 const args = process.argv.slice(2);
 const onlyArg = args.find(a => a.startsWith('--only='));
