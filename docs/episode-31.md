@@ -2823,3 +2823,21 @@ Deployment publish debugging completed. Failed Cloud Run build 8727d42e-15d6-4f6
 [moment]: [intentionally empty]
 
 David confirmed the staged plan: publish the targeted .dockerignore fix first, then perform the larger/better cleanup by moving maintenance-only archival PDFs, ZIPs, and export bundles into the existing object-storage abstraction. No objection to object storage. Migration order: inventory and checksum originals, upload, update maintenance scripts/manifests, verify reads, then remove repository copies only after verification. Do not migrate Vite-bundled runtime assets blindly.
+
+<!-- chat-capture-range:186813:187833 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+David asked about the nuances of the prudent long-term fix after repeated publish failures. Recommended two-track plan: move maintenance-only PDFs, ZIPs, and export bundles to the existing S3-compatible Cloudflare R2 backend under a private archive prefix, using checksums/size/content-type/source manifest and verifying downloads before removing repository copies. Do not migrate Postgres or canonical conversation records; keep Vite-bundled runtime images in place. Separately preserve the current Git graph in a verified private bundle and create a clean deployment checkout or otherwise remove historical .git weight from the Replit publish context without casually rewriting or force-pushing GitHub main. Current .dockerignore remains a temporary safety net, not a solution to reachable Git history.
+
+<!-- chat-capture-range:187833:188853 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+David asked about the nuances of the prudent long-term fix after repeated publish failures. Recommended two-track plan: move maintenance-only PDFs, ZIPs, and export bundles to the existing S3-compatible Cloudflare R2 backend under a private archive prefix, using checksums/size/content-type/source manifest and verifying downloads before removing repository copies. Do not migrate Postgres or canonical conversation records; keep Vite-bundled runtime images in place. Separately preserve the current Git graph in a verified private bundle and create a clean deployment checkout or otherwise remove historical .git weight from the Replit publish context without casually rewriting or force-pushing GitHub main. Current .dockerignore remains a temporary safety net, not a solution to reachable Git history.
