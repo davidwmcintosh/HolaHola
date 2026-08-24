@@ -56,7 +56,7 @@ write_status() {
   SOURCE_BRIDGE_PROMOTED="$promoted" \
   SOURCE_BRIDGE_ORIGIN="$ORIGIN" \
   node --input-type=module <<'NODE'
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const statusFile = process.env.SOURCE_BRIDGE_STATUS_FILE;
@@ -72,9 +72,18 @@ try {
 }
 
 const now = new Date().toISOString();
+const state = process.env.SOURCE_BRIDGE_STATE;
+let previous = {};
+try {
+  previous = JSON.parse(readFileSync(statusFile, 'utf8'));
+} catch {
+  previous = {};
+}
+const successful = state === 'synced' || state === 'ready_to_promote';
+const transientFailure = state === 'retrying' || state === 'failed';
 const status = {
   schemaVersion: 1,
-  state: process.env.SOURCE_BRIDGE_STATE,
+  state,
   origin: value('SOURCE_BRIDGE_ORIGIN'),
   replitSha: value('SOURCE_BRIDGE_LOCAL_HEAD'),
   githubSha: value('SOURCE_BRIDGE_GITHUB_HEAD'),
@@ -82,6 +91,13 @@ const status = {
   validation,
   promotedSha: value('SOURCE_BRIDGE_PROMOTED'),
   error: value('SOURCE_BRIDGE_ERROR'),
+  lastHeartbeatAt: now,
+  lastSuccessfulSyncAt: successful ? now : previous.lastSuccessfulSyncAt,
+  consecutiveFailures: successful
+    ? 0
+    : transientFailure
+      ? Number(previous.consecutiveFailures || 0) + 1
+      : Number(previous.consecutiveFailures || 0),
   updatedAt: now,
   attemptAt: now,
 };
@@ -101,6 +117,9 @@ const summary = [
   `- Candidate: ${status.candidateSha || 'none'}`,
   `- Validation: ${validation ? JSON.stringify(validation) : 'not recorded'}`,
   `- Promoted commit: ${status.promotedSha || 'not recorded'}`,
+  `- Supervisor heartbeat: ${status.lastHeartbeatAt}`,
+  `- Last verified sync: ${status.lastSuccessfulSyncAt || 'not yet recorded'}`,
+  `- Consecutive failures: ${status.consecutiveFailures}`,
   `- Error: ${status.error || 'none'}`,
   '',
   'This is local operational state. It does not publish production or change Git history.',

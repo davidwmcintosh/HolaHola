@@ -13,10 +13,12 @@ import { spawn, spawnSync } from 'node:child_process';
 const root = process.cwd();
 const bridgePath = join(root, 'scripts/source-bridge.sh');
 const syncToPath = join(root, 'scripts/sync-to-github.sh');
+const supervisorPath = join(root, 'scripts/source-bridge-supervisor.sh');
 
 function assertSourceContracts(): void {
   const bridge = readFileSync(bridgePath, 'utf8');
   const syncTo = readFileSync(syncToPath, 'utf8');
+  const supervisor = readFileSync(join(root, 'scripts/source-bridge-supervisor.sh'), 'utf8');
   assert.match(bridge, /flock -n "\$LOCK_FD"/, 'bridge must serialize operations with an advisory lock');
   assert.match(bridge, /git fetch --no-tags/, 'bridge must fetch before choosing a direction');
   assert.match(bridge, /sync-to-github\.sh" --committed-only/, 'automated pushes must use committed-only mode');
@@ -31,6 +33,12 @@ function assertSourceContracts(): void {
   assert.match(syncTo, /--expected-head/, 'low-level push helper must reject an unexpected local head');
   assert.match(syncFromPath(), /--expected-local-head/, 'low-level receive helper must reject an unexpected local head');
   assert.match(syncTo, /never stages or commits editor changes automatically/, 'committed-only refusal must be explicit');
+  assert.match(bridge, /lastSuccessfulSyncAt/, 'status must retain the last verified successful sync');
+  assert.match(bridge, /consecutiveFailures/, 'status must retain failure count');
+  assert.match(supervisor, /"\$CHILD_SCRIPT" watch/, 'workflow supervisor must run the bridge watch child');
+  assert.match(supervisor, /source-bridge-heartbeat/, 'supervisor must write a durable heartbeat');
+  assert.match(supervisor, /source-bridge-alert/, 'supervisor must write a durable alert');
+  assert.match(supervisor, /RESTART_BACKOFF_SECONDS/, 'supervisor must use bounded restart backoff');
 }
 
 function syncFromPath(): string {
@@ -174,6 +182,39 @@ function withFixture<T>(options: Parameters<typeof runBridge>[0], assertion: (re
   }
 }
 
+function runSupervisorSelfCheck(): void {
+  const dir = mkdtempSync(join(tmpdir(), 'holahola-source-bridge-supervisor-test-'));
+  try {
+    const childPath = join(dir, 'crashing-child.sh');
+    const heartbeatPath = join(dir, 'heartbeat');
+    const alertPath = join(dir, 'alert.md');
+    const statusPath = join(dir, 'status.json');
+    writeFileSync(childPath, '#!/usr/bin/env bash\nexit 42\n', { mode: 0o700 });
+    writeFileSync(statusPath, `${JSON.stringify({ state: 'synced' })}\n`);
+
+    const result = spawnSync('timeout', ['2s', 'bash', supervisorPath], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        SOURCE_BRIDGE_CHILD_SCRIPT: childPath,
+        SOURCE_BRIDGE_STATUS_FILE: statusPath,
+        SOURCE_BRIDGE_HEARTBEAT_FILE: heartbeatPath,
+        SOURCE_BRIDGE_ALERT_FILE: alertPath,
+        SOURCE_BRIDGE_HEARTBEAT_SECONDS: '1',
+        SOURCE_BRIDGE_RESTART_BACKOFF_SECONDS: '1',
+        SOURCE_BRIDGE_MAX_RESTART_BACKOFF_SECONDS: '1',
+      },
+    });
+
+    assert.ok(existsSync(heartbeatPath), `supervisor must emit a heartbeat:\n${result.stderr}`);
+    assert.ok(existsSync(alertPath), `crashed bridge child must create a durable alert:\n${result.stderr}`);
+    assert.match(readFileSync(alertPath, 'utf8'), /exited unexpectedly with status 42/, 'alert must name the child-exit failure');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function main(): void {
   assertSourceContracts();
 
@@ -181,6 +222,8 @@ function main(): void {
     assert.equal(status, 0, `clean Replit-ahead source should push successfully:\n${output}\n${calls}`);
     assert.match(calls, /^push /m, 'clean Replit-ahead source must push normally');
     assert.equal(statusJson.state, 'synced', 'successful push must prove equality before synced');
+    assert.equal(typeof statusJson.lastSuccessfulSyncAt, 'string', 'successful sync must record its time');
+    assert.equal(statusJson.consecutiveFailures, 0, 'successful sync must clear failure count');
   });
 
   withFixture({ scenario: 'github-ahead' }, ({ status, calls, statusJson }) => {
@@ -213,6 +256,12 @@ function main(): void {
     assert.equal(statusJson.state, 'synced', 'successful retry must reach synced');
   });
 
+  withFixture({ scenario: 'local-ahead', failures: 2 }, ({ status, statusJson }) => {
+    assert.notEqual(status, 0, 'repeated transport failures must be visible to the workflow');
+    assert.equal(statusJson.state, 'failed', 'repeated transport failures must reach a durable failed state');
+    assert.equal(statusJson.consecutiveFailures, 2, 'status must count repeated failed attempts');
+  });
+
   withFixture({ scenario: 'github-ahead', dirty: 1, command: ['prepare-promotion'] }, ({ status, calls, statusJson }) => {
     assert.notEqual(status, 0, 'promotion preparation must refuse a dirty candidate');
     assert.equal(statusJson.state, 'dirty', 'promotion refusal must report dirty state');
@@ -230,6 +279,7 @@ function main(): void {
     assert.equal(calls, '', 'lock contention must not inspect or mutate git state');
   });
 
+  runSupervisorSelfCheck();
   console.log('Source bridge safety checks passed.');
 }
 
