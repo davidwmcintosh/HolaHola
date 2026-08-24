@@ -186,8 +186,8 @@ export interface ReferenceImage {
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
 function getOpenAIClient(): OpenAI {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error('No OpenAI API key available (OPENAI_API_KEY)');
+  const key = process.env.USER_OPENAI_API_KEY;
+  if (!key) throw new Error('No OpenAI API key available (USER_OPENAI_API_KEY)');
   return new OpenAI({ apiKey: key });
 }
 

@@ -29,14 +29,8 @@ const OPENAI_EMBED_URL = 'https://api.openai.com/v1/embeddings';
 /**
  * Returns { apiKey, embedUrl } for the embedding call.
  *
- * Priority:
- *  1. AI_INTEGRATIONS_OPENAI_API_KEY + AI_INTEGRATIONS_OPENAI_BASE_URL — uses the
- *     Replit-managed proxy endpoint, which routes correctly and supports embeddings.
- *  2. OPENAI_API_KEY alone — used outside Replit with a real direct key.
- *
- * The proxy key is NEVER sent to api.openai.com directly because it is only
- * valid through its own base URL.  The direct key is NEVER sent through the
- * proxy base URL because it would not be accepted there.
+ * Uses USER_OPENAI_API_KEY, the owner-managed direct OpenAI credential.
+ * HolaHola intentionally does not use the Replit AI integration proxy.
  */
 
 export interface SemanticSearchResult {
@@ -67,14 +61,7 @@ export function hashContent(content: string): string {
 // ─── OpenAI embedding API ─────────────────────────────────────────────────────
 
 function getEmbedConfig(): { apiKey: string; embedUrl: string } | null {
-  const proxyKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const proxyBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  if (proxyKey && proxyBase) {
-    // Use proxy endpoint — key is only valid through its own base URL
-    const base = proxyBase.replace(/\/$/, '');
-    return { apiKey: proxyKey, embedUrl: `${base}/embeddings` };
-  }
-  const directKey = process.env.OPENAI_API_KEY || process.env.USER_OPENAI_API_KEY;
+  const directKey = process.env.USER_OPENAI_API_KEY;
   if (directKey) {
     return { apiKey: directKey, embedUrl: OPENAI_EMBED_URL };
   }
@@ -83,7 +70,7 @@ function getEmbedConfig(): { apiKey: string; embedUrl: string } | null {
 
 export async function embedText(text: string): Promise<number[]> {
   const cfg = getEmbedConfig();
-  if (!cfg) throw new Error('No OpenAI API key available for embeddings. Set OPENAI_API_KEY.');
+  if (!cfg) throw new Error('No OpenAI API key available for embeddings. Set USER_OPENAI_API_KEY.');
 
   const res = await fetch(cfg.embedUrl, {
     method: 'POST',
@@ -175,7 +162,7 @@ export async function generateAndStoreEmbedding(
     if (isConfigGap) {
       console.warn(
         `[SemanticMemory] Skipping embedding for ${memoryType}:${memoryId} — ` +
-        `no valid embedding endpoint configured (set OPENAI_API_KEY to a direct key).`
+        `no valid embedding endpoint configured (set USER_OPENAI_API_KEY).`
       );
       return false;
     }

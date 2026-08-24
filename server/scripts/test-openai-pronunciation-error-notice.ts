@@ -73,7 +73,7 @@ console.log('\n[1] No OpenAI key → reason = "OpenAI API key not configured"');
   // createOpenAIClient() in pronunciation-analysis.ts throws this exact message.
   const thrown = new Error(
     '[pronunciation-analysis] No OpenAI API key configured. ' +
-    'Set AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) or OPENAI_API_KEY (direct).'
+    'Set USER_OPENAI_API_KEY.'
   );
 
   const reason = mapApiErrorToReason({ message: thrown.message });
@@ -214,9 +214,7 @@ console.log('\n[5] routes.ts inner catch block: both documented reason strings +
 console.log('\n[6] analyzePronunciation() throws (not silent) when no key — maps to correct reason');
 {
   const OPENAI_KEY_VARS = [
-    'AI_INTEGRATIONS_OPENAI_API_KEY',
-    'AI_INTEGRATIONS_OPENAI_BASE_URL',
-    'OPENAI_API_KEY',
+    'USER_OPENAI_API_KEY',
   ] as const;
 
   // Save and clear all key vars

@@ -1,16 +1,11 @@
 import OpenAI from "openai";
 
 /**
- * Returns the effective OpenAI API key from env vars, or null if none is set.
- * Priority: AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) → OPENAI_API_KEY (direct) → USER_OPENAI_API_KEY (local dev)
+ * Returns the owner-managed direct OpenAI API key, or null if it is not set.
+ * HolaHola intentionally does not use Replit's AI integration proxy.
  */
 export function getEffectiveOpenAIKey(): string | null {
-  return (
-    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.USER_OPENAI_API_KEY ||
-    null
-  );
+  return process.env.USER_OPENAI_API_KEY || null;
 }
 
 /**
@@ -23,11 +18,11 @@ function createOpenAIClient(): OpenAI {
   if (!key) {
     throw new Error(
       '[pronunciation-analysis] No OpenAI API key configured. ' +
-      'Set OPENAI_API_KEY.'
+      'Set USER_OPENAI_API_KEY.'
     );
   }
   return new OpenAI({
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    baseURL: 'https://api.openai.com/v1',
     apiKey: key,
   });
 }

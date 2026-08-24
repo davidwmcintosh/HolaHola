@@ -1,9 +1,8 @@
 /**
  * Proxy Startup Check
  *
- * Runs at server boot and warns when Replit AI integration proxy keys are set
- * but point at an unreachable base URL — or when they are missing entirely
- * and no direct-key fallback is configured either.
+ * Runs at server boot and verifies owner-managed direct keys or third-party
+ * integration proxies are configured.
  *
  * This is a soft check: it logs WARN/ERROR lines and never blocks startup.
  */
@@ -21,9 +20,9 @@ interface ProxyCheckConfig {
 const PROXY_CONFIGS: ProxyCheckConfig[] = [
   {
     label: 'OpenAI',
-    proxyKeyVar: 'AI_INTEGRATIONS_OPENAI_API_KEY',
-    proxyBaseVar: 'AI_INTEGRATIONS_OPENAI_BASE_URL',
-    directKeyVars: ['OPENAI_API_KEY'],
+    proxyKeyVar: '',
+    proxyBaseVar: '',
+    directKeyVars: ['USER_OPENAI_API_KEY'],
     defaultBaseUrl: 'https://api.openai.com/v1',
     usedBy: 'pronunciation analysis, strip-card translations, embeddings, Realtime API',
   },
@@ -85,7 +84,7 @@ export async function runProxyStartupChecks(): Promise<void> {
       if (cfg.label === 'OpenAI') {
         console.error(
           `${prefix} ⚠️  No OpenAI API key configured. ` +
-          `Set OPENAI_API_KEY (direct) or AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy). ` +
+          `Set USER_OPENAI_API_KEY. ` +
           `Affects: ${cfg.usedBy}.`
         );
       }
@@ -119,8 +118,7 @@ export async function runProxyStartupChecks(): Promise<void> {
     } else if (directKey) {
       // Only direct key — no proxy. That's fine; log at debug level.
       console.log(
-        `${prefix} ${cfg.label}: using direct key (${directKey}). ` +
-        `AI_INTEGRATIONS_${cfg.label.toUpperCase()}_API_KEY not set.`
+        `${prefix} ${cfg.label}: using direct key (${directKey}).`
       );
     }
   }

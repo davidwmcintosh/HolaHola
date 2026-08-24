@@ -16,9 +16,7 @@ export {}; // Required: makes this file a module so top-level await is valid.
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 const OPENAI_KEY_VARS = [
-  'AI_INTEGRATIONS_OPENAI_API_KEY',
-  'AI_INTEGRATIONS_OPENAI_BASE_URL',
-  'OPENAI_API_KEY',
+  'USER_OPENAI_API_KEY',
 ] as const;
 
 type Saved = Partial<Record<(typeof OPENAI_KEY_VARS)[number], string>>;
