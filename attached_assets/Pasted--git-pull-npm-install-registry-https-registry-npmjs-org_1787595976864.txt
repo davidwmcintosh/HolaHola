@@ -1,0 +1,58 @@
+$ git pull
+npm install --registry https://registry.npmjs.org
+remote: Enumerating objects: 20, done.
+remote: Counting objects: 100% (20/20), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 12 (delta 9), reused 12 (delta 9), pack-reused 0 (from 0)
+Unpacking objects: 100% (12/12), 2.44 KiB | 29.00 KiB/s, done.
+From github.com:davidwmcintosh/HolaHola
+   1514737a9..2b5c300fb  main       -> origin/main
+Updating 1514737a9..2b5c300fb
+Fast-forward
+ ...HolaHola-main-git-pull-remote_1787546849885.txt | 75 ++++++++++++++++++++++
+ server/pronunciation-analysis.ts                   |  3 +-
+ server/routes.ts                                   |  9 +--
+ server/services/semantic-memory-service.ts         |  2 +-
+ server/services/tts-service.ts                     |  5 +-
+ 5 files changed, 86 insertions(+), 8 deletions(-)
+ create mode 100644 attached_assets/Pasted--David-LittleNemo-MINGW64-HolaHola-main-git-pull-remote_1787546849885.txt
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\David\\HolaHola\\node_modules\\minimatch',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\minimatch\node_modules\brace-expansion'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\minimatch\\node_modules\\brace-expansion'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code ENOTFOUND
+npm error syscall getaddrinfo
+npm error errno ENOTFOUND
+npm error network request to http://package-firewall.replit.local/npm/@xmldom/xmldom/-/xmldom-0.9.10.tgz failed, reason: getaddrinfo ENOTFOUND package-firewall.replit.local
+npm error network This is a problem related to network connectivity.
+npm error network In most cases you are behind a proxy or have bad network settings.
+npm error network
+npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+npm error A complete log of this run can be found in: C:\Users\David\AppData\Local\npm-cache\_logs\2026-08-24T18_23_43_951Z-debug-0.log
+node:internal/modules/esm/resolve:271
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\David\HolaHola\node_modules\rollup\parseAst' imported from C:\Users\David\HolaHola\node_modules\vite\dist\node\index.js
+    at finalizeResolution (node:internal/modules/esm/resolve:271:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:10932)
+    at resolveDirectorySync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:12238)
+    at resolveTsPathsSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:13445)
+    at resolve (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:15991) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/Users/David/HolaHola/node_modules/rollup/parseAst'
+}
+
+Node.js v24.19.0
