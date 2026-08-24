@@ -1,0 +1,211 @@
+{
+  "format": "holahola-maintenance-archive",
+  "version": 1,
+  "archiveId": "publish-recovery-2026-08-24",
+  "objectPrefix": ".private/maintenance-archives/publish-recovery-2026-08-24",
+  "assets": [
+    {
+      "sourcePath": "attached_assets/Appendix_See_it_and_say_it_spanish_1776200527397.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/Appendix_See_it_and_say_it_spanish_1776200527397.pdf",
+      "bytes": 53009230,
+      "sha256": "4a38ab5fbd81c6c60ce16b1448a555b497123e1550b3e4fd61a6f75362a1c348",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/Appendix_See_it_and_say_it_spanish_1779383823377.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/Appendix_See_it_and_say_it_spanish_1779383823377.pdf",
+      "bytes": 53009230,
+      "sha256": "4a38ab5fbd81c6c60ce16b1448a555b497123e1550b3e4fd61a6f75362a1c348",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/Appendix_See_it_and_say_it_spanish_1780423201777.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/Appendix_See_it_and_say_it_spanish_1780423201777.pdf",
+      "bytes": 53009230,
+      "sha256": "4a38ab5fbd81c6c60ce16b1448a555b497123e1550b3e4fd61a6f75362a1c348",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/LinguaFlow_from_GPT_5_1764704424341.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/LinguaFlow_from_GPT_5_1764704424341.pdf",
+      "bytes": 1678731,
+      "sha256": "edd0690ba87d3893048c3266760c2452dc35a62556d7c7272ea649373de1bcbd",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/LinguaFlow_from_GPT_5_1764705235315.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/LinguaFlow_from_GPT_5_1764705235315.pdf",
+      "bytes": 1678731,
+      "sha256": "edd0690ba87d3893048c3266760c2452dc35a62556d7c7272ea649373de1bcbd",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/LinguaFlow_from_GPT_5_1764705612104.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/LinguaFlow_from_GPT_5_1764705612104.pdf",
+      "bytes": 1678731,
+      "sha256": "edd0690ba87d3893048c3266760c2452dc35a62556d7c7272ea649373de1bcbd",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/ilovepdf_split_1780423639144.zip",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/ilovepdf_split_1780423639144.zip",
+      "bytes": 178097497,
+      "sha256": "c5afcc8184fdb35d2b538887b3396bef2626ee2b5bc80dfcbda390a7446fc637",
+      "contentType": "application/zip"
+    },
+    {
+      "sourcePath": "attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1776285736029.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1776285736029.pdf",
+      "bytes": 100828286,
+      "sha256": "87114e935dc1323d75422cb50420e0c55d45a4fc14afdfa77ed44a0636fa1a2b",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1776285811018.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1776285811018.pdf",
+      "bytes": 100828286,
+      "sha256": "87114e935dc1323d75422cb50420e0c55d45a4fc14afdfa77ed44a0636fa1a2b",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1779383239875.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1779383239875.pdf",
+      "bytes": 100828286,
+      "sha256": "87114e935dc1323d75422cb50420e0c55d45a4fc14afdfa77ed44a0636fa1a2b",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1779383809825.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/madrigals_magic_key_to_spanish_20260415_0001_1779383809825.pdf",
+      "bytes": 100828286,
+      "sha256": "87114e935dc1323d75422cb50420e0c55d45a4fc14afdfa77ed44a0636fa1a2b",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/magic_keys_reminder_cards_20260416_0001_1776389036401.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/magic_keys_reminder_cards_20260416_0001_1776389036401.pdf",
+      "bytes": 19447581,
+      "sha256": "9a74f8b27efba51f6cc2aaf489dbca33524368d0c4ee24639646ed150e960a3c",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/magic_keys_reminder_cards_20260416_0001_1776814416601.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/magic_keys_reminder_cards_20260416_0001_1776814416601.pdf",
+      "bytes": 19447581,
+      "sha256": "9a74f8b27efba51f6cc2aaf489dbca33524368d0c4ee24639646ed150e960a3c",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/magic_keys_reminder_cards_20260416_0001_1779383239876.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/magic_keys_reminder_cards_20260416_0001_1779383239876.pdf",
+      "bytes": 19447581,
+      "sha256": "9a74f8b27efba51f6cc2aaf489dbca33524368d0c4ee24639646ed150e960a3c",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/magic_keys_reminder_cards_20260416_0001_1779383809826.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/magic_keys_reminder_cards_20260416_0001_1779383809826.pdf",
+      "bytes": 19447581,
+      "sha256": "9a74f8b27efba51f6cc2aaf489dbca33524368d0c4ee24639646ed150e960a3c",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/reflexive_20260424_0001_1777044670328.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/reflexive_20260424_0001_1777044670328.pdf",
+      "bytes": 15541400,
+      "sha256": "4dc4d83221ae4ad48b7eef8f180ab26bec0fa0b70af4b9bd20864b3d5d00c732",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/reflexive_20260424_0001_1779383239876.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/reflexive_20260424_0001_1779383239876.pdf",
+      "bytes": 15541400,
+      "sha256": "4dc4d83221ae4ad48b7eef8f180ab26bec0fa0b70af4b9bd20864b3d5d00c732",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/reflexive_20260424_0001_1779383809827.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/reflexive_20260424_0001_1779383809827.pdf",
+      "bytes": 15541400,
+      "sha256": "4dc4d83221ae4ad48b7eef8f180ab26bec0fa0b70af4b9bd20864b3d5d00c732",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_1776200550664.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_1776200550664.pdf",
+      "bytes": 184739052,
+      "sha256": "fa5fbd83a90b2fd03ade6e5be0c2f0ff9c142049641edeb7e43e197efd270fbe",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_1779383841723.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_1779383841723.pdf",
+      "bytes": 184739052,
+      "sha256": "fa5fbd83a90b2fd03ade6e5be0c2f0ff9c142049641edeb7e43e197efd270fbe",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_1780423188356.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_1780423188356.pdf",
+      "bytes": 184739052,
+      "sha256": "fa5fbd83a90b2fd03ade6e5be0c2f0ff9c142049641edeb7e43e197efd270fbe",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_part_1_1780423659713.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_part_1_1780423659713.pdf",
+      "bytes": 47175137,
+      "sha256": "94824d43a5ebe0f379e10cbeb88f5f610116d08a425c840e97b214d14711378c",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_part_2_1780423659714.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_part_2_1780423659714.pdf",
+      "bytes": 46794961,
+      "sha256": "2d65ebae64188d3f480f8686d85478c69fc194edca9517584e2933820fe8399f",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_part_3_1780423659715.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_part_3_1780423659715.pdf",
+      "bytes": 46898161,
+      "sha256": "4464e2a31b5c15fda42c89ead09c1eb2bf1004c855c3d598fd432128bcd8fb2d",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/see_it_and_say_it_part_4_1780423659715.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/see_it_and_say_it_part_4_1780423659715.pdf",
+      "bytes": 43778400,
+      "sha256": "b09790930efa70eb59e30c9427ca61a1aa57d6f410bb4381394ec285c7444505",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/sp_soc417_1776445960668.zip",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/sp_soc417_1776445960668.zip",
+      "bytes": 823863,
+      "sha256": "da377e677d71d8525fe9ae3f17c51fde602eb2cd73665e96dc4f8f129d801218",
+      "contentType": "application/zip"
+    },
+    {
+      "sourcePath": "attached_assets/test_scan1_20260414_0001_1776190337252.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/test_scan1_20260414_0001_1776190337252.pdf",
+      "bytes": 1905584,
+      "sha256": "4a98cf2b2b19339b363cfdffe2cc0957bae665124e52db680facb7136d5ab74c",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "attached_assets/test_scan_20260414_0001_1776190057454.pdf",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/attached_assets/test_scan_20260414_0001_1776190057454.pdf",
+      "bytes": 3960280,
+      "sha256": "9aa0fead1d42478937a6843cb852b97afbcbb554777acb3d9563ff87986a1623",
+      "contentType": "application/pdf"
+    },
+    {
+      "sourcePath": "exports/holahola-complete-main.bundle.lock",
+      "objectKey": ".private/maintenance-archives/publish-recovery-2026-08-24/exports/holahola-complete-main.bundle.lock",
+      "bytes": 201572415,
+      "sha256": "db7dacfcdc1b465d755a113647ab3b1093d58e6552360be0e41d6539776581e0",
+      "contentType": "application/octet-stream"
+    }
+  ]
+}

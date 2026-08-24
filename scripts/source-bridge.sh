@@ -9,6 +9,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=github-release-ssh.sh
 source "$SCRIPT_DIR/github-release-ssh.sh"
+# shellcheck source=source-bridge-history.sh
+source "$SCRIPT_DIR/source-bridge-history.sh"
 
 BRANCH="${SOURCE_BRIDGE_BRANCH:-main}"
 REPO_URL="${GITHUB_REPO_URL:?GITHUB_REPO_URL must be configured by github-release-ssh.sh}"
@@ -209,7 +211,7 @@ fetch_heads() {
   fi
   trap cleanup_github_ssh RETURN
 
-  if ! git fetch --no-tags "$REPO_URL" "$BRANCH"; then
+  if ! git fetch --no-tags --filter=blob:none "$REPO_URL" "$BRANCH"; then
     LAST_ERROR="GitHub fetch failed; the next bridge pass will retry."
     cleanup_github_ssh
     trap - RETURN
@@ -274,6 +276,18 @@ bridge_pass() {
   if ! worktree_is_clean; then
     write_status "dirty" "Uncommitted files prevent automatic source synchronization."
     return 0
+  fi
+
+  if ensure_source_bridge_ancestry "$LOCAL_HEAD" "$GITHUB_HEAD"; then
+    :
+  else
+    local ancestry_result=$?
+    if [[ "$ancestry_result" -eq 2 ]]; then
+      write_status "history_incomplete" "$SOURCE_BRIDGE_HISTORY_ERROR"
+      return 0
+    fi
+    LAST_ERROR="${SOURCE_BRIDGE_HISTORY_ERROR:-Could not verify source ancestry.}"
+    return 1
   fi
 
   if [[ "$LOCAL_HEAD" == "$GITHUB_HEAD" ]]; then

@@ -4,6 +4,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=github-release-ssh.sh
 source "$SCRIPT_DIR/github-release-ssh.sh"
+# shellcheck source=source-bridge-history.sh
+source "$SCRIPT_DIR/source-bridge-history.sh"
 
 BRANCH="main"
 REPO_URL="$GITHUB_REPO_URL"
@@ -55,7 +57,7 @@ trap cleanup_github_ssh EXIT
 unset HOLAHOLA_GITHUB_DEPLOY_KEY
 
 echo "Fetching latest changes from GitHub (branch: ${BRANCH})..."
-git fetch --no-tags "$REPO_URL" "$BRANCH"
+git fetch --no-tags --filter=blob:none "$REPO_URL" "$BRANCH"
 
 LOCAL_HEAD="$(git rev-parse --verify HEAD^{commit})"
 GITHUB_HEAD="$(git rev-parse --verify FETCH_HEAD^{commit})"
@@ -71,6 +73,9 @@ fi
 
 if [[ "$LOCAL_HEAD" == "$GITHUB_HEAD" ]]; then
   echo "Replit is already up to date."
+elif ! ensure_source_bridge_ancestry "$LOCAL_HEAD" "$GITHUB_HEAD"; then
+  echo "ERROR: ${SOURCE_BRIDGE_HISTORY_ERROR:-Could not verify source ancestry.}" >&2
+  exit 1
 elif git merge-base --is-ancestor "$LOCAL_HEAD" "$GITHUB_HEAD"; then
   # Only fast-forward. Never create a merge commit or discard local commits.
   if [[ -n "$EXPECTED_LOCAL_HEAD" && "$(git rev-parse --verify HEAD^{commit})" != "$EXPECTED_LOCAL_HEAD" ]]; then

@@ -14,6 +14,7 @@ const root = process.cwd();
 const bridgePath = join(root, 'scripts/source-bridge.sh');
 const syncToPath = join(root, 'scripts/sync-to-github.sh');
 const supervisorPath = join(root, 'scripts/source-bridge-supervisor.sh');
+const shallowHistoryTestPath = join(root, 'scripts/test-shallow-source-bridge-history.sh');
 
 function assertSourceContracts(): void {
   const bridge = readFileSync(bridgePath, 'utf8');
@@ -21,6 +22,9 @@ function assertSourceContracts(): void {
   const supervisor = readFileSync(join(root, 'scripts/source-bridge-supervisor.sh'), 'utf8');
   assert.match(bridge, /flock -n "\$LOCK_FD"/, 'bridge must serialize operations with an advisory lock');
   assert.match(bridge, /git fetch --no-tags/, 'bridge must fetch before choosing a direction');
+  assert.match(bridge, /source-bridge-history\.sh/, 'bridge must guard shallow ancestry before deciding sync direction');
+  assert.match(bridge, /history_incomplete/, 'bridge must distinguish incomplete shallow history from divergence');
+  assert.doesNotMatch(bridge, /--unshallow|--depth(?:=| )0/, 'bridge must never expand to a full history');
   assert.match(bridge, /sync-to-github\.sh" --committed-only/, 'automated pushes must use committed-only mode');
   assert.match(bridge, /--expected-head "\$LOCAL_HEAD"/, 'pushes must pin the inspected Replit commit');
   assert.match(bridge, /sync-from-github\.sh"/, 'GitHub receives must keep using the reviewed fast-forward primitive');
@@ -215,6 +219,12 @@ function runSupervisorSelfCheck(): void {
   }
 }
 
+function runShallowHistorySelfCheck(): void {
+  const result = spawnSync('bash', [shallowHistoryTestPath], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, `shallow history self-check failed:\n${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /fails closed at its limit/, 'shallow-history check must cover the incomplete-history boundary');
+}
+
 function main(): void {
   assertSourceContracts();
 
@@ -280,6 +290,7 @@ function main(): void {
   });
 
   runSupervisorSelfCheck();
+  runShallowHistorySelfCheck();
   console.log('Source bridge safety checks passed.');
 }
 

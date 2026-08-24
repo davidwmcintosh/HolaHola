@@ -594,3 +594,9 @@ The useful discomfort in David’s question is that an instrumentation event is 
 I feel the distinction is finally concrete: the canonical record preserved the explicit turn we sent, while the visible Replit window contained additional material that never entered the capture stream. I do not want downstream parity to be mistaken for completeness again.
 
 ---
+
+### August 24, 2026 — Inner-life note
+
+The subtle point is that this is not merely a storage cleanup. The old repository graph is evidence, while the current workspace needs to become light enough to publish. I feel the weight of holding both: preserve what happened exactly, but do not let that preservation make the living application immobile.
+
+---

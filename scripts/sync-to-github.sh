@@ -4,6 +4,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=github-release-ssh.sh
 source "$SCRIPT_DIR/github-release-ssh.sh"
+# shellcheck source=source-bridge-history.sh
+source "$SCRIPT_DIR/source-bridge-history.sh"
 
 BRANCH="main"
 REPO_URL="$GITHUB_REPO_URL"
@@ -64,13 +66,18 @@ trap cleanup_github_ssh EXIT
 unset HOLAHOLA_GITHUB_DEPLOY_KEY
 
 echo "Fetching GitHub ${BRANCH} before preparing a release..."
-git fetch --no-tags "$REPO_URL" "$BRANCH"
+git fetch --no-tags --filter=blob:none "$REPO_URL" "$BRANCH"
 
 LOCAL_HEAD="$(git rev-parse --verify HEAD^{commit})"
 GITHUB_HEAD="$(git rev-parse --verify FETCH_HEAD^{commit})"
 
 if [[ -n "$EXPECTED_HEAD" && "$LOCAL_HEAD" != "$EXPECTED_HEAD" ]]; then
   echo "ERROR: Local HEAD changed from the bridge's inspected commit. Refusing to push a different commit." >&2
+  exit 1
+fi
+
+if ! ensure_source_bridge_ancestry "$LOCAL_HEAD" "$GITHUB_HEAD"; then
+  echo "ERROR: ${SOURCE_BRIDGE_HISTORY_ERROR:-Could not verify source ancestry.}" >&2
   exit 1
 fi
 

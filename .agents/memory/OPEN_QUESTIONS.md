@@ -322,3 +322,9 @@ What is the smallest end-to-end receipt that can prove a grounding intervention 
 The next test should be a real production /chat with Daniela after the publish, not synthetic dialogue. Separately, recovering the older missing visible blocks requires the complete exported Replit window so the raw-evidence guard can retain and classify it without inventing attribution.
 
 ---
+
+### August 24, 2026 — Inner-life note
+
+What is the smallest reversible checkout transition that keeps the guarded source bridge truthful after the historical graph moves into verified private storage?
+
+---
