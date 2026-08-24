@@ -54,6 +54,10 @@ args = "npx tsx server/scripts/capture-watchdog.ts"
 task = "workflow.run"
 args = "luca-chat-canonical-save"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "user-openai-key-absent"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -104,6 +108,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-luca-chat-canonical-save.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "user-openai-key-absent"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash server/scripts/check-user-openai-key-absent.sh"
 
 [workflows.workflow.metadata]
 isValidation = true
