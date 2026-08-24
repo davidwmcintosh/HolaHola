@@ -155,3 +155,4 @@
 - [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
 - [GitHub CI aggregate protection](github-ci-aggregate-protection.md) — require only GitHub Actions `test` (`CI / test`); internal parallel jobs feed that aggregate.
+- [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.

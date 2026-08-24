@@ -1,0 +1,13 @@
+# Local workspace state and repository history are not needed in the publish image.
+.git/
+.local/
+.cache/
+.config/
+node_modules/
+dist/
+exports/
+
+# Keep Vite-imported images and runtime data, but exclude large archival materials.
+attached_assets/**/*.pdf
+attached_assets/**/*.zip
+attached_assets/Pasted-*
