@@ -2763,3 +2763,23 @@ David's Windows checkout successfully fast-forwarded from 4b00ba3ba to 417d19cf4
 [moment]: [intentionally empty]
 
 Windows npm reported pending install scripts after the synced checkout was installed. The repository has no allowScripts/trustedDependencies policy; this is local npm trust state. Minimal recommendation: approve bcrypt (password auth), sharp (image processing), protobufjs (Google Cloud/TTS dependency), and all listed esbuild versions (Vite/tsx/Drizzle/build toolchain). Deny bufferutil (optional ws native acceleration; fallback exists), es5-ext (transitive compatibility helper), and @google/genai (listed preinstall is a no-op). Do not fabricate environment secrets or approve every pending script blindly.
+
+<!-- chat-capture-range:182833:183420 -->
+<!-- chat-capture:724771e0-a0ab-4335-b56b-ebb0a8be4e25 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Windows npm accepted the local install-script policy: bcrypt, sharp, protobufjs, and esbuild were approved; bufferutil, es5-ext, and @google/genai were denied. Next verification is npm install, npm run check, npm run build, and npm run test:playwright-browser on Windows. No project-level allowScripts policy was found in the repository.
+
+<!-- chat-capture-range:183420:183990 -->
+<!-- chat-capture:a15d23fb-bedf-4a1f-9b84-b5aefe59aee0 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Windows npm accepted the install-script decisions. Verification should proceed without further policy changes: run npm run check, npm run build, and npm run test:playwright-browser. If npm still reports esbuild@0.25.12 as pending, approve that exact entry; otherwise the two newly-added esbuild versions were sufficient.
