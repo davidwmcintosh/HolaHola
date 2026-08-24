@@ -204,7 +204,10 @@ fetch_heads() {
 }
 
 worktree_is_clean() {
-  [[ -z "$(git status --porcelain 2>/dev/null)" ]]
+  # Uploaded diagnostic artifacts are intentionally untracked and must not
+  # block synchronization of already-committed source. Modified/deleted
+  # tracked files still fail closed until a human commits or restores them.
+  [[ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]]
 }
 
 validate_candidate() {
