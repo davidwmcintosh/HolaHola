@@ -2753,3 +2753,13 @@ Claude's earlier db:push warning was based on a stale checkout. The post-merge h
 [moment]: [intentionally empty]
 
 David's Windows checkout successfully fast-forwarded from 4b00ba3ba to 417d19cf4. The pulled test imports server/services/playwright-chromium-resolver.ts, and npm run test:playwright-browser passes without NEON_SHARED_DATABASE_URL. This confirms the standalone resolver fix made the full Replit -> GitHub -> Windows round trip.
+
+<!-- chat-capture-range:181973:182833 -->
+<!-- chat-capture:6976cd7c-983a-47cd-a3a5-b6d38bbfaa8a -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Windows npm reported pending install scripts after the synced checkout was installed. The repository has no allowScripts/trustedDependencies policy; this is local npm trust state. Minimal recommendation: approve bcrypt (password auth), sharp (image processing), protobufjs (Google Cloud/TTS dependency), and all listed esbuild versions (Vite/tsx/Drizzle/build toolchain). Deny bufferutil (optional ws native acceleration; fallback exists), es5-ext (transitive compatibility helper), and @google/genai (listed preinstall is a no-op). Do not fabricate environment secrets or approve every pending script blindly.
