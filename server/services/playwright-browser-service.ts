@@ -1,9 +1,17 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
+import {
+  resolveChromiumExecutable as resolveChromiumExecutableFromPaths,
+  type ChromiumResolution,
+  type ChromiumResolutionOptions,
+} from './playwright-chromium-resolver';
+export type {
+  ChromiumExecutableSource,
+  ChromiumResolution,
+  ChromiumResolutionOptions,
+} from './playwright-chromium-resolver';
 
 // ── Internal token (in-process, changes each restart) ────────────────────────
 export const INTERNAL_BROWSER_TOKEN = crypto.randomBytes(32).toString('hex');
@@ -23,13 +31,6 @@ function getGemini(): GoogleGenAI {
 }
 
 // ── Chromium executable resolution ───────────────────────────────────────────
-export type ChromiumExecutableSource = 'configured' | 'playwright-managed' | 'system';
-
-export interface ChromiumResolution {
-  executablePath: string;
-  source: ChromiumExecutableSource;
-}
-
 export class ChromiumUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -37,49 +38,14 @@ export class ChromiumUnavailableError extends Error {
   }
 }
 
-interface ChromiumResolutionOptions {
-  configuredPath?: string;
-  managedPath?: string;
-  systemPaths?: string[];
-}
-
 const CHROMIUM_SETUP_COMMAND = 'npm run setup:playwright';
 let chromiumPreflightLogged = false;
 
-function findSystemChromium(): string[] {
-  const commands = process.platform === 'win32'
-    ? [['where.exe', 'chromium'], ['where.exe', 'chrome']]
-    : [['which', 'chromium'], ['which', 'chromium-browser'], ['which', 'google-chrome']];
-
-  const paths: string[] = [];
-  for (const [command, name] of commands) {
-    try {
-      const output = execFileSync(command, [name], { encoding: 'utf8' });
-      const firstPath = output.split(/\r?\n/).map(line => line.trim()).find(Boolean);
-      if (firstPath && existsSync(firstPath)) paths.push(firstPath);
-    } catch {
-      // This candidate is not installed; continue checking the platform's
-      // other conventional Chromium executable names.
-    }
-  }
-  return paths;
-}
-
 export function resolveChromiumExecutable(options: ChromiumResolutionOptions = {}): ChromiumResolution | null {
-  const configuredPath = (options.configuredPath ?? process.env.PLAYWRIGHT_EXECUTABLE_PATH)?.trim();
-  if (configuredPath) {
-    return existsSync(configuredPath)
-      ? { executablePath: configuredPath, source: 'configured' }
-      : null;
-  }
-
-  const managedPath = options.managedPath ?? chromium.executablePath();
-  if (managedPath && existsSync(managedPath)) {
-    return { executablePath: managedPath, source: 'playwright-managed' };
-  }
-
-  const systemPath = (options.systemPaths ?? findSystemChromium()).find(path => existsSync(path));
-  return systemPath ? { executablePath: systemPath, source: 'system' } : null;
+  return resolveChromiumExecutableFromPaths({
+    ...options,
+    managedPath: options.managedPath ?? chromium.executablePath(),
+  });
 }
 
 export function getChromiumAvailability(): {

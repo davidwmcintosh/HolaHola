@@ -2715,3 +2715,17 @@ The latest Replit checkout is now 2c925ac0, which adds an Episode 31 append afte
 David's Windows npm run setup:playwright completed successfully: managed Chrome for Testing, FFmpeg, headless shell, and Winldd all downloaded. The local Chromium installation problem is resolved. The next local check is npm run test:playwright-browser followed by restarting the Windows server; the current resolver should choose the managed browser.
 
 The attached Bash output was mostly scheduled MemoryRecovery/Sofia polling. The actionable browser failures were Sofia's repeated /conversations screenshots while Chromium was absent. The PostCSS warning is non-fatal, pre-login 401s are expected, object storage remains deferred, and voice_health_transition was recognized as known-benign.
+
+<!-- chat-capture-range:178457:179774 -->
+<!-- chat-capture:55c5952e-10bc-4ea0-b046-8fa2601a5fa1 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+The Windows focused browser-path test failed before exercising Chromium because it imported the full browser service, which imports storage and therefore requires NEON_SHARED_DATABASE_URL. This was test coupling, not a missing browser installation.
+
+Design approved: extract the dependency-free Chromium path resolver into its own module; keep the browser service wrapper and public type exports compatible; point the focused test at the standalone resolver. The resolver test now passes with no database environment, npm run check passes, and the Replit application workflow restarted cleanly with no rolling-episode shrinkage.
+
+Important sync status: the resolver changes are still uncommitted in the Replit working tree. Replit main and GitHub main are both at 6f1a3623e, which is the Episode 31 append, not this resolver fix. The source bridge correctly reports dirty/uncommitted files and has not promoted the fix. Do not tell David to expect the Windows checkout to have the fix until the handoff hold is lifted and this working tree is intentionally promoted.

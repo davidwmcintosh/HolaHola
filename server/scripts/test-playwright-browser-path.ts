@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveChromiumExecutable } from '../services/playwright-browser-service';
+import { resolveChromiumExecutable } from '../services/playwright-chromium-resolver';
 
 const tempDir = mkdtempSync(join(tmpdir(), 'holahola-playwright-path-test-'));
 try {
