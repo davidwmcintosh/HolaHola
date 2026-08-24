@@ -1,0 +1,48 @@
+$ git fetch origin main
+git pull --ff-only origin main
+git log -1 --oneline
+git grep -n "playwright-chromium-resolver" HEAD -- server/scripts/test-playwright-browser-path.ts
+npm run test:playwright-browser
+From github.com:davidwmcintosh/HolaHola
+ * branch                main       -> FETCH_HEAD
+From github.com:davidwmcintosh/HolaHola
+ * branch                main       -> FETCH_HEAD
+Updating 4b00ba3ba..417d19cf4
+Fast-forward
+ .agents/memory/MEMORY.md                           |   1 +
+ .agents/memory/alden-workspace-verification.md     |  17 +
+ .agents/skills/holahola-build/SKILL.md             |   4 +-
+ .agents/skills/holahola-session-start/SKILL.md     |  70 +---
+ ADMIN_GUIDE.md                                     |  22 +-
+ ...ass-the-from-option-to-postcs_1787601690360.txt |  99 +++++
+ ...things-looking-Claude-2026-08_1787605394550.txt | 458 +++++++++++++++++++++
+ docs/agent-workflows.md                            |  29 +-
+ docs/alden-agent-handoff.md                        |  14 +
+ docs/batch-doc-updates.md                          |  15 +
+ docs/episode-31.md                                 |  76 ++++
+ docs/gemini-audit-2026-08-24-migration-policy.md   |  36 ++
+ docs/sync-troubleshooting.md                       |   2 +-
+ package.json                                       |   1 -
+ replit.md                                          |  25 +-
+ scripts/gemini-gate-check.sh                       |   2 +-
+ scripts/migrate-monitoring-schema.mjs              |   6 +-
+ scripts/neon-schema-push.ts                        |  17 +-
+ scripts/post-merge.sh                              |  10 +-
+ server/alden-system-prompt.ts                      |  17 +-
+ server/scripts/test-playwright-browser-path.ts     |   2 +-
+ server/services/alden-functions.ts                 |  10 +-
+ server/services/playwright-browser-service.ts      |  62 +--
+ server/services/playwright-chromium-resolver.ts    |  52 +++
+ 24 files changed, 876 insertions(+), 171 deletions(-)
+ create mode 100644 .agents/memory/alden-workspace-verification.md
+ create mode 100644 attached_assets/Pasted-A-PostCSS-plugin-did-not-pass-the-from-option-to-postcs_1787601690360.txt
+ create mode 100644 attached_assets/Pasted-made-some-changes-how-are-things-looking-Claude-2026-08_1787605394550.txt
+ create mode 100644 docs/gemini-audit-2026-08-24-migration-policy.md
+ create mode 100644 server/services/playwright-chromium-resolver.ts
+417d19cf4 (HEAD -> main, origin/main, origin/HEAD) Update episode 31 notes and include chat log asset
+HEAD:server/scripts/test-playwright-browser-path.ts:12:import { resolveChromiumExecutable } from '../services/playwright-chromium-resolver';
+
+> rest-express@1.0.0 test:playwright-browser
+> npx tsx server/scripts/test-playwright-browser-path.ts
+
+Playwright Chromium path checks passed.

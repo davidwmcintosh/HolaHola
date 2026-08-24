@@ -2743,3 +2743,13 @@ Read Claude's attached conversation about the migration to local development, pe
 Important boundary: this is not yet one complete transcript. Dialogue, technical telemetry, and Luca Observe commentary are separate streams. Luca Observe currently produces heuristic notifications, not the richer reasoned narration Claude produced externally. That is the real next capture/observability gap, not whether the observer exists.
 
 Claude's earlier db:push warning was based on a stale checkout. The post-merge hook is corrected, the standalone Chromium resolver fix passes without NEON_SHARED_DATABASE_URL, and the source bridge has now promoted the fix as commit 5f757796f. Current source-bridge status reports Replit and GitHub synchronized at that commit. The attached conversation file itself is untracked user-provided material and is not part of that promotion.
+
+<!-- chat-capture-range:181396:181973 -->
+<!-- chat-capture:1622a116-524a-487f-941e-21d105410e3b -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+David's Windows checkout successfully fast-forwarded from 4b00ba3ba to 417d19cf4. The pulled test imports server/services/playwright-chromium-resolver.ts, and npm run test:playwright-browser passes without NEON_SHARED_DATABASE_URL. This confirms the standalone resolver fix made the full Replit -> GitHub -> Windows round trip.
