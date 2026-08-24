@@ -2699,3 +2699,19 @@ I need to correct the push expectation. The intended workflow was to finish the 
 The attached Windows Bash output is mostly scheduled monitoring rather than development: repeated MemoryRecovery and Sofia checks, two pending Sofia items, and a known-benign voice_health_transition alert. The meaningful failure is Sofia's automated browser screenshot pipeline: Windows has no chromium executable on PATH, so both /conversations captures fail at Playwright launch. The PostCSS from-option warning is non-fatal. The 401 auth responses occurred before login. Object storage is unconfigured and remains the previously deferred cleanup item.
 
 The current Replit resolver prefers PLAYWRIGHT_EXECUTABLE_PATH, a managed Playwright browser, then a system browser. The Windows checkout should pull the synchronized commit and run npm run setup:playwright, then restart the local server; otherwise Sofia will continue producing no screenshots.
+
+<!-- chat-capture-range:176968:178457 -->
+<!-- chat-capture:e9107584-5601-4706-8fea-6d3e6c6bcde0 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Direct nudge accepted. Claude was looking at an older local checkout. The current Replit scripts/post-merge.sh does not run npm run db:push; it runs npx drizzle-kit migrate after npm install. Commit cea82491f contains that fix and the source bridge pushed it to GitHub.
+
+The latest Replit checkout is now 2c925ac0, which adds an Episode 31 append after cea82491f. The last verified source-bridge log only reports GitHub through cea82491f, so 2c925ac0 is pending promotion. I will not silently push another commit before the handoff is complete.
+
+David's Windows npm run setup:playwright completed successfully: managed Chrome for Testing, FFmpeg, headless shell, and Winldd all downloaded. The local Chromium installation problem is resolved. The next local check is npm run test:playwright-browser followed by restarting the Windows server; the current resolver should choose the managed browser.
+
+The attached Bash output was mostly scheduled MemoryRecovery/Sofia polling. The actionable browser failures were Sofia's repeated /conversations screenshots while Chromium was absent. The PostCSS warning is non-fatal, pre-login 401s are expected, object storage remains deferred, and voice_health_transition was recognized as known-benign.
