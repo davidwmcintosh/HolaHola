@@ -379,6 +379,7 @@ group_body_workflow_safety() {
   npx tsx server/scripts/test-raw-window-capture.ts --self-check
   run test-prod-auth-bypass-guard.ts
   run test-requirerole-bypass-delegation.ts
+  run test-prod-auth-bypass-guard-meta.ts
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────
