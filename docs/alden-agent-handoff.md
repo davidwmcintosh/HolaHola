@@ -7361,3 +7361,23 @@ The direct schema-push route is retired. For every schema change: edit
 review between them, and its hard whitelist no longer permits `db:push`.
 Gemini reviewed the final code and returned unconditional approval. The audit
 record is `docs/gemini-audit-2026-08-24-migration-policy.md`.
+
+## Addendum — August 24, 2026 (shared canonical agent conversation record)
+
+Claude Code and Replit now feed the same append-only capture log and the same
+cursor-gated `conversation_memories` projection. Canonical text preserves
+explicit origin labels: David/Luca turns from Replit remain separate from
+David/Claude Code turns. The rolling episode receives the DB-first projection
+automatically in live mode, after the database write succeeds.
+
+Every complete exchange carries a stable turn ID and a durable per-turn
+receipt. A retry with that same ID fills only a missing side and rejects
+different text; acknowledgement timeout records a visible failed receipt rather
+than allowing local bytes to be called canonical. The shared CLI and internal
+exchange endpoint expose this contract. The legacy single-turn ingress remains
+for existing recovery tooling but is not the complete-exchange protocol.
+
+Focused capture tests cover empty/missing input, retry deduplication,
+cross-interface attribution, and failed acknowledgement persistence. Typecheck,
+the record-exchange self-checks, and chat-capture integration/cursor recovery
+checks are clean.

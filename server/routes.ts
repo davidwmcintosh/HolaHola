@@ -37691,6 +37691,65 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // Complete, source-attributed exchange intake for both Replit and Claude Code.
+  // This is intentionally a write-ahead-log endpoint: accepted means "durably
+  // pending in .chat_capture", never "already canonical". The response exposes
+  // the per-turn receipt that later becomes acknowledged or failed.
+  app.post("/api/internal/canonical-conversation-exchange", async (req: any, res: Response) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: 'Invalid agent token' });
+      }
+      const { source, userText, assistantText, turnId } = req.body ?? {};
+      if (source !== 'replit' && source !== 'claude-code') {
+        return res.status(400).json({ error: 'source must be "replit" or "claude-code"' });
+      }
+      if (typeof userText !== 'string' || !userText.trim() || typeof assistantText !== 'string' || !assistantText.trim()) {
+        return res.status(400).json({ error: 'userText and assistantText must both be non-empty strings' });
+      }
+      if (typeof turnId !== 'string' || !/^[A-Za-z0-9-]+$/.test(turnId)) {
+        return res.status(400).json({ error: 'turnId is required and must contain only letters, digits, and hyphens' });
+      }
+
+      const {
+        appendCanonicalConversationExchange,
+        writeSynchronizedCanonicalCaptureReceipt,
+      } = await import('./services/canonical-conversation-capture');
+      const capture = appendCanonicalConversationExchange({
+        source,
+        userText,
+        assistantText,
+        turnId,
+      });
+      const receipt = {
+        turnId: capture.turnId,
+        targetByteOffset: capture.targetByteOffset,
+        createdAtMs: Date.now(),
+        source,
+        status: 'pending' as const,
+      };
+      writeSynchronizedCanonicalCaptureReceipt(receipt);
+      console.log(
+        `[CanonicalConversation] ${source} exchange ${capture.turnId} queued ` +
+        `(${capture.appendedSpeakers.join('+') || 'retry with no duplicate bytes'}).`,
+      );
+      return res.status(202).json({
+        ok: true,
+        acknowledgement: 'pending',
+        receipt,
+        appendedSpeakers: capture.appendedSpeakers,
+        message: 'The exchange is not canonical until the cursor reaches targetByteOffset.',
+      });
+    } catch (e: any) {
+      console.error('[CanonicalConversation] Failed:', e.message);
+      // This failure occurred before a new accepted write-ahead record exists.
+      // Do not overwrite a valid pending/acknowledged receipt for the same
+      // idempotency key; the response is the visible failure for rejected ingress.
+      return res.status(e.message?.includes('busy') || e.message?.includes('already') ? 409 : 500).json({ error: e.message });
+    }
+  });
+
   // Stage David's task description for atomic David→Luca capture when markTaskComplete fires.
   //
   // Call this from CodeExecution right before markTaskComplete({ task_ref, commit_message }).

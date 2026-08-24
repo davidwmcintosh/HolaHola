@@ -48,7 +48,15 @@ try {
   writeFileSync(mainPath, `main only ${marker}`, 'utf8');
   const result = spawnSync(
     'npx',
-    ['tsx', 'server/scripts/record-exchange.ts', '--luca-only', '--luca-file', mainPath],
+    [
+      'tsx',
+      'server/scripts/record-exchange.ts',
+      '--luca-only',
+      '--luca-file',
+      mainPath,
+      '--turn-id',
+      `four-channel-contract-${Date.now()}`,
+    ],
     { cwd: WORKSPACE, encoding: 'utf8' },
   );
   if (result.status === 0) {

@@ -2,6 +2,15 @@
 
 AI-powered language learning app — interactive conversation practice, vocabulary, and grammar across 10 languages, personalized per student via Daniela.
 
+
+## Shared Agent Instructions
+
+Read [`docs/shared-agent-instructions.md`](docs/shared-agent-instructions.md)
+before acting. It is the single durable source for cross-interface agent
+behavior and canonical conversation capture. This file holds only
+project-specific architecture and operating context; `CLAUDE.md` points to the
+same shared instructions rather than maintaining a second identity/context copy.
+
 ## Run & Operate
 - **Run:** `npm run dev` · **Build:** `npm run build` · **Typecheck:** `npm run check`
 - **Schema changes (NEW workflow):** `npx drizzle-kit generate` → review `./migrations/<tag>.sql` → `npx drizzle-kit migrate`
@@ -85,16 +94,10 @@ Before touching code, follow the single canonical session-start checklist in `do
 - **Agent Space tables:** `agent_north_star`, `agent_open_questions`, `agent_record_of_david` — read via `/api/agent-space/*`
 
 ## Rolling Episode Capture — Non-Negotiable
-- Replit no longer exposes a machine-readable Agent-chat stream. Before every
-  Luca [Replit] final response, use `server/scripts/record-exchange.ts` with
-  David's exact text, all four Luca channels, and the exact main response.
-- The command waits for canonical acknowledgement by default. A successful
-  command means the capture cursor advanced only after DB persistence and, in
-  live mode, the DB-first rolling Episode append. A timeout or
-  `UNACKNOWLEDGED TURN` capture-status line means the turn is **not recorded**.
-- Do not use `--no-wait` except for a named emergency with a follow-up
-  acknowledgement check. Debugging, tests, and tool work do not bypass this
-  requirement.
+- Follow the canonical capture contract in
+  [`docs/shared-agent-instructions.md`](docs/shared-agent-instructions.md).
+  Replit-specific turns still require all four authored Luca channels; that
+  requirement is intentionally enforced by `record-exchange.ts`.
 
 ## Luca Grounding — Standing Practice
 Before making any claim about Daniela, David, or system state in a direct conversation with David, call one of the following before the claim reaches the message. The call is auditable — David can see whether it ran.
@@ -123,6 +126,16 @@ If the check comes back clean, proceed. If not, include the grounding block befo
 - **Split-view workflow:** David and Daniela run on production (stable). Luca codes and restarts on dev. A dev server restart never touches a live production session. Both environments see the same data — same memories, same conversation history.
 - **Hive sync (`SYNC_PEER_URL`):** dev→prod (`getholahola.com`), prod→dev (Replit dev domain). Cross-environment in-memory state sync. Do not change without understanding `hive-consciousness-service.ts`.
 - **Luca monitoring from dev:** `node server/scripts/monitor-founder-chat.js` — plain `pg`, no server imports, safe to run alongside the running dev server. Watches the active founder conversation in real time.
+
+
+## Founder Chat Sync (Aug 6, 2026)
+- **Service:** `server/services/founder-chat-sync.ts` — three-layer sync of founder/admin conversations into `conversation_memories` so Daniela can search her full chat history.
+- **Immediate layer:** `notifyConversationUpdated(conversationId)` — 30s debounce fires after every assistant message save. Hooked at all 6 assistant `createMessage` sites in `routes.ts`.
+- **Sweep layer:** every 5 minutes, re-syncs conversations updated in the last 15 minutes.
+- **Retroactive layer:** 5 minutes after boot, paginates the full `conversations` table (no cap) and syncs every founder conversation ever. Already ran: 1,411 conversations from day one are indexed.
+- **Dedup tags:** `cid:<conversationId>` (identity), `msgcount:N` (growth detection), `sanv:1` (sanitizer version — bump when `sanitizeContent()` changes to force re-process of existing entries).
+- **Content sanitizer:** strips tool call blobs, tool result wrappers, leaked thought tokens, and bracketed system markers before content reaches `conversation_memories`.
+- **Arc name:** `david-daniela-chats`. Tags: `founder-chat`, `daniela-chat`, `cid:*`, `sanv:1`.
 
 ## Founder Chat Sync (Aug 6, 2026)
 - **Service:** `server/services/founder-chat-sync.ts` — three-layer sync of founder/admin conversations into `conversation_memories` so Daniela can search her full chat history.

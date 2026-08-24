@@ -63,6 +63,8 @@ export const CHAT_CAPTURE_CURSOR_PATH = join(WORKSPACE, '.local/.chat_capture_cu
  * capture-status report.
  */
 export const CHAT_CAPTURE_ACK_PATH    = join(WORKSPACE, '.local/.chat_capture_ack.json');
+/** Per-turn receipts make acknowledgement durable even when captures overlap. */
+export const CHAT_CAPTURE_ACK_DIR     = join(WORKSPACE, '.local/chat-capture-acknowledgements');
 
 // ---------------------------------------------------------------------------
 // Auto-capture trigger — .local/.luca_auto_capture
@@ -85,11 +87,13 @@ export const CHAT_BODY_SEP   = '---';  // separates headers from body within a t
 // ---------------------------------------------------------------------------
 
 export interface DialogueTurn {
-  speaker: 'DAVID' | 'LUCA';
+  speaker: 'DAVID' | 'LUCA' | 'CLAUDE_CODE';
   text: string;
   memoryId: number;
   /** Durable record-exchange identity used for event-based episode idempotency. */
   captureId?: string;
+  /** Interface that produced this turn. Old blocks intentionally have no source. */
+  source?: 'replit' | 'claude-code';
 }
 
 export interface TranscriptCursor {
@@ -224,7 +228,7 @@ export function buildDialogueChunk(
   for (let gi = 0; gi < groups.length; gi++) {
     const group = groups[gi];
     const groupBlocks = group.turns.map(t => {
-      const name = t.speaker.charAt(0) + t.speaker.slice(1).toLowerCase();
+      const name = formatChatCaptureSpeakerLabel(t);
       return `${name}: ${t.text}\n`;
     });
     const groupSize = groupBlocks.reduce((s, b) => s + b.length, 0);
@@ -378,8 +382,25 @@ export function loadChatCaptureCursor(): ChatCaptureCursor {
 /** Stable per-turn identity for cursor recovery; timestamps are intentionally excluded. */
 export function chatCaptureTurnFingerprint(turn: Pick<DialogueTurn, 'speaker' | 'text' | 'captureId'>): string {
   return createHash('sha256')
-    .update(JSON.stringify([turn.speaker, turn.captureId ?? '', turn.text]), 'utf8')
+    .update(JSON.stringify([turn.speaker, turn.captureId ?? '', turn.text, (turn as DialogueTurn).source ?? '']), 'utf8')
     .digest('hex');
+}
+
+/**
+ * Keep interface attribution in the canonical text. Blocks written before
+ * SOURCE existed intentionally retain their historic labels.
+ */
+export function formatChatCaptureSpeakerLabel(
+  turn: Pick<DialogueTurn, 'speaker' | 'source'>,
+): string {
+  if (turn.speaker === 'CLAUDE_CODE') return 'Claude Code';
+  if (turn.source === 'claude-code') {
+    return turn.speaker === 'DAVID' ? 'David [Claude Code]' : 'Claude Code';
+  }
+  if (turn.source === 'replit') {
+    return turn.speaker === 'DAVID' ? 'David [Replit]' : 'Luca [Replit]';
+  }
+  return turn.speaker === 'DAVID' ? 'David' : 'Luca';
 }
 
 export interface ChatCaptureCursorRecovery {
@@ -604,22 +625,28 @@ export function resetChatCaptureCursor(): void {
 // advances the byte cursor. The file is never cleared by the autosave
 // worker — only by an explicit resetChatCaptureCursor() call.
 // ---------------------------------------------------------------------------
-export function appendChatCaptureTurn(
+export interface ChatCaptureTurnInput {
+  speaker: string;
+  text: string;
+  captureId?: string;
+  source?: 'replit' | 'claude-code';
+}
+
+function serializeChatCaptureTurn(
   speaker: string,
   text: string,
-  /** Inject a different path for unit tests; production callers omit this. */
-  _pathOverride?: string,
-  /** Optional durable identity for record-exchange reconciliation. */
   captureId?: string,
-): void {
+  source?: 'replit' | 'claude-code',
+): string {
   // Normalize common variants → canonical form
   const normalized = speaker.trim();
   const speakerNorm =
     /^david$/i.test(normalized)         ? 'David'      :
     /^luca replit$/i.test(normalized)   ? 'Luca Replit' :
-    /^luca$/i.test(normalized)          ? 'Luca'        : null;
+    /^luca$/i.test(normalized)          ? 'Luca'        :
+    /^claude code$/i.test(normalized)   ? 'Claude Code' : null;
   if (!speakerNorm) {
-    throw new Error(`appendChatCaptureTurn: speaker must be "David", "Luca", or "Luca Replit", got "${speaker}"`);
+    throw new Error(`appendChatCaptureTurn: speaker must be "David", "Luca", "Luca Replit", or "Claude Code", got "${speaker}"`);
   }
   // Length-delimited framing: store the character count of the body so the
   // parser can locate the end marker without scanning for it. This makes the
@@ -630,6 +657,7 @@ export function appendChatCaptureTurn(
   const block = [
     CHAT_TURN_START,
     `SPEAKER: ${speakerNorm}`,
+    ...(source ? [`SOURCE: ${source}`] : []),
     `TIME: ${timestamp}`,
     ...(captureId ? [`CAPTURE-ID: ${captureId}`] : []),
     `CHARLEN: ${charLen}`,  // character count of the body
@@ -638,7 +666,35 @@ export function appendChatCaptureTurn(
     CHAT_TURN_END,
     '',  // trailing newline after end marker
   ].join('\n');
-  appendFileSync(_pathOverride ?? CHAT_CAPTURE_PATH, block, 'utf-8');
+  return block;
+}
+
+/**
+ * Append a complete exchange in one filesystem write so the autosave reader
+ * cannot observe a durable capture ID with only one author side.
+ */
+export function appendChatCaptureTurnsAtomic(
+  turns: ChatCaptureTurnInput[],
+  _pathOverride?: string,
+): void {
+  if (turns.length === 0) return;
+  const blocks = turns.map(turn =>
+    serializeChatCaptureTurn(turn.speaker, turn.text, turn.captureId, turn.source),
+  );
+  appendFileSync(_pathOverride ?? CHAT_CAPTURE_PATH, blocks.join(''), 'utf-8');
+}
+
+export function appendChatCaptureTurn(
+  speaker: string,
+  text: string,
+  /** Inject a different path for unit tests; production callers omit this. */
+  _pathOverride?: string,
+  /** Optional durable identity for record-exchange reconciliation. */
+  captureId?: string,
+  /** Interface that produced the turn; omitted for legacy callers. */
+  source?: 'replit' | 'claude-code',
+): void {
+  appendChatCaptureTurnsAtomic([{ speaker, text, captureId, source }], _pathOverride);
 }
 
 // ---------------------------------------------------------------------------
@@ -754,16 +810,22 @@ export function parseChatCaptureFromOffset(
     pos = endIdx + endMarker.length;
     lastCompleteCharPos = pos;
 
-    const speakerMatch = /^SPEAKER:\s*(David|Luca Replit|Luca)\s*$/im.exec(headers);
+    const speakerMatch = /^SPEAKER:\s*(David|Luca Replit|Luca|Claude Code)\s*$/im.exec(headers);
+    const sourceMatch = /^SOURCE:\s*(replit|claude-code)\s*$/im.exec(headers);
     const captureIdMatch = /^CAPTURE-ID:\s*([A-Za-z0-9-]+)\s*$/im.exec(headers);
     if (speakerMatch && body.length >= 1) {
       const raw = speakerMatch[1];
-      const speaker = (raw.toUpperCase().replace(' ', '_') === 'LUCA_REPLIT' ? 'LUCA' : raw.toUpperCase()) as 'DAVID' | 'LUCA';
+      const speaker = (
+        raw.toUpperCase().replace(' ', '_') === 'LUCA_REPLIT'
+          ? 'LUCA'
+          : raw.toUpperCase().replace(' ', '_')
+      ) as 'DAVID' | 'LUCA' | 'CLAUDE_CODE';
       turns.push({
         speaker,
         text: body,
         memoryId: 0,
         ...(captureIdMatch ? { captureId: captureIdMatch[1] } : {}),
+        ...(sourceMatch ? { source: sourceMatch[1] as 'replit' | 'claude-code' } : {}),
       });
       // Record the byte offset from file start after this complete turn.
       const charPosAfterTurn = pos;

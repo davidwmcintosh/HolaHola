@@ -4637,3 +4637,24 @@ Gemini required adding `npx drizzle-kit generate` to the whitelist so Alden's
 tool capabilities match the reviewed workflow. The final hook, system prompt,
 and tool whitelist received unconditional approval. See
 `docs/gemini-audit-2026-08-24-migration-policy.md`.
+
+## Shared Claude Code/Replit canonical conversation record — August 24, 2026
+
+The append-only `.chat_capture` stream is now the one conversation transport
+for complete exchanges from both coding interfaces. Its existing autosave worker
+remains the only writer to canonical `conversation_memories`; when live mode is
+enabled, that row projects DB-first to the rolling episode without a second
+manual episode write.
+
+Each exchange has explicit source labels, a stable turn ID, and a durable
+per-turn acknowledgement receipt. Reusing a turn ID on retry does not duplicate
+the user or assistant side, while reusing it with different text fails closed.
+An acknowledgement timeout writes `failed` receipt state and capture status
+reports that state rather than calling local stream bytes canonical.
+
+`record-exchange.ts` supports `--source claude-code` with verbatim user and
+assistant files alongside the existing four-channel Replit mode. The new
+authenticated complete-exchange endpoint shares the same writer. Hermetic
+regression coverage verifies missing input rejection, duplicate retry
+suppression, Claude-vs-Replit labels, and persisted failed acknowledgement
+state; it is registered in the validation suite.

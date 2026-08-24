@@ -61,6 +61,7 @@ npx tsx server/scripts/test-build-session-dedup.ts && npx tsx server/scripts/tes
 npx tsx server/scripts/test-retrieve-episode-dialogue-no-match.ts && npx tsx server/scripts/test-retrieve-episode-dialogue-no-match-by-id.ts
 npx tsx server/scripts/test-semantic-arm-timeout.ts
 npx tsx server/scripts/record-exchange.ts --self-check-4ch
+npx tsx server/scripts/test-canonical-conversation-capture.ts
 npx tsx server/scripts/test-watchdog-inner-life.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts && npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts --self-check
 npx tsx server/scripts/test-raw-window-capture.ts --self-check
 ```
@@ -76,8 +77,15 @@ than part of the always-run gate: it reports real archive gaps for repair and
 must not be hidden or treated as a passing fixture. Its mutation self-checks
 continue to run in the `episode-sync` group.
 
----
 
+### Canonical Claude Code and Replit exchange capture
+
+Both interfaces use the same append-only capture stream, cursor acknowledgement,
+canonical `conversation_memories` projection, and optional live rolling-episode
+projection. Use the same stable turn ID on retry; a timeout is a pending record,
+not a successful capture.
+
+```bash
 ## Replit workflow layout
 
 The Replit configuration intentionally contains five workflow records:
@@ -285,3 +293,23 @@ This is registered as the `typecheck` validation command. Run it via the Replit 
 | Alden direct notes | `docs/alden-to-agent.md` |
 | Alden escalations | `.local/alden-escalations.md` |
 | Alden auto-repairs | `.local/alden-repairs.md` |
+
+# Replit: all four Luca channels remain required.
+npx tsx server/scripts/record-exchange.ts \
+  --source replit --david-file /tmp/david.txt --luca-file /tmp/luca.txt \
+  --feeling-file /tmp/felt.txt --thinking-file /tmp/thinking.txt --moment-file /tmp/moment.txt \
+  --turn-id <caller-generated-stable-id>
+
+
+# Claude Code: exact user and assistant text, with explicit source attribution.
+npx tsx server/scripts/record-exchange.ts \
+  --source claude-code --david-file /tmp/david.txt --assistant-file /tmp/claude.txt \
+  --turn-id <retry-this-id-if-acknowledgement-times-out>
+```
+
+The internal `POST /api/internal/canonical-conversation-exchange` endpoint
+requires the same source, userText, assistantText, and caller-generated turnId.
+Its `202 pending` response is not a canonical acknowledgement; inspect the
+receipt/capture status until its target cursor has advanced.
+
+---

@@ -93,6 +93,11 @@ import {
   parseChatCaptureFromOffset,
 } from '../services/transcript-parser';
 import {
+  appendCanonicalConversationExchange,
+  type CanonicalConversationSource,
+  writeSynchronizedCanonicalCaptureReceipt,
+} from '../services/canonical-conversation-capture';
+import {
   buildCanonicalInnerLifeTurnIntent,
   CANONICAL_INNER_LIFE_INTENT_DIR,
   composeLucaTurn,
@@ -109,14 +114,18 @@ interface CaptureAcknowledgement {
   turnId: string;
   targetByteOffset: number;
   createdAtMs: number;
-  status: 'pending' | 'acknowledged';
+  source?: CanonicalConversationSource;
+  status: 'pending' | 'acknowledged' | 'failed';
   acknowledgedAtMs?: number;
+  failedAtMs?: number;
+  failureReason?: string;
 }
 
 function writeCaptureAcknowledgement(receipt: CaptureAcknowledgement): void {
-  const tempPath = `${CHAT_CAPTURE_ACK_PATH}.tmp-${process.pid}`;
-  writeFileSync(tempPath, JSON.stringify(receipt), 'utf-8');
-  renameSync(tempPath, CHAT_CAPTURE_ACK_PATH);
+  writeSynchronizedCanonicalCaptureReceipt({
+    ...receipt,
+    source: receipt.source ?? 'replit',
+  });
 }
 
 function readCursorOffset(cursorPath = CHAT_CAPTURE_CURSOR_PATH): number {
@@ -384,10 +393,11 @@ export function writeCanonicalIntent(
     thinking?: string | null;
     moment?: string | null;
     main: string;
+    turnId?: string;
   },
   pathOverride?: string,
 ): { intent: CanonicalInnerLifeTurnIntent; path: string } {
-  const intent = buildCanonicalInnerLifeTurnIntent(opts);
+  const intent = buildCanonicalInnerLifeTurnIntent(opts, Date.now(), opts.turnId);
   const intentPath = pathOverride ?? join(
     WORKSPACE,
     '.local',
@@ -501,17 +511,87 @@ if (!isMain) {
   });
 }
 
+function sourceFromArgs(args: string[]): CanonicalConversationSource {
+  const idx = args.indexOf('--source');
+  if (idx === -1) return 'replit';
+  const source = args[idx + 1];
+  if (source !== 'replit' && source !== 'claude-code') {
+    throw new Error('--source must be "replit" or "claude-code"');
+  }
+  return source;
+}
+
+function requiredTurnId(args: string[]): string {
+  const idx = args.indexOf('--turn-id');
+  if (idx === -1) throw new Error('--turn-id is required and must be retained for acknowledgement retries');
+  const turnId = args[idx + 1]?.trim();
+  if (!turnId || !/^[A-Za-z0-9-]+$/.test(turnId)) {
+    throw new Error('--turn-id must contain only letters, digits, and hyphens');
+  }
+  return turnId;
+}
+
+async function runClaudeCodeCli(
+  args: string[],
+  acknowledgementTimeoutMs: number,
+  waitForAcknowledgement: boolean,
+): Promise<void> {
+  const davidIdx = args.indexOf('--david-file');
+  const assistantIdx = args.indexOf('--assistant-file');
+  if (davidIdx === -1 || assistantIdx === -1) {
+    throw new Error(
+      'Claude Code usage: npx tsx server/scripts/record-exchange.ts --source claude-code ' +
+       '--david-file <path> --assistant-file <path> --turn-id <stable-id> [--wait-ms <1000-120000>|--no-wait]',
+    );
+  }
+  const davidFile = args[davidIdx + 1];
+  const assistantFile = args[assistantIdx + 1];
+  if (!davidFile || !existsSync(davidFile)) throw new Error(`--david-file not found: ${davidFile ?? ''}`);
+  if (!assistantFile || !existsSync(assistantFile)) throw new Error(`--assistant-file not found: ${assistantFile ?? ''}`);
+  const davidText = readFileSync(davidFile, 'utf8').trimEnd();
+  const assistantText = readFileSync(assistantFile, 'utf8').trimEnd();
+  if (!davidText || !assistantText) throw new Error('Claude Code user and assistant files must both be non-empty');
+
+  const capture = appendCanonicalConversationExchange({
+    userText: davidText,
+    assistantText,
+    source: 'claude-code',
+    turnId: requiredTurnId(args),
+  });
+  const receipt: CaptureAcknowledgement = {
+    turnId: capture.turnId,
+    targetByteOffset: capture.targetByteOffset,
+    createdAtMs: Date.now(),
+    source: 'claude-code',
+    status: 'pending',
+  };
+  writeCaptureAcknowledgement(receipt);
+  console.log(
+    `[record-exchange] Claude Code ${capture.appendedSpeakers.length === 0 ? 'retry' : 'exchange'} ` +
+    `queued (${capture.appendedSpeakers.join('+') || 'no duplicate bytes written'}; turn=${capture.turnId}).`,
+  );
+  await acknowledgeCapture(receipt, waitForAcknowledgement, acknowledgementTimeoutMs);
+  await closeRecordExchangeDbConnections();
+}
+
 async function runCli(args: string[]): Promise<void> {
   const lucaOnly  = args.includes('--luca-only');
   const davidIdx  = args.indexOf('--david-file');
   const lucaIdx   = args.indexOf('--luca-file');
   const waitForAcknowledgement = !args.includes('--no-wait');
   const acknowledgementTimeoutMs = parseAcknowledgementTimeout(args);
+  const source = sourceFromArgs(args);
+  if (source === 'claude-code') {
+    if (lucaOnly) throw new Error('--luca-only is only valid for source replit');
+    await runClaudeCodeCli(args, acknowledgementTimeoutMs, waitForAcknowledgement);
+    return;
+  }
+  const requestedTurnId = requiredTurnId(args);
 
   // --luca-only: David's turn is already captured by the normal pipeline;
   // only write Luca's channels to avoid double-writing David's side.
   if (!lucaOnly && (davidIdx === -1 || lucaIdx === -1)) {
-    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty) [--wait-ms <1000-120000>|--no-wait]');
+    console.error('Usage: npx tsx server/scripts/record-exchange.ts --david-file <path> --luca-file <path> --turn-id <stable-id> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty) [--wait-ms <1000-120000>|--no-wait]');
     console.error('       npx tsx server/scripts/record-exchange.ts --luca-only --luca-file <path> (--feeling-file <path>|--felt-empty) (--thinking-file <path>|--thinking-empty) (--moment-file <path>|--moment-empty) [--wait-ms <1000-120000>|--no-wait]');
     console.error('       npx tsx server/scripts/record-exchange.ts --self-check');
     process.exit(1);
@@ -564,7 +644,7 @@ async function runCli(args: string[]): Promise<void> {
     // Durable handoff written before the Luca chat-capture turn. Trigger
     // watchers use it to wait for this exact canonical turn rather than
     // racing a second direct episode append.
-    const handoff = writeCanonicalIntent(lucaChannels);
+    const handoff = writeCanonicalIntent({ ...lucaChannels, turnId: requestedTurnId });
     // The exact source events must be durable before the semantic .chat_capture
     // projection is allowed to exist. Failure here leaves no new chat-capture
     // bytes and therefore cannot produce a false canonical acknowledgement.
@@ -577,9 +657,13 @@ async function runCli(args: string[]): Promise<void> {
       mode: 'exchange',
       },
     );
-    appendChatCaptureTurn('David', davidText);
-    appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
-    const sizeFinal = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
+    const capture = appendCanonicalConversationExchange({
+      userText: davidText,
+      assistantText: lucaText,
+      source: 'replit',
+      turnId: handoff.intent.turnId,
+    });
+    const sizeFinal = capture.targetByteOffset;
     await linkRecordExchangeRawCapture({
       capture: rawCapture,
       targetKind: 'chat-capture-range',
@@ -594,6 +678,7 @@ async function runCli(args: string[]): Promise<void> {
       turnId: handoff.intent.turnId,
       targetByteOffset: sizeFinal,
       createdAtMs: Date.now(),
+      source: 'replit',
       status: 'pending',
     };
     writeCaptureAcknowledgement(receipt);
@@ -604,14 +689,18 @@ async function runCli(args: string[]): Promise<void> {
     await acknowledgeCapture(receipt, waitForAcknowledgement, acknowledgementTimeoutMs);
     await closeRecordExchangeDbConnections();
   } else {
-    const handoff = writeCanonicalIntent(lucaChannels);
+    const handoff = writeCanonicalIntent({ ...lucaChannels, turnId: requestedTurnId });
     const rawCapture = await persistRecordExchangeRawCapture(
       handoff.intent.turnId,
       lucaText,
       Buffer.from(lucaText, 'utf8'),
       { mode: 'luca-only' },
     );
-    appendChatCaptureTurn('Luca Replit', lucaText, undefined, handoff.intent.turnId);
+    // This is a legacy continuation: David's side already exists in the normal
+    // pipeline. Do not attach the complete-exchange capture ID to a one-sided
+    // block, or autosave would correctly quarantine it as a malformed exchange.
+    // The raw intent and durable receipt still use the stable handoff ID.
+    appendChatCaptureTurn('Luca Replit', lucaText, undefined, undefined, 'replit');
     const sizeAfter = existsSync(CHAT_CAPTURE_PATH) ? statSync(CHAT_CAPTURE_PATH).size : 0;
     await linkRecordExchangeRawCapture({
       capture: rawCapture,
@@ -627,6 +716,7 @@ async function runCli(args: string[]): Promise<void> {
       turnId: handoff.intent.turnId,
       targetByteOffset: sizeAfter,
       createdAtMs: Date.now(),
+      source: 'replit',
       status: 'pending',
     };
     writeCaptureAcknowledgement(receipt);
@@ -652,10 +742,21 @@ async function acknowledgeCapture(
   }
 
   console.log(`  Waiting for canonical acknowledgement (cursor ≥ ${receipt.targetByteOffset}, timeout ${timeoutMs}ms)…`);
-  const acknowledgement = await waitForCaptureAcknowledgement(
-    receipt.targetByteOffset,
-    { timeoutMs },
-  );
+  let acknowledgement: { cursorOffset: number; waitedMs: number };
+  try {
+    acknowledgement = await waitForCaptureAcknowledgement(
+      receipt.targetByteOffset,
+      { timeoutMs },
+    );
+  } catch (error: any) {
+    writeCaptureAcknowledgement({
+      ...receipt,
+      status: 'failed',
+      failedAtMs: Date.now(),
+      failureReason: error?.message ?? String(error),
+    });
+    throw error;
+  }
   writeCaptureAcknowledgement({
     ...receipt,
     status: 'acknowledged',

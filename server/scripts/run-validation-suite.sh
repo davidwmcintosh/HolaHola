@@ -52,6 +52,7 @@ run_check "Episode 28 startup shrinkage self-check" npx tsx server/scripts/resto
 run_check "Capture status ordering" npx tsx server/scripts/test-capture-status-ordering.ts
 run_check "Truth-pipeline unified recall diagnosis" npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts
 run_check "Capture status stale escalation" npx tsx server/scripts/test-capture-status-stale-escalation.ts
+run_check "Canonical Claude Code/Replit conversation capture" npx tsx server/scripts/test-canonical-conversation-capture.ts
 run_check "Inner-life no-episode-row guard" npx tsx server/scripts/test-inner-life-no-episode-row.ts
 run_check "GL reconnected client recovery" npx tsx server/scripts/test-gl-reconnected-client-recovery.ts
 run_check "GL game-session detector" bash -c 'npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check'

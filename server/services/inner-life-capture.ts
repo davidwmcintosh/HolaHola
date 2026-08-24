@@ -151,7 +151,7 @@ export function hashInnerLifeText(text: string): string {
 export function buildCanonicalInnerLifeTurnIntent(
   opts: FourChannelLucaTurnInput,
   createdAtMs = Date.now(),
-  turnId = randomUUID(),
+  turnId: string = randomUUID(),
 ): CanonicalInnerLifeTurnIntent {
   const channels: Partial<Record<InnerLifeChannel, string>> = {};
   if (opts.feeling) channels.felt = hashInnerLifeText(opts.feeling);

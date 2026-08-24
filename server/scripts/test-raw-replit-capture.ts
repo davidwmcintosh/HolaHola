@@ -48,12 +48,16 @@ async function main(): Promise<void> {
   ]));
   expectThrows('empty raw source stream', () => prepareRawReplitEvents([]));
 
-  // Guard the integration ordering without writing a synthetic test turn to
-  // canonical capture. The raw ledger call must appear before the first append.
+  // Guard the production integration ordering without writing a synthetic test
+  // turn to canonical capture. The raw ledger call must appear before either
+  // the atomic complete-exchange writer or the retained Luca-only append.
   const recordExchange = readFileSync('server/scripts/record-exchange.ts', 'utf8');
-  const rawCall = recordExchange.indexOf('await persistRecordExchangeRawCapture(');
-  const davidAppend = recordExchange.indexOf("appendChatCaptureTurn('David', davidText)");
-  if (rawCall === -1 || davidAppend === -1 || rawCall > davidAppend) {
+  const runCliSource = recordExchange.slice(recordExchange.indexOf('async function runCli('));
+  const rawCall = runCliSource.indexOf('await persistRecordExchangeRawCapture(');
+  const completeExchangeAppend = runCliSource.indexOf('appendCanonicalConversationExchange({');
+  const lucaOnlyAppend = runCliSource.indexOf("appendChatCaptureTurn('Luca Replit'");
+  const firstProjection = Math.min(completeExchangeAppend, lucaOnlyAppend);
+  if (rawCall === -1 || firstProjection === -1 || rawCall > firstProjection) {
     throw new Error('record-exchange can append chat capture before raw source persistence.');
   }
   const completeEnvelope = "lucaText,\n      Buffer.from(lucaText, 'utf8')";

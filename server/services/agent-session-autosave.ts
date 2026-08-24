@@ -49,6 +49,7 @@ import {
   findTranscriptPath,
   extractTurns,
   buildDialogueChunk,
+  CHAT_CAPTURE_ACK_DIR,
   CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
@@ -64,7 +65,16 @@ import {
   recoverChatCaptureCursor,
   parseAutoCaptureTrigger,
   consumeAutoCaptureTrigger,
+  formatChatCaptureSpeakerLabel,
 } from './transcript-parser';
+import {
+  acquireCanonicalConversationIngressLock,
+  isCompleteCanonicalCaptureBatch,
+  releaseCanonicalConversationIngressLock,
+  selectCanonicalCaptureBatch,
+  settleCanonicalCaptureReceipts,
+  writeCanonicalCaptureReceipt,
+} from './canonical-conversation-capture';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { postAsLuca } from './luca-responder';
 import { detectRollingTagMisroute } from './rolling-tag-utils';
@@ -1182,6 +1192,29 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
       : `  ✓ chat-capture: cursor up to date (offset=${cursorOffsetBytes.toLocaleString()}, file=${cursorFileSize.toLocaleString()})`;
   let acknowledgementLine = '  — capture acknowledgement: no explicit turn receipt';
   try {
+    const failedReceipts = existsSync(CHAT_CAPTURE_ACK_DIR)
+      ? readdirSync(CHAT_CAPTURE_ACK_DIR)
+        .filter(name => name.endsWith('.json'))
+        .map(name => {
+          try {
+            return JSON.parse(readFileSync(join(CHAT_CAPTURE_ACK_DIR, name), 'utf8')) as {
+              turnId?: unknown; status?: unknown; failedAtMs?: unknown; failureReason?: unknown;
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((receipt): receipt is { turnId?: unknown; status?: unknown; failedAtMs?: unknown; failureReason?: unknown } =>
+          receipt !== null && receipt.status === 'failed',
+        )
+        .sort((a, b) => Number(b.failedAtMs ?? 0) - Number(a.failedAtMs ?? 0))
+      : [];
+    const latestFailed = failedReceipts[0];
+    if (latestFailed) {
+      acknowledgementLine =
+        `  ⚠️ FAILED ACKNOWLEDGEMENT: turn ${String(latestFailed.turnId ?? 'unknown')} remains pending — ` +
+        `${String(latestFailed.failureReason ?? 'inspect the capture receipt and retry with its turn ID')}`;
+    } else
     if (existsSync(CHAT_CAPTURE_ACK_PATH)) {
       const receipt = JSON.parse(readFileSync(CHAT_CAPTURE_ACK_PATH, 'utf-8')) as {
         targetByteOffset?: unknown;
@@ -1192,6 +1225,8 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
         : null;
       if (targetByteOffset === null) {
         acknowledgementLine = '  ⚠️ capture acknowledgement: receipt is malformed — do not assume the latest turn is durable';
+      } else if (receipt.status === 'failed') {
+        acknowledgementLine = '  ⚠️ FAILED ACKNOWLEDGEMENT: latest explicit turn remains pending — retry with the same turn ID';
       } else if (cursorOffsetBytes < targetByteOffset) {
         acknowledgementLine =
           `  ⚠️ UNACKNOWLEDGED TURN: waiting for cursor ${targetByteOffset.toLocaleString()} ` +
@@ -2412,7 +2447,16 @@ async function checkChatCapture(): Promise<void> {
 
   chatCaptureSaveInProgress = true;
   let lockFd = -1;
+  let canonicalIngressLockFd = -1;
   try {
+    // A complete exchange is written under this same lock. Taking it before
+    // reading prevents the projector from observing a retry between author
+    // sides and turning that transient state into a canonical cursor advance.
+    canonicalIngressLockFd = acquireCanonicalConversationIngressLock();
+    if (canonicalIngressLockFd === -1) {
+      console.log('[AgentAutosave] Canonical ingress lock held by a writer — will retry on next poll');
+      return;
+    }
     // Cross-process lock — prevents save-transcript-now.ts from racing the
     // autosave worker on the cursor when both run concurrently.
     lockFd = acquireCursorLock();
@@ -2440,7 +2484,9 @@ async function checkChatCapture(): Promise<void> {
     // any DB insert or episode append, and deliberately leave the cursor at its
     // prior boundary so a repaired capture can be retried without loss.
     const incompleteLuca = turns.find(turn =>
-      turn.speaker === 'LUCA' && !isCanonicalFourChannelLucaTurn(turn.text),
+      turn.speaker === 'LUCA' &&
+      turn.source !== 'claude-code' &&
+      !isCanonicalFourChannelLucaTurn(turn.text),
     );
     if (incompleteLuca) {
       throw new Error(
@@ -2467,7 +2513,38 @@ async function checkChatCapture(): Promise<void> {
     }
 
     while (remaining.length > 0) {
-      const { dialogue, includedCount } = buildDialogueChunk(remaining, 0);
+      // Project one stable capture identity at a time. A cursor replay can
+      // change chunk boundaries, but it cannot change this per-exchange DB key.
+      const projectionCandidates = selectCanonicalCaptureBatch(remaining);
+      if (!isCompleteCanonicalCaptureBatch(projectionCandidates)) {
+        const incomplete = projectionCandidates[0];
+        const quarantineOffset = remainingOffsets[projectionCandidates.length - 1];
+        if (!incomplete?.captureId || quarantineOffset === undefined) {
+          throw new Error('Chat capture incomplete canonical exchange could not be quarantined safely');
+        }
+        // The raw append-only bytes stay intact for reconciliation, but this
+        // malformed historical record cannot pin every later exchange forever.
+        // It is explicitly failed and never represented as canonical dialogue.
+        writeCanonicalCaptureReceipt({
+          turnId: incomplete.captureId,
+          targetByteOffset: quarantineOffset,
+          createdAtMs: Date.now(),
+          source: incomplete.source ?? 'replit',
+          status: 'failed',
+          failedAtMs: Date.now(),
+          failureReason: 'incomplete non-atomic capture quarantined; reconcile the original raw capture before retrying',
+        });
+        saveChatCaptureCursor({
+          byteOffset: quarantineOffset,
+          lastSavedTurnFingerprint: chatCaptureTurnFingerprint(incomplete),
+        });
+        console.error(`[AgentAutosave] Quarantined incomplete canonical capture ${incomplete.captureId}; later captures may continue.`);
+        startCursor = quarantineOffset;
+        remaining = remaining.slice(projectionCandidates.length);
+        remainingOffsets = remainingOffsets.slice(projectionCandidates.length);
+        continue;
+      }
+      const { dialogue, includedCount } = buildDialogueChunk(projectionCandidates, 0);
 
       if (includedCount === 0) {
         // Single turn alone exceeds the chunk cap and was truncated — advance past it
@@ -2483,22 +2560,43 @@ async function checkChatCapture(): Promise<void> {
         continue;
       }
 
-      const davidCount = remaining.slice(0, includedCount).filter(t => t.speaker === 'DAVID').length;
+      const batchTurns = remaining.slice(0, includedCount);
+      const davidCount = batchTurns.filter(t => t.speaker === 'DAVID').length;
+      const sourceLabels = [...new Set(batchTurns.map(turn => turn.source ?? 'legacy'))];
+      const participantLabels = [
+        ...(batchTurns.some(turn => turn.speaker === 'DAVID') ? ['David'] : []),
+        ...(batchTurns.some(turn => turn.speaker === 'LUCA') ? ['Luca [Replit]'] : []),
+        ...(batchTurns.some(turn => turn.speaker === 'CLAUDE_CODE') ? ['Claude Code'] : []),
+      ];
+      const participantsArray = `{${participantLabels.map(label => `"${label.replace(/"/g, '\\"')}"`).join(',')}}`;
+      const captureIds = [...new Set(batchTurns.flatMap(turn => turn.captureId ? [turn.captureId] : []))].sort();
+      if (captureIds.length > 1) {
+        throw new Error('Chat capture projection mixed multiple durable capture IDs in one DB row');
+      }
+      const captureIdentityTag = captureIds.length === 1 ? `capture-id:${captureIds[0]}` : null;
+      const tagsArray = `{david-luca-chat,canonical-conversation,verbatim,per-turn,chat-capture,${sourceLabels.map(source => `source-${source}`).join(',')}${captureIdentityTag ? `,${captureIdentityTag}` : ''}}`;
       const today      = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const title      = `David ↔ Luca — ${today}: per-turn capture`;
+      const title      = `David ↔ Agent — ${today}: canonical per-turn capture`;
       const endOffset  = remainingOffsets[includedCount - 1];
       if (endOffset === undefined) {
         // Should never happen: includedCount <= remaining.length = remainingOffsets.length
         throw new Error(`[AgentAutosave] Chat capture: endOffset undefined for includedCount=${includedCount}, offsets.length=${remainingOffsets.length}`);
       }
-      const summary    = `Verbatim David↔Luca dialogue (per-turn, append-only). ${davidCount} David turn(s), ${includedCount - davidCount} Luca turn(s). Cursor ${startCursor}→${endOffset}.`;
+      const summary    = `Verbatim canonical dialogue (per-turn, append-only; sources: ${sourceLabels.join(', ')}). ${davidCount} David turn(s), ${includedCount - davidCount} assistant turn(s).${captureIdentityTag ? ` Capture identity: ${captureIdentityTag}.` : ''} Cursor ${startCursor}→${endOffset}.`;
 
       const db = getUserDb();
-      const existingCapture = await db.execute(sql`
-        SELECT id FROM conversation_memories
-        WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
-        LIMIT 1
-      `);
+      const existingCapture = captureIdentityTag
+        ? await db.execute(sql`
+            SELECT id FROM conversation_memories
+            WHERE arc_name = 'david-luca-chat'
+              AND tags @> ARRAY[${captureIdentityTag}]::text[]
+            LIMIT 1
+          `)
+        : await db.execute(sql`
+            SELECT id FROM conversation_memories
+            WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
+            LIMIT 1
+          `);
       const existingCaptureRow = (existingCapture as any).rows?.[0] ?? (existingCapture as any)[0];
       if (!existingCaptureRow?.id) {
         await db.execute(sql`
@@ -2508,8 +2606,8 @@ async function checkChatCapture(): Promise<void> {
             ${title},
             ${summary},
             ${dialogue},
-            ARRAY['david', 'luca']::text[],
-            ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture']::text[],
+            ${participantsArray}::text[],
+            ${tagsArray}::text[],
             8,
             NOW(),
             'conversation',
@@ -2524,11 +2622,9 @@ async function checkChatCapture(): Promise<void> {
       // before advancing the cursor; retries are safe because both the chat row
       // and episode helper are idempotent.
       if (liveEpisode) {
-        const batchTurns = remaining.slice(0, includedCount);
         const formatted = batchTurns.map(t => {
-          const up = t.speaker.toUpperCase();
-          const label = up === 'DAVID' ? '**David:**' : '**LUCA [Replit]:**';
-          return `${label} ${t.text}`;
+          const label = formatChatCaptureSpeakerLabel(t);
+          return `**${label}:** ${t.text}`;
         }).join('\n\n');
         const eventMarkers = [
           `<!-- chat-capture-range:${startCursor}:${endOffset} -->`,
@@ -2555,6 +2651,10 @@ async function checkChatCapture(): Promise<void> {
         byteOffset: effectiveCursor,
         lastSavedTurnFingerprint: chatCaptureTurnFingerprint(remaining[includedCount - 1]),
       });
+      // Receipt state is an acknowledgement of this cursor boundary, not of the
+      // local append. This settles HTTP and CLI receipts only after the same
+      // DB/episode effects that made cursor advancement safe.
+      settleCanonicalCaptureReceipts(effectiveCursor);
 
       console.log(`[AgentAutosave] Chat capture +${includedCount} turn(s) saved (${davidCount}D + ${includedCount - davidCount}L, cursor ${startCursor}→${effectiveCursor})`);
 
@@ -2570,13 +2670,16 @@ async function checkChatCapture(): Promise<void> {
     // Update the DB-output anchor so the always-on ordering check runs even when
     // no rolling episode is active.  Only advance when Luca turns were included
     // (David-only saves don't represent a Replit output).
-    if (turns.some(t => t.speaker !== 'DAVID')) {
+    if (turns.some(t => t.speaker === 'LUCA')) {
       markReplitOutputFromChatCapture();
     }
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to process chat capture:', err.message);
     // chatCaptureLastMtime stays at its old value — next poll will retry
   } finally {
+    if (canonicalIngressLockFd !== -1) {
+      releaseCanonicalConversationIngressLock(canonicalIngressLockFd);
+    }
     if (lockFd !== -1) releaseCursorLock(lockFd);
     chatCaptureSaveInProgress = false;
   }
