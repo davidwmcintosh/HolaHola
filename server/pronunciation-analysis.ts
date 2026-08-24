@@ -2,12 +2,13 @@ import OpenAI from "openai";
 
 /**
  * Returns the effective OpenAI API key from env vars, or null if none is set.
- * Priority: AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) → OPENAI_API_KEY (direct)
+ * Priority: AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) → OPENAI_API_KEY (direct) → USER_OPENAI_API_KEY (local dev)
  */
 export function getEffectiveOpenAIKey(): string | null {
   return (
     process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
     process.env.OPENAI_API_KEY ||
+    process.env.USER_OPENAI_API_KEY ||
     null
   );
 }

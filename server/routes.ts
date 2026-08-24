@@ -190,11 +190,12 @@ function getDeepgramClient(): ReturnType<typeof createClient> {
 }
 
 // Keep OpenAI for legacy fallback during migration.
-// Prefer Replit AI integration proxy; fall back to OPENAI_API_KEY in non-Replit environments.
+// Prefer Replit AI integration proxy; fall back to OPENAI_API_KEY, then USER_OPENAI_API_KEY (local dev).
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-    || process.env.OPENAI_API_KEY,
+    || process.env.OPENAI_API_KEY
+    || process.env.USER_OPENAI_API_KEY,
 });
 
 // Language name to ISO-639-1 code mapping for OpenAI Whisper API
@@ -3673,7 +3674,7 @@ export async function registerRoutes(app: Application): Promise<void> {
         });
       }
 
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = process.env.OPENAI_API_KEY || process.env.USER_OPENAI_API_KEY;
       
       // Check if we have the required credentials
       if (!apiKey) {
@@ -3776,7 +3777,7 @@ export async function registerRoutes(app: Application): Promise<void> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = process.env.OPENAI_API_KEY || process.env.USER_OPENAI_API_KEY;
       
       if (!apiKey) {
         return res.status(503).json({ 

@@ -892,9 +892,10 @@ export class TTSService {
     }
 
     // OpenAI client (legacy, not used for Daniela voice chat)
-    if (process.env.OPENAI_API_KEY) {
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.USER_OPENAI_API_KEY;
+    if (openaiKey) {
       this.openaiClient = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: openaiKey,
         baseURL: 'https://api.openai.com/v1',
       });
     }

@@ -74,7 +74,7 @@ function getEmbedConfig(): { apiKey: string; embedUrl: string } | null {
     const base = proxyBase.replace(/\/$/, '');
     return { apiKey: proxyKey, embedUrl: `${base}/embeddings` };
   }
-  const directKey = process.env.OPENAI_API_KEY;
+  const directKey = process.env.OPENAI_API_KEY || process.env.USER_OPENAI_API_KEY;
   if (directKey) {
     return { apiKey: directKey, embedUrl: OPENAI_EMBED_URL };
   }
