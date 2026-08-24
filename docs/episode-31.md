@@ -2813,3 +2813,13 @@ Windows verification output reviewed: Vite production build completed successful
 [moment]: [intentionally empty]
 
 Deployment publish debugging completed. Failed Cloud Run build 8727d42e-15d6-4f6e-952f-198a26009188 completed npm install and npm run build, then failed during image packaging: total image layers exceeded Replit's 8 GiB limit. The prior production build remains serving. Added a targeted root .dockerignore to keep source/Vite assets/runtime data while excluding local metadata/caches, prior build output, Git history, export bundles, archival PDFs/ZIPs, and pasted logs. npm run build passed after the change. Estimated remaining publish context is approximately 1029 MiB.
+
+<!-- chat-capture-range:186083:186813 -->
+<!-- chat-capture:39f86e52-94f5-4d9a-823f-c4056d9c92e6 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+David confirmed the staged plan: publish the targeted .dockerignore fix first, then perform the larger/better cleanup by moving maintenance-only archival PDFs, ZIPs, and export bundles into the existing object-storage abstraction. No objection to object storage. Migration order: inventory and checksum originals, upload, update maintenance scripts/manifests, verify reads, then remove repository copies only after verification. Do not migrate Vite-bundled runtime assets blindly.
