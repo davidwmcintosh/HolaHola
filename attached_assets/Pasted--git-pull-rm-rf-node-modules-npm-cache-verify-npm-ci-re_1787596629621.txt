@@ -1,0 +1,87 @@
+$ git pull
+rm -rf node_modules
+npm cache verify
+npm ci --registry=https://registry.npmjs.org --replace-registry-host=always
+remote: Enumerating objects: 52, done.
+remote: Counting objects: 100% (52/52), done.
+remote: Compressing objects: 100% (6/6), done.
+remote: Total 30 (delta 24), reused 30 (delta 24), pack-reused 0 (from 0)
+Unpacking objects: 100% (30/30), 4.67 KiB | 35.00 KiB/s, done.
+From github.com:davidwmcintosh/HolaHola
+   2b5c300fb..540c7191a  main       -> origin/main
+Updating 2b5c300fb..540c7191a
+Fast-forward
+ .agents/memory/MEMORY.md                           |  1 +
+ .agents/memory/owner-managed-openai.md             | 10 +++++
+ .npmrc                                             |  2 +
+ scripts/source-bridge.sh                           |  5 ++-
+ scripts/sync-from-github.sh                        |  4 +-
+ scripts/sync-to-github.sh                          |  4 +-
+ .../global-pool-conversation-leak-guard.test.ts    | 12 ++---
+ server/pronunciation-analysis.ts                   | 15 +++----
+ server/routes.ts                                   | 14 +++---
+ server/scripts/check-user-openai-key-absent.sh     | 52 ++++++++++------------
+ server/scripts/test-openai-key-absent.ts           |  4 +-
+ .../test-openai-pronunciation-error-notice.ts      |  6 +--
+ server/services/image-engine-test.ts               |  4 +-
+ server/services/proxy-startup-check.ts             | 16 +++----
+ server/services/semantic-memory-service.ts         | 23 +++-------
+ server/services/tts-service.ts                     |  8 ++--
+ 16 files changed, 83 insertions(+), 97 deletions(-)
+ create mode 100644 .agents/memory/owner-managed-openai.md
+ create mode 100644 .npmrc
+Cache verified and compressed (~\AppData\Local\npm-cache\_cacache)
+Content verified: 1410 (563438747 bytes)
+Content garbage-collected: 56 (63423045 bytes)
+Index entries: 1410
+Finished in 5.676s
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\David\\HolaHola\\node_modules',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\@cartesia\cartesia-js\dist\api\resources'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\@cartesia\\cartesia-js\\dist\\api\\resources'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\David\\HolaHola\\node_modules\\google-gax',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\google-gax'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\google-gax'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\David\\HolaHola\\node_modules\\@grpc',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\@grpc\grpc-js\build'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\@grpc\\grpc-js\\build'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\David\\HolaHola\\node_modules\\@capacitor',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\@capacitor\android\capacitor'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\@capacitor\\android\\capacitor'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code E404
+npm error 404 Not Found - GET https://registry.npmjs.org/npm/xml-naming/-/xml-naming-0.3.0.tgz
+npm error 404
+npm error 404  The requested resource 'xml-naming@https://registry.npmjs.org/npm/xml-naming/-/xml-naming-0.3.0.tgz' could not be found or you do not have permission to access it.
+npm error 404
+npm error 404 Note that you can also install from a
+npm error 404 tarball, folder, http url, or git url.
+npm error A complete log of this run can be found in: C:\Users\David\AppData\Local\npm-cache\_logs\2026-08-24T18_35_59_808Z-debug-0.log
