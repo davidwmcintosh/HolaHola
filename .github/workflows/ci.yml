@@ -43,28 +43,8 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Normalize Replit lockfile URLs for GitHub
-        # Replit records some package tarballs through its internal npm proxy.
-        # Their integrity hashes are the public npm tarballs' hashes, but the
-        # proxy hostname is not resolvable from a GitHub-hosted runner.
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from 'node:fs';
-
-          const lockfile = 'package-lock.json';
-          const replitRegistry = 'http://package-firewall.replit.local/npm/';
-          const publicRegistry = 'https://registry.npmjs.org/';
-          const original = readFileSync(lockfile, 'utf8');
-          const normalized = original.replaceAll(replitRegistry, publicRegistry);
-          const replacements = original === normalized
-            ? 0
-            : original.split(replitRegistry).length - 1;
-
-          if (replacements > 0) {
-            writeFileSync(lockfile, normalized);
-          }
-          console.log(`[ci] normalized ${replacements} Replit npm proxy URL(s) for GitHub`);
-          NODE
+      - name: Validate package lock registry URLs
+        run: npm run test:package-lock-registry
 
       - name: Install dependencies
         # `tsx` is a development dependency, and the tests must use this
@@ -120,25 +100,8 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Normalize Replit lockfile URLs for GitHub
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from 'node:fs';
-
-          const lockfile = 'package-lock.json';
-          const replitRegistry = 'http://package-firewall.replit.local/npm/';
-          const publicRegistry = 'https://registry.npmjs.org/';
-          const original = readFileSync(lockfile, 'utf8');
-          const normalized = original.replaceAll(replitRegistry, publicRegistry);
-          const replacements = original === normalized
-            ? 0
-            : original.split(replitRegistry).length - 1;
-
-          if (replacements > 0) {
-            writeFileSync(lockfile, normalized);
-          }
-          console.log(`[ci] normalized ${replacements} Replit npm proxy URL(s) for GitHub`);
-          NODE
+      - name: Validate package lock registry URLs
+        run: npm run test:package-lock-registry
 
       - name: Install dependencies
         run: npm ci --include=dev
@@ -191,25 +154,8 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Normalize Replit lockfile URLs for GitHub
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from 'node:fs';
-
-          const lockfile = 'package-lock.json';
-          const replitRegistry = 'http://package-firewall.replit.local/npm/';
-          const publicRegistry = 'https://registry.npmjs.org/';
-          const original = readFileSync(lockfile, 'utf8');
-          const normalized = original.replaceAll(replitRegistry, publicRegistry);
-          const replacements = original === normalized
-            ? 0
-            : original.split(replitRegistry).length - 1;
-
-          if (replacements > 0) {
-            writeFileSync(lockfile, normalized);
-          }
-          console.log(`[ci] normalized ${replacements} Replit npm proxy URL(s) for GitHub`);
-          NODE
+      - name: Validate package lock registry URLs
+        run: npm run test:package-lock-registry
 
       - name: Install dependencies
         run: npm ci --include=dev
