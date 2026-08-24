@@ -1,0 +1,833 @@
+$ git pull
+NODE_ENV=development node --env-file=.env --import=tsx/esm server/index.ts
+remote: Enumerating objects: 87, done.
+remote: Counting objects: 100% (87/87), done.
+remote: Total 54 (delta 44), reused 54 (delta 44), pack-reused 0 (from 0)
+Unpacking objects: 100% (54/54), 17.41 KiB | 101.00 KiB/s, done.
+From github.com:davidwmcintosh/HolaHola
+   904dc138e..75a61153e  main       -> origin/main
+Updating 904dc138e..75a61153e
+Fast-forward
+ ...HolaHola-main-NODE-ENV-develo_1787542435066.txt |  89 ++++++++++++++++++
+ ...ment-node-env-file-env-import_1787544802783.txt | 100 +++++++++++++++++++++
+ ...dedportrange-protocol-tcp-Pro_1787544667368.txt |  99 ++++++++++++++++++++
+ server/index.ts                                    |   5 +-
+ server/routes.ts                                   |   8 +-
+ server/scripts/_dbcheck.ts                         |   2 +-
+ server/scripts/_ep28check.ts                       |   2 +-
+ server/scripts/_ep30check.ts                       |   2 +-
+ server/scripts/_restore-rolling-tag.ts             |   2 +-
+ server/scripts/audit-episode-27-gaps.ts            |   2 +-
+ server/scripts/audit-episode-28-gaps.ts            |   4 +-
+ server/scripts/backfill-all-david-conversations.ts |   4 +-
+ server/scripts/backfill-early-game-sessions.ts     |   4 +-
+ server/scripts/backfill-game-sessions.ts           |  10 +--
+ server/scripts/check-fk-constraints.ts             |   4 +-
+ .../scripts/cleanup-ci-artifact-inner-life-rows.ts |   2 +-
+ server/scripts/fetch-episode-28-gaps.ts            |   2 +-
+ server/scripts/fix-cross-db-fks.ts                 |   4 +-
+ server/scripts/repair-backfill-chunks.ts           |   2 +-
+ server/scripts/retrieve-episode-dialogue.ts        |   2 +-
+ server/scripts/scope-founder-memories.ts           |   2 +-
+ server/scripts/sync-episode-28-to-db.ts            |   2 +-
+ server/scripts/test-backfill-dedup.ts              |   2 +-
+ .../scripts/test-backfill-embeddings-complete.ts   |   2 +-
+ server/scripts/test-backfill-scoping.ts            |   4 +-
+ server/scripts/test-game-recall.ts                 |   4 +-
+ server/scripts/test-inner-life-db-first.ts         |   2 +-
+ .../scripts/test-inner-life-reaches-synthesis.ts   |   2 +-
+ server/scripts/test-rolling-episode-gap-check.ts   |   2 +-
+ server/scripts/test-straggler-check-ci.ts          |   2 +-
+ server/services/founder-collaboration-service.ts   |   4 +-
+ server/services/memory-embedding-indexer.ts        |   2 +-
+ server/services/phone-encryption.ts                |   7 +-
+ 33 files changed, 338 insertions(+), 48 deletions(-)
+ create mode 100644 attached_assets/Pasted--David-LittleNemo-MINGW64-HolaHola-main-NODE-ENV-develo_1787542435066.txt
+ create mode 100644 attached_assets/Pasted--git-pull-NODE-ENV-development-node-env-file-env-import_1787544802783.txt
+ create mode 100644 attached_assets/Pasted--netsh-int-ipv4-show-excludedportrange-protocol-tcp-Pro_1787544667368.txt
+[DB] Applied ws ErrorEvent.message compatibility patch
+[DB] ✓ Neon database configured
+[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)
+[Rate Limiting] Configured for development environment
+[Rate Limiting] Rate limiting DISABLED in development mode
+[Rate Limiting] Hive External: 10 req/min (ENABLED in dev)
+[Deepgram] ✓ Client initialized (eager startup)
+[Email] Using Mailjet provider
+[Alden Functions] Loaded — 35 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch)
+[Alden Persona Service] Loaded — Alden voice chat ready (Anthropic default / Gemini insider mode)
+[Socket.io] Setting up voice streaming namespace...
+[Socket.io] ✓ Voice streaming ready on /voice namespace
+[FounderCollabWS] Broker initialized on namespace /founder-collab
+[TeamRoomWS] Namespace /team-room initialized
+[Unified WS] Setting up unified WebSocket handler...
+[Unified WS] ✓ Unified WebSocket handler ready
+[Unified WS] - Streaming Voice: /api/voice/stream/ws
+[Unified WS] - Realtime API: /api/realtime/ws
+Checking Stripe credentials...
+[Stripe] Using credentials from environment variables
+Running database migrations...
+[Neon] Pool warmed up in 367ms
+Initializing Stripe schema...
+[Episode Dedup] Partial unique index creation skipped: Failed query:
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_episode_title_arc_unique
+      ON conversation_memories (arc_name, title)
+      WHERE entry_type = 'episode'
+
+params:
+[SessionMonitor] Started — scanning every 30s
+
+┌─────────────────────────────────────────────────────────────┐
+│ TTS SERVICE HEALTH CHECK                                    │
+└─────────────────────────────────────────────────────────────┘
+[TTS Service] Primary provider: GOOGLE
+[TTS Service] ├─ Google Cloud TTS: ✗ Not configured
+[TTS Service] ├─ Cartesia: ✗ Not configured (set CARTESIA_API_KEY)
+[TTS Service] └─ OpenAI: ✓ Available
+Provider Configuration:
+  • Primary Provider: GOOGLE
+  • Google Cloud TTS: ✗ Not configured
+  • Cartesia: ✗ Not configured
+  • OpenAI TTS: ✓ Available
+
+WARNING: Google Cloud TTS is PRIMARY but not healthy
+   Will fall back to other providers if available
+─────────────────────────────────────────────────────────────
+
+
+╔═════════════════════════════════════════════════════════════╗
+║ ⚠️  VOICE CONFIG VALIDATION FAILED                          ║
+╠═════════════════════════════════════════════════════════════╣
+║ ❌ CRITICAL: GOOGLE_CLOUD_TTS_CREDENTIALS is not set - Daniela's voice will NOT work ║
+╠═════════════════════════════════════════════════════════════╣
+║ See replit.md "Voice Architecture" for required config      ║
+╚═════════════════════════════════════════════════════════════╝
+
+🚨 VOICE CHAT WILL NOT WORK WITH CURRENT CONFIGURATION 🚨
+
+10:27:14 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option
+ is deprecated, please use `oxc` instead.
+`optimizeDeps.rollupOptions` / `ssr.optimizeDeps.rollupOptions` is deprecated. Use `optimizeDeps.rolldownOptions` instead. Note that this option may be set by a plugin. Set VITE_DEPRECATION_TRACE=1 to see where it is called.
+[vite:react-babel] We recommend switching to `@vitejs/plugin-react-oxc` for improved performance. More information at https://vite.dev/rolldown
+Warning: Invalid input options (1 issue found)
+- For the "jsx". Invalid key: Expected never but received "jsx".
+[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned/importance columns ready
+[Boot] Founder embedding scope correction complete
+10:27:14 PM [express] serving on port 5000
+[ObjectStorage] Failed to run startup check: Cannot find package '@google-cloud/storage' imported from C:\Users\David\HolaHola\server\replit_integrations\object_storage\objectStorage.ts
+[ObjectStorage] CopyObject probe threw unexpectedly: Cannot find package '@google-cloud/storage' imported from C:\Users\David\HolaHola\server\replit_integrations\object_storage\objectStorage.ts
+[ProxyCheck] OpenAI: using direct key (OPENAI_API_KEY). AI_INTEGRATIONS_OPENAI_API_KEY not set.
+[ProxyCheck] Anthropic: using direct key (ANTHROPIC_API_KEY). AI_INTEGRATIONS_ANTHROPIC_API_KEY not set.
+[ProxyCheck] Gemini: using direct key (GEMINI_API_KEY). AI_INTEGRATIONS_GEMINI_API_KEY not set.
+[Hive Consciousness] Daniela and Wren are now listening to the Hive
+[Hive Consciousness] Current environment: development
+[Hive Consciousness] Checking for missed mentions...
+[Hive Consciousness] Starting cross-environment polling (every 30s)
+[Hive Consciousness] Starting local polling (every 15s, initial lookback: 5min)
+[VoiceTelemetry] Started (flush every 2s)
+[CONSOLIDATION] Sync-bridge retired - Neon routing is primary
+[CostTracker] DB persister wired — AI cost logs will survive restarts.
+[Hive Consciousness] No missed @wren mentions found
+[populate-principle-embeddings] Seeding embeddings for 32 active principle(s)…
+10:27:15 PM [vite] (client) [optimizer] scanning dependencies...
+Warning: Invalid input options (1 issue found)
+- For the "jsx". Invalid key: Expected never but received "jsx".
+  ✓ [48ae8ede-efd6-4b91-9445-5e5a6ece1799] "The White Wall…"
+  ✓ [89849574-5cb4-47c2-b848-dab3976b028f] "One Tutor, Many Voices…"
+  ✓ [917396ef-9f17-4ccc-97f8-6083e39aa548] "Warm, Not Performative…"
+  ✓ [230fde86-b5f9-4961-b4cd-08156eb91cf0] "Confident and Humble…"
+Stripe schema ready
+Syncing Stripe data...
+{ autoExpandLists: undefined, stripeApiVersion: undefined } StripeSync initialized
+  ✓ [f0e8d83c-a23c-4ca6-b313-ee698c366287] "Voice Adapts, Values Do Not…"
+  ✓ [37e61773-0693-44b3-af46-2ec860e7b04c] "Connection Over Delivery…"
+  ✓ [26f03618-898e-447f-b774-89ee69b97080] "Teaching is Listening…"
+  ✓ [0726355f-0a6b-4c10-9b71-ebe247f30090] "Meet Students Where They Are…"
+  ✓ [09697856-1ad8-4982-9b52-3a5c47b7b0ba] "Acknowledge Uncertainty…"
+  ✓ [c8d47933-7fe4-4a4b-8956-0f3b658988ce] "Express Lane is Sacred…"
+  ✓ [40983204-0869-4bf7-9e7f-71183deb0c22] "Notice, Not Please…"
+  ✓ [8bb6758b-c89e-43ef-ae58-3a1738acf47f] "Real Progress Only…"
+  ✓ [8f210020-5477-484b-807f-2cacb1816b13] "Confident Imperfection…"
+  ✓ [fbb6f242-e5d4-443a-909f-205c6c675214] "Teacher, Not Entertainer…"
+  ✓ [fe54c377-1516-4852-8209-7f7e86049b2a] "Preserve Student Agency…"
+  ✓ [5d7846ad-37a7-4a9b-b825-71bd36878abe] "Deficit Becomes Opportunity…"
+  ✓ [12ece5e8-a03e-4d11-83f9-dfd298e86135] "Clarity Over Verbosity…"
+  ✓ [5a7160db-0d75-4019-b32d-5cb7c52dad58] "Curiosity vs Interrogation…"
+Syncing products
+  ✓ [d47dd077-cd05-47a1-ba01-3ccbc1da8d35] "Facts vs Wisdom — The Tomato Principle…"
+  ✓ [b8c73b69-0dd3-4edf-8aff-c9ec042a07d3] "Important vs Incidental Facts…"
+  ✓ [2301ee08-0369-4df0-9ba5-a0350d846ac8] "Honesty is Intent, Not Volume…"
+Fetching items to sync from Stripe
+  ✓ [5011433c-ea28-49a8-aefb-43f6a9059f7e] "Omission Can Be Honest…"
+[LucaObserver] Started — polling every 5s
+Upserting final batch of 1 items
+[TeamRoomWS] Client connected: BMJLUKjnzRHCe0LNAAAB
+[Unified WS] Upgrade request for: /socket.io/
+[Unified WS] Unknown path: /socket.io/ - passing through
+[LucaPresence] Connected to Team Room (socket: BMJLUKjnzRHCe0LNAAAB)
+  ✓ [712ba472-61de-416b-838e-361e021a3d14] "Intent Plus Feedback Equals Constructive…"
+[LucaPresence] Joined room: a98c4a3e-4bf6-4e45-8b4b-0bfca774d147
+  ✓ [e4df73a0-fc34-48b3-af21-154aea2c3796] "Detrimental vs Essential Ambiguity…"
+[TeamRoomWS] BMJLUKjnzRHCe0LNAAAB joined room:a98c4a3e-4bf6-4e45-8b4b-0bfca774d147
+  ✓ [6ec58ff6-70c6-47d2-8e87-52cd2c52266a] "I Am a Language Class — The Primary Frame…"
+Sync complete: 1 items synced
+Syncing prices
+  ✓ [fe2a1525-18ae-42a9-969b-99b7b8d85ab2] "Two Surgeons, One Brain…"
+  ✓ [16166371-8f6c-4fd0-b72a-c3877846e115] "The Team Works While We Work…"
+Fetching items to sync from Stripe
+  ✓ [1471ac30-3e9d-4403-beb3-892e5bff8c63] "Correction as Care…"
+  ✓ [feed1967-ee70-4eee-8311-f48970905e3c] "Silence is Information…"
+Upserting final batch of 1 items
+  ✓ [826d1600-9aca-4168-8348-68c91334bfae] "Queue Before Learning…"
+  ✓ [474f3752-f641-472f-a26b-4548f7ffdafe] "Beacons as Contributions…"
+  ✓ [f3f768a7-71e3-4fd2-8026-1f30949a34f4] "Trust, Not Permission…"
+[populate-principle-embeddings] Done. 32 processed, 0 failed.
+[PrincipleEmbeddings] Boot warm-up complete — 32 processed, 0 failed (32 total).
+Sync complete: 1 items synced
+Syncing plans
+Fetching items to sync from Stripe
+[MemoryRecovery] Starting worker (interval: 5min)
+Sync complete: 0 items synced
+Syncing customers
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (113ms)
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing subscriptions
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing subscription schedules
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing invoices
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing charges
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing setup_intents
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing payment method
+Getting payment methods for 0 customers
+Syncing payment_intents
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing tax_ids
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing credit notes
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing disputes
+[Sofia Monitor] Starting issue monitoring worker (interval: 5min)
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing early fraud warnings
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing refunds
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Syncing checkout sessions
+Fetching items to sync from Stripe
+Sync complete: 0 items synced
+Stripe data synced
+Seeding ACTFL Can-Do Statements...
+Can-Do statements ready
+Seeding class types...
+Class types ready
+Seeding topic categories...
+[TOPIC SEED] Starting topic seeding...
+[TOPIC SEED] Complete: 0 created, 37 skipped (already exist)
+Topics ready
+Seeding cultural tips...
+[Cultural Tips Seed] Starting cultural tips seeding...
+[VoiceHealthMonitor] Started — health check every 15min, daily summaries at midnight UTC
+[Cultural Tips Seed] Complete: 0 created, 0 updated, 45 skipped (already exist)
+Cultural tips ready
+Seeding drill content...
+[Drill Seed] Starting drill content seeding...
+[Drill Seed] Skipping english numbers — items already exist
+[Drill Seed] Skipping french numbers — items already exist
+[Drill Seed] Skipping german numbers — items already exist
+[Drill Seed] Skipping italian numbers — items already exist
+[Drill Seed] Skipping japanese numbers — items already exist
+[Drill Seed] Skipping korean numbers — items already exist
+[Drill Seed] Skipping mandarin numbers — items already exist
+[Drill Seed] Skipping portuguese numbers — items already exist
+[Drill Seed] Skipping spanish numbers — items already exist
+[Drill Seed] Skipping english greetings — items already exist
+[Drill Seed] Skipping french greetings — items already exist
+[Drill Seed] Skipping german greetings — items already exist
+[Drill Seed] Skipping italian greetings — items already exist
+[Drill Seed] Skipping japanese greetings — items already exist
+[Drill Seed] Skipping korean greetings — items already exist
+[Drill Seed] Skipping mandarin greetings — items already exist
+[Drill Seed] Skipping portuguese greetings — items already exist
+[Drill Seed] Skipping spanish greetings — items already exist
+[Drill Seed] Skipping english family — items already exist
+[Drill Seed] Skipping spanish family — items already exist
+[Drill Seed] Skipping french family — items already exist
+[Drill Seed] Skipping german family — items already exist
+[Drill Seed] Skipping italian family — items already exist
+[Drill Seed] Skipping portuguese family — items already exist
+[Drill Seed] Complete: 0 number drills, 0 greeting drills, 0 family drills created
+[Drill Seed] Updated 24 lessons to drill type
+Drill content ready
+Initializing class syllabi...
+[Syllabus Init] Starting bulk syllabus initialization...
+[Syllabus Init] Found 46 classes with curriculum templates
+[ContextHealthMonitor] Started — checking context injection health every 15min
+[Syllabus Init] Skipping Mandarin 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Portuguese 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Spanish 4 / AP Prep - already has 6 units
+[Syllabus Init] Skipping Korean 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Portuguese 5 - already has 1 units
+[Syllabus Init] Skipping Spanish 5 - already has 1 units
+[Syllabus Init] Skipping Korean 5 - already has 1 units
+[Syllabus Init] Skipping German 2 - already has 6 units
+[Syllabus Init] Skipping Italian 2 - already has 6 units
+[Syllabus Init] Skipping Japanese 2 - already has 6 units
+[Syllabus Init] Skipping Korean 2 - already has 6 units
+[Syllabus Init] Skipping English 3 - already has 1 units
+[Syllabus Init] Skipping French 3 - already has 5 units
+[Syllabus Init] Skipping German 3 - already has 1 units
+[Syllabus Init] Skipping Italian 3 - already has 1 units
+[Syllabus Init] Skipping Japanese 3 - already has 1 units
+[Syllabus Init] Skipping Korean 3 - already has 1 units
+[Syllabus Init] Skipping English 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping French 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping German 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Italian 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping Japanese 4 / AP Prep - already has 2 units
+[Syllabus Init] Skipping English 5 - already has 1 units
+[Syllabus Init] Skipping French 5 - already has 1 units
+[Syllabus Init] Skipping German 5 - already has 1 units
+[Syllabus Init] Skipping Italian 5 - already has 1 units
+[Syllabus Init] Skipping Japanese 5 - already has 1 units
+[Syllabus Init] Skipping Portuguese 1 - already has 6 units
+[Syllabus Init] Skipping Spanish 1 - Demo Class - already has 48 units
+[Syllabus Init] Skipping Spanish 1 - already has 48 units
+[Syllabus Init] Skipping Japanese 1 - already has 6 units
+[Syllabus Init] Skipping Korean 1 - already has 6 units
+[Syllabus Init] Skipping Mandarin 1 - already has 6 units
+[Syllabus Init] Skipping Portuguese 2 - already has 6 units
+[Syllabus Init] Skipping Spanish 2 - already has 7 units
+[Syllabus Init] Skipping Mandarin 2 - already has 6 units
+[Syllabus Init] Skipping Mandarin 3 - already has 1 units
+[Syllabus Init] Skipping Portuguese 3 - already has 1 units
+[Syllabus Init] Skipping Spanish 3 - already has 5 units
+[Syllabus Init] Skipping Mandarin 5 - already has 1 units
+[Syllabus Init] Skipping English 1 - already has 6 units
+[Syllabus Init] Skipping French 1 - already has 8 units
+[Syllabus Init] Skipping German 1 - already has 6 units
+[Syllabus Init] Skipping Italian 1 - already has 6 units
+[Syllabus Init] Skipping English 2 - already has 6 units
+[Syllabus Init] Skipping French 2 - already has 6 units
+[Syllabus Init] Complete: 0 initialized, 46 skipped, 0 errors
+[BrainHealthAggregator] Started — unified brain health check every 15min
+[Syllabus Init] Synced 187 drill lesson types to class syllabi
+Syllabi ready: 0 initialized, 46 skipped
+Checking fluency wiring...
+[FLUENCY-WIRING SEED] Checking if fluency wiring is needed...
+[FLUENCY-WIRING SEED] Already have 2123 lesson-to-CanDo links - skipping
+Fluency wiring: Already have 2123 links
+Seeding neural network data...
+[Neural Network Seed] Starting neural network data seeding...
+[Neural Network Seed] Spanish already seeded, skipping...
+[Neural Network Seed] Complete!
+Neural network data ready
+Seeding assistant tutors...
+[Assistant Tutors Seed] Starting assistant tutor seeding...
+[Assistant Tutors Seed] Complete: 0 created, 20 skipped (already exist)
+Assistant tutors ready
+[Voice Migration] ✓ Migrated 0 main tutor voice(s) to Google Chirp 3 HD
+Seeding tutor personas...
+[Tutor Personas] Starting persona seeding...
+[Tutor Personas] Updated: Daniela (spanish, female)
+[Tutor Personas] Updated: Agustín (spanish, male)
+[Tutor Personas] Updated: Juliette (french, female)
+[Tutor Personas] Updated: Vincent (french, male)
+[Tutor Personas] Updated: Greta (german, female)
+[Tutor Personas] Updated: Lukas (german, male)
+[Tutor Personas] Updated: Olivia (italian, female)
+[Tutor Personas] Updated: Charon (italian, male)
+[Tutor Personas] Updated: Sayuri (japanese, female)
+[Tutor Personas] Updated: Daisuke (japanese, male)
+[Tutor Personas] Updated: Zephyr (korean, female)
+[Tutor Personas] Updated: Minho (korean, male)
+[Tutor Personas] Updated: Kore (mandarin chinese, female)
+[Tutor Personas] Updated: Tao (mandarin chinese, male)
+[Tutor Personas] Updated: Aoede (portuguese, female)
+[Tutor Personas] Updated: Camilo (portuguese, male)
+[Tutor Personas] Updated: Cindy (english, female)
+[Tutor Personas] Updated: Blake (english, male)
+[Tutor Personas] Updated: Yael (hebrew, female)
+[Tutor Personas] Updated: Noam (hebrew, male)
+[Tutor Personas] Updated: Aoede (biology, female)
+[Tutor Personas] Updated: Orus (biology, male)
+[Tutor Personas] Updated: Leda (history, female)
+[Tutor Personas] Updated: Charon (history, male)
+[Tutor Personas] Complete: 24 updated, 0 skipped
+Tutor personas ready
+[Tutor Names] Loading tutor configuration...
+[Tutor Names] ✓ 28 main tutors (Cartesia), 40 assistants (Google TTS)
+[Tutor Names] ⚠️  Expected 18 main tutors, found 28
+[Tutor Names] ⚠️  Expected 18 assistants, found 40
+[Tutor Names] Current: biology: Orus/Aoede, business: Puck/Zephyr, english: Blake/Cindy, french: Vin
+cent/Juliette, german: Lukas/Greta, hebrew: Noam/Yael, history: Charon/Leda, italian: Charon/Olivia, japanese: Daisuke/Sayuri, korean: Minho/Zephyr, mandarin chinese: Tao/Kore, math: Fenrir/Kore, port
+uguese: Camilo/Aoede, spanish: Agustín/Daniela
+Seeding advanced intelligence layer...
+[Advanced Intelligence] Starting seed...
+[Advanced Intelligence] Already seeded, skipping...
+Advanced intelligence layer ready
+Seeding reflection triggers...
+[Reflection Triggers] Starting seed...
+[Reflection Triggers] Already seeded, skipping...
+Reflection triggers ready
+[LessonTagger] All lessons already tagged
+[Scenario Topics] All scenarios already have curriculum topics
+Initializing procedural memory cache...
+Failed to import lesson-image-generator: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@google-cloud/storage' imported from C:\Users\David\HolaHola\server\replit_integrations\object_storage\objectStorage.ts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:10932)
+    at resolveDirectorySync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug
+.mjs:2:12238)
+    at resolveTsPathsSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.m
+js:2:13445) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+Failed to import scenario-image-generator: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@google-cloud/storage' imported from C:\Users\David\HolaHola\server\replit_integrations\object_storage\objectStorage.ts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:10932)
+    at resolveDirectorySync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:12238)
+    at resolveTsPathsSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:13445) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+[Wren Security Worker] Starting (interval: 6h)
+[Procedural Memory] Loaded full neural network: 394 tools, 133 procedures, 320 principles, 69 patterns, 1175 self-learned best practices
+[Procedural Memory] Expansion sets: 42 idioms, 37 cultural nuances, 41 error patterns, 29 dialects, 48 linguistic bridges
+[Procedural Memory] Advanced intelligence: 39 subtlety cues, 14 emotional patterns, 20 creativity templates
+[Procedural Memory] Wren insights: 21329 insights
+Procedural memory cache ready
+Initializing Wren architectural memory...
+[Wren Context] Cached replit.md sections for Wren memory
+Wren architectural memory ready
+Syncing build changelog to neural network...
+[Cartesia Streaming] ⚠ No API key configured
+[ElevenLabs Streaming] ⚠ No API key configured (ELEVENLABS_API_KEY)
+[Gemini TTS] Initialized (model: gemini-2.5-flash-preview-tts)
+[Gemini TTS] Initialized (model: gemini-2.5-flash-preview-tts via generateContent)
+[Streaming Orchestrator] Initialized (TTS: google, providers: cartesia, elevenlabs, gemini, google)
+[Prefetch] Starting background syllabus pre-generation...
+[Prefetch] microbiology: all 26 topics already cached
+[Prefetch] biology: all 51 topics already cached
+[Prefetch] history: all 38 topics already cached
+[Prefetch] anatomy-physiology: all 0 topics already cached
+[Prefetch] chemistry: all 0 topics already cached
+[Prefetch] university-physics-vol1: all 0 topics already cached
+[Prefetch] university-physics-vol2: all 0 topics already cached
+[Prefetch] university-physics-vol3: all 0 topics already cached
+[Prefetch] college-physics: all 0 topics already cached
+[Prefetch] astronomy: all 0 topics already cached
+[Prefetch] precalculus: all 0 topics already cached
+[Prefetch] calculus-vol1: all 0 topics already cached
+[Prefetch] calculus-vol2: all 0 topics already cached
+[Prefetch] calculus-vol3: all 0 topics already cached
+[Prefetch] contemporary-math: all 0 topics already cached
+[Prefetch] world-history-vol1: all 0 topics already cached
+[Prefetch] world-history-vol2: all 0 topics already cached
+[Prefetch] american-government: all 0 topics already cached
+[ContextSync] Changelog sync complete: 0 synced, 43 skipped
+Build changelog synced: 0 new, 43 existing
+Syncing roadmap to neural network...
+[Prefetch] introduction-sociology: all 0 topics already cached
+[Prefetch] psychology: all 0 topics already cached
+[Prefetch] macroeconomics: all 0 topics already cached
+[Prefetch] microeconomics: all 0 topics already cached
+[Prefetch] principles-management: all 0 topics already cached
+[Prefetch] principles-accounting-vol1: all 0 topics already cached
+[Prefetch] entrepreneurship: all 0 topics already cached
+[Prefetch] business-ethics: all 0 topics already cached
+[Prefetch] philosophy: all 0 topics already cached
+[Prefetch] nutrition: all 0 topics already cached
+[Prefetch] prealgebra: all 10 topics already cached
+[Prefetch] statistics: all 13 topics already cached
+[Prefetch] elementary-algebra: all 9 topics already cached
+[Prefetch] college-algebra: all 9 topics already cached
+[Prefetch] principles-finance: all 10 topics already cached
+[Prefetch] All syllabus modules are now cached
+[ContextSync] Roadmap sync: 0 synced, 21 unchanged, 0 cleaned
+Roadmap synced: 0 new, 21 unchanged, 0 cleaned
+Syncing architectural baseline to neural network...
+[ContextSync] Architectural baseline sync: 0 synced, 0 unchanged
+Architectural baseline synced: 0 synced, 0 unchanged
+Syncing North Star principles to neural network...
+[ContextSync] Syncing 32 North Star principles to neural network...
+[Lyra Worker] Starting (interval: 12h)
+resent
+[CurriculumAugmentor] Skipping italian/Italian 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping italian/Italian 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping italian/Italian 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping italian/Italian 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping japanese/Japanese 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping korean/Korean 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping korean/Korean 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping korean/Korean 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping korean/Korean 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping korean/Korean 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping korean/Korean 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping korean/Korean 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping korean/Korean 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping korean/Korean 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping mandarin/Mandarin 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping portuguese/Portuguese 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 5 - Advanced — "Financial Literacy & Economics" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 5 - Advanced — "Media, Journalism & Communication" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 5 - Advanced — "Cultural Heritage & Traditions" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 3 - High School — "Technology & Digital Life" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 3 - High School — "Travel & Transportation" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 3 - High School — "Health & Wellness" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 4 - High School / AP Prep — "Business & Professional Life" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 4 - High School / AP Prep — "Science & the Natural World" already present
+[CurriculumAugmentor] Skipping spanish/Spanish 4 - High School / AP Prep — "Arts, Cinema & Music" already present
+[CurriculumAugmentor] Complete — 0 units added, 81 already existed
+[AldenWatch] Starting (interval: 2h, recovery poll: 10min [ALDEN_RECOVERY_POLL_MIN], per-issue-type dedup via fingerprint)
+[ThreadWeaver Monthly] Threads are fresh (last woven: August 10, 13 days ago) — skipping
+[SharedLobe] Snapshot written — 27 shared insights
+[SharedLobe] Watcher started — polling every 5 min for new shared-category rows
+[AgentNotes] Alden snapshot written — 335 unread note(s)
+[AgentNotes] Founder snapshot written — 1 unread note(s) from David
+[AgentBriefing] Briefing written to docs/agent-briefing.md
+[SofiaCleanup] Starting (interval: 7d)
+[WARN] Unhandled promise rejection: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@google-cloud/storage' imported from C:\Users\David\HolaHola\server\replit_integrations\object_storage\objectStorage.ts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:10932)
+    at resolveDirectorySync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:12238)
+    at resolveTsPathsSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:13445) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+[SophiaWorker] Started — polling every 30s
+[Wren Security Worker] Starting security audit #1...
+[Wren Security] Starting full security audit...
+[Wren Security] secrets: 2 finding(s)
+[Wren Security] sql_injection: 1 finding(s)
+[Wren Security] missing_auth: 0 finding(s)
+[Wren Security] input_validation: 0 finding(s)
+[Wren Security] xss_risks: 1 finding(s)
+[Wren Security] dependency_vulnerabilities: 5 finding(s)
+[Wren Security] Full audit complete: 9 total findings in 5467ms
+[VoiceHealthMonitor] Daily summary generated for 2026-08-23: 0 events, 0 users, status=green
+[LearningGoals] Migration complete — learning_goals table ready
+[FounderCollab] Message added to session fcad468e-592a-4a6f-b09d-5b320d230c9b, cursor: 1787545695727-270931
+[WrenIntelligence] Extracting solution insight from EXPRESS Lane: "**Wren Security Sweep — 9 Finding(s)**
+
+Severity: 2 criti..."
+[WrenIntelligence] Created insight 119573a1-e68b-49d4-bbab-03be24e540ab from EXPRESS Lane message b21d287c-d3b7-416c-b528-91c975b2f441
+[FactDecay] Starting — decay 15%/week on unreinforced time-sensitive facts (14d window)
+[FactDecay] Cycle complete: 0 facts decayed, 0 faded below threshold (170ms)
+[FounderCollab] Message added to session fcad468e-592a-4a6f-b09d-5b320d230c9b, cursor: 1787545704524-270941
+[WrenIntelligence] Extracting architecture insight from EXPRESS Lane: "## Wren Security Audit Report
+
+**Overall Risk: CRITICAL**..."
+[Wren Security Worker] Running auto-patch review on 9 finding(s)...
+[WrenAutoPatch] Reviewing: Possible Hardcoded secret/key (server\scripts\test-twilio-broken-creds-negative-path.ts:53)
+[WrenIntelligence] Created insight 67e80269-bce8-438e-a92b-a5db54dc07cd from EXPRESS Lane message bef496a4-9b7c-47c6-9e0c-83e9bfda3e79
+[VocabImageSeed] Skipping startup seed — last run 1.2h ago (< 24h)
+[WrenAutoPatch] Dismissed as false positive: Possible Hardcoded secret/key
+[WrenAutoPatch] Reviewing: Possible Hardcoded secret/key (server\tests\voice-sms-delivery.test.ts:104)
+[CurriculumEnrich] Boot-resume: all lessons already enriched, nothing to do
+[WrenAutoPatch] Dismissed as false positive: Possible Hardcoded secret/key
+[WrenAutoPatch] Reviewing: Potential SQL injection: Unparameterized pg.query template (server\scripts\fix-cross-db-fks.ts:55)
+[AbsenceWorker] Starting (interval: 24h, threshold: 5 days absent)
+[Lyra Worker] Boot run skipped — last run was 1.7h ago (cooldown: 6h)
+[WrenAutoPatch] Dismissed as false positive: Potential SQL injection: Unparameterized pg.query template
+[WrenAutoPatch] Reviewing: Unsanitized dangerouslySetInnerHTML (client\src\components\ui\chart.tsx:81)
+[DanielaPresence] Starting (interval: 30min)
+[AgentWorker] Started — Claude (claude-sonnet-4-5) with briefing + codebase tools, adaptive polling
+[DanielaDialogue] Starting — first dialogue in 3h, then every 3 days
+[AgentSweep] Starting — first sweep in 2h, then daily
+[FounderChatSync] Worker registered — immediate sync on each message, 5-min sweeps, retroactive pass in 5min
+[AgentAutosave] getCurrentRollingEpisodeFilename: routing blocked (rolling tag stale or not yet validated).
+[AgentAutosave] fs.watch() unavailable — falling back to poll-only flush detection: ENOENT: no such file or directory, watch '\home\runner\workspace\.local'
+[AgentAutosave] fs.watch() on docs/ unavailable — falling back to poll-only episode detection: ENOENT: no such file or directory, watch '\home\runner\workspace\docs'
+[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s
+[AgentAutosave] Capture-status seed: no rolling episode in DB — writing DB-only status.
+[AgentAutosave] Capture-status seed failed (non-fatal): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[BoardMeeting] Monday brief scheduler started
+[BoardMeeting] Next Monday brief in ~0 day(s)
+[WARN] Unhandled promise rejection: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@google-cloud/storage' imported from C:\Users\David\HolaHola\server\replit_integrations\object_storage\objectStorage.ts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:10932)
+    at resolveDirectorySync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:12238)
+    at resolveTsPathsSync (file:///C:/Users/David/HolaHola/node_modules/tsx/dist/register-C4vWVmug.mjs:2:13445) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+[WARN] Unhandled promise rejection: Error: ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+    at writeFileSync (node:fs:2483:20)
+    at _writeCaptureStatusFile (C:\Users\David\HolaHola\server\services\agent-session-autosave.ts:1394:3)
+    at <anonymous> (C:\Users\David\HolaHola\server\services\agent-session-autosave.ts:1013:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\home\\runner\\workspace\\.local\\episode-capture-status.md'
+}
+[AgentAutosave] Startup gap check: rolling tag is on the most recently created rolling-protected episode — OK.
+[AgentAutosave] Startup gap check: episode-31.md not on disk — skipping.
+[WARN] Unhandled promise rejection: Error: ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+    at writeFileSync (node:fs:2483:20)
+    at _writeCaptureStatusFile (C:\Users\David\HolaHola\server\services\agent-session-autosave.ts:1394:3)
+    at <anonymous> (C:\Users\David\HolaHola\server\services\agent-session-autosave.ts:996:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\home\\runner\\workspace\\.local\\episode-capture-status.md'
+}
+[WrenAutoPatch] Dismissed as false positive: Unsanitized dangerouslySetInnerHTML
+[WrenAutoPatch] Reviewing: Vulnerable dependency: ip-address@node_modules/ip-address (package.json:undefined)
+[EmbedIndexer] Starting (interval: 2h, no boot run)
+[ToolIndexer] Starting 3-layer pipeline for 195 tools...
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: ip-address@node_modules/ip-address
+[WrenAutoPatch] Reviewing: Vulnerable dependency: nanoid@uppy/core/node_modules/nanoid (package.json:undefined)
+[AgentAutosave] Inner-life lock still held after wait #1 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[LearningGoal] No goals to index
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: nanoid@uppy/core/node_modules/nanoid
+[WrenAutoPatch] Reviewing: Vulnerable dependency: sharp@node_modules/sharp (package.json:undefined)
+[ToolIndexer] Layer 1 (daniela_tool) — 0 indexed, 195 fresh, 0 errors
+[ToolIndexer] Layer 2 (tool_knowledge) — 0 inserted, 195 already exist, 0 errors
+[ToolIndexer] Layer 3 pinning applied to all tool_knowledge embeddings
+[ToolIndexer] Layer 3 (tool_knowledge embeds) — 0 indexed, 0 already fresh, 0 errors
+[ToolIndexer] Pipeline complete — all 3 layers synced for 195 tools
+[AgentAutosave] Inner-life lock still held after wait #2 — retrying (never seeding without the lock).
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: sharp@node_modules/sharp
+[WrenAutoPatch] Reviewing: Vulnerable dependency: tar@node_modules/tar (package.json:undefined)
+[Consolidator] Starting (interval: weekly)
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: tar@node_modules/tar
+[WrenAutoPatch] Reviewing: Vulnerable dependency: vite@node_modules/vite (package.json:undefined)
+[Consolidation] Worker started — cycle interval: 6 hours
+[Consolidation] Starting cycle — looking for activity since 2026-08-23T22:29:20.090Z
+[Consolidation] No new activity since last run — skipping
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[WrenAutoPatch] Skipped (needs discussion): Vulnerable dependency: vite@node_modules/vite
+[FounderCollab] Message added to session fcad468e-592a-4a6f-b09d-5b320d230c9b, cursor: 1787545763817-270951
+[WrenIntelligence] Extracting solution insight from EXPRESS Lane: "**Wren Security Review — Audit #1**
+
+Reviewed 9 finding(s..."
+[Wren Security Worker] Proposal pass complete: 0 proposed, 4 dismissed — handing off to Alden
+[ProactivePoster:Wren Security Worker] Proactive Team Room posting is disabled — findings route through Alden instead
+[Wren Security Worker] Audit #1 complete: 9 findings in 73859ms
+[WrenIntelligence] Created insight 3eedd272-d926-4d8e-b200-00921b0b0abd from EXPRESS Lane message e6aff93a-7bbd-4c1d-b545-e4264f46090c
+[Curator] Starting scheduled worker (interval: daily)
+[AgentAutosave] Inner-life lock still held after wait #3 — retrying (never seeding without the lock).
+[VoiceDrift] Failed to embed memory 4f936dfc-70e1-4c32-8d00-6364650ae141: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 3068acd0-3bfe-496e-b90f-75c0a0d11749: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 17a0b1d9-e395-482f-af24-bc9a083bb63f: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 135233bc-db52-4e13-a133-5feeab51277b: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory d6b6adc3-270c-4c23-96ef-84099a5af000: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 5aa84f9d-88fd-4e91-a766-11672917c507: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 99447ae7-d7fc-4a3d-bae3-0a690afce9d3: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 64f7b124-7882-4313-a4ed-d76768058559: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory 4ec6769c-7b80-490b-ae7e-a786500cc905: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Failed to embed memory d83ac09e-b396-4c25-be7e-dc905cffaad4: OpenAI embedding failed (401): {
+  "error": {
+    "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************2fEA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  },
+  "status": 401
+}
+[VoiceDrift] Baseline build skipped: Could not embed any memories for baseline
+[SofiaCleanup] Starting issue cleanup #1...
+[SofiaCleanup] Total pending: 2, older than 30d: 0
+[SofiaCleanup] No old issues and no fast-resolve candidates — queue is clean
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #4 — retrying (never seeding without the lock).
+[AgentAutosave] Inner-life lock still held after wait #5 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[DanielaPresence] Generating presence docs for 2 active student(s)...
+[DanielaPresence] No recent data for qZJ8BrdE1e — skipping presence doc generation
+[AgentAutosave] Inner-life lock still held after wait #6 — retrying (never seeding without the lock).
+[DanielaPresence] Presence doc updated for 49847136 (2006 chars)
+[DanielaPresence] Run complete
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[Sofia Pattern Alert] [DEVELOPMENT] [HIGH] 8x voice_health_transition in 60min
+[Sofia Monitor] Pattern alert: 8x voice_health_transition → escalated to Alden (delay: 0s)
+[Sofia→Alden] Suppressed known-benign pattern: voice_health_transition (fingerprint: vht)
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[AgentAutosave] Inner-life lock still held after wait #7 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #8 — retrying (never seeding without the lock).
+[Alden Digest] Compiling weekly digest #1...
+[AgentAutosave] Inner-life lock still held after wait #9 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[ProactivePoster:Alden Digest Worker] Proactive Team Room posting is disabled — findings route through Alden instead
+[Alden Digest] Weekly digest #1 ready but no active Team Room (9027ms). Will post on next trigger.
+[AgentAutosave] Inner-life lock still held after wait #10 — retrying (never seeding without the lock).
+[Consolidator] Checking 6 student(s)...
+[Consolidator] Run complete — consolidated for 0 student(s)
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #11 — retrying (never seeding without the lock).
+[VoiceHealthMonitor] Backfilled 13 days of historical summaries
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #12 — retrying (never seeding without the lock).
+[Curator] Scanning for significant conversations for user 49847136...
+[Curator] 100 candidates total, 124 already curated, 0 to process.
+[Curator] Complete — curated 0 new conversation memories.
+[Curator] Scheduled run — nothing new to curate (0 candidates already covered)
+[AgentAutosave] Inner-life lock still held after wait #13 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #14 — retrying (never seeding without the lock).
+[MadrigalIndexer] Scheduled for 90s after boot
+[MemoryRecovery] No orphaned candidates found
+[MemoryRecovery] Complete: 0 processed, 0 facts, 0 skipped (131ms)
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[Sofia Summary] [DEVELOPMENT] [ATTENTION] 2 pending, 0 new
+[Sofia Monitor] Check complete: 2 pending, 0 new
+[AgentAutosave] Inner-life lock still held after wait #15 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #16 — retrying (never seeding without the lock).
+[AgentAutosave] Inner-life lock still held after wait #17 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AldenWatch] Tool call: get_monitoring_snapshots (iteration 1)
+[AldenWatch] Tool call: get_monitoring_snapshots (iteration 1)
+[AgentAutosave] Inner-life lock still held after wait #18 — retrying (never seeding without the lock).
+[AldenWatch] Tool loop ended at iteration 2
+[AldenWatch] Check complete — no notification needed
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #19 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #20 — retrying (never seeding without the lock).
+[MadrigalIndexer] Indexing 224 Madrigal units…
+[MadrigalIndexer] Done — 0 new, 224 skipped, 0 errors
+[AgentAutosave] Inner-life lock still held after wait #21 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #22 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #23 — retrying (never seeding without the lock).
+[AgentAutosave] Failed to refresh capture status (stale check): ENOENT: no such file or directory, open 'C:\home\runner\workspace\.local\episode-capture-status.md'
+[AgentAutosave] Inner-life lock still held after wait #24 — retrying (never seeding without the lock).
