@@ -20,11 +20,14 @@
  */
 
 import * as fs from 'fs';
+import { dirname } from 'path';
 
 export const STALE_LOCK_MS = 2 * 60 * 1000;
 
 /** Try to acquire the lock. Returns true if acquired. Non-blocking. */
 export function tryAcquireInnerLifeLock(lockPath: string): boolean {
+  // Ensure the parent directory exists (e.g. .local/ may not exist in local dev on Windows).
+  try { fs.mkdirSync(dirname(lockPath), { recursive: true }); } catch { /* ignore */ }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, acquiredAt: Date.now() }), { flag: 'wx' });
