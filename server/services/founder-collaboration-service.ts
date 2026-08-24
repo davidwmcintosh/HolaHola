@@ -535,10 +535,10 @@ class FounderCollaborationService {
       .from(collaborationMessages)
       .where(pendingFilter);
     
-    // Extract database host from DATABASE_URL for verification
+    // Extract database host from NEON_SHARED_DATABASE_URL for verification
     let databaseHost = 'unknown';
     try {
-      const dbUrl = process.env.DATABASE_URL;
+      const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
       if (dbUrl) {
         const url = new URL(dbUrl);
         databaseHost = url.hostname;

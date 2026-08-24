@@ -474,7 +474,7 @@ async function runSelfCheck(db: ReturnType<typeof drizzle>) {
     console.log(`  Target: memoryId=${scTargetId.substring(0, 50)} type=${scTargetType}`);
 
     // Use pg.Pool for transactional control (neon HTTP driver does not support multi-statement txns)
-    const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL ?? '';
+    const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? '';
     const pgPool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false }, max: 1 });
     const pgClient = await pgPool.connect();
 
@@ -545,7 +545,7 @@ async function main() {
   if (SELF_CHECK) console.log(Y('(self-check mode)\n'));
   if (FIX_MODE) console.log(Y('(--fix mode: missing embeddings will be re-embedded automatically)\n'));
 
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) {
     console.error(R('FATAL: NEON_SHARED_DATABASE_URL (or DATABASE_URL) is not set.'));
     process.exit(1);

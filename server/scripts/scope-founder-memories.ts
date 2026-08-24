@@ -44,7 +44,7 @@ const DRY_RUN = process.argv.includes('--dry-run');
 
 export async function scopeFounderMemories(opts?: { dryRun?: boolean }): Promise<number> {
   const dryRun = opts?.dryRun ?? DRY_RUN;
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) throw new Error('No database URL found (NEON_SHARED_DATABASE_URL / DATABASE_URL)');
 
   const sql = neon(dbUrl);

@@ -156,7 +156,7 @@ async function runSelfCheck() {
   console.log(Y(`  ℹ  Read docs/episode-28.md — ${mdRaw.length} bytes`));
 
   // 2. Query DB ─────────────────────────────────────────────────────────────
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = neon(process.env.NEON_SHARED_DATABASE_URL!);
   const START = '2026-08-09T22:00:00Z';
   const END   = '2026-08-12T06:00:00Z';
 
@@ -296,7 +296,7 @@ async function main() {
   console.log(`\n  episode-28.md: ${mdRaw.length.toLocaleString()} bytes, ${mdRaw.split('\n').length} lines`);
 
   // 2. Query DB ─────────────────────────────────────────────────────────────
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = neon(process.env.NEON_SHARED_DATABASE_URL!);
 
   // Episode 28 ran on August 10–11, 2026. We query with a one-day buffer on
   // each side so we don't miss rows created just before/after midnight UTC.

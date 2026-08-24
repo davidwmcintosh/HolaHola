@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 async function main() {
-  const sql = neon(process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL ?? '');
+  const sql = neon(process.env.NEON_SHARED_DATABASE_URL ?? '');
   // Check current state
   const rows = await sql`SELECT id::text, title, tags FROM conversation_memories WHERE 'rolling' = ANY(tags) OR 'rolling-protected' = ANY(tags) ORDER BY created_at DESC LIMIT 5`;
   rows.forEach((r: any) => console.log(r.id.slice(0,8), r.title?.slice(0,40), JSON.stringify(r.tags)));

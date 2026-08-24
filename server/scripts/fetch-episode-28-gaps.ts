@@ -30,7 +30,7 @@ const GAP_IDS = [
 ];
 
 async function main() {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = neon(process.env.NEON_SHARED_DATABASE_URL!);
 
   const rows = await sql`
     SELECT id, title, content, created_at, tags

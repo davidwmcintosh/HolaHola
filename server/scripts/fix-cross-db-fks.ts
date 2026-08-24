@@ -3,10 +3,10 @@ import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
 
 if (!DATABASE_URL) {
-  console.error("DATABASE_URL is required");
+  console.error("NEON_SHARED_DATABASE_URL is required");
   process.exit(1);
 }
 

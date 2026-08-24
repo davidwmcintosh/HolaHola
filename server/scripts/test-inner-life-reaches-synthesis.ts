@@ -392,7 +392,7 @@ async function main(): Promise<void> {
     sep();
     console.log(B('PART 3 — Runtime: DB fetch honours source filter\n'));
 
-    const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+    const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
     if (!dbUrl) {
       console.log(Y('  ⚠ SKIP  DB checks — NEON_SHARED_DATABASE_URL not set (keyless CI run)'));
     } else {

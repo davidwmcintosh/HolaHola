@@ -23,7 +23,7 @@ async function main() {
     process.exit(1);
   }
 
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = neon(process.env.NEON_SHARED_DATABASE_URL!);
   const content = fs.readFileSync(mdPath, 'utf8');
   console.log(`Read docs/episode-28.md — ${content.length} bytes`);
 

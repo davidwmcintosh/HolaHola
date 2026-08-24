@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 async function main() {
-  const sql = neon(process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL ?? '');
+  const sql = neon(process.env.NEON_SHARED_DATABASE_URL ?? '');
   const r = await sql`SELECT id::text, title, tags, length(content) as len FROM conversation_memories WHERE id IN ('28000000-0000-4000-8000-000000000028','27000000-0000-4000-8000-000000000027') ORDER BY created_at DESC`;
   r.forEach((x: any) => console.log('id:', x.id.slice(0,8), 'len:', x.len, 'tags:', JSON.stringify(x.tags)));
   

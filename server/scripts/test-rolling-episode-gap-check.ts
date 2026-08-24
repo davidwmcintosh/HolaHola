@@ -165,7 +165,7 @@ function runSelfCheck(): void {
 async function main() {
   console.log(B('\n══ Rolling Episode Gap Check ══\n'));
 
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) {
     console.error(R('FATAL: NEON_SHARED_DATABASE_URL (or DATABASE_URL) is not set.'));
     process.exit(1);

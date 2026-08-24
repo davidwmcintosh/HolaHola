@@ -26,7 +26,7 @@ const CI_ARTIFACT_IDS = [
 ];
 
 async function main() {
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) {
     console.error('FATAL: NEON_SHARED_DATABASE_URL (or DATABASE_URL) is not set.');
     process.exit(1);

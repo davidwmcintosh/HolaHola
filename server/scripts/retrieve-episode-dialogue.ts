@@ -56,7 +56,7 @@ import { neon } from '@neondatabase/serverless';
 // ---------------------------------------------------------------------------
 
 function buildSql() {
-  const url = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) {
     process.stderr.write(
       '[retrieve-episode-dialogue] FATAL: NEON_SHARED_DATABASE_URL is not set.\n',

@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 
 async function main() {
   // HTTP driver
-  const httpDb = neon(process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL ?? '');
+  const httpDb = neon(process.env.NEON_SHARED_DATABASE_URL ?? '');
   const h = await httpDb`SELECT id::text, title, length(content) as len FROM conversation_memories WHERE 'rolling' = ANY(tags) ORDER BY created_at DESC LIMIT 3`;
   console.log('HTTP rolling episodes:', h.length, h.map((r: any) => `${r.id.slice(0,8)} len=${r.len}`).join(', '));
   

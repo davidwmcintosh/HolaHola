@@ -246,7 +246,7 @@ async function main(): Promise<void> {
   console.log(D('  and live trigger files never touched. Re-embed gated off.\n'));
 
   // ── Precondition: DB config must be present (hard FAIL, not skip) ─────────
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) {
     console.log(R('  ✗ FAIL  NEON_SHARED_DATABASE_URL (and DATABASE_URL) not set.'));
     console.log(R('         This guard cannot verify the DB-first pipeline without a DB connection.'));

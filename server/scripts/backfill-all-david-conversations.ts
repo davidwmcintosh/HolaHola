@@ -78,13 +78,13 @@ const EFFECTIVE_BATCH = batchArg ? parseInt(batchArg) : BATCH_SIZE;
 // ─── DB helpers ────────────────────────────────────────────────────────────────
 
 function getNeonSql() {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No NEON_SHARED_DATABASE_URL or DATABASE_URL');
   return neon(url);
 }
 
 function getDb() {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No NEON_SHARED_DATABASE_URL or DATABASE_URL');
   return drizzle(neon(url));
 }

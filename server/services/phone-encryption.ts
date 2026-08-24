@@ -25,9 +25,10 @@ function getKey(): Buffer {
     }
     return buf;
   }
-  // Derive a stable key from DATABASE_URL — both dev and prod share the same
-  // Neon URL so this always produces the same key in both environments.
-  const seed = process.env.DATABASE_URL ?? 'holahola-dev-phone-encryption-seed';
+  // Derive a stable key from NEON_SHARED_DATABASE_URL — this is the stable,
+  // owner-controlled Neon URL that never changes (unlike DATABASE_URL which
+  // Replit overrides frequently, which would silently rotate the encryption key).
+  const seed = process.env.NEON_SHARED_DATABASE_URL ?? 'holahola-dev-phone-encryption-seed';
   return crypto.createHash('sha256').update(seed).digest();
 }
 

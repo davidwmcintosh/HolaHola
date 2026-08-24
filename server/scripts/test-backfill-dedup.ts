@@ -70,7 +70,7 @@ const SAMPLE_SIZE = 20;
 // ── DB helper ─────────────────────────────────────────────────────────────────
 
 function getSql() {
-  const url = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('NEON_SHARED_DATABASE_URL (or DATABASE_URL) is not set.');
   return neon(url);
 }

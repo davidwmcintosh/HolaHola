@@ -44,7 +44,7 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 
 function createDb() {
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) throw new Error('NEON_SHARED_DATABASE_URL (or DATABASE_URL) is not set.');
   return neon(dbUrl);
 }

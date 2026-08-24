@@ -836,7 +836,7 @@ const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
  * is acceptable, and using the same driver as CI ensures consistent results.
  */
 function getStragglerSql() {
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL ?? '';
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? '';
   return neon(dbUrl);
 }
 /**

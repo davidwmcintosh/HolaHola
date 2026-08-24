@@ -125,13 +125,13 @@ const GAME_CONV_IDS = [
 ];
 
 function getDb() {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL found');
   return drizzle(neon(url));
 }
 
 async function fetchTranscript(convId: string): Promise<{ role: string; content: string; created_at: Date }[]> {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL');
   const sql = neon(url);
   const rows = await sql`
@@ -147,7 +147,7 @@ async function fetchTranscript(convId: string): Promise<{ role: string; content:
 }
 
 async function fetchConvMeta(convId: string): Promise<{ title: string | null; created_at: Date } | null> {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL');
   const sql = neon(url);
   const rows = await sql`
@@ -158,7 +158,7 @@ async function fetchConvMeta(convId: string): Promise<{ title: string | null; cr
 
 /** Returns the existing conversation_memories id for this title, or null if not yet saved. */
 async function existingId(title: string): Promise<string | null> {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL');
   const sql = neon(url);
   const rows = await sql`
@@ -187,7 +187,7 @@ function buildSummary(title: string, msgs: { role: string; content: string }[]):
  * conversations.user_id rather than falling back to a hard-coded admin ID.
  */
 async function patchMissingCidTags(): Promise<void> {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL');
   const sql = neon(url);
   let patched = 0;

@@ -58,14 +58,14 @@ function buildKeywordRegex(): string {
 
 /** Raw neon HTTP client — used for queries that go outside Drizzle */
 function rawSql() {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL found (NEON_SHARED_DATABASE_URL / DATABASE_URL)');
   return neon(url);
 }
 
 /** Drizzle HTTP client for writes */
 function writeDb() {
-  const url = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.NEON_SHARED_DATABASE_URL;
   if (!url) throw new Error('No database URL found');
   return drizzle(neon(url));
 }

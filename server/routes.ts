@@ -17384,7 +17384,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const sampleConvs = await storage.debugGetSampleConversations();
       
       // Check if database URL is configured
-      const hasDatabase = !!process.env.DATABASE_URL;
+      const hasDatabase = !!process.env.NEON_SHARED_DATABASE_URL;
       
       res.json({
         environment: env,
@@ -35426,7 +35426,7 @@ You have full access to your neural network knowledge.
       if (!isNeonConfigured()) {
         return res.status(400).json({ 
           error: 'Neon not configured', 
-          message: 'Set DATABASE_URL secret' 
+          message: 'Set NEON_SHARED_DATABASE_URL secret' 
         });
       }
       
@@ -35485,9 +35485,9 @@ You have full access to your neural network knowledge.
         sharedConnected = connectionStatus.shared.success;
         userConnected = connectionStatus.user.success;
         // Mask URLs for security (show host only)
-        if (process.env.DATABASE_URL) {
+        if (process.env.NEON_SHARED_DATABASE_URL) {
           try {
-            const url = new URL(process.env.DATABASE_URL);
+            const url = new URL(process.env.NEON_SHARED_DATABASE_URL);
             sharedUrl = url.host;
             userUrl = url.host; // Same database now
           } catch { 

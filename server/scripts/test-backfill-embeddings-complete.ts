@@ -96,7 +96,7 @@ const MIN_EXPECTED_IMP7 = 400;
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
 function getDb() {
-  const dbUrl = process.env.NEON_SHARED_DATABASE_URL ?? process.env.DATABASE_URL;
+  const dbUrl = process.env.NEON_SHARED_DATABASE_URL;
   if (!dbUrl) throw new Error('NEON_SHARED_DATABASE_URL (or DATABASE_URL) is not set.');
   return neon(dbUrl);
 }
