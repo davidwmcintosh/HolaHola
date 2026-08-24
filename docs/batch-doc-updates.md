@@ -4607,3 +4607,18 @@ group's logs retain the exact canonical command number and command text. The
 canonical `npm test` chain remains the source of truth; group boundaries are
 validated against named commands so a future edit cannot silently omit or
 misclassify coverage.
+
+---
+
+## Local Chromium capability — August 24, 2026
+
+Playwright browser screenshots are now a supported local-development capability.
+Run `npm run setup:playwright` after a clean install to download Playwright's
+managed Chromium. The browser resolver prefers an explicit
+`PLAYWRIGHT_EXECUTABLE_PATH`, then Playwright's managed browser, then an
+available system Chromium executable.
+
+Startup logs one clear preflight result. If Chromium is absent, the server
+remains available and browser-only flows report the setup command instead of a
+platform-specific executable stack trace. Replit's Nix configuration includes
+the runtime libraries required for a real headless Chromium launch.

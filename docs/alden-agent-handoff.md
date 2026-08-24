@@ -7332,3 +7332,18 @@ protection status (`CI / test`). It always reports every named job's result and
 fails when any group fails; detailed runner output in the failing group names
 the exact command. Group boundaries fail closed if the canonical chain changes
 without being assigned contiguously.
+
+---
+
+## Addendum — August 24, 2026 (local Chromium capability)
+
+The Playwright browser service now resolves Chromium in a portable order:
+explicit `PLAYWRIGHT_EXECUTABLE_PATH`, managed Playwright browser, then a
+system executable. Local Windows development requires one explicit
+`npm run setup:playwright` after dependency installation; the server logs its
+browser capability state at startup and stays available when the browser is
+missing.
+
+The Replit Nix runtime has the required headless Chromium libraries, and a real
+launch-plus-page-render check passed. Browser pipeline calls with no Chromium
+now produce an actionable capability message rather than a raw launch stack.

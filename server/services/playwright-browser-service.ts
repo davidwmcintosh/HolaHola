@@ -1,5 +1,6 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { execSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
@@ -21,12 +22,96 @@ function getGemini(): GoogleGenAI {
   return _gemini;
 }
 
-// ── Chromium executable path ──────────────────────────────────────────────────
-function getChromiumPath(): string {
-  try {
-    return execSync('which chromium', { encoding: 'utf8' }).trim();
-  } catch {
-    return 'chromium';
+// ── Chromium executable resolution ───────────────────────────────────────────
+export type ChromiumExecutableSource = 'configured' | 'playwright-managed' | 'system';
+
+export interface ChromiumResolution {
+  executablePath: string;
+  source: ChromiumExecutableSource;
+}
+
+export class ChromiumUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ChromiumUnavailableError';
+  }
+}
+
+interface ChromiumResolutionOptions {
+  configuredPath?: string;
+  managedPath?: string;
+  systemPaths?: string[];
+}
+
+const CHROMIUM_SETUP_COMMAND = 'npm run setup:playwright';
+let chromiumPreflightLogged = false;
+
+function findSystemChromium(): string[] {
+  const commands = process.platform === 'win32'
+    ? [['where.exe', 'chromium'], ['where.exe', 'chrome']]
+    : [['which', 'chromium'], ['which', 'chromium-browser'], ['which', 'google-chrome']];
+
+  const paths: string[] = [];
+  for (const [command, name] of commands) {
+    try {
+      const output = execFileSync(command, [name], { encoding: 'utf8' });
+      const firstPath = output.split(/\r?\n/).map(line => line.trim()).find(Boolean);
+      if (firstPath && existsSync(firstPath)) paths.push(firstPath);
+    } catch {
+      // This candidate is not installed; continue checking the platform's
+      // other conventional Chromium executable names.
+    }
+  }
+  return paths;
+}
+
+export function resolveChromiumExecutable(options: ChromiumResolutionOptions = {}): ChromiumResolution | null {
+  const configuredPath = (options.configuredPath ?? process.env.PLAYWRIGHT_EXECUTABLE_PATH)?.trim();
+  if (configuredPath) {
+    return existsSync(configuredPath)
+      ? { executablePath: configuredPath, source: 'configured' }
+      : null;
+  }
+
+  const managedPath = options.managedPath ?? chromium.executablePath();
+  if (managedPath && existsSync(managedPath)) {
+    return { executablePath: managedPath, source: 'playwright-managed' };
+  }
+
+  const systemPath = (options.systemPaths ?? findSystemChromium()).find(path => existsSync(path));
+  return systemPath ? { executablePath: systemPath, source: 'system' } : null;
+}
+
+export function getChromiumAvailability(): {
+  available: boolean;
+  resolution: ChromiumResolution | null;
+  message: string;
+} {
+  const resolution = resolveChromiumExecutable();
+  if (resolution) {
+    return {
+      available: true,
+      resolution,
+      message: `Chromium available at ${resolution.executablePath} (${resolution.source}).`,
+    };
+  }
+
+  return {
+    available: false,
+    resolution: null,
+    message: `Chromium is not installed. Run "${CHROMIUM_SETUP_COMMAND}" and restart the server.` +
+      ' To use a different binary, set PLAYWRIGHT_EXECUTABLE_PATH.',
+  };
+}
+
+export function logChromiumPreflight(): void {
+  if (chromiumPreflightLogged) return;
+  chromiumPreflightLogged = true;
+  const availability = getChromiumAvailability();
+  if (availability.available) {
+    console.log(`[PlaywrightBrowser] ${availability.message}`);
+  } else {
+    console.warn(`[PlaywrightBrowser] ⚠ ${availability.message}`);
   }
 }
 
@@ -42,7 +127,12 @@ async function getBrowser(): Promise<Browser> {
   }
   _browserInitializing = true;
   try {
-    const executablePath = getChromiumPath();
+    const availability = getChromiumAvailability();
+    if (!availability.resolution) {
+      logChromiumPreflight();
+      throw new ChromiumUnavailableError(`[PlaywrightBrowser] ${availability.message}`);
+    }
+    const { executablePath } = availability.resolution;
     console.log('[PlaywrightBrowser] Launching Chromium at:', executablePath);
     _browser = await chromium.launch({
       executablePath,
@@ -380,7 +470,11 @@ export async function runBrowserPipeline(
 
     console.log('[PlaywrightBrowser] Pipeline complete. Artifact:', artifact.id);
   } catch (e: any) {
-    console.error('[PlaywrightBrowser] Pipeline error:', e);
+    if (e instanceof ChromiumUnavailableError) {
+      console.warn('[PlaywrightBrowser] Browser pipeline skipped — Chromium is unavailable; see the startup setup message.');
+    } else {
+      console.error('[PlaywrightBrowser] Pipeline error:', e);
+    }
     try {
       const errMsg = await storage.createRoomMessage({
         roomId,

@@ -609,6 +609,15 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
 
+    // Browser-dependent diagnostics are optional to server startup, but the
+    // capability state must be explicit so local development can repair it.
+    try {
+      const { logChromiumPreflight } = await import('./services/playwright-browser-service');
+      logChromiumPreflight();
+    } catch (err: any) {
+      console.warn('[Boot] Chromium preflight failed (non-fatal):', err?.message ?? err);
+    }
+
     // Early boot: write stale-channel alert if inner-life channels went silent
     // while the service was down.  Synchronous, no DB, runs BEFORE the 85s
     // delayed worker block so Luca sees the alert at her very first session

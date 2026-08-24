@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["chromium", "imagemagick", "gitleaks"]
+packages = ["chromium", "imagemagick", "gitleaks", "glib", "nss", "nspr", "atk", "at-spi2-atk", "cups", "dbus", "expat", "libdrm", "mesa", "pango", "cairo", "gtk3", "fontconfig", "freetype", "gdk-pixbuf", "harfbuzz", "alsa-lib", "libxkbcommon", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "xorg.libxshmfence"]
 
 [deployment]
 deploymentTarget = "autoscale"
