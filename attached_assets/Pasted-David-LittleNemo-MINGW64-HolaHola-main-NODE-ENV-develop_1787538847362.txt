@@ -1,0 +1,83 @@
+David@LittleNemo MINGW64 ~/HolaHola (main)
+$ NODE_ENV=development node --env-file=.env --import=tsx/esm server/index.ts
+[Reconnect Grace] DB hydration failed (non-fatal): Failed query: select "usage_session_id", "conversation_id", "exchange_count", "student_speaking_seconds", "tutor_speaking_seconds", "tts_characters", "stt_seconds", "rr_carry_notes" from "voice_grace_periods" where "voice_grace_periods"."expires_at" < $1
+params: 2026-08-24T02:31:49.147Z
+[Episode Dedup] Partial unique index creation skipped: Failed query:
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_episode_title_arc_unique
+      ON conversation_memories (arc_name, title)
+      WHERE entry_type = 'episode'
+
+params:
+
+WARNING: Google Cloud TTS is PRIMARY but not healthy
+   Will fall back to other providers if available
+
+╔═════════════════════════════════════════════════════════════╗
+║ ⚠️  VOICE CONFIG VALIDATION FAILED                          ║
+╠═════════════════════════════════════════════════════════════╣
+║ ❌ CRITICAL: GOOGLE_CLOUD_TTS_CREDENTIALS is not set - Daniela's voice will NOT work ║
+╠═════════════════════════════════════════════════════════════╣
+║ See replit.md "Voice Architecture" for required config      ║
+╚═════════════════════════════════════════════════════════════╝
+
+🚨 VOICE CHAT WILL NOT WORK WITH CURRENT CONFIGURATION 🚨
+
+8:31:50 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+`optimizeDeps.rollupOptions` / `ssr.optimizeDeps.rollupOptions` is deprecated. Use `optimizeDeps.rolldownOptions` instead. Note that this option may be set by a plugin. Set VITE_DEPRECATION_TRACE=1 to see where it is called.
+[vite:react-babel] We recommend switching to `@vitejs/plugin-react-oxc` for improved performance. More information at https://vite.dev/rolldown
+Warning: Invalid input options (1 issue found)
+- For the "jsx". Invalid key: Expected never but received "jsx".
+C:\Users\David\HolaHola\node_modules\src\pg-core\session.ts:73
+                                throw new DrizzleQueryError(queryString, params, e as Error);
+                                      ^
+
+DrizzleQueryError: Failed query:
+    ALTER TABLE memory_embeddings
+      ADD COLUMN IF NOT EXISTS strength          REAL      NOT NULL DEFAULT 1.0,
+      ADD COLUMN IF NOT EXISTS last_reinforced_at TIMESTAMPTZ         DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS importance        INTEGER             DEFAULT 5
+
+params:
+    at NeonPreparedQuery.queryWithCache (C:\Users\David\HolaHola\node_modules\src\pg-core\session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async NeonPreparedQuery.execute (C:\Users\David\HolaHola\node_modules\src\neon-serverless\session.ts:147:11)
+    at async runMemoryDecayMigration (C:\Users\David\HolaHola\server\services\memory-decay-service.ts:182:3)
+    at async <anonymous> (C:\Users\David\HolaHola\server\index.ts:580:3) {
+  query: '\n' +
+    '    ALTER TABLE memory_embeddings\n' +
+    '      ADD COLUMN IF NOT EXISTS strength          REAL      NOT NULL DEFAULT 1.0,\n' +
+    '      ADD COLUMN IF NOT EXISTS last_reinforced_at TIMESTAMPTZ         DEFAULT now(),\n' +
+    '      ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false,\n' +
+    '      ADD COLUMN IF NOT EXISTS importance        INTEGER             DEFAULT 5\n' +
+    '  ',
+  params: [],
+  cause: error: relation "memory_embeddings" does not exist
+      at file:///C:/Users/David/HolaHola/node_modules/@neondatabase/serverless/index.mjs:1345:74
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async <anonymous> (C:\Users\David\HolaHola\node_modules\src\neon-serverless\session.ts:148:12)
+      at async NeonPreparedQuery.queryWithCache (C:\Users\David\HolaHola\node_modules\src\pg-core\session.ts:71:12)
+      at async NeonPreparedQuery.execute (C:\Users\David\HolaHola\node_modules\src\neon-serverless\session.ts:147:11)
+      at async runMemoryDecayMigration (C:\Users\David\HolaHola\server\services\memory-decay-service.ts:182:3)
+      at async <anonymous> (C:\Users\David\HolaHola\server\index.ts:580:3) {
+    length: 115,
+    severity: 'ERROR',
+    code: '42P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'namespace.c',
+    line: '637',
+    routine: 'RangeVarGetRelidExtended'
+  }
+}
+
+Node.js v24.19.0
