@@ -6,7 +6,6 @@
  * 
  * Paths handled:
  * - /api/voice/stream/ws - Streaming voice mode
- * - /api/realtime/ws - OpenAI Realtime API proxy (if used)
  */
 
 import { WebSocketServer, WebSocket as WS } from 'ws';
@@ -29,7 +28,6 @@ import {
 
 // WebSocket paths
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
-const REALTIME_PATH = '/api/realtime/ws';
 
 /**
  * Extract userId from authenticated session cookie
@@ -370,10 +368,6 @@ export function setupWebSocketGateway(server: Server) {
       streamingVoiceWss.handleUpgrade(request, socket, head, (ws) => {
         handleStreamingVoiceConnection(ws, request);
       });
-    } else if (pathname === REALTIME_PATH) {
-      // Let realtime-proxy handle this if needed
-      console.log('[WS Gateway] Realtime path - delegating to realtime-proxy');
-      // Don't destroy socket - let other handlers process it
     } else {
       // Let Vite HMR or other handlers process this
       console.log(`[WS Gateway] Unknown path ${pathname} - passing to other handlers`);

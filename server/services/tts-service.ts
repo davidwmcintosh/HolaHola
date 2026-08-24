@@ -11,7 +11,6 @@ import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
  * VOICE ARCHITECTURE:
  * - Daniela (main AI tutor, streaming voice chat): Deepgram Nova-3 (STT) → Gemini (LLM) → Google Chirp HD (TTS)
  * - Support/Assistant tutors: Google Cloud TTS
- * - OpenAI Realtime: Separate legacy proxy (realtime-proxy.ts), NOT used for Daniela
  * 
  * Providers:
  * - google: Google Cloud Chirp 3 HD (PRIMARY — all tutors + secondary characters)
@@ -892,7 +891,7 @@ export class TTSService {
       }
     }
 
-    // OpenAI client (legacy, not used for Daniela voice chat - see realtime-proxy.ts for OpenAI Realtime)
+    // OpenAI client (legacy, not used for Daniela voice chat)
     if (process.env.OPENAI_API_KEY) {
       this.openaiClient = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,

@@ -1,7 +1,6 @@
 /**
  * Streaming Voice WebSocket Proxy
  * 
- * Uses the SAME pattern as realtime-proxy.ts (which works) instead of noServer mode.
  * Path: /api/voice/stream/ws
  */
 
@@ -99,12 +98,10 @@ function sendError(ws: WS, code: string, message: string, recoverable: boolean) 
 
 /**
  * Setup streaming voice WebSocket proxy
- * Uses the same pattern as realtime-proxy.ts
  */
 export function setupStreamingVoiceProxy(server: Server) {
   console.log('[Streaming Voice] Setting up WebSocket server...');
   
-  // Use path option like realtime-proxy does (known working pattern)
   const wss = new WebSocketServer({
     server,
     path: '/api/voice/stream/ws'
