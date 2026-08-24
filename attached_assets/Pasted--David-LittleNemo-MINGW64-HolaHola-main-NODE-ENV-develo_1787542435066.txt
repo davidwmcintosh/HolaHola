@@ -1,0 +1,89 @@
+
+David@LittleNemo MINGW64 ~/HolaHola (main)
+$ NODE_ENV=development node --env-file=.env --import=tsx/esm server/index.ts
+[DB] Applied ws ErrorEvent.message compatibility patch
+[DB] ✓ Neon database configured
+[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)
+[Rate Limiting] Configured for development environment
+[Rate Limiting] Rate limiting DISABLED in development mode
+[Rate Limiting] Hive External: 10 req/min (ENABLED in dev)
+[Deepgram] ✓ Client initialized (eager startup)
+[Email] Using Mailjet provider
+[Alden Functions] Loaded — 35 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch)
+[Alden Persona Service] Loaded — Alden voice chat ready (Anthropic default / Gemini insider mode)
+[Socket.io] Setting up voice streaming namespace...
+[Socket.io] ✓ Voice streaming ready on /voice namespace
+[FounderCollabWS] Broker initialized on namespace /founder-collab
+[TeamRoomWS] Namespace /team-room initialized
+[Unified WS] Setting up unified WebSocket handler...
+[Unified WS] ✓ Unified WebSocket handler ready
+[Unified WS] - Streaming Voice: /api/voice/stream/ws
+[Unified WS] - Realtime API: /api/realtime/ws
+Checking Stripe credentials...
+[Stripe] Using credentials from environment variables
+Running database migrations...
+[Neon] Pool warmed up in 345ms
+Initializing Stripe schema...
+[Episode Dedup] Partial unique index creation skipped: Failed query:
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_episode_title_arc_unique
+      ON conversation_memories (arc_name, title)
+      WHERE entry_type = 'episode'
+
+params:
+[SessionMonitor] Started — scanning every 30s
+
+┌─────────────────────────────────────────────────────────────┐
+│ TTS SERVICE HEALTH CHECK                                    │
+└─────────────────────────────────────────────────────────────┘
+[TTS Service] Primary provider: GOOGLE
+[TTS Service] ├─ Google Cloud TTS: ✗ Not configured
+[TTS Service] ├─ Cartesia: ✗ Not configured (set CARTESIA_API_KEY)
+[TTS Service] └─ OpenAI: ✓ Available
+Provider Configuration:
+  • Primary Provider: GOOGLE
+  • Google Cloud TTS: ✗ Not configured
+  • Cartesia: ✗ Not configured
+  • OpenAI TTS: ✓ Available
+
+WARNING: Google Cloud TTS is PRIMARY but not healthy
+   Will fall back to other providers if available
+─────────────────────────────────────────────────────────────
+
+
+╔═════════════════════════════════════════════════════════════╗
+║ ⚠️  VOICE CONFIG VALIDATION FAILED                          ║
+╠═════════════════════════════════════════════════════════════╣
+║ ❌ CRITICAL: GOOGLE_CLOUD_TTS_CREDENTIALS is not set - Daniela's voice will NOT work ║
+╠═════════════════════════════════════════════════════════════╣
+║ See replit.md "Voice Architecture" for required config      ║
+╚═════════════════════════════════════════════════════════════╝
+
+🚨 VOICE CHAT WILL NOT WORK WITH CURRENT CONFIGURATION 🚨
+
+9:33:36 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+`optimizeDeps.rollupOptions` / `ssr.optimizeDeps.rollupOptions` is deprecated. Use `optimizeDeps.rolldownOptions` instead. Note that this option may be set by a plugin. Set VITE_DEPRECATION_TRACE=1 to see where it is called.
+[vite:react-babel] We recommend switching to `@vitejs/plugin-react-oxc` for improved performance. More information at https://vite.dev/rolldown
+Warning: Invalid input options (1 issue found)
+- For the "jsx". Invalid key: Expected never but received "jsx".
+[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned/importance columns ready
+[Boot] Founder embedding scope correction complete
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen ENOTSUP: operation not supported on socket 0.0.0.0:5000
+    at Server.setupListenHandle [as _listen2] (node:net:2145:21)
+    at listenInCluster (node:net:2224:12)
+    at node:net:2448:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2203:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'ENOTSUP',
+  errno: -4049,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5000
+}
+
+Node.js v24.19.0
