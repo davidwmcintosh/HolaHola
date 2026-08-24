@@ -1,0 +1,75 @@
+
+David@LittleNemo MINGW64 ~/HolaHola (main)
+$ git pull
+remote: Enumerating objects: 14, done.
+remote: Counting objects: 100% (14/14), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 9 (delta 6), reused 9 (delta 6), pack-reused 0 (from 0)
+From github.com:davidwmcintosh/HolaHolaB | 467.00 KiB/s, done.
+   75a61153e..1514737a9  main       -> origin/main
+Updating 75a61153e..1514737a9
+Fast-forward
+ ...ment-node-env-file-env-import_1787546165103.txt | 833 +++++++++++++++++++++
+ server/services/inner-life-lock.ts                 |   3 +
+ 2 files changed, 836 insertions(+)
+ create mode 100644 attached_assets/Pasted--git-pull-NODE-ENV-development-node-env-file-env-import_1787546165103.txt
+
+David@LittleNemo MINGW64 ~/HolaHola (main)
+$ npm install
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\David\\HolaHola\\node_modules\\tsx',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\tsx\node_modules'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\tsx\\node_modules'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\David\\HolaHola\\node_modules\\microsoft-cognitiveservices-speech-sdk\\node_modules\\https-proxy-agent',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\microsoft-cognitiveservices-speech-sdk\node_modules\https-proxy-agent\node_modules'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\microsoft-cognitiveservices-speech-sdk\\node_modules\\https-proxy-agent\\node_modules'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\David\\HolaHola\\node_modules\\tar',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\tar'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\tar'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\David\\HolaHola\\node_modules\\microsoft-cognitiveservices-speech-sdk',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\microsoft-cognitiveservices-speech-sdk\node_modules\https-proxy-agent'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\microsoft-cognitiveservices-speech-sdk\\node_modules\\https-proxy-agent'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\David\\HolaHola\\node_modules\\playwright-core',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\David\HolaHola\node_modules\playwright-core\lib\utils'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\David\\HolaHola\\node_modules\\playwright-core\\lib\\utils'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code ENOTFOUND
+npm error syscall getaddrinfo
+npm error errno ENOTFOUND
+npm error network request to http://package-firewall.replit.local/npm/form-data/-/form-data-2.5.6.tgz failed, reason: getaddrinfo ENOTFOUND package-firewall.replit.local
+npm error network This is a problem related to network connectivity.
+npm error network In most cases you are behind a proxy or have bad network settings.
+npm error network
+npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+npm error A complete log of this run can be found in: C:\Users\David\AppData\Local\npm-cache\_logs\2026-08-24T04_43_58_160Z-debug-0.log
+
