@@ -2685,3 +2685,17 @@ Completed the migration-policy and cross-interface checklist repair.
 - TypeScript, the Gemini gate tests, migration-policy static assertions, shell syntax, and application restart all passed.
 
 The changes remain uncommitted and unpushed because the current GitHub/local workflow treats pushes as explicit operations. A user-provided untracked attachment was left untouched.
+
+<!-- chat-capture-range:175326:176968 -->
+<!-- chat-capture:02fcaef2-7494-4f90-abe2-f7c48db1cdd4 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+I need to correct the push expectation. The intended workflow was to finish the handoff tasks, run final checks, make one scoped commit, and push it. However, Replit's workspace commit automation already created and the source bridge already pushed commit cea82491f before the handoff was complete. Replit and GitHub currently report that commit as synchronized. It includes the migration/checklist changes, the Episode 31 update, and the attached PostCSS/Chromium log file. I will not make another push until the handoff work is complete.
+
+The attached Windows Bash output is mostly scheduled monitoring rather than development: repeated MemoryRecovery and Sofia checks, two pending Sofia items, and a known-benign voice_health_transition alert. The meaningful failure is Sofia's automated browser screenshot pipeline: Windows has no chromium executable on PATH, so both /conversations captures fail at Playwright launch. The PostCSS from-option warning is non-fatal. The 401 auth responses occurred before login. Object storage is unconfigured and remains the previously deferred cleanup item.
+
+The current Replit resolver prefers PLAYWRIGHT_EXECUTABLE_PATH, a managed Playwright browser, then a system browser. The Windows checkout should pull the synchronized commit and run npm run setup:playwright, then restart the local server; otherwise Sofia will continue producing no screenshots.
