@@ -2783,3 +2783,13 @@ Windows npm accepted the local install-script policy: bcrypt, sharp, protobufjs,
 [moment]: [intentionally empty]
 
 Windows npm accepted the install-script decisions. Verification should proceed without further policy changes: run npm run check, npm run build, and npm run test:playwright-browser. If npm still reports esbuild@0.25.12 as pending, approve that exact entry; otherwise the two newly-added esbuild versions were sufficient.
+
+<!-- chat-capture-range:183990:184598 -->
+<!-- chat-capture:0182369f-1d8f-42c2-b97b-84b3fc66ca85 -->
+**LUCA [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+The three Windows npm script denials are intentional: bufferutil is optional WebSocket native acceleration and ws falls back to JavaScript; es5-ext is transitive and its install hook is not required for the app's normal runtime; @google/genai's reported preinstall is a no-op. Leave them denied unless a later runtime/build error specifically identifies one.
