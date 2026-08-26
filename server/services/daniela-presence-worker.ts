@@ -35,6 +35,7 @@ import {
 } from '@shared/schema';
 import { desc, eq, and, gte, sql } from 'drizzle-orm';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
+import { excludesOperationalMemories } from './daniela-memory-boundary';
 
 const PRESENCE_DIR = path.join(process.cwd(), '.local');
 const WORKER_INTERVAL_MS = 30 * 60 * 1000;
@@ -161,6 +162,7 @@ async function generatePresenceDoc(userId: string): Promise<void> {
         .from(danielaSelfReflections)
         .where(and(
           eq(danielaSelfReflections.userId, userId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
           gte(danielaSelfReflections.createdAt, lookback),
         ))
         .orderBy(desc(danielaSelfReflections.createdAt))

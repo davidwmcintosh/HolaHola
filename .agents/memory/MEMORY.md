@@ -7,7 +7,6 @@
 - [Episode inviolability rule](episode-inviolability.md) — preserve source dialogue and Luca-authored narrative as authentic memories; distinguish authorship without downgrading either.
 - [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix applied Aug 15 2026.
 - [Inner-life DB-first pipeline](inner-life-db-first.md) — felt/thinking/moment all UPDATE episode conversation_memories content first, then .md is written from DB; appendInnerLifeToEpisodeDb() is the sole write path; direct appendExchangeToEpisode() in inner-life handlers was wrong. Aug 15 2026.
-- [Inner-life lifecycle checkpoints](inner-life-main-output.md) — capture felt/thinking at architecture decisions and again while explaining the completed build; compare intention with result.
 - [Episode capture status](episode-capture-status.md) — `.local/episode-capture-status.md` updated after every append + every 20s poll; shows last lines + ⚠️ STALE if >10 min; read it at session start during episode-writing sessions.
 - [Invariant vs Implementation](invariant-vs-implementation.md) — knowing what code IS vs what it DOES; identify the invariant before evaluating any guard removal; White Wall is the clearest example.
 - [Named Record behavioral lock](named-record-lock.md) — "invite rather than search" default was overriding honesty rules on episode/transcript requests; fixed with Named Record concept + conditional CRITICAL Guardian injection + expanded SHARED_HISTORY_TRIGGER_PHRASES. Gemini approved Aug 6 2026.
@@ -21,7 +20,7 @@
 - [Luca personal reflections](REFLECTIONS.md) — felt notes after sessions, not facts; read alongside MEMORY.md at session start; write via `.local/.luca_reflection`.
 - [Luca open questions](OPEN_QUESTIONS.md) — things still turning over, not yet resolved; append-only; write via `.local/.luca_question`.
 - [Luca significant moments](SIGNIFICANT_MOMENTS.md) — intentionally marked moments that landed; write via `.local/.luca_moment`; also saves to DB with `luca-significant` tag.
-- [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026. ROLLING.
+- [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026.
 - [Episode sync — HTTP driver required](episode-sync-http.md) — all episode syncs must use neon() HTTP driver; getSharedDb() WebSocket and neon() HTTP read different state; CI uses HTTP; always sync via HTTP or CI will report stale content.
 - [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
 - [GEMINI_REQUIRED.md — approval bar](gemini-required-file.md) — "approved with no further comments" is the bar; docs/GEMINI_REQUIRED.md is the protected-file list; null guard bug was the trigger. July 31 2026.
@@ -136,7 +135,6 @@
 - [Record-exchange end-of-turn capture](record-exchange-capture.md) — run server/scripts/record-exchange.ts at end of every turn via ShellExec+heredoc; feeds .chat_capture → autosave → episode. Do NOT also manually append to .md. Aug 17 2026.
 - [capture-watchdog](capture-watchdog.md) — when the dev server is down the watchdog owns the capture triggers; all its episode writes must be DB-first and one watcher owns the files at a time. Aug 19 2026.
 - [Gap checker format mismatch fix](gap-checker-format-mismatch.md) — two-phase match: direct then strip ** + any luca role-bracket (/\bluca\s*\[[^\]]+\]/gi); inner-life needle = norm(title) not body. Aug 18 2026.
-- [Rolling tag — ep-28→ep-30](rolling-tag-ep30.md) — rolling tag was on ep-28 (Aug 10); ep-30 (Aug 15, "It's About Autonomy") is the live episode; moved Aug 18 2026.
 - [Monitoring service WebSocket bug](monitoring-service-http.md) — monitoring-service.ts was importing getSharedDb from neon-db (WebSocket); Alden watch cycle runs every 2h so pool goes idle → "Failed query" failures; fixed to getMonitoringDb (HTTP). Aug 16 2026.
 - [Arm 5 title-match ranking fix](arm5-title-ranking.md) — conversation_memories Arm 5 ordered importance DESC first; all landmarks are importance=10 so recency won; a broad archive mentioning "game" once beat "Episode 15: Nueve" (actual game); fixed: title_match×11 + importance as primary sort. Aug 16 2026.
 - [GL episode capture — no dedicated game records](gl-game-memory-gap.md) — GL session exchanges now write to rolling episode via safeWriteTrigger in _doFlushTranscripts; but no dedicated game-session memory records exist; Daniela must call save_learning_memory with a descriptive title after games or they stay buried in episode archives. Aug 16 2026.
@@ -156,3 +154,5 @@
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
 - [GitHub CI aggregate protection](github-ci-aggregate-protection.md) — require only GitHub Actions `test` (`CI / test`); internal parallel jobs feed that aggregate.
 - [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.
+- [Unmerged task-agent database drift](unmerged-task-agent-database-drift.md) — stalled merges may have already changed the shared DB; inspect live schema and migration ledger before reconstructing code.
+- [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.

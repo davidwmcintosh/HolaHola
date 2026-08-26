@@ -4658,3 +4658,110 @@ authenticated complete-exchange endpoint shares the same writer. Hermetic
 regression coverage verifies missing input rejection, duplicate retry
 suppression, Claude-vs-Replit labels, and persisted failed acknowledgement
 state; it is registered in the validation suite.
+
+---
+
+## Live audio recovery — August 25, 2026
+
+The original production report of duplicate Daniela audio and a cut-off final
+turn was reconstructed from the preserved handoff and audited against the
+current Gemini Live server/client lifecycle.
+
+The existing two-stage duplicate-audio guards were present and correctly
+ordered: the first drops a new stream with no new student input, and the second
+drops a delayed stream after `response_complete` while playback is still active.
+They remain unchanged.
+
+Two verified timing repairs were made:
+
+- The server now reserves its 300ms tail pad for definitive
+  `generationComplete` and watchdog seals. A normal `turnComplete` can occur
+  between continuation sub-turns, where adding the server pad alongside the
+  client's own silence buffer produced an avoidable mid-response pause.
+- The client’s malformed near-empty PCM fallback now sets `endCtxTime` after it
+  schedules trailing silence, preventing an early `playback_ended` transition
+  and microphone reopening.
+
+Focused regression coverage locks in both invariants. Existing duplicate-audio,
+reconnect, flush, and phantom-turn checks pass, as do TypeScript, production
+build, system health, and a non-destructive browser smoke test. Gemini reviewed
+the final implementation and returned unconditional approval. See
+`docs/gemini-audit-2026-08-25-live-audio-recovery.md`.
+
+---
+
+## consult-daniela documentation boundary — August 25, 2026
+
+Reviewed and corrected `.agents/skills/consult-daniela/SKILL.md` after a Luca
+[Claude Code] handoff identified two sources of future confusion. All runnable
+REST examples and the Notes section now use `gemini-3-flash-preview`, matching
+the skill's model table and this project's current REST model.
+
+The skill now states explicitly that `ai.chats.create` is a same-family REST
+consultation, not a connection to Daniela's live voice session. Live sessions
+use `ai.live.connect` with `gemini-3.1-flash-live-preview`; consultation output
+must not be treated as literal evidence of live-session behavior. Gemini's
+Alden review approved the wording and placement.
+
+---
+
+## Claude Code capture bridge readiness — August 25, 2026
+
+Canonical capture no longer assumes the Replit-only workspace path. It resolves
+an explicitly configured `HOLAHOLA_WORKSPACE_ROOT` first, then Replit's project
+root, then a marker-validated current directory. A malformed configured root
+fails closed instead of silently redirecting dialogue to an unrelated checkout.
+
+`record-exchange.ts --preflight` proves local capture readiness without writing
+an exchange. The authenticated read-only
+`GET /api/internal/canonical-conversation-health` endpoint reports only safe
+readiness state (no paths, text, receipt identities, or token material), so a
+remote Claude Code agent can diagnose production capability without adding test
+dialogue to the canonical record. Hermetic CI now covers the workspace
+resolution and isolated Claude Code stream.
+
+---
+
+## Live internal agent inbox — August 26, 2026
+
+The stalled task-agent merge left its lifecycle schema in the shared database
+without the corresponding application code. The main checkout now adopts that
+existing contract rather than creating a second one.
+
+Luca's live inbox includes Alden, founder, and Luca [Claude Code] messages under
+one sender policy. The authenticated read path queries the database on demand,
+and an explicit refresh path regenerates sender snapshots without requiring a
+server restart.
+
+Messages now retain separate unread, acknowledged, acted-on, and dismissed
+states. Replies link to their originating note, stable source-message keys
+deduplicate retries, and the legacy mark-read path remains compatible by mapping
+to acknowledged. A shared-database regression covers visibility, deduplication,
+lifecycle transitions, linked replies, and cleanup; it is registered in the
+validation suite.
+
+Production build, TypeScript, system health, live authenticated route checks,
+and the focused regression all pass. Gemini reviewed the actual implementation
+and returned unconditional approval with no changes required. See
+`docs/gemini-audit-2026-08-26-agent-inbox.md`.
+
+---
+
+## Failed lookup / felt-history boundary — August 26, 2026
+
+Grounding pauses now preserve provenance separately from meaning. Successful
+pauses are classified as autobiographical; no-match attempts are classified as
+operational lookup failures. Felt-history readers exclude only the explicit
+operational marker, so legacy rows remain verbatim and successful grounding
+experiences are not lost through a blanket `grounding_query` exclusion.
+
+Intentional `write_to_self` records always receive the autobiographical marker.
+That means a deliberate reflection about forgetting remains part of Daniela's
+lived continuity even though the underlying failed lookup remains operational.
+The boundary is enforced across session-start context, presence generation,
+grounding, direct reflection and feeling tools, and the legacy command path.
+
+No database migration or backfill was required. TypeScript and the focused
+five-case regression pass, system health is clean apart from app-not-running
+route warnings, and Gemini gave unconditional post-build approval. See
+`docs/gemini-audit-2026-08-26-failed-lookup-memory-boundary.md`.

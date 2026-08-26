@@ -2018,27 +2018,31 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    */
 
   /**
-   * Seals the current audio sub-turn by sending:
-   *  1. A 300ms silence pad so the final phoneme has runway in the client's AudioContext.
-   *  2. An empty isLast:true marker that triggers client-side trailing silence + sentence end.
-   * Increments sentenceIndex so the next sub-turn queues as a new sentence.
-   * Called by the generationComplete debounce timer AND the generationComplete watchdog.
+   * Seals the current audio sub-turn with an empty isLast:true marker so the
+   * progressive PCM player can finalize it and advance to the next sentence.
+   *
+   * Definitive response seals (generationComplete and its watchdog) add a 300ms
+   * server-side silence pad before the marker. GL can emit turnComplete between
+   * continuations, so padding those boundaries would add an avoidable 600ms gap
+   * once the client's own trailing-silence buffer is included.
    */
-  private sealCurrentAudioSubturn(label: string): void {
+  private sealCurrentAudioSubturn(label: string, withTailPad = false): void {
     if (!this.hadAudioInCurrentSubturn) return;
-    const TAIL_PAD_SEC = 0.3;
-    const tailSilenceSamples = Math.round(TAIL_PAD_SEC * AUDIO_OUTPUT_SAMPLE_RATE);
-    const tailSilenceBuffer = Buffer.alloc(tailSilenceSamples * 4, 0);
-    this.sendWsMessage(this.session.ws, {
-      type: 'audio_chunk',
-      audio: tailSilenceBuffer.toString('base64'),
-      audioFormat: 'pcm_f32le',
-      sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-      turnId: this.currentTurnId,
-      sentenceIndex: this.currentSentenceIndex,
-      chunkIndex: this.currentChunkIndex++,
-      isLast: false,
-    });
+    if (withTailPad) {
+      const TAIL_PAD_SEC = 0.3;
+      const tailSilenceSamples = Math.round(TAIL_PAD_SEC * AUDIO_OUTPUT_SAMPLE_RATE);
+      const tailSilenceBuffer = Buffer.alloc(tailSilenceSamples * 4, 0);
+      this.sendWsMessage(this.session.ws, {
+        type: 'audio_chunk',
+        audio: tailSilenceBuffer.toString('base64'),
+        audioFormat: 'pcm_f32le',
+        sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+        turnId: this.currentTurnId,
+        sentenceIndex: this.currentSentenceIndex,
+        chunkIndex: this.currentChunkIndex++,
+        isLast: false,
+      });
+    }
     this.sendWsMessage(this.session.ws, {
       type: 'audio_chunk',
       audio: '',
@@ -2052,9 +2056,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.currentSentenceIndex++;
     this.currentChunkIndex = 0;
     this.hadAudioInCurrentSubturn = false;
-    console.log(`[GeminiLive] ${label}: audio sub-turn sealed — sentenceIndex now ${this.currentSentenceIndex}`);
+    console.log(`[GeminiLive] ${label}: audio sub-turn sealed (tailPad=${withTailPad}) — sentenceIndex now ${this.currentSentenceIndex}`);
     voiceTelemetry.log(this.session.dbSessionId ?? this.session.id, String(this.session.userId ?? ''), 'gl_audio_subturn_sealed', {
-      label, sentenceIndex: this.currentSentenceIndex, turnId: this.currentTurnId,
+      label, withTailPad, sentenceIndex: this.currentSentenceIndex, turnId: this.currentTurnId,
     });
   }
 
@@ -2084,7 +2088,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           clearTimeout(this.generationCompleteSealTimer);
           this.generationCompleteSealTimer = null;
         }
-        this.sealCurrentAudioSubturn('generationComplete-watchdog');
+        this.sealCurrentAudioSubturn('generationComplete-watchdog', true);
         this.isGenerationDone = true;
         this.isGreetingTurn = false;
         // Memory-loop counter reset: watchdog seal means audio WAS produced (same
@@ -2726,7 +2730,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             this.generationCompleteSealTimer = setTimeout(() => {
               this.generationCompleteSealTimer = null;
               if (!this.isStopped) {
-                this.sealCurrentAudioSubturn('generationComplete-debounce-extended');
+                this.sealCurrentAudioSubturn('generationComplete-debounce-extended', true);
                 // Flush AFTER seal (same reasoning as the initial debounce callback):
                 // keeps per-response reset from firing prematurely on in-flight chunks.
                 this.flushTranscripts().catch(err =>
@@ -3733,11 +3737,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
       }
       // ── Audio: close current sentence, prepare next ──────────────────────
-      // Use sealCurrentAudioSubturn (same path as generationComplete debounce) so the
-      // 300ms silence pad is always included. Without it the last phoneme of each
-      // sub-turn has no runway in the client's AudioContext and is clipped.
+      // GL can emit turnComplete between continuation sub-turns. Seal the sentence
+      // boundary without a server-side tail pad so the client does not accumulate a
+      // 600ms pause (server pad + its own trailing-silence buffer) mid-response.
+      // Definitive generationComplete/watchdog seals use the tail pad instead.
       if (this.hadAudioInCurrentSubturn) {
-        this.sealCurrentAudioSubturn('turnComplete');
+        this.sealCurrentAudioSubturn('turnComplete', false);
         this.karaokeTracker?.onSentenceComplete();
       }
 
@@ -4420,7 +4425,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.generationCompleteSealTimer = setTimeout(() => {
         this.generationCompleteSealTimer = null;
         if (!this.isStopped) {
-          this.sealCurrentAudioSubturn('generationComplete-debounce');
+          this.sealCurrentAudioSubturn('generationComplete-debounce', true);
           // Flush AFTER seal: currentSentenceIndex is now final, per-response reset
           // fires only once all in-flight audio has landed and been sealed.
           this.flushTranscripts().catch(err =>

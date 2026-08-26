@@ -105,6 +105,7 @@ import {
   type CanonicalInnerLifeTurnIntent,
   type FourChannelLucaTurn,
 } from '../services/inner-life-capture';
+import { inspectCaptureWorkspace, workspaceResolution } from '../services/workspace-root';
 export { composeLucaTurn } from '../services/inner-life-capture';
 
 const DEFAULT_ACK_TIMEOUT_MS = 35_000;
@@ -351,6 +352,24 @@ async function runSelfCheck4ch(): Promise<void> {
   console.log('  Hermetic capture removed; the live cursor and episode were untouched.');
 }
 
+function runCapturePreflight(): void {
+  const inspection = inspectCaptureWorkspace();
+  const result = {
+    ok: inspection.localDirectoryPresent && inspection.localDirectoryWritable,
+    workspaceSource: inspection.rootSource,
+    localDirectoryPresent: inspection.localDirectoryPresent,
+    localDirectoryWritable: inspection.localDirectoryWritable,
+  };
+  console.log(JSON.stringify(result));
+  if (!result.ok) {
+    console.error(
+      'Canonical capture preflight failed: configure HOLAHOLA_WORKSPACE_ROOT ' +
+      'to the HolaHola project root and ensure its .local directory is writable.',
+    );
+    process.exit(1);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -504,6 +523,8 @@ if (!isMain) {
   runSelfCheck4ch().catch(e => { console.error(e); process.exit(1); });
 } else if (args.includes('--self-check')) {
   runSelfCheck().catch(e => { console.error(e); process.exit(1); });
+} else if (args.includes('--preflight')) {
+  runCapturePreflight();
 } else {
   runCli(args).catch(error => {
     console.error(`[record-exchange] ERROR: ${error instanceof Error ? error.message : String(error)}`);

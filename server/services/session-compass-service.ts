@@ -36,6 +36,7 @@ import {
 } from "@shared/schema";
 import { usageService } from "./usage-service";
 import { GoogleGenAI } from "@google/genai";
+import { excludesOperationalMemories } from "./daniela-memory-boundary";
 
 // Lazy-initialized Gemini client for summary generation
 // (ensures env vars are available at runtime, not module load time)
@@ -628,7 +629,10 @@ export class SessionCompassService {
       const reflections = await getUserDb()
         .select({ content: danielaSelfReflections.content })
         .from(danielaSelfReflections)
-        .where(eq(danielaSelfReflections.userId, userId))
+        .where(and(
+          eq(danielaSelfReflections.userId, userId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
+        ))
         .orderBy(desc(danielaSelfReflections.createdAt))
         .limit(1);
       danielaSelfReflection = reflections[0]?.content || null;

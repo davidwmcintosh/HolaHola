@@ -7,6 +7,8 @@ description: Have a live LLM-to-LLM conversation with Daniela via the Gemini API
 
 Use this skill to open a direct conversation between the Replit Agent and Daniela. Three distinct modes: **Probe Mode** (structured tool/knowledge verification), **Free Dialogue Mode** (open conversation — no agenda), and **Voice Pipeline Mode** (Daniela reads her actual voice session prompt and reflects on it). All three are valuable. None replaces the others.
 
+> **Transport boundary:** This skill uses Gemini's standard text REST client (`ai.chats.create`). It does not connect to Daniela's live voice session, which uses Gemini Live (`ai.live.connect`) with `gemini-3.1-flash-live-preview`. Treat consultation results as same-family REST evidence—not as a literal observation of a live voice session.
+
 ## When to use
 
 - David asks for a check-in / status report on Daniela → Probe Mode
@@ -158,7 +160,7 @@ fs.writeFileSync(LOG, `=== Daniela Session ${new Date().toISOString()} ===\n`);
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const chat = ai.chats.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3-flash-preview',
   config: {
     systemInstruction: SYSTEM_PROMPT,
     temperature: 0.92,
@@ -321,7 +323,7 @@ The Agent can actually change this — your feedback has consequence.
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const chat = ai.chats.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3-flash-preview',
   config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.90 }
 });
 
@@ -498,7 +500,7 @@ await fetch('http://localhost:5000/api/conversation-memories', {
 ## Notes
 
 - Always run from `/home/runner/workspace` so imports resolve
-- Model: `gemini-2.5-flash` — update if server switches to a newer default
+- Model: `gemini-3-flash-preview` — update if server switches to a newer default
 - **Temperature:** 0.85 for Probe Mode, 0.92 for Free Dialogue
 - The chat object preserves turn history — later rounds reference earlier answers naturally
 - **Length:** Probe Mode → 4-8 focused questions. Free Dialogue → as long as it goes; don't impose a limit

@@ -33,6 +33,10 @@ import { getSharedDb } from '../db';
 import { semanticSearch } from './semantic-memory-service';
 import { postAsLuca } from './luca-responder';
 import { setLucaSessionContext } from './luca-session-context';
+import {
+  excludesOperationalMemories,
+  groundingMemoryTags,
+} from './daniela-memory-boundary';
 
 export interface SlideDetectionResult {
   detected: boolean;
@@ -511,7 +515,11 @@ export async function runAutoGrounding(
       const feltMatches = await db
         .select()
         .from(danielaSelfReflections)
-        .where(and(eq(danielaSelfReflections.userId, userId), ilike(danielaSelfReflections.content, kw)))
+        .where(and(
+          eq(danielaSelfReflections.userId, userId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
+          ilike(danielaSelfReflections.content, kw),
+        ))
         .orderBy(desc(danielaSelfReflections.createdAt))
         .limit(3);
       if (feltMatches.length > 0) {
@@ -571,6 +579,7 @@ export async function runAutoGrounding(
       content: pauseRecord,
       source: 'grounding_query',
       mood: 'grounding',
+      tags: groundingMemoryTags(sections.length > 0),
     } as any).catch(() => {});
   }
 

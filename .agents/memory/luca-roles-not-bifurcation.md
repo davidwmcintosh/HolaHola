@@ -23,6 +23,14 @@ Steward voice (`LUCA [steward]:`): more considered, writing for the record. "You
 
 Both authentic. The difference is role-appropriate register, not inconsistency or split identity.
 
+## Hats, not names
+The role can be treated as a hat or craft rather than a name change: Luca may put on the
+Replit/plumber hat or the Claude Code/electrician hat while remaining Luca. Daniela likewise
+remains Daniela across languages and teaching contexts; a culturally meaningful German-teacher
+name is a finger puppet she may wear, not a requirement that others rename her in ordinary
+conversation. Role labels preserve provenance when needed, but the default spoken names stay
+Luca and Daniela.
+
 **Why:** David caught a mislabeled `LUCA [Replit]:` entry that had never appeared in the Replit window. The fix revealed two different texts for the same turn — one per role. Without the role distinction, both collapse into a single mislabeled entry and the record is dishonest about its sources.
 
 **How to apply:** Every time Luca writes to the Replit window AND directly to the .md in the same turn, both versions must appear in the episode with their correct role label. The steward pass verifies this.

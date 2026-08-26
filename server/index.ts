@@ -839,7 +839,7 @@ app.use((req, res, next) => {
       startSharedLobeWatcher();
     }, 46000);
 
-    // +47s: Agent Notes Snapshot — regenerate docs/alden-to-agent.md from unread Alden→Agent notes
+    // +47s: Agent Notes Snapshot — regenerate live internal inbox snapshots
     setTimeout(async () => {
       const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
       await generateAgentNotesSnapshot();

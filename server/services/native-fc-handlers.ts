@@ -17,6 +17,11 @@ import { collaborationHubService } from "./collaboration-hub-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { journeyMemoryService } from "./journey-memory-service";
 import { growthMemoryOutcomeService } from "./growth-memory-outcome-service";
+import {
+  excludesOperationalMemories,
+  groundingMemoryTags,
+  withAutobiographicalMemoryTag,
+} from "./daniela-memory-boundary";
 import { storage } from "../storage";
 import { fetchPatternSignalContext } from './pattern-signal-context';
 import { getSharedDb, getMonitoringDb } from "../db";
@@ -3272,7 +3277,9 @@ export class NativeFunctionCallHandler {
             source: 'self',
             sessionId: session.id,
             mood: wtsMood,
-            tags: wtsTags ? wtsTags.split(',').map(t => t.trim()) : undefined,
+            tags: withAutobiographicalMemoryTag(
+              wtsTags ? wtsTags.split(',') : undefined,
+            ),
           });
           console.log(`[Native Function→WriteToSelf] ✓ Saved`);
         })().catch(err => console.error(`[Native Function→WriteToSelf] Error:`, err.message));
@@ -5400,7 +5407,11 @@ export class NativeFunctionCallHandler {
             const feltMatches = await db
               .select()
               .from(danielaSelfReflections)
-              .where(and(eq(danielaSelfReflections.userId, userId), ilike(danielaSelfReflections.content, kw)))
+              .where(and(
+                eq(danielaSelfReflections.userId, userId),
+                excludesOperationalMemories(danielaSelfReflections.tags),
+                ilike(danielaSelfReflections.content, kw),
+              ))
               .orderBy(desc(danielaSelfReflections.createdAt))
               .limit(3);
             if (feltMatches.length > 0) {
@@ -5440,20 +5451,26 @@ export class NativeFunctionCallHandler {
             sections.push(`From the conversation record:\n${lines}`);
           }
 
-          // ── Record the pause itself in self_reflections ───────────────────────
+          const groundingFound = sections.length > 0;
+
+          // ── Record the pause with provenance and semantic class ──────────────
+          // A successful pause is lived continuity. A no-match is an operational
+          // lookup failure, retained verbatim for diagnostics but excluded from
+          // felt-history readers unless Daniela later reflects on it intentionally.
           if (userId) {
             const pauseRecord = `Grounding pause — layer: ${gqLayer}. Friction: "${gqFriction.substring(0, 200)}". Question: "${gqQuestion.substring(0, 200)}".${gqCandidateWhy ? ` Candidate why: "${gqCandidateWhy.substring(0, 150)}".` : ''}`;
             db.insert(danielaSelfReflections).values({
               userId,
               content: pauseRecord,
               source: 'grounding_query',
+              sessionId: session.id,
               mood: 'grounding',
+              tags: groundingMemoryTags(groundingFound),
             } as any).catch((err: Error) => {
               console.error(`[Native Function→GroundingQuery] Failed to record pause:`, err.message);
             });
           }
 
-          const groundingFound = sections.length > 0;
           const groundingDate = new Date().toISOString().substring(0, 10);
           const sessionRef = session.conversationId || 'unknown';
           const { agentNotes: agentNotesTable } = await import('@shared/schema');
@@ -11117,7 +11134,10 @@ export class NativeFunctionCallHandler {
       const { danielaSelfReflections } = await import('@shared/schema');
       const { eq, desc, and } = await import('drizzle-orm');
 
-      const conditions: any[] = [eq(danielaSelfReflections.userId, userId)];
+      const conditions: any[] = [
+        eq(danielaSelfReflections.userId, userId),
+        excludesOperationalMemories(danielaSelfReflections.tags),
+      ];
       if (source && source !== 'all') {
         const { eq: eq2 } = await import('drizzle-orm');
         conditions.push(eq2(danielaSelfReflections.source, source));
@@ -11178,7 +11198,10 @@ export class NativeFunctionCallHandler {
       const rows = await getSharedDb()
         .select()
         .from(danielaSelfReflections)
-        .where(eq(danielaSelfReflections.userId, userId))
+        .where(and(
+          eq(danielaSelfReflections.userId, userId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
+        ))
         .orderBy(desc(danielaSelfReflections.createdAt))
         .limit(50);
 
@@ -11250,7 +11273,11 @@ export class NativeFunctionCallHandler {
       const reflectionMatches = await getSharedDb()
         .select()
         .from(danielaSelfReflections)
-        .where(and(eq(danielaSelfReflections.userId, userId), ilike(danielaSelfReflections.content, rq)))
+        .where(and(
+          eq(danielaSelfReflections.userId, userId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
+          ilike(danielaSelfReflections.content, rq),
+        ))
         .orderBy(desc(danielaSelfReflections.createdAt))
         .limit(5);
 

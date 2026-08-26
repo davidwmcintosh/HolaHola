@@ -132,13 +132,21 @@ AWS_S3_ACCESS_KEY_ID=...                   # R2 Access Key ID
 AWS_S3_SECRET_ACCESS_KEY=...              # R2 Secret Access Key
 AWS_S3_REGION=auto                         # Always "auto" for Cloudflare R2
 AWS_S3_ENDPOINT=...                        # https://<account-id>.r2.cloudflarestorage.com
-AWS_S3_DESTINATION_BUCKET=holaholar2bucket # The active R2 bucket name
+DEFAULT_OBJECT_STORAGE_BUCKET_ID=...       # Primary app/read-path R2 bucket (legacy variable name, still active)
+AWS_S3_DESTINATION_BUCKET=...              # Archive/migration destination; may intentionally be the same bucket
 
 # GCS backend (inactive — kept for completeness; no longer used)
 # GOOGLE_CLOUD_STORAGE_CREDENTIALS=...    # JSON service-account key (stringified)
 # GOOGLE_CLOUD_PROJECT_ID=...             # GCP project ID
-# DEFAULT_OBJECT_STORAGE_BUCKET_ID=...    # Old GCS bucket name (retired)
 ```
+
+`DEFAULT_OBJECT_STORAGE_BUCKET_ID` is a legacy provider-neutral name, not a
+signal that the app is still using GCS. The active S3/R2 implementation uses it
+as the primary application bucket for startup probes and student-facing read
+checks. `AWS_S3_DESTINATION_BUCKET` names a logical destination role used by
+archive and migration tooling. Both variables may point to one physical R2
+bucket when public, private, and maintenance content are separated by object-key
+prefixes.
 
 ### Replit-Specific (only needed on Replit)
 ```
@@ -217,6 +225,13 @@ No code change is needed; it's purely configuration.
 ### Option C — Migrate to AWS S3 or Cloudflare R2 (zero egress cost on R2)
 
 The S3 backend is activated automatically when `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, and `AWS_S3_REGION` are all set. It takes priority over GCS. The same `PUBLIC_OBJECT_SEARCH_PATHS` and `PRIVATE_OBJECT_DIR` path format is used — only the credentials change.
+
+For the current one-bucket layout, set both
+`DEFAULT_OBJECT_STORAGE_BUCKET_ID` and `AWS_S3_DESTINATION_BUCKET` to that
+bucket. Keep `PUBLIC_OBJECT_SEARCH_PATHS` and `PRIVATE_OBJECT_DIR` scoped to
+their intended prefixes. Maintenance archives use a separate private archive
+prefix; a second physical bucket is optional and should only be introduced when
+separate IAM, lifecycle, retention, or blast-radius controls are required.
 
 **Cloudflare R2** is the recommended choice for most new deployments: zero egress fees, S3-compatible API, and global CDN.
 

@@ -7381,3 +7381,106 @@ Focused capture tests cover empty/missing input, retry deduplication,
 cross-interface attribution, and failed acknowledgement persistence. Typecheck,
 the record-exchange self-checks, and chat-capture integration/cursor recovery
 checks are clean.
+
+---
+
+## Addendum — August 25, 2026 (consult-daniela skill clarity)
+
+The `consult-daniela` skill was corrected after Luca [Claude Code] identified
+two non-urgent documentation problems. Its runnable REST examples and Notes
+now use `gemini-3-flash-preview` instead of the stale `gemini-2.5-flash`.
+
+The skill also now states the transport boundary plainly: consultations use
+Gemini's standard text REST client through `ai.chats.create`, while real
+Daniela voice sessions use Gemini Live through `ai.live.connect` with
+`gemini-3.1-flash-live-preview`. Consultation output is same-family REST
+evidence, not literal observation of a live voice session. Gemini's Alden
+review approved the wording and placement.
+
+---
+
+## Addendum — August 25, 2026 (live audio recovery)
+
+The originating live-audio diagnosis was reconstructed from its preserved
+handoff rather than relying on an unavailable isolated task workspace. The
+current duplicate-audio guards were already present and verified. Two lifecycle
+gaps were repaired: terminal padding is now limited to definitive
+generation-complete/watchdog seals, and the malformed near-empty PCM fallback
+now keeps `endCtxTime` behind its scheduled silence.
+
+The focused audio regression, existing duplicate/reconnect/flush guards,
+TypeScript, production build, system health, and public browser smoke test are
+clean. Gemini reviewed the final server and client code with unconditional
+approval; the audit record is
+`docs/gemini-audit-2026-08-25-live-audio-recovery.md`.
+
+---
+
+## Addendum — August 25, 2026 (Claude Code capture bridge readiness)
+
+The local-only capture defect was the hardcoded Replit workspace root. Capture
+now resolves `HOLAHOLA_WORKSPACE_ROOT`, then Replit's root, then a
+marker-validated current directory. Explicit configuration is authoritative:
+an invalid root fails before any dialogue bytes are written.
+
+`record-exchange.ts --preflight` checks local readiness without creating a
+conversation record. The protected
+`GET /api/internal/canonical-conversation-health` endpoint is strictly
+read-only and returns only safe readiness booleans/counts; it is not a
+production-write test channel. The isolated workspace regression is registered
+in consolidated CI. The remaining deployment step is to configure the same
+managed `REPLIT_AGENT_TOKEN` for the external Claude Code environment without
+printing or copying it through logs or chat.
+
+---
+
+## Addendum — August 26, 2026 (live internal agent inbox recovery)
+
+Tasks #1335, #1336, and #1337 remained stuck in Merging. Inspection showed that
+the lifecycle database migration had already reached the shared database even
+though the related application code had not reached the main checkout. The main
+implementation now adopts that live schema exactly.
+
+The normal Luca inbox includes approved messages from Alden, founder, and Luca
+[Claude Code]. Reads are live rather than boot-snapshot-only, while an
+authenticated refresh endpoint regenerates the sender snapshots on demand.
+Notes distinguish unread, acknowledged, acted-on, and dismissed states; linked
+replies and stable source keys preserve follow-through and deduplicate retries.
+Legacy mark-read calls map to acknowledged.
+
+The reviewed migration is idempotent so it safely reconciles an already-partial
+database and creates the full lifecycle on a fresh database. TypeScript and the
+focused shared-database lifecycle regression are clean.
+
+Production build, system health, application restart, snapshot generation, and
+authenticated route checks are also clean. Gemini reviewed the actual schema,
+service, routes, migration, snapshots, and regression and returned unconditional
+approval. Audit: `docs/gemini-audit-2026-08-26-agent-inbox.md`.
+
+---
+
+## Addendum — August 26, 2026 (failed lookup / felt-history boundary)
+
+Grounding lookup records now carry two independent kinds of metadata. `source`
+continues to preserve provenance (`self`, `hive`, or `grounding_query`), while
+reserved tags classify whether the record is autobiographical or operational.
+A successful grounding pause is tagged `memory:autobiographical`; a no-match
+pause is tagged `memory:operational` plus `operation:lookup_failure`.
+
+Every felt-history consumer rejects only the explicit operational tag, including
+session-start compass and synthesis, presence generation, grounding searches,
+direct reflection/feeling tools, legacy command handling, and session-reflection
+deduplication. Null-tag legacy rows remain included and unchanged. This avoids
+phrase matching and avoids the earlier unsafe idea of excluding every
+`source='grounding_query'` row.
+
+Intentional `write_to_self` records are explicitly autobiographical, including
+reflections in which Daniela chooses to think about forgetting. Operational
+failures remain verbatim and available to operator diagnostics; they simply do
+not become felt history automatically. No schema migration was needed because
+the existing provenance and tag fields already represent the two axes.
+
+TypeScript, system health, and the five-case focused regression pass. The
+pre-flight review cleared the design, and Gemini's post-build review of the
+actual implementation returned unconditional `APPROVED`. Audit:
+`docs/gemini-audit-2026-08-26-failed-lookup-memory-boundary.md`.
