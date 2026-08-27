@@ -131,6 +131,16 @@ jobs:
           npx drizzle-kit migrate
           npx tsx server/scripts/setup-ci-test-database.ts
 
+      # Temporary — confirms whether DEEPGRAM_API_KEY reached this job without
+      # ever printing the value. Remove once the guard-checks failure is root-caused.
+      - name: Debug — check DEEPGRAM_API_KEY presence
+        run: |
+          if [ -z "${DEEPGRAM_API_KEY:-}" ]; then
+            echo "DEEPGRAM_API_KEY is EMPTY or UNSET in this job"
+          else
+            echo "DEEPGRAM_API_KEY is present, length ${#DEEPGRAM_API_KEY}"
+          fi
+
       - name: Run guard checks
         run: npm run test:ci:guards
 
