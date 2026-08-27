@@ -72,11 +72,15 @@ const EXTRA_ROOTS: string[] = [
  * Add an entry here (with a brief reason) whenever you create a directory that
  * has .ts files but genuinely has no upload calls — otherwise the
  * "new top-level directories with .ts files are covered" test will fail CI.
+ *
+ * Set `optional: true` for a directory that only exists after a build step
+ * (e.g. `dist/`) — a fresh, unbuilt checkout (as in CI) won't have it, and
+ * that absence is expected rather than a sign the directory was renamed.
  */
-const KNOWN_NON_SCRIPT_ROOTS: Array<{ name: string; reason: string }> = [
+const KNOWN_NON_SCRIPT_ROOTS: Array<{ name: string; reason: string; optional?: boolean }> = [
   { name: 'client',         reason: 'frontend bundle — no server-side GCS uploads' },
   { name: 'node_modules',   reason: 'vendor code — not scanned by design' },
-  { name: 'dist',           reason: 'compiled output — not a source tree' },
+  { name: 'dist',           reason: 'compiled output — not a source tree', optional: true },
   { name: 'docs',           reason: 'documentation only' },
   { name: 'migrations',     reason: 'SQL migration files only, no .ts upload calls' },
   { name: 'uploads',        reason: 'runtime upload directory, no source .ts files' },
@@ -283,6 +287,7 @@ describe('Scanner roots — new top-level directories are covered (#433)', () =>
     const stale: string[] = [];
 
     for (const entry of KNOWN_NON_SCRIPT_ROOTS) {
+      if (entry.optional) continue;
       const dirPath = path.join(PROJECT_ROOT, entry.name);
       const exists = fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory();
       if (!exists) {
