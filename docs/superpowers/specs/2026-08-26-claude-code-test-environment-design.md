@@ -27,7 +27,14 @@ reading code and querying the database from outside.
 - Database access defaults to an isolated Neon branch, not the shared
   primary (`NEON_SHARED_DATABASE_URL`). Reaching the shared primary DB from
   this environment requires a separate, deliberate step — never the ambient
-  default.
+  default. **Done, not just planned**: `Neon_Test_DB` is a real child branch
+  of `production` (data + schema included at creation, no auto-delete so it
+  persists across sessions), with its own credentials rotated after an
+  earlier accidental exposure. Its connection string is
+  `NEON_TEST_DATABASE_URL`, now set in Replit, GitHub, `.env`, and
+  `.env.template` — a distinct variable from `NEON_SHARED_DATABASE_URL`, not
+  a repurposed one, so there's no ambient path from this environment to
+  production data by construction, not just by convention.
 - Code remains protected by the existing GitHub source-of-truth and
   source-bridge; this environment does not change that flow.
 
@@ -99,7 +106,12 @@ it isn't rediscovered as a surprise once this environment exists.
   human approval step, and that the process comes back up correctly.
 - Confirm the environment's default DB connection is a Neon branch by
   inspecting the actual resolved connection string at runtime, not by
-  assuming the config is correct.
+  assuming the config is correct. Concrete precedent for why this matters:
+  the first `NEON_TEST_DATABASE_URL` generated from the Neon console's
+  connect panel silently pointed at a different database (`holahola_users`)
+  within the right branch, not the app's actual `neondb` — caught only by
+  parsing the connection string's actual host/database fields instead of
+  trusting that "it's the test branch's URL" meant "it's correct."
 - Reproduce one of tonight's real, still-open threads (Sofia health
   degradation, or the games-memory retrieval fix once built) against this
   environment to confirm it's actually useful for the kind of diagnosis that
@@ -111,7 +123,9 @@ This is a design doc, not an implementation yet. No Gemini approval gate
 applies here — confirmed directly against `docs/GEMINI_REQUIRED.md`'s
 actual protected-category list (system prompt/identity, per-turn
 injection/anchors, classroom context, tool descriptions, neural-net
-retrieval injection), none of which this touches. The environment choice
-above is made; remaining before provisioning: share this doc with Luca
-[Replit] for awareness given it references migrating source-bridge's role
-here too, then provision the Codespace and run through Verification below.
+retrieval injection), none of which this touches. The environment choice is
+made and the isolated Neon branch already exists and is wired into all
+three secret stores; remaining before provisioning: share this doc with
+Luca [Replit] for awareness given it references migrating source-bridge's
+role here too, then provision the Codespace itself and run through
+Verification below.
