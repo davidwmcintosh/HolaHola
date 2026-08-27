@@ -156,3 +156,4 @@
 - [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.
 - [Unmerged task-agent database drift](unmerged-task-agent-database-drift.md) — stalled merges may have already changed the shared DB; inspect live schema and migration ledger before reconstructing code.
 - [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.
+- [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
