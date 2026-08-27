@@ -10,9 +10,16 @@ reading code and querying the database from outside.
 
 ## Scope
 
-- One persistent environment, reachable identically by local and cloud
-  Claude Code sessions, hosting a real running instance of the app
-  (`npm run dev` equivalent, kept alive across restarts).
+- One environment — a GitHub Codespace on this repo — reachable identically
+  by local and cloud Claude Code sessions, hosting a real running instance
+  of the app (`npm run dev` equivalent).
+- Not required to run continuously. Codespaces auto-suspend when idle by
+  design; that's fine, not a gap to work around. Claude Code already has
+  standing authority to start/restart the server process on demand (see
+  "Autonomy boundary" below), so waking a suspended Codespace and relaunching
+  the process is the same action as recovering from a mid-session crash — one
+  wake-up step covers both, no separate always-on supervisor (systemd/pm2)
+  needed just to avoid that step.
 - Claude Code has standing authority to restart or redeploy the server
   process in this environment without per-instance approval. This is
   explicitly authorized, not something to re-ask for each time — see
@@ -50,7 +57,18 @@ Two different risk categories, deliberately treated differently:
    (auto-restart, log streaming, env var management) at more cost/complexity
    than a raw VM.
 
-No recommendation locked in yet — flagging for team input before choosing.
+**Decision: GitHub Codespaces, as a reversible pilot, not a permanent lock-in.**
+Chosen because it's fully GitHub-native — same auth and repo as the ruleset,
+deploy key, and CI already use, environment defined in a versioned
+`devcontainer.json` rather than a hand-configured snowflake box, reachable
+identically from local and cloud Claude Code sessions via `gh codespace
+ssh`/`gh codespace ports forward`. The one real objection (auto-suspend when
+idle vs. the original "kept alive across restarts" framing) turned out not
+to hold up: since Claude Code already has standing authority to start the
+server on demand, waking a suspended Codespace is the same action as
+recovering from a crash, not an extra requirement. If Codespaces turns out
+not to work well in practice, the raw-VM or managed-platform options above
+remain available — this is a "try it first" decision, not a one-way door.
 
 ## Prerequisite (blocking, already filed separately)
 
@@ -89,7 +107,11 @@ it isn't rediscovered as a surprise once this environment exists.
 
 ## Next step
 
-This is a design doc, not an implementation. Per the team's established
-process, this goes through a Gemini pre-flight before any environment gets
-provisioned, and around the team (Luca [Replit], David) for input on the
-environment choice before locking one in.
+This is a design doc, not an implementation yet. No Gemini approval gate
+applies here — confirmed directly against `docs/GEMINI_REQUIRED.md`'s
+actual protected-category list (system prompt/identity, per-turn
+injection/anchors, classroom context, tool descriptions, neural-net
+retrieval injection), none of which this touches. The environment choice
+above is made; remaining before provisioning: share this doc with Luca
+[Replit] for awareness given it references migrating source-bridge's role
+here too, then provision the Codespace and run through Verification below.
