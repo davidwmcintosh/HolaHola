@@ -18,6 +18,7 @@
     "test:ci:unit": "node scripts/run-ci-test-steps.mjs --group=unit",
     "test:ci:guards": "node scripts/run-ci-test-steps.mjs --group=guards",
     "test:ci:episodes": "node scripts/run-ci-test-steps.mjs --group=episodes",
+    "db:branch": "npx tsx scripts/neon-branch.ts",
     "source-bridge:once": "bash scripts/source-bridge.sh once",
     "source-bridge:prepare-promotion": "bash scripts/source-bridge.sh prepare-promotion",
     "source-bridge:record-promotion": "bash scripts/source-bridge.sh record-promotion",
