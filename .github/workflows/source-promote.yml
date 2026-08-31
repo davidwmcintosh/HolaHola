@@ -1,0 +1,78 @@
+name: Source Promote
+
+# Isolated execution venue for /api/internal/source-promote — deliberately
+# NOT run on the Replit process serving live Daniela/David traffic. Runs the
+# same validation any human PR gets (typecheck, build, the three test:ci:*
+# groups) plus tonight's ephemeral-Neon-branch gate, then fast-forwards main
+# using the same deploy key scripts/source-bridge.sh already trusts, over SSH.
+# See docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to validate and fast-forward main to"
+        required: true
+        type: string
+      jobId:
+        description: "Correlation id the triggering caller uses to find this run"
+        required: true
+        type: string
+
+run-name: "source-promote ${{ inputs.jobId }} (${{ inputs.branch }})"
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      NEON_SHARED_DATABASE_URL: ${{ secrets.NEON_SHARED_DATABASE_URL }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${{ secrets.DEFAULT_OBJECT_STORAGE_BUCKET_ID }}
+      AWS_S3_ENDPOINT: ${{ secrets.AWS_S3_ENDPOINT }}
+      AWS_S3_ACCESS_KEY_ID: ${{ secrets.AWS_S3_ACCESS_KEY_ID }}
+      AWS_S3_SECRET_ACCESS_KEY: ${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}
+      DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Refuse if main is not an ancestor of this branch
+        run: |
+          git fetch origin main --no-tags
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            echo "::error::main is not an ancestor of ${{ inputs.branch }} — diverged or behind. Refusing to promote."
+            exit 1
+          fi
+
+      - name: Validate package lock registry URLs
+        run: npm run test:package-lock-registry
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate migration + full test suite on an isolated Neon branch
+        run: npm run db:branch -- gate
+
+      - name: Fast-forward main and push
+        env:
+          HOLAHOLA_GITHUB_DEPLOY_KEY: ${{ secrets.HOLAHOLA_GITHUB_DEPLOY_KEY }}
+        run: |
+          source scripts/github-release-ssh.sh
+          prepare_github_ssh "$HOLAHOLA_GITHUB_DEPLOY_KEY"
+          trap cleanup_github_ssh EXIT
+          git push "$GITHUB_REPO_URL" "HEAD:refs/heads/main"

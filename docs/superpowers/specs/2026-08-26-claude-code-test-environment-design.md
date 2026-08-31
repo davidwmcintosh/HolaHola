@@ -27,14 +27,11 @@ reading code and querying the database from outside.
 - Database access defaults to an isolated Neon branch, not the shared
   primary (`NEON_SHARED_DATABASE_URL`). Reaching the shared primary DB from
   this environment requires a separate, deliberate step — never the ambient
-  default. **Done, not just planned**: `Neon_Test_DB` is a real child branch
-  of `production` (data + schema included at creation, no auto-delete so it
-  persists across sessions), with its own credentials rotated after an
-  earlier accidental exposure. Its connection string is
-  `NEON_TEST_DATABASE_URL`, now set in Replit, GitHub, `.env`, and
-  `.env.template` — a distinct variable from `NEON_SHARED_DATABASE_URL`, not
-  a repurposed one, so there's no ambient path from this environment to
-  production data by construction, not just by convention.
+  default. **Superseded 2026-08-30 — see Amendment below.** This was
+  originally satisfied by a single static branch, `Neon_Test_DB`; that
+  branch has since been retired in favor of on-demand branches created
+  through `scripts/neon-branch.ts`. The isolation guarantee this bullet
+  describes still holds — the mechanism providing it changed.
 - Code remains protected by the existing GitHub source-of-truth and
   source-bridge; this environment does not change that flow.
 
@@ -124,8 +121,43 @@ applies here — confirmed directly against `docs/GEMINI_REQUIRED.md`'s
 actual protected-category list (system prompt/identity, per-turn
 injection/anchors, classroom context, tool descriptions, neural-net
 retrieval injection), none of which this touches. The environment choice is
-made and the isolated Neon branch already exists and is wired into all
-three secret stores; remaining before provisioning: share this doc with
-Luca [Replit] for awareness given it references migrating source-bridge's
-role here too, then provision the Codespace itself and run through
-Verification below.
+made; remaining before provisioning: share this doc with Luca [Replit] for
+awareness given it references migrating source-bridge's role here too, then
+provision the Codespace itself and run through Verification below. See the
+Amendment for how database isolation is now provisioned (on demand, not a
+pre-existing static branch).
+
+## Amendment (2026-08-30) — on-demand branches replace the static test branch
+
+The original plan above was satisfied by creating one static branch,
+`Neon_Test_DB`, ahead of time. In practice it was created, never actually
+used, and would have gone stale exactly the way
+[`2026-08-30-neon-branch-migration-workflow-design.md`](2026-08-30-neon-branch-migration-workflow-design.md)
+describes for any long-lived reused branch — so it's been retired.
+
+Database isolation for this environment is now provisioned the same way any
+other agent's sandbox is: `npm run db:branch -- create <name>` (see
+`.agents/skills/neon-branch/SKILL.md`), run when the Codespace is
+provisioned (or resumed after a long suspension, if its branch has expired),
+naming the branch after the Codespace/session rather than after a git
+branch since a Codespace doesn't necessarily correspond 1:1 with one. The
+resulting connection string is what this environment's own
+`NEON_SHARED_DATABASE_URL` is set to — not a second, separately-read
+variable — so there's exactly one code path (`server/db.ts`) reading exactly
+one variable, and no risk of the app silently falling back to reading the
+real shared primary through some code path that never learned about a
+second variable's existence. `NEON_TEST_DATABASE_URL` as a distinct secret
+is retired along with the branch it named; do not re-add it.
+
+This also closes the gap the original plan actually had: a static branch
+never gets deleted, so it drifts from production's real state the longer it
+sits unused — exactly what happened here. An on-demand branch is deleted
+(`npm run db:branch -- delete <name>`) when the Codespace itself is deleted,
+so nothing ephemeral outlives the thing it existed for.
+
+The Verification bullet above about the wrong-database incident
+(`holahola_users` vs. `neondb`) is exactly why `scripts/neon-branch.ts`
+never assumes a connection string is correct — it resolves the database and
+role from the branch's own database list, matched against the real app
+database name parsed from `NEON_SHARED_DATABASE_URL`, and refuses rather
+than guessing if no match is found.
