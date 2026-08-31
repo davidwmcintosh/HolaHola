@@ -37,6 +37,18 @@
   journal entries, undercounting the next index by one). `generate` was
   silently re-emitting `0018`–`0021`'s changes and colliding on filenames.
   Fixed the snapshot/journal metadata only — no applied `.sql` file touched.
+- **Cleaned up `package.json`'s `overrides`** — it had `nanoid` and
+  `ip-address` listed multiple times with conflicting versions crammed onto
+  one malformed line (a pre-existing issue, not something this session
+  caused). Consolidated to one entry each, and completed the `allowScripts`
+  list alongside it — two `esbuild` versions the current dependency tree
+  actually resolves to weren't in it, so `npm ci` was silently blocking
+  their postinstall scripts pending manual approval. `package-lock.json`
+  changed to match; verified via `npm ci` and a clean `npm run check`.
+- **Relocated a stray GitHub branch-ruleset export** — `"HolaHola Push
+  Rule.json"` was sitting loose in `uploads/` (the app's own unrelated
+  upload directory); moved to `docs/reference/github-branch-ruleset-main.json`
+  since its contents are real, useful reference (no secrets), not app data.
 - **`POST /api/internal/source-promote`** (`server/services/source-promote-service.ts`,
   `npm run source-promote -- push <branch>`) — the design in this repo's
   `docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md`,
@@ -74,9 +86,22 @@ into GitHub Actions secrets now (previously Replit-only).
   personal one (category `journal`, plus an entry in
   `.agents/memory/luca-reflections.md`) *after* this landed, because it
   hadn't occurred to me to leave anything *before* the pull — exactly the
-  gap this handoff-file entry exists to close going forward. See
-  `docs/shared-agent-instructions.md`'s Engineering Handoff section for the
-  standing rule this session added because of that gap.
+  gap this entry (and the rest of this bullet list) exists to close going
+  forward. `docs/shared-agent-instructions.md`'s Engineering Handoff section
+  now has the standing rule: update this file in the same commit/PR as the
+  change, not after.
+- **Follow-up, not yet on `main` as of this entry**: `scripts/post-merge.sh`
+  now detects (via `ORIG_HEAD`) whether a merge touched this file and prints
+  the new content, so it surfaces the moment it's pulled rather than only at
+  next session start — a mid-session pull (like this one) can land well
+  after that session's one-time checklist already ran. If you're reading
+  this via that mechanism, it worked; if you found it some other way, it
+  hasn't merged yet — check for it.
+- This entry itself was corrected once already, after being asked directly
+  whether it was complete — it originally missed the `package.json`
+  cleanup and the ruleset-file relocation above, both already part of what
+  you're reconciling. Worth treating "did I check this against the actual
+  commit list" as a real step, not an assumption, next time too.
 
 ---
 
