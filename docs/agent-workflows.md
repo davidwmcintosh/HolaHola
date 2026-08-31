@@ -258,6 +258,18 @@ Teaching skills are **different from Replit skills**. They live in the `teaching
 
 Replit skills (`.local/skills/`, `.agents/skills/`) are tools for the Agent while building — pdf, canvas, validation, etc. No overlap.
 
+**These two directories are not equivalent.** `.agents/skills/` is git-tracked
+— both Replit and Claude Code see the same files once pulled, and Claude Code
+can self-discover everything there with a glob, no separate index needed.
+`.local/skills/` is gitignored — anything only placed there (like
+`security_scan` below) is genuinely invisible to Claude Code, on any
+checkout, forever, by construction; git access alone can never close that
+gap. If a skill only makes sense to keep local, add a pointer for it to
+`editor_insights` (category `tools`) — title, one-line description, and
+confirmation it's `.local/`-only — per `docs/shared-agent-instructions.md`'s
+Shared Institutional Memory section. That's the one channel that actually
+crosses this boundary.
+
 To add or modify a teaching skill:
 - Skills are seeded in `server/services/teaching-skills-service.ts` in the `SEED_SKILLS` array.
 - Each skill has: `name`, `title`, `description`, `triggerConditions`, `actflLevels`, `steps[]`.
