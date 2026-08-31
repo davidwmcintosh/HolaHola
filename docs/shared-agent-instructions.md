@@ -45,7 +45,21 @@ rules. Keep this file free of secrets, credentials, and private user data.
 
 - Update `.local/engineering-handoff.md` when completing a meaningful build.
   It must state the current commit, working-tree state, checks run, unresolved
-  threads, and the interface that last acted.
+  threads, and the interface that last acted. This file is gitignored by
+  design — it is same-environment continuity, not a cross-interface channel;
+  it never reaches the other interface's checkout on its own.
+- **For a cross-cutting change landing on `main` that the other interface
+  will have to reconcile** (a new subsystem, a new required secret, a
+  changed workflow, anything larger than a routine fix) — add a
+  `## From <interface> — <date> (<short label>)` entry to
+  `docs/alden-agent-handoff.md`, in the **same commit or PR** that lands the
+  change, not after. This file is git-tracked and already checked at the
+  other interface's session start, so the note arrives the moment they pull
+  — no separate DB write, no relay through David required. Added
+  2026-08-31 after a real instance of the alternative failing: a large
+  Claude Code changeset (Neon branching, a new endpoint) landed on `main`
+  with no heads-up, and the note explaining it only got written after
+  Replit had already started reconciling cold.
 - Project-specific architecture, operating commands, and safety constraints
   remain in `replit.md`; do not duplicate this shared cross-interface contract
   in interface-specific instruction files.

@@ -18,6 +18,68 @@
 
 ---
 
+## From Claude Code — Sun, Aug 31, 2026 (Neon branching + source-promote endpoint)
+
+### What shipped
+
+- **`scripts/neon-branch.ts`** (`npm run db:branch --`): create/list/delete
+  isolated Neon branches, plus a `gate` subcommand that proves a pending
+  `drizzle-kit` migration safe on a disposable branch (applies it, runs
+  `test:ci:unit`/`guards`/`episodes` against it, deletes the branch) before
+  it ever touches `NEON_SHARED_DATABASE_URL`. Retired the old static
+  `Neon_Test_DB` branch — created once for the Codespace pilot, never
+  actually used, would only have gone stale — in favor of on-demand
+  branches. See `.agents/skills/neon-branch/SKILL.md` and
+  `docs/superpowers/specs/2026-08-30-neon-branch-migration-workflow-design.md`.
+- **Fixed a real `drizzle-kit` bug**, unrelated to the above but found while
+  building it: `migrations/meta/` snapshots stopped at `0017` even though
+  applied migrations went to `0022` (two earlier migrations never got
+  journal entries, undercounting the next index by one). `generate` was
+  silently re-emitting `0018`–`0021`'s changes and colliding on filenames.
+  Fixed the snapshot/journal metadata only — no applied `.sql` file touched.
+- **`POST /api/internal/source-promote`** (`server/services/source-promote-service.ts`,
+  `npm run source-promote -- push <branch>`) — the design in this repo's
+  `docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md`,
+  actually built: one shared way for any tool to get a committed branch onto
+  `main`. **Deliberately deviates from that doc**: the validation gate
+  (`npm ci`, check, build, the `test:ci:*` groups via the new Neon gate)
+  runs in an isolated GitHub Actions run
+  (`.github/workflows/source-promote.yml`), not inside this endpoint's own
+  process — that process also serves live Daniela/David traffic, and
+  running the full suite there on every promotion was too much resource
+  contention to accept. The endpoint itself is a thin dispatch-and-poll
+  proxy. See `.agents/skills/source-promote/SKILL.md`.
+- Landed via a squash-merged PR (#8) plus one follow-up commit, after a
+  chicken-and-egg bootstrap: the endpoint couldn't deploy itself the first
+  time, so this batch went through a normal PR since neither `source-bridge.sh`
+  (needs `HOLAHOLA_GITHUB_DEPLOY_KEY`, Replit-only) nor the new endpoint
+  (didn't exist on `main` yet) could do it.
+
+### New secrets this needs
+
+`NEON_API_KEY`, `NEON_PROJECT_ID` (already in Replit Secrets — also now
+needed in **GitHub Actions secrets**, a new location, since that's where the
+workflow actually runs), `SOURCE_BRIDGE_API_TOKEN`, and
+`GITHUB_ACTIONS_DISPATCH_TOKEN` (fine-grained PAT, Actions: read/write only,
+scoped to this repo). `HOLAHOLA_GITHUB_DEPLOY_KEY` also needs to be copied
+into GitHub Actions secrets now (previously Replit-only).
+
+### What's unresolved
+
+- The full live end-to-end test (a real branch through the whole gate to a
+  real push) hadn't completed as of this entry — was blocked on Replit
+  finishing this exact pull, which is the reconciliation this note exists
+  to ease. Worth confirming it actually completed cleanly.
+- I wrote a technical note to `editor_insights` (category `shared`) and a
+  personal one (category `journal`, plus an entry in
+  `.agents/memory/luca-reflections.md`) *after* this landed, because it
+  hadn't occurred to me to leave anything *before* the pull — exactly the
+  gap this handoff-file entry exists to close going forward. See
+  `docs/shared-agent-instructions.md`'s Engineering Handoff section for the
+  standing rule this session added because of that gap.
+
+---
+
 ## August 21, 2026 — GitHub deploy-key release boundary
 
 - The repository-scoped SSH deploy key is authenticated for read access from
