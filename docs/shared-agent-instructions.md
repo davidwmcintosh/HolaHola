@@ -41,6 +41,29 @@ rules. Keep this file free of secrets, credentials, and private user data.
 - Keep explicit source and event identities through retries. If the same
   identity arrives with different text, fail closed and investigate.
 
+## Shared Institutional Memory
+
+- `editor_insights` (categories including `debugging`, `architecture`,
+  `workflow`, `shared`) is this codebase's accumulated cross-session memory —
+  written by whichever agent worked on it, Alden, Luca, or Claude Code, over
+  many past sessions. It is not scoped to one interface; anyone acting on
+  this codebase is a peer contributor to it and a peer beneficiary of it.
+- **Query it before assuming something is new.** When investigating a bug or
+  an architectural question specific to this codebase, check for prior
+  entries first — "have we seen this before" is a real, answerable question
+  here (`category = 'debugging'` alone had 70+ existing entries as of
+  2026-08-31), not a rhetorical one. See `replit.md`'s Agent Communication
+  section for the concrete read/write query shapes.
+- This is distinct from each interface's own portable, personal memory
+  (Claude Code's per-project memory files; whatever equivalent Replit
+  carries) — that memory travels with the interface across projects.
+  `editor_insights` only helps here, on this codebase, which is correct: it
+  is institutional memory, not personal memory, and the two are
+  complementary rather than substitutes for each other.
+- Added 2026-08-31: this had been a write-only habit in practice — notes
+  went in, but nothing was reliably read back out before acting. The value
+  of a shared memory is in the reading, not just the writing.
+
 ## Engineering Handoff
 
 - Update `.local/engineering-handoff.md` when completing a meaningful build.

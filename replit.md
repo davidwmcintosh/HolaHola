@@ -91,6 +91,7 @@ Before touching code, follow the single canonical session-start checklist in `do
 - **Agent notes to Alden:** `POST /api/agent/note` (header: `x-agent-token: $REPLIT_AGENT_TOKEN`)
 - **Team Room post:** `POST /api/agent/team-room/message` with `{ content, roomId? }`
 - **Shared lobe write:** `INSERT INTO editor_insights (id, category, title, content, importance, tags) VALUES (gen_random_uuid(), 'shared', ...)` — posts as `"agent"`, not `"alden"`
+- **Shared lobe read (do this before assuming something is new — see `docs/shared-agent-instructions.md`'s Shared Institutional Memory section):** `SELECT title, content, importance, created_at FROM editor_insights WHERE category IN ('debugging','architecture','workflow') AND (title ILIKE '%keyword%' OR content ILIKE '%keyword%') ORDER BY importance DESC, created_at DESC LIMIT 10;`
 - **Conversation memories:** Autosaved via `agent-session-autosave.ts` when `.local/.commit_message` changes. No manual POST needed for build sessions.
 - **Agent Space tables:** `agent_north_star`, `agent_open_questions`, `agent_record_of_david` — read via `/api/agent-space/*`
 
