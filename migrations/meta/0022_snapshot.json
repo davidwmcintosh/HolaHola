@@ -1,5 +1,5 @@
 {
-  "id": "454d41e8-4d75-4cc9-88df-74a4682e4256",
+  "id": "0ee2a0d0-ba57-4bf5-bd20-56ed5e1dfb27",
   "prevId": "733e7b3f-8ee0-486d-8465-972110e4057a",
   "version": "7",
   "dialect": "postgresql",
@@ -1654,6 +1654,44 @@
           "primaryKey": false,
           "notNull": false
         },
+        "status": {
+          "name": "status",
+          "type": "agent_note_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unread'"
+        },
+        "acknowledged_at": {
+          "name": "acknowledged_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "acted_on_at": {
+          "name": "acted_on_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dismissed_at": {
+          "name": "dismissed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "in_reply_to_id": {
+          "name": "in_reply_to_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_message_key": {
+          "name": "source_message_key",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1662,7 +1700,50 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_agent_notes_inbox": {
+          "name": "idx_agent_notes_inbox",
+          "columns": [
+            {
+              "expression": "to_agent",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_agent_notes_source_message_key": {
+          "name": "idx_agent_notes_source_message_key",
+          "columns": [
+            {
+              "expression": "source_message_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -37252,6 +37333,16 @@
         "status_update",
         "consultation",
         "acknowledgment"
+      ]
+    },
+    "public.agent_note_status": {
+      "name": "agent_note_status",
+      "schema": "public",
+      "values": [
+        "unread",
+        "acknowledged",
+        "acted_on",
+        "dismissed"
       ]
     },
     "public.agent_observation_category": {

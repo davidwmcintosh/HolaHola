@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
- * Driver for test-watchdog-inner-life.ts — MUST be spawned with cwd set to a
- * hermetic temp directory (the watchdog resolves .local/docs from cwd).
+ * Driver for test-watchdog-inner-life.ts — MUST be spawned with
+ * HOLAHOLA_WORKSPACE_ROOT set to a validated hermetic temp directory.
  *
  * Fully hermetic: the watchdog's neon client is replaced with an in-memory
  * fake via setDbForTest(), so no shared-database rows are ever created.

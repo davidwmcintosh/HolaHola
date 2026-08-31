@@ -19,8 +19,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { sql } from 'drizzle-orm';
 import { getUserDb } from '../db';
+import { workspaceResolution } from '../services/workspace-root';
 
-const WORKSPACE = '/home/runner/workspace';
+const WORKSPACE = workspaceResolution.root;
 const MOMENTS_FILE = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS.md');
 
 async function main() {

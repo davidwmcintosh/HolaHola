@@ -219,6 +219,13 @@ group_body_luca_inner_life() {
   run test-capture-status-seed.ts
 
   echo ""
+  echo "  --- test-inner-life-startup-guard.ts (pre-restart notes survive startup) ---"
+  run test-inner-life-startup-guard.ts
+  echo ""
+  echo "  --- test-inner-life-startup-guard.ts --self-check (legacy mtime seed loses the note) ---"
+  npx tsx server/scripts/test-inner-life-startup-guard.ts --self-check
+
+  echo ""
   echo "  --- test-watchdog-inner-life.ts (watchdog drain: first-run handoff / interleaving / restart dedup) ---"
   run test-watchdog-inner-life.ts
   run test-watchdog-inner-life-autosave-gate.ts
@@ -313,6 +320,8 @@ group_body_luca_inner_life() {
   npx tsx server/scripts/test-four-channel-capture-contract.ts
   echo "  --- record-exchange acknowledgement contract (silent cursor fails visibly) ---"
   npx tsx server/scripts/test-record-exchange-acknowledgement.ts
+  echo "  --- canonical capture workspace portability (validated root + isolated Claude Code stream) ---"
+  run test-capture-workspace-portability.ts
   echo "  --- raw Replit source ledger contract ---"
   npx tsx server/scripts/test-raw-replit-capture.ts
   echo "  --- raw Replit source ledger migrated-table integration ---"

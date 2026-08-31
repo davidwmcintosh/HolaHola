@@ -15,6 +15,7 @@ import {
   CHAT_CAPTURE_ACK_DIR,
   CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
+  WORKSPACE,
   acquireCursorLock,
   releaseCursorLock,
   CHAT_CAPTURE_PATH,
@@ -37,7 +38,7 @@ export interface CanonicalConversationExchange {
   ingressLockPath?: string;
 }
 
-const CANONICAL_CAPTURE_INGRESS_LOCK = join('/home/runner/workspace', '.local/.canonical-conversation-ingress.lock');
+const CANONICAL_CAPTURE_INGRESS_LOCK = join(WORKSPACE, '.local/.canonical-conversation-ingress.lock');
 
 /** Keep a durable capture ID in one DB projection row, even after cursor replay. */
 export function selectCanonicalCaptureBatch<T extends { captureId?: string }>(turns: T[]): T[] {

@@ -19,8 +19,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { sql } from 'drizzle-orm';
 import { getUserDb } from '../db';
+import { workspaceResolution } from '../services/workspace-root';
 
-const WORKSPACE       = '/home/runner/workspace';
+const WORKSPACE       = workspaceResolution.root;
 const REFLECTIONS_FILE = join(WORKSPACE, '.agents/memory/REFLECTIONS.md');
 
 async function main() {

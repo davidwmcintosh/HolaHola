@@ -136,13 +136,21 @@ async function main(): Promise<void> {
     // SC-A: strip the source='self' filter from an in-memory copy
     //       The normal assertion checks: src.includes("eq(danielaSelfReflections.source, 'self')")
     //       Removing it from the copy proves the assertion would return false.
+    // First, assert that the source filter IS present in the original source, so our mutation test is valid.
+    const originalHasSourceFilter = src.includes("eq(danielaSelfReflections.source, 'self')");
+    assert(
+      "SC-A.1 Original source HAS source='self' filter (precondition for mutation test)",
+      originalHasSourceFilter,
+      originalHasSourceFilter ? undefined : "Source='self' filter is missing from original source — mutation test would be vacuously true."
+    );
+
     const srcWithoutSourceFilter = src.replace(
       "eq(danielaSelfReflections.source, 'self')",
       "/* FILTER REMOVED */"
     );
     const aWouldFail = !srcWithoutSourceFilter.includes("eq(danielaSelfReflections.source, 'self')");
     assert(
-      "SC-A. Stripping the source='self' filter from source → assertion A returns false (would exit 1)",
+      "SC-A.2 Stripping the source='self' filter from source -> assertion A returns false (would exit 1)",
       aWouldFail,
       aWouldFail
         ? undefined

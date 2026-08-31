@@ -8,7 +8,6 @@
  */
 
 import * as fs from 'fs';
-import { execFileSync } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { getSharedDb } from '../db';
 import { costTracker } from './cost-tracker';
@@ -16,6 +15,7 @@ import { proposedCodeChanges, editorInsights, founderSessions } from '@shared/sc
 import { eq, and, desc, gte } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
+import { SourceControlService } from './source-control-service';
 
 const FOUNDER_ID = '49847136';
 const ALDEN_SESSION_TITLE = 'Alden Platform Management';
@@ -156,17 +156,15 @@ function applyPatch(filePath: string, lineStart: number, lineEnd: number, afterC
   }
 }
 
-function syncToGithub(commitMessage: string): { success: boolean; output: string } {
+async function requestSourceControlSync(actor: string): Promise<{ success: boolean; output: string }> {
   try {
-    const output = execFileSync('bash', ['scripts/sync-to-github.sh', commitMessage], {
-      cwd: process.cwd(),
-      timeout: 60_000,
-      encoding: 'utf-8',
-      env: { ...process.env },
-    });
-    return { success: true, output: output.toString() };
+    const outcome = await new SourceControlService().sync(actor);
+    return {
+      success: outcome.ok,
+      output: outcome.ok ? `Source-control state: ${outcome.state}` : outcome.error || outcome.state,
+    };
   } catch (err: any) {
-    console.error(`[AldenReview] GitHub sync failed:`, err.message);
+    console.error(`[AldenReview] Source-control request failed:`, err.message);
     return { success: false, output: err.message || '' };
   }
 }
@@ -305,8 +303,7 @@ export async function runReviewQueue(): Promise<CodeReviewSummary> {
 
       if (applied) {
         summary.applied++;
-        const commitMsg = `[AUTO-FIX] ${change.findingTitle} — reviewed by Alden`;
-        const syncResult = syncToGithub(commitMsg);
+        const syncResult = await requestSourceControlSync('alden-code-review');
         if (syncResult.success) {
           summary.githubSynced++;
           githubSynced = true;

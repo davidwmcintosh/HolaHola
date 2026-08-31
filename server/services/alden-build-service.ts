@@ -9,7 +9,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 import { storage } from '../storage';
@@ -144,7 +144,7 @@ const CODEBASE_MAP = `HolaHola codebase structure:
 - server/routes.ts — All API routes (28K+ lines — avoid reading this directly)
 - shared/schema.ts — Drizzle DB schema (8K+ lines — read specific sections only)
 - server/index.ts — Server startup and worker initialization
-- scripts/ — Utility scripts (sync-to-github.sh, etc.)`;
+- scripts/ — Utility scripts and operational checks`;
 
 function readFileSafe(filePath: string): string | null {
   try {
@@ -335,21 +335,6 @@ function applyChange(change: FileChange): { success: boolean; linesChanged: numb
   } catch (err: any) {
     console.error(`[AldenBuild] Apply failed for ${change.filePath}:`, err.message);
     return { success: false, linesChanged: 0, error: err.message };
-  }
-}
-
-async function syncToGithub(featureName: string): Promise<boolean> {
-  try {
-    execFileSync('bash', ['scripts/sync-to-github.sh', `[FEATURE] ${featureName}`], {
-      cwd: process.cwd(),
-      timeout: 60_000,
-      encoding: 'utf-8',
-      env: { ...process.env },
-    });
-    return true;
-  } catch (err: any) {
-    console.error(`[AldenBuild] GitHub sync failed:`, err.message);
-    return false;
   }
 }
 

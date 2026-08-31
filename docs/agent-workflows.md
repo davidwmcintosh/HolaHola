@@ -139,7 +139,7 @@ Read all of these **before touching code**. In order:
 5. **`docs/alden-agent-handoff.md`** — what Alden left for the Agent. Look for the most recent "From Alden" section.
 6. **`.local/alden-escalations.md`** — high-priority issues Alden could not auto-repair.
 7. **`.local/alden-repairs.md`** — what Alden auto-fixed since the prior session.
-8. **`docs/alden-to-agent.md`** and **`docs/founder-to-agent.md`** — unread direct notes from Alden and David.
+8. **`docs/alden-to-agent.md`**, **`docs/founder-to-agent.md`**, and **`docs/claude-code-to-luca.md`** — unread direct notes from Alden, David, and Luca [Claude Code]. During a session, use the live agent inbox or refresh endpoint rather than waiting for a restart.
 9. **`docs/shared-lobe-snapshot.md`** — durable shared cross-session facts.
 10. **Canonical conversation record** — read today's `david-luca-chat` rows in `conversation_memories`, then `GET /api/conversation-memories?limit=5` for recent wider context.
 11. **`.local/episode-capture-status.md`** — while a rolling episode is active, inspect its live capture status on every session start.
@@ -320,6 +320,10 @@ npx tsx server/scripts/record-exchange.ts \
 
 
 # Claude Code: exact user and assistant text, with explicit source attribution.
+# Run this first outside Replit. It checks the configured project root and
+# `.local` writability without writing an exchange.
+npx tsx server/scripts/record-exchange.ts --preflight
+
 npx tsx server/scripts/record-exchange.ts \
   --source claude-code --david-file /tmp/david.txt --assistant-file /tmp/claude.txt \
   --turn-id <retry-this-id-if-acknowledgement-times-out>
@@ -329,5 +333,12 @@ The internal `POST /api/internal/canonical-conversation-exchange` endpoint
 requires the same source, userText, assistantText, and caller-generated turnId.
 Its `202 pending` response is not a canonical acknowledgement; inspect the
 receipt/capture status until its target cursor has advanced.
+
+For remote readiness only, an agent authenticated with the managed
+`REPLIT_AGENT_TOKEN` may call
+`GET /api/internal/canonical-conversation-health`. It returns safe booleans and
+counts for capture readiness; it never appends dialogue, returns paths, receipt
+IDs, capture text, or credential material. Configure
+`HOLAHOLA_WORKSPACE_ROOT` when the current directory is not the project root.
 
 ---

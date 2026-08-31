@@ -1,257 +1,116 @@
-/**
- * GitHub release-script safety checks.
- *
- * Exercises the release scripts with a fake git executable so the failure
- * paths are deterministic and make no network calls or repository changes.
- */
-
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
-const syncToPath = join(root, 'scripts/sync-to-github.sh');
-const syncFromPath = join(root, 'scripts/sync-from-github.sh');
-const sshHelperPath = join(root, 'scripts/github-release-ssh.sh');
+const coordinator = readFileSync(join(root, 'server/services/source-control-service.ts'), 'utf8');
 
-function assertReleaseSources(): void {
-  const syncTo = readFileSync(syncToPath, 'utf8');
-  const syncFrom = readFileSync(syncFromPath, 'utf8');
-  const helper = readFileSync(sshHelperPath, 'utf8');
+assert.match(coordinator, /HOLAHOLA_GITHUB_DEPLOY_KEY/, 'coordinator must require the repository deploy key');
+assert.match(coordinator, /PINNED_GITHUB_HOST_KEYS/, 'coordinator must pin GitHub host keys');
+assert.match(coordinator, /StrictHostKeyChecking=yes/, 'coordinator must require pinned-host verification');
+assert.match(coordinator, /mode: 0o600/, 'temporary credentials must be owner-only');
+assert.match(coordinator, /await rm\(tempDir, \{ recursive: true, force: true \}\)/, 'temporary credentials must be cleaned in finally');
+assert.match(coordinator, /\['fetch', '--no-tags'/, 'coordinator must fetch before source decisions');
+assert.match(coordinator, /\['merge', '--ff-only', 'FETCH_HEAD'\]/, 'receive must be fast-forward-only');
+assert.match(coordinator, /\['push', this\.repoUrl/, 'push must use the fixed repository target');
+assert.doesNotMatch(coordinator, /--force/, 'force push must remain impossible');
+assert.doesNotMatch(coordinator, /\['(?:add|commit|reset)'/, 'coordinator must not stage, commit, or reset');
 
-  for (const [label, source] of [['sync-to', syncTo], ['sync-from', syncFrom]] as const) {
-    assert.match(source, /HOLAHOLA_GITHUB_DEPLOY_KEY/, `${label} must require the repository deploy key`);
-    assert.doesNotMatch(source, /GITHUB_TOKEN/, `${label} must not use the retired HTTPS token`);
-    assert.doesNotMatch(source, /https:\/\/[^"\n]*github\.com/, `${label} must not embed an HTTPS GitHub remote`);
-  }
-
-  assert.match(syncTo, /git fetch --no-tags/, 'sync-to must fetch before its release decision');
-  assert.match(syncTo, /merge-base --is-ancestor/, 'sync-to must check ancestry before pushing');
-  assert.match(syncFrom, /git merge --ff-only FETCH_HEAD/, 'sync-from must only fast-forward');
-  assert.doesNotMatch(syncFrom, /\bgit pull\b/, 'sync-from must not use an implicit pull/merge');
-  assert.match(helper, /raw_key="\$\{raw_key\/\/\\\\n\/\$'\\n'\}"/, 'one-line escaped key values must be normalized');
-  assert.match(helper, /Some secret stores remove the physical line breaks entirely/, 'single-line armored keys must be normalized');
-  assert.match(helper, /GitHub's published SSH host keys, pinned here/, 'host keys must be pinned, not discovered over the release network');
-  assert.match(helper, /bash scripts\/github-release-ssh\.sh --check-host-keys/, 'host-key refresh instructions must be documented');
-  assert.match(helper, /api\.github\.com\/meta/, 'host-key refresh must use GitHub official metadata');
-  assert.match(helper, /curl --fail --silent --show-error --location/, 'host-key refresh must fetch metadata explicitly');
-  assert.doesNotMatch(helper, /^\s*ssh-keyscan\b/m, 'runtime host-key discovery would allow a network MITM');
-  for (const keyType of ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ssh-rsa']) {
-    assert.match(helper, new RegExp(`^${keyType.replace(/[.-]/g, '\\$&')}\\s+\\S`, 'm'), `pinned host keys must include ${keyType}`);
-  }
-  assert.match(helper, /mktemp \/tmp\/holahola-github-key/, 'temporary credentials must not use caller-provided TMPDIR');
-  assert.match(helper, /printf -v GIT_SSH_COMMAND/, 'GIT_SSH_COMMAND paths must be shell-quoted');
-  assert.match(helper, /trap cleanup_github_ssh EXIT|cleanup_github_ssh/, 'temporary key files must be cleaned up');
+for (const script of ['scripts/sync-to-github.sh', 'scripts/sync-from-github.sh']) {
+  const result = spawnSync('bash', [join(root, script)], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 78, `${script} must fail closed`);
+  assert.match(`${result.stdout}${result.stderr}`, /coordinator/i);
 }
 
-function pinnedHostKeysFromSource(helper: string): string[] {
-  return [...helper.matchAll(/^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)\s+(\S+)$/gm)]
-    .map((match) => `${match[1]} ${match[2]}`);
-}
+const sshHelper = join(root, 'scripts/github-release-ssh.sh');
+const tempDir = mkdtempSync(join(tmpdir(), 'holahola-release-safety-'));
+const testKeyPath = join(tempDir, 'test-key');
 
-function runHostKeyRefreshCheck(metadata: { ssh_keys: string[] }): { status: number | null; output: string } {
-  const tempDir = mkdtempSync(join(tmpdir(), 'holahola-github-host-key-check-test-'));
-  const metadataPath = join(tempDir, 'meta.json');
-  const fakeCurlPath = join(tempDir, 'curl');
-  try {
-    writeFileSync(metadataPath, JSON.stringify(metadata));
-    writeFileSync(fakeCurlPath, `#!/usr/bin/env bash
-cat "$FAKE_GITHUB_META_FILE"
-`, { mode: 0o700 });
-    chmodSync(fakeCurlPath, 0o700);
-
-    const result = spawnSync('bash', [sshHelperPath, '--check-host-keys'], {
-      cwd: root,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        PATH: `${tempDir}:${process.env.PATH}`,
-        FAKE_GITHUB_META_FILE: metadataPath,
-      },
-    });
-    return {
-      status: result.status,
-      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-    };
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-  }
-}
-
-function assertHostKeyRefreshCheck(): void {
-  const helper = readFileSync(sshHelperPath, 'utf8');
-  const pinnedHostKeys = pinnedHostKeysFromSource(helper);
-  assert.equal(pinnedHostKeys.length, 3, 'safety test must see all supported pinned host-key entries');
-
-  const matching = runHostKeyRefreshCheck({ ssh_keys: pinnedHostKeys });
-  assert.equal(matching.status, 0, `matching official host keys must pass:\n${matching.output}`);
-  assert.match(matching.output, /match the official metadata/, 'successful refresh check must be explicit');
-
-  const rotated = runHostKeyRefreshCheck({
-    ssh_keys: pinnedHostKeys.map((key, index) => index === 0 ? `${key.split(' ')[0]} ROTATED_TEST_KEY` : key),
+try {
+  const generated = spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', testKeyPath], {
+    encoding: 'utf8',
   });
-  assert.notEqual(rotated.status, 0, 'a changed official host key must require deliberate refresh');
-  assert.match(rotated.output, /differ from the official metadata/, 'rotation must produce an actionable mismatch');
-}
+  assert.equal(generated.status, 0, `test key generation failed: ${generated.stderr}`);
 
-function writeFakeTools(dir: string): void {
-  const fakeGit = `#!/usr/bin/env bash
-set -eu
-printf '%q ' "$@" >> "$GIT_CALL_LOG"
-printf '\\n' >> "$GIT_CALL_LOG"
+  const multilineKey = readFileSync(testKeyPath, 'utf8');
+  const validSerializations = [
+    ['multiline', multilineKey],
+    ['literal-newline', multilineKey.replace(/\n/g, '\\n')],
+    ['space-flattened', multilineKey.replace(/\n/g, ' ')],
+    ['fully-flattened', multilineKey.replace(/\s/g, '')],
+    ['base64-wrapped', Buffer.from(multilineKey, 'utf8').toString('base64')],
+  ] as const;
 
-case "\${1:-}" in
-  branch)
-    echo main
-    ;;
-  status|fetch)
-    ;;
-  rev-parse)
-    if [[ "$*" == *FETCH_HEAD* ]]; then
-      echo remote-new
-    else
-      echo local-old
-    fi
-    ;;
-  merge-base)
-    case "\${FAKE_GIT_SCENARIO:-remote-ahead}" in
-      remote-ahead)
-        # local-old is an ancestor of remote-new.
-        [[ "\${3:-}" == local-old && "\${4:-}" == remote-new ]] && exit 0
-        ;;
-      local-ahead)
-        # remote-new is an ancestor of local-old.
-        [[ "\${3:-}" == remote-new && "\${4:-}" == local-old ]] && exit 0
-        ;;
-      divergent)
-        # Neither commit is an ancestor of the other.
-        ;;
-    esac
-    exit 1
-    ;;
-  merge)
-    [[ "\${2:-}" == "--ff-only" && "\${3:-}" == "FETCH_HEAD" ]]
-    ;;
-  push|commit|add)
-    echo "UNEXPECTED MUTATION: $*" >&2
-    exit 99
-    ;;
-  *)
-    echo "Unexpected fake git call: $*" >&2
-    exit 98
-    ;;
-esac
-`;
-  const fakeSshKeyscan = `#!/usr/bin/env bash
-echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestHostKey"
+  const prepareAndCleanup = `
+set -euo pipefail
+source "$1"
+prepare_github_ssh "$TEST_KEY"
+key_file="$GITHUB_SSH_KEY_FILE"
+hosts_file="$GITHUB_KNOWN_HOSTS_FILE"
+test -f "$key_file"
+test -f "$hosts_file"
+ssh-keygen -y -f "$key_file" >/dev/null 2>&1
+cleanup_github_ssh
+test ! -e "$key_file"
+test ! -e "$hosts_file"
 `;
 
-  writeFileSync(join(dir, 'git'), fakeGit, { mode: 0o700 });
-  writeFileSync(join(dir, 'ssh-keyscan'), fakeSshKeyscan, { mode: 0o700 });
-  chmodSync(join(dir, 'git'), 0o700);
-  chmodSync(join(dir, 'ssh-keyscan'), 0o700);
-}
-
-function runReleaseScript(
-  scriptPath: string,
-  scenario: 'remote-ahead' | 'divergent' | 'local-ahead' = 'remote-ahead',
-): { status: number | null; output: string; calls: string } {
-  const tempDir = mkdtempSync(join(tmpdir(), 'holahola-github-release-test-'));
-  const callsPath = join(tempDir, 'git-calls.log');
-  try {
-    writeFakeTools(tempDir);
-    const result = spawnSync('bash', [scriptPath], {
+  for (const [label, serializedKey] of validSerializations) {
+    const result = spawnSync('bash', ['-c', prepareAndCleanup, 'bash', sshHelper], {
       cwd: root,
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        PATH: `${tempDir}:${process.env.PATH}`,
-        GIT_CALL_LOG: callsPath,
-        FAKE_GIT_SCENARIO: scenario,
-        // Deliberately not a real credential. It verifies escaped newline
-        // normalization and that script errors never echo private-key text.
-        HOLAHOLA_GITHUB_DEPLOY_KEY: '-----BEGIN OPENSSH PRIVATE KEY-----\\\\nprivate-test-material\\\\n-----END OPENSSH PRIVATE KEY-----',
-      },
+      env: { ...process.env, TEST_KEY: serializedKey },
     });
-    return {
-      status: result.status,
-      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-      calls: readFileSync(callsPath, 'utf8'),
-    };
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true });
+    assert.equal(
+      result.status,
+      0,
+      `${label} deploy-key serialization must normalize and clean up: ${result.stderr}`,
+    );
   }
-}
 
-function assertPhysicalOneLineKeyNormalizes(): void {
-  const tempDir = mkdtempSync(join(tmpdir(), 'holahola-github-key-normalization-test-'));
-  const privateKeyPath = join(tempDir, 'test-key');
-  try {
-    writeFakeTools(tempDir);
-    const keygen = spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', privateKeyPath], {
-      encoding: 'utf8',
-    });
-    assert.equal(keygen.status, 0, `could not create temporary key fixture: ${keygen.stderr}`);
+  const invalidSerializations = [
+    ['empty', '', /not set/i],
+    [
+      'invalid-payload-alphabet',
+      '-----BEGIN OPENSSH PRIVATE KEY-----\nnot@base64\n-----END OPENSSH PRIVATE KEY-----',
+      /invalid armored payload/i,
+    ],
+    [
+      'mismatched-armor',
+      '-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----',
+      /supported armored private key/i,
+    ],
+    [
+      'parse-invalid',
+      '-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----',
+      /could not be parsed/i,
+    ],
+  ] as const;
 
-    const oneLineKey = readFileSync(privateKeyPath, 'utf8').replace(/\r?\n/g, '');
-    const result = spawnSync('bash', ['-c', [
-      'source "$1"',
-      'prepare_github_ssh "$TEST_KEY"',
-      'ssh-keygen -y -f "$GITHUB_SSH_KEY_FILE" >/dev/null',
-      'cleanup_github_ssh',
-    ].join('; '), 'bash', sshHelperPath], {
+  const rejectAndProveCleanup = `
+set -uo pipefail
+source "$1"
+if prepare_github_ssh "$TEST_KEY"; then
+  exit 90
+fi
+test -z "\${GITHUB_SSH_KEY_FILE:-}"
+test -z "\${GITHUB_KNOWN_HOSTS_FILE:-}"
+`;
+
+  for (const [label, serializedKey, expectedError] of invalidSerializations) {
+    const result = spawnSync('bash', ['-c', rejectAndProveCleanup, 'bash', sshHelper], {
       cwd: root,
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        PATH: `${tempDir}:${process.env.PATH}`,
-        TEST_KEY: oneLineKey,
-      },
+      env: { ...process.env, TEST_KEY: serializedKey },
     });
-    assert.equal(result.status, 0, `physical one-line key must normalize safely: ${result.stderr}`);
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true });
+    assert.equal(result.status, 0, `${label} deploy-key input must fail closed and clean up`);
+    assert.match(result.stderr, expectedError, `${label} must report a safe actionable error`);
+    assert.doesNotMatch(result.stderr, /BEGIN .*PRIVATE KEY/, `${label} must not log key material`);
   }
+} finally {
+  rmSync(tempDir, { recursive: true, force: true });
 }
 
-function assertNoMutation(calls: string): void {
-  assert.doesNotMatch(calls, /^(push|commit|add)\b/m, `refusal path must not write or push:\n${calls}`);
-}
-
-function main(): void {
-  assertReleaseSources();
-  assertHostKeyRefreshCheck();
-  assertPhysicalOneLineKeyNormalizes();
-
-  const remoteAhead = runReleaseScript(syncToPath);
-  assert.notEqual(remoteAhead.status, 0, 'sync-to must fail when GitHub has a newer branch');
-  assert.match(remoteAhead.output, /GitHub is ahead of Replit/, 'sync-to must explain its safe refusal');
-  assert.doesNotMatch(remoteAhead.output, /private-test-material/, 'sync-to must never print key material');
-  assertNoMutation(remoteAhead.calls);
-
-  const divergentPush = runReleaseScript(syncToPath, 'divergent');
-  assert.notEqual(divergentPush.status, 0, 'sync-to must fail when histories diverge');
-  assert.match(divergentPush.output, /have diverged/, 'sync-to must explain a divergent-history refusal');
-  assertNoMutation(divergentPush.calls);
-
-  const fastForward = runReleaseScript(syncFromPath);
-  assert.equal(fastForward.status, 0, `sync-from should accept a clean fast-forward:\n${fastForward.output}`);
-  assert.match(fastForward.calls, /^merge --ff-only FETCH_HEAD/m, 'sync-from must use an explicit fast-forward merge');
-  assert.doesNotMatch(fastForward.calls, /^push\b/m, 'sync-from must never push');
-
-  const localAheadPull = runReleaseScript(syncFromPath, 'local-ahead');
-  assert.notEqual(localAheadPull.status, 0, 'sync-from must fail rather than move Replit backward');
-  assert.match(localAheadPull.output, /ahead of GitHub/, 'sync-from must explain a local-ahead refusal');
-  assertNoMutation(localAheadPull.calls);
-
-  const divergentPull = runReleaseScript(syncFromPath, 'divergent');
-  assert.notEqual(divergentPull.status, 0, 'sync-from must fail when histories diverge');
-  assert.match(divergentPull.output, /have diverged/, 'sync-from must explain a divergent-history refusal');
-  assertNoMutation(divergentPull.calls);
-
-  console.log('GitHub release safety checks passed.');
-}
-
-main();
+console.log('GitHub release transport safety checks passed.');

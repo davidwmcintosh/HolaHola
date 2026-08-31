@@ -14,8 +14,9 @@
 import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, readdirSync, renameSync, openSync, closeSync, unlinkSync } from 'fs';
 import { createHash } from 'crypto';
 import { join } from 'path';
+import { ensureCaptureWorkspaceWritable, workspaceResolution } from './workspace-root';
 
-export const WORKSPACE        = '/home/runner/workspace';
+export const WORKSPACE        = workspaceResolution.root;
 export const TRANSCRIPT_DIR   = join(WORKSPACE, '.local/state/replit/agent/transcript');
 export const CURSOR_PATH      = join(WORKSPACE, '.local/.transcript_cursor.json');
 
@@ -678,6 +679,10 @@ export function appendChatCaptureTurnsAtomic(
   _pathOverride?: string,
 ): void {
   if (turns.length === 0) return;
+  // Test streams are explicitly isolated. Production capture must prove that
+  // the resolved project workspace can own .local before any dialogue bytes
+  // are appended.
+  if (!_pathOverride) ensureCaptureWorkspaceWritable();
   const blocks = turns.map(turn =>
     serializeChatCaptureTurn(turn.speaker, turn.text, turn.captureId, turn.source),
   );

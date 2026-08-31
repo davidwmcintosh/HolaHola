@@ -51,6 +51,7 @@ import { getSharedDb } from "../db";
 import { getLatestPedagogicalBrief } from "./pedagogical-brief-worker";
 import { getMasteryDigest } from "./mastery-evidence-worker";
 import { getAdvisoryGoal } from "./pathfinder-service";
+import { excludesOperationalMemories } from "./daniela-memory-boundary";
 
 const SYNTHESIS_MODEL = "gemini-3-flash-preview";
 const SYNTHESIS_MODEL_CACHED = "gemini-2.5-flash";
@@ -677,7 +678,8 @@ export async function generatePreSessionSynthesis(
           .from(danielaSelfReflections)
           .where(and(
             eq(danielaSelfReflections.userId, userId),
-            eq(danielaSelfReflections.source, 'self'), // only Daniela's own voice, not hive-injected
+            eq(danielaSelfReflections.source, 'self'),
+            excludesOperationalMemories(danielaSelfReflections.tags),
           ))
           .orderBy(desc(danielaSelfReflections.createdAt))
           .limit(3);

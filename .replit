@@ -34,9 +34,6 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Source bridge"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -66,16 +63,6 @@ author = "agent"
 task = "shell.exec"
 args = "bash scripts/start-application.sh"
 
-[[workflows.workflow]]
-name = "Source bridge"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash scripts/source-bridge-supervisor.sh"
 
 [[workflows.workflow]]
 name = "Validation suite"

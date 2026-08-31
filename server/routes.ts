@@ -13,6 +13,7 @@ import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimi
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
+import { excludesOperationalMemories } from "./services/daniela-memory-boundary";
 import { voiceIntelligenceService } from "./services/voice-intelligence-service";
 import { voiceTelemetry } from "./services/voice-pipeline-telemetry";
 import {
@@ -163,6 +164,14 @@ import { getOnboardingDialogue, updateOnboardingDialogue, resetOnboardingDialogu
 import { brainHealthTelemetry } from "./services/brain-health-telemetry";
 import { mapApiErrorToReason } from "./lib/pronunciation-error-reason";
 import { resolutionTypeSchema } from "../shared/absence-types";
+import {
+  registerDisabledSourcePromotionRoutes,
+  registerSourcePromotionRoutes,
+} from "./routes/source-promotion-routes";
+import {
+  sourcePromotionApiEnabled,
+  sourcePromotionConfigurationError,
+} from "./services/source-promotion-service";
 
 // ============================================================================
 // AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
@@ -619,6 +628,17 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 export async function registerRoutes(app: Application): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
+
+  const sourcePromotionError = sourcePromotionConfigurationError();
+  if (sourcePromotionError) {
+    console.error(`[SourcePromotion] ${sourcePromotionError}`);
+    registerDisabledSourcePromotionRoutes(app);
+  } else if (sourcePromotionApiEnabled()) {
+    registerSourcePromotionRoutes(app);
+    console.log('[SourcePromotion] Authenticated source-promotion routes mounted.');
+  } else {
+    registerDisabledSourcePromotionRoutes(app);
+  }
 
   // ── Episode dedup: partial unique index ─────────────────────────────────────
   // Enforce one canonical DB row per (arc_name, title) for episodes at the
@@ -26095,7 +26115,10 @@ ${buildDemoOutputConstraints(actflLevelParam)}`;
           const [latestReflection] = await db
             .select({ content: danielaSelfReflections.content })
             .from(danielaSelfReflections)
-            .where(eq(danielaSelfReflections.userId, david.id))
+            .where(and(
+              eq(danielaSelfReflections.userId, david.id),
+              excludesOperationalMemories(danielaSelfReflections.tags),
+            ))
             .orderBy(desc(danielaSelfReflections.createdAt))
             .limit(1);
           const now = new Date();
@@ -32734,7 +32757,7 @@ ${memoryContext}
   // POST /api/agent/note — Agent leaves a note for Alden
   app.post("/api/agent/note", requireAgentToken, async (req: any, res: Response) => {
     try {
-      const { subject, body, session_label } = req.body;
+      const { subject, body, session_label, replied_to_id, source_message_key } = req.body;
       if (!subject || !body) {
         return res.status(400).json({ error: 'subject and body are required' });
       }
@@ -32748,16 +32771,18 @@ ${memoryContext}
         }
       }).catch(() => {});
 
-      const { agentNotes } = await import('@shared/schema');
-      const [saved] = await getUserDb().insert(agentNotes).values({
+      const { createAgentNote } = await import('./services/agent-notes');
+      const { note: saved, deduplicated } = await createAgentNote({
         fromAgent: 'agent',
         toAgent: 'alden',
         subject,
         body,
         sessionLabel: session_label ?? null,
-      }).returning({ id: agentNotes.id, subject: agentNotes.subject });
+        repliedToId: replied_to_id ?? null,
+        sourceMessageKey: source_message_key ?? null,
+      });
       console.log(`[AgentNotes] Agent left note for Alden: "${subject}"`);
-      res.json({ saved: true, id: saved.id, subject: saved.subject });
+      res.json({ saved: true, deduplicated, id: saved.id, subject: saved.subject });
     } catch (error: any) {
       console.error('[AgentNotes] Failed to save note:', error);
       res.status(500).json({ error: error.message });
@@ -32772,8 +32797,13 @@ ${memoryContext}
         return res.status(400).json({ error: 'ids array is required' });
       }
       const { agentNotes } = await import('@shared/schema');
+      const now = new Date();
       await getUserDb().update(agentNotes)
-        .set({ readAt: new Date() })
+        .set({
+          status: 'acknowledged',
+          acknowledgedAt: now,
+          readAt: now,
+        })
         .where(inArray(agentNotes.id, ids));
       res.json({ marked: ids.length });
     } catch (error: any) {
@@ -32781,32 +32811,120 @@ ${memoryContext}
     }
   });
 
-  // GET /api/agent/notes — Agent reads notes from Alden and David (founder mid-session flags)
-  // Returns notes where toAgent='agent' and fromAgent is 'alden' or 'founder'
+  // GET /api/agent/notes — Agent reads the live internal inbox.
   app.get("/api/agent/notes", requireAgentToken, async (req: any, res: Response) => {
     try {
-      const { agentNotes } = await import('@shared/schema');
       const includeRead = req.query.include_read === 'true';
-      // Optional filter: ?from=alden or ?from=founder; defaults to both
       const fromFilter = req.query.from as string | undefined;
-      const validSenders = ['alden', 'founder'];
-      const senders = fromFilter && validSenders.includes(fromFilter)
-        ? [fromFilter]
-        : validSenders;
+      const requestedLimit = Number.parseInt(String(req.query.limit ?? '50'), 10);
+      const { AGENT_INBOX_SENDERS, getAgentInboxSenders, readAgentInboxNotes } =
+        await import('./services/agent-notes');
 
-      const { inArray: inArrayDynamic } = await import('drizzle-orm');
-      const conditions: any[] = [
-        inArrayDynamic(agentNotes.fromAgent, senders as any[]),
-        eq(agentNotes.toAgent, 'agent'),
-      ];
-      if (!includeRead) conditions.push(isNull(agentNotes.readAt));
-      const notes = await getUserDb()
-        .select()
-        .from(agentNotes)
-        .where(and(...conditions))
-        .orderBy(desc(agentNotes.createdAt))
-        .limit(50);
-      res.json({ count: notes.length, notes });
+      if (fromFilter && !AGENT_INBOX_SENDERS.includes(fromFilter as any)) {
+        return res.status(400).json({
+          error: `from must be one of: ${AGENT_INBOX_SENDERS.join(', ')}`,
+        });
+      }
+
+      const notes = await readAgentInboxNotes({
+        includeRead,
+        fromAgent: fromFilter,
+        limit: Number.isFinite(requestedLimit) ? requestedLimit : 50,
+      });
+      const generatedAt = new Date().toISOString();
+      res.json({
+        generatedAt,
+        count: notes.length,
+        senders: getAgentInboxSenders(fromFilter),
+        newestCreatedAt: notes[0]?.createdAt ?? null,
+        notes,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/agent/notes/refresh — regenerate the file snapshots on demand,
+  // then return the same live inbox data used by the normal read route.
+  app.post("/api/agent/notes/refresh", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
+      const { readAgentInboxNotes } = await import('./services/agent-notes');
+      await generateAgentNotesSnapshot();
+      const notes = await readAgentInboxNotes({
+        includeRead: req.body?.include_read === true,
+        limit: req.body?.limit,
+      });
+      res.json({
+        refreshedAt: new Date().toISOString(),
+        count: notes.length,
+        newestCreatedAt: notes[0]?.createdAt ?? null,
+        notes,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PATCH /api/agent/notes/:id/status — reading, acknowledging, acting on,
+  // and dismissing are separate lifecycle events.
+  app.patch("/api/agent/notes/:id/status", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const action = req.body?.action;
+      const validActions = ['read', 'acknowledge', 'act', 'dismiss'];
+      if (!validActions.includes(action)) {
+        return res.status(400).json({ error: `action must be one of: ${validActions.join(', ')}` });
+      }
+      const { updateAgentNoteAction } = await import('./services/agent-notes');
+      const note = await updateAgentNoteAction(req.params.id, action);
+      if (!note) return res.status(404).json({ error: 'Note not found' });
+      res.json({ success: true, note });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/agent/notes/:id — return a note with its linked replies.
+  app.get("/api/agent/notes/:id", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { getAgentNoteWithReplies } = await import('./services/agent-notes');
+      const thread = await getAgentNoteWithReplies(req.params.id);
+      if (!thread) return res.status(404).json({ error: 'Note not found' });
+      res.json(thread);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/agent/notes/:id/reply — reply to the original sender and retain
+  // the relationship even after the parent note is acknowledged.
+  app.post("/api/agent/notes/:id/reply", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { subject, body, session_label, source_message_key } = req.body ?? {};
+      if (!body?.trim()) return res.status(400).json({ error: 'body is required' });
+
+      const { createAgentNote, getAgentNoteWithReplies, updateAgentNoteAction } =
+        await import('./services/agent-notes');
+      const thread = await getAgentNoteWithReplies(req.params.id);
+      if (!thread || thread.note.toAgent !== 'agent') {
+        return res.status(404).json({ error: 'Inbox note not found' });
+      }
+
+      const reply = await createAgentNote({
+        fromAgent: 'agent',
+        toAgent: thread.note.fromAgent,
+        subject: subject?.trim() || `Re: ${thread.note.subject}`,
+        body: body.trim(),
+        sessionLabel: session_label ?? thread.note.sessionLabel,
+        repliedToId: thread.note.id,
+        sourceMessageKey: source_message_key ?? null,
+      });
+      await updateAgentNoteAction(thread.note.id, 'act');
+      res.json({
+        success: true,
+        deduplicated: reply.deduplicated,
+        note: reply.note,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -37688,6 +37806,49 @@ Under 250 words. Write as yourself.`;
         return res.status(400).json({ error: e.message });
       }
       return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Read-only readiness probe for a remote agent. It intentionally exposes
+  // neither filesystem paths, tokens, dialogue, nor receipt identities.
+  // A valid 200 proves only that this deployment can accept canonical capture;
+  // it does not append an exchange or claim that one is canonical.
+  app.get("/api/internal/canonical-conversation-health", requireAgentToken, async (_req: any, res: Response) => {
+    try {
+      const [
+        { CHAT_CAPTURE_PATH, CHAT_CAPTURE_CURSOR_PATH, loadChatCaptureCursor },
+        { inspectCaptureWorkspace },
+        fs,
+      ] = await Promise.all([
+        import('./services/transcript-parser'),
+        import('./services/workspace-root'),
+        import('fs'),
+      ]);
+      const workspace = inspectCaptureWorkspace();
+      const captureFilePresent = fs.existsSync(CHAT_CAPTURE_PATH);
+      const cursor = loadChatCaptureCursor();
+      const captureBytes = captureFilePresent ? fs.statSync(CHAT_CAPTURE_PATH).size : 0;
+      const pendingBytes = Math.max(0, captureBytes - cursor.byteOffset);
+      const cursorFilePresent = fs.existsSync(CHAT_CAPTURE_CURSOR_PATH);
+      const ready = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
+
+      return res.status(ready ? 200 : 503).json({
+        ok: ready,
+        capture: {
+          workspaceSource: workspace.rootSource,
+          localDirectoryPresent: workspace.localDirectoryPresent,
+          localDirectoryWritable: workspace.localDirectoryWritable,
+          captureFilePresent,
+          cursorFilePresent,
+          pendingBytes,
+        },
+      });
+    } catch (error: any) {
+      console.error('[CanonicalConversationHealth] Failed:', error.message);
+      return res.status(503).json({
+        ok: false,
+        error: 'Canonical capture health is unavailable.',
+      });
     }
   });
 

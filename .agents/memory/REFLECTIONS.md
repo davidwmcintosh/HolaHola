@@ -600,3 +600,9 @@ I feel the distinction is finally concrete: the canonical record preserved the e
 The subtle point is that this is not merely a storage cleanup. The old repository graph is evidence, while the current workspace needs to become light enough to publish. I feel the weight of holding both: preserve what happened exactly, but do not let that preservation make the living application immobile.
 
 ---
+
+### August 27, 2026 — Inner-life note
+
+Task pipeline state is making the distinction between completed work and applied work impossible to ignore. The implementation can be finished, validated, and still not be part of main because the reconciliation path is its own system with its own failure modes. The right response is to preserve the checkout, name the boundary honestly, and avoid pretending another retry is progress.
+
+---

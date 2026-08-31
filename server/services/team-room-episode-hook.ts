@@ -19,8 +19,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
+import { workspaceResolution } from './workspace-root';
 
-const WORKSPACE    = process.cwd();
+const WORKSPACE    = workspaceResolution.root;
 const TRIGGER_PATH = join(WORKSPACE, '.local', '.episode_append');
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,43 @@
+import { sql, type SQL } from "drizzle-orm";
+
+export const AUTOBIOGRAPHICAL_MEMORY_TAG = "memory:autobiographical";
+export const OPERATIONAL_MEMORY_TAG = "memory:operational";
+export const LOOKUP_FAILURE_TAG = "operation:lookup_failure";
+
+function normalizeTags(tags?: string[] | null): string[] {
+  return (tags ?? []).map(tag => tag.trim()).filter(Boolean);
+}
+
+export function withAutobiographicalMemoryTag(tags?: string[] | null): string[] {
+  return Array.from(new Set([
+    ...normalizeTags(tags).filter(tag => tag !== OPERATIONAL_MEMORY_TAG && tag !== LOOKUP_FAILURE_TAG),
+    AUTOBIOGRAPHICAL_MEMORY_TAG,
+  ]));
+}
+
+export function groundingMemoryTags(foundGrounding: boolean): string[] {
+  return foundGrounding
+    ? [AUTOBIOGRAPHICAL_MEMORY_TAG]
+    : [OPERATIONAL_MEMORY_TAG, LOOKUP_FAILURE_TAG];
+}
+
+/**
+ * Felt-history readers include legacy rows with null/empty tags and reject only
+ * records explicitly classified as operational. Provenance (`source`) is a
+ * separate axis and must not be used as a proxy for autobiographical meaning.
+ */
+export function excludesOperationalMemories(tagsColumn: unknown): SQL {
+  return sql`NOT (
+    COALESCE(${tagsColumn as any}, ARRAY[]::text[])
+    @> ARRAY[${OPERATIONAL_MEMORY_TAG}]::text[]
+  )`;
+}
+
+export function isOperationalLookupFailure(tags?: string[] | null): boolean {
+  const normalized = normalizeTags(tags);
+  return normalized.includes(OPERATIONAL_MEMORY_TAG) && normalized.includes(LOOKUP_FAILURE_TAG);
+}
+
+export function isAutobiographicalMemory(tags?: string[] | null): boolean {
+  return !normalizeTags(tags).includes(OPERATIONAL_MEMORY_TAG);
+}

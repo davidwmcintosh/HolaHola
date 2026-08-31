@@ -3435,12 +3435,18 @@ export type DiaryEntry = typeof danielaDiaryEntries.$inferSelect;
 // ─── Daniela Self-Reflections ─────────────────────────────────────────────────
 // Private, append-only notes Daniela writes to her future self.
 // NOT about student learning — about her felt experience, relational strategies.
-// source='self' = private thought; source='hive' = note from Hive collaboration.
+// `source` preserves provenance (`self`, `hive`, `grounding_query`); it does not
+// decide whether a row belongs to felt history. Reserved tags provide that
+// independent classification:
+//   memory:autobiographical = lived/intentional reflection
+//   memory:operational + operation:lookup_failure = server-owned failed lookup
+// Legacy rows remain verbatim and unclassified; readers exclude only rows with
+// the explicit memory:operational tag.
 export const danielaSelfReflections = pgTable("daniela_self_reflections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text("content").notNull(),
-  source: varchar("source", { length: 20 }).notNull().default('self'), // 'self' | 'hive'
+  source: varchar("source", { length: 20 }).notNull().default('self'), // provenance: 'self' | 'hive' | 'grounding_query'
   sessionId: varchar("session_id"),
   mood: varchar("mood", { length: 50 }),
   tags: text("tags").array(),
@@ -7630,6 +7636,13 @@ export type AgentOpenQuestion = typeof agentOpenQuestions.$inferSelect;
 // Agent reads via docs/alden-to-agent.md snapshot (generated at server start).
 // Alden reads via read_agent_notes tool.
 
+export const agentNoteStatusEnum = pgEnum('agent_note_status', [
+  'unread',
+  'acknowledged',
+  'acted_on',
+  'dismissed',
+]);
+
 export const agentNotes = pgTable("agent_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   fromAgent: varchar("from_agent", { length: 20 }).notNull(), // 'agent' | 'alden'
@@ -7638,10 +7651,27 @@ export const agentNotes = pgTable("agent_notes", {
   body: text("body").notNull(),
   sessionLabel: varchar("session_label", { length: 300 }),    // e.g. "Build session March 17 — Phase 2 canvas"
   readAt: timestamp("read_at"),                               // null = unread
+  status: agentNoteStatusEnum("status").notNull().default('unread'),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  actedOnAt: timestamp("acted_on_at"),
+  dismissedAt: timestamp("dismissed_at"),
+  inReplyToId: varchar("in_reply_to_id", { length: 255 }),
+  sourceMessageKey: varchar("source_message_key", { length: 255 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  inboxIdx: index("idx_agent_notes_inbox").on(table.toAgent, table.status, table.createdAt),
+  sourceMessageKeyIdx: uniqueIndex("idx_agent_notes_source_message_key").on(table.sourceMessageKey),
+}));
 
-export const insertAgentNoteSchema = createInsertSchema(agentNotes).omit({ id: true, createdAt: true, readAt: true });
+export const insertAgentNoteSchema = createInsertSchema(agentNotes).omit({
+  id: true,
+  createdAt: true,
+  readAt: true,
+  status: true,
+  acknowledgedAt: true,
+  actedOnAt: true,
+  dismissedAt: true,
+});
 export type InsertAgentNote = z.infer<typeof insertAgentNoteSchema>;
 export type AgentNote = typeof agentNotes.$inferSelect;
 

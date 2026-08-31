@@ -21,6 +21,7 @@
 
 const fs = require('fs');
 const http = require('http');
+const path = require('path');
 const { execFileSync } = require('child_process');
 
 const MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
@@ -28,6 +29,7 @@ const INITIAL_WAIT_MS = 14000;   // tsx typically restarts within 8-12 seconds
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_MS = 35000;       // Total post-initial polling window
 const GUARDIAN_TOKEN = 'alden-guardian-internal-2024';
+const SOURCE_CONTROL_RESULT_PREFIX = 'SOURCE_CONTROL_RESULT_JSON:';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -69,20 +71,27 @@ function restoreBackups(backups) {
   return { restored, errors };
 }
 
-function syncToGithub(featureName, cwd) {
+function requestSourceControlSync(cwd) {
   try {
-    const commitMsg = `[FEATURE] ${featureName}`;
-    execFileSync('bash', ['scripts/sync-to-github.sh', commitMsg], {
+    const cliPath = path.join(cwd, 'server/scripts/source-control-cli.ts');
+    const output = execFileSync(process.execPath, ['--import', 'tsx', cliPath, 'sync', '--actor', 'alden-build-guardian', '--machine-readable'], {
       cwd,
       timeout: 60000,
       encoding: 'utf-8',
       env: { ...process.env },
     });
-    console.log(`[Guardian] GitHub synced: ${commitMsg}`);
-    return { synced: true };
+    const resultLine = output
+      .split(/\r?\n/)
+      .findLast((line) => line.startsWith(SOURCE_CONTROL_RESULT_PREFIX));
+    if (!resultLine) {
+      throw new Error('Source-control CLI did not emit a machine-readable result.');
+    }
+    const result = JSON.parse(resultLine.slice(SOURCE_CONTROL_RESULT_PREFIX.length));
+    console.log(`[Guardian] Source-control state: ${result.state}`);
+    return { synced: result.ok === true, error: result.error || null };
   } catch (err) {
     const msg = err.message?.substring(0, 300) || 'Unknown error';
-    console.error('[Guardian] GitHub sync failed:', msg);
+    console.error('[Guardian] Source-control request failed:', msg);
     return { synced: false, error: msg };
   }
 }
@@ -164,7 +173,7 @@ async function main() {
     let synced = false;
     let githubError = null;
     if (mode !== 'auto-repair') {
-      const syncResult = syncToGithub(featureName, cwd);
+      const syncResult = requestSourceControlSync(cwd);
       synced = syncResult.synced;
       githubError = syncResult.error || null;
     }

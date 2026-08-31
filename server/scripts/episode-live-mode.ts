@@ -29,8 +29,9 @@
 
 import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { ensureCaptureWorkspaceWritable, workspaceResolution } from '../services/workspace-root';
 
-const WORKSPACE       = process.env.REPL_HOME ?? process.cwd();
+const WORKSPACE       = workspaceResolution.root;
 const LIVE_PATH       = join(WORKSPACE, '.local/.episode_live');
 const STATUS_PATH     = join(WORKSPACE, '.local/episode-capture-status.md');
 
@@ -48,6 +49,7 @@ if (!arg || arg === 'status') {
 }
 
 if (arg === 'on') {
+  ensureCaptureWorkspaceWritable();
   writeFileSync(LIVE_PATH, '', 'utf-8');
   console.log('🟢 Live mode ON — .chat_capture turns will auto-route to the rolling episode .md.');
   console.log('   The autosave worker picks this up on its next poll cycle (~20s).');

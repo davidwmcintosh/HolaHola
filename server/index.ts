@@ -21,6 +21,10 @@ import { supportPersonaService } from "./services/support-persona-service";
 import { warmupNeonPool } from "./neon-db";
 import { runProxyStartupChecks } from "./services/proxy-startup-check";
 import { healthProbeGuardMiddleware } from "./health-probe-guard";
+import {
+  startSourceControlScheduler,
+  stopSourceControlScheduler,
+} from "./services/source-control-scheduler";
 
 const app = express();
 
@@ -609,6 +613,8 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
 
+    startSourceControlScheduler();
+
     // Browser-dependent diagnostics are optional to server startup, but the
     // capability state must be explicit so local development can repair it.
     try {
@@ -839,7 +845,7 @@ app.use((req, res, next) => {
       startSharedLobeWatcher();
     }, 46000);
 
-    // +47s: Agent Notes Snapshot — regenerate docs/alden-to-agent.md from unread Alden→Agent notes
+    // +47s: Agent Notes Snapshot — regenerate live internal inbox snapshots
     setTimeout(async () => {
       const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
       await generateAgentNotesSnapshot();
@@ -1146,6 +1152,7 @@ app.use((req, res, next) => {
       }
 
       // 4. Close database pools (both primary db.ts and neon-db.ts)
+      stopSourceControlScheduler();
       try {
         const { closeDbConnections } = await import('./db');
         await closeDbConnections();

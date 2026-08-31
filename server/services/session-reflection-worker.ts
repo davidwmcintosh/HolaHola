@@ -35,6 +35,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { getSharedDb } from "../db";
 import { sql, eq, and, desc } from "drizzle-orm";
+import {
+  AUTOBIOGRAPHICAL_MEMORY_TAG,
+  excludesOperationalMemories,
+} from "./daniela-memory-boundary";
 
 const REFLECTION_MODEL = "gemini-3-flash-preview";
 const REFLECTION_MAX_TOKENS = 300;
@@ -77,6 +81,7 @@ export async function schedulePendingReflectionIfMissing(
         and(
           eq(danielaSelfReflections.userId, userId),
           eq(danielaSelfReflections.sessionId, sessionId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
         ),
       )
       .limit(1);
@@ -299,7 +304,7 @@ Rules:
         source: "self",
         sessionId: pending.sessionId ?? undefined,
         mood: "deferred",
-        tags: ["deferred-reflection", "session-drop", language],
+        tags: [AUTOBIOGRAPHICAL_MEMORY_TAG, "deferred-reflection", "session-drop", language],
       })
       .returning({ id: danielaSelfReflections.id });
 
@@ -354,6 +359,7 @@ export async function generateReflectionNow(
         and(
           eq(danielaSelfReflections.userId, userId),
           eq(danielaSelfReflections.sessionId, sessionId),
+          excludesOperationalMemories(danielaSelfReflections.tags),
         ),
       )
       .limit(1);
@@ -465,7 +471,7 @@ Rules:
         source: "self",
         sessionId,
         mood: "reflective",
-        tags: ["session_close", language],
+        tags: [AUTOBIOGRAPHICAL_MEMORY_TAG, "session_close", language],
       })
       .returning({ id: danielaSelfReflections.id });
 

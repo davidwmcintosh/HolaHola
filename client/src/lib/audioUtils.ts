@@ -1088,10 +1088,6 @@ export class StreamingAudioPlayer {
     // These chunks have 0 audio data but signal sentence completion
     if (numSamples === 0) {
       if (isLast) {
-        const entry = this.sentenceSchedule.get(sentenceIndex);
-        if (entry) {
-          entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
-        }
         // TRAILING SILENCE: safety net for near-empty chunks (1-3 bytes, truncated to 0 samples)
         if (ctx.state === 'running' && this.progressiveScheduledTime > ctx.currentTime) {
           const TRAILING_SEC = 0.3;
@@ -1102,6 +1098,13 @@ export class StreamingAudioPlayer {
           silenceSource.connect(this.getMasterGain());
           silenceSource.start(this.progressiveScheduledTime);
           this.progressiveScheduledTime += TRAILING_SEC;
+        }
+        // Keep the timing boundary after the fallback silence just like the
+        // normal empty-marker path. Otherwise playback_ended can fire 300ms
+        // early and reopen the mic while the tail is still scheduled.
+        const entry = this.sentenceSchedule.get(sentenceIndex);
+        if (entry) {
+          entry.endCtxTime = this.progressiveScheduledTime;
         }
         this.scheduleProgressiveSentenceEnd(sentenceIndex, 0);
       }

@@ -64,6 +64,10 @@ import { commandParserService, ParsedCommand } from "./command-parser";
 import { usageService } from "./usage-service";
 import { TtsDispatcher } from "./tts-dispatcher";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
+import {
+  excludesOperationalMemories,
+  withAutobiographicalMemoryTag,
+} from "./daniela-memory-boundary";
 import { PostResponseEnrichmentService } from "./post-response-enrichment";
 import { buildFatContext, FAT_CONTEXT_ENABLED } from "./fat-context-service";
 import { ensureTrailingPunctuation } from './voice-text-utils';
@@ -3942,7 +3946,9 @@ Remember: David may reference things discussed in these recent text chats.
                         source: 'self',
                         sessionId: session.id,
                         mood: cmd.params.mood as string | undefined,
-                        tags: cmd.params.tags ? (cmd.params.tags as string).split(',').map((t: string) => t.trim()) : undefined,
+                        tags: withAutobiographicalMemoryTag(
+                          cmd.params.tags ? (cmd.params.tags as string).split(',') : undefined,
+                        ),
                       });
                       console.log(`[CommandParser→WriteToSelf] ✓ Saved`);
                     })().catch(err => console.error(`[CommandParser→WriteToSelf] Error:`, err.message));
@@ -3957,7 +3963,10 @@ Remember: David may reference things discussed in these recent text chats.
                     const { danielaSelfReflections } = await import('@shared/schema');
                     const { eq, desc, and } = await import('drizzle-orm');
                     if (!session.userId) break;
-                    const conditions: any[] = [eq(danielaSelfReflections.userId, String(session.userId))];
+                    const conditions: any[] = [
+                      eq(danielaSelfReflections.userId, String(session.userId)),
+                      excludesOperationalMemories(danielaSelfReflections.tags),
+                    ];
                     if (rflSource && rflSource !== 'all') conditions.push(eq(danielaSelfReflections.source, rflSource));
                     const rows = await getSharedDb().select().from(danielaSelfReflections)
                       .where(conditions.length === 1 ? conditions[0] : and(...conditions))

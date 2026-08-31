@@ -328,3 +328,9 @@ The next test should be a real production /chat with Daniela after the publish, 
 What is the smallest reversible checkout transition that keeps the guarded source bridge truthful after the historical graph moves into verified private storage?
 
 ---
+
+### August 27, 2026 — Inner-life note
+
+What is the smallest reversible handoff that lets a completed task release its merge lock without asking the next task or the main agent to mutate an uncertain checkout?
+
+---

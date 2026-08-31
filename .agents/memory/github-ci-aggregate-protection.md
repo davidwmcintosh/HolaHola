@@ -14,4 +14,6 @@ internal names separately makes future parallelization or job renaming brittle.
 **How to apply:** Keep the aggregate job `if: always()` with every test group
 in `needs`, and make its result fail closed for any non-success dependency.
 When changing workflow job names, preserve the protected `test` context
-attached to the GitHub Actions app.
+attached to the GitHub Actions app. The repository's active main ruleset also
+requires pull-request-only squash merges, linear history, and forbids direct
+pushes; check it before attempting to publish local main.

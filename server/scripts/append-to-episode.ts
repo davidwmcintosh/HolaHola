@@ -33,6 +33,9 @@
 import { writeFileSync, readFileSync, existsSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { neon } from '@neondatabase/serverless';
+import { workspaceResolution } from '../services/workspace-root';
+
+const WORKSPACE = workspaceResolution.root;
 
 // ---------------------------------------------------------------------------
 // Parse CLI args
@@ -107,7 +110,6 @@ async function readStdin(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 async function directAppendAndSync(exchange: string, filename: string): Promise<void> {
-  const WORKSPACE = process.cwd();
   const DOCS_DIR  = join(WORKSPACE, 'docs');
   const filePath  = join(DOCS_DIR, filename);
 
@@ -187,7 +189,6 @@ function episodeSummaryFromContent(content: string): string {
 // ---------------------------------------------------------------------------
 
 function triggerAppend(exchange: string, episodeName: string): void {
-  const WORKSPACE = process.cwd();
   const triggerPath = join(WORKSPACE, '.local', '.episode_append');
 
   // When episodeName is empty the watcher auto-detects the rolling episode from DB.
