@@ -200,13 +200,19 @@ While reading, also scan for **forward plans and agreements** — anything David
 
 ## Schema Change Rules
 
+> Full rules on Neon branching itself: `.agents/skills/neon-branch/SKILL.md` and
+> `docs/superpowers/specs/2026-08-30-neon-branch-migration-workflow-design.md`.
+
 1. **Update `shared/schema.ts` first** — this is the source of truth for all table definitions.
 2. **Generate a migration artifact** with `npx drizzle-kit generate`, then review the new SQL file in `migrations/`.
-3. **Run `npx drizzle-kit migrate`** to apply only the reviewed, committed artifact to the shared Neon database.
-4. **Backfill existing rows** if adding non-nullable columns without a default.
-5. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
+3. **Prove it on an isolated branch** with `npm run db:branch -- gate` — creates a disposable Neon branch off `production`, applies the migration there, runs the `test:ci:*` groups against it, and reports `READY_TO_PROMOTE` or the exact failure. The branch is deleted either way; nothing here touches the shared database.
+4. **Only on a pass, run `npx drizzle-kit migrate`** to apply the reviewed, gate-proven artifact to the shared Neon database for real.
+5. **Backfill existing rows** if adding non-nullable columns without a default.
+6. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
 
-> **Critical:** The shared Neon database is used by BOTH development and production. A schema push affects both environments immediately. There is no separate dev/prod database.
+> **Critical:** The shared Neon database is used by BOTH development and production. A schema push affects both environments immediately. There is no separate dev/prod database — which is exactly why step 3 exists: it gives you the safety of a throwaway dev database without actually having one.
+
+For any exploratory coding, seed script, or backfill that isn't a formal schema migration but still shouldn't touch live data: use `npm run db:branch -- create <name>` for your own isolated branch instead of running it against `NEON_SHARED_DATABASE_URL`. See `.agents/skills/neon-branch/SKILL.md`.
 
 ---
 

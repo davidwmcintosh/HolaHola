@@ -13,8 +13,9 @@ same shared instructions rather than maintaining a second identity/context copy.
 
 ## Run & Operate
 - **Run:** `npm run dev` · **Build:** `npm run build` · **Typecheck:** `npm run check`
-- **Schema changes (NEW workflow):** `npx drizzle-kit generate` → review `./migrations/<tag>.sql` → `npx drizzle-kit migrate`
+- **Schema changes (NEW workflow):** `npx drizzle-kit generate` → review `./migrations/<tag>.sql` → `npm run db:branch -- gate` (proves it on a disposable Neon branch) → `npx drizzle-kit migrate`
 - **Do NOT use `npm run db:push` / `drizzle-kit push` anymore** — it bypasses the migration artifact and applies directly to the shared prod DB with no review step.
+- **Need an isolated database for anything else** (seed script, data experiment, a feature that shouldn't touch live data)? `npm run db:branch -- create <name>` instead of running it against `NEON_SHARED_DATABASE_URL`. See `.agents/skills/neon-branch/SKILL.md`.
 - **Critical env vars:** `NEON_SHARED_DATABASE_URL` (shared dev+prod DB), `GEMINI_API_KEY`, `DEEPGRAM_API_KEY`, `GOOGLE_TTS_API_KEY`, `CARTESIA_API_KEY`, `ELEVENLABS_API_KEY`, `AZURE_SPEECH_KEY`, `STRIPE_SECRET_KEY`, `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER`, `UNSPLASH_ACCESS_KEY`, `DALL_E_API_KEY`, `PERPLEXITY_API_KEY`, `WOLFRAM_ALPHA_API_KEY`, `APP_URL`, `REPLIT_AGENT_TOKEN`
 
 ## Stack

@@ -37892,6 +37892,69 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // Cross-tool "get a committed branch onto main safely" — one shared endpoint
+  // for Claude Code, Replit, or any other tool, per
+  // docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md.
+  // Caller responsibility: commit locally, push the named branch to GitHub
+  // normally first (unrestricted; only main itself is protected). This
+  // endpoint only dispatches a GitHub Actions run (.github/workflows/source-promote.yml)
+  // that does the actual validation and push, isolated from this server's own
+  // live traffic — write-ahead-log receipt pattern, same shape as
+  // /api/internal/canonical-conversation-exchange.
+  //
+  // Usage:
+  //   POST /api/internal/source-promote { source: 'claude-code', branch: 'my-branch' }
+  //     headers: { 'x-source-bridge-token': process.env.SOURCE_BRIDGE_API_TOKEN }
+  //   -> 202 { jobId, state: 'pending' }
+  //   GET /api/internal/source-promote/:jobId  (same header) -> current state
+  app.post("/api/internal/source-promote", async (req: any, res: Response) => {
+    try {
+      const bridgeToken = req.headers['x-source-bridge-token'];
+      const configuredToken = process.env.SOURCE_BRIDGE_API_TOKEN;
+      if (!bridgeToken || !configuredToken || bridgeToken !== configuredToken) {
+        return res.status(401).json({ error: 'Invalid source-bridge token' });
+      }
+      const { isValidBranchName, isValidSource, startPromotion } = await import('./services/source-promote-service');
+      const { source, branch } = req.body ?? {};
+      if (!isValidSource(source)) {
+        return res.status(400).json({ error: 'source must be a non-empty lowercase alphanumeric label (max 40 chars)' });
+      }
+      if (!isValidBranchName(branch)) {
+        return res.status(400).json({ error: 'branch must be a valid, non-empty git branch name' });
+      }
+      const job = await startPromotion(source, branch);
+      console.log(`[SourcePromote] ${source} requested promotion of ${branch} (job ${job.jobId})`);
+      return res.status(202).json({
+        ok: true,
+        jobId: job.jobId,
+        state: job.state,
+        message: 'Promotion dispatched to GitHub Actions. Poll GET /api/internal/source-promote/:jobId for status.',
+      });
+    } catch (e: any) {
+      console.error('[SourcePromote] Failed to dispatch:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/internal/source-promote/:jobId", async (req: any, res: Response) => {
+    try {
+      const bridgeToken = req.headers['x-source-bridge-token'];
+      const configuredToken = process.env.SOURCE_BRIDGE_API_TOKEN;
+      if (!bridgeToken || !configuredToken || bridgeToken !== configuredToken) {
+        return res.status(401).json({ error: 'Invalid source-bridge token' });
+      }
+      const { getPromotionStatus } = await import('./services/source-promote-service');
+      const job = await getPromotionStatus(req.params.jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Unknown jobId' });
+      }
+      return res.json({ ok: true, ...job });
+    } catch (e: any) {
+      console.error('[SourcePromote] Failed to read status:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // Stage David's task description for atomic David→Luca capture when markTaskComplete fires.
   //
   // Call this from CodeExecution right before markTaskComplete({ task_ref, commit_message }).
