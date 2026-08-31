@@ -82,31 +82,53 @@ check_github_host_keys() (
 
 prepare_github_ssh() {
   local raw_key="${1:-}"
+  local compact_key decoded_key key_label compact_label compact_header compact_footer payload
+  local normalized_key=""
 
   if [[ -z "$raw_key" ]]; then
     echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY secret is not set. Add it in Replit Secrets." >&2
     return 1
   fi
 
-  # Replit may preserve an armored key as one line containing literal \n
-  # sequences. Convert those sequences back to line breaks without logging
-  # the secret. Also remove CR characters from pasted Windows-formatted keys.
+  # Secret stores may preserve an armored key with literal newline escapes.
+  # Decode those escapes without logging the secret.
   raw_key="${raw_key//$'\r'/}"
   raw_key="${raw_key//\\n/$'\n'}"
   raw_key="${raw_key//\\r/}"
 
-  # Some secret stores remove the physical line breaks entirely. OpenSSH
-  # accepts the base64 payload as one line, as long as the armor boundaries
-  # are restored to their own lines.
-  if [[ "$raw_key" != *$'\n'* ]]; then
-    for key_type in OPENSSH RSA EC DSA ""; do
-      raw_key="${raw_key//-----BEGIN ${key_type:+$key_type }PRIVATE KEY-----/-----BEGIN ${key_type:+$key_type }PRIVATE KEY-----$'\n'}"
-      raw_key="${raw_key//-----END ${key_type:+$key_type }PRIVATE KEY-----/$'\n'-----END ${key_type:+$key_type }PRIVATE KEY-----}"
-    done
+  # Some stores base64-encode the entire armored file. Accept that form only
+  # when strict decoding produces a supported private-key armor marker.
+  if [[ "$raw_key" != *"PRIVATE KEY"* ]]; then
+    compact_key="$(printf '%s' "$raw_key" | tr -d '[:space:]')"
+    decoded_key="$(printf '%s' "$compact_key" | base64 --decode 2>/dev/null || true)"
+    if [[ "$decoded_key" == *"PRIVATE KEY"* ]]; then
+      raw_key="$decoded_key"
+    fi
   fi
 
-  if [[ "$raw_key" != *"PRIVATE KEY-----"* ]]; then
-    echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key." >&2
+  # Canonicalize known armor types. Removing whitespace from the complete
+  # serialized form safely handles multiline, literal-newline, and flattened
+  # secrets; only a validated base64 payload is then rewrapped.
+  compact_key="$(printf '%s' "$raw_key" | tr -d '[:space:]')"
+  for key_label in "OPENSSH PRIVATE KEY" "RSA PRIVATE KEY" "EC PRIVATE KEY" "DSA PRIVATE KEY" "PRIVATE KEY"; do
+    compact_label="${key_label// /}"
+    compact_header="-----BEGIN${compact_label}-----"
+    compact_footer="-----END${compact_label}-----"
+    if [[ "$compact_key" == "$compact_header"*"$compact_footer" ]]; then
+      payload="${compact_key#"$compact_header"}"
+      payload="${payload%"$compact_footer"}"
+      if [[ -z "$payload" || ! "$payload" =~ ^[A-Za-z0-9+/]+=*$ || $(( ${#payload} % 4 )) -ne 0 ]]; then
+        echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY has an invalid armored payload." >&2
+        return 1
+      fi
+      normalized_key="$(printf -- '-----BEGIN %s-----\n%s\n-----END %s-----' \
+        "$key_label" "$(printf '%s' "$payload" | fold -w 70)" "$key_label")"
+      break
+    fi
+  done
+
+  if [[ -z "$normalized_key" ]]; then
+    echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY does not contain a supported armored private key." >&2
     return 1
   fi
 
@@ -116,7 +138,16 @@ prepare_github_ssh() {
   GITHUB_KNOWN_HOSTS_FILE="$(mktemp /tmp/holahola-github-known-hosts.XXXXXX)"
   chmod 600 "$GITHUB_SSH_KEY_FILE" "$GITHUB_KNOWN_HOSTS_FILE"
 
-  printf '%s\n' "$raw_key" > "$GITHUB_SSH_KEY_FILE"
+  printf '%s\n' "$normalized_key" > "$GITHUB_SSH_KEY_FILE"
+
+  # Fail before any Git command if OpenSSH cannot parse the normalized key.
+  # Suppress ssh-keygen output so no derived key material reaches logs.
+  if ! ssh-keygen -y -f "$GITHUB_SSH_KEY_FILE" >/dev/null 2>&1; then
+    echo "ERROR: HOLAHOLA_GITHUB_DEPLOY_KEY could not be parsed as a private key." >&2
+    cleanup_github_ssh
+    unset GITHUB_SSH_KEY_FILE GITHUB_KNOWN_HOSTS_FILE
+    return 1
+  fi
 
   # GitHub's published SSH host keys, pinned here, prevent a network attacker
   # from redirecting ssh-keyscan and receiving the repository deploy key.
