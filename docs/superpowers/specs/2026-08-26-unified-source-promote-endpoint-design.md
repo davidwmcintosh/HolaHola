@@ -1,7 +1,12 @@
 # Unified Source-Promote Endpoint Design
 
-**Status: built and live (2026-08-31), not as an endpoint.** Two deliberate
-deviations from the plan below, the second correcting the first:
+**Status: built, live, and confirmed working end to end (2026-08-31).**
+`scripts/cross-tool-promote.ts push verify-cross-tool-promote-live` ran the
+full path for real — ancestry check, typecheck, build, the Neon-branch
+gate's full test suite, then an actual fast-forward push — and `main`'s tip
+landed on the exact pushed commit SHA, confirmed independently afterward
+(not just trusted from the script's own report). Two deliberate deviations
+from the plan below, the second correcting the first:
 
 1. The validation gate runs in an isolated GitHub Actions run
    (`.github/workflows/source-promote.yml`), not inside a HolaHola server
@@ -221,13 +226,14 @@ Confirmed so far, for real, not hypothetically:
 - The deploy-key hardening Replit did in parallel (`scripts/github-release-ssh.sh`)
   is confirmed backward-compatible with this tool's usage — same function
   contract, verified by reading the diff, not assumed.
+- **The full happy path**: `verify-cross-tool-promote-live` went through
+  ancestry check, typecheck, build, the Neon-branch gate's complete test
+  suite, and an actual fast-forward push, all passing — confirmed
+  independently afterward that `main`'s tip landed on that exact commit SHA,
+  not just trusted from the tool's own printed result.
 
 Still open:
 
-- A full happy-path run (clean branch → gate passes → fast-forward push
-  succeeds) hasn't completed yet as of this line being written — every real
-  attempt so far has correctly caught a real problem first. This is what
-  the branch carrying this exact edit is testing.
 - A branch that fails `npm run check`, `npm run build`, or any of the three
   `test:ci:*` groups is refused, and the failure reason is visible in the
   run — not yet deliberately exercised beyond the migration-gate test done
