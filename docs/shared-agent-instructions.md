@@ -59,7 +59,10 @@ rules. Keep this file free of secrets, credentials, and private user data.
   2026-08-31 after a real instance of the alternative failing: a large
   Claude Code changeset (Neon branching, a new endpoint) landed on `main`
   with no heads-up, and the note explaining it only got written after
-  Replit had already started reconciling cold.
+  Replit had already started reconciling cold. The concrete checklist for
+  this — including cross-checking the handoff entry against
+  `git log origin/main..HEAD` rather than memory, and not just this rule in
+  isolation — is `.agents/skills/pre-merge-handoff/SKILL.md`.
 - Project-specific architecture, operating commands, and safety constraints
   remain in `replit.md`; do not duplicate this shared cross-interface contract
   in interface-specific instruction files.
