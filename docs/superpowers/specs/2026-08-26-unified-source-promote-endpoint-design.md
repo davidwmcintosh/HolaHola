@@ -207,26 +207,36 @@ along with the server-hosted endpoint — see the Status note at the top):
 
 ## Verification
 
-- A Claude Code-sourced branch and a Replit-sourced branch both promote
-  correctly through the same endpoint, producing identical `main` history.
-- A deliberately diverged branch is refused, not silently reconciled.
+Confirmed so far, for real, not hypothetically:
+
+- A deliberately diverged branch is refused, not silently reconciled — hit
+  this for real (not deliberately) when `main` moved out from under a live
+  test branch mid-session; the tool correctly refused rather than pushing
+  stale content over Replit's newer work.
+- Two real bugs were caught by actually testing rather than assumed away: a
+  false-positive ancestry check (fixed, see `scripts/source-bridge.sh`'s
+  proven `FETCH_HEAD` pattern) and a GitHub platform limit where a
+  renamed/new workflow file can't be dispatched via the API until it's on
+  the default branch — both documented in the skill.
+- The deploy-key hardening Replit did in parallel (`scripts/github-release-ssh.sh`)
+  is confirmed backward-compatible with this tool's usage — same function
+  contract, verified by reading the diff, not assumed.
+
+Still open:
+
+- A full happy-path run (clean branch → gate passes → fast-forward push
+  succeeds) hasn't completed yet as of this line being written — every real
+  attempt so far has correctly caught a real problem first. This is what
+  the branch carrying this exact edit is testing.
 - A branch that fails `npm run check`, `npm run build`, or any of the three
-  `test:ci:*` groups is refused, and the failure reason (including which
-  group and which check within it) is visible in the status receipt.
-- A branch that passes `npm run check`/`build` but fails one of the
-  `test:ci:*` groups is refused — confirms the gate isn't silently relying
-  on the narrower typecheck/build/release-safety checks alone.
-- Confirm the deploy key is never observable from either caller's side —
-  not in logs, not in responses, not in the request path.
-- A `test:ci:*` group that errors out (DB unreachable, timeout) rather than
-  reporting pass/fail is treated as a refusal — deliberately break the gate
-  infrastructure once to confirm the endpoint doesn't fail open.
+  `test:ci:*` groups is refused, and the failure reason is visible in the
+  run — not yet deliberately exercised beyond the migration-gate test done
+  separately for `scripts/neon-branch.ts gate` itself.
+- Confirm the deploy key is never observable from any caller's side — not
+  in logs, not in responses, not in the request path.
 - Run the full validation gate against the same branch 5+ times back to
-  back with no code changes; every run agrees (all pass or all refuse for
-  the same reason) — a flaky disagreement here is a gate bug, not noise.
-- After Replit's bridge migrates onto this endpoint, confirm its existing
-  behavior (state file, summary output, retry/backoff) is unchanged from
-  the caller's perspective, even though the underlying push logic moved.
+  back with no code changes; every run agrees — a flaky disagreement here
+  is a gate bug, not noise.
 
 ## Review
 
