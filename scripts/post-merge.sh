@@ -87,3 +87,25 @@ WAKE_TMP="${WAKE_FILE}.tmp.$$"
 printf '%s\n' "post-merge" > "$WAKE_TMP"
 mv "$WAKE_TMP" "$WAKE_FILE"
 echo "[post-merge] Source-control scheduler wake requested."
+
+# ── Incoming handoff-note surfacing ───────────────────────────────────────────
+# docs/alden-agent-handoff.md is git-tracked specifically so a cross-interface
+# heads-up arrives the moment it's pulled, not just at next session start —
+# a mid-session pull (the common case for an incoming task merge) can be well
+# after that session's one-time start-of-session checklist already ran, so a
+# file that's only checked there would silently miss it. ORIG_HEAD is git's
+# pre-merge ref, set for both a real merge and a fast-forward pull, so this
+# fires on the actual arrival of new commits regardless of when in the
+# session that happens. Printed last so it's what's on screen when this
+# script finishes, not buried under everything above it.
+# ─────────────────────────────────────────────────────────────────────────────
+if git diff --name-only ORIG_HEAD HEAD -- docs/alden-agent-handoff.md 2>/dev/null | grep -q .; then
+  echo ""
+  echo "════════════════════════════════════════════════════════════════"
+  echo "  docs/alden-agent-handoff.md changed in this merge — read the new"
+  echo "  entry now, don't wait for next session start:"
+  echo "════════════════════════════════════════════════════════════════"
+  git diff ORIG_HEAD HEAD -- docs/alden-agent-handoff.md | grep '^+' | grep -v '^+++' | head -60
+  echo "════════════════════════════════════════════════════════════════"
+  echo ""
+fi

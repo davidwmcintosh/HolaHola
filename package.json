@@ -20,7 +20,7 @@
     "test:ci:guards": "node scripts/run-ci-test-steps.mjs --group=guards",
     "test:ci:episodes": "node scripts/run-ci-test-steps.mjs --group=episodes",
     "db:branch": "npx tsx scripts/neon-branch.ts",
-    "source-promote": "npx tsx scripts/source-promote.ts",
+    "cross-tool-promote": "npx tsx scripts/cross-tool-promote.ts",
     "source-control:sync": "npx tsx server/scripts/source-control-cli.ts sync --actor npm",
     "source-control:prepare": "npx tsx server/scripts/source-control-cli.ts prepare --actor npm",
     "source-control:status": "npx tsx server/scripts/source-control-cli.ts status",

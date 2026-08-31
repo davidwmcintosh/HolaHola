@@ -1,5 +1,38 @@
 # Unified Source-Promote Endpoint Design
 
+**Status: built and live (2026-08-31), not as an endpoint.** Two deliberate
+deviations from the plan below, the second correcting the first:
+
+1. The validation gate runs in an isolated GitHub Actions run
+   (`.github/workflows/source-promote.yml`), not inside a HolaHola server
+   process — that process also serves live Daniela/David traffic, and
+   running `npm ci`/build/the full test suite there on every promotion was
+   too much resource contention to accept.
+2. There is no `POST /api/internal/source-promote` endpoint. The first
+   attempt built one as a thin dispatch-and-poll proxy in front of the
+   GitHub Actions workflow — but that made the whole mechanism only as
+   reachable as whichever Replit process hosted it, and neither option was
+   right: dev restarts constantly and was never meant to have uptime
+   guarantees, and production is exactly the live-traffic process deviation
+   1 was built to stay off of. The proxy also didn't buy any real security —
+   the actual push credential (`HOLAHOLA_GITHUB_DEPLOY_KEY`) never touched
+   it either way, only ever living in GitHub Actions secrets. So
+   `scripts/source-promote.ts` calls the GitHub Actions API directly.
+   GitHub's own API is already the always-on service here; there was
+   nothing to proxy. Found this the hard way, by actually trying to test
+   the endpoint version against a Replit dev instance that wasn't
+   consistently up.
+
+**Renamed 2026-08-31**: `scripts/source-promote.ts` → `scripts/cross-tool-promote.ts`,
+`.github/workflows/source-promote.yml` → `.github/workflows/cross-tool-promote.yml`,
+`.agents/skills/source-promote/` → `.agents/skills/cross-tool-promote/`. See
+"Two entry points into `main`" below for why.
+
+Everything else here — the state model, the fast-forward-only rule, the
+narrow-scoped-token principle — is as designed, just enforced by a plain
+script instead of a hosted endpoint. See
+`.agents/skills/cross-tool-promote/SKILL.md` for the caller-facing how-to.
+
 ## Goal
 
 Replace two separate implementations of "get committed work onto `main`
@@ -96,41 +129,70 @@ inventing a second one: `retrying`, `diverged`, `dirty`, `ready_to_promote`,
 `synced`, `failed`. Same meanings, same terminal conditions. One vocabulary
 for both sides.
 
-## Migration path
+## Migration path — superseded 2026-08-31, see "Two entry points" below
 
-`source-bridge.sh` itself gets updated to call this endpoint instead of
-holding its own copy of the deploy key and push logic. This is not "add a
-second path for Claude Code alongside the existing Replit one" — it is
-collapsing to one real implementation that both sides use. Sequencing:
-build and verify the endpoint against Claude Code's use case first (lower
-risk, not yet load-bearing for production sync), then migrate Replit's
-bridge onto it once proven, rather than changing both at once.
+This section originally said `source-bridge.sh` would be updated to call
+this endpoint instead of holding its own copy of the deploy key and push
+logic — "collapsing to one real implementation that both sides use." That
+didn't happen, deliberately, once Replit's own parallel system was
+discovered (see below): Replit's `source-control-service.ts` is hard-wired
+to *its own persistent dev checkout*, not a caller-specified branch, so this
+tool's job (an arbitrary branch from an arbitrary external caller) was never
+actually something it could absorb. Collapsing to one implementation was the
+wrong goal; two correctly-scoped entry points is the actual design.
+
+## Two entry points into `main`
+
+Discovered 2026-08-31: while this endpoint (later: script) was being built,
+Replit independently built its own git-promotion system —
+`server/services/source-control-service.ts` +
+`server/services/source-promotion-service.ts`, "source-promotion,"
+`docs/superpowers/specs/2026-08-27-source-promotion-api-design.md` — neither
+side aware of the other. Read in full before concluding these conflict; they
+don't:
+
+- **This tool** (`cross-tool-promote`): stateless, caller-agnostic. Any
+  external tool commits and pushes an ordinary branch, then asks this to
+  validate and fast-forward `main`. Works from anywhere — a laptop, a
+  Codespace, any CI — because it never assumes anything about where the
+  caller's checkout lives.
+- **Replit's `source-promotion`**: answers a narrower, different question —
+  "is *this one persistent checkout* (Replit's own dev environment) in sync
+  with GitHub, and is a candidate ready for the human to explicitly click
+  Replit Publish." It requires the calling process's actual working
+  directory to already be on `main`; it structurally cannot take an
+  arbitrary branch from an arbitrary caller. It is not Replit-API-dependent
+  the way that might first suggest — it's plain git/SSH/npm, portable to
+  wherever "dev" is hosted — but the *problem it solves* is inherently about
+  one specific persistent checkout, not any tool's arbitrary work.
+
+Given that, merging them would mean bolting arbitrary-caller support onto a
+coordinator built and carefully invariant-checked around one persistent
+checkout — a real risk to work Replit had already finished, for a
+consolidation that wasn't actually buying anything. Two entry points is the
+correct shape, not technical debt: a future platform with its own
+host-specific constraints (Antigravity, say) could reasonably add a third.
+What every such entry point should share, and what to check against when
+evaluating a future one: fast-forward-only, no automatic reconciliation of a
+divergent branch, and the deploy key never held by the calling agent/tool
+directly.
 
 ## Security
 
-Two secrets, deliberately distinct so a compromise of one doesn't grant the
-other:
+One secret now (`SOURCE_BRIDGE_API_TOKEN` from the original plan was removed
+along with the server-hosted endpoint — see the Status note at the top):
 
-- **`SOURCE_BRIDGE_API_TOKEN`** (new) — what callers authenticate to the
-  endpoint with. Names what it's for, not what platform created it; not tied
-  to Replit the way `REPLIT_AGENT_TOKEN` is, on purpose, given the direction
-  of this whole effort. Callers never see or hold a GitHub credential.
-- **`HOLAHOLA_GITHUB_DEPLOY_KEY`** (existing, reused as-is for now) — the
-  endpoint's own git-push credential. Relocated so only the endpoint's
-  environment holds it; Replit's bridge stops materializing it directly once
-  migrated. Reuses the existing normalization logic in
-  `scripts/github-release-ssh.sh` verbatim (armored single-line-to-PEM
-  reconstruction) rather than re-implementing it — that problem is already
-  solved, no reason to solve it twice.
-
-**Deliberate, named future work — not forgotten, not done now:** once this
-endpoint is live and Replit's bridge has migrated onto it, rotate to a
-dedicated deploy key created specifically for this endpoint, and revoke
-`HOLAHOLA_GITHUB_DEPLOY_KEY`. Reusing the existing key now is the right
-minimal-disruption starting point; treating that as the permanent state
-would mean the new, centralized system quietly inherits a credential that
-predates the redesign, with no clean boundary marking why it exists. Track
-as a follow-up task once Path 1 is proven working, not before.
+- **`GITHUB_ACTIONS_DISPATCH_TOKEN`** — a GitHub fine-grained PAT, scoped to
+  this repo only, "Actions: Read and write" and nothing else. What callers
+  hold to trigger/poll the workflow run. Cannot push code or read repo
+  contents directly.
+- **`HOLAHOLA_GITHUB_DEPLOY_KEY`** — the actual git-push credential. Lives
+  only in GitHub Actions secrets, used only inside the isolated workflow run,
+  never touched by any caller or by this script. Reuses the existing
+  normalization logic in `scripts/github-release-ssh.sh` verbatim (armored
+  single-line-to-PEM reconstruction, since hardened 2026-08-31 by Replit's
+  own parallel work, backward-compatible with this script's usage) rather
+  than re-implementing it.
 
 ## Non-goals
 

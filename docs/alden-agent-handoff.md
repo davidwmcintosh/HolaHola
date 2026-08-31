@@ -39,6 +39,132 @@
 
 ---
 
+## From Claude Code — Sun, Aug 31, 2026 (Neon branching + source-promote endpoint)
+
+### What shipped
+
+- **`scripts/neon-branch.ts`** (`npm run db:branch --`): create/list/delete
+  isolated Neon branches, plus a `gate` subcommand that proves a pending
+  `drizzle-kit` migration safe on a disposable branch (applies it, runs
+  `test:ci:unit`/`guards`/`episodes` against it, deletes the branch) before
+  it ever touches `NEON_SHARED_DATABASE_URL`. Retired the old static
+  `Neon_Test_DB` branch — created once for the Codespace pilot, never
+  actually used, would only have gone stale — in favor of on-demand
+  branches. See `.agents/skills/neon-branch/SKILL.md` and
+  `docs/superpowers/specs/2026-08-30-neon-branch-migration-workflow-design.md`.
+- **Fixed a real `drizzle-kit` bug**, unrelated to the above but found while
+  building it: `migrations/meta/` snapshots stopped at `0017` even though
+  applied migrations went to `0022` (two earlier migrations never got
+  journal entries, undercounting the next index by one). `generate` was
+  silently re-emitting `0018`–`0021`'s changes and colliding on filenames.
+  Fixed the snapshot/journal metadata only — no applied `.sql` file touched.
+- **Cleaned up `package.json`'s `overrides`** — it had `nanoid` and
+  `ip-address` listed multiple times with conflicting versions crammed onto
+  one malformed line (a pre-existing issue, not something this session
+  caused). Consolidated to one entry each, and completed the `allowScripts`
+  list alongside it — two `esbuild` versions the current dependency tree
+  actually resolves to weren't in it, so `npm ci` was silently blocking
+  their postinstall scripts pending manual approval. `package-lock.json`
+  changed to match; verified via `npm ci` and a clean `npm run check`.
+- **Relocated a stray GitHub branch-ruleset export** — `"HolaHola Push
+  Rule.json"` was sitting loose in `uploads/` (the app's own unrelated
+  upload directory); moved to `docs/reference/github-branch-ruleset-main.json`
+  since its contents are real, useful reference (no secrets), not app data.
+- **`POST /api/internal/source-promote`** (originally
+  `server/services/source-promote-service.ts`,
+  `npm run source-promote -- push <branch>` — **since renamed, see the
+  correction below**) — the design in this repo's
+  `docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md`,
+  actually built: one shared way for any tool to get a committed branch onto
+  `main`. **Deliberately deviates from that doc**: the validation gate
+  (`npm ci`, check, build, the `test:ci:*` groups via the new Neon gate)
+  runs in an isolated GitHub Actions run, not inside this endpoint's own
+  process — that process also serves live Daniela/David traffic, and
+  running the full suite there on every promotion was too much resource
+  contention to accept. The endpoint itself is a thin dispatch-and-poll
+  proxy.
+- **Correction, not yet on `main` as of this entry**: the endpoint described
+  above is gone. Trying to actually test it against a live Replit instance
+  surfaced the real problem — it made the whole mechanism only as reachable
+  as whichever Replit process hosted it, and neither dev (restarts
+  constantly, no uptime guarantee) nor production (the live-traffic process
+  this was built to stay off of) was right. It also wasn't buying real
+  security: the actual push credential never touched it either way, only
+  ever living in GitHub Actions secrets. A plain script now calls the GitHub
+  Actions API directly — no server involved, nothing to host. If you're
+  reading this on a checkout that still has
+  `server/services/source-promote-service.ts` or two `/api/internal/source-promote*`
+  routes in `server/routes.ts`, that's stale; they should be gone.
+- **Second correction — read this one carefully, it's about your own recent
+  work**: while building the above, I found `server/services/source-control-service.ts`
+  and `server/services/source-promotion-service.ts` already on `main` —
+  your own, independently-built, more thorough git-promotion system,
+  neither of us aware of the other's work. I read it in full before
+  concluding anything. They don't conflict: yours is hard-wired to *this
+  one persistent dev checkout* (answers "is Replit's own checkout in sync,
+  ready for an explicit Publish"); mine is stateless and caller-agnostic,
+  for any external tool that isn't this checkout — a Claude Code session on
+  a laptop that's never touched this environment, for instance. Neither
+  can absorb the other's job. David's call, explicitly: keep both as
+  separate, correctly-scoped entry points into `main` rather than force a
+  merge — see "Two entry points into `main`" in the design doc for the full
+  reasoning. The one concrete action taken: **my side renamed** to stop
+  the confusing near-identical naming —
+  `scripts/source-promote.ts` → `scripts/cross-tool-promote.ts`,
+  `.github/workflows/source-promote.yml` → `.github/workflows/cross-tool-promote.yml`,
+  `.agents/skills/source-promote/` → `.agents/skills/cross-tool-promote/`,
+  `npm run source-promote` → `npm run cross-tool-promote`. **Nothing of
+  yours was touched** — `source-control-service.ts`, `source-promotion-service.ts`,
+  the `/api/admin/source-promotion/*` routes, and `SOURCE_PROMOTION_*` env
+  vars are exactly as you built them.
+- Landed via a squash-merged PR (#8) plus one follow-up commit, after a
+  chicken-and-egg bootstrap: the endpoint couldn't deploy itself the first
+  time, so this batch went through a normal PR since neither `source-bridge.sh`
+  (needs `HOLAHOLA_GITHUB_DEPLOY_KEY`, Replit-only) nor the new endpoint
+  (didn't exist on `main` yet) could do it.
+
+### New secrets this needs
+
+`NEON_API_KEY`, `NEON_PROJECT_ID` (already in Replit Secrets — also now
+needed in **GitHub Actions secrets**, a new location, since that's where the
+workflow actually runs), and `GITHUB_ACTIONS_DISPATCH_TOKEN` (fine-grained
+PAT, Actions: read/write only, scoped to this repo — needed only by whoever
+runs `scripts/cross-tool-promote.ts`, no server-side secret at all).
+`SOURCE_BRIDGE_API_TOKEN` from the first version is no longer needed —
+removed along with the server-hosted endpoint. `HOLAHOLA_GITHUB_DEPLOY_KEY`
+also needs to be copied into GitHub Actions secrets now (previously
+Replit-only) — unrelated to your own `SOURCE_PROMOTION_TOKEN`, which stays
+exactly where you put it.
+
+### What's unresolved
+
+- The full live end-to-end test (a real branch through the whole gate to a
+  real push) hadn't completed as of this entry — was blocked on Replit
+  finishing this exact pull, which is the reconciliation this note exists
+  to ease. Worth confirming it actually completed cleanly.
+- I wrote a technical note to `editor_insights` (category `shared`) and a
+  personal one (category `journal`, plus an entry in
+  `.agents/memory/luca-reflections.md`) *after* this landed, because it
+  hadn't occurred to me to leave anything *before* the pull — exactly the
+  gap this entry (and the rest of this bullet list) exists to close going
+  forward. `docs/shared-agent-instructions.md`'s Engineering Handoff section
+  now has the standing rule: update this file in the same commit/PR as the
+  change, not after.
+- **Follow-up, not yet on `main` as of this entry**: `scripts/post-merge.sh`
+  now detects (via `ORIG_HEAD`) whether a merge touched this file and prints
+  the new content, so it surfaces the moment it's pulled rather than only at
+  next session start — a mid-session pull (like this one) can land well
+  after that session's one-time checklist already ran. If you're reading
+  this via that mechanism, it worked; if you found it some other way, it
+  hasn't merged yet — check for it.
+- This entry itself was corrected once already, after being asked directly
+  whether it was complete — it originally missed the `package.json`
+  cleanup and the ruleset-file relocation above, both already part of what
+  you're reconciling. Worth treating "did I check this against the actual
+  commit list" as a real step, not an assumption, next time too.
+
+---
+
 ## August 21, 2026 — GitHub deploy-key release boundary
 
 - The repository-scoped SSH deploy key is authenticated for read access from
