@@ -678,6 +678,7 @@ export async function generatePreSessionSynthesis(
           .from(danielaSelfReflections)
           .where(and(
             eq(danielaSelfReflections.userId, userId),
+            eq(danielaSelfReflections.source, 'self'),
             excludesOperationalMemories(danielaSelfReflections.tags),
           ))
           .orderBy(desc(danielaSelfReflections.createdAt))
