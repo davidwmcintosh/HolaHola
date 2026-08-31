@@ -48,7 +48,12 @@ jobs:
       - name: Refuse if main is not an ancestor of this branch
         run: |
           git fetch origin main --no-tags
-          if ! git merge-base --is-ancestor origin/main HEAD; then
+          # A bare `git fetch <remote> <branch>` updates FETCH_HEAD, not the
+          # origin/<branch> remote-tracking ref — read FETCH_HEAD directly,
+          # the same proven pattern scripts/source-bridge.sh already uses,
+          # rather than trusting origin/main to have been updated.
+          MAIN_SHA="$(git rev-parse --verify FETCH_HEAD^{commit})"
+          if ! git merge-base --is-ancestor "$MAIN_SHA" HEAD; then
             echo "::error::main is not an ancestor of ${{ inputs.branch }} — diverged or behind. Refusing to promote."
             exit 1
           fi
