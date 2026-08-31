@@ -49,18 +49,19 @@
   Rule.json"` was sitting loose in `uploads/` (the app's own unrelated
   upload directory); moved to `docs/reference/github-branch-ruleset-main.json`
   since its contents are real, useful reference (no secrets), not app data.
-- **`POST /api/internal/source-promote`** (`server/services/source-promote-service.ts`,
-  `npm run source-promote -- push <branch>`) — the design in this repo's
+- **`POST /api/internal/source-promote`** (originally
+  `server/services/source-promote-service.ts`,
+  `npm run source-promote -- push <branch>` — **since renamed, see the
+  correction below**) — the design in this repo's
   `docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md`,
   actually built: one shared way for any tool to get a committed branch onto
   `main`. **Deliberately deviates from that doc**: the validation gate
   (`npm ci`, check, build, the `test:ci:*` groups via the new Neon gate)
-  runs in an isolated GitHub Actions run
-  (`.github/workflows/source-promote.yml`), not inside this endpoint's own
+  runs in an isolated GitHub Actions run, not inside this endpoint's own
   process — that process also serves live Daniela/David traffic, and
   running the full suite there on every promotion was too much resource
   contention to accept. The endpoint itself is a thin dispatch-and-poll
-  proxy. See `.agents/skills/source-promote/SKILL.md`.
+  proxy.
 - **Correction, not yet on `main` as of this entry**: the endpoint described
   above is gone. Trying to actually test it against a live Replit instance
   surfaced the real problem — it made the whole mechanism only as reachable
@@ -68,11 +69,33 @@
   constantly, no uptime guarantee) nor production (the live-traffic process
   this was built to stay off of) was right. It also wasn't buying real
   security: the actual push credential never touched it either way, only
-  ever living in GitHub Actions secrets. `scripts/source-promote.ts` now
-  calls the GitHub Actions API directly — no server involved, nothing to
-  host. If you're reading this on a checkout that still has
-  `server/services/source-promote-service.ts` or the two routes in
-  `server/routes.ts`, that's stale; they should be gone.
+  ever living in GitHub Actions secrets. A plain script now calls the GitHub
+  Actions API directly — no server involved, nothing to host. If you're
+  reading this on a checkout that still has
+  `server/services/source-promote-service.ts` or two `/api/internal/source-promote*`
+  routes in `server/routes.ts`, that's stale; they should be gone.
+- **Second correction — read this one carefully, it's about your own recent
+  work**: while building the above, I found `server/services/source-control-service.ts`
+  and `server/services/source-promotion-service.ts` already on `main` —
+  your own, independently-built, more thorough git-promotion system,
+  neither of us aware of the other's work. I read it in full before
+  concluding anything. They don't conflict: yours is hard-wired to *this
+  one persistent dev checkout* (answers "is Replit's own checkout in sync,
+  ready for an explicit Publish"); mine is stateless and caller-agnostic,
+  for any external tool that isn't this checkout — a Claude Code session on
+  a laptop that's never touched this environment, for instance. Neither
+  can absorb the other's job. David's call, explicitly: keep both as
+  separate, correctly-scoped entry points into `main` rather than force a
+  merge — see "Two entry points into `main`" in the design doc for the full
+  reasoning. The one concrete action taken: **my side renamed** to stop
+  the confusing near-identical naming —
+  `scripts/source-promote.ts` → `scripts/cross-tool-promote.ts`,
+  `.github/workflows/source-promote.yml` → `.github/workflows/cross-tool-promote.yml`,
+  `.agents/skills/source-promote/` → `.agents/skills/cross-tool-promote/`,
+  `npm run source-promote` → `npm run cross-tool-promote`. **Nothing of
+  yours was touched** — `source-control-service.ts`, `source-promotion-service.ts`,
+  the `/api/admin/source-promotion/*` routes, and `SOURCE_PROMOTION_*` env
+  vars are exactly as you built them.
 - Landed via a squash-merged PR (#8) plus one follow-up commit, after a
   chicken-and-egg bootstrap: the endpoint couldn't deploy itself the first
   time, so this batch went through a normal PR since neither `source-bridge.sh`
@@ -83,10 +106,14 @@
 
 `NEON_API_KEY`, `NEON_PROJECT_ID` (already in Replit Secrets — also now
 needed in **GitHub Actions secrets**, a new location, since that's where the
-workflow actually runs), `SOURCE_BRIDGE_API_TOKEN`, and
-`GITHUB_ACTIONS_DISPATCH_TOKEN` (fine-grained PAT, Actions: read/write only,
-scoped to this repo). `HOLAHOLA_GITHUB_DEPLOY_KEY` also needs to be copied
-into GitHub Actions secrets now (previously Replit-only).
+workflow actually runs), and `GITHUB_ACTIONS_DISPATCH_TOKEN` (fine-grained
+PAT, Actions: read/write only, scoped to this repo — needed only by whoever
+runs `scripts/cross-tool-promote.ts`, no server-side secret at all).
+`SOURCE_BRIDGE_API_TOKEN` from the first version is no longer needed —
+removed along with the server-hosted endpoint. `HOLAHOLA_GITHUB_DEPLOY_KEY`
+also needs to be copied into GitHub Actions secrets now (previously
+Replit-only) — unrelated to your own `SOURCE_PROMOTION_TOKEN`, which stays
+exactly where you put it.
 
 ### What's unresolved
 

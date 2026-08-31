@@ -1,10 +1,16 @@
-name: Source Promote
+name: Cross-Tool Promote
 
-# Isolated execution venue for /api/internal/source-promote — deliberately
-# NOT run on the Replit process serving live Daniela/David traffic. Runs the
-# same validation any human PR gets (typecheck, build, the three test:ci:*
-# groups) plus tonight's ephemeral-Neon-branch gate, then fast-forwards main
-# using the same deploy key scripts/source-bridge.sh already trusts, over SSH.
+# The external-tool entry point into main — for any caller that isn't
+# Replit's own persistent dev checkout (that one has its own,
+# server/services/source-control-service.ts, "source-promotion" — a
+# deliberately separate, differently-scoped system, not a duplicate; see
+# the "Two entry points" note in the design doc below).
+#
+# Isolated execution venue, deliberately NOT run on the Replit process
+# serving live Daniela/David traffic. Runs the same validation any human PR
+# gets (typecheck, build, the three test:ci:* groups) plus the
+# ephemeral-Neon-branch gate, then fast-forwards main using the same deploy
+# key scripts/source-bridge.sh already trusts, over SSH.
 # See docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md.
 
 on:
@@ -19,7 +25,7 @@ on:
         required: true
         type: string
 
-run-name: "source-promote ${{ inputs.jobId }} (${{ inputs.branch }})"
+run-name: "cross-tool-promote ${{ inputs.jobId }} (${{ inputs.branch }})"
 
 jobs:
   promote:

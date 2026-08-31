@@ -1,7 +1,17 @@
 /**
- * Cross-tool "get a committed branch onto main safely" — the one shared way
- * any tool (Claude Code, Replit, Cursor, Antigravity) does this, instead of
- * each growing its own habit. Design: docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md
+ * Cross-tool "get a committed branch onto main safely" — for any external
+ * tool/caller (Claude Code, Cursor, Antigravity, a human) that isn't Replit's
+ * own persistent dev checkout. Design: docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md
+ *
+ * Renamed from source-promote.ts 2026-08-31: Replit independently built its
+ * own git-promotion entry point (server/services/source-control-service.ts,
+ * "source-promotion") for its own dev checkout specifically — different
+ * caller, different constraints, not a duplicate. Two entry points into main
+ * is the right shape here, not a conflict to resolve into one; a future
+ * platform with its own host-specific requirements (Antigravity, say) could
+ * reasonably add a third. What they share: fast-forward-only, no automatic
+ * reconciliation of a diverged branch, and the deploy key never held by the
+ * calling agent/tool. See the "Two entry points" note in the design doc.
  *
  * Talks to the GitHub Actions API directly — no HolaHola server involved.
  * An earlier version proxied through POST /api/internal/source-promote, but
@@ -15,8 +25,8 @@
  * here; there was nothing to proxy.
  *
  * Usage:
- *   npx tsx scripts/source-promote.ts push <branch> [--source <label>]
- *   npx tsx scripts/source-promote.ts status <jobId>
+ *   npx tsx scripts/cross-tool-promote.ts push <branch> [--source <label>]
+ *   npx tsx scripts/cross-tool-promote.ts status <jobId>
  *
  * Caller responsibility before calling `push`: commit locally, then
  * `git push origin <branch>` normally — pushing a non-main branch needs no
@@ -32,13 +42,13 @@ if (existsSync('.env')) {
 
 const OWNER = 'davidwmcintosh';
 const REPO = 'HolaHola';
-const WORKFLOW_FILE = 'source-promote.yml';
+const WORKFLOW_FILE = 'cross-tool-promote.yml';
 const GITHUB_API = 'https://api.github.com';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`Missing ${name} — add it to .env before running scripts/source-promote.ts`);
+    throw new Error(`Missing ${name} — add it to .env before running scripts/cross-tool-promote.ts`);
   }
   return value;
 }
@@ -119,7 +129,7 @@ function parseFlags(args: string[]): { positional: string[]; flags: Record<strin
 async function cmdPush(positional: string[], flags: Record<string, string | boolean>) {
   const branch = positional[0];
   if (!branch) {
-    throw new Error('Usage: source-promote.ts push <branch> [--source <label>]');
+    throw new Error('Usage: cross-tool-promote.ts push <branch> [--source <label>]');
   }
   if (!isValidBranchName(branch)) {
     throw new Error(`Not a valid branch name: ${branch}`);
@@ -131,23 +141,23 @@ async function cmdPush(positional: string[], flags: Record<string, string | bool
     method: 'POST',
     body: JSON.stringify({ ref: 'main', inputs: { branch, jobId } }),
   });
-  console.log(`[source-promote] Dispatched by ${source} — job ${jobId}`);
+  console.log(`[cross-tool-promote] Dispatched by ${source} — job ${jobId}`);
 
   for (;;) {
     await new Promise((r) => setTimeout(r, 10_000));
     const run = await resolveRun(jobId);
     if (!run) {
-      console.log('[source-promote] queued — waiting for the run to appear...');
+      console.log('[cross-tool-promote] queued — waiting for the run to appear...');
       continue;
     }
     if (run.status !== 'completed') {
-      console.log(`[source-promote] ${run.status} — ${run.html_url}`);
+      console.log(`[cross-tool-promote] ${run.status} — ${run.html_url}`);
       continue;
     }
     if (run.conclusion === 'success') {
-      console.log(`[source-promote] SYNCED — main now includes this branch. ${run.html_url}`);
+      console.log(`[cross-tool-promote] SYNCED — main now includes this branch. ${run.html_url}`);
     } else {
-      console.error(`[source-promote] FAILED (${run.conclusion}) — ${run.html_url}`);
+      console.error(`[cross-tool-promote] FAILED (${run.conclusion}) — ${run.html_url}`);
       process.exitCode = 1;
     }
     return;
@@ -157,7 +167,7 @@ async function cmdPush(positional: string[], flags: Record<string, string | bool
 async function cmdStatus(positional: string[]) {
   const jobId = positional[0];
   if (!jobId) {
-    throw new Error('Usage: source-promote.ts status <jobId>');
+    throw new Error('Usage: cross-tool-promote.ts status <jobId>');
   }
   const run = await resolveRun(jobId);
   if (!run) {
@@ -177,7 +187,7 @@ async function main() {
     case 'status':
       return cmdStatus(positional);
     default:
-      console.error('Usage: source-promote.ts <push|status> [options]');
+      console.error('Usage: cross-tool-promote.ts <push|status> [options]');
       process.exitCode = 1;
   }
 }
