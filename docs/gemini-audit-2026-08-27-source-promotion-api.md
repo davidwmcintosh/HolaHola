@@ -1,7 +1,7 @@
 # Gemini Audit — Source Promotion API
 
-**Date:** August 27, 2026  
-**Model:** `gemini-3-flash-preview`  
+**Date:** August 27, 2026
+**Model:** `gemini-3-flash-preview`
 **Scope:** Authenticated source-promotion routes, durable idempotency ledger,
 source-bridge promotion state, validation-manifest integrity, candidate expiry,
 and explicit Replit Publish boundary.

@@ -1,7 +1,7 @@
 # Gemini Audit — Live Internal Agent Inbox
 
-**Date:** August 26, 2026  
-**Model:** `gemini-3-flash-preview`  
+**Date:** August 26, 2026
+**Model:** `gemini-3-flash-preview`
 **Scope:** Agent-note schema, centralized inbox service, authenticated routes,
 snapshot refresh, lifecycle reconciliation migration, and shared-database
 regression.

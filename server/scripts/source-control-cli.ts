@@ -1,9 +1,19 @@
 import { readFile } from 'node:fs/promises';
 import { SourceControlService } from '../services/source-control-service';
 
+const MACHINE_RESULT_PREFIX = 'SOURCE_CONTROL_RESULT_JSON:';
+
 function usage(): never {
-  console.error('Usage: source-control-cli.ts status|sync|prepare|record <sha> [--actor <label>] [--publication-reference <text>]');
+  console.error('Usage: source-control-cli.ts status|sync|prepare|record <sha> [--actor <label>] [--publication-reference <text>] [--machine-readable]');
   process.exit(64);
+}
+
+function writeResult(result: unknown): void {
+  if (process.argv.includes('--machine-readable')) {
+    console.log(`${MACHINE_RESULT_PREFIX}${JSON.stringify(result)}`);
+    return;
+  }
+  console.log(JSON.stringify(result, null, 2));
 }
 
 function readOption(name: string): string | undefined {
@@ -19,10 +29,10 @@ async function main(): Promise<void> {
   if (action === 'status') {
     const status = await service.getStatus();
     if (!status) {
-      console.log(JSON.stringify({ state: 'unknown', error: 'No source-control status has been recorded.' }, null, 2));
+      writeResult({ state: 'unknown', error: 'No source-control status has been recorded.' });
       return;
     }
-    console.log(JSON.stringify(status, null, 2));
+    writeResult(status);
     return;
   }
 
@@ -39,7 +49,7 @@ async function main(): Promise<void> {
           )
         : usage();
 
-  console.log(JSON.stringify(result, null, 2));
+  writeResult(result);
   if (!result.ok) process.exitCode = result.state === 'dirty' || result.state === 'retrying' ? 75 : 1;
 }
 

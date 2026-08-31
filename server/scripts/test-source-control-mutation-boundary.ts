@@ -32,4 +32,24 @@ for (const command of ["['fetch'", "['merge', '--ff-only'", "['push'"]) {
 assert.doesNotMatch(coordinator, /\['(?:add|commit|reset)'/, 'coordinator must never stage, commit, or reset');
 assert.doesNotMatch(coordinator, /--force/, 'coordinator must never force-push');
 
+const guardian = readFileSync(join(root, 'scripts/alden-build-guardian.js'), 'utf8');
+const cli = readFileSync(join(root, 'server/scripts/source-control-cli.ts'), 'utf8');
+for (const source of [guardian, cli]) {
+  assert.match(
+    source,
+    /SOURCE_CONTROL_RESULT_JSON:/,
+    'guardian and CLI must share an explicit machine-readable result boundary',
+  );
+}
+assert.match(
+  guardian,
+  /--machine-readable/,
+  'guardian must request machine-readable source-control output',
+);
+assert.doesNotMatch(
+  guardian,
+  /JSON\.parse\(output\)/,
+  'guardian must not parse mixed process stdout as one JSON document',
+);
+
 console.log('Source-control single-writer mutation boundary passed.');

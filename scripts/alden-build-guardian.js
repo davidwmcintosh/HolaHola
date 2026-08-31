@@ -29,6 +29,7 @@ const INITIAL_WAIT_MS = 14000;   // tsx typically restarts within 8-12 seconds
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_MS = 35000;       // Total post-initial polling window
 const GUARDIAN_TOKEN = 'alden-guardian-internal-2024';
+const SOURCE_CONTROL_RESULT_PREFIX = 'SOURCE_CONTROL_RESULT_JSON:';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -73,13 +74,19 @@ function restoreBackups(backups) {
 function requestSourceControlSync(cwd) {
   try {
     const cliPath = path.join(cwd, 'server/scripts/source-control-cli.ts');
-    const output = execFileSync(process.execPath, ['--import', 'tsx', cliPath, 'sync', '--actor', 'alden-build-guardian'], {
+    const output = execFileSync(process.execPath, ['--import', 'tsx', cliPath, 'sync', '--actor', 'alden-build-guardian', '--machine-readable'], {
       cwd,
       timeout: 60000,
       encoding: 'utf-8',
       env: { ...process.env },
     });
-    const result = JSON.parse(output);
+    const resultLine = output
+      .split(/\r?\n/)
+      .findLast((line) => line.startsWith(SOURCE_CONTROL_RESULT_PREFIX));
+    if (!resultLine) {
+      throw new Error('Source-control CLI did not emit a machine-readable result.');
+    }
+    const result = JSON.parse(resultLine.slice(SOURCE_CONTROL_RESULT_PREFIX.length));
     console.log(`[Guardian] Source-control state: ${result.state}`);
     return { synced: result.ok === true, error: result.error || null };
   } catch (err) {
