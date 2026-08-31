@@ -61,6 +61,18 @@
   running the full suite there on every promotion was too much resource
   contention to accept. The endpoint itself is a thin dispatch-and-poll
   proxy. See `.agents/skills/source-promote/SKILL.md`.
+- **Correction, not yet on `main` as of this entry**: the endpoint described
+  above is gone. Trying to actually test it against a live Replit instance
+  surfaced the real problem — it made the whole mechanism only as reachable
+  as whichever Replit process hosted it, and neither dev (restarts
+  constantly, no uptime guarantee) nor production (the live-traffic process
+  this was built to stay off of) was right. It also wasn't buying real
+  security: the actual push credential never touched it either way, only
+  ever living in GitHub Actions secrets. `scripts/source-promote.ts` now
+  calls the GitHub Actions API directly — no server involved, nothing to
+  host. If you're reading this on a checkout that still has
+  `server/services/source-promote-service.ts` or the two routes in
+  `server/routes.ts`, that's stale; they should be gone.
 - Landed via a squash-merged PR (#8) plus one follow-up commit, after a
   chicken-and-egg bootstrap: the endpoint couldn't deploy itself the first
   time, so this batch went through a normal PR since neither `source-bridge.sh`

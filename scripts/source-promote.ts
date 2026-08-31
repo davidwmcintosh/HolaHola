@@ -1,22 +1,39 @@
 /**
- * Caller-side CLI for POST /api/internal/source-promote — the one shared way
- * any tool (Claude Code, Replit, Cursor, Antigravity) gets a committed branch
- * onto main safely. Design: docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md
+ * Cross-tool "get a committed branch onto main safely" — the one shared way
+ * any tool (Claude Code, Replit, Cursor, Antigravity) does this, instead of
+ * each growing its own habit. Design: docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md
+ *
+ * Talks to the GitHub Actions API directly — no HolaHola server involved.
+ * An earlier version proxied through POST /api/internal/source-promote, but
+ * that endpoint would only ever be as reachable as whichever Replit process
+ * hosted it (dev restarts constantly and isn't meant to have uptime
+ * guarantees; production is the live-traffic process this was always meant
+ * to stay off of). The actual credential this needs to protect —
+ * HOLAHOLA_GITHUB_DEPLOY_KEY — never leaves GitHub Actions secrets in either
+ * design, so the server-hosted proxy added a reachability dependency without
+ * adding real security. GitHub's own API is already the always-on service
+ * here; there was nothing to proxy.
  *
  * Usage:
- *   npx tsx scripts/source-promote.ts push <branch> [--source <label>] [--url <base>]
- *   npx tsx scripts/source-promote.ts status <jobId> [--url <base>]
+ *   npx tsx scripts/source-promote.ts push <branch> [--source <label>]
+ *   npx tsx scripts/source-promote.ts status <jobId>
  *
  * Caller responsibility before calling `push`: commit locally, then
  * `git push origin <branch>` normally — pushing a non-main branch needs no
- * special credential. This script only asks the shared endpoint to validate
- * and fast-forward main; it never touches the deploy key itself.
+ * special credential. This script only asks GitHub Actions to validate and
+ * fast-forward main; it never touches the deploy key itself.
  */
 import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 if (existsSync('.env')) {
   process.loadEnvFile('.env');
 }
+
+const OWNER = 'davidwmcintosh';
+const REPO = 'HolaHola';
+const WORKFLOW_FILE = 'source-promote.yml';
+const GITHUB_API = 'https://api.github.com';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -26,12 +43,56 @@ function requireEnv(name: string): string {
   return value;
 }
 
-function baseUrl(flags: Record<string, string | boolean>): string {
-  const url = (flags.url as string) ?? process.env.APP_URL;
-  if (!url) {
-    throw new Error('No base URL — pass --url or set APP_URL in .env');
+export function isValidBranchName(branch: string): boolean {
+  return (
+    typeof branch === 'string' &&
+    branch.length > 0 &&
+    branch.length <= 200 &&
+    /^[A-Za-z0-9._/-]+$/.test(branch) &&
+    !branch.startsWith('-') &&
+    !branch.includes('..')
+  );
+}
+
+async function githubApi<T>(apiPath: string, init: RequestInit = {}): Promise<T> {
+  const token = requireEnv('GITHUB_ACTIONS_DISPATCH_TOKEN');
+  const res = await fetch(`${GITHUB_API}${apiPath}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+      ...init.headers,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`GitHub API ${init.method ?? 'GET'} ${apiPath} failed: ${res.status} ${body}`);
   }
-  return url.replace(/\/$/, '');
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+interface GithubWorkflowRun {
+  id: number;
+  name?: string;
+  display_title?: string;
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+}
+
+// workflow_dispatch's own response never includes the run it created, so the
+// run is found by matching run-name (set from the jobId) among recent
+// dispatch-triggered runs — the standard workaround for this GitHub API gap.
+// Stateless by design: any later `status <jobId>` call resolves this fresh,
+// no local bookkeeping needed.
+async function resolveRun(jobId: string): Promise<GithubWorkflowRun | undefined> {
+  const { workflow_runs } = await githubApi<{ workflow_runs: GithubWorkflowRun[] }>(
+    `/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?event=workflow_dispatch&per_page=20`,
+  );
+  return workflow_runs.find((run) => (run.display_title ?? run.name ?? '').includes(jobId));
 }
 
 function parseFlags(args: string[]): { positional: string[]; flags: Record<string, string | boolean> } {
@@ -55,71 +116,55 @@ function parseFlags(args: string[]): { positional: string[]; flags: Record<strin
   return { positional, flags };
 }
 
-async function bridgeFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const token = requireEnv('SOURCE_BRIDGE_API_TOKEN');
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      'x-source-bridge-token': token,
-      'Content-Type': 'application/json',
-      ...init.headers,
-    },
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(`${init.method ?? 'GET'} ${url} -> ${res.status}: ${JSON.stringify(body)}`);
-  }
-  return body as T;
-}
-
-interface PromotionStatus {
-  jobId: string;
-  state: 'pending' | 'queued' | 'in_progress' | 'synced' | 'failed';
-  branch: string;
-  source: string;
-  runUrl?: string;
-  detail?: string;
-}
-
 async function cmdPush(positional: string[], flags: Record<string, string | boolean>) {
   const branch = positional[0];
   if (!branch) {
-    throw new Error('Usage: source-promote.ts push <branch> [--source <label>] [--url <base>]');
+    throw new Error('Usage: source-promote.ts push <branch> [--source <label>]');
+  }
+  if (!isValidBranchName(branch)) {
+    throw new Error(`Not a valid branch name: ${branch}`);
   }
   const source = (flags.source as string) ?? 'claude-code';
-  const url = baseUrl(flags);
+  const jobId = randomUUID();
 
-  const start = await bridgeFetch<{ jobId: string; state: string }>(`${url}/api/internal/source-promote`, {
+  await githubApi(`/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
     method: 'POST',
-    body: JSON.stringify({ source, branch }),
+    body: JSON.stringify({ ref: 'main', inputs: { branch, jobId } }),
   });
-  console.log(`[source-promote] Dispatched — job ${start.jobId}, state ${start.state}`);
+  console.log(`[source-promote] Dispatched by ${source} — job ${jobId}`);
 
-  const terminal = new Set(['synced', 'failed']);
   for (;;) {
     await new Promise((r) => setTimeout(r, 10_000));
-    const status = await bridgeFetch<PromotionStatus>(`${url}/api/internal/source-promote/${start.jobId}`);
-    console.log(`[source-promote] ${status.state}${status.runUrl ? ` — ${status.runUrl}` : ''}`);
-    if (terminal.has(status.state)) {
-      if (status.state === 'failed') {
-        console.error(`[source-promote] FAILED${status.detail ? `: ${status.detail}` : ''}`);
-        process.exitCode = 1;
-      } else {
-        console.log('[source-promote] SYNCED — main now includes this branch.');
-      }
-      return;
+    const run = await resolveRun(jobId);
+    if (!run) {
+      console.log('[source-promote] queued — waiting for the run to appear...');
+      continue;
     }
+    if (run.status !== 'completed') {
+      console.log(`[source-promote] ${run.status} — ${run.html_url}`);
+      continue;
+    }
+    if (run.conclusion === 'success') {
+      console.log(`[source-promote] SYNCED — main now includes this branch. ${run.html_url}`);
+    } else {
+      console.error(`[source-promote] FAILED (${run.conclusion}) — ${run.html_url}`);
+      process.exitCode = 1;
+    }
+    return;
   }
 }
 
-async function cmdStatus(positional: string[], flags: Record<string, string | boolean>) {
+async function cmdStatus(positional: string[]) {
   const jobId = positional[0];
   if (!jobId) {
-    throw new Error('Usage: source-promote.ts status <jobId> [--url <base>]');
+    throw new Error('Usage: source-promote.ts status <jobId>');
   }
-  const url = baseUrl(flags);
-  const status = await bridgeFetch<PromotionStatus>(`${url}/api/internal/source-promote/${jobId}`);
-  console.log(JSON.stringify(status, null, 2));
+  const run = await resolveRun(jobId);
+  if (!run) {
+    console.log('No run found yet for that jobId — it may not have started, or may be older than the last 20 dispatch runs.');
+    return;
+  }
+  console.log(JSON.stringify(run, null, 2));
 }
 
 async function main() {
@@ -130,7 +175,7 @@ async function main() {
     case 'push':
       return cmdPush(positional, flags);
     case 'status':
-      return cmdStatus(positional, flags);
+      return cmdStatus(positional);
     default:
       console.error('Usage: source-promote.ts <push|status> [options]');
       process.exitCode = 1;
