@@ -73,6 +73,26 @@ try {
     fail('validated current-directory fallback was not selected');
   }
 
+  const replitRoot = makeProjectRoot(temp, 'replit-root');
+  const replit = resolveWorkspaceRoot({
+    env: { REPL_HOME: replitRoot },
+    cwd: fallbackRoot,
+  });
+  if (replit.root !== replitRoot || replit.source !== 'replit') {
+    fail('validated REPL_HOME workspace root was not selected');
+  }
+
+  const relativeConfigured = resolveWorkspaceRoot({
+    env: { HOLAHOLA_WORKSPACE_ROOT: 'configured-root', REPL_HOME: replitRoot },
+    cwd: temp,
+  });
+  if (
+    relativeConfigured.root !== configuredRoot
+    || relativeConfigured.source !== 'configured'
+  ) {
+    fail('relative configured workspace did not override REPL_HOME');
+  }
+
   const invalidRoot = join(temp, 'not-a-project');
   mkdirSync(invalidRoot);
   try {

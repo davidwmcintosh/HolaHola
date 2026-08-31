@@ -164,6 +164,14 @@ import { getOnboardingDialogue, updateOnboardingDialogue, resetOnboardingDialogu
 import { brainHealthTelemetry } from "./services/brain-health-telemetry";
 import { mapApiErrorToReason } from "./lib/pronunciation-error-reason";
 import { resolutionTypeSchema } from "../shared/absence-types";
+import {
+  registerDisabledSourcePromotionRoutes,
+  registerSourcePromotionRoutes,
+} from "./routes/source-promotion-routes";
+import {
+  sourcePromotionApiEnabled,
+  sourcePromotionConfigurationError,
+} from "./services/source-promotion-service";
 
 // ============================================================================
 // AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
@@ -620,6 +628,17 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 export async function registerRoutes(app: Application): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
+
+  const sourcePromotionError = sourcePromotionConfigurationError();
+  if (sourcePromotionError) {
+    console.error(`[SourcePromotion] ${sourcePromotionError}`);
+    registerDisabledSourcePromotionRoutes(app);
+  } else if (sourcePromotionApiEnabled()) {
+    registerSourcePromotionRoutes(app);
+    console.log('[SourcePromotion] Authenticated source-promotion routes mounted.');
+  } else {
+    registerDisabledSourcePromotionRoutes(app);
+  }
 
   // ── Episode dedup: partial unique index ─────────────────────────────────────
   // Enforce one canonical DB row per (arc_name, title) for episodes at the

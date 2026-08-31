@@ -9,12 +9,36 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const root = process.cwd();
 const bridgePath = join(root, 'scripts/source-bridge.sh');
 const syncToPath = join(root, 'scripts/sync-to-github.sh');
 const supervisorPath = join(root, 'scripts/source-bridge-supervisor.sh');
 const shallowHistoryTestPath = join(root, 'scripts/test-shallow-source-bridge-history.sh');
+const EXACT_SHA = 'a'.repeat(40);
+
+function validManifest(sha: string): Record<string, unknown> {
+  const manifestVersion = 2;
+  const checks = {
+    typecheck: 'passed',
+    build: 'passed',
+    ciUnit: 'passed',
+    ciGuards: 'passed',
+    ciEpisodes: 'passed',
+    sourceBridgeSafety: 'passed',
+    githubReleaseSafety: 'passed',
+    githubSyncShellGuards: 'passed',
+  };
+  return {
+    manifestVersion,
+    candidateSha: sha,
+    checks,
+    validationId: createHash('sha256')
+      .update(JSON.stringify({ manifestVersion, candidateSha: sha, checks }))
+      .digest('hex'),
+  };
+}
 
 function assertSourceContracts(): void {
   const bridge = readFileSync(bridgePath, 'utf8');
@@ -32,6 +56,20 @@ function assertSourceContracts(): void {
   assert.match(bridge, /--expected-github-head "\$GITHUB_HEAD"/, 'receives must pin the inspected GitHub commit');
   assert.match(bridge, /ready_to_promote/, 'received validated source must wait for explicit promotion');
   assert.match(bridge, /record-promotion/, 'successful explicit publishing must be recordable by exact SHA');
+  assert.match(bridge, /SOURCE_BRIDGE_VALIDATION_MANIFEST_VERSION/, 'promotion validation must use a versioned manifest');
+  assert.match(bridge, /candidate_is_fresh/, 'promotion recording must reject expired candidates');
+  for (const command of [
+    'npm run check',
+    'npm run build',
+    'npm run test:ci:unit',
+    'npm run test:ci:guards',
+    'npm run test:ci:episodes',
+    'npm run test:source-bridge',
+    'npm run test:github-release-safety',
+    'bash scripts/test-github-sync-guards.sh',
+  ]) {
+    assert.match(bridge, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `validation manifest must include ${command}`);
+  }
   assert.doesNotMatch(bridge, /\bgit (add|commit|reset|push --force)\b/, 'bridge must not stage, commit, reset, or force-push');
   assert.match(syncTo, /--committed-only/, 'low-level push helper must reject dirty committed-only calls');
   assert.match(syncTo, /--expected-head/, 'low-level push helper must reject an unexpected local head');
@@ -115,9 +153,19 @@ fi
   chmodSync(path, 0o700);
 }
 
-function writeState(dir: string, scenario: 'equal' | 'local-ahead' | 'github-ahead' | 'divergent', dirty = 0, failures = 0): string {
+function writeState(
+  dir: string,
+  scenario: 'equal' | 'local-ahead' | 'github-ahead' | 'divergent',
+  dirty = 0,
+  failures = 0,
+  equalSha?: string,
+): string {
   const path = join(dir, 'git-state');
-  const local = scenario === 'github-ahead' ? 'local-old' : 'local-new';
+  const local = scenario === 'equal' && equalSha
+    ? equalSha
+    : scenario === 'github-ahead'
+      ? 'local-old'
+      : 'local-new';
   const remote = scenario === 'local-ahead' ? 'remote-old' : scenario === 'github-ahead' ? 'remote-new' : scenario === 'divergent' ? 'remote-other' : local;
   writeFileSync(path, `scenario=${scenario}\nlocal=${local}\nremote=${remote}\ndirty=${dirty}\nfailures=${failures}\n`);
   return path;
@@ -131,13 +179,18 @@ function runBridge(options: {
   holdLock?: boolean;
   skipValidation?: boolean;
   validationMovesHead?: boolean;
+  initialStatus?: Record<string, unknown>;
+  equalSha?: string;
 }): { status: number | null; calls: string; output: string; statusJson: Record<string, unknown>; tempDir: string } {
   const dir = mkdtempSync(join(tmpdir(), 'holahola-source-bridge-test-'));
   writeFakeGit(dir);
   writeFakeNpm(dir);
-  const statePath = writeState(dir, options.scenario, options.dirty, options.failures);
+  const statePath = writeState(dir, options.scenario, options.dirty, options.failures, options.equalSha);
   const callsPath = join(dir, 'git-calls.log');
   const statusPath = join(dir, 'status.json');
+  if (options.initialStatus) {
+    writeFileSync(statusPath, `${JSON.stringify(options.initialStatus)}\n`);
+  }
   const lockFile = join(dir, 'bridge.lock');
   let holder: ReturnType<typeof spawn> | undefined;
   if (options.holdLock) {
@@ -278,9 +331,98 @@ function main(): void {
     assert.doesNotMatch(calls, /^(merge --ff-only|push|add|commit)\b/m, 'promotion refusal must not mutate source');
   });
 
-  withFixture({ scenario: 'equal', command: ['record-promotion', 'unvalidated-sha'] }, ({ status, statusJson }) => {
-    assert.notEqual(status, 0, 'promotion recording must require a matching validated candidate');
-    assert.equal(statusJson.state, 'failed', 'unvalidated promotion recording must be explicit');
+  withFixture({ scenario: 'equal', command: ['record-promotion', 'unvalidated-sha'] }, ({ status, calls, statusJson }) => {
+    assert.notEqual(status, 0, 'promotion recording must require an exact 40-hex commit SHA');
+    assert.equal(calls, '', 'invalid SHA input must be rejected before Git inspection');
+    assert.deepEqual(statusJson, {}, 'invalid SHA input must not create promotion state');
+  });
+
+  withFixture({
+    scenario: 'equal',
+    command: ['record-promotion', EXACT_SHA],
+    equalSha: EXACT_SHA,
+    initialStatus: {
+      state: 'ready_to_promote',
+      candidateSha: EXACT_SHA,
+      candidateExpiresAt: '2000-01-01T00:00:00.000Z',
+      validation: validManifest(EXACT_SHA),
+    },
+  }, ({ status, statusJson }) => {
+    assert.notEqual(status, 0, 'promotion recording must reject an expired validated candidate');
+    assert.equal(statusJson.state, 'failed');
+    assert.match(String(statusJson.error), /expired/);
+  });
+
+  withFixture({
+    scenario: 'equal',
+    command: ['record-promotion', EXACT_SHA],
+    equalSha: EXACT_SHA,
+    initialStatus: {
+      state: 'ready_to_promote',
+      candidateSha: EXACT_SHA,
+      candidateExpiresAt: '2999-01-01T00:00:00.000Z',
+    },
+  }, ({ status, statusJson }) => {
+    assert.notEqual(status, 0, 'promotion recording must reject a missing validation manifest');
+    assert.match(String(statusJson.error), /validation manifest/);
+  });
+
+  for (const [label, validation] of [
+    ['unsupported version', { ...validManifest(EXACT_SHA), manifestVersion: 3 }],
+    ['wrong candidate binding', { ...validManifest(EXACT_SHA), candidateSha: 'b'.repeat(40) }],
+    ['incomplete checks', {
+      ...validManifest(EXACT_SHA),
+      checks: {
+        ...(validManifest(EXACT_SHA).checks as Record<string, string>),
+        ciGuards: 'failed',
+      },
+    }],
+  ] as const) {
+    withFixture({
+      scenario: 'equal',
+      command: ['record-promotion', EXACT_SHA],
+      equalSha: EXACT_SHA,
+      initialStatus: {
+        state: 'ready_to_promote',
+        candidateSha: EXACT_SHA,
+        candidateExpiresAt: '2999-01-01T00:00:00.000Z',
+        validation,
+      },
+    }, ({ status, statusJson }) => {
+      assert.notEqual(status, 0, `promotion recording must reject ${label}`);
+      assert.match(String(statusJson.error), /validation manifest/);
+    });
+  }
+
+  withFixture({
+    scenario: 'equal',
+    command: ['record-promotion', EXACT_SHA],
+    equalSha: EXACT_SHA,
+    initialStatus: {
+      state: 'ready_to_promote',
+      candidateSha: EXACT_SHA,
+      candidateExpiresAt: '2999-01-01T00:00:00.000Z',
+      validation: { ...validManifest(EXACT_SHA), validationId: 'tampered' },
+    },
+  }, ({ status, statusJson }) => {
+    assert.notEqual(status, 0, 'promotion recording must reject a tampered validation ID');
+    assert.match(String(statusJson.error), /validation manifest/);
+  });
+
+  withFixture({
+    scenario: 'equal',
+    command: ['record-promotion', EXACT_SHA],
+    equalSha: EXACT_SHA,
+    initialStatus: {
+      state: 'ready_to_promote',
+      candidateSha: EXACT_SHA,
+      candidateExpiresAt: '2999-01-01T00:00:00.000Z',
+      validation: validManifest(EXACT_SHA),
+    },
+  }, ({ status, statusJson }) => {
+    assert.equal(status, 0, 'promotion recording must accept the exact fresh candidate with a valid manifest');
+    assert.equal(statusJson.state, 'synced');
+    assert.equal(statusJson.promotedSha, EXACT_SHA);
   });
 
   withFixture({ scenario: 'equal', holdLock: true }, ({ status, calls, statusJson }) => {

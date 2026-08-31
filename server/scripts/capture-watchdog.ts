@@ -28,6 +28,7 @@ import {
   recoverChatCaptureCursor,
   acquireCursorLock,
   releaseCursorLock,
+  WORKSPACE,
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
   type ChatCaptureCursor,
@@ -47,8 +48,8 @@ import {
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const POLL_MS           = 15_000;
-const EPISODE_LIVE_PATH = path.join(process.cwd(), '.local/.episode_live');
-const DOCS_DIR          = path.join(process.cwd(), 'docs');
+const EPISODE_LIVE_PATH = path.join(WORKSPACE, '.local/.episode_live');
+const DOCS_DIR          = path.join(WORKSPACE, 'docs');
 
 const DB_URL = process.env.NEON_SHARED_DATABASE_URL;
 if (!DB_URL) {
@@ -350,8 +351,8 @@ export async function drain(): Promise<void> {
 
 import { tryAcquireInnerLifeLock, releaseInnerLifeLock, renewInnerLifeLock } from '../services/inner-life-lock';
 
-const LOCAL_DIR            = path.join(process.cwd(), '.local');
-const INNER_LIFE_LOCK_PATH = path.join(process.cwd(), '.local/.inner-life-drain.lock');
+const LOCAL_DIR            = path.join(WORKSPACE, '.local');
+const INNER_LIFE_LOCK_PATH = path.join(WORKSPACE, '.local/.inner-life-drain.lock');
 const CAPTURE_STATUS_PATH  = path.join(LOCAL_DIR, 'episode-capture-status.md');
 const STALE_ALERT_PATH     = path.join(LOCAL_DIR, 'stale-channel-alert.md');
 const INNER_LIFE_STATE_PATH = path.join(LOCAL_DIR, '.watchdog-inner-life-state.json');
@@ -364,7 +365,7 @@ const INNER_LIFE_PROCESSED_PATH = path.join(LOCAL_DIR, '.inner-life-processed.js
 
 const CANONICAL_INNER_LIFE_INTENT_PATH = path.join(LOCAL_DIR, CANONICAL_INNER_LIFE_INTENT_DIR);
 const DB_WARNING_PATH      = path.join(LOCAL_DIR, '.luca_db_write_warning');
-const MEMORY_DIR           = path.join(process.cwd(), '.agents/memory');
+const MEMORY_DIR           = path.join(WORKSPACE, '.agents/memory');
 
 const AUTOSAVE_FRESH_MS  = 90_000;            // autosave heartbeat considered alive within this window
 const STALE_CHANNEL_MS   = 10 * 60 * 1000;    // matches agent-session-autosave STALE_CHANNEL_MS

@@ -1,5 +1,32 @@
 # Batch Documentation Updates
 
+## Session August 28, 2026 — Accurate live exchange finalization
+
+### Gemini Live totals now survive persistence failures and disconnect races
+
+**What changed:** Completed Gemini Live exchanges are now counted at the
+generation-complete boundary (or its existing watchdog fallback), keyed by the
+student-turn epoch so greetings, system generations, tool continuations, and
+late duplicate signals cannot inflate the total. Transcript persistence no
+longer owns exchange accounting.
+
+**Lifecycle repair:** Periodic sync, explicit clean close, duplicate-connection
+replacement, ordinary disconnect, and WebSocket error cleanup now use one
+base-plus-current-connection metrics snapshot. The duplicate replacement path
+captures current GL totals before releasing the usage session, closing the race
+that could preserve zero exchanges through reconnect grace.
+
+**Terminal outcomes:** Explicit clean close remains `completed`; grace expiry
+(including startup recovery) is `abandoned`; WebSocket error finalization is
+`error`. Billing behavior is unchanged.
+
+**Verification:** Focused accounting regression passed 5/5, TypeScript passed,
+system health reported “All checks passed — safe to mark done,” the application
+restarted successfully, and Gemini’s post-build verdict was exactly
+**APPROVED — Ship it.**
+
+---
+
 ## Session August 21, 2026 — Two-way committed source bridge
 
 ### Replit and GitHub now have one serialized source-sync coordinator
@@ -4765,3 +4792,12 @@ No database migration or backfill was required. TypeScript and the focused
 five-case regression pass, system health is clean apart from app-not-running
 route warnings, and Gemini gave unconditional post-build approval. See
 `docs/gemini-audit-2026-08-26-failed-lookup-memory-boundary.md`.
+
+### Task 1347 reconciliation — August 28, 2026
+
+The still-unapplied task proposal was compared against the implementation above.
+Gemini reviewed the actual current schema, writers, boundary helper, and readers
+and returned `CLEARED AS-IS`. Adding the proposal's separate reflection
+`entry_type` now would create a competing classifier and unnecessary
+shared-database risk. The stale task patch should not be applied. See
+`docs/gemini-audit-2026-08-28-task-1347-reconciliation.md`.

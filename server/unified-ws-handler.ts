@@ -74,6 +74,7 @@ import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './s
 import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-evaluator';
 import { selectPedagogicalDirective, type CanvasMutation } from './services/pedagogical-planner';
 import { glLiveAlert } from './services/gl-live-monitor';
+import { combineVoiceMetricTotals } from './services/voice-exchange-accounting';
 
 // ── Canvas Mutation Executor ──────────────────────────────────────────────────
 // Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
@@ -342,7 +343,7 @@ function armReconnectTimer(
         ttsCharacters: current.ttsCharacters,
         sttSeconds: current.sttSeconds,
       });
-      const endedSession = await usageService.endSession(current.usageSessionId);
+      const endedSession = await usageService.endSession(current.usageSessionId, 'abandoned');
       if (endedSession) {
         console.log(`[Reconnect Grace] Usage session ended: ${endedSession.durationSeconds}s, ${current.exchangeCount} exchanges`);
       }
@@ -536,7 +537,7 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
         tutorSpeakingSeconds: expired.tutorSpeakingSeconds,
         ttsCharacters: expired.ttsCharacters,
         sttSeconds: expired.sttSeconds,
-      }).then(() => usageService.endSession(expired.usageSessionId))
+      }).then(() => usageService.endSession(expired.usageSessionId, 'abandoned'))
         .then(() => console.log(`[Reconnect Grace] Ended expired session ${expired.usageSessionId.substring(0, 8)} (conv ${expired.conversationId.substring(0, 8)}) on startup`))
         .catch((err: Error) => console.warn(`[Reconnect Grace] Failed to end expired session ${expired.usageSessionId.substring(0, 8)}:`, err.message));
     }
@@ -1436,6 +1437,32 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   let tutorSpeakingSeconds = 0;
   let ttsCharacters = 0;
   let sttSeconds = 0;
+
+  // Base counters contain legacy activity plus totals carried from prior
+  // connections. The current Gemini Live object contains only this connection's
+  // delta. Keep this read-only so periodic sync, duplicate replacement, clean
+  // close, disconnect, and error paths all observe the same total without
+  // folding the same GL delta into the base twice.
+  const getCurrentVoiceMetricsSnapshot = () => {
+    const glSpeaking = geminiLiveSession?.getSpeakingStats();
+    return combineVoiceMetricTotals(
+      {
+        exchangeCount,
+        studentSpeakingSeconds,
+        tutorSpeakingSeconds,
+        ttsCharacters,
+        sttSeconds,
+      },
+      geminiLiveSession
+        ? {
+            exchangeCount: geminiLiveSession.getCompletedExchangeCount(),
+            studentSpeakingMs: glSpeaking?.studentSpeakingMs ?? 0,
+            tutorSpeakingMs: glSpeaking?.tutorSpeakingMs ?? 0,
+            outputCharacters: geminiLiveSession.getTotalOutputCharacters(),
+          }
+        : null,
+    );
+  };
   
   // Compass session state
   let compassSession: TutorSession | null = null;
@@ -3476,14 +3503,14 @@ ${lastNote.tutorNotes}`);
                   if (!geminiLiveSession || !usageSession) return;
                   const glExchanges = geminiLiveSession.getCompletedExchangeCount();
                   const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
-                  const glSpeaking = geminiLiveSession.getSpeakingStats();
                   const glTokens = geminiLiveSession.getUsageSummary();
+                  const metrics = getCurrentVoiceMetricsSnapshot();
                   if (glExchanges > 0 || glOutputChars > 0) {
                     usageService.updateSessionMetrics(usageSession.id, {
-                      exchangeCount: exchangeCount + glExchanges,
-                      ttsCharacters: ttsCharacters + glOutputChars,
-                      studentSpeakingSeconds: Math.round((studentSpeakingSeconds * 1000 + glSpeaking.studentSpeakingMs) / 1000),
-                      tutorSpeakingSeconds: Math.round((tutorSpeakingSeconds * 1000 + glSpeaking.tutorSpeakingMs) / 1000),
+                      exchangeCount: metrics.exchangeCount,
+                      ttsCharacters: metrics.ttsCharacters,
+                      studentSpeakingSeconds: Math.round(metrics.studentSpeakingSeconds),
+                      tutorSpeakingSeconds: Math.round(metrics.tutorSpeakingSeconds),
                       ...(glTokens.inputTokens > 0 ? { llmInputTokens: glTokens.inputTokens } : {}),
                       ...(glTokens.outputTokens > 0 ? { llmOutputTokens: glTokens.outputTokens } : {}),
                     }).catch((err: Error) => console.warn('[GeminiLive] Periodic metrics sync failed:', err.message));
@@ -3526,9 +3553,8 @@ ${lastNote.tutorNotes}`);
                   // so that broken sessions (GL audio flowing but server-side tracking dead)
                   // are detectable post-hoc by the absence of heartbeats after session_start.
                   if (usageSession && userId) {
-                    const glExchangesNow = geminiLiveSession?.getCompletedExchangeCount() ?? 0;
                     const heartbeatPayload = JSON.stringify({
-                      exchangeCount: exchangeCount + glExchangesNow,
+                      exchangeCount: metrics.exchangeCount,
                       sessionAgeSeconds: Math.round((Date.now() - (usageSession.startedAt ? new Date(usageSession.startedAt).getTime() : Date.now())) / 1000),
                     });
                     getSharedDb().execute(sql`
@@ -4970,20 +4996,21 @@ ${lastNote.tutorNotes}`);
             
             // End usage session for usage tracking and memory extraction
             if (usageSession) {
+              const metrics = getCurrentVoiceMetricsSnapshot();
               // Capture id synchronously before nulling — the promise chain below is async
               // and usageSession will be null by the time the .then() callbacks fire
               const capturedUsageSessionId = usageSession.id;
               try {
                 usageService.updateSessionMetrics(capturedUsageSessionId, {
-                  exchangeCount,
-                  studentSpeakingSeconds,
-                  tutorSpeakingSeconds,
-                  ttsCharacters,
-                  sttSeconds,
+                  exchangeCount: metrics.exchangeCount,
+                  studentSpeakingSeconds: metrics.studentSpeakingSeconds,
+                  tutorSpeakingSeconds: metrics.tutorSpeakingSeconds,
+                  ttsCharacters: metrics.ttsCharacters,
+                  sttSeconds: metrics.sttSeconds,
                 }).then(() => usageService.endSession(capturedUsageSessionId))
                   .then((endedSession) => {
                     if (endedSession) {
-                      console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+                      console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${metrics.exchangeCount} exchanges`);
                     } else {
                       console.log(`[Streaming Voice] Usage session ended (no metrics returned)`);
                     }
@@ -5023,14 +5050,15 @@ ${lastNote.tutorNotes}`);
           ? { notes: (session as any).sessionNotes as string[] ?? [], notesSaved: !!(session as any).sessionNotesSaved, userId: String(session.userId) }
           : undefined;
         if (session && earlyRrCarryState) (session as any)._deferCarryForward = true;
+        const metrics = getCurrentVoiceMetricsSnapshot();
         storePendingReconnect(conversationId, {
           usageSessionId: usageSession.id,
           compassSessionActive: !!compassSession,
-          exchangeCount,
-          studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
-          tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
-          ttsCharacters,
-          sttSeconds: Math.round(sttSeconds),
+          exchangeCount: metrics.exchangeCount,
+          studentSpeakingSeconds: Math.round(metrics.studentSpeakingSeconds),
+          tutorSpeakingSeconds: Math.round(metrics.tutorSpeakingSeconds),
+          ttsCharacters: metrics.ttsCharacters,
+          sttSeconds: Math.round(metrics.sttSeconds),
           sessionStartTime,
           userId: userId!,
           orchestratorSessionId: session?.id,
@@ -5070,16 +5098,16 @@ ${lastNote.tutorNotes}`);
 
     // Capture Gemini Live metrics before stopping (stop() resets internal state)
     if (geminiLiveSession) {
+      const metrics = getCurrentVoiceMetricsSnapshot();
       const glMetrics = geminiLiveSession.getUsageSummary();
       const glExchanges = geminiLiveSession.getCompletedExchangeCount();
       const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
-      const glSpeaking = geminiLiveSession.getSpeakingStats();
       const glLatency = geminiLiveSession.getTurnLatencyStats();
-      exchangeCount += glExchanges;
+      exchangeCount = metrics.exchangeCount;
       disconnectExchangeCount = exchangeCount; // include GL exchanges in disconnect telemetry
-      ttsCharacters += glOutputChars;
-      studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
-      tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
+      ttsCharacters = metrics.ttsCharacters;
+      studentSpeakingSeconds = metrics.studentSpeakingSeconds;
+      tutorSpeakingSeconds = metrics.tutorSpeakingSeconds;
       if (glMetrics.inputTokens > 0 || glMetrics.outputTokens > 0) {
         const visionNote = glMetrics.videoFramesSent > 0
           ? `, vision: ${glMetrics.videoFramesSent} frames`
@@ -5329,7 +5357,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds: Math.round(sttSeconds),
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(capturedUsageSessionId))
+      }).then(() => usageService.endSession(capturedUsageSessionId, 'abandoned'))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
@@ -5392,15 +5420,13 @@ ${lastNote.tutorNotes}`);
 
     // Capture Gemini Live metrics before stopping on error
     if (geminiLiveSession) {
+      const metrics = getCurrentVoiceMetricsSnapshot();
       const glMetrics = geminiLiveSession.getUsageSummary();
-      const glExchanges = geminiLiveSession.getCompletedExchangeCount();
-      const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
-      const glSpeaking = geminiLiveSession.getSpeakingStats();
       const glLatency = geminiLiveSession.getTurnLatencyStats();
-      exchangeCount += glExchanges;
-      ttsCharacters += glOutputChars;
-      studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
-      tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
+      exchangeCount = metrics.exchangeCount;
+      ttsCharacters = metrics.ttsCharacters;
+      studentSpeakingSeconds = metrics.studentSpeakingSeconds;
+      tutorSpeakingSeconds = metrics.tutorSpeakingSeconds;
       if (usageSession) {
         (usageSession as any)._glInputTokens = glMetrics.inputTokens;
         (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
@@ -5449,9 +5475,10 @@ ${lastNote.tutorNotes}`);
     
     // End usage session on error for usage tracking
     if (usageSession) {
+      const capturedUsageSessionId = usageSession.id;
       const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
       const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
-      usageService.updateSessionMetrics(usageSession.id, {
+      usageService.updateSessionMetrics(capturedUsageSessionId, {
         exchangeCount,
         studentSpeakingSeconds,
         tutorSpeakingSeconds,
@@ -5459,7 +5486,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds,
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(usageSession!.id))
+      }).then(() => usageService.endSession(capturedUsageSessionId, 'error'))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on error: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);

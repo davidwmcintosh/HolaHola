@@ -1,3 +1,24 @@
+# Live exchange accounting — August 28, 2026
+
+- Gemini Live exchange totals are now advanced at `generationComplete` or its
+  existing watchdog fallback, independently of transcript persistence.
+- Student-turn epochs provide the idempotency key: epoch zero excludes
+  greetings, and repeated completion/tool-continuation signals for the same
+  utterance do not increment again.
+- One base-plus-current-GL snapshot is used by periodic metrics sync, clean
+  close, duplicate replacement, disconnect, and error cleanup. Reconnect
+  snapshots become the next connection's base; the fresh GL session starts at
+  zero.
+- The duplicate replacement callback now captures GL metrics before setting
+  `usageSession` to null. The error path also captures the usage-session ID
+  before asynchronous finalization.
+- Terminal status is explicit: clean close is `completed`, grace expiry is
+  `abandoned`, and WebSocket failure is `error`.
+- Focused regression passed 5/5; TypeScript and system health passed. Gemini’s
+  post-build verdict was exactly **APPROVED — Ship it.**
+
+---
+
 # Two-way source bridge — August 21, 2026
 
 - `scripts/source-bridge.sh` is the sole unattended coordinator for GitHub
@@ -7484,3 +7505,13 @@ TypeScript, system health, and the five-case focused regression pass. The
 pre-flight review cleared the design, and Gemini's post-build review of the
 actual implementation returned unconditional `APPROVED`. Audit:
 `docs/gemini-audit-2026-08-26-failed-lookup-memory-boundary.md`.
+
+### Task 1347 reconciliation — August 28, 2026
+
+The task remained in an unapplied state because Luca [Claude Code] supplied the
+architecture rather than code. Its proposed `entry_type` classifier is now
+superseded by the complete reserved-tag boundary documented above. Gemini
+reviewed the actual current code and returned `CLEARED AS-IS`, explicitly
+advising against introducing a second classifier. Do not apply the stale task
+patch. Reconciliation audit:
+`docs/gemini-audit-2026-08-28-task-1347-reconciliation.md`.

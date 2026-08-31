@@ -16,12 +16,11 @@
  *      returns true only for content the watchdog actually processed
  *      (sha match + lastProcessedMs), so a server restart cannot double-save.
  *
- * Hermetic setup: the watchdog resolves its .local/docs paths from
- * process.cwd(), so the drain scenarios run in a spawned driver process
- * (test-watchdog-inner-life-driver.ts) with a temp cwd, and the watchdog's
- * neon client is replaced with an in-memory fake (setDbForTest) — no shared
- * database rows are created. The restart-dedup guard is tested against a
- * temp trigger + temp state file only.
+ * Hermetic setup: the spawned driver explicitly configures its temporary
+ * directory as HOLAHOLA_WORKSPACE_ROOT, and the watchdog's neon client is
+ * replaced with an in-memory fake (setDbForTest) — no shared database rows
+ * are created. The restart-dedup guard is tested against a temp trigger +
+ * temp state file only.
  */
 
 import { spawnSync } from 'child_process';
@@ -29,8 +28,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { workspaceResolution } from '../services/workspace-root';
 
-const WORKSPACE = '/home/runner/workspace';
+const WORKSPACE = workspaceResolution.root;
 const MARKER = `wdtest-${Date.now()}`;
 
 let failures = 0;
@@ -42,9 +42,18 @@ function check(name: string, ok: boolean, detail?: string) {
 (async () => {
   console.log('watchdog inner-life CI — drain scenarios (hermetic temp cwd)');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wd-il-'));
+  fs.mkdirSync(path.join(tmp, 'server'), { recursive: true });
+  fs.mkdirSync(path.join(tmp, 'shared'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
+  fs.writeFileSync(path.join(tmp, 'drizzle.config.ts'), 'export default {};');
+  fs.writeFileSync(path.join(tmp, 'shared/schema.ts'), 'export {};');
   const run = spawnSync('npx', ['tsx', path.join(WORKSPACE, 'server/scripts/test-watchdog-inner-life-driver.ts')], {
     cwd: tmp,
-    env: { ...process.env, WD_TEST_MARKER: MARKER },
+    env: {
+      ...process.env,
+      HOLAHOLA_WORKSPACE_ROOT: tmp,
+      WD_TEST_MARKER: MARKER,
+    },
     encoding: 'utf8',
     timeout: 180_000,
   });

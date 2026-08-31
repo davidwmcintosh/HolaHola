@@ -76,13 +76,14 @@ fi
 #   DB → .md:  npx tsx server/scripts/sync-prequel-ep1-from-db.ts
 #   .md → DB:  npx tsx server/scripts/sync-prequel-episode-1.ts
 
-# ── Source bridge immediate pass ──────────────────────────────────────────────
-# Replit task merges are accepted commits. Request a committed-only bridge pass
-# after the existing post-merge protections complete. A failure is recorded in
-# .local/source-bridge-status.json and retried by the dedicated bridge workflow;
-# it must never make a successful merge fail or stage a dirty worktree.
+# ── Source-control coordinator wake request ───────────────────────────────────
+# This hook never invokes Git. The development scheduler consumes the atomic
+# wake request and runs the sole TypeScript mutation authority under its lock.
 # ─────────────────────────────────────────────────────────────────────────────
-if [[ -x "$SCRIPT_DIR/source-bridge.sh" ]]; then
-  SOURCE_BRIDGE_ORIGIN="post-merge" "$SCRIPT_DIR/source-bridge.sh" once \
-    || echo "⚠  Source bridge deferred; inspect .local/source-bridge-status.md."
-fi
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+WAKE_FILE="${SOURCE_CONTROL_WAKE_FILE:-$ROOT_DIR/.local/source-control-wake}"
+mkdir -p "$(dirname "$WAKE_FILE")"
+WAKE_TMP="${WAKE_FILE}.tmp.$$"
+printf '%s\n' "post-merge" > "$WAKE_TMP"
+mv "$WAKE_TMP" "$WAKE_FILE"
+echo "[post-merge] Source-control scheduler wake requested."

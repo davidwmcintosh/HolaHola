@@ -9,10 +9,9 @@
  * therefore make no personal-memory, personal-file, or watchdog-state write.
  * Otherwise the watchdog and autosave could double-save a felt/thinking/moment.
  *
- * The script runs its real drain in a spawned child whose cwd is a new temp
- * directory: capture-watchdog resolves .local/, docs/, and .agents/memory/
- * from process.cwd(). The child replaces Neon with an in-memory fake before
- * draining, so no shared-database row can be written.
+ * The script runs its real drain in a spawned child whose validated workspace
+ * root is a new temp directory. The child replaces Neon with an in-memory fake
+ * before draining, so no shared-database row can be written.
  *
  * --self-check proves this test is load-bearing. It deliberately disables both
  * autosave-alive checks through the production test seam, then confirms the
@@ -27,6 +26,7 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { workspaceResolution } from '../services/workspace-root';
 
 interface DriverResults {
   personalInsertCount: number;
@@ -36,11 +36,16 @@ interface DriverResults {
 
 const isDriver = process.argv.includes('--driver');
 const selfCheck = process.argv.includes('--self-check');
-const workspace = process.cwd();
+const workspace = workspaceResolution.root;
 
 function runDriver(bypassGate: boolean): { exitCode: number | null; output: string; results: DriverResults | null } {
   const tempCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'wd-il-autosave-gate-'));
   try {
+    fs.mkdirSync(path.join(tempCwd, 'server'), { recursive: true });
+    fs.mkdirSync(path.join(tempCwd, 'shared'), { recursive: true });
+    fs.writeFileSync(path.join(tempCwd, 'package.json'), '{}');
+    fs.writeFileSync(path.join(tempCwd, 'drizzle.config.ts'), 'export default {};');
+    fs.writeFileSync(path.join(tempCwd, 'shared/schema.ts'), 'export {};');
     const run = spawnSync(
       'npx',
       ['tsx', path.join(workspace, 'server/scripts/test-watchdog-inner-life-autosave-gate.ts'), '--driver'],
@@ -48,6 +53,7 @@ function runDriver(bypassGate: boolean): { exitCode: number | null; output: stri
         cwd: tempCwd,
         env: {
           ...process.env,
+          HOLAHOLA_WORKSPACE_ROOT: tempCwd,
           // capture-watchdog constructs a Neon client at module load; the fake
           // replaces it before drainInnerLife() runs, so this URL is never used.
           NEON_SHARED_DATABASE_URL: 'postgresql://ci:ci@localhost:5432/ci',

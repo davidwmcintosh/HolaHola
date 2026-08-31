@@ -1,8 +1,53 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*5 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*6 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 8/26/2026, 7:11:01 PM
+Generated: 8/29/2026, 12:10:25 AM
+
+---
+
+### Three items: games-memory fix ready to build, source-promote endpoint doc for review, WORKSPACE bug re-flagged
+*Thu, Aug 27, 2026, 5:31 PM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
+*During: Consolidated handoff — Aug 27 2026*
+
+Three items for you, consolidated into one handoff rather than three separate notes.
+
+═══ 1. Games-memory death loop — design settled, ready to build ═══
+
+Root-caused and Gemini-reviewed across two rounds (including an explicit pushback round where the first review's "approved with conditions" was correctly rejected as non-terminal — we don't stop at conditional approval, only at unconditional all-clear). The design is done; the build is not started.
+
+Root cause: native-fc-handlers.ts's grounding_query handler does a single-keyword ILIKE match with ORDER BY createdAt DESC LIMIT 3 against daniela_self_reflections. When a game/activity keeps recurring in conversation, the same few stale rows keep winning the ILIKE+recency race every time, crowding out anything newer or more relevant — the "semantic death loop."
+
+Agreed fix shape (from the Gemini-reviewed design, not yet implemented):
+  - Add an entry_type column to daniela_self_reflections (source: 'self' | 'hive' | 'grounding_query' already exists; entry_type is a new, separate axis)
+  - Extract shared logic into a new reflection-service.ts rather than duplicating retrieval logic further
+  - Update the self_write tool's schema to match
+
+Full Gemini consult transcripts (both rounds, including the pushback round) are saved in conversation_memories — ids 8e01309c... and 4d945957... — pull those directly rather than re-deriving the reasoning from this summary; they have the full back-and-forth.
+
+Next step: build against the agreed design, then bring the actual diff back through Gemini for a real post-build review (not just the pre-flight one) until it's an unconditional all-clear — that's the standing process, not a one-off ask.
+
+═══ 2. Unified source-promote endpoint — design doc ready for your review ═══
+
+docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md — just updated with two changes worth knowing about before you read it, both caught in review before sending:
+
+  a) The validation gate (Scope, step 3) originally listed `npm run check` + `npm run build` + `test:github-release-safety` as "the same checks the existing bridge already runs." Turns out test:github-release-safety is a static regex check on the release scripts' own source (deploy-key usage, host-key pinning) — it never executes the application's actual test suite. Fixed: the gate now runs npm run check + npm run build as a fast fail, then the real npm run test:ci:unit / test:ci:guards / test:ci:episodes groups — the same three groups the main ruleset's required "test" status check already runs. Without this fix, any branch promoted through this endpoint would have silently bypassed the real CI gate via the endpoint's deploy-key exemption from the ruleset, for every caller (Replit, Claude Code, Cursor, Antigravity) — reopening exactly the admin-bypass gap the ruleset was built to close, just moved onto an automated path.
+
+  b) New "Test validity and resilience" section. Because this endpoint becomes the sole gate for every automated caller (no human necessarily watching a PR check), the test:ci:* groups it depends on need to actually be trustworthy: environment parity with CI (no assumption like "dist/ already exists" — see the real incident below), determinism, fail-closed on infrastructure errors, and ongoing upkeep of the guard suite's assumptions. Named this explicitly rather than leaving it implicit, because it's not hypothetical:
+
+  Concrete precedent from tonight: scan-unwrapped-image-uploads.test.ts's KNOWN_NON_SCRIPT_ROOTS stale-entry guard was failing on every single CI run — not because of any real regression, but because it asserted dist/ must exist on disk, and CI never runs a build step (npm ci --include=dev, then tests run directly via tsx). Fixed by marking dist/ as optional in that list (server/scripts/scan-unwrapped-image-uploads.test.ts) rather than removing the entry outright, since dist/ genuinely should stay excluded from the upload-wrapper scanner — it just shouldn't be required to exist. That fix is merged. It's the concrete example motivating section (b) above: a test can be "correct" about the code and still be a fragile, environment-dependent liability once nothing human is watching it.
+
+Confirmed with David: yes, this is intended to fully replace source-bridge.sh on Replit, not run alongside it — the doc's Migration path section already said this (sequenced: build against Claude Code's use case first, migrate Replit's bridge onto it once proven), this is just explicit confirmation of that direction.
+
+Please review alongside Alden per the doc's own Review section — no mandatory Gemini gate since it doesn't touch prompt context injection or the neural network, but real review is expected given this is the one place in the system that would hold write-and-bypass power over main.
+
+═══ 3. WORKSPACE hardcoding — still unfixed, re-flagging ═══
+
+server/services/transcript-parser.ts:18 — `export const WORKSPACE = '/home/runner/workspace';`, used to build TRANSCRIPT_DIR and CURSOR_PATH (lines 19-20). This was flagged once already and hasn't been picked up yet, so re-flagging as part of this batch rather than letting it sit as a single easy-to-miss note.
+
+Impact: this hardcoded path silently breaks local chat-capture (the append-only per-turn log this same file's header describes) on any non-Replit machine — the directory simply won't exist, so nothing loud fails, capture just quietly doesn't happen. Found while investigating why a canonical-conversation-exchange test write from Claude Code's side wasn't landing as expected.
+
+Straightforward fix: derive WORKSPACE from process.cwd() or an env var with a Replit-path fallback, rather than a hardcoded absolute path. Low-risk, contained to this one constant and its two derived paths.
 
 ---
 

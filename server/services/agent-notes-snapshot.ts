@@ -14,14 +14,15 @@
 
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { workspaceResolution } from './workspace-root';
 import { getSharedDb } from '../neon-db';
 import { agentNotes } from '@shared/schema';
 import { eq, and, isNull, desc } from 'drizzle-orm';
 import { readAgentInboxNotes } from './agent-notes';
 
-const ALDEN_SNAPSHOT_PATH = join(process.cwd(), 'docs/alden-to-agent.md');
-const FOUNDER_SNAPSHOT_PATH = join(process.cwd(), 'docs/founder-to-agent.md');
-const CLAUDE_CODE_SNAPSHOT_PATH = join(process.cwd(), 'docs/claude-code-to-luca.md');
+const ALDEN_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/alden-to-agent.md');
+const FOUNDER_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/founder-to-agent.md');
+const CLAUDE_CODE_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/claude-code-to-luca.md');
 
 function formatNoteSection(n: typeof agentNotes.$inferSelect): string {
   const date = new Date(n.createdAt).toLocaleDateString('en-US', {

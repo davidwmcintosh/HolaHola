@@ -21,6 +21,7 @@
 
 const fs = require('fs');
 const http = require('http');
+const path = require('path');
 const { execFileSync } = require('child_process');
 
 const MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
@@ -69,20 +70,21 @@ function restoreBackups(backups) {
   return { restored, errors };
 }
 
-function syncToGithub(featureName, cwd) {
+function requestSourceControlSync(cwd) {
   try {
-    const commitMsg = `[FEATURE] ${featureName}`;
-    execFileSync('bash', ['scripts/sync-to-github.sh', commitMsg], {
+    const cliPath = path.join(cwd, 'server/scripts/source-control-cli.ts');
+    const output = execFileSync(process.execPath, ['--import', 'tsx', cliPath, 'sync', '--actor', 'alden-build-guardian'], {
       cwd,
       timeout: 60000,
       encoding: 'utf-8',
       env: { ...process.env },
     });
-    console.log(`[Guardian] GitHub synced: ${commitMsg}`);
-    return { synced: true };
+    const result = JSON.parse(output);
+    console.log(`[Guardian] Source-control state: ${result.state}`);
+    return { synced: result.ok === true, error: result.error || null };
   } catch (err) {
     const msg = err.message?.substring(0, 300) || 'Unknown error';
-    console.error('[Guardian] GitHub sync failed:', msg);
+    console.error('[Guardian] Source-control request failed:', msg);
     return { synced: false, error: msg };
   }
 }
@@ -164,7 +166,7 @@ async function main() {
     let synced = false;
     let githubError = null;
     if (mode !== 'auto-repair') {
-      const syncResult = syncToGithub(featureName, cwd);
+      const syncResult = requestSourceControlSync(cwd);
       synced = syncResult.synced;
       githubError = syncResult.error || null;
     }

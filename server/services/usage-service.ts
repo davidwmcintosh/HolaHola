@@ -457,7 +457,10 @@ export class UsageService {
   /**
    * End a voice session and record consumption
    */
-  async endSession(sessionId: string): Promise<VoiceSession> {
+  async endSession(
+    sessionId: string,
+    terminalStatus: 'completed' | 'abandoned' | 'error' = 'completed',
+  ): Promise<VoiceSession> {
     // Get the session
     const [session] = await db
       .select()
@@ -488,13 +491,14 @@ export class UsageService {
       console.warn(`[UsageService] Could not read pre-billing balance for ${sessionId}:`, err.message);
     }
 
-    // Update session as completed
+    // Preserve the actual terminal outcome. Grace expiry is abandonment and
+    // transport failures are errors; only an explicit clean close is completed.
     const [updatedSession] = await db
       .update(voiceSessions)
       .set({
         endedAt,
         durationSeconds,
-        status: 'completed',
+        status: terminalStatus,
       })
       .where(eq(voiceSessions.id, sessionId))
       .returning();

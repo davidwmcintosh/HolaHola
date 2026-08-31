@@ -55,6 +55,7 @@ run_check "Capture status stale escalation" npx tsx server/scripts/test-capture-
 run_check "Canonical Claude Code/Replit conversation capture" npx tsx server/scripts/test-canonical-conversation-capture.ts
 run_check "Claude Code/Replit agent inbox lifecycle" npx tsx server/scripts/test-agent-notes-inbox.ts
 run_check "Failed lookup felt-history boundary" npx tsx --test server/__tests__/daniela-memory-boundary.test.ts
+run_check "Live exchange accounting lifecycle" npx tsx --test server/__tests__/voice-exchange-accounting.test.ts
 run_check "Inner-life no-episode-row guard" npx tsx server/scripts/test-inner-life-no-episode-row.ts
 run_check "GL reconnected client recovery" npx tsx server/scripts/test-gl-reconnected-client-recovery.ts
 run_check "GL game-session detector" bash -c 'npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check'

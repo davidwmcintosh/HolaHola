@@ -219,6 +219,13 @@ group_body_luca_inner_life() {
   run test-capture-status-seed.ts
 
   echo ""
+  echo "  --- test-inner-life-startup-guard.ts (pre-restart notes survive startup) ---"
+  run test-inner-life-startup-guard.ts
+  echo ""
+  echo "  --- test-inner-life-startup-guard.ts --self-check (legacy mtime seed loses the note) ---"
+  npx tsx server/scripts/test-inner-life-startup-guard.ts --self-check
+
+  echo ""
   echo "  --- test-watchdog-inner-life.ts (watchdog drain: first-run handoff / interleaving / restart dedup) ---"
   run test-watchdog-inner-life.ts
   run test-watchdog-inner-life-autosave-gate.ts

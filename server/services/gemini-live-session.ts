@@ -36,6 +36,7 @@ import {
 import type { FunctionDeclaration } from '@google/genai';
 import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
+import { advanceCompletedExchangeForEpoch } from './voice-exchange-accounting';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import {
@@ -309,6 +310,9 @@ export class GeminiLiveSession {
   private currentTurnId = 0;
   /** Total completed conversation exchanges (user speaks → Daniela responds) this session. */
   private completedExchanges = 0;
+  /** Last student-turn epoch included in completedExchanges. Keeps generationComplete,
+   * its watchdog fallback, and tool-continuation generations idempotent. */
+  private lastCountedStudentTurnEpoch = 0;
   /** Cumulative length of all Daniela output transcripts — used as TTS char proxy for billing. */
   private totalOutputCharacters = 0;
   /** Frames forwarded via sendVideoFrame() — used for burn-report vision cost estimate. */
@@ -2089,6 +2093,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           this.generationCompleteSealTimer = null;
         }
         this.sealCurrentAudioSubturn('generationComplete-watchdog', true);
+        this.recordCompletedExchangeAtGenerationBoundary('watchdog');
         this.isGenerationDone = true;
         this.isGreetingTurn = false;
         // Memory-loop counter reset: watchdog seal means audio WAS produced (same
@@ -2116,6 +2121,29 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         );
       }
     }, 25000);
+  }
+
+  /**
+   * Count the completed response for the current student utterance exactly once.
+   *
+   * activeStudentTurnEpoch advances only when a new student utterance begins.
+   * Greeting/system generations have epoch 0, while tool continuations reuse the
+   * same epoch. Counting here, rather than after transcript persistence, keeps
+   * exchange totals accurate even when the persistence path fails or is cut off.
+   */
+  private recordCompletedExchangeAtGenerationBoundary(source: 'generationComplete' | 'watchdog'): boolean {
+    const result = advanceCompletedExchangeForEpoch(
+      this.lastCountedStudentTurnEpoch,
+      this.activeStudentTurnEpoch,
+    );
+    if (!result.counted) {
+      return false;
+    }
+
+    this.lastCountedStudentTurnEpoch = result.lastCountedStudentTurnEpoch;
+    this.completedExchanges++;
+    console.log(`[GeminiLive] Completed exchange counted at ${source} — student epoch ${this.activeStudentTurnEpoch}, total ${this.completedExchanges}`);
+    return true;
   }
 
   /**
@@ -3780,6 +3808,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      this.recordCompletedExchangeAtGenerationBoundary('generationComplete');
       // ── Usage metadata diagnostic ─────────────────────────────────────────
       // Log token counts at generationComplete so we can confirm/rule out the
       // maxOutputTokens budget as the cause of mid-sentence cutoffs.
@@ -5875,10 +5904,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.session.vocabAddedThisTurn = new Set();
     }
 
-    // Count this as a completed exchange and advance the turn
-    this.completedExchanges++;
-
-    // Reset per-response state for the next user utterance
+    // Exchange accounting already happened at generationComplete (or its
+    // watchdog fallback), before transcript persistence that can fail.
+    // Reset per-response state for the next user utterance.
     this.currentSentenceIndex = 0;
     this.currentChunkIndex = 0;
     this.lastSentenceStartSentIndex = -1;
