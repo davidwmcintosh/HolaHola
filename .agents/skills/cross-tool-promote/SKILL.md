@@ -39,6 +39,7 @@ One secret in `.env` (or wherever the caller actually runs — this needs no ser
 
 ## Reminders
 
+- **A workflow file only dispatches via the API once it exists on the default branch (`main`).** A brand-new or renamed workflow file living only on a feature branch will 404 on `workflow_dispatch` no matter what `ref` you pass — this isn't the `ref`-picks-the-content gotcha below, it's a harder platform limit: GitHub doesn't recognize the workflow *at all* until its file has landed on the default branch at least once. Practical consequence: the very first real end-to-end test of a new or renamed workflow can only happen *after* merging it to `main`, never before. Found this discovering that `cross-tool-promote.yml` (renamed from `source-promote.yml`, never yet on `main`) 404'd on every dispatch attempt, even against its own branch.
 - A diverged branch is refused outright, not reconciled — fix the divergence yourself (rebase/merge) before retrying.
 - `npx tsx scripts/cross-tool-promote.ts status <jobId>` re-checks a run's status later — it's stateless, resolved fresh from GitHub each time via the jobId embedded in the run's name, no local bookkeeping needed.
 - This replaces ad hoc pushes to `main` for every non-Replit-dev tool — if you find yourself about to try a direct `git push origin main`, use this instead; it will likely be rejected by the ruleset anyway.
