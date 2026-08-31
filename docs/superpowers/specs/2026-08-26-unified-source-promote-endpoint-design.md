@@ -1,5 +1,16 @@
 # Unified Source-Promote Endpoint Design
 
+**Status: built and live (2026-08-30).** One deliberate deviation from the
+plan below: the validation gate runs in an isolated GitHub Actions run
+(`.github/workflows/source-promote.yml`), not inside the endpoint's own
+process — that process also serves live Daniela/David traffic, and running
+`npm ci`/build/the full test suite there on every promotion was too much
+resource contention to accept. The endpoint itself
+(`server/services/source-promote-service.ts`) is a thin proxy: dispatch the
+workflow, poll its status. Everything else here — the state model, the
+fast-forward-only rule, the two-secret split — is as designed. See
+`.agents/skills/source-promote/SKILL.md` for the caller-facing how-to.
+
 ## Goal
 
 Replace two separate implementations of "get committed work onto `main`
