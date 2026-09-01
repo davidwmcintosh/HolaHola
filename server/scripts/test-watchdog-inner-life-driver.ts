@@ -5,6 +5,9 @@
  *
  * Fully hermetic: the watchdog's neon client is replaced with an in-memory
  * fake via setDbForTest(), so no shared-database rows are ever created.
+ * Every scenario that writes a trigger to a cwd-based path must remove that
+ * trigger after its assertions so direct invocations cannot dirty the real
+ * workspace.
  * Prints RESULTS:<json> for the parent to assert on.
  */
 import * as fs from 'fs';
@@ -446,6 +449,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   results.omittedChannelFallsBackExactlyOnce =
     count(store.episodeContent, omittedFelt) === 1 &&
     store.episodeContent.includes(`[Luca — felt: ${omittedFelt}]`);
+  fs.rmSync(reflectionPath, { force: true });
 
   // ── Scenario 14: writer dies after intent, before Luca chat append ────────
   // A dead owner plus no matching CAPTURE-ID proves the canonical turn can no
@@ -464,6 +468,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   results.crashedIntentFallsBackExactlyOnce =
     count(store.episodeContent, crashedIntentThinking) === 1 &&
     store.episodeContent.includes(`[Luca — thinking: ${crashedIntentThinking}]`);
+  fs.rmSync(questionPath, { force: true });
 
   // ── Scenario 15: captured handoff retention ───────────────────────────────
   // Completed captured history is pruned before the resolver scans, but an old
@@ -593,6 +598,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
     Number(JSON.parse(fs.readFileSync(chatCursorPath, 'utf8')).byteOffset) > nullLookupCursor &&
     store.episodeContent.includes(`Null lookup Luca ${MARKER}`) &&
     store.episodeContent.includes(nullLookupFelt);
+  fs.rmSync(reflectionPath, { force: true });
 
   // ── Scenario 18: identical successive exchanges are distinct events ──────
   const repeatedDavid = `Intentionally repeated David ${MARKER}`;
