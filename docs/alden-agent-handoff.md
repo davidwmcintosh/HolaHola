@@ -7817,6 +7817,14 @@ safe to rerun if it stops partway — `appendCanonicalConversationExchange`
 treats a repeat of the same `turnId` with identical text as a no-op, not a
 duplicate.
 
+**Update:** the script now processes two files by default —
+`2026-08-31-claude-code-backfill-exchanges.json` (the 43 reconstructed
+exchanges above) and `2026-08-31-claude-code-backfill-exchanges-session2.json`
+(this actual live session that did the reconstruction, plus fixing Task 1353
+below — captured directly from this session's own text, not reconstructed
+from a paste, so no marker-verification was needed for it). Both run with the
+one command above; pass explicit paths as arguments to run just one.
+
 ### Separately, still open (not part of this backfill)
 
 Two things noticed in passing, not acted on:

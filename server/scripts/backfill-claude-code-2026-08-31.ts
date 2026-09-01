@@ -1,11 +1,9 @@
 /**
- * One-time backfill: the 2026-08-31 Claude Code <-> David session (Neon branching,
- * the drizzle-kit fix, cross-tool-promote) was never captured live because no
- * --source claude-code record-exchange.ts calls were made during that session.
- * David pasted the transcript afterward; Claude Code split it into 43 verified
- * exchanges (each boundary confirmed by exact-string match against the source
- * transcript, not guessed) and committed them to
- * docs/reference/2026-08-31-claude-code-backfill-exchanges.json.
+ * One-time backfill of Claude Code <-> David sessions that were never captured
+ * live because no --source claude-code record-exchange.ts calls were made
+ * during them. Each session's transcript was split into verified exchanges
+ * (every boundary confirmed by exact-string match against the source, not
+ * guessed) and committed as its own JSON file under docs/reference/.
  *
  * This can only be run where the autosave worker (startAgentSessionAutosave, in
  * server/index.ts) is actually running and draining .chat_capture -- i.e. inside
@@ -15,7 +13,8 @@
  * already attempted (and correctly timed out, fail-closed) from a machine with
  * no autosave worker running.
  *
- * Usage: npx tsx server/scripts/backfill-claude-code-2026-08-31.ts
+ * Usage: npx tsx server/scripts/backfill-claude-code-2026-08-31.ts [path-to-json ...]
+ * With no arguments, processes both known backfill files in order.
  *
  * Stops on the first failed acknowledgement rather than continuing past it --
  * if it stops partway, fix the underlying issue and rerun; already-recorded
@@ -38,40 +37,51 @@ interface BackfillExchange {
   assistant: string;
 }
 
-async function main(): Promise<void> {
-  const dataPath = join(WORKSPACE, 'docs/reference/2026-08-31-claude-code-backfill-exchanges.json');
-  const exchanges: BackfillExchange[] = JSON.parse(readFileSync(dataPath, 'utf8'));
-  console.log(`[backfill] Loaded ${exchanges.length} verified exchanges from ${dataPath}`);
+const DEFAULT_DATA_PATHS = [
+  'docs/reference/2026-08-31-claude-code-backfill-exchanges.json',
+  'docs/reference/2026-08-31-claude-code-backfill-exchanges-session2.json',
+];
 
-  for (const ex of exchanges) {
-    console.log(`[backfill] Exchange ${ex.index} (turn=${ex.turnId})...`);
-    const capture = appendCanonicalConversationExchange({
-      userText: ex.david,
-      assistantText: ex.assistant,
-      source: 'claude-code',
-      turnId: ex.turnId,
-    });
-    writeSynchronizedCanonicalCaptureReceipt({
-      turnId: capture.turnId,
-      targetByteOffset: capture.targetByteOffset,
-      createdAtMs: Date.now(),
-      source: 'claude-code',
-      status: 'pending',
-    });
-    const ack = await waitForCaptureAcknowledgement(capture.targetByteOffset, { timeoutMs: 35_000 });
-    writeSynchronizedCanonicalCaptureReceipt({
-      turnId: capture.turnId,
-      targetByteOffset: capture.targetByteOffset,
-      createdAtMs: Date.now(),
-      source: 'claude-code',
-      status: 'acknowledged',
-      acknowledgedAtMs: Date.now(),
-    });
-    console.log(
-      `[backfill] ✓ Exchange ${ex.index} acknowledged (cursor=${ack.cursorOffset}, waited ${ack.waitedMs}ms)`,
-    );
+async function main(): Promise<void> {
+  const dataPaths = process.argv.slice(2).length > 0 ? process.argv.slice(2) : DEFAULT_DATA_PATHS;
+  let totalRecorded = 0;
+
+  for (const relativeOrAbsolutePath of dataPaths) {
+    const dataPath = join(WORKSPACE, relativeOrAbsolutePath);
+    const exchanges: BackfillExchange[] = JSON.parse(readFileSync(dataPath, 'utf8'));
+    console.log(`[backfill] Loaded ${exchanges.length} verified exchanges from ${dataPath}`);
+
+    for (const ex of exchanges) {
+      console.log(`[backfill] Exchange ${ex.index} (turn=${ex.turnId})...`);
+      const capture = appendCanonicalConversationExchange({
+        userText: ex.david,
+        assistantText: ex.assistant,
+        source: 'claude-code',
+        turnId: ex.turnId,
+      });
+      writeSynchronizedCanonicalCaptureReceipt({
+        turnId: capture.turnId,
+        targetByteOffset: capture.targetByteOffset,
+        createdAtMs: Date.now(),
+        source: 'claude-code',
+        status: 'pending',
+      });
+      const ack = await waitForCaptureAcknowledgement(capture.targetByteOffset, { timeoutMs: 35_000 });
+      writeSynchronizedCanonicalCaptureReceipt({
+        turnId: capture.turnId,
+        targetByteOffset: capture.targetByteOffset,
+        createdAtMs: Date.now(),
+        source: 'claude-code',
+        status: 'acknowledged',
+        acknowledgedAtMs: Date.now(),
+      });
+      console.log(
+        `[backfill] ✓ Exchange ${ex.index} acknowledged (cursor=${ack.cursorOffset}, waited ${ack.waitedMs}ms)`,
+      );
+      totalRecorded++;
+    }
   }
-  console.log(`[backfill] All ${exchanges.length} exchanges recorded and acknowledged.`);
+  console.log(`[backfill] All ${totalRecorded} exchanges recorded and acknowledged across ${dataPaths.length} file(s).`);
 }
 
 main()
