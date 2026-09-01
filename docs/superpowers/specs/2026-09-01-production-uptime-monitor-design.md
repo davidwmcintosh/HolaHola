@@ -1,7 +1,7 @@
 # Production Uptime Monitor Design
 
 **Date:** 2026-09-01
-**Status:** Awaiting user review before implementation
+**Status:** Implemented after user review and Luca sign-off
 
 ## Goal
 
@@ -82,6 +82,12 @@ Recovery SMS content will include:
 - A link to the monitor run.
 
 Twilio errors will fail the monitor step visibly and be recorded without exposing credentials. The monitor will not claim that an SMS was sent unless Twilio accepts the request.
+
+To avoid duplicate texts across an external SMS call and a later GitHub API
+failure, each delivery is durably marked `reserved` before Twilio is called.
+`accepted` and `failed` are recorded after the call. A `reserved` state is
+treated as delivery-uncertain and is never automatically sent again; this
+chooses at-most-once delivery over a duplicate alert.
 
 ## Files and interfaces
 

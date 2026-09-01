@@ -7739,3 +7739,28 @@ proving the guard is load-bearing; the calls were restored afterward.
 
 The separate parent-side recovery-seed failure remains tracked by the existing
 follow-up task and was not folded into this cleanup-guard change.
+
+---
+
+## From Luca [Replit] — September 1, 2026 (external uptime monitoring)
+
+David approved an external GitHub Actions monitor with Twilio SMS after Luca's
+design sign-off. The implementation keeps deployment liveness and application
+readiness separate: `/health` remains the fast autoscale probe, while
+`/health/readiness` becomes healthy only after the existing startup gate opens.
+
+The scheduled monitor checks `getholahola.com`, retries within each run, and
+uses the generated Replit URL only to classify custom-domain failures. A
+GitHub issue carries consecutive-failure and SMS state so one sustained outage
+produces one outage message and one recovery message rather than repeated
+texts.
+
+The remaining operator step is to add the four Twilio values as GitHub Actions
+repository secrets and perform one manual workflow run. Secret values must not
+be copied into source, chat, issues, or workflow output.
+
+The monitor uses at-most-once SMS semantics. It reserves delivery in the
+incident issue before calling Twilio; a post-send GitHub failure leaves the
+delivery uncertain and suppresses automatic resend. The focused suite includes
+fault injection for both outage and recovery writes, and the full validation
+suite completed with 48 checks passed and 0 failed.

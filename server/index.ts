@@ -42,6 +42,11 @@ const server = createServer(app);
 let io: SocketIOServer | null = null;
 let unifiedWss: ReturnType<typeof setupUnifiedWebSocketHandler> | null = null;
 
+// External uptime monitoring uses this readiness contract. Keep it separate
+// from /health: deployment probes need a fast 200 while the process starts,
+// while the monitor must wait for the application to become fully usable.
+app.get('/health/readiness', startupReadiness.readinessHandler);
+
 // CRITICAL: Bind the HTTP port before awaited initialization begins. While the
 // application is starting, only the deployment probe endpoints are available;
 // all normal traffic remains fail-closed behind this gate.

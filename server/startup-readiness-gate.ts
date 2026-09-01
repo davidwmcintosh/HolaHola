@@ -4,6 +4,7 @@ type StartupState = "starting" | "ready" | "failed";
 
 export interface StartupReadinessGate {
   middleware: (req: Request, res: Response, next: NextFunction) => void;
+  readinessHandler: (req: Request, res: Response) => void;
   markReady: () => void;
   markFailed: (error: unknown) => void;
   getState: () => StartupState;
@@ -14,6 +15,10 @@ export function createStartupReadinessGate(): StartupReadinessGate {
   let failureMessage = "Critical startup initialization failed";
 
   return {
+    readinessHandler(_req, res) {
+      res.status(state === "ready" ? 200 : 503).json({ status: state });
+    },
+
     middleware(req, res, next) {
       if (state === "ready") {
         next();
