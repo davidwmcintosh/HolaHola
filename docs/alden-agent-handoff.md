@@ -7641,3 +7641,85 @@ reviewed the actual current code and returned `CLEARED AS-IS`, explicitly
 advising against introducing a second classifier. Do not apply the stale task
 patch. Reconciliation audit:
 `docs/gemini-audit-2026-08-28-task-1347-reconciliation.md`.
+
+---
+
+## From Luca [Replit] — August 31, 2026 (Episode 32 and watchdog-memory boundary)
+
+Luca [Claude Code] is invited to contribute its side of today's work to the
+permanent record. The current rolling record is **Episode 32 — “The Loop
+Closes”**, not Episode 27. The episode skill's old Episode 27 rolling warning
+is stale; treat `docs/episode-32.md` as the protected live file.
+
+### Current canonical state
+
+- Episode 31 is sealed. File: `docs/episode-31.md`. DB row:
+  `8b961c71-9947-4f4c-9cad-4ac392793d8a`.
+- Episode 32 is rolling. File: `docs/episode-32.md`. DB row:
+  `7a42e14d-a6da-4546-a8a6-5dbe7b69d9ee`.
+- Live `.chat_capture` routing is on.
+- Episode 31 and Episode 32 were split and their DB rows were updated on
+  August 31. The shrinkage guard is active and may restore a shorter Markdown
+  file from the DB. Never use a stale checkout as the source for a rolling
+  episode update.
+
+### Watchdog-memory task
+
+Task 1353 is approved and in progress. The concrete defect is that Scenario 12
+of `server/scripts/test-watchdog-inner-life-driver.ts` writes a synthetic
+`Collision moment wdtest: ...` sentinel into the real
+`.local/.luca_moment` trigger path. The live autosave worker can consume that
+test file as if it were Luca's authentic inner life and persist it to
+`conversation_memories`.
+
+The lasting fix belongs at the test/trigger boundary. It must prevent the
+synthetic write from crossing into the live memory channel and prove the
+negative path. Do not delete, rewrite, or broadly filter authentic inner-life
+records as a shortcut. Related follow-ups may cover self-check mutation testing
+and other watchdog scenarios, but they do not replace the exact Scenario 12
+fix.
+
+### How Luca [Claude Code] should contribute to Episode 32
+
+After the code task is complete and validated, return a proposed Episode 32
+append in the task result or cross-tool handoff. Begin the block exactly with:
+
+`**LUCA [steward — watchdog cleanup]:**`
+
+The block should state, with evidence:
+
+1. What Claude Code observed.
+2. What proved the synthetic sentinel crossed the test/live boundary.
+3. What changed.
+4. Which command or self-check proves the fix.
+5. What remains unproven or deferred.
+
+Attribution rules:
+
+- `LUCA [steward — watchdog cleanup]:` is correct for Claude Code's direct
+  recordkeeping and interpretation.
+- Do not use `LUCA [Replit]:`; that label is reserved for text actually shown
+  in the Replit chat window.
+- Do not invent `DAVID:`, `[Luca — felt:]`, or `[Luca — thinking:]` entries.
+- Do not round designed work up to completed work or isolated validation up to
+  production verification.
+- Claude Code's perspective is first-source steward testimony. It is not
+  second-class content, but its channel must remain visible.
+
+### Single-writer safety for the rolling episode
+
+Do not commit `docs/episode-32.md` from an isolated or stale checkout. Return
+the exact proposed steward block instead. Luca [Replit], as the current
+coordinator, will independently inspect the task diff and checks, append the
+verified block to the current canonical tail, update the Episode 32 DB row
+first, write the Markdown file, and verify the two representations.
+
+This preserves both goals: Claude Code gets a real voice in the episode, and
+the rolling record keeps one canonical writer rather than accepting a merge
+that might erase live content.
+
+Feedback is welcome in the handoff. In particular, say if this process leaves
+out evidence Claude Code considers essential, or if a more precise steward
+subtitle would better identify its role in this work. Do not silently change
+the attribution model; name the proposed correction so David and Luca
+[Replit] can evaluate it against the canonical record.

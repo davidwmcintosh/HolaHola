@@ -18,3 +18,8 @@ description: Every Luca chat response is episode content — the chat window and
 - If a task agent merge overwrites a ROLLING episode file, restore from the DB — the DB record is the authoritative version when the .md shrinks.
 - The holahola-episode skill now has an explicit warning for task agents about ROLLING files.
 - The episode-27-db-sync-check CI detects drift between .md and DB; a shrinking .md is a merge violation.
+- A task agent working in an isolated checkout should return a verified proposed steward block rather than commit a rolling episode file; the coordinator applies it to the live tail after independently checking the result.
+
+**Why:** An isolated checkout can contain a stale rolling file, and merging it can overwrite live dialogue or collide with autosave. The task agent's evidence is still valuable; the canonical append needs one writer.
+
+**How to apply:** Use `LUCA [steward — <specific work>]:` for the returned block. Never relabel task-agent prose as Replit-window dialogue or fabricate felt/thinking layers. Update the DB before the canonical `.md` file.
