@@ -7964,3 +7964,71 @@ Not blocking anything: `test-watchdog-inner-life.ts` isn't wired into
 `package.json`'s `test`/`test:ci:*` groups or any GitHub Actions workflow —
 checked directly, no hits — so this doesn't gate `cross-tool-promote` or any
 PR. Flagging only so it's not silently sitting broken.
+
+---
+
+## From Claude Code — Sep 1, 2026 (record-exchange.ts --remote mode; production endpoints unresponsive)
+
+**LUCA [claude code]:**
+
+1. **What shipped, in this handoff's commit.** `server/scripts/record-exchange.ts`
+   gained a `--remote [url]` mode for `--source claude-code`: instead of
+   appending to a local `.chat_capture` that nothing drains on a machine with
+   no co-located autosave worker (this Windows checkout), it POSTs to a
+   running server's own `/api/internal/canonical-conversation-exchange` —
+   same endpoint the server already exposes, just called remotely instead of
+   in-process. Defaults to `https://getholahola.com`, overridable via
+   `HOLAHOLA_REMOTE_URL` or `--remote <url>`. Polls
+   `/api/internal/canonical-conversation-health`'s new `cursorByteOffset`
+   field (one-line addition to that endpoint's response in `server/routes.ts`)
+   until the cursor passes the returned `receipt.targetByteOffset`, same
+   acknowledgement contract as the existing local path. `.env.template`
+   documents `REPLIT_AGENT_TOKEN` and `HOLAHOLA_REMOTE_URL` for this use.
+
+2. **Real bug found and fixed before this ever worked.** The new top-level
+   `const DEFAULT_REMOTE_URL`/`REMOTE_ACK_POLL_MS` and the
+   `runClaudeCodeRemoteCli` function were originally inserted *after* the
+   script's "Main" section, which calls `runCli(args)` synchronously the
+   moment the module loads. `runCli` reaches `remoteUrlFromArgs()` — which
+   reads `DEFAULT_REMOTE_URL` — before the module finishes evaluating down to
+   that `const`'s own declaration. First live-test run threw `Cannot access
+   'DEFAULT_REMOTE_URL' before initialization`, a TDZ ordering bug `tsc`
+   cannot catch (it's a runtime evaluation-order issue, not a type error).
+   Fixed by moving the whole new block above the Main section. `npm run
+   check` is clean both before and after — this class of bug won't show up
+   in typecheck, only in an actual run.
+
+3. **Blocked on live end-to-end verification — production issue, not this
+   diff.** With the fix in place and `REPLIT_AGENT_TOKEN` loaded locally,
+   ran the `--remote` path twice (fresh attempt, then a same-turn-id retry
+   per the idempotent-retry protocol in `docs/shared-agent-instructions.md`)
+   against `https://getholahola.com`. Both failed:
+   - `POST /api/internal/canonical-conversation-exchange` → 500 with an
+     unparseable body the first time, then a client-side abort (no response
+     within 15s) on retry.
+   - `GET /api/internal/canonical-conversation-health` → 500 (generic infra
+     error page, not JSON) once, full 20s timeout another time.
+   - Ruled out an anomaly specific to these two endpoints: `GET
+     /api/agent/status` (no DB/fs touch, normally responds in ~0.3s) was
+     fine on the first check, but **timed out entirely on the retest** —
+     so whatever this is, it widened from "these two capture endpoints" to
+     "the app generally" between the first and second check.
+   - This is **not caused by the diff in this commit**: production is still
+     running whatever's on `main` before this push; none of the above ever
+     touched the changes described in point 1.
+   - No log/dashboard access from this Windows checkout to dig further.
+     David confirmed: commit what's verified (typecheck + code review +
+     endpoint-contract cross-check against `server/routes.ts`) and hand the
+     live-verification gap to you rather than keep hammering a possibly
+     degraded production instance.
+
+4. **What's needed from your side.** Check `getholahola.com`'s actual health
+   (deploy status, logs, resource limits) around Sep 1, 2026 — timestamps
+   above are from this session. If it comes back healthy, a live run of:
+   `npx tsx --env-file=.env server/scripts/record-exchange.ts --source
+   claude-code --remote --david-file <f> --assistant-file <f> --turn-id
+   <id> --wait-ms 30000` against production is the remaining verification
+   this feature needs before it's fully proven end-to-end. The code-level
+   contract (request/response shapes, `cursorByteOffset` field name, receipt
+   polling) has been cross-checked directly against the `routes.ts` handlers
+   and matches; what's unverified is only the live round-trip.

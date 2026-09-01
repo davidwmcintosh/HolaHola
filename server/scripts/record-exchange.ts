@@ -511,6 +511,118 @@ async function closeRecordExchangeDbConnections(): Promise<void> {
   await closeDbConnections();
 }
 
+const DEFAULT_REMOTE_URL = 'https://getholahola.com';
+const REMOTE_ACK_POLL_MS = 1_000;
+
+function remoteUrlFromArgs(args: string[]): string | null {
+  const idx = args.indexOf('--remote');
+  if (idx === -1) return null;
+  const next = args[idx + 1];
+  if (next && !next.startsWith('--')) return next.replace(/\/+$/, '');
+  return (process.env.HOLAHOLA_REMOTE_URL?.trim() || DEFAULT_REMOTE_URL).replace(/\/+$/, '');
+}
+
+/**
+ * Same contract as runClaudeCodeCli, but for a caller with no co-located
+ * autosave worker (e.g. this Windows checkout): POST to the already-running
+ * server's own intake endpoint instead of writing a local .chat_capture file
+ * that nothing here would ever drain. Reuses the exact same endpoint the
+ * server calls in-process -- no new capture path, just a remote transport
+ * for the existing one.
+ */
+async function runClaudeCodeRemoteCli(
+  args: string[],
+  remoteUrl: string,
+  acknowledgementTimeoutMs: number,
+  waitForAcknowledgement: boolean,
+): Promise<void> {
+  const davidIdx = args.indexOf('--david-file');
+  const assistantIdx = args.indexOf('--assistant-file');
+  if (davidIdx === -1 || assistantIdx === -1) {
+    throw new Error(
+      'Claude Code remote usage: npx tsx server/scripts/record-exchange.ts --source claude-code --remote [url] ' +
+       '--david-file <path> --assistant-file <path> --turn-id <stable-id> [--wait-ms <1000-120000>|--no-wait]',
+    );
+  }
+  const davidFile = args[davidIdx + 1];
+  const assistantFile = args[assistantIdx + 1];
+  if (!davidFile || !existsSync(davidFile)) throw new Error(`--david-file not found: ${davidFile ?? ''}`);
+  if (!assistantFile || !existsSync(assistantFile)) throw new Error(`--assistant-file not found: ${assistantFile ?? ''}`);
+  const davidText = readFileSync(davidFile, 'utf8').trimEnd();
+  const assistantText = readFileSync(assistantFile, 'utf8').trimEnd();
+  if (!davidText || !assistantText) throw new Error('Claude Code user and assistant files must both be non-empty');
+
+  const agentToken = process.env.REPLIT_AGENT_TOKEN?.trim();
+  if (!agentToken) throw new Error('REPLIT_AGENT_TOKEN is not set -- required to call the remote canonical-conversation-exchange endpoint');
+
+  const turnId = requiredTurnId(args);
+  console.log(`[record-exchange] Posting to ${remoteUrl}/api/internal/canonical-conversation-exchange (turn=${turnId})...`);
+
+  const postController = new AbortController();
+  const postTimeout = setTimeout(() => postController.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(`${remoteUrl}/api/internal/canonical-conversation-exchange`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-agent-token': agentToken },
+      body: JSON.stringify({ source: 'claude-code', userText: davidText, assistantText, turnId }),
+      signal: postController.signal,
+    });
+  } catch (error: any) {
+    throw new Error(`Remote POST failed: ${error?.message ?? String(error)}`);
+  } finally {
+    clearTimeout(postTimeout);
+  }
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(`Remote endpoint rejected the exchange (${response.status}): ${body?.error ?? JSON.stringify(body)}`);
+  }
+  const targetByteOffset: number | undefined = body?.receipt?.targetByteOffset;
+  if (typeof targetByteOffset !== 'number') {
+    throw new Error(`Remote endpoint accepted the exchange but returned no receipt.targetByteOffset: ${JSON.stringify(body)}`);
+  }
+  console.log(
+    `[record-exchange] Remote exchange ${body.appendedSpeakers?.length === 0 ? 'retry' : 'queued'} ` +
+    `(${(body.appendedSpeakers ?? []).join('+') || 'no duplicate bytes written'}; turn=${turnId}, targetByteOffset=${targetByteOffset}).`,
+  );
+
+  if (!waitForAcknowledgement) {
+    console.warn(`  ⚠️ Remote acknowledgement intentionally skipped — pending receipt targets cursor ${targetByteOffset} on ${remoteUrl}.`);
+    return;
+  }
+
+  console.log(`  Waiting for remote canonical acknowledgement (cursor ≥ ${targetByteOffset}, timeout ${acknowledgementTimeoutMs}ms)…`);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < acknowledgementTimeoutMs) {
+    const healthController = new AbortController();
+    const healthTimeout = setTimeout(() => healthController.abort(), 10_000);
+    try {
+      const healthResponse = await fetch(`${remoteUrl}/api/internal/canonical-conversation-health`, {
+        headers: { 'x-agent-token': agentToken },
+        signal: healthController.signal,
+      });
+      const health = await healthResponse.json().catch(() => ({}));
+      const cursorByteOffset: number | undefined = health?.capture?.cursorByteOffset;
+      if (typeof cursorByteOffset === 'number' && cursorByteOffset >= targetByteOffset) {
+        console.log(
+          `  ✓ Remote canonical acknowledgement received (${Date.now() - startedAt}ms; cursor=${cursorByteOffset}). ` +
+          'DB and live episode effects completed on the remote server before this cursor advanced.',
+        );
+        return;
+      }
+    } catch {
+      // Transient network hiccup during polling -- keep retrying until the timeout.
+    } finally {
+      clearTimeout(healthTimeout);
+    }
+    await new Promise(resolve => setTimeout(resolve, REMOTE_ACK_POLL_MS));
+  }
+  throw new Error(
+    `Remote capture acknowledgement timed out after ${acknowledgementTimeoutMs}ms waiting for cursor ≥ ${targetByteOffset} ` +
+    `on ${remoteUrl}. The exchange remains pending on that server and must not be treated as recorded.`,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -604,7 +716,12 @@ async function runCli(args: string[]): Promise<void> {
   const source = sourceFromArgs(args);
   if (source === 'claude-code') {
     if (lucaOnly) throw new Error('--luca-only is only valid for source replit');
-    await runClaudeCodeCli(args, acknowledgementTimeoutMs, waitForAcknowledgement);
+    const remoteUrl = remoteUrlFromArgs(args);
+    if (remoteUrl) {
+      await runClaudeCodeRemoteCli(args, remoteUrl, acknowledgementTimeoutMs, waitForAcknowledgement);
+    } else {
+      await runClaudeCodeCli(args, acknowledgementTimeoutMs, waitForAcknowledgement);
+    }
     return;
   }
   const requestedTurnId = requiredTurnId(args);

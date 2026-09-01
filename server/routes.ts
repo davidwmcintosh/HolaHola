@@ -37840,6 +37840,7 @@ Under 250 words. Write as yourself.`;
           localDirectoryWritable: workspace.localDirectoryWritable,
           captureFilePresent,
           cursorFilePresent,
+          cursorByteOffset: cursor.byteOffset,
           pendingBytes,
         },
       });
