@@ -4,11 +4,14 @@
  * Background worker that generates Gemini text-embedding-004 vectors for all
  * memory records that don't yet have an embedding. Runs every 2 hours.
  *
- * Covers four memory stores:
+ * Covers these memory stores:
  *   - student_insights       (deep observations, confidence-scored)
  *   - hive_snapshots         (relationship_moment, session_summary, breakthrough, teaching_moment)
  *   - daniela_growth_memories (Daniela's own pedagogical learnings)
  *   - learner_personal_facts  (bi-temporal personal facts)
+ *   - collaboration_messages (Express Lane / Hive team messages)
+ *   - agent_notes            (Alden/David/Claude Code <-> Agent engineering handoffs)
+ *   - conversation_memories  (full narrative session memories)
  *
  * Safe to run repeatedly — generateAndStoreEmbedding() is idempotent and skips
  * memories whose content hasn't changed since the last run.
@@ -24,6 +27,7 @@ import {
   danielaGrowthMemories,
   learnerPersonalFacts,
   collaborationMessages,
+  agentNotes,
   memoryEmbeddings,
   conversationMemories,
   users,
@@ -307,6 +311,39 @@ export async function collectUnindexedMemories(): Promise<IndexTarget[]> {
     }
   } catch (err: any) {
     console.warn('[EmbedIndexer] collaboration_messages scan failed:', err.message);
+  }
+
+  // agent_notes (Alden <-> Agent, David -> Agent, Claude Code -> Luca handoffs)
+  // Operational/engineering messages, not personal student data — always globally
+  // scoped (userId = null), same as collaboration_messages. Low volume relative to
+  // collaboration_messages (a few notes per session vs. 23k+ Hive messages), so
+  // this type is included in semanticSearch()'s default global pool (see
+  // GLOBAL_RECALL_TYPES in semantic-memory-service.ts) rather than excluded like
+  // collaboration_message is.
+  try {
+    const rows = await db
+      .select({
+        id: agentNotes.id,
+        fromAgent: agentNotes.fromAgent,
+        toAgent: agentNotes.toAgent,
+        subject: agentNotes.subject,
+        body: agentNotes.body,
+      })
+      .from(agentNotes)
+      .where(sql`
+        NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'agent_handoff' AND memory_id = ${agentNotes.id}
+        )
+        AND length(body) > 10
+      `)
+      .limit(300);
+    for (const r of rows) {
+      const content = `${r.fromAgent} -> ${r.toAgent}: ${r.subject}\n\n${r.body}`;
+      targets.push({ id: r.id, userId: null, content, memoryType: 'agent_handoff' });
+    }
+  } catch (err: any) {
+    console.warn('[EmbedIndexer] agent_notes scan failed:', err.message);
   }
 
   // conversation_memories — full narrative memories of meaningful sessions

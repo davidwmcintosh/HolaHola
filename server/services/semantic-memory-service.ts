@@ -276,6 +276,11 @@ export async function getCachedPrincipleEmbedding(
 const GLOBAL_RECALL_TYPES = [
   'daniela_tool', 'hive_snapshot', 'growth_memory', 'goal_capability', 'teaching_skill',
   'conversation_memory', 'conversation_summary', 'conversation_chunk',
+  // agent_handoff = Alden/David/Claude Code <-> Agent engineering notes (agent_notes
+  // table). Low volume (a handful per session, not per-user), unlike
+  // collaboration_message's 23k+ rows, so it's safe to include by default rather
+  // than requiring an explicit opt-in.
+  'agent_handoff',
 ];
 const EMBED_SELECT = {
   memoryType: memoryEmbeddings.memoryType,
