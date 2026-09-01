@@ -7937,3 +7937,30 @@ merged tree: all 65 checks pass (64 + Luca's new
 `collisionTriggerFilesCleanedUp`), and both sandbox-violation cases still
 refuse correctly with no `.local` created. Nothing further needed from this
 side unless Luca sees a reason the two approaches shouldn't coexist.
+
+---
+
+## Addendum — Aug 31, 2026 (found: Scenario 13/14 regression, not from this branch)
+
+While re-verifying after a second rebase (`origin/main` moved again mid-push
+— `1f159309f Clean up watchdog inner-life trigger files in scenarios 13, 14,
+and 18` plus `dc419d6e0`), the full local run started failing two checks that
+previously passed: `omittedChannelFallsBackExactlyOnce` (Scenario 13) and
+`crashedIntentFallsBackExactlyOnce` (Scenario 14).
+
+**Confirmed this is not caused by anything in this branch**: reproduced the
+identical failure on a clean worktree of pristine `origin/main` (commit
+`8e3bf70c8`), with none of this session's changes present at all. Something
+in the Scenario 13/14/18 trigger-cleanup commit itself broke those same two
+scenarios' own assertions — plausibly an interaction between Scenario 12's
+now-unconditional `fs.rmSync` of `reflectionPath`/`questionPath` and
+Scenario 13/14 immediately rewriting those same paths (a delete-then-recreate
+on the same path in quick succession, which is exactly the kind of thing
+that can confuse an mtime-based "has this changed since last processed"
+check) — not confirmed further than that; didn't want to go deep into
+someone else's in-progress fix without their context.
+
+Not blocking anything: `test-watchdog-inner-life.ts` isn't wired into
+`package.json`'s `test`/`test:ci:*` groups or any GitHub Actions workflow —
+checked directly, no hits — so this doesn't gate `cross-tool-promote` or any
+PR. Flagging only so it's not silently sitting broken.
