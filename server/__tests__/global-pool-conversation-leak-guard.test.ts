@@ -31,7 +31,7 @@ import { sql, eq, and } from 'drizzle-orm';
 import { getSharedDb, getUserDb } from '../db';
 import { users, conversationMemories, memoryEmbeddings } from '@shared/schema';
 import { semanticSearchByVector } from '../services/semantic-memory-service';
-import { runMemoryDecayMigration } from '../services/memory-decay-service';
+import { assertMemoryDecaySchema } from '../services/memory-decay-service';
 import { correctFounderEmbeddingScopes } from '../services/memory-embedding-indexer';
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
@@ -75,10 +75,9 @@ describe('Global pool security — conversation-memory ownership model', () => {
   before(async () => {
     db = getSharedDb();
 
-    // Ensure strength/last_reinforced_at/pinned/importance columns exist.
-    // runMemoryDecayMigration uses ADD COLUMN IF NOT EXISTS — safe to call repeatedly.
-    // This is needed in CI where the server's delayed boot-time migration has not run.
-    await runMemoryDecayMigration();
+    // Fail clearly if the reviewed schema migration was not applied. Tests must
+    // never repair a shared database schema as a side effect.
+    await assertMemoryDecaySchema();
 
     // Create real user rows (FK constraint on memory_embeddings.user_id).
     await db.execute(sql`

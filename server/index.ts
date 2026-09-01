@@ -572,10 +572,17 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // ── Pre-listen schema assertion (FAIL-CLOSED, READ-ONLY) ─────────────────────
+  // Verify the schema before serving recall traffic, but never issue DDL from an
+  // autoscale cold start. Even ADD COLUMN IF NOT EXISTS requests a strong table
+  // lock and can keep port 5000 closed past the deployment readiness deadline.
+  // Reviewed Drizzle migrations own schema changes; startup only checks them.
+  const { assertMemoryDecaySchema } = await import('./services/memory-decay-service');
+  await assertMemoryDecaySchema();
+
   // Quarantine any null-scoped founder-tagged embeddings BEFORE accepting
   // traffic — ensures no recall query can surface private transcripts in the
-  // global pool during startup.  Runs after runMemoryDecayMigration so the
-  // importance column is guaranteed to exist.
+  // global pool during startup. Runs after the read-only schema assertion.
   // FAIL CLOSED: if correction fails, abort startup rather than serve traffic
   // with an unsecured embedding pool.  A transient DB error here is a security
   // signal — better to restart cleanly than to expose founder transcripts globally.

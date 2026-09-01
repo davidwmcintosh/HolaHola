@@ -23,9 +23,9 @@
  * reinforced one. The cosine threshold (0.65 / 0.73) is applied to the
  * RAW cosine so faded memories with genuinely high relevance still pass.
  *
- * DB: adds strength, last_reinforced_at, pinned to memory_embeddings.
- * Migration: runMemoryDecayMigration() is idempotent — safe to run on
- * every server restart.
+ * DB: requires strength, last_reinforced_at, pinned, and importance on
+ * memory_embeddings. Schema changes are applied through reviewed Drizzle
+ * migrations; application startup only verifies the invariant read-only.
  */
 
 import { getSharedDb } from '../db';
@@ -168,23 +168,51 @@ export async function pruneDecayedMemories(ageDays: number = 365): Promise<numbe
   }
 }
 
-// ─── Startup migration ────────────────────────────────────────────────────────
+// ─── Startup schema assertion ─────────────────────────────────────────────────
 
 /**
- * Idempotent schema migration — adds the three new columns to memory_embeddings
- * if they don't already exist. Safe to call on every server startup.
+ * Required columns for weighted recall. Exported so the startup guard has a
+ * deterministic, database-independent self-check.
  */
-export async function runMemoryDecayMigration(): Promise<void> {
+export const MEMORY_DECAY_REQUIRED_COLUMNS = [
+  'strength',
+  'last_reinforced_at',
+  'pinned',
+  'importance',
+] as const;
+
+export function assertMemoryDecayColumnsPresent(columnNames: Iterable<string>): void {
+  const present = new Set(columnNames);
+  const missing = MEMORY_DECAY_REQUIRED_COLUMNS.filter(column => !present.has(column));
+
+  if (missing.length > 0) {
+    throw new Error(
+      `[MemoryDecay] Required memory_embeddings schema is missing column(s): ${missing.join(', ')}. ` +
+      'Apply the reviewed Drizzle migration before starting the application.',
+    );
+  }
+}
+
+/**
+ * Fail-closed, read-only startup assertion.
+ *
+ * Do not run ALTER TABLE from an autoscale cold start. Even an idempotent
+ * ALTER requests a strong PostgreSQL lock and can prevent the HTTP port from
+ * opening before the deployment readiness deadline.
+ */
+export async function assertMemoryDecaySchema(): Promise<void> {
   const db = getSharedDb();
-  // ADD COLUMN IF NOT EXISTS is idempotent — does not throw when columns already exist.
-  // Any failure here is a real error (DB unreachable, permission denied) that must
-  // propagate to the caller so the process can fail-close before serving traffic.
-  await db.execute(sql`
-    ALTER TABLE memory_embeddings
-      ADD COLUMN IF NOT EXISTS strength          REAL      NOT NULL DEFAULT 1.0,
-      ADD COLUMN IF NOT EXISTS last_reinforced_at TIMESTAMPTZ         DEFAULT now(),
-      ADD COLUMN IF NOT EXISTS pinned            BOOLEAN   NOT NULL DEFAULT false,
-      ADD COLUMN IF NOT EXISTS importance        INTEGER             DEFAULT 5
+  const result = await db.execute(sql`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'memory_embeddings'
+      AND column_name IN ('strength', 'last_reinforced_at', 'pinned', 'importance')
   `);
-  console.log('[MemoryDecay] Migration complete — strength/last_reinforced_at/pinned/importance columns ready');
+  const rows = (result as any).rows ?? [];
+
+  assertMemoryDecayColumnsPresent(
+    rows.map((row: { column_name?: unknown }) => String(row.column_name ?? '')),
+  );
+  console.log('[MemoryDecay] Schema assertion complete — strength/last_reinforced_at/pinned/importance columns ready');
 }
