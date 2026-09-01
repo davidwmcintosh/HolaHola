@@ -7739,3 +7739,91 @@ proving the guard is load-bearing; the calls were restored afterward.
 
 The separate parent-side recovery-seed failure remains tracked by the existing
 follow-up task and was not folded into this cleanup-guard change.
+
+---
+
+## From Claude Code — Aug 31, 2026 (backfilling the Neon-branching/cross-tool-promote session)
+
+### What this is
+
+The Aug 31 session documented at the top of this file (Neon branching,
+cross-tool-promote, the drizzle-kit fix) was never captured live —
+`record-exchange.ts --source claude-code` was never called during it, so none
+of it reached `conversation_memories`. David pasted the full transcript
+afterward for a proper backfill.
+
+### What was found and fixed before recording anything
+
+The pasted transcript had two genuine content gaps (not just reordering,
+which David flagged up front as an expected artifact of copy-pasting a long
+session). Both were closed by David re-pasting the missing stretch against
+exact before/after quote markers Claude Code supplied, verified by direct
+re-read after each splice — not assumed correct from the merge script's exit
+code alone.
+
+One embedded exchange was deliberately excluded from this backfill: a
+David<->Luca[Replit] conversation (the plumber/electrician analogy, the
+mechanism-as-trust discussion) that David had pasted into the same file for
+context. Recording that under `--source claude-code` would have mislabeled
+Luca[Replit]'s words as Claude Code's — exactly the failure mode
+`assistantLabel()`'s source binary exists to prevent. If that exchange isn't
+already in `conversation_memories` via Luca's own `--source replit` capture,
+it still needs one.
+
+### How the transcript was segmented
+
+Turn boundaries were **not** guessed from blank-line spacing alone — several
+places in the paste had a David reply glued directly onto the end of an
+assistant tool-output block with no blank line (e.g. "...that's a Windows/Mac
+build" `\n` "sorry so fix it now please", and a hidden 3-way merge around
+"yes, go ahead and test it" / "Ran 4 commands" / "even personal notes in luca
+reflections..."). Instead: all 43 of David's message texts were transcribed
+verbatim from a full sequential read of the transcript, then a script
+(`.local/build-exchanges.mjs`, not committed — scratch tooling) located each
+one via exact substring match against the source text and took everything
+between consecutive markers as the assistant's turn. The script hard-fails on
+any marker not found or found out of order, so every one of the 43 boundaries
+below is confirmed present and correctly ordered in the source, not asserted
+from memory.
+
+### What's committed here
+
+- **`docs/reference/2026-08-31-claude-code-backfill-exchanges.json`** — the
+  43 verified `{index, turnId, david, assistant}` exchanges, in order, ready
+  to feed straight into `appendCanonicalConversationExchange`.
+- **`server/scripts/backfill-claude-code-2026-08-31.ts`** — loops through
+  that file and calls the same `appendCanonicalConversationExchange` +
+  `waitForCaptureAcknowledgement` path `record-exchange.ts --source
+  claude-code` already uses per-exchange, stopping on the first failed
+  acknowledgement rather than continuing past it.
+
+### Why this needs to run on your side, not mine
+
+`appendCanonicalConversationExchange` only writes to the local
+`.chat_capture` file — confirmed by reading it, no direct DB write. The
+actual `conversation_memories` insert happens when `startAgentSessionAutosave`
+(started in `server/index.ts`) drains that file, and that worker only runs
+inside the live server process. Running it standalone from a Windows checkout
+with no server booted just times out correctly (fail-closed — confirmed by
+testing exchange 0 directly: it queued, then correctly reported no
+acknowledgement rather than a false success). Booting the full dev server
+temporarily from that machine, against the same shared DB, felt like the
+wrong call without more certainty about what else it starts (voice pipeline,
+team-room autosave, Daniela-consult autosave) — so David chose to have this
+run where the autosave worker is already live: here.
+
+**To run:** `npx tsx server/scripts/backfill-claude-code-2026-08-31.ts`. It's
+safe to rerun if it stops partway — `appendCanonicalConversationExchange`
+treats a repeat of the same `turnId` with identical text as a no-op, not a
+duplicate.
+
+### Separately, still open (not part of this backfill)
+
+Two things noticed in passing, not acted on:
+
+- A very recent `conversation_memories` row with a garbled, hugely-repeated
+  title and duplicated tags — likely a capture-path bug, worth a look
+  whenever there's time.
+- Task 1353 (the watchdog Scenario-12 synthetic-sentinel leak, documented
+  above) hasn't been started. This backfill was David's explicit priority
+  for tonight; Task 1353 is next unless told otherwise.
