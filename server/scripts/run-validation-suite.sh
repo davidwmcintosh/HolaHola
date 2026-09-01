@@ -60,6 +60,7 @@ run_check "Inner-life no-episode-row guard" npx tsx server/scripts/test-inner-li
 run_check "GL reconnected client recovery" npx tsx server/scripts/test-gl-reconnected-client-recovery.ts
 run_check "GL game-session detector" bash -c 'npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check'
 run_check "Raw-window capture alignment" npx tsx server/scripts/test-raw-window-capture.ts --self-check
+run_check "Memory-decay startup schema guard" bash -c 'npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts && npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts --self-check'
 run_check "Application startup recovery" bash server/scripts/test-start-application-recovery.sh
 run_check "Application startup recovery self-check" bash server/scripts/test-start-application-recovery.sh --self-check
 echo ""

@@ -231,12 +231,18 @@ function cleanupDriverRun(driverRun: DriverRun): void {
     r.identicalSuccessiveExchangesPreserved === true);
 
   // Post-recovery seed check (parent runs from the workspace so path aliases resolve):
-  // after the drain released the lock, the autosave startup seed reads state that
-  // now carries lastProcessedMs → it must skip re-processing the same content.
+  // after the drain released the lock, the autosave startup seed reads the
+  // preserved recovery fixture's state, which carries lastProcessedMs → it must
+  // skip re-processing the same content. The driver preserves this fixture
+  // before later scenarios intentionally remove and reuse their live files.
   {
   const { watchdogAlreadyProcessed } = await import('../services/agent-session-autosave');
     check('concurrency: post-recovery seed sees lastProcessedMs and skips re-processing',
-      watchdogAlreadyProcessed(r.momentPath, String(r.momentRaw).trim(), r.statePath) === true);
+      watchdogAlreadyProcessed(
+        r.postRecoverySeedMomentPath,
+        String(r.momentRaw).trim(),
+        r.postRecoverySeedStatePath,
+      ) === true);
   }
 
   // ── Scenario 4: restart dedup guard (temp trigger + temp state file) ──────

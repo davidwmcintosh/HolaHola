@@ -15,6 +15,7 @@
     "test:playwright-browser": "npx tsx server/scripts/test-playwright-browser-path.ts",
     "test:source-bridge": "npx tsx server/scripts/test-source-control-service.ts && npx tsx server/scripts/test-source-control-mutation-boundary.ts",
     "test:source-promotion-api": "npx tsx server/scripts/test-source-promotion-api.ts",
+    "test:production-uptime-monitor": "node --test scripts/production-uptime-monitor.test.mjs && npx tsx --test server/__tests__/startup-readiness-gate.test.ts && node scripts/test-production-uptime-monitor-selfcheck.mjs",
     "test:ci": "node scripts/run-ci-test-steps.mjs",
     "test:ci:unit": "node scripts/run-ci-test-steps.mjs --group=unit",
     "test:ci:guards": "node scripts/run-ci-test-steps.mjs --group=guards",

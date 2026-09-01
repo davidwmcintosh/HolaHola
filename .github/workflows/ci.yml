@@ -66,6 +66,9 @@ jobs:
             console.log('[ci] drizzle-orm resolves from the application import path');
           "
 
+      - name: Test production uptime monitor
+        run: npm run test:production-uptime-monitor
+
       - name: Prepare isolated CI database
         run: |
           npx tsx server/scripts/test-ci-database-adapter-guard.ts

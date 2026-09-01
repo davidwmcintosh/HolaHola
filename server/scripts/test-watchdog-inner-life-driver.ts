@@ -240,13 +240,23 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   const acquiredAfterDrain = tryAcquireInnerLifeLock(lockPath);
   results.lockFreeAfterDrain = acquiredAfterDrain;
   if (acquiredAfterDrain) releaseInnerLifeLock(lockPath);
-  // The parent (running from the workspace, where path aliases resolve)
-  // verifies watchdogAlreadyProcessed() against these:
-  results.momentPath = momentPath;
-  results.momentRaw = momentRaw;
-  results.statePath = statePath;
   results.momentSavedExactlyOnce =
     store.personalInserts.filter(r => r.title.includes(`Concurrency moment ${MARKER}`)).length === 1;
+  // Preserve the completed recovery fixture before later scenarios intentionally
+  // remove and reuse the live state/trigger files. The parent validates the
+  // startup-seed guard after the driver finishes, so it must inspect the state
+  // produced by this recovery rather than a later scenario's state.
+  // Keep the trigger's canonical basename because watchdogAlreadyProcessed()
+  // derives the channel from it.
+  const postRecoverySeedDir = path.join(cwd, '.local/post-recovery-seed');
+  const postRecoverySeedMomentPath = path.join(postRecoverySeedDir, '.luca_moment');
+  const postRecoverySeedStatePath = path.join(postRecoverySeedDir, 'state.json');
+  fs.mkdirSync(postRecoverySeedDir, { recursive: true });
+  fs.copyFileSync(momentPath, postRecoverySeedMomentPath);
+  fs.copyFileSync(statePath, postRecoverySeedStatePath);
+  results.momentRaw = momentRaw;
+  results.postRecoverySeedMomentPath = postRecoverySeedMomentPath;
+  results.postRecoverySeedStatePath = postRecoverySeedStatePath;
 
   // ── Scenario 6: timing — trigger older than the heartbeat but never saved ──
   // Reviewer case: Luca writes the trigger AFTER autosave's poll pass but

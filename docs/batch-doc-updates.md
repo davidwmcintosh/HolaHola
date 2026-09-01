@@ -4814,3 +4814,27 @@ manually mutation-tested and made the self-check exit non-zero.
 
 The focused self-check is registered in the consolidated `luca-inner-life`
 group beside the watchdog autosave-gate self-check.
+
+---
+
+## External production uptime monitor — September 1, 2026
+
+Production readiness is now distinct from deployment-process liveness.
+`/health/readiness` reports only `starting`, `ready`, or `failed`, while the
+existing `/health` deployment probe remains unchanged.
+
+A scheduled GitHub Actions monitor checks the public custom domain every five
+minutes, retries transient failures, and uses the generated Replit URL to
+distinguish a custom-domain problem from a full deployment outage. Two
+consecutive failed runs open and advance one durable GitHub incident before
+Twilio sends a single outage SMS. Later failed runs are deduplicated; the first
+healthy run sends one recovery SMS and closes the incident.
+
+The monitor uses GitHub Actions secrets only, never Replit runtime secrets.
+Focused tests cover readiness parsing, retries, outage thresholds, duplicate
+suppression, recovery, dry-run behavior, and safe Twilio failures.
+
+The implementation was reviewed after a fault-injection pass: SMS delivery is
+reserved in the GitHub incident before Twilio, and post-send GitHub failures
+leave a delivery-uncertain state that never resends automatically. The full
+validation suite completed with 48 checks passed and 0 failed.
