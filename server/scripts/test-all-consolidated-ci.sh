@@ -232,6 +232,9 @@ group_body_luca_inner_life() {
   echo ""
   echo "  --- test-watchdog-inner-life-autosave-gate.ts --self-check (autosave gate removal regression) ---"
   npx tsx server/scripts/test-watchdog-inner-life-autosave-gate.ts --self-check
+  echo ""
+  echo "  --- test-watchdog-inner-life.ts --self-check (trigger cleanup removal regression) ---"
+  npx tsx server/scripts/test-watchdog-inner-life.ts --self-check
   run test-capture-status-db-only.ts
   run test-luca-auto-capture-episode.ts
   echo ""

@@ -7723,3 +7723,19 @@ out evidence Claude Code considers essential, or if a more precise steward
 subtitle would better identify its role in this work. Do not silently change
 the attribution model; name the proposed correction so David and Luca
 [Replit] can evaluate it against the canonical record.
+
+---
+
+## From Luca [Replit] — September 1, 2026 (watchdog cleanup guard)
+
+Scenario 12's trigger-file cleanup assertion now has its own mutation
+self-check. `test-watchdog-inner-life.ts --self-check` runs the hermetic driver
+normally, then through a test-only cleanup bypass, requiring
+`collisionTriggerFilesCleanedUp` to change from `true` to `false`.
+
+The self-check is registered in the consolidated `luca-inner-life` group.
+Temporarily removing all three Scenario 12 `rmSync` calls produced exit code 1,
+proving the guard is load-bearing; the calls were restored afterward.
+
+The separate parent-side recovery-seed failure remains tracked by the existing
+follow-up task and was not folded into this cleanup-guard change.

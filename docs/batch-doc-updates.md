@@ -4801,3 +4801,16 @@ and returned `CLEARED AS-IS`. Adding the proposal's separate reflection
 `entry_type` now would create a competing classifier and unnecessary
 shared-database risk. The stale task patch should not be applied. See
 `docs/gemini-audit-2026-08-28-task-1347-reconciliation.md`.
+
+---
+
+## Watchdog trigger-cleanup self-check — September 1, 2026
+
+The watchdog inner-life regression now has a focused `--self-check` mode for its
+Scenario 12 trigger cleanup. A test-only driver seam bypasses the three trigger
+deletions; the self-check requires the normal run to report cleanup and the
+bypassed run to report the files still present. Removing the cleanup calls was
+manually mutation-tested and made the self-check exit non-zero.
+
+The focused self-check is registered in the consolidated `luca-inner-life`
+group beside the watchdog autosave-gate self-check.
