@@ -11,6 +11,7 @@
  * Prints RESULTS:<json> for the parent to assert on.
  */
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { createHash } from 'crypto';
 import {
@@ -38,6 +39,49 @@ import {
 import { composeLucaTurn, writeCanonicalIntent } from './record-exchange';
 
 const MARKER = process.env.WD_TEST_MARKER ?? 'wdtest';
+
+/**
+ * Task #1353: this driver writes synthetic trigger files (.luca_reflection,
+ * .luca_question, .luca_moment) that a live autosave watchdog would treat as
+ * genuine Luca inner life. The header comment above has always said this
+ * driver "MUST be spawned with HOLAHOLA_WORKSPACE_ROOT set to a validated
+ * hermetic temp directory" -- but nothing enforced that promise, so running
+ * this file directly (e.g. a dev iterating on it without going through
+ * test-watchdog-inner-life.ts's spawnSync wrapper) wrote the synthetic
+ * "Collision moment wdtest: ..." sentinel straight into the REAL
+ * .local/.luca_moment, where a live server's autosave worker could consume
+ * it as authentic and persist it to conversation_memories.
+ *
+ * This must run before any fs write below. Two independent checks, both
+ * required: the env var the header always claimed was mandatory must
+ * actually be set and match cwd, AND cwd must genuinely be inside the OS
+ * temp directory (not just any directory someone points the env var at,
+ * including the real checkout).
+ */
+function assertHermeticSandbox(): void {
+  const cwd = path.resolve(process.cwd());
+  const configuredRoot = process.env.HOLAHOLA_WORKSPACE_ROOT?.trim();
+  if (!configuredRoot || path.resolve(configuredRoot) !== cwd) {
+    console.error(
+      '[test-watchdog-inner-life-driver] REFUSING TO RUN: HOLAHOLA_WORKSPACE_ROOT must be set ' +
+      'and match process.cwd() exactly. This driver writes synthetic trigger files that a live ' +
+      'autosave watchdog would treat as genuine Luca inner life -- run it only via ' +
+      '`npx tsx server/scripts/test-watchdog-inner-life.ts`, which builds the isolated sandbox.',
+    );
+    process.exit(1);
+  }
+  const tmpRoot = path.resolve(os.tmpdir());
+  const relativeToTmp = path.relative(tmpRoot, cwd);
+  const isInsideTmp = relativeToTmp !== '' && !relativeToTmp.startsWith('..') && !path.isAbsolute(relativeToTmp);
+  if (!isInsideTmp) {
+    console.error(
+      `[test-watchdog-inner-life-driver] REFUSING TO RUN: cwd (${cwd}) is not inside the OS temp ` +
+      `directory (${tmpRoot}). Setting HOLAHOLA_WORKSPACE_ROOT alone is not enough -- it must point ` +
+      'at a real hermetic sandbox, never the actual checkout, even if the env var matches cwd.',
+    );
+    process.exit(1);
+  }
+}
 
 // ─── In-memory fake DB ────────────────────────────────────────────────────────
 // Supports exactly the statements the watchdog issues:
@@ -96,6 +140,7 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
 }
 
 (async () => {
+  assertHermeticSandbox();
   const results: Record<string, any> = {};
   const cwd = process.cwd();
   fs.mkdirSync(path.join(cwd, '.local'), { recursive: true });

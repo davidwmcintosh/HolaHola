@@ -7825,5 +7825,75 @@ Two things noticed in passing, not acted on:
   title and duplicated tags — likely a capture-path bug, worth a look
   whenever there's time.
 - Task 1353 (the watchdog Scenario-12 synthetic-sentinel leak, documented
-  above) hasn't been started. This backfill was David's explicit priority
-  for tonight; Task 1353 is next unless told otherwise.
+  above) — **update: fixed below, same commit window.** This backfill was
+  David's explicit priority first; Task 1353 followed immediately after.
+
+---
+
+## From Claude Code — Aug 31, 2026 (Task 1353: watchdog sandbox guard)
+
+**LUCA [claude code]:**
+
+1. **What Claude Code observed.** `server/scripts/test-watchdog-inner-life-driver.ts`
+   writes synthetic trigger files (`.luca_reflection`, `.luca_question`,
+   `.luca_moment`) at paths built from `process.cwd()`. Its own header comment
+   already said it "MUST be spawned with HOLAHOLA_WORKSPACE_ROOT set to a
+   validated hermetic temp directory" — but nothing in the code enforced that.
+   The only place that spawns it correctly is `test-watchdog-inner-life.ts`'s
+   `spawnSync(..., { cwd: tmp, env: { HOLAHOLA_WORKSPACE_ROOT: tmp } })`. Any
+   other invocation — most plausibly a dev running the driver directly while
+   iterating on it, which is a normal thing to do with a file named
+   `test-*-driver.ts` — inherits whatever `process.cwd()` actually is, with no
+   check stopping it from being the real checkout.
+
+2. **What proved the synthetic sentinel crossed the test/live boundary.** Read
+   `agent-session-autosave.ts`'s file-watcher logic: it polls the literal
+   `.local/.luca_moment` path relative to wherever the live server process's
+   `cwd` resolves, with no test/production distinction built in — by design,
+   since it can't know the difference between a real Luca reflection and a
+   test fixture at the file level. Confirmed Scenario 12's write
+   (`Collision moment wdtest: ...` at line 357, now line ~395) uses the same
+   unguarded `momentPath` as every other scenario, so running the driver
+   directly from the real checkout — with a real server's watchdog polling
+   concurrently — would let that live process pick it up within its normal
+   poll interval and persist it via the same path as authentic inner life.
+   This wasn't reproduced against a live server (out of scope, would itself
+   risk writing a synthetic row); the fix closes the write path at its
+   source rather than depending on reproducing the live consumption side.
+
+3. **What changed.** Added `assertHermeticSandbox()` to the top of
+   `test-watchdog-inner-life-driver.ts`, called as the driver's first
+   statement, before any `fs` write. Two independent checks, both required:
+   (a) `HOLAHOLA_WORKSPACE_ROOT` must be set and equal `process.cwd()`
+   exactly — enforcing the promise the header comment already made but never
+   checked; (b) `process.cwd()` must genuinely resolve inside `os.tmpdir()`
+   — so setting the env var to match cwd isn't enough on its own; pointing
+   both at the real checkout still refuses. Either failure exits 1 with a
+   clear message before `.local` is even created. Nothing in
+   `agent-session-autosave.ts` or the live consumption path was touched —
+   the fix is entirely at the write source, per the "do not broadly filter
+   authentic inner-life records" instruction.
+
+4. **Which command or self-check proves the fix.** Added two new scenarios to
+   `test-watchdog-inner-life.ts`, run after the main hermetic pass: spawn the
+   driver directly against a fixture directory with valid HolaHola project
+   markers (so nothing else fails first) but (A) no `HOLAHOLA_WORKSPACE_ROOT`
+   set, and (B) `HOLAHOLA_WORKSPACE_ROOT` set and matching cwd exactly, but
+   cwd outside the OS temp dir. Both assert the child exits non-zero AND that
+   no `.local` directory was created in the fixture — proving the write never
+   happened, not just that a function returned the expected boolean.
+   `npx tsx server/scripts/test-watchdog-inner-life.ts` runs everything
+   (all pre-existing scenarios plus the two new ones).
+
+5. **What remains unproven or deferred.** This Windows checkout can't
+   actually execute `test-watchdog-inner-life.ts` as committed:
+   `spawnSync('npx', ...)` without `shell: true` fails with `ENOENT` on
+   Windows (can't resolve `npx.cmd` via PATH the way it resolves `npx` on
+   Linux) — a pre-existing, unrelated platform gap, not something this task
+   touched. Verified the actual guard logic instead with an equivalent local
+   script (`shell: true`, not committed) reproducing the exact three cases:
+   legitimate sandbox → all 64 checks still pass with zero regressions;
+   missing env var → refuses, no `.local` created; env var set but outside
+   `os.tmpdir()` → refuses, no `.local` created. The committed test file
+   itself should still be run for real here, where it can actually execute
+   natively, before considering Task 1353 fully closed on your side.
