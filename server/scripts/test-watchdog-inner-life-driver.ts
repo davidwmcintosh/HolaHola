@@ -386,6 +386,21 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   );
   await drainInnerLife();
 
+  // Delete the trigger files that were written to the real workspace paths.
+  // Without this, the live autosave server (running in the background as a
+  // separate process) would see the new mtime on .luca_moment / .luca_reflection
+  // / .luca_question and write spurious conversation_memories rows tagged
+  // luca-significant into the production database (observed Aug 19 + Aug 31 2026).
+  // The watchdog's in-memory fake DB has already consumed these entries; the
+  // files are no longer needed by the test.
+  fs.rmSync(reflectionPath, { force: true });
+  fs.rmSync(questionPath, { force: true });
+  fs.rmSync(momentPath, { force: true });
+  results.collisionTriggerFilesCleanedUp =
+    !fs.existsSync(reflectionPath) &&
+    !fs.existsSync(questionPath) &&
+    !fs.existsSync(momentPath);
+
   const collisionEpisode = store.episodeContent;
   const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
   results.collisionEpisodeExactlyOnce =

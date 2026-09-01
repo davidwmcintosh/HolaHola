@@ -120,6 +120,8 @@ function check(name: string, ok: boolean, detail?: string) {
     r.collisionPersonalFilesCompleteOnce === true);
   check('canonical collision: episode .md remains an exact DB projection',
     r.collisionMdMatchesDb === true);
+  check('canonical collision: trigger files deleted after drain so live autosave cannot create spurious DB rows',
+    r.collisionTriggerFilesCleanedUp === true);
   check('canonical omission: a later Luca output without the pending channel uses direct fallback once',
     r.omittedChannelFallsBackExactlyOnce === true);
   check('canonical crash: dead intent owner before chat append uses direct fallback once',
