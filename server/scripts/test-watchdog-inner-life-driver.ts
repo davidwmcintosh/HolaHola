@@ -396,9 +396,11 @@ function fakeDb(strings: TemplateStringsArray, ...vals: any[]): Promise<any[]> {
   // luca-significant into the production database (observed Aug 19 + Aug 31 2026).
   // The watchdog's in-memory fake DB has already consumed these entries; the
   // files are no longer needed by the test.
-  fs.rmSync(reflectionPath, { force: true });
-  fs.rmSync(questionPath, { force: true });
-  fs.rmSync(momentPath, { force: true });
+  if (process.env.WD_TEST_BYPASS_COLLISION_CLEANUP !== '1') {
+    fs.rmSync(reflectionPath, { force: true });
+    fs.rmSync(questionPath, { force: true });
+    fs.rmSync(momentPath, { force: true });
+  }
   results.collisionTriggerFilesCleanedUp =
     !fs.existsSync(reflectionPath) &&
     !fs.existsSync(questionPath) &&

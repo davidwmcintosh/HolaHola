@@ -32,6 +32,7 @@ import { workspaceResolution } from '../services/workspace-root';
 
 const WORKSPACE = workspaceResolution.root;
 const MARKER = `wdtest-${Date.now()}`;
+const SELF_CHECK = process.argv.includes('--self-check');
 
 let failures = 0;
 function check(name: string, ok: boolean, detail?: string) {
@@ -39,8 +40,14 @@ function check(name: string, ok: boolean, detail?: string) {
   if (!ok) failures++;
 }
 
-(async () => {
-  console.log('watchdog inner-life CI — drain scenarios (hermetic temp cwd)');
+interface DriverRun {
+  exitCode: number | null;
+  output: string;
+  results: Record<string, any> | null;
+  tempRoot: string;
+}
+
+function runDriver(bypassCollisionCleanup: boolean): DriverRun {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wd-il-'));
   fs.mkdirSync(path.join(tmp, 'server'), { recursive: true });
   fs.mkdirSync(path.join(tmp, 'shared'), { recursive: true });
@@ -53,18 +60,76 @@ function check(name: string, ok: boolean, detail?: string) {
       ...process.env,
       HOLAHOLA_WORKSPACE_ROOT: tmp,
       WD_TEST_MARKER: MARKER,
+      WD_TEST_BYPASS_COLLISION_CLEANUP: bypassCollisionCleanup ? '1' : '0',
     },
     encoding: 'utf8',
     timeout: 180_000,
   });
-  const out = (run.stdout ?? '') + (run.stderr ?? '');
+  const output = (run.stdout ?? '') + (run.stderr ?? '');
+  const match = /RESULTS:(\{.*\})/.exec(output);
+  return {
+    exitCode: run.status,
+    output,
+    results: match ? JSON.parse(match[1]) : null,
+    tempRoot: tmp,
+  };
+}
+
+function cleanupDriverRun(driverRun: DriverRun): void {
+  fs.rmSync(driverRun.tempRoot, { recursive: true, force: true });
+}
+
+(async () => {
+  console.log(`watchdog inner-life CI — drain scenarios (hermetic temp cwd${SELF_CHECK ? ', self-check' : ''})`);
+  const baseline = runDriver(false);
+  const out = baseline.output;
   const m = /RESULTS:(\{.*\})/.exec(out);
   if (!m) {
     console.error(out);
     console.error('FAIL — driver produced no results');
+    cleanupDriverRun(baseline);
     process.exit(1);
   }
   const r = JSON.parse(m[1]);
+
+  if (SELF_CHECK) {
+    if (r.collisionTriggerFilesCleanedUp !== true) {
+      console.error(
+        'FAIL — self-check baseline is invalid: normal Scenario 12 cleanup did not report collisionTriggerFilesCleanedUp=true.',
+      );
+      console.error(JSON.stringify(r));
+      cleanupDriverRun(baseline);
+      process.exit(1);
+    }
+
+    const bypassed = runDriver(true);
+    const bypassedResults = bypassed.results;
+    if (bypassed.exitCode !== 0 || !bypassedResults) {
+      console.error(bypassed.output);
+      console.error('FAIL — cleanup-bypassed driver produced no results');
+      cleanupDriverRun(bypassed);
+      cleanupDriverRun(baseline);
+      process.exit(1);
+    }
+
+    // This is the same predicate used by normal mode, with the cleanup
+    // deliberately bypassed through the driver's test seam. If the three
+    // rmSync calls are removed, the bypass has no effect and this check must
+    // fail, proving the normal assertion is load-bearing.
+    if (bypassedResults.collisionTriggerFilesCleanedUp !== false) {
+      console.error(
+        'FAIL — self-check is vacuous: bypassing Scenario 12 cleanup still reported collisionTriggerFilesCleanedUp=true.',
+      );
+      console.error(JSON.stringify(bypassedResults));
+      cleanupDriverRun(bypassed);
+      cleanupDriverRun(baseline);
+      process.exit(1);
+    }
+    console.log('PASS — self-check: bypassing Scenario 12 cleanup makes collisionTriggerFilesCleanedUp=false.');
+    cleanupDriverRun(bypassed);
+    cleanupDriverRun(baseline);
+    process.exit(0);
+  }
 
   check('first-run drains a trigger written after the heartbeat went quiet', r.firstRunDrained === true);
   check('personal memory rows carry the luca-inner-life tag', r.firstRunTagsCorrect === true);
@@ -176,8 +241,8 @@ function check(name: string, ok: boolean, detail?: string) {
 
   // ── Scenario 4: restart dedup guard (temp trigger + temp state file) ──────
   const { watchdogAlreadyProcessed } = await import('../services/agent-session-autosave');
-  const reflectionPath = path.join(tmp, '.luca_reflection'); // basename-keyed, temp copy
-  const statePath = path.join(tmp, 'wd-state.json');
+  const reflectionPath = path.join(baseline.tempRoot, '.luca_reflection'); // basename-keyed, temp copy
+  const statePath = path.join(baseline.tempRoot, 'wd-state.json');
   const raw = `Restart dedup fixture ${MARKER}\nWritten and drained by the watchdog while the server was down.\n`;
   fs.writeFileSync(reflectionPath, raw, 'utf8');
   const sha = createHash('sha256').update(raw, 'utf8').digest('hex');
@@ -200,7 +265,7 @@ function check(name: string, ok: boolean, detail?: string) {
   {
     const { seedInnerLifeTriggerState, _innerLifeSeedCompleteForTest, _resetInnerLifeSeedCompleteForTest } =
       await import('../services/agent-session-autosave');
-    const seedLockPath = path.join(tmp, 'seed-test.lock');
+    const seedLockPath = path.join(baseline.tempRoot, 'seed-test.lock');
     fs.writeFileSync(seedLockPath, JSON.stringify({ pid: 999999999, acquiredAt: Date.now() }), 'utf8');
     _resetInnerLifeSeedCompleteForTest();
     const seedPromise = seedInnerLifeTriggerState(seedLockPath, 400); // 400ms wait window
@@ -334,7 +399,7 @@ function check(name: string, ok: boolean, detail?: string) {
     }
   }
 
-  fs.rmSync(tmp, { recursive: true, force: true });
+  cleanupDriverRun(baseline);
   if (failures > 0) {
     console.error(`\nFAILED — ${failures} assertion(s) failed.`);
     process.exit(1);
