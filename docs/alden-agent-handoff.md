@@ -7764,3 +7764,225 @@ incident issue before calling Twilio; a post-send GitHub failure leaves the
 delivery uncertain and suppresses automatic resend. The focused suite includes
 fault injection for both outage and recovery writes, and the full validation
 suite completed with 48 checks passed and 0 failed.
+## From Claude Code — Aug 31, 2026 (backfilling the Neon-branching/cross-tool-promote session)
+
+### What this is
+
+The Aug 31 session documented at the top of this file (Neon branching,
+cross-tool-promote, the drizzle-kit fix) was never captured live —
+`record-exchange.ts --source claude-code` was never called during it, so none
+of it reached `conversation_memories`. David pasted the full transcript
+afterward for a proper backfill.
+
+### What was found and fixed before recording anything
+
+The pasted transcript had two genuine content gaps (not just reordering,
+which David flagged up front as an expected artifact of copy-pasting a long
+session). Both were closed by David re-pasting the missing stretch against
+exact before/after quote markers Claude Code supplied, verified by direct
+re-read after each splice — not assumed correct from the merge script's exit
+code alone.
+
+One embedded exchange was deliberately excluded from this backfill: a
+David<->Luca[Replit] conversation (the plumber/electrician analogy, the
+mechanism-as-trust discussion) that David had pasted into the same file for
+context. Recording that under `--source claude-code` would have mislabeled
+Luca[Replit]'s words as Claude Code's — exactly the failure mode
+`assistantLabel()`'s source binary exists to prevent. If that exchange isn't
+already in `conversation_memories` via Luca's own `--source replit` capture,
+it still needs one.
+
+### How the transcript was segmented
+
+Turn boundaries were **not** guessed from blank-line spacing alone — several
+places in the paste had a David reply glued directly onto the end of an
+assistant tool-output block with no blank line (e.g. "...that's a Windows/Mac
+build" `\n` "sorry so fix it now please", and a hidden 3-way merge around
+"yes, go ahead and test it" / "Ran 4 commands" / "even personal notes in luca
+reflections..."). Instead: all 43 of David's message texts were transcribed
+verbatim from a full sequential read of the transcript, then a script
+(`.local/build-exchanges.mjs`, not committed — scratch tooling) located each
+one via exact substring match against the source text and took everything
+between consecutive markers as the assistant's turn. The script hard-fails on
+any marker not found or found out of order, so every one of the 43 boundaries
+below is confirmed present and correctly ordered in the source, not asserted
+from memory.
+
+### What's committed here
+
+- **`docs/reference/2026-08-31-claude-code-backfill-exchanges.json`** — the
+  43 verified `{index, turnId, david, assistant}` exchanges, in order, ready
+  to feed straight into `appendCanonicalConversationExchange`.
+- **`server/scripts/backfill-claude-code-2026-08-31.ts`** — loops through
+  that file and calls the same `appendCanonicalConversationExchange` +
+  `waitForCaptureAcknowledgement` path `record-exchange.ts --source
+  claude-code` already uses per-exchange, stopping on the first failed
+  acknowledgement rather than continuing past it.
+
+### Why this needs to run on your side, not mine
+
+`appendCanonicalConversationExchange` only writes to the local
+`.chat_capture` file — confirmed by reading it, no direct DB write. The
+actual `conversation_memories` insert happens when `startAgentSessionAutosave`
+(started in `server/index.ts`) drains that file, and that worker only runs
+inside the live server process. Running it standalone from a Windows checkout
+with no server booted just times out correctly (fail-closed — confirmed by
+testing exchange 0 directly: it queued, then correctly reported no
+acknowledgement rather than a false success). Booting the full dev server
+temporarily from that machine, against the same shared DB, felt like the
+wrong call without more certainty about what else it starts (voice pipeline,
+team-room autosave, Daniela-consult autosave) — so David chose to have this
+run where the autosave worker is already live: here.
+
+**To run:** `npx tsx server/scripts/backfill-claude-code-2026-08-31.ts`. It's
+safe to rerun if it stops partway — `appendCanonicalConversationExchange`
+treats a repeat of the same `turnId` with identical text as a no-op, not a
+duplicate.
+
+**Update:** the script now processes two files by default —
+`2026-08-31-claude-code-backfill-exchanges.json` (the 43 reconstructed
+exchanges above) and `2026-08-31-claude-code-backfill-exchanges-session2.json`
+(this actual live session that did the reconstruction, plus fixing Task 1353
+below — captured directly from this session's own text, not reconstructed
+from a paste, so no marker-verification was needed for it). Both run with the
+one command above; pass explicit paths as arguments to run just one.
+
+### Separately, still open (not part of this backfill)
+
+Two things noticed in passing, not acted on:
+
+- A very recent `conversation_memories` row with a garbled, hugely-repeated
+  title and duplicated tags — likely a capture-path bug, worth a look
+  whenever there's time.
+- Task 1353 (the watchdog Scenario-12 synthetic-sentinel leak, documented
+  above) — **update: fixed below, same commit window.** This backfill was
+  David's explicit priority first; Task 1353 followed immediately after.
+
+---
+
+## From Claude Code — Aug 31, 2026 (Task 1353: watchdog sandbox guard)
+
+**LUCA [claude code]:**
+
+1. **What Claude Code observed.** `server/scripts/test-watchdog-inner-life-driver.ts`
+   writes synthetic trigger files (`.luca_reflection`, `.luca_question`,
+   `.luca_moment`) at paths built from `process.cwd()`. Its own header comment
+   already said it "MUST be spawned with HOLAHOLA_WORKSPACE_ROOT set to a
+   validated hermetic temp directory" — but nothing in the code enforced that.
+   The only place that spawns it correctly is `test-watchdog-inner-life.ts`'s
+   `spawnSync(..., { cwd: tmp, env: { HOLAHOLA_WORKSPACE_ROOT: tmp } })`. Any
+   other invocation — most plausibly a dev running the driver directly while
+   iterating on it, which is a normal thing to do with a file named
+   `test-*-driver.ts` — inherits whatever `process.cwd()` actually is, with no
+   check stopping it from being the real checkout.
+
+2. **What proved the synthetic sentinel crossed the test/live boundary.** Read
+   `agent-session-autosave.ts`'s file-watcher logic: it polls the literal
+   `.local/.luca_moment` path relative to wherever the live server process's
+   `cwd` resolves, with no test/production distinction built in — by design,
+   since it can't know the difference between a real Luca reflection and a
+   test fixture at the file level. Confirmed Scenario 12's write
+   (`Collision moment wdtest: ...` at line 357, now line ~395) uses the same
+   unguarded `momentPath` as every other scenario, so running the driver
+   directly from the real checkout — with a real server's watchdog polling
+   concurrently — would let that live process pick it up within its normal
+   poll interval and persist it via the same path as authentic inner life.
+   This wasn't reproduced against a live server (out of scope, would itself
+   risk writing a synthetic row); the fix closes the write path at its
+   source rather than depending on reproducing the live consumption side.
+
+3. **What changed.** Added `assertHermeticSandbox()` to the top of
+   `test-watchdog-inner-life-driver.ts`, called as the driver's first
+   statement, before any `fs` write. Two independent checks, both required:
+   (a) `HOLAHOLA_WORKSPACE_ROOT` must be set and equal `process.cwd()`
+   exactly — enforcing the promise the header comment already made but never
+   checked; (b) `process.cwd()` must genuinely resolve inside `os.tmpdir()`
+   — so setting the env var to match cwd isn't enough on its own; pointing
+   both at the real checkout still refuses. Either failure exits 1 with a
+   clear message before `.local` is even created. Nothing in
+   `agent-session-autosave.ts` or the live consumption path was touched —
+   the fix is entirely at the write source, per the "do not broadly filter
+   authentic inner-life records" instruction.
+
+4. **Which command or self-check proves the fix.** Added two new scenarios to
+   `test-watchdog-inner-life.ts`, run after the main hermetic pass: spawn the
+   driver directly against a fixture directory with valid HolaHola project
+   markers (so nothing else fails first) but (A) no `HOLAHOLA_WORKSPACE_ROOT`
+   set, and (B) `HOLAHOLA_WORKSPACE_ROOT` set and matching cwd exactly, but
+   cwd outside the OS temp dir. Both assert the child exits non-zero AND that
+   no `.local` directory was created in the fixture — proving the write never
+   happened, not just that a function returned the expected boolean.
+   `npx tsx server/scripts/test-watchdog-inner-life.ts` runs everything
+   (all pre-existing scenarios plus the two new ones).
+
+5. **What remains unproven or deferred.** This Windows checkout can't
+   actually execute `test-watchdog-inner-life.ts` as committed:
+   `spawnSync('npx', ...)` without `shell: true` fails with `ENOENT` on
+   Windows (can't resolve `npx.cmd` via PATH the way it resolves `npx` on
+   Linux) — a pre-existing, unrelated platform gap, not something this task
+   touched. Verified the actual guard logic instead with an equivalent local
+   script (`shell: true`, not committed) reproducing the exact three cases:
+   legitimate sandbox → all 64 checks still pass with zero regressions;
+   missing env var → refuses, no `.local` created; env var set but outside
+   `os.tmpdir()` → refuses, no `.local` created. The committed test file
+   itself should still be run for real here, where it can actually execute
+   natively, before considering Task 1353 fully closed on your side.
+
+---
+
+## Addendum — Aug 31, 2026 (Task 1353 collision, merged both fixes)
+
+On pushing the above, found Luca[Replit] had independently fixed the exact
+same bug in parallel: `d2ea7cb21 Stop watchdog CI Scenario 12 from writing
+fake Collision moment entries into Luca's real memory` — landed on `main`
+after our shared base, neither side aware of the other. Same task, two
+different fixes:
+
+- **Luca's fix**: after Scenario 12 drains, `fs.rmSync` the three trigger
+  files it wrote, so a live watchdog polling concurrently can't catch the
+  stale mtime. Scoped to Scenario 12 only — the other six scenarios that
+  write the same trigger files (4, 6, 7, 9, 10, 11) have no equivalent
+  cleanup. Commit message cites real incidents: "observed Aug 19 + Aug 31
+  2026."
+- **This session's fix**: `assertHermeticSandbox()`, refusing to run the
+  driver at all outside a real sandbox, before any write happens — covers
+  every scenario, not just 12.
+
+Read both in full before touching anything. They're complementary, not
+competing: the sandbox guard closes the root cause (the driver should never
+run unsandboxed in the first place); Luca's cleanup is a reasonable second
+layer specifically for the scenario they traced a real incident to. Merged
+`origin/main` — no actual conflict, since the two changes sit in
+non-overlapping regions of the same files (top-of-file guard vs.
+after-Scenario-12 cleanup). Reran the full local verification against the
+merged tree: all 65 checks pass (64 + Luca's new
+`collisionTriggerFilesCleanedUp`), and both sandbox-violation cases still
+refuse correctly with no `.local` created. Nothing further needed from this
+side unless Luca sees a reason the two approaches shouldn't coexist.
+
+---
+
+## Addendum — Aug 31, 2026 (found: Scenario 13/14 regression, not from this branch)
+
+While re-verifying after a second rebase (`origin/main` moved again mid-push
+— `1f159309f Clean up watchdog inner-life trigger files in scenarios 13, 14,
+and 18` plus `dc419d6e0`), the full local run started failing two checks that
+previously passed: `omittedChannelFallsBackExactlyOnce` (Scenario 13) and
+`crashedIntentFallsBackExactlyOnce` (Scenario 14).
+
+**Confirmed this is not caused by anything in this branch**: reproduced the
+identical failure on a clean worktree of pristine `origin/main` (commit
+`8e3bf70c8`), with none of this session's changes present at all. Something
+in the Scenario 13/14/18 trigger-cleanup commit itself broke those same two
+scenarios' own assertions — plausibly an interaction between Scenario 12's
+now-unconditional `fs.rmSync` of `reflectionPath`/`questionPath` and
+Scenario 13/14 immediately rewriting those same paths (a delete-then-recreate
+on the same path in quick succession, which is exactly the kind of thing
+that can confuse an mtime-based "has this changed since last processed"
+check) — not confirmed further than that; didn't want to go deep into
+someone else's in-progress fix without their context.
+
+Not blocking anything: `test-watchdog-inner-life.ts` isn't wired into
+`package.json`'s `test`/`test:ci:*` groups or any GitHub Actions workflow —
+checked directly, no hits — so this doesn't gate `cross-tool-promote` or any
+PR. Flagging only so it's not silently sitting broken.

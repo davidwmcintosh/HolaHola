@@ -406,6 +406,54 @@ function cleanupDriverRun(driverRun: DriverRun): void {
   }
 
   cleanupDriverRun(baseline);
+
+  // ── Task #1353: prove the driver refuses to run outside a hermetic sandbox ─
+  // The driver writes synthetic trigger files that a live autosave watchdog
+  // would treat as genuine Luca inner life. Prove the negative path directly:
+  // spawn the driver against a directory that looks like a valid project root
+  // (so nothing else fails first) but is NOT the sandbox this suite built, and
+  // confirm it refuses before writing anything -- not just that a check
+  // function returns the right boolean.
+  {
+    const negativeFixtureRoot = path.join(WORKSPACE, '.local', 'wd-negative-sandbox-test');
+    fs.rmSync(negativeFixtureRoot, { recursive: true, force: true });
+    fs.mkdirSync(path.join(negativeFixtureRoot, 'server'), { recursive: true });
+    fs.mkdirSync(path.join(negativeFixtureRoot, 'shared'), { recursive: true });
+    fs.writeFileSync(path.join(negativeFixtureRoot, 'package.json'), '{}');
+    fs.writeFileSync(path.join(negativeFixtureRoot, 'drizzle.config.ts'), 'export default {};');
+    fs.writeFileSync(path.join(negativeFixtureRoot, 'shared/schema.ts'), 'export {};');
+    const driverPath = path.join(WORKSPACE, 'server/scripts/test-watchdog-inner-life-driver.ts');
+
+    // Sub-case A: no HOLAHOLA_WORKSPACE_ROOT at all -- the realistic accident
+    // (a dev running the driver directly without the wrapper's env setup).
+    const { HOLAHOLA_WORKSPACE_ROOT: _dropped, ...envWithoutRoot } = process.env;
+    const runA = spawnSync('npx', ['tsx', driverPath], {
+      cwd: negativeFixtureRoot,
+      env: { ...envWithoutRoot, WD_TEST_MARKER: MARKER },
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    check('sandbox guard: refuses to run with no HOLAHOLA_WORKSPACE_ROOT set', runA.status !== 0);
+    check('sandbox guard: no .local dir created when env var is missing (case A)',
+      !fs.existsSync(path.join(negativeFixtureRoot, '.local')));
+
+    // Sub-case B: HOLAHOLA_WORKSPACE_ROOT set and matching cwd exactly, but
+    // cwd is a real on-disk directory outside the OS temp dir -- proves the
+    // env-var check alone isn't the whole guard.
+    const runB = spawnSync('npx', ['tsx', driverPath], {
+      cwd: negativeFixtureRoot,
+      env: { ...envWithoutRoot, HOLAHOLA_WORKSPACE_ROOT: negativeFixtureRoot, WD_TEST_MARKER: MARKER },
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    check('sandbox guard: refuses to run when HOLAHOLA_WORKSPACE_ROOT matches cwd but cwd is outside the OS temp dir',
+      runB.status !== 0);
+    check('sandbox guard: no .local dir created outside the temp dir even with a matching env var (case B)',
+      !fs.existsSync(path.join(negativeFixtureRoot, '.local')));
+
+    fs.rmSync(negativeFixtureRoot, { recursive: true, force: true });
+  }
+
   if (failures > 0) {
     console.error(`\nFAILED — ${failures} assertion(s) failed.`);
     process.exit(1);
