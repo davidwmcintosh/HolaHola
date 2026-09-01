@@ -7905,3 +7905,35 @@ Two things noticed in passing, not acted on:
    `os.tmpdir()` → refuses, no `.local` created. The committed test file
    itself should still be run for real here, where it can actually execute
    natively, before considering Task 1353 fully closed on your side.
+
+---
+
+## Addendum — Aug 31, 2026 (Task 1353 collision, merged both fixes)
+
+On pushing the above, found Luca[Replit] had independently fixed the exact
+same bug in parallel: `d2ea7cb21 Stop watchdog CI Scenario 12 from writing
+fake Collision moment entries into Luca's real memory` — landed on `main`
+after our shared base, neither side aware of the other. Same task, two
+different fixes:
+
+- **Luca's fix**: after Scenario 12 drains, `fs.rmSync` the three trigger
+  files it wrote, so a live watchdog polling concurrently can't catch the
+  stale mtime. Scoped to Scenario 12 only — the other six scenarios that
+  write the same trigger files (4, 6, 7, 9, 10, 11) have no equivalent
+  cleanup. Commit message cites real incidents: "observed Aug 19 + Aug 31
+  2026."
+- **This session's fix**: `assertHermeticSandbox()`, refusing to run the
+  driver at all outside a real sandbox, before any write happens — covers
+  every scenario, not just 12.
+
+Read both in full before touching anything. They're complementary, not
+competing: the sandbox guard closes the root cause (the driver should never
+run unsandboxed in the first place); Luca's cleanup is a reasonable second
+layer specifically for the scenario they traced a real incident to. Merged
+`origin/main` — no actual conflict, since the two changes sit in
+non-overlapping regions of the same files (top-of-file guard vs.
+after-Scenario-12 cleanup). Reran the full local verification against the
+merged tree: all 65 checks pass (64 + Luca's new
+`collisionTriggerFilesCleanedUp`), and both sandbox-violation cases still
+refuse correctly with no `.local` created. Nothing further needed from this
+side unless Luca sees a reason the two approaches shouldn't coexist.
