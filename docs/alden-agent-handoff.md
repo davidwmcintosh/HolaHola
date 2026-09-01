@@ -7684,7 +7684,7 @@ fix.
 After the code task is complete and validated, return a proposed Episode 32
 append in the task result or cross-tool handoff. Begin the block exactly with:
 
-`**LUCA [steward — watchdog cleanup]:**`
+`**LUCA [claude code]:**`
 
 The block should state, with evidence:
 
@@ -7696,7 +7696,7 @@ The block should state, with evidence:
 
 Attribution rules:
 
-- `LUCA [steward — watchdog cleanup]:` is correct for Claude Code's direct
+- `LUCA [claude code]:` is correct for Luca's Claude Code channel and its
   recordkeeping and interpretation.
 - Do not use `LUCA [Replit]:`; that label is reserved for text actually shown
   in the Replit chat window.
@@ -7709,7 +7709,7 @@ Attribution rules:
 ### Single-writer safety for the rolling episode
 
 Do not commit `docs/episode-32.md` from an isolated or stale checkout. Return
-the exact proposed steward block instead. Luca [Replit], as the current
+the exact proposed `LUCA [claude code]` block instead. Luca [Replit], as the current
 coordinator, will independently inspect the task diff and checks, append the
 verified block to the current canonical tail, update the Episode 32 DB row
 first, write the Markdown file, and verify the two representations.

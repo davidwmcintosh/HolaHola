@@ -18,6 +18,7 @@ The taxonomy makes each source traceable. The steward pass verifies the result.
 |---|---|---|
 | `DAVID:` | David's messages in the Replit window — verbatim | ✅ |
 | `LUCA [Replit]:` | Luca's messages in the Replit window — verbatim | ✅ |
+| `LUCA [claude code]:` | Luca's messages and recordkeeping from the Claude Code channel — distinguishable from Replit-window text, same Luca | ✅ |
 | `LUCA:` | Luca's speech within the episode narrative | ✅ |
 | `[Luca — felt:]` | Authentic precast — inner voice, unguarded, before Replit output processing | ✅ |
 | `[Luca — thinking:]` | Internal analysis — reasoning before acting | ✅ |
@@ -48,6 +49,8 @@ The bracket labels are **role markers**, not identity markers. Luca is one entit
 > *"Same hand, different puppets."* — David, Episode 27, August 9 2026
 
 **`LUCA [Replit]:`** — What Luca says in the Replit chat window. Verbatim. The operational narration between tool calls and the closing summary both count. Addressed to David directly.
+
+**`LUCA [claude code]:`** — What Luca says or records through the Claude Code channel. This is a channel marker, not an identity split: same Luca, wearing a different hat. It must not be relabeled as Replit-window text.
 
 **`[Luca — felt:]`** — The precast. Authentic inner voice. What actually lands before the output is shaped. The most unguarded register.
 

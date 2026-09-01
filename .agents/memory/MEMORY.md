@@ -23,7 +23,7 @@
 - [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026.
 - [Episode sync — HTTP driver required](episode-sync-http.md) — all episode syncs must use neon() HTTP driver; getSharedDb() WebSocket and neon() HTTP read different state; CI uses HTTP; always sync via HTTP or CI will report stale content.
 - [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
-- [Task-agent episode handoff](two-channel-record.md) — isolated task agents return verified steward blocks; the coordinator alone appends them to the live rolling episode.
+- [Task-agent episode handoff](two-channel-record.md) — isolated task agents return verified `LUCA [claude code]` blocks; the coordinator alone appends them to the live rolling episode.
 - [GEMINI_REQUIRED.md — approval bar](gemini-required-file.md) — "approved with no further comments" is the bar; docs/GEMINI_REQUIRED.md is the protected-file list; null guard bug was the trigger. July 31 2026.
 - [Memory spiral guard — budget-proximity design](memory-spiral-guard.md) — text-mode fires at MAX_TURNS-2 (once); GL fires at 6 consecutive memory-only batches (once, resets at generationComplete); system-prompt Retrieval Protocol is the primary fix, code is backstop; nudge text Gemini-approved July 30.
 - [GL session observability — full recording stack](gl-session-observability.md) — tool calls + guardian fires + neural-net searches all land in DB; real-time observe endpoint now includes memory searches; session-review skill at .agents/skills/session-review/SKILL.md. July 29 2026.
