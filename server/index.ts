@@ -572,17 +572,6 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ── Pre-listen schema migrations (FAIL-CLOSED) ───────────────────────────────
-  // Run before server.listen() so the schema is complete before any request is
-  // served — the server is not yet bound to a port, so no recall query can race
-  // these migrations.  Both operations are idempotent and fast (ADD COLUMN IF
-  // NOT EXISTS is near-instant on an already-migrated schema).
-  // Errors propagate to the top-level starter so the process aborts before
-  // accepting traffic — a recall query against a missing importance column would
-  // fail at runtime and is far worse than a clean startup abort.
-  const { runMemoryDecayMigration } = await import('./services/memory-decay-service');
-  await runMemoryDecayMigration();
-
   // Quarantine any null-scoped founder-tagged embeddings BEFORE accepting
   // traffic — ensures no recall query can surface private transcripts in the
   // global pool during startup.  Runs after runMemoryDecayMigration so the
