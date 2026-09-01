@@ -21,12 +21,14 @@ import { supportPersonaService } from "./services/support-persona-service";
 import { warmupNeonPool } from "./neon-db";
 import { runProxyStartupChecks } from "./services/proxy-startup-check";
 import { healthProbeGuardMiddleware } from "./health-probe-guard";
+import { createStartupReadinessGate } from "./startup-readiness-gate";
 import {
   startSourceControlScheduler,
   stopSourceControlScheduler,
 } from "./services/source-control-scheduler";
 
 const app = express();
+const startupReadiness = createStartupReadinessGate();
 
 app.set('trust proxy', 1);
 
@@ -34,32 +36,18 @@ app.set('trust proxy', 1);
 // This allows us to attach WebSocket upgrade handler BEFORE Express/Vite interfere
 const server = createServer(app);
 
-// Setup Socket.io for voice streaming (handles Replit proxy transport negotiation)
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: true,  // Allow the requesting origin with credentials
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  // Allow both websocket and polling transports
-  transports: ['websocket', 'polling'],
-  // Increase max buffer size for audio chunks (default 1MB may be too small)
-  maxHttpBufferSize: 5e6, // 5MB
-  // Keep-alive settings for voice chat stability
-  // Default pingInterval is 25s, pingTimeout is 20s - too aggressive for voice chat
-  pingInterval: 30000,   // Send ping every 30 seconds
-  pingTimeout: 120000,   // Wait 2 minutes for pong before disconnect (allows long pauses)
-});
-setupSocketIOHandler(io);
+// Socket transports are attached only after critical startup checks pass.
+// Express middleware cannot protect HTTP upgrades, so attaching them earlier
+// would create a pre-readiness path around the startup gate.
+let io: SocketIOServer | null = null;
+let unifiedWss: ReturnType<typeof setupUnifiedWebSocketHandler> | null = null;
 
-// Initialize Founder Collaboration WebSocket broker on /founder-collab namespace
-founderCollabWSBroker.initialize(io);
+// CRITICAL: Bind the HTTP port before awaited initialization begins. While the
+// application is starting, only the deployment probe endpoints are available;
+// all normal traffic remains fail-closed behind this gate.
+app.use(startupReadiness.middleware);
 
-// Initialize Team Room WebSocket broker on /team-room namespace
-initializeTeamRoomWS(io);
-
-// CRITICAL: Add immediate health check endpoint for Cloud Run deployment
-// This responds BEFORE any heavy initialization to pass health checks quickly
+// CRITICAL: Add immediate health check endpoint for Cloud Run deployment.
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
@@ -73,11 +61,6 @@ app.use(healthProbeGuardMiddleware);
 
 // NOTE: Heavy background workers (Hive, MemoryRecovery, Sofia) are started AFTER
 // server.listen() to ensure fast health check response for Cloud Run deployments
-
-// CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
-// This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere
-// Note: This handles legacy ws connections and realtime API
-setupUnifiedWebSocketHandler(server);
 
 // Initialize Stripe before starting server (non-blocking if credentials missing)
 let stripeReady = false;
@@ -473,7 +456,23 @@ app.use((req, res, next) => {
   next();
 });
 
+const port = parseInt(process.env.PORT || '5000', 10);
+const listeningPromise = new Promise<void>((resolve, reject) => {
+  const handleListenError = (error: Error) => reject(error);
+  server.once('error', handleListenError);
+  server.listen({
+    port,
+    host: process.env.HOST || "0.0.0.0",
+    ...(process.platform !== 'win32' && { reusePort: true }),
+  }, () => {
+    server.off('error', handleListenError);
+    log(`serving startup health gate on port ${port}`);
+    resolve();
+  });
+});
+
 (async () => {
+  await listeningPromise;
   await warmupNeonPool();
 
   await registerRoutes(app);
@@ -596,18 +595,29 @@ app.use((req, res, next) => {
     throw err; // Fail closed: do not serve traffic with an unsecured embedding pool
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: process.env.HOST || "0.0.0.0",
-    // reusePort is Linux/macOS only — Windows throws ENOTSUP
-    ...(process.platform !== 'win32' && { reusePort: true }),
-  }, async () => {
-    log(`serving on port ${port}`);
+  // Attach all socket transports in the same synchronous turn immediately
+  // before readiness opens. Until this point Socket.IO polling is blocked by
+  // the Express startup gate and raw upgrade paths have no application handler.
+  io = new SocketIOServer(server, {
+    cors: {
+      origin: true,
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    transports: ['websocket', 'polling'],
+    maxHttpBufferSize: 5e6,
+    pingInterval: 30000,
+    pingTimeout: 120000,
+  });
+  setupSocketIOHandler(io);
+  founderCollabWSBroker.initialize(io);
+  initializeTeamRoomWS(io);
+  unifiedWss = setupUnifiedWebSocketHandler(server);
+
+  startupReadiness.markReady();
+  console.log('[Boot] Critical startup checks complete — normal traffic enabled');
+
+  {
 
     startSourceControlScheduler();
 
@@ -1173,5 +1183,32 @@ app.use((req, res, next) => {
     process.on('unhandledRejection', (reason) => {
       console.error('[WARN] Unhandled promise rejection:', reason);
     });
-  });
-})();
+  }
+})().catch(async (error: unknown) => {
+  startupReadiness.markFailed(error);
+  console.error(
+    '[Boot] CRITICAL startup failure — normal traffic remained blocked:',
+    error instanceof Error ? error.stack ?? error.message : error,
+  );
+
+  if (io) {
+    await new Promise<void>((resolve) => io!.close(() => resolve()));
+  }
+
+  if (unifiedWss) {
+    for (const client of unifiedWss.clients) {
+      client.terminate();
+    }
+    await new Promise<void>((resolve) => unifiedWss!.close(() => resolve()));
+  }
+
+  server.closeAllConnections?.();
+
+  if (server.listening) {
+    await Promise.race([
+      new Promise<void>((resolve) => server.close(() => resolve())),
+      new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+    ]);
+  }
+  process.exit(1);
+});
