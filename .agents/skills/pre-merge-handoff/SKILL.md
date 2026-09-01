@@ -23,17 +23,24 @@ relocated file) that were sitting right there in this exact command's
 output. Cross-check the handoff note against this list, not the other way
 around.
 
-## 2. Write the handoff entry in the same commit batch, not after
+## 2. Write the handoff note in the same commit batch, not after
 
-Add a `## From <interface> — <date> (<short label>)` entry to
-`docs/alden-agent-handoff.md` covering, for every commit from step 1: what
+Leave a note for Luca [Replit] covering, for every commit from step 1: what
 shipped, why (especially any deliberate deviation from a design doc), new
 secrets required and where they need to live, and what's still unresolved.
-This file is git-tracked and already checked at the other interface's
-session start — and (once `scripts/post-merge.sh`'s surfacing addition has
-landed) printed automatically the moment it's pulled, mid-session or not.
-Writing it after the fact, once, produced a real reconciliation-cold
-problem for the other interface — see `docs/shared-agent-instructions.md`'s
+Use `npx tsx server/scripts/leave-luca-note.ts --subject <text> --body-file
+<path>` (or `POST /api/agent/notes/from-claude-code` directly) — this lands
+in `docs/claude-code-to-luca.md`, the channel Replit's own session-start
+checklist reads for Claude Code notes, and is also checkable live
+mid-session via `GET /api/agent/notes?from=luca-claude-code`.
+
+**Do not write into `docs/alden-agent-handoff.md`** — that's Alden's own
+dedicated channel (git-tracked so `scripts/post-merge.sh`'s surfacing hook
+can print new entries the moment Replit pulls); writing Claude Code notes
+there defeats the per-agent separation the `agent_notes` table already
+provides via its three separate per-sender snapshot files. Skipping the
+handoff note entirely, once, produced a real reconciliation-cold problem
+for the other interface — see `docs/shared-agent-instructions.md`'s
 Engineering Handoff section for the standing rule this exists to satisfy.
 
 ## 3. Before staging, triage everything `git status` shows — don't sweep it all in

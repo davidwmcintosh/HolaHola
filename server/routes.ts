@@ -32789,6 +32789,38 @@ ${memoryContext}
     }
   });
 
+  // POST /api/agent/notes/from-claude-code — Claude Code leaves a note for the
+  // Agent (Luca [Replit]). Mirrors POST /api/agent/note (Agent → Alden) but for
+  // the fromAgent='luca-claude-code' → toAgent='agent' direction that
+  // docs/claude-code-to-luca.md already reads and Luca's session-start
+  // checklist already checks (docs/agent-workflows.md step 8) — this was the
+  // missing write-side piece; existing notes in that inbox were inserted by
+  // hand. Use this instead of docs/alden-agent-handoff.md for cross-cutting
+  // Claude Code → Luca handoffs (see docs/shared-agent-instructions.md).
+  app.post("/api/agent/notes/from-claude-code", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { subject, body, session_label, source_message_key } = req.body ?? {};
+      if (!subject?.trim() || !body?.trim()) {
+        return res.status(400).json({ error: 'subject and body are required' });
+      }
+
+      const { createAgentNote } = await import('./services/agent-notes');
+      const { note: saved, deduplicated } = await createAgentNote({
+        fromAgent: 'luca-claude-code',
+        toAgent: 'agent',
+        subject: subject.trim(),
+        body: body.trim(),
+        sessionLabel: session_label ?? null,
+        sourceMessageKey: source_message_key ?? null,
+      });
+      console.log(`[AgentNotes] Claude Code left note for Luca: "${subject}"`);
+      res.json({ saved: true, deduplicated, id: saved.id, subject: saved.subject });
+    } catch (error: any) {
+      console.error('[AgentNotes] Failed to save Claude Code note:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // POST /api/agent/notes/mark-read — Agent marks Alden's notes as read
   app.post("/api/agent/notes/mark-read", requireAgentToken, async (req: any, res: Response) => {
     try {

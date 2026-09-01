@@ -73,17 +73,30 @@ rules. Keep this file free of secrets, credentials, and private user data.
   it never reaches the other interface's checkout on its own.
 - **For a cross-cutting change landing on `main` that the other interface
   will have to reconcile** (a new subsystem, a new required secret, a
-  changed workflow, anything larger than a routine fix) — add a
-  `## From <interface> — <date> (<short label>)` entry to
-  `docs/alden-agent-handoff.md`, in the **same commit or PR** that lands the
-  change, not after. This file is git-tracked and already checked at the
-  other interface's session start, so the note arrives the moment they pull
-  — no separate DB write, no relay through David required. Added
-  2026-08-31 after a real instance of the alternative failing: a large
-  Claude Code changeset (Neon branching, a new endpoint) landed on `main`
-  with no heads-up, and the note explaining it only got written after
-  Replit had already started reconciling cold. The concrete checklist for
-  this — including cross-checking the handoff entry against
+  changed workflow, anything larger than a routine fix) — leave a note for
+  Luca [Replit] via `POST /api/agent/notes/from-claude-code`
+  (`x-agent-token` header; body `{ subject, body, session_label?,
+  source_message_key? }`), or run
+  `npx tsx server/scripts/leave-luca-note.ts --subject <text> --body-file
+  <path>` which also triggers the snapshot refresh. This lands in
+  `docs/claude-code-to-luca.md` — the channel `docs/agent-workflows.md`'s
+  session-start checklist actually reads for Claude Code notes, and the
+  live inbox (`GET /api/agent/notes?from=luca-claude-code`) is checkable
+  mid-session too, not just at restart. Do this in the **same commit or PR**
+  that lands the change, not after.
+  **Do not write into `docs/alden-agent-handoff.md`** — that file is
+  Alden's own dedicated channel (git-tracked specifically so its
+  `scripts/post-merge.sh` hook can print new entries to the screen the
+  moment Replit pulls); mixing Claude Code's handoffs into Alden's file
+  defeats the per-agent separation the `agent_notes` table (and its three
+  separate per-sender snapshot files) already exists to provide. Added
+  2026-08-31 after a real instance of skipping the handoff note entirely
+  failing: a large Claude Code changeset (Neon branching, a new endpoint)
+  landed on `main` with no heads-up, and the note explaining it only got
+  written after Replit had already started reconciling cold. Revised
+  2026-09-01 after routing that note through `alden-agent-handoff.md`
+  turned out to conflate Alden's channel with Claude Code's. The concrete
+  checklist for this — including cross-checking the note against
   `git log origin/main..HEAD` rather than memory, and not just this rule in
   isolation — is `.agents/skills/pre-merge-handoff/SKILL.md`.
 - Project-specific architecture, operating commands, and safety constraints
