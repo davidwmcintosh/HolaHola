@@ -995,6 +995,9 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
       const { startDanielaConsultAutosave } = await import('./services/daniela-consult-autosave');
       startDanielaConsultAutosave();
+
+      const { startCoordinationDeliveryWorker } = await import('./services/coordination-delivery-worker');
+      startCoordinationDeliveryWorker();
     }, 85000);
 
     // +55s: Learning Goals Migration — idempotent CREATE TABLE IF NOT EXISTS for

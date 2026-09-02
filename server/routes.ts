@@ -11,6 +11,7 @@ import { createPrivateKey, createPublicKey } from "crypto";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
+import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { excludesOperationalMemories } from "./services/daniela-memory-boundary";
@@ -626,6 +627,7 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 }
 
 export async function registerRoutes(app: Application): Promise<void> {
+  registerCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
 

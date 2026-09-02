@@ -8071,3 +8071,25 @@ PR. Flagging only so it's not silently sitting broken.
    contract (request/response shapes, `cursorByteOffset` field name, receipt
    polling) has been cross-checked directly against the `routes.ts` handlers
    and matches; what's unverified is only the live round-trip.
+
+---
+
+## September 2, 2026 — canonical coordination ledger Phase 1
+
+The approved coordination design is implemented and migrated. The canonical
+authority is now `coordination_threads` plus append-only `coordination_events`;
+`coordination_adapter_deliveries` tracks retryable compatibility projections.
+The API lives under `/api/coordination/threads`, and the portable CLI is
+`server/scripts/coordination-cli.ts`.
+
+Identity is server-derived from per-actor credentials. The dedicated Replit-side
+binding is `COORDINATION_LUCA_REPLIT_TOKEN`; `REPLIT_AGENT_TOKEN` is accepted
+only as a temporary compatibility path. Claude Code may use
+`COORDINATION_LUCA_CLAUDE_CODE_TOKEN` (with the existing source-bridge
+credential as migration fallback). Duplicate configured credentials fail
+closed rather than selecting an arbitrary actor.
+
+The migration passed `npm run db:branch -- gate` and was then applied with
+Drizzle to the shared Neon database. Focused lifecycle/auth/adapter tests,
+`npm run check`, and system health all pass. No Daniela prompt, tool,
+neural-memory, or behavioral surface was changed.

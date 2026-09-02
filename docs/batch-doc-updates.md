@@ -4859,3 +4859,23 @@ The implementation was reviewed after a fault-injection pass: SMS delivery is
 reserved in the GitHub incident before Twilio, and post-send GitHub failures
 leave a delivery-uncertain state that never resends automatically. The full
 validation suite completed with 48 checks passed and 0 failed.
+
+---
+
+## Canonical agent coordination ledger — September 2, 2026
+
+Phase 1 now provides an append-only coordination ledger with ordered lifecycle
+events, actor-scoped idempotency, optimistic sequence conflicts, immutable
+evidence references, global cursor polling, and retryable `agent_notes`
+projection. Delivery is explicitly separate from acceptance.
+
+Coordination authentication derives actor identity from fixed per-actor
+credentials. `COORDINATION_LUCA_REPLIT_TOKEN` is the dedicated Replit-side
+binding; the legacy `REPLIT_AGENT_TOKEN` remains only as a bounded compatibility
+path. Other actors have independent `COORDINATION_*_TOKEN` bindings, and
+ambiguous duplicate credentials fail closed.
+
+Migration `0024_flat_dreaming_celestial.sql` passed the disposable Neon branch
+gate before promotion to the shared database. The focused coordination test,
+TypeScript compile gate, full branch validation matrix, and system-health
+verifier passed.

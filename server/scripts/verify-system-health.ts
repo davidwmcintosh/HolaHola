@@ -74,6 +74,8 @@ async function checkTables() {
     "agent_north_star", "agent_open_questions", "agent_record_of_david",
     // team room
     "team_rooms",
+    // canonical agent coordination
+    "coordination_threads", "coordination_events", "coordination_adapter_deliveries",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];
