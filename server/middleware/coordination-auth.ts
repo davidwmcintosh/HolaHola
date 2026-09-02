@@ -11,6 +11,18 @@ export interface CoordinationAuthenticatedRequest extends Request {
   coordinationActor?: CoordinationActorId;
 }
 
+export const COORDINATION_TOKEN_ENV_BY_ACTOR: Record<
+  Exclude<CoordinationActorId, 'coordination-system'>,
+  string
+> = {
+  'luca-replit': 'COORDINATION_LUCA_REPLIT_TOKEN',
+  'luca-claude-code': 'COORDINATION_LUCA_CLAUDE_CODE_TOKEN',
+  'luca-holahola': 'COORDINATION_LUCA_HOLAHOLA_TOKEN',
+  alden: 'COORDINATION_ALDEN_TOKEN',
+  daniela: 'COORDINATION_DANIELA_TOKEN',
+  david: 'COORDINATION_DAVID_TOKEN',
+};
+
 export type CoordinationAuthResolution =
   | { ok: true; actor: CoordinationActorId }
   | { ok: false; status: 401 | 503; error: string };
@@ -27,14 +39,12 @@ export function resolveCoordinationActor(
   agentToken: string | undefined,
   environment: CoordinationEnvironment = process.env,
 ): CoordinationAuthResolution {
-  const configuredBindings: Array<[CoordinationActorId, string | undefined]> = [
-    ['luca-replit', environment.COORDINATION_LUCA_REPLIT_TOKEN],
-    ['luca-claude-code', environment.COORDINATION_LUCA_CLAUDE_CODE_TOKEN],
-    ['luca-holahola', environment.COORDINATION_LUCA_HOLAHOLA_TOKEN],
-    ['alden', environment.COORDINATION_ALDEN_TOKEN],
-    ['daniela', environment.COORDINATION_DANIELA_TOKEN],
-    ['david', environment.COORDINATION_DAVID_TOKEN],
-  ];
+  // `agentToken` is intentionally ignored. Keep the parameter during this
+  // migration so callers that still pass the old compatibility argument fail
+  // closed instead of gaining a second authentication path.
+  void agentToken;
+  const configuredBindings = Object.entries(COORDINATION_TOKEN_ENV_BY_ACTOR)
+    .map(([actor, envName]) => [actor as CoordinationActorId, environment[envName]] as const);
 
   const validBindings = configuredBindings.filter(
     (binding): binding is [CoordinationActorId, string] => Boolean(binding[1] && binding[1].length >= 32),

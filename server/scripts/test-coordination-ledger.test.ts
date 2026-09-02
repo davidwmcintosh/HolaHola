@@ -244,3 +244,53 @@ test('canonical coordination lifecycle is ordered, idempotent, and adapter-backe
   assert.equal(feed.cursor.next >= ownEvents.at(-1)!.event.globalSequence, true);
   assert.deepEqual(ownEvents.map((item) => item.event.sequence), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
+
+test('Alden cannot reassign work after another actor owns it', async () => {
+  const created = await createCoordinationThread({
+    actor: 'luca-replit',
+    intendedRecipient: 'alden',
+    title: `Alden ownership regression ${runId}`,
+    description: 'Alden must own work before delegating it.',
+    idempotencyKey: keys('alden-owner-create'),
+  });
+  const ownedByAlden = await appendCoordinationEvent({
+    threadId: created.thread.id,
+    actor: 'alden',
+    eventType: 'accepted',
+    content: 'Accepted by Alden.',
+    idempotencyKey: keys('alden-owner-accept'),
+    expectedSequence: 1,
+  });
+  const delegated = await appendCoordinationEvent({
+    threadId: created.thread.id,
+    actor: 'alden',
+    eventType: 'reassigned',
+    recipientActor: 'daniela',
+    content: 'Delegated to Daniela.',
+    idempotencyKey: keys('alden-owner-delegate'),
+    expectedSequence: ownedByAlden.thread.latestSequence,
+  });
+  const ownedByDaniela = await appendCoordinationEvent({
+    threadId: created.thread.id,
+    actor: 'daniela',
+    eventType: 'accepted',
+    content: 'Accepted by Daniela.',
+    idempotencyKey: keys('daniela-owner-accept'),
+    expectedSequence: delegated.thread.latestSequence,
+  });
+
+  await assert.rejects(
+    appendCoordinationEvent({
+      threadId: created.thread.id,
+      actor: 'alden',
+      eventType: 'reassigned',
+      recipientActor: 'luca-replit',
+      content: 'Attempted reassignment after ownership transferred.',
+      idempotencyKey: keys('alden-owner-invalid-reassign'),
+      expectedSequence: ownedByDaniela.thread.latestSequence,
+    }),
+    (error: unknown) => error instanceof CoordinationError && error.code === 'not_owner',
+  );
+
+  await getSharedDb().delete(coordinationThreads).where(eq(coordinationThreads.id, created.thread.id));
+});

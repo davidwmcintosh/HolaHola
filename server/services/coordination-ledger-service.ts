@@ -36,6 +36,38 @@ const PARTICIPANT_EVENT_TYPES = new Set<CoordinationEventType>([
   'completed',
 ]);
 
+const DIRECT_ACTOR_EVENT_PERMISSIONS: Record<
+  'luca-holahola' | 'alden' | 'daniela',
+  ReadonlySet<CoordinationEventType>
+> = {
+  'luca-holahola': new Set(['reassigned', 'comment']),
+  alden: new Set([
+    'accepted', 'progress', 'evidence_added', 'blocked', 'completed',
+    'outcome_acknowledged', 'reassigned', 'comment',
+  ]),
+  daniela: new Set([
+    'accepted', 'progress', 'evidence_added', 'blocked', 'completed', 'comment',
+  ]),
+};
+
+export function canCoordinationActorPerform(
+  actor: CoordinationActorId,
+  eventType: CoordinationEventType,
+): boolean {
+  const permissions = DIRECT_ACTOR_EVENT_PERMISSIONS[actor as keyof typeof DIRECT_ACTOR_EVENT_PERMISSIONS];
+  return !permissions || permissions.has(eventType);
+}
+
+function assertCoordinationActorCanCreate(actor: CoordinationActorId): void {
+  if (actor === 'alden' || actor === 'daniela') {
+    throw new CoordinationError(
+      `${actor} may receive and update coordination work but cannot originate threads`,
+      403,
+      'operation_not_allowed',
+    );
+  }
+}
+
 export class CoordinationError extends Error {
   constructor(
     message: string,
@@ -146,6 +178,7 @@ function validateEvidenceReference(reference: CoordinationEvidenceReference): Co
 }
 
 function assertParticipant(thread: CoordinationThread, actor: CoordinationActorId): void {
+  if (actor === 'luca-holahola') return;
   if (
     actor !== thread.originActor
     && actor !== thread.intendedRecipient
@@ -175,6 +208,13 @@ function validateLifecycle(
   input: CoordinationAppendInput,
 ): void {
   const { actor, eventType } = input;
+  if (!canCoordinationActorPerform(actor, eventType)) {
+    throw new CoordinationError(
+      `${actor} is not allowed to perform ${eventType}`,
+      403,
+      'operation_not_allowed',
+    );
+  }
   if (eventType === 'created') {
     throw new CoordinationError('created is only valid during thread creation', 400, 'invalid_transition');
   }
@@ -183,6 +223,14 @@ function validateLifecycle(
       throw new CoordinationError('delivered is reserved for adapters', 403, 'invalid_transition');
     }
     return;
+  }
+
+  if (eventType === 'reassigned' && actor === 'alden' && actor !== thread.currentOwner) {
+    throw new CoordinationError(
+      'Alden may only reassign work he currently owns',
+      403,
+      'not_owner',
+    );
   }
 
   assertParticipant(thread, actor);
@@ -233,8 +281,16 @@ function validateLifecycle(
   }
 
   if (eventType === 'reassigned') {
-    if (actor !== thread.originActor && actor !== thread.currentOwner) {
-      throw new CoordinationError('Only the origin actor or current owner may reassign work', 403, 'invalid_transition');
+    if (
+      actor !== 'luca-holahola'
+      && actor !== thread.originActor
+      && actor !== thread.currentOwner
+    ) {
+      throw new CoordinationError(
+        'Only Luca [HolaHola], the origin actor, or the current owner may reassign work',
+        403,
+        'invalid_transition',
+      );
     }
     if (!input.recipientActor || input.recipientActor === 'coordination-system') {
       throw new CoordinationError('reassigned requires a valid recipientActor', 400, 'invalid_transition');
@@ -294,6 +350,7 @@ export async function createCoordinationThread(
   if (!isCoordinationActorId(input.actor) || input.actor === 'coordination-system') {
     throw new CoordinationError('Invalid origin actor', 400, 'invalid_actor');
   }
+  assertCoordinationActorCanCreate(input.actor);
   if (!isCoordinationActorId(input.intendedRecipient) || input.intendedRecipient === 'coordination-system') {
     throw new CoordinationError('Invalid intended recipient', 400, 'invalid_actor');
   }
@@ -532,11 +589,13 @@ export async function listCoordinationFeed(
     .innerJoin(coordinationThreads, eq(coordinationThreads.id, coordinationEvents.threadId))
     .where(and(
       gt(coordinationEvents.globalSequence, sinceGlobalSequence),
-      or(
-        eq(coordinationThreads.originActor, actor),
-        eq(coordinationThreads.intendedRecipient, actor),
-        eq(coordinationThreads.currentOwner, actor),
-      ),
+      actor === 'luca-holahola'
+        ? sql`true`
+        : or(
+          eq(coordinationThreads.originActor, actor),
+          eq(coordinationThreads.intendedRecipient, actor),
+          eq(coordinationThreads.currentOwner, actor),
+        ),
     ))
     .orderBy(asc(coordinationEvents.globalSequence))
     .limit(boundedLimit);
