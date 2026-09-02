@@ -12,8 +12,9 @@
  * - Threshold-gated: only notable events post (not every tool call).
  */
 
-const COOLDOWN_MS = 30_000; // 30s per event-type per session
+import { getAgentAuthHeaders } from './agent-auth';
 
+const COOLDOWN_MS = 30_000; // 30s per event-type per session
 // Map of `${sessionId}:${eventType}` → last-posted timestamp
 const cooldowns = new Map<string, number>();
 
@@ -34,12 +35,12 @@ function isOnCooldown(sessionId: string, eventType: string): boolean {
 
 async function postToTeamRoom(content: string): Promise<void> {
   try {
-    const agentToken = process.env.REPLIT_AGENT_TOKEN;
-    if (!agentToken) return;
+    const authHeaders = getAgentAuthHeaders();
+    if (!authHeaders) return;
     const appUrl = process.env.APP_URL || 'http://localhost:5000';
     await fetch(`${appUrl}/api/agent/team-room/message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ content }),
     });
   } catch {

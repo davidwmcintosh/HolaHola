@@ -10,7 +10,7 @@ import { eq, and, gte, desc, sql, isNotNull, isNull, inArray, asc } from "drizzl
 import { createPrivateKey, createPublicKey } from "crypto";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
@@ -140,10 +140,7 @@ const validateEditorSecret = (secret: string): boolean => {
 const validateEditorOrAgent = (req: any): boolean => {
   const editorHeader = req.headers['x-editor-secret'];
   if (editorHeader && validateEditorSecret(editorHeader as string)) return true;
-  const agentToken = req.headers['x-agent-token'];
-  const configuredToken = process.env.REPLIT_AGENT_TOKEN;
-  if (agentToken && configuredToken && agentToken === configuredToken) return true;
-  return false;
+  return isReplitAgentRequest(req);
 };
 import { supportPersonaService } from "./services/support-persona-service";
 import { generateAldenResponse } from "./services/alden-persona-service";
@@ -17451,8 +17448,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   app.get("/api/sofia/issues", async (req: any, res: Response) => {
-    const agentToken = req.headers['x-agent-token'];
-    const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
+    const isAgent = isReplitAgentRequest(req);
     if (!isAgent) {
       const user = (req as any).user;
       if (!user || (user.role !== 'admin' && user.role !== 'developer' && !user.isFounder)) {
@@ -17604,7 +17600,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const { isNull, gt, and: _and } = await import('drizzle-orm');
       const _db = getSharedDb();
 
-      const callerLabel = req.headers['x-agent-token'] ? 'luca' : 'david';
+      const callerLabel = isReplitAgentRequest(req) ? 'luca' : 'david';
       const founderName = callerLabel === 'luca' ? 'Luca' : 'David';
 
       const userMessage = context
@@ -26231,8 +26227,7 @@ ${buildDemoOutputConstraints(actflLevelParam)}`;
   app.post("/api/board-meeting/trigger", async (req: any, res: Response) => {
     try {
       // Allow agent token OR admin session
-      const agentToken = req.headers['x-agent-token'];
-      const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
+      const isAgent = isReplitAgentRequest(req);
       const isAdmin = req.user?.role === 'admin' || req.isAuthenticated?.();
       if (!isAgent && !isAdmin) {
         return res.status(401).json({ error: 'Unauthorized — requires agent token or admin session' });
@@ -27124,15 +27119,16 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
   // ===== REPLIT AGENT API =====
   // Dedicated endpoints for Replit Agent to access Wren services
-  // Uses x-agent-token header for authentication (separate from user auth)
+  // Uses actor-specific x-coordination-token authentication (separate from user auth).
+  // x-agent-token remains a bounded migration compatibility path.
   
   // Check if agent authentication is configured
   app.get("/api/agent/status", async (req: any, res: Response) => {
     res.json({
       configured: isAgentTokenConfigured(),
       message: isAgentTokenConfigured() 
-        ? 'Agent authentication is configured. Use x-agent-token header to authenticate.'
-        : 'REPLIT_AGENT_TOKEN not set or too short (min 32 chars)'
+        ? 'Agent authentication is configured. Use x-coordination-token to authenticate.'
+        : 'Luca agent credential is not set or is too short (min 32 chars)'
     });
   });
 
@@ -37718,8 +37714,7 @@ Under 250 words. Write as yourself.`;
   // using REPLIT_AGENT_TOKEN. Creates a founder-level session for API interaction.
   app.post("/api/internal/agent-session", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       req.session.userId = '49847136';
@@ -37831,8 +37826,7 @@ Under 250 words. Write as yourself.`;
   //   });
   app.post("/api/internal/chat-capture-turn", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       const { speaker, text } = req.body ?? {};
@@ -37908,8 +37902,7 @@ Under 250 words. Write as yourself.`;
   // the per-turn receipt that later becomes acknowledged or failed.
   app.post("/api/internal/canonical-conversation-exchange", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       const { source, userText, assistantText, turnId } = req.body ?? {};
@@ -37978,8 +37971,7 @@ Under 250 words. Write as yourself.`;
   //   // immediately call markTaskComplete(...) — the pending file is consumed by checkBuildSession
   app.post("/api/internal/task-capture-start", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       const { task_ref } = req.body ?? {};
@@ -38323,8 +38315,7 @@ Under 250 words. Write as yourself.`;
 
   app.get("/api/thread-weaver/threads", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: "Agent token required" });
       }
       const { CORE_THREADS } = await import('./services/thread-weaver-service');
@@ -38336,8 +38327,7 @@ Under 250 words. Write as yourself.`;
 
   app.post("/api/thread-weaver/weave-all", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: "Agent token required" });
       }
       const overwrite = req.body?.overwrite === true;
@@ -38356,8 +38346,7 @@ Under 250 words. Write as yourself.`;
 
   app.post("/api/thread-weaver/weave-custom", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: "Agent token required" });
       }
       const { name, keywords, title, tags, importance, speakerFilter, dateFrom, dateTo, overwrite } = req.body;

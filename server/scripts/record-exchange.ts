@@ -106,6 +106,7 @@ import {
   type FourChannelLucaTurn,
 } from '../services/inner-life-capture';
 import { inspectCaptureWorkspace, workspaceResolution } from '../services/workspace-root';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 export { composeLucaTurn } from '../services/inner-life-capture';
 
 const DEFAULT_ACK_TIMEOUT_MS = 35_000;
@@ -552,8 +553,8 @@ async function runClaudeCodeRemoteCli(
   const assistantText = readFileSync(assistantFile, 'utf8').trimEnd();
   if (!davidText || !assistantText) throw new Error('Claude Code user and assistant files must both be non-empty');
 
-  const agentToken = process.env.REPLIT_AGENT_TOKEN?.trim();
-  if (!agentToken) throw new Error('REPLIT_AGENT_TOKEN is not set -- required to call the remote canonical-conversation-exchange endpoint');
+  const authHeaders = getAgentAuthHeaders('luca-claude-code');
+  if (!authHeaders) throw new Error('Luca [Claude Code] coordination credential is not set -- required to call the remote canonical-conversation-exchange endpoint');
 
   const turnId = requiredTurnId(args);
   console.log(`[record-exchange] Posting to ${remoteUrl}/api/internal/canonical-conversation-exchange (turn=${turnId})...`);
@@ -564,7 +565,7 @@ async function runClaudeCodeRemoteCli(
   try {
     response = await fetch(`${remoteUrl}/api/internal/canonical-conversation-exchange`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-agent-token': agentToken },
+      headers: { 'content-type': 'application/json', ...authHeaders },
       body: JSON.stringify({ source: 'claude-code', userText: davidText, assistantText, turnId }),
       signal: postController.signal,
     });
@@ -598,7 +599,7 @@ async function runClaudeCodeRemoteCli(
     const healthTimeout = setTimeout(() => healthController.abort(), 10_000);
     try {
       const healthResponse = await fetch(`${remoteUrl}/api/internal/canonical-conversation-health`, {
-        headers: { 'x-agent-token': agentToken },
+        headers: authHeaders,
         signal: healthController.signal,
       });
       const health = await healthResponse.json().catch(() => ({}));

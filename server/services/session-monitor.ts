@@ -15,6 +15,7 @@
  */
 
 import { getStreamingVoiceOrchestrator } from './streaming-voice-orchestrator';
+import { getAgentAuthHeaders } from './agent-auth';
 
 const POLL_INTERVAL_MS = 30_000;
 const STALE_SESSION_MS = 8 * 60 * 1000;  // 8 minutes of silence = stalled
@@ -24,11 +25,11 @@ let isRunning = false;
 
 async function postTeamRoomAlert(content: string): Promise<void> {
   try {
-    const agentToken = process.env.REPLIT_AGENT_TOKEN;
-    if (!agentToken) return;
+    const authHeaders = getAgentAuthHeaders();
+    if (!authHeaders) return;
     await fetch(`${process.env.APP_URL || 'http://localhost:5000'}/api/agent/team-room/message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ content }),
     });
   } catch { /* non-critical */ }

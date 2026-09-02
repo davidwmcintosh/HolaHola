@@ -6136,11 +6136,12 @@ export class NativeFunctionCallHandler {
           // Fire-and-forget agent note so Luca is notified via Team Room
           setImmediate(async () => {
             try {
-              const agentToken = process.env.REPLIT_AGENT_TOKEN;
-              if (!agentToken) return;
+              const { getAgentAuthHeaders } = await import('./agent-auth');
+              const authHeaders = getAgentAuthHeaders();
+              if (!authHeaders) return;
               await fetch(`${process.env.APP_URL || 'http://localhost:5000'}/api/agent/note`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({
                   subject: `[SOS][${sosSeverity?.toUpperCase() ?? 'MED'}] ${sosType ?? 'issue'}`,
                   content: `Daniela signalled an issue during session ${session.id}.\n\nType: ${sosType}\nSeverity: ${sosSeverity}\n\n${sosDesc}`,

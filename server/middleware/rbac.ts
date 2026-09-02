@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { User } from "../../shared/schema";
 import crypto from "crypto";
 import { touchFounderPresence } from "../services/founder-presence";
+import { resolveCoordinationActor } from "./coordination-auth";
 
 // ── Local dev bypass ──────────────────────────────────────────────────────────
 // Set DEV_AUTH_BYPASS=true in your local .env to skip auth entirely.
@@ -295,8 +296,6 @@ export function requireFounder(req: Request, res: Response, next: NextFunction) 
 // Dedicated token for Replit Agent (builders) to access Hive/Wren services
 // Separate from ARCHITECT_SECRET to allow granular permission control
 
-const REPLIT_AGENT_TOKEN = process.env.REPLIT_AGENT_TOKEN;
-
 // Audit log for agent actions (in-memory ring buffer, persists to hiveSnapshots)
 interface AgentAuditEntry {
   timestamp: Date;
@@ -344,49 +343,65 @@ export interface AgentAuthenticatedRequest extends Request {
   agentId?: string; // Identifier for the agent (for future multi-agent support)
 }
 
-/**
- * Check if Replit Agent token is properly configured
- */
+/** Check if Luca's dedicated or compatibility credential is configured. */
 export function isAgentTokenConfigured(): boolean {
-  return !!(REPLIT_AGENT_TOKEN && REPLIT_AGENT_TOKEN.length >= 32);
+  return Boolean(
+    [process.env.COORDINATION_LUCA_REPLIT_TOKEN, process.env.REPLIT_AGENT_TOKEN]
+      .some((token) => token && token.length >= 32),
+  );
+}
+
+function resolveReplitAgentRequest(req: Request) {
+  return resolveCoordinationActor(
+    typeof req.headers['x-coordination-token'] === 'string'
+      ? req.headers['x-coordination-token']
+      : undefined,
+    typeof req.headers['x-agent-token'] === 'string'
+      ? req.headers['x-agent-token']
+      : undefined,
+  );
+}
+
+export function isReplitAgentRequest(req: Request): boolean {
+  const resolution = resolveReplitAgentRequest(req);
+  return resolution.ok && resolution.actor === 'luca-replit';
 }
 
 /**
  * Middleware to require Replit Agent token authentication
  * Usage: app.get('/api/agent/sprints', requireAgentToken, handler)
  * 
- * Authenticates via x-agent-token header
+ * Authenticates via Luca's dedicated x-coordination-token header. The legacy
+ * x-agent-token header remains a Replit-only compatibility path during rollout.
  * Provides read-only access to Wren services
  */
 export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     // Check if token is configured
     if (!isAgentTokenConfigured()) {
-      console.warn('[RBAC] REPLIT_AGENT_TOKEN not configured or too short (min 32 chars)');
+      console.warn('[RBAC] Luca agent credential not configured or too short (min 32 chars)');
       logAgentAction('auth_attempt', req.path, false, 'Token not configured');
       return res.status(503).json({ error: 'Agent authentication not configured' });
     }
-    
-    // Get token from header
-    const providedToken = req.headers['x-agent-token'] as string;
-    
-    if (!providedToken) {
+
+    const resolution = resolveReplitAgentRequest(req);
+    if (!resolution.ok && resolution.status === 401 && !req.headers['x-coordination-token'] && !req.headers['x-agent-token']) {
       logAgentAction('auth_attempt', req.path, false, 'No token provided');
-      return res.status(401).json({ error: 'Agent token required (x-agent-token header)' });
+      return res.status(401).json({ error: 'Agent token required (x-coordination-token header)' });
     }
-    
-    // Timing-safe comparison to prevent timing attacks
-    const tokenBuffer = Buffer.from(providedToken);
-    const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN!);
-    
-    if (tokenBuffer.length !== expectedBuffer.length || 
-        !crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
-      logAgentAction('auth_attempt', req.path, false, 'Invalid token');
-      return res.status(401).json({ error: 'Invalid agent token' });
+
+    if (!resolution.ok) {
+      logAgentAction('auth_attempt', req.path, false, resolution.error);
+      return res.status(resolution.status === 503 ? 503 : 401).json({ error: resolution.error });
     }
-    
+
+    if (resolution.actor !== 'luca-replit') {
+      logAgentAction('auth_attempt', req.path, false, `Unexpected actor: ${resolution.actor}`);
+      return res.status(403).json({ error: 'This endpoint requires Luca [Replit]' });
+    }
+
     // Token valid - set agent ID for tracking
-    req.agentId = 'replit-agent-primary'; // Can be extended for multi-agent support
+    req.agentId = resolution.actor;
     
     logAgentAction('auth_success', req.path, true);
     next();
@@ -407,14 +422,10 @@ export function requireFounderOrAgent(req: Request, res: Response, next: NextFun
   if (isDevBypass()) return next();
   // Fast path: valid agent token → pass through without needing a session
   try {
-    const providedToken = req.headers['x-agent-token'] as string;
-    if (providedToken && REPLIT_AGENT_TOKEN && providedToken.length === REPLIT_AGENT_TOKEN.length) {
-      const tokenBuffer = Buffer.from(providedToken);
-      const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN);
-      if (crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
-        logAgentAction('auth_success', req.path, true);
-        return next();
-      }
+    const resolution = resolveReplitAgentRequest(req);
+    if (resolution.ok && resolution.actor === 'luca-replit') {
+      logAgentAction('auth_success', req.path, true);
+      return next();
     }
   } catch {
     // fall through to founder check
