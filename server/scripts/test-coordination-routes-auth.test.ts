@@ -82,6 +82,26 @@ async function post(
   };
 }
 
+async function postUnauthenticatedAck(
+  token?: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    'content-type': 'application/json',
+  };
+  if (token !== undefined) headers['x-coordination-token'] = token;
+
+  const response = await fetch(`${baseUrl}/api/coordination/threads/ack`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ globalSequence: 1, actor: 'alden' }),
+  });
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
 async function get(
   path: string,
   actor: keyof typeof TOKENS,
@@ -226,6 +246,40 @@ test('dedicated actor credentials cannot bypass route-level mutation permissions
     4,
     'the test thread should still contain only its four valid setup events',
   );
+});
+
+test('unauthenticated feed acknowledgements cannot create or mutate cursors', async () => {
+  const db = getSharedDb();
+  const requestedActor = 'alden' as const;
+  const [originalCursor] = await db
+    .select()
+    .from(coordinationActorFeedCursors)
+    .where(eq(coordinationActorFeedCursors.actor, requestedActor));
+
+  const attempts = [
+    { label: 'missing token', token: undefined },
+    { label: 'invalid token', token: 'invalid-coordination-token' },
+  ];
+
+  for (const attempt of attempts) {
+    const response = await postUnauthenticatedAck(attempt.token);
+    assert.equal(response.status, 401, `${attempt.label} must return HTTP 401`);
+    assert.equal(
+      typeof response.body.error,
+      'string',
+      `${attempt.label} should explain why authentication was rejected`,
+    );
+
+    const [currentCursor] = await db
+      .select()
+      .from(coordinationActorFeedCursors)
+      .where(eq(coordinationActorFeedCursors.actor, requestedActor));
+    assert.deepEqual(
+      currentCursor ?? null,
+      originalCursor ?? null,
+      `${attempt.label} must not create or change the cursor named by the request`,
+    );
+  }
 });
 
 test('authenticated feed acknowledgements stay actor-scoped and monotonic', async () => {
