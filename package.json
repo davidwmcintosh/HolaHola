@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "prepare": "git config merge.ours.driver true || echo 'WARNING: could not set merge.ours.driver (git unavailable or .git missing)' >&2",
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "NODE_ENV=development tsx --env-file-if-exists=.env server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "setup:playwright": "playwright install chromium",
@@ -21,7 +21,7 @@
     "test:ci:unit": "node scripts/run-ci-test-steps.mjs --group=unit && npm run test:coordination-ledger",
     "test:ci:guards": "node scripts/run-ci-test-steps.mjs --group=guards",
     "test:ci:episodes": "node scripts/run-ci-test-steps.mjs --group=episodes",
-    "db:branch": "npx tsx scripts/neon-branch.ts",
+    "db:branch": "npx tsx --env-file-if-exists=.env scripts/neon-branch.ts",
     "cross-tool-promote": "npx tsx scripts/cross-tool-promote.ts",
     "source-control:sync": "npx tsx server/scripts/source-control-cli.ts sync --actor npm",
     "source-control:prepare": "npx tsx server/scripts/source-control-cli.ts prepare --actor npm",
