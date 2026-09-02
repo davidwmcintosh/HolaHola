@@ -86,7 +86,7 @@ export const sessions = pgTable(
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email"), // No unique constraint - using Replit Auth sub (id) as primary identifier
+  email: varchar("email"), // Case-insensitively unique when non-empty -- see idx_users_email_unique below
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -156,7 +156,13 @@ export const users = pgTable("users", {
   tosAcceptedAt: timestamp("tos_accepted_at"), // When user accepted Terms of Service (null = not yet accepted)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Case-insensitive, partial (non-empty emails only) uniqueness -- the same
+  // email must resolve to one account regardless of which auth provider
+  // created it. Partial so multiple pending/system rows without an email
+  // yet don't collide with each other or with NULL.
+  uniqueIndex("idx_users_email_unique").on(sql`lower(${table.email})`).where(sql`${table.email} IS NOT NULL AND ${table.email} != ''`),
+]);
 
 export const updateUserPreferencesSchema = z.object({
   targetLanguage: z.string().optional(),
