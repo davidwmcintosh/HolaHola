@@ -53,6 +53,7 @@ import {
   CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
+  CHAT_CAPTURE_ACK_CURSOR_PATH,
   LUCA_AUTO_CAPTURE_PATH,
   loadChatCaptureCursor,
   saveChatCaptureCursor,
@@ -73,8 +74,13 @@ import {
   releaseCanonicalConversationIngressLock,
   selectCanonicalCaptureBatch,
   settleCanonicalCaptureReceipts,
+  settleCanonicalCaptureReceiptsByTurnId,
   writeCanonicalCaptureReceipt,
 } from './canonical-conversation-capture';
+import {
+  enqueueEpisodeMirror,
+  processEpisodeMirrorOutbox,
+} from './episode-mirror-outbox';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { postAsLuca } from './luca-responder';
 import { detectRollingTagMisroute } from './rolling-tag-utils';
@@ -2426,10 +2432,49 @@ export async function checkEpisodeAppend(): Promise<void> {
 
 // Mutex: only one save-in-progress at a time (watch + poll can both fire)
 let chatCaptureSaveInProgress = false;
+let episodeMirrorOutboxInProgress = false;
+
+async function processPendingEpisodeMirrors(): Promise<void> {
+  if (episodeMirrorOutboxInProgress) return;
+  episodeMirrorOutboxInProgress = true;
+  try {
+    await processEpisodeMirrorOutbox(async item => {
+      const episodeOk = await appendInnerLifeToEpisodeDb(
+        item.formattedContent,
+        item.liveEpisode,
+        { appendMarker: item.appendMarker, allowAppend: true },
+      );
+      if (!episodeOk) return false;
+
+      // This is a separate boundary from CHAT_CAPTURE_CURSOR_PATH. The latter
+      // means the canonical DB row exists; this one means the episode mirror
+      // also completed. Receipts must use the stricter boundary.
+      saveChatCaptureCursor({
+        byteOffset: item.endOffset,
+        ...(item.lastSavedTurnFingerprint
+          ? { lastSavedTurnFingerprint: item.lastSavedTurnFingerprint }
+          : {}),
+      }, CHAT_CAPTURE_ACK_CURSOR_PATH);
+      settleCanonicalCaptureReceiptsByTurnId(item.captureIds, item.endOffset);
+      console.log(`[AgentAutosave] Episode mirror completed from outbox: ${item.liveEpisode} ${item.startCursor}→${item.endOffset}`);
+      return true;
+    });
+  } catch (error: any) {
+    console.error(`[AgentAutosave] Episode mirror outbox drain failed: ${error?.message ?? error}`);
+  } finally {
+    episodeMirrorOutboxInProgress = false;
+  }
+}
 
 async function checkChatCapture(): Promise<void> {
-  if (!existsSync(CHAT_CAPTURE_PATH)) return;
   if (chatCaptureSaveInProgress) return;
+  // Retry durable episode mirrors independently, even when the capture file
+  // has not changed. A failed mirror must never hold the canonical cursor.
+  await processPendingEpisodeMirrors();
+  // Another watcher/poller invocation may have acquired the capture mutex
+  // while this invocation was awaiting the outbox drain.
+  if (chatCaptureSaveInProgress) return;
+  if (!existsSync(CHAT_CAPTURE_PATH)) return;
 
   // Snapshot mtime before we do any work — must be captured here so we can
   // advance chatCaptureLastMtime ONLY after a successful cursor save (Bug fix #2:
@@ -2618,9 +2663,10 @@ async function checkChatCapture(): Promise<void> {
         console.log(`[AgentAutosave] Chat capture DB row already present for cursor ${startCursor}→${endOffset} — skipping duplicate insert`);
       }
 
-      // The episode is a required durable effect in live mode. Append DB-first
-      // before advancing the cursor; retries are safe because both the chat row
-      // and episode helper are idempotent.
+      // The episode is a required durable effect in live mode, but it is
+      // independently retryable. Enqueue the DB-first mirror before advancing
+      // the canonical cursor; the outbox item is marker-idempotent and remains
+      // until the mirror succeeds.
       if (liveEpisode) {
         const formatted = batchTurns.map(t => {
           const label = formatChatCaptureSpeakerLabel(t);
@@ -2632,15 +2678,15 @@ async function checkChatCapture(): Promise<void> {
             .filter(turn => turn.captureId)
             .map(turn => canonicalTurnEpisodeMarker(turn.captureId!)),
         ].join('\n');
-        const episodeOk = await appendInnerLifeToEpisodeDb(
-          formatted,
+        enqueueEpisodeMirror({
+          startCursor,
+          endOffset,
           liveEpisode,
-          { appendMarker: eventMarkers, allowAppend: true },
-        );
-        if (!episodeOk) {
-          throw new Error(`Live mode DB-first episode append failed for ${liveEpisode}`);
-        }
-        console.log(`[AgentAutosave] Live mode: appended ${batchTurns.length} turn(s) DB-first to ${liveEpisode}`);
+          formattedContent: formatted,
+          appendMarker: eventMarkers,
+          captureIds,
+          lastSavedTurnFingerprint: chatCaptureTurnFingerprint(remaining[includedCount - 1]),
+        });
       }
 
       // Advance cursor ONLY through included turns — never newByteOffset (Bug fix #3):
@@ -2651,10 +2697,19 @@ async function checkChatCapture(): Promise<void> {
         byteOffset: effectiveCursor,
         lastSavedTurnFingerprint: chatCaptureTurnFingerprint(remaining[includedCount - 1]),
       });
-      // Receipt state is an acknowledgement of this cursor boundary, not of the
-      // local append. This settles HTTP and CLI receipts only after the same
-      // DB/episode effects that made cursor advancement safe.
-      settleCanonicalCaptureReceipts(effectiveCursor);
+      if (liveEpisode) {
+        // Receipts stay pending until processPendingEpisodeMirrors advances the
+        // separate acknowledgement cursor after the episode mirror succeeds.
+        console.log(`[AgentAutosave] Chat capture mirror queued (${startCursor}→${effectiveCursor}); canonical cursor advanced independently`);
+      } else {
+        // Without a rolling episode there is no second durable effect to wait
+        // for, so the acknowledgement boundary follows the canonical cursor.
+        saveChatCaptureCursor({
+          byteOffset: effectiveCursor,
+          lastSavedTurnFingerprint: chatCaptureTurnFingerprint(remaining[includedCount - 1]),
+        }, CHAT_CAPTURE_ACK_CURSOR_PATH);
+        settleCanonicalCaptureReceipts(effectiveCursor);
+      }
 
       console.log(`[AgentAutosave] Chat capture +${includedCount} turn(s) saved (${davidCount}D + ${includedCount - davidCount}L, cursor ${startCursor}→${effectiveCursor})`);
 
@@ -2673,6 +2728,7 @@ async function checkChatCapture(): Promise<void> {
     if (turns.some(t => t.speaker === 'LUCA')) {
       markReplitOutputFromChatCapture();
     }
+    await processPendingEpisodeMirrors();
   } catch (err: any) {
     console.error('[AgentAutosave] Failed to process chat capture:', err.message);
     // chatCaptureLastMtime stays at its old value — next poll will retry

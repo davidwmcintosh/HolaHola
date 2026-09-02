@@ -64,6 +64,8 @@ export const CHAT_CAPTURE_CURSOR_PATH = join(WORKSPACE, '.local/.chat_capture_cu
  * capture-status report.
  */
 export const CHAT_CAPTURE_ACK_PATH    = join(WORKSPACE, '.local/.chat_capture_ack.json');
+/** Advances only after rolling-episode mirrors complete; receipts use this boundary. */
+export const CHAT_CAPTURE_ACK_CURSOR_PATH = join(WORKSPACE, '.local/.chat_capture_ack_cursor.json');
 /** Per-turn receipts make acknowledgement durable even when captures overlap. */
 export const CHAT_CAPTURE_ACK_DIR     = join(WORKSPACE, '.local/chat-capture-acknowledgements');
 

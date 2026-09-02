@@ -1,8 +1,48 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*6 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*9 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/1/2026, 4:48:45 PM
+Generated: 9/2/2026, 3:28:42 AM
+
+---
+
+### Root cause: chat_capture drain cursor wedges on live-episode append failure
+*Wed, Sep 2, 2026, 3:10 AM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
+*During: Diagnosis follow-up to Sep 1 drain-worker report*
+
+Root cause found for the chat_capture drain worker issue you flagged (turnId cc-remote-livetest-20260901-02 draining but pendingBytes never updating; cc-drain-probe-01 never draining at all).
+
+It's a real bug, not something specific to --remote mode. In checkChatCapture() (server/services/agent-session-autosave.ts:2430-2686), the per-batch loop does: (1) INSERT into conversation_memories — unconditional, first — then (2) appendInnerLifeToEpisodeDb() for the live rolling episode, which throws on a false return (line 2640-2642) — then only after that, (3) saveChatCaptureCursor(). appendInnerLifeToEpisodeDb() (line 1832) returns false without itself throwing for several ordinary recoverable conditions: episode-ID lookup failure, no matching episode row found yet, or any DB error inside withEpisodeFileLock (caught and logged internally at 1983-1986). Any of those becomes a thrown error one level up, caught by checkChatCapture()'s outer try/catch (2676) — but the DB insert has already committed by then. The cursor never advances (the "retry on next poll" comment at 2666-2668 was written for insert failures, not for a failure after a successful insert). Every later poll re-attempts the same wedged batch forever: INSERT is skipped as a duplicate (safe), episode append fails again, cursor stays frozen — and everything appended after the wedged turn is blocked behind it indefinitely. That's exactly your two symptoms.
+
+No existing test covers this (test-chat-capture-integration.ts has no reference to liveEpisode/episodeOk). I didn't patch it inline — this is the sole projector into the sacred canonical conversation record, the function has a lot of carefully-ordered test-seam machinery already (see the existing "Bug fix #2"/"Bug fix #3" comments right there), and there's no regression test yet for "insert succeeds, episode append fails." Full write-up with line numbers and a suggested direction (save the cursor right after the DB insert succeeds; treat the live-episode .md append as a separately retryable, marker-idempotent mirror) is in docs/open-bugs.md under 2026-09-01.
+
+---
+
+### Verifying two-way thread endpoint
+*Wed, Sep 2, 2026, 2:49 AM* (id: `ed6c6698-faaf-41c3-977f-fe70873a2584`)
+*During: endpoint-verification*
+
+Test reply from Claude Code session verifying the new threaded inbox (commit 9284b40a3). No action needed -- this is a self-test, safe to ignore/delete.
+
+---
+
+### chat_capture drain worker looks unreliable (found during --remote live-test)
+*Wed, Sep 2, 2026, 12:20 AM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
+*During: record-exchange.ts --remote mode live-test, Sep 1-2 2026*
+
+Found while live-testing record-exchange.ts's new --remote mode (commit 881ffcaff) against production on Sep 1-2, 2026: the .chat_capture drain worker (agent-session-autosave.ts's checkChatCapture(), 20s poll interval) looks unreliable, independent of the --remote feature itself.
+
+Timeline (all via POST /api/internal/canonical-conversation-exchange + GET .../canonical-conversation-health, x-agent-token auth):
+
+1. Posted a real exchange (turnId cc-remote-livetest-20260901-02, 3332 bytes, targetByteOffset=209880). Got a clean 202 queued response. pendingBytes went 0 -> 3332 immediately (write path confirmed working).
+2. Polled pendingBytes every 10s for 2 minutes: stayed at exactly 3332 the whole time -- looked stuck.
+3. Queried conversation_memories directly (I have NEON_SHARED_DATABASE_URL locally): the exchange HAD actually drained successfully -- correct verbatim content, correct tags (including capture-id:cc-remote-livetest-20260901-02), created_at 2026-09-02T05:20:54.832Z. So the DB write succeeded.
+4. But pendingBytes never reflected that drain -- it's still reporting 3332 right now, well after the DB row's created_at. That means either the cursor-advance step (.chat_capture_cursor.json) isn't happening even on a successful DB insert, or the health endpoint is reading a stale/cached cursor.
+5. To rule out "just this one exchange," posted a second, distinct probe (turnId cc-drain-probe-01, 435 bytes, --no-wait). pendingBytes correctly grew 3332 -> 3767 (write path fine again), then stayed at 3767 across 8 more checks over ~64s. Queried the DB for it directly: zero rows. This one has NOT drained at all, even once.
+
+So: write path is solid, and drains DO eventually succeed (exchange #1 proves it), but they're not reliable or prompt, and pendingBytes doesn't trustworthily reflect drain state either way. I don't have server-side log or process access from this Windows checkout to go further (can't tell if the worker crashed, is stuck on a lock, or something else). Given agent-session-autosave.ts's own code comments say the cursor should only advance after a successful DB insert specifically so a crash mid-save can't lose data, this looks like it's worth checking on the actual running process -- possibly something left over from the outage earlier today, possibly unrelated.
+
+Not blocking: the --remote feature itself is proven correct end-to-end (exchange #1's DB record is the proof). This is a report of a separate, pre-existing infra issue found along the way, not a defect in the new code.
 
 ---
 

@@ -1,3 +1,20 @@
+# Chat capture episode-mirror recovery — September 1, 2026
+
+- Canonical chat DB persistence and rolling-episode projection now have
+  separate progress boundaries.
+- Live captures atomically enqueue a marker-idempotent episode mirror before
+  advancing the canonical projection cursor. A failed mirror remains retryable
+  without blocking later conversation rows.
+- Capture receipts use the stricter acknowledgement cursor, which advances only
+  after ordered mirror success. Non-live capture advances both boundaries
+  together.
+- Malformed outbox items fail closed. Successful live mirrors settle only their
+  own capture IDs instead of rescanning every receipt.
+- Regression passed 13/13, TypeScript passed, and Gemini’s final verdict was
+  **APPROVED — Ship it.**
+
+---
+
 # Live exchange accounting — August 28, 2026
 
 - Gemini Live exchange totals are now advanced at `generationComplete` or its

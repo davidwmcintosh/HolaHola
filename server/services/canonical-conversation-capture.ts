@@ -14,7 +14,7 @@ import {
   appendChatCaptureTurnsAtomic,
   CHAT_CAPTURE_ACK_DIR,
   CHAT_CAPTURE_ACK_PATH,
-  CHAT_CAPTURE_CURSOR_PATH,
+  CHAT_CAPTURE_ACK_CURSOR_PATH,
   WORKSPACE,
   acquireCursorLock,
   releaseCursorLock,
@@ -89,7 +89,7 @@ export function writeCanonicalCaptureReceipt(
 ): void {
   const latestPath = paths.latestPath ?? CHAT_CAPTURE_ACK_PATH;
   const receiptDir = paths.receiptDir ?? CHAT_CAPTURE_ACK_DIR;
-  const cursorPath = paths.cursorPath ?? CHAT_CAPTURE_CURSOR_PATH;
+  const cursorPath = paths.cursorPath ?? CHAT_CAPTURE_ACK_CURSOR_PATH;
   let effectiveReceipt = receipt;
   // The writer may create this receipt after autosave advanced the cursor.
   // Settle at creation time as well as after every drain, so an already
@@ -161,6 +161,35 @@ export function settleCanonicalCaptureReceipts(
       }
     } catch (error: any) {
       console.error(`[CanonicalConversation] Could not settle receipt ${name}: ${error?.message ?? String(error)}`);
+    }
+  }
+}
+
+/** Settle only the receipts represented by one completed episode mirror item. */
+export function settleCanonicalCaptureReceiptsByTurnId(
+  turnIds: string[],
+  cursorOffset: number,
+  paths: { latestPath?: string; receiptDir?: string; cursorPath?: string } = {},
+): void {
+  const receiptDir = paths.receiptDir ?? CHAT_CAPTURE_ACK_DIR;
+  for (const turnId of [...new Set(turnIds)]) {
+    const receiptPath = join(receiptDir, `${turnId}.json`);
+    if (!existsSync(receiptPath)) continue;
+    try {
+      const receipt = JSON.parse(readFileSync(receiptPath, 'utf8')) as CanonicalCaptureReceipt;
+      if (
+        receipt.status === 'pending' &&
+        Number.isFinite(receipt.targetByteOffset) &&
+        receipt.targetByteOffset <= cursorOffset
+      ) {
+        writeCanonicalCaptureReceipt({
+          ...receipt,
+          status: 'acknowledged',
+          acknowledgedAtMs: Date.now(),
+        }, paths);
+      }
+    } catch (error: any) {
+      console.error(`[CanonicalConversation] Could not settle receipt ${turnId}: ${error?.message ?? String(error)}`);
     }
   }
 }

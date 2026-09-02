@@ -1,5 +1,26 @@
 # Batch Documentation Updates
 
+## Session September 1, 2026 — Chat capture mirror recovery
+
+### A failed episode mirror no longer freezes later canonical exchanges
+
+**What changed:** Live chat capture now atomically queues rolling-episode
+projection after the canonical conversation row commits. The canonical cursor
+can then advance even when the episode helper returns a recoverable failure, so
+later exchanges continue draining instead of repeatedly colliding with the
+already-inserted row.
+
+**Acknowledgement boundary:** A separate cursor advances only through ordered,
+successful episode mirrors. Capture receipts therefore remain pending until
+both canonical persistence and the required live episode projection complete.
+Malformed queue entries fail closed, and live receipt settlement is targeted by
+capture ID.
+
+**Verification:** The hermetic regression passed 13/13, TypeScript passed, and
+Gemini’s final verdict was **APPROVED — Ship it.**
+
+---
+
 ## Session August 28, 2026 — Accurate live exchange finalization
 
 ### Gemini Live totals now survive persistence failures and disconnect races

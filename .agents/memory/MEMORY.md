@@ -149,3 +149,4 @@
 - [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
 - [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge-budget failures can persist without visible tasks; reconstruct critical fixes in main instead of waiting indefinitely.
 - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
+- [Chat capture two-boundary cursors](capture-cursor-two-boundaries.md) — canonical DB progress may pass retrying episode mirrors; acknowledgement advances only after ordered mirror success.
