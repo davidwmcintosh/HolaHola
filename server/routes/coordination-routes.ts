@@ -17,6 +17,11 @@ import type {
   CoordinationEventType,
   CoordinationEvidenceReference,
 } from '@shared/schema';
+import {
+  discoverOperations,
+  OPERATIONS_CATALOG,
+  toPublicOperationManifest,
+} from '../services/operations-catalog';
 
 type LifecycleRoute = {
   path: string;
@@ -117,6 +122,31 @@ async function appendFromRequest(
 }
 
 export function registerCoordinationRoutes(app: Application): void {
+  app.get(
+    '/api/coordination/operations',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const actor = actorFrom(req);
+        const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+        const limit = Math.min(10, positiveInteger(req.query.limit, 'limit', 5));
+
+        if (!query) {
+          res.json({
+            actor,
+            matchType: 'list',
+            operations: OPERATIONS_CATALOG.map(toPublicOperationManifest),
+          });
+          return;
+        }
+
+        res.json({ actor, ...(await discoverOperations(query, limit)) });
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
   app.post(
     '/api/coordination/threads',
     requireCoordinationAuth,

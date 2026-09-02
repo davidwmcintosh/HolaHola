@@ -1,3 +1,27 @@
+# Operations catalogue and semantic discovery — September 2, 2026
+
+- Stable operation IDs and exact aliases now describe the established Burn
+  Report, health, production monitoring, capture, coordination, and guarded
+  source-control families.
+- `GET /api/coordination/operations` lets any authenticated coordination actor
+  list safe public metadata or discover an operation from natural language.
+  The endpoint does not expose canonical executor references and cannot execute
+  anything.
+- Operation manifests are code-defined and indexed sequentially as pinned,
+  global `operation_skill` embeddings. The new type is deliberately absent from
+  Daniela's default global recall list; only the dedicated operation search
+  path reads it.
+- Exact “run the burn report” shorthand maps to Alden's existing
+  `get_ai_cost_report`; `post_report_to_team_room` remains the canonical
+  side-effecting variant.
+- The public catalogue is `docs/operations-catalog.md`; agent procedure is in
+  `.agents/skills/operations-catalog/SKILL.md`.
+- Five focused regressions, TypeScript, live exact/semantic HTTP checks,
+  dedicated-actor attribution, unauthenticated rejection, and system health all
+  passed. Gemini's final verdict was **APPROVED — Ship it.**
+
+---
+
 # Chat capture episode-mirror recovery — September 1, 2026
 
 - Canonical chat DB persistence and rolling-episode projection now have

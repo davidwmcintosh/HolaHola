@@ -1,5 +1,32 @@
 # Batch Documentation Updates
 
+## Session September 2, 2026 — Operations catalogue and semantic discovery
+
+### Shared shorthand now resolves to established canonical operations
+
+**What changed:** HolaHola now has a typed operations catalogue, a human
+reference, and an agent discovery skill. Exact aliases resolve before semantic
+search, so “run the burn report” deterministically maps to the existing
+`get_ai_cost_report` capability rather than regenerating cost logic.
+
+**Neural boundary:** Operation manifests are indexed automatically as pinned,
+global `operation_skill` embeddings. They use a dedicated search path and remain
+excluded from Daniela's default recall pool. Retrieved IDs are mapped back to
+the static catalogue before presentation.
+
+**Security boundary:** The read-only coordination discovery endpoint derives
+the actor from the dedicated credential, exposes only a safe manifest
+projection, and never authorizes or executes operations. Mutating catalogue
+entries are explicitly marked as requiring confirmation.
+
+**Verification:** Five catalogue regressions passed; TypeScript passed; all nine
+manifests indexed; live exact and semantic Burn Report discovery passed; Luca
+[Claude Code] actor attribution passed; unauthenticated access returned 401;
+system health reported “All checks passed — safe to mark done”; and Gemini's
+final verdict was **APPROVED — Ship it.**
+
+---
+
 ## Session September 1, 2026 — Chat capture mirror recovery
 
 ### A failed episode mirror no longer freezes later canonical exchanges
