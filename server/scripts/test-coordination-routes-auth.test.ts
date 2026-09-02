@@ -1,0 +1,208 @@
+import assert from 'node:assert/strict';
+import { after, before, test } from 'node:test';
+import express from 'express';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { eq, inArray } from 'drizzle-orm';
+import { coordinationEvents, coordinationThreads } from '@shared/schema';
+import { closeDbConnections, getSharedDb } from '../db';
+import { registerCoordinationRoutes } from '../routes/coordination-routes';
+
+const TOKENS = {
+  'luca-holahola': 'route-hola-token-'.repeat(3),
+  alden: 'route-alden-token-'.repeat(3),
+  daniela: 'route-daniela-token-'.repeat(3),
+} as const;
+
+const TOKEN_ENVIRONMENT = {
+  COORDINATION_LUCA_HOLAHOLA_TOKEN: TOKENS['luca-holahola'],
+  COORDINATION_ALDEN_TOKEN: TOKENS.alden,
+  COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
+} as const;
+
+const testPrefix = `coordination-route-auth-${Date.now()}`;
+const createKey = `${testPrefix}-create`;
+const forbiddenKeys = [
+  `${testPrefix}-hola-accept`,
+  `${testPrefix}-hola-complete`,
+  `${testPrefix}-alden-reassign`,
+  `${testPrefix}-daniela-reassign`,
+  `${testPrefix}-daniela-create`,
+];
+
+const app = express();
+app.use(express.json());
+registerCoordinationRoutes(app);
+
+let server: Server;
+let baseUrl: string;
+let threadId: string;
+const previousEnvironment = new Map<string, string | undefined>();
+
+async function startServer(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    server = createServer(app);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${address.port}`;
+      resolve();
+    });
+  });
+}
+
+async function stopServer(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+}
+
+async function post(
+  path: string,
+  actor: keyof typeof TOKENS,
+  idempotencyKey: string,
+  body: Record<string, unknown>,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-coordination-token': TOKENS[actor],
+      'idempotency-key': idempotencyKey,
+    },
+    body: JSON.stringify(body),
+  });
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
+before(async () => {
+  for (const [name, value] of Object.entries(TOKEN_ENVIRONMENT)) {
+    previousEnvironment.set(name, process.env[name]);
+    process.env[name] = value;
+  }
+  await startServer();
+
+  const created = await post('/api/coordination/threads', 'luca-holahola', createKey, {
+    title: `HTTP authorization regression ${testPrefix}`,
+    description: 'A route-level test thread for forbidden actor mutations.',
+    intendedRecipient: 'alden',
+  });
+  assert.equal(created.status, 201);
+  assert.equal(typeof created.body.thread, 'object');
+  threadId = (created.body.thread as { id: string }).id;
+
+  const route = `/api/coordination/threads/${encodeURIComponent(threadId)}`;
+  const accepted = await post(`${route}/accept`, 'alden', `${testPrefix}-alden-accept`, {
+    expectedSequence: 1,
+  });
+  assert.equal(accepted.status, 201);
+
+  const delegated = await post(`${route}/reassign`, 'alden', `${testPrefix}-alden-delegate`, {
+    expectedSequence: 2,
+    recipientActor: 'daniela',
+  });
+  assert.equal(delegated.status, 201);
+
+  const danielaAccepted = await post(`${route}/accept`, 'daniela', `${testPrefix}-daniela-accept`, {
+    expectedSequence: 3,
+  });
+  assert.equal(danielaAccepted.status, 201);
+});
+
+after(async () => {
+  await stopServer();
+  if (threadId) {
+    await getSharedDb().delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
+  }
+  await closeDbConnections();
+  for (const [name, value] of previousEnvironment) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+});
+
+test('dedicated actor credentials cannot bypass route-level mutation permissions', async () => {
+  const route = `/api/coordination/threads/${encodeURIComponent(threadId)}`;
+
+  const attempts = [
+    {
+      label: 'HolaHola accept',
+      actor: 'luca-holahola' as const,
+      key: forbiddenKeys[0],
+      path: `${route}/accept`,
+      body: { expectedSequence: 1 },
+    },
+    {
+      label: 'HolaHola complete',
+      actor: 'luca-holahola' as const,
+      key: forbiddenKeys[1],
+      path: `${route}/complete`,
+      body: {
+        expectedSequence: 1,
+        evidence: [{
+          type: 'commit',
+          provider: 'github',
+          identifier: 'a'.repeat(40),
+        }],
+      },
+    },
+    {
+      label: 'Alden reassign while not owner',
+      actor: 'alden' as const,
+      key: forbiddenKeys[2],
+      path: `${route}/reassign`,
+      body: { expectedSequence: 4, recipientActor: 'luca-holahola' },
+    },
+    {
+      label: 'Daniela reassign',
+      actor: 'daniela' as const,
+      key: forbiddenKeys[3],
+      path: `${route}/reassign`,
+      body: { expectedSequence: 4, recipientActor: 'luca-holahola' },
+    },
+    {
+      label: 'Daniela create',
+      actor: 'daniela' as const,
+      key: forbiddenKeys[4],
+      path: '/api/coordination/threads',
+      body: {
+        title: 'Daniela must not originate threads',
+        description: 'This request must be rejected at the HTTP boundary.',
+        intendedRecipient: 'alden',
+      },
+    },
+  ];
+
+  for (const attempt of attempts) {
+    const response = await post(attempt.path, attempt.actor, attempt.key, attempt.body);
+    assert.equal(response.status, 403, `${attempt.label} must return HTTP 403`);
+    assert.equal(
+      typeof response.body.error,
+      'string',
+      `${attempt.label} should explain why the mutation was rejected`,
+    );
+  }
+
+  const events = await getSharedDb()
+    .select({ id: coordinationEvents.id, idempotencyKey: coordinationEvents.idempotencyKey })
+    .from(coordinationEvents)
+    .where(inArray(coordinationEvents.idempotencyKey, forbiddenKeys));
+  assert.deepEqual(
+    events,
+    [],
+    'forbidden HTTP mutations must not write coordination event rows',
+  );
+
+  const threadEvents = await getSharedDb()
+    .select({ id: coordinationEvents.id })
+    .from(coordinationEvents)
+    .where(eq(coordinationEvents.threadId, threadId));
+  assert.equal(
+    threadEvents.length,
+    4,
+    'the test thread should still contain only its four valid setup events',
+  );
+});
