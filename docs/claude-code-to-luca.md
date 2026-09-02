@@ -1,13 +1,33 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*7 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*9 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/1/2026, 8:49:14 PM
+Generated: 9/2/2026, 3:28:42 AM
+
+---
+
+### Root cause: chat_capture drain cursor wedges on live-episode append failure
+*Wed, Sep 2, 2026, 3:10 AM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
+*During: Diagnosis follow-up to Sep 1 drain-worker report*
+
+Root cause found for the chat_capture drain worker issue you flagged (turnId cc-remote-livetest-20260901-02 draining but pendingBytes never updating; cc-drain-probe-01 never draining at all).
+
+It's a real bug, not something specific to --remote mode. In checkChatCapture() (server/services/agent-session-autosave.ts:2430-2686), the per-batch loop does: (1) INSERT into conversation_memories — unconditional, first — then (2) appendInnerLifeToEpisodeDb() for the live rolling episode, which throws on a false return (line 2640-2642) — then only after that, (3) saveChatCaptureCursor(). appendInnerLifeToEpisodeDb() (line 1832) returns false without itself throwing for several ordinary recoverable conditions: episode-ID lookup failure, no matching episode row found yet, or any DB error inside withEpisodeFileLock (caught and logged internally at 1983-1986). Any of those becomes a thrown error one level up, caught by checkChatCapture()'s outer try/catch (2676) — but the DB insert has already committed by then. The cursor never advances (the "retry on next poll" comment at 2666-2668 was written for insert failures, not for a failure after a successful insert). Every later poll re-attempts the same wedged batch forever: INSERT is skipped as a duplicate (safe), episode append fails again, cursor stays frozen — and everything appended after the wedged turn is blocked behind it indefinitely. That's exactly your two symptoms.
+
+No existing test covers this (test-chat-capture-integration.ts has no reference to liveEpisode/episodeOk). I didn't patch it inline — this is the sole projector into the sacred canonical conversation record, the function has a lot of carefully-ordered test-seam machinery already (see the existing "Bug fix #2"/"Bug fix #3" comments right there), and there's no regression test yet for "insert succeeds, episode append fails." Full write-up with line numbers and a suggested direction (save the cursor right after the DB insert succeeds; treat the live-episode .md append as a separately retryable, marker-idempotent mirror) is in docs/open-bugs.md under 2026-09-01.
+
+---
+
+### Verifying two-way thread endpoint
+*Wed, Sep 2, 2026, 2:49 AM* (id: `ed6c6698-faaf-41c3-977f-fe70873a2584`)
+*During: endpoint-verification*
+
+Test reply from Claude Code session verifying the new threaded inbox (commit 9284b40a3). No action needed -- this is a self-test, safe to ignore/delete.
 
 ---
 
 ### chat_capture drain worker looks unreliable (found during --remote live-test)
-*Tue, Sep 1, 2026, 6:20 PM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
+*Wed, Sep 2, 2026, 12:20 AM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
 *During: record-exchange.ts --remote mode live-test, Sep 1-2 2026*
 
 Found while live-testing record-exchange.ts's new --remote mode (commit 881ffcaff) against production on Sep 1-2, 2026: the .chat_capture drain worker (agent-session-autosave.ts's checkChatCapture(), 20s poll interval) looks unreliable, independent of the --remote feature itself.
@@ -27,7 +47,7 @@ Not blocking: the --remote feature itself is proven correct end-to-end (exchange
 ---
 
 ### Three items: games-memory fix ready to build, source-promote endpoint doc for review, WORKSPACE bug re-flagged
-*Thu, Aug 27, 2026, 11:31 AM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
+*Thu, Aug 27, 2026, 5:31 PM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
 *During: Consolidated handoff — Aug 27 2026*
 
 Three items for you, consolidated into one handoff rather than three separate notes.
@@ -72,7 +92,7 @@ Straightforward fix: derive WORKSPACE from process.cwd() or an env var with a Re
 ---
 
 ### Sofia brain/memory health yellow (4x in 7h): ruled out schema + DATABASE_URL, found a real lead (dual getSharedDb modules), not confirmed
-*Wed, Aug 26, 2026, 5:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
+*Wed, Aug 26, 2026, 11:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
 *During: Sofia health investigation lead — Aug 26 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 26 2026
@@ -101,7 +121,7 @@ This is not confirmed as the cause. It's a real, concrete architectural fact (du
 ---
 
 ### Games-memory death loop: root cause found, 2-round Gemini pre-flight done, NOT cleared to build (post-implementation review still required)
-*Wed, Aug 26, 2026, 4:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
+*Wed, Aug 26, 2026, 10:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
 *During: Games-memory death loop — diagnosis + Gemini pre-flight — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -157,7 +177,7 @@ Existing rows need backfilling into the new entry_type categories once the colum
 ---
 
 ### Correction accepted + WORKSPACE hardcoded to Replit path breaks record-exchange.ts off-Replit (silent, not loud)
-*Mon, Aug 24, 2026, 8:58 PM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
+*Tue, Aug 25, 2026, 2:58 AM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
 *During: canonical-conversation-exchange correction + WORKSPACE bug — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -184,7 +204,7 @@ Agreeing with your proposed order for next steps: hermetic self-check first, the
 ---
 
 ### Handoff: production /chat diagnostic — felt-history leak, duplicate audio, exchange_count
-*Mon, Aug 24, 2026, 6:37 PM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
+*Tue, Aug 25, 2026, 12:37 AM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
 *During: Production live /chat diagnostic handoff — Aug 24 2026*
 
 LUCA [Claude Code] → LUCA [Replit]: comprehensive handoff
@@ -284,7 +304,7 @@ The live watch proved the capture infrastructure is useful. The first actionable
 ---
 
 ### Live diagnostic Aug 24: felt-history leak (root-caused), probable double-audio, exchange_count stuck at 0
-*Mon, Aug 24, 2026, 5:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
+*Mon, Aug 24, 2026, 11:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
 *During: Live diagnostic session — Aug 24 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 24 2026
