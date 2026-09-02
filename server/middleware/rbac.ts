@@ -25,7 +25,7 @@ export const isDevBypass = () => {
 
 // Minimal founder-shaped user injected when the bypass is active.
 // Enough for all downstream middleware that reads authenticatedUser.role / .id.
-const DEV_BYPASS_USER = {
+export const DEV_BYPASS_USER = {
   id: '49847136',
   email: 'dev@local',
   username: 'dev-bypass',
