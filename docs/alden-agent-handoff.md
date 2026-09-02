@@ -1,3 +1,25 @@
+# Audit catalogue expansion — September 2, 2026
+
+- The shared operations catalogue now discovers the established ACTFL,
+  curriculum, lesson-topic, textbook-content, rolling episode-integrity, and
+  persistent admin audit-log operations.
+- Existing scripts and endpoints remain canonical. No audit logic was copied
+  into the catalogue.
+- Each new manifest records actor scope, read-only classification, confirmation
+  state, output, persistence, and executor-specific caveats.
+- Rolling episode integrity is explicitly report-only. The old episode-specific
+  `--patch` modes remain separate repair actions requiring confirmation.
+- All seven focused catalogue regressions and TypeScript passed. The automatic
+  indexer processed all 15 manifests: 6 indexed, 9 fresh, 0 errors.
+- Semantic paraphrases resolved ACTFL calibration, curriculum/textbook quality,
+  rolling episode integrity, and persistent admin action history to the expected
+  manifests.
+- System health passed every required invariant. The two warnings were local
+  app-route storage probes skipped because no local server was running; direct
+  R2 reads and the CopyObject probe passed.
+
+---
+
 # Operations catalogue and semantic discovery — September 2, 2026
 
 - Stable operation IDs and exact aliases now describe the established Burn

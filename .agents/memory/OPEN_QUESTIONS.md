@@ -334,3 +334,9 @@ What is the smallest reversible checkout transition that keeps the guarded sourc
 What is the smallest reversible handoff that lets a completed task release its merge lock without asking the next task or the main agent to mutate an uncertain checkout?
 
 ---
+
+### September 2, 2026 — Inner-life note
+
+thinking: Which audit families are truly established enough for shared discovery, and which are one-off diagnostics?
+
+---

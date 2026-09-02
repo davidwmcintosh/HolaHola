@@ -1,5 +1,30 @@
 # Batch Documentation Updates
 
+## Session September 2, 2026 — Audit catalogue expansion
+
+### Established audits now share the same discovery path
+
+**What changed:** Stable manifests and exact aliases now cover the existing
+ACTFL calibration, curriculum quality, lesson-topic, textbook-content, rolling
+episode-integrity, and persistent admin audit-log operations. Each manifest
+points to its current script or endpoint rather than recreating audit logic.
+
+**Safety boundary:** The catalogue labels all six canonical audit paths as
+read-only and records their actor scopes, output, persistence, and caveats.
+Rolling episode integrity uses the generic strict continuity auditor; legacy
+episode-specific `--patch` modes remain separate repairs that require explicit
+confirmation.
+
+**Verification:** All seven focused catalogue regressions passed and TypeScript
+passed. The automatic indexer processed all 15 manifests with 6 newly indexed,
+9 already fresh, and 0 errors. Semantic paraphrases resolved ACTFL calibration,
+curriculum/textbook quality, rolling episode integrity, and the persistent
+admin audit log. System health passed every required invariant; its two warnings
+were local app-route storage probes skipped because no local server was running,
+while direct R2 reads and the CopyObject probe passed.
+
+---
+
 ## Session September 2, 2026 — Operations catalogue and semantic discovery
 
 ### Shared shorthand now resolves to established canonical operations

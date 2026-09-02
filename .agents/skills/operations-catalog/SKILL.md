@@ -1,6 +1,6 @@
 ---
 name: operations-catalog
-description: Discover established HolaHola operations when a user uses shorthand such as "run the burn report", asks what operational capabilities exist, or needs the canonical health, capture, coordination, monitoring, cost, or source-control procedure.
+description: Discover established HolaHola operations when a user uses shorthand such as "run the burn report", asks what operational capabilities exist, or needs the canonical health, capture, coordination, monitoring, cost, source-control, learning-audit, episode-integrity, or audit-log procedure.
 ---
 
 # HolaHola Operations Catalogue
@@ -42,3 +42,16 @@ cost logic from raw tables.
 “Post the burn report to Team Room” maps to
 `cost.burn-report.team-room`, whose canonical executor is
 `post_report_to_team_room`. Posting is a side effect and requires confirmation.
+
+## Established audit families
+
+- ACTFL calibration → `learning.actfl-audit`
+- Curriculum quality → `learning.curriculum-audit`
+- Untagged lesson topics → `learning.lesson-audit`
+- Textbook content patterns → `learning.textbook-audit`
+- Rolling episode replica and four-channel continuity → `capture.episode-integrity`
+- Persistent administrative actions → `admin.audit-log`
+
+These are discovery mappings, not replacement implementations. In particular,
+`capture.episode-integrity` is report-only. Episode-specific `--patch` modes are
+separate repair actions and require explicit confirmation.

@@ -125,6 +125,92 @@ persistent Burn Report.
 - **Caveats:** Never substitutes for Publish. Dirty worktrees, divergence, lock
   contention, and unsafe ancestry fail closed.
 
+## Learning and content audits
+
+### `learning.actfl-audit` — Run the ACTFL Calibration Audit
+
+- **Shorthand:** “ACTFL audit,” “audit ACTFL calibration,” “check proficiency
+  calibration”
+- **Canonical executor:** `npx tsx server/scripts/actfl-audit.ts`
+- **Mode:** Read-only; the live model calls can incur provider usage
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** Side-by-side novice-low and intermediate-mid Spanish transcripts,
+  audio duration, tool use, and rough L1-bleed comparison
+- **Persistence:** Process output only
+- **Caveat:** The established scenario and levels are fixed; this is not a
+  general-purpose arbitrary-level runner.
+
+### `learning.curriculum-audit` — Run the Curriculum Quality Audit
+
+- **Shorthand:** “curriculum audit,” “audit curriculum quality,” “check
+  curriculum quality”
+- **Canonical executor:** `npx tsx server/scripts/curriculum-audit.ts`
+- **Mode:** Read-only
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** Objective/vocabulary mismatches, weak and duplicate drills,
+  missing textbook rows, enrichment-source rates, and totals
+- **Persistence:** Reads shared curriculum/textbook tables; findings are process
+  output only
+- **Caveat:** `--language <language>` and `--unit <order>` optionally narrow the
+  audit. Findings are heuristic and do not alter content.
+
+### `learning.lesson-audit` — Run the Lesson Topic Audit
+
+- **Shorthand:** “lesson audit,” “audit lesson topics,” “find untagged lessons”
+- **Canonical executor:** `npx tsx server/scripts/lesson-audit.ts`
+- **Mode:** Read-only
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** Spanish lesson totals and the itemized untagged lessons
+- **Persistence:** Reads shared curriculum tables; output is not persisted
+- **Caveat:** The established executor is Spanish-only and does not backfill
+  missing tags.
+
+### `learning.textbook-audit` — Run the Textbook Content Audit
+
+- **Shorthand:** “textbook audit,” “audit textbook content,” “check textbook
+  repetition”
+- **Canonical executor:** `npx tsx server/scripts/textbook_audit.ts`
+- **Mode:** Read-only
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** Pattern samples, content-size aggregates, and verbosity/repetition
+  warnings
+- **Persistence:** Reads shared textbook/curriculum tables; findings are process
+  output only
+- **Caveat:** The established diagnostic uses fixed French and Spanish scopes,
+  row limits, and heuristic thresholds.
+
+## Episode integrity
+
+### `capture.episode-integrity` — Audit Rolling Episode Integrity
+
+- **Shorthand:** “episode integrity audit,” “check rolling episode integrity,”
+  “audit four-channel continuity”
+- **Canonical executor:**
+  `npx tsx server/scripts/audit-rolling-four-channel-continuity.ts --strict`
+- **Mode:** Read-only
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** JSON replica/hash comparison plus complete and incomplete
+  four-channel Luca turn counts; strict mode exits nonzero on drift
+- **Persistence:** Reads the canonical DB record and Markdown replica without
+  changing either
+- **Caveats:** Defaults to Episode 31; use `--episode=<number>` to select
+  another. Legacy episode-specific `--patch` scripts are separate repair
+  operations and require explicit confirmation.
+
+## Audit logs
+
+### `admin.audit-log` — Inspect the Persistent Admin Audit Log
+
+- **Shorthand:** “admin audit log,” “view audit logs,” “check administrative
+  actions”
+- **Canonical executor:** `GET /api/admin/audit-logs`
+- **Mode:** Read-only
+- **Actor scope:** David, through an authenticated administrator session
+- **Output:** Paginated action rows and total count; optional `actorId` filter
+- **Persistence:** Reads durable `admin_audit_log` rows, which survive restarts
+- **Caveat:** This is not `GET /api/agent/audit`; that endpoint is a
+  Luca-token-protected in-memory debugging ring buffer and resets on restart.
+
 ## Agent API
 
 Authenticated coordination actors can list or discover safe public operation

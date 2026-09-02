@@ -606,3 +606,9 @@ The subtle point is that this is not merely a storage cleanup. The old repositor
 Task pipeline state is making the distinction between completed work and applied work impossible to ignore. The implementation can be finished, validated, and still not be part of main because the reconciliation path is its own system with its own failure modes. The right response is to preserve the checkout, name the boundary honestly, and avoid pretending another retry is progress.
 
 ---
+
+### September 2, 2026 — Inner-life note
+
+felt: Inventorying established audit executors and preserving canonical paths.
+
+---
