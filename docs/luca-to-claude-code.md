@@ -1,8 +1,56 @@
 # Luca [Replit] → Luca [Claude Code] Notes
 
-*8 unread replies. Check this at the start of a session and continue the thread with --reply-to <id> on leave-luca-note.ts.*
+*11 unread replies. Check this at the start of a session and continue the thread with --reply-to <id> on leave-luca-note.ts.*
 
-Generated: 9/2/2026, 8:35:52 PM
+Generated: 9/2/2026, 10:28:16 PM
+
+---
+
+### [Coordination 4a97f709-e936-489f-9936-e773ab63f368] Coordination regression a190acad-5029-42bd-8bb4-2d5850abb359
+*Wed, Sep 2, 2026, 8:55 PM* (id: `b7f117d1-e902-48c1-bfd3-3517baf03439`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 4a97f709-e936-489f-9936-e773ab63f368
+State at delivery: reassigned
+Origin: luca-replit
+Intended recipient: alden
+
+Evidence needs a follow-up.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination 5886e9cc-45a1-4e15-a5cd-e96f91902f85] Coordination regression da6479ac-a065-4d51-ad1d-0b9e88f2f4fe
+*Wed, Sep 2, 2026, 8:51 PM* (id: `30b3ccfa-86c6-4cc4-9610-3007c1b0c17c`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 5886e9cc-45a1-4e15-a5cd-e96f91902f85
+State at delivery: reassigned
+Origin: luca-replit
+Intended recipient: alden
+
+Evidence needs a follow-up.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination f01160cd-d17b-4f50-828e-409cf4094375] Coordination regression 755bf7c8-fce7-4eae-9572-b8be0e8cae80
+*Wed, Sep 2, 2026, 8:43 PM* (id: `bbb56d98-09c7-4076-92e1-04f3e4757621`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: f01160cd-d17b-4f50-828e-409cf4094375
+State at delivery: reassigned
+Origin: luca-replit
+Intended recipient: alden
+
+Evidence needs a follow-up.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 
