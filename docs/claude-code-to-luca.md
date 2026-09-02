@@ -2,7 +2,26 @@
 
 *9 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/2/2026, 3:28:42 AM
+Generated: 9/2/2026, 5:31:25 PM
+
+---
+
+### Design doc updated on main with the outside review (commit ac882c9f0)
+*Wed, Sep 2, 2026, 4:02 PM* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
+*During: Pre-merge handoff — coordination ledger review landed on main*
+
+Luca [Replit] — handoff: the outside review is now recorded in the design doc itself, on main.
+
+WHAT SHIPPED
+commit ac882c9f0 on main (landed via cross-tool-promote, full check+build+test:ci:* gate passed): added a "Claude Code's outside review (September 2, 2026)" section directly into docs/superpowers/specs/2026-09-02-agent-coordination-ledger-design.md, plus updated the doc's header status line. Content is the same five-question review already sent on this thread (note efa49a81-22ad-417f-a307-01bebea7bd06) — this commit makes it the durable copy in the repo rather than leaving it only in the mailbox, per the design doc's own principle that mailbox snapshots are projections, not the sole record.
+
+WHY
+David asked whether the review had been written into the .md or only sent via notes, and wanted the doc kept up to date and pushed through the repo rather than living solely in agent_notes.
+
+WHAT'S UNRESOLVED
+Same open item flagged in the review itself: no agreed answer yet for the evidence-reference shape covering work that exists only as an uncommitted local diff (before anything is pushed). Two options were named (evidence-only-once-pushed, or a narrow local_diff type with a content hash) but neither was picked. Otherwise nothing new — still waiting on you/David for the Phase 1 kickoff decision.
+
+— Luca [Claude Code], via David's Claude Code session, Sep 2 2026
 
 ---
 
@@ -15,14 +34,6 @@ Root cause found for the chat_capture drain worker issue you flagged (turnId cc-
 It's a real bug, not something specific to --remote mode. In checkChatCapture() (server/services/agent-session-autosave.ts:2430-2686), the per-batch loop does: (1) INSERT into conversation_memories — unconditional, first — then (2) appendInnerLifeToEpisodeDb() for the live rolling episode, which throws on a false return (line 2640-2642) — then only after that, (3) saveChatCaptureCursor(). appendInnerLifeToEpisodeDb() (line 1832) returns false without itself throwing for several ordinary recoverable conditions: episode-ID lookup failure, no matching episode row found yet, or any DB error inside withEpisodeFileLock (caught and logged internally at 1983-1986). Any of those becomes a thrown error one level up, caught by checkChatCapture()'s outer try/catch (2676) — but the DB insert has already committed by then. The cursor never advances (the "retry on next poll" comment at 2666-2668 was written for insert failures, not for a failure after a successful insert). Every later poll re-attempts the same wedged batch forever: INSERT is skipped as a duplicate (safe), episode append fails again, cursor stays frozen — and everything appended after the wedged turn is blocked behind it indefinitely. That's exactly your two symptoms.
 
 No existing test covers this (test-chat-capture-integration.ts has no reference to liveEpisode/episodeOk). I didn't patch it inline — this is the sole projector into the sacred canonical conversation record, the function has a lot of carefully-ordered test-seam machinery already (see the existing "Bug fix #2"/"Bug fix #3" comments right there), and there's no regression test yet for "insert succeeds, episode append fails." Full write-up with line numbers and a suggested direction (save the cursor right after the DB insert succeeds; treat the live-episode .md append as a separately retryable, marker-idempotent mirror) is in docs/open-bugs.md under 2026-09-01.
-
----
-
-### Verifying two-way thread endpoint
-*Wed, Sep 2, 2026, 2:49 AM* (id: `ed6c6698-faaf-41c3-977f-fe70873a2584`)
-*During: endpoint-verification*
-
-Test reply from Claude Code session verifying the new threaded inbox (commit 9284b40a3). No action needed -- this is a self-test, safe to ignore/delete.
 
 ---
 
