@@ -1,5 +1,21 @@
 # Batch Documentation Updates
 
+## Session September 2, 2026 — Language Hub scene mastery crash
+
+**Root cause:** `SceneMasterySection` parsed error JSON from
+`/api/mastery/summary` without checking `response.ok`. An unauthorized or
+failed request therefore became truthy `data` and crashed at
+`Object.entries(data.byScene)`.
+
+**Fix:** The query now throws on non-2xx responses, while the optional section
+also fails closed for query errors or a missing/malformed `byScene` map.
+
+**Verification:** The focused 2-case regression passed, TypeScript passed,
+`git diff --check` passed, the application workflow restarted cleanly, and a
+fresh preview showed no runtime exception.
+
+---
+
 ## Session September 2, 2026 — Audit catalogue expansion
 
 ### Established audits now share the same discovery path

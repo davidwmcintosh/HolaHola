@@ -370,12 +370,17 @@ interface MasterySummary {
 function SceneMasterySection({ language }: { language: string }) {
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useQuery<MasterySummary>({
+  const { data, isLoading, isError } = useQuery<MasterySummary>({
     queryKey: ['/api/mastery/summary', language],
-    queryFn: () =>
-      fetch(`/api/mastery/summary?language=${encodeURIComponent(language)}`, {
+    queryFn: async () => {
+      const response = await fetch(`/api/mastery/summary?language=${encodeURIComponent(language)}`, {
         credentials: 'include',
-      }).then(r => r.json()),
+      });
+      if (!response.ok) {
+        throw new Error(`Scene mastery request failed (${response.status})`);
+      }
+      return response.json() as Promise<MasterySummary>;
+    },
     enabled: !!language,
   });
 
@@ -399,7 +404,15 @@ function SceneMasterySection({ language }: { language: string }) {
     );
   }
 
-  if (!data || data.totalWords === 0) return null;
+  if (
+    isError ||
+    !data ||
+    data.totalWords === 0 ||
+    !data.byScene ||
+    typeof data.byScene !== 'object'
+  ) {
+    return null;
+  }
 
   const scenes = Object.entries(data.byScene);
 

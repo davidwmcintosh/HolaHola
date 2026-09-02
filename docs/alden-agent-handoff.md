@@ -1,3 +1,18 @@
+# Language Hub scene mastery crash fix — September 2, 2026
+
+- The optional `SceneMasterySection` previously treated any JSON response as a
+  successful `MasterySummary`. During an auth/API failure, `{ message:
+  "Unauthorized" }` reached `Object.entries(data.byScene)` and crashed the
+  entire Language Hub.
+- The client query now rejects non-2xx responses and the render boundary
+  returns no optional mastery card for query errors, missing data, or a missing
+  or malformed `byScene` map.
+- Focused regression coverage passed 2/2, TypeScript passed, the workflow
+  restarted cleanly, and a fresh preview reported no `SceneMasterySection`
+  exception.
+
+---
+
 # Audit catalogue expansion — September 2, 2026
 
 - The shared operations catalogue now discovers the established ACTFL,
