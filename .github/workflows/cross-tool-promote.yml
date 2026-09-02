@@ -12,6 +12,21 @@ name: Cross-Tool Promote
 # ephemeral-Neon-branch gate, then fast-forwards main using the same deploy
 # key scripts/source-bridge.sh already trusts, over SSH.
 # See docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md.
+#
+# A branch-clone gate pass IS the trust boundary here, the same way a green
+# CI run is what lets this workflow push code with no human re-reviewing
+# each commit — so a pending migration that survives the gate (applied to a
+# real clone of production, full test suite run against it) is applied to
+# the real shared database automatically, right after the gate and before
+# the code that may depend on it lands. No separate manual `drizzle-kit
+# migrate` step, and no dedicated secret for it either — it reuses
+# NEON_API_KEY/NEON_PROJECT_ID (already present below) to fetch production's
+# own direct connection string on demand via scripts/neon-branch.ts, the
+# same way the gate step already does for its disposable clone. One real
+# asymmetry worth naming honestly: unlike a code push, a bad migration
+# against the single shared database is not always cleanly reversible (e.g.
+# a dropped column) — accepted because the gate tests against real
+# production-cloned data, not a fixture, not because the risk is zero.
 
 on:
   workflow_dispatch:
@@ -78,6 +93,17 @@ jobs:
 
       - name: Validate migration + full test suite on an isolated Neon branch
         run: npm run db:branch -- gate
+
+      - name: Apply migration to production (gate-approved)
+        run: |
+          # Direct (unpooled) connection string, required for drizzle-kit —
+          # never the pooled NEON_SHARED_DATABASE_URL secret above. Fetched
+          # fresh each run via the Management API (NEON_API_KEY /
+          # NEON_PROJECT_ID), not stored as its own secret, the same
+          # resolve-don't-assume approach neon-branch.ts already uses
+          # everywhere else.
+          PROD_DIRECT_URL="$(npx tsx scripts/neon-branch.ts connection-string production)"
+          NEON_SHARED_DATABASE_URL="$PROD_DIRECT_URL" npx drizzle-kit migrate
 
       - name: Fast-forward main and push
         env:
