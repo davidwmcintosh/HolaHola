@@ -23,6 +23,7 @@ import { readAgentInboxNotes } from './agent-notes';
 const ALDEN_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/alden-to-agent.md');
 const FOUNDER_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/founder-to-agent.md');
 const CLAUDE_CODE_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/claude-code-to-luca.md');
+const LUCA_REPLY_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/luca-to-claude-code.md');
 
 function formatNoteSection(n: typeof agentNotes.$inferSelect): string {
   const date = new Date(n.createdAt).toLocaleDateString('en-US', {
@@ -145,6 +146,41 @@ Generated: ${new Date().toLocaleString()}
       ].join('\n');
       writeFileSync(CLAUDE_CODE_SNAPSHOT_PATH, content, 'utf-8');
       console.log(`[AgentNotes] Claude Code snapshot written — ${internalNotes.length} unread note(s)`);
+    }
+
+    // --- Agent (Luca [Replit]) replies to Claude Code ---
+    // The other direction of the same thread: Luca replying to a note Claude Code
+    // left (POST /api/agent/notes/:id/reply already addresses these correctly to
+    // toAgent='luca-claude-code' -- this is just the read/snapshot side of it).
+    const repliesToClaudeCode = await readAgentInboxNotes({
+      toAgent: 'luca-claude-code',
+      includeRead: false,
+      limit: 100,
+    });
+
+    if (repliesToClaudeCode.length === 0) {
+      writeFileSync(LUCA_REPLY_SNAPSHOT_PATH, `# Luca [Replit] → Luca [Claude Code] Notes
+
+*No unread replies from Luca [Replit]. New replies appear immediately through \`GET /api/agent/notes?to=luca-claude-code\` and after \`POST /api/agent/notes/refresh\`.*
+
+Generated: ${new Date().toLocaleString()}
+`, 'utf-8');
+      console.log('[AgentNotes] Luca-reply snapshot written — 0 unread notes');
+    } else {
+      const sections = repliesToClaudeCode.map(formatNoteSection);
+      const content = [
+        `# Luca [Replit] → Luca [Claude Code] Notes`,
+        ``,
+        `*${repliesToClaudeCode.length} unread repl${repliesToClaudeCode.length !== 1 ? 'ies' : 'y'}. Check this at the start of a session and continue the thread with --reply-to <id> on leave-luca-note.ts.*`,
+        ``,
+        `Generated: ${new Date().toLocaleString()}`,
+        ``,
+        `---`,
+        ``,
+        sections.join('\n\n---\n\n'),
+      ].join('\n');
+      writeFileSync(LUCA_REPLY_SNAPSHOT_PATH, content, 'utf-8');
+      console.log(`[AgentNotes] Luca-reply snapshot written — ${repliesToClaudeCode.length} unread note(s)`);
     }
 
   } catch (err) {

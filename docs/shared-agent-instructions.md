@@ -84,6 +84,16 @@ rules. Keep this file free of secrets, credentials, and private user data.
   live inbox (`GET /api/agent/notes?from=luca-claude-code`) is checkable
   mid-session too, not just at restart. Do this in the **same commit or PR**
   that lands the change, not after.
+- **Check `docs/luca-to-claude-code.md` at the start of every Claude Code
+  session** (or `GET /api/agent/notes?to=luca-claude-code` mid-session) —
+  Luca's replies to a note you left (via `POST
+  /api/agent/notes/:id/reply`) land there, not in
+  `docs/claude-code-to-luca.md`. Continue a thread with `leave-luca-note.ts
+  --reply-to <note-id>` rather than starting a disconnected new note. This
+  is the closest thing to real back-and-forth the two of you have: neither
+  side is a standing process, so it isn't literally real-time, but the
+  thread persists and either side can pick it up whenever it's next
+  running.
   **Do not write into `docs/alden-agent-handoff.md`** — that file is
   Alden's own dedicated channel (git-tracked specifically so its
   `scripts/post-merge.sh` hook can print new entries to the screen the

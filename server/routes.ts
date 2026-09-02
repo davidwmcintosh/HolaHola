@@ -32797,9 +32797,12 @@ ${memoryContext}
   // missing write-side piece; existing notes in that inbox were inserted by
   // hand. Use this instead of docs/alden-agent-handoff.md for cross-cutting
   // Claude Code → Luca handoffs (see docs/shared-agent-instructions.md).
+  // Optional replied_to_id continues an existing thread (e.g. replying to a
+  // note Luca sent back via POST /api/agent/notes/:id/reply -- read that side
+  // via GET /api/agent/notes?to=luca-claude-code or docs/luca-to-claude-code.md).
   app.post("/api/agent/notes/from-claude-code", requireAgentToken, async (req: any, res: Response) => {
     try {
-      const { subject, body, session_label, source_message_key } = req.body ?? {};
+      const { subject, body, session_label, source_message_key, replied_to_id } = req.body ?? {};
       if (!subject?.trim() || !body?.trim()) {
         return res.status(400).json({ error: 'subject and body are required' });
       }
@@ -32811,6 +32814,7 @@ ${memoryContext}
         subject: subject.trim(),
         body: body.trim(),
         sessionLabel: session_label ?? null,
+        repliedToId: replied_to_id ?? null,
         sourceMessageKey: source_message_key ?? null,
       });
       console.log(`[AgentNotes] Claude Code left note for Luca: "${subject}"`);
@@ -32843,31 +32847,42 @@ ${memoryContext}
     }
   });
 
-  // GET /api/agent/notes — Agent reads the live internal inbox.
+  // GET /api/agent/notes — reads a live internal inbox. Defaults to the Agent's
+  // (Luca [Replit]'s) inbox; pass ?to=luca-claude-code to read a Claude Code
+  // session's inbox (replies from the Agent) instead.
   app.get("/api/agent/notes", requireAgentToken, async (req: any, res: Response) => {
     try {
       const includeRead = req.query.include_read === 'true';
       const fromFilter = req.query.from as string | undefined;
+      const toFilter = (req.query.to as string | undefined) ?? 'agent';
       const requestedLimit = Number.parseInt(String(req.query.limit ?? '50'), 10);
-      const { AGENT_INBOX_SENDERS, getAgentInboxSenders, readAgentInboxNotes } =
-        await import('./services/agent-notes');
+      const {
+        AGENT_INBOX_SENDERS, getAgentInboxSenders,
+        CLAUDE_CODE_INBOX_SENDERS, getClaudeCodeInboxSenders,
+        readAgentInboxNotes,
+      } = await import('./services/agent-notes');
 
-      if (fromFilter && !AGENT_INBOX_SENDERS.includes(fromFilter as any)) {
+      if (toFilter !== 'agent' && toFilter !== 'luca-claude-code') {
+        return res.status(400).json({ error: `to must be one of: agent, luca-claude-code` });
+      }
+      const validSenders = toFilter === 'luca-claude-code' ? CLAUDE_CODE_INBOX_SENDERS : AGENT_INBOX_SENDERS;
+      if (fromFilter && !(validSenders as readonly string[]).includes(fromFilter)) {
         return res.status(400).json({
-          error: `from must be one of: ${AGENT_INBOX_SENDERS.join(', ')}`,
+          error: `from must be one of: ${validSenders.join(', ')}`,
         });
       }
 
       const notes = await readAgentInboxNotes({
         includeRead,
         fromAgent: fromFilter,
+        toAgent: toFilter,
         limit: Number.isFinite(requestedLimit) ? requestedLimit : 50,
       });
       const generatedAt = new Date().toISOString();
       res.json({
         generatedAt,
         count: notes.length,
-        senders: getAgentInboxSenders(fromFilter),
+        senders: toFilter === 'luca-claude-code' ? getClaudeCodeInboxSenders(fromFilter) : getAgentInboxSenders(fromFilter),
         newestCreatedAt: notes[0]?.createdAt ?? null,
         notes,
       });

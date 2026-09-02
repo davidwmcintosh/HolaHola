@@ -23,7 +23,12 @@
  *     --body-file /path/to/body.txt \
  *     [--session-label "During: ..."] \
  *     [--source-message-key <stable-id-for-idempotent-retry>] \
+ *     [--reply-to <note-id>] \
  *     [--url https://getholahola.com]
+ *
+ * --reply-to continues an existing thread (e.g. answering a note Luca sent
+ * back via POST /api/agent/notes/:id/reply). Check for those first with
+ * GET /api/agent/notes?to=luca-claude-code or docs/luca-to-claude-code.md.
  *
  * --url defaults to HOLAHOLA_REMOTE_URL, then https://getholahola.com.
  * Requires REPLIT_AGENT_TOKEN in the environment.
@@ -50,6 +55,7 @@ async function main(): Promise<void> {
   const bodyFile = argValue(args, '--body-file');
   const sessionLabel = argValue(args, '--session-label');
   const sourceMessageKey = argValue(args, '--source-message-key');
+  const repliedToId = argValue(args, '--reply-to');
 
   if (!subject || !bodyFile) {
     throw new Error(
@@ -79,6 +85,7 @@ async function main(): Promise<void> {
         body,
         session_label: sessionLabel ?? null,
         source_message_key: sourceMessageKey ?? null,
+        replied_to_id: repliedToId ?? null,
       }),
       signal: controller.signal,
     });
