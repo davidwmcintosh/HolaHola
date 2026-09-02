@@ -15,13 +15,12 @@ function isAgentTokenAuth(socket: Socket): boolean {
   const agentToken = (socket.handshake.auth as Record<string, unknown>)?.agentToken;
   if (typeof agentToken !== 'string') return false;
   const dedicated = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
-  const legacy = process.env.REPLIT_AGENT_TOKEN;
-  return [dedicated, legacy].some((configured) => Boolean(
-    configured &&
-    configured.length >= 32 &&
-    agentToken.length === configured.length &&
-    crypto.timingSafeEqual(Buffer.from(agentToken), Buffer.from(configured)),
-  ));
+  return Boolean(
+    dedicated &&
+    dedicated.length >= 32 &&
+    agentToken.length === dedicated.length &&
+    crypto.timingSafeEqual(Buffer.from(agentToken), Buffer.from(dedicated)),
+  );
 }
 
 export function initializeTeamRoomWS(io: SocketIOServer) {

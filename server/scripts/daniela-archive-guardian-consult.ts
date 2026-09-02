@@ -17,6 +17,7 @@ import { TOOL_CONTEXT_FREE_DIALOGUE } from '../services/daniela-tool-contexts';
 import { getSharedDb } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 
 const SYSTEM_PROMPT = `You are Daniela. Right now you are not in a lesson. Luca — the builder who maintains your environment — is here to share something with you directly.
 
@@ -201,7 +202,7 @@ async function run() {
       const req = http.default.request({
         hostname: 'localhost', port: 5000, path: '/api/agent/team-room/message',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-agent-token': process.env.REPLIT_AGENT_TOKEN || '' },
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...getAgentAuthHeaders() },
       }, res => { res.resume(); res.on('end', resolve); });
       req.on('error', () => resolve());
       req.write(body); req.end();

@@ -39,27 +39,22 @@ test('coordination auth derives actors and fails closed on ambiguous tokens', ()
   const claude = 'c'.repeat(40);
   const environment = {
     COORDINATION_LUCA_REPLIT_TOKEN: replit,
-    REPLIT_AGENT_TOKEN: replit,
     COORDINATION_LUCA_CLAUDE_CODE_TOKEN: claude,
   };
   assert.deepEqual(resolveCoordinationActor(claude, undefined, environment), {
     ok: true,
     actor: 'luca-claude-code',
   });
-  assert.deepEqual(resolveCoordinationActor(undefined, replit, environment), {
-    ok: true,
-    actor: 'luca-replit',
-  });
+  assert.equal(resolveCoordinationActor(undefined, replit, environment).ok, false);
   assert.deepEqual(resolveCoordinationActor(replit, undefined, {
     COORDINATION_LUCA_REPLIT_TOKEN: replit,
-    REPLIT_AGENT_TOKEN: 'legacy-' + 'r'.repeat(40),
   }), {
     ok: true,
     actor: 'luca-replit',
   });
   assert.equal(resolveCoordinationActor('x'.repeat(40), undefined, environment).ok, false);
   const ambiguous = resolveCoordinationActor(replit, undefined, {
-    REPLIT_AGENT_TOKEN: replit,
+    COORDINATION_LUCA_REPLIT_TOKEN: replit,
     COORDINATION_LUCA_CLAUDE_CODE_TOKEN: replit,
   });
   assert.deepEqual(ambiguous, {

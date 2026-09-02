@@ -5,10 +5,10 @@
 export {};
 
 const baseUrl = process.env.SERVER_URL ?? 'http://localhost:5000';
-const token = process.env.REPLIT_AGENT_TOKEN;
+const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
 
 if (!token) {
-  throw new Error('[canonical-capture-health] REPLIT_AGENT_TOKEN is required for the authenticated readiness check.');
+  throw new Error('[canonical-capture-health] COORDINATION_LUCA_REPLIT_TOKEN is required for the authenticated readiness check.');
 }
 
 const endpoint = `${baseUrl}/api/internal/canonical-conversation-health`;
@@ -18,7 +18,7 @@ if (unauthenticated.status !== 401) {
 }
 
 const response = await fetch(endpoint, {
-  headers: { 'x-agent-token': token },
+  headers: { 'x-coordination-token': token },
 });
 const body = await response.json() as Record<string, any>;
 if (response.status !== 200 || body.ok !== true) {

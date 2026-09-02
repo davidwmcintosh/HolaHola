@@ -12,7 +12,7 @@
  *
  * Auth: reads agent session cookie from /tmp/sc.txt (run the auth step first):
  *   curl -si -X POST http://localhost:5000/api/internal/agent-session \
- *     -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+ *     -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" \
  *     -H "Content-Type: application/json" -d '{}' \
  *     | grep -i set-cookie | head -1 | sed 's/set-cookie: //i' | cut -d';' -f1 > /tmp/sc.txt
  */

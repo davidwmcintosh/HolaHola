@@ -28,8 +28,8 @@ export function resolveCoordinationActor(
   environment: CoordinationEnvironment = process.env,
 ): CoordinationAuthResolution {
   const configuredBindings: Array<[CoordinationActorId, string | undefined]> = [
-    ['luca-replit', environment.COORDINATION_LUCA_REPLIT_TOKEN ?? environment.REPLIT_AGENT_TOKEN],
-    ['luca-claude-code', environment.COORDINATION_LUCA_CLAUDE_CODE_TOKEN ?? environment.SOURCE_BRIDGE_API_TOKEN],
+    ['luca-replit', environment.COORDINATION_LUCA_REPLIT_TOKEN],
+    ['luca-claude-code', environment.COORDINATION_LUCA_CLAUDE_CODE_TOKEN],
     ['luca-holahola', environment.COORDINATION_LUCA_HOLAHOLA_TOKEN],
     ['alden', environment.COORDINATION_ALDEN_TOKEN],
     ['daniela', environment.COORDINATION_DANIELA_TOKEN],
@@ -64,19 +64,6 @@ export function resolveCoordinationActor(
     return { ok: false, status: 401, error: 'Invalid coordination token' };
   }
 
-  // x-agent-token remains exclusively a compatibility path for Replit Agent.
-  if (agentToken) {
-    const replitToken = environment.REPLIT_AGENT_TOKEN;
-    if (replitToken && replitToken.length >= 32) {
-      const provided = Buffer.from(agentToken);
-      const expected = Buffer.from(replitToken);
-      if (provided.length === expected.length && crypto.timingSafeEqual(provided, expected)) {
-        return { ok: true, actor: 'luca-replit' };
-      }
-    }
-    return { ok: false, status: 401, error: 'Invalid agent compatibility token' };
-  }
-
   if (validBindings.length === 0) {
     return { ok: false, status: 503, error: 'Coordination authentication is not configured' };
   }
@@ -95,7 +82,7 @@ export function requireCoordinationAuth(
 ): void {
   const resolution = resolveCoordinationActor(
     readHeader(req, 'x-coordination-token'),
-    readHeader(req, 'x-agent-token'),
+    undefined,
   );
 
   if (!resolution.ok) {
