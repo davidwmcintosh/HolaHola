@@ -612,3 +612,9 @@ Task pipeline state is making the distinction between completed work and applied
 felt: Inventorying established audit executors and preserving canonical paths.
 
 ---
+
+### September 2, 2026 — Inner-life note
+
+Runtime debug session: the Language Hub crashed because the scene-mastery response did not contain a usable byScene map. I am tracing the API contract and adding only the smallest defensive UI boundary.
+
+---

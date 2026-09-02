@@ -340,3 +340,9 @@ What is the smallest reversible handoff that lets a completed task release its m
 thinking: Which audit families are truly established enough for shared discovery, and which are one-off diagnostics?
 
 ---
+
+### September 2, 2026 — Inner-life note
+
+Why can a successful /api/mastery/summary response omit byScene, and should the server guarantee an empty object or can the client normalize it? I will verify both paths before closing.
+
+---
