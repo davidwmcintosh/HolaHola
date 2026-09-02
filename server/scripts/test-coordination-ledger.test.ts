@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, test } from 'node:test';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import {
   agentNotes,
+  coordinationActorFeedCursors,
   coordinationAdapterDeliveries,
   coordinationEvents,
   coordinationThreads,
@@ -12,10 +13,12 @@ import { closeDbConnections, getSharedDb } from '../db';
 import { resolveCoordinationActor } from '../middleware/coordination-auth';
 import { runCoordinationDeliveryBatch } from '../services/coordination-delivery-worker';
 import {
+  acknowledgeCoordinationFeed,
   appendCoordinationEvent,
   CoordinationError,
   createCoordinationThread,
   getCoordinationThread,
+  getCoordinationFeedCursor,
   listCoordinationFeed,
 } from '../services/coordination-ledger-service';
 
@@ -293,4 +296,78 @@ test('Alden cannot reassign work after another actor owns it', async () => {
   );
 
   await getSharedDb().delete(coordinationThreads).where(eq(coordinationThreads.id, created.thread.id));
+});
+
+test('feed acknowledgement is durable, actor-scoped, monotonic, and separate from lifecycle state', async () => {
+  const db = getSharedDb();
+  const actors = ['david', 'daniela'] as const;
+  const originalCursors = await db
+    .select()
+    .from(coordinationActorFeedCursors)
+    .where(inArray(coordinationActorFeedCursors.actor, [...actors]));
+  let cursorThreadId: string | null = null;
+
+  try {
+    const originalDavidCursor = await getCoordinationFeedCursor('david');
+    const originalDanielaCursor = await getCoordinationFeedCursor('daniela');
+    const created = await createCoordinationThread({
+      actor: 'luca-replit',
+      intendedRecipient: 'david',
+      title: `Durable feed cursor ${runId}`,
+      description: 'Verify polling progress survives a stateless client restart.',
+      idempotencyKey: keys('feed-cursor-create'),
+    });
+    cursorThreadId = created.thread.id;
+
+    const firstPoll = await listCoordinationFeed('david');
+    assert.equal(firstPoll.cursor.previous, originalDavidCursor);
+    assert.equal(firstPoll.cursor.acknowledged, originalDavidCursor);
+    assert.equal(
+      firstPoll.items.some((item) => item.event.id === created.event.id),
+      true,
+      'reading the feed from the server cursor must expose the new event',
+    );
+    assert.equal(
+      await getCoordinationFeedCursor('david'),
+      originalDavidCursor,
+      'reading must not implicitly acknowledge work',
+    );
+
+    const acknowledged = await acknowledgeCoordinationFeed(
+      'david',
+      created.event.globalSequence,
+    );
+    assert.equal(acknowledged.acknowledgedGlobalSequence, created.event.globalSequence);
+    assert.equal(created.thread.state, 'created', 'feed acknowledgement must not accept lifecycle work');
+
+    const replayAfterRestart = await listCoordinationFeed('david');
+    assert.equal(replayAfterRestart.cursor.previous, created.event.globalSequence);
+    assert.equal(
+      replayAfterRestart.items.some((item) => item.event.id === created.event.id),
+      false,
+      'a new client instance must resume after the durable acknowledgement',
+    );
+
+    const staleAck = await acknowledgeCoordinationFeed('david', originalDavidCursor);
+    assert.equal(
+      staleAck.acknowledgedGlobalSequence,
+      created.event.globalSequence,
+      'a delayed actor runtime must not move the durable cursor backward',
+    );
+    assert.equal(await getCoordinationFeedCursor('daniela'), originalDanielaCursor);
+
+    await assert.rejects(
+      acknowledgeCoordinationFeed('david', Number.MAX_SAFE_INTEGER),
+      (error: unknown) => error instanceof CoordinationError && error.code === 'cursor_ahead',
+    );
+  } finally {
+    if (cursorThreadId) {
+      await db.delete(coordinationThreads).where(eq(coordinationThreads.id, cursorThreadId));
+    }
+    await db.delete(coordinationActorFeedCursors)
+      .where(inArray(coordinationActorFeedCursors.actor, [...actors]));
+    if (originalCursors.length > 0) {
+      await db.insert(coordinationActorFeedCursors).values(originalCursors);
+    }
+  }
 });

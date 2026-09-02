@@ -4931,3 +4931,13 @@ Migration `0024_flat_dreaming_celestial.sql` passed the disposable Neon branch
 gate before promotion to the shared database. The focused coordination test,
 TypeScript compile gate, full branch validation matrix, and system-health
 verifier passed.
+
+### Durable coordination feed acknowledgement
+
+Coordination polling progress now has a server-side cursor for each authenticated
+actor. A cursorless feed read resumes from that durable acknowledgement, while
+explicit cursors still support intentional replay. Reads do not advance
+progress; actors acknowledge a fully processed page through the dedicated feed
+cursor endpoint. The cursor only moves forward, cannot be advanced beyond the
+current global feed, and remains separate from thread acceptance or outcome
+acknowledgement.

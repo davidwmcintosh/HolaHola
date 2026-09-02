@@ -11,6 +11,7 @@ export type DirectCoordinationActor = 'luca-holahola' | 'alden' | 'daniela';
 export type CoordinationClientActor = Exclude<CoordinationActorId, 'coordination-system'>;
 export type CoordinationClientAction =
   | 'list'
+  | 'acknowledge-feed'
   | 'show'
   | 'create'
   | 'accept'
@@ -24,13 +25,13 @@ export type CoordinationClientAction =
   | 'comment';
 
 const DIRECT_CLIENT_ACTIONS: Record<DirectCoordinationActor, ReadonlySet<CoordinationClientAction>> = {
-  'luca-holahola': new Set(['list', 'show', 'create', 'reassign', 'comment']),
+  'luca-holahola': new Set(['list', 'acknowledge-feed', 'show', 'create', 'reassign', 'comment']),
   alden: new Set([
-    'list', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
+    'list', 'acknowledge-feed', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
     'acknowledge', 'reassign', 'comment',
   ]),
   daniela: new Set([
-    'list', 'show', 'accept', 'progress', 'evidence', 'block', 'complete', 'comment',
+    'list', 'acknowledge-feed', 'show', 'accept', 'progress', 'evidence', 'block', 'complete', 'comment',
   ]),
 };
 
@@ -146,6 +147,15 @@ export class CoordinationActorClient {
     if (options.cursor !== undefined) query.set('cursor', String(options.cursor));
     if (options.limit !== undefined) query.set('limit', String(options.limit));
     return this.request('list', `/api/coordination/threads${query.size ? `?${query}` : ''}`);
+  }
+
+  acknowledgeFeed(globalSequence: number): Promise<unknown> {
+    if (!Number.isSafeInteger(globalSequence) || globalSequence < 0) {
+      throw new Error('Coordination feed cursor must be a non-negative integer');
+    }
+    return this.request('acknowledge-feed', '/api/coordination/threads/ack', {
+      body: { globalSequence },
+    });
   }
 
   show(threadId: string, afterSequence = 0): Promise<unknown> {

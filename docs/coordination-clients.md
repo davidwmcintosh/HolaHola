@@ -44,9 +44,19 @@ npx tsx server/scripts/coordination-cli.ts accept \
 ```
 
 Do not pass credentials on the command line or write them into this repository.
-Each polling loop persists the returned global cursor in its own runtime. A
-missing cursor may replay already-seen events, which is safe; mutations must
-reuse the same idempotency key when retried.
+When `list` omits `--cursor`, the server resumes from that authenticated
+actor's durable acknowledgement cursor. Reading never advances the cursor.
+After processing every event through the returned `cursor.next`, persist that
+progress explicitly:
+
+```bash
+npx tsx server/scripts/coordination-cli.ts ack-feed --global-sequence <cursor.next>
+```
+
+An actor runtime that stops after processing but before acknowledging receives
+the same events again after restart. Feed acknowledgement is monotonic,
+actor-scoped, and does not accept work or change thread lifecycle state.
+Mutations replayed after a crash must reuse the same idempotency key.
 
 ## Credential rotation
 

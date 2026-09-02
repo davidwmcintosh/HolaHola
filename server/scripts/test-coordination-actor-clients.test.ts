@@ -71,6 +71,39 @@ test('actor clients send only the selected actor dedicated credential', async ()
   assert.equal(observed.every((request) => request.url.includes('cursor=4&limit=10')), true);
 });
 
+test('actor clients acknowledge feed progress through the non-lifecycle cursor endpoint', async () => {
+  const observed: Array<{ url: string; method: string | undefined; body: string | null }> = [];
+  const fetchImpl = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    observed.push({
+      url: String(input),
+      method: init?.method,
+      body: typeof init?.body === 'string' ? init.body : null,
+    });
+    return new Response(JSON.stringify({
+      actor: 'alden',
+      acknowledgedGlobalSequence: 42,
+    }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('alden', {
+    apiUrl: 'https://coordination.example',
+    environment: ENVIRONMENT,
+    fetchImpl,
+  });
+
+  await client.acknowledgeFeed(42);
+
+  assert.deepEqual(observed, [{
+    url: 'https://coordination.example/api/coordination/threads/ack',
+    method: 'POST',
+    body: JSON.stringify({ globalSequence: 42 }),
+  }]);
+  assert.equal(coordinationClientActions('alden').has('acknowledge-feed'), true);
+  assert.throws(
+    () => client.acknowledgeFeed(-1),
+    /must be a non-negative integer/,
+  );
+});
+
 test('direct clients and server enforce the same least-privilege lifecycle profiles', async () => {
   const noRequest = async (): Promise<Response> => {
     assert.fail('disallowed client action must fail before making a request');

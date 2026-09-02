@@ -76,6 +76,7 @@ async function checkTables() {
     "team_rooms",
     // canonical agent coordination
     "coordination_threads", "coordination_events", "coordination_adapter_deliveries",
+    "coordination_actor_feed_cursors",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];

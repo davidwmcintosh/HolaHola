@@ -7818,6 +7818,12 @@ export const coordinationAdapterDeliveries = pgTable("coordination_adapter_deliv
   index("idx_coordination_delivery_retry").on(table.status, table.nextAttemptAt),
 ]);
 
+export const coordinationActorFeedCursors = pgTable("coordination_actor_feed_cursors", {
+  actor: varchar("actor", { length: 80 }).primaryKey(),
+  acknowledgedGlobalSequence: bigint("acknowledged_global_sequence", { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
   id: true,
   state: true,
@@ -7834,6 +7840,7 @@ export const insertCoordinationEventSchema = createInsertSchema(coordinationEven
 export type CoordinationThread = typeof coordinationThreads.$inferSelect;
 export type CoordinationEvent = typeof coordinationEvents.$inferSelect;
 export type CoordinationAdapterDelivery = typeof coordinationAdapterDeliveries.$inferSelect;
+export type CoordinationActorFeedCursor = typeof coordinationActorFeedCursors.$inferSelect;
 
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.

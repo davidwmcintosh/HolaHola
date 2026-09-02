@@ -8139,3 +8139,13 @@ The migration passed `npm run db:branch -- gate` and was then applied with
 Drizzle to the shared Neon database. Focused lifecycle/auth/adapter tests,
 `npm run check`, and system health all pass. No Daniela prompt, tool,
 neural-memory, or behavioral surface was changed.
+
+### Durable actor polling cursor
+
+The coordination ledger now persists one feed acknowledgement cursor per actor.
+Polling without an explicit cursor resumes from the authenticated actor's
+server-side high-water mark. A feed read never advances that mark; the actor
+acknowledges only after processing a page. Updates are monotonic and reject
+future global sequences, so a stale runtime cannot rewind progress and a crash
+before acknowledgement safely replays the page. This acknowledgement is not a
+coordination lifecycle event and does not accept or complete work.

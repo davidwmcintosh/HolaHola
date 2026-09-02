@@ -5,6 +5,7 @@ import {
 } from '../middleware/coordination-auth';
 import {
   appendCoordinationEvent,
+  acknowledgeCoordinationFeed,
   CoordinationError,
   createCoordinationThread,
   getCoordinationThread,
@@ -193,9 +194,26 @@ export function registerCoordinationRoutes(app: Application): void {
             'actor_mismatch',
           );
         }
-        const since = positiveInteger(req.query.since ?? req.query.cursor, 'cursor', 0);
+        const sinceValue = req.query.since ?? req.query.cursor;
+        const since = sinceValue === undefined
+          ? undefined
+          : positiveInteger(sinceValue, 'cursor');
         const limit = positiveInteger(req.query.limit, 'limit', 50);
         res.json({ actor, ...(await listCoordinationFeed(actor, since, limit)) });
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/coordination/threads/ack',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const rawCursor = req.body?.globalSequence ?? req.body?.cursor;
+        const globalSequence = positiveInteger(rawCursor, 'globalSequence');
+        res.json(await acknowledgeCoordinationFeed(actorFrom(req), globalSequence));
       } catch (error) {
         sendError(res, error);
       }

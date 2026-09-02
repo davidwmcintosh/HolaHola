@@ -11,7 +11,7 @@ import type {
 type Options = Record<string, string | boolean>;
 
 const commands = new Set([
-  'create', 'list', 'show', 'accept', 'progress', 'evidence', 'block',
+  'create', 'list', 'ack-feed', 'show', 'accept', 'progress', 'evidence', 'block',
   'complete', 'acknowledge', 'reopen', 'reassign', 'comment',
 ]);
 const eventCommands = new Set([
@@ -30,11 +30,11 @@ function fail(message: string, exitCode = 64): never {
 
 function usage(): never {
   return fail(
-    'Commands: create, list, show, accept, progress, evidence, block, complete, acknowledge, reopen, reassign, comment. ' +
+    'Commands: create, list, ack-feed, show, accept, progress, evidence, block, complete, acknowledge, reopen, reassign, comment. ' +
     'Configuration: COORDINATION_API_URL, COORDINATION_ACTOR, and that actor’s dedicated COORDINATION_*_TOKEN. ' +
     'There is no shared coordination token. --url overrides the API URL. ' +
     'Mutations require --idempotency-key; event mutations require --id and --expected-sequence. ' +
-    'Use --cursor/--limit for list, --after-sequence for show, and --evidence/--data with event mutations.',
+    'Use --cursor/--limit for list, --global-sequence for ack-feed, --after-sequence for show, and --evidence/--data with event mutations.',
   );
 }
 
@@ -56,6 +56,7 @@ function parseArgs(args: string[]): { command: string; options: Options } {
 
 const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
   list: new Set(['url', 'cursor', 'limit']),
+  'ack-feed': new Set(['url', 'global-sequence']),
   show: new Set(['url', 'id', 'after-sequence']),
   create: new Set([
     'url', 'title', 'description', 'recipient', 'priority', 'source-reference',
@@ -166,6 +167,11 @@ async function main(): Promise<void> {
       ...(cursor !== undefined ? { cursor } : {}),
       ...(limit !== undefined ? { limit } : {}),
     });
+  } else if (command === 'ack-feed') {
+    result = await client.acknowledgeFeed(
+      optionalNonNegativeInteger(options, 'global-sequence')
+        ?? (() => fail('--global-sequence is required'))(),
+    );
   } else if (command === 'create') {
     result = await client.create({
       title: required(options, 'title'),
