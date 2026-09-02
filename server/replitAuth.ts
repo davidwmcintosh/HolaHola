@@ -137,8 +137,16 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   const loginHandlers = authLimiter ? [authLimiter] : [];
   loginHandlers.push((req: any, res: any, next: any) => {
     ensureStrategy(req.hostname);
+    // No `prompt` override — this is inherited Replit scaffold boilerplate
+    // that forced BOTH re-authentication and re-consent on every single
+    // login, even for a user with an active Replit session who already
+    // granted consent. Omitting it lets the OIDC provider's own default
+    // apply: skip screens the user doesn't need to see again, still show
+    // them when actually required (first-ever login, expired/revoked
+    // session or consent). Only ~1 real user account currently depends on
+    // this login path (founder's own), so verify by actually logging in
+    // again rather than assuming this doesn't change refresh-token behavior.
     passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
