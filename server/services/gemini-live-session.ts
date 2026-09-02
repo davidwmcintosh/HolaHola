@@ -6065,7 +6065,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
  * Gemini Live outputs PCM16; the client expects pcm_f32le.
  * Each int16 sample → float32 / 32768.0
  */
-function pcm16ToF32le(pcm16Buffer: Buffer): Buffer {
+export function pcm16ToF32le(pcm16Buffer: Buffer): Buffer {
   const sampleCount = Math.floor(pcm16Buffer.length / 2);
   const f32Buffer = Buffer.allocUnsafe(sampleCount * 4);
   for (let i = 0; i < sampleCount; i++) {
