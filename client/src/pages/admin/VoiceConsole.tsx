@@ -94,6 +94,14 @@ interface GeminiLiveVoice {
   description: string;
 }
 
+interface OpenAIRealtimeVoice {
+  id: string;
+  name: string;
+  gender: 'male' | 'female';
+  provider: string;
+  description: string;
+}
+
 interface GoogleVoiceOption {
   id: string;
   name: string;
@@ -382,8 +390,29 @@ export function VoiceConsoleContent() {
       isPublic: true,
     }));
 
-  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : isGlProvider(formData.provider) ? geminiLiveVoicesAsCv : cartesiaVoices;
-  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isGlProvider(formData.provider) ? isLoadingGeminiLiveVoices : isLoadingCartesiaVoices;
+  const { data: openaiRealtimeVoices, isLoading: isLoadingOpenaiRealtimeVoices } = useQuery<OpenAIRealtimeVoice[]>({
+    queryKey: ['/api/admin/openai-realtime-voices'],
+    enabled: globalProvider === 'openai-realtime' || formData.provider === 'openai-realtime',
+  });
+
+  const openaiRealtimeVoicesAsCv: CartesiaVoice[] = (openaiRealtimeVoices || [])
+    .filter(v => !formData.gender || v.gender === formData.gender)
+    .map(v => ({
+      id: v.id,
+      name: `${v.name} — ${v.description}`,
+      description: 'OpenAI GPT Realtime (audio-to-audio)',
+      language: '',
+      gender: v.gender,
+      isPublic: true,
+    }));
+
+  const isOpenAIRealtimeProvider = (p: string) => p === 'openai-realtime';
+  // Providers whose audition uses a live mic recording against a real session
+  // (no text-to-speech one-shot mode) rather than the standard type-text-and-play flow.
+  const usesLiveMicAudition = (p: string) => isGlProvider(p) || isOpenAIRealtimeProvider(p);
+
+  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : isGlProvider(formData.provider) ? geminiLiveVoicesAsCv : isOpenAIRealtimeProvider(formData.provider) ? openaiRealtimeVoicesAsCv : cartesiaVoices;
+  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isGlProvider(formData.provider) ? isLoadingGeminiLiveVoices : isOpenAIRealtimeProvider(formData.provider) ? isLoadingOpenaiRealtimeVoices : isLoadingCartesiaVoices;
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -421,7 +450,7 @@ export function VoiceConsoleContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
-      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Cartesia';
+      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : globalProvider === 'openai-realtime' ? 'OpenAI GPT Realtime' : 'Cartesia';
       toast({ title: "Success", description: `All tutor voices switched to ${providerLabel}` });
     },
     onError: (error: any) => {
@@ -709,6 +738,75 @@ export function VoiceConsoleContent() {
     }
   };
 
+  // OpenAI GPT Realtime audition: record 3s of mic audio → real Realtime session → play WAV.
+  // Reuses the same glPhase/glCountdown state as the GL mic audition above — the two are
+  // mutually exclusive within the dialog (only one provider is selected at a time).
+  const handleOpenAIAudition = async () => {
+    if (glPhase !== 'idle') return;
+    const voiceId = formData.voiceId || 'alloy';
+    const LANG_TO_BCP47: Record<string, string> = {
+      english: 'en-US', spanish: 'es-ES', french: 'fr-FR',
+      german: 'de-DE', italian: 'it-IT', portuguese: 'pt-BR',
+      japanese: 'ja-JP', 'mandarin chinese': 'zh-CN', chinese: 'zh-CN',
+      korean: 'ko-KR', hebrew: 'he-IL',
+    };
+    const langCode = LANG_TO_BCP47[formData.language?.toLowerCase() || ''] || 'en-US';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+      setGlPhase('recording');
+      setGlCountdown(3);
+      glCountdownRef.current = setInterval(() => setGlCountdown(c => Math.max(0, c - 1)), 1000);
+
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const buffers: Float32Array[] = [];
+      processor.onaudioprocess = (e) => buffers.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      processor.disconnect(); source.disconnect();
+      stream.getTracks().forEach(t => t.stop());
+      await audioCtx.close();
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+
+      const totalLen = buffers.reduce((n, b) => n + b.length, 0);
+      const pcm16 = new Int16Array(totalLen);
+      let offset = 0;
+      for (const buf of buffers)
+        for (let i = 0; i < buf.length; i++) {
+          const s = Math.max(-1, Math.min(1, buf[i]));
+          pcm16[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+      const bytes = new Uint8Array(pcm16.buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192)
+        binary += String.fromCharCode(...(bytes.subarray(i, i + 8192) as any));
+      const base64Audio = btoa(binary);
+
+      setGlPhase('waiting');
+      const res = await fetch('/api/admin/openai-audition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'OpenAI audition failed'); }
+
+      setGlPhase('playing');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => { URL.revokeObjectURL(url); setGlPhase('idle'); };
+      await audio.play();
+    } catch (error: any) {
+      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
+      setGlPhase('idle');
+      toast({ title: 'OpenAI Audition failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleEdit = (voice: TutorVoice) => {
     setEditingVoice(voice);
     // Load saved emotion settings into form
@@ -884,7 +982,7 @@ export function VoiceConsoleContent() {
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1 (Flash Preview)' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 (Native Audio)' : 'Cartesia Sonic-3'}.
+                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1 (Flash Preview)' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 (Native Audio)' : globalProvider === 'openai-realtime' ? 'OpenAI GPT Realtime (audio-to-audio, test build)' : 'Cartesia Sonic-3'}.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -923,7 +1021,7 @@ export function VoiceConsoleContent() {
                         {isLoadingActiveVoices ? (
                           <div className="flex items-center gap-2 p-3 border rounded-md">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'google' ? 'Google' : formData.provider === 'elevenlabs' ? 'ElevenLabs' : formData.provider === 'gemini' ? 'Gemini' : 'Cartesia'} voices...</span>
+                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'google' ? 'Google' : formData.provider === 'elevenlabs' ? 'ElevenLabs' : formData.provider === 'gemini' ? 'Gemini' : isOpenAIRealtimeProvider(formData.provider) ? 'OpenAI' : isGlProvider(formData.provider) ? 'Gemini Live' : 'Cartesia'} voices...</span>
                           </div>
                         ) : activeVoices.length === 0 ? (
                           <div className="p-3 border rounded-md border-dashed">
@@ -1243,16 +1341,18 @@ export function VoiceConsoleContent() {
                     {formData.voiceId && (
                       <div className="space-y-2">
                         <Label>Audition</Label>
-                        {isGlProvider(formData.provider) ? (
-                          /* GL Live: mic-based audition using real GL session (3.1 or 3.5) */
+                        {usesLiveMicAudition(formData.provider) ? (
+                          /* Live audio-to-audio providers (GL 3.1/3.5, OpenAI Realtime):
+                             mic-based audition against a real live session — there's no
+                             text-to-speech one-shot mode for these engines. */
                           <>
                             <Button
                               type="button"
                               variant="outline"
                               className="w-full"
-                              onClick={handleGlAudition}
+                              onClick={isOpenAIRealtimeProvider(formData.provider) ? handleOpenAIAudition : handleGlAudition}
                               disabled={glPhase !== 'idle'}
-                              data-testid="button-gl-audition"
+                              data-testid={isOpenAIRealtimeProvider(formData.provider) ? 'button-openai-audition' : 'button-gl-audition'}
                             >
                               {glPhase === 'recording' ? (
                                 <Mic className="h-4 w-4 mr-2 text-red-500 animate-pulse" />
@@ -1264,16 +1364,18 @@ export function VoiceConsoleContent() {
                               {glPhase === 'recording'
                                 ? `Recording… ${glCountdown}s`
                                 : glPhase === 'waiting'
-                                ? 'Waiting for GL response…'
+                                ? 'Waiting for response…'
                                 : glPhase === 'playing'
-                                ? 'Playing GL response…'
+                                ? 'Playing response…'
+                                : isOpenAIRealtimeProvider(formData.provider)
+                                ? 'Audition with OpenAI GPT Realtime'
                                 : formData.provider === 'gemini-live-35'
                                 ? 'Audition with GL 3.5 Native Audio'
                                 : 'GL 3.1 Audition (live mic)'
                               }
                             </Button>
                             <p className="text-xs text-muted-foreground">
-                              Records 3s of your voice and sends it to a real {formData.provider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Gemini Live 3.1'} session with the selected voice and accent
+                              Records 3s of your voice and sends it to a real {isOpenAIRealtimeProvider(formData.provider) ? 'OpenAI GPT Realtime' : formData.provider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : 'Gemini Live 3.1'} session with the selected voice{isOpenAIRealtimeProvider(formData.provider) ? '' : ' and accent'}
                             </p>
                           </>
                         ) : (
@@ -1382,6 +1484,7 @@ export function VoiceConsoleContent() {
                     <SelectItem value="gemini">Gemini (2.5 Flash TTS)</SelectItem>
                     <SelectItem value="gemini-live">Gemini Live 3.1 (Flash Preview)</SelectItem>
                     <SelectItem value="gemini-live-35">Gemini Live 3.5 (Native Audio)</SelectItem>
+                    <SelectItem value="openai-realtime">OpenAI GPT Realtime (test build)</SelectItem>
                   </SelectContent>
                 </Select>
                 {bulkProviderMutation.isPending && (
