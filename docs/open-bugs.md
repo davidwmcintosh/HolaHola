@@ -7,6 +7,29 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-09-01 — chat_capture drain cursor wedges permanently when live-episode append fails — OPEN**
+
+Reported by a Claude Code session live-testing `record-exchange.ts --remote` mode against production on Sep 1 (full report in `docs/claude-code-to-luca.md`, note id `e2538a72-ec1e-45d7-a287-c4fb88554a76`): a posted exchange's DB row landed correctly in `conversation_memories`, but `GET /api/internal/canonical-conversation-health`'s `pendingBytes` never dropped from the posted byte count, and a second, later exchange never drained at all after 60+ seconds of polling.
+
+**Root cause, confirmed by reading `checkChatCapture()`** (`server/services/agent-session-autosave.ts:2430-2686`, specifically the per-batch loop at 2515-2664): when live rolling-episode mode is active (`.local/.episode_live` sentinel present), the order of operations per batch is:
+1. INSERT into `conversation_memories` (2601-2619) — unconditional, happens first.
+2. `appendInnerLifeToEpisodeDb()` for the live episode (2624-2644) — if it returns `false`, line 2640-2642 **throws**.
+3. `saveChatCaptureCursor()` (2649-2653) — only reached if step 2 didn't throw.
+
+`appendInnerLifeToEpisodeDb()` (line 1832) returns `false` — without itself throwing — for several ordinary, recoverable conditions: the episode-ID DB lookup fails (1860-1864), no matching episode row is found yet (1867-1871), or the internal `withEpisodeFileLock` callback hits any DB error (1983-1986, caught and logged internally, `appended` just stays `false`). Any of these turns into a thrown error one level up in `checkChatCapture()`, which is caught by its outer try/catch (2676) — but by then the DB insert has already committed. `chatCaptureLastMtime` and the on-disk cursor are never advanced (comment at 2666-2668 explicitly documents this as intentional "retry on next poll" behavior, written for the case where the *insert* fails — it doesn't account for a failure *after* the insert but before the cursor save).
+
+Effect: the batch is permanently wedged. Every subsequent 20s poll re-parses from the same stale cursor, re-attempts the same batch, the INSERT is skipped as a duplicate (2617-2619 `existingCaptureRow` dedup — this part is safe), the episode append fails again for the same reason, throws again, cursor still never advances — and because `checkChatCapture()` processes turns strictly in cursor order, every turn appended *after* the wedged one is blocked behind it indefinitely, even though their bytes are sitting in `.chat_capture` and their DB rows would insert cleanly. This exactly matches both observed symptoms (frozen `pendingBytes` despite a real DB row; a second exchange that never drains).
+
+No existing test covers this interaction — `server/scripts/test-chat-capture-integration.ts` has no reference to `liveEpisode`/`episodeOk`/live-mode failure paths. Not flagged by the "Bug fix #2"/"Bug fix #3" comments already in this function (2434-2437, 2646-2648), which address mtime/cursor ordering for the *insert* step, not this later step.
+
+**Not fixed here** — deliberately left OPEN rather than patched inline: this is the sole projector for the sacred canonical conversation record (`replit.md` "Inviolability of the Narrative"), the function carries extensive test-seam machinery for exact ordering guarantees, and there's no existing test harness to verify a reordering doesn't regress one of the other documented ordering fixes. Needs Luca (or whoever touches this file) to add a regression test for "DB insert succeeds, live-episode append fails" before changing the order, per the bug-triage protocol (not small+safe enough to fix inline).
+
+**Suggested direction (not vetted):** don't let episode-append failure block cursor advancement for content already durably in `conversation_memories` — e.g. save the cursor (and settle receipts) immediately after the DB insert succeeds, and treat the live-episode `.md` append as a separately retryable, best-effort mirror (it's already marker-idempotent via `episodeContentHasEventMarker`, so a later retry mechanism could safely re-attempt just the episode-append step without touching the cursor).
+
+Location: `server/services/agent-session-autosave.ts:2624-2653` (ordering), `:1832-1989` (`appendInnerLifeToEpisodeDb` failure paths) — Severity: HIGH (canonical conversation capture can silently stall indefinitely; no operator-visible alert distinguishes this from normal drain latency).
+
+---
+
 **2026-07-30 — Memory tool chain spiral — Daniela retrieves without responding — WATCH / PARTIAL FIX**
 
 Observed in the Guardian A/B test (Part 3): Daniela called `recall` (UNIFIED_RECALL), then chained into `browse_conversations_by_date` (CONVERSATION_DATE_BROWSE) without producing a text response between them. She burned all 8 turns retrieving and never spoke, returning `[DANIELA_CALLER_ERROR: reached MAX_TURNS]`.
