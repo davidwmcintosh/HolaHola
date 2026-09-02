@@ -3,8 +3,12 @@ import { after, before, test } from 'node:test';
 import express from 'express';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { eq, inArray } from 'drizzle-orm';
-import { coordinationEvents, coordinationThreads } from '@shared/schema';
+import { desc, eq, inArray } from 'drizzle-orm';
+import {
+  coordinationActorFeedCursors,
+  coordinationEvents,
+  coordinationThreads,
+} from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
 import { registerCoordinationRoutes } from '../routes/coordination-routes';
 
@@ -78,6 +82,22 @@ async function post(
   };
 }
 
+async function get(
+  path: string,
+  actor: keyof typeof TOKENS,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: {
+      accept: 'application/json',
+      'x-coordination-token': TOKENS[actor],
+    },
+  });
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
 before(async () => {
   for (const [name, value] of Object.entries(TOKEN_ENVIRONMENT)) {
     previousEnvironment.set(name, process.env[name]);
@@ -111,6 +131,7 @@ before(async () => {
   });
   assert.equal(danielaAccepted.status, 201);
 });
+
 
 after(async () => {
   await stopServer();
@@ -205,4 +226,112 @@ test('dedicated actor credentials cannot bypass route-level mutation permissions
     4,
     'the test thread should still contain only its four valid setup events',
   );
+});
+
+test('authenticated feed acknowledgements stay actor-scoped and monotonic', async () => {
+  const db = getSharedDb();
+  const actors = ['luca-holahola', 'alden'] as const;
+  const originalCursors = await db
+    .select()
+    .from(coordinationActorFeedCursors)
+    .where(inArray(coordinationActorFeedCursors.actor, [...actors]));
+
+  try {
+    const [latestEvent] = await db
+      .select({ globalSequence: coordinationEvents.globalSequence })
+      .from(coordinationEvents)
+      .orderBy(desc(coordinationEvents.globalSequence))
+      .limit(1);
+    assert.ok(latestEvent, 'the authenticated route setup must create a feed event');
+    assert.ok(latestEvent.globalSequence > 0);
+
+    const firstActorCursor = latestEvent.globalSequence;
+    const secondActorCursor = firstActorCursor - 1;
+
+    const firstAcknowledgement = await post(
+      '/api/coordination/threads/ack',
+      'luca-holahola',
+      `${testPrefix}-hola-feed-high`,
+      {
+        globalSequence: firstActorCursor,
+        actor: 'alden',
+      },
+    );
+    assert.equal(firstAcknowledgement.status, 200);
+    assert.equal(firstAcknowledgement.body.actor, 'luca-holahola');
+    assert.equal(firstAcknowledgement.body.acknowledgedGlobalSequence, firstActorCursor);
+
+    const secondAcknowledgement = await post(
+      '/api/coordination/threads/ack',
+      'alden',
+      `${testPrefix}-alden-feed`,
+      {
+        globalSequence: secondActorCursor,
+        actor: 'luca-holahola',
+      },
+    );
+    assert.equal(secondAcknowledgement.status, 200);
+    assert.equal(secondAcknowledgement.body.actor, 'alden');
+    assert.equal(secondAcknowledgement.body.acknowledgedGlobalSequence, secondActorCursor);
+
+    const firstFeed = await get('/api/coordination/threads', 'luca-holahola');
+    assert.equal(firstFeed.status, 200);
+    assert.equal(firstFeed.body.actor, 'luca-holahola');
+    assert.equal(
+      (firstFeed.body.cursor as { acknowledged: number }).acknowledged,
+      firstActorCursor,
+      'the first actor must see only its own acknowledged cursor',
+    );
+
+    const secondFeed = await get('/api/coordination/threads', 'alden');
+    assert.equal(secondFeed.status, 200);
+    assert.equal(secondFeed.body.actor, 'alden');
+    assert.equal(
+      (secondFeed.body.cursor as { acknowledged: number }).acknowledged,
+      secondActorCursor,
+      'the second actor must see only its own acknowledged cursor',
+    );
+
+    const staleAcknowledgement = await post(
+      '/api/coordination/threads/ack',
+      'luca-holahola',
+      `${testPrefix}-hola-feed-stale`,
+      {
+        globalSequence: firstActorCursor - 1,
+        actor: 'alden',
+      },
+    );
+    assert.equal(staleAcknowledgement.status, 200);
+    assert.equal(staleAcknowledgement.body.actor, 'luca-holahola');
+    assert.equal(
+      staleAcknowledgement.body.acknowledgedGlobalSequence,
+      firstActorCursor,
+      'a delayed runtime must not move the first actor cursor backward',
+    );
+
+    const mismatchedRead = await get(
+      '/api/coordination/threads?actor=alden',
+      'luca-holahola',
+    );
+    assert.equal(mismatchedRead.status, 403);
+    assert.equal(mismatchedRead.body.code, 'actor_mismatch');
+
+    const firstFeedAfterStaleAck = await get('/api/coordination/threads', 'luca-holahola');
+    const secondFeedAfterStaleAck = await get('/api/coordination/threads', 'alden');
+    assert.equal(
+      (firstFeedAfterStaleAck.body.cursor as { acknowledged: number }).acknowledged,
+      firstActorCursor,
+    );
+    assert.equal(
+      (secondFeedAfterStaleAck.body.cursor as { acknowledged: number }).acknowledged,
+      secondActorCursor,
+      'a request authenticated as the first actor must not mutate the second actor cursor',
+    );
+  } finally {
+    await db.delete(coordinationActorFeedCursors)
+      .where(inArray(coordinationActorFeedCursors.actor, [...actors]));
+    if (originalCursors.length > 0) {
+      await db.insert(coordinationActorFeedCursors).values(originalCursors);
+    }
+  }
 });
