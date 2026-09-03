@@ -14,6 +14,7 @@ import {
 } from '@shared/schema';
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import { usageService } from './usage-service';
+import { storage } from '../storage';
 
 const SALT_ROUNDS = 12;
 const PASSWORD_RESET_EXPIRY_HOURS = 1;
@@ -41,13 +42,11 @@ export class PasswordAuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
   
+  // Delegates to the one canonical implementation (server/storage.ts) rather
+  // than duplicating the lowercase-then-lookup query -- this class used to
+  // have its own copy of this exact query.
   async getUserByEmail(email: string): Promise<User | null> {
-    const [user] = await getUserDb()
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1);
-    return user || null;
+    return (await storage.getUserByEmail(email)) ?? null;
   }
   
   async getUserCredentials(userId: string): Promise<UserCredentials | null> {

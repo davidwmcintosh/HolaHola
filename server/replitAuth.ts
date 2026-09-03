@@ -9,6 +9,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { isDevBypass } from "./middleware/rbac";
+import { linkOrCreateOAuthUser, type OAuthProfile } from "./services/oauth-account-linking";
 
 const getOidcConfig = memoize(
   async () => {
@@ -53,32 +54,12 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-// Resolves which user id a login should actually attach to. Replit's own
-// claims.sub is normally that id, but if an account with this email already
-// exists under a DIFFERENT id (e.g. created via the password/invite flow,
-// or a prior login through a different provider), that existing account is
-// canonical -- this is what stops "Continue with Google" from silently
-// creating a second, credit-less account for someone who was already
-// invited by email. Concrete incident this fixes: a beta tester invited by
-// email, who then used the Google/Replit button, ended up with two
-// accounts, one holding her actual credits and one empty (Sep 2026).
-async function resolveCanonicalUserId(claims: any): Promise<string> {
-  const email = typeof claims["email"] === "string" ? claims["email"] : undefined;
-  if (email) {
-    const existing = await storage.getUserByEmail(email);
-    if (existing && existing.id !== claims["sub"]) {
-      return existing.id;
-    }
-  }
-  return claims["sub"];
-}
-
-async function upsertUser(
-  claims: any,
-  canonicalId: string,
-) {
-  // Extract role from claims if present (for testing OIDC flow)
-  // Only allow role upgrade (student -> teacher -> developer -> admin), never downgrade
+// Converts Replit's raw OIDC claims into the provider-agnostic profile shape
+// server/services/oauth-account-linking.ts expects. The role/is_test_account
+// extraction here is Replit-specific (its test-flow claims) -- Google/GitHub/
+// Apple profiles won't carry these, so they're kept local to this adapter
+// rather than in the shared helper.
+function claimsToOAuthProfile(claims: any): OAuthProfile {
   type UserRole = 'admin' | 'developer' | 'teacher' | 'student';
   let roleToSet: UserRole | undefined;
   if (claims["roles"] && Array.isArray(claims["roles"])) {
@@ -90,22 +71,15 @@ async function upsertUser(
     else if (claimedRoles.includes('student')) roleToSet = 'student';
   }
 
-  // Extract test account flag from claims (for developer testing)
-  // Test accounts have their usage excluded from production analytics
-  const isTestAccount = claims["is_test_account"] === true;
-
-  await storage.upsertUser({
-    id: canonicalId,
-    // Stored lowercase to match getUserByEmail's lookup and the password-auth
-    // path's own convention -- previously stored as Replit sent it, which
-    // could silently defeat an email match on mixed-case input.
-    email: typeof claims["email"] === "string" ? claims["email"].toLowerCase() : claims["email"],
+  return {
+    subjectId: claims["sub"],
+    email: typeof claims["email"] === "string" ? claims["email"] : undefined,
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
     role: roleToSet,
-    isTestAccount: isTestAccount || undefined, // Only set if explicitly true
-  });
+    isTestAccount: claims["is_test_account"] === true,
+  };
 }
 
 export async function setupAuth(app: Express, authLimiter?: any) {
@@ -129,14 +103,13 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   ) => {
     const user: any = {};
     const claims = tokens.claims();
-    const canonicalId = await resolveCanonicalUserId(claims);
+    const canonicalId = await linkOrCreateOAuthUser(claimsToOAuthProfile(claims));
     updateUserSession(user, tokens);
     // Every downstream consumer (getRequestUserId, /api/auth/user,
     // isAuthenticated, requireRole, ...) reads req.user.claims.sub as the
     // session identity. Overwriting it here, once, means the canonical-id
     // resolution above applies everywhere without touching those call sites.
     user.claims.sub = canonicalId;
-    await upsertUser(claims, canonicalId);
     verified(null, user);
   };
 

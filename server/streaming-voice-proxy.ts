@@ -66,8 +66,10 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
     }
 
     const sessionData = sessions[0].sess as any;
-    const userId = sessionData?.passport?.user?.claims?.sub;
-    
+    // Password auth stores userId directly; OIDC/Replit Auth (legacy) stores it
+    // nested under passport.user.claims.sub — check both, same as unified-ws-handler.ts.
+    const userId = sessionData?.userId ?? sessionData?.passport?.user?.claims?.sub;
+
     if (!userId) {
       console.log('[Streaming Voice Auth] No user ID in session data');
       return null;

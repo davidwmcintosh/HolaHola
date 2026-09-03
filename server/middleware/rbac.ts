@@ -114,7 +114,21 @@ export function requireRole(...minRoles: UserRole[]): RequestHandler {
 export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      // User must be authenticated
+      if (isDevBypass()) return next();
+      // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
+      const sessionUserId = (req.session as any)?.userId;
+      if (sessionUserId) {
+        if (!req.authenticatedUser) {
+          return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
+        }
+        const userRole = req.authenticatedUser.role as UserRole;
+        if (!allowedRoles.includes(userRole)) {
+          return res.status(403).json({ error: "Insufficient permissions", allowed: allowedRoles, current: userRole });
+        }
+        return next();
+      }
+
+      // OIDC / Replit Auth path
       if (!req.user?.claims?.sub) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -128,7 +142,7 @@ export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
 
       // Check if user's role is in allowed list
       if (!allowedRoles.includes(userRole)) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Insufficient permissions",
           allowed: allowedRoles,
           current: userRole
