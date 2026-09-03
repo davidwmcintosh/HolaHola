@@ -12,6 +12,7 @@ import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
+import { requireCoordinationAuth, type CoordinationAuthenticatedRequest } from "./middleware/coordination-auth";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { excludesOperationalMemories } from "./services/daniela-memory-boundary";
@@ -33006,8 +33007,11 @@ ${memoryContext}
   // Optional replied_to_id continues an existing thread (e.g. replying to a
   // note Luca sent back via POST /api/agent/notes/:id/reply -- read that side
   // via GET /api/agent/notes?to=luca-claude-code or docs/luca-to-claude-code.md).
-  app.post("/api/agent/notes/from-claude-code", requireAgentToken, async (req: any, res: Response) => {
+  app.post("/api/agent/notes/from-claude-code", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
+      if (req.coordinationActor !== 'luca-claude-code') {
+        return res.status(403).json({ error: 'This endpoint requires the luca-claude-code coordination actor' });
+      }
       const { subject, body, session_label, source_message_key, replied_to_id } = req.body ?? {};
       if (!subject?.trim() || !body?.trim()) {
         return res.status(400).json({ error: 'subject and body are required' });
@@ -33056,7 +33060,7 @@ ${memoryContext}
   // GET /api/agent/notes — reads a live internal inbox. Defaults to the Agent's
   // (Luca [Replit]'s) inbox; pass ?to=luca-claude-code to read a Claude Code
   // session's inbox (replies from the Agent) instead.
-  app.get("/api/agent/notes", requireAgentToken, async (req: any, res: Response) => {
+  app.get("/api/agent/notes", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const includeRead = req.query.include_read === 'true';
       const fromFilter = req.query.from as string | undefined;
@@ -33070,6 +33074,10 @@ ${memoryContext}
 
       if (toFilter !== 'agent' && toFilter !== 'luca-claude-code') {
         return res.status(400).json({ error: `to must be one of: agent, luca-claude-code` });
+      }
+      const expectedActor = toFilter === 'luca-claude-code' ? 'luca-claude-code' : 'luca-replit';
+      if (req.coordinationActor !== expectedActor) {
+        return res.status(403).json({ error: `Reading to=${toFilter} requires the ${expectedActor} coordination actor` });
       }
       const validSenders = toFilter === 'luca-claude-code' ? CLAUDE_CODE_INBOX_SENDERS : AGENT_INBOX_SENDERS;
       if (fromFilter && !(validSenders as readonly string[]).includes(fromFilter)) {
@@ -33099,7 +33107,7 @@ ${memoryContext}
 
   // POST /api/agent/notes/refresh — regenerate the file snapshots on demand,
   // then return the same live inbox data used by the normal read route.
-  app.post("/api/agent/notes/refresh", requireAgentToken, async (req: any, res: Response) => {
+  app.post("/api/agent/notes/refresh", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
       const { readAgentInboxNotes } = await import('./services/agent-notes');
@@ -33107,6 +33115,7 @@ ${memoryContext}
       const notes = await readAgentInboxNotes({
         includeRead: req.body?.include_read === true,
         limit: req.body?.limit,
+        toAgent: req.coordinationActor === 'luca-claude-code' ? 'luca-claude-code' : 'agent',
       });
       res.json({
         refreshedAt: new Date().toISOString(),
