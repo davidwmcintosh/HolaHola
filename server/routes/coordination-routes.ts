@@ -5,6 +5,7 @@ import {
 } from '../middleware/coordination-auth';
 import {
   appendCoordinationEvent,
+  acknowledgeCoordinationFeed,
   CoordinationError,
   createCoordinationThread,
   getCoordinationThread,
@@ -17,6 +18,11 @@ import type {
   CoordinationEventType,
   CoordinationEvidenceReference,
 } from '@shared/schema';
+import {
+  discoverOperations,
+  OPERATIONS_CATALOG,
+  toPublicOperationManifest,
+} from '../services/operations-catalog';
 
 type LifecycleRoute = {
   path: string;
@@ -117,6 +123,31 @@ async function appendFromRequest(
 }
 
 export function registerCoordinationRoutes(app: Application): void {
+  app.get(
+    '/api/coordination/operations',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const actor = actorFrom(req);
+        const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+        const limit = Math.min(10, positiveInteger(req.query.limit, 'limit', 5));
+
+        if (!query) {
+          res.json({
+            actor,
+            matchType: 'list',
+            operations: OPERATIONS_CATALOG.map(toPublicOperationManifest),
+          });
+          return;
+        }
+
+        res.json({ actor, ...(await discoverOperations(query, limit)) });
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
   app.post(
     '/api/coordination/threads',
     requireCoordinationAuth,
@@ -163,9 +194,26 @@ export function registerCoordinationRoutes(app: Application): void {
             'actor_mismatch',
           );
         }
-        const since = positiveInteger(req.query.since ?? req.query.cursor, 'cursor', 0);
+        const sinceValue = req.query.since ?? req.query.cursor;
+        const since = sinceValue === undefined
+          ? undefined
+          : positiveInteger(sinceValue, 'cursor');
         const limit = positiveInteger(req.query.limit, 'limit', 50);
         res.json({ actor, ...(await listCoordinationFeed(actor, since, limit)) });
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/coordination/threads/ack',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const rawCursor = req.body?.globalSequence ?? req.body?.cursor;
+        const globalSequence = positiveInteger(rawCursor, 'globalSequence');
+        res.json(await acknowledgeCoordinationFeed(actorFrom(req), globalSequence));
       } catch (error) {
         sendError(res, error);
       }

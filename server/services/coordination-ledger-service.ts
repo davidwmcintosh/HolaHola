@@ -15,6 +15,7 @@ import {
   COORDINATION_EVENT_TYPES,
   COORDINATION_EVIDENCE_TYPES,
   coordinationAdapterDeliveries,
+  coordinationActorFeedCursors,
   coordinationEvents,
   coordinationThreads,
   type CoordinationActorId,
@@ -35,6 +36,38 @@ const PARTICIPANT_EVENT_TYPES = new Set<CoordinationEventType>([
   'blocked',
   'completed',
 ]);
+
+const DIRECT_ACTOR_EVENT_PERMISSIONS: Record<
+  'luca-holahola' | 'alden' | 'daniela',
+  ReadonlySet<CoordinationEventType>
+> = {
+  'luca-holahola': new Set(['reassigned', 'comment']),
+  alden: new Set([
+    'accepted', 'progress', 'evidence_added', 'blocked', 'completed',
+    'outcome_acknowledged', 'reassigned', 'comment',
+  ]),
+  daniela: new Set([
+    'accepted', 'progress', 'evidence_added', 'blocked', 'completed', 'comment',
+  ]),
+};
+
+export function canCoordinationActorPerform(
+  actor: CoordinationActorId,
+  eventType: CoordinationEventType,
+): boolean {
+  const permissions = DIRECT_ACTOR_EVENT_PERMISSIONS[actor as keyof typeof DIRECT_ACTOR_EVENT_PERMISSIONS];
+  return !permissions || permissions.has(eventType);
+}
+
+function assertCoordinationActorCanCreate(actor: CoordinationActorId): void {
+  if (actor === 'alden' || actor === 'daniela') {
+    throw new CoordinationError(
+      `${actor} may receive and update coordination work but cannot originate threads`,
+      403,
+      'operation_not_allowed',
+    );
+  }
+}
 
 export class CoordinationError extends Error {
   constructor(
@@ -146,6 +179,7 @@ function validateEvidenceReference(reference: CoordinationEvidenceReference): Co
 }
 
 function assertParticipant(thread: CoordinationThread, actor: CoordinationActorId): void {
+  if (actor === 'luca-holahola') return;
   if (
     actor !== thread.originActor
     && actor !== thread.intendedRecipient
@@ -175,6 +209,13 @@ function validateLifecycle(
   input: CoordinationAppendInput,
 ): void {
   const { actor, eventType } = input;
+  if (!canCoordinationActorPerform(actor, eventType)) {
+    throw new CoordinationError(
+      `${actor} is not allowed to perform ${eventType}`,
+      403,
+      'operation_not_allowed',
+    );
+  }
   if (eventType === 'created') {
     throw new CoordinationError('created is only valid during thread creation', 400, 'invalid_transition');
   }
@@ -183,6 +224,14 @@ function validateLifecycle(
       throw new CoordinationError('delivered is reserved for adapters', 403, 'invalid_transition');
     }
     return;
+  }
+
+  if (eventType === 'reassigned' && actor === 'alden' && actor !== thread.currentOwner) {
+    throw new CoordinationError(
+      'Alden may only reassign work he currently owns',
+      403,
+      'not_owner',
+    );
   }
 
   assertParticipant(thread, actor);
@@ -233,8 +282,16 @@ function validateLifecycle(
   }
 
   if (eventType === 'reassigned') {
-    if (actor !== thread.originActor && actor !== thread.currentOwner) {
-      throw new CoordinationError('Only the origin actor or current owner may reassign work', 403, 'invalid_transition');
+    if (
+      actor !== 'luca-holahola'
+      && actor !== thread.originActor
+      && actor !== thread.currentOwner
+    ) {
+      throw new CoordinationError(
+        'Only Luca [HolaHola], the origin actor, or the current owner may reassign work',
+        403,
+        'invalid_transition',
+      );
     }
     if (!input.recipientActor || input.recipientActor === 'coordination-system') {
       throw new CoordinationError('reassigned requires a valid recipientActor', 400, 'invalid_transition');
@@ -294,6 +351,7 @@ export async function createCoordinationThread(
   if (!isCoordinationActorId(input.actor) || input.actor === 'coordination-system') {
     throw new CoordinationError('Invalid origin actor', 400, 'invalid_actor');
   }
+  assertCoordinationActorCanCreate(input.actor);
   if (!isCoordinationActorId(input.intendedRecipient) || input.intendedRecipient === 'coordination-system') {
     throw new CoordinationError('Invalid intended recipient', 400, 'invalid_actor');
   }
@@ -520,32 +578,107 @@ export async function getCoordinationThread(
   return { thread, events };
 }
 
+function validateFeedCursor(value: number, field = 'cursor'): number {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new CoordinationError(`${field} must be a non-negative integer`, 400, 'invalid_request');
+  }
+  return value;
+}
+
+export async function getCoordinationFeedCursor(actor: CoordinationActorId): Promise<number> {
+  if (!isCoordinationActorId(actor) || actor === 'coordination-system') {
+    throw new CoordinationError('Invalid coordination actor', 400, 'invalid_actor');
+  }
+  const [cursor] = await getSharedDb()
+    .select({ acknowledgedGlobalSequence: coordinationActorFeedCursors.acknowledgedGlobalSequence })
+    .from(coordinationActorFeedCursors)
+    .where(eq(coordinationActorFeedCursors.actor, actor))
+    .limit(1);
+  return cursor?.acknowledgedGlobalSequence ?? 0;
+}
+
+export async function acknowledgeCoordinationFeed(
+  actor: CoordinationActorId,
+  globalSequence: number,
+): Promise<{ actor: CoordinationActorId; acknowledgedGlobalSequence: number }> {
+  if (!isCoordinationActorId(actor) || actor === 'coordination-system') {
+    throw new CoordinationError('Invalid coordination actor', 400, 'invalid_actor');
+  }
+  const requestedSequence = validateFeedCursor(globalSequence, 'globalSequence');
+
+  const result = await getSharedDb().transaction(async (tx) => {
+    const [latestEvent] = await tx
+      .select({ globalSequence: coordinationEvents.globalSequence })
+      .from(coordinationEvents)
+      .orderBy(desc(coordinationEvents.globalSequence))
+      .limit(1);
+    const latestGlobalSequence = latestEvent?.globalSequence ?? 0;
+    if (requestedSequence > latestGlobalSequence) {
+      throw new CoordinationError(
+        'Cannot acknowledge a coordination cursor beyond the current feed',
+        409,
+        'cursor_ahead',
+        { latestGlobalSequence },
+      );
+    }
+
+    const [cursor] = await tx
+      .insert(coordinationActorFeedCursors)
+      .values({
+        actor,
+        acknowledgedGlobalSequence: requestedSequence,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: coordinationActorFeedCursors.actor,
+        set: {
+          acknowledgedGlobalSequence: sql`GREATEST(${coordinationActorFeedCursors.acknowledgedGlobalSequence}, ${requestedSequence})`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({
+        acknowledgedGlobalSequence: coordinationActorFeedCursors.acknowledgedGlobalSequence,
+      });
+    if (!cursor) throw new CoordinationError('Coordination cursor update failed', 500, 'cursor_update_failed');
+    return cursor.acknowledgedGlobalSequence;
+  });
+
+  return { actor, acknowledgedGlobalSequence: result };
+}
+
 export async function listCoordinationFeed(
   actor: CoordinationActorId,
-  sinceGlobalSequence = 0,
+  sinceGlobalSequence?: number,
   limit = 50,
 ) {
+  const acknowledgedGlobalSequence = await getCoordinationFeedCursor(actor);
+  const previousCursor = sinceGlobalSequence === undefined
+    ? acknowledgedGlobalSequence
+    : validateFeedCursor(sinceGlobalSequence);
   const boundedLimit = Math.min(Math.max(limit, 1), 100);
   const items = await getSharedDb()
     .select({ thread: coordinationThreads, event: coordinationEvents })
     .from(coordinationEvents)
     .innerJoin(coordinationThreads, eq(coordinationThreads.id, coordinationEvents.threadId))
     .where(and(
-      gt(coordinationEvents.globalSequence, sinceGlobalSequence),
-      or(
-        eq(coordinationThreads.originActor, actor),
-        eq(coordinationThreads.intendedRecipient, actor),
-        eq(coordinationThreads.currentOwner, actor),
-      ),
+      gt(coordinationEvents.globalSequence, previousCursor),
+      actor === 'luca-holahola'
+        ? sql`true`
+        : or(
+          eq(coordinationThreads.originActor, actor),
+          eq(coordinationThreads.intendedRecipient, actor),
+          eq(coordinationThreads.currentOwner, actor),
+        ),
     ))
     .orderBy(asc(coordinationEvents.globalSequence))
     .limit(boundedLimit);
   return {
     items,
     cursor: {
-      previous: sinceGlobalSequence,
-      next: items.at(-1)?.event.globalSequence ?? sinceGlobalSequence,
+      previous: previousCursor,
+      next: items.at(-1)?.event.globalSequence ?? previousCursor,
       hasMore: items.length === boundedLimit,
+      acknowledged: acknowledgedGlobalSequence,
     },
   };
 }

@@ -24,12 +24,13 @@
  */
 
 import http from 'http';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const PORT    = process.env.PORT ?? '5000';
 const HOST    = 'localhost';
-const TOKEN   = process.env.REPLIT_AGENT_TOKEN ?? '';
+const AUTH_HEADERS = getAgentAuthHeaders() ?? {};
 const IS_SELF_CHECK     = process.argv.includes('--self-check');
 const IS_MUTATION_CHECK = process.argv.includes('--mutation-check');
 
@@ -46,7 +47,7 @@ function post(path: string, body: unknown): Promise<{ status: number; body: any 
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload),
-        'x-agent-token': TOKEN,
+        ...AUTH_HEADERS,
       },
     };
     const req = http.request(opts, (res) => {
@@ -73,7 +74,7 @@ function get(path: string): Promise<{ status: number; body: any }> {
       port: parseInt(PORT, 10),
       path,
       method: 'GET',
-      headers: { 'x-agent-token': TOKEN },
+      headers: AUTH_HEADERS,
     };
     const req = http.request(opts, (res) => {
       let data = '';
@@ -202,8 +203,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!TOKEN) {
-    console.error('FATAL: REPLIT_AGENT_TOKEN not set — cannot authenticate');
+  if (!Object.keys(AUTH_HEADERS).length) {
+    console.error('FATAL: COORDINATION_LUCA_REPLIT_TOKEN not set — cannot authenticate');
     process.exit(1);
   }
 

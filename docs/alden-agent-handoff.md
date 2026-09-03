@@ -1,3 +1,64 @@
+# Language Hub scene mastery crash fix — September 2, 2026
+
+- The optional `SceneMasterySection` previously treated any JSON response as a
+  successful `MasterySummary`. During an auth/API failure, `{ message:
+  "Unauthorized" }` reached `Object.entries(data.byScene)` and crashed the
+  entire Language Hub.
+- The client query now rejects non-2xx responses and the render boundary
+  returns no optional mastery card for query errors, missing data, or a missing
+  or malformed `byScene` map.
+- Focused regression coverage passed 2/2, TypeScript passed, the workflow
+  restarted cleanly, and a fresh preview reported no `SceneMasterySection`
+  exception.
+
+---
+
+# Audit catalogue expansion — September 2, 2026
+
+- The shared operations catalogue now discovers the established ACTFL,
+  curriculum, lesson-topic, textbook-content, rolling episode-integrity, and
+  persistent admin audit-log operations.
+- Existing scripts and endpoints remain canonical. No audit logic was copied
+  into the catalogue.
+- Each new manifest records actor scope, read-only classification, confirmation
+  state, output, persistence, and executor-specific caveats.
+- Rolling episode integrity is explicitly report-only. The old episode-specific
+  `--patch` modes remain separate repair actions requiring confirmation.
+- All seven focused catalogue regressions and TypeScript passed. The automatic
+  indexer processed all 15 manifests: 6 indexed, 9 fresh, 0 errors.
+- Semantic paraphrases resolved ACTFL calibration, curriculum/textbook quality,
+  rolling episode integrity, and persistent admin action history to the expected
+  manifests.
+- System health passed every required invariant. The two warnings were local
+  app-route storage probes skipped because no local server was running; direct
+  R2 reads and the CopyObject probe passed.
+
+---
+
+# Operations catalogue and semantic discovery — September 2, 2026
+
+- Stable operation IDs and exact aliases now describe the established Burn
+  Report, health, production monitoring, capture, coordination, and guarded
+  source-control families.
+- `GET /api/coordination/operations` lets any authenticated coordination actor
+  list safe public metadata or discover an operation from natural language.
+  The endpoint does not expose canonical executor references and cannot execute
+  anything.
+- Operation manifests are code-defined and indexed sequentially as pinned,
+  global `operation_skill` embeddings. The new type is deliberately absent from
+  Daniela's default global recall list; only the dedicated operation search
+  path reads it.
+- Exact “run the burn report” shorthand maps to Alden's existing
+  `get_ai_cost_report`; `post_report_to_team_room` remains the canonical
+  side-effecting variant.
+- The public catalogue is `docs/operations-catalog.md`; agent procedure is in
+  `.agents/skills/operations-catalog/SKILL.md`.
+- Five focused regressions, TypeScript, live exact/semantic HTTP checks,
+  dedicated-actor attribution, unauthenticated rejection, and system health all
+  passed. Gemini's final verdict was **APPROVED — Ship it.**
+
+---
+
 # Chat capture episode-mirror recovery — September 1, 2026
 
 - Canonical chat DB persistence and rolling-episode projection now have
@@ -8093,3 +8154,13 @@ The migration passed `npm run db:branch -- gate` and was then applied with
 Drizzle to the shared Neon database. Focused lifecycle/auth/adapter tests,
 `npm run check`, and system health all pass. No Daniela prompt, tool,
 neural-memory, or behavioral surface was changed.
+
+### Durable actor polling cursor
+
+The coordination ledger now persists one feed acknowledgement cursor per actor.
+Polling without an explicit cursor resumes from the authenticated actor's
+server-side high-water mark. A feed read never advances that mark; the actor
+acknowledges only after processing a page. Updates are monotonic and reject
+future global sequences, so a stale runtime cannot rewind progress and a crash
+before acknowledgement safely replays the page. This acknowledgement is not a
+coordination lifecycle event and does not accept or complete work.

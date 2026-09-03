@@ -1039,6 +1039,17 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
       );
     }, 105000);
 
+    // +115s: Agent Operation Indexer — embeds the static operations catalogue in
+    // a dedicated, pinned namespace. operation_skill is intentionally excluded
+    // from Daniela's default recall pool and is searched only by the authenticated
+    // coordination discovery endpoint.
+    setTimeout(async () => {
+      const { runOperationSkillIndexer } = await import('./services/operation-skill-indexer');
+      runOperationSkillIndexer().catch((err: Error) =>
+        console.warn('[OperationIndexer] Skipped:', err.message)
+      );
+    }, 115000);
+
     // +108s: Shadow Auditor Stale-Session Reaper — suspends any active pedagogical
     // loops whose GL sessions closed without a clean stop() call (e.g., tab closed,
     // network drop). Runs every 30 minutes. Loops are marked 'suspended' so they

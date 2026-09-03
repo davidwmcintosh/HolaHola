@@ -225,7 +225,7 @@ For any exploratory coding, seed script, or backfill that isn't a formal schema 
 - **The build rule:** Important things go in BOTH context injection AND the neural net. If it's only in the prompt, it's fragile.
 - **Never manually index tool embeddings** — `server/services/daniela-tool-indexer.ts` handles the full 3-layer pipeline automatically at server start.
 - **Procedural tables:** `tutor_procedures`, `tool_knowledge`, `teaching_principles`, `situational_patterns`, `self_best_practices`, `language_idioms`, `cultural_nuances`, `learner_error_patterns`, `dialect_variations`, `linguistic_bridges`.
-- **Vector index:** `memory_embeddings` table, searched via `semanticSearch()`. Memory types: `personal_fact`, `student_insight`, `hive_snapshot`, `growth_memory`, `collaboration_message`, `daniela_tool`, `tool_knowledge`, `teaching_skill`, `goal_capability`.
+- **Vector index:** `memory_embeddings` table. Daniela recall uses `semanticSearch()` over student and approved global memory types. Agent operation discovery uses the separate pinned-only `operation_skill` search path; it is intentionally excluded from Daniela's default recall pool. Other memory types include `personal_fact`, `student_insight`, `hive_snapshot`, `growth_memory`, `collaboration_message`, `daniela_tool`, `tool_knowledge`, `teaching_skill`, and `goal_capability`.
 
 ---
 

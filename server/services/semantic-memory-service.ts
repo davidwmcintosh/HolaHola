@@ -25,6 +25,7 @@ import { computeDecayMultiplier } from './memory-decay-service';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_DIM = 768;
 const OPENAI_EMBED_URL = 'https://api.openai.com/v1/embeddings';
+const OPERATION_SKILL_MIN_SIMILARITY = 0.4;
 
 /**
  * Returns { apiKey, embedUrl } for the embedding call.
@@ -112,6 +113,10 @@ export async function generateAndStoreEmbedding(
   importance?: number,
   dbOverride?: any,
 ): Promise<boolean> {
+  if (memoryType === 'operation_skill' && userId !== null) {
+    throw new Error('operation_skill embeddings must be global and cannot be user-scoped');
+  }
+
   const db = dbOverride ?? getSharedDb();
   const hash = hashContent(content);
 
@@ -292,6 +297,51 @@ const EMBED_SELECT = {
   pinned: memoryEmbeddings.pinned,
   importance: memoryEmbeddings.importance,
 } as const;
+
+/**
+ * Dedicated operation-catalogue search.
+ *
+ * operation_skill is deliberately excluded from GLOBAL_RECALL_TYPES so these
+ * engineering operations never enter Daniela's ordinary student-memory recall.
+ * This path accepts only globally scoped, pinned records from the indexer's
+ * protected namespace. The static catalogue remains authoritative: callers
+ * must map returned IDs back to code-defined manifests before presenting them.
+ */
+export async function semanticSearchOperationSkills(
+  query: string,
+  limit: number = 5,
+): Promise<SemanticSearchResult[]> {
+  const db = getSharedDb();
+  const boundedLimit = Math.max(1, Math.min(10, limit));
+  const rows = await db
+    .select(EMBED_SELECT)
+    .from(memoryEmbeddings)
+    .where(and(
+      eq(memoryEmbeddings.memoryType, 'operation_skill'),
+      isNull(memoryEmbeddings.userId),
+      eq(memoryEmbeddings.pinned, true),
+    ))
+    .orderBy(desc(memoryEmbeddings.importance), desc(memoryEmbeddings.lastReinforcedAt))
+    .limit(500);
+
+  if (rows.length === 0) return [];
+
+  const queryVec = await embedText(query);
+  return rows
+    .map(row => ({
+      memoryType: row.memoryType,
+      memoryId: row.memoryId,
+      similarity: cosineSimilarity(queryVec, row.embedding as number[]),
+      contentHash: row.contentHash,
+    }))
+    // The operation catalogue is a tiny, tightly controlled corpus. Its
+    // paraphrase scores are materially lower than long-form memory scores, so
+    // it uses a measured operation-specific threshold rather than Daniela's
+    // broader-memory 0.65 threshold. Returned rows remain candidates only.
+    .filter(row => row.similarity > OPERATION_SKILL_MIN_SIMILARITY)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, boundedLimit);
+}
 
 /**
  * Find the top-k memories most semantically similar to the query string.

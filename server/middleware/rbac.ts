@@ -341,12 +341,10 @@ export interface AgentAuthenticatedRequest extends Request {
   agentId?: string; // Identifier for the agent (for future multi-agent support)
 }
 
-/** Check if Luca's dedicated or compatibility credential is configured. */
+/** Check if Luca [Replit]'s dedicated credential is configured. */
 export function isAgentTokenConfigured(): boolean {
-  return Boolean(
-    [process.env.COORDINATION_LUCA_REPLIT_TOKEN, process.env.REPLIT_AGENT_TOKEN]
-      .some((token) => token && token.length >= 32),
-  );
+  const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
+  return Boolean(token && token.length >= 32);
 }
 
 function resolveReplitAgentRequest(req: Request) {
@@ -354,9 +352,7 @@ function resolveReplitAgentRequest(req: Request) {
     typeof req.headers['x-coordination-token'] === 'string'
       ? req.headers['x-coordination-token']
       : undefined,
-    typeof req.headers['x-agent-token'] === 'string'
-      ? req.headers['x-agent-token']
-      : undefined,
+    undefined,
   );
 }
 
@@ -369,8 +365,7 @@ export function isReplitAgentRequest(req: Request): boolean {
  * Middleware to require Replit Agent token authentication
  * Usage: app.get('/api/agent/sprints', requireAgentToken, handler)
  * 
- * Authenticates via Luca's dedicated x-coordination-token header. The legacy
- * x-agent-token header remains a Replit-only compatibility path during rollout.
+ * Authenticates via Luca [Replit]'s dedicated x-coordination-token header.
  * Provides read-only access to Wren services
  */
 export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response, next: NextFunction) {
@@ -383,7 +378,7 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
     }
 
     const resolution = resolveReplitAgentRequest(req);
-    if (!resolution.ok && resolution.status === 401 && !req.headers['x-coordination-token'] && !req.headers['x-agent-token']) {
+    if (!resolution.ok && resolution.status === 401 && !req.headers['x-coordination-token']) {
       logAgentAction('auth_attempt', req.path, false, 'No token provided');
       return res.status(401).json({ error: 'Agent token required (x-coordination-token header)' });
     }

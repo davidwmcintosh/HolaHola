@@ -16,7 +16,7 @@
  *
  * Auth: reads cookie from /tmp/sc.txt. Run agent-session auth first if needed:
  *   curl -si -X POST http://localhost:5000/api/internal/agent-session \
- *     -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+ *     -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" \
  *     -H "Content-Type: application/json" -d '{}' \
  *     | grep -i set-cookie | head -1 | sed 's/set-cookie: //i' | cut -d';' -f1 > /tmp/sc.txt
  */
@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ async function runObservationSession(): Promise<void> {
   try {
     await agentFetch('/api/agent/team-room/message', {
       method: 'POST',
-      headers: { 'x-agent-token': process.env.REPLIT_AGENT_TOKEN ?? '' },
+      headers: getAgentAuthHeaders() ?? {},
       body: JSON.stringify({ content: teamRoomPost }),
     });
     console.log('✅ Posted to Team Room');

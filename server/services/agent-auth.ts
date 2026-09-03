@@ -1,9 +1,7 @@
 /**
  * Authentication headers for Luca's server-side callers.
  *
- * Dedicated coordination credentials are preferred. The legacy agent header is
- * retained only as a bounded migration fallback while existing environments
- * are provisioned with COORDINATION_LUCA_REPLIT_TOKEN.
+ * All server-side callers use dedicated actor-scoped coordination credentials.
  */
 
 export type AgentActor = 'luca-replit' | 'luca-claude-code';
@@ -19,25 +17,11 @@ export function getAgentAuthHeaders(actor: AgentActor = 'luca-replit'): Record<s
     return { 'x-coordination-token': dedicatedToken };
   }
 
-  if (actor === 'luca-replit') {
-    const legacyToken = process.env.REPLIT_AGENT_TOKEN?.trim();
-    if (legacyToken) {
-      return { 'x-agent-token': legacyToken };
-    }
-  }
-
-  if (actor === 'luca-claude-code') {
-    const compatibilityToken = process.env.SOURCE_BRIDGE_API_TOKEN?.trim();
-    if (compatibilityToken) {
-      return { 'x-coordination-token': compatibilityToken };
-    }
-  }
-
   return null;
 }
 
 export function getAgentCredential(actor: AgentActor = 'luca-replit'): string | null {
   const headers = getAgentAuthHeaders(actor);
   if (!headers) return null;
-  return headers['x-coordination-token'] ?? headers['x-agent-token'] ?? null;
+  return headers['x-coordination-token'] ?? null;
 }

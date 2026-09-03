@@ -1,6 +1,6 @@
 {
-  "id": "c71584cf-26a5-4d03-8dae-4a684791e6aa",
-  "prevId": "c31d776d-6202-4bd0-b528-df9684b22759",
+  "id": "c31d776d-6202-4bd0-b528-df9684b22759",
+  "prevId": "b5623768-cd55-4257-ac68-8bd79a0cad80",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -37815,6 +37815,39 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
+    },
+    "public.coordination_actor_feed_cursors": {
+      "name": "coordination_actor_feed_cursors",
+      "schema": "",
+      "columns": {
+        "actor": {
+          "name": "actor",
+          "type": "varchar(80)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "acknowledged_global_sequence": {
+          "name": "acknowledged_global_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -38001,10 +38034,7 @@
       "values": [
         "replit",
         "password",
-        "pending",
-        "google",
-        "github",
-        "apple"
+        "pending"
       ]
     },
     "public.auth_token_type": {

@@ -27329,7 +27329,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // ===== REPLIT AGENT API =====
   // Dedicated endpoints for Replit Agent to access Wren services
   // Uses actor-specific x-coordination-token authentication (separate from user auth).
-  // x-agent-token remains a bounded migration compatibility path.
+  // All agent callers use actor-specific coordination credentials.
   
   // Check if agent authentication is configured
   app.get("/api/agent/status", async (req: any, res: Response) => {
@@ -27343,7 +27343,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
   // Observation bench — Luca reads the live session state from the Replit chat window.
   // Returns in-memory GL state + last N DB messages for the active conversation.
-  // Auth: x-agent-token header OR authenticated founder browser session.
+  // Auth: x-coordination-token header OR authenticated founder browser session.
   app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
     try {
       const {
@@ -37927,8 +37927,8 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  // Agent-session bootstrap — lets the Replit Agent start an authenticated session
-  // using REPLIT_AGENT_TOKEN. Creates a founder-level session for API interaction.
+  // Agent-session bootstrap — lets Luca [Replit] start an authenticated session
+  // using its dedicated coordination credential.
   app.post("/api/internal/agent-session", async (req: any, res: Response) => {
     try {
       if (!isReplitAgentRequest(req)) {
@@ -38030,15 +38030,15 @@ Under 250 words. Write as yourself.`;
   // The autosave worker's fs.watch fires within milliseconds and drains it to
   // conversation_memories automatically — no polling lag, no trigger files.
   //
-  // Usage from CodeExecution (x-agent-token header required):
+  // Usage from CodeExecution (x-coordination-token header required):
   //   await fetch('/api/internal/chat-capture-turn', {
   //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     headers: { 'Content-Type': 'application/json', 'x-coordination-token': process.env.COORDINATION_LUCA_REPLIT_TOKEN },
   //     body: JSON.stringify({ speaker: 'David', text: 'exact verbatim text' }),
   //   });
   //   await fetch('/api/internal/chat-capture-turn', {
   //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     headers: { 'Content-Type': 'application/json', 'x-coordination-token': process.env.COORDINATION_LUCA_REPLIT_TOKEN },
   //     body: JSON.stringify({ speaker: 'Luca Replit', text: 'exact verbatim text' }),
   //   });
   app.post("/api/internal/chat-capture-turn", async (req: any, res: Response) => {
@@ -38179,10 +38179,10 @@ Under 250 words. Write as yourself.`;
   // reads the pending file and appends David→Luca as a single synchronous batch — so both turns
   // land in the same .chat_capture drain and produce ONE conversation_memories entry, not two.
   //
-  // Usage from CodeExecution (x-agent-token header required):
+  // Usage from CodeExecution (x-coordination-token header required):
   //   await fetch('/api/internal/task-capture-start', {
   //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     headers: { 'Content-Type': 'application/json', 'x-coordination-token': process.env.COORDINATION_LUCA_REPLIT_TOKEN },
   //     body: JSON.stringify({ task_ref: '1121' }),
   //   });
   //   // immediately call markTaskComplete(...) — the pending file is consumed by checkBuildSession

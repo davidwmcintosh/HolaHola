@@ -8,7 +8,7 @@
  * Guards under test
  * ─────────────────────────────────────────────────────────────────────────────
  *
- *   G1  Missing / wrong x-agent-token   → 401 { error: 'Invalid agent token' }
+ *   G1  Missing / wrong x-coordination-token → 401
  *   G2  Invalid speaker (e.g. "Robot")  → 400 (thrown by appendChatCaptureTurn)
  *   G3  Empty text                      → 400 { error: 'text required ...' }
  *   G4  Valid David turn                → 200 + turn appears in .chat_capture
@@ -31,6 +31,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 
 // ─── Colour helpers ──────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -40,7 +41,7 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BASE_URL   = process.env.SERVER_URL ?? 'http://localhost:5000';
-const TOKEN      = process.env.REPLIT_AGENT_TOKEN ?? '';
+const AUTH_HEADERS = getAgentAuthHeaders() ?? {};
 const SELF_CHECK = process.argv.includes('--self-check');
 const ENDPOINT   = `${BASE_URL}/api/internal/chat-capture-turn`;
 
@@ -97,8 +98,8 @@ function captureGrew(before: { size: number; mtime: number }): boolean {
 
 // ─── Sanity check: token configured ─────────────────────────────────────────
 function checkTokenConfigured(): void {
-  if (!TOKEN) {
-    console.error(R('FATAL: REPLIT_AGENT_TOKEN not set — cannot run auth tests'));
+  if (!Object.keys(AUTH_HEADERS).length) {
+    console.error(R('FATAL: COORDINATION_LUCA_REPLIT_TOKEN not set — cannot run auth tests'));
     process.exit(1);
   }
 }
@@ -109,7 +110,7 @@ async function runNormalMode(): Promise<void> {
   checkTokenConfigured();
 
   // ── G1: Missing token → 401 ──────────────────────────────────────────────
-  console.log(B('G1: missing/wrong x-agent-token → 401'));
+  console.log(B('G1: missing/wrong x-coordination-token → 401'));
   {
     const r1 = await hit({}, { speaker: 'David', text: 'hello' });
     ok('no token → 401', r1.status === 401,
@@ -118,7 +119,7 @@ async function runNormalMode(): Promise<void> {
        JSON.stringify(r1.body));
 
     const r2 = await hit(
-      { 'x-agent-token': 'definitely-wrong-token' },
+      { 'x-coordination-token': 'definitely-wrong-token' },
       { speaker: 'David', text: 'hello' },
     );
     ok('wrong token → 401', r2.status === 401,
@@ -129,7 +130,7 @@ async function runNormalMode(): Promise<void> {
   console.log(B('\nG2: invalid speaker (e.g. "Robot") → 400'));
   {
     const r = await hit(
-      { 'x-agent-token': TOKEN },
+      AUTH_HEADERS,
       { speaker: 'Robot', text: 'beep boop' },
     );
     ok('invalid speaker → 400', r.status === 400,
@@ -142,21 +143,21 @@ async function runNormalMode(): Promise<void> {
   console.log(B('\nG3: empty text body → 400'));
   {
     const r1 = await hit(
-      { 'x-agent-token': TOKEN },
+      AUTH_HEADERS,
       { speaker: 'David', text: '' },
     );
     ok('empty text → 400', r1.status === 400,
        `got ${r1.status}, body: ${JSON.stringify(r1.body)}`);
 
     const r2 = await hit(
-      { 'x-agent-token': TOKEN },
+      AUTH_HEADERS,
       { speaker: 'David', text: '   ' },
     );
     ok('whitespace-only text → 400', r2.status === 400,
        `got ${r2.status}, body: ${JSON.stringify(r2.body)}`);
 
     const r3 = await hit(
-      { 'x-agent-token': TOKEN },
+      AUTH_HEADERS,
       { speaker: 'David' },  // text field missing entirely
     );
     ok('missing text field → 400', r3.status === 400,
@@ -169,7 +170,7 @@ async function runNormalMode(): Promise<void> {
     const before = captureSnapshot();
     const testText = `CI guard test turn ${Date.now()}`;
     const r = await hit(
-      { 'x-agent-token': TOKEN },
+      AUTH_HEADERS,
       { speaker: 'David', text: testText },
     );
     ok('valid turn → 200', r.status === 200,

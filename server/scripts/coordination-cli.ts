@@ -1,7 +1,17 @@
+import {
+  createCoordinationActorClient,
+  type CoordinationClientActor,
+  type CoordinationEventInput,
+} from '../services/coordination-actor-client';
+import type {
+  CoordinationEvidenceReference,
+  CoordinationActorId,
+} from '@shared/schema';
+
 type Options = Record<string, string | boolean>;
 
 const commands = new Set([
-  'create', 'list', 'show', 'accept', 'progress', 'evidence', 'block',
+  'create', 'list', 'ack-feed', 'show', 'accept', 'progress', 'evidence', 'block',
   'complete', 'acknowledge', 'reopen', 'reassign', 'comment',
 ]);
 const eventCommands = new Set([
@@ -20,10 +30,11 @@ function fail(message: string, exitCode = 64): never {
 
 function usage(): never {
   return fail(
-    'Commands: create, list, show, accept, progress, evidence, block, complete, acknowledge, reopen, reassign, comment. ' +
-    'Configuration: COORDINATION_API_URL and COORDINATION_API_TOKEN. --url overrides the API URL. ' +
+    'Commands: create, list, ack-feed, show, accept, progress, evidence, block, complete, acknowledge, reopen, reassign, comment. ' +
+    'Configuration: COORDINATION_API_URL, COORDINATION_ACTOR, and that actor’s dedicated COORDINATION_*_TOKEN. ' +
+    'There is no shared coordination token. --url overrides the API URL. ' +
     'Mutations require --idempotency-key; event mutations require --id and --expected-sequence. ' +
-    'Common options: --content, --title, --description, --recipient, --owner, --priority, --data <JSON>.',
+    'Use --cursor/--limit for list, --global-sequence for ack-feed, --after-sequence for show, and --evidence/--data with event mutations.',
   );
 }
 
@@ -43,10 +54,73 @@ function parseArgs(args: string[]): { command: string; options: Options } {
   return { command, options };
 }
 
+const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
+  list: new Set(['url', 'cursor', 'limit']),
+  'ack-feed': new Set(['url', 'global-sequence']),
+  show: new Set(['url', 'id', 'after-sequence']),
+  create: new Set([
+    'url', 'title', 'description', 'recipient', 'priority', 'source-reference',
+    'idempotency-key',
+  ]),
+  accept: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  progress: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  evidence: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  block: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  complete: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  acknowledge: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  reopen: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  reassign: new Set([
+    'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'recipient',
+    'evidence', 'data',
+  ]),
+  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+};
+
+export function unsupportedCoordinationCliOptions(
+  command: string,
+  options: Options,
+): string[] {
+  const allowed = OPTIONS_BY_COMMAND[command] ?? new Set<string>();
+  return Object.keys(options).filter((name) => !allowed.has(name));
+}
+
 function required(options: Options, name: string): string {
   const value = options[name];
   if (typeof value !== 'string' || !value) fail(`--${name} is required`);
   return value;
+}
+
+function requiredRecipient(options: Options): Exclude<CoordinationActorId, 'coordination-system'> {
+  const value = required(options, 'recipient');
+  const supportedRecipients: readonly Exclude<CoordinationActorId, 'coordination-system'>[] = [
+    'luca-replit', 'luca-claude-code', 'luca-holahola', 'alden', 'daniela', 'david',
+  ];
+  if (!supportedRecipients.includes(value as Exclude<CoordinationActorId, 'coordination-system'>)) {
+    fail(`Unsupported --recipient: ${value}`);
+  }
+  return value as Exclude<CoordinationActorId, 'coordination-system'>;
+}
+
+function optionalPriority(
+  options: Options,
+): 'low' | 'normal' | 'high' | 'urgent' | undefined {
+  const value = options.priority;
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !['low', 'normal', 'high', 'urgent'].includes(value)) {
+    fail('--priority must be low, normal, high, or urgent');
+  }
+  return value as 'low' | 'normal' | 'high' | 'urgent';
+}
+
+function optionalNonNegativeInteger(options: Options, name: string): number | undefined {
+  const value = options[name];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') fail(`--${name} requires a non-negative integer`);
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 0) {
+    fail(`--${name} requires a non-negative integer`);
+  }
+  return number;
 }
 
 function optionalJson(options: Options, name: string): unknown {
@@ -60,87 +134,86 @@ function optionalJson(options: Options, name: string): unknown {
   }
 }
 
-function eventType(command: string): string {
-  return ({
-    accept: 'accepted', progress: 'progress', evidence: 'evidence_added',
-    block: 'blocked', complete: 'completed', acknowledge: 'outcome_acknowledged',
-    reopen: 'reopened', reassign: 'reassigned', comment: 'comment',
-  } as Record<string, string>)[command];
-}
-
 async function main(): Promise<void> {
   const { command, options } = parseArgs(process.argv.slice(2));
+  const unsupported = unsupportedCoordinationCliOptions(command, options);
+  if (unsupported.length > 0) {
+    fail(`Unsupported option${unsupported.length === 1 ? '' : 's'} for ${command}: ${unsupported.map((name) => `--${name}`).join(', ')}`);
+  }
   const apiUrl = typeof options.url === 'string' ? options.url : process.env.COORDINATION_API_URL;
-  const token = process.env.COORDINATION_API_TOKEN;
+  const actorValue = process.env.COORDINATION_ACTOR;
+  const supportedActors: readonly CoordinationClientActor[] = [
+    'luca-replit', 'luca-claude-code', 'luca-holahola', 'alden', 'daniela', 'david',
+  ];
   if (!apiUrl) fail('COORDINATION_API_URL is required (or provide --url)');
-  if (!token) fail('COORDINATION_API_TOKEN is required');
+  if (!actorValue) fail('COORDINATION_ACTOR is required; set it to the identity running this client');
+  if (!supportedActors.includes(actorValue as CoordinationClientActor)) {
+    fail(`Unsupported COORDINATION_ACTOR: ${actorValue}`);
+  }
+  const actor = actorValue as CoordinationClientActor;
 
-  const baseUrl = apiUrl.replace(/\/+$/, '');
-  let method = 'GET';
-  let path = '/api/coordination/threads';
-  let body: Record<string, unknown> | undefined;
-  let idempotencyKey: string | undefined;
+  const client = createCoordinationActorClient(actor, { apiUrl });
+  let result: unknown;
 
   if (command === 'show') {
-    path += `/${encodeURIComponent(required(options, 'id'))}`;
+    result = await client.show(
+      required(options, 'id'),
+      optionalNonNegativeInteger(options, 'after-sequence') ?? 0,
+    );
   } else if (command === 'list') {
-    const query = new URLSearchParams();
-    for (const key of ['state', 'owner', 'recipient', 'origin', 'limit', 'cursor']) {
-      if (typeof options[key] === 'string') query.set(key, options[key] as string);
-    }
-    if (query.size) path += `?${query}`;
+    const cursor = optionalNonNegativeInteger(options, 'cursor');
+    const limit = optionalNonNegativeInteger(options, 'limit');
+    result = await client.listFeed({
+      ...(cursor !== undefined ? { cursor } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    });
+  } else if (command === 'ack-feed') {
+    result = await client.acknowledgeFeed(
+      optionalNonNegativeInteger(options, 'global-sequence')
+        ?? (() => fail('--global-sequence is required'))(),
+    );
   } else if (command === 'create') {
-    method = 'POST';
-    idempotencyKey = required(options, 'idempotency-key');
-    body = {
+    result = await client.create({
       title: required(options, 'title'),
       description: required(options, 'description'),
-      intendedRecipient: required(options, 'recipient'),
-      ...(typeof options.owner === 'string' ? { currentOwner: options.owner } : {}),
-      ...(typeof options.priority === 'string' ? { priority: options.priority } : {}),
-      ...(optionalJson(options, 'source-reference') !== undefined ? { sourceReference: optionalJson(options, 'source-reference') } : {}),
-      ...(optionalJson(options, 'data') !== undefined ? { payload: optionalJson(options, 'data') } : {}),
-    };
+      intendedRecipient: requiredRecipient(options),
+      ...(optionalPriority(options) ? { priority: optionalPriority(options) } : {}),
+      ...(optionalJson(options, 'source-reference') !== undefined
+        ? { sourceReference: optionalJson(options, 'source-reference') as CoordinationEvidenceReference }
+        : {}),
+      idempotencyKey: required(options, 'idempotency-key'),
+    });
   } else if (eventCommands.has(command)) {
-    method = 'POST';
     const id = required(options, 'id');
-    idempotencyKey = required(options, 'idempotency-key');
     const expectedSequence = Number(required(options, 'expected-sequence'));
     if (!Number.isSafeInteger(expectedSequence) || expectedSequence < 0) fail('--expected-sequence must be a non-negative integer');
-    // Lifecycle endpoints make the normal state-machine operations explicit;
-    // comments remain append-only generic events.
-    path = command === 'comment'
-      ? `/api/coordination/threads/${encodeURIComponent(id)}/events`
-      : `/api/coordination/threads/${encodeURIComponent(id)}/${command}`;
-    body = {
-      eventType: eventType(command),
+    const input: CoordinationEventInput = {
       content: typeof options.content === 'string' ? options.content : '',
       expectedSequence,
-      ...(typeof options.recipient === 'string' ? { recipientActor: options.recipient } : {}),
-      ...(typeof options.owner === 'string' ? { currentOwner: options.owner } : {}),
-      ...(optionalJson(options, 'evidence') !== undefined ? { evidence: optionalJson(options, 'evidence') } : {}),
-      ...(optionalJson(options, 'data') !== undefined ? { payload: optionalJson(options, 'data') } : {}),
+      idempotencyKey: required(options, 'idempotency-key'),
+      ...(typeof options.recipient === 'string' ? { recipientActor: requiredRecipient(options) } : {}),
+      ...(optionalJson(options, 'evidence') !== undefined
+        ? { evidence: optionalJson(options, 'evidence') as CoordinationEvidenceReference[] }
+        : {}),
+      ...(optionalJson(options, 'data') !== undefined
+        ? { payload: optionalJson(options, 'data') as Record<string, unknown> }
+        : {}),
     };
+    const method = client[command as keyof typeof client];
+    if (typeof method !== 'function') fail(`Unsupported client action: ${command}`);
+    result = await (method as (threadId: string, input: CoordinationEventInput) => Promise<unknown>).call(
+      client,
+      id,
+      input,
+    );
   }
 
-  const response = await fetch(new URL(path, `${baseUrl}/`), {
-    method,
-    headers: {
-      'accept': 'application/json',
-      'x-coordination-token': token,
-      ...(body ? { 'content-type': 'application/json' } : {}),
-      ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  const text = await response.text();
-  let result: unknown = text;
-  try { result = text ? JSON.parse(text) : {}; } catch { /* Preserve non-JSON gateway responses safely. */ }
-  print({ status: response.status, ok: response.ok, result });
-  if (!response.ok) process.exitCode = 1;
+  print(result);
 }
 
-main().catch((error: unknown) => {
-  print({ error: error instanceof Error ? error.message : String(error) }, process.stderr);
-  process.exitCode = 1;
-});
+if (process.argv[1]?.includes('coordination-cli')) {
+  main().catch((error: unknown) => {
+    print({ error: error instanceof Error ? error.message : String(error) }, process.stderr);
+    process.exitCode = 1;
+  });
+}

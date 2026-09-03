@@ -1,5 +1,73 @@
 # Batch Documentation Updates
 
+## Session September 2, 2026 — Language Hub scene mastery crash
+
+**Root cause:** `SceneMasterySection` parsed error JSON from
+`/api/mastery/summary` without checking `response.ok`. An unauthorized or
+failed request therefore became truthy `data` and crashed at
+`Object.entries(data.byScene)`.
+
+**Fix:** The query now throws on non-2xx responses, while the optional section
+also fails closed for query errors or a missing/malformed `byScene` map.
+
+**Verification:** The focused 2-case regression passed, TypeScript passed,
+`git diff --check` passed, the application workflow restarted cleanly, and a
+fresh preview showed no runtime exception.
+
+---
+
+## Session September 2, 2026 — Audit catalogue expansion
+
+### Established audits now share the same discovery path
+
+**What changed:** Stable manifests and exact aliases now cover the existing
+ACTFL calibration, curriculum quality, lesson-topic, textbook-content, rolling
+episode-integrity, and persistent admin audit-log operations. Each manifest
+points to its current script or endpoint rather than recreating audit logic.
+
+**Safety boundary:** The catalogue labels all six canonical audit paths as
+read-only and records their actor scopes, output, persistence, and caveats.
+Rolling episode integrity uses the generic strict continuity auditor; legacy
+episode-specific `--patch` modes remain separate repairs that require explicit
+confirmation.
+
+**Verification:** All seven focused catalogue regressions passed and TypeScript
+passed. The automatic indexer processed all 15 manifests with 6 newly indexed,
+9 already fresh, and 0 errors. Semantic paraphrases resolved ACTFL calibration,
+curriculum/textbook quality, rolling episode integrity, and the persistent
+admin audit log. System health passed every required invariant; its two warnings
+were local app-route storage probes skipped because no local server was running,
+while direct R2 reads and the CopyObject probe passed.
+
+---
+
+## Session September 2, 2026 — Operations catalogue and semantic discovery
+
+### Shared shorthand now resolves to established canonical operations
+
+**What changed:** HolaHola now has a typed operations catalogue, a human
+reference, and an agent discovery skill. Exact aliases resolve before semantic
+search, so “run the burn report” deterministically maps to the existing
+`get_ai_cost_report` capability rather than regenerating cost logic.
+
+**Neural boundary:** Operation manifests are indexed automatically as pinned,
+global `operation_skill` embeddings. They use a dedicated search path and remain
+excluded from Daniela's default recall pool. Retrieved IDs are mapped back to
+the static catalogue before presentation.
+
+**Security boundary:** The read-only coordination discovery endpoint derives
+the actor from the dedicated credential, exposes only a safe manifest
+projection, and never authorizes or executes operations. Mutating catalogue
+entries are explicitly marked as requiring confirmation.
+
+**Verification:** Five catalogue regressions passed; TypeScript passed; all nine
+manifests indexed; live exact and semantic Burn Report discovery passed; Luca
+[Claude Code] actor attribution passed; unauthenticated access returned 401;
+system health reported “All checks passed — safe to mark done”; and Gemini's
+final verdict was **APPROVED — Ship it.**
+
+---
+
 ## Session September 1, 2026 — Chat capture mirror recovery
 
 ### A failed episode mirror no longer freezes later canonical exchanges
@@ -4879,3 +4947,13 @@ Migration `0024_flat_dreaming_celestial.sql` passed the disposable Neon branch
 gate before promotion to the shared database. The focused coordination test,
 TypeScript compile gate, full branch validation matrix, and system-health
 verifier passed.
+
+### Durable coordination feed acknowledgement
+
+Coordination polling progress now has a server-side cursor for each authenticated
+actor. A cursorless feed read resumes from that durable acknowledgement, while
+explicit cursors still support intentional replay. Reads do not advance
+progress; actors acknowledge a fully processed page through the dedicated feed
+cursor endpoint. The cursor only moves forward, cannot be advanced beyond the
+current global feed, and remains separate from thread acceptance or outcome
+acknowledgement.

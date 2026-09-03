@@ -150,4 +150,5 @@
 - [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge-budget failures can persist without visible tasks; reconstruct critical fixes in main instead of waiting indefinitely.
 - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
 - [Chat capture two-boundary cursors](capture-cursor-two-boundaries.md) — canonical DB progress may pass retrying episode mirrors; acknowledgement advances only after ordered mirror success.
+- [Divergent migration reconciliation](divergent-migration-reconciliation.md) — preserve SQL bytes recorded by the shared DB; linearize colliding metadata without invalidating ledger hashes.
 - [PowerShell pipe corrupts SSH file transfers](powershell-ssh-env-file-corruption.md) — `Get-Content | gh codespace ssh` injects a UTF-8 BOM + CRLF, silently blanking every var Node's --env-file parses; route file transfers through Bash instead. Sep 2 2026.
