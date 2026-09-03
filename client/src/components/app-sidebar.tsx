@@ -22,6 +22,7 @@ import { UsageIndicator } from "@/components/UpgradePrompt";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useLogout } from "@/hooks/useLogout";
 import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
@@ -204,6 +205,7 @@ export function AppSidebar() {
   const { userName } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
+  const logoutMutation = useLogout();
 
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [supportTicketId, setSupportTicketId] = useState<string | null>(null);
@@ -541,7 +543,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               onClick={() => {
                 closeSidebar();
-                window.location.href = '/api/logout';
+                logoutMutation.mutate();
               }}
               data-testid="button-logout"
             >

@@ -1129,7 +1129,27 @@ export async function registerRoutes(app: Application): Promise<void> {
     }
   });
 
-  // Password logout
+  // Provider-agnostic logout -- works for password, Google, or (until Phase
+  // 10 deletes replitAuth.ts) Replit sessions alike, since all of them are
+  // just an express-session to destroy; no per-provider end-session redirect
+  // needed now that nothing is Replit-hosted for the new providers.
+  app.post('/api/auth/logout', async (req: any, res: Response) => {
+    try {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error("Logout error:", err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  // Thin alias for one deploy cycle in case a cached client bundle still
+  // posts here -- remove once confident nothing does.
   app.post('/api/auth/password/logout', async (req: any, res: Response) => {
     try {
       req.session.destroy((err: any) => {
@@ -1144,7 +1164,7 @@ export async function registerRoutes(app: Application): Promise<void> {
       res.status(500).json({ message: "Logout failed" });
     }
   });
-  
+
   // Terms of Service acceptance — called once when user agrees to ToS before first session
   app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res: Response) => {
     try {
