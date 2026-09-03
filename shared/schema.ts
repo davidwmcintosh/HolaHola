@@ -8,7 +8,9 @@ import type { ResolutionType } from "./absence-types";
 // ===== Enums =====
 
 // Auth provider enum - distinguishes how user authenticates
-export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending']);
+// 'replit' kept permanently even after Replit auth is fully retired -- Postgres
+// enums are awkward to shrink, and it remains a valid historical value for old rows.
+export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending', 'google', 'github', 'apple']);
 
 // Token type enum for password reset and invitations
 export const authTokenTypeEnum = pgEnum('auth_token_type', ['password_reset', 'invitation']);

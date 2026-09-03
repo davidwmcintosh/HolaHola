@@ -176,6 +176,13 @@
       "when": 1788386673426,
       "tag": "0025_numerous_speedball",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788403190877,
+      "tag": "0026_certain_viper",
+      "breakpoints": true
     }
   ]
 }

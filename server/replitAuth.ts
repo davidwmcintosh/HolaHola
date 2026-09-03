@@ -72,6 +72,7 @@ function claimsToOAuthProfile(claims: any): OAuthProfile {
   }
 
   return {
+    provider: 'replit',
     subjectId: claims["sub"],
     email: typeof claims["email"] === "string" ? claims["email"] : undefined,
     firstName: claims["first_name"],

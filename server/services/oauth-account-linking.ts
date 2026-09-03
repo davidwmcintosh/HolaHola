@@ -13,7 +13,13 @@
  */
 import { storage } from "../storage";
 
+export type OAuthProviderName = 'replit' | 'google' | 'github' | 'apple';
+
 export interface OAuthProfile {
+  /** Required, not inferred from anything -- storage.upsertUser's insert would
+   *  otherwise silently fall back to the authProvider column's default
+   *  ('replit'), which was only ever correct for Replit by coincidence. */
+  provider: OAuthProviderName;
   /** The provider's own unique id for this user (e.g. Replit/Google/GitHub sub, Apple's user id). */
   subjectId: string;
   email?: string;
@@ -60,6 +66,9 @@ export async function linkOrCreateOAuthUser(profile: OAuthProfile): Promise<stri
 
   await storage.upsertUser({
     id: canonicalId,
+    // Only takes effect on insert (a brand-new account) -- onConflictDoUpdate
+    // never overwrites an existing row's authProvider, by design (see above).
+    authProvider: profile.provider,
     // Stored lowercase to match getUserByEmail's lookup convention -- an
     // unlowercased email could silently defeat a future match.
     email: profile.email?.toLowerCase(),
