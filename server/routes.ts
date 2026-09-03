@@ -10,7 +10,7 @@ import { eq, and, gte, desc, sql, isNotNull, isNull, inArray, asc } from "drizzl
 import { createPrivateKey, createPublicKey } from "crypto";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest, isDevBypass, DEV_BYPASS_USER } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
@@ -1046,24 +1046,6 @@ export async function registerRoutes(app: Application): Promise<void> {
   // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
   app.get('/api/auth/user', authLimiter, async (req: any, res: Response) => {
     try {
-      // Local dev bypass — this route reads req.session/req.isAuthenticated()
-      // directly rather than going through the isAuthenticated middleware, so
-      // it needs its own explicit bypass check (that middleware's bypass never
-      // reaches here). Without this, DEV_AUTH_BYPASS=true leaves the frontend
-      // believing nobody is logged in even though other bypassed routes work.
-      //
-      // Prefer the real DB row over the synthetic DEV_BYPASS_USER stand-in:
-      // the frontend gates real UI state off this response (e.g. App.tsx's
-      // ToS modal checks user.tosAcceptedAt), and DEV_BYPASS_USER has no such
-      // fields -- returning it verbatim here made that modal permanently
-      // un-dismissable, since every mutation the user made was real (it
-      // updated the real row) but this endpoint kept reporting the static
-      // placeholder instead of ever reflecting it.
-      if (isDevBypass()) {
-        const realUser = await storage.getUser(DEV_BYPASS_USER.id);
-        return res.json(realUser ?? DEV_BYPASS_USER);
-      }
-
       // Check for password auth first (userId stored directly in session)
       if (req.session?.userId) {
         const user = await storage.getUser(req.session.userId);

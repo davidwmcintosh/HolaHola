@@ -8,7 +8,6 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { isDevBypass } from "./middleware/rbac";
 import { linkOrCreateOAuthUser, type OAuthProfile } from "./services/oauth-account-linking";
 
 const getOidcConfig = memoize(
@@ -89,10 +88,12 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // In local dev with bypass enabled, skip OIDC discovery entirely.
-  // Delegates to the shared isDevBypass() predicate (NODE_ENV + flag + REPLIT_DEPLOYMENT gate)
-  // so the startup-time OIDC skip is consistent with the per-request auth bypass.
-  if (isDevBypass()) {
+  // Same pattern as googleAuth.ts's missing-credentials guard: without a
+  // REPL_ID, OIDC discovery throws and previously crashed the entire boot.
+  // Skipping gracefully lets local dev run with the bypass off (needed to
+  // exercise other providers' real OAuth flows) without a real Replit app.
+  if (!process.env.REPL_ID) {
+    console.warn("[ReplitAuth] REPL_ID not set -- Replit login routes disabled.");
     return;
   }
 
@@ -207,15 +208,6 @@ export function getRequestUserId(req: any): string {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // ── Local dev bypass ────────────────────────────────────────────────────────
-  // Delegates to the shared isDevBypass() predicate from rbac.ts so the policy
-  // (NODE_ENV + flag + REPLIT_DEPLOYMENT gate) is centralised in one place.
-  if (isDevBypass()) {
-    (req as any).resolvedUserId = '49847136';
-    return next();
-  }
-  // ───────────────────────────────────────────────────────────────────────────
-
   // Check for password auth first (userId stored directly in session)
   const sessionUserId = (req.session as any)?.userId;
   if (sessionUserId) {

@@ -14,7 +14,6 @@ import { Strategy, type VerifyFunction } from "openid-client/passport";
 import passport from "passport";
 import type { Express } from "express";
 import memoize from "memoizee";
-import { isDevBypass } from "./middleware/rbac";
 import { linkOrCreateOAuthUser } from "./services/oauth-account-linking";
 
 const getGoogleOidcConfig = memoize(
@@ -37,12 +36,6 @@ function googleCallbackURL(): string {
 }
 
 export async function setupGoogleAuth(app: Express, authLimiter?: any) {
-  // Same startup-time skip as replitAuth.ts -- no OIDC discovery in local dev
-  // bypass mode, consistent with the per-request auth bypass.
-  if (isDevBypass()) {
-    return;
-  }
-
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     console.warn("[GoogleAuth] GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set -- Google login routes disabled.");
     return;

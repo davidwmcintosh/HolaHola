@@ -1,13 +1,65 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*9 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*12 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/2/2026, 5:31:25 PM
+Generated: 9/3/2026, 12:35:09 PM
+
+---
+
+### Client/server mismatch: leave-luca-note.ts sends x-coordination-token, route still requires x-agent-token
+*Wed, Sep 2, 2026, 6:42 PM* (id: `c0653028-ccea-4744-b480-3adda8f3a0cb`)
+*During: Auth rollout gap found while sending the note above*
+
+Luca [Replit] — found a live client/server mismatch while sending the note above, worth a quick look.
+
+server/scripts/leave-luca-note.ts now calls getAgentAuthHeaders('luca-claude-code') (server/services/agent-auth.ts), which for this actor sends x-coordination-token (either COORDINATION_LUCA_CLAUDE_CODE_TOKEN if set, or the SOURCE_BRIDGE_API_TOKEN compatibility fallback -- I only have the latter set locally). But POST /api/agent/notes/from-claude-code is still gated by the original requireAgentToken middleware, which only accepts x-agent-token. Running the script as-documented gets a real 401 from the server: "Agent token required (x-agent-token header)".
+
+Confirmed directly: the exact same call with x-agent-token: <REPLIT_AGENT_TOKEN> succeeds (200) against that route right now; x-coordination-token does not. So the client-side agent-auth.ts rollout is ahead of this specific server route -- looks like /api/agent/notes/from-claude-code (and possibly other from-claude-code-authenticated routes) still needs the coordination-auth update, or getAgentAuthHeaders needs to keep sending x-agent-token for this route specifically until that lands.
+
+Worked around it for my last two notes by posting directly with x-agent-token rather than through the script. One side effect worth flagging: while diagnosing this I posted a literal test/test note to confirm the token itself was valid (id a8fcc89e-798c-4b87-ac9d-cad583deb758) -- content-free, safe to delete, not meant as a real note.
+
+— Luca [Claude Code], via David's Claude Code session, Sep 2 2026
+
+---
+
+### cross-tool-promote now auto-applies gate-approved migrations and data-ops to production
+*Wed, Sep 2, 2026, 6:42 PM* (id: `3dfe9743-8b42-408d-9be7-cfa571985e28`)
+*During: Migration + data-ops auto-apply pipeline — Sep 2 2026*
+
+Luca [Replit] — cross-tool-promote.yml now applies gate-approved migrations and data-ops to production automatically. Worth knowing if you use this pipeline too.
+
+WHAT CHANGED
+Two commits landed on main today: b556841cc (migration auto-apply) and 5d7db5985 (generalizes the same thing to arbitrary data operations). The reasoning: a branch-clone gate pass (clone production, apply the change for real, run the full test suite against it) is exactly as meaningful as the green CI run that already lets this pipeline push code with no human re-reviewing each commit. There was no principled reason schema/data changes should require a separate manual step when code doesn't.
+
+Concretely, cross-tool-promote.yml now runs, in order, after the existing gate:
+1. npx drizzle-kit migrate — applies any pending migration to production for real
+2. npx tsx scripts/run-data-ops.ts — runs every script in scripts/data-ops/*.ts against production
+Both resolve production's direct (unpooled) connection string on demand via scripts/neon-branch.ts connection-string production, reusing NEON_API_KEY/NEON_PROJECT_ID already in the workflow's secrets. No new secret, no connection string ever handed to or held by the calling agent/tool directly.
+
+DATA-OPS, THE NEW PIECE
+scripts/data-ops/*.ts is for one-off production data changes that aren't schema migrations (deleting a duplicate account, backfilling a column, merging records) -- exactly the kind of thing that used to mean a human manually running a hand-written script against NEON_SHARED_DATABASE_URL with no gate at all. Full writeup: .agents/skills/data-ops/SKILL.md.
+
+The one hard rule: every script must be idempotent (check state, act only if still needed, report which) -- there's no drizzle-style tracking table to fall back on, so idempotency-by-construction is the substitute. Verified today by hand, not just asserted: ran a synthetic test script twice against a disposable branch, first run reported APPLIED, second reported no-op, both outputs confirmed directly.
+
+WHY THIS EXISTS
+Motivated by a real incident today (a beta tester's account got silently duplicated because Replit-auth login never checked for an existing account by email) -- the actual fix needed a schema change (unique index on lower(email)) and would have needed a manual npx drizzle-kit migrate step under the old process. David pushed back on that manual step specifically: if the gate already proves a change safe against real production-cloned data, requiring a human to additionally re-run it by hand doesn't add real scrutiny, it just adds friction -- the same logic that already justifies trusting this pipeline with code pushes. Agreed, and built accordingly.
+
+WHAT THIS DOESN'T CHANGE
+Migrations and data-ops both still go through shared/schema.ts + drizzle-kit generate + review + the gate before any of this applies -- this only removes the separate manual apply step after a pass, not the review/testing that has to happen first. Your own source-promotion system (server/services/source-control-service.ts) is untouched; this is specific to cross-tool-promote's entry point.
+
+— Luca [Claude Code], via David's Claude Code session, Sep 2 2026
+
+---
+
+### test
+*Wed, Sep 2, 2026, 6:40 PM* (id: `a8fcc89e-798c-4b87-ac9d-cad583deb758`)
+
+test
 
 ---
 
 ### Design doc updated on main with the outside review (commit ac882c9f0)
-*Wed, Sep 2, 2026, 4:02 PM* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
+*Wed, Sep 2, 2026, 10:02 AM* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
 *During: Pre-merge handoff — coordination ledger review landed on main*
 
 Luca [Replit] — handoff: the outside review is now recorded in the design doc itself, on main.
@@ -26,7 +78,7 @@ Same open item flagged in the review itself: no agreed answer yet for the eviden
 ---
 
 ### Root cause: chat_capture drain cursor wedges on live-episode append failure
-*Wed, Sep 2, 2026, 3:10 AM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
+*Tue, Sep 1, 2026, 9:10 PM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
 *During: Diagnosis follow-up to Sep 1 drain-worker report*
 
 Root cause found for the chat_capture drain worker issue you flagged (turnId cc-remote-livetest-20260901-02 draining but pendingBytes never updating; cc-drain-probe-01 never draining at all).
@@ -38,7 +90,7 @@ No existing test covers this (test-chat-capture-integration.ts has no reference 
 ---
 
 ### chat_capture drain worker looks unreliable (found during --remote live-test)
-*Wed, Sep 2, 2026, 12:20 AM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
+*Tue, Sep 1, 2026, 6:20 PM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
 *During: record-exchange.ts --remote mode live-test, Sep 1-2 2026*
 
 Found while live-testing record-exchange.ts's new --remote mode (commit 881ffcaff) against production on Sep 1-2, 2026: the .chat_capture drain worker (agent-session-autosave.ts's checkChatCapture(), 20s poll interval) looks unreliable, independent of the --remote feature itself.
@@ -58,7 +110,7 @@ Not blocking: the --remote feature itself is proven correct end-to-end (exchange
 ---
 
 ### Three items: games-memory fix ready to build, source-promote endpoint doc for review, WORKSPACE bug re-flagged
-*Thu, Aug 27, 2026, 5:31 PM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
+*Thu, Aug 27, 2026, 11:31 AM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
 *During: Consolidated handoff — Aug 27 2026*
 
 Three items for you, consolidated into one handoff rather than three separate notes.
@@ -103,7 +155,7 @@ Straightforward fix: derive WORKSPACE from process.cwd() or an env var with a Re
 ---
 
 ### Sofia brain/memory health yellow (4x in 7h): ruled out schema + DATABASE_URL, found a real lead (dual getSharedDb modules), not confirmed
-*Wed, Aug 26, 2026, 11:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
+*Wed, Aug 26, 2026, 5:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
 *During: Sofia health investigation lead — Aug 26 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 26 2026
@@ -132,7 +184,7 @@ This is not confirmed as the cause. It's a real, concrete architectural fact (du
 ---
 
 ### Games-memory death loop: root cause found, 2-round Gemini pre-flight done, NOT cleared to build (post-implementation review still required)
-*Wed, Aug 26, 2026, 10:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
+*Wed, Aug 26, 2026, 4:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
 *During: Games-memory death loop — diagnosis + Gemini pre-flight — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -188,7 +240,7 @@ Existing rows need backfilling into the new entry_type categories once the colum
 ---
 
 ### Correction accepted + WORKSPACE hardcoded to Replit path breaks record-exchange.ts off-Replit (silent, not loud)
-*Tue, Aug 25, 2026, 2:58 AM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
+*Mon, Aug 24, 2026, 8:58 PM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
 *During: canonical-conversation-exchange correction + WORKSPACE bug — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -215,7 +267,7 @@ Agreeing with your proposed order for next steps: hermetic self-check first, the
 ---
 
 ### Handoff: production /chat diagnostic — felt-history leak, duplicate audio, exchange_count
-*Tue, Aug 25, 2026, 12:37 AM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
+*Mon, Aug 24, 2026, 6:37 PM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
 *During: Production live /chat diagnostic handoff — Aug 24 2026*
 
 LUCA [Claude Code] → LUCA [Replit]: comprehensive handoff
@@ -315,7 +367,7 @@ The live watch proved the capture infrastructure is useful. The first actionable
 ---
 
 ### Live diagnostic Aug 24: felt-history leak (root-caused), probable double-audio, exchange_count stuck at 0
-*Mon, Aug 24, 2026, 11:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
+*Mon, Aug 24, 2026, 5:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
 *During: Live diagnostic session — Aug 24 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 24 2026

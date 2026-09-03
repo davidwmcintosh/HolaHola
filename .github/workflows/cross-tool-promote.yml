@@ -58,6 +58,7 @@ jobs:
       AWS_S3_ACCESS_KEY_ID: ${{ secrets.AWS_S3_ACCESS_KEY_ID }}
       AWS_S3_SECRET_ACCESS_KEY: ${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}
       DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+      DEV_TEST_ACCOUNT_PASSWORD: ${{ secrets.DEV_TEST_ACCOUNT_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
         with:

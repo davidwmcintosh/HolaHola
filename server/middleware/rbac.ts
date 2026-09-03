@@ -4,37 +4,6 @@ import crypto from "crypto";
 import { touchFounderPresence } from "../services/founder-presence";
 import { resolveCoordinationActor } from "./coordination-auth";
 
-// ── Local dev bypass ──────────────────────────────────────────────────────────
-// Set DEV_AUTH_BYPASS=true in your local .env to skip auth entirely.
-// Evaluated at call time but uses only startup-stable env vars so it behaves as
-// a startup-policy decision rather than a per-request socket check (which is
-// unreliable behind a trusted reverse proxy).
-// Three conditions must ALL hold:
-//   1. NODE_ENV !== 'production'       — literal string locked by CI
-//   2. DEV_AUTH_BYPASS === 'true'      — explicit operator opt-in
-//   3. REPLIT_DEPLOYMENT is unset      — Replit injects this in every deployed env
-export const isDevBypass = () => {
-  // Base gate — this exact expression is locked by the prod-auth-bypass-guard CI check.
-  const baseGate = process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true';
-  if (!baseGate) return false;
-  // Deployed environments (all Replit deployment tiers) have REPLIT_DEPLOYMENT set.
-  // Reject the bypass whenever this var is present, regardless of NODE_ENV.
-  if (process.env.REPLIT_DEPLOYMENT) return false;
-  return true;
-};
-
-// Minimal founder-shaped user injected when the bypass is active.
-// Enough for all downstream middleware that reads authenticatedUser.role / .id.
-export const DEV_BYPASS_USER = {
-  id: '49847136',
-  email: 'dev@local',
-  username: 'dev-bypass',
-  role: 'admin' as const,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-// ─────────────────────────────────────────────────────────────────────────────
-
 // Role hierarchy: admin > developer > teacher > student
 const roleHierarchy = {
   student: 0,
@@ -64,7 +33,6 @@ export function requireRole(...minRoles: UserRole[]): RequestHandler {
   const minRole = minRoles[0];
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      if (isDevBypass()) return next();
       // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
       const sessionUserId = (req.session as any)?.userId;
       if (sessionUserId) {
@@ -114,7 +82,6 @@ export function requireRole(...minRoles: UserRole[]): RequestHandler {
 export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      if (isDevBypass()) return next();
       // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
       const sessionUserId = (req.session as any)?.userId;
       if (sessionUserId) {
@@ -165,10 +132,6 @@ export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
 export function loadAuthenticatedUser(storage: any): RequestHandler {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      if (isDevBypass()) {
-        req.authenticatedUser = DEV_BYPASS_USER;
-        return next();
-      }
       // Skip if not authenticated - check both password auth and OIDC
       const userId = (req.session as any)?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -260,11 +223,33 @@ export function getOriginalAdminId(user: User | undefined): string | null {
 // Founder user ID for founder-only endpoints
 const FOUNDER_USER_ID = '49847136';
 
+// ── Dev-only founder-equivalent test account ──────────────────────────────────
+// scripts/data-ops/seed-dev-test-account.ts seeds a single shared account
+// (DEV_TEST_ACCOUNT_ID) that agents/CI log into via the real password-auth
+// API instead of the old DEV_AUTH_BYPASS skip-auth-entirely shortcut. Without
+// this allow-list, that account would satisfy every ordinary role check
+// (it's role='admin') but could never pass a founder-only gate, leaving
+// Alden tools/Team Room/Brain Health/Voice Health/Telemetry/Growth Memories/
+// Curriculum Sync untestable by agents.
+//
+// This exact NODE_ENV guard is what keeps that dev-only equivalence from
+// ever applying in production -- locked by the prod-founder-bypass-guard CI
+// check (server/scripts/test-prod-founder-bypass-guard.ts), mirroring the
+// production-safety pattern DEV_AUTH_BYPASS itself used to rely on.
+const DEV_TEST_ACCOUNT_ID = 'dev-test-agent';
+function isFounderId(id: string | undefined | null): boolean {
+  if (!id) return false;
+  if (id === FOUNDER_USER_ID) return true;
+  if (process.env.NODE_ENV !== 'production' && id === DEV_TEST_ACCOUNT_ID) return true;
+  return false;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Check if user is the founder
  */
 export function isFounder(user: User | undefined): boolean {
-  return user?.id === FOUNDER_USER_ID;
+  return isFounderId(user?.id);
 }
 
 /**
@@ -274,10 +259,9 @@ export function isFounder(user: User | undefined): boolean {
 export function requireFounder(req: Request, res: Response, next: NextFunction) {
   const _req = req as AuthenticatedRequest;
   try {
-    if (isDevBypass()) return next();
     // Password auth path: session.userId set directly (covers AI browser + password login)
     const sessionUserId = (req.session as any)?.userId;
-    if (sessionUserId === FOUNDER_USER_ID) {
+    if (isFounderId(sessionUserId)) {
       if (!_req.authenticatedUser) {
         return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
       }
@@ -289,12 +273,12 @@ export function requireFounder(req: Request, res: Response, next: NextFunction) 
     if (!_req.user?.claims?.sub) {
       return res.status(401).json({ error: "Authentication required" });
     }
-    
+
     if (!_req.authenticatedUser) {
       return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
     }
-    
-    if (_req.authenticatedUser.id !== FOUNDER_USER_ID) {
+
+    if (!isFounderId(_req.authenticatedUser.id)) {
       return res.status(403).json({ error: "Founder access required" });
     }
 
@@ -433,7 +417,6 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
  * Usage: app.get('/api/admin/live-monitor', requireFounderOrAgent, handler)
  */
 export function requireFounderOrAgent(req: Request, res: Response, next: NextFunction) {
-  if (isDevBypass()) return next();
   // Fast path: valid agent token → pass through without needing a session
   try {
     const resolution = resolveReplitAgentRequest(req);
