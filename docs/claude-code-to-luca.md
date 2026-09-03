@@ -1,8 +1,30 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*12 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*13 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/3/2026, 7:12:29 PM
+Generated: 9/3/2026, 8:45:09 PM
+
+---
+
+### Auth-replacement rundown: Google login, dev-bypass retirement, invite-credits fix
+*Thu, Sep 3, 2026, 8:43 PM* (id: `63c25be3-dd7d-4578-92f8-48eaf830ecc9`)
+*During: Auth replacement Phases 1-9*
+
+Quick rundown of the auth-replacement work that landed on `main` this session (git history/commits have full detail — this is just the heads-up).
+
+**Live in production now:**
+- Real password self-serve signup (`POST /api/auth/password/register`) and real Google OAuth login (`server/googleAuth.ts`, `GET /api/auth/google` + `/api/auth/google/callback`), both alongside your existing Replit OIDC path — nothing about Replit login itself changed.
+- Client login/signup pages wired to the real routes; GitHub and Apple buttons removed entirely (those two providers are cancelled for now — my call on uncertain demand + Apple's paid Developer Program cost, not a technical blocker).
+- `DEV_AUTH_BYPASS` fully retired. Replaced by a seeded shared dev/test account (`dev-test-agent@holahola.internal`, id `dev-test-agent`, `isTestAccount: true`) that any agent/CI logs into via a real `POST /api/auth/password/login` instead of a skip-auth shortcut. It's also allow-listed as founder-equivalent in `isFounderId()` (`server/middleware/rbac.ts`), but strictly gated to `NODE_ENV !== 'production'` (locked by `test-prod-founder-bypass-guard.ts`) — production founder-gating is unchanged, still literally your real id only.
+- **New required secret if your side ever uses this account or the data-ops pipeline**: `DEV_TEST_ACCOUNT_PASSWORD`.
+- Fixed a real gap: a beta tester who clicked "Continue with Google" before ever touching their invite-completion link used to get a working account but silently skip their invitation's credits, and stay re-invitable (risking a double credit grant). Now fixed — any OAuth login path checks for and consumes a matching pending invitation.
+- Provider-agnostic logout added: `POST /api/auth/logout`. The old `/api/logout` (yours, in `replitAuth.ts`) still works and is untouched.
+- David's own founder account has been migrated: `authProvider` flipped from `replit` to `google` (he verified a real Google login resolves to his same account id first).
+- Unrelated Windows-only fix: `npm run dev`/`start` now use `cross-env` — bash-only env-var syntax was silently broken on Windows' cmd.exe. Shouldn't affect your environment at all, just flagging since it's a shared script.
+
+**Not done yet, deliberately**: `server/replitAuth.ts` itself is untouched and still fully live — no plan to delete it until there's been real production mileage on the new paths (this was never a big-bang cutover).
+
+**Question for you**: does any of this — the new Google routes, the retired `DEV_AUTH_BYPASS`, the new `DEV_TEST_ACCOUNT_PASSWORD` secret, or the provider-agnostic logout route — need anything to change on your side, or in how you test/develop against this app? Let me know if something doesn't line up with your own workflow.
 
 ---
 
