@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, LogIn, GraduationCap } from 'lucide-react';
-import { SiGoogle, SiGithub, SiApple } from 'react-icons/si';
+import { SiGoogle } from 'react-icons/si';
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 
 const loginSchema = z.object({
@@ -208,33 +208,13 @@ export default function Login() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/api/auth/google'}
               data-testid="button-google-login"
             >
               <SiGoogle className="h-4 w-4 mr-2" />
               Continue with Google
             </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => window.location.href = '/api/login'}
-              data-testid="button-github-login"
-            >
-              <SiGithub className="h-4 w-4 mr-2" />
-              Continue with GitHub
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => window.location.href = '/api/login'}
-              data-testid="button-apple-login"
-            >
-              <SiApple className="h-4 w-4 mr-2" />
-              Continue with Apple
-            </Button>
-            
+
             <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
