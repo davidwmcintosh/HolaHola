@@ -59,7 +59,9 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
     if (!sessions || sessions.length === 0) return null;
 
     const sessionData = sessions[0].sess as any;
-    return sessionData?.passport?.user?.claims?.sub || null;
+    // Password auth stores userId directly; OIDC/Replit Auth (legacy) stores it
+    // nested under passport.user.claims.sub — check both, same as unified-ws-handler.ts.
+    return sessionData?.userId ?? sessionData?.passport?.user?.claims?.sub ?? null;
   } catch (error) {
     console.error('[WS Gateway Auth] Error:', error);
     return null;

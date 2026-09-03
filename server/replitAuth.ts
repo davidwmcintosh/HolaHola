@@ -8,7 +8,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { isDevBypass } from "./middleware/rbac";
+import { linkOrCreateOAuthUser, type OAuthProfile } from "./services/oauth-account-linking";
 
 const getOidcConfig = memoize(
   async () => {
@@ -53,11 +53,12 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(
-  claims: any,
-) {
-  // Extract role from claims if present (for testing OIDC flow)
-  // Only allow role upgrade (student -> teacher -> developer -> admin), never downgrade
+// Converts Replit's raw OIDC claims into the provider-agnostic profile shape
+// server/services/oauth-account-linking.ts expects. The role/is_test_account
+// extraction here is Replit-specific (its test-flow claims) -- Google/GitHub/
+// Apple profiles won't carry these, so they're kept local to this adapter
+// rather than in the shared helper.
+function claimsToOAuthProfile(claims: any): OAuthProfile {
   type UserRole = 'admin' | 'developer' | 'teacher' | 'student';
   let roleToSet: UserRole | undefined;
   if (claims["roles"] && Array.isArray(claims["roles"])) {
@@ -68,20 +69,17 @@ async function upsertUser(
     else if (claimedRoles.includes('teacher')) roleToSet = 'teacher';
     else if (claimedRoles.includes('student')) roleToSet = 'student';
   }
-  
-  // Extract test account flag from claims (for developer testing)
-  // Test accounts have their usage excluded from production analytics
-  const isTestAccount = claims["is_test_account"] === true;
-  
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
+
+  return {
+    provider: 'replit',
+    subjectId: claims["sub"],
+    email: typeof claims["email"] === "string" ? claims["email"] : undefined,
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
     role: roleToSet,
-    isTestAccount: isTestAccount || undefined, // Only set if explicitly true
-  });
+    isTestAccount: claims["is_test_account"] === true,
+  };
 }
 
 export async function setupAuth(app: Express, authLimiter?: any) {
@@ -90,10 +88,12 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // In local dev with bypass enabled, skip OIDC discovery entirely.
-  // Delegates to the shared isDevBypass() predicate (NODE_ENV + flag + REPLIT_DEPLOYMENT gate)
-  // so the startup-time OIDC skip is consistent with the per-request auth bypass.
-  if (isDevBypass()) {
+  // Same pattern as googleAuth.ts's missing-credentials guard: without a
+  // REPL_ID, OIDC discovery throws and previously crashed the entire boot.
+  // Skipping gracefully lets local dev run with the bypass off (needed to
+  // exercise other providers' real OAuth flows) without a real Replit app.
+  if (!process.env.REPL_ID) {
+    console.warn("[ReplitAuth] REPL_ID not set -- Replit login routes disabled.");
     return;
   }
 
@@ -103,9 +103,15 @@ export async function setupAuth(app: Express, authLimiter?: any) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user: any = {};
+    const claims = tokens.claims();
+    const canonicalId = await linkOrCreateOAuthUser(claimsToOAuthProfile(claims));
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    // Every downstream consumer (getRequestUserId, /api/auth/user,
+    // isAuthenticated, requireRole, ...) reads req.user.claims.sub as the
+    // session identity. Overwriting it here, once, means the canonical-id
+    // resolution above applies everywhere without touching those call sites.
+    user.claims.sub = canonicalId;
     verified(null, user);
   };
 
@@ -137,8 +143,16 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   const loginHandlers = authLimiter ? [authLimiter] : [];
   loginHandlers.push((req: any, res: any, next: any) => {
     ensureStrategy(req.hostname);
+    // No `prompt` override — this is inherited Replit scaffold boilerplate
+    // that forced BOTH re-authentication and re-consent on every single
+    // login, even for a user with an active Replit session who already
+    // granted consent. Omitting it lets the OIDC provider's own default
+    // apply: skip screens the user doesn't need to see again, still show
+    // them when actually required (first-ever login, expired/revoked
+    // session or consent). Only ~1 real user account currently depends on
+    // this login path (founder's own), so verify by actually logging in
+    // again rather than assuming this doesn't change refresh-token behavior.
     passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
@@ -194,15 +208,6 @@ export function getRequestUserId(req: any): string {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // ── Local dev bypass ────────────────────────────────────────────────────────
-  // Delegates to the shared isDevBypass() predicate from rbac.ts so the policy
-  // (NODE_ENV + flag + REPLIT_DEPLOYMENT gate) is centralised in one place.
-  if (isDevBypass()) {
-    (req as any).resolvedUserId = '49847136';
-    return next();
-  }
-  // ───────────────────────────────────────────────────────────────────────────
-
   // Check for password auth first (userId stored directly in session)
   const sessionUserId = (req.session as any)?.userId;
   if (sessionUserId) {

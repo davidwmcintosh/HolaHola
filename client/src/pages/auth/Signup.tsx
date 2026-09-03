@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, User, UserPlus, Sparkles, Check, Crown } from 'lucide-react';
-import { SiGoogle, SiGithub, SiApple } from 'react-icons/si';
+import { SiGoogle } from 'react-icons/si';
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 
 const signupSchema = z.object({
@@ -88,7 +88,7 @@ export default function Signup() {
   };
 
   const handleSocialSignIn = (provider: string) => {
-    window.location.href = '/api/login';
+    window.location.href = `/api/auth/${provider}`;
   };
 
   return (
@@ -306,7 +306,7 @@ export default function Signup() {
           </div>
 
           {/* Social login buttons */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <Button
               variant="outline"
               size="lg"
@@ -314,25 +314,8 @@ export default function Signup() {
               data-testid="button-google-signup"
               className="w-full"
             >
-              <SiGoogle className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => handleSocialSignIn('github')}
-              data-testid="button-github-signup"
-              className="w-full"
-            >
-              <SiGithub className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => handleSocialSignIn('apple')}
-              data-testid="button-apple-signup"
-              className="w-full"
-            >
-              <SiApple className="h-5 w-5" />
+              <SiGoogle className="h-5 w-5 mr-2" />
+              Continue with Google
             </Button>
           </div>
 

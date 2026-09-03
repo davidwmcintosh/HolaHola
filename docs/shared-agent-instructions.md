@@ -112,3 +112,30 @@ rules. Keep this file free of secrets, credentials, and private user data.
 - Project-specific architecture, operating commands, and safety constraints
   remain in `replit.md`; do not duplicate this shared cross-interface contract
   in interface-specific instruction files.
+
+## Local dev / agent login (DEV_AUTH_BYPASS retired 2026-09-03)
+
+`DEV_AUTH_BYPASS` no longer exists — it used to skip auth entirely in local
+dev, which meant every agent request was silently treated as the founder's
+real account (id `49847136`). It's been replaced by a real login: a single
+seeded dev/test account (`scripts/data-ops/seed-dev-test-account.ts`, id
+`dev-test-agent`, email `dev-test-agent@holahola.internal`, role `admin`,
+`isTestAccount: true`) that any agent or CI session logs into for real via
+`POST /api/auth/password/login` using the `DEV_TEST_ACCOUNT_PASSWORD` env var,
+then carries the returned session cookie on subsequent requests — exactly
+like a real user, no shortcut branch in the request path.
+
+This account is also allow-listed as founder-equivalent in
+`server/middleware/rbac.ts`'s `isFounderId()` — but **only** when
+`NODE_ENV !== 'production'` (locked by
+`server/scripts/test-prod-founder-bypass-guard.ts`), so it can exercise
+founder-only tooling (Alden tools, Team Room, Brain Health, Voice Health,
+Telemetry, Growth Memories, Curriculum Sync) in dev without ever having any
+effect on real production access, which stays founder-id-only exactly as
+before.
+
+`DEV_TEST_ACCOUNT_PASSWORD` is a new required secret: local `.env` (see
+`.env.template`) and the `cross-tool-promote` GitHub Actions secret (same
+value needed there so its automatic data-ops step can seed/verify the
+account in production too — the row exists there like any other, just never
+founder-equivalent at runtime).

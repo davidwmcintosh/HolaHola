@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, GraduationCap, Mail, ArrowRight, Users, Sparkles } from 'lucide-react';
-import { SiGoogle, SiGithub, SiApple } from 'react-icons/si';
+import { SiGoogle } from 'react-icons/si';
 import holaholaIcon from "@assets/holaholajustbubblesBackgroundRemoved_1765309702014.png";
 
 const classCodeSchema = z.object({
@@ -49,7 +49,7 @@ export default function GetStarted() {
         title: 'Class found!',
         description: `Sign in to join "${data.className}"`,
       });
-      window.location.href = '/api/login';
+      navigate('/login');
     },
     onError: (error: any) => {
       toast({
@@ -65,7 +65,7 @@ export default function GetStarted() {
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = '/api/login';
+    window.location.href = '/api/auth/google';
   };
 
   if (currentOption === 'choose') {
@@ -234,28 +234,6 @@ export default function GetStarted() {
             >
               <SiGoogle className="h-5 w-5 mr-2" />
               Continue with Google
-            </Button>
-
-            <Button
-              className="w-full"
-              size="lg"
-              variant="outline"
-              onClick={handleGoogleSignIn}
-              data-testid="button-github-signin"
-            >
-              <SiGithub className="h-5 w-5 mr-2" />
-              Continue with GitHub
-            </Button>
-
-            <Button
-              className="w-full"
-              size="lg"
-              variant="outline"
-              onClick={handleGoogleSignIn}
-              data-testid="button-apple-signin"
-            >
-              <SiApple className="h-5 w-5 mr-2" />
-              Continue with Apple
             </Button>
 
             <div className="relative my-2">

@@ -13,6 +13,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Files that exist in server/tests/ but are intentionally excluded from the coverage
 // check. Remove an entry once the underlying issue is fixed.
@@ -21,7 +22,12 @@ const KNOWN_EXCLUDED: Record<string, string> = {
   'bundle-management.test.ts': 'uses vitest which is not installed; rewrite to node:test first',
 };
 
-const ROOT = resolve(new URL('.', import.meta.url).pathname, '..', '..');
+// fileURLToPath, not new URL(...).pathname -- on Windows a file:// URL's
+// .pathname keeps its leading slash ("/C:/Users/..."), which path.resolve()
+// does not parse as an absolute Windows path, producing a doubled drive
+// letter ("C:\C:\Users\..."). fileURLToPath handles this correctly on every
+// platform.
+const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
 const SERVER_TESTS_DIR = join(ROOT, 'server', 'tests');
 const PKG_PATH = join(ROOT, 'package.json');
 

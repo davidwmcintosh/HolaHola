@@ -1,6 +1,6 @@
 {
-  "id": "b5623768-cd55-4257-ac68-8bd79a0cad80",
-  "prevId": "8ff7c8dd-8148-4c64-8445-771b09e141c2",
+  "id": "c31d776d-6202-4bd0-b528-df9684b22759",
+  "prevId": "b5623768-cd55-4257-ac68-8bd79a0cad80",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7488,39 +7488,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.coordination_actor_feed_cursors": {
-      "name": "coordination_actor_feed_cursors",
-      "schema": "",
-      "columns": {
-        "actor": {
-          "name": "actor",
-          "type": "varchar(80)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "acknowledged_global_sequence": {
-          "name": "acknowledged_global_sequence",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -34635,7 +34602,24 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_users_email_unique": {
+          "name": "idx_users_email_unique",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"users\".\"email\" IS NOT NULL AND \"users\".\"email\" != ''",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -37825,6 +37809,39 @@
           "with": {}
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.coordination_actor_feed_cursors": {
+      "name": "coordination_actor_feed_cursors",
+      "schema": "",
+      "columns": {
+        "actor": {
+          "name": "actor",
+          "type": "varchar(80)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "acknowledged_global_sequence": {
+          "name": "acknowledged_global_sequence",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

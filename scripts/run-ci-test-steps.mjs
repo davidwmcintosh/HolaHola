@@ -9,8 +9,14 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = resolve(new URL('..', import.meta.url).pathname);
+// fileURLToPath, not new URL(...).pathname -- on Windows a file:// URL's
+// .pathname keeps its leading slash (e.g. "/C:/Users/..."), which
+// path.resolve() does not parse as an absolute Windows path, producing a
+// doubled drive letter ("C:\C:\Users\..."). fileURLToPath handles this
+// correctly on every platform.
+const root = fileURLToPath(new URL('..', import.meta.url));
 const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 const testChain = packageJson.scripts?.test;
 

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "idx_users_email_unique" ON "users" USING btree (lower("email")) WHERE "users"."email" IS NOT NULL AND "users"."email" != '';

@@ -98,10 +98,11 @@ import { franc } from "franc-min";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated, getSession, getRequestUserId } from "./replitAuth";
+import { setupGoogleAuth } from "./googleAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
-import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
+import { passwordLoginSchema, passwordRegisterSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import { userReviewItems, userDrillProgress, messages, textbookLessonContent, classCurriculumUnits } from "@shared/schema";
 import { applyConversationalCredit, pendingMasteryAcknowledgments } from "./services/conversational-credit-service";
 import passport from "passport";
@@ -627,6 +628,9 @@ export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
+  // Set up Google OAuth (Phase 5 of the Replit-auth replacement) -- additive,
+  // does not touch or replace Replit auth's routes.
+  await setupGoogleAuth(app as any, authLimiter);
 
   const sourcePromotionError = sourcePromotionConfigurationError();
   if (sourcePromotionError) {
@@ -1095,7 +1099,57 @@ export async function registerRoutes(app: Application): Promise<void> {
     }
   });
   
-  // Password logout
+  // Real self-serve registration — no invitation required
+  app.post('/api/auth/password/register', authLimiter, async (req: any, res: Response) => {
+    try {
+      const validation = passwordRegisterSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request",
+          errors: validation.error.errors
+        });
+      }
+
+      const { email, password, firstName, lastName } = validation.data;
+      const result = await passwordAuthService.registerUser({ email, password, firstName, lastName });
+
+      if (!result.success || !result.user) {
+        return res.status(409).json({ message: result.error || "Registration failed" });
+      }
+
+      // Set session — same shape as password login, so the client's existing
+      // post-signup redirect/query-invalidation flow works unmodified.
+      req.session.userId = result.user.id;
+      req.session.authProvider = 'password';
+
+      res.json({ success: true, user: result.user });
+    } catch (error) {
+      console.error("Password registration error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // Provider-agnostic logout -- works for password, Google, or (until Phase
+  // 10 deletes replitAuth.ts) Replit sessions alike, since all of them are
+  // just an express-session to destroy; no per-provider end-session redirect
+  // needed now that nothing is Replit-hosted for the new providers.
+  app.post('/api/auth/logout', async (req: any, res: Response) => {
+    try {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error("Logout error:", err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  // Thin alias for one deploy cycle in case a cached client bundle still
+  // posts here -- remove once confident nothing does.
   app.post('/api/auth/password/logout', async (req: any, res: Response) => {
     try {
       req.session.destroy((err: any) => {
@@ -1110,7 +1164,7 @@ export async function registerRoutes(app: Application): Promise<void> {
       res.status(500).json({ message: "Logout failed" });
     }
   });
-  
+
   // Terms of Service acceptance — called once when user agrees to ToS before first session
   app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res: Response) => {
     try {
@@ -22519,19 +22573,21 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support', 'alden'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
+      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', 'openai-realtime'];
       if (validatedRole === 'tutor' && !validTutorProviders.includes(provider)) {
-        return res.status(400).json({ 
-          error: "Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices." 
+        return res.status(400).json({
+          error: "Main tutors must use Cartesia, ElevenLabs, Google, Gemini, Gemini Live, or OpenAI Realtime voices."
         });
       }
       if ((validatedRole === 'assistant' || validatedRole === 'support' || validatedRole === 'alden') && provider !== 'google') {
-        return res.status(400).json({ 
-          error: "Assistant tutors, support, and Alden must use Google voices." 
+        return res.status(400).json({
+          error: "Assistant tutors, support, and Alden must use Google voices."
         });
       }
-      
+
       // Validate speakingRate: ElevenLabs supports 0.5-2.0, Google supports 0.25-4.0, Cartesia supports 0.7-1.3
+      // OpenAI Realtime has no speaking-rate parameter in this build — the field is stored
+      // but unused (same treatment as Gemini Live, which also has no real speed control here).
       const isElevenLabs = provider === 'elevenlabs';
       const isGoogle = provider === 'google' || provider === 'gemini' || provider === 'gemini-live';
       const rateMin = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs || isGoogle) ? 0.25 : 0.7;
@@ -22626,8 +22682,8 @@ Current conversation context:
   app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { provider } = req.body;
-      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'].includes(provider)) {
-        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', or 'gemini-live-35'" });
+      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', 'openai-realtime'].includes(provider)) {
+        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', or 'openai-realtime'" });
       }
       
       const count = await storage.updateAllTutorVoicesProvider(provider);
@@ -24966,6 +25022,158 @@ Current conversation context:
     } catch (error: any) {
       console.error('[GL Audition] Error:', error.message);
       if (!res.headersSent) res.status(500).json({ error: error.message || 'GL audition failed' });
+    }
+  });
+
+  // Admin: OpenAI's Realtime voice set — fixed, non-queryable list (no "list voices"
+  // endpoint on OpenAI's side, unlike Cartesia/ElevenLabs). Verify against
+  // https://platform.openai.com/docs/guides/realtime before adding new names.
+  app.get("/api/admin/openai-realtime-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), (req: any, res: Response) => {
+    const OPENAI_REALTIME_VOICES = [
+      { id: 'alloy',   name: 'Alloy',   gender: 'female', provider: 'openai-realtime', description: 'Neutral, balanced' },
+      { id: 'ash',     name: 'Ash',     gender: 'male',   provider: 'openai-realtime', description: 'Deep, calm' },
+      { id: 'ballad',  name: 'Ballad',  gender: 'male',   provider: 'openai-realtime', description: 'Warm, expressive' },
+      { id: 'coral',   name: 'Coral',   gender: 'female', provider: 'openai-realtime', description: 'Bright, friendly' },
+      { id: 'echo',    name: 'Echo',    gender: 'male',   provider: 'openai-realtime', description: 'Clear, energetic' },
+      { id: 'sage',    name: 'Sage',    gender: 'female', provider: 'openai-realtime', description: 'Measured, thoughtful' },
+      { id: 'shimmer', name: 'Shimmer', gender: 'female', provider: 'openai-realtime', description: 'Light, upbeat' },
+      { id: 'verse',   name: 'Verse',   gender: 'male',   provider: 'openai-realtime', description: 'Smooth, conversational' },
+    ];
+    const gender = req.query.gender as 'male' | 'female' | undefined;
+    const voices = gender ? OPENAI_REALTIME_VOICES.filter(v => v.gender === gender) : OPENAI_REALTIME_VOICES;
+    res.json(voices);
+  });
+
+  // Admin: OpenAI GPT Realtime voice audition — mirrors /api/admin/gl-audition:
+  // user sends mic PCM16 @ 16kHz, server opens a short-lived real Realtime session
+  // with the selected voice, returns the model's spoken response as a WAV.
+  app.post("/api/admin/openai-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    const { audio, languageCode, voiceId } = req.body;
+    if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
+
+    const { OPENAI_REALTIME_MODEL, OPENAI_REALTIME_VOICES } = await import('./services/openai-realtime-session');
+    const voice = (OPENAI_REALTIME_VOICES as readonly string[]).includes(voiceId) ? voiceId : 'alloy';
+    const langCode = languageCode || 'en-US';
+
+    const LANG_CODE_TO_INSTRUCTION: Record<string, string> = {
+      'en-US': 'Respond in English.', 'es-ES': 'Responde en español (de España).',
+      'es-MX': 'Responde en español mexicano.', 'fr-FR': 'Réponds en français.',
+      'de-DE': 'Antworte auf Deutsch.', 'it-IT': 'Rispondi in italiano.',
+      'pt-BR': 'Responda em português brasileiro.', 'ja-JP': '日本語で返答してください。',
+      'zh-CN': '请用普通话回答。', 'ko-KR': '한국어로 대답해주세요.',
+    };
+    const langInstruction = LANG_CODE_TO_INSTRUCTION[langCode] || `Respond in the language matching locale ${langCode}.`;
+    const auditionInstructions = `You are a friendly language tutor demonstrating your voice. ${langInstruction} The user will say something brief — respond warmly in one or two sentences.`;
+
+    const apiKey = process.env.USER_OPENAI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'USER_OPENAI_API_KEY not configured' });
+
+    console.log(`[OpenAI Audition] model: ${OPENAI_REALTIME_MODEL}, voice: ${voice}, langCode: ${langCode}`);
+
+    try {
+      const { WebSocket: WS } = await import('ws');
+      const responseChunks: Buffer[] = [];
+      let oaWs: InstanceType<typeof WS> | null = null;
+
+      await new Promise<void>((resolve, reject) => {
+        const TIMEOUT_MS = 30000;
+        const timer = setTimeout(() => {
+          try { oaWs?.close(); } catch {}
+          if (responseChunks.length > 0) resolve();
+          else reject(new Error('OpenAI audition timed out — no audio response received'));
+        }, TIMEOUT_MS);
+
+        const finish = (err?: Error) => {
+          clearTimeout(timer);
+          try { oaWs?.close(); } catch {}
+          err ? reject(err) : resolve();
+        };
+
+        const ws = new WS(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(OPENAI_REALTIME_MODEL)}`, {
+          headers: { Authorization: `Bearer ${apiKey}`, 'OpenAI-Beta': 'realtime=v1' },
+        });
+        oaWs = ws;
+
+        ws.on('open', () => {
+          ws.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+              modalities: ['audio', 'text'],
+              instructions: auditionInstructions,
+              voice,
+              input_audio_format: 'pcm16',
+              output_audio_format: 'pcm16',
+              turn_detection: { type: 'server_vad' },
+            },
+          }));
+          // OpenAI Realtime expects 24kHz PCM16 input; the audition recorder in
+          // VoiceConsole.tsx captures at 16kHz (matching Gemini Live) — upsample here.
+          const raw = Buffer.from(audio, 'base64');
+          const inSamples = Math.floor(raw.length / 2);
+          const outSamples = Math.round(inSamples * 1.5); // 16kHz -> 24kHz
+          const resampled = Buffer.alloc(outSamples * 2);
+          for (let i = 0; i < outSamples; i++) {
+            const srcPos = i / 1.5;
+            const i0 = Math.floor(srcPos);
+            const i1 = Math.min(i0 + 1, inSamples - 1);
+            const frac = srcPos - i0;
+            const s0 = raw.readInt16LE(i0 * 2);
+            const s1 = raw.readInt16LE(i1 * 2);
+            resampled.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(s0 + (s1 - s0) * frac))), i * 2);
+          }
+          ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: resampled.toString('base64') }));
+          ws.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
+          ws.send(JSON.stringify({ type: 'response.create' }));
+        });
+
+        ws.on('message', (data: any) => {
+          try {
+            const event = JSON.parse(data.toString());
+            if (event.type === 'response.audio.delta' && event.delta) {
+              responseChunks.push(Buffer.from(event.delta, 'base64'));
+            } else if (event.type === 'response.done') {
+              if (responseChunks.length > 0) finish();
+              else finish(new Error('OpenAI response completed with no audio'));
+            } else if (event.type === 'error') {
+              finish(new Error(event.error?.message || 'OpenAI Realtime error'));
+            }
+          } catch (err: any) {
+            console.error('[OpenAI Audition] Failed to parse event:', err.message);
+          }
+        });
+
+        ws.on('error', (err: Error) => {
+          console.error('[OpenAI Audition] WebSocket error:', err.message);
+          finish(err);
+        });
+
+        ws.on('close', (code: number, reason: Buffer) => {
+          console.log(`[OpenAI Audition] closed — code: ${code}, reason: ${reason?.toString() || '(none)'}, chunks: ${responseChunks.length}`);
+          if (responseChunks.length > 0) finish();
+          else finish(new Error(`OpenAI Realtime session closed (code: ${code})`));
+        });
+      });
+
+      // Build WAV: PCM16 LE at 24kHz mono (OpenAI Realtime output sample rate)
+      const pcm = Buffer.concat(responseChunks);
+      const SR = 24000, CH = 1, BITS = 16;
+      const byteRate = SR * CH * (BITS / 8);
+      const blockAlign = CH * (BITS / 8);
+      const hdr = Buffer.alloc(44);
+      hdr.write('RIFF', 0);        hdr.writeUInt32LE(36 + pcm.length, 4);
+      hdr.write('WAVE', 8);        hdr.write('fmt ', 12);
+      hdr.writeUInt32LE(16, 16);   hdr.writeUInt16LE(1, 20);
+      hdr.writeUInt16LE(CH, 22);   hdr.writeUInt32LE(SR, 24);
+      hdr.writeUInt32LE(byteRate, 28); hdr.writeUInt16LE(blockAlign, 32);
+      hdr.writeUInt16LE(BITS, 34); hdr.write('data', 36);
+      hdr.writeUInt32LE(pcm.length, 40);
+
+      console.log(`[OpenAI Audition] Returning ${pcm.length} bytes PCM (${(pcm.length / (SR * 2)).toFixed(1)}s audio)`);
+      res.setHeader('Content-Type', 'audio/wav');
+      res.send(Buffer.concat([hdr, pcm]));
+    } catch (error: any) {
+      console.error('[OpenAI Audition] Error:', error.message);
+      if (!res.headersSent) res.status(500).json({ error: error.message || 'OpenAI audition failed' });
     }
   });
 

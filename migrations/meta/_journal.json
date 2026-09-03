@@ -176,6 +176,20 @@
       "when": 1788381333416,
       "tag": "0025_luxuriant_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788386673426,
+      "tag": "0026_numerous_speedball",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1788403190877,
+      "tag": "0027_certain_viper",
+      "breakpoints": true
     }
   ]
 }

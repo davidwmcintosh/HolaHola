@@ -8,7 +8,9 @@ import type { ResolutionType } from "./absence-types";
 // ===== Enums =====
 
 // Auth provider enum - distinguishes how user authenticates
-export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending']);
+// 'replit' kept permanently even after Replit auth is fully retired -- Postgres
+// enums are awkward to shrink, and it remains a valid historical value for old rows.
+export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending', 'google', 'github', 'apple']);
 
 // Token type enum for password reset and invitations
 export const authTokenTypeEnum = pgEnum('auth_token_type', ['password_reset', 'invitation']);
@@ -86,7 +88,7 @@ export const sessions = pgTable(
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email"), // No unique constraint - using Replit Auth sub (id) as primary identifier
+  email: varchar("email"), // Case-insensitively unique when non-empty -- see idx_users_email_unique below
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -156,7 +158,13 @@ export const users = pgTable("users", {
   tosAcceptedAt: timestamp("tos_accepted_at"), // When user accepted Terms of Service (null = not yet accepted)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Case-insensitive, partial (non-empty emails only) uniqueness -- the same
+  // email must resolve to one account regardless of which auth provider
+  // created it. Partial so multiple pending/system rows without an email
+  // yet don't collide with each other or with NULL.
+  uniqueIndex("idx_users_email_unique").on(sql`lower(${table.email})`).where(sql`${table.email} IS NOT NULL AND ${table.email} != ''`),
+]);
 
 export const updateUserPreferencesSchema = z.object({
   targetLanguage: z.string().optional(),
@@ -306,6 +314,19 @@ export const passwordLoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 export type PasswordLogin = z.infer<typeof passwordLoginSchema>;
+
+// Schema for real self-serve registration (no invitation required)
+export const passwordRegisterSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+export type PasswordRegister = z.infer<typeof passwordRegisterSchema>;
 
 // Per-language self-directed preferences
 // Allows users to have different flexibility settings per language
