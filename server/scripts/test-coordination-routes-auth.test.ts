@@ -102,6 +102,21 @@ async function postUnauthenticatedAck(
   };
 }
 
+async function getUnauthenticatedFeed(
+  token?: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+  };
+  if (token !== undefined) headers['x-coordination-token'] = token;
+
+  const response = await fetch(`${baseUrl}/api/coordination/threads`, { headers });
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
 async function get(
   path: string,
   actor: keyof typeof TOKENS,
@@ -279,6 +294,26 @@ test('unauthenticated feed acknowledgements cannot create or mutate cursors', as
       originalCursor ?? null,
       `${attempt.label} must not create or change the cursor named by the request`,
     );
+  }
+});
+
+test('unauthenticated feed reads cannot expose coordination data', async () => {
+  const attempts = [
+    { label: 'missing token', token: undefined },
+    { label: 'invalid token', token: 'invalid-coordination-token' },
+  ];
+
+  for (const attempt of attempts) {
+    const response = await getUnauthenticatedFeed(attempt.token);
+    assert.equal(response.status, 401, `${attempt.label} must return HTTP 401`);
+    assert.deepEqual(
+      Object.keys(response.body),
+      ['error'],
+      `${attempt.label} response must contain only the authentication error`,
+    );
+    assert.equal(typeof response.body.error, 'string');
+    assert.equal('threads' in response.body, false);
+    assert.equal('cursor' in response.body, false);
   }
 });
 
