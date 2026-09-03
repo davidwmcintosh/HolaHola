@@ -15,17 +15,21 @@ name: Cross-Tool Promote
 #
 # A branch-clone gate pass IS the trust boundary here, the same way a green
 # CI run is what lets this workflow push code with no human re-reviewing
-# each commit — so a pending migration that survives the gate (applied to a
-# real clone of production, full test suite run against it) is applied to
-# the real shared database automatically, right after the gate and before
-# the code that may depend on it lands. No separate manual `drizzle-kit
-# migrate` step, and no dedicated secret for it either — it reuses
-# NEON_API_KEY/NEON_PROJECT_ID (already present below) to fetch production's
-# own direct connection string on demand via scripts/neon-branch.ts, the
-# same way the gate step already does for its disposable clone. One real
-# asymmetry worth naming honestly: unlike a code push, a bad migration
-# against the single shared database is not always cleanly reversible (e.g.
-# a dropped column) — accepted because the gate tests against real
+# each commit — so a pending migration or data-op (see
+# .agents/skills/data-ops/SKILL.md, scripts/data-ops/) that survives the
+# gate (applied to a real clone of production, full test suite run against
+# it) is applied to the real shared database automatically, right after the
+# gate and before the code that may depend on it lands. No separate manual
+# `drizzle-kit migrate` step, and no dedicated secret for any of this either
+# — it reuses NEON_API_KEY/NEON_PROJECT_ID (already present below) to fetch
+# production's own direct connection string on demand via
+# scripts/neon-branch.ts, the same way the gate step already does for its
+# disposable clone. Data-ops rely on being written idempotently (checked by
+# the gate re-running them, not just running once) rather than on any
+# separate "already applied" tracking. One real asymmetry worth naming
+# honestly: unlike a code push, a bad migration or data change against the
+# single shared database is not always cleanly reversible (e.g. a dropped
+# column, a deleted row) — accepted because the gate tests against real
 # production-cloned data, not a fixture, not because the risk is zero.
 
 on:
@@ -91,10 +95,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Validate migration + full test suite on an isolated Neon branch
+      - name: Validate migration + data-ops + full test suite on an isolated Neon branch
         run: npm run db:branch -- gate
 
-      - name: Apply migration to production (gate-approved)
+      - name: Apply migration + data-ops to production (gate-approved)
         run: |
           # Direct (unpooled) connection string, required for drizzle-kit —
           # never the pooled NEON_SHARED_DATABASE_URL secret above. Fetched
@@ -104,6 +108,7 @@ jobs:
           # everywhere else.
           PROD_DIRECT_URL="$(npx tsx scripts/neon-branch.ts connection-string production)"
           NEON_SHARED_DATABASE_URL="$PROD_DIRECT_URL" npx drizzle-kit migrate
+          NEON_SHARED_DATABASE_URL="$PROD_DIRECT_URL" npx tsx scripts/run-data-ops.ts
 
       - name: Fast-forward main and push
         env:

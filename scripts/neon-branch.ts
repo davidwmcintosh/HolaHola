@@ -310,6 +310,14 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running data-ops scripts against the branch...');
+    const dataOps = await runCommand('npx tsx scripts/run-data-ops.ts', branchEnv);
+    if (dataOps.code !== 0) {
+      failureReason = `scripts/run-data-ops.ts exited ${dataOps.code}`;
+    }
+  }
+
+  if (!failureReason) {
     for (const group of ['test:ci:unit', 'test:ci:guards', 'test:ci:episodes']) {
       console.log(`[gate] Running npm run ${group} against the branch...`);
       const result = await runCommand(`npm run ${group}`, branchEnv);
@@ -331,13 +339,13 @@ async function cmdGate(flags: Record<string, string | boolean>) {
 
   if (failureReason) {
     console.error(`[gate] FAILED: ${failureReason}`);
-    console.error('[gate] Migration was NOT applied to NEON_SHARED_DATABASE_URL.');
+    console.error('[gate] Nothing was applied to NEON_SHARED_DATABASE_URL — migration and data-ops both stay pending.');
     process.exitCode = 1;
     return;
   }
 
-  console.log('[gate] READY_TO_PROMOTE — migration passed on an isolated branch.');
-  console.log('[gate] Run `npx drizzle-kit migrate` now to apply it for real.');
+  console.log('[gate] READY_TO_PROMOTE — migration and data-ops both passed on an isolated branch.');
+  console.log('[gate] cross-tool-promote applies both to production automatically on a normal promote.');
 }
 
 async function main() {
