@@ -98,6 +98,7 @@ import { franc } from "franc-min";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated, getSession, getRequestUserId } from "./replitAuth";
+import { setupGoogleAuth } from "./googleAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
@@ -627,6 +628,9 @@ export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
+  // Set up Google OAuth (Phase 5 of the Replit-auth replacement) -- additive,
+  // does not touch or replace Replit auth's routes.
+  await setupGoogleAuth(app as any, authLimiter);
 
   const sourcePromotionError = sourcePromotionConfigurationError();
   if (sourcePromotionError) {
