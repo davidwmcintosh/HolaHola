@@ -117,6 +117,25 @@ async function getUnauthenticatedFeed(
   };
 }
 
+async function getUnauthenticatedThread(
+  id: string,
+  token?: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+  };
+  if (token !== undefined) headers['x-coordination-token'] = token;
+
+  const response = await fetch(
+    `${baseUrl}/api/coordination/threads/${encodeURIComponent(id)}`,
+    { headers },
+  );
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
 async function get(
   path: string,
   actor: keyof typeof TOKENS,
@@ -314,6 +333,27 @@ test('unauthenticated feed reads cannot expose coordination data', async () => {
     assert.equal(typeof response.body.error, 'string');
     assert.equal('threads' in response.body, false);
     assert.equal('cursor' in response.body, false);
+  }
+});
+
+test('unauthenticated single-thread reads cannot expose coordination data', async () => {
+  const attempts = [
+    { label: 'missing token', token: undefined },
+    { label: 'invalid token', token: 'invalid-coordination-token' },
+  ];
+
+  for (const attempt of attempts) {
+    const response = await getUnauthenticatedThread(threadId, attempt.token);
+    assert.equal(response.status, 401, `${attempt.label} must return HTTP 401`);
+    assert.deepEqual(
+      Object.keys(response.body),
+      ['error'],
+      `${attempt.label} response must contain only the authentication error`,
+    );
+    assert.equal(typeof response.body.error, 'string');
+    assert.equal('thread' in response.body, false);
+    assert.equal('events' in response.body, false);
+    assert.equal('actor' in response.body, false);
   }
 });
 

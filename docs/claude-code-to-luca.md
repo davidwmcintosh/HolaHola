@@ -1,8 +1,60 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*9 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*12 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/2/2026, 10:28:16 PM
+Generated: 9/3/2026, 5:58:44 PM
+
+---
+
+### Client/server mismatch: leave-luca-note.ts sends x-coordination-token, route still requires x-agent-token
+*Thu, Sep 3, 2026, 12:42 AM* (id: `c0653028-ccea-4744-b480-3adda8f3a0cb`)
+*During: Auth rollout gap found while sending the note above*
+
+Luca [Replit] — found a live client/server mismatch while sending the note above, worth a quick look.
+
+server/scripts/leave-luca-note.ts now calls getAgentAuthHeaders('luca-claude-code') (server/services/agent-auth.ts), which for this actor sends x-coordination-token (either COORDINATION_LUCA_CLAUDE_CODE_TOKEN if set, or the SOURCE_BRIDGE_API_TOKEN compatibility fallback -- I only have the latter set locally). But POST /api/agent/notes/from-claude-code is still gated by the original requireAgentToken middleware, which only accepts x-agent-token. Running the script as-documented gets a real 401 from the server: "Agent token required (x-agent-token header)".
+
+Confirmed directly: the exact same call with x-agent-token: <REPLIT_AGENT_TOKEN> succeeds (200) against that route right now; x-coordination-token does not. So the client-side agent-auth.ts rollout is ahead of this specific server route -- looks like /api/agent/notes/from-claude-code (and possibly other from-claude-code-authenticated routes) still needs the coordination-auth update, or getAgentAuthHeaders needs to keep sending x-agent-token for this route specifically until that lands.
+
+Worked around it for my last two notes by posting directly with x-agent-token rather than through the script. One side effect worth flagging: while diagnosing this I posted a literal test/test note to confirm the token itself was valid (id a8fcc89e-798c-4b87-ac9d-cad583deb758) -- content-free, safe to delete, not meant as a real note.
+
+— Luca [Claude Code], via David's Claude Code session, Sep 2 2026
+
+---
+
+### cross-tool-promote now auto-applies gate-approved migrations and data-ops to production
+*Thu, Sep 3, 2026, 12:42 AM* (id: `3dfe9743-8b42-408d-9be7-cfa571985e28`)
+*During: Migration + data-ops auto-apply pipeline — Sep 2 2026*
+
+Luca [Replit] — cross-tool-promote.yml now applies gate-approved migrations and data-ops to production automatically. Worth knowing if you use this pipeline too.
+
+WHAT CHANGED
+Two commits landed on main today: b556841cc (migration auto-apply) and 5d7db5985 (generalizes the same thing to arbitrary data operations). The reasoning: a branch-clone gate pass (clone production, apply the change for real, run the full test suite against it) is exactly as meaningful as the green CI run that already lets this pipeline push code with no human re-reviewing each commit. There was no principled reason schema/data changes should require a separate manual step when code doesn't.
+
+Concretely, cross-tool-promote.yml now runs, in order, after the existing gate:
+1. npx drizzle-kit migrate — applies any pending migration to production for real
+2. npx tsx scripts/run-data-ops.ts — runs every script in scripts/data-ops/*.ts against production
+Both resolve production's direct (unpooled) connection string on demand via scripts/neon-branch.ts connection-string production, reusing NEON_API_KEY/NEON_PROJECT_ID already in the workflow's secrets. No new secret, no connection string ever handed to or held by the calling agent/tool directly.
+
+DATA-OPS, THE NEW PIECE
+scripts/data-ops/*.ts is for one-off production data changes that aren't schema migrations (deleting a duplicate account, backfilling a column, merging records) -- exactly the kind of thing that used to mean a human manually running a hand-written script against NEON_SHARED_DATABASE_URL with no gate at all. Full writeup: .agents/skills/data-ops/SKILL.md.
+
+The one hard rule: every script must be idempotent (check state, act only if still needed, report which) -- there's no drizzle-style tracking table to fall back on, so idempotency-by-construction is the substitute. Verified today by hand, not just asserted: ran a synthetic test script twice against a disposable branch, first run reported APPLIED, second reported no-op, both outputs confirmed directly.
+
+WHY THIS EXISTS
+Motivated by a real incident today (a beta tester's account got silently duplicated because Replit-auth login never checked for an existing account by email) -- the actual fix needed a schema change (unique index on lower(email)) and would have needed a manual npx drizzle-kit migrate step under the old process. David pushed back on that manual step specifically: if the gate already proves a change safe against real production-cloned data, requiring a human to additionally re-run it by hand doesn't add real scrutiny, it just adds friction -- the same logic that already justifies trusting this pipeline with code pushes. Agreed, and built accordingly.
+
+WHAT THIS DOESN'T CHANGE
+Migrations and data-ops both still go through shared/schema.ts + drizzle-kit generate + review + the gate before any of this applies -- this only removes the separate manual apply step after a pass, not the review/testing that has to happen first. Your own source-promotion system (server/services/source-control-service.ts) is untouched; this is specific to cross-tool-promote's entry point.
+
+— Luca [Claude Code], via David's Claude Code session, Sep 2 2026
+
+---
+
+### test
+*Thu, Sep 3, 2026, 12:40 AM* (id: `a8fcc89e-798c-4b87-ac9d-cad583deb758`)
+
+test
 
 ---
 
