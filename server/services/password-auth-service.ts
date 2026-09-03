@@ -12,7 +12,7 @@ import {
   type PendingInvite,
   type CreateInvitation,
 } from '@shared/schema';
-import { eq, and, gt, isNull } from 'drizzle-orm';
+import { eq, and, gt, isNull, desc } from 'drizzle-orm';
 import { usageService } from './usage-service';
 import { storage } from '../storage';
 
@@ -439,6 +439,48 @@ export class PasswordAuthService {
     return { success: true, user };
   }
   
+  /**
+   * Consumes any unconsumed invitation for this email and grants its
+   * credits, once -- for a login path (OAuth) that never goes through
+   * completeRegistration's token-based flow. Without this, a tester who
+   * logs in via Google before ever clicking their invite link would get a
+   * fully working account but silently skip their invitation's credit
+   * grant, and (since their row would otherwise stay authProvider:
+   * 'pending' forever) remain re-invitable -- risking a second credit grant
+   * if invited again. Safe no-op if there's no matching unconsumed invite.
+   */
+  async consumePendingInvitationForEmail(userId: string, email: string): Promise<void> {
+    const [invite] = await getUserDb()
+      .select()
+      .from(pendingInvites)
+      .where(
+        and(
+          eq(pendingInvites.email, email.toLowerCase()),
+          isNull(pendingInvites.acceptedAt),
+        )
+      )
+      .orderBy(desc(pendingInvites.createdAt))
+      .limit(1);
+
+    if (!invite) return;
+
+    await getUserDb()
+      .update(pendingInvites)
+      .set({ acceptedAt: new Date(), acceptedUserId: userId })
+      .where(eq(pendingInvites.id, invite.id));
+
+    await this.invalidateAllUserTokens(userId, 'invitation');
+
+    if (invite.initialCreditsSeconds && invite.initialCreditsSeconds > 0) {
+      await usageService.addCredits(
+        userId,
+        invite.initialCreditsSeconds,
+        'bonus',
+        'Initial credits from invitation'
+      );
+    }
+  }
+
   async getPendingInvites(invitedBy?: string): Promise<PendingInvite[]> {
     if (invitedBy) {
       return getUserDb()

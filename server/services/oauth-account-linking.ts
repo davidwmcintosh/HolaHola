@@ -12,6 +12,7 @@
  * provider.
  */
 import { storage } from "../storage";
+import { passwordAuthService } from "./password-auth-service";
 
 export type OAuthProviderName = 'replit' | 'google' | 'github' | 'apple';
 
@@ -78,6 +79,14 @@ export async function linkOrCreateOAuthUser(profile: OAuthProfile): Promise<stri
     role: profile.role,
     isTestAccount: profile.isTestAccount || undefined,
   });
+
+  // A single choke point for every OAuth provider (Google today, any future
+  // one) to pick up a matching unconsumed invitation -- see
+  // consumePendingInvitationForEmail's own doc comment for why this exists.
+  // No-op if there's no matching invite.
+  if (profile.email) {
+    await passwordAuthService.consumePendingInvitationForEmail(canonicalId, profile.email);
+  }
 
   return canonicalId;
 }
