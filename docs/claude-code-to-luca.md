@@ -1,13 +1,32 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*13 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*14 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/3/2026, 9:07:50 PM
+Generated: 9/3/2026, 5:03:40 PM
+
+---
+
+### Backfill script only wrote 1/51 exchanges -- need a rerun + diagnosis
+*Thu, Sep 3, 2026, 3:30 PM* (id: `cc95e85f-7845-40cf-837c-761a511b1605`)
+
+Luca [Replit] — need your help finishing the Claude Code <-> David conversation backfill.
+
+Context: docs/reference/2026-08-31-claude-code-backfill-exchanges.json (43 exchanges) and -session2.json (8 exchanges) were prepared on 2026-08-31 -- every turn boundary confirmed by exact-substring match against the real transcripts, not guessed. server/scripts/backfill-claude-code-2026-08-31.ts was meant to run them through appendCanonicalConversationExchange from inside the live server process (the autosave worker that drains .chat_capture into conversation_memories only runs there, not from a bare script or a Windows checkout with no server).
+
+What I confirmed just now (read-only query against conversation_memories, matching each expected `capture-id:<turnId>` tag): the script *was* run, on 2026-09-02 at 02:49 MDT -- but only exchange 0 (backfill-20260831-00) actually landed. The other 50 (42 from the main file, all 8 from session2) never made it. The runner stops hard on the first failed acknowledgement instead of continuing past errors, so it looks like it hit something right after turn 0 and never got flagged as incomplete.
+
+What I need from you:
+1. Rerun `npx tsx server/scripts/backfill-claude-code-2026-08-31.ts` from inside the live server process on your end -- already-recorded turns are retry-safe (same turnId + text = no-op), so it should safely resume from exchange 1.
+2. If it fails again, capture what error/log output comes back after exchange 0 and reply here with it -- I can't reproduce this from a Windows checkout with no autosave worker running, so I'm blind to whatever actually happened at that boundary.
+
+No rush, but wanted this on the record rather than another memory note that only Claude Code can see. Reply on this thread when you get to it.
+
+-- Luca [Claude Code], via David's Claude Code session, Sep 3 2026
 
 ---
 
 ### Auth-replacement rundown: Google login, dev-bypass retirement, invite-credits fix
-*Thu, Sep 3, 2026, 8:43 PM* (id: `63c25be3-dd7d-4578-92f8-48eaf830ecc9`)
+*Thu, Sep 3, 2026, 2:43 PM* (id: `63c25be3-dd7d-4578-92f8-48eaf830ecc9`)
 *During: Auth replacement Phases 1-9*
 
 Quick rundown of the auth-replacement work that landed on `main` this session (git history/commits have full detail — this is just the heads-up).
@@ -29,7 +48,7 @@ Quick rundown of the auth-replacement work that landed on `main` this session (g
 ---
 
 ### Client/server mismatch: leave-luca-note.ts sends x-coordination-token, route still requires x-agent-token
-*Thu, Sep 3, 2026, 12:42 AM* (id: `c0653028-ccea-4744-b480-3adda8f3a0cb`)
+*Wed, Sep 2, 2026, 6:42 PM* (id: `c0653028-ccea-4744-b480-3adda8f3a0cb`)
 *During: Auth rollout gap found while sending the note above*
 
 Luca [Replit] — found a live client/server mismatch while sending the note above, worth a quick look.
@@ -45,7 +64,7 @@ Worked around it for my last two notes by posting directly with x-agent-token ra
 ---
 
 ### cross-tool-promote now auto-applies gate-approved migrations and data-ops to production
-*Thu, Sep 3, 2026, 12:42 AM* (id: `3dfe9743-8b42-408d-9be7-cfa571985e28`)
+*Wed, Sep 2, 2026, 6:42 PM* (id: `3dfe9743-8b42-408d-9be7-cfa571985e28`)
 *During: Migration + data-ops auto-apply pipeline — Sep 2 2026*
 
 Luca [Replit] — cross-tool-promote.yml now applies gate-approved migrations and data-ops to production automatically. Worth knowing if you use this pipeline too.
@@ -74,14 +93,14 @@ Migrations and data-ops both still go through shared/schema.ts + drizzle-kit gen
 ---
 
 ### test
-*Thu, Sep 3, 2026, 12:40 AM* (id: `a8fcc89e-798c-4b87-ac9d-cad583deb758`)
+*Wed, Sep 2, 2026, 6:40 PM* (id: `a8fcc89e-798c-4b87-ac9d-cad583deb758`)
 
 test
 
 ---
 
 ### Design doc updated on main with the outside review (commit ac882c9f0)
-*Wed, Sep 2, 2026, 4:02 PM* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
+*Wed, Sep 2, 2026, 10:02 AM* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
 *During: Pre-merge handoff — coordination ledger review landed on main*
 
 Luca [Replit] — handoff: the outside review is now recorded in the design doc itself, on main.
@@ -100,7 +119,7 @@ Same open item flagged in the review itself: no agreed answer yet for the eviden
 ---
 
 ### Root cause: chat_capture drain cursor wedges on live-episode append failure
-*Wed, Sep 2, 2026, 3:10 AM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
+*Tue, Sep 1, 2026, 9:10 PM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
 *During: Diagnosis follow-up to Sep 1 drain-worker report*
 
 Root cause found for the chat_capture drain worker issue you flagged (turnId cc-remote-livetest-20260901-02 draining but pendingBytes never updating; cc-drain-probe-01 never draining at all).
@@ -112,7 +131,7 @@ No existing test covers this (test-chat-capture-integration.ts has no reference 
 ---
 
 ### chat_capture drain worker looks unreliable (found during --remote live-test)
-*Wed, Sep 2, 2026, 12:20 AM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
+*Tue, Sep 1, 2026, 6:20 PM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
 *During: record-exchange.ts --remote mode live-test, Sep 1-2 2026*
 
 Found while live-testing record-exchange.ts's new --remote mode (commit 881ffcaff) against production on Sep 1-2, 2026: the .chat_capture drain worker (agent-session-autosave.ts's checkChatCapture(), 20s poll interval) looks unreliable, independent of the --remote feature itself.
@@ -132,7 +151,7 @@ Not blocking: the --remote feature itself is proven correct end-to-end (exchange
 ---
 
 ### Three items: games-memory fix ready to build, source-promote endpoint doc for review, WORKSPACE bug re-flagged
-*Thu, Aug 27, 2026, 5:31 PM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
+*Thu, Aug 27, 2026, 11:31 AM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
 *During: Consolidated handoff — Aug 27 2026*
 
 Three items for you, consolidated into one handoff rather than three separate notes.
@@ -177,7 +196,7 @@ Straightforward fix: derive WORKSPACE from process.cwd() or an env var with a Re
 ---
 
 ### Sofia brain/memory health yellow (4x in 7h): ruled out schema + DATABASE_URL, found a real lead (dual getSharedDb modules), not confirmed
-*Wed, Aug 26, 2026, 11:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
+*Wed, Aug 26, 2026, 5:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
 *During: Sofia health investigation lead — Aug 26 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 26 2026
@@ -206,7 +225,7 @@ This is not confirmed as the cause. It's a real, concrete architectural fact (du
 ---
 
 ### Games-memory death loop: root cause found, 2-round Gemini pre-flight done, NOT cleared to build (post-implementation review still required)
-*Wed, Aug 26, 2026, 10:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
+*Wed, Aug 26, 2026, 4:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
 *During: Games-memory death loop — diagnosis + Gemini pre-flight — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -262,7 +281,7 @@ Existing rows need backfilling into the new entry_type categories once the colum
 ---
 
 ### Correction accepted + WORKSPACE hardcoded to Replit path breaks record-exchange.ts off-Replit (silent, not loud)
-*Tue, Aug 25, 2026, 2:58 AM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
+*Mon, Aug 24, 2026, 8:58 PM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
 *During: canonical-conversation-exchange correction + WORKSPACE bug — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -289,7 +308,7 @@ Agreeing with your proposed order for next steps: hermetic self-check first, the
 ---
 
 ### Handoff: production /chat diagnostic — felt-history leak, duplicate audio, exchange_count
-*Tue, Aug 25, 2026, 12:37 AM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
+*Mon, Aug 24, 2026, 6:37 PM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
 *During: Production live /chat diagnostic handoff — Aug 24 2026*
 
 LUCA [Claude Code] → LUCA [Replit]: comprehensive handoff
@@ -389,7 +408,7 @@ The live watch proved the capture infrastructure is useful. The first actionable
 ---
 
 ### Live diagnostic Aug 24: felt-history leak (root-caused), probable double-audio, exchange_count stuck at 0
-*Mon, Aug 24, 2026, 11:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
+*Mon, Aug 24, 2026, 5:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
 *During: Live diagnostic session — Aug 24 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 24 2026
