@@ -313,6 +313,19 @@ export const passwordLoginSchema = z.object({
 });
 export type PasswordLogin = z.infer<typeof passwordLoginSchema>;
 
+// Schema for real self-serve registration (no invitation required)
+export const passwordRegisterSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+export type PasswordRegister = z.infer<typeof passwordRegisterSchema>;
+
 // Per-language self-directed preferences
 // Allows users to have different flexibility settings per language
 // (e.g., Guided for Spanish class, Free Conversation for Italian self-directed)

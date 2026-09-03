@@ -77,6 +77,47 @@ export class PasswordAuthService {
     return user;
   }
   
+  /**
+   * Real self-serve registration -- no invitation required. Distinct from
+   * createUserWithPendingAuth (invite flow: creates a 'pending' row an admin
+   * already set up, password comes later via completeRegistration) and from
+   * setUserPassword (assumes the user row already exists). This creates
+   * both the user row and its credentials in one call, authProvider set
+   * directly to 'password', no beta-tester/credit grant (that stays
+   * invite-only via createInvitation).
+   */
+  async registerUser(data: {
+    email: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+  }): Promise<{ success: boolean; user?: User; error?: string }> {
+    const existing = await this.getUserByEmail(data.email);
+    if (existing) {
+      return { success: false, error: 'An account with this email already exists' };
+    }
+
+    const passwordHash = await this.hashPassword(data.password);
+
+    const [user] = await getUserDb()
+      .insert(users)
+      .values({
+        email: data.email.toLowerCase(),
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
+        role: 'student',
+        authProvider: 'password',
+      })
+      .returning();
+
+    await getUserDb().insert(userCredentials).values({
+      userId: user.id,
+      passwordHash,
+    });
+
+    return { success: true, user };
+  }
+
   async setUserPassword(userId: string, password: string): Promise<void> {
     const passwordHash = await this.hashPassword(password);
     

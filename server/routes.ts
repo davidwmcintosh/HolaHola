@@ -101,7 +101,7 @@ import { setupAuth, isAuthenticated, getSession, getRequestUserId } from "./repl
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
-import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
+import { passwordLoginSchema, passwordRegisterSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import { userReviewItems, userDrillProgress, messages, textbookLessonContent, classCurriculumUnits } from "@shared/schema";
 import { applyConversationalCredit, pendingMasteryAcknowledgments } from "./services/conversational-credit-service";
 import passport from "passport";
@@ -1113,6 +1113,36 @@ export async function registerRoutes(app: Application): Promise<void> {
     }
   });
   
+  // Real self-serve registration — no invitation required
+  app.post('/api/auth/password/register', authLimiter, async (req: any, res: Response) => {
+    try {
+      const validation = passwordRegisterSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request",
+          errors: validation.error.errors
+        });
+      }
+
+      const { email, password, firstName, lastName } = validation.data;
+      const result = await passwordAuthService.registerUser({ email, password, firstName, lastName });
+
+      if (!result.success || !result.user) {
+        return res.status(409).json({ message: result.error || "Registration failed" });
+      }
+
+      // Set session — same shape as password login, so the client's existing
+      // post-signup redirect/query-invalidation flow works unmodified.
+      req.session.userId = result.user.id;
+      req.session.authProvider = 'password';
+
+      res.json({ success: true, user: result.user });
+    } catch (error) {
+      console.error("Password registration error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
   // Password logout
   app.post('/api/auth/password/logout', async (req: any, res: Response) => {
     try {
