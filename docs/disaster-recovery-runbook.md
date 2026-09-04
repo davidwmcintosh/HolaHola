@@ -86,11 +86,30 @@ gives you a free, API-driven DNS layer without transferring the domain itself.
 
 Database: `NEON_SHARED_DATABASE_URL`
 Session/auth: `SESSION_SECRET`, `SYNC_SHARED_SECRET`, `DEV_TEST_ACCOUNT_PASSWORD`
-AI providers: `GEMINI_API_KEY`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `ELEVENLABS_API_KEY`, `AZURE_SPEECH_KEY`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `PERPLEXITY_API_KEY`
+AI providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` (powers Alden — build/review/persona/digest workers, `@anthropic-ai/sdk`), `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `ELEVENLABS_API_KEY`, `AZURE_SPEECH_KEY`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`, `PERPLEXITY_API_KEY`
 Object storage: `AWS_S3_ENDPOINT`, `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS`
 Payments: `STRIPE_SECRET_KEY`
 Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
 Agent comms (only if agent-to-server endpoints must keep working from the new host): `REPLIT_AGENT_TOKEN`
+Coordination ledger (server-side auth for agent-to-agent traffic — needs all six even though any one caller only holds its own): `COORDINATION_LUCA_REPLIT_TOKEN`, `COORDINATION_LUCA_CLAUDE_CODE_TOKEN`, `COORDINATION_LUCA_HOLAHOLA_TOKEN`, `COORDINATION_ALDEN_TOKEN`, `COORDINATION_DANIELA_TOKEN`, `COORDINATION_DAVID_TOKEN`
+
+`SESSION_SECRET` deserves its own note: copy the exact production value, don't
+generate a fresh one. This Render instance shares the same Postgres
+`sessions` table as production (`NEON_SHARED_DATABASE_URL`) — a different
+signing key means existing session cookies fail signature verification the
+moment traffic reaches this host, silently logging everyone out. Matching
+values means cutover is seamless instead of forcing a mass re-login.
+
+**Twilio (`TWILIO_*`) and `STRIPE_SECRET_KEY`: hold off setting these on the
+standby until an actual cutover.** This instance's background workers
+(coordination-delivery-worker, voice-message-delivery, etc.) poll the same
+shared DB production polls, starting at boot regardless of whether this host
+is receiving live traffic. With real Twilio/Stripe credentials in place, a
+standby that's just sitting idle could still end up duplicate-sending a real
+SMS/call or duplicate-processing a payment alongside production. Everything
+else degrades gracefully without credentials (Stripe init is explicitly
+non-blocking if missing); these two are the exception because they reach
+outside the system to real phone numbers and real payment processing.
 
 ## Explicitly out of scope here
 

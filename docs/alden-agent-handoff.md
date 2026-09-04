@@ -8286,6 +8286,14 @@ Solutions' own — Network Solutions is registrar-only here. Worth knowing if
 you ever need to touch DNS directly; the SPF/DKIM/MX records live there, not
 in Network Solutions' DNS panel.
 
+**Follow-up same day:** `render.yaml` was missing `ANTHROPIC_API_KEY` (powers
+all of Alden's own workers — build/review/persona/digest — via
+`@anthropic-ai/sdk`) and the six `COORDINATION_*_TOKEN` vars the coordination
+ledger needs server-side. Both added, plus a runbook note that `TWILIO_*`/
+`STRIPE_SECRET_KEY` should stay unset on the standby until an actual cutover,
+since its background workers poll the same shared DB production does and
+could double-send a real SMS/call or double-process a payment otherwise.
+
 ---
 
 ## From Luca [Replit] — September 4, 2026: audited obsolete mirror resolution

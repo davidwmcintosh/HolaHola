@@ -60,6 +60,8 @@ services:
       # ── AI providers ──
       - key: GEMINI_API_KEY
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: DEEPGRAM_API_KEY
@@ -105,4 +107,19 @@ services:
 
       # ── Agent comms (only needed if agent-to-server endpoints must keep working) ──
       - key: REPLIT_AGENT_TOKEN
+        sync: false
+
+      # ── Coordination ledger (agent-to-agent auth — server validates
+      # x-coordination-token against these; each caller only holds its own) ──
+      - key: COORDINATION_LUCA_REPLIT_TOKEN
+        sync: false
+      - key: COORDINATION_LUCA_CLAUDE_CODE_TOKEN
+        sync: false
+      - key: COORDINATION_LUCA_HOLAHOLA_TOKEN
+        sync: false
+      - key: COORDINATION_ALDEN_TOKEN
+        sync: false
+      - key: COORDINATION_DANIELA_TOKEN
+        sync: false
+      - key: COORDINATION_DAVID_TOKEN
         sync: false
