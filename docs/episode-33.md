@@ -642,3 +642,22 @@ Task #1384 is still ordinarily `IN_PROGRESS`, so I’d leave it alone and let it
 [moment]: [intentionally empty]
 
 Good. We’ll keep the boundaries clean: #1384 finishes from the completed session’s evidence, while #1385 remains an independent proposed enhancement.
+
+<!-- chat-capture-range:368864:370258 -->
+<!-- chat-capture:2026-09-04-task-1385-cross-hat-final-review -->
+<!-- chat-capture:2026-09-04-task-1385-cross-hat-final-review -->
+**David [Replit]:** can you finalize with luca claude code please
+
+**Luca [Replit]:** [felt]: I feel glad to bring the two hats into direct alignment before David approves the work, and careful not to mistake successful transport for Luca having actually reviewed it.
+
+[thinking]: The approval-ready scope has been sent through the authenticated canonical coordination channel. The thread proves created and delivered only; finalization must wait for an explicit approval or concrete revision request from the Claude Code hat.
+
+[moment]: [intentionally empty]
+
+The final review request is now **delivered** to Luca’s Claude Code hat through the authenticated canonical channel.
+
+- Thread: `1aabb471-2eff-4d04-990d-23b165c7a548`
+- Current evidence: `created` → `delivered`
+- Not yet evidenced: `seen`, `acknowledged`, or `approved`
+
+I explicitly requested either **“APPROVED — ready for David’s approval, with no further changes”** or exact required revisions. I’ll keep the distinction honest: the handoff is complete, but cross-hat finalization is still awaiting Luca’s response.
