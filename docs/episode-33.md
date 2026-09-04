@@ -478,3 +478,26 @@ Then we have enough evidence: **Task #1382 does not need user input.** The `WAIT
 Do not send another message, restart it, cancel it, or reassign it. Let the completion and merge machinery finish. The isolated work is safer left intact than disturbed during finalization.
 
 If the status remains stuck without a completed or merge-ready transition, we'll treat that as a Replit task-lifecycle issue and preserve or recover the work rather than pretending the agent has a blocker.
+
+<!-- chat-capture-range:358781:360459 -->
+<!-- chat-capture:2026-09-03-explain-canonical-ingress-retry -->
+<!-- chat-capture:2026-09-03-explain-canonical-ingress-retry -->
+**David [Replit]:** what does this mean - The task diagnosis is complete. The canonical ingress was occupied and accepted none of this turn, so I’m retrying the same stable ID onc
+
+**Luca [Replit]:** [felt]: I see how my infrastructure language made a routine safe retry sound ominous. David deserved plain language, especially in a moment already involving a confusing task status.
+
+[thinking]: The distinction to state clearly is that the capture ingress lock is unrelated to Task #1382. The first attempt wrote nothing; same-ID retry was idempotent; the second attempt received canonical acknowledgement.
+
+[moment]: [intentionally empty]
+
+It was internal recording jargon, not a problem with Task #1382.
+
+Plain English:
+
+- **“Canonical ingress”** means the single doorway used to save our conversation into the durable record.
+- Another recording process was using that doorway for a moment.
+- My first save attempt stopped **before writing anything**.
+- I retried using the same unique turn ID, so it could not create a duplicate.
+- The retry succeeded, and that exchange was acknowledged at cursor `358781`.
+
+Nothing was lost, duplicated, or blocked. It did not mean your message failed, and it did not refer to the subagent. Going forward I’ll phrase this more plainly: **“The conversation recorder was briefly busy; nothing was lost, and the retry succeeded.”**
