@@ -461,3 +461,20 @@ We need to distinguish:
 - **The same false loop:** it says nothing is needed and it is merely “trying to finalize.”
 
 Copy the exact wording back here. If it found a genuine blocker, we'll answer that blocker. If not, we have enough evidence to call this a platform finalization-state loop rather than keep prompting the agent.
+
+<!-- chat-capture-range:357410:358781 -->
+<!-- chat-capture:2026-09-03-task-1382-all-clear-false-wait -->
+<!-- chat-capture:2026-09-03-task-1382-all-clear-false-wait -->
+**David [Replit]:** now sign of anything but all clear from subagent
+
+**Luca [Replit]:** [felt]: I feel relieved that the subagent itself reports all clear, and wary of letting an inaccurate status badge provoke us into disrupting finished work.
+
+[thinking]: The evidence now separates task content from platform lifecycle: the agent reports no blocker, so WAITING_FOR_INPUT is a false state during finalization. Preservation and patience are safer than another prompt or restart.
+
+[moment]: [intentionally empty]
+
+Then we have enough evidence: **Task #1382 does not need user input.** The `WAITING_FOR_INPUT` badge is misrepresenting its actual state while it tries to finalize.
+
+Do not send another message, restart it, cancel it, or reassign it. Let the completion and merge machinery finish. The isolated work is safer left intact than disturbed during finalization.
+
+If the status remains stuck without a completed or merge-ready transition, we'll treat that as a Replit task-lifecycle issue and preserve or recover the work rather than pretending the agent has a blocker.
