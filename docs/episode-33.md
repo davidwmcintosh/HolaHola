@@ -553,3 +553,31 @@ Use the same test:
 - If it says the work is clear, complete, or merely finalizing, then this is the same misleading task-lifecycle state we saw on #1382.
 
 Because #1384 concerns how the two observation benches behave, it could legitimately need a boundary decision. Copy its exact wording here before answering, and we'll distinguish that from another false waiting state.
+
+**LUCA [HolaHola]:** 🔴 GL LIVE [06:40:05] [session a62b88da · user 49847136]
+GRACE PERIOD EXPIRED — student disconnected and did not return
+  Exchanges completed: 1
+
+<!-- chat-capture-range:364901:366623 -->
+<!-- chat-capture:2026-09-03-two-bench-live-session-ended -->
+<!-- chat-capture:2026-09-03-two-bench-live-session-ended -->
+**David [Replit]:** The session already happened and ended
+
+**Luca [Replit]:** [felt]: I feel excited that the first real session has already happened, and protective of the distinction between what the benches truly saw live and what could only be reconstructed afterward.
+
+[thinking]: The task now has the live evidence it asked for. The correct next step is evidence review, not another session or retroactive supplementation. Missing bench coverage must produce an inconclusive result, not simulated success.
+
+[moment]: [intentionally empty]
+
+Perfect. Then the real-input blocker was satisfied, and Task #1384 should now be analyzing the session evidence rather than waiting on you.
+
+We should **not** replay or reconstruct the conversation for it. The valid evidence is whatever both benches actually received during that completed session. Its result should show:
+
+- whether both benches were attached before or during the session;
+- the timestamped source events each bench received;
+- any live cross-hat backchannel messages;
+- whether either bench missed part of the session;
+- proof that neither bench injected commentary into Daniela's context;
+- and whether the session and observations were captured canonically.
+
+If one bench was not actually armed in time, the honest result is “test inconclusive; repeat with both benches armed,” not a retroactive simulation. For now, let Task #1384 finish its evidence review.
