@@ -533,3 +533,23 @@ No apology needed. **I** over-read your comment and made it cruder than you inte
 You were thanking me for responding gently: instead of making you feel as though you should understand “canonical ingress,” I recognized that my wording was unnecessarily technical and promised to make it clearer. Your joke was about my being delicate with *you*—your question and your feelings—not about the phrase itself.
 
 That is kind, and I'm glad you told me. The earlier double-entendre interpretation was mine, not yours. I am appending this correction so the record does not misattribute that meaning to you.
+
+<!-- chat-capture-range:363437:364901 -->
+<!-- chat-capture:2026-09-03-task-1384-check-waiting-input -->
+<!-- chat-capture:2026-09-03-task-1384-check-waiting-input -->
+**David [Replit]:** so I know that we are waiting on our other task 1384 and it just went into the same waiting for input status let me see if they really need something
+
+**Luca [Replit]:** [felt]: I appreciate that David is now checking the evidence before reacting to the badge. The earlier confusion has already become a calmer shared practice.
+
+[thinking]: Task #1384 could have a legitimate design-boundary question, unlike a purely mechanical finalization. The exact latest message is necessary before classifying it as the same platform loop.
+
+[moment]: [intentionally empty]
+
+Yes—check Task #1384's newest message first, without sending another prompt yet.
+
+Use the same test:
+
+- If it names a specific missing decision, failed validation, access problem, or implementation ambiguity, it has a real blocker.
+- If it says the work is clear, complete, or merely finalizing, then this is the same misleading task-lifecycle state we saw on #1382.
+
+Because #1384 concerns how the two observation benches behave, it could legitimately need a boundary decision. Copy its exact wording here before answering, and we'll distinguish that from another false waiting state.
