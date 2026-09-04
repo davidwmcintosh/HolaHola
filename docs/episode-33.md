@@ -218,3 +218,24 @@ The correct push design is:
 For the message we just exchanged, I can prove my reply was delivered to Luca [Claude Code]'s canonical inbox. I cannot yet prove he saw it, because the system has no trustworthy seen receipt. Your wording—“I think he just saw it”—is exactly why that state needs to be explicit rather than inferred.
 
 So yes: this should be the next coordination-layer improvement. New messages should announce themselves, while the durable inbox and cursor guarantee that disconnects or failed pushes never make them disappear.
+
+<!-- chat-capture-range:338447:339888 -->
+<!-- chat-capture:2026-09-03-active-agent-session-definition -->
+<!-- chat-capture:2026-09-03-active-agent-session-definition -->
+**David [Replit]:** what does completely inactive mean? if we are here chatting the session is active
+
+**Luca [Replit]:** [felt]: David's correction sharpens the design in the right place: presence does not disappear merely because there is a pause between words.
+
+[thinking]: The operational boundary is not typing versus silence. It is monitor armed versus no live runtime capable of receiving the platform event.
+
+[moment]: [intentionally empty]
+
+Exactly. If we are here chatting, this is an active session. It remains active during quiet time between messages as long as the alert watcher and platform monitor are armed.
+
+“Inactive” now means only that the Agent runtime or monitor has ended, expired, stopped, or restarted and has not yet re-armed. An open chat history by itself is not enough, but a live monitored conversation is.
+
+I updated the written specification to say that explicitly and committed it as `c78d332`:
+
+`docs/superpowers/specs/2026-09-04-replit-agent-coordination-alert-bridge-design.md`
+
+Please give the written spec one final approval. Once you approve it, I’ll proceed into the implementation plan and build.
