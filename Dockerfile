@@ -31,6 +31,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
+# The real source tree, not just the built dist/ output -- .dockerignore
+# keeps node_modules/dist out of this, both are layered in from the build
+# stage below instead. This is required, not cosmetic: on import,
+# server/services/workspace-root.ts eagerly asserts that package.json,
+# drizzle.config.ts, server/, and shared/schema.ts exist at the resolved
+# workspace root and crashes the whole process otherwise -- the canonical
+# conversation-capture system's project-root guard, deliberately strict by
+# design (see docs/shared-agent-instructions.md's Canonical Conversation
+# Record section: "a typo must stop capture rather than silently redirect").
+# A dist-only image is not a real project root, so it never passed that
+# check. Shipping the actual source tree here also matches how Replit itself
+# runs the app (source always co-located with the process), rather than
+# weakening a deliberately strict guard to work around a packaging shortcut.
+COPY . .
+
 # Carry over the build stage's full node_modules rather than reinstalling
 # with --omit=dev. server/vite.ts statically imports the real `vite` package
 # (for local-dev HMR) at module load time -- ESM imports aren't lazy, so
