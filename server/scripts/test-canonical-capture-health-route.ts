@@ -26,6 +26,10 @@ if (response.status !== 200 || body.ok !== true) {
 }
 if (
   typeof body.capture !== 'object' ||
+  body.capture.worker?.armed !== true ||
+  body.capture.worker?.phase !== 'armed' ||
+  typeof body.capture.worker?.startedAt !== 'number' ||
+  typeof body.capture.worker?.armedAt !== 'number' ||
   typeof body.capture.pendingBytes !== 'number' ||
   typeof body.capture.localDirectoryWritable !== 'boolean' ||
   'workspace' in body ||
@@ -35,4 +39,4 @@ if (
   throw new Error(`[canonical-capture-health] response disclosed an unsafe shape: ${JSON.stringify(body)}`);
 }
 
-console.log('PASS: canonical capture health is agent-authenticated, read-only, and returns only safe readiness state.');
+console.log('PASS: canonical capture health is agent-authenticated, worker-armed, read-only, and returns only safe readiness state.');

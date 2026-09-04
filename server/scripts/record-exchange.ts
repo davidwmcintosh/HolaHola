@@ -604,7 +604,8 @@ async function runClaudeCodeRemoteCli(
       });
       const health = await healthResponse.json().catch(() => ({}));
       const cursorByteOffset: number | undefined = health?.capture?.cursorByteOffset;
-      if (typeof cursorByteOffset === 'number' && cursorByteOffset >= targetByteOffset) {
+      const workerArmed = health?.capture?.worker?.armed === true;
+      if (workerArmed && typeof cursorByteOffset === 'number' && cursorByteOffset >= targetByteOffset) {
         console.log(
           `  ✓ Remote canonical acknowledgement received (${Date.now() - startedAt}ms; cursor=${cursorByteOffset}). ` +
           'DB and live episode effects completed on the remote server before this cursor advanced.',

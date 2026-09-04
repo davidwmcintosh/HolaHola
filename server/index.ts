@@ -482,6 +482,14 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
   await registerRoutes(app);
 
+  // Canonical conversation capture is operational infrastructure, not a
+  // delayed background convenience. Arm it immediately after its authenticated
+  // intake/health routes exist so unrelated boot workers cannot postpone it.
+  // Its readiness is exposed separately; general application readiness remains
+  // independent so a recorder problem does not make the teaching app unavailable.
+  const { startAgentSessionAutosave } = await import('./services/agent-session-autosave');
+  startAgentSessionAutosave();
+
   // Sofia student-support resolve endpoint
   app.post('/api/sofia/incidents/:id/resolve', async (req: Request, res: Response) => {
     try {
@@ -983,9 +991,6 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
       const { startFounderChatSyncWorker } = await import('./services/founder-chat-sync');
       startFounderChatSyncWorker();
-
-      const { startAgentSessionAutosave } = await import('./services/agent-session-autosave');
-      startAgentSessionAutosave();
 
       const { startMondayBriefScheduler } = await import('./services/board-meeting-service');
       startMondayBriefScheduler();

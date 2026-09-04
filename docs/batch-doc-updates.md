@@ -4957,3 +4957,24 @@ progress; actors acknowledge a fully processed page through the dedicated feed
 cursor endpoint. The cursor only moves forward, cannot be advanced beyond the
 current global feed, and remains separate from thread acceptance or outcome
 acknowledgement.
+
+---
+
+## Canonical capture worker readiness — September 4, 2026
+
+Canonical conversation capture now has its own authenticated operational
+readiness dimension. The capture-health endpoint returns 503 until the
+in-process autosave worker has installed its filesystem watchers and polling
+loop, then reports the worker as armed with startup timestamps. General
+application liveness and readiness remain independent and continue serving
+normally if capture is unavailable.
+
+The autosave worker now starts immediately after route registration instead of
+inside the unrelated 85-second background-worker bundle. Remote exchange
+acknowledgement also requires an armed worker before accepting cursor progress
+as proof of canonical capture.
+
+A hermetic regression check proves a writable workspace cannot report capture
+availability while the worker is stopped or arming. The live route check
+asserts the authenticated endpoint exposes only safe armed-state metadata, and
+the system verifier enforces both fail-closed readiness and early startup order.

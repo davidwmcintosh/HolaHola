@@ -38071,17 +38071,20 @@ Under 250 words. Write as yourself.`;
 
   // Read-only readiness probe for a remote agent. It intentionally exposes
   // neither filesystem paths, tokens, dialogue, nor receipt identities.
-  // A valid 200 proves only that this deployment can accept canonical capture;
-  // it does not append an exchange or claim that one is canonical.
+  // A valid 200 proves the capture workspace is writable AND the in-process
+  // drain worker is armed. General /health and /health/readiness intentionally
+  // remain separate from this operational capture dimension.
   app.get("/api/internal/canonical-conversation-health", requireAgentToken, async (_req: any, res: Response) => {
     try {
       const [
         { CHAT_CAPTURE_PATH, CHAT_CAPTURE_CURSOR_PATH, loadChatCaptureCursor },
         { inspectCaptureWorkspace },
+        { getCanonicalCaptureWorkerReadiness, isCanonicalCaptureAvailable },
         fs,
       ] = await Promise.all([
         import('./services/transcript-parser'),
         import('./services/workspace-root'),
+        import('./services/canonical-capture-worker-readiness'),
         import('fs'),
       ]);
       const workspace = inspectCaptureWorkspace();
@@ -38090,11 +38093,14 @@ Under 250 words. Write as yourself.`;
       const captureBytes = captureFilePresent ? fs.statSync(CHAT_CAPTURE_PATH).size : 0;
       const pendingBytes = Math.max(0, captureBytes - cursor.byteOffset);
       const cursorFilePresent = fs.existsSync(CHAT_CAPTURE_CURSOR_PATH);
-      const ready = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
+      const worker = getCanonicalCaptureWorkerReadiness();
+      const workspaceReady = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
+      const ready = isCanonicalCaptureAvailable(workspaceReady, worker);
 
       return res.status(ready ? 200 : 503).json({
         ok: ready,
         capture: {
+          worker,
           workspaceSource: workspace.rootSource,
           localDirectoryPresent: workspace.localDirectoryPresent,
           localDirectoryWritable: workspace.localDirectoryWritable,

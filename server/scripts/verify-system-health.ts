@@ -245,6 +245,26 @@ async function checkWorkers() {
     }
   }
 
+  const captureStart = indexTs.indexOf("startAgentSessionAutosave();");
+  const delayedWorkerComment = indexTs.indexOf("+85s: Daniela Presence Worker");
+  if (captureStart !== -1 && (delayedWorkerComment === -1 || captureStart < delayedWorkerComment)) {
+    pass("Canonical capture worker starts before delayed worker bundle");
+  } else {
+    fail(
+      "Canonical capture worker startup order",
+      "startAgentSessionAutosave() must run before the unrelated +85s worker bundle",
+    );
+  }
+
+  const captureReadiness = await import("../services/canonical-capture-worker-readiness");
+  captureReadiness.resetCanonicalCaptureWorkerReadinessForTest();
+  const stoppedCapture = captureReadiness.getCanonicalCaptureWorkerReadiness();
+  if (!captureReadiness.isCanonicalCaptureAvailable(true, stoppedCapture)) {
+    pass("Canonical capture readiness fails closed before worker is armed");
+  } else {
+    fail("Canonical capture readiness", "writable workspace reported available while worker was stopped");
+  }
+
   // Workers fired from ws-handler on session close (NOT booted at server start)
   const wsChecks: Array<[string, string]> = [
     ["ws-handler → generateAndStorePedagogicalBrief", "generateAndStorePedagogicalBrief"],

@@ -102,6 +102,10 @@ import {
   type InnerLifeChannel,
   type ParsedInnerLifeTrigger,
 } from './inner-life-capture';
+import {
+  beginCanonicalCaptureWorkerStartup,
+  markCanonicalCaptureWorkerArmed,
+} from './canonical-capture-worker-readiness';
 export { detectRollingTagMisroute } from './rolling-tag-utils';
 
 const COMMIT_MSG_PATH      = join(WORKSPACE, '.local/.commit_message');
@@ -3675,6 +3679,11 @@ export function watchdogAlreadyProcessed(
 }
 
 export function startAgentSessionAutosave(): void {
+  if (!beginCanonicalCaptureWorkerStartup()) {
+    console.warn('[AgentAutosave] Start skipped — canonical capture worker is already arming or armed.');
+    return;
+  }
+
   // Reset stale-alert guards at every server start (= new conversation session).
   // seedCaptureStatusFromEpisodeFile() also calls this, but calling it here
   // ensures the reset happens synchronously before any poll fires, even if the
@@ -3878,6 +3887,7 @@ export function startAgentSessionAutosave(): void {
     writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if ≥60 min since last inner-life write
   }, POLL_INTERVAL_MS);
 
+  markCanonicalCaptureWorkerArmed();
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
 

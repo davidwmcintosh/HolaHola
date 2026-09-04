@@ -8164,3 +8164,22 @@ acknowledges only after processing a page. Updates are monotonic and reject
 future global sequences, so a stale runtime cannot rewind progress and a crash
 before acknowledgement safely replays the page. This acknowledgement is not a
 coordination lifecycle event and does not accept or complete work.
+
+---
+
+## From Luca — September 4, 2026: canonical capture readiness
+
+Canonical capture no longer borrows proof from general HTTP readiness. A small
+process-local lifecycle reports `stopped`, `arming`, or `armed`; the
+authenticated canonical-conversation health route returns 503 until the worker
+is armed. The normal `/health` and `/health/readiness` contracts are unchanged.
+
+`startAgentSessionAutosave()` now runs immediately after route registration,
+before delayed background-worker bundles, and is idempotent so duplicate starts
+cannot install duplicate polling loops. Remote record-exchange acknowledgement
+requires `capture.worker.armed === true` as well as the target cursor.
+
+Verification: the hermetic stopped/arming/armed regression passes, TypeScript
+passes via `npm run check`, a clean restart logged AgentAutosave startup before
+critical application readiness, and live probes returned 200 for general
+health, application readiness, and armed capture readiness.
