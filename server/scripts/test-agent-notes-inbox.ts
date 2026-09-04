@@ -3,26 +3,33 @@ import { inArray, like } from 'drizzle-orm';
 import { getSharedDb } from '../db';
 import { agentNotes } from '@shared/schema';
 import {
+  AgentNoteReplyError,
   createAgentNote,
   getAgentInboxSenders,
   getAgentNoteWithReplies,
   readAgentInboxNotes,
+  replyToAgentNoteAndVerify,
   updateAgentNoteAction,
 } from '../services/agent-notes';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 
 async function main() {
+  assert.deepEqual(
+    getAgentInboxSenders(),
+    ['alden', 'founder', 'luca-claude-code'],
+    'the normal inbox must include Luca [Claude Code]',
+  );
+  if (!getVerifiedCiDatabaseUrl()) {
+    console.log('↷ agent inbox persistence regression skipped: verified disposable CI database is required');
+    return;
+  }
+
   const db = getSharedDb();
   const runId = `ci-agent-inbox-${Date.now()}`;
   const sourceKey = `${runId}:parent`;
   const createdIds: string[] = [];
 
   try {
-    assert.deepEqual(
-      getAgentInboxSenders(),
-      ['alden', 'founder', 'luca-claude-code'],
-      'the normal inbox must include Luca [Claude Code]',
-    );
-
     const first = await createAgentNote({
       fromAgent: 'luca-claude-code',
       toAgent: 'agent',
@@ -51,6 +58,60 @@ async function main() {
     });
     assert.ok(unread.some(note => note.id === first.note.id), 'Claude Code note was absent from live inbox');
 
+    const reply = await replyToAgentNoteAndVerify({
+      actor: 'luca-replit',
+      parentId: first.note.id,
+      subject: `Re: [CI] ${runId}`,
+      body: 'Linked reply fixture.',
+      idempotencyKey: `${runId}:reply`,
+    });
+    createdIds.push(reply.note.id);
+    assert.equal(reply.deliveryState, 'delivered');
+    assert.equal(reply.deduplicated, false);
+    assert.equal(reply.note.fromAgent, 'agent');
+    assert.equal(reply.note.toAgent, 'luca-claude-code');
+    assert.equal(reply.note.inReplyToId, first.note.id);
+    assert.equal(reply.note.status, 'unread', 'delivery must not imply seen or acknowledged');
+
+    const unchangedParent = await getAgentNoteWithReplies(first.note.id);
+    assert.equal(unchangedParent?.note.status, 'unread', 'reply delivery must not act on the parent');
+
+    const replyRetry = await replyToAgentNoteAndVerify({
+      actor: 'luca-replit',
+      parentId: first.note.id,
+      subject: `Re: [CI] ${runId}`,
+      body: 'Linked reply fixture.',
+      idempotencyKey: `${runId}:reply`,
+    });
+    assert.equal(replyRetry.deduplicated, true);
+    assert.equal(replyRetry.note.id, reply.note.id);
+
+    await assert.rejects(
+      replyToAgentNoteAndVerify({
+        actor: 'luca-replit',
+        parentId: first.note.id,
+        subject: `Re: [CI] ${runId}`,
+        body: 'Conflicting retry body.',
+        idempotencyKey: `${runId}:reply`,
+      }),
+      (error: unknown) => (
+        error instanceof AgentNoteReplyError
+        && error.code === 'idempotency_conflict'
+      ),
+    );
+    await assert.rejects(
+      replyToAgentNoteAndVerify({
+        actor: 'luca-claude-code',
+        parentId: first.note.id,
+        body: 'Wrong inbox.',
+        idempotencyKey: `${runId}:wrong-inbox`,
+      }),
+      (error: unknown) => (
+        error instanceof AgentNoteReplyError
+        && error.code === 'parent_inbox_forbidden'
+      ),
+    );
+
     const acknowledged = await updateAgentNoteAction(first.note.id, 'acknowledge');
     assert.equal(acknowledged?.status, 'acknowledged');
     assert.ok(acknowledged?.acknowledgedAt);
@@ -66,16 +127,25 @@ async function main() {
       'acknowledged note remained in unread inbox',
     );
 
-    const reply = await createAgentNote({
+    const claudeParent = await createAgentNote({
       fromAgent: 'agent',
       toAgent: 'luca-claude-code',
-      subject: `Re: [CI] ${runId}`,
-      body: 'Linked reply fixture.',
-      repliedToId: first.note.id,
-      sourceMessageKey: `${runId}:reply`,
+      subject: `[CI] ${runId} assigned by Replit`,
+      body: 'Reciprocal actor route fixture.',
+      sourceMessageKey: `${runId}:claude-parent`,
     });
-    createdIds.push(reply.note.id);
-    assert.equal(reply.note.inReplyToId, first.note.id);
+    createdIds.push(claudeParent.note.id);
+    const claudeReply = await replyToAgentNoteAndVerify({
+      actor: 'luca-claude-code',
+      parentId: claudeParent.note.id,
+      body: 'Claude Code linked outcome.',
+      idempotencyKey: `${runId}:claude-reply`,
+    });
+    createdIds.push(claudeReply.note.id);
+    assert.equal(claudeReply.deliveryState, 'delivered');
+    assert.equal(claudeReply.note.fromAgent, 'luca-claude-code');
+    assert.equal(claudeReply.note.toAgent, 'agent');
+    assert.equal(claudeReply.note.status, 'unread');
 
     const actedOn = await updateAgentNoteAction(first.note.id, 'act');
     assert.equal(actedOn?.status, 'acted_on');

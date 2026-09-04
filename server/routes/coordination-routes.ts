@@ -6,6 +6,7 @@ import {
 import {
   appendCoordinationEvent,
   acknowledgeCoordinationFeed,
+  completeWithLinkedOutcome,
   CoordinationError,
   createCoordinationThread,
   getCoordinationThread,
@@ -274,6 +275,40 @@ export function registerCoordinationRoutes(app: Application): void {
           req.body.eventType,
           req.body.eventType === 'comment' ? 'Comment added' : 'Coordination event added',
         );
+        res.status(result.deduplicated ? 200 : 201).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/coordination/threads/:threadId/complete-with-linked-outcome',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const reply = req.body?.reply;
+        if (!reply || typeof reply !== 'object') {
+          throw new CoordinationError('reply is required', 400, 'invalid_request');
+        }
+        const result = await completeWithLinkedOutcome({
+          threadId: req.params.threadId,
+          actor: actorFrom(req),
+          content: typeof req.body?.content === 'string' && req.body.content.trim()
+            ? req.body.content
+            : 'Work completed',
+          expectedSequence: positiveInteger(req.body?.expectedSequence, 'expectedSequence'),
+          idempotencyKey: idempotencyKey(req),
+          evidence: evidenceFrom(req.body?.evidence),
+          causalParentEventId: typeof req.body?.causalParentEventId === 'string'
+            ? req.body.causalParentEventId
+            : undefined,
+          reply: {
+            body: reply.body,
+            subject: reply.subject,
+            sessionLabel: reply.sessionLabel,
+          },
+        });
         res.status(result.deduplicated ? 200 : 201).json(result);
       } catch (error) {
         sendError(res, error);

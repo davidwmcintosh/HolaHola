@@ -10,12 +10,16 @@ import { canCoordinationActorPerform } from '../services/coordination-ledger-ser
 import { unsupportedCoordinationCliOptions } from './coordination-cli';
 
 const TOKENS = {
+  'luca-replit': 'r'.repeat(40),
+  'luca-claude-code': 'c'.repeat(40),
   'luca-holahola': 'h'.repeat(40),
   alden: 'a'.repeat(40),
   daniela: 'd'.repeat(40),
 } as const;
 
 const ENVIRONMENT = {
+  COORDINATION_LUCA_REPLIT_TOKEN: TOKENS['luca-replit'],
+  COORDINATION_LUCA_CLAUDE_CODE_TOKEN: TOKENS['luca-claude-code'],
   COORDINATION_LUCA_HOLAHOLA_TOKEN: TOKENS['luca-holahola'],
   COORDINATION_ALDEN_TOKEN: TOKENS.alden,
   COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
@@ -64,6 +68,8 @@ test('actor clients send only the selected actor dedicated credential', async ()
   }
 
   assert.deepEqual(observed.map((request) => request.token), [
+    TOKENS['luca-replit'],
+    TOKENS['luca-claude-code'],
     TOKENS['luca-holahola'],
     TOKENS.alden,
     TOKENS.daniela,
@@ -102,6 +108,51 @@ test('actor clients acknowledge feed progress through the non-lifecycle cursor e
     () => client.acknowledgeFeed(-1),
     /must be a non-negative integer/,
   );
+});
+
+test('Luca clients preserve causal links and use the combined linked-outcome endpoint', async () => {
+  const observed: Array<{ url: string; body: Record<string, unknown>; key: string | null }> = [];
+  const fetchImpl = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const headers = new Headers(init?.headers);
+    observed.push({
+      url: String(input),
+      body: JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>,
+      key: headers.get('idempotency-key'),
+    });
+    return new Response(JSON.stringify({ achievedState: 'completed' }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('luca-replit', {
+    apiUrl: 'https://coordination.example',
+    environment: ENVIRONMENT,
+    fetchImpl,
+  });
+
+  await client.progress('thread-1', {
+    content: 'Progress with a causal parent.',
+    expectedSequence: 3,
+    idempotencyKey: 'test-progress-causal',
+    causalParentEventId: 'event-2',
+  });
+  await client.completeWithLinkedOutcome('thread-1', {
+    content: 'Completed with a direct reply.',
+    expectedSequence: 4,
+    idempotencyKey: 'test-linked-completion',
+    causalParentEventId: 'event-3',
+    reply: { body: 'Outcome delivered.' },
+  });
+
+  assert.equal(observed[0].body.causalParentEventId, 'event-2');
+  assert.equal(
+    observed[1].url,
+    'https://coordination.example/api/coordination/threads/thread-1/complete-with-linked-outcome',
+  );
+  assert.equal(observed[1].key, 'test-linked-completion');
+  assert.deepEqual(observed[1].body, {
+    content: 'Completed with a direct reply.',
+    expectedSequence: 4,
+    causalParentEventId: 'event-3',
+    reply: { body: 'Outcome delivered.' },
+  });
 });
 
 test('direct clients and server enforce the same least-privilege lifecycle profiles', async () => {
@@ -170,6 +221,15 @@ test('CLI rejects obsolete or irrelevant options instead of silently dropping th
   );
   assert.deepEqual(
     unsupportedCoordinationCliOptions('show', { id: 'thread-1', 'after-sequence': '3' }),
+    [],
+  );
+  assert.deepEqual(
+    unsupportedCoordinationCliOptions('complete', {
+      id: 'thread-1',
+      'expected-sequence': '3',
+      'idempotency-key': 'complete-key',
+      'causal-parent-event-id': 'event-2',
+    }),
     [],
   );
   assert.deepEqual(

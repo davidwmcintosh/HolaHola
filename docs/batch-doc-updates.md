@@ -5147,3 +5147,26 @@ The corrected live promotion retained 37 canonical session events and recorded
 the selected cross-hat observation with its two source timestamps and
 `danielaContextState: not_injected`. Daniela's original words and intent remain
 verbatim canonical evidence; the bench never rewrites either.
+
+## Linked outcome messaging reliability — September 4, 2026
+
+Both Luca runtime hats now reply to agent notes through actor-scoped
+coordination authentication. The server derives sender and recipient from the
+authenticated actor and parent note, rejects cross-inbox impersonation, and
+returns `delivered` only after rereading the exact reply from the recipient
+inbox. Stable idempotency keys deduplicate retries and reject conflicting
+payload reuse.
+
+Coordination evidence now supports typed `agent_note` origins. Note-origin work
+cannot enter `completed` without a reciprocal linked reply. Causal parent event
+IDs must identify an earlier event in the same thread. The combined
+`complete-with-linked-outcome` operation reserves the sequence, delivers and
+verifies the direct outcome, appends the canonical completion, and updates the
+thread projection in one local transaction. The event stores a canonical
+request digest so conflicting idempotency reuse fails closed.
+
+The completion workflow now requires linked delivery before external task
+completion whenever message provenance exists. Delivery remains distinct from
+seen, acknowledged, acted on, outcome acknowledged, and active notification.
+All persistence regressions remain gated behind the verified disposable-CI
+database contract.

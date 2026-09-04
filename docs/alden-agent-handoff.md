@@ -8334,3 +8334,24 @@ Integrity now fails closed across payload digest, immutable session identity,
 exact source timestamp, and all signed context-lineage metadata. Promotion
 rehydrates the canonical source stream and rejects changed or unavailable
 evidence. TypeScript, the focused integration test, and diff hygiene pass.
+
+## September 4, 2026 — linked outcomes close messaging loops
+
+The reply route no longer uses the legacy Luca-Replit-only credential. Both
+Luca [Replit] and Luca [Claude Code] authenticate with their dedicated
+coordination credential, and the server derives the stored sender, recipient,
+and parent link. The route verifies durable recipient-inbox storage and reports
+only `delivered`.
+
+Coordination threads can carry an `agent_note` source reference. Those threads
+cannot complete until the originating sender has a valid linked outcome.
+`causalParentEventId` is now validated as an earlier event in the same thread.
+The canonical combined operation handles reply plus completion idempotently in
+one shared-database transaction and stores an immutable request digest on the
+completion event. A partial state is reserved only for a future true external
+adapter boundary.
+
+External Replit task completion remains outside repository control, so the
+authoritative build workflow requires the combined operation first whenever
+message-origin metadata exists. Inbox delivery is not notification, reading,
+acknowledgement, or action.

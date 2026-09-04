@@ -15,6 +15,7 @@ import { runCoordinationDeliveryBatch } from '../services/coordination-delivery-
 import {
   acknowledgeCoordinationFeed,
   appendCoordinationEvent,
+  completeWithLinkedOutcome,
   CoordinationError,
   createCoordinationThread,
   getCoordinationThread,
@@ -250,6 +251,211 @@ databaseTest('canonical coordination lifecycle is ordered, idempotent, and adapt
   assert.equal(ownEvents.length, 9);
   assert.equal(feed.cursor.next >= ownEvents.at(-1)!.event.globalSequence, true);
   assert.deepEqual(ownEvents.map((item) => item.event.sequence), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+});
+
+databaseTest('agent-note work requires an atomic delivered linked outcome', async () => {
+  const db = getSharedDb();
+  const localThreadIds: string[] = [];
+  const localNoteIds: string[] = [];
+  const prefix = `${keys('linked-outcome')}:`;
+  try {
+    const parent = await db.insert(agentNotes).values({
+      fromAgent: 'luca-claude-code',
+      toAgent: 'agent',
+      subject: `[CI] Linked outcome ${runId}`,
+      body: 'Please complete this work and reply with the outcome.',
+      sourceMessageKey: `${prefix}parent`,
+    }).returning();
+    localNoteIds.push(parent[0].id);
+
+    const created = await createCoordinationThread({
+      actor: 'luca-claude-code',
+      intendedRecipient: 'luca-replit',
+      title: `Linked outcome regression ${runId}`,
+      description: 'Completion must not outrun direct communication.',
+      idempotencyKey: `${prefix}create`,
+      createInboxDelivery: false,
+      sourceReference: {
+        type: 'agent_note',
+        provider: 'agent_notes',
+        identifier: parent[0].id,
+      },
+    });
+    localThreadIds.push(created.thread.id);
+
+    const accepted = await appendCoordinationEvent({
+      threadId: created.thread.id,
+      actor: 'luca-replit',
+      eventType: 'accepted',
+      content: 'Accepted linked-outcome work.',
+      idempotencyKey: `${prefix}accept`,
+      expectedSequence: 1,
+    });
+    const evidence = await appendCoordinationEvent({
+      threadId: created.thread.id,
+      actor: 'luca-replit',
+      eventType: 'evidence_added',
+      content: 'Implementation evidence.',
+      idempotencyKey: `${prefix}evidence`,
+      expectedSequence: 2,
+      causalParentEventId: accepted.event.id,
+      evidence: [{
+        type: 'test_result',
+        provider: 'ci',
+        identifier: `${prefix}passing-test`,
+      }],
+    });
+
+    await assert.rejects(
+      appendCoordinationEvent({
+        threadId: created.thread.id,
+        actor: 'luca-replit',
+        eventType: 'completed',
+        content: 'Must fail without a direct linked reply.',
+        idempotencyKey: `${prefix}unlinked-complete`,
+        expectedSequence: 3,
+      }),
+      (error: unknown) => (
+        error instanceof CoordinationError
+        && error.code === 'linked_outcome_required'
+      ),
+    );
+
+    const foreign = await createCoordinationThread({
+      actor: 'luca-replit',
+      intendedRecipient: 'luca-claude-code',
+      title: `Foreign causal parent ${runId}`,
+      description: 'Cross-thread causal references must fail.',
+      idempotencyKey: `${prefix}foreign-create`,
+      createInboxDelivery: false,
+    });
+    localThreadIds.push(foreign.thread.id);
+    await assert.rejects(
+      completeWithLinkedOutcome({
+        threadId: created.thread.id,
+        actor: 'luca-replit',
+        content: 'Cross-thread causal attempt.',
+        expectedSequence: 3,
+        idempotencyKey: `${prefix}cross-thread`,
+        causalParentEventId: foreign.event.id,
+        reply: { body: 'This must not be delivered.' },
+      }),
+      (error: unknown) => (
+        error instanceof CoordinationError
+        && error.code === 'causal_parent_not_found'
+        && error.statusCode === 404
+      ),
+    );
+    assert.equal(
+      (await db.select().from(agentNotes)
+        .where(eq(agentNotes.sourceMessageKey, `${prefix}cross-thread`))).length,
+      0,
+      'causal validation must fail before reply delivery',
+    );
+    await assert.rejects(
+      completeWithLinkedOutcome({
+        threadId: created.thread.id,
+        actor: 'luca-replit',
+        content: 'Missing causal-parent attempt.',
+        expectedSequence: 3,
+        idempotencyKey: `${prefix}missing-parent`,
+        causalParentEventId: '00000000-0000-4000-8000-000000000000',
+        reply: { body: 'This must not be delivered either.' },
+      }),
+      (error: unknown) => (
+        error instanceof CoordinationError
+        && error.code === 'invalid_causal_parent'
+      ),
+    );
+    assert.equal(
+      (await db.select().from(agentNotes)
+        .where(eq(agentNotes.sourceMessageKey, `${prefix}missing-parent`))).length,
+      0,
+      'missing causal validation must fail before reply delivery',
+    );
+
+    const completionKey = `${prefix}complete`;
+    await assert.rejects(
+      completeWithLinkedOutcome({
+        threadId: created.thread.id,
+        actor: 'luca-replit',
+        content: 'Completion must roll back when the sequence is stale.',
+        expectedSequence: 2,
+        idempotencyKey: completionKey,
+        causalParentEventId: evidence.event.id,
+        reply: { body: 'The implementation is complete and verified.' },
+      }),
+      (error: unknown) => (
+        error instanceof CoordinationError
+        && error.code === 'sequence_conflict'
+        && error.details?.currentSequence === 3
+      ),
+    );
+    assert.equal(
+      (await db.select().from(agentNotes)
+        .where(eq(agentNotes.sourceMessageKey, completionKey))).length,
+      0,
+      'failed completion preconditions must not deliver a reply',
+    );
+
+    const completed = await completeWithLinkedOutcome({
+      threadId: created.thread.id,
+      actor: 'luca-replit',
+      content: 'Atomic completion with a linked outcome.',
+      expectedSequence: 3,
+      idempotencyKey: completionKey,
+      causalParentEventId: evidence.event.id,
+      reply: { body: 'The implementation is complete and verified.' },
+    });
+    assert.equal(completed.achievedState, 'completed');
+    assert.equal(completed.thread.state, 'completed');
+    assert.equal(completed.event.sequence, 4);
+    assert.equal(completed.linkedReply.deliveryState, 'delivered');
+    assert.equal(completed.linkedReply.deduplicated, false);
+    const [deliveredReply] = await db.select().from(agentNotes)
+      .where(eq(agentNotes.sourceMessageKey, completionKey));
+    assert.ok(deliveredReply, 'atomic success must persist the linked reply');
+    localNoteIds.push(deliveredReply.id);
+    assert.equal(deliveredReply.status, 'unread');
+    assert.equal(deliveredReply.inReplyToId, parent[0].id);
+    assert.equal(completed.linkedReply.id, deliveredReply.id);
+
+    const retry = await completeWithLinkedOutcome({
+      threadId: created.thread.id,
+      actor: 'luca-replit',
+      content: 'Atomic completion with a linked outcome.',
+      expectedSequence: 3,
+      idempotencyKey: completionKey,
+      causalParentEventId: evidence.event.id,
+      reply: { body: 'The implementation is complete and verified.' },
+    });
+    assert.equal(retry.deduplicated, true);
+    assert.equal(retry.event.id, completed.event.id);
+    assert.equal(retry.linkedReply.id, deliveredReply.id);
+
+    await assert.rejects(
+      completeWithLinkedOutcome({
+        threadId: created.thread.id,
+        actor: 'luca-replit',
+        content: 'Conflicting completion content.',
+        expectedSequence: 3,
+        idempotencyKey: completionKey,
+        causalParentEventId: evidence.event.id,
+        reply: { body: 'The implementation is complete and verified.' },
+      }),
+      (error: unknown) => (
+        error instanceof CoordinationError
+        && error.code === 'idempotency_conflict'
+      ),
+    );
+  } finally {
+    if (localThreadIds.length > 0) {
+      await db.delete(coordinationThreads).where(inArray(coordinationThreads.id, localThreadIds));
+    }
+    if (localNoteIds.length > 0) {
+      await db.delete(agentNotes).where(inArray(agentNotes.id, localNoteIds));
+    }
+  }
 });
 
 databaseTest('Alden cannot reassign work after another actor owns it', async () => {

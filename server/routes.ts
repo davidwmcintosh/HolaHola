@@ -12,6 +12,7 @@ import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
+import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import {
   registerObservationBenchCoordinationRoutes,
   registerObservationBenchFounderRoutes,
@@ -33044,23 +33045,28 @@ ${memoryContext}
     }
   });
 
-  // POST /api/agent/notes/mark-read — Agent marks Alden's notes as read
-  app.post("/api/agent/notes/mark-read", requireAgentToken, async (req: any, res: Response) => {
+  // POST /api/agent/notes/mark-read — the authenticated Luca actor may update
+  // only rows delivered to that actor's canonical inbox.
+  app.post("/api/agent/notes/mark-read", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ error: 'ids array is required' });
       }
+      const { inboxForReplyingActor } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
       const { agentNotes } = await import('@shared/schema');
       const now = new Date();
-      await getUserDb().update(agentNotes)
+      const updated = await getUserDb().update(agentNotes)
         .set({
           status: 'acknowledged',
           acknowledgedAt: now,
           readAt: now,
         })
-        .where(inArray(agentNotes.id, ids));
-      res.json({ marked: ids.length });
+        .where(and(inArray(agentNotes.id, ids), eq(agentNotes.toAgent, inbox)))
+        .returning({ id: agentNotes.id });
+      res.json({ marked: updated.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -33118,13 +33124,15 @@ ${memoryContext}
   // then return the same live inbox data used by the normal read route.
   app.post("/api/agent/notes/refresh", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
+      const { inboxForReplyingActor, readAgentInboxNotes } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
       const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
-      const { readAgentInboxNotes } = await import('./services/agent-notes');
       await generateAgentNotesSnapshot();
       const notes = await readAgentInboxNotes({
         includeRead: req.body?.include_read === true,
         limit: req.body?.limit,
-        toAgent: req.coordinationActor === 'luca-claude-code' ? 'luca-claude-code' : 'agent',
+        toAgent: inbox,
       });
       res.json({
         refreshedAt: new Date().toISOString(),
@@ -33139,14 +33147,25 @@ ${memoryContext}
 
   // PATCH /api/agent/notes/:id/status — reading, acknowledging, acting on,
   // and dismissing are separate lifecycle events.
-  app.patch("/api/agent/notes/:id/status", requireAgentToken, async (req: any, res: Response) => {
+  app.patch("/api/agent/notes/:id/status", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const action = req.body?.action;
       const validActions = ['read', 'acknowledge', 'act', 'dismiss'];
       if (!validActions.includes(action)) {
         return res.status(400).json({ error: `action must be one of: ${validActions.join(', ')}` });
       }
-      const { updateAgentNoteAction } = await import('./services/agent-notes');
+      const {
+        getAgentNoteWithReplies,
+        inboxForReplyingActor,
+        updateAgentNoteAction,
+      } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
+      const existing = await getAgentNoteWithReplies(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Note not found' });
+      if (existing.note.toAgent !== inbox) {
+        return res.status(403).json({ error: 'Actor does not own the note inbox' });
+      }
       const note = await updateAgentNoteAction(req.params.id, action);
       if (!note) return res.status(404).json({ error: 'Note not found' });
       res.json({ success: true, note });
@@ -33156,50 +33175,23 @@ ${memoryContext}
   });
 
   // GET /api/agent/notes/:id — return a note with its linked replies.
-  app.get("/api/agent/notes/:id", requireAgentToken, async (req: any, res: Response) => {
+  app.get("/api/agent/notes/:id", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
-      const { getAgentNoteWithReplies } = await import('./services/agent-notes');
+      const { getAgentNoteWithReplies, inboxForReplyingActor } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
       const thread = await getAgentNoteWithReplies(req.params.id);
       if (!thread) return res.status(404).json({ error: 'Note not found' });
+      if (thread.note.toAgent !== inbox) {
+        return res.status(403).json({ error: 'Actor does not own the note inbox' });
+      }
       res.json(thread);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // POST /api/agent/notes/:id/reply — reply to the original sender and retain
-  // the relationship even after the parent note is acknowledged.
-  app.post("/api/agent/notes/:id/reply", requireAgentToken, async (req: any, res: Response) => {
-    try {
-      const { subject, body, session_label, source_message_key } = req.body ?? {};
-      if (!body?.trim()) return res.status(400).json({ error: 'body is required' });
-
-      const { createAgentNote, getAgentNoteWithReplies, updateAgentNoteAction } =
-        await import('./services/agent-notes');
-      const thread = await getAgentNoteWithReplies(req.params.id);
-      if (!thread || thread.note.toAgent !== 'agent') {
-        return res.status(404).json({ error: 'Inbox note not found' });
-      }
-
-      const reply = await createAgentNote({
-        fromAgent: 'agent',
-        toAgent: thread.note.fromAgent,
-        subject: subject?.trim() || `Re: ${thread.note.subject}`,
-        body: body.trim(),
-        sessionLabel: session_label ?? thread.note.sessionLabel,
-        repliedToId: thread.note.id,
-        sourceMessageKey: source_message_key ?? null,
-      });
-      await updateAgentNoteAction(thread.note.id, 'act');
-      res.json({
-        success: true,
-        deduplicated: reply.deduplicated,
-        note: reply.note,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  registerAgentNoteReplyRoute(app);
 
   // Post to Hive collaboration system as Alden
   app.post("/api/editor/hive/post", async (req: any, res: Response) => {

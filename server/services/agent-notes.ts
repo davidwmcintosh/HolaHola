@@ -16,6 +16,24 @@ export type ClaudeCodeInboxSender = typeof CLAUDE_CODE_INBOX_SENDERS[number];
 
 export type AgentNoteAction = 'acknowledge' | 'act' | 'dismiss' | 'read';
 
+export type ReplyingCoordinationActor = 'luca-replit' | 'luca-claude-code';
+
+export class AgentNoteReplyError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: 400 | 403 | 404 | 409,
+    readonly code: string,
+  ) {
+    super(message);
+    this.name = 'AgentNoteReplyError';
+  }
+}
+
+const REPLY_IDENTITY: Record<ReplyingCoordinationActor, { inbox: string; storedSender: string }> = {
+  'luca-replit': { inbox: 'agent', storedSender: 'agent' },
+  'luca-claude-code': { inbox: 'luca-claude-code', storedSender: 'luca-claude-code' },
+};
+
 export function getAgentInboxSenders(fromAgent?: string): string[] {
   if (fromAgent && AGENT_INBOX_SENDERS.includes(fromAgent as AgentInboxSender)) {
     return [fromAgent];
@@ -110,6 +128,152 @@ export async function createAgentNote(values: {
 
   if (!note) throw new Error('Agent note insert returned no row');
   return { note, deduplicated: false };
+}
+
+/**
+ * Creates a reply using the authenticated actor's fixed storage identity, then
+ * reads the exact row from the recipient inbox. A row existing in that inbox is
+ * the only condition represented by the returned `delivered` receipt; it does
+ * not imply that the recipient saw, acknowledged, or acted on it.
+ */
+export type ReplyToAgentNoteInput = {
+  actor: ReplyingCoordinationActor;
+  parentId: string;
+  body: string;
+  subject?: string | null;
+  sessionLabel?: string | null;
+  idempotencyKey: string;
+};
+
+type AgentNoteCreateResult = {
+  note: typeof agentNotes.$inferSelect;
+  deduplicated: boolean;
+};
+
+async function replyToAgentNoteAndVerifyWithDb(
+  db: any,
+  input: ReplyToAgentNoteInput,
+  createReply: (values: {
+    fromAgent: string;
+    toAgent: string;
+    subject: string;
+    body: string;
+    sessionLabel?: string | null;
+    repliedToId?: string | null;
+    sourceMessageKey?: string | null;
+  }) => Promise<AgentNoteCreateResult>,
+) {
+  const body = input.body?.trim();
+  const idempotencyKey = input.idempotencyKey?.trim();
+  if (!body) throw new AgentNoteReplyError('body is required', 400, 'invalid_request');
+  if (!idempotencyKey) throw new AgentNoteReplyError('idempotencyKey is required', 400, 'invalid_request');
+  if (idempotencyKey.length > 255) {
+    throw new AgentNoteReplyError('idempotencyKey exceeds 255 characters', 400, 'invalid_request');
+  }
+
+  const identity = REPLY_IDENTITY[input.actor];
+  const [parent] = await db.select().from(agentNotes).where(eq(agentNotes.id, input.parentId)).limit(1);
+  if (!parent) throw new AgentNoteReplyError('Parent note not found', 404, 'parent_not_found');
+  if (parent.toAgent !== identity.inbox) {
+    throw new AgentNoteReplyError('Actor does not own the parent inbox', 403, 'parent_inbox_forbidden');
+  }
+  if (parent.fromAgent === identity.storedSender) {
+    throw new AgentNoteReplyError('Self-replies are not supported', 403, 'unsupported_reply_route');
+  }
+
+  // The recipient must be able to read this reciprocal route through its
+  // canonical inbox contract, rather than merely accepting an arbitrary row.
+  const allowedRecipient = input.actor === 'luca-replit'
+    ? (AGENT_INBOX_SENDERS as readonly string[]).includes(parent.fromAgent)
+    : (CLAUDE_CODE_INBOX_SENDERS as readonly string[]).includes(parent.fromAgent);
+  if (!allowedRecipient) {
+    throw new AgentNoteReplyError('Parent sender is not a supported reciprocal route', 403, 'unsupported_reply_route');
+  }
+
+  const subject = input.subject?.trim() || `Re: ${parent.subject}`;
+  const [existing] = await db.select().from(agentNotes)
+    .where(eq(agentNotes.sourceMessageKey, idempotencyKey)).limit(1);
+  if (existing) {
+    if (
+      existing.fromAgent !== identity.storedSender
+      || existing.toAgent !== parent.fromAgent
+      || existing.inReplyToId !== parent.id
+      || existing.subject !== subject
+      || existing.body !== body
+    ) {
+      throw new AgentNoteReplyError(
+        'idempotencyKey was already used with conflicting reply content',
+        409,
+        'idempotency_conflict',
+      );
+    }
+    const [stored] = await db.select().from(agentNotes).where(and(
+      eq(agentNotes.id, existing.id),
+      eq(agentNotes.toAgent, parent.fromAgent),
+    )).limit(1);
+    if (!stored) throw new AgentNoteReplyError('Recipient inbox storage could not be verified', 409, 'delivery_unverified');
+    return { note: stored, deduplicated: true, deliveryState: 'delivered' as const };
+  }
+
+  const created = await createReply({
+    fromAgent: identity.storedSender,
+    toAgent: parent.fromAgent,
+    subject,
+    body,
+    sessionLabel: input.sessionLabel ?? parent.sessionLabel,
+    repliedToId: parent.id,
+    sourceMessageKey: idempotencyKey,
+  });
+  // A concurrent caller may have won the unique key; reject a mismatched
+  // winner instead of incorrectly claiming this payload was delivered.
+  if (
+    created.note.fromAgent !== identity.storedSender
+    || created.note.toAgent !== parent.fromAgent
+    || created.note.inReplyToId !== parent.id
+    || created.note.subject !== subject
+    || created.note.body !== body
+  ) {
+    throw new AgentNoteReplyError('idempotencyKey was already used with conflicting reply content', 409, 'idempotency_conflict');
+  }
+  const [stored] = await db.select().from(agentNotes).where(and(
+    eq(agentNotes.id, created.note.id),
+    eq(agentNotes.toAgent, parent.fromAgent),
+  )).limit(1);
+  if (!stored) throw new AgentNoteReplyError('Recipient inbox storage could not be verified', 409, 'delivery_unverified');
+  return { note: stored, deduplicated: created.deduplicated, deliveryState: 'delivered' as const };
+}
+
+export async function replyToAgentNoteAndVerify(input: ReplyToAgentNoteInput) {
+  return replyToAgentNoteAndVerifyWithDb(getSharedDb(), input, createAgentNote);
+}
+
+export async function replyToAgentNoteAndVerifyInTransaction(
+  tx: any,
+  input: ReplyToAgentNoteInput,
+) {
+  return replyToAgentNoteAndVerifyWithDb(tx, input, async (values) => {
+    const [note] = await tx.insert(agentNotes).values({
+      fromAgent: values.fromAgent,
+      toAgent: values.toAgent,
+      subject: values.subject,
+      body: values.body,
+      sessionLabel: values.sessionLabel ?? null,
+      inReplyToId: values.repliedToId ?? null,
+      sourceMessageKey: values.sourceMessageKey?.trim() || null,
+    }).returning();
+    if (!note) throw new Error('Agent note insert returned no row');
+    return { note, deduplicated: false };
+  });
+}
+
+export function inboxForReplyingActor(
+  actor: string | undefined,
+): 'agent' | 'luca-claude-code' | null {
+  return actor === 'luca-replit'
+    ? 'agent'
+    : actor === 'luca-claude-code'
+      ? 'luca-claude-code'
+      : null;
 }
 
 export async function updateAgentNoteAction(id: string, action: AgentNoteAction) {

@@ -10,6 +10,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 import {
   COORDINATION_ACTOR_IDS,
   COORDINATION_EVENT_TYPES,
@@ -18,6 +19,7 @@ import {
   coordinationActorFeedCursors,
   coordinationEvents,
   coordinationThreads,
+  agentNotes,
   type CoordinationActorId,
   type CoordinationEvent,
   type CoordinationEventType,
@@ -26,6 +28,7 @@ import {
   type CoordinationThreadState,
 } from '@shared/schema';
 import { getSharedDb } from '../db';
+import { replyToAgentNoteAndVerifyInTransaction } from './agent-notes';
 
 const ACTOR_SET = new Set<string>(COORDINATION_ACTOR_IDS);
 const EVENT_TYPE_SET = new Set<string>(COORDINATION_EVENT_TYPES);
@@ -114,12 +117,59 @@ export type CoordinationMutationResult = {
   deliveryState: 'not_applicable' | 'pending' | 'delivered' | 'failed';
 };
 
+export type CompleteWithLinkedOutcomeInput = {
+  threadId: string;
+  actor: CoordinationActorId;
+  content: string;
+  expectedSequence: number;
+  idempotencyKey: string;
+  evidence?: CoordinationEvidenceReference[];
+  causalParentEventId?: string;
+  reply: { body: string; subject?: string; sessionLabel?: string };
+};
+
+export type CompleteWithLinkedOutcomeResult = CoordinationMutationResult & {
+  achievedState: 'completed';
+  linkedReply: {
+    id: string;
+    deliveryState: 'delivered';
+    deduplicated: boolean;
+  };
+};
+
 export function isCoordinationActorId(value: unknown): value is CoordinationActorId {
   return typeof value === 'string' && ACTOR_SET.has(value);
 }
 
 export function isCoordinationEventType(value: unknown): value is CoordinationEventType {
   return typeof value === 'string' && EVENT_TYPE_SET.has(value);
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => (
+      `${JSON.stringify(key)}:${canonicalJson(record[key])}`
+    )).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function linkedOutcomeRequestDigest(input: CompleteWithLinkedOutcomeInput): string {
+  const immutableRequest = {
+    threadId: input.threadId,
+    actor: input.actor,
+    content: input.content,
+    evidence: input.evidence ?? [],
+    causalParentEventId: input.causalParentEventId ?? null,
+    reply: {
+      body: input.reply.body,
+      subject: input.reply.subject ?? null,
+      sessionLabel: input.reply.sessionLabel ?? null,
+    },
+  };
+  return `sha256:${createHash('sha256').update(canonicalJson(immutableRequest)).digest('hex')}`;
 }
 
 function requiredText(value: string, field: string, maxLength: number): string {
@@ -178,6 +228,73 @@ function validateEvidenceReference(reference: CoordinationEvidenceReference): Co
     ...(reference.digest ? { digest: reference.digest } : {}),
     ...(reference.metadata ? { metadata: reference.metadata } : {}),
   };
+}
+
+function replyIdentity(actor: CoordinationActorId): { inbox: string; sender: string } | null {
+  if (actor === 'luca-replit') return { inbox: 'agent', sender: 'agent' };
+  if (actor === 'luca-claude-code') return { inbox: 'luca-claude-code', sender: 'luca-claude-code' };
+  return null;
+}
+
+async function assertAgentNoteOrigin(
+  db: any,
+  reference: CoordinationEvidenceReference,
+  actor: CoordinationActorId,
+) {
+  if (reference.provider !== 'agent_notes') {
+    throw new CoordinationError('agent_note evidence must use provider agent_notes', 400, 'invalid_evidence');
+  }
+  const identity = replyIdentity(actor);
+  if (!identity) throw new CoordinationError('agent_note origin requires a Luca coordination actor', 403, 'invalid_evidence');
+  const [note] = await db.select().from(agentNotes).where(eq(agentNotes.id, reference.identifier)).limit(1);
+  if (!note) throw new CoordinationError('Referenced agent note not found', 404, 'agent_note_not_found');
+  if (note.toAgent !== identity.inbox || note.fromAgent === identity.sender) {
+    throw new CoordinationError('Referenced agent note is outside the actor communication path', 403, 'agent_note_forbidden');
+  }
+  return note;
+}
+
+async function validateCausalParent(
+  tx: any,
+  threadId: string,
+  causalParentEventId: string | undefined,
+  newSequence: number,
+): Promise<void> {
+  if (!causalParentEventId) return;
+  const [parent] = await tx.select({
+    threadId: coordinationEvents.threadId,
+    sequence: coordinationEvents.sequence,
+  }).from(coordinationEvents).where(eq(coordinationEvents.id, causalParentEventId)).limit(1);
+  if (!parent) throw new CoordinationError('Causal parent event not found', 404, 'causal_parent_not_found');
+  if (parent.threadId !== threadId) {
+    throw new CoordinationError('Causal parent must belong to the same thread', 409, 'invalid_causal_parent');
+  }
+  if (parent.sequence >= newSequence) {
+    throw new CoordinationError('Causal parent must precede the new event', 409, 'invalid_causal_parent');
+  }
+}
+
+async function assertLinkedOutcome(
+  tx: any,
+  thread: CoordinationThread,
+  actor: CoordinationActorId,
+) {
+  if (thread.sourceReference?.type !== 'agent_note') return;
+  const parent = await assertAgentNoteOrigin(tx, thread.sourceReference, actor);
+  const identity = replyIdentity(actor);
+  if (!identity) throw new CoordinationError('Agent-note completion requires a Luca actor', 403, 'linked_outcome_forbidden');
+  const [reply] = await tx.select({ id: agentNotes.id }).from(agentNotes).where(and(
+    eq(agentNotes.inReplyToId, parent.id),
+    eq(agentNotes.fromAgent, identity.sender),
+    eq(agentNotes.toAgent, parent.fromAgent),
+  )).limit(1);
+  if (!reply) {
+    throw new CoordinationError(
+      'Completion requires a delivered linked reply to the originating agent note',
+      409,
+      'linked_outcome_required',
+    );
+  }
 }
 
 function assertParticipant(thread: CoordinationThread, actor: CoordinationActorId): void {
@@ -357,6 +474,9 @@ export async function createCoordinationThread(
   if (!isCoordinationActorId(input.intendedRecipient) || input.intendedRecipient === 'coordination-system') {
     throw new CoordinationError('Invalid intended recipient', 400, 'invalid_actor');
   }
+  if (input.sourceReference?.type === 'agent_note') {
+    await assertAgentNoteOrigin(getSharedDb(), input.sourceReference, input.intendedRecipient);
+  }
 
   const existing = await findIdempotentEvent(input.actor, input.idempotencyKey);
   if (existing) return mutationResultFromExisting(existing);
@@ -521,8 +641,12 @@ export async function appendCoordinationEvent(
           );
         }
       }
+      if (input.eventType === 'completed') {
+        await assertLinkedOutcome(tx, thread, input.actor);
+      }
 
       const nextSequence = thread.latestSequence + 1;
+      await validateCausalParent(tx, thread.id, input.causalParentEventId, nextSequence);
       const [reservedThread] = await tx
         .update(coordinationThreads)
         .set({
@@ -602,6 +726,204 @@ export async function appendCoordinationEvent(
     const wonRace = await findIdempotentEvent(input.actor, input.idempotencyKey);
     if (wonRace && wonRace.threadId === input.threadId) {
       return mutationResultFromExisting(wonRace);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Repository-controlled completion for work that originated in an agent note.
+ *
+ * The local shared-database path is atomic: sequence reservation, linked reply,
+ * delivery verification, completion event, and thread projection commit or
+ * roll back together.
+ */
+export async function completeWithLinkedOutcome(
+  rawInput: CompleteWithLinkedOutcomeInput,
+): Promise<CompleteWithLinkedOutcomeResult> {
+  const input: CompleteWithLinkedOutcomeInput = {
+    ...rawInput,
+    threadId: requiredText(rawInput.threadId, 'threadId', 255),
+    content: requiredText(rawInput.content, 'content', 20_000),
+    idempotencyKey: validateIdempotencyKey(rawInput.idempotencyKey),
+    evidence: (rawInput.evidence ?? []).map(validateEvidenceReference),
+    reply: {
+      body: requiredText(rawInput.reply?.body, 'reply.body', 20_000),
+      ...(rawInput.reply?.subject
+        ? { subject: requiredText(rawInput.reply.subject, 'reply.subject', 300) }
+        : {}),
+      ...(rawInput.reply?.sessionLabel
+        ? { sessionLabel: requiredText(rawInput.reply.sessionLabel, 'reply.sessionLabel', 300) }
+        : {}),
+    },
+  };
+  if (!isCoordinationActorId(input.actor)) {
+    throw new CoordinationError('Invalid actor', 400, 'invalid_actor');
+  }
+  if (!Number.isInteger(input.expectedSequence) || input.expectedSequence < 1) {
+    throw new CoordinationError('expectedSequence must be a positive integer', 400, 'invalid_sequence');
+  }
+  const requestDigest = linkedOutcomeRequestDigest(input);
+
+  const existing = await findIdempotentEvent(input.actor, input.idempotencyKey);
+  if (existing) {
+    if (existing.threadId !== input.threadId || existing.eventType !== 'completed') {
+      throw new CoordinationError(
+        'Idempotency key was already used for another operation',
+        409,
+        'idempotency_conflict',
+      );
+    }
+    const linkedOutcome = (existing.payload as Record<string, any> | null)?.linkedOutcome;
+    if (!linkedOutcome || linkedOutcome.requestDigest !== requestDigest) {
+      throw new CoordinationError(
+        'Idempotency key was already used with conflicting completion content',
+        409,
+        'idempotency_conflict',
+      );
+    }
+    const result = await mutationResultFromExisting(existing);
+    const thread = result.thread;
+    if (thread.sourceReference?.type !== 'agent_note') {
+      throw new CoordinationError('Completed event has no agent-note origin', 409, 'agent_note_origin_required');
+    }
+    const parent = await assertAgentNoteOrigin(getSharedDb(), thread.sourceReference, input.actor);
+    const identity = replyIdentity(input.actor)!;
+    const [reply] = await getSharedDb().select().from(agentNotes).where(and(
+      eq(agentNotes.id, linkedOutcome.replyId),
+      eq(agentNotes.inReplyToId, parent.id),
+      eq(agentNotes.fromAgent, identity.sender),
+      eq(agentNotes.toAgent, parent.fromAgent),
+    )).limit(1);
+    if (!reply) {
+      throw new CoordinationError(
+        'Completed event is missing its linked reply',
+        500,
+        'ledger_corrupt',
+      );
+    }
+    return {
+      ...result,
+      achievedState: 'completed',
+      linkedReply: { id: reply.id, deliveryState: 'delivered', deduplicated: true },
+    };
+  }
+
+  const db = getSharedDb();
+  try {
+    return await db.transaction(async (tx) => {
+      const [thread] = await tx.select().from(coordinationThreads)
+        .where(eq(coordinationThreads.id, input.threadId)).limit(1);
+      if (!thread) throw new CoordinationError('Coordination thread not found', 404, 'thread_not_found');
+      if (thread.latestSequence !== input.expectedSequence) {
+        throw new CoordinationError(
+          'Thread sequence changed',
+          409,
+          'sequence_conflict',
+          { currentSequence: thread.latestSequence },
+        );
+      }
+      validateLifecycle(thread, {
+        ...input,
+        eventType: 'completed',
+        payload: {},
+      });
+      if (thread.sourceReference?.type !== 'agent_note') {
+        throw new CoordinationError(
+          'Linked-outcome completion requires an agent-note origin',
+          409,
+          'agent_note_origin_required',
+        );
+      }
+      await assertAgentNoteOrigin(tx, thread.sourceReference, input.actor);
+      if ((input.evidence?.length ?? 0) === 0) {
+        const [priorEvidence] = await tx.select({ id: coordinationEvents.id })
+          .from(coordinationEvents)
+          .where(and(
+            eq(coordinationEvents.threadId, thread.id),
+            eq(coordinationEvents.eventType, 'evidence_added'),
+          ))
+          .limit(1);
+        if (!priorEvidence) {
+          throw new CoordinationError(
+            'Completion requires immutable evidence',
+            400,
+            'completion_evidence_required',
+          );
+        }
+      }
+      const nextSequence = thread.latestSequence + 1;
+      await validateCausalParent(tx, thread.id, input.causalParentEventId, nextSequence);
+      const [reservedThread] = await tx.update(coordinationThreads).set({
+        latestSequence: nextSequence,
+        updatedAt: new Date(),
+      }).where(and(
+        eq(coordinationThreads.id, thread.id),
+        eq(coordinationThreads.latestSequence, input.expectedSequence),
+      )).returning();
+      if (!reservedThread) {
+        const [current] = await tx.select({ latestSequence: coordinationThreads.latestSequence })
+          .from(coordinationThreads).where(eq(coordinationThreads.id, thread.id)).limit(1);
+        throw new CoordinationError(
+          'Thread sequence changed',
+          409,
+          'sequence_conflict',
+          { currentSequence: current?.latestSequence ?? null },
+        );
+      }
+
+      const reply = await replyToAgentNoteAndVerifyInTransaction(tx, {
+        actor: input.actor as 'luca-replit' | 'luca-claude-code',
+        parentId: thread.sourceReference.identifier,
+        body: input.reply.body,
+        subject: input.reply.subject,
+        sessionLabel: input.reply.sessionLabel,
+        idempotencyKey: input.idempotencyKey,
+      });
+      const [event] = await tx.insert(coordinationEvents).values({
+        threadId: thread.id,
+        sequence: nextSequence,
+        actor: input.actor,
+        recipientActor: null,
+        eventType: 'completed',
+        content: input.content,
+        payload: {
+          linkedOutcome: {
+            replyId: reply.note.id,
+            requestDigest,
+            deliveryState: 'delivered',
+          },
+        },
+        evidence: input.evidence ?? [],
+        causalParentEventId: input.causalParentEventId ?? null,
+        idempotencyKey: input.idempotencyKey,
+      }).returning();
+      if (!event) throw new CoordinationError('Event insert returned no row', 500, 'insert_failed');
+      const [updatedThread] = await tx.update(coordinationThreads).set({
+        state: 'completed',
+        latestGlobalSequence: event.globalSequence,
+        updatedAt: new Date(),
+      }).where(eq(coordinationThreads.id, thread.id)).returning();
+      if (!updatedThread) {
+        throw new CoordinationError('Thread projection update failed', 500, 'projection_failed');
+      }
+      return {
+        thread: updatedThread,
+        event,
+        deduplicated: false,
+        deliveryState: 'not_applicable',
+        achievedState: 'completed',
+        linkedReply: {
+          id: reply.note.id,
+          deliveryState: 'delivered',
+          deduplicated: reply.deduplicated,
+        },
+      };
+    });
+  } catch (error) {
+    const wonRace = await findIdempotentEvent(input.actor, input.idempotencyKey);
+    if (wonRace && wonRace.threadId === input.threadId && wonRace.eventType === 'completed') {
+      return completeWithLinkedOutcome(rawInput);
     }
     throw error;
   }

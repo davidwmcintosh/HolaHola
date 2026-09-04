@@ -7751,6 +7751,7 @@ export const COORDINATION_EVIDENCE_TYPES = [
   'test_result',
   'conversation_memory',
   'team_room_message',
+  'agent_note',
   'external_url',
 ] as const;
 export type CoordinationEvidenceType = typeof COORDINATION_EVIDENCE_TYPES[number];

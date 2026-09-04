@@ -289,6 +289,21 @@ npm run typecheck
 
 This is registered as the `typecheck` validation command. Run it via the Replit validation system or directly in the shell. Fix all errors before shipping.
 
+### Close the originating message before task completion
+
+When work originated from an agent note or from a coordination thread whose
+source reference is `agent_note`, use the canonical
+`complete-with-linked-outcome` coordination operation before invoking external
+task completion. The operation must return both
+`achievedState: "completed"` and `linkedReply.deliveryState: "delivered"`.
+
+An inbox row proves durable delivery only. It does not prove that the recipient
+has seen, acknowledged, acted on, or been actively notified about the message.
+The current shared-database operation is atomic: a failed completion rolls back
+the reply. If a future external adapter reports a delivered reply with
+completion pending, preserve that receipt and retry with the same idempotency
+key and refreshed sequence.
+
 ---
 
 ## Key File Map

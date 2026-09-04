@@ -12,7 +12,8 @@ type Options = Record<string, string | boolean>;
 
 const commands = new Set([
   'create', 'list', 'ack-feed', 'show', 'accept', 'progress', 'evidence', 'block',
-  'complete', 'acknowledge', 'reopen', 'reassign', 'comment',
+  'complete', 'acknowledge', 'reopen', 'reassign', 'comment', 'reply-and-verify',
+  'complete-with-linked-outcome',
 ]);
 const eventCommands = new Set([
   'accept', 'progress', 'evidence', 'block', 'complete', 'acknowledge',
@@ -30,7 +31,7 @@ function fail(message: string, exitCode = 64): never {
 
 function usage(): never {
   return fail(
-    'Commands: create, list, ack-feed, show, accept, progress, evidence, block, complete, acknowledge, reopen, reassign, comment. ' +
+    'Commands: create, list, ack-feed, show, accept, progress, evidence, block, complete, acknowledge, reopen, reassign, comment, reply-and-verify, complete-with-linked-outcome. ' +
     'Configuration: COORDINATION_API_URL, COORDINATION_ACTOR, and that actor’s dedicated COORDINATION_*_TOKEN. ' +
     'There is no shared coordination token. --url overrides the API URL. ' +
     'Mutations require --idempotency-key; event mutations require --id and --expected-sequence. ' +
@@ -62,18 +63,23 @@ const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
     'url', 'title', 'description', 'recipient', 'priority', 'source-reference',
     'idempotency-key',
   ]),
-  accept: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
-  progress: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
-  evidence: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
-  block: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
-  complete: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
-  acknowledge: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
-  reopen: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  accept: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  progress: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  evidence: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  block: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  complete: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  acknowledge: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  reopen: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
   reassign: new Set([
     'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'recipient',
     'evidence', 'data',
   ]),
-  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data']),
+  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  'reply-and-verify': new Set(['url', 'id', 'body', 'subject', 'session-label', 'idempotency-key']),
+  'complete-with-linked-outcome': new Set([
+    'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence',
+    'causal-parent-event-id', 'reply-body', 'reply-subject', 'reply-session-label',
+  ]),
 };
 
 export function unsupportedCoordinationCliOptions(
@@ -183,6 +189,44 @@ async function main(): Promise<void> {
         : {}),
       idempotencyKey: required(options, 'idempotency-key'),
     });
+  } else if (command === 'reply-and-verify') {
+    if (actor !== 'luca-replit' && actor !== 'luca-claude-code') {
+      fail('reply-and-verify requires COORDINATION_ACTOR=luca-replit or luca-claude-code');
+    }
+    result = await client.replyAndVerify({
+      parentNoteId: required(options, 'id'),
+      body: required(options, 'body'),
+      ...(typeof options.subject === 'string' ? { subject: options.subject } : {}),
+      ...(typeof options['session-label'] === 'string' ? { sessionLabel: options['session-label'] } : {}),
+      idempotencyKey: required(options, 'idempotency-key'),
+    });
+  } else if (command === 'complete-with-linked-outcome') {
+    if (actor !== 'luca-replit' && actor !== 'luca-claude-code') {
+      fail('complete-with-linked-outcome requires COORDINATION_ACTOR=luca-replit or luca-claude-code');
+    }
+    result = await client.completeWithLinkedOutcome(
+      required(options, 'id'),
+      {
+        content: typeof options.content === 'string' ? options.content : 'Work completed',
+        expectedSequence: Number(required(options, 'expected-sequence')),
+        idempotencyKey: required(options, 'idempotency-key'),
+        ...(optionalJson(options, 'evidence') !== undefined
+          ? { evidence: optionalJson(options, 'evidence') as CoordinationEvidenceReference[] }
+          : {}),
+        ...(typeof options['causal-parent-event-id'] === 'string'
+          ? { causalParentEventId: options['causal-parent-event-id'] }
+          : {}),
+        reply: {
+          body: required(options, 'reply-body'),
+          ...(typeof options['reply-subject'] === 'string'
+            ? { subject: options['reply-subject'] }
+            : {}),
+          ...(typeof options['reply-session-label'] === 'string'
+            ? { sessionLabel: options['reply-session-label'] }
+            : {}),
+        },
+      },
+    );
   } else if (eventCommands.has(command)) {
     const id = required(options, 'id');
     const expectedSequence = Number(required(options, 'expected-sequence'));
@@ -197,6 +241,9 @@ async function main(): Promise<void> {
         : {}),
       ...(optionalJson(options, 'data') !== undefined
         ? { payload: optionalJson(options, 'data') as Record<string, unknown> }
+        : {}),
+      ...(typeof options['causal-parent-event-id'] === 'string'
+        ? { causalParentEventId: options['causal-parent-event-id'] }
         : {}),
     };
     const method = client[command as keyof typeof client];

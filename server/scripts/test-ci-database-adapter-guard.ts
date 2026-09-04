@@ -72,8 +72,8 @@ assert.match(
 );
 assert.equal(
   (coordinationTestSource.match(/databaseTest\('/g) ?? []).length,
-  3,
-  'All three coordination tests that mutate lifecycle data must use the isolated database test wrapper',
+  4,
+  'All four coordination tests that mutate lifecycle data must use the isolated database test wrapper',
 );
 assert.match(
   scratchpadTestSource,

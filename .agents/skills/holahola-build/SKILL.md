@@ -89,6 +89,30 @@ This checks every critical invariant: DB tables exist, seeded data has rows, cur
 
 ## markTaskComplete — Required CodeExecution Pattern
 
+### Linked outcome comes first
+
+If the work originated from an `agent_notes` message or a coordination thread
+with an `agent_note` source reference, do not call `markTaskComplete` until the
+canonical combined operation has succeeded:
+
+```bash
+npx tsx server/scripts/coordination-cli.ts complete-with-linked-outcome \
+  --id <coordination-thread-id> \
+  --expected-sequence <current-sequence> \
+  --idempotency-key <stable-completion-key> \
+  --content <completion-summary> \
+  --evidence <json-array> \
+  --reply-body <direct-outcome-for-the-originating-sender>
+```
+
+The result must contain `achievedState: "completed"` and
+`linkedReply.deliveryState: "delivered"`. Delivery proves durable recipient
+inbox storage only; it does not prove seen, acknowledged, acted on, or
+notified. The current shared-database operation is atomic. If a future external
+adapter returns `delivery_succeeded_completion_pending`, preserve the reply,
+refresh the thread sequence, and retry with the same idempotency key. Do not
+mark the task complete while the coordination thread remains incomplete.
+
 **Every `markTaskComplete` call must be preceded by writing the task ref to `.task_ref_pending`.**
 
 This enables automatic David-turn capture: `checkBuildSession()` reads the file when `.commit_message` changes, loads the task description from `.local/tasks/task-{ref}.md`, and prepends it as a David turn before the Luca commit-message turn in `conversation_memories`. Without it, the record is one-sided.

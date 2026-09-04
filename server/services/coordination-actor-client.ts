@@ -22,7 +22,9 @@ export type CoordinationClientAction =
   | 'acknowledge'
   | 'reopen'
   | 'reassign'
-  | 'comment';
+  | 'comment'
+  | 'reply-and-verify'
+  | 'complete-with-linked-outcome';
 
 const DIRECT_CLIENT_ACTIONS: Record<DirectCoordinationActor, ReadonlySet<CoordinationClientAction>> = {
   'luca-holahola': new Set(['list', 'acknowledge-feed', 'show', 'create', 'reassign', 'comment']),
@@ -65,6 +67,19 @@ export type CoordinationEventInput = {
   recipientActor?: Exclude<CoordinationActorId, 'coordination-system'>;
   evidence?: CoordinationEvidenceReference[];
   payload?: Record<string, unknown>;
+  causalParentEventId?: string;
+};
+
+export type AgentNoteReplyInput = {
+  parentNoteId: string;
+  body: string;
+  idempotencyKey: string;
+  subject?: string;
+  sessionLabel?: string;
+};
+
+export type CompleteWithLinkedOutcomeClientInput = CoordinationEventInput & {
+  reply: Omit<AgentNoteReplyInput, 'parentNoteId' | 'idempotencyKey'>;
 };
 
 export function coordinationClientActions(
@@ -190,6 +205,7 @@ export class CoordinationActorClient {
         ...(input.recipientActor ? { recipientActor: input.recipientActor } : {}),
         ...(input.evidence ? { evidence: input.evidence } : {}),
         ...(input.payload ? { payload: input.payload } : {}),
+        ...(input.causalParentEventId ? { causalParentEventId: input.causalParentEventId } : {}),
       },
       idempotencyKey: input.idempotencyKey,
     });
@@ -229,6 +245,49 @@ export class CoordinationActorClient {
 
   comment(threadId: string, input: CoordinationEventInput): Promise<unknown> {
     return this.event('comment', threadId, 'comment', input);
+  }
+
+  /** Returns delivered only after the server rereads the exact reply row from
+   * the recipient inbox. This intentionally says nothing about later states. */
+  replyAndVerify(input: AgentNoteReplyInput): Promise<unknown> {
+    if (this.actor !== 'luca-replit' && this.actor !== 'luca-claude-code') {
+      throw new Error(`${this.actor} coordination client cannot reply to an agent note`);
+    }
+    return this.request('reply-and-verify', `/api/agent/notes/${encodeURIComponent(input.parentNoteId)}/reply`, {
+      body: {
+        body: input.body,
+        ...(input.subject ? { subject: input.subject } : {}),
+        ...(input.sessionLabel ? { session_label: input.sessionLabel } : {}),
+      },
+      idempotencyKey: input.idempotencyKey,
+    });
+  }
+
+  completeWithLinkedOutcome(
+    threadId: string,
+    input: CompleteWithLinkedOutcomeClientInput,
+  ): Promise<unknown> {
+    if (this.actor !== 'luca-replit' && this.actor !== 'luca-claude-code') {
+      throw new Error(`${this.actor} coordination client cannot complete agent-note-origin work`);
+    }
+    return this.request(
+      'complete-with-linked-outcome',
+      `/api/coordination/threads/${encodeURIComponent(threadId)}/complete-with-linked-outcome`,
+      {
+        body: {
+          content: input.content ?? 'Work completed',
+          expectedSequence: input.expectedSequence,
+          ...(input.evidence ? { evidence: input.evidence } : {}),
+          ...(input.causalParentEventId ? { causalParentEventId: input.causalParentEventId } : {}),
+          reply: {
+            body: input.reply.body,
+            ...(input.reply.subject ? { subject: input.reply.subject } : {}),
+            ...(input.reply.sessionLabel ? { sessionLabel: input.reply.sessionLabel } : {}),
+          },
+        },
+        idempotencyKey: input.idempotencyKey,
+      },
+    );
   }
 }
 
