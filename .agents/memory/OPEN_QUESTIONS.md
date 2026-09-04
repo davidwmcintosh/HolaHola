@@ -352,3 +352,9 @@ Why can a successful /api/mastery/summary response omit byScene, and should the 
 [thinking]: The loop found no hidden promise that should be disguised as completed work. The accepted capture-system improvements remain explicitly future work; the honest close is to preserve that boundary and let the next session begin from it.
 
 ---
+
+### September 4, 2026 — Inner-life note
+
+[thinking]: What is the smallest immutable source envelope and invitation receipt that lets both hats compare the same live evidence while proving that no bench observation entered Daniela's context by default?
+
+---

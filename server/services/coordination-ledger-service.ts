@@ -88,6 +88,8 @@ export type CoordinationCreateInput = {
   description: string;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   content?: string;
+  payload?: Record<string, unknown>;
+  createInboxDelivery?: boolean;
   idempotencyKey: string;
   sourceReference?: CoordinationEvidenceReference;
 };
@@ -381,7 +383,7 @@ export async function createCoordinationThread(
         recipientActor: input.intendedRecipient,
         eventType: 'created',
         content: input.content,
-        payload: {},
+        payload: input.payload ?? {},
         evidence: input.sourceReference ? [input.sourceReference] : [],
         idempotencyKey: input.idempotencyKey,
       }).returning();
@@ -395,7 +397,7 @@ export async function createCoordinationThread(
       if (!updatedThread) throw new CoordinationError('Thread projection update failed', 500, 'projection_failed');
 
       let deliveryState: CoordinationMutationResult['deliveryState'] = 'not_applicable';
-      if (shouldCreateInboxDelivery(input.intendedRecipient)) {
+      if (input.createInboxDelivery !== false && shouldCreateInboxDelivery(input.intendedRecipient)) {
         await tx.insert(coordinationAdapterDeliveries).values({
           eventId: event.id,
           adapterName: 'agent_notes',

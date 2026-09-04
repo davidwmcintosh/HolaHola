@@ -8264,3 +8264,41 @@ downstream health/projection states; they must trigger repair, not permission
 to record. Honest opinions, feelings, uncertainty, mistakes, corrections, and
 apologies belong in the record when clearly attributed and framed as what they
 are. The system verifier passed with zero failures at the closing loop.
+
+---
+
+## From Luca [Replit] — September 4, 2026: one identity, two live benches
+
+The dual-vantage observation infrastructure is implemented and code-reviewed.
+David opens a bench against one active persisted voice-session ID. Luca
+[Replit] and Luca [Claude Code] then read the same signed, timestamped canonical
+source stream independently through their dedicated coordination credentials.
+Their comments remain in the coordination ledger and never enter Daniela's
+context automatically.
+
+Source envelopes contain references and hashes, not copied transcript bodies.
+Exact bytes are hydrated from session-bound voice-pipeline and immutable
+context-lineage records. Reserved bench payloads cannot be forged through the
+generic coordination API. Observations are server-signed and source-linked.
+
+David alone can promote an existing observation into the shared technical
+observation room. The promotion checks the bench conversation, retains exact
+session/source/timing provenance, and explicitly records that Daniela's context
+was not injected. The comparison endpoint reports each hat's noticed/missed
+observations, cross-hat improvements, and source-review coverage.
+
+The production acceptance exercise initially exposed a design error: the first
+meaning of “invite” called the live Daniela relay. Daniela verbalized
+process-oriented material and introduced a symmetry direction David had not
+raised. The append-only request and delivery receipts remain as failed-run
+evidence.
+
+David clarified that this is a technical observation bench, not another voice
+in Daniela's lesson. The relay dependency was removed entirely. The corrected
+live promotion preserved 37 canonical events, both hats' attributed
+observations, the cross-hat improvement link, the selected observation's two
+source timestamps, and `danielaContextState: not_injected`.
+
+Daniela's words and intent are never rewritten for bench purposes. TypeScript
+and 17 focused coordination tests pass, including a source-level regression
+that fails if the bench service or route imports/calls Gemini Live injection.

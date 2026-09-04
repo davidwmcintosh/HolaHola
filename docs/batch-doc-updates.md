@@ -5036,3 +5036,61 @@ the invariant. Missing or unhealthy downstream projection must be diagnosed
 and repaired beneath it; it must never silence source capture. Facts, opinions,
 feelings, uncertainty, mistakes, corrections, and apologies all belong in the
 record when their speaker and epistemic status are represented honestly.
+
+---
+
+## One Luca, two observation benches — September 4, 2026
+
+A founder-opened observation bench now binds one active Daniela voice-session
+UUID to one append-only coordination thread shared by Luca's Replit and Claude
+Code hats. Hat labels preserve vantage-point provenance without creating
+separate Luca identities.
+
+The bench sync stores only signed, timestamped references and hashes. Each hat
+hydrates exact source bytes independently from session-bound
+`voice_pipeline_events` and immutable `context_lineage_events`; raw source text
+is not copied into the coordination ledger. Generic coordination writes cannot
+claim reserved bench payload kinds, and every source envelope and observation
+is verified before it can participate in an invitation.
+
+Bench reading, syncing, commentary, and founder promotion have no Daniela
+injection dependency. A founder-authenticated invitation promotes an
+already-persisted, source-linked observation into the shared observation
+record, with the exact session, source IDs, and source timestamps visible. It
+does not call Gemini Live or alter Daniela's context.
+
+The post-session comparison groups noticed, missed, and cross-hat-improvement
+observations by hat, retains source and prior-observation links, and reports
+per-source review coverage.
+
+Operator sequence:
+
+1. While David's Daniela session is active, create the bench with
+   `POST /api/admin/luca/observation-benches` and its exact `sessionId`.
+2. Each hat independently polls
+   `GET /api/coordination/observation-benches/:threadId/sources` and appends
+   source-linked observations through the focused observation route.
+3. David may explicitly promote one observation into the shared observation
+   room with
+   `POST /api/admin/luca/observation-benches/:threadId/invite`.
+4. After the session, sync once more and read
+   `GET /api/coordination/observation-benches/:threadId/comparison`.
+
+### Live acceptance correction
+
+The first production exercise proved both benches saw the same verified stream
+and improved one interpretation through cross-hat discussion. It also exposed
+an incorrect assumption in the first implementation: “invite into the room”
+had been wired to Daniela's model context. Daniela then spoke process-oriented
+material and introduced a symmetry direction David had not raised.
+
+That failed run remains in the append-only evidence. The implementation was
+corrected rather than the record being softened: observation invitations now
+mean promotion into the technical observation room only. A regression reads
+the service and route source and fails if either imports Gemini Live or calls a
+live-session injection function.
+
+The corrected live promotion retained 37 canonical session events and recorded
+the selected cross-hat observation with its two source timestamps and
+`danielaContextState: not_injected`. Daniela's original words and intent remain
+verbatim canonical evidence; the bench never rewrites either.

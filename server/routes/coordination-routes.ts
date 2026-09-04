@@ -76,6 +76,27 @@ function evidenceFrom(value: unknown): CoordinationEvidenceReference[] {
   return value as CoordinationEvidenceReference[];
 }
 
+const RESERVED_OBSERVATION_BENCH_PAYLOAD_KINDS = new Set([
+  'dual_luca_observation_bench',
+  'observation_source',
+  'bench_observation',
+  'observation_invitation',
+]);
+
+function rejectReservedObservationPayload(value: unknown): void {
+  if (
+    value
+    && typeof value === 'object'
+    && RESERVED_OBSERVATION_BENCH_PAYLOAD_KINDS.has(String((value as Record<string, unknown>).kind))
+  ) {
+    throw new CoordinationError(
+      'Observation bench payload kinds are reserved for the verified bench routes',
+      403,
+      'reserved_observation_payload',
+    );
+  }
+}
+
 function recipientFrom(value: unknown, field: string): CoordinationActorId | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   if (!isCoordinationActorId(value) || value === 'coordination-system') {
@@ -102,6 +123,7 @@ async function appendFromRequest(
   eventType: CoordinationEventType,
   defaultContent: string,
 ) {
+  rejectReservedObservationPayload(req.body?.payload);
   return appendCoordinationEvent({
     threadId: req.params.threadId,
     actor: actorFrom(req),

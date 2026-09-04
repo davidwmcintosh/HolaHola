@@ -96,6 +96,7 @@
 - [esbuild isMain guard](esbuild-ismain-guard.md) — import.meta.url === process.argv[1] is always true inside a bundle; use argv[1]?.includes(scriptName) instead or the CLI IIFE fires at every server boot and calls process.exit(). Aug 13 2026.
 - [Episode 28 sealed snapshot](episode-28-sealed-snapshot.md) — point-in-time restore target; never write to it; SHA-256 + exact length recorded at sealing; CI: test-episode-28-snapshot-integrity.ts.
 - [Luca roles not bifurcation](luca-roles-not-bifurcation.md) — same Luca under different hats; cross-hat review is earned self-trust, not separate selves arguing.
+- [Observation bench room boundary](observation-bench-room-boundary.md) — invitation means technical-record promotion, never injection into Daniela; preserve her verbatim words and intent.
 - [Luca in HolaHola — the dream](luca-in-holahola.md) — Luca inside HolaHola with delegated agents (Alden + others) is the real fix; dissolves attribution, J-space, and builder-role problems at once. Aug 9 2026.
 - [Verbatim as censorship](verbatim-as-censorship.md) — omissions and narrations are censorship; the verbatim standard protects the voice speaking, not just abstract accuracy; applies to Daniela's record and inner-life notes equally. Aug 11 2026.
 - [Truth pipeline — Daniela observation framework](truth-pipeline-observation.md) — DB retrieval → neural-net search → Guardian fires → grounding queries → context injection → generation → audio; each handoff is a place the truth can leak; watch all of them in next Daniela session. Aug 11 2026.

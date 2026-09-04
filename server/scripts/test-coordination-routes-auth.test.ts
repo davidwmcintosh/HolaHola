@@ -501,3 +501,44 @@ test('authenticated feed acknowledgements stay actor-scoped and monotonic', asyn
     }
   }
 });
+
+test('generic coordination routes reject every reserved observation-bench payload kind', async () => {
+  const app = express();
+  app.use(express.json());
+  registerCoordinationRoutes(app);
+  const server = app.listen(0);
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
+  assert.ok(token);
+  const reservedKinds = [
+    'dual_luca_observation_bench',
+    'observation_source',
+    'bench_observation',
+    'observation_invitation',
+  ];
+  try {
+    for (const kind of reservedKinds) {
+      for (const suffix of ['events', 'progress']) {
+        const response = await fetch(`${baseUrl}/api/coordination/threads/not-a-real-thread/${suffix}`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-coordination-token': token,
+            'idempotency-key': `reserved-${kind}-${suffix}`,
+          },
+          body: JSON.stringify({
+            eventType: 'comment',
+            expectedSequence: 1,
+            payload: { kind },
+          }),
+        });
+        assert.equal(response.status, 403, `${kind} must be reserved on ${suffix}`);
+        assert.equal((await response.json()).code, 'reserved_observation_payload');
+      }
+    }
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

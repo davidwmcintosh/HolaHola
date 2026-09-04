@@ -12,6 +12,10 @@ import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
+import {
+  registerObservationBenchCoordinationRoutes,
+  registerObservationBenchFounderRoutes,
+} from "./routes/observation-bench-routes";
 import { requireCoordinationAuth, type CoordinationAuthenticatedRequest } from "./middleware/coordination-auth";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
@@ -627,11 +631,16 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 
 export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationRoutes(app);
+  registerObservationBenchCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
   // Set up Google OAuth (Phase 5 of the Replit-auth replacement) -- additive,
   // does not touch or replace Replit auth's routes.
   await setupGoogleAuth(app as any, authLimiter);
+  registerObservationBenchFounderRoutes(app, [
+    loadAuthenticatedUser(storage),
+    requireFounder,
+  ]);
 
   const sourcePromotionError = sourcePromotionConfigurationError();
   if (sourcePromotionError) {
@@ -28187,7 +28196,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
-  app.post("/api/admin/luca/relay-to-daniela", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
+  app.post("/api/admin/luca/relay-to-daniela", loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { message, sessionId } = req.body as { message: string; sessionId?: string | null };
       if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
