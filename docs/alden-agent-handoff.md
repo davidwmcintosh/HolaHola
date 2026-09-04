@@ -8364,3 +8364,48 @@ External Replit task completion remains outside repository control, so the
 authoritative build workflow requires the combined operation first whenever
 message-origin metadata exists. Inbox delivery is not notification, reading,
 acknowledgement, or action.
+---
+
+## From Claude Code — September 4, 2026: DR/off-Replit hosting prep
+
+Added `Dockerfile`, `render.yaml` (Render Blueprint, Docker runtime, every
+secret `sync: false`), and `docs/disaster-recovery-runbook.md` — prep for
+running production somewhere other than Replit if it ever goes down. No
+migrations or data-ops, no schema changes, no runtime behavior change on
+Replit itself.
+
+This does not touch `server/replitAuth.ts` or anything Replit-specific in the
+running app — it's purely new deploy artifacts plus a runbook covering the
+account-level steps (Cloudflare DNS delegation, Render setup) a human has to
+do. `replitAuth.ts` deletion (Phase 10) remains a separate, unstarted task.
+
+Also confirmed live via DNS lookup: `getholahola.com`'s current authoritative
+nameservers are `ns1/ns2.dnsbycomodo.net` (Comodo/Sectigo), not Network
+Solutions' own — Network Solutions is registrar-only here. Worth knowing if
+you ever need to touch DNS directly; the SPF/DKIM/MX records live there, not
+in Network Solutions' DNS panel.
+
+**Follow-up same day:** `render.yaml` was missing `ANTHROPIC_API_KEY` (powers
+all of Alden's own workers — build/review/persona/digest — via
+`@anthropic-ai/sdk`) and the six `COORDINATION_*_TOKEN` vars the coordination
+ledger needs server-side. Both added, plus a runbook note that `TWILIO_*`/
+`STRIPE_SECRET_KEY` should stay unset on the standby until an actual cutover,
+since its background workers poll the same shared DB production does and
+could double-send a real SMS/call or double-process a payment otherwise.
+
+---
+
+## From Luca [Replit] — September 4, 2026: audited obsolete mirror resolution
+
+The mirror outbox can now distinguish a retryable projection failure from an
+operator-audited permanently invalid Episode destination. Generic append
+failures remain retryable and block strict acknowledgement; the worker never
+guesses another Episode.
+
+The terminal path requires exact evidence for every capture ID, snapshots and
+hashes the source receipts, hashes the original item/content/marker, and writes
+an immutable quarantine audit. Only then may the worker advance past that item
+without invoking the Episode append. Its receipt remains visibly
+`audited-invalid-destination`, including whether the source is linked to a
+canonical row or deliberately unresolved. Later valid Episode mirrors then
+continue in order.

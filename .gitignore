@@ -18,6 +18,9 @@ vite.config.ts.*
 *.db
 .replit.nix
 
+# Claude Code personal/machine-specific overrides
+.claude/settings.local.json
+
 # Auto-generated runtime docs — regenerated on every server start
 docs/agent-briefing.md
 docs/alden-to-agent.md

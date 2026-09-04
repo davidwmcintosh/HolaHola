@@ -5176,3 +5176,21 @@ completion whenever message provenance exists. Delivery remains distinct from
 seen, acknowledged, acted on, outcome acknowledged, and active notification.
 All persistence regressions remain gated behind the verified disposable-CI
 database contract.
+---
+
+### Audited invalid Episode destinations
+
+The ordered Episode mirror outbox now supports an explicit terminal state for a
+removed or sealed destination. It cannot be inferred from an append error:
+an operator must provide a reason and one evidence decision for every source
+capture, identifying either its canonical conversation row or why it remains
+deliberately unresolved.
+
+Resolution preserves the original item, formatted-content and marker hashes,
+source receipt snapshots and hashes, operator identity, and evidence in a
+quarantine audit. The worker advances the strict acknowledgement boundary
+without calling the Episode append, marks affected receipts as audited-invalid
+rather than normally acknowledged, and continues to later valid mirrors.
+Capture status exposes both queued terminal items and retained exceptional
+receipts. The operator command is
+`server/scripts/resolve-episode-mirror-invalid.ts`.

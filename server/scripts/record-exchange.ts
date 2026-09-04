@@ -86,6 +86,7 @@ import { readFileSync, existsSync, statSync, writeFileSync, renameSync, mkdirSyn
 import { basename, dirname, join } from 'path';
 import {
   appendChatCaptureTurn,
+  CHAT_CAPTURE_ACK_DIR,
   CHAT_CAPTURE_ACK_CURSOR_PATH,
   CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
@@ -118,7 +119,7 @@ interface CaptureAcknowledgement {
   targetByteOffset: number;
   createdAtMs: number;
   source?: CanonicalConversationSource;
-  status: 'pending' | 'acknowledged' | 'failed';
+  status: 'pending' | 'acknowledged' | 'failed' | 'audited-invalid-destination';
   acknowledgedAtMs?: number;
   failedAtMs?: number;
   failureReason?: string;
@@ -907,6 +908,19 @@ async function acknowledgeCapture(
       failureReason: error?.message ?? String(error),
     });
     throw error;
+  }
+  const receiptPath = join(CHAT_CAPTURE_ACK_DIR, `${receipt.turnId}.json`);
+  if (existsSync(receiptPath)) {
+    const settled = JSON.parse(readFileSync(receiptPath, 'utf8')) as CaptureAcknowledgement & {
+      terminalResolutionAuditPath?: string;
+      evidenceDisposition?: string;
+    };
+    if (settled.status === 'audited-invalid-destination') {
+      throw new Error(
+        `Capture source was preserved, but its episode destination was terminally invalid ` +
+        `(${settled.evidenceDisposition ?? 'audited'}). Audit: ${settled.terminalResolutionAuditPath ?? 'see capture receipt'}`,
+      );
+    }
   }
   writeCaptureAcknowledgement({
     ...receipt,

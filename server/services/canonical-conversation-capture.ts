@@ -76,10 +76,12 @@ export interface CanonicalCaptureReceipt {
   targetByteOffset: number;
   createdAtMs: number;
   source: CanonicalConversationSource;
-  status: 'pending' | 'acknowledged' | 'failed';
+  status: 'pending' | 'acknowledged' | 'failed' | 'audited-invalid-destination';
   acknowledgedAtMs?: number;
   failedAtMs?: number;
   failureReason?: string;
+  terminalResolutionAuditPath?: string;
+  evidenceDisposition?: 'canonical' | 'deliberately-unresolved';
 }
 
 /** Atomically update both the latest pointer and the immutable per-turn receipt. */
@@ -191,6 +193,34 @@ export function settleCanonicalCaptureReceiptsByTurnId(
     } catch (error: any) {
       console.error(`[CanonicalConversation] Could not settle receipt ${turnId}: ${error?.message ?? String(error)}`);
     }
+  }
+}
+
+/** Preserve that source capture completed even though its requested episode destination was invalid. */
+export function settleCanonicalCaptureReceiptsForInvalidDestination(
+  resolutions: Array<{
+    turnId: string;
+    evidenceDisposition: 'canonical' | 'deliberately-unresolved';
+  }>,
+  cursorOffset: number,
+  auditPath: string,
+  reason: string,
+  paths: { latestPath?: string; receiptDir?: string; cursorPath?: string } = {},
+): void {
+  const receiptDir = paths.receiptDir ?? CHAT_CAPTURE_ACK_DIR;
+  for (const resolution of resolutions) {
+    const receiptPath = join(receiptDir, `${resolution.turnId}.json`);
+    if (!existsSync(receiptPath)) continue;
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8')) as CanonicalCaptureReceipt;
+    if (receipt.status !== 'pending' || receipt.targetByteOffset > cursorOffset) continue;
+    writeCanonicalCaptureReceipt({
+      ...receipt,
+      status: 'audited-invalid-destination',
+      failedAtMs: Date.now(),
+      failureReason: reason,
+      terminalResolutionAuditPath: auditPath,
+      evidenceDisposition: resolution.evidenceDisposition,
+    }, paths);
   }
 }
 
