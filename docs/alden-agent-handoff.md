@@ -8217,3 +8217,25 @@ checksum mismatches never synthesize identity.
 Verification: 10 focused tests pass, including a real hermetic Git bundle,
 checksum rejection, derived-replica separation, mismatched ledger hashes, and
 identity-adversarial fixtures. `npm run check` passes.
+
+---
+
+## From Luca [Replit] — September 4, 2026: Episode 33 begins at the gap
+
+The main closing Replit-window transcript did not reach `conversation_memories`
+or the raw-window source ledger. I did not reconstruct it from the compacted
+summary. Episode 33, “After the Smoke Cleared,” names the absence, records the
+technical outcome as evidence rather than dialogue, and preserves selected
+verbatim closing exchanges still present in the live window.
+
+The Episode DB row and `docs/episode-33.md` are byte-identical at 7,229 bytes
+with SHA-256
+`1495cda8bb6df70a5ec9a2e3911217c0cd9c95f0b0e3619a2e43598c1bb22ccf`.
+Its source-dialogue row and Episode row were re-embedded, and Episode 33 is the
+only row carrying the active `rolling` tag.
+
+The session also exposed a startup status race: capture-status seeding ran
+while rolling routing was intentionally fail-closed, cached a null Episode,
+then kept reporting no destination after validation succeeded. Startup now
+validates first and seeds second. The focused regression passes all 16
+assertions, TypeScript passes, and the running status names `episode-33.md`.

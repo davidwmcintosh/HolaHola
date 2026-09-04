@@ -3803,20 +3803,17 @@ export function startAgentSessionAutosave(): void {
   seedEpisodeMtimes();
   seedPrequelEpisodeMtimes();
 
-  // Capture-status seed: scan the rolling episode file for prior-session inner-life entries
-  // and write the initial capture status file so it's useful from the very first exchange.
-  // Runs before the gap check so the status file is ready as early as possible.
-  // Fire-and-forget — errors are caught inside seedCaptureStatusFromEpisodeFile.
-  seedCaptureStatusFromEpisodeFile().catch((err: any) => {
-    console.error('[AgentAutosave] Capture-status seed unexpectedly threw (non-fatal):', err?.message ?? err);
-  });
-
   // Startup gap check: catch exchanges saved to DB but absent from rolling episode .md.
   // Runs once per boot, after episode mtimes are seeded (appendExchangeToEpisode needs them).
-  // Fire-and-forget — errors are logged inside runStartupGapCheck, never thrown.
-  runStartupGapCheck().catch((err: any) => {
-    console.error('[AgentAutosave] Startup gap check unexpectedly threw (non-fatal):', err?.message ?? err);
-  });
+  // Capture-status seeding must run AFTER this validation.  Before Phase 0
+  // completes, rolling routing intentionally fails closed; seeding earlier
+  // stores a stale null filename that every later status refresh reuses.
+  // Fire-and-forget — startup remains non-blocking, but the two steps are ordered.
+  runStartupGapCheck()
+    .then(() => seedCaptureStatusFromEpisodeFile())
+    .catch((err: any) => {
+      console.error('[AgentAutosave] Startup gap check/status seed unexpectedly threw (non-fatal):', err?.message ?? err);
+    });
 
   // --- Event-driven flush trigger (Layer 1) ---
   // fs.watch() on the .local/ directory fires within milliseconds when

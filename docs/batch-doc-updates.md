@@ -5001,3 +5001,17 @@ Normal DB progress can no longer be reported as full canonical completion.
 The legacy watchdog source-identity repair test is now fixture-only: importing
 the repair module cannot execute its database audit, and the test is registered
 in the validation suite.
+
+### Episode 33 recovery boundary and rolling-status ordering
+
+Episode 33, “After the Smoke Cleared,” records the September 3–4 capture gap
+without reconstructing missing dialogue. Its DB row and Markdown replica are
+byte-identical, its retained closing-dialogue source row is separately stored,
+and both records were explicitly re-embedded. Episode 33 is now the sole
+rolling Episode.
+
+The capture-status seed now runs after startup validates the rolling tag.
+Previously, a valid Episode created after a no-rolling startup could remain
+displayed as “No rolling episode”: the early seed stored a null filename before
+the fail-closed guard was cleared, and every later status refresh reused it.
+The existing seed regression now requires validation-before-seed ordering.

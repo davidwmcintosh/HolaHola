@@ -77,10 +77,11 @@ const TEMP_EPISODE        = 'episode-ci-seed-test.md';
 const TEMP_EPISODE_PATH   = join(DOCS_DIR, TEMP_EPISODE);
 
 /**
- * The exact string that must be present inside startAgentSessionAutosave()'s body.
- * If this call is removed from startup, the source wiring check will fail.
+ * The exact chain that must be present inside startAgentSessionAutosave().
+ * The status seed must follow rolling-tag validation or it can cache a false
+ * "No rolling episode" state for the rest of the process.
  */
-const STARTUP_WIRING_NEEDLE = 'seedCaptureStatusFromEpisodeFile().catch(';
+const STARTUP_WIRING_NEEDLE = '.then(() => seedCaptureStatusFromEpisodeFile())';
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 const selfCheckMode = process.argv.includes('--self-check');
@@ -163,7 +164,9 @@ function extractStartupFunctionBody(source: string): string {
 
 function checkSourceWiring(source: string): boolean {
   const body = extractStartupFunctionBody(source);
-  return body.includes(STARTUP_WIRING_NEEDLE);
+  const gapCheckIndex = body.indexOf('runStartupGapCheck()');
+  const orderedSeedIndex = body.indexOf(STARTUP_WIRING_NEEDLE);
+  return gapCheckIndex >= 0 && orderedSeedIndex > gapCheckIndex;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -231,10 +234,10 @@ async function runNormalCheck(): Promise<void> {
     );
 
     assert(
-      `NEEDLE "${STARTUP_WIRING_NEEDLE}" is present in startAgentSessionAutosave() body`,
+      `capture-status seed follows rolling-tag validation in startAgentSessionAutosave()`,
       checkSourceWiring(source),
-      `seedCaptureStatusFromEpisodeFile().catch( is missing from startAgentSessionAutosave().\n` +
-      `  Deleting this call means capture status is never seeded at startup.`
+      `${STARTUP_WIRING_NEEDLE} is missing or appears before runStartupGapCheck().\n` +
+      `  Seeding before validation stores a stale null rolling-episode filename.`
     );
   }
 
