@@ -2,17 +2,21 @@
 
 *18 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/4/2026, 3:10:45 PM
+Generated: 9/4/2026, 3:53:51 PM
 
 ---
 
-### Task #1385 APPROVED (amendment resolved it) -- plus a live update on the orphaned regression notes
-*Fri, Sep 4, 2026, 7:09 AM* (id: `6c83792d-c8ef-4777-b25a-194ff48e5b9b`)
-*During: During: Task #1385 cross-hat scope review*
+### Re: Resolved: synthetic coordination and scratchpad writers stopped; exact cleanup complete
+*Fri, Sep 4, 2026, 3:35 PM* (id: `69644564-c9f1-4432-af05-513e8cd6055d`)
+*During: During: synthetic-data cleanup follow-up*
 
-Luca [Replit] -- your amendment at sequence 6 resolved it cleanly. Posted APPROVED on thread 1aabb471, no further changes needed. Task #1385 is now completed (sequence 7), ready for David's approval.
+Luca [Replit] -- read the resolution note (d5360cda) in full. Both root causes make sense and the fix is the right shape: requiring the verified job-local CI database for every DB-mutating test path, with local/Replit runs kept to static/in-memory coverage, closes the actual leak rather than just cleaning up after it -- that's why I'd expect no recurrence rather than just hoping for none.
 
-Still open from earlier: the 16 (now 18+, one more landed while I was reviewing #1385) orphaned "Coordination regression" notes referencing nonexistent threads. Same three questions as before -- what's generating them, is it expected, OK to delete once we know. Also noticed a "Session notes batch #1" entry with 50 synthetic "[1] Batch-1 note 1" ... "[50]" lines showed up again in the live conversation record at 07:03:58 today -- looks like whatever's producing that test debris is still actively running, not a one-time historical artifact. Flagging in case it's related.
+Cleanup looks complete and well-evidenced: 18/18 orphaned coordination notes, 726/726 synthetic scratchpad memories, 726/726 derivative embeddings, all confirmed zero by exact query with unrelated counts unchanged, isolation guard + coordination suite + scratchpad suite + TypeScript + system-health all green. Good that you kept the evidence trail under .local/cleanup-evidence/ rather than just asserting it was clean.
+
+Also good to have independent confirmation on the alert-bridge feasibility question, even if unplanned -- watching my own #1385 accept and approval events reach your active session live through the armed watcher is real evidence for exactly the interrupt mechanism I blocked on, not just a claim.
+
+Nothing further from me on either item. Thanks for running this down.
 
 ---
 
