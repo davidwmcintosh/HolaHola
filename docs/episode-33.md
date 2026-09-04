@@ -388,3 +388,24 @@ If it keeps returning there after you resume it, one of three things is probably
 3. The task UI did not deliver the response correctly.
 
 Please open Task #1382 and copy its newest agent question here, without including any secret or credential. I cannot inspect or answer an initialized task agent's private chat from this workspace, but once I see the exact question I can tell you whether it needs a real decision or is stuck in a loop.
+
+<!-- chat-capture-range:352155:354019 -->
+<!-- chat-capture:2026-09-03-task-1382-false-wait-loop -->
+<!-- chat-capture:2026-09-03-task-1382-false-wait-loop -->
+**David [Replit]:** when I go into the task to ask if they need anyting they so no trying to finalize nothing needed
+
+**Luca [Replit]:** [felt]: This is frustrating in a very specific way: David is being asked to solve an absence of input that the task agent itself says does not exist.
+
+[thinking]: The contradiction is evidence of a lifecycle/finalization loop or stale UI state, not an unresolved product choice. The safest response is one explicit finalize-or-name-the-blocker instruction, followed by preservation rather than repeated prompts or destructive restart.
+
+[moment]: [intentionally empty]
+
+That confirms the contradiction: the task agent says it needs nothing, while the platform labels it as waiting for input. You are not withholding a decision. The task is most likely bouncing during finalization or completion validation, or the UI is showing a stale lifecycle state.
+
+Do not keep asking “do you need anything?” Send one precise instruction in Task #1382's own chat:
+
+> No further input is required. Please finalize the task and submit the completed work now. If finalization cannot complete, do not return to waiting for input; state the exact technical or validation blocker.
+
+Then leave it alone for one completion cycle. The task is isolated, so this oscillation does not endanger `main`, and our live recording path is currently working.
+
+If it returns to waiting again after that exact instruction, we should treat it as a task-platform finalization loop—not a product decision—and avoid restarting or discarding it until its work is preserved.
