@@ -38079,7 +38079,7 @@ Under 250 words. Write as yourself.`;
       const [
         { CHAT_CAPTURE_PATH, CHAT_CAPTURE_CURSOR_PATH, loadChatCaptureCursor },
         { inspectCaptureWorkspace },
-        { getCanonicalCaptureWorkerReadiness, isCanonicalCaptureAvailable },
+        { evaluateCanonicalCaptureHealth, getCanonicalCaptureWorkerReadiness },
         fs,
       ] = await Promise.all([
         import('./services/transcript-parser'),
@@ -38095,10 +38095,10 @@ Under 250 words. Write as yourself.`;
       const cursorFilePresent = fs.existsSync(CHAT_CAPTURE_CURSOR_PATH);
       const worker = getCanonicalCaptureWorkerReadiness();
       const workspaceReady = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
-      const ready = isCanonicalCaptureAvailable(workspaceReady, worker);
+      const health = evaluateCanonicalCaptureHealth(workspaceReady, worker);
 
-      return res.status(ready ? 200 : 503).json({
-        ok: ready,
+      return res.status(health.status).json({
+        ok: health.ok,
         capture: {
           worker,
           workspaceSource: workspace.rootSource,

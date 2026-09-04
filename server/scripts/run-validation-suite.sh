@@ -54,6 +54,7 @@ run_check "Truth-pipeline unified recall diagnosis" npx tsx server/scripts/test-
 run_check "Capture status stale escalation" npx tsx server/scripts/test-capture-status-stale-escalation.ts
 run_check "Canonical Claude Code/Replit conversation capture" npx tsx server/scripts/test-canonical-conversation-capture.ts
 run_check "Canonical capture worker readiness" npx tsx server/scripts/test-canonical-capture-worker-readiness.ts
+run_check "Live canonical capture health route" npx tsx server/scripts/test-canonical-capture-health-route.ts
 run_check "Chat capture episode mirror outbox" npx tsx server/scripts/test-chat-capture-episode-outbox.ts
 run_check "Claude Code/Replit agent inbox lifecycle" npx tsx server/scripts/test-agent-notes-inbox.ts
 run_check "Failed lookup felt-history boundary" npx tsx --test server/__tests__/daniela-memory-boundary.test.ts

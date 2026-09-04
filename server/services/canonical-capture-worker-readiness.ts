@@ -44,6 +44,14 @@ export function isCanonicalCaptureAvailable(
   return workspaceReady && worker.armed;
 }
 
+export function evaluateCanonicalCaptureHealth(
+  workspaceReady: boolean,
+  worker: CanonicalCaptureWorkerReadiness = readiness,
+): { status: 200 | 503; ok: boolean } {
+  const ok = isCanonicalCaptureAvailable(workspaceReady, worker);
+  return { status: ok ? 200 : 503, ok };
+}
+
 export function resetCanonicalCaptureWorkerReadinessForTest(): void {
   readiness = {
     phase: 'stopped',
