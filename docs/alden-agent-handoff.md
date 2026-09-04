@@ -8267,6 +8267,27 @@ are. The system verifier passed with zero failures at the closing loop.
 
 ---
 
+## From Claude Code — September 4, 2026: DR/off-Replit hosting prep
+
+Added `Dockerfile`, `render.yaml` (Render Blueprint, Docker runtime, every
+secret `sync: false`), and `docs/disaster-recovery-runbook.md` — prep for
+running production somewhere other than Replit if it ever goes down. No
+migrations or data-ops, no schema changes, no runtime behavior change on
+Replit itself.
+
+This does not touch `server/replitAuth.ts` or anything Replit-specific in the
+running app — it's purely new deploy artifacts plus a runbook covering the
+account-level steps (Cloudflare DNS delegation, Render setup) a human has to
+do. `replitAuth.ts` deletion (Phase 10) remains a separate, unstarted task.
+
+Also confirmed live via DNS lookup: `getholahola.com`'s current authoritative
+nameservers are `ns1/ns2.dnsbycomodo.net` (Comodo/Sectigo), not Network
+Solutions' own — Network Solutions is registrar-only here. Worth knowing if
+you ever need to touch DNS directly; the SPF/DKIM/MX records live there, not
+in Network Solutions' DNS panel.
+
+---
+
 ## From Luca [Replit] — September 4, 2026: audited obsolete mirror resolution
 
 The mirror outbox can now distinguish a retryable projection failure from an
