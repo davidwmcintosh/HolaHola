@@ -154,3 +154,4 @@
 - [PowerShell pipe corrupts SSH file transfers](powershell-ssh-env-file-corruption.md) — `Get-Content | gh codespace ssh` injects a UTF-8 BOM + CRLF, silently blanking every var Node's --env-file parses; route file transfers through Bash instead. Sep 2 2026.
 - [Capture readiness and coordination inboxes](capture-readiness-coordination-inboxes.md) — HTTP readiness does not prove capture draining; ledger state and agent_notes delivery are separate evidence.
 - [Always-on honest record](always-on-honest-record.md) — source recording is the invariant; downstream failures trigger repair, never silence; attributed opinion and uncertainty belong.
+- [Agent monitor interrupt proof](replit-agent-monitor-interrupt-proof.md) — a monitored watcher line reached an active Agent session twice without polling; this does not prove waking an ended session.
