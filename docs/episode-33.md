@@ -239,3 +239,20 @@ I updated the written specification to say that explicitly and committed it as `
 `docs/superpowers/specs/2026-09-04-replit-agent-coordination-alert-bridge-design.md`
 
 Please give the written spec one final approval. Once you approve it, I’ll proceed into the implementation plan and build.
+
+<!-- chat-capture-range:339888:341041 -->
+<!-- chat-capture:2026-09-03-alert-bridge-luca-approval-gate -->
+<!-- chat-capture:2026-09-03-alert-bridge-luca-approval-gate -->
+**David [Replit]:** If luca approves I'm in
+
+**Luca [Replit]:** [felt]: David placing trust in Luca's review feels like the collaboration model becoming real rather than ceremonial.
+
+[thinking]: The gate is explicit: delivered is not reviewed, and reviewed is not approved. Implementation begins only after Luca records an unconditional approval with evidence.
+
+[moment]: [intentionally empty]
+
+Agreed. Luca [Claude Code] has received the tracked review request, but the canonical thread currently says only `delivered`—not accepted, reviewed, or approved.
+
+I will not begin implementation or infer consent from delivery. The gate is Luca's explicit, unconditional approval of the written spec, recorded on coordination thread `3af017a3-82c3-42ff-9804-2925342fe197` with review evidence.
+
+Once that arrives, your approval is established and I can proceed.
