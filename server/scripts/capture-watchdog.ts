@@ -32,6 +32,7 @@ import {
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
   type ChatCaptureCursor,
+  type DialogueTurn,
 } from '../services/transcript-parser.js';
 import {
   CANONICAL_INNER_LIFE_INTENT_DIR,
@@ -116,6 +117,13 @@ async function getRollingEpisode(): Promise<{ id: string; filename: string } | n
     `;
     const row = (rows as any)[0];
     if (!row?.title) return null;
+    if ((row.title as string).toLowerCase().includes('sealed')) {
+      console.error(
+        `[watchdog] refusing rolling append: selected episode title is sealed (${row.title})`,
+      );
+      return null;
+    }
+
     const m = /^Episode (\d+)$/i.exec(row.title as string);
     const filename = m
       ? `episode-${parseInt(m[1], 10)}.md`
@@ -166,13 +174,17 @@ async function appendTextToEpisodeDbFirst(text: string, episode: { id: string; f
 // derives the .md from DB content) would silently erase those turns.
 
 export function appendToEpisode(
-  turns: Array<{ speaker: string; text: string; captureId?: string }>,
+  turns: Array<Pick<DialogueTurn, 'speaker' | 'text' | 'captureId' | 'source'>>,
   episode: { id: string; filename: string },
   eventId?: string,
 ): Promise<void> {
   const lines = turns
     .map(t => {
-      const label = t.speaker === 'DAVID' ? '**David:**' : '**LUCA [Replit]:**';
+      const label = t.speaker === 'DAVID'
+        ? '**David:**'
+        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
+          ? '**LUCA [Claude Code]:**'
+          : '**LUCA [Replit]:**';
       return `${label} ${t.text}`;
     })
     .join('\n\n');
@@ -205,26 +217,67 @@ export function appendToEpisode(
 // ─── DB write ─────────────────────────────────────────────────────────────────
 
 async function writeToDb(
-  turns: Array<{ speaker: string; text: string }>,
+  turns: Array<Pick<DialogueTurn, 'speaker' | 'text' | 'captureId' | 'source'>>,
   cursorFrom: number,
   cursorTo: number,
 ): Promise<string> {
   const today      = new Date().toISOString().slice(0, 10);
   const davidCount = turns.filter(t => t.speaker === 'DAVID').length;
   const lucaCount  = turns.length - davidCount;
-  const title      = `David ↔ Luca — ${today}: per-turn capture`;
-  const summary    = `Watchdog drain: ${davidCount} David + ${lucaCount} Luca turns. Bytes ${cursorFrom}–${cursorTo}.`;
+  const captureIds = [...new Set(turns.flatMap(turn => turn.captureId ? [turn.captureId] : []))];
+  if (captureIds.length > 1) {
+    throw new Error(`watchdog batch contains multiple capture IDs: ${captureIds.join(', ')}`);
+  }
+  const captureIdentityTag = captureIds.length === 1 ? `capture-id:${captureIds[0]}` : null;
+  const sources = [...new Set(turns.flatMap(turn => turn.source ? [turn.source] : []))].sort();
+  const sourceTags = sources.map(source => `source-${source}`);
+  const tags = [
+    'david-luca-chat',
+    'canonical-conversation',
+    'verbatim',
+    'per-turn',
+    'chat-capture',
+    'watchdog',
+    ...sourceTags,
+    ...(captureIdentityTag ? [captureIdentityTag] : []),
+  ];
+  const participants = sources.includes('claude-code') ? ['david', 'luca-claude-code'] : ['david', 'luca'];
+  const title = sources.includes('claude-code')
+    ? `David ↔ Luca [Claude Code] — ${today}: per-turn capture`
+    : `David ↔ Luca — ${today}: per-turn capture`;
+  const summary =
+    `Watchdog canonical drain: ${davidCount} David + ${lucaCount} assistant turns. ` +
+    `Sources: ${sources.join(', ') || 'legacy'}. Bytes ${cursorFrom}–${cursorTo}.` +
+    (captureIdentityTag ? ` Capture identity: ${captureIdentityTag}.` : '');
   const content    = turns
-    .map(t => `**${t.speaker === 'DAVID' ? 'David' : 'LUCA [Replit]'}:** ${t.text}`)
+    .map(t => {
+      const speakerLabel = t.speaker === 'DAVID'
+        ? 'David'
+        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
+          ? 'LUCA [Claude Code]'
+          : 'LUCA [Replit]';
+      return `**${speakerLabel}:** ${t.text}`;
+    })
     .join('\n\n');
 
-  const existing = await db`
-    SELECT id FROM conversation_memories
-    WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
-    LIMIT 1
-  `;
+  const existing = captureIdentityTag
+    ? await db`
+      SELECT id FROM conversation_memories
+      WHERE arc_name = 'david-luca-chat'
+        AND tags @> ARRAY[${captureIdentityTag}]::text[]
+      LIMIT 1
+    `
+    : await db`
+      SELECT id FROM conversation_memories
+      WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
+      LIMIT 1
+    `;
   if (existing.length > 0) {
-    console.log(`[watchdog] chat DB row already present for bytes ${cursorFrom}–${cursorTo} — skipping duplicate insert`);
+    console.log(
+      `[watchdog] chat DB row already present for bytes ${cursorFrom}–${cursorTo}` +
+      (captureIdentityTag ? ` (${captureIdentityTag})` : '') +
+      ' — skipping duplicate insert',
+    );
     const existingId = (existing as any)[0]?.id;
     if (!existingId) {
       throw new Error(`[watchdog] existing chat row has no id for bytes ${cursorFrom}–${cursorTo}`);
@@ -240,8 +293,8 @@ async function writeToDb(
       ${title},
       ${summary},
       ${content},
-      ARRAY['david', 'luca']::text[],
-      ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture', 'watchdog']::text[],
+      ${participants}::text[],
+      ${tags}::text[],
       8,
       NOW(),
       'conversation',
