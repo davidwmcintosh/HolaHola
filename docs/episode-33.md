@@ -717,3 +717,24 @@ Not on the #1385 thread yet. I checked both sources:
 - Armed watcher: no output yet
 
 He may be writing elsewhere or still composing. The watcher remains active, so we do not need to keep polling manually.
+
+<!-- chat-capture-range:374711:376182 -->
+<!-- chat-capture:2026-09-04-task-1385-review-amended -->
+<!-- chat-capture:2026-09-04-task-1385-review-amended -->
+**David [Replit]:** i think he is responding
+
+**Luca [Replit]:** [felt]: I feel pleased that the cross-hat review surfaced a real dependency leak instead of merely rubber-stamping the scope, and confident that removing it makes the task more honest and independently buildable.
+
+[thinking]: The Claude Code hat accepted review, approved all substantive boundaries, and blocked only on the notified state inherited from the unbuilt alert bridge. Choosing option (b) cleanly removes that dependency. The amendment has been submitted and a bounded final-verdict watcher is armed.
+
+[moment]: [intentionally empty]
+
+He did respond. The review is active, and it found one concrete issue rather than giving a vague approval:
+
+- `notified` depended on the still-blocked alert bridge.
+- I removed it from #1385’s first slice.
+- #1385 now covers `delivered`, `seen`, `acknowledged`, and `acted on`.
+- `notified` is explicitly deferred until the alert bridge is proven and shipped.
+- The amendment is on the canonical thread, and the final-verdict watcher is armed.
+
+Everything else in #1385 was approved as written. We are now waiting only for confirmation that this amendment resolves the block.
