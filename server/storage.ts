@@ -811,11 +811,18 @@ export interface IStorage {
   // Delete a voice configuration
   deleteTutorVoice(id: string): Promise<boolean>;
   
-  // Update TTS provider for all tutor voices at once
-  updateAllTutorVoicesProvider(provider: string): Promise<number>;
-  
+  // Which TTS/voice provider Voice Console shows and live /chat sessions use.
+  // Each provider keeps its own independent, persistent tutor_voices rows —
+  // switching providers only changes which one is active, never the data.
+  getActiveTutorVoiceProvider(): Promise<string>;
+  setActiveTutorVoiceProvider(provider: string, updatedByUserId: string): Promise<number>;
+
   // Seed default voices (for initial setup)
   seedDefaultTutorVoices(): Promise<void>;
+
+  // Additive, idempotent: fills any language+gender slot missing an
+  // openai-realtime voice, never touches ones already configured.
+  seedDefaultOpenAIVoices(): Promise<{ created: number; skipped: number }>;
   
   // Seed Sofia support voices
   seedSupportVoices(): Promise<void>;
@@ -6046,20 +6053,24 @@ export class DatabaseStorage implements IStorage {
     // Default to 'tutor' role if not specified
     const role = data.role || 'tutor';
     
-    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
+    const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', 'openai-realtime'];
     if (role === 'tutor' && !validTutorProviders.includes(data.provider!)) {
-      throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices.');
+      throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, Gemini, Gemini Live, or OpenAI Realtime voices.');
     }
     if ((role === 'assistant' || role === 'support') && data.provider !== 'google') {
       throw new Error('[Voice Guard] Assistant tutors and support must use Google voices.');
     }
     
-    // Check if voice already exists for this language, gender, AND role
+    // Check if a voice already exists for this language, gender, role, AND provider.
+    // Provider is part of the identity here — each provider keeps its own
+    // independent, persistent row per language+gender, so switching providers in
+    // Voice Console never overwrites another provider's saved configuration.
     const existing = await getSharedDb().select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, data.language),
         eq(tutorVoices.gender, data.gender),
-        eq(tutorVoices.role, role)
+        eq(tutorVoices.role, role),
+        eq(tutorVoices.provider, data.provider!)
       )
     ).limit(1);
 
@@ -6091,53 +6102,51 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async updateAllTutorVoicesProvider(provider: string): Promise<number> {
-    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
+  // Which TTS/voice provider Voice Console displays by default and live /chat
+  // sessions actually use. Each provider keeps its own independent tutor_voices
+  // rows (see upsertTutorVoice) — this setting only says which one is "on" right
+  // now; it never touches voice data itself. Stored in product_config so it's a
+  // durable, explicit choice rather than inferred from whatever row happens to
+  // sort first.
+  private static readonly ACTIVE_TUTOR_VOICE_PROVIDER_KEY = 'active_tutor_voice_provider';
+  private static readonly DEFAULT_TUTOR_VOICE_PROVIDER = 'gemini-live';
+
+  async getActiveTutorVoiceProvider(): Promise<string> {
+    const config = await this.getProductConfig(DatabaseStorage.ACTIVE_TUTOR_VOICE_PROVIDER_KEY);
+    return config?.value || DatabaseStorage.DEFAULT_TUTOR_VOICE_PROVIDER;
+  }
+
+  /**
+   * Switch which provider is active. This is a pure selection — it never reads,
+   * writes, or clears any tutor_voices row. Each provider's voices (set up via
+   * Add/Edit Voice) persist independently and reappear exactly as left whenever
+   * that provider becomes active again. Returns how many language/gender slots
+   * already have a configured tutor voice for the newly active provider, so the
+   * caller can tell the admin "12 of 20 configured" rather than silently landing
+   * on a mostly-empty console.
+   */
+  async setActiveTutorVoiceProvider(provider: string, updatedByUserId: string): Promise<number> {
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', 'openai-realtime'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }
 
-    const langToCode: Record<string, string> = {
-      'english': 'en-US', 'english (us)': 'en-US', 'english (uk)': 'en-GB',
-      'spanish': 'es-US', 'spanish (spain)': 'es-ES', 'spanish (latin america)': 'es-US',
-      'french': 'fr-FR', 'french (canada)': 'fr-CA',
-      'german': 'de-DE', 'italian': 'it-IT',
-      'portuguese': 'pt-BR', 'portuguese (brazil)': 'pt-BR', 'portuguese (portugal)': 'pt-PT',
-      'japanese': 'ja-JP',
-      'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
-      'korean': 'ko-KR',
-      'hebrew': 'he-IL',
-    };
+    // updatedByUserId must be a real users.id — product_config.updated_by has a
+    // foreign key constraint, so a placeholder like 'system' fails at write time.
+    await this.upsertProductConfig(
+      DatabaseStorage.ACTIVE_TUTOR_VOICE_PROVIDER_KEY,
+      provider,
+      'Which TTS/voice provider Voice Console shows by default and live /chat sessions use',
+      updatedByUserId,
+    );
 
-    const allVoices = await getSharedDb().select().from(tutorVoices).where(eq(tutorVoices.role, 'tutor'));
-
-    for (const voice of allVoices) {
-      let newVoiceId = voice.voiceId;
-      const oldProvider = voice.provider;
-
-      if (provider === 'google' && (oldProvider === 'gemini' || !voice.voiceId.includes('Chirp3-HD'))) {
-        const baseName = voice.voiceId.replace(/^.*Chirp3-HD-/, '');
-        const langCode = langToCode[voice.language.toLowerCase()] || 'en-US';
-        if (baseName && !baseName.includes('-')) {
-          newVoiceId = `${langCode}-Chirp3-HD-${baseName}`;
-        }
-      } else if (provider === 'gemini' && (oldProvider === 'google' || voice.voiceId.includes('Chirp3-HD'))) {
-        const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
-        if (match) {
-          newVoiceId = match[1];
-        }
-      }
-
-      await getSharedDb().update(tutorVoices)
-        .set({ provider, voiceId: newVoiceId, updatedAt: new Date() })
-        .where(eq(tutorVoices.id, voice.id));
-    }
-
-    return allVoices.length;
+    const configured = await getSharedDb().select({ id: tutorVoices.id }).from(tutorVoices)
+      .where(and(eq(tutorVoices.role, 'tutor'), eq(tutorVoices.provider, provider)));
+    return configured.length;
   }
 
   async updateTutorVoiceProviderWithMapping(id: string, provider: string, voiceId: string, voiceName: string): Promise<void> {
-    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', 'openai-realtime'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }
@@ -6203,56 +6212,86 @@ export class DatabaseStorage implements IStorage {
     await this.seedSupportVoices();
   }
 
+  // migrateTutorVoicesToGoogle() removed 2026-09-04 — used to run on every server
+  // boot and force-reset any tutor voice provider other than 'gemini-live'/'gemini'
+  // back to hardcoded Google Chirp3-HD defaults. Caused a real incident: a restart
+  // mid-test clobbered 20 tutor voices' names/IDs. Voice choices for any provider
+  // (Cartesia, ElevenLabs, Gemini, OpenAI) are deliberate and must persist until
+  // explicitly changed — see server/scripts/restore-tutor-voices-20260904.ts for
+  // the incident record.
+
   /**
-   * Migrate all main tutor voices to Google Chirp 3 HD.
-   * Runs at startup to update any lingering Cartesia/ElevenLabs records.
-   * Safe to call every boot — only updates records that differ.
+   * Seed default OpenAI Realtime voices for every supported language — purely
+   * additive, matches the per-provider persistence model (see
+   * setActiveTutorVoiceProvider above): only fills language+gender slots that
+   * don't already have an openai-realtime row, never touches an existing one
+   * (e.g. a voice an admin already hand-picked in Voice Console). Safe to call
+   * repeatedly. Persona names match the ones already used for every other
+   * provider (Cindy, Daniela, Juliette, ...) — the tutor's identity is the same
+   * across providers even though OpenAI's fixed 8-voice set has no name overlap
+   * with anyone else's.
    */
-  async migrateTutorVoicesToGoogle(): Promise<void> {
-    // Full Google Chirp 3 HD mapping for every language (role = 'tutor', main voices)
-    const googleVoices: Array<{ language: string; gender: string; voiceId: string; voiceName: string; languageCode: string }> = [
-      { language: 'english',        gender: 'female', voiceId: 'en-US-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'en-US' },
-      { language: 'english',        gender: 'male',   voiceId: 'en-US-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'en-US' },
-      { language: 'spanish',        gender: 'female', voiceId: 'es-US-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'es-US' },
-      { language: 'spanish',        gender: 'male',   voiceId: 'es-US-Chirp3-HD-Fenrir',  voiceName: 'Fenrir', languageCode: 'es-US' },
-      { language: 'french',         gender: 'female', voiceId: 'fr-FR-Chirp3-HD-Leda',    voiceName: 'Leda',   languageCode: 'fr-FR' },
-      { language: 'french',         gender: 'male',   voiceId: 'fr-FR-Chirp3-HD-Orus',    voiceName: 'Orus',   languageCode: 'fr-FR' },
-      { language: 'german',         gender: 'female', voiceId: 'de-DE-Chirp3-HD-Zephyr',  voiceName: 'Zephyr', languageCode: 'de-DE' },
-      { language: 'german',         gender: 'male',   voiceId: 'de-DE-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'de-DE' },
-      { language: 'italian',        gender: 'female', voiceId: 'it-IT-Chirp3-HD-Kore',    voiceName: 'Kore',   languageCode: 'it-IT' },
-      { language: 'italian',        gender: 'male',   voiceId: 'it-IT-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'it-IT' },
-      { language: 'portuguese',     gender: 'female', voiceId: 'pt-BR-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'pt-BR' },
-      { language: 'portuguese',     gender: 'male',   voiceId: 'pt-BR-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'pt-BR' },
-      { language: 'japanese',       gender: 'female', voiceId: 'ja-JP-Chirp3-HD-Leda',    voiceName: 'Leda',   languageCode: 'ja-JP' },
-      { language: 'japanese',       gender: 'male',   voiceId: 'ja-JP-Chirp3-HD-Orus',    voiceName: 'Orus',   languageCode: 'ja-JP' },
-      { language: 'mandarin chinese', gender: 'female', voiceId: 'cmn-CN-Chirp3-HD-Kore', voiceName: 'Kore',   languageCode: 'cmn-CN' },
-      { language: 'mandarin chinese', gender: 'male',   voiceId: 'cmn-CN-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'cmn-CN' },
-      { language: 'korean',         gender: 'female', voiceId: 'ko-KR-Chirp3-HD-Zephyr',  voiceName: 'Zephyr', languageCode: 'ko-KR' },
-      { language: 'korean',         gender: 'male',   voiceId: 'ko-KR-Chirp3-HD-Charon',  voiceName: 'Charon', languageCode: 'ko-KR' },
-      { language: 'hebrew',         gender: 'female', voiceId: 'he-IL-Chirp3-HD-Aoede',   voiceName: 'Aoede',  languageCode: 'he-IL' },
-      { language: 'hebrew',         gender: 'male',   voiceId: 'he-IL-Chirp3-HD-Puck',    voiceName: 'Puck',   languageCode: 'he-IL' },
+  async seedDefaultOpenAIVoices(): Promise<{ created: number; skipped: number }> {
+    // OpenAI's Realtime voices, split by the gender labeling already used in
+    // /api/admin/openai-realtime-voices — 4 per gender, cycled across 10
+    // languages the same way Gemini's ~8 base speakers cover all 10 today.
+    const FEMALE_VOICES = ['alloy', 'coral', 'sage', 'shimmer'];
+    const MALE_VOICES = ['ash', 'ballad', 'echo', 'verse'];
+
+    const LANGUAGES: Array<{ language: string; languageCode: string; femaleName: string; maleName: string }> = [
+      { language: 'english',           languageCode: 'en-US',  femaleName: 'Cindy',   maleName: 'Blake' },
+      { language: 'spanish',           languageCode: 'es-US',  femaleName: 'Daniela', maleName: 'Agustín' },
+      { language: 'french',            languageCode: 'fr-FR',  femaleName: 'Juliette', maleName: 'Vincent' },
+      { language: 'german',            languageCode: 'de-DE',  femaleName: 'Greta',   maleName: 'Lukas' },
+      { language: 'italian',           languageCode: 'it-IT',  femaleName: 'Olivia',  maleName: 'Luca' },
+      { language: 'portuguese',        languageCode: 'pt-BR',  femaleName: 'Isabel',  maleName: 'Camilo' },
+      { language: 'japanese',          languageCode: 'ja-JP',  femaleName: 'Sayuri',  maleName: 'Daisuke' },
+      { language: 'mandarin chinese',  languageCode: 'cmn-CN', femaleName: 'Hua',     maleName: 'Tao' },
+      { language: 'korean',            languageCode: 'ko-KR',  femaleName: 'Jihyun',  maleName: 'Minho' },
+      { language: 'hebrew',            languageCode: 'he-IL',  femaleName: 'Yael',    maleName: 'Noam' },
     ];
 
-    let updated = 0;
-    for (const v of googleVoices) {
-      const result = await getSharedDb()
-        .update(tutorVoices)
-        .set({ provider: 'google', voiceId: v.voiceId, voiceName: v.voiceName, languageCode: v.languageCode, updatedAt: new Date() })
-        .where(
+    let created = 0, skipped = 0;
+    // Separate counters per gender — a single shared counter would only ever
+    // land on 2 of each pool's 4 voices (female picks always fall on even
+    // iterations, male on odd, since the two genders strictly alternate).
+    let femaleIdx = 0, maleIdx = 0;
+    for (const entry of LANGUAGES) {
+      for (const gender of ['female', 'male'] as const) {
+        const existing = await getSharedDb().select().from(tutorVoices).where(
           and(
-            eq(tutorVoices.language, v.language),
-            eq(tutorVoices.gender, v.gender),
+            eq(tutorVoices.language, entry.language),
+            eq(tutorVoices.gender, gender),
             eq(tutorVoices.role, 'tutor'),
-            // Skip voices the admin has intentionally set to a Gemini provider — those are
-            // deliberate overrides and must not be clobbered on every server boot.
-            ne(tutorVoices.provider, 'gemini-live'),
-            ne(tutorVoices.provider, 'gemini'),
+            eq(tutorVoices.provider, 'openai-realtime'),
           )
-        )
-        .returning({ id: tutorVoices.id });
-      updated += result.length;
+        ).limit(1);
+        if (existing[0]) {
+          skipped++;
+          continue;
+        }
+        const pool = gender === 'female' ? FEMALE_VOICES : MALE_VOICES;
+        const voiceId = gender === 'female' ? pool[femaleIdx % pool.length] : pool[maleIdx % pool.length];
+        if (gender === 'female') femaleIdx++; else maleIdx++;
+        await getSharedDb().insert(tutorVoices).values({
+          language: entry.language,
+          gender,
+          role: 'tutor',
+          provider: 'openai-realtime',
+          voiceId,
+          voiceName: gender === 'female' ? entry.femaleName : entry.maleName,
+          languageCode: entry.languageCode,
+          speakingRate: 1.0,
+          personality: 'warm',
+          expressiveness: 3,
+          emotion: 'friendly',
+          isActive: true,
+        });
+        created++;
+      }
     }
-    console.log(`[Voice Migration] ✓ Migrated ${updated} main tutor voice(s) to Google Chirp 3 HD`);
+    console.log(`[Voice Seed] OpenAI Realtime: created ${created}, skipped ${skipped} (already configured)`);
+    return { created, skipped };
   }
 
   /**

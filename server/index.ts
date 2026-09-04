@@ -216,13 +216,9 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed assistant tutors:', error);
     }
     
-    // Migrate all main tutor voices to Google Chirp 3 HD (idempotent, safe every boot)
-    try {
-      const { storage: storageForVoiceMigration } = await import('./storage');
-      await storageForVoiceMigration.migrateTutorVoicesToGoogle();
-    } catch (error) {
-      console.error('Failed to migrate tutor voices to Google:', error);
-    }
+    // REMOVED 2026-09-04: a boot-time voice migration used to run here and
+    // silently overwrite tutor voice configuration — see the comment in
+    // storage.ts (search "migrateTutorVoicesToGoogle() removed") for the incident.
 
     // Seed Pedagogical Persona Registry (teaching profiles for each tutor)
     try {

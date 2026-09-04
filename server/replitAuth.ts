@@ -190,6 +190,15 @@ export function getRequestUserId(req: any): string {
   if (req.user?.claims?.sub) {
     return req.user.claims.sub;
   }
+  // Local dev bypass — isAuthenticated() lets the request through without
+  // populating either of the above, so every downstream getRequestUserId()
+  // call needs this too, not just the middleware itself.
+  if (req.resolvedUserId) {
+    return req.resolvedUserId;
+  }
+  if (isDevBypass()) {
+    return '49847136';
+  }
   return '';
 }
 

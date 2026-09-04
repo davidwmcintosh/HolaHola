@@ -1708,7 +1708,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // ══════════════════════════════════════════════════════════════
             const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
             sessionLanguage = effectiveLanguage; // capture for close handler title generation
-            
+
+            // Which provider Voice Console currently has active (admin-controlled,
+            // persists across restarts — see storage.ts's setActiveTutorVoiceProvider).
+            // Single fast row lookup; kept out of the Promise.all below because the
+            // tutorVoice query needs its result as an input.
+            const activeVoiceProvider = await storage.getActiveTutorVoiceProvider();
+
             const [user, conversation_raw, isDeveloper, messages, tutorVoice, actflProgressRow] = await Promise.all([
               withTimeout(
                 () => userId ? storage.getUser(userId) : Promise.resolve(null),
@@ -1727,18 +1733,11 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 SESSION_INIT_TIMEOUT, 'getMessages', [] as any[]
               ),
               withTimeout(
-                // 'openai-realtime' is checked first regardless of the GEMINI_LIVE_VOICE
-                // flag — it's an admin-opted-in test voice, not a fleet-wide default, so
-                // an admin picking it for one language+gender should always take effect.
-                // Otherwise: when Gemini Live is enabled, prefer the gemini-live provider
-                // voice. Each language+gender has both a google and a gemini-live active
-                // row; without this, LIMIT 1 returns whichever the DB picks — often
-                // google — and the Gemini Live session then falls back to the default voice.
-                async () => {
-                  const openaiVoice = await storage.getTutorVoice(effectiveLanguage, tutorGender, 'openai-realtime');
-                  if (openaiVoice?.provider === 'openai-realtime') return openaiVoice;
-                  return storage.getTutorVoice(effectiveLanguage, tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined);
-                },
+                // Prefer the active provider's voice for this language+gender; falls
+                // back to whatever tutor voice IS configured (any provider) if this
+                // student's language+gender hasn't been set up for the active provider
+                // yet — see getTutorVoice's fallback chain in storage.ts.
+                () => storage.getTutorVoice(effectiveLanguage, tutorGender, activeVoiceProvider),
                 SESSION_INIT_TIMEOUT, 'getTutorVoice', null
               ),
               // users.actfl_level is rarely populated — pull from actfl_progress per language.
@@ -3418,7 +3417,11 @@ ${lastNote.tutorNotes}`);
                   const openaiGreetingTrigger = `You are Daniela, a warm, encouraging language tutor. ${studentDisplayName} just arrived for a voice session. Greet them naturally following the language-mix guidance in your instructions, then begin the conversation.`;
                   openaiRealtimeSession = createOpenAIRealtimeSession(session, glSendMessage);
                   try {
-                    await openaiRealtimeSession.start(geminiLiveSystemPrompt, openaiGreetingTrigger);
+                    await openaiRealtimeSession.start(geminiLiveSystemPrompt, openaiGreetingTrigger, {
+                      personality: (tutorVoice as any)?.personality,
+                      emotion: (tutorVoice as any)?.emotion,
+                      expressiveness: (tutorVoice as any)?.expressiveness,
+                    });
                     console.log(`[OpenAIRealtime] Session started for ${studentDisplayName}, lang: ${config.targetLanguage || 'spanish'}, voice: ${session.voiceId}`);
                   } catch (oaErr: any) {
                     console.error('[OpenAIRealtime] Failed to start session:', oaErr.message);
@@ -4131,7 +4134,8 @@ ${lastNote.tutorNotes}`);
             voiceUpdateInProgress = true;
             try {
               const targetLanguage = session.targetLanguage || 'spanish';
-              const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined);
+              const activeVoiceProviderForGenderSwitch = await storage.getActiveTutorVoiceProvider();
+              const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender, activeVoiceProviderForGenderSwitch);
               
               if (tutorVoice?.voiceId) {
                 orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId, tutorVoice.provider);

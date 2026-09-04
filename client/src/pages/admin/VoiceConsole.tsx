@@ -157,6 +157,48 @@ const DEFAULT_TUTOR_NAMES: Record<string, Record<string, string>> = {
 // Raw Gemini/Chirp speaker names — any voiceName matching these is a technical placeholder
 const RAW_VOICE_NAMES = new Set(Object.keys(DEFAULT_TUTOR_NAMES));
 
+// OpenAI Realtime's fixed 8-name voice set — mirrors OPENAI_REALTIME_VOICES in
+// server/services/openai-realtime-session.ts. Fallback only, used when the real
+// fetched list (openaiRealtimeVoices, below) hasn't loaded yet.
+const OPENAI_VOICE_IDS = new Set(['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse']);
+
+// Whether a voice's stored voiceId actually looks valid for its current provider.
+// Non-destructive by design — this never changes stored data (providers never
+// clear voiceId on switch, see storage.ts), only what's shown, so the console has
+// to recognize a stale ID (e.g. "Leda" left under openai-realtime, or "coral" left
+// under gemini-live after switching away from OpenAI) at display time instead.
+// Prefers the real fetched voice-name list for whichever provider is active
+// (gemini / gemini-live / gemini-live-35 / openai-realtime already fetch their
+// full list whenever they're selected — see the voice queries above) and falls
+// back to a structural/heuristic check for providers without a cheap global list.
+function isVoiceIdConfigured(
+  voiceId: string,
+  provider: string,
+  knownVoiceIds: { openai: Set<string>; geminiLive: Set<string>; gemini: Set<string> },
+): boolean {
+  if (!voiceId) return false;
+  if (provider === 'openai-realtime') {
+    return (knownVoiceIds.openai.size > 0 ? knownVoiceIds.openai : OPENAI_VOICE_IDS).has(voiceId);
+  }
+  if (provider === 'google') {
+    // Google's voice list is fetched per language+gender only inside the add/edit
+    // dialog — no cheap whole-table list to check against — but every real Google
+    // voice ID has this exact structural shape, so it's a reliable enough signal.
+    return voiceId.includes('Chirp3-HD');
+  }
+  if (provider === 'gemini' && knownVoiceIds.gemini.size > 0) {
+    return knownVoiceIds.gemini.has(voiceId);
+  }
+  if ((provider === 'gemini-live' || provider === 'gemini-live-35') && knownVoiceIds.geminiLive.size > 0) {
+    return knownVoiceIds.geminiLive.has(voiceId);
+  }
+  // Cartesia / ElevenLabs (opaque per-language IDs, no cheap global list) and
+  // gemini / gemini-live when their list hasn't loaded yet: fall back to the one
+  // cross-provider leak that's always cheap to catch — one of OpenAI's fixed
+  // names sitting where it doesn't belong, left over from a prior switch away.
+  return !OPENAI_VOICE_IDS.has(voiceId);
+}
+
 function getDefaultTutorName(voiceId: string, language: string): string {
   const baseVoice = voiceId.includes('-') ? voiceId.split('-').pop() || voiceId : voiceId;
   return DEFAULT_TUTOR_NAMES[baseVoice]?.[language] || baseVoice;
@@ -274,7 +316,14 @@ export function VoiceConsoleContent() {
   const { data: voices, isLoading } = useQuery<TutorVoice[]>({
     queryKey: ["/api/admin/tutor-voices"],
   });
-  
+
+  // The durable, admin-chosen active provider — each provider keeps its own
+  // independent voice configuration, so this is what Voice Console should
+  // initialize to, not a guess inferred from whichever row sorts first.
+  const { data: activeProviderData } = useQuery<{ provider: string }>({
+    queryKey: ["/api/admin/tutor-voices/active-provider"],
+  });
+
   // Fetch TTS emotion metadata
   const { data: ttsMetadata } = useQuery<TTSMetadata>({
     queryKey: ["/api/admin/tts-meta"],
@@ -414,6 +463,16 @@ export function VoiceConsoleContent() {
   const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : isGlProvider(formData.provider) ? geminiLiveVoicesAsCv : isOpenAIRealtimeProvider(formData.provider) ? openaiRealtimeVoicesAsCv : cartesiaVoices;
   const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isGlProvider(formData.provider) ? isLoadingGeminiLiveVoices : isOpenAIRealtimeProvider(formData.provider) ? isLoadingOpenaiRealtimeVoices : isLoadingCartesiaVoices;
 
+  // Real known-voice-name sets for isVoiceIdConfigured() — reuses whichever of
+  // these queries is already firing for the current globalProvider (each of the
+  // three fetches its full flat list, unlike Cartesia/ElevenLabs/Google which are
+  // per-language) rather than a hardcoded guess at what's valid.
+  const knownVoiceIds = {
+    openai: new Set((openaiRealtimeVoices || []).map(v => v.id)),
+    geminiLive: new Set((geminiLiveVoices || []).map(v => v.id)),
+    gemini: new Set((geminiVoices || []).map(v => v.id)),
+  };
+
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       const payload = editingVoice?.id ? { ...data, id: editingVoice.id } : data;
@@ -444,14 +503,41 @@ export function VoiceConsoleContent() {
     },
   });
 
+  const seedOpenAIMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/tutor-voices/seed-openai");
+      return res.json() as Promise<{ success: boolean; created: number; skipped: number }>;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
+      toast({
+        title: "Success",
+        description: result.created > 0
+          ? `Seeded ${result.created} OpenAI voice${result.created === 1 ? '' : 's'}${result.skipped > 0 ? ` (${result.skipped} already configured, left alone)` : ''}`
+          : 'All languages already have an OpenAI voice configured',
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const bulkProviderMutation = useMutation({
     mutationFn: async (provider: string) => {
-      return apiRequest("POST", "/api/admin/tutor-voices/provider", { provider });
+      const res = await apiRequest("POST", "/api/admin/tutor-voices/provider", { provider });
+      return res.json() as Promise<{ success: boolean; provider: string; configuredCount: number }>;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices/active-provider"] });
       const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : globalProvider === 'gemini-live' ? 'Gemini Live 3.1' : globalProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio' : globalProvider === 'openai-realtime' ? 'OpenAI GPT Realtime' : 'Cartesia';
-      toast({ title: "Success", description: `All tutor voices switched to ${providerLabel}` });
+      const configuredCount = result?.configuredCount;
+      toast({
+        title: "Success",
+        description: typeof configuredCount === 'number'
+          ? `Switched to ${providerLabel} — ${configuredCount} of 10 languages configured`
+          : `Switched to ${providerLabel}`,
+      });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -459,13 +545,10 @@ export function VoiceConsoleContent() {
   });
 
   useEffect(() => {
-    if (voices && voices.length > 0) {
-      const tutors = voices.filter(v => v.role === 'tutor' || !v.role);
-      if (tutors.length > 0) {
-        setGlobalProvider(tutors[0].provider);
-      }
+    if (activeProviderData?.provider) {
+      setGlobalProvider(activeProviderData.provider);
     }
-  }, [voices]);
+  }, [activeProviderData]);
 
   const resetForm = () => {
     setFormData({
@@ -657,6 +740,11 @@ export function VoiceConsoleContent() {
   };
 
   const handlePreview = async (voice: TutorVoice) => {
+    if (usesLiveMicAudition(voice.provider)) {
+      // No text-to-speech mode for GL/OpenAI — record mic audio instead.
+      await handleRowLiveAudition(voice);
+      return;
+    }
     const elSettings = voice.provider === 'elevenlabs' ? {
       elStability: voice.elStability,
       elSimilarityBoost: voice.elSimilarityBoost,
@@ -666,18 +754,27 @@ export function VoiceConsoleContent() {
     await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, voice.id, voice.languageCode);
   };
 
-  // GL Live audition: record 3s of mic audio → real GL 3.1 session → play WAV
-  const handleGlAudition = async () => {
+  const LANG_TO_BCP47: Record<string, string> = {
+    english: 'en-US', spanish: 'es-ES', french: 'fr-FR',
+    german: 'de-DE', italian: 'it-IT', portuguese: 'pt-BR',
+    japanese: 'ja-JP', 'mandarin chinese': 'zh-CN', chinese: 'zh-CN',
+    korean: 'ko-KR', hebrew: 'he-IL',
+  };
+
+  // Shared mic-recording core for every live audio-to-audio provider (GL 3.1/3.5,
+  // OpenAI Realtime) — there's no text-to-speech one-shot mode for these engines,
+  // so auditioning means recording a few seconds of mic audio and sending it to a
+  // real live session. Used by both the Add/Edit dialog's Audition button and the
+  // row-level ▶ preview button — same recording, just different voice/provider
+  // parameters depending on where it was triggered from.
+  const recordMicAndAudition = async (params: {
+    voiceId: string;
+    provider: string;
+    languageCode: string;
+    glModel?: string;
+    style?: { personality: string; emotion: string; expressiveness: number };
+  }) => {
     if (glPhase !== 'idle') return;
-    const voiceId = formData.voiceId || 'Aoede';
-    // Derive BCP-47 from the voice's configured language when no explicit accent is saved
-    const LANG_TO_BCP47: Record<string, string> = {
-      english: 'en-US', spanish: 'es-ES', french: 'fr-FR',
-      german: 'de-DE', italian: 'it-IT', portuguese: 'pt-BR',
-      japanese: 'ja-JP', 'mandarin chinese': 'zh-CN', chinese: 'zh-CN',
-      korean: 'ko-KR', hebrew: 'he-IL',
-    };
-    const langCode = formData.geminiLanguageCode || LANG_TO_BCP47[formData.language?.toLowerCase() || ''] || 'en-US';
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
       setGlPhase('recording');
@@ -715,15 +812,22 @@ export function VoiceConsoleContent() {
       const base64Audio = btoa(binary);
 
       setGlPhase('waiting');
-      const glModel = globalProvider === 'gemini-live-35'
-        ? 'gemini-2.5-flash-native-audio-preview-12-2025'
-        : 'gemini-3.1-flash-live-preview';
-      const res = await fetch('/api/admin/gl-audition', {
+      const isOpenAI = params.provider === 'openai-realtime';
+      const endpoint = isOpenAI ? '/api/admin/openai-audition' : '/api/admin/gl-audition';
+      const body: Record<string, unknown> = { audio: base64Audio, languageCode: params.languageCode, voiceId: params.voiceId };
+      if (isOpenAI && params.style) {
+        body.personality = params.style.personality;
+        body.emotion = params.style.emotion;
+        body.expressiveness = params.style.expressiveness;
+      } else if (!isOpenAI) {
+        body.model = params.glModel;
+      }
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId, model: glModel }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'GL audition failed'); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Audition failed'); }
 
       setGlPhase('playing');
       const blob = await res.blob();
@@ -734,76 +838,51 @@ export function VoiceConsoleContent() {
     } catch (error: any) {
       if (glCountdownRef.current) clearInterval(glCountdownRef.current);
       setGlPhase('idle');
-      toast({ title: 'GL Audition failed', description: error.message, variant: 'destructive' });
+      toast({ title: `${isOpenAIRealtimeProvider(params.provider) ? 'OpenAI' : 'GL'} Audition failed`, description: error.message, variant: 'destructive' });
     }
   };
 
-  // OpenAI GPT Realtime audition: record 3s of mic audio → real Realtime session → play WAV.
-  // Reuses the same glPhase/glCountdown state as the GL mic audition above — the two are
-  // mutually exclusive within the dialog (only one provider is selected at a time).
+  // GL Live audition (dialog context): record 3s of mic audio → real GL session → play WAV
+  const handleGlAudition = async () => {
+    const langCode = formData.geminiLanguageCode || LANG_TO_BCP47[formData.language?.toLowerCase() || ''] || 'en-US';
+    const glModel = globalProvider === 'gemini-live-35'
+      ? 'gemini-2.5-flash-native-audio-preview-12-2025'
+      : 'gemini-3.1-flash-live-preview';
+    await recordMicAndAudition({ voiceId: formData.voiceId || 'Aoede', provider: formData.provider, languageCode: langCode, glModel });
+  };
+
+  // OpenAI GPT Realtime audition (dialog context): record 3s of mic audio → real
+  // Realtime session → play WAV. Passes the chosen Voice Style (personality/
+  // emotion/expressiveness) through so the preview matches what a live session
+  // would actually sound like.
   const handleOpenAIAudition = async () => {
-    if (glPhase !== 'idle') return;
-    const voiceId = formData.voiceId || 'alloy';
-    const LANG_TO_BCP47: Record<string, string> = {
-      english: 'en-US', spanish: 'es-ES', french: 'fr-FR',
-      german: 'de-DE', italian: 'it-IT', portuguese: 'pt-BR',
-      japanese: 'ja-JP', 'mandarin chinese': 'zh-CN', chinese: 'zh-CN',
-      korean: 'ko-KR', hebrew: 'he-IL',
-    };
     const langCode = LANG_TO_BCP47[formData.language?.toLowerCase() || ''] || 'en-US';
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
-      setGlPhase('recording');
-      setGlCountdown(3);
-      glCountdownRef.current = setInterval(() => setGlCountdown(c => Math.max(0, c - 1)), 1000);
+    await recordMicAndAudition({
+      voiceId: formData.voiceId || 'alloy',
+      provider: 'openai-realtime',
+      languageCode: langCode,
+      style: { personality: formData.personality, emotion: formData.emotion, expressiveness: formData.expressiveness },
+    });
+  };
 
-      const audioCtx = new AudioContext({ sampleRate: 16000 });
-      const source = audioCtx.createMediaStreamSource(stream);
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      const buffers: Float32Array[] = [];
-      processor.onaudioprocess = (e) => buffers.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      processor.disconnect(); source.disconnect();
-      stream.getTracks().forEach(t => t.stop());
-      await audioCtx.close();
-      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
-
-      const totalLen = buffers.reduce((n, b) => n + b.length, 0);
-      const pcm16 = new Int16Array(totalLen);
-      let offset = 0;
-      for (const buf of buffers)
-        for (let i = 0; i < buf.length; i++) {
-          const s = Math.max(-1, Math.min(1, buf[i]));
-          pcm16[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        }
-      const bytes = new Uint8Array(pcm16.buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i += 8192)
-        binary += String.fromCharCode(...(bytes.subarray(i, i + 8192) as any));
-      const base64Audio = btoa(binary);
-
-      setGlPhase('waiting');
-      const res = await fetch('/api/admin/openai-audition', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: base64Audio, languageCode: langCode, voiceId }),
+  // Row-level ▶ preview for a saved voice — used by the main table's audition
+  // button. Live audio-to-audio providers (GL, OpenAI) have no text-to-speech
+  // one-shot mode, so this branches to the same mic-recording flow the Add/Edit
+  // dialog uses instead of the standard type-text-and-play audition.
+  const handleRowLiveAudition = async (voice: TutorVoice) => {
+    const langCode = voice.geminiLanguageCode || LANG_TO_BCP47[voice.language?.toLowerCase() || ''] || 'en-US';
+    if (voice.provider === 'openai-realtime') {
+      await recordMicAndAudition({
+        voiceId: voice.voiceId || 'alloy',
+        provider: 'openai-realtime',
+        languageCode: langCode,
+        style: { personality: voice.personality || 'warm', emotion: voice.emotion || 'friendly', expressiveness: voice.expressiveness || 3 },
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'OpenAI audition failed'); }
-
-      setGlPhase('playing');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.onended = () => { URL.revokeObjectURL(url); setGlPhase('idle'); };
-      await audio.play();
-    } catch (error: any) {
-      if (glCountdownRef.current) clearInterval(glCountdownRef.current);
-      setGlPhase('idle');
-      toast({ title: 'OpenAI Audition failed', description: error.message, variant: 'destructive' });
+    } else {
+      const glModel = voice.provider === 'gemini-live-35'
+        ? 'gemini-2.5-flash-native-audio-preview-12-2025'
+        : 'gemini-3.1-flash-live-preview';
+      await recordMicAndAudition({ voiceId: voice.voiceId || 'Aoede', provider: voice.provider, languageCode: langCode, glModel });
     }
   };
 
@@ -965,6 +1044,18 @@ export function VoiceConsoleContent() {
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
+              {globalProvider === 'openai-realtime' && (
+                <Button
+                  variant="outline"
+                  onClick={() => seedOpenAIMutation.mutate()}
+                  disabled={seedOpenAIMutation.isPending}
+                  data-testid="button-seed-openai-voices"
+                  title="Fill any language still missing an OpenAI voice with a sensible default — never touches ones you've already configured"
+                >
+                  {seedOpenAIMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Seed OpenAI Voices
+                </Button>
+              )}
               <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
                 setIsAddDialogOpen(open);
                 if (!open) {
@@ -1259,12 +1350,14 @@ export function VoiceConsoleContent() {
                       </div>
                     )}
 
-                    {/* Cartesia Emotion Controls for Audition */}
-                    {formData.voiceId && formData.provider === 'cartesia' && ttsMetadata && (
+                    {/* Emotion/Voice Style Controls — Cartesia's native emotion API, OpenAI's
+                        natural-language instructions. Same personality/emotion/expressiveness
+                        fields either way; each provider just realizes them differently. */}
+                    {formData.voiceId && (formData.provider === 'cartesia' || isOpenAIRealtimeProvider(formData.provider)) && ttsMetadata && (
                       <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Sparkles className="h-4 w-4 text-primary" />
-                          <Label className="text-sm font-medium">Emotion Audition</Label>
+                          <Label className="text-sm font-medium">{isOpenAIRealtimeProvider(formData.provider) ? 'Voice Style' : 'Emotion Audition'}</Label>
                         </div>
                         
                         {/* Personality Selector */}
@@ -1332,7 +1425,9 @@ export function VoiceConsoleContent() {
                         </div>
                         
                         <p className="text-xs text-muted-foreground border-t pt-2">
-                          Preview how different emotions sound with this voice
+                          {isOpenAIRealtimeProvider(formData.provider)
+                            ? "Turned into a plain-language delivery instruction for OpenAI's model — there's no native emotion API to call, so this is Daniela's tone described in words."
+                            : 'Preview how different emotions sound with this voice'}
                         </p>
                       </div>
                     )}
@@ -1500,7 +1595,7 @@ export function VoiceConsoleContent() {
               <DialogHeader>
                 <DialogTitle>Switch TTS Provider</DialogTitle>
                 <DialogDescription>
-                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live 3.1 (requires GEMINI_LIVE_VOICE=true)' : pendingProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio (requires GEMINI_LIVE_VOICE=true — preview pricing ~5-20× higher)' : pendingProvider === 'openai-realtime' ? 'OpenAI GPT Realtime (audio-to-audio, test build)' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                  This will switch the active voice provider to {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live 3.1 (requires GEMINI_LIVE_VOICE=true)' : pendingProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio (requires GEMINI_LIVE_VOICE=true — preview pricing ~5-20× higher)' : pendingProvider === 'openai-realtime' ? 'OpenAI GPT Realtime (audio-to-audio, test build)' : 'Cartesia Sonic-3'}. Each provider keeps its own independent voices — anything you've already configured for it comes back exactly as you left it, and languages you haven't set up yet for it will show as not configured until you add them.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">
@@ -1581,7 +1676,13 @@ export function VoiceConsoleContent() {
                               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               <span className="text-sm capitalize w-14 flex-shrink-0">{gender}</span>
                               <span className="font-medium text-sm truncate">{resolveDisplayName(voice)}</span>
-                              <span className="text-xs text-muted-foreground truncate">({voice.voiceId})</span>
+                              {isVoiceIdConfigured(voice.voiceId, voice.provider, knownVoiceIds) ? (
+                                <span className="text-xs text-muted-foreground truncate">({voice.voiceId})</span>
+                              ) : (
+                                <Badge variant="destructive" className="text-xs flex-shrink-0" data-testid={`badge-needs-reassignment-${voice.id}`}>
+                                  Needs reassignment
+                                </Badge>
+                              )}
                               <Badge variant="outline" className="text-xs flex-shrink-0">
                                 {voice.speakingRate === 0.7 ? 'Slow' : 
                                  voice.speakingRate === 0.9 ? 'Natural' : 

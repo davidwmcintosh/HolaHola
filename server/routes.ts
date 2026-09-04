@@ -10,7 +10,7 @@ import { eq, and, gte, desc, sql, isNotNull, isNull, inArray, asc } from "drizzl
 import { createPrivateKey, createPublicKey } from "crypto";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isDevBypass } from "./middleware/rbac";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { excludesOperationalMemories } from "./services/daniela-memory-boundary";
@@ -1043,6 +1043,16 @@ export async function registerRoutes(app: Application): Promise<void> {
   // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
   app.get('/api/auth/user', authLimiter, async (req: any, res: Response) => {
     try {
+      // Local dev bypass — skips the login screen entirely instead of leaving the
+      // frontend to link into a real Replit OAuth flow that isDevBypass() has
+      // already disabled (no /api/login, /api/callback registered — see replitAuth.ts).
+      if (isDevBypass()) {
+        const bypassUser = await storage.getUser('49847136');
+        if (bypassUser) {
+          return res.json(bypassUser);
+        }
+      }
+
       // Check for password auth first (userId stored directly in session)
       if (req.session?.userId) {
         const user = await storage.getUser(req.session.userId);
@@ -22626,29 +22636,45 @@ Current conversation context:
     }
   });
   
-  // Bulk update TTS provider for all tutor voices (admin only)
+  // Switch the active TTS/voice provider (admin only). This is a pure selection —
+  // it never touches any tutor_voices row. Each provider keeps its own
+  // independent, persistent voice configuration; switching just changes which
+  // one Voice Console shows and live /chat sessions use.
   app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { provider } = req.body;
       if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', 'openai-realtime'].includes(provider)) {
         return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35', or 'openai-realtime'" });
       }
-      
-      const count = await storage.updateAllTutorVoicesProvider(provider);
-      
+
+      const count = await storage.setActiveTutorVoiceProvider(provider, getRequestUserId(req)!);
+
       await storage.logAdminAction({
         actorId: getRequestUserId(req)!,
-        action: 'bulk_update_tts_provider',
+        action: 'switch_active_tts_provider',
         targetType: 'tutor_voice',
         targetId: 'all',
-        metadata: { provider, updatedCount: count },
+        metadata: { provider, configuredCount: count },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
-      
-      res.json({ success: true, provider, updatedCount: count });
+
+      res.json({ success: true, provider, configuredCount: count });
     } catch (error: any) {
-      console.error('Error bulk updating TTS provider:', error);
+      console.error('Error switching active TTS provider:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get the currently active TTS/voice provider — lets Voice Console initialize
+  // to the real, durable setting instead of guessing from whichever tutor voice
+  // row happens to sort first.
+  app.get("/api/admin/tutor-voices/active-provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    try {
+      const provider = await storage.getActiveTutorVoiceProvider();
+      res.json({ provider });
+    } catch (error: any) {
+      console.error('Error fetching active TTS provider:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -22672,7 +22698,29 @@ Current conversation context:
       res.status(500).json({ error: error.message });
     }
   });
-  
+
+  // Seed default OpenAI Realtime voices for every language (admin only).
+  // Additive and idempotent — only fills language+gender slots that don't
+  // already have an openai-realtime voice; safe to call repeatedly.
+  app.post("/api/admin/tutor-voices/seed-openai", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    try {
+      const { created, skipped } = await storage.seedDefaultOpenAIVoices();
+
+      await storage.logAdminAction({
+        actorId: getRequestUserId(req)!,
+        action: 'seed_openai_tutor_voices',
+        metadata: { created, skipped },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+
+      res.json({ success: true, created, skipped });
+    } catch (error: any) {
+      console.error('Error seeding OpenAI tutor voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get voice for current user's language and preferred gender (for TTS)
   app.get("/api/tutor-voice", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
@@ -24996,10 +25044,10 @@ Current conversation context:
   // user sends mic PCM16 @ 16kHz, server opens a short-lived real Realtime session
   // with the selected voice, returns the model's spoken response as a WAV.
   app.post("/api/admin/openai-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
-    const { audio, languageCode, voiceId } = req.body;
+    const { audio, languageCode, voiceId, personality, emotion, expressiveness } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
-    const { OPENAI_REALTIME_MODEL, OPENAI_REALTIME_VOICES } = await import('./services/openai-realtime-session');
+    const { OPENAI_REALTIME_MODEL, OPENAI_REALTIME_VOICES, buildOpenAIVoiceStyleInstruction } = await import('./services/openai-realtime-session');
     const voice = (OPENAI_REALTIME_VOICES as readonly string[]).includes(voiceId) ? voiceId : 'alloy';
     const langCode = languageCode || 'en-US';
 
@@ -25011,7 +25059,8 @@ Current conversation context:
       'zh-CN': '请用普通话回答。', 'ko-KR': '한국어로 대답해주세요.',
     };
     const langInstruction = LANG_CODE_TO_INSTRUCTION[langCode] || `Respond in the language matching locale ${langCode}.`;
-    const auditionInstructions = `You are a friendly language tutor demonstrating your voice. ${langInstruction} The user will say something brief — respond warmly in one or two sentences.`;
+    const styleInstruction = buildOpenAIVoiceStyleInstruction(personality, emotion, expressiveness);
+    const auditionInstructions = `You are a friendly language tutor demonstrating your voice. ${langInstruction} The user will say something brief — respond warmly in one or two sentences. ${styleInstruction}`;
 
     const apiKey = process.env.USER_OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'USER_OPENAI_API_KEY not configured' });
@@ -33677,8 +33726,8 @@ ${memoryContext}
       const authHeader = req.headers['x-editor-secret'];
       const hasEditorAuth = authHeader && validateEditorSecret(authHeader as string);
       const userId = getRequestUserId(req);
-      const hasSessionAuth = req.isAuthenticated?.() && userId === req.params.studentId;
-      
+      const hasSessionAuth = isDevBypass() || (req.isAuthenticated?.() && userId === req.params.studentId);
+
       if (!hasEditorAuth && !hasSessionAuth) {
         return res.status(401).json({ error: 'Invalid authentication' });
       }

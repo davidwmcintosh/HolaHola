@@ -1,6 +1,7 @@
 import { WebSocket as WS } from 'ws';
 import type { StreamingSession } from './streaming-session-types';
 import { pcm16ToF32le } from './gemini-live-session';
+import { PERSONALITY_PRESETS, type TutorPersonality } from './tts-service';
 
 // GA Realtime model name (Aug 2025) — same model string already used by the
 // ephemeral-token voice-chat flow in routes.ts. Override via env for testing
@@ -12,6 +13,31 @@ const OPENAI_REALTIME_URL = 'wss://api.openai.com/v1/realtime';
 // endpoint like Cartesia/ElevenLabs) — verify against
 // https://platform.openai.com/docs/guides/realtime before adding new names.
 export const OPENAI_REALTIME_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'] as const;
+
+/**
+ * OpenAI's Realtime API has no native emotion/personality control — Cartesia's
+ * equivalent is a real API parameter, OpenAI's is a sentence in the model's
+ * instructions. Reuses the same personality/emotion/expressiveness fields Voice
+ * Console already saves for Cartesia (same underlying concept — a tutor's
+ * delivery style — realized differently per provider) and turns them into a
+ * short natural-language delivery instruction appended to the session prompt.
+ */
+export function buildOpenAIVoiceStyleInstruction(
+  personality: string | undefined,
+  emotion: string | undefined,
+  expressiveness: number | undefined,
+): string {
+  const preset = PERSONALITY_PRESETS[(personality as TutorPersonality) || 'warm'] || PERSONALITY_PRESETS.warm;
+  const styleDescriptor = preset.description.split(' - ')[0].toLowerCase();
+  const level = Math.min(5, Math.max(1, expressiveness ?? 3));
+  const intensityWord = level <= 1 ? 'very subtly and understatedly'
+    : level === 2 ? 'subtly'
+    : level === 3 ? 'naturally'
+    : level === 4 ? 'expressively'
+    : 'very expressively, with real warmth and energy';
+  const emotionWord = emotion || preset.baseline;
+  return `Voice delivery style: speak ${styleDescriptor}, ${intensityWord}, with a ${emotionWord} tone.`;
+}
 
 const OUTPUT_SAMPLE_RATE = 24000;
 // OpenAI Realtime's pcm16 format is 24kHz — verify against current docs if OpenAI
@@ -70,7 +96,11 @@ export class OpenAIRealtimeSession {
     private sendWsMessage: (ws: any, message: any, session?: any) => void,
   ) {}
 
-  async start(systemPrompt: string, greetingTrigger?: string): Promise<void> {
+  async start(
+    systemPrompt: string,
+    greetingTrigger?: string,
+    voiceStyle?: { personality?: string; emotion?: string; expressiveness?: number },
+  ): Promise<void> {
     if (this.isStarted) {
       console.warn('[OpenAIRealtime] start() called on already-started session — ignoring');
       return;
@@ -88,7 +118,12 @@ export class OpenAIRealtimeSession {
       ? requestedVoice
       : 'alloy';
 
-    console.log(`[OpenAIRealtime] Opening session — model: ${OPENAI_REALTIME_MODEL}, voice: ${voice}`);
+    const styleInstruction = buildOpenAIVoiceStyleInstruction(
+      voiceStyle?.personality, voiceStyle?.emotion, voiceStyle?.expressiveness,
+    );
+    const instructions = `${systemPrompt}\n\n${styleInstruction}`;
+
+    console.log(`[OpenAIRealtime] Opening session — model: ${OPENAI_REALTIME_MODEL}, voice: ${voice}, style: ${styleInstruction}`);
 
     await new Promise<void>((resolve, reject) => {
       const ws = new WS(`${OPENAI_REALTIME_URL}?model=${encodeURIComponent(OPENAI_REALTIME_MODEL)}`, {
@@ -109,7 +144,7 @@ export class OpenAIRealtimeSession {
           type: 'session.update',
           session: {
             modalities: ['audio', 'text'],
-            instructions: systemPrompt,
+            instructions,
             voice,
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
