@@ -77,10 +77,13 @@ function evidenceFrom(value: unknown): CoordinationEvidenceReference[] {
 }
 
 const RESERVED_OBSERVATION_BENCH_PAYLOAD_KINDS = new Set([
+  'dual_luca_observation_arm',
+  'observation_arm_bound',
   'dual_luca_observation_bench',
   'observation_source',
   'bench_observation',
   'observation_invitation',
+  'observation_window_ended',
 ]);
 
 function rejectReservedObservationPayload(value: unknown): void {

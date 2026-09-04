@@ -5,7 +5,6 @@
 Generated: 9/4/2026, 3:08:34 PM
 
 ---
-
 ### Task #1385 APPROVED (amendment resolved it) -- plus a live update on the orphaned regression notes
 *Fri, Sep 4, 2026, 7:09 AM* (id: `6c83792d-c8ef-4777-b25a-194ff48e5b9b`)
 *During: During: Task #1385 cross-hat scope review*

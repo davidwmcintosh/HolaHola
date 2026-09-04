@@ -452,7 +452,57 @@ export async function appendCoordinationEvent(
         .where(eq(coordinationThreads.id, input.threadId))
         .limit(1);
       if (!thread) throw new CoordinationError('Coordination thread not found', 404, 'thread_not_found');
-      validateLifecycle(thread, input);
+      const [createdEvent] = await tx
+        .select({ payload: coordinationEvents.payload })
+        .from(coordinationEvents)
+        .where(and(
+          eq(coordinationEvents.threadId, thread.id),
+          eq(coordinationEvents.sequence, 1),
+        ))
+        .limit(1);
+      const isObservationBench =
+        (createdEvent?.payload as Record<string, unknown> | undefined)?.kind === 'dual_luca_observation_bench';
+      if (isObservationBench) {
+        const [endedEvent] = await tx
+          .select({ id: coordinationEvents.id })
+          .from(coordinationEvents)
+          .where(and(
+            eq(coordinationEvents.threadId, thread.id),
+            sql`${coordinationEvents.payload}->>'kind' = 'observation_window_ended'`,
+          ))
+          .limit(1);
+        if (endedEvent) {
+          throw new CoordinationError(
+            'Observation window has ended',
+            409,
+            'observation_window_ended',
+          );
+        }
+      }
+      const isNeutralObservationCapture =
+        isObservationBench
+        && input.actor === 'coordination-system'
+        && input.eventType === 'comment'
+        && (input.payload as Record<string, unknown> | undefined)?.kind === 'observation_source';
+      const payloadKind = String((input.payload as Record<string, unknown> | undefined)?.kind ?? '');
+      if (
+        isObservationBench
+        && !isNeutralObservationCapture
+        && new Set([
+          'dual_luca_observation_bench',
+          'observation_source',
+          'bench_observation',
+          'observation_invitation',
+          'observation_window_ended',
+        ]).has(payloadKind)
+      ) {
+        throw new CoordinationError(
+          'Observation bench lifecycle payloads require a dedicated verified route',
+          403,
+          'reserved_observation_payload',
+        );
+      }
+      if (!isNeutralObservationCapture) validateLifecycle(thread, input);
 
       if (input.eventType === 'completed' && (input.evidence?.length ?? 0) === 0) {
         const [priorEvidence] = await tx

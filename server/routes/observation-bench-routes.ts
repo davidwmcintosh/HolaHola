@@ -6,9 +6,14 @@ import {
 } from '../middleware/coordination-auth';
 import {
   addBenchObservation,
+  createObservationBenchArm,
+  endObservationBench,
   getObservationBenchComparison,
   getObservationBenchSourceStream,
   inviteBenchObservation,
+  listActiveObservationSessions,
+  listObservationBenchArms,
+  listObservationBenchDashboard,
   startObservationBench,
   syncObservationBench,
   type ObservationCategory,
@@ -91,6 +96,84 @@ export function registerObservationBenchFounderRoutes(
   app: Application,
   founderMiddleware: RequestHandler[],
 ): void {
+  app.get(
+    '/api/admin/luca/observation-bench-arms',
+    ...founderMiddleware,
+    async (_req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        res.json(await listObservationBenchArms());
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/admin/luca/observation-bench-arms',
+    ...founderMiddleware,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const result = await createObservationBenchArm({
+          idempotencyKey: req.headers['idempotency-key'] as string ?? req.body?.idempotencyKey,
+        });
+        res.status(result.deduplicated ? 200 : 201).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.get(
+    '/api/admin/luca/observation-benches',
+    ...founderMiddleware,
+    async (_req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        res.json(await listObservationBenchDashboard());
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.get(
+    '/api/admin/luca/observation-bench-sessions',
+    ...founderMiddleware,
+    async (_req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        res.json(await listActiveObservationSessions());
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/admin/luca/observation-benches/:threadId/end',
+    ...founderMiddleware,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        res.json(await endObservationBench({ threadId: req.params.threadId }));
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/admin/luca/observation-benches/:threadId/sync',
+    ...founderMiddleware,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        res.json(await syncObservationBench({
+          threadId: req.params.threadId,
+          actor: 'david',
+        }));
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
   app.post(
     '/api/admin/luca/observation-benches',
     ...founderMiddleware,
@@ -98,6 +181,7 @@ export function registerObservationBenchFounderRoutes(
       try {
         const result = await startObservationBench({
           sessionId: req.body?.sessionId,
+          armThreadId: req.body?.armThreadId,
           idempotencyKey: req.headers['idempotency-key'] as string ?? req.body?.idempotencyKey,
         });
         res.status(result.deduplicated ? 200 : 201).json(result);
@@ -116,6 +200,7 @@ export function registerObservationBenchFounderRoutes(
           threadId: req.params.threadId,
           observationEventId: req.body?.observationEventId,
           conversationId: req.body?.conversationId,
+          requestedBy: 'david',
         });
         res.status(result.deduplicated ? 200 : 201).json(result);
       } catch (error) {

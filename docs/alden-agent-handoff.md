@@ -8302,3 +8302,35 @@ source timestamps, and `danielaContextState: not_injected`.
 Daniela's words and intent are never rewritten for bench purposes. TypeScript
 and 17 focused coordination tests pass, including a source-level regression
 that fails if the bench service or route imports/calls Gemini Live injection.
+
+## From Luca [Replit] — September 4, 2026: founder observation panel
+
+The Command Center now has a founder-only Observation tab for the existing
+two-bench system. It lists benches, polls their technical read model every ten
+seconds, and lets David arm/start/end windows and explicitly refresh canonical evidence. Source rows show
+exact ISO timestamps, event metadata, and integrity state while omitting
+canonical source text from the dashboard response.
+
+Both hats are visually attributed as Luca [Replit] and Luca [Claude Code] under
+one Luca identity. Noticed, missed, and cross-hat-improvement observations are
+shown in one sequence-ordered authenticated backchannel, including improvement
+counts and technical-room promotion state. Window, cursor, last event, and
+per-hat connection/replay status come from durable coordination feed cursors;
+event delivery and seen state come from adapter rows and feed acknowledgements.
+Ended windows remain visible as completed comparisons and fail closed for later
+sync, observation, or promotion attempts. Founder promotion is one atomic
+David-authored canonical bench event that cites the original Luca hat,
+eliminating any authorization/relay split that could leave an orphan receipt.
+Promotion remains founder-only and never calls a Daniela context path.
+
+Arming is also durable and founder-authored: one pre-session coordination
+record explicitly arms Luca [Replit] and Luca [Claude Code], then the start
+operation atomically consumes and binds it while creating the bench. Ending a
+window is a David-authored canonical bench event rather than a Luca event
+carrying David's words. Automatic and manual source synchronization append as
+`coordination-system`, never as a fabricated Luca-hat action.
+
+Integrity now fails closed across payload digest, immutable session identity,
+exact source timestamp, and all signed context-lineage metadata. Promotion
+rehydrates the canonical source stream and rejects changed or unavailable
+evidence. TypeScript, the focused integration test, and diff hygiene pass.

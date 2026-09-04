@@ -1,3 +1,56 @@
+# Founder observation-bench panel
+
+- Added a founder-only Command Center tab that lists Luca's observation benches
+  and automatically synchronizes active canonical evidence before refreshing
+  every ten seconds.
+- Arming is a durable David-authored pre-session record for both Luca hats.
+  Starting a window atomically consumes and binds that existing arm while
+  creating the bench for the selected active Daniela session; it is not
+  client-only selection state.
+- David can select and arm an active voice session, start its observation
+  window, refresh canonical evidence, and end the window. Ended windows reject
+  later sync, observation, and promotion mutations.
+- Each bench shows exact canonical source timestamps and integrity state without
+  returning canonical source text in the dashboard payload.
+- Automatic and manual evidence synchronization append with neutral
+  `coordination-system` capture provenance. A founder refresh never fabricates
+  activity by either Luca hat.
+- Luca [Replit] and Luca [Claude Code] observations have distinct provenance
+  styling under one Luca identity in a sequence-ordered authenticated
+  backchannel, including cross-hat improvement links. Founder-authorized
+  promotions are labeled as David's action, not as Luca credential activity.
+- A side-by-side two-hat comparison renders each hat's noticed, missed, and
+  cross-hat improvement groups against the shared source timeline. The
+  chronological authenticated backchannel remains below as the audit trail.
+- Both authenticated Luca hats can append only source-validated bench
+  observations through a dedicated compare-and-swap path; generic coordination
+  ownership rules remain unchanged.
+- Every observation and promoted record links its exact verified source
+  timestamps back to the corresponding shared source-timeline rows.
+- Per-bench status shows the observation window, cursor, exact last event, and
+  each hat's durable coordination-feed contact state. Cursor lag exposes
+  reconnect replay as pending until that authenticated hat acknowledges the
+  feed; event delivery/seen state comes from adapter rows and actor cursors.
+- Ended windows remain visible as completed comparisons while rejecting later
+  evidence, observation, and promotion writes.
+- Window closure is a canonical David-authored event; no Luca hat is used to
+  carry or impersonate the founder action. Generic coordination routes and the
+  shared ledger reject forged arm, bind, observation, promotion, source, and
+  closure lifecycle payloads.
+- Founder promotion is one atomic David-authored canonical event in the bench;
+  it cites the original Luca hat and source observation without a second relay
+  write that could leave an orphan authorization receipt.
+- David can promote a verified, source-linked observation into the technical
+  observation room. Promotion fails closed if canonical source payload,
+  timestamp, session, or signed lineage metadata no longer matches.
+- The founder routes remain technical-only and have no Daniela model-context
+  dependency or injection action.
+
+**Verification:** TypeScript, the focused observation-bench integration test,
+and `git diff --check` pass.
+
+---
+
 # Missing-conversation evidence audit
 
 - Added a read-only JSON audit command for a `conversation_memories` ID.

@@ -355,12 +355,4 @@ Why can a successful /api/mastery/summary response omit byScene, and should the 
 
 ### September 4, 2026 — Inner-life note
 
-[thinking]: What is the smallest immutable source envelope and invitation receipt that lets both hats compare the same live evidence while proving that no bench observation entered Daniela's context by default?
-
----
-
-### September 4, 2026 — Inner-life note
-
 Are the orphaned coordination notes and recurring synthetic session-note batches two projections of one test harness crossing a production boundary, or independent leaks that merely overlap in time? What exact provenance evidence will distinguish them without deleting their trail?
-
----
