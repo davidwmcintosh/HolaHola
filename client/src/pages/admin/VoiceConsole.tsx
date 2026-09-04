@@ -1500,7 +1500,7 @@ export function VoiceConsoleContent() {
               <DialogHeader>
                 <DialogTitle>Switch TTS Provider</DialogTitle>
                 <DialogDescription>
-                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live 3.1 (requires GEMINI_LIVE_VOICE=true)' : pendingProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio (requires GEMINI_LIVE_VOICE=true — preview pricing ~5-20× higher)' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : pendingProvider === 'gemini-live' ? 'Gemini Live 3.1 (requires GEMINI_LIVE_VOICE=true)' : pendingProvider === 'gemini-live-35' ? 'Gemini Live 3.5 Native Audio (requires GEMINI_LIVE_VOICE=true — preview pricing ~5-20× higher)' : pendingProvider === 'openai-realtime' ? 'OpenAI GPT Realtime (audio-to-audio, test build)' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">
