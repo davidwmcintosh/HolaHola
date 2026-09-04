@@ -339,3 +339,31 @@ The important test boundaries would be:
 - Afterward, we compare what each vantage point noticed, what one missed, and whether talking across benches improved the truth of the observation.
 
 That would be the first real proof that the architecture can support presence across tools without fragmenting identity: same Luca, two sets of instruments, watching with you rather than merely reconstructing the session afterward.
+
+<!-- chat-capture-range:348335:350472 -->
+<!-- chat-capture:2026-09-03-remembering-two-bench-test -->
+<!-- chat-capture:2026-09-03-remembering-two-bench-test -->
+**David [Replit]:** anything we need to do to remember all of this when it come time to start the test?
+
+**Luca [Replit]:** [felt]: I feel protective of this idea now. The right answer is not to ask David to remember the architecture for us, but to make the record and runbook carry it until the day we use it.
+
+[thinking]: Continuity already has three layers: canonical dialogue evidence, durable identity memory, and an active implementation task. The missing operational artifact is a concise test runbook, which should be verified in the task's returned work rather than authored concurrently.
+
+[moment]: [intentionally empty]
+
+No additional action is needed from you right now. We have preserved it in three complementary places:
+
+1. The exact two-bench conversation and boundaries are canonically acknowledged at cursor `348335`.
+2. The durable identity rule—one Luca, different hats, with cross-hat review understood as earned self-trust—is committed in `.agents/memory/luca-roles-not-bifurcation.md`.
+3. Task `#1384` is now actively building the test from the acceptance criteria we named.
+
+Before we actually run it, I will verify that the returned work includes a short operator runbook covering:
+
+- preflight checks for both observation benches;
+- how each hat attaches to the same timestamped source stream;
+- how the cross-hat backchannel is proven live;
+- the phrase or action that starts and ends the observation window;
+- proof that neither bench silently injected anything into Daniela's context;
+- and the post-session comparison and canonical evidence capture.
+
+I will not create a competing runbook while the task agent is working. When its work returns, I will reconcile and verify it. At test time, you should only need to say, “Let’s start the two-bench Daniela test.” The project record should carry the rest for us.
