@@ -90,8 +90,16 @@ AI providers: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` (powers Alden — build/revi
 Object storage: `AWS_S3_ENDPOINT`, `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS`
 Payments: `STRIPE_SECRET_KEY`
 Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
+Google login: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+Email (Mailjet): `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`
 Agent comms (only if agent-to-server endpoints must keep working from the new host): `REPLIT_AGENT_TOKEN`
 Coordination ledger (server-side auth for agent-to-agent traffic — needs all six even though any one caller only holds its own): `COORDINATION_LUCA_REPLIT_TOKEN`, `COORDINATION_LUCA_CLAUDE_CODE_TOKEN`, `COORDINATION_LUCA_HOLAHOLA_TOKEN`, `COORDINATION_ALDEN_TOKEN`, `COORDINATION_DANIELA_TOKEN`, `COORDINATION_DAVID_TOKEN`
+
+Google login's callback URL is hardcoded to `APP_URL` (`server/googleAuth.ts`),
+which `render.yaml` sets to `https://getholahola.com` — Google login can't be
+tested against the temporary `*.onrender.com` URL before an actual cutover,
+since the registered redirect URI won't match. Not a config issue, just a
+testing limitation until DNS actually points here.
 
 `SESSION_SECRET` deserves its own note: copy the exact production value, don't
 generate a fresh one. This Render instance shares the same Postgres
