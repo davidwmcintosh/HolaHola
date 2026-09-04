@@ -128,6 +128,21 @@ The database work runs atomically where both records use the shared database tra
 
 No state may report completion while the required linked outcome is absent. A retry after an uncertain response must recover existing records, not duplicate them.
 
+### Reply-delivered, completion-pending recovery
+
+All completion preconditions are validated before first attempting reply delivery. The transaction locks or conditionally updates the coordination thread so a known stale sequence fails before creating a new reply.
+
+If the linked reply is nevertheless already durably delivered and a later completion append loses a sequence race or fails another ledger precondition:
+
+- the delivered reply is preserved and never deleted or hidden;
+- the thread remains incomplete;
+- the operation returns a distinct `delivery_succeeded_completion_pending` conflict with the reply receipt and current thread sequence;
+- callers retry completion using the same operation idempotency key and a refreshed expected sequence;
+- the retry recovers the existing reply and appends at most one completion event;
+- logs and user-facing status say “outcome delivered; completion pending,” never “completed.”
+
+This state is a recoverable partial success, not an atomic rollback claim. The local-database path should make it rare through one transaction; the outbox path must make it explicit and safely retryable.
+
 ## External Replit Task Completion
 
 The repository cannot intercept or change Replit's external `markTaskComplete` implementation.
@@ -162,7 +177,7 @@ The API uses explicit failures:
 - `401`: missing or invalid coordination credential;
 - `403`: actor does not own the parent inbox or communication route;
 - `404`: parent note or causal event does not exist;
-- `409`: idempotency conflict, stale expected sequence, missing linked outcome, or invalid completion precondition;
+- `409`: idempotency conflict, stale expected sequence, missing linked outcome, invalid completion precondition, or `delivery_succeeded_completion_pending`;
 - `503`: ambiguous credential binding or unavailable durable storage.
 
 Failures do not silently downgrade to unlinked note creation or ordinary completion.
@@ -206,6 +221,7 @@ Regression coverage must prove:
 - missing, cross-thread, future, and self-referential causal parents fail;
 - a valid earlier same-thread causal parent succeeds;
 - retries cannot duplicate replies or completion events.
+- a reply-delivered/completion-race result preserves the reply, keeps the thread incomplete, and succeeds on an idempotent retry with a refreshed sequence.
 
 ### External completion procedure
 

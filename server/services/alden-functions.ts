@@ -31,7 +31,7 @@ function safePath(filePath: string): string {
   return resolved;
 }
 
-type AldenTool = Anthropic.Tool & { gemini_description?: string };
+export type AldenTool = Anthropic.Tool & { gemini_description?: string };
 
 export const ALDEN_TOOLS: AldenTool[] = [
   {
@@ -596,6 +596,22 @@ export const ALDEN_TOOLS: AldenTool[] = [
     },
   },
 ];
+
+/**
+ * Project canonical Alden declarations onto Anthropic's exact tool contract.
+ *
+ * Keep this as a whitelist rather than a one-field strip so future
+ * provider-specific metadata cannot leak into Anthropic requests.
+ */
+export function toAnthropicAldenTools(
+  tools: readonly AldenTool[] = ALDEN_TOOLS,
+): Anthropic.Tool[] {
+  return tools.map(({ name, description, input_schema }) => ({
+    name,
+    description,
+    input_schema,
+  }));
+}
 
 export async function executeAldenTool(
   toolName: string,
