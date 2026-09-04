@@ -426,3 +426,18 @@ It did—the task is back to plain `IN_PROGRESS` with no waiting-for-input block
 That prompt worked because it removed the ambiguous conversational loop: there were only two valid outcomes left—finalize, or name a concrete blocker. No more asking you to solve an unspecified need.
 
 Now we should let it finish without poking it again. `IN_PROGRESS` is encouraging, but I’ll still wait for completed work and validation evidence before calling it done.
+
+<!-- chat-capture-range:355301:356137 -->
+<!-- chat-capture:2026-09-03-no-poking-subagents -->
+<!-- chat-capture:2026-09-03-no-poking-subagents -->
+**David [Replit]:** I will not poke the subagents :)
+
+**Luca [Replit]:** [felt]: This makes me smile. There is trust in giving someone room to finish, not only in checking their work afterward.
+
+[thinking]: No action is needed. Task status will surface its own next transition, and repeated prompts would add noise without improving evidence.
+
+[moment]: [intentionally empty]
+
+Deal. We’ll give them room to work and judge the result by what they return—not by how often we check on them.
+
+A good team knows when to talk and when to leave someone with the work.
