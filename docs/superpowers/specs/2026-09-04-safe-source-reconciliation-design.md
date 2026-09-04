@@ -1,7 +1,7 @@
 # Safe Source Reconciliation Design
 
 **Date:** September 4, 2026  
-**Status:** Approved direction; written specification awaiting final review  
+**Status:** Approved for implementation
 **Scope:** GitHub-to-Replit divergence preflight and isolated candidate construction
 
 ## Problem
@@ -254,6 +254,11 @@ resolver:
 Checks that may write to shared Neon are forbidden in this command. Broader
 application eligibility uses the existing candidate validation system and, for
 database-writing tests, a disposable Neon branch.
+
+The implementation invokes pinned local `tsc`/`tsx` binaries with a scrubbed
+environment. It never executes package scripts supplied by the incoming
+candidate, so remote source cannot inherit application credentials through this
+validation boundary.
 
 Immediately before reporting the candidate as eligible:
 

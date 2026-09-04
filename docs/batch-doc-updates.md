@@ -5194,3 +5194,38 @@ rather than normally acknowledged, and continues to later valid mirrors.
 Capture status exposes both queued terminal items and retained exceptional
 receipts. The operator command is
 `server/scripts/resolve-episode-mirror-invalid.ts`.
+
+## Safe Git-only source reconciliation — September 4, 2026
+
+The source-control CLI now supports two deliberately separate operations:
+
+```bash
+npm run source-control:reconcile -- preflight \
+  --local-ref <exact-lowercase-40-character-sha> \
+  --remote origin \
+  --remote-branch main
+
+npm run source-control:reconcile -- candidate \
+  --packet .local/reconciliation-audits/<fingerprint>/preflight.json
+```
+
+Preflight creates only a temporary fetch ref and an immutable local evidence
+packet. Candidate construction requires that canonical packet, the shared
+source-control lease, a clean unchanged primary worktree, and an isolated
+worktree. It can retain only the deterministic namespaced candidate branch; it
+cannot move `main`, push, reset, rebase, force-update, promote, or connect to
+Neon.
+
+The checked-in policy manifest is exact-path only. Append-only records remain
+manual. Episode 33 permits local canonical bytes only after complete
+range-delimited capture-block proof. Database-backed mailbox generation remains
+explicitly unavailable and fails closed. Candidate checks run pinned local
+executables under a scrubbed environment, then a second fetch reports a stale
+remote without recursively merging it.
+
+The focused suite uses temporary real repositories and bare remotes to cover
+input validation, policy errors, ordinary/manual/generated/canonical conflicts,
+missing blobs, packet tampering, lease and dirty-tree stops, stale remotes,
+deterministic replay, validator failure, audit integrity, exact parents, and
+ref/worktree cleanup. The real preflight reported `safe_fast_forward` and made
+no candidate.

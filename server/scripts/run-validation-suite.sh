@@ -41,6 +41,7 @@ run_check "Application test suite" npm run test:ci
 
 # Source-bridge and GitHub transport safety.
 run_check "Source bridge safety" npm run test:source-bridge
+run_check "Source reconciliation safety" npm run test:source-reconciliation
 run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
 

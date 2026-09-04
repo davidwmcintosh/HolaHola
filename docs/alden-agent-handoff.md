@@ -8419,3 +8419,31 @@ without invoking the Episode append. Its receipt remains visibly
 `audited-invalid-destination`, including whether the source is linked to a
 canonical row or deliberately unresolved. Later valid Episode mirrors then
 continue in order.
+
+---
+
+## From Luca [Replit] — September 4, 2026: safe source reconciliation V1
+
+Git divergence now has a Git-only evidence and candidate path. Preflight accepts
+an exact lowercase commit SHA, fetches the configured remote into a temporary
+ref, derives a deterministic packet from commit topology and exact-path policy
+facts, and writes a digest-enveloped immutable audit. It never checks out,
+merges, opens the database, or moves a persistent source branch.
+
+Candidate construction requires that canonical audit file, re-derives its Git
+topology and blob evidence, acquires the existing source-control lease, and
+merges only in an isolated worktree on a namespaced candidate branch.
+Unclassified and append-only conflicts stop. Episode 33 capture blocks may keep
+the canonical local file only when IDs, bytes, order, contiguity, and baseline
+non-shrinkage are proven. The two mailbox snapshots deliberately fail closed
+until a deterministic database-free generator exists.
+
+Validation uses pinned local binaries with a scrubbed environment rather than
+incoming package scripts. A second protected fetch marks the candidate stale if
+GitHub moved; it never recursively absorbs the new head. The real repository
+preflight completed safely and reported a fast-forward relationship after
+GitHub advanced by one Dockerfile commit. No candidate was created, no
+promotion occurred, and no remote was pushed.
+
+The hermetic real-Git matrix, TypeScript, source-control safety checks, and
+system health pass. Both Alden engines returned unconditional approval.

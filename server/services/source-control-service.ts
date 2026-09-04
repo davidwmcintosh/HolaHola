@@ -266,6 +266,20 @@ export class SourceControlService {
       this.recordLocked(sha, actor, operationId, publicationReference));
   }
 
+  /** Narrow lease surface for isolated reconciliation; it grants no Git actions. */
+  async acquireReconciliationLease(): Promise<{ release: () => Promise<void> } | null> {
+    return this.acquireLease();
+  }
+
+  /** Protected Git transport only; reconciliation receives no credential material. */
+  async runReconciliationGit(
+    args: string[],
+    cwd = this.rootDir,
+  ): Promise<{ code: number; stdout: string; stderr: string }> {
+    const result = await this.withSsh((env) => this.runCommand('git', args, { cwd, env }));
+    return { code: result.exitCode, stdout: result.stdout, stderr: result.stderr };
+  }
+
   private resolvePath(configured: string | undefined, fallback: string): string {
     const selected = configured || fallback;
     return isAbsolute(selected) ? selected : resolve(this.rootDir, selected);
