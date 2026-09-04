@@ -40,4 +40,8 @@ COPY --from=build /app/dist ./dist
 # sets PORT automatically, so this EXPOSE is documentation, not a requirement.
 EXPOSE 5000
 
-CMD ["npm", "run", "start"]
+# Not `npm run start`: that script shells out to `cross-env` (Windows-only
+# dev convenience), which is a devDependency the runtime stage deliberately
+# omits. NODE_ENV=production is already set at the image level above, so
+# invoking node directly is both correct and one less process layer.
+CMD ["node", "dist/index.js"]
