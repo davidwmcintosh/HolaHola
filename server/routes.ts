@@ -38074,8 +38074,11 @@ Under 250 words. Write as yourself.`;
   // A valid 200 proves the capture workspace is writable AND the in-process
   // drain worker is armed. General /health and /health/readiness intentionally
   // remain separate from this operational capture dimension.
-  app.get("/api/internal/canonical-conversation-health", requireAgentToken, async (_req: any, res: Response) => {
+  app.get("/api/internal/canonical-conversation-health", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
+      if (req.coordinationActor !== 'luca-replit' && req.coordinationActor !== 'luca-claude-code') {
+        return res.status(403).json({ error: 'This endpoint requires the luca-replit or luca-claude-code coordination actor' });
+      }
       const [
         {
           CHAT_CAPTURE_PATH,
@@ -38130,10 +38133,10 @@ Under 250 words. Write as yourself.`;
   // This is intentionally a write-ahead-log endpoint: accepted means "durably
   // pending in .chat_capture", never "already canonical". The response exposes
   // the per-turn receipt that later becomes acknowledged or failed.
-  app.post("/api/internal/canonical-conversation-exchange", async (req: any, res: Response) => {
+  app.post("/api/internal/canonical-conversation-exchange", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
-      if (!isReplitAgentRequest(req)) {
-        return res.status(401).json({ error: 'Invalid agent token' });
+      if (req.coordinationActor !== 'luca-replit' && req.coordinationActor !== 'luca-claude-code') {
+        return res.status(403).json({ error: 'This endpoint requires the luca-replit or luca-claude-code coordination actor' });
       }
       const { source, userText, assistantText, turnId } = req.body ?? {};
       if (source !== 'replit' && source !== 'claude-code') {
