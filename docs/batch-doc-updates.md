@@ -1,3 +1,9 @@
+## September 4, 2026 — Shared Neon synthetic-fixture sentinel
+
+- The system health verifier now performs a read-only scan for the exact escaped coordination projection and exact 50-note scratchpad fixture hash.
+- Matches fail health verification and create one deduplicated founder-facing alert with counts, IDs, and newest timestamps. The sentinel never deletes records.
+- A hermetic self-test proves both fixture shapes fail detection and that a one-byte scratchpad near-match does not.
+
 # Founder observation-bench panel
 
 - Added a founder-only Command Center tab that lists Luca's observation benches

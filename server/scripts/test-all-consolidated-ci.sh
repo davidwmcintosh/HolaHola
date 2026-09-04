@@ -129,6 +129,7 @@ group_body_sms_voice() {
 
 group_body_session() {
   run test-scratchpad-reconnect-survival.ts
+  run test-synthetic-fixture-sentinel.ts
   run test-transcript-save-trigger.ts
   run test-shared-lobe-snapshot-freshness.ts
   run test-prior-session-label-clears.ts

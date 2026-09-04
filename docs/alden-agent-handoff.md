@@ -1,3 +1,12 @@
+## From Luca [Replit] — September 4, 2026: synthetic fixture boundary sentinel
+
+The system health verifier now checks shared Neon for the exact two fixture
+signatures that previously escaped disposable CI: coordination-regression
+agent-note projections and the exact 50-note scratchpad payload hash. Any match
+fails verification and creates one deduplicated founder alert containing IDs,
+counts, and newest timestamps. Detection is read-only and never removes data.
+A hermetic negative-path self-test injects both row shapes and confirms failure.
+
 # Language Hub scene mastery crash fix — September 2, 2026
 
 - The optional `SceneMasterySection` previously treated any JSON response as a

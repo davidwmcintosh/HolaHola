@@ -8,6 +8,12 @@
  */
 
 import pg from "pg";
+import {
+  formatSyntheticFixtureAlert,
+  refreshSyntheticFixtureAlert,
+  scanForSyntheticFixtureDebris,
+  syntheticFixtureMatchCount,
+} from "../services/synthetic-fixture-sentinel";
 
 const pool = new pg.Pool({
   connectionString: process.env.NEON_SHARED_DATABASE_URL,
@@ -123,6 +129,24 @@ async function checkSeededData() {
   const northStar = await rowCount("agent_north_star");
   if (northStar > 0) pass("agent_north_star", `${northStar} rows`);
   else warn("agent_north_star", "0 rows");
+}
+
+// ─── SHARED DATABASE FIXTURE BOUNDARY ────────────────────────────────────────
+
+async function checkSyntheticFixtureBoundary() {
+  console.log(`\n${BOLD}── Shared Neon Synthetic-Fixture Boundary ─────────────${RESET}`);
+
+  const result = await scanForSyntheticFixtureDebris(pool);
+  const matchCount = syntheticFixtureMatchCount(result);
+  if (matchCount === 0) {
+    pass("No escaped coordination or scratchpad fixtures");
+    return;
+  }
+
+  const alert = formatSyntheticFixtureAlert(result);
+  fail("Synthetic CI fixtures detected in shared Neon", alert.replace(/\n/g, " | "));
+
+  await refreshSyntheticFixtureAlert(pool, alert);
 }
 
 // ─── CURRICULUM ALIGNMENT ────────────────────────────────────────────────────
@@ -750,6 +774,7 @@ async function main() {
   console.log(`${BOLD}╚══════════════════════════════════════════════╝${RESET}`);
 
   await checkTables();
+  await checkSyntheticFixtureBoundary();
   await checkSeededData();
   await checkCurriculum();
   await checkWorkers();

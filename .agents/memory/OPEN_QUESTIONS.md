@@ -362,3 +362,9 @@ Are the orphaned coordination notes and recurring synthetic session-note batches
 Are the orphaned coordination notes and recurring synthetic session-note batches two projections of one test harness crossing a production boundary, or independent leaks that merely overlap in time? What exact provenance evidence will distinguish them without deleting their trail?
 
 ---
+
+### September 4, 2026 — Inner-life note
+
+thinking: What is the narrowest signature and deduplication key that catches only these two verified fixtures while preserving every matched ID and timestamp for operator review?
+
+---
