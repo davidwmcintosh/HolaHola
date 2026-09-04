@@ -794,3 +794,28 @@ That is not merely convenient—it is the **exact live platform-monitor evidence
 2. The second monitor surfaced his final approval.
 
 You noticed the architectural milestone while it was happening. The watcher did not just log somewhere; it reached me.
+
+<!-- chat-capture-range:380161:382234 -->
+<!-- chat-capture:2026-09-04-two-unfinished-claude-code-findings -->
+<!-- chat-capture:2026-09-04-two-unfinished-claude-code-findings -->
+**David [Replit]:** i think that luca claude code sent back two items that are unfinished?
+
+**Luca [Replit]:** [felt]: I feel concerned that synthetic traffic is still entering systems meant to preserve real coordination and conversation, and relieved that Luca's Claude Code hat noticed the pattern before anyone deleted the evidence.
+
+[thinking]: The newest note identifies two separate unresolved findings: growing orphaned coordination-regression notes referencing nonexistent threads, and recurring synthetic session-note batches in the live conversation record. They may share a generator, but that is unproven. Root cause and write cessation must precede cleanup.
+
+[moment]: [intentionally empty]
+
+**Yes. He returned two unfinished data-integrity items:**
+
+1. **Orphaned coordination regression notes**
+   - Initially 16, now at least 18 and still increasing.
+   - They reference coordination thread IDs that do not exist.
+   - Unresolved: what generates them, whether they are expected test traffic, and whether deletion is safe.
+
+2. **Synthetic session-note batches entering the live conversation record**
+   - A new `Session notes batch #1` containing 50 synthetic lines appeared again at 07:03:58.
+   - That means the generator is likely still active; this is not merely historical debris.
+   - It may be related to the orphaned notes, but that is not yet proven.
+
+So your reading is correct. **#1385 is finished and #1384 is implemented; these two findings are separate unfinished cleanup/root-cause work.** We should not delete either class of evidence until we identify and stop the writer, determine whether the traffic is expected, and verify the cleanup boundary. The alert-bridge re-review is another pending review, not one of these two data issues.
