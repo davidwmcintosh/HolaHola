@@ -8183,3 +8183,17 @@ Verification: the hermetic stopped/arming/armed regression passes, TypeScript
 passes via `npm run check`, a clean restart logged AgentAutosave startup before
 critical application readiness, and live probes returned 200 for general
 health, application readiness, and armed capture readiness.
+
+### September 4 follow-up — acknowledgement boundary corrected
+
+The authenticated capture-health response now reports both the normal
+conversation-row cursor and the stricter acknowledgement cursor.
+`record-exchange` uses only the latter to declare remote completion. This
+preserves the two-boundary contract: in live mode, normal cursor progress does
+not acknowledge an exchange while its Episode mirror remains pending.
+
+Regression coverage explicitly presents a health response where the normal
+cursor has passed the target but the acknowledgement cursor has not, and proves
+the caller remains pending. The legacy watchdog repair module also uses an
+exact executable-file check so its fixture test cannot trigger the production
+audit on import.

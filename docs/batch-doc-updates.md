@@ -4978,3 +4978,15 @@ A hermetic regression check proves a writable workspace cannot report capture
 availability while the worker is stopped or arming. The live route check
 asserts the authenticated endpoint exposes only safe armed-state metadata, and
 the system verifier enforces both fail-closed readiness and early startup order.
+
+### Mirror-aware canonical acknowledgement
+
+Remote exchange completion now follows the dedicated acknowledgement cursor,
+not the earlier conversation-row cursor. In live Episode mode this means a
+caller remains pending until the canonical conversation row, DB-first Episode
+projection, Markdown replica, and required re-embedding have all completed.
+Normal DB progress can no longer be reported as full canonical completion.
+
+The legacy watchdog source-identity repair test is now fixture-only: importing
+the repair module cannot execute its database audit, and the test is registered
+in the validation suite.

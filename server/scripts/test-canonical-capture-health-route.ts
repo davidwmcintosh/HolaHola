@@ -30,6 +30,8 @@ if (
   body.capture.worker?.phase !== 'armed' ||
   typeof body.capture.worker?.startedAt !== 'number' ||
   typeof body.capture.worker?.armedAt !== 'number' ||
+  typeof body.capture.cursorByteOffset !== 'number' ||
+  typeof body.capture.acknowledgementCursorByteOffset !== 'number' ||
   typeof body.capture.pendingBytes !== 'number' ||
   typeof body.capture.localDirectoryWritable !== 'boolean' ||
   'workspace' in body ||

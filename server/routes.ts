@@ -38077,7 +38077,12 @@ Under 250 words. Write as yourself.`;
   app.get("/api/internal/canonical-conversation-health", requireAgentToken, async (_req: any, res: Response) => {
     try {
       const [
-        { CHAT_CAPTURE_PATH, CHAT_CAPTURE_CURSOR_PATH, loadChatCaptureCursor },
+        {
+          CHAT_CAPTURE_PATH,
+          CHAT_CAPTURE_CURSOR_PATH,
+          CHAT_CAPTURE_ACK_CURSOR_PATH,
+          loadChatCaptureCursor,
+        },
         { inspectCaptureWorkspace },
         { evaluateCanonicalCaptureHealth, getCanonicalCaptureWorkerReadiness },
         fs,
@@ -38090,6 +38095,7 @@ Under 250 words. Write as yourself.`;
       const workspace = inspectCaptureWorkspace();
       const captureFilePresent = fs.existsSync(CHAT_CAPTURE_PATH);
       const cursor = loadChatCaptureCursor();
+      const acknowledgementCursor = loadChatCaptureCursor(CHAT_CAPTURE_ACK_CURSOR_PATH);
       const captureBytes = captureFilePresent ? fs.statSync(CHAT_CAPTURE_PATH).size : 0;
       const pendingBytes = Math.max(0, captureBytes - cursor.byteOffset);
       const cursorFilePresent = fs.existsSync(CHAT_CAPTURE_CURSOR_PATH);
@@ -38107,6 +38113,7 @@ Under 250 words. Write as yourself.`;
           captureFilePresent,
           cursorFilePresent,
           cursorByteOffset: cursor.byteOffset,
+          acknowledgementCursorByteOffset: acknowledgementCursor.byteOffset,
           pendingBytes,
         },
       });

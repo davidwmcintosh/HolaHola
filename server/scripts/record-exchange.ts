@@ -86,6 +86,7 @@ import { readFileSync, existsSync, statSync, writeFileSync, renameSync, mkdirSyn
 import { basename, dirname, join } from 'path';
 import {
   appendChatCaptureTurn,
+  CHAT_CAPTURE_ACK_CURSOR_PATH,
   CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
   CHAT_CAPTURE_PATH,
@@ -130,7 +131,7 @@ function writeCaptureAcknowledgement(receipt: CaptureAcknowledgement): void {
   });
 }
 
-function readCursorOffset(cursorPath = CHAT_CAPTURE_CURSOR_PATH): number {
+function readCursorOffset(cursorPath = CHAT_CAPTURE_ACK_CURSOR_PATH): number {
   try {
     const parsed = JSON.parse(readFileSync(cursorPath, 'utf-8')) as { byteOffset?: unknown };
     return typeof parsed.byteOffset === 'number' && Number.isFinite(parsed.byteOffset)
@@ -157,7 +158,7 @@ export async function waitForCaptureAcknowledgement(
     pollMs?: number;
   } = {},
 ): Promise<{ cursorOffset: number; waitedMs: number }> {
-  const cursorPath = options.cursorPath ?? CHAT_CAPTURE_CURSOR_PATH;
+  const cursorPath = options.cursorPath ?? CHAT_CAPTURE_ACK_CURSOR_PATH;
   const timeoutMs = options.timeoutMs ?? DEFAULT_ACK_TIMEOUT_MS;
   const pollMs = options.pollMs ?? ACK_POLL_MS;
   const startedAt = Date.now();
@@ -177,6 +178,16 @@ export async function waitForCaptureAcknowledgement(
   }
 
   return { cursorOffset, waitedMs: Date.now() - startedAt };
+}
+
+export function isRemoteCaptureAcknowledged(
+  health: any,
+  targetByteOffset: number,
+): boolean {
+  const acknowledgementCursorByteOffset = health?.capture?.acknowledgementCursorByteOffset;
+  return health?.capture?.worker?.armed === true
+    && typeof acknowledgementCursorByteOffset === 'number'
+    && acknowledgementCursorByteOffset >= targetByteOffset;
 }
 
 function parseAcknowledgementTimeout(args: string[]): number {
@@ -603,11 +614,11 @@ async function runClaudeCodeRemoteCli(
         signal: healthController.signal,
       });
       const health = await healthResponse.json().catch(() => ({}));
-      const cursorByteOffset: number | undefined = health?.capture?.cursorByteOffset;
-      const workerArmed = health?.capture?.worker?.armed === true;
-      if (workerArmed && typeof cursorByteOffset === 'number' && cursorByteOffset >= targetByteOffset) {
+      const acknowledgementCursorByteOffset: number | undefined =
+        health?.capture?.acknowledgementCursorByteOffset;
+      if (isRemoteCaptureAcknowledged(health, targetByteOffset)) {
         console.log(
-          `  ✓ Remote canonical acknowledgement received (${Date.now() - startedAt}ms; cursor=${cursorByteOffset}). ` +
+          `  ✓ Remote canonical acknowledgement received (${Date.now() - startedAt}ms; acknowledgementCursor=${acknowledgementCursorByteOffset}). ` +
           'DB and live episode effects completed on the remote server before this cursor advanced.',
         );
         return;

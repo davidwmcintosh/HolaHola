@@ -17,6 +17,7 @@
 
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
+import { basename } from 'path';
 import { neon } from '@neondatabase/serverless';
 import { CHAT_CAPTURE_PATH } from '../services/transcript-parser';
 
@@ -246,7 +247,8 @@ async function main(): Promise<void> {
   }, null, 2));
 }
 
-const isEntryPoint = process.argv[1]?.includes('repair-preincident-watchdog-source-identity');
+const isEntryPoint =
+  basename(process.argv[1] ?? '') === 'repair-preincident-watchdog-source-identity.ts';
 if (isEntryPoint) {
   main().catch(error => {
     console.error(error);
