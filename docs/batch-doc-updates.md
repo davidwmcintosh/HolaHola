@@ -5227,14 +5227,18 @@ Neon.
 
 The checked-in policy manifest is exact-path only. Append-only records remain
 manual. Episode 33 permits local canonical bytes only after complete
-range-delimited capture-block proof. Database-backed mailbox generation remains
-explicitly unavailable and fails closed. Candidate checks run pinned local
-executables under a scrubbed environment, then a second fetch reports a stale
-remote without recursively merging it.
+range-delimited capture-block proof. Normal mailbox refresh writes canonical
+Git-tracked JSON ledgers and their deterministic Markdown projections together.
+The two exact Luca mailbox paths use a typed in-process proof with no verifier
+process and no database access. Before candidate commit, every configured
+mailbox ledger is strictly parsed from the staged index, required to use its
+canonical JSON bytes, and rendered to bytes that must exactly equal its staged
+Markdown projection. A second fetch still reports a stale remote without
+recursively merging it.
 
 The focused suite uses temporary real repositories and bare remotes to cover
 input validation, policy errors, ordinary/manual/generated/canonical conflicts,
 missing blobs, packet tampering, lease and dirty-tree stops, stale remotes,
-deterministic replay, validator failure, audit integrity, exact parents, and
-ref/worktree cleanup. The real preflight reported `safe_fast_forward` and made
-no candidate.
+stale local pairs, clean auto-merge pair drift, Markdown-conflict/clean-ledger
+drift, validator failure, audit integrity, exact parents, and ref/worktree
+cleanup. The real preflight reported `safe_fast_forward` and made no candidate.

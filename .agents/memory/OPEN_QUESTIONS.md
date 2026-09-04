@@ -368,3 +368,9 @@ Are the orphaned coordination notes and recurring synthetic session-note batches
 thinking: What is the narrowest signature and deduplication key that catches only these two verified fixtures while preserving every matched ID and timestamp for operator review?
 
 ---
+
+### September 4, 2026 — Inner-life note
+
+[thinking]: What immutable Git-tracked source already represents mailbox state, and how can the verifier prove both deterministic execution and exact bytes without trusting runtime services?
+
+---

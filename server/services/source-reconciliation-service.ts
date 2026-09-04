@@ -15,6 +15,7 @@ import {
   type MailboxIdentity,
   parseMailboxLedgerJson,
   renderMailboxMarkdown,
+  serializeMailboxLedger,
 } from './mailbox-ledger';
 
 const execFile = promisify(nodeExecFile);
@@ -212,6 +213,9 @@ export class SourceReconciliationService {
         }
       }
       if (lines((await this.git(['ls-files', '-u'], worktree)).stdout).length) return finish('candidate_conflicts_manual', 'Candidate index has unmerged entries.');
+      if (!(await this.verifyGeneratedPairs(worktree, manifest))) {
+        return finish('protected_path_proof_failed', 'Candidate mailbox ledger/Markdown pair is not canonical and byte-identical.');
+      }
       const timestamp = new Date((parseInt(packet.fingerprint.slice(0, 8), 16) % 2_000_000_000) * 1000).toISOString();
       const committed = await this.git(['-c', 'user.name=source-reconciliation', '-c', 'user.email=source-reconciliation@local.invalid', '-c', 'commit.committerDateIsAuthorDate=true', 'commit', '--no-gpg-sign', '--date', timestamp, '-m', `reconcile candidate ${packet.fingerprint}`], worktree);
       if (committed.code) return finish('protected_path_proof_failed', committed.stderr || 'Candidate commit failed.');
@@ -303,6 +307,30 @@ export class SourceReconciliationService {
     if ((await this.git(['add', '--', path], cwd)).code) return false;
     const staged = await this.git(['show', `:${path}`], cwd);
     return staged.code === 0 && staged.stdout === expected && staged.stdout === localMarkdown.stdout;
+  }
+
+  private async verifyGeneratedPairs(cwd: string, manifest: Manifest): Promise<boolean> {
+    for (const policy of manifest.policies.filter((item) => item.kind === 'generated-local')) {
+      const proof = policy.proof.builtInLedgerProof;
+      if (!proof) return false;
+      try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, policy.path); } catch { return false; }
+      const [ledgerBlob, markdownBlob] = await Promise.all([
+        this.git(['show', `:${proof.ledgerPath}`], cwd),
+        this.git(['show', `:${policy.path}`], cwd),
+      ]);
+      if (ledgerBlob.code || markdownBlob.code) return false;
+      try {
+        const ledger = parseMailboxLedgerJson(ledgerBlob.stdout);
+        if (
+          ledger.mailbox !== proof.mailbox
+          || serializeMailboxLedger(ledger) !== ledgerBlob.stdout
+          || renderMailboxMarkdown(ledger) !== markdownBlob.stdout
+        ) return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
   }
   private async resolveCanonical(cwd: string, packet: ReconciliationPacket, path: string): Promise<boolean> {
     const [local, incoming, base] = await Promise.all([this.git(['show', `${packet.localSha}:${path}`]), this.git(['show', `${packet.remoteSha}:${path}`]), this.git(['show', `${packet.mergeBase}:${path}`])]);

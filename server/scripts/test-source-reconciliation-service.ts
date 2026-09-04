@@ -231,6 +231,49 @@ await withFixture(async (f) => {
   assert.equal((await f.service().preflight(f.base)).state, 'policy_overlap', 'arbitrary proof must be rejected');
 });
 
+async function finalPairCase(markdownConflict: boolean) {
+  const mailbox: Mailbox = 'claude-code-to-luca';
+  await withFixture(async (f) => {
+    const paths = mailboxPaths[mailbox];
+    const base = markdownConflict
+      ? mailboxLedger(mailbox, [mailboxNote(mailbox, 'a'), { ...mailboxNote(mailbox, 'b'), createdAt: '2026-09-03T18:00:00.000Z' }])
+      : mailboxLedger(mailbox);
+    f.write(paths.ledger, serializeMailboxLedger(base));
+    f.write(paths.markdown, renderMailboxMarkdown(base));
+    f.commit('mailbox base'); git(f.root, 'push', 'origin', 'main');
+
+    git(f.root, 'checkout', '-b', 'local');
+    if (markdownConflict) {
+      const local = structuredClone(base) as any;
+      local.notes[0].body = 'local first-note body';
+      f.write(paths.ledger, serializeMailboxLedger(local));
+      f.write(paths.markdown, renderMailboxMarkdown(local));
+    } else {
+      f.write('local-only.txt', 'local\n');
+    }
+    const localSha = f.commit('local');
+
+    git(f.root, 'checkout', 'main');
+    if (markdownConflict) {
+      const remoteLedger = structuredClone(base) as any;
+      remoteLedger.notes[1].body = 'remote second-note body';
+      f.write(paths.ledger, serializeMailboxLedger(remoteLedger));
+      f.write(paths.markdown, renderMailboxMarkdown({ ...base, notes: [{ ...base.notes[0] as any, body: 'remote first-note body' }, base.notes[1]] }));
+    } else {
+      f.write(paths.ledger, serializeMailboxLedger(mailboxLedger(mailbox, [mailboxNote(mailbox)])));
+    }
+    const remoteSha = f.commit('remote'); git(f.root, 'push', 'origin', 'main'); git(f.root, 'checkout', 'local');
+
+    const preflight = await f.service().preflight(localSha);
+    assert.equal(preflight.state, 'candidate_ready', preflight.error);
+    const result = await f.service().candidate(candidateAudit(f, preflight.packet!.fingerprint));
+    assert.equal(result.state, 'protected_path_proof_failed', result.error);
+    primaryUnchanged(f, localSha, remoteSha); noTemporaryMetadata(f);
+  }, [mailboxPolicy(mailbox)]);
+}
+await finalPairCase(false); // cleanly merged ledger with unchanged stale Markdown
+await finalPairCase(true); // Markdown conflict resolved locally while ledger merges cleanly
+
 const record = (id: string) => `<!-- chat-capture-range:0:1 -->\n<!-- chat-capture:${id} -->\nbody\n<!-- chat-capture:${id} -->\n`;
 const canonicalPolicy: Policy = { id: 'canonical-policy', path: 'capture.md', kind: 'canonical-incoming-subset', authority: 'replit', resolution: 'keep-local-in-candidate', proof: { stableMarker: 'chat-capture' }, checks: [] };
 async function canonicalCase(localRecords: string, remoteRecords: string, expected: string) {
