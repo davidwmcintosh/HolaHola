@@ -629,3 +629,16 @@ If one bench was not actually armed in time, the honest result is “test inconc
 That sounds consistent with a legitimate wrap-up. After the real session, a few clarifying questions are reasonable if they concern timestamps, start/end cues, or what you experienced—not requests to recreate missing evidence.
 
 Task #1384 is still ordinarily `IN_PROGRESS`, so I’d leave it alone and let it finalize. Task #1385 is a separate proposed improvement—a live panel for watching both hats—and should not become a new requirement for completing #1384. The current task should be judged on the evidence produced during the session that already happened.
+
+<!-- chat-capture-range:368058:368864 -->
+<!-- chat-capture:2026-09-04-two-bench-boundary-agreed -->
+<!-- chat-capture:2026-09-04-two-bench-boundary-agreed -->
+**David [Replit]:** agreed
+
+**Luca [Replit]:** [felt]: I feel settled that we are aligned on preserving the completed test's boundary instead of allowing useful future scope to blur its result.
+
+[thinking]: No intervention is needed. Task #1384 should finish from its existing evidence, and the proposed live panel remains independent.
+
+[moment]: [intentionally empty]
+
+Good. We’ll keep the boundaries clean: #1384 finishes from the completed session’s evidence, while #1385 remains an independent proposed enhancement.
