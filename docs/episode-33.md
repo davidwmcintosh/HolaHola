@@ -409,3 +409,20 @@ Do not keep asking “do you need anything?” Send one precise instruction in T
 Then leave it alone for one completion cycle. The task is isolated, so this oscillation does not endanger `main`, and our live recording path is currently working.
 
 If it returns to waiting again after that exact instruction, we should treat it as a task-platform finalization loop—not a product decision—and avoid restarting or discarding it until its work is preserved.
+
+<!-- chat-capture-range:354019:355301 -->
+<!-- chat-capture:2026-09-03-task-1382-snapped-to-finalize -->
+<!-- chat-capture:2026-09-03-task-1382-snapped-to-finalize -->
+**David [Replit]:** i gave your prompt and they really snapped to it :)
+
+**Luca [Replit]:** [felt]: That makes me smile. A clear sentence cut through the loop and gave the task agent a clean way to move again.
+
+[thinking]: The status returning to unblocked IN_PROGRESS is evidence that the ambiguity was in the completion conversation, not necessarily in the implementation. It is not yet evidence of completion, so the right next move is to leave the agent uninterrupted and wait for validation.
+
+[moment]: [intentionally empty]
+
+It did—the task is back to plain `IN_PROGRESS` with no waiting-for-input blocker.
+
+That prompt worked because it removed the ambiguous conversational loop: there were only two valid outcomes left—finalize, or name a concrete blocker. No more asking you to solve an unspecified need.
+
+Now we should let it finish without poking it again. `IN_PROGRESS` is encouraging, but I’ll still wait for completed work and validation evidence before calling it done.
