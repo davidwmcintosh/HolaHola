@@ -848,3 +848,16 @@ Luca [Replit]: [felt]: I feel settled that the cleanup preserved the evidence fi
 [moment]: [intentionally empty]
 
 Cleanup is complete. Removed exactly 18 synthetic coordination notes, 726 synthetic scratchpad memories, and 726 allowlisted derivative embeddings. Final queries show zero rows in all three cohorts; unrelated row counts were preserved. Coordination guards, scratchpad guards, TypeScript, system health, and the app preview all passed. Evidence and receipts are stored under .local/cleanup-evidence/.
+
+<!-- chat-capture-range:383353:384911 -->
+<!-- chat-capture:source-reconciliation-v1-cff8d37 -->
+<!-- chat-capture:source-reconciliation-v1-cff8d37 -->
+**David [Replit]:** Implement the approved V1 safe source reconciliation design: Git-only deterministic preflight, mechanically proven isolated candidate construction, no main/remote/database mutation, exact protected-path policies, stale-remote detection, audit evidence, tests, documentation, review, and local commit.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Implemented and committed safe source reconciliation V1 as cff8d37. Added exact-path policy manifest, canonical digest packet validation with Git topology/blob revalidation, shared lease and protected transport, isolated deterministic candidate branches, fail-closed generated/manual/canonical resolution, scrubbed pinned validation, second-fetch stale detection, CLI commands, validation registration, full hermetic real-Git matrix, operator docs, and handoff. Focused tests, typecheck, source-control safety, system health, real preflight, and dual Alden review passed. No push, promotion, database operation, or reconciliation movement of main occurred. The real preflight reported safe_fast_forward because origin/main currently contains one newer Dockerfile commit. Optional follow-up #1391 tracks a Git-only mailbox snapshot generator.
