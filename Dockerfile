@@ -31,10 +31,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npx playwright install chromium
-
+# Carry over the build stage's full node_modules rather than reinstalling
+# with --omit=dev. server/vite.ts statically imports the real `vite` package
+# (for local-dev HMR) at module load time -- ESM imports aren't lazy, so
+# server/index.ts pulls it in even in production even though setupVite() is
+# never called there. `vite` and its plugin chain are devDependencies; a
+# --omit=dev install throws ERR_MODULE_NOT_FOUND at boot. Reusing the proven
+# build-stage node_modules sidesteps chasing each transitively-missing
+# devDependency one at a time.
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+RUN npx playwright install chromium
 
 # The app reads PORT itself (server/index.ts) and defaults to 5000; Render
 # sets PORT automatically, so this EXPOSE is documentation, not a requirement.
