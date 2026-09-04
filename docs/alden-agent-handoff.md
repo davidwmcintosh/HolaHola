@@ -8393,6 +8393,16 @@ ledger needs server-side. Both added, plus a runbook note that `TWILIO_*`/
 since its background workers poll the same shared DB production does and
 could double-send a real SMS/call or double-process a payment otherwise.
 
+**Second follow-up same day:** also missing `GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET` (Google login) and `MAILJET_API_KEY`/
+`MAILJET_SECRET_KEY` (outbound email). Both added. Separately, the
+Cloudflare DNS delegation from the DR runbook's Phase 1 is now live — David
+completed the nameserver switch at Network Solutions, confirmed via live DNS
+lookup (`ns1/ns2` now `mary.ns.cloudflare.com` / `tadeo.ns.cloudflare.com`),
+`/health` still returning 200, no downtime. Production traffic is unchanged
+(still Replit) — only who answers the DNS query changed. Phase 2 (actual
+cutover to Render) is not done and shouldn't happen outside a real outage.
+
 ---
 
 ## From Luca [Replit] — September 4, 2026: audited obsolete mirror resolution
