@@ -9,12 +9,20 @@ import { mkdir, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { SourceControlService } from './source-control-service';
+import {
+  assertMailboxPaths,
+  MAILBOX_FORMATTER_VERSION,
+  type MailboxIdentity,
+  parseMailboxLedgerJson,
+  renderMailboxMarkdown,
+} from './mailbox-ledger';
 
 const execFile = promisify(nodeExecFile);
 const SHA = /^[0-9a-f]{40}$/;
 const LARGE_BLOB = 10 * 1024 * 1024;
 export type ReconciliationState = 'safe_fast_forward' | 'candidate_ready' | 'candidate_conflicts_manual' | 'candidate_stale_remote' | 'protected_path_proof_failed' | 'generated_regeneration_failed' | 'policy_overlap' | 'unclassified_conflict' | 'missing_git_object' | 'history_incomplete' | 'dirty_primary_worktree' | 'lease_contended' | 'transport_failure';
-type Policy = { id: string; path: string; kind: 'generated-local' | 'canonical-incoming-subset' | 'append-only-manual' | 'ordinary'; authority: string; resolution: string; proof: { deterministicVerifier?: string; stableMarker?: string }; checks: string[] };
+type BuiltInLedgerProof = { version: 1; formatterVersion: 1; ledgerPath: string; mailbox: MailboxIdentity };
+type Policy = { id: string; path: string; kind: 'generated-local' | 'canonical-incoming-subset' | 'append-only-manual' | 'ordinary'; authority: string; resolution: string; proof: { builtInLedgerProof?: BuiltInLedgerProof; stableMarker?: string }; checks: string[] };
 type Manifest = { schemaVersion: 1; policies: Policy[] };
 export interface ReconciliationPacket {
   schemaVersion: 1; manifestVersion: 1; manifestDigest: string; fingerprint: string;
@@ -274,13 +282,27 @@ export class SourceReconciliationService {
   }
 
   private async resolveGenerated(cwd: string, packet: ReconciliationPacket, path: string, policy: Policy): Promise<boolean> {
-    const local = await this.git(['show', `${packet.localSha}:${path}`], cwd);
-    if (local.code) return false;
-    await writeFile(join(cwd, path), local.stdout);
+    const proof = policy.proof.builtInLedgerProof;
+    if (!proof) return false;
+    try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, path); } catch { return false; }
+    const [ledgerBlob, localMarkdown] = await Promise.all([
+      this.git(['show', `${packet.localSha}:${proof.ledgerPath}`], cwd),
+      this.git(['show', `${packet.localSha}:${path}`], cwd),
+    ]);
+    if (ledgerBlob.code || localMarkdown.code) return false;
+    let expected: string;
+    try {
+      const ledger = parseMailboxLedgerJson(ledgerBlob.stdout);
+      if (ledger.mailbox !== proof.mailbox) return false;
+      expected = renderMailboxMarkdown(ledger);
+    } catch {
+      return false;
+    }
+    if (expected !== localMarkdown.stdout) return false;
+    await writeFile(join(cwd, path), expected);
     if ((await this.git(['add', '--', path], cwd)).code) return false;
-    // The declared verifier is intentionally restricted to a deterministic file
-    // existence predicate in V1; it does not use filesystem timestamps.
-    return policy.proof.deterministicVerifier === `test -f ${path}` && (await this.git(['diff', '--cached', '--quiet', packet.localSha, '--', path], cwd)).code === 0;
+    const staged = await this.git(['show', `:${path}`], cwd);
+    return staged.code === 0 && staged.stdout === expected && staged.stdout === localMarkdown.stdout;
   }
   private async resolveCanonical(cwd: string, packet: ReconciliationPacket, path: string): Promise<boolean> {
     const [local, incoming, base] = await Promise.all([this.git(['show', `${packet.localSha}:${path}`]), this.git(['show', `${packet.remoteSha}:${path}`]), this.git(['show', `${packet.mergeBase}:${path}`])]);
@@ -317,7 +339,7 @@ export class SourceReconciliationService {
     const seen = new Set<string>();
     for (const policy of manifest.policies) {
       const validKeys = ['id', 'path', 'kind', 'authority', 'resolution', 'proof', 'checks'];
-      if (Object.keys(policy).some((key) => !validKeys.includes(key)) || !/^[a-z0-9-]+$/.test(policy.id || '') || !policy.path || policy.path !== policy.path.normalize('NFC') || policy.path.includes('*') || policy.path.startsWith('/') || policy.path.includes('..') || seen.has(policy.id) || !kinds.has(policy.kind) || !['replit', 'shared'].includes(policy.authority) || !['keep-local-in-candidate', 'manual'].includes(policy.resolution) || !policy.proof || Object.keys(policy.proof).some((key) => key !== 'deterministicVerifier' && key !== 'stableMarker') || !Array.isArray(policy.checks) || policy.checks.some((check) => !['typecheck', 'source-reconciliation'].includes(check))) return 'Policies contain an invalid field, combination, path, or check.';
+      if (Object.keys(policy).some((key) => !validKeys.includes(key)) || !/^[a-z0-9-]+$/.test(policy.id || '') || !policy.path || policy.path !== policy.path.normalize('NFC') || policy.path.includes('*') || policy.path.startsWith('/') || policy.path.includes('..') || seen.has(policy.id) || !kinds.has(policy.kind) || !['replit', 'shared'].includes(policy.authority) || !['keep-local-in-candidate', 'manual'].includes(policy.resolution) || !policy.proof || Object.keys(policy.proof).some((key) => key !== 'builtInLedgerProof' && key !== 'stableMarker') || !Array.isArray(policy.checks) || policy.checks.some((check) => !['typecheck', 'source-reconciliation'].includes(check))) return 'Policies contain an invalid field, combination, path, or check.';
       const exactCombination =
         (policy.kind === 'append-only-manual'
           && policy.authority === 'shared'
@@ -331,8 +353,16 @@ export class SourceReconciliationService {
         || (policy.kind === 'generated-local'
           && policy.authority === 'replit'
           && policy.resolution === 'keep-local-in-candidate'
-          && typeof policy.proof.deterministicVerifier === 'string'
-          && Object.keys(policy.proof).length === 1)
+          && Object.keys(policy.proof).length === 1
+          && (() => {
+            const proof = policy.proof.builtInLedgerProof;
+            if (!proof || typeof proof !== 'object' || Object.keys(proof).length !== 4
+              || Object.keys(proof).some((key) => !['version', 'formatterVersion', 'ledgerPath', 'mailbox'].includes(key))
+              || proof.version !== 1 || proof.formatterVersion !== MAILBOX_FORMATTER_VERSION
+              || typeof proof.ledgerPath !== 'string'
+              || (proof.mailbox !== 'claude-code-to-luca' && proof.mailbox !== 'luca-to-claude-code')) return false;
+            try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, policy.path); return true; } catch { return false; }
+          })())
         || (policy.kind === 'ordinary'
           && policy.resolution === 'keep-local-in-candidate'
           && Object.keys(policy.proof).length === 0);

@@ -3,11 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { SourceReconciliationService } from '../services/source-reconciliation-service';
+import { renderMailboxMarkdown, serializeMailboxLedger } from '../services/mailbox-ledger';
 
-type Policy = { id: string; path: string; kind: 'ordinary' | 'append-only-manual' | 'generated-local' | 'canonical-incoming-subset'; authority: 'replit' | 'shared'; resolution: 'keep-local-in-candidate' | 'manual'; proof: Record<string, string>; checks: string[] };
+type Policy = { id: string; path: string; kind: 'ordinary' | 'append-only-manual' | 'generated-local' | 'canonical-incoming-subset'; authority: 'replit' | 'shared'; resolution: 'keep-local-in-candidate' | 'manual'; proof: Record<string, unknown>; checks: string[] };
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const gitRaw = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const stable = (value: unknown) => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
 const digest = (value: unknown) => createHash('sha256').update(stable(value)).digest('hex');
 const ordinary = (path: string): Policy => ({ id: 'ordinary-policy', path, kind: 'ordinary', authority: 'replit', resolution: 'keep-local-in-candidate', proof: {}, checks: [] });
@@ -15,7 +17,7 @@ const ordinary = (path: string): Policy => ({ id: 'ordinary-policy', path, kind:
 function fixture(policy: Policy[] = []) {
   const root = mkdtempSync(join(tmpdir(), 'source-reconciliation-'));
   const bare = mkdtempSync(join(tmpdir(), 'source-reconciliation-remote-'));
-  const write = (path: string, body: string) => writeFileSync(join(root, path), body);
+  const write = (path: string, body: string) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), body); };
   const commit = (message: string) => { git(root, 'add', '.'); git(root, 'commit', '-m', message); return git(root, 'rev-parse', 'HEAD'); };
   git(root, 'init', '-b', 'main'); git(root, 'config', 'user.name', 'test'); git(root, 'config', 'user.email', 'test@example.invalid');
   writeFileSync(join(root, 'package.json'), '{"type":"module"}\n');
@@ -34,7 +36,7 @@ function fixture(policy: Policy[] = []) {
     rootDir: root, sourceControl,
     run: async (args, cwd = root) => {
       calls.push(args);
-      try { return { code: 0, stdout: git(cwd, ...args), stderr: '' }; }
+      try { return { code: 0, stdout: gitRaw(cwd, ...args), stderr: '' }; }
       catch (error: any) { return { code: 1, stdout: String(error?.stdout || ''), stderr: String(error?.stderr || error?.message || '') }; }
     },
     validateCandidate: async () => { validations += 1; return validator(); },
@@ -142,11 +144,92 @@ await withFixture(async (f) => {
   assert.equal(result.state, 'candidate_conflicts_manual'); primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
 }, [{ id: 'manual-policy', path: 'manual.txt', kind: 'append-only-manual', authority: 'shared', resolution: 'manual', proof: {}, checks: [] }]);
 
+type Mailbox = 'claude-code-to-luca' | 'luca-to-claude-code';
+const mailboxPaths: Record<Mailbox, { markdown: string; ledger: string }> = {
+  'claude-code-to-luca': { markdown: 'docs/claude-code-to-luca.md', ledger: 'docs/mailbox-ledgers/claude-code-to-luca.json' },
+  'luca-to-claude-code': { markdown: 'docs/luca-to-claude-code.md', ledger: 'docs/mailbox-ledgers/luca-to-claude-code.json' },
+};
+const mailboxPolicy = (mailbox: Mailbox, proof: Record<string, unknown> = {
+  builtInLedgerProof: { version: 1, formatterVersion: 1, ledgerPath: mailboxPaths[mailbox].ledger, mailbox },
+}): Policy => ({
+  id: `generated-${mailbox}`,
+  path: mailboxPaths[mailbox].markdown,
+  kind: 'generated-local',
+  authority: 'replit',
+  resolution: 'keep-local-in-candidate',
+  proof,
+  checks: [],
+});
+const mailboxLedger = (mailbox: Mailbox, notes: unknown[] = []) => ({
+  schemaVersion: 1,
+  mailbox,
+  notes,
+});
+const mailboxNote = (mailbox: Mailbox, id = 'note-a') => ({
+  id,
+  fromAgent: mailbox === 'claude-code-to-luca' ? 'luca-claude-code' : 'agent',
+  toAgent: mailbox === 'claude-code-to-luca' ? 'agent' : 'luca-claude-code',
+  subject: 'Proof',
+  body: 'Exact body',
+  sessionLabel: null,
+  createdAt: '2026-09-04T18:00:00.000Z',
+});
+
+async function generatedCase(
+  mailbox: Mailbox,
+  localLedger: string | null,
+  localMarkdown: string,
+  expected: string,
+  policy = mailboxPolicy(mailbox),
+) {
+  await withFixture(async (f) => {
+    const paths = mailboxPaths[mailbox];
+    const base = mailboxLedger(mailbox);
+    f.write(paths.ledger, serializeMailboxLedger(base));
+    f.write(paths.markdown, renderMailboxMarkdown(base));
+    f.commit('mailbox base'); git(f.root, 'push', 'origin', 'main');
+    git(f.root, 'checkout', '-b', 'local');
+    if (localLedger === null) rmSync(join(f.root, paths.ledger));
+    else f.write(paths.ledger, localLedger);
+    f.write(paths.markdown, localMarkdown);
+    git(f.root, 'add', '-A'); git(f.root, 'commit', '-m', 'local mailbox'); const local = git(f.root, 'rev-parse', 'HEAD');
+    git(f.root, 'checkout', 'main');
+    f.write(paths.markdown, '# remote mailbox change\n');
+    const remote = f.commit('remote mailbox'); git(f.root, 'push', 'origin', 'main'); git(f.root, 'checkout', 'local');
+    const preflight = await f.service().preflight(local);
+    assert.equal(preflight.state, 'candidate_ready', preflight.error);
+    const result = await f.service().candidate(candidateAudit(f, preflight.packet!.fingerprint));
+    assert.equal(result.state, expected, result.error);
+    primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+    assert.equal(f.calls.some((args) => args[0] === 'test' || args[0] === 'sh'), false, 'proof must not execute a command');
+  }, [policy]);
+}
+
+for (const mailbox of ['claude-code-to-luca', 'luca-to-claude-code'] as const) {
+  const ledger = mailboxLedger(mailbox, [mailboxNote(mailbox)]);
+  await generatedCase(mailbox, serializeMailboxLedger(ledger), renderMailboxMarkdown(ledger), 'candidate_ready');
+}
+{
+  const mailbox: Mailbox = 'claude-code-to-luca';
+  const valid = mailboxLedger(mailbox, [mailboxNote(mailbox)]);
+  await generatedCase(mailbox, null, renderMailboxMarkdown(valid), 'generated_regeneration_failed');
+  await generatedCase(mailbox, '{not json}\n', renderMailboxMarkdown(valid), 'generated_regeneration_failed');
+  await generatedCase(mailbox, serializeMailboxLedger(valid), '# stale markdown\n', 'generated_regeneration_failed');
+  const reordered = mailboxLedger(mailbox, [mailboxNote(mailbox, 'a'), { ...mailboxNote(mailbox, 'b'), createdAt: '2026-09-05T18:00:00.000Z' }]);
+  await generatedCase(mailbox, JSON.stringify(reordered), renderMailboxMarkdown(valid), 'generated_regeneration_failed');
+  const duplicate = mailboxLedger(mailbox, [mailboxNote(mailbox), mailboxNote(mailbox)]);
+  await generatedCase(mailbox, JSON.stringify(duplicate), renderMailboxMarkdown(valid), 'generated_regeneration_failed');
+}
 await withFixture(async (f) => {
-  const { local, remote } = f.diverge('generated.txt', 'local\n', 'remote\n');
-  const preflight = await f.service().preflight(local); const result = await f.service().candidate(candidateAudit(f, preflight.packet!.fingerprint));
-  assert.equal(result.state, 'generated_regeneration_failed'); primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
-}, [{ id: 'generated-policy', path: 'generated.txt', kind: 'generated-local', authority: 'replit', resolution: 'keep-local-in-candidate', proof: { deterministicVerifier: 'unavailable-git-only' }, checks: [] }]);
+  const invalid = mailboxPolicy('claude-code-to-luca', {
+    builtInLedgerProof: { version: 1, formatterVersion: 1, ledgerPath: 'docs/mailbox-ledgers/luca-to-claude-code.json', mailbox: 'claude-code-to-luca' },
+  });
+  f.write('config/source-reconciliation-policies.json', JSON.stringify({ schemaVersion: 1, policies: [invalid] }));
+  assert.equal((await f.service().preflight(f.base)).state, 'policy_overlap', 'wrong proof path must be rejected');
+  const arbitrary = { ...invalid, proof: { deterministicVerifier: 'test -f docs/claude-code-to-luca.md' } };
+  f.write('config/source-reconciliation-policies.json', JSON.stringify({ schemaVersion: 1, policies: [arbitrary] }));
+  assert.equal((await f.service().preflight(f.base)).state, 'policy_overlap', 'arbitrary proof must be rejected');
+});
 
 const record = (id: string) => `<!-- chat-capture-range:0:1 -->\n<!-- chat-capture:${id} -->\nbody\n<!-- chat-capture:${id} -->\n`;
 const canonicalPolicy: Policy = { id: 'canonical-policy', path: 'capture.md', kind: 'canonical-incoming-subset', authority: 'replit', resolution: 'keep-local-in-candidate', proof: { stableMarker: 'chat-capture' }, checks: [] };

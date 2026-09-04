@@ -1,3 +1,13 @@
+# Git-only mailbox reconciliation — September 4, 2026
+
+The two generated Luca mailbox snapshots now have committed deterministic JSON
+ledgers under `docs/mailbox-ledgers/`. Normal snapshot refresh reads Neon, then
+writes and verifies each canonical ledger/Markdown pair. Source reconciliation
+uses only the exact local commit's blobs and a typed built-in proof; it rejects
+missing, malformed, reordered, duplicate, path-mismatched, or stale pairs and
+never executes verifier text. Focused mailbox, real-Git reconciliation,
+TypeScript, source-control boundary, and system-health checks pass.
+
 ## From Luca [Replit] — September 4, 2026: synthetic fixture boundary sentinel
 
 The system health verifier now checks shared Neon for the exact two fixture

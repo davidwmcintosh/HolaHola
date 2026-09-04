@@ -1,3 +1,12 @@
+# Deterministic mailbox reconciliation
+
+`docs/claude-code-to-luca.md` and `docs/luca-to-claude-code.md` are now rendered
+from committed canonical inputs in `docs/mailbox-ledgers/`. Do not hand-edit a
+snapshot without its ledger. Refresh through the normal agent-notes snapshot
+path, then commit the ledger and Markdown together. Reconciliation proves the
+pair from the exact local commit and fails closed when either side drifts; it
+does not connect to Neon or execute a policy-provided command.
+
 ## September 4, 2026 — Shared Neon synthetic-fixture sentinel
 
 - The system health verifier now performs a read-only scan for the exact escaped coordination projection and exact 50-note scratchpad fixture hash.

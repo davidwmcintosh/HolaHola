@@ -7,7 +7,7 @@
       "kind": "generated-local",
       "authority": "replit",
       "resolution": "keep-local-in-candidate",
-      "proof": { "deterministicVerifier": "unavailable-git-only" },
+      "proof": { "builtInLedgerProof": { "version": 1, "formatterVersion": 1, "ledgerPath": "docs/mailbox-ledgers/claude-code-to-luca.json", "mailbox": "claude-code-to-luca" } },
       "checks": ["typecheck", "source-reconciliation"]
     },
     {
@@ -16,7 +16,7 @@
       "kind": "generated-local",
       "authority": "replit",
       "resolution": "keep-local-in-candidate",
-      "proof": { "deterministicVerifier": "unavailable-git-only" },
+      "proof": { "builtInLedgerProof": { "version": 1, "formatterVersion": 1, "ledgerPath": "docs/mailbox-ledgers/luca-to-claude-code.json", "mailbox": "luca-to-claude-code" } },
       "checks": ["typecheck", "source-reconciliation"]
     },
     {
