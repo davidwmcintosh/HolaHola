@@ -149,6 +149,52 @@ async function main(): Promise<void> {
       incompleteAuditRejected = true;
     }
     assert(incompleteAuditRejected, 'advancing past an invalid destination requires evidence for every source capture');
+    let duplicateEvidenceRejected = false;
+    try {
+      await resolveEpisodeMirrorDestinationInvalid(obsoletePath, {
+        destinationState: 'removed',
+        reason: 'Episode 31 was deliberately removed after sealing',
+        operator: 'ci-operator',
+        evidence: [
+          {
+            captureId: 'obsolete',
+            disposition: 'deliberately-unresolved',
+            reason: 'first contradictory decision',
+          },
+          {
+            captureId: 'obsolete',
+            disposition: 'canonical',
+            canonicalMemoryId: 'fabricated-memory-id',
+          },
+        ],
+        verifyCanonicalMemory: async () => true,
+      }, paths);
+    } catch {
+      duplicateEvidenceRejected = true;
+    }
+    assert(duplicateEvidenceRejected, 'each source capture requires exactly one evidence decision');
+
+    const emptyItem: EpisodeMirrorOutboxItem = {
+      ...obsolete,
+      startCursor: 300,
+      endOffset: 300,
+      appendMarker: '<!-- empty-terminal-evidence-fixture -->',
+      captureIds: [],
+    };
+    const emptyItemPath = enqueueEpisodeMirror(emptyItem, paths);
+    let emptyEvidenceRejected = false;
+    try {
+      await resolveEpisodeMirrorDestinationInvalid(emptyItemPath, {
+        destinationState: 'removed',
+        reason: 'empty evidence fixture',
+        operator: 'ci-operator',
+        evidence: [],
+      }, paths);
+    } catch {
+      emptyEvidenceRejected = true;
+    }
+    assert(emptyEvidenceRejected, 'an item with no source capture IDs cannot use the terminal bypass');
+    rmSync(emptyItemPath, { force: true });
     let fabricatedCanonicalRejected = false;
     try {
       await resolveEpisodeMirrorDestinationInvalid(obsoletePath, {
@@ -223,6 +269,23 @@ async function main(): Promise<void> {
     assert(obsoleteReceipt.status === 'audited-invalid-destination', 'invalid destination receipt remains operator-visible instead of looking acknowledged');
     assert(obsoleteReceipt.evidenceDisposition === 'deliberately-unresolved', 'receipt states whether source was canonical or deliberately unresolved');
     assert(JSON.parse(readFileSync(join(receiptDir, 'later.json'), 'utf8')).status === 'acknowledged', 'later valid receipt is acknowledged normally');
+
+    const firstAuditBytes = readFileSync(resolution.auditPath, 'utf8');
+    const repeatedPath = enqueueEpisodeMirror(obsolete, paths);
+    const laterResolution = await resolveEpisodeMirrorDestinationInvalid(repeatedPath, {
+      destinationState: 'removed',
+      reason: 'independent later operator decision',
+      operator: 'second-ci-operator',
+      evidence: [{
+        captureId: 'obsolete',
+        disposition: 'deliberately-unresolved',
+        reason: 'second resolution keeps the original audit immutable',
+      }],
+      resolvedAtMs: 1_788_500_000_001,
+    }, paths);
+    assert(laterResolution.auditPath !== resolution.auditPath, 'independent resolutions use collision-proof content-addressed audit paths');
+    assert(readFileSync(resolution.auditPath, 'utf8') === firstAuditBytes, 'a later resolution cannot overwrite the earlier audit');
+    rmSync(repeatedPath, { force: true });
 
     const autosaveSource = readFileSync(
       join(process.cwd(), 'server/services/agent-session-autosave.ts'),
