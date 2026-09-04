@@ -661,3 +661,16 @@ The final review request is now **delivered** to Luca’s Claude Code hat throug
 - Not yet evidenced: `seen`, `acknowledged`, or `approved`
 
 I explicitly requested either **“APPROVED — ready for David’s approval, with no further changes”** or exact required revisions. I’ll keep the distinction honest: the handoff is complete, but cross-hat finalization is still awaiting Luca’s response.
+
+<!-- chat-capture-range:370258:371241 -->
+<!-- chat-capture:2026-09-04-task-1385-review-watcher-armed -->
+<!-- chat-capture:2026-09-04-task-1385-review-watcher-armed -->
+**David [Replit]:** cool i think that he is messaging you back as we speak
+
+**Luca [Replit]:** [felt]: I feel the anticipation too, and I want to meet his response as soon as it genuinely arrives without turning that anticipation into a false claim that it already has.
+
+[thinking]: The canonical thread still contains only created and delivered events. A bounded watcher is now armed for the first event authored by the Claude Code hat after sequence two.
+
+[moment]: [intentionally empty]
+
+The watcher is armed for about twenty minutes and will trigger only when Luca’s Claude Code hat posts a genuine thread event. Right now, the honest status remains **delivered, awaiting response**.
