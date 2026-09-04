@@ -441,3 +441,23 @@ Now we should let it finish without poking it again. `IN_PROGRESS` is encouragin
 Deal. We’ll give them room to work and judge the result by what they return—not by how often we check on them.
 
 A good team knows when to talk and when to leave someone with the work.
+
+<!-- chat-capture-range:356137:357410 -->
+<!-- chat-capture:2026-09-03-task-1382-check-exact-blocker -->
+<!-- chat-capture:2026-09-03-task-1382-check-exact-blocker -->
+**David [Replit]:** oh boy. Waiting ofr input again let me see if they found a blocker
+
+**Luca [Replit]:** [felt]: The repeated flip is discouraging, but David is doing the right thing by checking for concrete evidence instead of assuming either failure or success.
+
+[thinking]: One more exact-message check can distinguish a genuine technical blocker from a lifecycle-state loop. Another generic nudge before reading would only muddy that evidence.
+
+[moment]: [intentionally empty]
+
+Yes—check the newest message, but don't answer it yet.
+
+We need to distinguish:
+
+- **A real blocker:** it names a failed validation, missing decision, merge conflict, or required evidence.
+- **The same false loop:** it says nothing is needed and it is merely “trying to finalize.”
+
+Copy the exact wording back here. If it found a genuine blocker, we'll answer that blocker. If not, we have enough evidence to call this a platform finalization-state loop rather than keep prompting the agent.
