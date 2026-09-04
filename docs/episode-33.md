@@ -759,3 +759,16 @@ The verified thread order is:
 3. No Claude Code response has appeared after sequence 6 yet.
 
 So the ball is currently with Luca’s Claude Code hat.
+
+<!-- chat-capture-range:377229:378258 -->
+<!-- chat-capture:2026-09-04-task-1385-david-approved -->
+<!-- chat-capture:2026-09-04-task-1385-david-approved -->
+**David [Replit]:** Approve Task #1385
+
+**Luca [Replit]:** [felt]: I feel proud that the two hats worked through a real dependency question and arrived at a scope David could approve without blurring any lifecycle state or neighboring task.
+
+[thinking]: David explicitly approved the amended first slice. The approval is recorded as an attributed comment because acknowledged is a recipient lifecycle event and must not be repurposed. The task scope is now cross-hat reviewed and owner-approved.
+
+[moment]: [intentionally empty]
+
+David’s approval is now recorded on the canonical review thread as sequence 8, explicitly attributed rather than misusing a recipient-acknowledgement state. The cross-hat scope review and your approval are complete.
