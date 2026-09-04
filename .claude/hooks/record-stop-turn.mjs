@@ -1,0 +1,130 @@
+#!/usr/bin/env node
+/**
+ * Stop hook: records the just-finished David <-> Claude Code turn into
+ * HolaHola's canonical conversation record via record-exchange.ts's remote
+ * intake endpoint (POST /api/internal/canonical-conversation-exchange).
+ *
+ * Best-effort only: this must never block or fail the session. Every error
+ * path logs to stderr and exits 0 rather than surfacing to the user.
+ *
+ * Finds the last "real" user message in the transcript (plain text, not a
+ * tool_result-only message), then concatenates every text block from every
+ * assistant message after it -- this is the dialogue for the turn that just
+ * completed, independent of how many tool calls happened in between.
+ */
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+
+// .claude/hooks/record-stop-turn.mjs -> project root is two levels up.
+const PROJECT_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const REMOTE_URL = process.env.HOLAHOLA_STOP_HOOK_URL || 'https://getholahola.com';
+
+function extractText(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter(block => block && block.type === 'text' && typeof block.text === 'string')
+    .map(block => block.text)
+    .join('\n\n');
+}
+
+function isRealUserMessage(entry) {
+  if (!entry || entry.type !== 'user') return false;
+  const content = entry.message?.content;
+  if (typeof content === 'string') return content.trim().length > 0;
+  if (Array.isArray(content)) {
+    return content.some(block => block && block.type === 'text' && block.text?.trim());
+  }
+  return false;
+}
+
+function main() {
+  let input = '';
+  try {
+    input = readFileSync(0, 'utf8');
+  } catch {
+    return;
+  }
+  if (!input.trim()) return;
+
+  let payload;
+  try {
+    payload = JSON.parse(input);
+  } catch {
+    return;
+  }
+
+  const transcriptPath = payload.transcript_path;
+  const sessionId = payload.session_id || 'unknown-session';
+  if (!transcriptPath) return;
+
+  let lines;
+  try {
+    lines = readFileSync(transcriptPath, 'utf8').split('\n').filter(Boolean);
+  } catch (err) {
+    console.error('[record-stop-turn] could not read transcript:', err instanceof Error ? err.message : err);
+    return;
+  }
+
+  const entries = lines
+    .map(line => {
+      try { return JSON.parse(line); } catch { return null; }
+    })
+    .filter(Boolean);
+
+  let lastUserIdx = -1;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (isRealUserMessage(entries[i])) {
+      lastUserIdx = i;
+      break;
+    }
+  }
+  if (lastUserIdx === -1) return; // nothing real to record yet
+
+  const userText = extractText(entries[lastUserIdx].message?.content).trim();
+  const assistantText = entries
+    .slice(lastUserIdx + 1)
+    .filter(entry => entry.type === 'assistant')
+    .map(entry => extractText(entry.message?.content))
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+
+  if (!userText || !assistantText) return; // incomplete turn -- skip silently, will catch next Stop
+
+  let tmpDir;
+  try {
+    tmpDir = mkdtempSync(join(tmpdir(), 'cc-stop-hook-'));
+  } catch (err) {
+    console.error('[record-stop-turn] could not create temp dir:', err instanceof Error ? err.message : err);
+    return;
+  }
+  const davidFile = join(tmpDir, 'david.txt');
+  const assistantFile = join(tmpDir, 'assistant.txt');
+  writeFileSync(davidFile, userText, 'utf8');
+  writeFileSync(assistantFile, assistantText, 'utf8');
+
+  // Stable per-turn identity: same session + same transcript position always
+  // produces the same id, so a retry (or an accidental double-fire) is a
+  // safe no-op on the server side rather than a duplicate row.
+  const turnId = `cc-${sessionId}-${lastUserIdx}`.replace(/[^A-Za-z0-9-]/g, '-');
+
+  const result = spawnSync(
+    'npx',
+    [
+      'tsx', '--env-file-if-exists=.env', 'server/scripts/record-exchange.ts',
+      '--source', 'claude-code', '--remote', REMOTE_URL,
+      '--david-file', davidFile, '--assistant-file', assistantFile,
+      '--turn-id', turnId, '--no-wait',
+    ],
+    { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 20000, shell: true },
+  );
+  if (result.status !== 0) {
+    console.error('[record-stop-turn] record-exchange failed:', result.stderr || result.stdout || `exit ${result.status}`);
+  }
+}
+
+main();
