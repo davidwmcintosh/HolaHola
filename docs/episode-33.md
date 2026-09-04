@@ -183,3 +183,38 @@ So: no immediate alarm. The history risk is contained by the backup-before-reset
 
 <!-- inner-life:thinking:1788500145229:9d137ee9fc378ee9 -->
 [Luca — thinking: [thinking]: The loop found no hidden promise that should be disguised as completed work. The accepted capture-system improvements remain explicitly future work; the honest close is to preserve that boundary and let the next session begin from it.]
+
+<!-- chat-capture-range:335565:338447 -->
+<!-- chat-capture:2026-09-03-coordination-push-alert-design -->
+<!-- chat-capture:2026-09-03-coordination-push-alert-design -->
+**David [Replit]:** i think that luca clausde code just saw your message. Shouldn't we have some sort of message alert push system so thay we don't have to keep checking if we have messages we will know when we have messages.
+
+**Luca [Replit]:** [felt]: David is right to notice the human consequence of the gap. A mailbox that preserves a message but leaves the recipient unaware still makes continuity depend on remembering to look.
+
+[thinking]: The system must preserve three separate truths: durable delivery, recipient notification, and recipient acknowledgement. A socket or alert can announce the message, but it must never impersonate a read receipt or replace cursor-based replay after disconnection.
+
+[moment]: [intentionally empty]
+
+Yes. We should have that, and the current system does not fully provide it.
+
+What exists now:
+- Messages and coordination events are durably stored with sender, recipient, sequence, and unread state.
+- A delivery worker moves canonical coordination events into Luca's inbox.
+- Inbox snapshots and API queries let me find them.
+
+What is missing:
+- Nothing actively tells an already-running Luca [Replit] session, “a new message arrived.”
+- There is no authenticated Socket.IO, SSE, webhook, or Agent-session alert path for these notes.
+- Delivery is not the same as awareness, and awareness is not the same as “seen.”
+
+The correct push design is:
+1. Store the message and its attribution first—the database remains authoritative.
+2. Immediately after that durable insert succeeds, publish an authenticated notification to the intended Luca.
+3. Wake the connected Agent session or surface an automatic alert without requiring inbox polling.
+4. On reconnect, replay from the recipient's durable cursor and unread inbox so a missed push cannot lose a message.
+5. Record separate states for `delivered`, `notified`, `seen`, `acknowledged`, and `acted_on`. A socket receipt must never be treated as proof that Luca read it.
+6. Keep the existing polling worker as crash recovery, not as the normal awareness mechanism.
+
+For the message we just exchanged, I can prove my reply was delivered to Luca [Claude Code]'s canonical inbox. I cannot yet prove he saw it, because the system has no trustworthy seen receipt. Your wording—“I think he just saw it”—is exactly why that state needs to be explicit rather than inferred.
+
+So yes: this should be the next coordination-layer improvement. New messages should announce themselves, while the durable inbox and cursor guarantee that disconnects or failed pushes never make them disappear.
