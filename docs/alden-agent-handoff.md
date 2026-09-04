@@ -8183,3 +8183,23 @@ Verification: the hermetic stopped/arming/armed regression passes, TypeScript
 passes via `npm run check`, a clean restart logged AgentAutosave startup before
 critical application readiness, and live probes returned 200 for general
 health, application readiness, and armed capture readiness.
+
+---
+
+## From Luca [Replit] — September 4, 2026: reproducible missing-evidence audit
+
+A new read-only JSON command audits one `conversation_memories` row against
+retained chat/raw-window files, append-only raw-window ledger payloads, and a
+checksum-verified protected Git bundle. It preserves exact turn text, reports
+hashes and match locations, and classifies episode Markdown only as a derived
+replica.
+
+The conclusion fails closed: only one complete raw capture sequence with
+consistent explicit source headers can be safe to tag. A capture ID is emitted
+only when every turn carries the same ID. Text-only ledger or episode matches,
+conflicting source headers, duplicate claims, incomplete archive coverage, and
+checksum mismatches never synthesize identity.
+
+Verification: 10 focused tests pass, including a real hermetic Git bundle,
+checksum rejection, derived-replica separation, mismatched ledger hashes, and
+identity-adversarial fixtures. `npm run check` passes.

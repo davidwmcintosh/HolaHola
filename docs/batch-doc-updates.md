@@ -1,3 +1,14 @@
+# Missing-conversation evidence audit
+
+- Added a read-only JSON audit command for a `conversation_memories` ID.
+- It extracts exact dialogue turns, hashes and searches retained chat/raw-window
+  files and append-only raw-window ledger payloads, then verifies and searches
+  the protected reconciliation Git bundle. Archive-skipped diagnostics are
+  explicitly incomplete and cannot support tagging.
+- Raw-source matches are kept separate from derived episode Markdown. The
+  conclusion remains ambiguous unless exactly one full raw capture sequence
+  carries explicit source identity; capture IDs are never synthesized.
+
 # Batch Documentation Updates
 
 ## Session September 2, 2026 — Language Hub scene mastery crash

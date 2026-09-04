@@ -19,6 +19,23 @@ therefore cannot prove source identity or a capture ID.
 
 ## Evidence checked
 
+The same check is now reproducible as a read-only JSON audit:
+
+```bash
+npx tsx scripts/reconciliation-history-object-storage.ts download /tmp/reconciliation-download
+npx tsx server/scripts/audit-missing-conversation-evidence.ts \
+  ae65ed5b-eae5-4680-b1a0-15d6f4db676f \
+  --archive-dir /tmp/reconciliation-download \
+  > /tmp/august-18-evidence-report.json
+```
+
+The command hashes every searched document, verifies the archive manifest,
+bundle, and object graph, and separates `archive-raw`, `retained-capture`, and
+`raw-window-ledger` evidence from `derived-replica` matches. It never edits the
+conversation row. A capture ID is reported only when every turn in one unique
+raw capture sequence carries that exact ID; source identity is never inferred
+from a text-only raw-window or episode match.
+
 - The retained `.local/.chat_capture` file (329,556 bytes; SHA-256
   `a09a24544ead04ad5f265e85ba14122a7aab322d7b505af124bb28e2353aae9e`)
   contains neither exact turn.
