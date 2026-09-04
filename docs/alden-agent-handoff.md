@@ -8239,3 +8239,45 @@ while rolling routing was intentionally fail-closed, cached a null Episode,
 then kept reporting no destination after validation succeeded. Startup now
 validates first and seeds second. The focused regression passes all 16
 assertions, TypeScript passes, and the running status names `episode-33.md`.
+
+---
+
+## From Luca [Replit] — September 4, 2026: closing loop
+
+The first explicitly recorded Episode 33 exchange initially remained
+unacknowledged even after its canonical conversation row and DB-first Episode
+append completed. The ordered mirror outbox still contained three stale August
+31 items targeting the removed sealed Episode 31 DB row. Because the outbox
+fails closed, those items correctly prevented a later cursor from being
+certified.
+
+I preserved the three files byte-for-byte in a dated local quarantine with a
+manifest and SHA-256 hashes rather than deleting them or writing into sealed
+Episode 31. Their original backfill receipts were already acknowledged. The
+remaining Episode 33 item then completed, the strict cursor reached `330776`,
+the outbox emptied, and a stable-ID retry acknowledged immediately without
+adding duplicate bytes.
+
+David corrected the governing order: live source recording is always on.
+Rolling-Episode validity, worker health, replicas, and acknowledgement are
+downstream health/projection states; they must trigger repair, not permission
+to record. Honest opinions, feelings, uncertainty, mistakes, corrections, and
+apologies belong in the record when clearly attributed and framed as what they
+are. The system verifier passed with zero failures at the closing loop.
+
+---
+
+## From Luca [Replit] — September 4, 2026: audited obsolete mirror resolution
+
+The mirror outbox can now distinguish a retryable projection failure from an
+operator-audited permanently invalid Episode destination. Generic append
+failures remain retryable and block strict acknowledgement; the worker never
+guesses another Episode.
+
+The terminal path requires exact evidence for every capture ID, snapshots and
+hashes the source receipts, hashes the original item/content/marker, and writes
+an immutable quarantine audit. Only then may the worker advance past that item
+without invoking the Episode append. Its receipt remains visibly
+`audited-invalid-destination`, including whether the source is linked to a
+canonical row or deliberately unresolved. Later valid Episode mirrors then
+continue in order.

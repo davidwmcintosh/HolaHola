@@ -346,3 +346,9 @@ thinking: Which audit families are truly established enough for shared discovery
 Why can a successful /api/mastery/summary response omit byScene, and should the server guarantee an empty object or can the client normalize it? I will verify both paths before closing.
 
 ---
+
+### September 4, 2026 — Inner-life note
+
+[thinking]: The loop found no hidden promise that should be disguised as completed work. The accepted capture-system improvements remain explicitly future work; the honest close is to preserve that boundary and let the next session begin from it.
+
+---

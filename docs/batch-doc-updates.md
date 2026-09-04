@@ -5015,3 +5015,41 @@ Previously, a valid Episode created after a no-rolling startup could remain
 displayed as “No rolling episode”: the early seed stored a null filename before
 the fail-closed guard was cleared, and every later status refresh reused it.
 The existing seed regression now requires validation-before-seed ordering.
+
+### Episode 33 closing loop and mirror-outbox recovery
+
+The first post-recovery exchange proved the stricter capture boundary was real:
+the normal conversation cursor advanced, but acknowledgement correctly remained
+pending while older ordered mirror items blocked Episode 33. Three stale items
+targeting the deliberately removed sealed Episode 31 row were preserved
+byte-for-byte in a dated local quarantine with a manifest and hashes. Their
+original backfill receipts were already acknowledged; they were not replayed
+into Episode 31.
+
+Once the stale items left the active queue, the Episode 33 mirror completed,
+the acknowledgement cursor reached the exact capture boundary, and retrying
+the stable turn ID wrote no duplicate bytes. Capture status then reported the
+latest explicit turn as canonical.
+
+The resulting architectural direction is explicit: live source recording is
+the invariant. Missing or unhealthy downstream projection must be diagnosed
+and repaired beneath it; it must never silence source capture. Facts, opinions,
+feelings, uncertainty, mistakes, corrections, and apologies all belong in the
+record when their speaker and epistemic status are represented honestly.
+
+### Audited invalid Episode destinations
+
+The ordered Episode mirror outbox now supports an explicit terminal state for a
+removed or sealed destination. It cannot be inferred from an append error:
+an operator must provide a reason and one evidence decision for every source
+capture, identifying either its canonical conversation row or why it remains
+deliberately unresolved.
+
+Resolution preserves the original item, formatted-content and marker hashes,
+source receipt snapshots and hashes, operator identity, and evidence in a
+quarantine audit. The worker advances the strict acknowledgement boundary
+without calling the Episode append, marks affected receipts as audited-invalid
+rather than normally acknowledged, and continues to later valid mirrors.
+Capture status exposes both queued terminal items and retained exceptional
+receipts. The operator command is
+`server/scripts/resolve-episode-mirror-invalid.ts`.
