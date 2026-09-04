@@ -112,6 +112,9 @@ function assertValidTerminalResolution(item: EpisodeMirrorOutboxItem): void {
   const expectedIds = [...new Set(item.captureIds)].sort();
   const evidenceIds = [...new Set(resolution.evidence.map(entry => entry.captureId))].sort();
   if (
+    expectedIds.length === 0 ||
+    item.captureIds.length !== expectedIds.length ||
+    resolution.evidence.length !== expectedIds.length ||
     expectedIds.length !== evidenceIds.length ||
     expectedIds.some((captureId, index) => captureId !== evidenceIds[index])
   ) {
@@ -297,6 +300,9 @@ export async function resolveEpisodeMirrorDestinationInvalid(
     const expectedIds = [...new Set(entry.item.captureIds)].sort();
     const evidenceIds = [...new Set(input.evidence.map(evidence => evidence.captureId))].sort();
     if (
+      expectedIds.length === 0 ||
+      entry.item.captureIds.length !== expectedIds.length ||
+      input.evidence.length !== expectedIds.length ||
       expectedIds.length !== evidenceIds.length ||
       expectedIds.some((captureId, index) => captureId !== evidenceIds[index])
     ) {
@@ -341,17 +347,27 @@ export async function resolveEpisodeMirrorDestinationInvalid(
       sourceReceiptSha256[captureId] = sha256(receiptBytes);
     }
 
+    const resolvedAtMs = input.resolvedAtMs ?? Date.now();
+    const auditIdentity = sha256(JSON.stringify({
+      originalItem: entry.item,
+      sourceReceipts,
+      destinationState: input.destinationState,
+      reason: input.reason.trim(),
+      operator: input.operator.trim(),
+      resolvedAtMs,
+      evidence: input.evidence,
+    }));
     mkdirSync(resolved.quarantineDirectory, { recursive: true });
     const auditPath = join(
       resolved.quarantineDirectory,
-      `${String(entry.item.endOffset).padStart(20, '0')}-${itemKey(entry.item)}-audit.json`,
+      `${String(entry.item.endOffset).padStart(20, '0')}-${itemKey(entry.item)}-${auditIdentity}.json`,
     );
     const resolution: EpisodeMirrorTerminalResolution = {
       kind: 'permanently-invalid-destination',
       destinationState: input.destinationState,
       reason: input.reason.trim(),
       operator: input.operator.trim(),
-      resolvedAtMs: input.resolvedAtMs ?? Date.now(),
+      resolvedAtMs,
       evidence: input.evidence,
       itemSha256: sha256(originalItemBytes(entry.item)),
       formattedContentSha256: sha256(entry.item.formattedContent),
@@ -360,7 +376,14 @@ export async function resolveEpisodeMirrorDestinationInvalid(
       auditPath,
     };
     const audit = { resolution, originalItem: entry.item, sourceReceipts };
-    writeAtomic(auditPath, JSON.stringify(audit, null, 2));
+    const auditBytes = JSON.stringify(audit, null, 2);
+    try {
+      writeFileSync(auditPath, auditBytes, { encoding: 'utf8', flag: 'wx' });
+    } catch (error: any) {
+      if (!existsSync(auditPath) || readFileSync(auditPath, 'utf8') !== auditBytes) {
+        throw new Error(`refusing to overwrite existing episode mirror audit: ${error?.message ?? error}`);
+      }
+    }
     const terminalItem = { ...entry.item, terminalResolution: resolution };
     assertValidTerminalResolution(terminalItem);
     writeAtomic(entry.path, JSON.stringify(terminalItem));
