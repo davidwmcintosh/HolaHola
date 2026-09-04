@@ -4,19 +4,22 @@
  * and receipts must remain pending until that mirror succeeds.
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import {
+  advanceEpisodeMirrorAcknowledgement,
   enqueueEpisodeMirror,
   listEpisodeMirrorOutbox,
   processEpisodeMirrorOutbox,
+  resolveEpisodeMirrorDestinationInvalid,
   type EpisodeMirrorOutboxItem,
 } from '../services/episode-mirror-outbox';
 import { saveChatCaptureCursor } from '../services/transcript-parser';
 import {
   settleCanonicalCaptureReceiptsByTurnId,
+  settleCanonicalCaptureReceiptsForInvalidDestination,
   writeCanonicalCaptureReceipt,
 } from '../services/canonical-conversation-capture';
 
@@ -34,9 +37,10 @@ async function main(): Promise<void> {
   const projectionCursorPath = join(root, 'projection-cursor.json');
   const receiptDir = join(root, 'receipts');
   const latestPath = join(root, 'latest-receipt.json');
+  const quarantineDirectory = join(root, 'quarantine');
   mkdirSync(root, { recursive: true });
 
-  const paths = { directory, acknowledgementCursorPath };
+  const paths = { directory, acknowledgementCursorPath, receiptDirectory: receiptDir, quarantineDirectory };
   const receiptPaths = { receiptDir, latestPath, cursorPath: acknowledgementCursorPath };
   const first: EpisodeMirrorOutboxItem = {
     startCursor: 0,
@@ -103,6 +107,199 @@ async function main(): Promise<void> {
     assert(JSON.parse(readFileSync(join(receiptDir, 'first.json'), 'utf8')).status === 'acknowledged', 'first receipt settles after its mirror succeeds');
     assert(JSON.parse(readFileSync(join(receiptDir, 'second.json'), 'utf8')).status === 'acknowledged', 'later receipt settles only after its mirror succeeds');
     assert(listEpisodeMirrorOutbox(paths).length === 0, 'completed mirror items are removed');
+
+    const obsolete: EpisodeMirrorOutboxItem = {
+      ...first,
+      liveEpisode: 'episode-31.md',
+      formattedContent: '**David [Replit]:** preserved obsolete source',
+      appendMarker: '<!-- chat-capture-range:200:300 -->',
+      startCursor: 200,
+      endOffset: 300,
+      captureIds: ['obsolete'],
+    };
+    const later: EpisodeMirrorOutboxItem = {
+      ...second,
+      liveEpisode: 'episode-33.md',
+      formattedContent: '**David [Replit]:** later valid source',
+      appendMarker: '<!-- chat-capture-range:300:400 -->',
+      startCursor: 300,
+      endOffset: 400,
+      captureIds: ['later'],
+    };
+    const obsoletePath = enqueueEpisodeMirror(obsolete, paths);
+    enqueueEpisodeMirror(later, paths);
+    for (const [turnId, targetByteOffset] of [['obsolete', 300], ['later', 400]] as const) {
+      writeCanonicalCaptureReceipt({
+        turnId,
+        targetByteOffset,
+        createdAtMs: Date.now(),
+        source: 'replit',
+        status: 'pending',
+      }, receiptPaths);
+    }
+    let incompleteAuditRejected = false;
+    try {
+      await resolveEpisodeMirrorDestinationInvalid(obsoletePath, {
+        destinationState: 'removed',
+        reason: 'Episode 31 was deliberately removed after sealing',
+        operator: 'ci-operator',
+        evidence: [],
+      }, paths);
+    } catch {
+      incompleteAuditRejected = true;
+    }
+    assert(incompleteAuditRejected, 'advancing past an invalid destination requires evidence for every source capture');
+    let fabricatedCanonicalRejected = false;
+    try {
+      await resolveEpisodeMirrorDestinationInvalid(obsoletePath, {
+        destinationState: 'removed',
+        reason: 'Episode 31 was deliberately removed after sealing',
+        operator: 'ci-operator',
+        evidence: [{
+          captureId: 'obsolete',
+          disposition: 'canonical',
+          canonicalMemoryId: 'fabricated-memory-id',
+        }],
+        verifyCanonicalMemory: async () => false,
+      }, paths);
+    } catch {
+      fabricatedCanonicalRejected = true;
+    }
+    assert(fabricatedCanonicalRejected, 'fabricated canonical-memory evidence cannot terminally resolve an item');
+
+    const resolution = await resolveEpisodeMirrorDestinationInvalid(obsoletePath, {
+      destinationState: 'removed',
+      reason: 'Episode 31 was deliberately removed after sealing',
+      operator: 'ci-operator',
+      evidence: [{
+        captureId: 'obsolete',
+        disposition: 'deliberately-unresolved',
+        reason: 'source receipt preserved; canonical destination intentionally left unresolved',
+      }],
+      resolvedAtMs: 1_788_500_000_000,
+    }, paths);
+    assert(existsSync(resolution.auditPath), 'invalid item audit is retained outside the active queue');
+    const auditBytes = readFileSync(resolution.auditPath, 'utf8');
+    assert(auditBytes.includes('sourceReceiptSha256') && auditBytes.includes('formattedContentSha256'), 'audit preserves source receipts and content hashes');
+    const terminalItemBytes = readFileSync(obsoletePath, 'utf8');
+    const tamperedTerminalItem = JSON.parse(terminalItemBytes);
+    tamperedTerminalItem.terminalResolution.evidence[0].disposition = 'forged';
+    writeFileSync(obsoletePath, JSON.stringify(tamperedTerminalItem), 'utf8');
+    let persistedTamperingRejected = false;
+    try {
+      listEpisodeMirrorOutbox(paths);
+    } catch {
+      persistedTamperingRejected = true;
+    }
+    assert(persistedTamperingRejected, 'persisted terminal evidence tampering fails closed before acknowledgement');
+    assert(JSON.parse(readFileSync(acknowledgementCursorPath, 'utf8')).byteOffset === 200, 'tampered terminal item cannot move the acknowledgement cursor');
+    writeFileSync(obsoletePath, terminalItemBytes, 'utf8');
+
+    const modifiedEpisodes: string[] = [];
+    const drained = await processEpisodeMirrorOutbox(async item => {
+      if (item.terminalResolution) {
+        const nextOffset = advanceEpisodeMirrorAcknowledgement(item, paths);
+        settleCanonicalCaptureReceiptsForInvalidDestination(
+          item.terminalResolution.evidence.map(evidence => ({
+            turnId: evidence.captureId,
+            evidenceDisposition: evidence.disposition,
+          })),
+          nextOffset,
+          item.terminalResolution.auditPath,
+          item.terminalResolution.reason,
+          receiptPaths,
+        );
+        return true;
+      }
+      modifiedEpisodes.push(item.liveEpisode);
+      const nextOffset = advanceEpisodeMirrorAcknowledgement(item, paths);
+      settleCanonicalCaptureReceiptsByTurnId(item.captureIds, nextOffset, receiptPaths);
+      return true;
+    }, paths);
+    assert(drained.processed === 2 && drained.pending === 0, 'audited invalid head no longer blocks a later valid mirror');
+    assert(!modifiedEpisodes.includes('episode-31.md'), 'removed or sealed episode destination is never modified');
+    assert(modifiedEpisodes.join(',') === 'episode-33.md', 'later valid mirror completes after audited resolution');
+    const obsoleteReceipt = JSON.parse(readFileSync(join(receiptDir, 'obsolete.json'), 'utf8'));
+    assert(obsoleteReceipt.status === 'audited-invalid-destination', 'invalid destination receipt remains operator-visible instead of looking acknowledged');
+    assert(obsoleteReceipt.evidenceDisposition === 'deliberately-unresolved', 'receipt states whether source was canonical or deliberately unresolved');
+    assert(JSON.parse(readFileSync(join(receiptDir, 'later.json'), 'utf8')).status === 'acknowledged', 'later valid receipt is acknowledged normally');
+
+    const autosaveSource = readFileSync(
+      join(process.cwd(), 'server/services/agent-session-autosave.ts'),
+      'utf8',
+    );
+    const normalAppendIndex = autosaveSource.indexOf('const episodeOk = await appendInnerLifeToEpisodeDb');
+    const failedAppendGuardIndex = autosaveSource.indexOf('if (!episodeOk) return false;', normalAppendIndex);
+    const normalAdvanceIndex = autosaveSource.indexOf(
+      'const acknowledgementOffset = advanceEpisodeMirrorAcknowledgement(item);',
+      failedAppendGuardIndex,
+    );
+    assert(
+      normalAppendIndex !== -1 &&
+      failedAppendGuardIndex > normalAppendIndex &&
+      normalAdvanceIndex > failedAppendGuardIndex,
+      'production worker advances normal acknowledgement only after episode append success',
+    );
+
+    const stale: EpisodeMirrorOutboxItem = {
+      ...later,
+      startCursor: 350,
+      endOffset: 450,
+      appendMarker: '<!-- chat-capture-range:350:450 -->',
+      captureIds: ['stale'],
+    };
+    const stalePath = enqueueEpisodeMirror(stale, paths);
+    saveChatCaptureCursor({ byteOffset: 500, lastSavedTurnFingerprint: 'newer' }, acknowledgementCursorPath);
+    const monotonicOffset = advanceEpisodeMirrorAcknowledgement(stale, paths);
+    assert(monotonicOffset === 500, 'stale outbox replay cannot move the acknowledgement cursor backward');
+    assert(JSON.parse(readFileSync(acknowledgementCursorPath, 'utf8')).lastSavedTurnFingerprint === 'newer', 'stale replay preserves the newer acknowledgement fingerprint');
+    rmSync(stalePath, { force: true });
+
+    const raceItem: EpisodeMirrorOutboxItem = {
+      ...later,
+      startCursor: 500,
+      endOffset: 600,
+      appendMarker: '<!-- chat-capture-range:500:600 -->',
+      captureIds: ['race'],
+    };
+    const racePath = enqueueEpisodeMirror(raceItem, paths);
+    writeCanonicalCaptureReceipt({
+      turnId: 'race',
+      targetByteOffset: 600,
+      createdAtMs: Date.now(),
+      source: 'replit',
+      status: 'pending',
+    }, receiptPaths);
+    let releaseProcessor!: () => void;
+    const processorEntered = new Promise<void>(resolve => { releaseProcessor = resolve; });
+    let signalEntered!: () => void;
+    const entered = new Promise<void>(resolve => { signalEntered = resolve; });
+    const inFlightDrain = processEpisodeMirrorOutbox(async () => {
+      signalEntered();
+      await processorEntered;
+      return false;
+    }, paths);
+    await entered;
+    let concurrentResolutionRejected = false;
+    try {
+      await resolveEpisodeMirrorDestinationInvalid(racePath, {
+        destinationState: 'sealed',
+        reason: 'race test',
+        operator: 'ci-operator',
+        evidence: [{
+          captureId: 'race',
+          disposition: 'deliberately-unresolved',
+          reason: 'race fixture',
+        }],
+      }, paths);
+    } catch {
+      concurrentResolutionRejected = true;
+    }
+    releaseProcessor();
+    await inFlightDrain;
+    assert(concurrentResolutionRejected, 'resolver cannot race an in-flight mirror append');
+    assert(!listEpisodeMirrorOutbox(paths).find(entry => entry.path === racePath)?.item.terminalResolution, 'failed concurrent resolution cannot resurrect or rewrite the in-flight item');
+    rmSync(racePath, { force: true });
 
     writeFileSync(join(directory, '00000000000000000300-corrupt.json'), '{', 'utf8');
     let malformedFailedClosed = false;

@@ -15,4 +15,9 @@ mirror retry would instead lose the episode projection.
 
 **How to apply:** Persist an idempotent episode-mirror outbox item before
 advancing canonical progress. Advance acknowledgement only after ordered mirror
-success; malformed or unknown outbox boundaries fail closed.
+success. The only exception is an explicitly audited permanently invalid
+destination: every source capture must be linked to its canonical row or named
+as deliberately unresolved, and the original item, receipts, hashes, reason,
+and operator must remain independently verifiable. Never infer this state from
+a retry failure or retarget the item. Malformed, unaudited, or tampered
+boundaries fail closed.
