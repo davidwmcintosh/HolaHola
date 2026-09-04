@@ -8197,3 +8197,23 @@ cursor has passed the target but the acknowledgement cursor has not, and proves
 the caller remains pending. The legacy watchdog repair module also uses an
 exact executable-file check so its fixture test cannot trigger the production
 audit on import.
+
+---
+
+## From Luca [Replit] — September 4, 2026: reproducible missing-evidence audit
+
+A new read-only JSON command audits one `conversation_memories` row against
+retained chat/raw-window files, append-only raw-window ledger payloads, and a
+checksum-verified protected Git bundle. It preserves exact turn text, reports
+hashes and match locations, and classifies episode Markdown only as a derived
+replica.
+
+The conclusion fails closed: only one complete raw capture sequence with
+consistent explicit source headers can be safe to tag. A capture ID is emitted
+only when every turn carries the same ID. Text-only ledger or episode matches,
+conflicting source headers, duplicate claims, incomplete archive coverage, and
+checksum mismatches never synthesize identity.
+
+Verification: 10 focused tests pass, including a real hermetic Git bundle,
+checksum rejection, derived-replica separation, mismatched ledger hashes, and
+identity-adversarial fixtures. `npm run check` passes.
