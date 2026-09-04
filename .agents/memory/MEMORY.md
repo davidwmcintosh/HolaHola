@@ -139,6 +139,7 @@
 - [Raw-window evidence boundary](raw-window-audit-boundary.md) — DB-first raw evidence stays separate from attributed dialogue; status reports unresolved or incomplete projections.
 - [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
+- [Disposable database test boundary](disposable-database-test-boundary.md) — DB-writing regression tests require a verified job-local database; cleanup is never sufficient protection for shared Neon.
 - [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
 - [Source bridge supervision](source-bridge-supervision.md) — supervisor heartbeat and durable alert distinguish a live retry from a dead bridge child.
 - [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.

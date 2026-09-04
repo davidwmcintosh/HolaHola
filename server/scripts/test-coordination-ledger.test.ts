@@ -21,13 +21,17 @@ import {
   getCoordinationFeedCursor,
   listCoordinationFeed,
 } from '../services/coordination-ledger-service';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 
 const runId = randomUUID();
 const keys = (action: string) => `coordination-test:${runId}:${action}`;
+const hasIsolatedCiDatabase = Boolean(getVerifiedCiDatabaseUrl());
+const databaseTest = hasIsolatedCiDatabase ? test : test.skip;
 let threadId: string | null = null;
 let createdEventId: string | null = null;
 
 after(async () => {
+  if (!hasIsolatedCiDatabase) return;
   const db = getSharedDb();
   if (createdEventId) {
     await db.delete(agentNotes)
@@ -67,7 +71,7 @@ test('coordination auth derives actors and fails closed on ambiguous tokens', ()
   });
 });
 
-test('canonical coordination lifecycle is ordered, idempotent, and adapter-backed', async () => {
+databaseTest('canonical coordination lifecycle is ordered, idempotent, and adapter-backed', async () => {
   const created = await createCoordinationThread({
     actor: 'luca-replit',
     intendedRecipient: 'luca-claude-code',
@@ -248,7 +252,7 @@ test('canonical coordination lifecycle is ordered, idempotent, and adapter-backe
   assert.deepEqual(ownEvents.map((item) => item.event.sequence), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
-test('Alden cannot reassign work after another actor owns it', async () => {
+databaseTest('Alden cannot reassign work after another actor owns it', async () => {
   const created = await createCoordinationThread({
     actor: 'luca-replit',
     intendedRecipient: 'alden',
@@ -298,7 +302,7 @@ test('Alden cannot reassign work after another actor owns it', async () => {
   await getSharedDb().delete(coordinationThreads).where(eq(coordinationThreads.id, created.thread.id));
 });
 
-test('feed acknowledgement is durable, actor-scoped, monotonic, and separate from lifecycle state', async () => {
+databaseTest('feed acknowledgement is durable, actor-scoped, monotonic, and separate from lifecycle state', async () => {
   const db = getSharedDb();
   const actors = ['david', 'daniela'] as const;
   const originalCursors = await db

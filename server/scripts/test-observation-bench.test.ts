@@ -10,6 +10,7 @@ import {
   voiceSessions,
 } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
   addBenchObservation,
   getObservationBenchComparison,
@@ -20,12 +21,15 @@ import {
 } from '../services/observation-bench-service';
 
 const runId = randomUUID();
+const hasIsolatedCiDatabase = Boolean(getVerifiedCiDatabaseUrl());
+const databaseTest = hasIsolatedCiDatabase ? test : test.skip;
 const conversationId = randomUUID();
 const userId = '49847136';
 let threadId: string | null = null;
 let sessionId: string | null = null;
 
 after(async () => {
+  if (!hasIsolatedCiDatabase) return;
   const db = getSharedDb();
   if (threadId) await db.delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
   if (sessionId) await db.delete(voicePipelineEvents).where(eq(voicePipelineEvents.sessionId, sessionId));
@@ -34,7 +38,7 @@ after(async () => {
   await closeDbConnections();
 });
 
-test('one Luca receives identical evidence at both benches and promotes observations without injecting Daniela', async () => {
+databaseTest('one Luca receives identical evidence at both benches and promotes observations without injecting Daniela', async () => {
   const db = getSharedDb();
   await db.insert(conversations).values({
     id: conversationId,

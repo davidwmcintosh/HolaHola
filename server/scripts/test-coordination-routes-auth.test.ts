@@ -10,6 +10,7 @@ import {
   coordinationThreads,
 } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import { registerCoordinationRoutes } from '../routes/coordination-routes';
 
 const TOKENS = {
@@ -25,6 +26,8 @@ const TOKEN_ENVIRONMENT = {
 } as const;
 
 const testPrefix = `coordination-route-auth-${Date.now()}`;
+const hasIsolatedCiDatabase = Boolean(getVerifiedCiDatabaseUrl());
+const databaseTest = hasIsolatedCiDatabase ? test : test.skip;
 const createKey = `${testPrefix}-create`;
 const forbiddenKeys = [
   `${testPrefix}-hola-accept`,
@@ -168,6 +171,7 @@ async function get(
 }
 
 before(async () => {
+  if (!hasIsolatedCiDatabase) return;
   for (const [name, value] of Object.entries(TOKEN_ENVIRONMENT)) {
     previousEnvironment.set(name, process.env[name]);
     process.env[name] = value;
@@ -203,6 +207,7 @@ before(async () => {
 
 
 after(async () => {
+  if (!hasIsolatedCiDatabase) return;
   await stopServer();
   if (threadId) {
     await getSharedDb().delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
@@ -214,7 +219,7 @@ after(async () => {
   }
 });
 
-test('dedicated actor credentials cannot bypass route-level mutation permissions', async () => {
+databaseTest('dedicated actor credentials cannot bypass route-level mutation permissions', async () => {
   const route = `/api/coordination/threads/${encodeURIComponent(threadId)}`;
 
   const attempts = [
@@ -297,7 +302,7 @@ test('dedicated actor credentials cannot bypass route-level mutation permissions
   );
 });
 
-test('unauthenticated feed acknowledgements cannot create or mutate cursors', async () => {
+databaseTest('unauthenticated feed acknowledgements cannot create or mutate cursors', async () => {
   const db = getSharedDb();
   const requestedActor = 'alden' as const;
   const [originalCursor] = await db
@@ -331,7 +336,7 @@ test('unauthenticated feed acknowledgements cannot create or mutate cursors', as
   }
 });
 
-test('unauthenticated feed reads cannot expose coordination data', async () => {
+databaseTest('unauthenticated feed reads cannot expose coordination data', async () => {
   const attempts = [
     { label: 'missing token', token: undefined },
     { label: 'invalid token', token: 'invalid-coordination-token' },
@@ -351,7 +356,7 @@ test('unauthenticated feed reads cannot expose coordination data', async () => {
   }
 });
 
-test('unauthenticated single-thread reads cannot expose coordination data', async () => {
+databaseTest('unauthenticated single-thread reads cannot expose coordination data', async () => {
   const attempts = [
     { label: 'missing token', token: undefined },
     { label: 'invalid token', token: 'invalid-coordination-token' },
@@ -372,7 +377,7 @@ test('unauthenticated single-thread reads cannot expose coordination data', asyn
   }
 });
 
-test('unauthenticated operations reads cannot expose the coordination catalogue', async () => {
+databaseTest('unauthenticated operations reads cannot expose the coordination catalogue', async () => {
   const attempts = [
     { label: 'missing token', token: undefined },
     { label: 'invalid token', token: 'invalid-coordination-token' },
@@ -394,7 +399,7 @@ test('unauthenticated operations reads cannot expose the coordination catalogue'
   }
 });
 
-test('authenticated feed acknowledgements stay actor-scoped and monotonic', async () => {
+databaseTest('authenticated feed acknowledgements stay actor-scoped and monotonic', async () => {
   const db = getSharedDb();
   const actors = ['luca-holahola', 'alden'] as const;
   const originalCursors = await db
@@ -502,7 +507,7 @@ test('authenticated feed acknowledgements stay actor-scoped and monotonic', asyn
   }
 });
 
-test('generic coordination routes reject every reserved observation-bench payload kind', async () => {
+databaseTest('generic coordination routes reject every reserved observation-bench payload kind', async () => {
   const app = express();
   app.use(express.json());
   registerCoordinationRoutes(app);
