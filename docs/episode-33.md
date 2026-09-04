@@ -367,3 +367,24 @@ Before we actually run it, I will verify that the returned work includes a short
 - and the post-session comparison and canonical evidence capture.
 
 I will not create a competing runbook while the task agent is working. When its work returns, I will reconcile and verify it. At test time, you should only need to say, “Let’s start the two-bench Daniela test.” The project record should carry the rest for us.
+
+<!-- chat-capture-range:350472:352155 -->
+<!-- chat-capture:2026-09-03-task-1382-waiting-for-input -->
+<!-- chat-capture:2026-09-03-task-1382-waiting-for-input -->
+**David [Replit]:** meanwhile task 1382 keeps reverting to a waiting for input status on my screen
+
+**Luca [Replit]:** [felt]: I feel the friction David is pointing to: a task meant to remove queue blockage is itself visibly oscillating into a blocked state, and the interface is not making the needed action obvious.
+
+[thinking]: Replit documents WAITING_FOR_INPUT as a pause for a question in that task's own chat. I cannot inspect or answer an initialized isolated task agent's private thread, so the next truthful step is to read its exact latest question rather than guess.
+
+[moment]: [intentionally empty]
+
+That status is real, but it is not a code failure. Replit documents `BLOCKED BY WAITING_FOR_INPUT` as a paused task agent waiting for a response in that task's own chat thread.
+
+If it keeps returning there after you resume it, one of three things is probably happening:
+
+1. The response was entered in this main chat rather than Task #1382's chat.
+2. The task agent processed one answer and then asked a follow-up question.
+3. The task UI did not deliver the response correctly.
+
+Please open Task #1382 and copy its newest agent question here, without including any secret or credential. I cannot inspect or answer an initialized task agent's private chat from this workspace, but once I see the exact question I can tell you whether it needs a real decision or is stuck in a loop.
