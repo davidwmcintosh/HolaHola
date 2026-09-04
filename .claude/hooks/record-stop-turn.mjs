@@ -31,12 +31,21 @@ function extractText(content) {
     .join('\n\n');
 }
 
+// Claude Code re-injects the pre-compaction summary as a plain-string "user"
+// message when a session resumes -- it must never be recorded as something
+// David said.
+const COMPACTION_SUMMARY_PREFIX = 'This session is being continued from a previous conversation';
+
 function isRealUserMessage(entry) {
   if (!entry || entry.type !== 'user') return false;
   const content = entry.message?.content;
-  if (typeof content === 'string') return content.trim().length > 0;
+  if (typeof content === 'string') {
+    const trimmed = content.trim();
+    return trimmed.length > 0 && !trimmed.startsWith(COMPACTION_SUMMARY_PREFIX);
+  }
   if (Array.isArray(content)) {
-    return content.some(block => block && block.type === 'text' && block.text?.trim());
+    return content.some(block => block && block.type === 'text' && block.text?.trim()
+      && !block.text.trim().startsWith(COMPACTION_SUMMARY_PREFIX));
   }
   return false;
 }
