@@ -15,13 +15,66 @@ runbook closes both, in two phases: **prep now** (safe, no downtime) and
 
 ## What's now in the repo
 
-- [`Dockerfile`](../Dockerfile) — multi-stage build. `npm run build` output
-  (`dist/index.js` + `dist/public/`) runs against `node_modules` installed in
-  the runtime stage — esbuild bundles with `--packages=external`, so the image
-  is not fully self-contained by design.
+- [`Dockerfile`](../Dockerfile) — multi-stage build. The runtime stage ships
+  the build stage's `node_modules` and the real source tree verbatim,
+  alongside the built `dist/index.js` + `dist/public/` output — not a slim
+  `--omit=dev`, dist-only image. See "Lessons from the first real deploy"
+  below for why; the short version is that a slimmer image looked correct
+  and wasn't.
 - [`render.yaml`](../render.yaml) — a Render Blueprint. Every secret is
   `sync: false`, meaning Render prompts for the value in its dashboard rather
   than reading it from this file — nothing sensitive is committed.
+
+## Lessons from the first real deploy (read this before touching the Dockerfile)
+
+The Dockerfile looked done after the first commit — it built, and the image
+pushed cleanly. It still failed to actually boot three separate times on
+Render, each for a different reason. All three share one root cause: Replit
+never has to solve them, because Replit always runs the app directly from
+full source (`tsx server/index.ts`) — nothing here was ever tested under a
+"bundled `dist/` + trimmed `node_modules`" deployment shape before. If you're
+building a Dockerfile for a different host later, expect to hit this same
+class of issue again unless you start from what's here now.
+
+1. **`npm run start` shells out to `cross-env`, a devDependency.** A
+   `--omit=dev` runtime install doesn't have it → `sh: 1: cross-env: not
+   found`, exit 127. `cross-env` only exists for Windows dev-machine
+   compatibility anyway. Fix: invoke `node dist/index.js` directly; the
+   Dockerfile already sets `NODE_ENV=production` at the image level, so
+   `cross-env`'s job is already done before the process even starts.
+2. **`server/vite.ts` statically imports the real `vite` package** (for
+   local-dev HMR) at module load time. ESM imports aren't lazy — `vite` gets
+   pulled in even in production even though `setupVite()` is never called
+   there, because `server/index.ts` imports the whole `vite.ts` module
+   unconditionally. `vite` and its plugin chain
+   (`@vitejs/plugin-react`, `@replit/vite-plugin-*`, `@tailwindcss/vite`) are
+   devDependencies → `ERR_MODULE_NOT_FOUND: Cannot find package 'vite'`.
+   Fixing this "correctly" would mean restructuring `server/vite.ts`/
+   `server/index.ts` to lazy-load Vite only on the dev code path — real
+   application-code surgery, shared with Replit/local dev, not something to
+   improvise inside a Dockerfile fix. The pragmatic fix instead: stop trying
+   to trim `node_modules` for runtime at all — carry over the build stage's
+   full `node_modules` (proven to work, since the build itself succeeded
+   with it) rather than reinstalling with `--omit=dev`.
+3. **`server/services/workspace-root.ts` eagerly asserts, at import time,
+   that `package.json`, `drizzle.config.ts`, `server/`, and
+   `shared/schema.ts` exist at the resolved workspace root** — the canonical
+   conversation-capture system's project-root guard, deliberately strict by
+   design (`docs/shared-agent-instructions.md`: "a typo must stop capture
+   rather than silently redirect"). A dist-only image was never a real
+   project root, so this crashed the whole process before the server ever
+   bound to a port. Not a bug to work around by loosening the check — the
+   fix is to make the image an honest project root: ship the real source
+   tree (`COPY . .`, respecting `.dockerignore`) alongside `dist/`, matching
+   how Replit actually runs the app.
+
+Net effect: this Dockerfile trades image slimness for correctness — it ships
+a full `node_modules` (devDependencies included) and the complete source
+tree, not just the minimal bundled output. That trade was earned by three
+rounds of `ERR_MODULE_NOT_FOUND`/crash-loop debugging, not a default to
+imitate reflexively elsewhere; a codebase without an eager-import-time
+project-root guard and without static dev-only imports in a file the prod
+path transitively touches could reasonably ship something slimmer.
 
 ## Phase 1 — Prep (do this now; each step is reversible and shouldn't cause downtime)
 
