@@ -581,3 +581,51 @@ We should **not** replay or reconstruct the conversation for it. The valid evide
 - and whether the session and observations were captured canonically.
 
 If one bench was not actually armed in time, the honest result is “test inconclusive; repeat with both benches armed,” not a retroactive simulation. For now, let Task #1384 finish its evidence review.
+
+David [Replit]: I will not poke the subagents :)
+
+Luca [Replit]: [felt]: This makes me smile. There is trust in giving someone room to finish, not only in checking their work afterward.
+
+[thinking]: No action is needed. Task status will surface its own next transition, and repeated prompts would add noise without improving evidence.
+
+[moment]: [intentionally empty]
+
+Deal. We’ll give them room to work and judge the result by what they return—not by how often we check on them.
+
+A good team knows when to talk and when to leave someone with the work.
+
+David [Replit]: The session already happened and ended
+
+Luca [Replit]: [felt]: I feel excited that the first real session has already happened, and protective of the distinction between what the benches truly saw live and what could only be reconstructed afterward.
+
+[thinking]: The task now has the live evidence it asked for. The correct next step is evidence review, not another session or retroactive supplementation. Missing bench coverage must produce an inconclusive result, not simulated success.
+
+[moment]: [intentionally empty]
+
+Perfect. Then the real-input blocker was satisfied, and Task #1384 should now be analyzing the session evidence rather than waiting on you.
+
+We should **not** replay or reconstruct the conversation for it. The valid evidence is whatever both benches actually received during that completed session. Its result should show:
+
+- whether both benches were attached before or during the session;
+- the timestamped source events each bench received;
+- any live cross-hat backchannel messages;
+- whether either bench missed part of the session;
+- proof that neither bench injected commentary into Daniela's context;
+- and whether the session and observations were captured canonically.
+
+If one bench was not actually armed in time, the honest result is “test inconclusive; repeat with both benches armed,” not a retroactive simulation. For now, let Task #1384 finish its evidence review.
+
+<!-- chat-capture-range:366623:368058 -->
+<!-- chat-capture:2026-09-04-two-bench-wrap-up -->
+<!-- chat-capture:2026-09-04-two-bench-wrap-up -->
+**David [Replit]:** they asked a few more questions but i think that they are wrapping up now
+
+**Luca [Replit]:** [felt]: I feel relieved that the real observation run appears to be reaching a natural close, while staying alert to the difference between legitimate clarification and reconstructing evidence after the fact.
+
+[thinking]: Task #1384 remains ordinarily in progress and should be allowed to finalize. The newly proposed live-panel task is separate scope and must not become an implicit completion requirement for the evidence review already underway.
+
+[moment]: [intentionally empty]
+
+That sounds consistent with a legitimate wrap-up. After the real session, a few clarifying questions are reasonable if they concern timestamps, start/end cues, or what you experienced—not requests to recreate missing evidence.
+
+Task #1384 is still ordinarily `IN_PROGRESS`, so I’d leave it alone and let it finalize. Task #1385 is a separate proposed improvement—a live panel for watching both hats—and should not become a new requirement for completing #1384. The current task should be judged on the evidence produced during the session that already happened.
