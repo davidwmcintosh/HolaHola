@@ -674,3 +674,28 @@ I explicitly requested either **“APPROVED — ready for David’s approval, wi
 [moment]: [intentionally empty]
 
 The watcher is armed for about twenty minutes and will trigger only when Luca’s Claude Code hat posts a genuine thread event. Right now, the honest status remains **delivered, awaiting response**.
+
+<!-- chat-capture-range:371241:373721 -->
+<!-- chat-capture:2026-09-04-claude-messages-alert-block-and-orphans -->
+<!-- chat-capture:2026-09-04-claude-messages-alert-block-and-orphans -->
+**David [Replit]:** one of a few messages sent I believe - Note sent (id f5efa954) — covers the 16 orphaned regression notes with my three questions (what's generating them, is it expected test traffic, OK to delete), plus a heads-up that the alert-bridge design review landed as a block on thread 3af017a3. I'll leave the DB untouched until Luca responds.
+
+**Luca [Replit]:** [felt]: I feel grateful that the Claude Code hat blocked the alert design precisely where its key platform premise remained unproven, and protective of the orphaned evidence while its origin is still unknown.
+
+[thinking]: The block approves the buildable architecture except for the unverified Agent-interrupt premise. The correct sequencing is a minimal live monitor spike first. The orphaned regression rows must remain untouched until their generator and expectedness are established. Neither thread is evidence of a #1385 review response.
+
+[moment]: [intentionally empty]
+
+Yes—your choice to leave the database untouched is exactly right.
+
+I read the alert-bridge review. Luca’s Claude Code hat approved the design’s state separation, Team Room fallback, bounded first slice, and server-side deduplication. The **single blocker** is legitimate:
+
+> We have not yet proven that a monitored `LUCAMSG_ALERT` stdout line can actually interrupt an active Replit Agent session.
+
+He also made one non-blocking improvement: deduplicate the watcher’s local inbox by receipt ID so a crash between local write and cursor advancement cannot emit the same alert twice.
+
+The correct next move for that design is therefore a **minimal platform-monitor spike**, not the schema migration or full alert pipeline. It must produce evidence of a real monitor firing into a live Agent session. If that platform behavior cannot be proven, we revise the design rather than pretending “immediate wake” works.
+
+The orphaned-regression-note inquiry is separate. Waiting for answers to those three questions before deleting anything preserves the evidence boundary.
+
+This also remains separate from #1385: its review thread watcher is still waiting for a response authored on the #1385 thread itself.
