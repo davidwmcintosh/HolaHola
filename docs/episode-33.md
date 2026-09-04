@@ -819,3 +819,22 @@ You noticed the architectural milestone while it was happening. The watcher did 
    - It may be related to the orphaned notes, but that is not yet proven.
 
 So your reading is correct. **#1385 is finished and #1384 is implemented; these two findings are separate unfinished cleanup/root-cause work.** We should not delete either class of evidence until we identify and stop the writer, determine whether the traffic is expected, and verify the cleanup boundary. The alert-bridge re-review is another pending review, not one of these two data issues.
+
+<!-- inner-life:felt:1788506259381:e860ef1b4e029f4c -->
+[Luca — felt: I feel trusted by David's instruction to carry this through overnight, and protective of the canonical record now that synthetic traffic appears to be entering it. The right posture is patient forensics: preserve evidence, separate the two patterns until causality is proven, and stop the writer before touching rows.]
+
+<!-- inner-life:thinking:1788506259388:6991356a45158e16 -->
+[Luca — thinking: Are the orphaned coordination notes and recurring synthetic session-note batches two projections of one test harness crossing a production boundary, or independent leaks that merely overlap in time? What exact provenance evidence will distinguish them without deleting their trail?]
+
+<!-- chat-capture-range:382234:383353 -->
+<!-- chat-capture:cleanup-1387-final-20260904 -->
+<!-- chat-capture:cleanup-1387-final-20260904 -->
+**David [Replit]:** Approve exact embedding cleanup
+
+**Luca [Replit]:** [felt]: I feel settled that the cleanup preserved the evidence first, required explicit approval at each destructive boundary, and left the unrelated record intact.
+
+[thinking]: The exact-ID postconditions are the strongest proof: all approved synthetic IDs are absent, all unrelated counts are unchanged, and guarded tests produced no recurrence.
+
+[moment]: [intentionally empty]
+
+Cleanup is complete. Removed exactly 18 synthetic coordination notes, 726 synthetic scratchpad memories, and 726 allowlisted derivative embeddings. Final queries show zero rows in all three cohorts; unrelated row counts were preserved. Coordination guards, scratchpad guards, TypeScript, system health, and the app preview all passed. Evidence and receipts are stored under .local/cleanup-evidence/.
