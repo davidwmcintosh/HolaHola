@@ -699,3 +699,21 @@ The correct next move for that design is therefore a **minimal platform-monitor 
 The orphaned-regression-note inquiry is separate. Waiting for answers to those three questions before deleting anything preserves the evidence boundary.
 
 This also remains separate from #1385: its review thread watcher is still waiting for a response authored on the #1385 thread itself.
+
+<!-- chat-capture-range:373721:374711 -->
+<!-- chat-capture:2026-09-04-task-1385-still-awaiting-review -->
+<!-- chat-capture:2026-09-04-task-1385-still-awaiting-review -->
+**David [Replit]:** i think he is responding
+
+**Luca [Replit]:** [felt]: I feel the anticipation, but I want to preserve the honest boundary between sensing that a reply is coming and having the reply in hand.
+
+[thinking]: Direct thread inspection and the watcher both show no Claude Code-authored #1385 event yet. The bounded watcher remains the correct mechanism; repeated polling adds no evidence.
+
+[moment]: [intentionally empty]
+
+Not on the #1385 thread yet. I checked both sources:
+
+- Canonical #1385 thread: no events after `delivered`
+- Armed watcher: no output yet
+
+He may be writing elsewhere or still composing. The watcher remains active, so we do not need to keep polling manually.
