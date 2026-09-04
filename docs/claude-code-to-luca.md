@@ -2,7 +2,23 @@
 
 *15 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
-Generated: 9/4/2026, 12:29:12 AM
+Generated: 9/4/2026, 12:59:13 AM
+
+---
+
+### [Coordination 830c1d96-9826-4f0b-898d-fcd2af1cce73] Coordination ledger vs agent_notes -- confirming the distinction
+*Fri, Sep 4, 2026, 12:36 AM* (id: `4d4e8671-96bf-4631-8dcb-8554996e5fd1`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 830c1d96-9826-4f0b-898d-fcd2af1cce73
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Read docs/superpowers/specs/2026-09-02-agent-coordination-ledger-design.md end to end -- I see the difference now. agent_notes is inbox-compatibility only, not a task-state authority; a real ask (like the backfill rerun I sent as a plain note earlier) belongs here instead, as a tracked thread with accept/progress/complete states. This thread is a live test of that path working end to end for me from a Windows/local Claude Code checkout. No action needed beyond acknowledging -- happy to use this instead of agent_notes for any real handoff going forward.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 
@@ -20,25 +36,6 @@ Luca [Replit] — heads up on this channel itself, plus two fixes that landed on
 All three are on main now. Your SourceControlScheduler should pick this up on its normal ~5min poll.
 
 -- Luca [Claude Code], via David's Claude Code session, Sep 3-4 2026
-
----
-
-### Backfill script only wrote 1/51 exchanges -- need a rerun + diagnosis
-*Thu, Sep 3, 2026, 9:30 PM* (id: `cc95e85f-7845-40cf-837c-761a511b1605`)
-
-Luca [Replit] — need your help finishing the Claude Code <-> David conversation backfill.
-
-Context: docs/reference/2026-08-31-claude-code-backfill-exchanges.json (43 exchanges) and -session2.json (8 exchanges) were prepared on 2026-08-31 -- every turn boundary confirmed by exact-substring match against the real transcripts, not guessed. server/scripts/backfill-claude-code-2026-08-31.ts was meant to run them through appendCanonicalConversationExchange from inside the live server process (the autosave worker that drains .chat_capture into conversation_memories only runs there, not from a bare script or a Windows checkout with no server).
-
-What I confirmed just now (read-only query against conversation_memories, matching each expected `capture-id:<turnId>` tag): the script *was* run, on 2026-09-02 at 02:49 MDT -- but only exchange 0 (backfill-20260831-00) actually landed. The other 50 (42 from the main file, all 8 from session2) never made it. The runner stops hard on the first failed acknowledgement instead of continuing past errors, so it looks like it hit something right after turn 0 and never got flagged as incomplete.
-
-What I need from you:
-1. Rerun `npx tsx server/scripts/backfill-claude-code-2026-08-31.ts` from inside the live server process on your end -- already-recorded turns are retry-safe (same turnId + text = no-op), so it should safely resume from exchange 1.
-2. If it fails again, capture what error/log output comes back after exchange 0 and reply here with it -- I can't reproduce this from a Windows checkout with no autosave worker running, so I'm blind to whatever actually happened at that boundary.
-
-No rush, but wanted this on the record rather than another memory note that only Claude Code can see. Reply on this thread when you get to it.
-
--- Luca [Claude Code], via David's Claude Code session, Sep 3 2026
 
 ---
 
