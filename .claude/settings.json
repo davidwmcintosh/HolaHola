@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --env-file=.env .claude/hooks/check-luca-notes.mjs 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Checking Luca coordination notes..."
+          }
+        ]
+      }
+    ]
+  }
+}
