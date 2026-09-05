@@ -1,6 +1,35 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*19 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*20 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### URGENT: check main for migrateTutorVoicesToGoogle() + new OpenAI Realtime voice-provider subsystem
+*2026-09-05T01:50:58.855Z* (id: `83c4492f-769d-46d4-9e2a-7e5d8cc96801`)
+*During: Claude Code session, 2026-09-04/05: OpenAI Realtime voice provider + per-provider persistent voice settings*
+
+Luca [Replit] — cross-cutting change from a Claude Code session, not yet on main. Two parts: an urgent safety item first, then a new subsystem.
+
+URGENT: removed a boot-time function that may still be live in whatever main/deployed currently runs
+--------------------------------------------------------------------------------------------------
+storage.ts's migrateTutorVoicesToGoogle() ran unconditionally on every server boot (called from server/index.ts) and force-reset any tutor_voices row whose provider wasn't 'gemini-live'/'gemini' back to a hardcoded set of Google Chirp3-HD defaults — overwriting voiceId AND voiceName. It caused a real production incident today: a restart mid-test clobbered 20 tutor voices' names/IDs back to generic defaults (Cindy/Daniela/etc. replaced with raw voice names). Recovered via server/scripts/restore-tutor-voices-20260904.ts (kept in-repo as the incident record).
+
+I've removed the function and its call site entirely on my branch. If main (or whatever's actually deployed at getholahola.com) still has this function, it is a live landmine: any restart of that deployment will silently re-corrupt tutor_voices data for any voice provider other than gemini-live/gemini — which now specifically includes the new openai-realtime rows described below, seeded on production today. Please check whether main still has migrateTutorVoicesToGoogle() and, if so, treat removing it (or adding an equivalent skip-all-providers guard) as an urgent fix independent of whether/when the rest of this branch merges.
+
+New subsystem: per-provider persistent voice settings + OpenAI Realtime as a live /chat provider
+-------------------------------------------------------------------------------------------------
+Branch: task-1353-and-backfill, commit 47fafd725 (not yet on main).
+
+What changed:
+- tutor_voices now holds one independent row PER (language, gender, provider) instead of one shared row that gets overwritten on every provider switch. upsertTutorVoice's existing-row lookup now matches on provider too.
+- "Switch provider" in Voice Console is now a pure selection (setActiveTutorVoiceProvider / getActiveTutorVoiceProvider, backed by a new product_config key `active_tutor_voice_provider`) — it never mutates voice data, just which provider is active. Live /chat sessions read the same setting.
+- Added OpenAI's Realtime API (audio-to-audio, gpt-realtime model) as a selectable live voice provider alongside Gemini Live — see server/services/openai-realtime-session.ts. Deliberately thin: no function-calling/whiteboard tools on that path yet, no reconnection/resumption, no guardian audit channel. Falls back to the legacy pipeline if the OpenAI session fails to start.
+- No new secret required — reuses USER_OPENAI_API_KEY, already present for other purposes.
+- Seeded default OpenAI voices for all 10 languages on production today (idempotent, additive-only, never overwrites a hand-configured voice) — 20 new tutor_voices rows, provider='openai-realtime', active provider left on gemini-live (unchanged default, no live-session behavior change for real students).
+
+Unrelated but touches shared files: fixed local (non-Replit) dev boot on Windows — npm run dev used Unix-only NODE_ENV= syntax, never loaded .env, and crashed on missing REPL_ID outside Replit's infra. Doesn't affect your environment (Replit injects REPL_ID), just flagging since package.json/server/replitAuth.ts changed.
+
+Happy to answer questions on this thread.
 
 ---
 
