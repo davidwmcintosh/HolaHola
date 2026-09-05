@@ -101,6 +101,8 @@ export interface StreamingConnectedMessage extends StreamingVoiceMessage {
 export interface StreamingSessionStartedMessage extends StreamingVoiceMessage {
   type: 'session_started';
   sessionId: string;
+  /** Immutable voice_sessions/usage ID. Absent when no durable session was created. */
+  voiceSessionId?: string;
 }
 
 /**

@@ -70,7 +70,7 @@ import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 import { voiceGracePeriods, compartmentInstallation, messages, voiceSessions } from '@shared/schema';
 import { db, getUserDb, getSharedDb } from './db';
-import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
+import { eq, and, gt, lt, lte, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment, getStewardshipReminderFragment } from './services/pre-session-synthesis';
 import { autoResolveAbsenceNudgeOnReturn, applyAbsenceReturnFlag } from './services/daniela-absence-worker';
@@ -82,6 +82,25 @@ import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-
 import { selectPedagogicalDirective, type CanvasMutation } from './services/pedagogical-planner';
 import { glLiveAlert } from './services/gl-live-monitor';
 import { combineVoiceMetricTotals } from './services/voice-exchange-accounting';
+import { winDurableReconnectAuthority } from './services/reconnect-authority';
+import { closeObservationBenchBySessionId } from './services/observation-bench-service';
+import { runTerminalVoiceLifecycle } from './services/terminal-voice-lifecycle';
+
+/**
+ * End an exact durable usage session, then await best-effort Observation Bench
+ * closure without changing endSession's return value.
+ */
+async function endDurableVoiceSession(
+  sessionId: string,
+  reason?: 'completed' | 'abandoned' | 'error',
+  metrics?: () => Promise<unknown>,
+) {
+  return runTerminalVoiceLifecycle({
+    metrics,
+    end: () => usageService.endSession(sessionId, reason),
+    cleanup: () => closeObservationBenchBySessionId({ sessionId }),
+  });
+}
 
 // ── Canvas Mutation Executor ──────────────────────────────────────────────────
 // Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
@@ -280,9 +299,16 @@ interface PendingReconnectData {
   rrCarryState?: { notes: string[]; notesSaved: boolean; userId: string };
   /** Daniela's in-session scratchpad notes — carried across grace-period reconnects */
   sessionNotes?: string[];
+  connectionId?: string;
+  closeCode?: number;
+  closeReason?: string;
+  /** Resolves only after the exact durable grace row has been upserted. */
+  persistencePromise?: Promise<void>;
 }
 const RECONNECT_GRACE_PERIOD_MS = 120000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
+// Correlates lifecycle evidence produced by this process without changing durable schema.
+const VOICE_PROCESS_BOOT_ID = `${process.pid}-${Date.now().toString(36)}`;
 
 /**
  * Extract sessionNotes from an active session for inclusion in the reconnect payload.
@@ -327,13 +353,53 @@ function armReconnectTimer(
   delayMs: number
 ): NodeJS.Timeout {
   return setTimeout(async () => {
+    // This is non-null by type and by storePendingReconnect's runtime guard.
+    // Keep the defensive check at the async boundary: malformed legacy data must
+    // never create evidence that claims an undefined voice-session identity.
+    if (!pending.usageSessionId) {
+      console.warn(`[Reconnect Grace] Ignoring timer without durable voiceSessionId (conv ${conversationId.substring(0, 8)})`);
+      return;
+    }
     const current = pendingReconnectSessions.get(conversationId);
-    if (!current) return;
+    // A timer can already be queued when a replacement connection claims or replaces
+    // this conversation. Never let that stale closure end the newer durable session.
+    if (!current || current !== pending || current.usageSessionId !== pending.usageSessionId) {
+      voiceTelemetry.log(pending.usageSessionId ?? conversationId, String(pending.userId ?? ''), 'grace_period_timer_stale', {
+        voiceSessionId: pending.usageSessionId,
+        conversationId,
+        processBootId: VOICE_PROCESS_BOOT_ID,
+        timerAction: 'ignored_stale',
+      });
+      return;
+    }
+    // Finalization must win the durable row before ending usage. If another
+    // process claimed it, this timer is stale even if its local map survived.
+    const wonFinalization = await winDurableReconnectAuthority(
+      pending.persistencePromise ?? Promise.reject(new Error('missing reconnect persistence')),
+      () => db.delete(voiceGracePeriods).where(and(
+        eq(voiceGracePeriods.conversationId, conversationId),
+        eq(voiceGracePeriods.usageSessionId, pending.usageSessionId),
+        eq(voiceGracePeriods.userId, pending.userId),
+        lte(voiceGracePeriods.expiresAt, new Date()),
+      )).returning(),
+    );
+    if (!wonFinalization) {
+      pendingReconnectSessions.delete(conversationId);
+      voiceTelemetry.log(pending.usageSessionId, String(pending.userId ?? ''), 'grace_period_timer_stale', {
+        voiceSessionId: pending.usageSessionId,
+        conversationId,
+        processBootId: VOICE_PROCESS_BOOT_ID,
+        timerAction: 'db_claim_lost',
+      });
+      return;
+    }
     pendingReconnectSessions.delete(conversationId);
-    db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
     console.log(`[Reconnect Grace] Grace period expired for ${conversationId.substring(0, 8)} — ending session`);
     voiceTelemetry.log(current.usageSessionId ?? conversationId, String(current.userId ?? ''), 'grace_period_expired', {
       conversationId,
+      voiceSessionId: current.usageSessionId,
+      processBootId: VOICE_PROCESS_BOOT_ID,
+      timerAction: 'expired_end',
       exchangeCount: current.exchangeCount,
     });
     glLiveAlert({
@@ -343,14 +409,13 @@ function armReconnectTimer(
       detail: { exchangeCount: current.exchangeCount, conversationId },
     });
     try {
-      await usageService.updateSessionMetrics(current.usageSessionId, {
+      const endedSession = await endDurableVoiceSession(current.usageSessionId, 'abandoned', () => usageService.updateSessionMetrics(current.usageSessionId, {
         exchangeCount: current.exchangeCount,
         studentSpeakingSeconds: current.studentSpeakingSeconds,
         tutorSpeakingSeconds: current.tutorSpeakingSeconds,
         ttsCharacters: current.ttsCharacters,
         sttSeconds: current.sttSeconds,
-      });
-      const endedSession = await usageService.endSession(current.usageSessionId, 'abandoned');
+      }));
       if (endedSession) {
         console.log(`[Reconnect Grace] Usage session ended: ${endedSession.durationSeconds}s, ${current.exchangeCount} exchanges`);
       }
@@ -382,6 +447,13 @@ function storePendingReconnect(
   conversationId: string,
   data: Omit<PendingReconnectData, 'timer' | 'conversationId'>
 ): void {
+  // usageSessionId is the durable voice_sessions identifier persisted in
+  // voice_grace_periods. Refuse an incomplete close rather than creating a
+  // conversation-only timer that could later claim/end another session.
+  if (!data.usageSessionId) {
+    console.warn(`[Reconnect Grace] Refusing to arm grace timer without durable voiceSessionId (conv ${conversationId.substring(0, 8)})`);
+    return;
+  }
   const existing = pendingReconnectSessions.get(conversationId);
   if (existing) {
     clearTimeout(existing.timer);
@@ -392,16 +464,26 @@ function storePendingReconnect(
   pendingReconnectSessions.set(conversationId, entry);
   console.log(`[Reconnect Grace] Stored pending session for ${conversationId.substring(0, 8)} (${RECONNECT_GRACE_PERIOD_MS / 1000}s grace)`);
   voiceTelemetry.log(entry.usageSessionId ?? conversationId, String(entry.userId ?? ''), 'grace_period_stored', {
+    voiceSessionId: entry.usageSessionId,
     conversationId,
+    processBootId: VOICE_PROCESS_BOOT_ID,
+    connectionId: entry.connectionId,
+    closeCode: entry.closeCode,
+    closeReason: entry.closeReason,
+    timerAction: 'armed',
     graceMs: RECONNECT_GRACE_PERIOD_MS,
   });
 
-  // Persist to DB for server-restart resilience (fire-and-forget).
+  // Persist for server-restart resilience. Claims/timers await this promise.
+  // Serialize replacement writes behind the prior write so an older upsert can
+  // never land after the replacement row and resurrect stale authority.
   // rrCarryNotes is the JSON-serialised Reading Room carry state — null for non-RR or incognito.
   // sessionNotes is the JSON-serialised general scratchpad — applies to all session types.
   const rrCarryNotesJson = data.rrCarryState ? JSON.stringify(data.rrCarryState) : null;
   const sessionNotesJson = data.sessionNotes?.length ? JSON.stringify(data.sessionNotes) : null;
-  db.insert(voiceGracePeriods).values({
+  entry.persistencePromise = (existing?.persistencePromise ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() => db.insert(voiceGracePeriods).values({
     conversationId,
     usageSessionId: data.usageSessionId,
     compassSessionActive: data.compassSessionActive,
@@ -431,9 +513,14 @@ function storePendingReconnect(
       rrCarryNotes: rrCarryNotesJson,
       sessionNotes: sessionNotesJson,
     },
-  }).catch((err: Error) => {
-    console.warn('[Reconnect Grace] DB write failed (in-memory path still active):', err.message);
+  }).then(() => undefined))
+  .catch((err: Error) => {
+    console.warn('[Reconnect Grace] DB write failed; durable reconnect authority unavailable:', err.message);
+    throw err;
   });
+  // Mark the stored rejection as observed; authority consumers still await the
+  // original rejected promise and therefore fail closed.
+  void entry.persistencePromise.catch(() => undefined);
 }
 
 async function claimPendingReconnect(conversationId: string, userId: string): Promise<PendingReconnectData | null> {
@@ -444,12 +531,34 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
       console.warn(`[Reconnect Grace] User mismatch for ${conversationId.substring(0, 8)}: expected ${pending.userId}, got ${userId}`);
       return null;
     }
+    const wonClaim = await winDurableReconnectAuthority(
+      pending.persistencePromise ?? Promise.reject(new Error('missing reconnect persistence')),
+      () => db.delete(voiceGracePeriods).where(and(
+        eq(voiceGracePeriods.conversationId, conversationId),
+        eq(voiceGracePeriods.usageSessionId, pending.usageSessionId),
+        eq(voiceGracePeriods.userId, userId),
+        gt(voiceGracePeriods.expiresAt, new Date()),
+      )).returning(),
+    );
     clearTimeout(pending.timer);
-    pendingReconnectSessions.delete(conversationId);
-    db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
+    if (pendingReconnectSessions.get(conversationId) === pending) {
+      pendingReconnectSessions.delete(conversationId);
+    }
+    if (!wonClaim) {
+      voiceTelemetry.log(pending.usageSessionId, userId, 'grace_period_claim_lost', {
+        conversationId,
+        voiceSessionId: pending.usageSessionId,
+        processBootId: VOICE_PROCESS_BOOT_ID,
+        reconnectClaim: 'db_claim_lost',
+      });
+      return null;
+    }
     console.log(`[Reconnect Grace] RESUMED session for ${conversationId.substring(0, 8)} — carrying ${pending.exchangeCount} exchanges`);
     voiceTelemetry.log(pending.usageSessionId ?? conversationId, userId, 'grace_period_resumed', {
       conversationId,
+      voiceSessionId: pending.usageSessionId,
+      processBootId: VOICE_PROCESS_BOOT_ID,
+      reconnectClaim: 'claimed',
       exchangeCount: pending.exchangeCount,
       path: 'memory',
     });
@@ -467,10 +576,23 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
     );
     if (rows.length === 0) return null;
     const row = rows[0];
-    await db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId));
+    // Claim only the exact durable session selected above. A stale reconnect must not
+    // delete a replacement grace row that reused this conversation id.
+    const claimedRows = await db.delete(voiceGracePeriods).where(and(
+      eq(voiceGracePeriods.conversationId, conversationId),
+      eq(voiceGracePeriods.usageSessionId, row.usageSessionId),
+      eq(voiceGracePeriods.userId, userId),
+      gt(voiceGracePeriods.expiresAt, new Date()),
+    )).returning();
+    // Another process may have claimed/finalized this row after our lookup.
+    // DELETE ... RETURNING is the authority: without its row this reconnect owns nothing.
+    if (claimedRows.length === 0) return null;
     console.log(`[Reconnect Grace] RESUMED session from DB for ${conversationId.substring(0, 8)} after server restart — carrying ${row.exchangeCount} exchanges`);
     voiceTelemetry.log(row.usageSessionId ?? conversationId, userId, 'grace_period_resumed', {
       conversationId,
+      voiceSessionId: row.usageSessionId,
+      processBootId: VOICE_PROCESS_BOOT_ID,
+      reconnectClaim: 'claimed',
       exchangeCount: row.exchangeCount,
       path: 'db_fallback',
     });
@@ -538,13 +660,13 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
           console.warn(`[Reconnect Grace] Carry-forward persist failed for expired session ${expired.conversationId.substring(0, 8)} (non-fatal):`, rrErr.message);
         }
       }
-      usageService.updateSessionMetrics(expired.usageSessionId, {
+      endDurableVoiceSession(expired.usageSessionId, 'abandoned', () => usageService.updateSessionMetrics(expired.usageSessionId, {
         exchangeCount: expired.exchangeCount,
         studentSpeakingSeconds: expired.studentSpeakingSeconds,
         tutorSpeakingSeconds: expired.tutorSpeakingSeconds,
         ttsCharacters: expired.ttsCharacters,
         sttSeconds: expired.sttSeconds,
-      }).then(() => usageService.endSession(expired.usageSessionId, 'abandoned'))
+      }))
         .then(() => console.log(`[Reconnect Grace] Ended expired session ${expired.usageSessionId.substring(0, 8)} (conv ${expired.conversationId.substring(0, 8)}) on startup`))
         .catch((err: Error) => console.warn(`[Reconnect Grace] Failed to end expired session ${expired.usageSessionId.substring(0, 8)}:`, err.message));
     }
@@ -582,6 +704,7 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
         sessionStartTime: row.sessionStartTime,
         userId: row.userId,
         timer: null as any,
+        persistencePromise: Promise.resolve(),
         rrCarryState: hydratedRrCarryState,
         sessionNotes: deserializeSessionNotesFromDb(row.sessionNotes),
       };
@@ -1679,7 +1802,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                   }
 
                   // End the stale DB record so billing is clean
-                  usageService.endSession(existingActiveSession.id).catch((err: Error) => {
+                  endDurableVoiceSession(existingActiveSession.id).catch((err: Error) => {
                     console.warn('[ConcurrentGuard] Failed to end stale session:', err.message);
                   });
 
@@ -3525,7 +3648,10 @@ ${lastNote.tutorNotes}`);
                 // Feature 5 fix (Gemini review): store active tool names so find_teaching_tool
                 // can filter its semantic search results to only return callable tools.
                 (session as any).__activeGLToolNames = new Set(glDeclarations.map((d: any) => d.name).filter(Boolean));
-                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations, glGreetingTrigger);
+                // Greeting intent belongs to the ready-gated client request_greeting path.
+                // Do not bootstrap-dispatch here: setup may complete before session_started,
+                // which leaves the client ringing while Daniela is already speaking.
+                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations);
                 console.log(`[GeminiLive] Session started with ${glDeclarations.length} GL tools (slim set, lang: ${config.targetLanguage || 'spanish'}) alongside orchestrator session ${session.id}`);
                 // Register the playback_ended callback bridge so the Socket.io telemetry
                 // handler (different scope) can call geminiLiveSession.onPlaybackEnded().
@@ -3798,6 +3924,7 @@ ${lastNote.tutorNotes}`);
             ws.send(JSON.stringify({
               type: 'session_started',
               sessionId: session.id,
+              ...(dbSessionId ? { voiceSessionId: dbSessionId } : {}),
               timestamp: Date.now(),
               isGeminiLive: !!geminiLiveSession,
             }));
@@ -5183,13 +5310,13 @@ ${lastNote.tutorNotes}`);
               // and usageSession will be null by the time the .then() callbacks fire
               const capturedUsageSessionId = usageSession.id;
               try {
-                usageService.updateSessionMetrics(capturedUsageSessionId, {
+                endDurableVoiceSession(capturedUsageSessionId, undefined, () => usageService.updateSessionMetrics(capturedUsageSessionId, {
                   exchangeCount: metrics.exchangeCount,
                   studentSpeakingSeconds: metrics.studentSpeakingSeconds,
                   tutorSpeakingSeconds: metrics.tutorSpeakingSeconds,
                   ttsCharacters: metrics.ttsCharacters,
                   sttSeconds: metrics.sttSeconds,
-                }).then(() => usageService.endSession(capturedUsageSessionId))
+                }))
                   .then((endedSession) => {
                     if (endedSession) {
                       console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${metrics.exchangeCount} exchanges`);
@@ -5244,6 +5371,8 @@ ${lastNote.tutorNotes}`);
           sessionStartTime,
           userId: userId!,
           orchestratorSessionId: session?.id,
+          connectionId: (ws as any).socketId,
+          closeReason: 'duplicate_replaced',
           rrCarryState: earlyRrCarryState,
           sessionNotes: session ? extractSessionNotesForReconnect(session) : [],
         });
@@ -5523,6 +5652,9 @@ ${lastNote.tutorNotes}`);
         sessionStartTime,
         userId: userId!,
         orchestratorSessionId: session?.id,
+        connectionId: (ws as any).socketId,
+        closeCode,
+        closeReason: closeReason?.toString(),
         rrCarryState: wsRrCarryState,
         sessionNotes: session ? extractSessionNotesForReconnect(session) : [],
       });
@@ -5535,7 +5667,7 @@ ${lastNote.tutorNotes}`);
       const capturedUsageSessionId = usageSession.id;
       const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
       const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
-      usageService.updateSessionMetrics(capturedUsageSessionId, {
+      endDurableVoiceSession(capturedUsageSessionId, 'abandoned', () => usageService.updateSessionMetrics(capturedUsageSessionId, {
         exchangeCount,
         studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
         tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
@@ -5543,7 +5675,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds: Math.round(sttSeconds),
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(capturedUsageSessionId, 'abandoned'))
+      }))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
@@ -5667,7 +5799,7 @@ ${lastNote.tutorNotes}`);
       const capturedUsageSessionId = usageSession.id;
       const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
       const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
-      usageService.updateSessionMetrics(capturedUsageSessionId, {
+      endDurableVoiceSession(capturedUsageSessionId, 'error', () => usageService.updateSessionMetrics(capturedUsageSessionId, {
         exchangeCount,
         studentSpeakingSeconds,
         tutorSpeakingSeconds,
@@ -5675,7 +5807,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds,
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(capturedUsageSessionId, 'error'))
+      }))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on error: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);

@@ -157,7 +157,7 @@ export type StreamingConnectionState =
  */
 export interface StreamingVoiceCallbacks {
   onConnectionStateChange: (state: StreamingConnectionState) => void;
-  onSessionStart: (sessionId: string) => void;
+  onSessionStart: (sessionId: string, voiceSessionId: string | null) => void;
   onProcessing: (transcript: string) => void;
   onSentenceStart: (index: number, text: string, targetLanguageText?: string) => void;
   onAudioReady: (sentenceIndex: number, audio: ArrayBuffer, duration: number) => void;
@@ -266,6 +266,7 @@ type StreamingEventType =
 export class StreamingVoiceClient {
   private socket: Socket | null = null;
   private sessionId: string | null = null;
+  private voiceSessionId: string | null = null;
   private callbacks: Partial<StreamingVoiceCallbacks> = {};
   private state: StreamingConnectionState = 'disconnected';
   private reconnectAttempts = 0;
@@ -286,6 +287,9 @@ export class StreamingVoiceClient {
   private consecutiveSessionErrors = 0;
   private readonly MAX_SESSION_ERRORS = 5;
   private _isReconnectedSession = false;  // True after reconnect — prevents greeting re-trigger
+  // A startup greeting belongs to one server session.  Keep this separate from
+  // retry bookkeeping so a ready event (or an eager UI caller) cannot double-send it.
+  private startupGreetingRequested = false;
   private _lastKnownInputMode: 'push-to-talk' | 'open-mic' = 'push-to-talk';  // Restored on reconnect
   private _pendingChunks: Array<{audioData: ArrayBuffer, sequenceId: number}> = [];  // Buffer for reconnect gap
   private readonly _PENDING_CHUNK_MAX = 100;  // ~1s of audio at 10ms chunks; prevents unbounded growth
@@ -730,7 +734,9 @@ export class StreamingVoiceClient {
     
     // Clear reconnect flag and pending chunk buffer on fresh sessions
     if (!isReconnect) {
+      this.voiceSessionId = null;
       this._isReconnectedSession = false;
+      this.startupGreetingRequested = false;
       this._pendingChunks = [];  // Discard any stale buffered chunks from a previous session
     }
     
@@ -904,6 +910,14 @@ export class StreamingVoiceClient {
       throw new Error('Socket.io not ready for greeting');
     }
     
+    // A resumed request is the sanctioned GL reconnect orientation turn. Only
+    // collapse duplicate *fresh* startup requests; never turn that reconnect
+    // path into a permanently blocked retry.
+    if (this.startupGreetingRequested && !isResumed) {
+      console.log('[StreamingVoice] Duplicate startup greeting request ignored');
+      return;
+    }
+    if (!isResumed) this.startupGreetingRequested = true;
     this.lastGreetingParams = { userName, isResumed, scenarioSlug };
     this.socket!.emit('message', { 
       type: 'request_greeting',
@@ -1081,6 +1095,7 @@ export class StreamingVoiceClient {
       this.socket = null;
     }
     this.sessionId = null;
+    this.voiceSessionId = null;
     this.setState('disconnected');
   }
   
@@ -1181,7 +1196,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'session_started':
-          this.handleSessionStarted(message as { type: string; sessionId: string; timestamp: number });
+          this.handleSessionStarted(message as { type: string; sessionId: string; voiceSessionId?: string; timestamp: number });
           break;
           
         case 'processing':
@@ -1564,16 +1579,23 @@ export class StreamingVoiceClient {
     }
   }
   
-  private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number; isGeminiLive?: boolean }): void {
+  private handleSessionStarted(message: { type: string; sessionId: string; voiceSessionId?: string; timestamp: number; isGeminiLive?: boolean }): void {
     this.sessionId = message.sessionId;
+    this.voiceSessionId = message.voiceSessionId ?? null;
     this.isGeminiLiveSession = !!message.isGeminiLive;
     
     // Wire up telemetry emitter with session ID
     telemetryEmitter.setSessionId(message.sessionId);
     
     this.setState('ready');
-    this.callbacks.onSessionStart?.(message.sessionId);
-    this.emit('sessionStart', message.sessionId);
+    this.callbacks.onSessionStart?.(message.sessionId, this.voiceSessionId);
+    this.emit('sessionStart', {
+      sessionId: message.sessionId,
+      voiceSessionId: this.voiceSessionId,
+    });
+    // StreamingVoiceChat observes this ready transition and issues the single
+    // startup request with student/scenario context. Its reconnect request has
+    // isResumed=true, which remains allowed above for Gemini Live's fresh socket.
   }
   
   private handleProcessing(message: StreamingProcessingMessage): void {

@@ -4,11 +4,15 @@ import {
   requireCoordinationAuth,
   type CoordinationAuthenticatedRequest,
 } from '../middleware/coordination-auth';
+import { isFounder } from '../middleware/rbac';
 import {
   addBenchObservation,
+  attachObservationBench,
   createObservationBenchArm,
+  discoverObservationBenchBySessionId,
   endObservationBench,
   getObservationBenchComparison,
+  getObservationBenchPillStatus,
   getObservationBenchSourceStream,
   inviteBenchObservation,
   listActiveObservationSessions,
@@ -37,6 +41,41 @@ function sendError(res: Response, error: unknown): void {
 }
 
 export function registerObservationBenchCoordinationRoutes(app: Application): void {
+  app.get('/api/coordination/observation-bench-sessions/:sessionId', requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      res.json(await discoverObservationBenchBySessionId({
+        sessionId: req.params.sessionId,
+        actor: actorFrom(req),
+      }));
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  app.post('/api/coordination/observation-bench-sessions/:sessionId/attach', requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      const result = await attachObservationBench({
+        sessionId: req.params.sessionId,
+        actor: actorFrom(req),
+        idempotencyKey: req.headers['idempotency-key'] as string ?? req.body?.idempotencyKey,
+      });
+      res.status(result.deduplicated ? 200 : 201).json(result);
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  app.post('/api/coordination/observation-benches/:threadId/end', requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      res.json(await endObservationBench({
+        threadId: req.params.threadId,
+        actor: actorFrom(req),
+      }));
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   app.post('/api/coordination/observation-benches/:threadId/sync', requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       res.json(await syncObservationBench({ threadId: req.params.threadId, actor: actorFrom(req) }));
@@ -96,6 +135,28 @@ export function registerObservationBenchFounderRoutes(
   app: Application,
   founderMiddleware: RequestHandler[],
 ): void {
+  app.get(
+    '/api/admin/luca/observation-bench-sessions/:sessionId/status',
+    ...founderMiddleware,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const authenticatedUser = (req as CoordinationAuthenticatedRequest & {
+          authenticatedUser?: { id?: string };
+        }).authenticatedUser;
+        const userId = authenticatedUser?.id;
+        if (!isFounder(authenticatedUser as Parameters<typeof isFounder>[0])) {
+          throw new CoordinationError('Founder access required', 403, 'founder_required');
+        }
+        res.json(await getObservationBenchPillStatus({
+          sessionId: req.params.sessionId,
+          userId: userId!,
+        }));
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
   app.get(
     '/api/admin/luca/observation-bench-arms',
     ...founderMiddleware,

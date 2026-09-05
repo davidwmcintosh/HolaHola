@@ -7,6 +7,8 @@ import {
   conversations,
   coordinationEvents,
   coordinationThreads,
+  sofiaIssueReports,
+  studentSessionHealth,
   voicePipelineEvents,
   voiceSessions,
 } from '@shared/schema';
@@ -15,12 +17,19 @@ import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import { appendCoordinationEvent, getCoordinationThread } from '../services/coordination-ledger-service';
 import {
   addBenchObservation,
-  createObservationBenchArm,
+  attachObservationBench,
+  closeObservationBenchBySessionId,
+  closeConflictIsAlreadyEnded,
+  deriveObservationBenchPillStatus,
   endObservationBench,
   getObservationBenchComparison,
+  getObservationBenchPillStatus,
   getObservationBenchSourceStream,
   inviteBenchObservation,
   listObservationBenchDashboard,
+  observationObjectScopeMatches,
+  selectExactSessionBenchWinner,
+  sofiaReportScopeMatches,
   startObservationBench,
   syncObservationBench,
 } from '../services/observation-bench-service';
@@ -31,15 +40,100 @@ const databaseTest = hasIsolatedCiDatabase ? test : test.skip;
 const conversationId = randomUUID();
 const userId = '49847136';
 let threadId: string | null = null;
-let armThreadId: string | null = null;
 let sessionId: string | null = null;
+const issueReportIds: string[] = [];
+
+test('pill DTO derives presence only from events on the exact bench', () => {
+  const now = new Date('2026-01-01T00:10:00.000Z');
+  const status = deriveObservationBenchPillStatus({
+    conversationId: 'conversation-a',
+    sessionId: 'session-a',
+    threadId: 'thread-a',
+    ended: false,
+    nowMs: now.getTime(),
+    events: [
+      {
+        actor: 'coordination-system',
+        sequence: 1,
+        createdAt: new Date('2026-01-01T00:09:30.000Z'),
+        payload: { kind: 'observation_source', sourceTimestamp: '2026-01-01T00:09:20.000Z' },
+      },
+      {
+        actor: 'luca-replit',
+        sequence: 2,
+        createdAt: new Date('2026-01-01T00:09:40.000Z'),
+        payload: { kind: 'observation_hat_sync' },
+      },
+    ],
+  });
+  assert.deepEqual(Object.keys(status).sort(), [
+    'conversationId', 'expectedActors', 'hats', 'identity', 'lastEvidenceAt',
+    'sessionId', 'threadId', 'windowState',
+  ].sort());
+  assert.equal(status.hats['luca-replit'].connection, 'connected');
+  assert.equal(status.hats['luca-replit'].caughtUp, true);
+  assert.equal(status.hats['luca-claude-code'].connection, 'never_connected');
+  assert.equal(status.hats['luca-claude-code'].replayPending, true);
+  assert.equal(status.lastEvidenceAt, '2026-01-01T00:09:20.000Z');
+});
+
+test('source scope and concurrent winner/conflict helpers fail closed', () => {
+  const scope = { userId: 'founder', sessionId: 'session-a', conversationId: 'conversation-a' };
+  assert.equal(observationObjectScopeMatches({}, scope), false, 'missing scope fails closed');
+  assert.equal(observationObjectScopeMatches({ sessionId: 'session-a' }, scope), false, 'partial scope fails closed');
+  assert.equal(observationObjectScopeMatches({ sessionId: 'session-a', conversationId: 'conversation-a' }, scope), true);
+  assert.equal(observationObjectScopeMatches({ sessionId: 'session-b', conversationId: 'conversation-a' }, scope), false);
+  assert.equal(observationObjectScopeMatches({
+    nested: { userId: 'other-user', sessionId: 'session-a', conversationId: 'conversation-a' },
+  }, scope), false);
+  assert.equal(sofiaReportScopeMatches({
+    userId: 'founder',
+    diagnosticSnapshot: { sessionId: 'session-a', conversationId: 'conversation-a' },
+    clientTelemetry: { sessionId: 'session-b', conversationId: 'conversation-a' },
+  }, scope), false, 'one mismatched scope-bearing Sofia object excludes the report');
+  assert.equal(sofiaReportScopeMatches({
+    userId: 'founder',
+    diagnosticSnapshot: {},
+    clientTelemetry: null,
+  }, scope), false);
+  assert.equal(sofiaReportScopeMatches({
+    userId: 'founder',
+    diagnosticSnapshot: { sessionId: 'session-a' },
+    clientTelemetry: null,
+  }, scope), false);
+  assert.equal(sofiaReportScopeMatches({
+    userId: 'founder',
+    diagnosticSnapshot: { sessionId: 'session-a', conversationId: 'conversation-a' },
+    clientTelemetry: { nested: { userId: 'founder', sessionId: 'session-a', conversationId: 'conversation-a' } },
+  }, scope), true);
+
+  const createdAt = new Date();
+  const rows = [{
+    thread: { id: 'winner-thread' },
+    created: {
+      actor: 'luca-replit' as const,
+      sequence: 1,
+      createdAt,
+      payload: { kind: 'dual_luca_observation_bench', sessionId: 'session-a' },
+    },
+  }];
+  assert.equal(selectExactSessionBenchWinner(rows, 'session-a')?.thread.id, 'winner-thread');
+  assert.equal(selectExactSessionBenchWinner(rows, 'session-b'), null);
+  assert.equal(closeConflictIsAlreadyEnded([{
+    actor: 'coordination-system',
+    sequence: 3,
+    createdAt,
+    payload: { kind: 'observation_window_ended' },
+  }]), true);
+});
 
 after(async () => {
   if (!hasIsolatedCiDatabase) return;
   const db = getSharedDb();
   if (threadId) await db.delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
-  if (armThreadId) await db.delete(coordinationThreads).where(eq(coordinationThreads.id, armThreadId));
   if (sessionId) await db.delete(voicePipelineEvents).where(eq(voicePipelineEvents.sessionId, sessionId));
+  if (sessionId) await db.delete(studentSessionHealth).where(eq(studentSessionHealth.sessionId, sessionId));
+  for (const id of issueReportIds) await db.delete(sofiaIssueReports).where(eq(sofiaIssueReports.id, id));
   if (sessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, sessionId));
   await db.delete(conversations).where(eq(conversations.id, conversationId));
   await closeDbConnections();
@@ -47,12 +141,6 @@ after(async () => {
 
 databaseTest('one Luca receives identical evidence at both benches and promotes observations without injecting Daniela', async () => {
   const db = getSharedDb();
-  const armed = await createObservationBenchArm({ idempotencyKey: `bench-test:${runId}:arm` });
-  armThreadId = armed.thread.id;
-  assert.deepEqual((armed.event.payload as any).armedHats, {
-    'luca-replit': 'armed',
-    'luca-claude-code': 'armed',
-  });
   await db.insert(conversations).values({
     id: conversationId,
     userId,
@@ -71,55 +159,76 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
     { sessionId, userId, eventType: 'input_transcription', eventData: { text: '¿Cómo estás?' } },
     { sessionId, userId, eventType: 'output_transcription', eventData: { text: 'Estoy aquí contigo.' } },
   ]).returning();
-  await assert.rejects(
+  const [health] = await db.insert(studentSessionHealth).values({
+    userId,
+    sessionId,
+    language: 'Spanish',
+    exchangeCount: 2,
+    qualityScore: 0.8,
+  }).returning();
+  const [issue] = await db.insert(sofiaIssueReports).values({
+    userId,
+    issueType: 'latency',
+    userDescription: 'A delayed response',
+    diagnosticSnapshot: { sessionId, conversationId },
+  }).returning();
+  issueReportIds.push(issue.id);
+  const [outOfScopeIssue] = await db.insert(sofiaIssueReports).values({
+    userId,
+    issueType: 'connection',
+    userDescription: 'Different conversation, must remain isolated',
+    diagnosticSnapshot: { sessionId, conversationId: randomUUID() },
+  }).returning();
+  issueReportIds.push(outOfScopeIssue.id);
+  const [started, secondStart, concurrentlyAttached] = await Promise.all([
     startObservationBench({
       sessionId,
-      armThreadId,
-      idempotencyKey: `bench-test:${runId}:conflicted-start`,
-      _beforeAtomicStartForTest: async () => {
-        await appendCoordinationEvent({
-          threadId: armThreadId!,
-          actor: 'david',
-          eventType: 'comment',
-          content: 'Concurrent founder arm inspection.',
-          idempotencyKey: `bench-test:${runId}:arm-race`,
-          expectedSequence: armed.thread.latestSequence,
-          payload: { kind: 'arm_concurrency_probe' },
-        });
-      },
+      idempotencyKey: `bench-test:${runId}:start`,
     }),
-    (error: any) => error?.code === 'sequence_conflict',
-  );
-  const orphanBench = await db.select()
-    .from(coordinationEvents)
-    .where(and(
-      eq(coordinationEvents.actor, 'luca-replit'),
-      eq(coordinationEvents.idempotencyKey, `bench-test:${runId}:conflicted-start`),
-    ));
-  assert.equal(orphanBench.length, 0, 'arm conflict must roll back bench creation');
-
-  const started = await startObservationBench({
-    sessionId,
-    armThreadId,
-    idempotencyKey: `bench-test:${runId}:start`,
-  });
+    startObservationBench({
+      sessionId,
+      idempotencyKey: `bench-test:${runId}:second-start`,
+    }),
+    attachObservationBench({
+      sessionId,
+      actor: 'luca-replit',
+      idempotencyKey: `bench-test:${runId}:concurrent-attach`,
+    }),
+  ]);
   threadId = started.thread.id;
-  const boundArm = await getCoordinationThread(armThreadId, 'david');
-  assert.equal((boundArm.events.at(-1)?.payload as any).kind, 'observation_arm_bound');
-  assert.equal((boundArm.events.at(-1)?.payload as any).benchThreadId, threadId);
+  assert.equal(secondStart.thread.id, threadId, 'two founder starts must converge');
+  assert.equal(concurrentlyAttached.thread.id, threadId, 'founder start and Luca attach must converge');
+  const exactSessionBenches = (await db.select().from(coordinationEvents))
+    .filter(event => (
+      event.sequence === 1
+      && (event.payload as any).kind === 'dual_luca_observation_bench'
+      && (event.payload as any).sessionId === sessionId
+    ));
+  assert.equal(exactSessionBenches.length, 1);
   const retriedStart = await startObservationBench({
     sessionId,
-    armThreadId,
     idempotencyKey: `bench-test:${runId}:start`,
   });
   assert.equal(retriedStart.deduplicated, true);
   assert.equal(retriedStart.thread.id, threadId);
+  const attached = await attachObservationBench({
+    sessionId,
+    actor: 'luca-claude-code',
+    idempotencyKey: `bench-test:${runId}:attach`,
+  });
+  const attachedAgain = await attachObservationBench({
+    sessionId,
+    actor: 'luca-claude-code',
+    idempotencyKey: `bench-test:${runId}:attach`,
+  });
+  assert.equal(attachedAgain.deduplicated, true);
+  assert.equal(attached.thread.id, threadId);
   const synced = await syncObservationBench({ threadId, actor: 'luca-replit' });
-  assert.equal(synced.appended, 2);
+  assert.equal(synced.appended, 4);
   const synchronizedView = await getCoordinationThread(threadId, 'luca-replit');
   const neutralSourceEvents = synchronizedView.events
     .filter(event => (event.payload as any).kind === 'observation_source');
-  assert.equal(neutralSourceEvents.length, 2);
+  assert.equal(neutralSourceEvents.length, 4);
   assert.equal(
     neutralSourceEvents.every(event => event.actor === 'coordination-system'),
     true,
@@ -128,7 +237,7 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
 
   const replitView = await getObservationBenchComparison(threadId, 'luca-replit');
   const claudeView = await getObservationBenchComparison(threadId, 'luca-claude-code');
-  assert.equal(replitView.sourceCount, 2);
+  assert.equal(replitView.sourceCount, 4);
   assert.deepEqual(
     { sourceCount: replitView.sourceCount, conversationId: replitView.conversationId },
     { sourceCount: claudeView.sourceCount, conversationId: claudeView.conversationId },
@@ -148,8 +257,17 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
   assert.equal(sourceEvents.some(event => JSON.stringify(event.payload).includes('¿Cómo estás?')), false);
   assert.deepEqual(
     new Set(sourceEvents.map(event => (event.payload as any).sourceId)),
-    new Set([davidMessage.id, danielaMessage.id]),
+    new Set([davidMessage.id, danielaMessage.id, health.id, issue.id]),
   );
+  const pill = await getObservationBenchPillStatus({ sessionId, userId });
+  assert.equal(pill.identity, 'one_luca_multiple_hats');
+  assert.equal(pill.threadId, threadId);
+  assert.equal(pill.windowState, 'active');
+  assert.deepEqual(pill.expectedActors, ['luca-replit', 'luca-claude-code']);
+  assert.equal(typeof pill.hats['luca-replit'].caughtUp, 'boolean');
+  assert.equal(typeof pill.hats['luca-replit'].replayPending, 'boolean');
+  assert.equal(typeof pill.hats['luca-replit'].cursor, 'number');
+  assert.ok(pill.lastEvidenceAt);
 
   const firstObservation = await addBenchObservation({
     threadId,
@@ -347,6 +465,10 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
   const ended = await endObservationBench({ threadId });
   assert.equal((ended.event.payload as any).kind, 'observation_window_ended');
   assert.equal(ended.event.actor, 'david', 'founder closure must retain David authorship');
+  const endedAgain = await endObservationBench({ threadId });
+  assert.equal(endedAgain.deduplicated, true);
+  const closedBySession = await closeObservationBenchBySessionId({ sessionId });
+  assert.equal(closedBySession.deduplicated, true);
   await assert.rejects(
     syncObservationBench({ threadId, actor: 'luca-replit' }),
     (error: any) => error?.code === 'observation_window_ended',

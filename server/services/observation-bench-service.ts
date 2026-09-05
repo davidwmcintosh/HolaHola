@@ -1,17 +1,25 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   contextLineageEvents,
   coordinationActorFeedCursors,
   coordinationAdapterDeliveries,
   coordinationEvents,
   coordinationThreads,
+  sofiaIssueReports,
+  studentSessionHealth,
   voicePipelineEvents,
   voiceSessions,
   type CoordinationActorId,
   type CoordinationEvent,
 } from '@shared/schema';
+import {
+  OBSERVATION_BENCH_ACTORS,
+  type ObservationBenchActor,
+  type ObservationBenchPillStatus,
+} from '@shared/observation-bench-types';
 import { getSharedDb } from '../db';
+import { isFounder } from '../middleware/rbac';
 import {
   appendCoordinationEvent,
   CoordinationError,
@@ -19,8 +27,8 @@ import {
   getCoordinationThread,
 } from './coordination-ledger-service';
 
-export const OBSERVATION_BENCH_ACTORS = ['luca-replit', 'luca-claude-code'] as const;
-export type ObservationBenchActor = typeof OBSERVATION_BENCH_ACTORS[number];
+export { OBSERVATION_BENCH_ACTORS };
+export type { ObservationBenchActor, ObservationBenchPillStatus };
 export const OBSERVATION_CATEGORIES = ['noticed', 'missed', 'cross_hat_improvement'] as const;
 export type ObservationCategory = typeof OBSERVATION_CATEGORIES[number];
 
@@ -32,7 +40,7 @@ const INVITATION_KIND = 'observation_invitation';
 
 type SourceEnvelope = {
   kind: typeof SOURCE_KIND;
-  sourceType: 'voice_pipeline' | 'context_lineage';
+  sourceType: 'voice_pipeline' | 'context_lineage' | 'sofia_issue_report' | 'student_session_health';
   sourceId: string;
   conversationId: string;
   sessionId: string | null;
@@ -44,7 +52,143 @@ type SourceEnvelope = {
   eventType?: string;
   deliveryChannel?: string | null;
   deliveryStatus?: string;
+  captureRequestedBy?: CoordinationActorId;
 };
+
+const FOUNDER_USER_ID = process.env.FOUNDER_USER_ID || '49847136';
+
+export type ObservationScope = {
+  userId: string;
+  sessionId: string;
+  conversationId: string;
+};
+
+function scopeFields(value: unknown): Partial<ObservationScope> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const object = value as Record<string, unknown>;
+  const hasScope = ['userId', 'sessionId', 'conversationId'].some(key => key in object);
+  if (!hasScope) return null;
+  return {
+    ...(typeof object.userId === 'string' ? { userId: object.userId } : {}),
+    ...(typeof object.sessionId === 'string' ? { sessionId: object.sessionId } : {}),
+    ...(typeof object.conversationId === 'string' ? { conversationId: object.conversationId } : {}),
+  };
+}
+
+function collectScopeFields(value: unknown): Partial<ObservationScope>[] {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) return value.flatMap(item => collectScopeFields(item));
+  const direct = scopeFields(value);
+  const nested = Object.values(value as Record<string, unknown>)
+    .flatMap(item => collectScopeFields(item));
+  return direct ? [direct, ...nested] : nested;
+}
+
+export function observationObjectScopeMatches(
+  value: unknown,
+  expected: ObservationScope,
+): boolean {
+  const scopes = collectScopeFields(value);
+  return scopes.length > 0 && scopes.every(scope => (
+    (scope.userId === undefined || scope.userId === expected.userId)
+    && scope.sessionId === expected.sessionId
+    && scope.conversationId === expected.conversationId
+  ));
+}
+
+export function sofiaReportScopeMatches(
+  report: { userId: string; diagnosticSnapshot: unknown; clientTelemetry: unknown },
+  expected: ObservationScope,
+): boolean {
+  if (report.userId !== expected.userId) return false;
+  const scopes = [report.diagnosticSnapshot, report.clientTelemetry]
+    .flatMap(value => collectScopeFields(value));
+  return scopes.length > 0 && scopes.every(scope => (
+    (scope.userId === undefined || scope.userId === expected.userId)
+    && scope.sessionId === expected.sessionId
+    && scope.conversationId === expected.conversationId
+  ));
+}
+
+type PresenceEvent = Pick<CoordinationEvent, 'actor' | 'sequence' | 'createdAt' | 'payload'>;
+
+export function deriveObservationBenchPillStatus(input: {
+  conversationId: string;
+  sessionId: string;
+  threadId: string | null;
+  events: PresenceEvent[];
+  ended: boolean;
+  nowMs: number;
+}): ObservationBenchPillStatus {
+  const latestSequence = input.events.at(-1)?.sequence ?? 0;
+  const evidenceTimes = input.events
+    .filter(event => payloadOf(event as CoordinationEvent).kind === SOURCE_KIND)
+    .map(event => payloadOf(event as CoordinationEvent).sourceTimestamp)
+    .filter((value): value is string => typeof value === 'string')
+    .sort();
+  return {
+    identity: 'one_luca_multiple_hats',
+    conversationId: input.conversationId,
+    sessionId: input.sessionId,
+    threadId: input.threadId,
+    windowState: input.threadId ? (input.ended ? 'ended' : 'active') : 'not_armed',
+    expectedActors: OBSERVATION_BENCH_ACTORS,
+    hats: Object.fromEntries(OBSERVATION_BENCH_ACTORS.map(actor => {
+      const event = [...input.events].reverse().find(candidate => candidate.actor === actor);
+      if (!event) return [actor, {
+        connection: 'never_connected',
+        cursor: 0,
+        caughtUp: latestSequence === 0,
+        replayPending: latestSequence > 0,
+        lastEventAt: null,
+      }];
+      const ageMs = input.nowMs - event.createdAt.getTime();
+      const connection = input.ended ? 'disconnected'
+        : ageMs <= 60_000 ? 'connected'
+          : ageMs <= 300_000 ? 'degraded' : 'disconnected';
+      return [actor, {
+        connection,
+        cursor: event.sequence,
+        caughtUp: event.sequence === latestSequence,
+        replayPending: event.sequence < latestSequence,
+        lastEventAt: event.createdAt.toISOString(),
+      }];
+    })) as ObservationBenchPillStatus['hats'],
+    lastEvidenceAt: evidenceTimes.at(-1) ?? null,
+  };
+}
+
+export function closeConflictIsAlreadyEnded(events: PresenceEvent[]): boolean {
+  return events.some(event => payloadOf(event as CoordinationEvent).kind === 'observation_window_ended');
+}
+
+export function selectExactSessionBenchWinner<T extends {
+  thread: { id: string };
+  created: PresenceEvent;
+}>(rows: T[], sessionId: string): T | null {
+  return rows.find(({ created }) => {
+    const payload = created.payload && typeof created.payload === 'object'
+      ? created.payload as Record<string, unknown>
+      : {};
+    return payload.kind === BENCH_KIND && payload.sessionId === sessionId;
+  }) ?? null;
+}
+
+async function requireActiveFounderSession(sessionId: string) {
+  const [session] = await getSharedDb().select({
+    id: voiceSessions.id,
+    conversationId: voiceSessions.conversationId,
+    userId: voiceSessions.userId,
+    status: voiceSessions.status,
+  }).from(voiceSessions).where(eq(voiceSessions.id, sessionId)).limit(1);
+  if (!session || !session.conversationId || session.status !== 'active') {
+    throw new CoordinationError('An already-active founder voice session is required', 409, 'voice_session_not_active');
+  }
+  if (!isFounder({ id: session.userId } as Parameters<typeof isFounder>[0])) {
+    throw new CoordinationError('Student voice sessions cannot be observed', 403, 'founder_session_required');
+  }
+  return { ...session, conversationId: session.conversationId };
+}
 
 function assertBenchActor(actor: CoordinationActorId): asserts actor is ObservationBenchActor {
   if (!OBSERVATION_BENCH_ACTORS.includes(actor as ObservationBenchActor)) {
@@ -132,6 +276,7 @@ function assertValidSourceEvent(
     ...(payload.eventType !== undefined ? { eventType: payload.eventType } : {}),
     ...(payload.deliveryChannel !== undefined ? { deliveryChannel: payload.deliveryChannel } : {}),
     ...(payload.deliveryStatus !== undefined ? { deliveryStatus: payload.deliveryStatus } : {}),
+    ...(payload.captureRequestedBy !== undefined ? { captureRequestedBy: payload.captureRequestedBy } : {}),
   } as Omit<SourceEnvelope, 'kind' | 'capturedAt'>;
   if (
     payload.kind !== SOURCE_KIND
@@ -185,134 +330,185 @@ export async function listObservationBenchArms() {
   };
 }
 
-export async function startObservationBench(input: {
+async function findObservationBenchBySessionId(sessionId: string) {
+  const rows = await getSharedDb().select({
+    thread: coordinationThreads,
+    created: coordinationEvents,
+  }).from(coordinationThreads).innerJoin(coordinationEvents, and(
+    eq(coordinationEvents.threadId, coordinationThreads.id),
+    eq(coordinationEvents.sequence, 1),
+  )).orderBy(desc(coordinationThreads.createdAt));
+  return rows.find(({ created }) => {
+    const payload = payloadOf(created);
+    return payload.kind === BENCH_KIND && payload.sessionId === sessionId;
+  }) ?? null;
+}
+
+export async function discoverObservationBenchBySessionId(input: {
   sessionId: string;
-  armThreadId: string;
+  actor: CoordinationActorId;
+}) {
+  assertBenchActor(input.actor);
+  const sessionId = input.sessionId?.trim();
+  if (!sessionId) throw new CoordinationError('Exact sessionId is required', 400, 'invalid_request');
+  const session = await requireActiveFounderSession(sessionId);
+  const bench = await findObservationBenchBySessionId(sessionId);
+  const benchView = bench ? await getCoordinationThread(bench.thread.id, input.actor) : null;
+  return {
+    session: {
+      id: session.id,
+      conversationId: session.conversationId,
+      status: session.status,
+    },
+    threadId: bench?.thread.id ?? null,
+    windowState: bench
+      ? ['completed', 'outcome_acknowledged'].includes(bench.thread.state)
+        || benchView?.events.some(event => payloadOf(event).kind === 'observation_window_ended')
+        ? 'ended' : 'active'
+      : 'not_armed',
+  };
+}
+
+async function openExactSessionObservationBench(input: {
+  sessionId: string;
+  actor: ObservationBenchActor | 'david';
   idempotencyKey: string;
-  _beforeAtomicStartForTest?: () => Promise<void>;
+  _afterSessionLockForTest?: () => Promise<void>;
 }) {
   const sessionId = input.sessionId?.trim();
-  const armThreadId = input.armThreadId?.trim();
-  if (!sessionId || !armThreadId || !input.idempotencyKey?.trim()) {
-    throw new CoordinationError('sessionId, armThreadId, and idempotencyKey are required', 400, 'invalid_request');
+  if (!sessionId || !input.idempotencyKey?.trim()) {
+    throw new CoordinationError('Exact sessionId and idempotencyKey are required', 400, 'invalid_request');
   }
-  const [existingStart] = await getSharedDb().select()
-    .from(coordinationEvents)
-    .where(and(
-      eq(coordinationEvents.actor, 'luca-replit'),
-      eq(coordinationEvents.idempotencyKey, input.idempotencyKey),
-    ))
-    .limit(1);
-  if (existingStart && payloadOf(existingStart).kind === BENCH_KIND) {
-    const [thread] = await getSharedDb().select()
-      .from(coordinationThreads)
-      .where(eq(coordinationThreads.id, existingStart.threadId))
-      .limit(1);
-    return {
-      thread,
-      event: existingStart,
-      deduplicated: true,
-      deliveryState: 'not_applicable' as const,
-      armThreadId,
-    };
-  }
-  const [session] = await getSharedDb()
-    .select({
+  return getSharedDb().transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${sessionId}))`);
+    await input._afterSessionLockForTest?.();
+    const [session] = await tx.select({
       id: voiceSessions.id,
       conversationId: voiceSessions.conversationId,
+      userId: voiceSessions.userId,
       status: voiceSessions.status,
-    })
-    .from(voiceSessions)
-    .where(eq(voiceSessions.id, sessionId))
-    .limit(1);
-  if (!session || !session.conversationId || session.status !== 'active') {
-    throw new CoordinationError(
-      'An active Daniela voice session is required before opening an observation bench',
-      409,
-      'voice_session_not_active',
-    );
-  }
-  const conversationId = session.conversationId;
-  const armView = await getCoordinationThread(armThreadId, 'david');
-  if (
-    payloadOf(armView.events[0]).kind !== ARM_KIND
-    || armView.events.some(event => payloadOf(event).kind === 'observation_arm_bound')
-  ) {
-    throw new CoordinationError('A currently armed two-hat observation record is required', 409, 'observation_arm_unavailable');
-  }
-
-  await input._beforeAtomicStartForTest?.();
-  return getSharedDb().transaction(async tx => {
-    const armSequence = armView.thread.latestSequence;
-    const [reservedArm] = await tx.update(coordinationThreads)
-      .set({ latestSequence: armSequence + 1, updatedAt: new Date() })
-      .where(and(
-        eq(coordinationThreads.id, armThreadId),
-        eq(coordinationThreads.latestSequence, armSequence),
-      ))
-      .returning();
-    if (!reservedArm) throw new CoordinationError('Observation arm changed before binding', 409, 'sequence_conflict');
-
-    const [thread] = await tx.insert(coordinationThreads).values({
-      title: `One Luca, two benches — ${conversationId}`,
-      description: 'Shared read-only Daniela session evidence for Luca wearing the Replit and Claude Code hats.',
-      originActor: 'luca-replit',
-      intendedRecipient: otherHat('luca-replit'),
-      priority: 'normal',
-      state: 'created',
-      latestSequence: 0,
-      latestGlobalSequence: 0,
-    }).returning();
-    if (!thread) throw new CoordinationError('Observation bench insert returned no row', 500, 'insert_failed');
-
+    }).from(voiceSessions).where(eq(voiceSessions.id, sessionId)).limit(1);
+    if (!session || !session.conversationId || session.status !== 'active') {
+      throw new CoordinationError('An already-active founder voice session is required', 409, 'voice_session_not_active');
+    }
+    if (!isFounder({ id: session.userId } as Parameters<typeof isFounder>[0])) {
+      throw new CoordinationError('Student voice sessions cannot be observed', 403, 'founder_session_required');
+    }
+    const [idempotent] = await tx.select().from(coordinationEvents).where(and(
+      eq(coordinationEvents.actor, input.actor),
+      eq(coordinationEvents.idempotencyKey, input.idempotencyKey),
+    )).limit(1);
+    if (idempotent) {
+      const payload = payloadOf(idempotent);
+      if (payload.sessionId !== sessionId || !['observation_hat_attached', 'observation_founder_started'].includes(String(payload.kind))) {
+        throw new CoordinationError('Idempotency key was used for another mutation', 409, 'idempotency_conflict');
+      }
+      const [thread] = await tx.select().from(coordinationThreads)
+        .where(eq(coordinationThreads.id, idempotent.threadId)).limit(1);
+      if (!thread) throw new CoordinationError('Observation bench thread is missing', 500, 'ledger_corrupt');
+      return { thread, event: idempotent, deduplicated: true, deliveryState: 'not_applicable' as const };
+    }
+    const rows = await tx.select({ thread: coordinationThreads, created: coordinationEvents })
+      .from(coordinationThreads).innerJoin(coordinationEvents, and(
+        eq(coordinationEvents.threadId, coordinationThreads.id),
+        eq(coordinationEvents.sequence, 1),
+      )).orderBy(desc(coordinationThreads.createdAt));
+    const winner = selectExactSessionBenchWinner(rows, sessionId);
+    let thread = winner?.thread;
+    let sequence = thread?.latestSequence ?? 0;
+    if (thread) {
+      const events = await tx.select().from(coordinationEvents)
+        .where(eq(coordinationEvents.threadId, thread.id));
+      assertObservationWindowActive(events);
+    } else {
+      [thread] = await tx.insert(coordinationThreads).values({
+        title: `One Luca, two benches — ${session.conversationId}`,
+        description: 'Shared read-only founder voice evidence for Luca wearing the Replit and Claude Code hats.',
+        originActor: 'luca-replit',
+        intendedRecipient: 'luca-claude-code',
+        priority: 'normal',
+        state: 'created',
+        latestSequence: 0,
+        latestGlobalSequence: 0,
+      }).returning();
+      if (!thread) throw new CoordinationError('Observation bench insert returned no row', 500, 'insert_failed');
+      const [created] = await tx.insert(coordinationEvents).values({
+        threadId: thread.id,
+        sequence: 1,
+        actor: input.actor,
+        recipientActor: input.actor === 'luca-claude-code' ? 'luca-replit' : 'luca-claude-code',
+        eventType: 'created',
+        content: `${input.actor} opened read-only observation for exact founder voice session ${sessionId}.`,
+        idempotencyKey: `${input.idempotencyKey}:bench-created`,
+        payload: {
+          kind: BENCH_KIND,
+          conversationId: session.conversationId,
+          sessionId,
+          requestedBy: input.actor,
+          sourcePolicy: 'read_only_canonical_evidence',
+          identityPolicy: 'one_luca_multiple_hats',
+          danielaInjectionPolicy: 'never_injected_technical_observation_only',
+        },
+      }).returning();
+      if (!created) throw new CoordinationError('Observation bench event insert returned no row', 500, 'insert_failed');
+      sequence = 1;
+      [thread] = await tx.update(coordinationThreads).set({
+        latestSequence: sequence,
+        latestGlobalSequence: created.globalSequence,
+        updatedAt: new Date(),
+      }).where(eq(coordinationThreads.id, thread.id)).returning();
+    }
+    const kind = input.actor === 'david' ? 'observation_founder_started' : 'observation_hat_attached';
     const [event] = await tx.insert(coordinationEvents).values({
-      threadId: thread.id,
-      sequence: 1,
-      actor: 'luca-replit',
-      recipientActor: otherHat('luca-replit'),
-      eventType: 'created',
-      content: `Observation bench opened for Daniela conversation ${conversationId}. Hat labels record provenance; they do not name separate Lucas.`,
+      threadId: thread!.id,
+      sequence: sequence + 1,
+      actor: input.actor,
+      recipientActor: input.actor === 'luca-claude-code' ? 'luca-replit' : 'luca-claude-code',
+      eventType: 'comment',
+      content: `${input.actor} bound read-only observation to exact founder voice session ${sessionId}.`,
       idempotencyKey: input.idempotencyKey,
       payload: {
-        kind: BENCH_KIND,
-        conversationId,
-        sessionId: session.id,
-        armThreadId,
-        requestedBy: 'david',
-        sourcePolicy: 'read_only_canonical_evidence',
-        identityPolicy: 'one_luca_multiple_hats',
-        danielaInjectionPolicy: 'never_injected_technical_observation_only',
+        kind,
+        actor: input.actor,
+        sessionId,
+        conversationId: session.conversationId,
+        authority: 'read_only_observation',
+        attachedAt: new Date().toISOString(),
       },
     }).returning();
-    if (!event) throw new CoordinationError('Observation bench event insert returned no row', 500, 'insert_failed');
-    const [updatedThread] = await tx.update(coordinationThreads)
-      .set({ latestSequence: 1, latestGlobalSequence: event.globalSequence, updatedAt: new Date() })
-      .where(eq(coordinationThreads.id, thread.id))
-      .returning();
-
-    const [boundEvent] = await tx.insert(coordinationEvents).values({
-      threadId: armThreadId,
-      sequence: armSequence + 1,
-      actor: 'david',
-      recipientActor: 'luca-replit',
-      eventType: 'comment',
-      content: `David bound both armed Luca hats to Daniela session ${session.id}.`,
-      idempotencyKey: `observation-arm-bound:${armThreadId}:${thread.id}`,
-      payload: {
-        kind: 'observation_arm_bound',
-        benchThreadId: thread.id,
-        sessionId: session.id,
-        conversationId,
-        boundBy: 'david',
-        danielaContextState: 'not_injected',
-      },
-    }).returning();
-    if (!boundEvent || !updatedThread) throw new CoordinationError('Atomic arm binding failed', 500, 'projection_failed');
-    await tx.update(coordinationThreads)
-      .set({ latestGlobalSequence: boundEvent.globalSequence, updatedAt: new Date() })
-      .where(eq(coordinationThreads.id, armThreadId));
-    return { thread: updatedThread, event, deduplicated: false, deliveryState: 'not_applicable' as const, armThreadId };
+    if (!event) throw new CoordinationError('Observation binding insert returned no row', 500, 'insert_failed');
+    [thread] = await tx.update(coordinationThreads).set({
+      latestSequence: sequence + 1,
+      latestGlobalSequence: event.globalSequence,
+      updatedAt: new Date(),
+    }).where(eq(coordinationThreads.id, thread!.id)).returning();
+    return { thread, event, deduplicated: false, deliveryState: 'not_applicable' as const };
   });
+}
+
+export async function attachObservationBench(input: {
+  sessionId: string;
+  actor: CoordinationActorId;
+  idempotencyKey: string;
+  _afterSessionLockForTest?: () => Promise<void>;
+}) {
+  assertBenchActor(input.actor);
+  return openExactSessionObservationBench({ ...input, actor: input.actor });
+}
+
+export async function startObservationBench(input: {
+  sessionId: string;
+  armThreadId?: string;
+  idempotencyKey: string;
+  _afterSessionLockForTest?: () => Promise<void>;
+}) {
+  const result = await openExactSessionObservationBench({
+    sessionId: input.sessionId,
+    actor: 'david',
+    idempotencyKey: input.idempotencyKey,
+    _afterSessionLockForTest: input._afterSessionLockForTest,
+  });
+  return { ...result, armThreadId: null };
 }
 
 export async function syncObservationBench(input: {
@@ -333,6 +529,8 @@ export async function syncObservationBench(input: {
   const [session] = await getSharedDb()
     .select({
       id: voiceSessions.id,
+      userId: voiceSessions.userId,
+      status: voiceSessions.status,
     })
     .from(voiceSessions)
     .where(and(
@@ -343,6 +541,15 @@ export async function syncObservationBench(input: {
   if (!session) {
     throw new CoordinationError('The bench voice session no longer exists', 404, 'voice_session_not_found');
   }
+  if (session.status !== 'active') {
+    await closeObservationBenchBySessionId({ sessionId: bench.sessionId, stale: true });
+    throw new CoordinationError('Observation window has ended', 409, 'observation_window_ended');
+  }
+  const expectedScope: ObservationScope = {
+    userId: session.userId,
+    sessionId: bench.sessionId,
+    conversationId: bench.conversationId,
+  };
   const existing = new Set(
     view.events
       .map(payloadOf)
@@ -377,6 +584,21 @@ export async function syncObservationBench(input: {
     .from(contextLineageEvents)
     .where(eq(contextLineageEvents.sessionId, bench.sessionId))
     .orderBy(asc(contextLineageEvents.observedAt), asc(contextLineageEvents.id));
+  const scopedLineage = lineage.filter(event => observationObjectScopeMatches(event.payloadJson, expectedScope));
+
+  const health = await getSharedDb().select()
+    .from(studentSessionHealth)
+    .where(and(
+      eq(studentSessionHealth.sessionId, bench.sessionId),
+      eq(studentSessionHealth.userId, session.userId),
+    ))
+    .orderBy(asc(studentSessionHealth.createdAt), asc(studentSessionHealth.id));
+
+  const userIssueReports = await getSharedDb().select()
+    .from(sofiaIssueReports)
+    .where(eq(sofiaIssueReports.userId, session.userId))
+    .orderBy(asc(sofiaIssueReports.createdAt), asc(sofiaIssueReports.id));
+  const issueReports = userIssueReports.filter(report => sofiaReportScopeMatches(report, expectedScope));
 
   const sources: Array<Omit<SourceEnvelope, 'kind' | 'capturedAt'>> = [
     ...pipeline.map(event => ({
@@ -387,8 +609,9 @@ export async function syncObservationBench(input: {
       sourceTimestamp: event.createdAt.toISOString(),
       sha256: digest({ eventType: event.eventType, eventData: event.eventData }),
       eventType: event.eventType,
+      captureRequestedBy: input.actor,
     })),
-    ...lineage.map(event => ({
+    ...scopedLineage.map(event => ({
       sourceType: 'context_lineage' as const,
       sourceId: event.id,
       conversationId: bench.conversationId,
@@ -406,6 +629,41 @@ export async function syncObservationBench(input: {
       eventType: event.eventType,
       deliveryChannel: event.deliveryChannel,
       deliveryStatus: event.deliveryStatus,
+      captureRequestedBy: input.actor,
+    })),
+    ...issueReports.map(report => ({
+      sourceType: 'sofia_issue_report' as const,
+      sourceId: report.id,
+      conversationId: bench.conversationId,
+      sessionId: bench.sessionId,
+      sourceTimestamp: report.createdAt.toISOString(),
+      sha256: digest({
+        issueType: report.issueType,
+        userDescription: report.userDescription,
+        sofiaAnalysis: report.sofiaAnalysis,
+        diagnosticSnapshot: report.diagnosticSnapshot,
+        clientTelemetry: report.clientTelemetry,
+        status: report.status,
+      }),
+      eventType: report.issueType,
+      captureRequestedBy: input.actor,
+    })),
+    ...health.map(row => ({
+      sourceType: 'student_session_health' as const,
+      sourceId: row.id,
+      conversationId: bench.conversationId,
+      sessionId: bench.sessionId,
+      sourceTimestamp: row.createdAt.toISOString(),
+      sha256: digest({
+        language: row.language,
+        durationSeconds: row.durationSeconds,
+        exchangeCount: row.exchangeCount,
+        studentSpeakingSeconds: row.studentSpeakingSeconds,
+        errorCount: row.errorCount,
+        qualityScore: row.qualityScore,
+      }),
+      eventType: 'session_health',
+      captureRequestedBy: input.actor,
     })),
   ].sort((a, b) => (
     a.sourceTimestamp.localeCompare(b.sourceTimestamp)
@@ -436,6 +694,23 @@ export async function syncObservationBench(input: {
     existing.add(sourceKey);
     appended += 1;
   }
+  const syncResult = await appendCoordinationEvent({
+    threadId: input.threadId,
+    actor: input.actor,
+    eventType: 'comment',
+    content: `${input.actor} synchronized read-only evidence for exact voice session ${bench.sessionId}.`,
+    idempotencyKey: `bench-sync:${input.threadId}:${input.actor}:${view.thread.latestSequence}`,
+    expectedSequence: view.thread.latestSequence,
+    payload: {
+      kind: 'observation_hat_sync',
+      actor: input.actor,
+      sessionId: bench.sessionId,
+      conversationId: bench.conversationId,
+      syncedThroughSequence: view.thread.latestSequence,
+      syncedAt: new Date().toISOString(),
+    },
+  });
+  view = { thread: syncResult.thread, events: [...view.events, syncResult.event] };
   return { thread: view.thread, appended, sourceCount: existing.size };
 }
 
@@ -447,6 +722,19 @@ export async function getObservationBenchSourceStream(
   assertBenchActor(actor);
   const view = await getCoordinationThread(threadId, actor);
   const bench = assertBenchThread(view.events);
+  const [benchSession] = await getSharedDb().select({ userId: voiceSessions.userId })
+    .from(voiceSessions)
+    .where(and(
+      eq(voiceSessions.id, bench.sessionId!),
+      eq(voiceSessions.conversationId, bench.conversationId),
+    ))
+    .limit(1);
+  if (!benchSession) throw new CoordinationError('Bench session not found', 404, 'voice_session_not_found');
+  const expectedScope: ObservationScope = {
+    userId: benchSession.userId,
+    sessionId: bench.sessionId!,
+    conversationId: bench.conversationId,
+  };
   const sourceEvents = view.events.filter(event => (
     event.sequence > afterSequence && payloadOf(event).kind === SOURCE_KIND
   ));
@@ -456,6 +744,12 @@ export async function getObservationBenchSourceStream(
     .map(event => String(payloadOf(event).sourceId));
   const lineageIds = sourceEvents
     .filter(event => payloadOf(event).sourceType === 'context_lineage')
+    .map(event => String(payloadOf(event).sourceId));
+  const issueReportIds = sourceEvents
+    .filter(event => payloadOf(event).sourceType === 'sofia_issue_report')
+    .map(event => String(payloadOf(event).sourceId));
+  const healthIds = sourceEvents
+    .filter(event => payloadOf(event).sourceType === 'student_session_health')
     .map(event => String(payloadOf(event).sourceId));
   const canonicalPipeline = pipelineIds.length
     ? await getSharedDb().select({
@@ -481,10 +775,32 @@ export async function getObservationBenchSourceStream(
         payloadJson: contextLineageEvents.payloadJson,
         payloadSha256: contextLineageEvents.payloadSha256,
         observedAt: contextLineageEvents.observedAt,
-      }).from(contextLineageEvents).where(inArray(contextLineageEvents.id, lineageIds))
+      }).from(contextLineageEvents).where(and(
+        inArray(contextLineageEvents.id, lineageIds),
+        eq(contextLineageEvents.sessionId, bench.sessionId!),
+      ))
+    : [];
+  const canonicalIssueReports = issueReportIds.length
+    ? await getSharedDb().select().from(sofiaIssueReports).where(and(
+        inArray(sofiaIssueReports.id, issueReportIds),
+        eq(sofiaIssueReports.userId, benchSession.userId),
+      ))
+    : [];
+  const canonicalHealth = healthIds.length
+    ? await getSharedDb().select().from(studentSessionHealth).where(and(
+        inArray(studentSessionHealth.id, healthIds),
+        eq(studentSessionHealth.sessionId, bench.sessionId!),
+        eq(studentSessionHealth.userId, benchSession.userId),
+      ))
     : [];
   const pipelineById = new Map(canonicalPipeline.map(row => [row.id, row]));
-  const lineageById = new Map(canonicalLineage.map(row => [row.id, row]));
+  const lineageById = new Map(canonicalLineage
+    .filter(row => observationObjectScopeMatches(row.payloadJson, expectedScope))
+    .map(row => [row.id, row]));
+  const issueReportById = new Map(canonicalIssueReports
+    .filter(row => sofiaReportScopeMatches(row, expectedScope))
+    .map(row => [row.id, row]));
+  const healthById = new Map(canonicalHealth.map(row => [row.id, row]));
   return {
     thread: view.thread,
     items: sourceEvents.map(event => {
@@ -492,7 +808,11 @@ export async function getObservationBenchSourceStream(
       const sourceId = String(envelope.sourceId);
       const canonical = envelope.sourceType === 'voice_pipeline'
         ? pipelineById.get(sourceId)
-        : lineageById.get(sourceId);
+        : envelope.sourceType === 'context_lineage'
+          ? lineageById.get(sourceId)
+          : envelope.sourceType === 'sofia_issue_report'
+            ? issueReportById.get(sourceId)
+            : healthById.get(sourceId);
       const actualDigest = !canonical
         ? null
         : envelope.sourceType === 'voice_pipeline'
@@ -500,14 +820,32 @@ export async function getObservationBenchSourceStream(
               eventType: (canonical as typeof canonicalPipeline[number]).eventType,
               eventData: (canonical as typeof canonicalPipeline[number]).eventData,
             })
-          : (canonical as typeof canonicalLineage[number]).payloadSha256 ?? digest({
+          : envelope.sourceType === 'context_lineage'
+            ? (canonical as typeof canonicalLineage[number]).payloadSha256 ?? digest({
               sourceRoute: (canonical as typeof canonicalLineage[number]).sourceRoute,
               eventType: (canonical as typeof canonicalLineage[number]).eventType,
               deliveryChannel: (canonical as typeof canonicalLineage[number]).deliveryChannel,
               deliveryStatus: (canonical as typeof canonicalLineage[number]).deliveryStatus,
               payloadText: (canonical as typeof canonicalLineage[number]).payloadText,
               payloadJson: (canonical as typeof canonicalLineage[number]).payloadJson,
-            });
+            })
+            : envelope.sourceType === 'sofia_issue_report'
+              ? digest({
+                  issueType: (canonical as typeof canonicalIssueReports[number]).issueType,
+                  userDescription: (canonical as typeof canonicalIssueReports[number]).userDescription,
+                  sofiaAnalysis: (canonical as typeof canonicalIssueReports[number]).sofiaAnalysis,
+                  diagnosticSnapshot: (canonical as typeof canonicalIssueReports[number]).diagnosticSnapshot,
+                  clientTelemetry: (canonical as typeof canonicalIssueReports[number]).clientTelemetry,
+                  status: (canonical as typeof canonicalIssueReports[number]).status,
+                })
+              : digest({
+                  language: (canonical as typeof canonicalHealth[number]).language,
+                  durationSeconds: (canonical as typeof canonicalHealth[number]).durationSeconds,
+                  exchangeCount: (canonical as typeof canonicalHealth[number]).exchangeCount,
+                  studentSpeakingSeconds: (canonical as typeof canonicalHealth[number]).studentSpeakingSeconds,
+                  errorCount: (canonical as typeof canonicalHealth[number]).errorCount,
+                  qualityScore: (canonical as typeof canonicalHealth[number]).qualityScore,
+                });
       const lineage = envelope.sourceType === 'context_lineage' && canonical
         ? canonical as typeof canonicalLineage[number]
         : null;
@@ -521,8 +859,17 @@ export async function getObservationBenchSourceStream(
         : envelope.sourceType === 'voice_pipeline'
           ? (canonical as typeof canonicalPipeline[number]).sessionId === envelope.sessionId
             && (canonical as typeof canonicalPipeline[number]).createdAt.toISOString() === envelope.sourceTimestamp
-          : (canonical as typeof canonicalLineage[number]).sessionId === envelope.sessionId
-            && (canonical as typeof canonicalLineage[number]).observedAt.toISOString() === envelope.sourceTimestamp;
+          : envelope.sourceType === 'context_lineage'
+            ? (canonical as typeof canonicalLineage[number]).sessionId === envelope.sessionId
+              && (canonical as typeof canonicalLineage[number]).observedAt.toISOString() === envelope.sourceTimestamp
+            : envelope.sourceType === 'sofia_issue_report'
+              ? (canonical as typeof canonicalIssueReports[number]).createdAt.toISOString() === envelope.sourceTimestamp
+                && sofiaReportScopeMatches(
+                  canonical as typeof canonicalIssueReports[number],
+                  expectedScope,
+                )
+              : (canonical as typeof canonicalHealth[number]).sessionId === envelope.sessionId
+                && (canonical as typeof canonicalHealth[number]).createdAt.toISOString() === envelope.sourceTimestamp;
       const signedLineageMetadataMatches = !lineage
         || (
           lineage.sourceRoute === envelope.sourceRoute
@@ -813,22 +1160,22 @@ export async function listObservationBenchDashboard() {
           } : null,
           hats: Object.fromEntries(OBSERVATION_BENCH_ACTORS.map(hat => {
             const hatEvent = [...view.events].reverse().find(event => event.actor === hat);
-            const feedCursor = cursorByActor.get(hat);
-            const ageMs = feedCursor ? Date.now() - feedCursor.updatedAt.getTime() : null;
+            const ageMs = hatEvent ? Date.now() - hatEvent.createdAt.getTime() : null;
             const connection = ageMs === null
               ? 'never_connected'
+              : windowEnded ? 'disconnected'
               : ageMs <= 60_000
                 ? 'connected'
                 : ageMs <= 300_000 ? 'degraded' : 'disconnected';
             return [hat, {
               connection,
-              connectionEvidence: 'coordination_feed_cursor',
-              authenticatedAccess: feedCursor ? 'observed' : 'not_observed',
-              cursor: feedCursor?.acknowledgedGlobalSequence ?? 0,
-              replayPending: (feedCursor?.acknowledgedGlobalSequence ?? 0) < thread.latestGlobalSequence,
-              replayFromGlobalSequence: (feedCursor?.acknowledgedGlobalSequence ?? 0) + 1,
+              connectionEvidence: 'exact_bench_authenticated_event',
+              authenticatedAccess: hatEvent ? 'observed' : 'not_observed',
+              cursor: hatEvent?.sequence ?? 0,
+              replayPending: (hatEvent?.sequence ?? 0) < thread.latestSequence,
+              replayFromGlobalSequence: (hatEvent?.sequence ?? 0) + 1,
               lastEventAt: hatEvent?.createdAt ?? null,
-              lastContactAt: feedCursor?.updatedAt ?? null,
+              lastContactAt: hatEvent?.createdAt ?? null,
             }];
           })),
         },
@@ -865,14 +1212,24 @@ export async function listActiveObservationSessions() {
         startedAt: voiceSessions.startedAt,
       })
       .from(voiceSessions)
-      .where(eq(voiceSessions.status, 'active'))
+      .where(and(
+        eq(voiceSessions.status, 'active'),
+        eq(voiceSessions.userId, FOUNDER_USER_ID),
+      ))
       .orderBy(desc(voiceSessions.startedAt))
       .limit(50),
   };
 }
 
-export async function endObservationBench(input: { threadId: string }) {
-  const view = await getCoordinationThread(input.threadId, 'luca-replit');
+async function closeObservationBenchThread(input: {
+  threadId: string;
+  actor: CoordinationActorId;
+  reason: 'founder_ended' | 'actor_ended' | 'voice_session_ended' | 'stale';
+}) {
+  const readActor = input.actor === 'coordination-system' || input.actor === 'david'
+    ? 'luca-replit'
+    : input.actor;
+  const view = await getCoordinationThread(input.threadId, readActor);
   assertBenchThread(view.events);
   if (
     ['completed', 'outcome_acknowledged'].includes(view.thread.state)
@@ -881,8 +1238,9 @@ export async function endObservationBench(input: { threadId: string }) {
     return { thread: view.thread, deduplicated: true };
   }
   const sourceCount = view.events.filter(event => payloadOf(event).kind === SOURCE_KIND).length;
-  return getSharedDb().transaction(async tx => {
-    const nextSequence = view.thread.latestSequence + 1;
+  try {
+    return await getSharedDb().transaction(async tx => {
+      const nextSequence = view.thread.latestSequence + 1;
     const [reserved] = await tx.update(coordinationThreads)
       .set({ latestSequence: nextSequence, updatedAt: new Date() })
       .where(and(
@@ -894,14 +1252,15 @@ export async function endObservationBench(input: { threadId: string }) {
     const [event] = await tx.insert(coordinationEvents).values({
       threadId: input.threadId,
       sequence: nextSequence,
-      actor: 'david',
-      recipientActor: 'luca-replit',
+      actor: input.actor,
+      recipientActor: input.actor === 'luca-replit' ? 'luca-claude-code' : 'luca-replit',
       eventType: 'comment',
-      content: 'David ended this technical observation window.',
+      content: `${input.actor} terminally closed this read-only technical observation window.`,
       idempotencyKey: `bench-window-ended:${input.threadId}`,
       payload: {
         kind: 'observation_window_ended',
-        endedBy: 'david',
+        endedBy: input.actor,
+        reason: input.reason,
         endedAt: new Date().toISOString(),
         sourceCount,
         contextBoundary: 'technical_observation_only',
@@ -913,7 +1272,93 @@ export async function endObservationBench(input: { threadId: string }) {
       .set({ latestGlobalSequence: event.globalSequence, updatedAt: new Date() })
       .where(eq(coordinationThreads.id, input.threadId))
       .returning();
-    return { thread, event, deduplicated: false, deliveryState: 'not_applicable' as const };
+      return { thread, event, deduplicated: false, deliveryState: 'not_applicable' as const };
+    });
+  } catch (error) {
+    if (!(error instanceof CoordinationError) || error.code !== 'sequence_conflict') throw error;
+    const latest = await getCoordinationThread(input.threadId, readActor);
+    if (!closeConflictIsAlreadyEnded(latest.events)) throw error;
+    return { thread: latest.thread, deduplicated: true };
+  }
+}
+
+export async function endObservationBench(input: {
+  threadId: string;
+  actor?: CoordinationActorId;
+}) {
+  const actor = input.actor ?? 'david';
+  if (actor !== 'david') assertBenchActor(actor);
+  return closeObservationBenchThread({
+    threadId: input.threadId,
+    actor,
+    reason: actor === 'david' ? 'founder_ended' : 'actor_ended',
+  });
+}
+
+/**
+ * Parent integration seam: call this from voice-session termination with the
+ * immutable DB voice session ID. It is safe to retry.
+ */
+export async function closeObservationBenchBySessionId(input: {
+  sessionId: string;
+  stale?: boolean;
+}) {
+  const sessionId = input.sessionId?.trim();
+  if (!sessionId) throw new CoordinationError('Exact sessionId is required', 400, 'invalid_request');
+  const bench = await findObservationBenchBySessionId(sessionId);
+  if (!bench) return { thread: null, deduplicated: true };
+  return closeObservationBenchThread({
+    threadId: bench.thread.id,
+    actor: 'coordination-system',
+    reason: input.stale ? 'stale' : 'voice_session_ended',
+  });
+}
+
+export async function getObservationBenchPillStatus(input: {
+  sessionId: string;
+  userId: string;
+}): Promise<ObservationBenchPillStatus> {
+  const sessionId = input.sessionId?.trim();
+  if (!sessionId) throw new CoordinationError('Exact sessionId is required', 400, 'invalid_request');
+  const [session] = await getSharedDb().select({
+    id: voiceSessions.id,
+    conversationId: voiceSessions.conversationId,
+    userId: voiceSessions.userId,
+    status: voiceSessions.status,
+  }).from(voiceSessions).where(eq(voiceSessions.id, sessionId)).limit(1);
+  if (!session || !session.conversationId) {
+    throw new CoordinationError('Voice session not found', 404, 'voice_session_not_found');
+  }
+  if (
+    session.userId !== input.userId
+    || !isFounder({ id: input.userId } as Parameters<typeof isFounder>[0])
+  ) {
+    throw new CoordinationError('Status is limited to the founder’s own exact session', 403, 'session_owner_required');
+  }
+  let bench = await findObservationBenchBySessionId(sessionId);
+  if (bench && session.status !== 'active') {
+    await closeObservationBenchBySessionId({ sessionId, stale: true });
+    bench = await findObservationBenchBySessionId(sessionId);
+  }
+  if (!bench) {
+    return deriveObservationBenchPillStatus({
+      conversationId: session.conversationId,
+      sessionId,
+      threadId: null,
+      events: [],
+      ended: false,
+      nowMs: Date.now(),
+    });
+  }
+  const view = await getCoordinationThread(bench.thread.id, 'luca-replit');
+  const ended = view.events.some(event => payloadOf(event).kind === 'observation_window_ended');
+  return deriveObservationBenchPillStatus({
+    conversationId: session.conversationId,
+    sessionId,
+    threadId: bench.thread.id,
+    events: view.events,
+    ended,
+    nowMs: Date.now(),
   });
 }
 

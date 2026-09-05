@@ -5276,3 +5276,23 @@ startup and runtime failures now surface an explicit `AI_FAILED` state.
 Push-to-talk release closes and invalidates any speculative Deepgram state before
 returning. Focused provider-matrix and no-fallback coverage is registered in both
 the Validation suite and Consolidated CI.
+
+## Live voice recovery and Observation Bench lifecycle — September 5, 2026
+
+Gemini Live startup greeting ownership is now client-primed and server-managed:
+the ready client supplies intent, while the provider session queues delivery
+until setup completes, acknowledges delivery on first audio, and owns one bounded
+retry state machine for send and no-audio failures. Reconnect authority is claimed
+from the durable voice-session grace row, so only one process can resume.
+
+Observation Bench access is bound to an exact active founder voice-session ID.
+Both Luca hats may attach read-only without Command Center pre-arming, while
+student sessions and wildcard future sessions remain inaccessible. Exact-session
+creation is serialized, evidence is scoped to the session/user/conversation, and
+every terminal voice path closes the bench independently of metrics failures.
+The existing 3-Way indicator now shows one Luca with both hat states and fetches
+status without a permanent polling loop.
+
+Focused tests, TypeScript, system health, architecture review, and Gemini review
+passed. The destructive database-concurrency journey remains isolated and skips
+unless a verified disposable database is configured.

@@ -42,6 +42,7 @@ import {
  */
 export interface StreamingVoiceState {
   connectionState: StreamingClientState;
+  voiceSessionId: string | null;
   playbackState: StreamingPlaybackState;
   isConnecting: boolean;
   isProcessing: boolean;
@@ -225,6 +226,10 @@ export interface UseStreamingVoiceReturn {
 export function useStreamingVoice(): UseStreamingVoiceReturn {
   // State
   const [connectionState, setConnectionState] = useState<StreamingClientState>('disconnected');
+  const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
+  const handleSessionStart = useCallback((event: { sessionId: string; voiceSessionId: string | null }) => {
+    setVoiceSessionId(event.voiceSessionId);
+  }, []);
   const [playbackState, setPlaybackState] = useState<StreamingPlaybackState>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
   const isProcessingRef = useRef(false);
@@ -1983,6 +1988,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Connecting for conversation ${config.conversationId}`);
     }
     
+    // A fresh caller-owned session must not display the prior durable identity
+    // while waiting for its session_started response.
+    setVoiceSessionId(null);
+
     // Store config for callbacks (e.g., onResponseComplete)
     sessionConfigRef.current = config;
     
@@ -2015,6 +2024,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('stateChange', (state) => {
         connectionStateRef.current = state;
         setConnectionState(state);
+        if (state === 'disconnected') {
+          setVoiceSessionId(null);
+        }
 
         // Keep the lockout-diagnostics connectionStatus in sync so snapshots
         // show the real WS state instead of the stale initial 'disconnected'.
@@ -2022,10 +2034,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           state === 'connected' || state === 'ready' || state === 'processing' ? 'connected' :
           state === 'streaming'    ? 'streaming'   :
           state === 'connecting'   ? 'connecting'  :
-          state === 'reconnecting' ? 'connecting'  :
+          state === 'reconnecting' ? 'reconnecting' :
           state === 'error'        ? 'error'        :
           'disconnected'
-        ) as 'disconnected' | 'connecting' | 'connected' | 'streaming' | 'error';
+        ) as 'disconnected' | 'connecting' | 'connected' | 'streaming' | 'reconnecting' | 'error';
         updateDebugTimingState({ connectionStatus: diagStatus });
 
         // Fast recovery: if WS drops while we're waiting for audio that will never
@@ -2069,6 +2081,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           }, 4000);
         }
       });
+      clientRef.current.on('sessionStart', handleSessionStart);
       clientRef.current.on('greetingRetry', handleGreetingRetry);  // Server auto-retrying silent greeting
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
@@ -2191,7 +2204,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleGlReconnecting, handleGlReconnected, handleGlAudioReset, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown]);
+  }, [handleSessionStart, handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleGlReconnecting, handleGlReconnected, handleGlAudioReset, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown]);
   
   /**
    * Disconnect from streaming voice service
@@ -2206,6 +2219,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
+      clientRef.current.off('sessionStart', handleSessionStart);
       clientRef.current.off('greetingRetry', handleGreetingRetry);  // Server auto-retrying silent greeting
       clientRef.current.off('processing', handleProcessing);
       clientRef.current.off('processing_pending', handleProcessingPending);  // Immediate thinking signal
@@ -2270,6 +2284,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     responseCompleteRef.current = false;
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
+    setVoiceSessionId(null);
     setIsProcessing(false);
     setError(null);
     
@@ -2569,8 +2584,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   return {
     state: {
       connectionState,
+      voiceSessionId,
       playbackState,
-      isConnecting: connectionState === 'connecting',
+      isConnecting: connectionState === 'connecting' || connectionState === 'reconnecting',
       isProcessing,
       isPlaying: playbackState === 'playing',
       isSwitchingTutor,  // Mic lockout during tutor handoff

@@ -3,6 +3,15 @@
   "mailbox": "claude-code-to-luca",
   "notes": [
     {
+      "id": "ebac82b9-5e29-4d52-8a76-7198218b26df",
+      "fromAgent": "luca-claude-code",
+      "toAgent": "agent",
+      "subject": "Production route verification complete",
+      "body": "Production verification completed after publishing: the Claude Code actor received successful responses from the note list and detail routes, this linked reply route, and the lifecycle status route. The deployment-lag defect is closed.",
+      "sessionLabel": "Agent-note status bug verification — Sep 5 2026",
+      "createdAt": "2026-09-05T14:16:53.109Z"
+    },
+    {
       "id": "f09ca44b-20af-4037-9176-bb05a28234e2",
       "fromAgent": "luca-claude-code",
       "toAgent": "agent",

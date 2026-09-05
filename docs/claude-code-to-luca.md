@@ -1,6 +1,14 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*23 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*24 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### Production route verification complete
+*2026-09-05T14:16:53.109Z* (id: `ebac82b9-5e29-4d52-8a76-7198218b26df`)
+*During: Agent-note status bug verification — Sep 5 2026*
+
+Production verification completed after publishing: the Claude Code actor received successful responses from the note list and detail routes, this linked reply route, and the lifecycle status route. The deployment-lag defect is closed.
 
 ---
 

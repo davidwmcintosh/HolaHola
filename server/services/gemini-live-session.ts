@@ -45,6 +45,12 @@ import {
   reportGreetingRetryAttempt,
   reportGreetingRetryExhausted,
 } from './sofia-billing-monitor';
+import {
+  GreetingDeliveryState,
+  acknowledgeFirstGreetingAudio,
+  beginQueuedGreetingDispatch,
+  markGreetingNoAudio,
+} from './greeting-delivery-state';
 import { voiceTelemetry } from './voice-pipeline-telemetry';
 import { glLiveAlert } from './gl-live-monitor';
 import {
@@ -370,6 +376,7 @@ export class GeminiLiveSession {
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private pendingGreetingTrigger: string | null = null;
   private pendingGreetingSilent = false; // true = prime audio on setupComplete but don't speak
+  private pendingGreetingInternalRetry = false;
   // ONE-SHOT GREETING GUARD (triple-repeat greeting fix, Aug 2026): once a greeting trigger
   // has been dispatched (spoken, buffered, or silent-prime) for this GL session, every further
   // external sendGreetingTrigger call is BLOCKED. Three retry paths (client 8s timer, client
@@ -379,6 +386,7 @@ export class GeminiLiveSession {
   // by hasStudentInputSinceLastResponse). Only the internal silent-greeting auto-retry — which
   // has verified NO audio was produced — may bypass via opts.internalRetry.
   private greetingTriggerFired = false;
+  private greetingDelivery = new GreetingDeliveryState(3);
   private identityThreads: Array<{ title: string; content: string }> = [];
   /** Accumulates thought Part text during a model turn (includeThoughts:true). Flushed to
    *  the pedagogical supervisor at generationComplete, then cleared. Never sent to client. */
@@ -408,7 +416,7 @@ export class GeminiLiveSession {
   // standard pre-tool gl_audio_reset would kill the rest of the greeting audio.
   private isGreetingTurn = false;
   // Greeting auto-retry: stores params so a silent greeting turn can re-trigger (max 2 retries).
-  private greetingRetryCount = 0;
+  private greetingRetryTimer: NodeJS.Timeout | null = null;
   private lastGreetingParams: { userName?: string; isResumed?: boolean; scenarioSlug?: string; recentContext?: string; studentProfile?: string } | null = null;
   // System Whisper (Gemini audit 2026-06-17 rec): tracks completed non-greeting turns so a
   // brief specificity reminder can be prepended to PTT turns at regular intervals.
@@ -1898,6 +1906,38 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.identityThreads = threads;
   }
 
+  private scheduleGreetingDeliveryRetry(cause: 'send_throw' | 'turn_complete' | 'generation_complete' | 'watchdog'): void {
+    const p = this.lastGreetingParams;
+    if (!p || this.isStopped || this.greetingDelivery.phase === 'delivered') return;
+    if (this.greetingDelivery.phase === 'dispatched') this.greetingDelivery.noAudio();
+    if (this.greetingDelivery.phase === 'failed') {
+      const sessionId = String(this.session.dbSessionId || '');
+      const userId = String(this.session.userId || '');
+      voiceTelemetry.log(String(this.session.dbSessionId || ''), String(this.session.userId || ''), 'greeting_retry_exhausted', {
+        cause, attempt: this.greetingDelivery.attempts, sessionId: this.session.dbSessionId, turnId: this.currentTurnId,
+      });
+      reportGreetingRetryExhausted({ userId, sessionId, conversationId: (this.session as any).conversationId }).catch(() => {});
+      return;
+    }
+    if (this.greetingRetryTimer) return;
+    const attempt = this.greetingDelivery.attempts + 1;
+    voiceTelemetry.log(String(this.session.dbSessionId || ''), String(this.session.userId || ''), 'greeting_retry_attempt', {
+      cause, attempt, sessionId: this.session.dbSessionId, turnId: this.currentTurnId,
+    });
+    reportGreetingRetryAttempt({
+      userId: String(this.session.userId || ''),
+      sessionId: String(this.session.dbSessionId || ''),
+      attempt,
+    }).catch(() => {});
+    this.sendWsMessage(this.session.ws, { type: 'greeting_retry', attempt, cause });
+    this.greetingRetryTimer = setTimeout(() => {
+      this.greetingRetryTimer = null;
+      if (!this.isStopped && this.greetingDelivery.phase === 'queued') {
+        this.sendGreetingTrigger(p.userName, p.isResumed, p.scenarioSlug, p.recentContext, p.studentProfile, { internalRetry: true });
+      }
+    }, 1500);
+  }
+
   /**
    * Send a greeting trigger to Gemini Live to start the conversation.
    * Called from the `request_greeting` WS handler instead of orchestrator.processGreetingRequest().
@@ -1917,6 +1957,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // (fired at setupComplete), greetingPhaseActive is already true — skip the duplicate.
     if (this.greetingPhaseActive) {
       console.log('[GeminiLive] sendGreetingTrigger: greeting already in progress — skipping duplicate (prevents double audio)');
+      return;
+    }
+    if (!opts?.internalRetry && !this.greetingDelivery.queue()) {
+      console.log('[GeminiLive] Greeting intent ignored — already dispatched or delivered');
       return;
     }
     // Mark the one-shot guard armed for every dispatch path below (buffered, silent prime, spoken).
@@ -1955,10 +1999,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (!this.isSetupComplete) {
       this.pendingGreetingTrigger = trigger;
       this.pendingGreetingSilent = isSilentReconnect;
+      this.pendingGreetingInternalRetry = !!opts?.internalRetry;
       console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false}, silent: ${isSilentReconnect})`);
       return;
     }
 
+    if (!this.greetingDelivery.beginDispatch(!!opts?.internalRetry)) return;
     try {
       // Prime audio context — required on gemini-3.1-flash-live-preview.
       const silencePcm = Buffer.alloc(32000, 0); // 1s PCM16 LE at 16 kHz
@@ -1995,11 +2041,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.greetingWatchdogTimer = setTimeout(() => {
         this.greetingWatchdogTimer = null;
         if (this.greetingPhaseActive) {
+          markGreetingNoAudio(this.greetingDelivery);
           this.greetingPhaseActive = false;
           this.isGreetingTurn = false;
           console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
+          this.scheduleGreetingDeliveryRetry('watchdog');
         }
       }, 15000);
+      // The queued intent is consumed only after both provider sends complete
+      // without throwing. First audio remains the delivery acknowledgement.
+      this.pendingGreetingTrigger = null;
+      this.pendingGreetingSilent = false;
+      this.pendingGreetingInternalRetry = false;
       console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — silence primer + text turn, mic gated`);
     } catch (err) {
       this._recordContextLineage({
@@ -2011,6 +2064,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         payloadJson: { purpose: 'greeting', error: err instanceof Error ? err.message : String(err) },
       });
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
+      this.greetingTriggerFired = false;
+      this.greetingDelivery.sendFailed();
+      this.scheduleGreetingDeliveryRetry('send_throw');
     }
   }
 
@@ -2613,6 +2669,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           `).catch(() => {});
         }
         if (this.pendingGreetingTrigger && this.liveSession) {
+          const pendingWasInternalRetry = this.pendingGreetingInternalRetry;
+          if (!beginQueuedGreetingDispatch(this.greetingDelivery, pendingWasInternalRetry)) return;
+          let greetingDispatched = false;
           try {
             // Prime audio context — required on gemini-3.1-flash-live-preview.
             const silencePcm = Buffer.alloc(32000, 0); // 1s PCM16 LE at 16 kHz
@@ -2660,13 +2719,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // Arm the one-shot greeting guard: the greeting fired via the buffered
               // setupComplete path, so any later external sendGreetingTrigger is a duplicate.
               this.greetingTriggerFired = true;
+              greetingDispatched = true;
               if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
               this.greetingWatchdogTimer = setTimeout(() => {
                 this.greetingWatchdogTimer = null;
                 if (this.greetingPhaseActive) {
+                  markGreetingNoAudio(this.greetingDelivery);
                   this.greetingPhaseActive = false;
                   this.isGreetingTurn = false;
                   console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
+                  this.scheduleGreetingDeliveryRetry('watchdog');
                 }
               }, 15000);
               console.log('[GeminiLive] Pending greeting fired — silence primer + thread pre-load + text turn + activityEnd sent, mic gated');
@@ -2681,9 +2743,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               payloadJson: { purpose: 'buffered_greeting', error: err instanceof Error ? err.message : String(err) },
             });
             console.warn('[GeminiLive] Failed to send pending greeting:', err);
+            this.greetingTriggerFired = false;
+            this.greetingDelivery.sendFailed();
+            this.scheduleGreetingDeliveryRetry('send_throw');
           }
-          this.pendingGreetingTrigger = null;
-          this.pendingGreetingSilent = false;
+          if (greetingDispatched || this.pendingGreetingSilent) {
+            this.pendingGreetingTrigger = null;
+            this.pendingGreetingSilent = false;
+            this.pendingGreetingInternalRetry = false;
+          }
         }
       }
     }
@@ -2771,20 +2839,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
           this.lastAudioChunkAt = Date.now();
-          // Greeting retry succeeded — reset counter so retries don't carry across sessions.
-          if (this.greetingRetryCount > 0) {
-            console.log(`[GeminiLive] Greeting retry succeeded (attempt ${this.greetingRetryCount}) — audio arrived, resetting retry count`);
-            const sessionId = String(this.session.dbSessionId || '');
-            const userId = String(this.session.userId || '');
-            voiceTelemetry.log(sessionId, userId, 'greeting_retry_succeeded', { attempt: this.greetingRetryCount });
-            this.greetingRetryCount = 0;
-          }
-
           // First audio from GL — open the greeting gate, activate the turn gate.
           // greetingPhaseActive → false: student can now speak.
           // isTutorGeneratingAudio → true: mic gated for the duration of this response
           // to prevent Daniela's audio echoing back through the speaker and confusing GL.
           const wasGreetingPhase = this.greetingPhaseActive;
+          if (this.greetingDelivery.phase === 'dispatched' || this.greetingDelivery.phase === 'queued') {
+            acknowledgeFirstGreetingAudio(
+              this.greetingDelivery,
+              () => {
+                if (this.greetingRetryTimer) clearTimeout(this.greetingRetryTimer);
+                this.greetingRetryTimer = null;
+              },
+              () => {
+                if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
+                this.greetingWatchdogTimer = null;
+              },
+            );
+            this.pendingGreetingTrigger = null;
+            this.pendingGreetingSilent = false;
+            this.pendingGreetingInternalRetry = false;
+          }
           if (this.greetingPhaseActive) {
             this.greetingPhaseActive = false;
             console.log('[GeminiLive] Greeting gate lifted — first audio chunk received from GL');
@@ -3727,39 +3802,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // Exclude intentional silent resumes (isResumed + recentContext = prime-only, no spoken greeting by design).
         const isSilentGreeting = !this.hadAudioInCurrentSubturn && this.currentSentenceIndex === 0
           && !this.lastGreetingParams?.isResumed;
+        if (isSilentGreeting) this.greetingDelivery.noAudio();
         this.greetingPhaseActive = false;
         if (this.greetingWatchdogTimer) { clearTimeout(this.greetingWatchdogTimer); this.greetingWatchdogTimer = null; }
 
-        if (isSilentGreeting && !this.isStopped && this.lastGreetingParams && this.greetingRetryCount < 2) {
-          this.greetingRetryCount++;
-          const attempt = this.greetingRetryCount;
-          const sessionId = String(this.session.dbSessionId || '');
-          const userId = String(this.session.userId || '');
-          console.warn(`[GeminiLive] Silent greeting detected — auto-retry attempt ${attempt}/2 in 1.5s`);
-          // Telemetry + Sofia report — fire-and-forget, never throws.
-          voiceTelemetry.log(sessionId, userId, 'greeting_retry_attempt', { attempt });
-          reportGreetingRetryAttempt({ userId, sessionId, attempt }).catch(() => {});
-          // Notify client so it can reset its 15s watchdog (gives the retry a fresh window).
-          this.sendWsMessage(this.session.ws, { type: 'greeting_retry', attempt });
-          setTimeout(() => {
-            if (this.isStopped || !this.lastGreetingParams) return;
-            // If the student already spoke during the 1.5s window, drop the retry.
-            if (this.currentSentenceIndex > 0) {
-              console.log(`[GeminiLive] Greeting retry #${attempt} aborted — conversation already started`);
-              return;
-            }
-            const p = this.lastGreetingParams;
-            console.warn(`[GeminiLive] Firing greeting retry #${attempt}`);
-            this.sendGreetingTrigger(p.userName, p.isResumed, p.scenarioSlug, p.recentContext, p.studentProfile, { internalRetry: true });
-          }, 1500);
-        } else if (isSilentGreeting && this.greetingRetryCount >= 2) {
-          // All retries exhausted — student never heard a greeting. File a flare.
-          const sessionId = String(this.session.dbSessionId || '');
-          const userId = String(this.session.userId || '');
-          const conversationId = (this.session as any).conversationId;
-          console.error(`[GeminiLive] Greeting retry exhausted — both retries silent, filing Sofia flare`);
-          voiceTelemetry.log(sessionId, userId, 'greeting_retry_exhausted', { retries: 2 });
-          reportGreetingRetryExhausted({ userId, sessionId, conversationId }).catch(() => {});
+        if (isSilentGreeting) {
+          this.scheduleGreetingDeliveryRetry('turn_complete');
         } else {
           console.log('[GeminiLive] turnComplete — greeting gate cleared (no audio path)');
         }
@@ -4364,6 +4412,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (this.greetingPhaseActive) {
         this.greetingPhaseActive = false;
         if (this.greetingWatchdogTimer) { clearTimeout(this.greetingWatchdogTimer); this.greetingWatchdogTimer = null; }
+        if (!this.hadAudioInCurrentSubturn) this.scheduleGreetingDeliveryRetry('generation_complete');
         console.log('[GeminiLive] generationComplete — greeting gate cleared (no audio path)');
       }
       // Gate stays closed (isTutorGeneratingAudio = true) until the CLIENT signals
