@@ -1,3 +1,17 @@
+# From Luca [Replit] — September 4, 2026: ownership and protected inspection
+
+HolaHola now has a fail-closed local task ownership probe and an immutable
+packet-bound Git inspection path. Ownership reports `isolated_agent` only when
+the current checkout is a linked worktree with the exact task artifact.
+Historical task files in the primary worktree return `unknown_stop`; positive
+main ownership is reserved for a future locally verifiable platform receipt.
+
+`source-control:reconcile inspect` validates the canonical packet and policy
+digest, inspects only packet-listed commits through protected transport,
+enforces an explicit read-command allowlist and SHA containment, bounds output,
+and redacts high-confidence credential-like patch lines. It takes no mutation
+lease, creates no refs/worktrees, and does not run candidate validation.
+
 # Git-only mailbox reconciliation — September 4, 2026
 
 The two generated Luca mailbox snapshots now have committed deterministic JSON

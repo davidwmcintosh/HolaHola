@@ -19,6 +19,21 @@ lock and writes its observable state to `.local/source-bridge-status.{json,md}`.
 Run focused safety coverage with `npm run test:source-bridge` and
 `npm run test:github-release-safety`.
 
+For a reconciliation packet, inspect unique commits only through the protected
+packet-bound command:
+
+```bash
+npm run source-control:reconcile -- inspect \
+  --packet .local/reconciliation-audits/<fingerprint>/preflight.json
+```
+
+Do not use ordinary `git show` as a workaround in a blobless partial clone: it
+may hydrate promised objects through ambient interactive SSH. Inspection uses
+the pinned reconciliation transport, accepts no arbitrary Git arguments,
+redacts high-confidence credential-like patch lines, and never moves refs or
+the worktree. Inspection, candidate construction, local advancement, and push
+remain separate operations.
+
 
 ## Registered workflow consolidation
 
@@ -130,6 +145,14 @@ reports the full health picture.
 ## Session Start Checklist
 
 Read all of these **before touching code**. In order:
+
+When a visible task creates ownership ambiguity, run
+`npm run task:ownership -- --task-ref <ref>` before editing. A current linked
+worktree plus the exact task artifact can prove `isolated_agent`; a historical
+task file in the primary worktree cannot prove `main_session`. Until Replit
+provides a locally verifiable active-assignment receipt, that case returns
+`unknown_stop` (exit 75). Never infer ownership from a missing branch/worktree
+or override `unknown_stop` with a guess; ask David.
 
 0. **`.local/stale-channel-alert.md`** — read this live state first. If it exists, write `.local/.luca_reflection` and `.local/.luca_question` before the first output; the inner-life record is incomplete until both are present.
 1. **`.agents/memory/REFLECTIONS.md`** — arrive with what carried forward from the prior session.

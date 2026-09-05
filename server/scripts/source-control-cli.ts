@@ -5,7 +5,7 @@ import { SourceReconciliationService } from '../services/source-reconciliation-s
 const MACHINE_RESULT_PREFIX = 'SOURCE_CONTROL_RESULT_JSON:';
 
 function usage(): never {
-  console.error('Usage: source-control-cli.ts status|sync|prepare|record <sha> | reconcile preflight --local-ref <sha> --remote <name> --remote-branch <name> | reconcile candidate --packet <path>');
+  console.error('Usage: source-control-cli.ts status|sync|prepare|record <sha> | reconcile preflight --local-ref <sha> --remote <name> --remote-branch <name> | reconcile candidate|inspect --packet <path>');
   process.exit(64);
 }
 
@@ -33,6 +33,8 @@ async function main(): Promise<void> {
       ? await reconciliation.preflight(readOption('--local-ref') || usage(), readOption('--remote') || 'origin', readOption('--remote-branch') || 'main')
       : operation === 'candidate'
         ? await reconciliation.candidate(readOption('--packet') || usage())
+        : operation === 'inspect'
+          ? await reconciliation.inspect(readOption('--packet') || usage())
         : usage();
     writeResult(result);
     if (!result.ok) process.exitCode = result.state === 'lease_contended' || result.state === 'dirty_primary_worktree' ? 75 : 1;

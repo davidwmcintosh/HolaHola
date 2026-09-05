@@ -21,7 +21,13 @@ import {
 const execFile = promisify(nodeExecFile);
 const SHA = /^[0-9a-f]{40}$/;
 const LARGE_BLOB = 10 * 1024 * 1024;
-export type ReconciliationState = 'safe_fast_forward' | 'candidate_ready' | 'candidate_conflicts_manual' | 'candidate_stale_remote' | 'protected_path_proof_failed' | 'generated_regeneration_failed' | 'policy_overlap' | 'unclassified_conflict' | 'missing_git_object' | 'history_incomplete' | 'dirty_primary_worktree' | 'lease_contended' | 'transport_failure';
+const INSPECTION_PATH_LIMIT = 200;
+const INSPECTION_PATCH_LIMIT = 256 * 1024;
+const INSPECTION_OUTPUT_LIMIT = 1024 * 1024;
+export const INSPECTION_ALLOWED_COMMANDS = new Set([
+  'show', 'log', 'diff', 'diff-tree', 'rev-list', 'rev-parse', 'cat-file', 'ls-tree', 'ls-files',
+]);
+export type ReconciliationState = 'safe_fast_forward' | 'candidate_ready' | 'inspection_ready' | 'candidate_conflicts_manual' | 'candidate_stale_remote' | 'protected_path_proof_failed' | 'generated_regeneration_failed' | 'policy_overlap' | 'unclassified_conflict' | 'missing_git_object' | 'history_incomplete' | 'dirty_primary_worktree' | 'lease_contended' | 'transport_failure';
 type BuiltInLedgerProof = { version: 1; formatterVersion: 1; ledgerPath: string; mailbox: MailboxIdentity };
 type Policy = { id: string; path: string; kind: 'generated-local' | 'canonical-incoming-subset' | 'append-only-manual' | 'ordinary'; authority: string; resolution: string; proof: { builtInLedgerProof?: BuiltInLedgerProof; stableMarker?: string }; checks: string[] };
 type Manifest = { schemaVersion: 1; policies: Policy[] };
@@ -35,11 +41,68 @@ export interface ReconciliationPacket {
 }
 type BlobFact = { sha: string; size: number; missing: boolean; lfs: boolean; large: boolean };
 export interface ReconciliationResult { ok: boolean; state: ReconciliationState; packet?: ReconciliationPacket; candidateSha?: string; error?: string }
+export interface ReconciliationInspectionCommit {
+  side: 'local' | 'remote';
+  sha: string;
+  parents: string[];
+  authorDate: string;
+  commitDate: string;
+  subject: string;
+  paths: Array<{ status: string; path: string; added?: number; deleted?: number }>;
+  omittedPathCount: number;
+  patch: {
+    text?: string;
+    truncated: boolean;
+    binary: boolean;
+    lfs: boolean;
+    redactedLineCount: number;
+    omissionReason?: 'output_limit';
+  };
+}
+export interface ReconciliationInspectionResult extends ReconciliationResult {
+  inspection?: {
+    schemaVersion: 1;
+    packetFingerprint: string;
+    commits: ReconciliationInspectionCommit[];
+    omittedCommitCount: number;
+    outputLimit: number;
+  };
+}
 export interface ReconciliationOptions { rootDir?: string; run?: (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>; sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>; validateCandidate?: (cwd: string) => Promise<Record<string, string>> }
 
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const lines = (text: string) => text.trim() ? text.trim().split('\n').filter(Boolean) : [];
+
+export function assertInspectionGitArgs(args: string[], inspectableShas: ReadonlySet<string>): void {
+  const command = args[0];
+  if (!command || !INSPECTION_ALLOWED_COMMANDS.has(command)) {
+    throw new Error(`Inspection Git subcommand is not allowed: ${command || '<missing>'}`);
+  }
+  for (const arg of args.slice(1)) {
+    if (SHA.test(arg) && !inspectableShas.has(arg)) {
+      throw new Error(`Inspection Git SHA is outside the packet: ${arg}`);
+    }
+  }
+}
+
+export function redactInspectionPatch(text: string): { text: string; redactedLineCount: number } {
+  let redactedLineCount = 0;
+  const credential = /(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:AKIA|ASIA)[A-Z0-9]{16}|gh[pousr]_[A-Za-z0-9]{20,}|(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|client[_-]?secret)\s*[:=]\s*['"][^'"]{8,}['"])/i;
+  const redacted = text.split('\n').map((line) => {
+    if (!credential.test(line)) return line;
+    redactedLineCount += 1;
+    const prefix = line.startsWith('+') || line.startsWith('-') || line.startsWith(' ') ? line[0] : '';
+    return `${prefix}[redacted: suspected credential]`;
+  }).join('\n');
+  return { text: redacted, redactedLineCount };
+}
+
+function truncateUtf8(value: string, limit: number): { text: string; truncated: boolean } {
+  const bytes = Buffer.from(value, 'utf8');
+  if (bytes.length <= limit) return { text: value, truncated: false };
+  return { text: bytes.subarray(0, limit).toString('utf8').replace(/\uFFFD$/, ''), truncated: true };
+}
 
 export class SourceReconciliationService {
   private readonly root: string;
@@ -131,6 +194,68 @@ export class SourceReconciliationService {
       const state: ReconciliationState = findings[0]?.state || (localAncestor || remoteAncestor ? 'safe_fast_forward' : 'candidate_ready');
       return { ok: findings.length === 0, state, packet, error: findings[0]?.detail };
     } finally { await this.git(['update-ref', '-d', temporaryRef]); }
+  }
+
+  async inspect(packetPath: string): Promise<ReconciliationInspectionResult> {
+    const packet = await this.readPacket(packetPath);
+    if (!packet) return this.failure('protected_path_proof_failed', 'Packet digest envelope is invalid.');
+    const manifest = await this.manifest();
+    if (hash(stable(manifest)) !== packet.manifestDigest) {
+      return this.failure('protected_path_proof_failed', 'Policy manifest changed since preflight.');
+    }
+
+    const inspectableShas = new Set([...packet.localUniqueCommits, ...packet.remoteUniqueCommits]);
+    const requested = [
+      ...packet.localUniqueCommits.map((sha) => ({ side: 'local' as const, sha })),
+      ...packet.remoteUniqueCommits.map((sha) => ({ side: 'remote' as const, sha })),
+    ];
+    const commits: ReconciliationInspectionCommit[] = [];
+    let omittedCommitCount = 0;
+    try {
+      for (let index = 0; index < requested.length; index += 1) {
+        const entry = await this.inspectCommit(requested[index].side, requested[index].sha, inspectableShas);
+        const tentative = {
+          schemaVersion: 1 as const,
+          packetFingerprint: packet.fingerprint,
+          commits: [...commits, entry],
+          omittedCommitCount: 0,
+          outputLimit: INSPECTION_OUTPUT_LIMIT,
+        };
+        const renderedSize = (inspection: typeof tentative) => Buffer.byteLength(stable({
+          ok: true,
+          state: 'inspection_ready',
+          inspection,
+        }), 'utf8');
+        if (renderedSize(tentative) > INSPECTION_OUTPUT_LIMIT) {
+          entry.patch = {
+            truncated: entry.patch.truncated,
+            binary: entry.patch.binary,
+            lfs: entry.patch.lfs,
+            redactedLineCount: entry.patch.redactedLineCount,
+            omissionReason: 'output_limit',
+          };
+        }
+        tentative.commits = [...commits, entry];
+        if (renderedSize(tentative) > INSPECTION_OUTPUT_LIMIT) {
+          omittedCommitCount = requested.length - index;
+          break;
+        }
+        commits.push(entry);
+      }
+    } catch (error: any) {
+      return this.failure('missing_git_object', String(error?.message || error));
+    }
+    return {
+      ok: true,
+      state: 'inspection_ready',
+      inspection: {
+        schemaVersion: 1,
+        packetFingerprint: packet.fingerprint,
+        commits,
+        omittedCommitCount,
+        outputLimit: INSPECTION_OUTPUT_LIMIT,
+      },
+    };
   }
 
   async candidate(packetPath: string): Promise<ReconciliationResult> {
@@ -497,6 +622,72 @@ export class SourceReconciliationService {
       return { state: findings[0]?.state || 'protected_path_proof_failed', detail: 'Packet Git topology or blob evidence does not match current immutable objects.' };
     }
     return null;
+  }
+  private async inspectionGit(args: string[], inspectableShas: ReadonlySet<string>) {
+    assertInspectionGitArgs(args, inspectableShas);
+    return this.git(args);
+  }
+  private async inspectCommit(
+    side: 'local' | 'remote',
+    sha: string,
+    inspectableShas: ReadonlySet<string>,
+  ): Promise<ReconciliationInspectionCommit> {
+    if (!inspectableShas.has(sha)) throw new Error(`Inspection commit is outside the packet: ${sha}`);
+    const metadata = await this.inspectionGit([
+      'show', '-s', '--no-show-signature', '--format=%H%x00%P%x00%aI%x00%cI%x00%s', sha,
+    ], inspectableShas);
+    if (metadata.code) throw new Error(metadata.stderr || `Missing exact commit object: ${sha}`);
+    const fields = metadata.stdout.replace(/\n$/, '').split('\0');
+    if (fields.length !== 5 || fields[0] !== sha) throw new Error(`Malformed commit metadata for ${sha}`);
+
+    const names = await this.inspectionGit([
+      'diff-tree', '--root', '--no-commit-id', '--name-status', '--no-renames', '-r', '-z', sha,
+    ], inspectableShas);
+    if (names.code) throw new Error(names.stderr || `Cannot inspect paths for ${sha}`);
+    const nameFields = names.stdout.split('\0').filter(Boolean);
+    const paths: ReconciliationInspectionCommit['paths'] = [];
+    for (let index = 0; index + 1 < nameFields.length && paths.length < INSPECTION_PATH_LIMIT; index += 2) {
+      paths.push({ status: nameFields[index], path: nameFields[index + 1] });
+    }
+
+    const stats = await this.inspectionGit([
+      'diff-tree', '--root', '--no-commit-id', '--numstat', '--no-renames', '-r', '-z', sha,
+    ], inspectableShas);
+    if (stats.code) throw new Error(stats.stderr || `Cannot inspect stats for ${sha}`);
+    const statsByPath = new Map<string, { added?: number; deleted?: number }>();
+    for (const row of stats.stdout.split('\0').filter(Boolean)) {
+      const [added, deleted, path] = row.split('\t');
+      if (!path) continue;
+      statsByPath.set(path, {
+        added: added === '-' ? undefined : Number(added),
+        deleted: deleted === '-' ? undefined : Number(deleted),
+      });
+    }
+    for (const path of paths) Object.assign(path, statsByPath.get(path.path));
+
+    const patchResult = await this.inspectionGit([
+      'show', '--format=', '--no-ext-diff', '--no-textconv', '--no-renames', '--no-color', sha,
+    ], inspectableShas);
+    if (patchResult.code) throw new Error(patchResult.stderr || `Cannot inspect patch for ${sha}`);
+    const redacted = redactInspectionPatch(patchResult.stdout);
+    const boundedPatch = truncateUtf8(redacted.text, INSPECTION_PATCH_LIMIT);
+    return {
+      side,
+      sha,
+      parents: fields[1].split(/\s+/).filter(Boolean),
+      authorDate: fields[2],
+      commitDate: fields[3],
+      subject: fields[4],
+      paths,
+      omittedPathCount: Math.max(0, nameFields.length / 2 - paths.length),
+      patch: {
+        text: boundedPatch.text,
+        truncated: boundedPatch.truncated,
+        binary: patchResult.stdout.includes('Binary files '),
+        lfs: patchResult.stdout.includes('version https://git-lfs.github.com/spec/v1'),
+        redactedLineCount: redacted.redactedLineCount,
+      },
+    };
   }
   private async git(args: string[], cwd?: string) { return this.run(args, cwd); }
   private async commit(ref: string, cwd?: string) { const value = await this.git(['rev-parse', '--verify', `${ref}^{commit}`], cwd); if (value.code || !SHA.test(value.stdout.trim())) throw new Error(`Missing exact commit object: ${ref}`); return value.stdout.trim(); }

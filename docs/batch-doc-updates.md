@@ -1,3 +1,19 @@
+# Fail-closed task ownership and protected Git inspection
+
+- Added `npm run task:ownership -- --task-ref <ref>` to distinguish current
+  linked task-agent worktrees from ambiguous primary-worktree evidence.
+  Historical task files never establish current main-session ownership;
+  ambiguity returns `unknown_stop` with exit 75.
+- Added `source-control:reconcile inspect --packet <canonical-preflight>` for
+  commit metadata, paths, stats, and bounded patches through the pinned Git
+  transport used by reconciliation.
+- Inspection validates the immutable packet and current policy digest, limits
+  commits to the packet's exhaustive SHA set, enforces a production Git
+  subcommand allowlist, redacts high-confidence credential-like patch lines,
+  and never takes the mutation lease or moves refs/worktrees.
+- Focused ownership, reconciliation, source-control boundary, TypeScript, and
+  system-health evidence accompanies the feature.
+
 # Deterministic mailbox reconciliation
 
 `docs/claude-code-to-luca.md` and `docs/luca-to-claude-code.md` are now rendered

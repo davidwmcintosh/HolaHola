@@ -106,6 +106,16 @@ persistent Burn Report.
 
 ## Source control
 
+### `task.ownership` — Check Local Task Ownership Evidence
+
+- **Shorthand:** “who owns this task,” “check task ownership”
+- **Canonical executor:** `npm run task:ownership -- --task-ref <ref>`
+- **Mode:** Read-only
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** `main_session`, `isolated_agent`, or `unknown_stop` with evidence
+- **Caveat:** Historical task files and missing branches never prove current
+  ownership. `unknown_stop` exits 75 and requires a human decision.
+
 ### `source.status` — Check Source Synchronization Status
 
 - **Shorthand:** “source sync status,” “GitHub sync status”
@@ -114,6 +124,16 @@ persistent Burn Report.
 - **Actor scope:** Luca [Replit], Luca [Claude Code], David
 - **Output:** Current guarded synchronization state
 - **Caveat:** Status does not fetch, merge, commit, push, or publish.
+
+### `source.reconcile.inspect` — Inspect a Reconciliation Packet
+
+- **Shorthand:** “inspect reconciliation,” “show divergent commits safely”
+- **Canonical executor:** `npm run source-control:reconcile -- inspect --packet <canonical-preflight>`
+- **Mode:** Read-only except expected partial-clone object hydration
+- **Actor scope:** Luca [Replit], Luca [Claude Code], David
+- **Output:** Bounded commit metadata, paths, stats, and redacted text patches
+- **Caveat:** Only immutable packet commits are inspectable through a fixed Git
+  read allowlist. It never moves refs, checks out, merges, commits, or pushes.
 
 ### `source.synchronize` — Synchronize Source
 
