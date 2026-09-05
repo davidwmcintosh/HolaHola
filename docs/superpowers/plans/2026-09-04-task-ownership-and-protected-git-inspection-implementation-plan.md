@@ -9,12 +9,11 @@ The workspace contains historical `.local/tasks/task-<ref>.md` files, but no
 process environment variable or current-assignment receipt. Repository code
 also cannot call Replit's project-task callback directly.
 
-Therefore, local file presence alone must never produce `main_session`. The
-Agent workflow must first read the exact task through Replit's project-task
-interface and pass its canonical state to the read-only probe. The probe labels
-that value as caller-supplied platform evidence and cross-checks it against
-workspace evidence. If the state is omitted, malformed, not active, or
-contradictory, the result is `unknown_stop`.
+Therefore, local file presence alone must never produce `main_session`, and the
+CLI must not accept caller-supplied platform state as if it were verified
+evidence. Positive main ownership is reserved for a future locally verifiable
+platform assignment receipt. Until one exists, ambiguous primary-worktree cases
+return `unknown_stop`.
 
 ## Step 1: Implement the pure ownership classifier
 
@@ -24,27 +23,20 @@ Create `server/services/task-ownership-service.ts` with:
   - `main_session`
   - `isolated_agent`
   - `unknown_stop`
-- exact active platform-state parsing:
-  - `MAIN_PENDING`, `MAIN_IN_PROGRESS`, `MAIN_IMPLEMENTED`
-  - `PENDING`, `IN_PROGRESS`, `IMPLEMENTED`, `MERGING`, `QUEUED`
 - read-only local evidence collection:
   - exact `.local/tasks/task-<ref>.md` existence and bounded digest;
-  - current branch;
-  - worktree list;
-  - exact task-ref occurrences in explicit task-agent provenance files, if a
-    supported provenance location is found;
+  - whether the current checkout is the primary or a linked worktree;
+  - current branch and worktree list as corroboration;
 - deterministic classification:
-  - active `MAIN_*` plus exact local task artifact -> `main_session`;
-  - active isolated state plus explicit matching isolated provenance ->
+  - a future verified active platform receipt plus exact local task artifact ->
+    `main_session`;
+  - current linked worktree plus exact matching task artifact ->
     `isolated_agent`;
-  - active isolated state without local provenance may still report
-    `isolated_agent` because the platform state itself distinguishes isolated
-    execution, while clearly marking local corroboration absent;
-  - missing platform state, historical/non-active state, malformed evidence,
-    or contradiction -> `unknown_stop`.
+  - primary worktree, historical task artifact, malformed evidence, or
+    contradiction -> `unknown_stop`.
 
-The result must include task ref, platform state and source label, local
-evidence, contradictions, and a human explanation. No files are written.
+The result must include task ref, local evidence, contradictions, unsupported
+receipt status, and a human explanation. No files are written.
 
 ## Step 2: Add ownership CLI and focused tests
 
@@ -56,21 +48,21 @@ Create:
 Add package scripts:
 
 ```text
-npm run task:ownership -- --task-ref <ref> --platform-state <canonical-state>
+npm run task:ownership -- --task-ref <ref>
 npm run test:task-ownership
 ```
 
 CLI behavior:
 
 - task ref must be positive decimal digits;
-- canonical platform state is required for a positive ownership result;
 - `unknown_stop` exits 75;
 - malformed invocation exits 64;
 - machine-readable mode uses `TASK_OWNERSHIP_RESULT_JSON:`.
 
-Tests cover valid main evidence, isolated platform state, omitted state,
-historical state, malformed ref/state, contradictory local evidence, branch and
-worktree absence, deterministic output, and no workspace writes.
+Tests cover reserved verified-main evidence, current isolated worktree
+evidence, historical primary-worktree task files, malformed refs,
+contradictory local evidence, branch and worktree absence, deterministic
+output, and no workspace writes.
 
 ## Step 3: Implement packet-bound reconciliation inspection
 
@@ -90,6 +82,17 @@ The method:
 8. returns deterministic structured output;
 9. does not acquire the mutation lease, write audit files, create refs or
    worktrees, or run candidate validation.
+
+Production safeguards:
+
+- `INSPECTION_ALLOWED_COMMANDS` permits only `show`, `log`, `diff`,
+  `diff-tree`, `rev-list`, `rev-parse`, `cat-file`, `ls-tree`, and `ls-files`;
+- every Git invocation is rejected before the runner unless its subcommand is
+  allowed;
+- every SHA argument is checked against the exhaustive set built from
+  `localUniqueCommits` and `remoteUniqueCommits`;
+- high-confidence credential-like patch lines are replaced by an explicit
+  redaction marker without reading or comparing environment-secret values.
 
 Trusted limits:
 
@@ -113,7 +116,10 @@ Extend `server/scripts/test-source-reconciliation-service.ts` to cover:
 - injected protected runner use;
 - promised-object hydration failure;
 - binary and oversized omission;
+- credential-like patch redaction;
 - deterministic truncation;
+- command allowlist rejection;
+- out-of-packet SHA rejection;
 - no lease or candidate validation;
 - unchanged refs, index, worktree, branch, and HEAD;
 - static denial of mutating Git commands.
@@ -127,8 +133,8 @@ Update:
 - `docs/batch-doc-updates.md`
 - `docs/alden-agent-handoff.md`
 
-Document that the Agent must query the exact task state first, pass the
-canonical state to the probe, and never guess when the result is
+Document that the probe cannot verify inaccessible sidebar state or historical
+primary-worktree task files, and the Agent must never guess when it returns
 `unknown_stop`. Document `reconcile inspect` as the only supported packet-commit
 inspection path in a partial clone.
 

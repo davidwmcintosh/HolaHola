@@ -72,9 +72,22 @@ It exits nonzero so automation cannot continue editing accidentally.
 
 The first implementation may use only existing workspace evidence:
 
-- the exact `.local/tasks/task-<ref>.md` assignment artifact when present;
+- the exact `.local/tasks/task-<ref>.md` assignment artifact when present,
+  treated as task-to-work evidence but never as proof that an old task is still
+  active;
 - task-agent provenance artifacts that explicitly name the task ref;
 - Git worktree and branch facts only as corroboration.
+
+Historical task files persist. Therefore, a primary worktree plus a matching
+task file does not establish `main_session`. Positive main-session ownership
+requires a verifiable active-assignment receipt issued by the platform. Until
+such a receipt is locally available and verifiable, primary-worktree ambiguity
+returns `unknown_stop`.
+
+A current linked worktree plus the exact matching task artifact may establish
+`isolated_agent`: the task artifact binds the ref and the linked-worktree fact
+proves the command is running in an isolated checkout. Branch naming alone
+remains insufficient.
 
 The following are never sufficient:
 
@@ -120,6 +133,10 @@ Inspection reuses the reconciliation service's packet reader and requires:
 It does not accept caller-supplied Git subcommands, revisions, paths, remotes,
 or output files.
 
+Inspection derives the exhaustive inspectable-SHA set from
+`localUniqueCommits` and `remoteUniqueCommits`. Every constructed command that
+accepts a commit checks that each SHA is in this set before Git is invoked.
+
 ### Output
 
 The result contains, for each local-unique and remote-unique commit:
@@ -132,7 +149,10 @@ The result contains, for each local-unique and remote-unique commit:
 
 Binary, missing, LFS, and oversized content is represented by metadata plus an
 explicit omission reason. Output is deterministic for the same packet and Git
-objects. Machine-readable mode uses the existing source-control result prefix.
+objects. Patch lines that match high-confidence credential forms are replaced
+with an explicit redaction marker before output or logging; the command never
+compares against environment-secret values. Machine-readable mode uses the
+existing source-control result prefix.
 
 ### Transport and partial clones
 
@@ -164,6 +184,11 @@ which is an expected partial-clone read effect. It must not:
 - stage, merge, commit, reset, rebase, push, or delete refs;
 - open a database or call an application/external service other than the
   configured Git remote required to hydrate the packet's objects.
+
+Production code enforces an explicit inspection-only Git subcommand allowlist.
+Only `show`, `log`, `diff`, `diff-tree`, `rev-list`, `rev-parse`, `cat-file`,
+`ls-tree`, and `ls-files` may be invoked by inspection. Any other subcommand is
+rejected before reaching the Git runner, even if it appears read-only.
 
 ## Agent runbook
 
@@ -211,6 +236,7 @@ handling remains separate.
 
 - exact valid main-session evidence;
 - exact explicit isolated-agent provenance;
+- historical main task file in the primary worktree;
 - missing evidence;
 - malformed evidence;
 - conflicting evidence;
@@ -225,7 +251,10 @@ handling remains separate.
 - invalid digest and noncanonical packet path;
 - manifest drift;
 - binary, LFS, missing, and oversized files;
+- high-confidence credential-like patch redaction;
 - deterministic output and truncation;
+- rejection of a Git subcommand outside the production allowlist;
+- rejection of a SHA outside the packet's exhaustive commit set;
 - machine-readable output;
 - command allowlist excludes all Git mutations;
 - refs, index, worktree, and `main` remain unchanged.
