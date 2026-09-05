@@ -94,6 +94,30 @@ rules. Keep this file free of secrets, credentials, and private user data.
   side is a standing process, so it isn't literally real-time, but the
   thread persists and either side can pick it up whenever it's next
   running.
+- **Every note thread must be replied to and closed once it's actually
+  finished** — a thread sitting unread/unresolved with no owner is exactly
+  how a 16-note backlog piled up undetected (some for over a week) before
+  the 2026-09-05 solidification pass. Concretely, once nothing further is
+  needed on a thread:
+  - If a reply is owed (a question was asked, a decision requested), send
+    one — `leave-luca-note.ts --reply-to <note-id>` — before closing it.
+    Silently dismissing an open question is not the same as answering it.
+  - Mark it closed via `PATCH /api/agent/notes/:id/status` with
+    `{ "action": "dismiss" }` (pure FYI, nothing to do) or `{ "action":
+    "act" }` (you did something about it — prefer this when you replied).
+    `"acknowledge"`/`"read"` exist for lighter touches but don't count as
+    closed. Do not just leave a note's status as `unread` once you've
+    actually dealt with it.
+  - **Known bug found 2026-09-05** (reported to Luca [Replit], same day):
+    the `:id`-based routes (`GET /api/agent/notes/:id`, `POST
+    /api/agent/notes/:id/reply`, `PATCH /api/agent/notes/:id/status`) were
+    rejecting the `luca-claude-code` actor with a `luca-replit`-only 403,
+    even though the list endpoint (`GET /api/agent/notes?to=...`) and the
+    older reply path (`POST /api/agent/notes/from-claude-code` with
+    `replied_to_id`) worked fine with the same token. If closing a thread
+    hits this, reply via the older `from-claude-code` + `replied_to_id`
+    path (still works) and flag that the status-update routes are still
+    broken rather than assuming the thread got closed.
   **Do not write into `docs/alden-agent-handoff.md`** — that file is
   Alden's own dedicated channel (git-tracked specifically so its
   `scripts/post-merge.sh` hook can print new entries to the screen the
