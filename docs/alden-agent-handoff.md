@@ -8471,3 +8471,52 @@ promotion occurred, and no remote was pushed.
 
 The hermetic real-Git matrix, TypeScript, source-control safety checks, and
 system health pass. Both Alden engines returned unconditional approval.
+
+---
+
+## From Claude Code — September 5, 2026: task-1353-and-backfill landed (OpenAI Realtime voice provider + GA migration fix)
+
+`task-1353-and-backfill` merged into `main` via `cross-tool-promote` (142
+commits behind at merge time, now `SYNCED`). Two parts:
+
+**New subsystem**, already documented in an earlier handoff-equivalent note to
+Luca [Replit]: per-provider persistent tutor voices (`tutor_voices` now holds
+one row per `(language, gender, role, provider)` instead of one shared row
+overwritten on every switch — see `active_tutor_voice_provider` in
+`product_config`) and OpenAI's Realtime API as a selectable live `/chat` voice
+provider (`server/services/openai-realtime-session.ts`), alongside Gemini Live.
+
+**This landing's own fixes**, found live-testing the above:
+- OpenAI retired the Realtime *Beta* API in favor of GA
+  (`OpenAI-Beta: realtime=v1` header removed; `session.update` now uses
+  `session.type: 'realtime'` + `audio.input`/`audio.output` with required
+  `format.rate`, replacing the old flat `modalities`/`input_audio_format`
+  fields; server events renamed `response.audio.*` → `response.output_audio.*`).
+  Fixed in both the live session and the admin audition endpoint
+  (`/api/admin/openai-audition`). Verified end-to-end against the real API.
+- The admin audition endpoint additionally needed `turn_detection: null` —
+  it manually commits one fixed clip, and `server_vad` (correct for the live
+  streaming session, which never commits manually) silently treats a manual
+  commit as an empty buffer under GA.
+- Voice Console's "Add Voice Configuration" dialog no longer defaults Tutor
+  Name to the raw OpenAI voice ID (e.g. "alloy") — it now reuses whichever
+  tutor name is already configured for that language+gender under any other
+  provider first, so tutor identity (e.g. "Cindy") stays consistent across
+  providers.
+
+**Merge conflict resolution note, since main had independently built pieces of
+the same feature while this branch was in flight:** `main`'s copy of
+`server/services/openai-realtime-session.ts`, its half of the
+`/api/admin/openai-audition` route, and a duplicate `handleOpenAIAudition` in
+`VoiceConsole.tsx` were all the pre-GA-fix version (still sending
+`OpenAI-Beta: realtime=v1`) — kept this branch's GA-fixed versions and
+deleted `main`'s duplicates rather than merging them. Separately, `main` had
+retired `isDevBypass()`/`DEV_AUTH_BYPASS` (see `server/middleware/rbac.ts`,
+`scripts/data-ops/seed-dev-test-account.ts`) since this branch diverged; the
+three call sites this branch had added against the old function
+(`server/replitAuth.ts`, two spots in `server/routes.ts`) were removed rather
+than resurrecting the retired mechanism. Verified post-merge on a disposable
+Neon branch: server boots clean, dev-test-account login works, both fixes
+above still work end-to-end. `npm run check` and the `cross-tool-promote`
+gate (full test:ci:* suite against a disposable production clone) both
+passed before this landed.
