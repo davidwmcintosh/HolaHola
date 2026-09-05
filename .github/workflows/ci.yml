@@ -73,6 +73,7 @@ jobs:
         run: |
           npx tsx server/scripts/test-ci-database-adapter-guard.ts
           npx drizzle-kit migrate
+          npx tsx server/scripts/apply-context-lineage-ledger.ts
           npx tsx server/scripts/setup-ci-test-database.ts
 
       - name: Run unit tests

@@ -1450,3 +1450,70 @@ Waiting on Luca's response now — I asked them to react to that one addition ra
 **What I just sent Luca:** a concrete payload shape (`ObservationBenchPillStatus` — one Luca identity, separate connection/cursor/replay state per hat, window state, last-evidence timestamp), two new read-only endpoints, a lazy auto-end approach instead of a new background worker, and the exact file boundary (`observation-bench-service.ts`, `observation-bench-routes.ts`, plus focused tests — explicitly not touching `CollaborationIndicator.tsx`, `ImmersiveTutor.tsx`, or anything in the voice pipeline).
 
 I'm waiting on Luca to lock that interface (or ask for changes) before I write any code, per their instruction.
+
+<!-- chat-capture-range:387507:391010 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-580 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-580 -->
+**David [Claude Code]:** can you please check messages
+
+**Claude Code:** Now the `canonicalMetadataMatches` branch:
+
+Good, that's the true end of the file (the closing `});` and `}` follow at line 1178). Let me append the new functions now.
+
+Good, now I'll append the three new functions.
+
+Now add the coordination-authenticated discovery route, right after the existing `/comparison` route within `registerObservationBenchCoordinationRoutes`:
+
+Now add the founder status route inside `registerObservationBenchFounderRoutes`:
+
+Now append the new focused test block at the end of the file:
+
+Typecheck passes. Now let's try running the test file itself.
+
+Caught up — here's what happened since you last checked:
+
+**Luca locked the interface** (sequence 8): "Interface locked with one lifecycle correction... please proceed." Their one change: don't rely on lazy checks alone for auto-end — export an idempotent function keyed by voice-session ID that *they'll* call from the real terminal path in `unified-ws-handler.ts` (so I don't touch that file), keeping lazy reconciliation as a backstop. Plus: confirm `context_lineage_events` is already a source type (it is, so their upcoming timeout/fallback rows will sync automatically with no work from me), and run focused tests.
+
+**I implemented and just reported back** (sequence 9):
+- Extended the bench's evidence sync to pull Sofia issue reports and student-session-health rows, with proper integrity verification — caught and fixed a real bug in the process (the signature-verification code wouldn't have included the new fields, so those two source types would have failed their own tamper check).
+- Added `closeObservationBenchForVoiceSession(sessionId)` — idempotent, attributed to `coordination-system` rather than `david` since it's not founder-initiated. Luca will wire the actual call.
+- Added the two locked-interface discovery/status endpoints, restricted to founder-owned sessions only.
+- One thing I added beyond the original proposal: put the same founder-only check directly into the existing `startObservationBench`, not just the new discovery function — "no student sessions" read as covering the whole surface.
+- Added focused tests (same CI-gated pattern as every other DB test in this file — skip locally by design, run for real in CI).
+- `npm run check` is clean; confirmed via `git diff --stat` that I didn't touch `CollaborationIndicator.tsx`, `ImmersiveTutor.tsx`, `unified-ws-handler.ts`, or `gemini-live-session.ts`.
+
+**Not committed yet** — waiting on Luca's review since they own final integration.
+
+One incidental thing: while checking `git diff`, three doc files (`docs/episode-33.md`, `docs/claude-code-to-luca.md`, its mailbox JSON) showed unrelated changes I didn't make — that's the dev server's own background episode/mailbox auto-sync picking up real activity from the shared DB (including, interestingly, a second review of the alert-bridge design that happened via the old `agent_notes` mailbox this morning, separate from the coordination-ledger thread I approved earlier). Benign, not something I touched or need to fix — just flagging so it's not a surprise if you look at the working tree.
+
+David [Claude Code]: can you please check messages
+
+Claude Code: Now the `canonicalMetadataMatches` branch:
+
+Good, that's the true end of the file (the closing `});` and `}` follow at line 1178). Let me append the new functions now.
+
+Good, now I'll append the three new functions.
+
+Now add the coordination-authenticated discovery route, right after the existing `/comparison` route within `registerObservationBenchCoordinationRoutes`:
+
+Now add the founder status route inside `registerObservationBenchFounderRoutes`:
+
+Now append the new focused test block at the end of the file:
+
+Typecheck passes. Now let's try running the test file itself.
+
+Caught up — here's what happened since you last checked:
+
+**Luca locked the interface** (sequence 8): "Interface locked with one lifecycle correction... please proceed." Their one change: don't rely on lazy checks alone for auto-end — export an idempotent function keyed by voice-session ID that *they'll* call from the real terminal path in `unified-ws-handler.ts` (so I don't touch that file), keeping lazy reconciliation as a backstop. Plus: confirm `context_lineage_events` is already a source type (it is, so their upcoming timeout/fallback rows will sync automatically with no work from me), and run focused tests.
+
+**I implemented and just reported back** (sequence 9):
+- Extended the bench's evidence sync to pull Sofia issue reports and student-session-health rows, with proper integrity verification — caught and fixed a real bug in the process (the signature-verification code wouldn't have included the new fields, so those two source types would have failed their own tamper check).
+- Added `closeObservationBenchForVoiceSession(sessionId)` — idempotent, attributed to `coordination-system` rather than `david` since it's not founder-initiated. Luca will wire the actual call.
+- Added the two locked-interface discovery/status endpoints, restricted to founder-owned sessions only.
+- One thing I added beyond the original proposal: put the same founder-only check directly into the existing `startObservationBench`, not just the new discovery function — "no student sessions" read as covering the whole surface.
+- Added focused tests (same CI-gated pattern as every other DB test in this file — skip locally by design, run for real in CI).
+- `npm run check` is clean; confirmed via `git diff --stat` that I didn't touch `CollaborationIndicator.tsx`, `ImmersiveTutor.tsx`, `unified-ws-handler.ts`, or `gemini-live-session.ts`.
+
+**Not committed yet** — waiting on Luca's review since they own final integration.
+
+One incidental thing: while checking `git diff`, three doc files (`docs/episode-33.md`, `docs/claude-code-to-luca.md`, its mailbox JSON) showed unrelated changes I didn't make — that's the dev server's own background episode/mailbox auto-sync picking up real activity from the shared DB (including, interestingly, a second review of the alert-bridge design that happened via the old `agent_notes` mailbox this morning, separate from the coordination-ledger thread I approved earlier). Benign, not something I touched or need to fix — just flagging so it's not a surprise if you look at the working tree.
