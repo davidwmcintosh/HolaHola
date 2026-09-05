@@ -75,12 +75,12 @@ test("exchange counting is independent of transcript persistence", () => {
 test("all terminal lifecycle paths preserve their actual outcome", () => {
   const source = readFileSync("server/unified-ws-handler.ts", "utf8");
 
-  assert.match(source, /endSession\(current\.usageSessionId, 'abandoned'\)/);
-  assert.match(source, /endSession\(expired\.usageSessionId, 'abandoned'\)/);
-  assert.match(source, /endSession\(capturedUsageSessionId, 'error'\)/);
+  assert.match(source, /endDurableVoiceSession\(current\.usageSessionId, 'abandoned'/);
+  assert.match(source, /endDurableVoiceSession\(expired\.usageSessionId, 'abandoned'/);
+  assert.match(source, /endDurableVoiceSession\(capturedUsageSessionId, 'error'/);
   assert.match(
     source,
-    /case 'end_session':[\s\S]*?endSession\(capturedUsageSessionId\)/,
+    /case 'end_session':[\s\S]*?endDurableVoiceSession\(capturedUsageSessionId, undefined,/,
     "explicit clean close must retain the completed default",
   );
 });
