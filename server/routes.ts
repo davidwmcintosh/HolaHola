@@ -25087,7 +25087,7 @@ Current conversation context:
         };
 
         const ws = new WS(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(OPENAI_REALTIME_MODEL)}`, {
-          headers: { Authorization: `Bearer ${apiKey}`, 'OpenAI-Beta': 'realtime=v1' },
+          headers: { Authorization: `Bearer ${apiKey}` },
         });
         oaWs = ws;
 
@@ -25095,12 +25095,21 @@ Current conversation context:
           ws.send(JSON.stringify({
             type: 'session.update',
             session: {
-              modalities: ['audio', 'text'],
+              type: 'realtime',
+              model: OPENAI_REALTIME_MODEL,
+              output_modalities: ['audio'],
               instructions: auditionInstructions,
-              voice,
-              input_audio_format: 'pcm16',
-              output_audio_format: 'pcm16',
-              turn_detection: { type: 'server_vad' },
+              // turn_detection must be null here -- this endpoint sends one fixed
+              // clip and manually commits it; server_vad expects to own buffer
+              // commits itself and silently treats a manual commit as an empty
+              // buffer ("Expected at least 100ms of audio, but buffer only has
+              // 0.00ms"). The live /chat session (openai-realtime-session.ts)
+              // never commits manually -- it relies on server_vad -- so it's
+              // unaffected and keeps server_vad.
+              audio: {
+                input: { format: { type: 'audio/pcm', rate: 24000 }, turn_detection: null },
+                output: { format: { type: 'audio/pcm', rate: 24000 }, voice },
+              },
             },
           }));
           // OpenAI Realtime expects 24kHz PCM16 input; the audition recorder in
@@ -25126,7 +25135,7 @@ Current conversation context:
         ws.on('message', (data: any) => {
           try {
             const event = JSON.parse(data.toString());
-            if (event.type === 'response.audio.delta' && event.delta) {
+            if (event.type === 'response.output_audio.delta' && event.delta) {
               responseChunks.push(Buffer.from(event.delta, 'base64'));
             } else if (event.type === 'response.done') {
               if (responseChunks.length > 0) finish();

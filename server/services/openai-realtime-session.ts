@@ -5,7 +5,10 @@ import { PERSONALITY_PRESETS, type TutorPersonality } from './tts-service';
 
 // GA Realtime model name (Aug 2025) — same model string already used by the
 // ephemeral-token voice-chat flow in routes.ts. Override via env for testing
-// preview models.
+// preview models. GA session config (session.type, audio.input/output) landed
+// Sep 2026 -- the old Beta interface (OpenAI-Beta header, flat modalities/
+// input_audio_format fields, response.audio.* events) was retired and now
+// errors with "The Realtime Beta API is no longer supported."
 export const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime';
 const OPENAI_REALTIME_URL = 'wss://api.openai.com/v1/realtime';
 
@@ -129,7 +132,6 @@ export class OpenAIRealtimeSession {
       const ws = new WS(`${OPENAI_REALTIME_URL}?model=${encodeURIComponent(OPENAI_REALTIME_MODEL)}`, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'realtime=v1',
         },
       });
       this.ws = ws;
@@ -143,12 +145,20 @@ export class OpenAIRealtimeSession {
         ws.send(JSON.stringify({
           type: 'session.update',
           session: {
-            modalities: ['audio', 'text'],
+            type: 'realtime',
+            model: OPENAI_REALTIME_MODEL,
+            output_modalities: ['audio'],
             instructions,
-            voice,
-            input_audio_format: 'pcm16',
-            output_audio_format: 'pcm16',
-            turn_detection: { type: 'server_vad' },
+            audio: {
+              input: {
+                format: { type: 'audio/pcm', rate: OPENAI_INPUT_SAMPLE_RATE },
+                turn_detection: { type: 'server_vad' },
+              },
+              output: {
+                format: { type: 'audio/pcm', rate: OUTPUT_SAMPLE_RATE },
+                voice,
+              },
+            },
           },
         }));
         if (greetingTrigger) {
@@ -193,7 +203,7 @@ export class OpenAIRealtimeSession {
         this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
         break;
 
-      case 'response.audio.delta': {
+      case 'response.output_audio.delta': {
         const pcm16 = Buffer.from(event.delta, 'base64');
         const f32le = pcm16ToF32le(pcm16);
         this.hadAudioThisResponse = true;
@@ -210,7 +220,7 @@ export class OpenAIRealtimeSession {
         break;
       }
 
-      case 'response.audio.done':
+      case 'response.output_audio.done':
       case 'response.done':
         if (this.hadAudioThisResponse) {
           this.sendWsMessage(this.session.ws, {

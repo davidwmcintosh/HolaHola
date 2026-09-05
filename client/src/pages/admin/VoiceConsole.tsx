@@ -974,7 +974,17 @@ export function VoiceConsoleContent() {
   const handleVoiceSelect = (voiceId: string) => {
     const selectedVoice = activeVoices.find(v => v.id === voiceId);
     if (selectedVoice) {
-      const defaultName = getDefaultTutorName(voiceId, formData.language);
+      // Prefer the tutor name already configured for this language+gender under
+      // any OTHER provider (e.g. "Cindy" for English Female) over the static
+      // Gemini-only DEFAULT_TUTOR_NAMES table below, which has no entries for
+      // OpenAI/Cartesia/ElevenLabs voice IDs and falls back to the raw voice ID
+      // (e.g. "alloy") otherwise — tutor identity should stay consistent across
+      // providers, not be re-derived from whichever voice happens to be picked.
+      const existingTutorName = voices?.find(v =>
+        v.role === 'tutor' && v.language === formData.language && v.gender === formData.gender &&
+        v.voiceName && !RAW_VOICE_NAMES.has(v.voiceName)
+      )?.voiceName;
+      const defaultName = existingTutorName || getDefaultTutorName(voiceId, formData.language);
       setFormData(prev => ({
         ...prev,
         voiceId: selectedVoice.id,
