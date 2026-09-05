@@ -34,7 +34,7 @@
  *              stub/empty response.
  *
  * Auth: reads session cookie from /tmp/sc.txt.  If missing, auto-obtains one via
- *   POST /api/internal/agent-session (requires REPLIT_AGENT_TOKEN env var).
+ *   POST /api/internal/agent-session (requires COORDINATION_LUCA_REPLIT_TOKEN).
  */
 
 import fs from 'fs';
@@ -319,16 +319,16 @@ function readCookie(): string {
 
 async function ensureCookie(): Promise<boolean> {
   if (readCookie()) return true;
-  const token = process.env.REPLIT_AGENT_TOKEN;
+  const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
   if (!token) {
     // No auth available in this environment — Part C is best-effort, skip it.
-    console.log('  (Part C skipped: no cookie at /tmp/sc.txt and REPLIT_AGENT_TOKEN not set)');
+    console.log('  (Part C skipped: no cookie at /tmp/sc.txt and COORDINATION_LUCA_REPLIT_TOKEN not set)');
     return false;
   }
   try {
     const res = await fetch(`${BASE_URL}/api/internal/agent-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-agent-token': token },
+      headers: { 'Content-Type': 'application/json', 'x-coordination-token': token },
       body: JSON.stringify({}),
     });
     const setCookie = res.headers.get('set-cookie');

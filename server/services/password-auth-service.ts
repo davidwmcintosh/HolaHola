@@ -12,8 +12,9 @@ import {
   type PendingInvite,
   type CreateInvitation,
 } from '@shared/schema';
-import { eq, and, gt, isNull } from 'drizzle-orm';
+import { eq, and, gt, isNull, desc } from 'drizzle-orm';
 import { usageService } from './usage-service';
+import { storage } from '../storage';
 
 const SALT_ROUNDS = 12;
 const PASSWORD_RESET_EXPIRY_HOURS = 1;
@@ -41,13 +42,11 @@ export class PasswordAuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
   
+  // Delegates to the one canonical implementation (server/storage.ts) rather
+  // than duplicating the lowercase-then-lookup query -- this class used to
+  // have its own copy of this exact query.
   async getUserByEmail(email: string): Promise<User | null> {
-    const [user] = await getUserDb()
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1);
-    return user || null;
+    return (await storage.getUserByEmail(email)) ?? null;
   }
   
   async getUserCredentials(userId: string): Promise<UserCredentials | null> {
@@ -78,6 +77,47 @@ export class PasswordAuthService {
     return user;
   }
   
+  /**
+   * Real self-serve registration -- no invitation required. Distinct from
+   * createUserWithPendingAuth (invite flow: creates a 'pending' row an admin
+   * already set up, password comes later via completeRegistration) and from
+   * setUserPassword (assumes the user row already exists). This creates
+   * both the user row and its credentials in one call, authProvider set
+   * directly to 'password', no beta-tester/credit grant (that stays
+   * invite-only via createInvitation).
+   */
+  async registerUser(data: {
+    email: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+  }): Promise<{ success: boolean; user?: User; error?: string }> {
+    const existing = await this.getUserByEmail(data.email);
+    if (existing) {
+      return { success: false, error: 'An account with this email already exists' };
+    }
+
+    const passwordHash = await this.hashPassword(data.password);
+
+    const [user] = await getUserDb()
+      .insert(users)
+      .values({
+        email: data.email.toLowerCase(),
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
+        role: 'student',
+        authProvider: 'password',
+      })
+      .returning();
+
+    await getUserDb().insert(userCredentials).values({
+      userId: user.id,
+      passwordHash,
+    });
+
+    return { success: true, user };
+  }
+
   async setUserPassword(userId: string, password: string): Promise<void> {
     const passwordHash = await this.hashPassword(password);
     
@@ -399,6 +439,48 @@ export class PasswordAuthService {
     return { success: true, user };
   }
   
+  /**
+   * Consumes any unconsumed invitation for this email and grants its
+   * credits, once -- for a login path (OAuth) that never goes through
+   * completeRegistration's token-based flow. Without this, a tester who
+   * logs in via Google before ever clicking their invite link would get a
+   * fully working account but silently skip their invitation's credit
+   * grant, and (since their row would otherwise stay authProvider:
+   * 'pending' forever) remain re-invitable -- risking a second credit grant
+   * if invited again. Safe no-op if there's no matching unconsumed invite.
+   */
+  async consumePendingInvitationForEmail(userId: string, email: string): Promise<void> {
+    const [invite] = await getUserDb()
+      .select()
+      .from(pendingInvites)
+      .where(
+        and(
+          eq(pendingInvites.email, email.toLowerCase()),
+          isNull(pendingInvites.acceptedAt),
+        )
+      )
+      .orderBy(desc(pendingInvites.createdAt))
+      .limit(1);
+
+    if (!invite) return;
+
+    await getUserDb()
+      .update(pendingInvites)
+      .set({ acceptedAt: new Date(), acceptedUserId: userId })
+      .where(eq(pendingInvites.id, invite.id));
+
+    await this.invalidateAllUserTokens(userId, 'invitation');
+
+    if (invite.initialCreditsSeconds && invite.initialCreditsSeconds > 0) {
+      await usageService.addCredits(
+        userId,
+        invite.initialCreditsSeconds,
+        'bonus',
+        'Initial credits from invitation'
+      );
+    }
+  }
+
   async getPendingInvites(invitedBy?: string): Promise<PendingInvite[]> {
     if (invitedBy) {
       return getUserDb()

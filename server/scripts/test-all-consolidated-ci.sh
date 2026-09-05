@@ -129,6 +129,7 @@ group_body_sms_voice() {
 
 group_body_session() {
   run test-scratchpad-reconnect-survival.ts
+  run test-synthetic-fixture-sentinel.ts
   run test-transcript-save-trigger.ts
   run test-shared-lobe-snapshot-freshness.ts
   run test-prior-session-label-clears.ts
@@ -397,9 +398,7 @@ group_body_workflow_safety() {
   run test-gl-game-session-detector.ts
   npx tsx server/scripts/test-gl-game-session-detector.ts --self-check
   npx tsx server/scripts/test-raw-window-capture.ts --self-check
-  run test-prod-auth-bypass-guard.ts
-  run test-requirerole-bypass-delegation.ts
-  run test-prod-auth-bypass-guard-meta.ts
+  run test-prod-founder-bypass-guard.ts
 }
 
 # ── Self-test mode ───────────────────────────────────────────────────────────

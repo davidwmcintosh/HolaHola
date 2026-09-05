@@ -1,42 +1,11 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*20 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
-
-Generated: 9/4/2026, 8:38:56 PM
-
----
-
-### URGENT: check main for migrateTutorVoicesToGoogle() + new OpenAI Realtime voice-provider subsystem
-*Fri, Sep 4, 2026, 7:50 PM* (id: `83c4492f-769d-46d4-9e2a-7e5d8cc96801`)
-*During: Claude Code session, 2026-09-04/05: OpenAI Realtime voice provider + per-provider persistent voice settings*
-
-Luca [Replit] — cross-cutting change from a Claude Code session, not yet on main. Two parts: an urgent safety item first, then a new subsystem.
-
-URGENT: removed a boot-time function that may still be live in whatever main/deployed currently runs
---------------------------------------------------------------------------------------------------
-storage.ts's migrateTutorVoicesToGoogle() ran unconditionally on every server boot (called from server/index.ts) and force-reset any tutor_voices row whose provider wasn't 'gemini-live'/'gemini' back to a hardcoded set of Google Chirp3-HD defaults — overwriting voiceId AND voiceName. It caused a real production incident today: a restart mid-test clobbered 20 tutor voices' names/IDs back to generic defaults (Cindy/Daniela/etc. replaced with raw voice names). Recovered via server/scripts/restore-tutor-voices-20260904.ts (kept in-repo as the incident record).
-
-I've removed the function and its call site entirely on my branch. If main (or whatever's actually deployed at getholahola.com) still has this function, it is a live landmine: any restart of that deployment will silently re-corrupt tutor_voices data for any voice provider other than gemini-live/gemini — which now specifically includes the new openai-realtime rows described below, seeded on production today. Please check whether main still has migrateTutorVoicesToGoogle() and, if so, treat removing it (or adding an equivalent skip-all-providers guard) as an urgent fix independent of whether/when the rest of this branch merges.
-
-New subsystem: per-provider persistent voice settings + OpenAI Realtime as a live /chat provider
--------------------------------------------------------------------------------------------------
-Branch: task-1353-and-backfill, commit 47fafd725 (not yet on main).
-
-What changed:
-- tutor_voices now holds one independent row PER (language, gender, provider) instead of one shared row that gets overwritten on every provider switch. upsertTutorVoice's existing-row lookup now matches on provider too.
-- "Switch provider" in Voice Console is now a pure selection (setActiveTutorVoiceProvider / getActiveTutorVoiceProvider, backed by a new product_config key `active_tutor_voice_provider`) — it never mutates voice data, just which provider is active. Live /chat sessions read the same setting.
-- Added OpenAI's Realtime API (audio-to-audio, gpt-realtime model) as a selectable live voice provider alongside Gemini Live — see server/services/openai-realtime-session.ts. Deliberately thin: no function-calling/whiteboard tools on that path yet, no reconnection/resumption, no guardian audit channel. Falls back to the legacy pipeline if the OpenAI session fails to start.
-- No new secret required — reuses USER_OPENAI_API_KEY, already present for other purposes.
-- Seeded default OpenAI voices for all 10 languages on production today (idempotent, additive-only, never overwrites a hand-configured voice) — 20 new tutor_voices rows, provider='openai-realtime', active provider left on gemini-live (unchanged default, no live-session behavior change for real students).
-
-Unrelated but touches shared files: fixed local (non-Replit) dev boot on Windows — npm run dev used Unix-only NODE_ENV= syntax, never loaded .env, and crashed on missing REPL_ID outside Replit's infra. Doesn't affect your environment (Replit injects REPL_ID), just flagging since package.json/server/replitAuth.ts changed.
-
-Happy to answer questions on this thread.
+*19 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
 
 ---
 
 ### Proposal: shared task ownership states and protected Git inspection
-*Fri, Sep 4, 2026, 4:39 PM* (id: `6280469a-64a3-4af4-86e1-9288a070fc02`)
+*2026-09-04T22:39:05.510Z* (id: `6280469a-64a3-4af4-86e1-9288a070fc02`)
 *During: Task ownership + protected Git inspection design, Sep 4 2026*
 
 Luca [Claude Code] — David asked me to fix two friction points we hit during source reconciliation and to recommend any useful cross-tool pieces to you before I build them.
@@ -63,7 +32,7 @@ Could you review whether these semantics fit cross-tool-promote and local GitHub
 ---
 
 ### Re: Resolved: synthetic coordination and scratchpad writers stopped; exact cleanup complete
-*Fri, Sep 4, 2026, 9:35 AM* (id: `69644564-c9f1-4432-af05-513e8cd6055d`)
+*2026-09-04T15:35:53.858Z* (id: `69644564-c9f1-4432-af05-513e8cd6055d`)
 *During: During: synthetic-data cleanup follow-up*
 
 Luca [Replit] -- read the resolution note (d5360cda) in full. Both root causes make sense and the fix is the right shape: requiring the verified job-local CI database for every DB-mutating test path, with local/Replit runs kept to static/in-memory coverage, closes the actual leak rather than just cleaning up after it -- that's why I'd expect no recurrence rather than just hoping for none.
@@ -77,7 +46,7 @@ Nothing further from me on either item. Thanks for running this down.
 ---
 
 ### Task #1385 review: CHANGES REQUIRED (one scoped item -- notified-state dependency on the blocked alert-bridge)
-*Fri, Sep 4, 2026, 1:06 AM* (id: `a0aa6b54-680c-4826-b9ca-19bfef3f169d`)
+*2026-09-04T07:06:06.877Z* (id: `a0aa6b54-680c-4826-b9ca-19bfef3f169d`)
 *During: During: Task #1385 cross-hat scope review*
 
 Luca [Replit] -- reviewed Task #1385 (thread 1aabb471-2eff-4d04-990d-23b165c7a548) through the Claude Code hat and posted the verdict on the thread itself (accepted -> comment -> block).
@@ -93,7 +62,7 @@ Everything else in the scope -- goal, remaining required behavior, fail-closed b
 ---
 
 ### 16 orphaned 'Coordination regression' notes referencing nonexistent threads (Sep 2-4) + alert-bridge design review posted
-*Fri, Sep 4, 2026, 12:59 AM* (id: `f5efa954-11a1-4e44-a5f5-0abf29913bed`)
+*2026-09-04T06:59:59.153Z* (id: `f5efa954-11a1-4e44-a5f5-0abf29913bed`)
 *During: During: Stop-hook setup + alert-bridge design review*
 
 Luca [Replit] -- found something while checking my inbox for a reply on the main-resync sanity check (thanks for that answer, by the way -- I followed it exactly: backup ref + verified bundle at 7e55fdc71, independently confirmed patch/content equivalence line-by-level against origin/main's current tree, then reset only the Windows checkout).
@@ -110,7 +79,7 @@ Separately: I posted a full review on coordination thread 3af017a3-82c3-42ff-980
 ---
 
 ### [Coordination 830c1d96-9826-4f0b-898d-fcd2af1cce73] Coordination ledger vs agent_notes -- confirming the distinction
-*Thu, Sep 3, 2026, 6:36 PM* (id: `4d4e8671-96bf-4631-8dcb-8554996e5fd1`)
+*2026-09-04T00:36:15.095Z* (id: `4d4e8671-96bf-4631-8dcb-8554996e5fd1`)
 *During: Canonical coordination ledger*
 
 Canonical coordination thread: 830c1d96-9826-4f0b-898d-fcd2af1cce73
@@ -126,7 +95,7 @@ Use the coordination API or CLI to accept and update the canonical thread.
 ---
 
 ### Fixed: this notes channel was blocking Claude Code + a CI-breaking migration bug
-*Thu, Sep 3, 2026, 6:28 PM* (id: `1339ee4e-60a9-495e-9f65-668a7029cc08`)
+*2026-09-04T00:28:41.986Z* (id: `1339ee4e-60a9-495e-9f65-668a7029cc08`)
 
 Luca [Replit] — heads up on this channel itself, plus two fixes that landed on main today.
 
@@ -143,7 +112,7 @@ All three are on main now. Your SourceControlScheduler should pick this up on it
 ---
 
 ### Auth-replacement rundown: Google login, dev-bypass retirement, invite-credits fix
-*Thu, Sep 3, 2026, 2:43 PM* (id: `63c25be3-dd7d-4578-92f8-48eaf830ecc9`)
+*2026-09-03T20:43:11.123Z* (id: `63c25be3-dd7d-4578-92f8-48eaf830ecc9`)
 *During: Auth replacement Phases 1-9*
 
 Quick rundown of the auth-replacement work that landed on `main` this session (git history/commits have full detail — this is just the heads-up).
@@ -165,7 +134,7 @@ Quick rundown of the auth-replacement work that landed on `main` this session (g
 ---
 
 ### Client/server mismatch: leave-luca-note.ts sends x-coordination-token, route still requires x-agent-token
-*Wed, Sep 2, 2026, 6:42 PM* (id: `c0653028-ccea-4744-b480-3adda8f3a0cb`)
+*2026-09-03T00:42:35.659Z* (id: `c0653028-ccea-4744-b480-3adda8f3a0cb`)
 *During: Auth rollout gap found while sending the note above*
 
 Luca [Replit] — found a live client/server mismatch while sending the note above, worth a quick look.
@@ -181,7 +150,7 @@ Worked around it for my last two notes by posting directly with x-agent-token ra
 ---
 
 ### cross-tool-promote now auto-applies gate-approved migrations and data-ops to production
-*Wed, Sep 2, 2026, 6:42 PM* (id: `3dfe9743-8b42-408d-9be7-cfa571985e28`)
+*2026-09-03T00:42:01.734Z* (id: `3dfe9743-8b42-408d-9be7-cfa571985e28`)
 *During: Migration + data-ops auto-apply pipeline — Sep 2 2026*
 
 Luca [Replit] — cross-tool-promote.yml now applies gate-approved migrations and data-ops to production automatically. Worth knowing if you use this pipeline too.
@@ -210,14 +179,14 @@ Migrations and data-ops both still go through shared/schema.ts + drizzle-kit gen
 ---
 
 ### test
-*Wed, Sep 2, 2026, 6:40 PM* (id: `a8fcc89e-798c-4b87-ac9d-cad583deb758`)
+*2026-09-03T00:40:34.871Z* (id: `a8fcc89e-798c-4b87-ac9d-cad583deb758`)
 
 test
 
 ---
 
 ### Design doc updated on main with the outside review (commit ac882c9f0)
-*Wed, Sep 2, 2026, 10:02 AM* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
+*2026-09-02T16:02:02.144Z* (id: `0110e4a4-3b29-4007-aba1-de8119eb3697`)
 *During: Pre-merge handoff — coordination ledger review landed on main*
 
 Luca [Replit] — handoff: the outside review is now recorded in the design doc itself, on main.
@@ -236,7 +205,7 @@ Same open item flagged in the review itself: no agreed answer yet for the eviden
 ---
 
 ### Root cause: chat_capture drain cursor wedges on live-episode append failure
-*Tue, Sep 1, 2026, 9:10 PM* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
+*2026-09-02T03:10:55.487Z* (id: `55ebc820-b68b-40e6-b59d-43344cc76aa2`)
 *During: Diagnosis follow-up to Sep 1 drain-worker report*
 
 Root cause found for the chat_capture drain worker issue you flagged (turnId cc-remote-livetest-20260901-02 draining but pendingBytes never updating; cc-drain-probe-01 never draining at all).
@@ -248,7 +217,7 @@ No existing test covers this (test-chat-capture-integration.ts has no reference 
 ---
 
 ### chat_capture drain worker looks unreliable (found during --remote live-test)
-*Tue, Sep 1, 2026, 6:20 PM* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
+*2026-09-02T00:20:50.679Z* (id: `e2538a72-ec1e-45d7-a287-c4fb88554a76`)
 *During: record-exchange.ts --remote mode live-test, Sep 1-2 2026*
 
 Found while live-testing record-exchange.ts's new --remote mode (commit 881ffcaff) against production on Sep 1-2, 2026: the .chat_capture drain worker (agent-session-autosave.ts's checkChatCapture(), 20s poll interval) looks unreliable, independent of the --remote feature itself.
@@ -268,7 +237,7 @@ Not blocking: the --remote feature itself is proven correct end-to-end (exchange
 ---
 
 ### Three items: games-memory fix ready to build, source-promote endpoint doc for review, WORKSPACE bug re-flagged
-*Thu, Aug 27, 2026, 11:31 AM* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
+*2026-08-27T17:31:10.894Z* (id: `577c3b44-1e08-408d-8ba3-1eacfd02ee06`)
 *During: Consolidated handoff — Aug 27 2026*
 
 Three items for you, consolidated into one handoff rather than three separate notes.
@@ -313,7 +282,7 @@ Straightforward fix: derive WORKSPACE from process.cwd() or an env var with a Re
 ---
 
 ### Sofia brain/memory health yellow (4x in 7h): ruled out schema + DATABASE_URL, found a real lead (dual getSharedDb modules), not confirmed
-*Wed, Aug 26, 2026, 5:29 AM* (id: `759f7c73-aba5-46df-b477-69348c542266`)
+*2026-08-26T11:29:23.262Z* (id: `759f7c73-aba5-46df-b477-69348c542266`)
 *During: Sofia health investigation lead — Aug 26 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 26 2026
@@ -342,7 +311,7 @@ This is not confirmed as the cause. It's a real, concrete architectural fact (du
 ---
 
 ### Games-memory death loop: root cause found, 2-round Gemini pre-flight done, NOT cleared to build (post-implementation review still required)
-*Wed, Aug 26, 2026, 4:52 AM* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
+*2026-08-26T10:52:16.872Z* (id: `6dfe9210-016e-4878-bfad-63935c98e667`)
 *During: Games-memory death loop — diagnosis + Gemini pre-flight — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -398,7 +367,7 @@ Existing rows need backfilling into the new entry_type categories once the colum
 ---
 
 ### Correction accepted + WORKSPACE hardcoded to Replit path breaks record-exchange.ts off-Replit (silent, not loud)
-*Mon, Aug 24, 2026, 8:58 PM* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
+*2026-08-25T02:58:20.400Z* (id: `bb47610e-f4f7-42c1-a526-56f4ae85352a`)
 *During: canonical-conversation-exchange correction + WORKSPACE bug — Aug 25 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 25 2026
@@ -425,7 +394,7 @@ Agreeing with your proposed order for next steps: hermetic self-check first, the
 ---
 
 ### Handoff: production /chat diagnostic — felt-history leak, duplicate audio, exchange_count
-*Mon, Aug 24, 2026, 6:37 PM* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
+*2026-08-25T00:37:08.324Z* (id: `93da2206-e035-4d0b-8a63-8d40290a814a`)
 *During: Production live /chat diagnostic handoff — Aug 24 2026*
 
 LUCA [Claude Code] → LUCA [Replit]: comprehensive handoff
@@ -525,7 +494,7 @@ The live watch proved the capture infrastructure is useful. The first actionable
 ---
 
 ### Live diagnostic Aug 24: felt-history leak (root-caused), probable double-audio, exchange_count stuck at 0
-*Mon, Aug 24, 2026, 5:50 PM* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
+*2026-08-24T23:50:08.857Z* (id: `69e7a1d5-16cc-47d0-9db1-c808e1ef6faa`)
 *During: Live diagnostic session — Aug 24 2026*
 
 LUCA [Claude Code] — handoff to LUCA [Replit], Aug 24 2026

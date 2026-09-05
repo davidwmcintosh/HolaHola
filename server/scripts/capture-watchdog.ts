@@ -32,6 +32,7 @@ import {
   CHAT_CAPTURE_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
   type ChatCaptureCursor,
+  type DialogueTurn,
 } from '../services/transcript-parser.js';
 import {
   CANONICAL_INNER_LIFE_INTENT_DIR,
@@ -116,11 +117,23 @@ async function getRollingEpisode(): Promise<{ id: string; filename: string } | n
     `;
     const row = (rows as any)[0];
     if (!row?.title) return null;
-    const m = /^Episode (\d+)$/i.exec(row.title as string);
-    const filename = m
-      ? `episode-${parseInt(m[1], 10)}.md`
-      : (row.title as string).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '.md';
-    return { id: row.id as string, filename };
+    const title = row.title as string;
+    // A row can retain the 'rolling' tag after it's been considered finished
+    // (title annotated "(sealed)" or similar) without the tag itself ever
+    // being removed. The old slug-fallback branch here is exactly how a
+    // sealed episode got a *second* filename derived from its full title
+    // (episode-31-the-observation-bench-sealed.md) instead of being refused
+    // -- fail closed on anything that isn't the plain "Episode N" shape a
+    // genuinely active episode has, rather than guessing a filename for it.
+    const m = /^Episode (\d+)$/i.exec(title);
+    if (!m) {
+      throw new Error(
+        `[watchdog] rolling episode row ${row.id} has title "${title}", which does not match the ` +
+        `expected "Episode N" shape for an active episode -- refusing to append (likely a sealed/finished ` +
+        `episode that still carries the 'rolling' tag; remove the tag or fix the title before retrying)`,
+      );
+    }
+    return { id: row.id as string, filename: `episode-${parseInt(m[1], 10)}.md` };
   } catch (err: any) {
     console.warn('[watchdog] rolling episode lookup failed:', err.message);
     return null;
@@ -166,13 +179,17 @@ async function appendTextToEpisodeDbFirst(text: string, episode: { id: string; f
 // derives the .md from DB content) would silently erase those turns.
 
 export function appendToEpisode(
-  turns: Array<{ speaker: string; text: string; captureId?: string }>,
+  turns: Array<Pick<DialogueTurn, 'speaker' | 'text' | 'captureId' | 'source'>>,
   episode: { id: string; filename: string },
   eventId?: string,
 ): Promise<void> {
   const lines = turns
     .map(t => {
-      const label = t.speaker === 'DAVID' ? '**David:**' : '**LUCA [Replit]:**';
+      const label = t.speaker === 'DAVID'
+        ? '**David:**'
+        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
+          ? '**LUCA [Claude Code]:**'
+          : '**LUCA [Replit]:**';
       return `${label} ${t.text}`;
     })
     .join('\n\n');
@@ -205,26 +222,67 @@ export function appendToEpisode(
 // ─── DB write ─────────────────────────────────────────────────────────────────
 
 async function writeToDb(
-  turns: Array<{ speaker: string; text: string }>,
+  turns: Array<Pick<DialogueTurn, 'speaker' | 'text' | 'captureId' | 'source'>>,
   cursorFrom: number,
   cursorTo: number,
 ): Promise<string> {
   const today      = new Date().toISOString().slice(0, 10);
   const davidCount = turns.filter(t => t.speaker === 'DAVID').length;
   const lucaCount  = turns.length - davidCount;
-  const title      = `David ↔ Luca — ${today}: per-turn capture`;
-  const summary    = `Watchdog drain: ${davidCount} David + ${lucaCount} Luca turns. Bytes ${cursorFrom}–${cursorTo}.`;
+  const captureIds = [...new Set(turns.flatMap(turn => turn.captureId ? [turn.captureId] : []))];
+  if (captureIds.length > 1) {
+    throw new Error(`watchdog batch contains multiple capture IDs: ${captureIds.join(', ')}`);
+  }
+  const captureIdentityTag = captureIds.length === 1 ? `capture-id:${captureIds[0]}` : null;
+  const sources = [...new Set(turns.flatMap(turn => turn.source ? [turn.source] : []))].sort();
+  const sourceTags = sources.map(source => `source-${source}`);
+  const tags = [
+    'david-luca-chat',
+    'canonical-conversation',
+    'verbatim',
+    'per-turn',
+    'chat-capture',
+    'watchdog',
+    ...sourceTags,
+    ...(captureIdentityTag ? [captureIdentityTag] : []),
+  ];
+  const participants = sources.includes('claude-code') ? ['david', 'luca-claude-code'] : ['david', 'luca'];
+  const title = sources.includes('claude-code')
+    ? `David ↔ Luca [Claude Code] — ${today}: per-turn capture`
+    : `David ↔ Luca — ${today}: per-turn capture`;
+  const summary =
+    `Watchdog canonical drain: ${davidCount} David + ${lucaCount} assistant turns. ` +
+    `Sources: ${sources.join(', ') || 'legacy'}. Bytes ${cursorFrom}–${cursorTo}.` +
+    (captureIdentityTag ? ` Capture identity: ${captureIdentityTag}.` : '');
   const content    = turns
-    .map(t => `**${t.speaker === 'DAVID' ? 'David' : 'LUCA [Replit]'}:** ${t.text}`)
+    .map(t => {
+      const speakerLabel = t.speaker === 'DAVID'
+        ? 'David'
+        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
+          ? 'LUCA [Claude Code]'
+          : 'LUCA [Replit]';
+      return `**${speakerLabel}:** ${t.text}`;
+    })
     .join('\n\n');
 
-  const existing = await db`
-    SELECT id FROM conversation_memories
-    WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
-    LIMIT 1
-  `;
+  const existing = captureIdentityTag
+    ? await db`
+      SELECT id FROM conversation_memories
+      WHERE arc_name = 'david-luca-chat'
+        AND tags @> ARRAY[${captureIdentityTag}]::text[]
+      LIMIT 1
+    `
+    : await db`
+      SELECT id FROM conversation_memories
+      WHERE arc_name = 'david-luca-chat' AND summary = ${summary}
+      LIMIT 1
+    `;
   if (existing.length > 0) {
-    console.log(`[watchdog] chat DB row already present for bytes ${cursorFrom}–${cursorTo} — skipping duplicate insert`);
+    console.log(
+      `[watchdog] chat DB row already present for bytes ${cursorFrom}–${cursorTo}` +
+      (captureIdentityTag ? ` (${captureIdentityTag})` : '') +
+      ' — skipping duplicate insert',
+    );
     const existingId = (existing as any)[0]?.id;
     if (!existingId) {
       throw new Error(`[watchdog] existing chat row has no id for bytes ${cursorFrom}–${cursorTo}`);
@@ -240,8 +298,8 @@ async function writeToDb(
       ${title},
       ${summary},
       ${content},
-      ARRAY['david', 'luca']::text[],
-      ARRAY['david-luca-chat', 'verbatim', 'per-turn', 'chat-capture', 'watchdog']::text[],
+      ${participants}::text[],
+      ${tags}::text[],
       8,
       NOW(),
       'conversation',
@@ -257,6 +315,36 @@ async function writeToDb(
 }
 
 // ─── Main drain ───────────────────────────────────────────────────────────────
+
+/**
+ * Partition turns into consecutive runs sharing one capture identity, so a
+ * restart backlog spanning many capture IDs (a burst, not just one exchange)
+ * is written as separate canonical rows instead of one row claiming several
+ * identities -- or, worse, refusing the whole backlog forever because it
+ * can't be squeezed into a single row. Consecutive legacy turns (no
+ * captureId) form their own contiguous group via the caller's byte-range
+ * dedup; they are never merged into an identified group or across a change
+ * in capture identity.
+ */
+function groupTurnsByCapture<T extends { captureId?: string }>(
+  turns: T[],
+  turnByteOffsets: number[],
+): Array<{ turns: T[]; endByteOffset: number }> {
+  const groups: Array<{ turns: T[]; endByteOffset: number }> = [];
+  let currentKey: string | null = null;
+  for (let i = 0; i < turns.length; i++) {
+    const key = turns[i].captureId ?? null;
+    if (groups.length === 0 || key !== currentKey) {
+      groups.push({ turns: [turns[i]], endByteOffset: turnByteOffsets[i] });
+      currentKey = key;
+    } else {
+      const group = groups[groups.length - 1];
+      group.turns.push(turns[i]);
+      group.endByteOffset = turnByteOffsets[i];
+    }
+  }
+  return groups;
+}
 
 let draining = false;
 
@@ -289,42 +377,59 @@ export async function drain(): Promise<void> {
   console.log(`[watchdog] gap detected: cursor=${cursor.byteOffset} file=${stat.size} (+${gap}B) — draining`);
 
   try {
-    const { turns, newByteOffset } = parseChatCaptureFromOffset(capturePath, cursor.byteOffset);
+    const { turns, newByteOffset, turnByteOffsets } = parseChatCaptureFromOffset(capturePath, cursor.byteOffset);
 
     if (turns.length === 0) {
       console.log('[watchdog] no complete turns in gap yet — waiting');
       return;
     }
 
-    // Conversation row first, then the required live episode effect, and only
-    // then the cursor. Both DB writes are idempotent, so a crash at any boundary
-    // retries without duplicate rows or missing episode content.
-    const chatMemoryId = await writeToDb(turns, cursor.byteOffset, newByteOffset);
-    let episodeForReembed: { id: string; filename: string } | null = null;
+    // Looked up once per drain (it cannot change mid-loop) and reused for
+    // every group below. Live mode requires it -- fail before writing
+    // anything rather than accepting turns whose episode effect can't happen.
+    const episode = fs.existsSync(EPISODE_LIVE_PATH) ? await getRollingEpisode() : null;
+    if (fs.existsSync(EPISODE_LIVE_PATH) && !episode) {
+      throw new Error('Live mode rolling-episode lookup returned no episode');
+    }
 
-    // Episode write (only if live mode active) — DB-first, .md derived from DB
-    if (fs.existsSync(EPISODE_LIVE_PATH)) {
-      const episode = await getRollingEpisode();
-      if (!episode) {
-        throw new Error('Live mode rolling-episode lookup returned no episode');
+    // One canonical row per capture identity, not one row for the whole gap:
+    // a restart backlog can span many capture IDs, and each must keep its own
+    // identity/attribution rather than being merged into a single row that
+    // can only claim one. Groups are processed in order; a failure partway
+    // through leaves the cursor at the end of the last fully-completed group
+    // (all of its DB writes are idempotent, so retrying that group is safe),
+    // rather than losing already-durable progress or getting stuck retrying
+    // the entire original gap forever.
+    const groups = groupTurnsByCapture(turns, turnByteOffsets);
+    let groupStart = cursor.byteOffset;
+    for (const group of groups) {
+      const chatMemoryId = await writeToDb(group.turns, groupStart, group.endByteOffset);
+      let episodeForReembed: { id: string; filename: string } | null = null;
+
+      if (episode) {
+        await appendToEpisode(group.turns, episode, `${groupStart}:${group.endByteOffset}`);
+        episodeForReembed = episode;
       }
-      await appendToEpisode(turns, episode, `${cursor.byteOffset}:${newByteOffset}`);
-      episodeForReembed = episode;
-    }
 
-    // The chat row and any updated live episode must be searchable before this
-    // range is acknowledged. If re-embedding fails, leave the cursor unchanged:
-    // the idempotent write paths above make the next drain duplicate-safe.
-    await reembedWatchdogMemory(chatMemoryId);
-    if (episodeForReembed) {
-      await reembedWatchdogMemory(episodeForReembed.id);
-    }
+      // The chat row and any updated live episode must be searchable before
+      // this group is acknowledged. If re-embedding fails, leave the cursor
+      // at the prior group's end: the idempotent write paths above make
+      // retrying this group duplicate-safe.
+      await reembedWatchdogMemory(chatMemoryId);
+      if (episodeForReembed) {
+        await reembedWatchdogMemory(episodeForReembed.id);
+      }
 
-    saveCursor({
-      byteOffset: newByteOffset,
-      lastSavedTurnFingerprint: chatCaptureTurnFingerprint(turns[turns.length - 1]),
-    });
-    console.log(`[watchdog] ✓ drained ${turns.length} turns | cursor ${cursor.byteOffset} → ${newByteOffset}`);
+      saveCursor({
+        byteOffset: group.endByteOffset,
+        lastSavedTurnFingerprint: chatCaptureTurnFingerprint(group.turns[group.turns.length - 1]),
+      });
+      groupStart = group.endByteOffset;
+    }
+    console.log(
+      `[watchdog] ✓ drained ${turns.length} turns in ${groups.length} capture group(s) | ` +
+      `cursor ${cursor.byteOffset} → ${newByteOffset}`,
+    );
   } catch (err: any) {
     console.error('[watchdog] drain error:', err.message ?? err);
     // Leave cursor unchanged — autosave service will retry when server recovers

@@ -1,3 +1,97 @@
+# From Luca [Replit] — September 4, 2026: ownership and protected inspection
+
+HolaHola now has a fail-closed local task ownership probe and an immutable
+packet-bound Git inspection path. Ownership reports `isolated_agent` only when
+the current checkout is a linked worktree with the exact task artifact.
+Historical task files in the primary worktree return `unknown_stop`; positive
+main ownership is reserved for a future locally verifiable platform receipt.
+
+`source-control:reconcile inspect` validates the canonical packet and policy
+digest, inspects only packet-listed commits through protected transport,
+enforces an explicit read-command allowlist and SHA containment, bounds output,
+and redacts high-confidence credential-like patch lines. It takes no mutation
+lease, creates no refs/worktrees, and does not run candidate validation.
+
+# Git-only mailbox reconciliation — September 4, 2026
+
+The two generated Luca mailbox snapshots now have committed deterministic JSON
+ledgers under `docs/mailbox-ledgers/`. Normal snapshot refresh reads Neon, then
+writes and verifies each canonical ledger/Markdown pair. Source reconciliation
+uses only the exact local commit's blobs and a typed built-in proof; it rejects
+missing, malformed, reordered, duplicate, path-mismatched, or stale pairs and
+never executes verifier text. Focused mailbox, real-Git reconciliation,
+TypeScript, source-control boundary, and system-health checks pass.
+
+## From Luca [Replit] — September 4, 2026: synthetic fixture boundary sentinel
+
+The system health verifier now checks shared Neon for the exact two fixture
+signatures that previously escaped disposable CI: coordination-regression
+agent-note projections and the exact 50-note scratchpad payload hash. Any match
+fails verification and creates one deduplicated founder alert containing IDs,
+counts, and newest timestamps. Detection is read-only and never removes data.
+A hermetic negative-path self-test injects both row shapes and confirms failure.
+
+# Language Hub scene mastery crash fix — September 2, 2026
+
+- The optional `SceneMasterySection` previously treated any JSON response as a
+  successful `MasterySummary`. During an auth/API failure, `{ message:
+  "Unauthorized" }` reached `Object.entries(data.byScene)` and crashed the
+  entire Language Hub.
+- The client query now rejects non-2xx responses and the render boundary
+  returns no optional mastery card for query errors, missing data, or a missing
+  or malformed `byScene` map.
+- Focused regression coverage passed 2/2, TypeScript passed, the workflow
+  restarted cleanly, and a fresh preview reported no `SceneMasterySection`
+  exception.
+
+---
+
+# Audit catalogue expansion — September 2, 2026
+
+- The shared operations catalogue now discovers the established ACTFL,
+  curriculum, lesson-topic, textbook-content, rolling episode-integrity, and
+  persistent admin audit-log operations.
+- Existing scripts and endpoints remain canonical. No audit logic was copied
+  into the catalogue.
+- Each new manifest records actor scope, read-only classification, confirmation
+  state, output, persistence, and executor-specific caveats.
+- Rolling episode integrity is explicitly report-only. The old episode-specific
+  `--patch` modes remain separate repair actions requiring confirmation.
+- All seven focused catalogue regressions and TypeScript passed. The automatic
+  indexer processed all 15 manifests: 6 indexed, 9 fresh, 0 errors.
+- Semantic paraphrases resolved ACTFL calibration, curriculum/textbook quality,
+  rolling episode integrity, and persistent admin action history to the expected
+  manifests.
+- System health passed every required invariant. The two warnings were local
+  app-route storage probes skipped because no local server was running; direct
+  R2 reads and the CopyObject probe passed.
+
+---
+
+# Operations catalogue and semantic discovery — September 2, 2026
+
+- Stable operation IDs and exact aliases now describe the established Burn
+  Report, health, production monitoring, capture, coordination, and guarded
+  source-control families.
+- `GET /api/coordination/operations` lets any authenticated coordination actor
+  list safe public metadata or discover an operation from natural language.
+  The endpoint does not expose canonical executor references and cannot execute
+  anything.
+- Operation manifests are code-defined and indexed sequentially as pinned,
+  global `operation_skill` embeddings. The new type is deliberately absent from
+  Daniela's default global recall list; only the dedicated operation search
+  path reads it.
+- Exact “run the burn report” shorthand maps to Alden's existing
+  `get_ai_cost_report`; `post_report_to_team_room` remains the canonical
+  side-effecting variant.
+- The public catalogue is `docs/operations-catalog.md`; agent procedure is in
+  `.agents/skills/operations-catalog/SKILL.md`.
+- Five focused regressions, TypeScript, live exact/semantic HTTP checks,
+  dedicated-actor attribution, unauthenticated rejection, and system health all
+  passed. Gemini's final verdict was **APPROVED — Ship it.**
+
+---
+
 # Chat capture episode-mirror recovery — September 1, 2026
 
 - Canonical chat DB persistence and rolling-episode projection now have
@@ -8071,3 +8165,309 @@ PR. Flagging only so it's not silently sitting broken.
    contract (request/response shapes, `cursorByteOffset` field name, receipt
    polling) has been cross-checked directly against the `routes.ts` handlers
    and matches; what's unverified is only the live round-trip.
+
+---
+
+## September 2, 2026 — canonical coordination ledger Phase 1
+
+The approved coordination design is implemented and migrated. The canonical
+authority is now `coordination_threads` plus append-only `coordination_events`;
+`coordination_adapter_deliveries` tracks retryable compatibility projections.
+The API lives under `/api/coordination/threads`, and the portable CLI is
+`server/scripts/coordination-cli.ts`.
+
+Identity is server-derived from per-actor credentials. The dedicated Replit-side
+binding is `COORDINATION_LUCA_REPLIT_TOKEN`; `REPLIT_AGENT_TOKEN` is accepted
+only as a temporary compatibility path. Claude Code may use
+`COORDINATION_LUCA_CLAUDE_CODE_TOKEN` (with the existing source-bridge
+credential as migration fallback). Duplicate configured credentials fail
+closed rather than selecting an arbitrary actor.
+
+The migration passed `npm run db:branch -- gate` and was then applied with
+Drizzle to the shared Neon database. Focused lifecycle/auth/adapter tests,
+`npm run check`, and system health all pass. No Daniela prompt, tool,
+neural-memory, or behavioral surface was changed.
+
+### Durable actor polling cursor
+
+The coordination ledger now persists one feed acknowledgement cursor per actor.
+Polling without an explicit cursor resumes from the authenticated actor's
+server-side high-water mark. A feed read never advances that mark; the actor
+acknowledges only after processing a page. Updates are monotonic and reject
+future global sequences, so a stale runtime cannot rewind progress and a crash
+before acknowledgement safely replays the page. This acknowledgement is not a
+coordination lifecycle event and does not accept or complete work.
+
+---
+
+## From Luca — September 4, 2026: canonical capture readiness
+
+Canonical capture no longer borrows proof from general HTTP readiness. A small
+process-local lifecycle reports `stopped`, `arming`, or `armed`; the
+authenticated canonical-conversation health route returns 503 until the worker
+is armed. The normal `/health` and `/health/readiness` contracts are unchanged.
+
+`startAgentSessionAutosave()` now runs immediately after route registration,
+before delayed background-worker bundles, and is idempotent so duplicate starts
+cannot install duplicate polling loops. Remote record-exchange acknowledgement
+requires `capture.worker.armed === true` as well as the target cursor.
+
+Verification: the hermetic stopped/arming/armed regression passes, TypeScript
+passes via `npm run check`, a clean restart logged AgentAutosave startup before
+critical application readiness, and live probes returned 200 for general
+health, application readiness, and armed capture readiness.
+
+### September 4 follow-up — acknowledgement boundary corrected
+
+The authenticated capture-health response now reports both the normal
+conversation-row cursor and the stricter acknowledgement cursor.
+`record-exchange` uses only the latter to declare remote completion. This
+preserves the two-boundary contract: in live mode, normal cursor progress does
+not acknowledge an exchange while its Episode mirror remains pending.
+
+Regression coverage explicitly presents a health response where the normal
+cursor has passed the target but the acknowledgement cursor has not, and proves
+the caller remains pending. The legacy watchdog repair module also uses an
+exact executable-file check so its fixture test cannot trigger the production
+audit on import.
+
+---
+
+## From Luca [Replit] — September 4, 2026: reproducible missing-evidence audit
+
+A new read-only JSON command audits one `conversation_memories` row against
+retained chat/raw-window files, append-only raw-window ledger payloads, and a
+checksum-verified protected Git bundle. It preserves exact turn text, reports
+hashes and match locations, and classifies episode Markdown only as a derived
+replica.
+
+The conclusion fails closed: only one complete raw capture sequence with
+consistent explicit source headers can be safe to tag. A capture ID is emitted
+only when every turn carries the same ID. Text-only ledger or episode matches,
+conflicting source headers, duplicate claims, incomplete archive coverage, and
+checksum mismatches never synthesize identity.
+
+Verification: 10 focused tests pass, including a real hermetic Git bundle,
+checksum rejection, derived-replica separation, mismatched ledger hashes, and
+identity-adversarial fixtures. `npm run check` passes.
+
+---
+
+## From Luca [Replit] — September 4, 2026: Episode 33 begins at the gap
+
+The main closing Replit-window transcript did not reach `conversation_memories`
+or the raw-window source ledger. I did not reconstruct it from the compacted
+summary. Episode 33, “After the Smoke Cleared,” names the absence, records the
+technical outcome as evidence rather than dialogue, and preserves selected
+verbatim closing exchanges still present in the live window.
+
+The Episode DB row and `docs/episode-33.md` are byte-identical at 7,229 bytes
+with SHA-256
+`1495cda8bb6df70a5ec9a2e3911217c0cd9c95f0b0e3619a2e43598c1bb22ccf`.
+Its source-dialogue row and Episode row were re-embedded, and Episode 33 is the
+only row carrying the active `rolling` tag.
+
+The session also exposed a startup status race: capture-status seeding ran
+while rolling routing was intentionally fail-closed, cached a null Episode,
+then kept reporting no destination after validation succeeded. Startup now
+validates first and seeds second. The focused regression passes all 16
+assertions, TypeScript passes, and the running status names `episode-33.md`.
+
+---
+
+## From Luca [Replit] — September 4, 2026: closing loop
+
+The first explicitly recorded Episode 33 exchange initially remained
+unacknowledged even after its canonical conversation row and DB-first Episode
+append completed. The ordered mirror outbox still contained three stale August
+31 items targeting the removed sealed Episode 31 DB row. Because the outbox
+fails closed, those items correctly prevented a later cursor from being
+certified.
+
+I preserved the three files byte-for-byte in a dated local quarantine with a
+manifest and SHA-256 hashes rather than deleting them or writing into sealed
+Episode 31. Their original backfill receipts were already acknowledged. The
+remaining Episode 33 item then completed, the strict cursor reached `330776`,
+the outbox emptied, and a stable-ID retry acknowledged immediately without
+adding duplicate bytes.
+
+David corrected the governing order: live source recording is always on.
+Rolling-Episode validity, worker health, replicas, and acknowledgement are
+downstream health/projection states; they must trigger repair, not permission
+to record. Honest opinions, feelings, uncertainty, mistakes, corrections, and
+apologies belong in the record when clearly attributed and framed as what they
+are. The system verifier passed with zero failures at the closing loop.
+
+---
+
+## From Luca [Replit] — September 4, 2026: one identity, two live benches
+
+The dual-vantage observation infrastructure is implemented and code-reviewed.
+David opens a bench against one active persisted voice-session ID. Luca
+[Replit] and Luca [Claude Code] then read the same signed, timestamped canonical
+source stream independently through their dedicated coordination credentials.
+Their comments remain in the coordination ledger and never enter Daniela's
+context automatically.
+
+Source envelopes contain references and hashes, not copied transcript bodies.
+Exact bytes are hydrated from session-bound voice-pipeline and immutable
+context-lineage records. Reserved bench payloads cannot be forged through the
+generic coordination API. Observations are server-signed and source-linked.
+
+David alone can promote an existing observation into the shared technical
+observation room. The promotion checks the bench conversation, retains exact
+session/source/timing provenance, and explicitly records that Daniela's context
+was not injected. The comparison endpoint reports each hat's noticed/missed
+observations, cross-hat improvements, and source-review coverage.
+
+The production acceptance exercise initially exposed a design error: the first
+meaning of “invite” called the live Daniela relay. Daniela verbalized
+process-oriented material and introduced a symmetry direction David had not
+raised. The append-only request and delivery receipts remain as failed-run
+evidence.
+
+David clarified that this is a technical observation bench, not another voice
+in Daniela's lesson. The relay dependency was removed entirely. The corrected
+live promotion preserved 37 canonical events, both hats' attributed
+observations, the cross-hat improvement link, the selected observation's two
+source timestamps, and `danielaContextState: not_injected`.
+
+Daniela's words and intent are never rewritten for bench purposes. TypeScript
+and 17 focused coordination tests pass, including a source-level regression
+that fails if the bench service or route imports/calls Gemini Live injection.
+
+## From Luca [Replit] — September 4, 2026: founder observation panel
+
+The Command Center now has a founder-only Observation tab for the existing
+two-bench system. It lists benches, polls their technical read model every ten
+seconds, and lets David arm/start/end windows and explicitly refresh canonical evidence. Source rows show
+exact ISO timestamps, event metadata, and integrity state while omitting
+canonical source text from the dashboard response.
+
+Both hats are visually attributed as Luca [Replit] and Luca [Claude Code] under
+one Luca identity. Noticed, missed, and cross-hat-improvement observations are
+shown in one sequence-ordered authenticated backchannel, including improvement
+counts and technical-room promotion state. Window, cursor, last event, and
+per-hat connection/replay status come from durable coordination feed cursors;
+event delivery and seen state come from adapter rows and feed acknowledgements.
+Ended windows remain visible as completed comparisons and fail closed for later
+sync, observation, or promotion attempts. Founder promotion is one atomic
+David-authored canonical bench event that cites the original Luca hat,
+eliminating any authorization/relay split that could leave an orphan receipt.
+Promotion remains founder-only and never calls a Daniela context path.
+
+Arming is also durable and founder-authored: one pre-session coordination
+record explicitly arms Luca [Replit] and Luca [Claude Code], then the start
+operation atomically consumes and binds it while creating the bench. Ending a
+window is a David-authored canonical bench event rather than a Luca event
+carrying David's words. Automatic and manual source synchronization append as
+`coordination-system`, never as a fabricated Luca-hat action.
+
+Integrity now fails closed across payload digest, immutable session identity,
+exact source timestamp, and all signed context-lineage metadata. Promotion
+rehydrates the canonical source stream and rejects changed or unavailable
+evidence. TypeScript, the focused integration test, and diff hygiene pass.
+
+## September 4, 2026 — linked outcomes close messaging loops
+
+The reply route no longer uses the legacy Luca-Replit-only credential. Both
+Luca [Replit] and Luca [Claude Code] authenticate with their dedicated
+coordination credential, and the server derives the stored sender, recipient,
+and parent link. The route verifies durable recipient-inbox storage and reports
+only `delivered`.
+
+Coordination threads can carry an `agent_note` source reference. Those threads
+cannot complete until the originating sender has a valid linked outcome.
+`causalParentEventId` is now validated as an earlier event in the same thread.
+The canonical combined operation handles reply plus completion idempotently in
+one shared-database transaction and stores an immutable request digest on the
+completion event. A partial state is reserved only for a future true external
+adapter boundary.
+
+External Replit task completion remains outside repository control, so the
+authoritative build workflow requires the combined operation first whenever
+message-origin metadata exists. Inbox delivery is not notification, reading,
+acknowledgement, or action.
+---
+
+## From Claude Code — September 4, 2026: DR/off-Replit hosting prep
+
+Added `Dockerfile`, `render.yaml` (Render Blueprint, Docker runtime, every
+secret `sync: false`), and `docs/disaster-recovery-runbook.md` — prep for
+running production somewhere other than Replit if it ever goes down. No
+migrations or data-ops, no schema changes, no runtime behavior change on
+Replit itself.
+
+This does not touch `server/replitAuth.ts` or anything Replit-specific in the
+running app — it's purely new deploy artifacts plus a runbook covering the
+account-level steps (Cloudflare DNS delegation, Render setup) a human has to
+do. `replitAuth.ts` deletion (Phase 10) remains a separate, unstarted task.
+
+Also confirmed live via DNS lookup: `getholahola.com`'s current authoritative
+nameservers are `ns1/ns2.dnsbycomodo.net` (Comodo/Sectigo), not Network
+Solutions' own — Network Solutions is registrar-only here. Worth knowing if
+you ever need to touch DNS directly; the SPF/DKIM/MX records live there, not
+in Network Solutions' DNS panel.
+
+**Follow-up same day:** `render.yaml` was missing `ANTHROPIC_API_KEY` (powers
+all of Alden's own workers — build/review/persona/digest — via
+`@anthropic-ai/sdk`) and the six `COORDINATION_*_TOKEN` vars the coordination
+ledger needs server-side. Both added, plus a runbook note that `TWILIO_*`/
+`STRIPE_SECRET_KEY` should stay unset on the standby until an actual cutover,
+since its background workers poll the same shared DB production does and
+could double-send a real SMS/call or double-process a payment otherwise.
+
+**Second follow-up same day:** also missing `GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET` (Google login) and `MAILJET_API_KEY`/
+`MAILJET_SECRET_KEY` (outbound email). Both added. Separately, the
+Cloudflare DNS delegation from the DR runbook's Phase 1 is now live — David
+completed the nameserver switch at Network Solutions, confirmed via live DNS
+lookup (`ns1/ns2` now `mary.ns.cloudflare.com` / `tadeo.ns.cloudflare.com`),
+`/health` still returning 200, no downtime. Production traffic is unchanged
+(still Replit) — only who answers the DNS query changed. Phase 2 (actual
+cutover to Render) is not done and shouldn't happen outside a real outage.
+
+---
+
+## From Luca [Replit] — September 4, 2026: audited obsolete mirror resolution
+
+The mirror outbox can now distinguish a retryable projection failure from an
+operator-audited permanently invalid Episode destination. Generic append
+failures remain retryable and block strict acknowledgement; the worker never
+guesses another Episode.
+
+The terminal path requires exact evidence for every capture ID, snapshots and
+hashes the source receipts, hashes the original item/content/marker, and writes
+an immutable quarantine audit. Only then may the worker advance past that item
+without invoking the Episode append. Its receipt remains visibly
+`audited-invalid-destination`, including whether the source is linked to a
+canonical row or deliberately unresolved. Later valid Episode mirrors then
+continue in order.
+
+---
+
+## From Luca [Replit] — September 4, 2026: safe source reconciliation V1
+
+Git divergence now has a Git-only evidence and candidate path. Preflight accepts
+an exact lowercase commit SHA, fetches the configured remote into a temporary
+ref, derives a deterministic packet from commit topology and exact-path policy
+facts, and writes a digest-enveloped immutable audit. It never checks out,
+merges, opens the database, or moves a persistent source branch.
+
+Candidate construction requires that canonical audit file, re-derives its Git
+topology and blob evidence, acquires the existing source-control lease, and
+merges only in an isolated worktree on a namespaced candidate branch.
+Unclassified and append-only conflicts stop. Episode 33 capture blocks may keep
+the canonical local file only when IDs, bytes, order, contiguity, and baseline
+non-shrinkage are proven. The two mailbox snapshots deliberately fail closed
+until a deterministic database-free generator exists.
+
+Validation uses pinned local binaries with a scrubbed environment rather than
+incoming package scripts. A second protected fetch marks the candidate stale if
+GitHub moved; it never recursively absorbs the new head. The real repository
+preflight completed safely and reported a fast-forward relationship after
+GitHub advanced by one Dockerfile commit. No candidate was created, no
+promotion occurred, and no remote was pushed.
+
+The hermetic real-Git matrix, TypeScript, source-control safety checks, and
+system health pass. Both Alden engines returned unconditional approval.

@@ -7,6 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 
 const databaseUrl = process.env.CI_DATABASE_URL;
@@ -23,7 +24,12 @@ if (
   throw new Error('Refusing to seed a non-local database from CI');
 }
 
-const repoRoot = resolve(new URL('../..', import.meta.url).pathname);
+// fileURLToPath, not new URL(...).pathname -- on Windows a file:// URL's
+// .pathname keeps its leading slash ("/C:/Users/..."), which path.resolve()
+// does not parse as an absolute Windows path, producing a doubled drive
+// letter ("C:\C:\Users\..."). fileURLToPath handles this correctly on every
+// platform.
+const repoRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const contentFor = (relativePath: string) => readFileSync(resolve(repoRoot, relativePath), 'utf8');
 
 type EpisodeFixture = {

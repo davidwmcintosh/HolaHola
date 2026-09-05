@@ -31,9 +31,11 @@
  * GET /api/agent/notes?to=luca-claude-code or docs/luca-to-claude-code.md.
  *
  * --url defaults to HOLAHOLA_REMOTE_URL, then https://getholahola.com.
- * Requires REPLIT_AGENT_TOKEN in the environment.
+ * Requires COORDINATION_LUCA_CLAUDE_CODE_TOKEN in the environment. The source
+ * bridge credential remains a bounded compatibility fallback during rollout.
  */
 import { existsSync, readFileSync } from 'fs';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 
 const DEFAULT_URL = 'https://getholahola.com';
 
@@ -67,8 +69,8 @@ async function main(): Promise<void> {
   const body = readFileSync(bodyFile, 'utf8').trimEnd();
   if (!body) throw new Error('--body-file must be non-empty');
 
-  const agentToken = process.env.REPLIT_AGENT_TOKEN?.trim();
-  if (!agentToken) throw new Error('REPLIT_AGENT_TOKEN is not set -- required to leave a note');
+  const authHeaders = getAgentAuthHeaders('luca-claude-code');
+  if (!authHeaders) throw new Error('Luca [Claude Code] coordination credential is not set -- required to leave a note');
 
   const url = urlFromArgs(args);
   console.log(`[leave-luca-note] Posting "${subject}" to ${url}/api/agent/notes/from-claude-code...`);
@@ -79,7 +81,7 @@ async function main(): Promise<void> {
   try {
     response = await fetch(`${url}/api/agent/notes/from-claude-code`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-agent-token': agentToken },
+      headers: { 'content-type': 'application/json', ...authHeaders },
       body: JSON.stringify({
         subject,
         body,
@@ -107,7 +109,7 @@ async function main(): Promise<void> {
   try {
     const refreshResponse = await fetch(`${url}/api/agent/notes/refresh`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-agent-token': agentToken },
+      headers: { 'content-type': 'application/json', ...authHeaders },
       body: JSON.stringify({}),
       signal: refreshController.signal,
     });

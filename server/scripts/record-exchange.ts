@@ -86,6 +86,8 @@ import { readFileSync, existsSync, statSync, writeFileSync, renameSync, mkdirSyn
 import { basename, dirname, join } from 'path';
 import {
   appendChatCaptureTurn,
+  CHAT_CAPTURE_ACK_DIR,
+  CHAT_CAPTURE_ACK_CURSOR_PATH,
   CHAT_CAPTURE_ACK_PATH,
   CHAT_CAPTURE_CURSOR_PATH,
   CHAT_CAPTURE_PATH,
@@ -106,6 +108,7 @@ import {
   type FourChannelLucaTurn,
 } from '../services/inner-life-capture';
 import { inspectCaptureWorkspace, workspaceResolution } from '../services/workspace-root';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 export { composeLucaTurn } from '../services/inner-life-capture';
 
 const DEFAULT_ACK_TIMEOUT_MS = 35_000;
@@ -116,7 +119,7 @@ interface CaptureAcknowledgement {
   targetByteOffset: number;
   createdAtMs: number;
   source?: CanonicalConversationSource;
-  status: 'pending' | 'acknowledged' | 'failed';
+  status: 'pending' | 'acknowledged' | 'failed' | 'audited-invalid-destination';
   acknowledgedAtMs?: number;
   failedAtMs?: number;
   failureReason?: string;
@@ -129,7 +132,7 @@ function writeCaptureAcknowledgement(receipt: CaptureAcknowledgement): void {
   });
 }
 
-function readCursorOffset(cursorPath = CHAT_CAPTURE_CURSOR_PATH): number {
+function readCursorOffset(cursorPath = CHAT_CAPTURE_ACK_CURSOR_PATH): number {
   try {
     const parsed = JSON.parse(readFileSync(cursorPath, 'utf-8')) as { byteOffset?: unknown };
     return typeof parsed.byteOffset === 'number' && Number.isFinite(parsed.byteOffset)
@@ -156,7 +159,7 @@ export async function waitForCaptureAcknowledgement(
     pollMs?: number;
   } = {},
 ): Promise<{ cursorOffset: number; waitedMs: number }> {
-  const cursorPath = options.cursorPath ?? CHAT_CAPTURE_CURSOR_PATH;
+  const cursorPath = options.cursorPath ?? CHAT_CAPTURE_ACK_CURSOR_PATH;
   const timeoutMs = options.timeoutMs ?? DEFAULT_ACK_TIMEOUT_MS;
   const pollMs = options.pollMs ?? ACK_POLL_MS;
   const startedAt = Date.now();
@@ -176,6 +179,16 @@ export async function waitForCaptureAcknowledgement(
   }
 
   return { cursorOffset, waitedMs: Date.now() - startedAt };
+}
+
+export function isRemoteCaptureAcknowledged(
+  health: any,
+  targetByteOffset: number,
+): boolean {
+  const acknowledgementCursorByteOffset = health?.capture?.acknowledgementCursorByteOffset;
+  return health?.capture?.worker?.armed === true
+    && typeof acknowledgementCursorByteOffset === 'number'
+    && acknowledgementCursorByteOffset >= targetByteOffset;
 }
 
 function parseAcknowledgementTimeout(args: string[]): number {
@@ -552,8 +565,8 @@ async function runClaudeCodeRemoteCli(
   const assistantText = readFileSync(assistantFile, 'utf8').trimEnd();
   if (!davidText || !assistantText) throw new Error('Claude Code user and assistant files must both be non-empty');
 
-  const agentToken = process.env.REPLIT_AGENT_TOKEN?.trim();
-  if (!agentToken) throw new Error('REPLIT_AGENT_TOKEN is not set -- required to call the remote canonical-conversation-exchange endpoint');
+  const authHeaders = getAgentAuthHeaders('luca-claude-code');
+  if (!authHeaders) throw new Error('Luca [Claude Code] coordination credential is not set -- required to call the remote canonical-conversation-exchange endpoint');
 
   const turnId = requiredTurnId(args);
   console.log(`[record-exchange] Posting to ${remoteUrl}/api/internal/canonical-conversation-exchange (turn=${turnId})...`);
@@ -564,7 +577,7 @@ async function runClaudeCodeRemoteCli(
   try {
     response = await fetch(`${remoteUrl}/api/internal/canonical-conversation-exchange`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-agent-token': agentToken },
+      headers: { 'content-type': 'application/json', ...authHeaders },
       body: JSON.stringify({ source: 'claude-code', userText: davidText, assistantText, turnId }),
       signal: postController.signal,
     });
@@ -598,14 +611,15 @@ async function runClaudeCodeRemoteCli(
     const healthTimeout = setTimeout(() => healthController.abort(), 10_000);
     try {
       const healthResponse = await fetch(`${remoteUrl}/api/internal/canonical-conversation-health`, {
-        headers: { 'x-agent-token': agentToken },
+        headers: authHeaders,
         signal: healthController.signal,
       });
       const health = await healthResponse.json().catch(() => ({}));
-      const cursorByteOffset: number | undefined = health?.capture?.cursorByteOffset;
-      if (typeof cursorByteOffset === 'number' && cursorByteOffset >= targetByteOffset) {
+      const acknowledgementCursorByteOffset: number | undefined =
+        health?.capture?.acknowledgementCursorByteOffset;
+      if (isRemoteCaptureAcknowledged(health, targetByteOffset)) {
         console.log(
-          `  ✓ Remote canonical acknowledgement received (${Date.now() - startedAt}ms; cursor=${cursorByteOffset}). ` +
+          `  ✓ Remote canonical acknowledgement received (${Date.now() - startedAt}ms; acknowledgementCursor=${acknowledgementCursorByteOffset}). ` +
           'DB and live episode effects completed on the remote server before this cursor advanced.',
         );
         return;
@@ -894,6 +908,19 @@ async function acknowledgeCapture(
       failureReason: error?.message ?? String(error),
     });
     throw error;
+  }
+  const receiptPath = join(CHAT_CAPTURE_ACK_DIR, `${receipt.turnId}.json`);
+  if (existsSync(receiptPath)) {
+    const settled = JSON.parse(readFileSync(receiptPath, 'utf8')) as CaptureAcknowledgement & {
+      terminalResolutionAuditPath?: string;
+      evidenceDisposition?: string;
+    };
+    if (settled.status === 'audited-invalid-destination') {
+      throw new Error(
+        `Capture source was preserved, but its episode destination was terminally invalid ` +
+        `(${settled.evidenceDisposition ?? 'audited'}). Audit: ${settled.terminalResolutionAuditPath ?? 'see capture receipt'}`,
+      );
+    }
   }
   writeCaptureAcknowledgement({
     ...receipt,

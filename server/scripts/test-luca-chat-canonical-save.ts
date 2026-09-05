@@ -40,11 +40,12 @@
 import http from 'http';
 import { getMonitoringDb } from '../db';
 import { sql } from 'drizzle-orm';
+import { getAgentAuthHeaders } from '../services/agent-auth';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const PORT       = process.env.PORT ?? '5000';
 const HOST       = 'localhost';
-const TOKEN      = process.env.REPLIT_AGENT_TOKEN ?? '';
+const AUTH_HEADERS = getAgentAuthHeaders() ?? {};
 const SELF_CHECK = process.argv.includes('--self-check');
 
 // ─── Colour helpers ──────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ function post(path: string, body: unknown): Promise<{ status: number; body: any 
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload),
-        'x-agent-token': TOKEN,
+        ...AUTH_HEADERS,
       },
       timeout: REQUEST_TIMEOUT_MS,
     };
@@ -404,8 +405,8 @@ async function runSelfCheck(): Promise<void> {
 async function main(): Promise<void> {
   if (SELF_CHECK) { await runSelfCheck(); return; }
 
-  if (!TOKEN) {
-    console.error(R('FATAL: REPLIT_AGENT_TOKEN not set — cannot authenticate'));
+  if (!Object.keys(AUTH_HEADERS).length) {
+    console.error(R('FATAL: COORDINATION_LUCA_REPLIT_TOKEN not set — cannot authenticate'));
     process.exit(1);
   }
 

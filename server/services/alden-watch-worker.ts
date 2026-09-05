@@ -15,7 +15,7 @@ import path from "path";
 import { getUserDb } from "../db";
 import { aldenNotifications, aiCostLogs, aldenWatchConfig, voiceSessions } from "@shared/schema";
 import { sql as drizzleSql, eq, desc, and, gte, isNotNull } from "drizzle-orm";
-import { executeAldenTool, ALDEN_TOOLS } from "./alden-functions";
+import { executeAldenTool, toAnthropicAldenTools } from "./alden-functions";
 import {
   captureSnapshot,
   detectAnomalies,
@@ -443,9 +443,7 @@ async function runWatchCycle() {
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Strip gemini_description before sending to Anthropic — Anthropic rejects unknown fields.
-    // alden-persona-service does the same strip (tool.gemini_description || tool.description).
-    const anthropicTools: Anthropic.Tool[] = ALDEN_TOOLS.map(({ gemini_description: _gd, ...rest }) => rest as Anthropic.Tool);
+    const anthropicTools = toAnthropicAldenTools();
 
     const loopMessages: Anthropic.MessageParam[] = [{
       role: 'user',

@@ -373,10 +373,10 @@ export interface ChatCaptureCursor {
   lastSavedTurnFingerprint?: string;
 }
 
-export function loadChatCaptureCursor(): ChatCaptureCursor {
+export function loadChatCaptureCursor(cursorPath = CHAT_CAPTURE_CURSOR_PATH): ChatCaptureCursor {
   try {
-    if (existsSync(CHAT_CAPTURE_CURSOR_PATH)) {
-      return JSON.parse(readFileSync(CHAT_CAPTURE_CURSOR_PATH, 'utf-8'));
+    if (existsSync(cursorPath)) {
+      return JSON.parse(readFileSync(cursorPath, 'utf-8'));
     }
   } catch { /* ignore */ }
   return { byteOffset: 0 };

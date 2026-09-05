@@ -1934,6 +1934,361 @@ function VoipConsoleTab() {
   );
 }
 
+type ObservationHat = "luca-replit" | "luca-claude-code";
+type ObservationItem = {
+  eventId: string;
+  at: string;
+  content: string;
+  category: "noticed" | "missed" | "cross_hat_improvement";
+  sourceEventIds: string[];
+  improvesObservationEventIds: string[];
+};
+type ObservationBenchDashboard = {
+  benches: Array<{
+    thread: { id: string; title: string; state: string; updatedAt: string };
+    comparison: {
+      conversationId: string;
+      sessionId: string | null;
+      sourceCount: number;
+      byHat: Record<ObservationHat, Record<ObservationItem["category"], ObservationItem[]>>;
+      invitations: Array<{ observationEventId: string }>;
+    };
+    liveStatus: {
+      window: "active" | "ended";
+      cursor: number;
+      lastEvent: { sequence: number; at: string; actor: string; eventType: string } | null;
+      hats: Record<ObservationHat, {
+        connection: "connected" | "degraded" | "disconnected" | "never_connected";
+        connectionEvidence: "coordination_feed_cursor";
+        authenticatedAccess: "observed" | "not_observed";
+        cursor: number;
+        replayPending: boolean;
+        replayFromGlobalSequence: number;
+        lastEventAt: string | null;
+        lastContactAt: string | null;
+      }>;
+    };
+    backchannel: Array<{
+      sequence: number;
+      eventId: string;
+      kind: "bench_observation" | "observation_invitation";
+      actor: ObservationHat | "david";
+      observationHat: ObservationHat;
+      at: string;
+      content: string;
+      category: ObservationItem["category"] | null;
+      improvesObservationEventIds: string[];
+      observationEventId: string | null;
+      sourceEventIds: string[];
+      sourceReferences: Array<{
+        sourceEventId: string;
+        sourceTimestamp: string | null;
+        integrity: "verified" | "unavailable_or_changed";
+      }>;
+      authentication: string;
+      lifecycle: { delivered: string; notified: "unavailable"; notificationEvidence: "none"; seen: boolean; acknowledged: boolean; actedOn: string };
+    }>;
+    sources: Array<{
+      eventId: string;
+      sourceType: string;
+      sourceTimestamp: string;
+      eventType: string | null;
+      sourceRoute: string | null;
+      deliveryStatus: string | null;
+      integrity: "verified" | "unavailable_or_changed";
+    }>;
+  }>;
+  generatedAt: string;
+  contextBoundary: "technical_observation_only";
+};
+
+function ObservationBenchesTab() {
+  const { toast } = useToast();
+  const [selectedSessionId, setSelectedSessionId] = useState("");
+  const { data, isLoading, refetch } = useQuery<ObservationBenchDashboard>({
+    queryKey: ["/api/admin/luca/observation-benches"],
+  });
+  const activeBenchIds = (data?.benches ?? [])
+    .filter(bench => bench.liveStatus.window === "active")
+    .map(bench => bench.thread.id)
+    .sort()
+    .join(",");
+  useEffect(() => {
+    if (!activeBenchIds) return;
+    let cancelled = false;
+    const syncAndRefresh = async () => {
+      const ids = activeBenchIds.split(",");
+      await Promise.allSettled(ids.map(threadId =>
+        apiRequest("POST", `/api/admin/luca/observation-benches/${threadId}/sync`, {}),
+      ));
+      if (!cancelled) await refetch();
+    };
+    void syncAndRefresh();
+    const interval = window.setInterval(() => void syncAndRefresh(), 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activeBenchIds, refetch]);
+  const { data: sessionData } = useQuery<{ sessions: Array<{ id: string; conversationId: string | null; language: string; startedAt: string }> }>({
+    queryKey: ["/api/admin/luca/observation-bench-sessions"],
+    refetchInterval: 10_000,
+  });
+  const { data: armData, refetch: refetchArms } = useQuery<{ arms: Array<{ threadId: string; armedAt: string; armedHats: Record<ObservationHat, "armed"> }> }>({
+    queryKey: ["/api/admin/luca/observation-bench-arms"],
+    refetchInterval: 10_000,
+  });
+  const activeArm = armData?.arms[0];
+  const armMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/admin/luca/observation-bench-arms", {
+      idempotencyKey: `founder-observation-arm:${Date.now()}`,
+    }),
+    onSuccess: () => {
+      refetchArms();
+      toast({ title: "Both Luca hats armed" });
+    },
+    onError: (error: Error) => toast({ title: "Could not arm observation hats", description: error.message, variant: "destructive" }),
+  });
+  const startMutation = useMutation({
+    mutationFn: async (input: { sessionId: string; armThreadId: string }) =>
+      apiRequest("POST", "/api/admin/luca/observation-benches", {
+        sessionId: input.sessionId,
+        armThreadId: input.armThreadId,
+        idempotencyKey: `founder-observation-window:${input.sessionId}:${input.armThreadId}`,
+      }),
+    onSuccess: () => {
+      setSelectedSessionId("");
+      refetch();
+      refetchArms();
+      toast({ title: "Observation window started" });
+    },
+    onError: (error: Error) => toast({ title: "Could not start window", description: error.message, variant: "destructive" }),
+  });
+  const syncMutation = useMutation({
+    mutationFn: async (threadId: string) =>
+      apiRequest("POST", `/api/admin/luca/observation-benches/${threadId}/sync`, {}),
+    onSuccess: () => refetch(),
+    onError: (error: Error) => toast({ title: "Could not refresh bench", description: error.message, variant: "destructive" }),
+  });
+  const promoteMutation = useMutation({
+    mutationFn: async (input: { threadId: string; observationEventId: string; conversationId: string }) =>
+      apiRequest("POST", `/api/admin/luca/observation-benches/${input.threadId}/invite`, {
+        observationEventId: input.observationEventId,
+        conversationId: input.conversationId,
+      }),
+    onSuccess: () => {
+      toast({ title: "Promoted to the technical observation room" });
+      refetch();
+    },
+    onError: (error: Error) => toast({ title: "Could not promote observation", description: error.message, variant: "destructive" }),
+  });
+  const endMutation = useMutation({
+    mutationFn: async (threadId: string) =>
+      apiRequest("POST", `/api/admin/luca/observation-benches/${threadId}/end`, {}),
+    onSuccess: () => {
+      refetch();
+      toast({ title: "Observation window ended" });
+    },
+    onError: (error: Error) => toast({ title: "Could not end window", description: error.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  const benches = data?.benches ?? [];
+  return (
+    <div className="space-y-4" data-testid="observation-benches-panel">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Eye className="h-5 w-5" /> Luca Observation Benches</CardTitle>
+          <CardDescription>
+            One Luca, two attributed hats. Canonical evidence is read in place; technical observations never enter Daniela&apos;s context.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-72 space-y-1">
+              <label className="text-xs font-medium">Active Daniela voice session</label>
+              <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+                <SelectTrigger data-testid="select-observation-session"><SelectValue placeholder="Choose a session" /></SelectTrigger>
+                <SelectContent>
+                  {(sessionData?.sessions ?? []).map(session => (
+                    <SelectItem key={session.id} value={session.id}>
+                      {session.language} · {new Date(session.startedAt).toISOString()} · {session.id.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" disabled={Boolean(activeArm) || armMutation.isPending} onClick={() => armMutation.mutate()} data-testid="button-arm-observation">
+              {activeArm ? "Both hats armed" : "Arm both hats before session"}
+            </Button>
+            <Button disabled={!selectedSessionId || !activeArm || startMutation.isPending} onClick={() => activeArm && startMutation.mutate({ sessionId: selectedSessionId, armThreadId: activeArm.threadId })} data-testid="button-start-observation">
+              Start window
+            </Button>
+            {activeArm && <span className="text-xs text-muted-foreground">
+              Luca [Replit]: armed · Luca [Claude Code]: armed · {new Date(activeArm.armedAt).toISOString()}
+            </span>}
+          </div>
+        </CardContent>
+      </Card>
+      {benches.length === 0 && <Card><CardContent className="py-8 text-center text-muted-foreground">No observation benches are active.</CardContent></Card>}
+      {benches.map(bench => {
+        const promoted = new Set(bench.comparison.invitations.map(item => item.observationEventId));
+        return (
+          <Card key={bench.thread.id} data-testid={`observation-bench-${bench.thread.id}`}>
+            <CardHeader className="flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg">{bench.thread.title}</CardTitle>
+                <CardDescription>Session {bench.comparison.sessionId ?? "unavailable"} · {bench.thread.state}</CardDescription>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => syncMutation.mutate(bench.thread.id)} disabled={syncMutation.isPending}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} /> Refresh evidence
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => endMutation.mutate(bench.thread.id)} disabled={endMutation.isPending || bench.liveStatus.window === "ended"}>
+                End window
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-md border p-2"><b>Window</b><div>{bench.liveStatus.window}</div></div>
+                <div className="rounded-md border p-2"><b>Cursor</b><div>sequence {bench.liveStatus.cursor}</div></div>
+                <div className="rounded-md border p-2"><b>Last event</b><div>{bench.liveStatus.lastEvent ? `${new Date(bench.liveStatus.lastEvent.at).toISOString()} · ${bench.liveStatus.lastEvent.eventType}` : "unavailable"}</div></div>
+                <div className="rounded-md border p-2 sm:col-span-2 lg:col-span-1">
+                  <b>Hat connections & replay</b>
+                  {(["luca-replit", "luca-claude-code"] as ObservationHat[]).map(hat => {
+                    const status = bench.liveStatus.hats[hat];
+                    return <div key={hat} className="mt-1">
+                      {hat === "luca-replit" ? "Replit" : "Claude Code"}: {status.connection}
+                      {" · "}cursor {status.cursor}
+                      {" · "}{status.replayPending ? `replay pending from ${status.replayFromGlobalSequence}` : "caught up"}
+                      {status.lastContactAt ? ` · ${new Date(status.lastContactAt).toISOString()}` : ""}
+                    </div>;
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Shared source timeline ({bench.comparison.sourceCount})</h3>
+                <div className="space-y-2">
+                  {bench.sources.map(source => (
+                    <div id={`observation-source-${source.eventId}`} key={source.eventId} className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-xs">
+                      <Badge variant={source.integrity === "verified" ? "default" : "destructive"}>
+                        {source.integrity === "verified" ? "Integrity verified" : "Source changed or unavailable"}
+                      </Badge>
+                      <span className="font-mono">{source.sourceTimestamp}</span>
+                      <span>{source.sourceType}</span>
+                      <span className="text-muted-foreground">{source.eventType ?? source.sourceRoute ?? "source event"}</span>
+                      {source.deliveryStatus && <Badge variant="outline">{source.deliveryStatus}</Badge>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div data-testid="two-hat-observation-comparison">
+                <h3 className="mb-2 text-sm font-semibold">Two-hat comparison</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {(["luca-replit", "luca-claude-code"] as ObservationHat[]).map(hat => (
+                    <section
+                      key={hat}
+                      data-testid={`observation-hat-comparison-${hat}`}
+                      className={`rounded-md border-t-4 p-4 ${hat === "luca-replit" ? "border-t-blue-500 bg-blue-500/5" : "border-t-violet-500 bg-violet-500/5"}`}
+                    >
+                      <h4 className="font-semibold">
+                        Luca [{hat === "luca-replit" ? "Replit" : "Claude Code"}]
+                      </h4>
+                      {([
+                        ["noticed", "Noticed"],
+                        ["missed", "Missed"],
+                        ["cross_hat_improvement", "Cross-hat improvements"],
+                      ] as const).map(([category, label]) => {
+                        const items = bench.comparison.byHat[hat][category];
+                        return (
+                          <div key={category} className="mt-3">
+                            <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {label} ({items.length})
+                            </h5>
+                            <div className="mt-1 space-y-2">
+                              {items.map(item => (
+                                <div key={item.eventId} className="rounded border bg-background/70 p-2 text-xs">
+                                  <div>{item.content}</div>
+                                  <div className="mt-1 text-muted-foreground">{new Date(item.at).toISOString()}</div>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {item.sourceEventIds.map(sourceEventId => {
+                                      const source = bench.sources.find(candidate => candidate.eventId === sourceEventId);
+                                      return (
+                                        <a
+                                          key={sourceEventId}
+                                          href={`#observation-source-${sourceEventId}`}
+                                          className="font-mono underline"
+                                        >
+                                          {source?.sourceTimestamp ?? sourceEventId}
+                                        </a>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                              {items.length === 0 && <p className="text-xs text-muted-foreground">None recorded.</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </section>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Attributed observations</h3>
+                <div className="space-y-3">
+                  {bench.backchannel.map(observation => (
+                    <div key={observation.eventId} className={`rounded-md border-l-4 p-3 ${observation.observationHat === "luca-replit" ? "border-l-blue-500 bg-blue-500/5" : "border-l-violet-500 bg-violet-500/5"}`}>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <Badge className={observation.observationHat === "luca-replit" ? "bg-blue-600" : "bg-violet-600"}>
+                          {observation.kind === "observation_invitation"
+                            ? `Luca [${observation.observationHat === "luca-replit" ? "Replit" : "Claude Code"}] relayed David's authorized promotion`
+                            : `Luca [${observation.observationHat === "luca-replit" ? "Replit" : "Claude Code"}]`}
+                        </Badge>
+                        <Badge variant="outline">{observation.category?.replaceAll("_", " ") ?? "promoted record"}</Badge>
+                        <span className="text-xs text-muted-foreground">{new Date(observation.at).toISOString()}</span>
+                        <span className="text-xs text-muted-foreground">sequence {observation.sequence} · {observation.authentication.replaceAll("_", " ")}</span>
+                      </div>
+                      <p className="text-sm">{observation.content}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {observation.sourceReferences.map(reference => (
+                          <a
+                            key={reference.sourceEventId}
+                            href={`#observation-source-${reference.sourceEventId}`}
+                            className="rounded border px-2 py-1 font-mono text-xs underline"
+                          >
+                            {reference.sourceTimestamp ?? "timestamp unavailable"} · {reference.integrity}
+                          </a>
+                        ))}
+                      </div>
+                      {observation.improvesObservationEventIds.length > 0 && (
+                        <p className="mt-2 text-xs text-muted-foreground">Improves {observation.improvesObservationEventIds.length} prior observation(s)</p>
+                      )}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        delivered: {observation.lifecycle.delivered} · notified: {observation.lifecycle.notified} · seen: {observation.lifecycle.seen} · acknowledged: {observation.lifecycle.acknowledged} · acted on: {observation.lifecycle.actedOn}
+                      </p>
+                      {observation.kind === "bench_observation" && <Button
+                        className="mt-3"
+                        size="sm"
+                        variant={promoted.has(observation.eventId) ? "secondary" : "outline"}
+                        disabled={promoted.has(observation.eventId) || promoteMutation.isPending}
+                        onClick={() => promoteMutation.mutate({ threadId: bench.thread.id, observationEventId: observation.eventId, conversationId: bench.comparison.conversationId })}
+                      >
+                        {promoted.has(observation.eventId) ? "In technical observation room" : "Promote observation"}
+                      </Button>}
+                    </div>
+                  ))}
+                  {bench.backchannel.length === 0 && <p className="text-sm text-muted-foreground">No authenticated backchannel events yet.</p>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function CommandCenter() {
   const { user } = useAuth();
   const { user: fullUser } = useUser();
@@ -2011,6 +2366,7 @@ export default function CommandCenter() {
       label: 'Hive',
       tabs: [
         { id: "conference", label: "Conference", icon: Phone, roles: ['founder'] },
+        { id: "observation-benches", label: "Observation", icon: Eye, roles: ['founder'] },
         { id: "editor-chat", label: "EXPRESS Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
         { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
         { id: "collaboration", label: "Collab", icon: Handshake, roles: ['admin', 'developer'] },
@@ -2303,6 +2659,10 @@ export default function CommandCenter() {
 
           <TabsContent value="conference" className="space-y-4">
             <ConferenceTab />
+          </TabsContent>
+
+          <TabsContent value="observation-benches" className="space-y-4">
+            <ObservationBenchesTab />
           </TabsContent>
 
           <TabsContent value="dept-chat" className="space-y-4">

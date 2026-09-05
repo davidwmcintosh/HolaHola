@@ -20,6 +20,7 @@ import { desc, eq } from "drizzle-orm";
 import { emitToRoom } from "./team-room-ws-broker";
 import { respondToNudge } from "./luca-responder";
 import { getCurrentSessionSnapshot, startLucaObserver } from "./luca-observer";
+import { getAgentCredential } from "./agent-auth";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -162,10 +163,10 @@ export function disconnectLuca(): void {
 export function connectLucaToTeamRoom(): void {
   if (_socket?.connected) return; // already live
 
-  const agentToken = process.env.REPLIT_AGENT_TOKEN;
+  const agentToken = getAgentCredential();
   if (!agentToken) {
     console.warn(
-      "[LucaPresence] REPLIT_AGENT_TOKEN not set — Luca presence unavailable"
+      "[LucaPresence] Luca agent credential not set — Luca presence unavailable"
     );
     return;
   }

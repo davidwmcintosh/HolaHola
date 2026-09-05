@@ -56,9 +56,11 @@ import {
 } from '../unified-ws-handler';
 import type { StreamingSession } from '../services/streaming-session-types';
 import { EventEmitter } from 'events';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
+const hasIsolatedCiDatabase = Boolean(getVerifiedCiDatabaseUrl());
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const G  = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -279,6 +281,14 @@ async function part2(): Promise<void> {
     ((session as any).sessionNotes as string[] | undefined)?.length === 2);
 
   // ── Overflow / auto-flush test ───────────────────────────────────────────
+  // The 51st write intentionally exercises the production persistence path.
+  // Run it only against GitHub CI's verified job-local PostgreSQL service;
+  // local/Replit validation must never fall through to the shared Neon DB.
+  if (!hasIsolatedCiDatabase) {
+    console.log(D('  ↷ Overflow auto-flush persistence skipped: no verified isolated CI database.'));
+    return;
+  }
+
   // Write exactly 50 notes to a fresh session (fills to cap), then one more.
   // The 51st write must trigger auto-flush: the array resets, the new note
   // starts batch #2, and no note is silently dropped from the active array.

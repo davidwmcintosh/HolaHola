@@ -478,6 +478,14 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
   await registerRoutes(app);
 
+  // Canonical conversation capture is operational infrastructure, not a
+  // delayed background convenience. Arm it immediately after its authenticated
+  // intake/health routes exist so unrelated boot workers cannot postpone it.
+  // Its readiness is exposed separately; general application readiness remains
+  // independent so a recorder problem does not make the teaching app unavailable.
+  const { startAgentSessionAutosave } = await import('./services/agent-session-autosave');
+  startAgentSessionAutosave();
+
   // Sofia student-support resolve endpoint
   app.post('/api/sofia/incidents/:id/resolve', async (req: Request, res: Response) => {
     try {
@@ -980,9 +988,6 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
       const { startFounderChatSyncWorker } = await import('./services/founder-chat-sync');
       startFounderChatSyncWorker();
 
-      const { startAgentSessionAutosave } = await import('./services/agent-session-autosave');
-      startAgentSessionAutosave();
-
       const { startMondayBriefScheduler } = await import('./services/board-meeting-service');
       startMondayBriefScheduler();
 
@@ -991,6 +996,9 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
       const { startDanielaConsultAutosave } = await import('./services/daniela-consult-autosave');
       startDanielaConsultAutosave();
+
+      const { startCoordinationDeliveryWorker } = await import('./services/coordination-delivery-worker');
+      startCoordinationDeliveryWorker();
     }, 85000);
 
     // +55s: Learning Goals Migration — idempotent CREATE TABLE IF NOT EXISTS for
@@ -1031,6 +1039,17 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
         console.warn('[LearningGoal] Capability index skipped:', err.message)
       );
     }, 105000);
+
+    // +115s: Agent Operation Indexer — embeds the static operations catalogue in
+    // a dedicated, pinned namespace. operation_skill is intentionally excluded
+    // from Daniela's default recall pool and is searched only by the authenticated
+    // coordination discovery endpoint.
+    setTimeout(async () => {
+      const { runOperationSkillIndexer } = await import('./services/operation-skill-indexer');
+      runOperationSkillIndexer().catch((err: Error) =>
+        console.warn('[OperationIndexer] Skipped:', err.message)
+      );
+    }, 115000);
 
     // +108s: Shadow Auditor Stale-Session Reaper — suspends any active pedagogical
     // loops whose GL sessions closed without a clean stop() call (e.g., tab closed,

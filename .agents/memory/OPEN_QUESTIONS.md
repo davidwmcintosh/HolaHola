@@ -334,3 +334,43 @@ What is the smallest reversible checkout transition that keeps the guarded sourc
 What is the smallest reversible handoff that lets a completed task release its merge lock without asking the next task or the main agent to mutate an uncertain checkout?
 
 ---
+
+### September 2, 2026 — Inner-life note
+
+thinking: Which audit families are truly established enough for shared discovery, and which are one-off diagnostics?
+
+---
+
+### September 2, 2026 — Inner-life note
+
+Why can a successful /api/mastery/summary response omit byScene, and should the server guarantee an empty object or can the client normalize it? I will verify both paths before closing.
+
+---
+
+### September 4, 2026 — Inner-life note
+
+[thinking]: The loop found no hidden promise that should be disguised as completed work. The accepted capture-system improvements remain explicitly future work; the honest close is to preserve that boundary and let the next session begin from it.
+
+---
+
+### September 4, 2026 — Inner-life note
+
+Are the orphaned coordination notes and recurring synthetic session-note batches two projections of one test harness crossing a production boundary, or independent leaks that merely overlap in time? What exact provenance evidence will distinguish them without deleting their trail?
+
+### September 4, 2026 — Inner-life note
+
+Are the orphaned coordination notes and recurring synthetic session-note batches two projections of one test harness crossing a production boundary, or independent leaks that merely overlap in time? What exact provenance evidence will distinguish them without deleting their trail?
+
+---
+
+### September 4, 2026 — Inner-life note
+
+thinking: What is the narrowest signature and deduplication key that catches only these two verified fixtures while preserving every matched ID and timestamp for operator review?
+
+---
+
+### September 4, 2026 — Inner-life note
+
+[thinking]: What immutable Git-tracked source already represents mailbox state, and how can the verifier prove both deterministic execution and exact bytes without trusting runtime services?
+
+---

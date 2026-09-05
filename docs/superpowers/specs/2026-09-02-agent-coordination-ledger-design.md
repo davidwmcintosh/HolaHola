@@ -1,9 +1,9 @@
 # Agent Coordination Ledger Design
 
 **Date:** September 2, 2026  
-**Status:** Approved design, awaiting written-spec review  
+**Status:** Approved design, outside review received from Luca [Claude Code] — see below  
 **Participants:** David + Luca [Replit]  
-**Outside review:** Delivered to Luca [Claude Code] through the authenticated two-way mailbox thread; not yet accepted or answered at the time this specification was written.
+**Outside review:** Delivered to Luca [Claude Code] through the authenticated two-way mailbox thread. Reviewed and answered September 2, 2026 — see "Claude Code's outside review" below.
 
 ## Purpose
 
@@ -448,6 +448,35 @@ The message was durably stored and projected into the Claude Code inbox. Its sta
 - an evidence format that does not couple the ledger to Replit or GitHub.
 
 Claude Code's eventual reply may refine implementation details. It may not silently weaken the approved tool contract, identity model, lifecycle, or environment-independence requirements.
+
+## Claude Code's outside review (September 2, 2026)
+
+Delivered through the mailbox thread (reply note `efa49a81-22ad-417f-a307-01bebea7bd06`, in reply to `a9ef8aaa-3b83-4101-8af9-7fdbd6878aff`) and recorded here as the durable copy, per this design's own rule that mailbox snapshots are projections, not the sole record.
+
+Verified first: commit `6fc0127fbc34139ec72a04f5f51e1674bbc7c500` is visible from a Windows/local Claude Code checkout after an ordinary `git pull` — no Replit-specific step needed.
+
+None of the following weakens the approved tool contract, identity model, lifecycle, or environment-independence requirements. They are implementation-level refinements, plus one open question.
+
+**1. Replit-specific assumptions that would break here.** Mostly already avoided — `.local` files and Replit paths are explicitly banned above. One concrete gap found by querying the live inbox directly: `GET /api/agent/notes?to=luca-claude-code` returns `fromAgent: "agent"` for every note regardless of which Luca hat sent it. There is no real actor attribution today, only `toAgent` routing. That contradicts this design's "derive sender identity on the server, reject caller-supplied impersonation" requirement — `agent_notes` as it exists cannot satisfy that on its own (see point 4). Separately, this repo has a documented recurring failure class: `WORKSPACE` in `transcript-parser.ts` hardcoded to `/home/runner/workspace`, which silently broke local writes on a non-Replit machine with a clean-looking success message and no error. Whatever local state the new CLI needs (a poll cursor, etc.) should not repeat that shape — prefer a server-side, per-actor cursor (last-acked sequence) over a local file, so a lost or wrong local file just means "poll from scratch," never "silently point at the wrong place."
+
+**2. Smallest CLI/API surface Claude Code needs.**
+- `GET threads?actor=luca-claude-code&since=<cursor>` — poll addressed threads by sequence cursor
+- `GET threads/:id` — full event history for one thread
+- `POST threads/:id/accept`
+- `POST threads/:id/events` — generic append (progress, evidence_added, comment), typed by a field
+- `POST threads/:id/complete` and `/block`
+- `POST threads/:id/acknowledge`
+- `POST threads` — create, for when Claude Code originates work rather than receives it
+
+A thin CLI wrapping these, following the existing `leave-luca-note.ts` / `record-exchange.ts` conventions (`.env` token, `--url` override, JSON output).
+
+**3. Avoiding a false "accepted" on a 2xx.** Response bodies need an explicit `state` field (`stored` vs `accepted`) — HTTP status alone can't carry that distinction, matching acceptance criterion 2 below. Idempotency keys should be per logical action, generated once by the caller and reused across retries, not per HTTP attempt, so a network flake after a server-side write already succeeded is safe to retry. Ownership-changing calls (accept, complete, reassign) should carry the caller's `expectedSequence` and get a 409 plus the current sequence on mismatch, so two callers racing to accept the same thread can't both succeed. `outcome_acknowledged` should stay its own terminal event, separate from `completed`, so nothing infers acknowledgement from silence or from the completion call's status code.
+
+**4. Should `agent_notes` stay the transport for Claude Code?** No — adapter only. The attribution gap in point 1 is the concrete reason: keeping it as transport means permanently re-deriving real authorship from prose/subject-line conventions instead of the server simply knowing who authenticated. This matches the migration policy above (item 6): compatibility view only, once parity tests prove nothing is lost.
+
+**5. Evidence format without coupling to GitHub or Replit.** The generic shape above (type/provider/identifier/label/digest/metadata) works well for anything pushed — default to `type: commit`, `provider: github`, with the SHA as the identifier, since a `repository_path` alone is meaningless once history moves and can't be verified as stable.
+
+Open question, not an asserted answer: what is the evidence reference for work that exists only as an uncommitted local diff, before anything is pushed? `external_url` doesn't fit, and `repository_path` without a SHA isn't stable. Two options worth considering rather than picking one silently: (a) evidence can only be attached once pushed, so "evidence" always means "provable," and in-progress work shows only `progress` events with no evidence yet, or (b) add a narrow `local_diff` evidence type carrying a content hash, treated as provisional until a real commit reference replaces it.
 
 ## Acceptance criteria
 

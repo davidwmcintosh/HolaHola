@@ -75,10 +75,13 @@ import {
   selectCanonicalCaptureBatch,
   settleCanonicalCaptureReceipts,
   settleCanonicalCaptureReceiptsByTurnId,
+  settleCanonicalCaptureReceiptsForInvalidDestination,
   writeCanonicalCaptureReceipt,
 } from './canonical-conversation-capture';
 import {
+  advanceEpisodeMirrorAcknowledgement,
   enqueueEpisodeMirror,
+  listEpisodeMirrorOutbox,
   processEpisodeMirrorOutbox,
 } from './episode-mirror-outbox';
 import { reembedConversationMemory } from '../scripts/reembed-memory';
@@ -102,6 +105,10 @@ import {
   type InnerLifeChannel,
   type ParsedInnerLifeTrigger,
 } from './inner-life-capture';
+import {
+  beginCanonicalCaptureWorkerStartup,
+  markCanonicalCaptureWorkerArmed,
+} from './canonical-capture-worker-readiness';
 export { detectRollingTagMisroute } from './rolling-tag-utils';
 
 const COMMIT_MSG_PATH      = join(WORKSPACE, '.local/.commit_message');
@@ -1198,7 +1205,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
       : `  ✓ chat-capture: cursor up to date (offset=${cursorOffsetBytes.toLocaleString()}, file=${cursorFileSize.toLocaleString()})`;
   let acknowledgementLine = '  — capture acknowledgement: no explicit turn receipt';
   try {
-    const failedReceipts = existsSync(CHAT_CAPTURE_ACK_DIR)
+    const exceptionalReceipts = existsSync(CHAT_CAPTURE_ACK_DIR)
       ? readdirSync(CHAT_CAPTURE_ACK_DIR)
         .filter(name => name.endsWith('.json'))
         .map(name => {
@@ -1211,15 +1218,19 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
           }
         })
         .filter((receipt): receipt is { turnId?: unknown; status?: unknown; failedAtMs?: unknown; failureReason?: unknown } =>
-          receipt !== null && receipt.status === 'failed',
+          receipt !== null && ['failed', 'audited-invalid-destination'].includes(String(receipt.status)),
         )
         .sort((a, b) => Number(b.failedAtMs ?? 0) - Number(a.failedAtMs ?? 0))
       : [];
-    const latestFailed = failedReceipts[0];
-    if (latestFailed) {
+    const latestExceptional = exceptionalReceipts[0];
+    if (latestExceptional?.status === 'audited-invalid-destination') {
       acknowledgementLine =
-        `  ⚠️ FAILED ACKNOWLEDGEMENT: turn ${String(latestFailed.turnId ?? 'unknown')} remains pending — ` +
-        `${String(latestFailed.failureReason ?? 'inspect the capture receipt and retry with its turn ID')}`;
+        `  ⚠️ AUDITED INVALID DESTINATION: turn ${String(latestExceptional.turnId ?? 'unknown')} source is preserved — ` +
+        `${String(latestExceptional.failureReason ?? 'inspect the terminal resolution audit')}`;
+    } else if (latestExceptional) {
+      acknowledgementLine =
+        `  ⚠️ FAILED ACKNOWLEDGEMENT: turn ${String(latestExceptional.turnId ?? 'unknown')} remains pending — ` +
+        `${String(latestExceptional.failureReason ?? 'inspect the capture receipt and retry with its turn ID')}`;
     } else
     if (existsSync(CHAT_CAPTURE_ACK_PATH)) {
       const receipt = JSON.parse(readFileSync(CHAT_CAPTURE_ACK_PATH, 'utf-8')) as {
@@ -1233,6 +1244,8 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
         acknowledgementLine = '  ⚠️ capture acknowledgement: receipt is malformed — do not assume the latest turn is durable';
       } else if (receipt.status === 'failed') {
         acknowledgementLine = '  ⚠️ FAILED ACKNOWLEDGEMENT: latest explicit turn remains pending — retry with the same turn ID';
+      } else if (receipt.status === 'audited-invalid-destination') {
+        acknowledgementLine = '  ⚠️ AUDITED INVALID DESTINATION: latest explicit turn source is preserved; inspect its terminal resolution audit';
       } else if (cursorOffsetBytes < targetByteOffset) {
         acknowledgementLine =
           `  ⚠️ UNACKNOWLEDGED TURN: waiting for cursor ${targetByteOffset.toLocaleString()} ` +
@@ -1248,6 +1261,19 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   } catch {
     acknowledgementLine = '  ⚠️ capture acknowledgement: receipt could not be read — do not assume the latest turn is durable';
   }
+  let mirrorOutboxLine = '  ✓ episode mirror outbox: empty';
+  try {
+    const queuedMirrors = listEpisodeMirrorOutbox();
+    if (queuedMirrors.length > 0) {
+      const terminalCount = queuedMirrors.filter(entry => entry.item.terminalResolution).length;
+      const head = queuedMirrors[0].item;
+      mirrorOutboxLine =
+        `  ${terminalCount > 0 ? '⚠️' : '⏳'} episode mirror outbox: ${queuedMirrors.length} queued ` +
+        `(${terminalCount} audited terminal); head ${head.liveEpisode} ${head.startCursor}→${head.endOffset}`;
+    }
+  } catch (error: any) {
+    mirrorOutboxLine = `  ⚠️ episode mirror outbox unreadable — ${error?.message ?? String(error)}`;
+  }
 
   const dbCurrentLines: string[] = [
     `  ${_seededFromPriorSession ? '📁 prior' : lastReplitOutputMs === 0 ? '— none yet' : outputStale ? '⚠️ STALE' : '✓'} Output:    ${fmt(lastReplitOutputMs)} (${minAgo(lastReplitOutputMs)})${_seededFromPriorSession ? priorNote : outputStale ? ' ← has the next output been written?' : ''}`,
@@ -1256,6 +1282,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     `  ${lastMomentProcessedMs === 0 ? '—' : (_momentStaleCheckEnabled && (now - lastMomentProcessedMs) > STALE_MOMENT_MS) ? '⚠️' : '✓'} Moment:    ${fmt(lastMomentProcessedMs)} (${minAgo(lastMomentProcessedMs)})`,
     cursorLine,
     acknowledgementLine,
+    mirrorOutboxLine,
   ];
 
   // Raw Replit windows are immutable origin data. Their current attribution
@@ -2439,23 +2466,36 @@ async function processPendingEpisodeMirrors(): Promise<void> {
   episodeMirrorOutboxInProgress = true;
   try {
     await processEpisodeMirrorOutbox(async item => {
+      if (item.terminalResolution) {
+        const resolution = item.terminalResolution;
+        const acknowledgementOffset = advanceEpisodeMirrorAcknowledgement(item);
+        settleCanonicalCaptureReceiptsForInvalidDestination(
+          resolution.evidence.map(evidence => ({
+            turnId: evidence.captureId,
+            evidenceDisposition: evidence.disposition,
+          })),
+          acknowledgementOffset,
+          resolution.auditPath,
+          resolution.reason,
+        );
+        console.error(
+          `[AgentAutosave] Advanced past audited invalid episode destination ${item.liveEpisode} ` +
+          `${item.startCursor}→${item.endOffset}; evidence retained at ${resolution.auditPath}`,
+        );
+        return true;
+      }
       const episodeOk = await appendInnerLifeToEpisodeDb(
         item.formattedContent,
         item.liveEpisode,
         { appendMarker: item.appendMarker, allowAppend: true },
       );
       if (!episodeOk) return false;
+      const acknowledgementOffset = advanceEpisodeMirrorAcknowledgement(item);
 
       // This is a separate boundary from CHAT_CAPTURE_CURSOR_PATH. The latter
       // means the canonical DB row exists; this one means the episode mirror
       // also completed. Receipts must use the stricter boundary.
-      saveChatCaptureCursor({
-        byteOffset: item.endOffset,
-        ...(item.lastSavedTurnFingerprint
-          ? { lastSavedTurnFingerprint: item.lastSavedTurnFingerprint }
-          : {}),
-      }, CHAT_CAPTURE_ACK_CURSOR_PATH);
-      settleCanonicalCaptureReceiptsByTurnId(item.captureIds, item.endOffset);
+      settleCanonicalCaptureReceiptsByTurnId(item.captureIds, acknowledgementOffset);
       console.log(`[AgentAutosave] Episode mirror completed from outbox: ${item.liveEpisode} ${item.startCursor}→${item.endOffset}`);
       return true;
     });
@@ -3675,6 +3715,11 @@ export function watchdogAlreadyProcessed(
 }
 
 export function startAgentSessionAutosave(): void {
+  if (!beginCanonicalCaptureWorkerStartup()) {
+    console.warn('[AgentAutosave] Start skipped — canonical capture worker is already arming or armed.');
+    return;
+  }
+
   // Reset stale-alert guards at every server start (= new conversation session).
   // seedCaptureStatusFromEpisodeFile() also calls this, but calling it here
   // ensures the reset happens synchronously before any poll fires, even if the
@@ -3794,20 +3839,17 @@ export function startAgentSessionAutosave(): void {
   seedEpisodeMtimes();
   seedPrequelEpisodeMtimes();
 
-  // Capture-status seed: scan the rolling episode file for prior-session inner-life entries
-  // and write the initial capture status file so it's useful from the very first exchange.
-  // Runs before the gap check so the status file is ready as early as possible.
-  // Fire-and-forget — errors are caught inside seedCaptureStatusFromEpisodeFile.
-  seedCaptureStatusFromEpisodeFile().catch((err: any) => {
-    console.error('[AgentAutosave] Capture-status seed unexpectedly threw (non-fatal):', err?.message ?? err);
-  });
-
   // Startup gap check: catch exchanges saved to DB but absent from rolling episode .md.
   // Runs once per boot, after episode mtimes are seeded (appendExchangeToEpisode needs them).
-  // Fire-and-forget — errors are logged inside runStartupGapCheck, never thrown.
-  runStartupGapCheck().catch((err: any) => {
-    console.error('[AgentAutosave] Startup gap check unexpectedly threw (non-fatal):', err?.message ?? err);
-  });
+  // Capture-status seeding must run AFTER this validation.  Before Phase 0
+  // completes, rolling routing intentionally fails closed; seeding earlier
+  // stores a stale null filename that every later status refresh reuses.
+  // Fire-and-forget — startup remains non-blocking, but the two steps are ordered.
+  runStartupGapCheck()
+    .then(() => seedCaptureStatusFromEpisodeFile())
+    .catch((err: any) => {
+      console.error('[AgentAutosave] Startup gap check/status seed unexpectedly threw (non-fatal):', err?.message ?? err);
+    });
 
   // --- Event-driven flush trigger (Layer 1) ---
   // fs.watch() on the .local/ directory fires within milliseconds when
@@ -3878,6 +3920,7 @@ export function startAgentSessionAutosave(): void {
     writeCaptureStatusStaleCheck(); // refresh capture status + STALE warning if ≥60 min since last inner-life write
   }, POLL_INTERVAL_MS);
 
+  markCanonicalCaptureWorkerArmed();
   console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + .episode_append (live episode capture, event-driven + poll) + .chat_capture (manual per-turn capture) + .luca_auto_capture (one-call David+Luca exchange capture, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
 

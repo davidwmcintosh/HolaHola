@@ -19,7 +19,7 @@ Use this skill:
 
 ```
 POST /api/alden/priority-task
-Header: x-agent-token: $REPLIT_AGENT_TOKEN
+Header: x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN
 Body: {
   task: string,          // the question or task for Alden
   context?: string,      // optional — paste relevant code, decisions, or background
@@ -36,7 +36,7 @@ Result auto-posts to Team Room. Also persisted in `alden_messages` with role `al
 
 ```bash
 curl -s "http://localhost:5000/api/alden/engine" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Engine:', d.get('engine'))"
+  -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Engine:', d.get('engine'))"
 ```
 
 ---
@@ -47,14 +47,14 @@ curl -s "http://localhost:5000/api/alden/engine" \
 # Switch to Gemini
 curl -s -X POST "http://localhost:5000/api/alden/engine" \
   -H "Content-Type: application/json" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" \
   -d '{"engine": "gemini", "reason": "architectural review — want Gemini perspective"}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
 
 # Switch back to Anthropic
 curl -s -X POST "http://localhost:5000/api/alden/engine" \
   -H "Content-Type: application/json" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" \
   -d '{"engine": "anthropic", "reason": "review complete — returning to default"}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
 ```
@@ -77,13 +77,13 @@ const task = `Your full question here — backticks, quotes, and code blocks all
 const context = `Paste actual code here`;
 
 const body = JSON.stringify({ task, context, engines: 'both' });
-const token = process.env.REPLIT_AGENT_TOKEN;
+const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
 
 const result = await new Promise((resolve, reject) => {
   const options = {
     hostname: 'localhost', port: 5000, path: '/api/alden/priority-task',
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-agent-token': token }
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-coordination-token': token }
   };
   const req = http.request(options, (res) => {
     let data = '';
@@ -113,7 +113,7 @@ Only use bare curl when the task and context are short strings with no backticks
 ```bash
 curl -s -X POST "http://localhost:5000/api/alden/priority-task" \
   -H "Content-Type: application/json" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" \
   -d '{"task": "Short question here", "context": "Brief context", "engines": "current"}' \
   | python3 -c "
 import sys, json
@@ -158,7 +158,7 @@ Any time system text, tool descriptions, or prompt content needs rephrasing:
 ```bash
 curl -s -X POST "http://localhost:5000/api/alden/priority-task" \
   -H "Content-Type: application/json" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" \
   -d '{
     "task": "Please refine the wording for this tool description. Draft text: [YOUR DRAFT HERE]",
     "context": "Tool name: X. Purpose: Y. Why we are changing it: Z.",
@@ -204,7 +204,7 @@ After firing a priority task, Alden's response is in Team Room. Check it:
 
 ```bash
 curl -s "http://localhost:5000/api/agent/team-room/thread" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" | python3 -c "
+  -H "x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN" | python3 -c "
 import sys, json
 thread = json.load(sys.stdin)
 msgs = thread.get('messages', [])[-5:]

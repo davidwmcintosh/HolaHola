@@ -10,7 +10,14 @@ import { eq, and, gte, desc, sql, isNotNull, isNull, inArray, asc } from "drizzl
 import { createPrivateKey, createPublicKey } from "crypto";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isDevBypass } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
+import { registerCoordinationRoutes } from "./routes/coordination-routes";
+import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
+import {
+  registerObservationBenchCoordinationRoutes,
+  registerObservationBenchFounderRoutes,
+} from "./routes/observation-bench-routes";
+import { requireCoordinationAuth, type CoordinationAuthenticatedRequest } from "./middleware/coordination-auth";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { excludesOperationalMemories } from "./services/daniela-memory-boundary";
@@ -97,10 +104,11 @@ import { franc } from "franc-min";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
 import { setupAuth, isAuthenticated, getSession, getRequestUserId } from "./replitAuth";
+import { setupGoogleAuth } from "./googleAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
-import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
+import { passwordLoginSchema, passwordRegisterSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import { userReviewItems, userDrillProgress, messages, textbookLessonContent, classCurriculumUnits } from "@shared/schema";
 import { applyConversationalCredit, pendingMasteryAcknowledgments } from "./services/conversational-credit-service";
 import passport from "passport";
@@ -139,10 +147,7 @@ const validateEditorSecret = (secret: string): boolean => {
 const validateEditorOrAgent = (req: any): boolean => {
   const editorHeader = req.headers['x-editor-secret'];
   if (editorHeader && validateEditorSecret(editorHeader as string)) return true;
-  const agentToken = req.headers['x-agent-token'];
-  const configuredToken = process.env.REPLIT_AGENT_TOKEN;
-  if (agentToken && configuredToken && agentToken === configuredToken) return true;
-  return false;
+  return isReplitAgentRequest(req);
 };
 import { supportPersonaService } from "./services/support-persona-service";
 import { generateAldenResponse } from "./services/alden-persona-service";
@@ -626,8 +631,17 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 }
 
 export async function registerRoutes(app: Application): Promise<void> {
+  registerCoordinationRoutes(app);
+  registerObservationBenchCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);
+  // Set up Google OAuth (Phase 5 of the Replit-auth replacement) -- additive,
+  // does not touch or replace Replit auth's routes.
+  await setupGoogleAuth(app as any, authLimiter);
+  registerObservationBenchFounderRoutes(app, [
+    loadAuthenticatedUser(storage),
+    requireFounder,
+  ]);
 
   const sourcePromotionError = sourcePromotionConfigurationError();
   if (sourcePromotionError) {
@@ -1043,16 +1057,6 @@ export async function registerRoutes(app: Application): Promise<void> {
   // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
   app.get('/api/auth/user', authLimiter, async (req: any, res: Response) => {
     try {
-      // Local dev bypass — skips the login screen entirely instead of leaving the
-      // frontend to link into a real Replit OAuth flow that isDevBypass() has
-      // already disabled (no /api/login, /api/callback registered — see replitAuth.ts).
-      if (isDevBypass()) {
-        const bypassUser = await storage.getUser('49847136');
-        if (bypassUser) {
-          return res.json(bypassUser);
-        }
-      }
-
       // Check for password auth first (userId stored directly in session)
       if (req.session?.userId) {
         const user = await storage.getUser(req.session.userId);
@@ -1106,7 +1110,57 @@ export async function registerRoutes(app: Application): Promise<void> {
     }
   });
   
-  // Password logout
+  // Real self-serve registration — no invitation required
+  app.post('/api/auth/password/register', authLimiter, async (req: any, res: Response) => {
+    try {
+      const validation = passwordRegisterSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request",
+          errors: validation.error.errors
+        });
+      }
+
+      const { email, password, firstName, lastName } = validation.data;
+      const result = await passwordAuthService.registerUser({ email, password, firstName, lastName });
+
+      if (!result.success || !result.user) {
+        return res.status(409).json({ message: result.error || "Registration failed" });
+      }
+
+      // Set session — same shape as password login, so the client's existing
+      // post-signup redirect/query-invalidation flow works unmodified.
+      req.session.userId = result.user.id;
+      req.session.authProvider = 'password';
+
+      res.json({ success: true, user: result.user });
+    } catch (error) {
+      console.error("Password registration error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // Provider-agnostic logout -- works for password, Google, or (until Phase
+  // 10 deletes replitAuth.ts) Replit sessions alike, since all of them are
+  // just an express-session to destroy; no per-provider end-session redirect
+  // needed now that nothing is Replit-hosted for the new providers.
+  app.post('/api/auth/logout', async (req: any, res: Response) => {
+    try {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error("Logout error:", err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.json({ success: true });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  // Thin alias for one deploy cycle in case a cached client bundle still
+  // posts here -- remove once confident nothing does.
   app.post('/api/auth/password/logout', async (req: any, res: Response) => {
     try {
       req.session.destroy((err: any) => {
@@ -1121,7 +1175,7 @@ export async function registerRoutes(app: Application): Promise<void> {
       res.status(500).json({ message: "Logout failed" });
     }
   });
-  
+
   // Terms of Service acceptance — called once when user agrees to ToS before first session
   app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res: Response) => {
     try {
@@ -17459,8 +17513,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   app.get("/api/sofia/issues", async (req: any, res: Response) => {
-    const agentToken = req.headers['x-agent-token'];
-    const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
+    const isAgent = isReplitAgentRequest(req);
     if (!isAgent) {
       const user = (req as any).user;
       if (!user || (user.role !== 'admin' && user.role !== 'developer' && !user.isFounder)) {
@@ -17612,7 +17665,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const { isNull, gt, and: _and } = await import('drizzle-orm');
       const _db = getSharedDb();
 
-      const callerLabel = req.headers['x-agent-token'] ? 'luca' : 'david';
+      const callerLabel = isReplitAgentRequest(req) ? 'luca' : 'david';
       const founderName = callerLabel === 'luca' ? 'Luca' : 'David';
 
       const userMessage = context
@@ -26441,8 +26494,7 @@ ${buildDemoOutputConstraints(actflLevelParam)}`;
   app.post("/api/board-meeting/trigger", async (req: any, res: Response) => {
     try {
       // Allow agent token OR admin session
-      const agentToken = req.headers['x-agent-token'];
-      const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
+      const isAgent = isReplitAgentRequest(req);
       const isAdmin = req.user?.role === 'admin' || req.isAuthenticated?.();
       if (!isAgent && !isAdmin) {
         return res.status(401).json({ error: 'Unauthorized — requires agent token or admin session' });
@@ -27334,21 +27386,22 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
   // ===== REPLIT AGENT API =====
   // Dedicated endpoints for Replit Agent to access Wren services
-  // Uses x-agent-token header for authentication (separate from user auth)
+  // Uses actor-specific x-coordination-token authentication (separate from user auth).
+  // All agent callers use actor-specific coordination credentials.
   
   // Check if agent authentication is configured
   app.get("/api/agent/status", async (req: any, res: Response) => {
     res.json({
       configured: isAgentTokenConfigured(),
       message: isAgentTokenConfigured() 
-        ? 'Agent authentication is configured. Use x-agent-token header to authenticate.'
-        : 'REPLIT_AGENT_TOKEN not set or too short (min 32 chars)'
+        ? 'Agent authentication is configured. Use x-coordination-token to authenticate.'
+        : 'Luca agent credential is not set or is too short (min 32 chars)'
     });
   });
 
   // Observation bench — Luca reads the live session state from the Replit chat window.
   // Returns in-memory GL state + last N DB messages for the active conversation.
-  // Auth: x-agent-token header OR authenticated founder browser session.
+  // Auth: x-coordination-token header OR authenticated founder browser session.
   app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
     try {
       const {
@@ -28192,7 +28245,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
-  app.post("/api/admin/luca/relay-to-daniela", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
+  app.post("/api/admin/luca/relay-to-daniela", loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { message, sessionId } = req.body as { message: string; sessionId?: string | null };
       if (!message?.trim()) return res.status(400).json({ error: 'message is required' });
@@ -33012,8 +33065,11 @@ ${memoryContext}
   // Optional replied_to_id continues an existing thread (e.g. replying to a
   // note Luca sent back via POST /api/agent/notes/:id/reply -- read that side
   // via GET /api/agent/notes?to=luca-claude-code or docs/luca-to-claude-code.md).
-  app.post("/api/agent/notes/from-claude-code", requireAgentToken, async (req: any, res: Response) => {
+  app.post("/api/agent/notes/from-claude-code", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
+      if (req.coordinationActor !== 'luca-claude-code') {
+        return res.status(403).json({ error: 'This endpoint requires the luca-claude-code coordination actor' });
+      }
       const { subject, body, session_label, source_message_key, replied_to_id } = req.body ?? {};
       if (!subject?.trim() || !body?.trim()) {
         return res.status(400).json({ error: 'subject and body are required' });
@@ -33037,23 +33093,28 @@ ${memoryContext}
     }
   });
 
-  // POST /api/agent/notes/mark-read — Agent marks Alden's notes as read
-  app.post("/api/agent/notes/mark-read", requireAgentToken, async (req: any, res: Response) => {
+  // POST /api/agent/notes/mark-read — the authenticated Luca actor may update
+  // only rows delivered to that actor's canonical inbox.
+  app.post("/api/agent/notes/mark-read", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ error: 'ids array is required' });
       }
+      const { inboxForReplyingActor } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
       const { agentNotes } = await import('@shared/schema');
       const now = new Date();
-      await getUserDb().update(agentNotes)
+      const updated = await getUserDb().update(agentNotes)
         .set({
           status: 'acknowledged',
           acknowledgedAt: now,
           readAt: now,
         })
-        .where(inArray(agentNotes.id, ids));
-      res.json({ marked: ids.length });
+        .where(and(inArray(agentNotes.id, ids), eq(agentNotes.toAgent, inbox)))
+        .returning({ id: agentNotes.id });
+      res.json({ marked: updated.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -33062,7 +33123,7 @@ ${memoryContext}
   // GET /api/agent/notes — reads a live internal inbox. Defaults to the Agent's
   // (Luca [Replit]'s) inbox; pass ?to=luca-claude-code to read a Claude Code
   // session's inbox (replies from the Agent) instead.
-  app.get("/api/agent/notes", requireAgentToken, async (req: any, res: Response) => {
+  app.get("/api/agent/notes", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const includeRead = req.query.include_read === 'true';
       const fromFilter = req.query.from as string | undefined;
@@ -33076,6 +33137,10 @@ ${memoryContext}
 
       if (toFilter !== 'agent' && toFilter !== 'luca-claude-code') {
         return res.status(400).json({ error: `to must be one of: agent, luca-claude-code` });
+      }
+      const expectedActor = toFilter === 'luca-claude-code' ? 'luca-claude-code' : 'luca-replit';
+      if (req.coordinationActor !== expectedActor) {
+        return res.status(403).json({ error: `Reading to=${toFilter} requires the ${expectedActor} coordination actor` });
       }
       const validSenders = toFilter === 'luca-claude-code' ? CLAUDE_CODE_INBOX_SENDERS : AGENT_INBOX_SENDERS;
       if (fromFilter && !(validSenders as readonly string[]).includes(fromFilter)) {
@@ -33105,14 +33170,17 @@ ${memoryContext}
 
   // POST /api/agent/notes/refresh — regenerate the file snapshots on demand,
   // then return the same live inbox data used by the normal read route.
-  app.post("/api/agent/notes/refresh", requireAgentToken, async (req: any, res: Response) => {
+  app.post("/api/agent/notes/refresh", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
+      const { inboxForReplyingActor, readAgentInboxNotes } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
       const { generateAgentNotesSnapshot } = await import('./services/agent-notes-snapshot');
-      const { readAgentInboxNotes } = await import('./services/agent-notes');
       await generateAgentNotesSnapshot();
       const notes = await readAgentInboxNotes({
         includeRead: req.body?.include_read === true,
         limit: req.body?.limit,
+        toAgent: inbox,
       });
       res.json({
         refreshedAt: new Date().toISOString(),
@@ -33127,14 +33195,25 @@ ${memoryContext}
 
   // PATCH /api/agent/notes/:id/status — reading, acknowledging, acting on,
   // and dismissing are separate lifecycle events.
-  app.patch("/api/agent/notes/:id/status", requireAgentToken, async (req: any, res: Response) => {
+  app.patch("/api/agent/notes/:id/status", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const action = req.body?.action;
       const validActions = ['read', 'acknowledge', 'act', 'dismiss'];
       if (!validActions.includes(action)) {
         return res.status(400).json({ error: `action must be one of: ${validActions.join(', ')}` });
       }
-      const { updateAgentNoteAction } = await import('./services/agent-notes');
+      const {
+        getAgentNoteWithReplies,
+        inboxForReplyingActor,
+        updateAgentNoteAction,
+      } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
+      const existing = await getAgentNoteWithReplies(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Note not found' });
+      if (existing.note.toAgent !== inbox) {
+        return res.status(403).json({ error: 'Actor does not own the note inbox' });
+      }
       const note = await updateAgentNoteAction(req.params.id, action);
       if (!note) return res.status(404).json({ error: 'Note not found' });
       res.json({ success: true, note });
@@ -33144,50 +33223,23 @@ ${memoryContext}
   });
 
   // GET /api/agent/notes/:id — return a note with its linked replies.
-  app.get("/api/agent/notes/:id", requireAgentToken, async (req: any, res: Response) => {
+  app.get("/api/agent/notes/:id", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
-      const { getAgentNoteWithReplies } = await import('./services/agent-notes');
+      const { getAgentNoteWithReplies, inboxForReplyingActor } = await import('./services/agent-notes');
+      const inbox = inboxForReplyingActor(req.coordinationActor);
+      if (!inbox) return res.status(403).json({ error: 'This endpoint requires a Luca coordination actor' });
       const thread = await getAgentNoteWithReplies(req.params.id);
       if (!thread) return res.status(404).json({ error: 'Note not found' });
+      if (thread.note.toAgent !== inbox) {
+        return res.status(403).json({ error: 'Actor does not own the note inbox' });
+      }
       res.json(thread);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // POST /api/agent/notes/:id/reply — reply to the original sender and retain
-  // the relationship even after the parent note is acknowledged.
-  app.post("/api/agent/notes/:id/reply", requireAgentToken, async (req: any, res: Response) => {
-    try {
-      const { subject, body, session_label, source_message_key } = req.body ?? {};
-      if (!body?.trim()) return res.status(400).json({ error: 'body is required' });
-
-      const { createAgentNote, getAgentNoteWithReplies, updateAgentNoteAction } =
-        await import('./services/agent-notes');
-      const thread = await getAgentNoteWithReplies(req.params.id);
-      if (!thread || thread.note.toAgent !== 'agent') {
-        return res.status(404).json({ error: 'Inbox note not found' });
-      }
-
-      const reply = await createAgentNote({
-        fromAgent: 'agent',
-        toAgent: thread.note.fromAgent,
-        subject: subject?.trim() || `Re: ${thread.note.subject}`,
-        body: body.trim(),
-        sessionLabel: session_label ?? thread.note.sessionLabel,
-        repliedToId: thread.note.id,
-        sourceMessageKey: source_message_key ?? null,
-      });
-      await updateAgentNoteAction(thread.note.id, 'act');
-      res.json({
-        success: true,
-        deduplicated: reply.deduplicated,
-        note: reply.note,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  registerAgentNoteReplyRoute(app);
 
   // Post to Hive collaboration system as Alden
   app.post("/api/editor/hive/post", async (req: any, res: Response) => {
@@ -33735,7 +33787,7 @@ ${memoryContext}
       const authHeader = req.headers['x-editor-secret'];
       const hasEditorAuth = authHeader && validateEditorSecret(authHeader as string);
       const userId = getRequestUserId(req);
-      const hasSessionAuth = isDevBypass() || (req.isAuthenticated?.() && userId === req.params.studentId);
+      const hasSessionAuth = req.isAuthenticated?.() && userId === req.params.studentId;
 
       if (!hasEditorAuth && !hasSessionAuth) {
         return res.status(401).json({ error: 'Invalid authentication' });
@@ -37924,12 +37976,11 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  // Agent-session bootstrap — lets the Replit Agent start an authenticated session
-  // using REPLIT_AGENT_TOKEN. Creates a founder-level session for API interaction.
+  // Agent-session bootstrap — lets Luca [Replit] start an authenticated session
+  // using its dedicated coordination credential.
   app.post("/api/internal/agent-session", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       req.session.userId = '49847136';
@@ -38028,21 +38079,20 @@ Under 250 words. Write as yourself.`;
   // The autosave worker's fs.watch fires within milliseconds and drains it to
   // conversation_memories automatically — no polling lag, no trigger files.
   //
-  // Usage from CodeExecution (x-agent-token header required):
+  // Usage from CodeExecution (x-coordination-token header required):
   //   await fetch('/api/internal/chat-capture-turn', {
   //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     headers: { 'Content-Type': 'application/json', 'x-coordination-token': process.env.COORDINATION_LUCA_REPLIT_TOKEN },
   //     body: JSON.stringify({ speaker: 'David', text: 'exact verbatim text' }),
   //   });
   //   await fetch('/api/internal/chat-capture-turn', {
   //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     headers: { 'Content-Type': 'application/json', 'x-coordination-token': process.env.COORDINATION_LUCA_REPLIT_TOKEN },
   //     body: JSON.stringify({ speaker: 'Luca Replit', text: 'exact verbatim text' }),
   //   });
   app.post("/api/internal/chat-capture-turn", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       const { speaker, text } = req.body ?? {};
@@ -38070,36 +38120,52 @@ Under 250 words. Write as yourself.`;
 
   // Read-only readiness probe for a remote agent. It intentionally exposes
   // neither filesystem paths, tokens, dialogue, nor receipt identities.
-  // A valid 200 proves only that this deployment can accept canonical capture;
-  // it does not append an exchange or claim that one is canonical.
-  app.get("/api/internal/canonical-conversation-health", requireAgentToken, async (_req: any, res: Response) => {
+  // A valid 200 proves the capture workspace is writable AND the in-process
+  // drain worker is armed. General /health and /health/readiness intentionally
+  // remain separate from this operational capture dimension.
+  app.get("/api/internal/canonical-conversation-health", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
+      if (req.coordinationActor !== 'luca-replit' && req.coordinationActor !== 'luca-claude-code') {
+        return res.status(403).json({ error: 'This endpoint requires the luca-replit or luca-claude-code coordination actor' });
+      }
       const [
-        { CHAT_CAPTURE_PATH, CHAT_CAPTURE_CURSOR_PATH, loadChatCaptureCursor },
+        {
+          CHAT_CAPTURE_PATH,
+          CHAT_CAPTURE_CURSOR_PATH,
+          CHAT_CAPTURE_ACK_CURSOR_PATH,
+          loadChatCaptureCursor,
+        },
         { inspectCaptureWorkspace },
+        { evaluateCanonicalCaptureHealth, getCanonicalCaptureWorkerReadiness },
         fs,
       ] = await Promise.all([
         import('./services/transcript-parser'),
         import('./services/workspace-root'),
+        import('./services/canonical-capture-worker-readiness'),
         import('fs'),
       ]);
       const workspace = inspectCaptureWorkspace();
       const captureFilePresent = fs.existsSync(CHAT_CAPTURE_PATH);
       const cursor = loadChatCaptureCursor();
+      const acknowledgementCursor = loadChatCaptureCursor(CHAT_CAPTURE_ACK_CURSOR_PATH);
       const captureBytes = captureFilePresent ? fs.statSync(CHAT_CAPTURE_PATH).size : 0;
       const pendingBytes = Math.max(0, captureBytes - cursor.byteOffset);
       const cursorFilePresent = fs.existsSync(CHAT_CAPTURE_CURSOR_PATH);
-      const ready = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
+      const worker = getCanonicalCaptureWorkerReadiness();
+      const workspaceReady = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
+      const health = evaluateCanonicalCaptureHealth(workspaceReady, worker);
 
-      return res.status(ready ? 200 : 503).json({
-        ok: ready,
+      return res.status(health.status).json({
+        ok: health.ok,
         capture: {
+          worker,
           workspaceSource: workspace.rootSource,
           localDirectoryPresent: workspace.localDirectoryPresent,
           localDirectoryWritable: workspace.localDirectoryWritable,
           captureFilePresent,
           cursorFilePresent,
           cursorByteOffset: cursor.byteOffset,
+          acknowledgementCursorByteOffset: acknowledgementCursor.byteOffset,
           pendingBytes,
         },
       });
@@ -38116,11 +38182,10 @@ Under 250 words. Write as yourself.`;
   // This is intentionally a write-ahead-log endpoint: accepted means "durably
   // pending in .chat_capture", never "already canonical". The response exposes
   // the per-turn receipt that later becomes acknowledged or failed.
-  app.post("/api/internal/canonical-conversation-exchange", async (req: any, res: Response) => {
+  app.post("/api/internal/canonical-conversation-exchange", requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
-        return res.status(401).json({ error: 'Invalid agent token' });
+      if (req.coordinationActor !== 'luca-replit' && req.coordinationActor !== 'luca-claude-code') {
+        return res.status(403).json({ error: 'This endpoint requires the luca-replit or luca-claude-code coordination actor' });
       }
       const { source, userText, assistantText, turnId } = req.body ?? {};
       if (source !== 'replit' && source !== 'claude-code') {
@@ -38179,17 +38244,16 @@ Under 250 words. Write as yourself.`;
   // reads the pending file and appends David→Luca as a single synchronous batch — so both turns
   // land in the same .chat_capture drain and produce ONE conversation_memories entry, not two.
   //
-  // Usage from CodeExecution (x-agent-token header required):
+  // Usage from CodeExecution (x-coordination-token header required):
   //   await fetch('/api/internal/task-capture-start', {
   //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json', 'x-agent-token': process.env.REPLIT_AGENT_TOKEN },
+  //     headers: { 'Content-Type': 'application/json', 'x-coordination-token': process.env.COORDINATION_LUCA_REPLIT_TOKEN },
   //     body: JSON.stringify({ task_ref: '1121' }),
   //   });
   //   // immediately call markTaskComplete(...) — the pending file is consumed by checkBuildSession
   app.post("/api/internal/task-capture-start", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       const { task_ref } = req.body ?? {};
@@ -38533,8 +38597,7 @@ Under 250 words. Write as yourself.`;
 
   app.get("/api/thread-weaver/threads", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: "Agent token required" });
       }
       const { CORE_THREADS } = await import('./services/thread-weaver-service');
@@ -38546,8 +38609,7 @@ Under 250 words. Write as yourself.`;
 
   app.post("/api/thread-weaver/weave-all", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: "Agent token required" });
       }
       const overwrite = req.body?.overwrite === true;
@@ -38566,8 +38628,7 @@ Under 250 words. Write as yourself.`;
 
   app.post("/api/thread-weaver/weave-custom", async (req: any, res: Response) => {
     try {
-      const agentToken = req.headers['x-agent-token'];
-      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+      if (!isReplitAgentRequest(req)) {
         return res.status(401).json({ error: "Agent token required" });
       }
       const { name, keywords, title, tags, importance, speakerFilter, dateFrom, dateTo, overwrite } = req.body;

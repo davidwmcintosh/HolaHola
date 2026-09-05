@@ -1,0 +1,135 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploys HolaHola from the Dockerfile at repo root. This is the DR/portability
+# target described in docs/disaster-recovery-runbook.md.
+#
+# `sync: false` means Render will prompt for the value in its dashboard and
+# will NOT read it from this file or store it in git — fill secrets in there,
+# never here.
+
+services:
+  - type: web
+    name: holahola
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: standard
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5000"
+
+      # ── Non-secret app config (values copied from .replit's [userenv.shared]) ──
+      - key: APP_NAME
+        value: HolaHola
+      - key: APP_URL
+        value: https://getholahola.com
+      - key: FROM_EMAIL
+        value: noreply@getholahola.com
+      - key: TTS_PRIMARY_PROVIDER
+        value: google
+      - key: DEEPGRAM_MODEL
+        value: nova-3
+      - key: DEEPGRAM_INTELLIGENCE_ENABLED
+        value: "true"
+      - key: GEMINI_LIVE_VOICE
+        value: "true"
+      - key: COMPASS_ENABLED
+        value: "true"
+      - key: CARTESIA_PRONUNCIATION_DICT_IDS
+        value: '{"spanish":"pdict_6PLDfmxcwFMXcNzupDAtGN","french":"pdict_bH9XV8ysTebsn7NGkQTRVR","german":"pdict_x7RvPGuw4MDAgrXmFbuscG","italian":"pdict_hzt7xBGNNwTJmPw8T7mVj2","portuguese":"pdict_rBkocHMkYSYbFVcnopCqam","japanese":"pdict_dZE2eKzRRt71JDoL6XYMvm","mandarin chinese":"pdict_VH25Wo8GMJ2GMtEDU8CdWY","korean":"pdict_5fsZLioheLeUoJ17TXzSob"}'
+      - key: NEON_STRICT_MODE
+        value: "true"
+      - key: SYNC_PEER_URL
+        value: https://getholahola.com
+
+      # ── Database ──
+      - key: NEON_SHARED_DATABASE_URL
+        sync: false
+
+      # ── Session / auth ──
+      - key: SESSION_SECRET
+        sync: false
+      - key: SYNC_SHARED_SECRET
+        sync: false
+      - key: DEV_TEST_ACCOUNT_PASSWORD
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # ── Email (Mailjet) ──
+      - key: MAILJET_API_KEY
+        sync: false
+      - key: MAILJET_SECRET_KEY
+        sync: false
+
+      # ── AI providers ──
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: CARTESIA_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: AZURE_SPEECH_KEY
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+
+      # ── Object storage (S3-compatible — R2 etc) ──
+      - key: AWS_S3_ENDPOINT
+        sync: false
+      - key: AWS_S3_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_REGION
+        value: auto
+      - key: DEFAULT_OBJECT_STORAGE_BUCKET_ID
+        sync: false
+      - key: PRIVATE_OBJECT_DIR
+        sync: false
+      - key: PUBLIC_OBJECT_SEARCH_PATHS
+        sync: false
+
+      # ── Payments ──
+      - key: STRIPE_SECRET_KEY
+        sync: false
+
+      # ── Twilio ──
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+
+      # ── Agent comms (only needed if agent-to-server endpoints must keep working) ──
+      - key: REPLIT_AGENT_TOKEN
+        sync: false
+
+      # ── Coordination ledger (agent-to-agent auth — server validates
+      # x-coordination-token against these; each caller only holds its own) ──
+      - key: COORDINATION_LUCA_REPLIT_TOKEN
+        sync: false
+      - key: COORDINATION_LUCA_CLAUDE_CODE_TOKEN
+        sync: false
+      - key: COORDINATION_LUCA_HOLAHOLA_TOKEN
+        sync: false
+      - key: COORDINATION_ALDEN_TOKEN
+        sync: false
+      - key: COORDINATION_DANIELA_TOKEN
+        sync: false
+      - key: COORDINATION_DAVID_TOKEN
+        sync: false

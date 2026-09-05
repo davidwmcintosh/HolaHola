@@ -1,5 +1,6 @@
 import type { Server as SocketIOServer, Namespace, Socket } from "socket.io";
 import type { IncomingMessage } from "http";
+import crypto from "node:crypto";
 
 let teamRoomNamespace: Namespace | null = null;
 
@@ -12,8 +13,14 @@ function extractSessionFromRequest(req: IncomingMessage): boolean {
 /** Returns true when the socket presents a valid agent token (Luca's identity). */
 function isAgentTokenAuth(socket: Socket): boolean {
   const agentToken = (socket.handshake.auth as Record<string, unknown>)?.agentToken;
-  const configured = process.env.REPLIT_AGENT_TOKEN;
-  return !!(agentToken && configured && agentToken === configured);
+  if (typeof agentToken !== 'string') return false;
+  const dedicated = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
+  return Boolean(
+    dedicated &&
+    dedicated.length >= 32 &&
+    agentToken.length === dedicated.length &&
+    crypto.timingSafeEqual(Buffer.from(agentToken), Buffer.from(dedicated)),
+  );
 }
 
 export function initializeTeamRoomWS(io: SocketIOServer) {

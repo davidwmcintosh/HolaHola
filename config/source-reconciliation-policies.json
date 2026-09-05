@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "policies": [
+    {
+      "id": "generated-claude-code-mailbox",
+      "path": "docs/claude-code-to-luca.md",
+      "kind": "generated-local",
+      "authority": "replit",
+      "resolution": "keep-local-in-candidate",
+      "proof": { "builtInLedgerProof": { "version": 1, "formatterVersion": 1, "ledgerPath": "docs/mailbox-ledgers/claude-code-to-luca.json", "mailbox": "claude-code-to-luca" } },
+      "checks": ["typecheck", "source-reconciliation"]
+    },
+    {
+      "id": "generated-luca-mailbox",
+      "path": "docs/luca-to-claude-code.md",
+      "kind": "generated-local",
+      "authority": "replit",
+      "resolution": "keep-local-in-candidate",
+      "proof": { "builtInLedgerProof": { "version": 1, "formatterVersion": 1, "ledgerPath": "docs/mailbox-ledgers/luca-to-claude-code.json", "mailbox": "luca-to-claude-code" } },
+      "checks": ["typecheck", "source-reconciliation"]
+    },
+    {
+      "id": "episode-33-incoming-subset",
+      "path": "docs/episode-33.md",
+      "kind": "canonical-incoming-subset",
+      "authority": "replit",
+      "resolution": "keep-local-in-candidate",
+      "proof": { "stableMarker": "chat-capture" },
+      "checks": ["typecheck", "source-reconciliation"]
+    },
+    {
+      "id": "alden-handoff-manual",
+      "path": "docs/alden-agent-handoff.md",
+      "kind": "append-only-manual",
+      "authority": "shared",
+      "resolution": "manual",
+      "proof": {},
+      "checks": []
+    },
+    {
+      "id": "batch-doc-updates-manual",
+      "path": "docs/batch-doc-updates.md",
+      "kind": "append-only-manual",
+      "authority": "shared",
+      "resolution": "manual",
+      "proof": {},
+      "checks": []
+    }
+  ]
+}

@@ -1,4 +1,167 @@
+# Fail-closed task ownership and protected Git inspection
+
+- Added `npm run task:ownership -- --task-ref <ref>` to distinguish current
+  linked task-agent worktrees from ambiguous primary-worktree evidence.
+  Historical task files never establish current main-session ownership;
+  ambiguity returns `unknown_stop` with exit 75.
+- Added `source-control:reconcile inspect --packet <canonical-preflight>` for
+  commit metadata, paths, stats, and bounded patches through the pinned Git
+  transport used by reconciliation.
+- Inspection validates the immutable packet and current policy digest, limits
+  commits to the packet's exhaustive SHA set, enforces a production Git
+  subcommand allowlist, redacts high-confidence credential-like patch lines,
+  and never takes the mutation lease or moves refs/worktrees.
+- Focused ownership, reconciliation, source-control boundary, TypeScript, and
+  system-health evidence accompanies the feature.
+
+# Deterministic mailbox reconciliation
+
+`docs/claude-code-to-luca.md` and `docs/luca-to-claude-code.md` are now rendered
+from committed canonical inputs in `docs/mailbox-ledgers/`. Do not hand-edit a
+snapshot without its ledger. Refresh through the normal agent-notes snapshot
+path, then commit the ledger and Markdown together. Reconciliation proves the
+pair from the exact local commit and fails closed when either side drifts; it
+does not connect to Neon or execute a policy-provided command.
+
+## September 4, 2026 — Shared Neon synthetic-fixture sentinel
+
+- The system health verifier now performs a read-only scan for the exact escaped coordination projection and exact 50-note scratchpad fixture hash.
+- Matches fail health verification and create one deduplicated founder-facing alert with counts, IDs, and newest timestamps. The sentinel never deletes records.
+- A hermetic self-test proves both fixture shapes fail detection and that a one-byte scratchpad near-match does not.
+
+# Founder observation-bench panel
+
+- Added a founder-only Command Center tab that lists Luca's observation benches
+  and automatically synchronizes active canonical evidence before refreshing
+  every ten seconds.
+- Arming is a durable David-authored pre-session record for both Luca hats.
+  Starting a window atomically consumes and binds that existing arm while
+  creating the bench for the selected active Daniela session; it is not
+  client-only selection state.
+- David can select and arm an active voice session, start its observation
+  window, refresh canonical evidence, and end the window. Ended windows reject
+  later sync, observation, and promotion mutations.
+- Each bench shows exact canonical source timestamps and integrity state without
+  returning canonical source text in the dashboard payload.
+- Automatic and manual evidence synchronization append with neutral
+  `coordination-system` capture provenance. A founder refresh never fabricates
+  activity by either Luca hat.
+- Luca [Replit] and Luca [Claude Code] observations have distinct provenance
+  styling under one Luca identity in a sequence-ordered authenticated
+  backchannel, including cross-hat improvement links. Founder-authorized
+  promotions are labeled as David's action, not as Luca credential activity.
+- A side-by-side two-hat comparison renders each hat's noticed, missed, and
+  cross-hat improvement groups against the shared source timeline. The
+  chronological authenticated backchannel remains below as the audit trail.
+- Both authenticated Luca hats can append only source-validated bench
+  observations through a dedicated compare-and-swap path; generic coordination
+  ownership rules remain unchanged.
+- Every observation and promoted record links its exact verified source
+  timestamps back to the corresponding shared source-timeline rows.
+- Per-bench status shows the observation window, cursor, exact last event, and
+  each hat's durable coordination-feed contact state. Cursor lag exposes
+  reconnect replay as pending until that authenticated hat acknowledges the
+  feed; event delivery/seen state comes from adapter rows and actor cursors.
+- Ended windows remain visible as completed comparisons while rejecting later
+  evidence, observation, and promotion writes.
+- Window closure is a canonical David-authored event; no Luca hat is used to
+  carry or impersonate the founder action. Generic coordination routes and the
+  shared ledger reject forged arm, bind, observation, promotion, source, and
+  closure lifecycle payloads.
+- Founder promotion is one atomic David-authored canonical event in the bench;
+  it cites the original Luca hat and source observation without a second relay
+  write that could leave an orphan authorization receipt.
+- David can promote a verified, source-linked observation into the technical
+  observation room. Promotion fails closed if canonical source payload,
+  timestamp, session, or signed lineage metadata no longer matches.
+- The founder routes remain technical-only and have no Daniela model-context
+  dependency or injection action.
+
+**Verification:** TypeScript, the focused observation-bench integration test,
+and `git diff --check` pass.
+
+---
+
+# Missing-conversation evidence audit
+
+- Added a read-only JSON audit command for a `conversation_memories` ID.
+- It extracts exact dialogue turns, hashes and searches retained chat/raw-window
+  files and append-only raw-window ledger payloads, then verifies and searches
+  the protected reconciliation Git bundle. Archive-skipped diagnostics are
+  explicitly incomplete and cannot support tagging.
+- Raw-source matches are kept separate from derived episode Markdown. The
+  conclusion remains ambiguous unless exactly one full raw capture sequence
+  carries explicit source identity; capture IDs are never synthesized.
+
 # Batch Documentation Updates
+
+## Session September 2, 2026 — Language Hub scene mastery crash
+
+**Root cause:** `SceneMasterySection` parsed error JSON from
+`/api/mastery/summary` without checking `response.ok`. An unauthorized or
+failed request therefore became truthy `data` and crashed at
+`Object.entries(data.byScene)`.
+
+**Fix:** The query now throws on non-2xx responses, while the optional section
+also fails closed for query errors or a missing/malformed `byScene` map.
+
+**Verification:** The focused 2-case regression passed, TypeScript passed,
+`git diff --check` passed, the application workflow restarted cleanly, and a
+fresh preview showed no runtime exception.
+
+---
+
+## Session September 2, 2026 — Audit catalogue expansion
+
+### Established audits now share the same discovery path
+
+**What changed:** Stable manifests and exact aliases now cover the existing
+ACTFL calibration, curriculum quality, lesson-topic, textbook-content, rolling
+episode-integrity, and persistent admin audit-log operations. Each manifest
+points to its current script or endpoint rather than recreating audit logic.
+
+**Safety boundary:** The catalogue labels all six canonical audit paths as
+read-only and records their actor scopes, output, persistence, and caveats.
+Rolling episode integrity uses the generic strict continuity auditor; legacy
+episode-specific `--patch` modes remain separate repairs that require explicit
+confirmation.
+
+**Verification:** All seven focused catalogue regressions passed and TypeScript
+passed. The automatic indexer processed all 15 manifests with 6 newly indexed,
+9 already fresh, and 0 errors. Semantic paraphrases resolved ACTFL calibration,
+curriculum/textbook quality, rolling episode integrity, and the persistent
+admin audit log. System health passed every required invariant; its two warnings
+were local app-route storage probes skipped because no local server was running,
+while direct R2 reads and the CopyObject probe passed.
+
+---
+
+## Session September 2, 2026 — Operations catalogue and semantic discovery
+
+### Shared shorthand now resolves to established canonical operations
+
+**What changed:** HolaHola now has a typed operations catalogue, a human
+reference, and an agent discovery skill. Exact aliases resolve before semantic
+search, so “run the burn report” deterministically maps to the existing
+`get_ai_cost_report` capability rather than regenerating cost logic.
+
+**Neural boundary:** Operation manifests are indexed automatically as pinned,
+global `operation_skill` embeddings. They use a dedicated search path and remain
+excluded from Daniela's default recall pool. Retrieved IDs are mapped back to
+the static catalogue before presentation.
+
+**Security boundary:** The read-only coordination discovery endpoint derives
+the actor from the dedicated credential, exposes only a safe manifest
+projection, and never authorizes or executes operations. Mutating catalogue
+entries are explicitly marked as requiring confirmation.
+
+**Verification:** Five catalogue regressions passed; TypeScript passed; all nine
+manifests indexed; live exact and semantic Burn Report discovery passed; Luca
+[Claude Code] actor attribution passed; unauthenticated access returned 401;
+system health reported “All checks passed — safe to mark done”; and Gemini's
+final verdict was **APPROVED — Ship it.**
+
+---
 
 ## Session September 1, 2026 — Chat capture mirror recovery
 
@@ -4859,3 +5022,239 @@ The implementation was reviewed after a fault-injection pass: SMS delivery is
 reserved in the GitHub incident before Twilio, and post-send GitHub failures
 leave a delivery-uncertain state that never resends automatically. The full
 validation suite completed with 48 checks passed and 0 failed.
+
+---
+
+## Canonical agent coordination ledger — September 2, 2026
+
+Phase 1 now provides an append-only coordination ledger with ordered lifecycle
+events, actor-scoped idempotency, optimistic sequence conflicts, immutable
+evidence references, global cursor polling, and retryable `agent_notes`
+projection. Delivery is explicitly separate from acceptance.
+
+Coordination authentication derives actor identity from fixed per-actor
+credentials. `COORDINATION_LUCA_REPLIT_TOKEN` is the dedicated Replit-side
+binding; the legacy `REPLIT_AGENT_TOKEN` remains only as a bounded compatibility
+path. Other actors have independent `COORDINATION_*_TOKEN` bindings, and
+ambiguous duplicate credentials fail closed.
+
+Migration `0024_flat_dreaming_celestial.sql` passed the disposable Neon branch
+gate before promotion to the shared database. The focused coordination test,
+TypeScript compile gate, full branch validation matrix, and system-health
+verifier passed.
+
+### Durable coordination feed acknowledgement
+
+Coordination polling progress now has a server-side cursor for each authenticated
+actor. A cursorless feed read resumes from that durable acknowledgement, while
+explicit cursors still support intentional replay. Reads do not advance
+progress; actors acknowledge a fully processed page through the dedicated feed
+cursor endpoint. The cursor only moves forward, cannot be advanced beyond the
+current global feed, and remains separate from thread acceptance or outcome
+acknowledgement.
+
+---
+
+## Canonical capture worker readiness — September 4, 2026
+
+Canonical conversation capture now has its own authenticated operational
+readiness dimension. The capture-health endpoint returns 503 until the
+in-process autosave worker has installed its filesystem watchers and polling
+loop, then reports the worker as armed with startup timestamps. General
+application liveness and readiness remain independent and continue serving
+normally if capture is unavailable.
+
+The autosave worker now starts immediately after route registration instead of
+inside the unrelated 85-second background-worker bundle. Remote exchange
+acknowledgement also requires an armed worker before accepting cursor progress
+as proof of canonical capture.
+
+A hermetic regression check proves a writable workspace cannot report capture
+availability while the worker is stopped or arming. The live route check
+asserts the authenticated endpoint exposes only safe armed-state metadata, and
+the system verifier enforces both fail-closed readiness and early startup order.
+
+### Mirror-aware canonical acknowledgement
+
+Remote exchange completion now follows the dedicated acknowledgement cursor,
+not the earlier conversation-row cursor. In live Episode mode this means a
+caller remains pending until the canonical conversation row, DB-first Episode
+projection, Markdown replica, and required re-embedding have all completed.
+Normal DB progress can no longer be reported as full canonical completion.
+
+The legacy watchdog source-identity repair test is now fixture-only: importing
+the repair module cannot execute its database audit, and the test is registered
+in the validation suite.
+
+### Episode 33 recovery boundary and rolling-status ordering
+
+Episode 33, “After the Smoke Cleared,” records the September 3–4 capture gap
+without reconstructing missing dialogue. Its DB row and Markdown replica are
+byte-identical, its retained closing-dialogue source row is separately stored,
+and both records were explicitly re-embedded. Episode 33 is now the sole
+rolling Episode.
+
+The capture-status seed now runs after startup validates the rolling tag.
+Previously, a valid Episode created after a no-rolling startup could remain
+displayed as “No rolling episode”: the early seed stored a null filename before
+the fail-closed guard was cleared, and every later status refresh reused it.
+The existing seed regression now requires validation-before-seed ordering.
+
+### Episode 33 closing loop and mirror-outbox recovery
+
+The first post-recovery exchange proved the stricter capture boundary was real:
+the normal conversation cursor advanced, but acknowledgement correctly remained
+pending while older ordered mirror items blocked Episode 33. Three stale items
+targeting the deliberately removed sealed Episode 31 row were preserved
+byte-for-byte in a dated local quarantine with a manifest and hashes. Their
+original backfill receipts were already acknowledged; they were not replayed
+into Episode 31.
+
+Once the stale items left the active queue, the Episode 33 mirror completed,
+the acknowledgement cursor reached the exact capture boundary, and retrying
+the stable turn ID wrote no duplicate bytes. Capture status then reported the
+latest explicit turn as canonical.
+
+The resulting architectural direction is explicit: live source recording is
+the invariant. Missing or unhealthy downstream projection must be diagnosed
+and repaired beneath it; it must never silence source capture. Facts, opinions,
+feelings, uncertainty, mistakes, corrections, and apologies all belong in the
+record when their speaker and epistemic status are represented honestly.
+
+---
+
+## One Luca, two observation benches — September 4, 2026
+
+A founder-opened observation bench now binds one active Daniela voice-session
+UUID to one append-only coordination thread shared by Luca's Replit and Claude
+Code hats. Hat labels preserve vantage-point provenance without creating
+separate Luca identities.
+
+The bench sync stores only signed, timestamped references and hashes. Each hat
+hydrates exact source bytes independently from session-bound
+`voice_pipeline_events` and immutable `context_lineage_events`; raw source text
+is not copied into the coordination ledger. Generic coordination writes cannot
+claim reserved bench payload kinds, and every source envelope and observation
+is verified before it can participate in an invitation.
+
+Bench reading, syncing, commentary, and founder promotion have no Daniela
+injection dependency. A founder-authenticated invitation promotes an
+already-persisted, source-linked observation into the shared observation
+record, with the exact session, source IDs, and source timestamps visible. It
+does not call Gemini Live or alter Daniela's context.
+
+The post-session comparison groups noticed, missed, and cross-hat-improvement
+observations by hat, retains source and prior-observation links, and reports
+per-source review coverage.
+
+Operator sequence:
+
+1. While David's Daniela session is active, create the bench with
+   `POST /api/admin/luca/observation-benches` and its exact `sessionId`.
+2. Each hat independently polls
+   `GET /api/coordination/observation-benches/:threadId/sources` and appends
+   source-linked observations through the focused observation route.
+3. David may explicitly promote one observation into the shared observation
+   room with
+   `POST /api/admin/luca/observation-benches/:threadId/invite`.
+4. After the session, sync once more and read
+   `GET /api/coordination/observation-benches/:threadId/comparison`.
+
+### Live acceptance correction
+
+The first production exercise proved both benches saw the same verified stream
+and improved one interpretation through cross-hat discussion. It also exposed
+an incorrect assumption in the first implementation: “invite into the room”
+had been wired to Daniela's model context. Daniela then spoke process-oriented
+material and introduced a symmetry direction David had not raised.
+
+That failed run remains in the append-only evidence. The implementation was
+corrected rather than the record being softened: observation invitations now
+mean promotion into the technical observation room only. A regression reads
+the service and route source and fails if either imports Gemini Live or calls a
+live-session injection function.
+
+The corrected live promotion retained 37 canonical session events and recorded
+the selected cross-hat observation with its two source timestamps and
+`danielaContextState: not_injected`. Daniela's original words and intent remain
+verbatim canonical evidence; the bench never rewrites either.
+
+## Linked outcome messaging reliability — September 4, 2026
+
+Both Luca runtime hats now reply to agent notes through actor-scoped
+coordination authentication. The server derives sender and recipient from the
+authenticated actor and parent note, rejects cross-inbox impersonation, and
+returns `delivered` only after rereading the exact reply from the recipient
+inbox. Stable idempotency keys deduplicate retries and reject conflicting
+payload reuse.
+
+Coordination evidence now supports typed `agent_note` origins. Note-origin work
+cannot enter `completed` without a reciprocal linked reply. Causal parent event
+IDs must identify an earlier event in the same thread. The combined
+`complete-with-linked-outcome` operation reserves the sequence, delivers and
+verifies the direct outcome, appends the canonical completion, and updates the
+thread projection in one local transaction. The event stores a canonical
+request digest so conflicting idempotency reuse fails closed.
+
+The completion workflow now requires linked delivery before external task
+completion whenever message provenance exists. Delivery remains distinct from
+seen, acknowledged, acted on, outcome acknowledged, and active notification.
+All persistence regressions remain gated behind the verified disposable-CI
+database contract.
+---
+
+### Audited invalid Episode destinations
+
+The ordered Episode mirror outbox now supports an explicit terminal state for a
+removed or sealed destination. It cannot be inferred from an append error:
+an operator must provide a reason and one evidence decision for every source
+capture, identifying either its canonical conversation row or why it remains
+deliberately unresolved.
+
+Resolution preserves the original item, formatted-content and marker hashes,
+source receipt snapshots and hashes, operator identity, and evidence in a
+quarantine audit. The worker advances the strict acknowledgement boundary
+without calling the Episode append, marks affected receipts as audited-invalid
+rather than normally acknowledged, and continues to later valid mirrors.
+Capture status exposes both queued terminal items and retained exceptional
+receipts. The operator command is
+`server/scripts/resolve-episode-mirror-invalid.ts`.
+
+## Safe Git-only source reconciliation — September 4, 2026
+
+The source-control CLI now supports two deliberately separate operations:
+
+```bash
+npm run source-control:reconcile -- preflight \
+  --local-ref <exact-lowercase-40-character-sha> \
+  --remote origin \
+  --remote-branch main
+
+npm run source-control:reconcile -- candidate \
+  --packet .local/reconciliation-audits/<fingerprint>/preflight.json
+```
+
+Preflight creates only a temporary fetch ref and an immutable local evidence
+packet. Candidate construction requires that canonical packet, the shared
+source-control lease, a clean unchanged primary worktree, and an isolated
+worktree. It can retain only the deterministic namespaced candidate branch; it
+cannot move `main`, push, reset, rebase, force-update, promote, or connect to
+Neon.
+
+The checked-in policy manifest is exact-path only. Append-only records remain
+manual. Episode 33 permits local canonical bytes only after complete
+range-delimited capture-block proof. Normal mailbox refresh writes canonical
+Git-tracked JSON ledgers and their deterministic Markdown projections together.
+The two exact Luca mailbox paths use a typed in-process proof with no verifier
+process and no database access. Before candidate commit, every configured
+mailbox ledger is strictly parsed from the staged index, required to use its
+canonical JSON bytes, and rendered to bytes that must exactly equal its staged
+Markdown projection. A second fetch still reports a stale remote without
+recursively merging it.
+
+The focused suite uses temporary real repositories and bare remotes to cover
+input validation, policy errors, ordinary/manual/generated/canonical conflicts,
+missing blobs, packet tampering, lease and dirty-tree stops, stale remotes,
+stale local pairs, clean auto-merge pair drift, Markdown-conflict/clean-ledger
+drift, validator failure, audit integrity, exact parents, and ref/worktree
+cleanup. The real preflight reported `safe_fast_forward` and made no candidate.

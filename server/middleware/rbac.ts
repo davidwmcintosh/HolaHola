@@ -2,37 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { User } from "../../shared/schema";
 import crypto from "crypto";
 import { touchFounderPresence } from "../services/founder-presence";
-
-// ── Local dev bypass ──────────────────────────────────────────────────────────
-// Set DEV_AUTH_BYPASS=true in your local .env to skip auth entirely.
-// Evaluated at call time but uses only startup-stable env vars so it behaves as
-// a startup-policy decision rather than a per-request socket check (which is
-// unreliable behind a trusted reverse proxy).
-// Three conditions must ALL hold:
-//   1. NODE_ENV !== 'production'       — literal string locked by CI
-//   2. DEV_AUTH_BYPASS === 'true'      — explicit operator opt-in
-//   3. REPLIT_DEPLOYMENT is unset      — Replit injects this in every deployed env
-export const isDevBypass = () => {
-  // Base gate — this exact expression is locked by the prod-auth-bypass-guard CI check.
-  const baseGate = process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true';
-  if (!baseGate) return false;
-  // Deployed environments (all Replit deployment tiers) have REPLIT_DEPLOYMENT set.
-  // Reject the bypass whenever this var is present, regardless of NODE_ENV.
-  if (process.env.REPLIT_DEPLOYMENT) return false;
-  return true;
-};
-
-// Minimal founder-shaped user injected when the bypass is active.
-// Enough for all downstream middleware that reads authenticatedUser.role / .id.
-const DEV_BYPASS_USER = {
-  id: '49847136',
-  email: 'dev@local',
-  username: 'dev-bypass',
-  role: 'admin' as const,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-// ─────────────────────────────────────────────────────────────────────────────
+import { resolveCoordinationActor } from "./coordination-auth";
 
 // Role hierarchy: admin > developer > teacher > student
 const roleHierarchy = {
@@ -63,7 +33,6 @@ export function requireRole(...minRoles: UserRole[]): RequestHandler {
   const minRole = minRoles[0];
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      if (isDevBypass()) return next();
       // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
       const sessionUserId = (req.session as any)?.userId;
       if (sessionUserId) {
@@ -113,7 +82,20 @@ export function requireRole(...minRoles: UserRole[]): RequestHandler {
 export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      // User must be authenticated
+      // Password auth / agent session path: session.userId set directly (covers AI browser + agent sessions)
+      const sessionUserId = (req.session as any)?.userId;
+      if (sessionUserId) {
+        if (!req.authenticatedUser) {
+          return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
+        }
+        const userRole = req.authenticatedUser.role as UserRole;
+        if (!allowedRoles.includes(userRole)) {
+          return res.status(403).json({ error: "Insufficient permissions", allowed: allowedRoles, current: userRole });
+        }
+        return next();
+      }
+
+      // OIDC / Replit Auth path
       if (!req.user?.claims?.sub) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -127,7 +109,7 @@ export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
 
       // Check if user's role is in allowed list
       if (!allowedRoles.includes(userRole)) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Insufficient permissions",
           allowed: allowedRoles,
           current: userRole
@@ -150,10 +132,6 @@ export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
 export function loadAuthenticatedUser(storage: any): RequestHandler {
   return async (req: any, res: Response, next: NextFunction) => {
     try {
-      if (isDevBypass()) {
-        req.authenticatedUser = DEV_BYPASS_USER;
-        return next();
-      }
       // Skip if not authenticated - check both password auth and OIDC
       const userId = (req.session as any)?.userId || req.user?.claims?.sub;
       if (!userId) {
@@ -245,11 +223,33 @@ export function getOriginalAdminId(user: User | undefined): string | null {
 // Founder user ID for founder-only endpoints
 const FOUNDER_USER_ID = '49847136';
 
+// ── Dev-only founder-equivalent test account ──────────────────────────────────
+// scripts/data-ops/seed-dev-test-account.ts seeds a single shared account
+// (DEV_TEST_ACCOUNT_ID) that agents/CI log into via the real password-auth
+// API instead of the old DEV_AUTH_BYPASS skip-auth-entirely shortcut. Without
+// this allow-list, that account would satisfy every ordinary role check
+// (it's role='admin') but could never pass a founder-only gate, leaving
+// Alden tools/Team Room/Brain Health/Voice Health/Telemetry/Growth Memories/
+// Curriculum Sync untestable by agents.
+//
+// This exact NODE_ENV guard is what keeps that dev-only equivalence from
+// ever applying in production -- locked by the prod-founder-bypass-guard CI
+// check (server/scripts/test-prod-founder-bypass-guard.ts), mirroring the
+// production-safety pattern DEV_AUTH_BYPASS itself used to rely on.
+const DEV_TEST_ACCOUNT_ID = 'dev-test-agent';
+function isFounderId(id: string | undefined | null): boolean {
+  if (!id) return false;
+  if (id === FOUNDER_USER_ID) return true;
+  if (process.env.NODE_ENV !== 'production' && id === DEV_TEST_ACCOUNT_ID) return true;
+  return false;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Check if user is the founder
  */
 export function isFounder(user: User | undefined): boolean {
-  return user?.id === FOUNDER_USER_ID;
+  return isFounderId(user?.id);
 }
 
 /**
@@ -259,10 +259,9 @@ export function isFounder(user: User | undefined): boolean {
 export function requireFounder(req: Request, res: Response, next: NextFunction) {
   const _req = req as AuthenticatedRequest;
   try {
-    if (isDevBypass()) return next();
     // Password auth path: session.userId set directly (covers AI browser + password login)
     const sessionUserId = (req.session as any)?.userId;
-    if (sessionUserId === FOUNDER_USER_ID) {
+    if (isFounderId(sessionUserId)) {
       if (!_req.authenticatedUser) {
         return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
       }
@@ -274,12 +273,12 @@ export function requireFounder(req: Request, res: Response, next: NextFunction) 
     if (!_req.user?.claims?.sub) {
       return res.status(401).json({ error: "Authentication required" });
     }
-    
+
     if (!_req.authenticatedUser) {
       return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
     }
-    
-    if (_req.authenticatedUser.id !== FOUNDER_USER_ID) {
+
+    if (!isFounderId(_req.authenticatedUser.id)) {
       return res.status(403).json({ error: "Founder access required" });
     }
 
@@ -294,8 +293,6 @@ export function requireFounder(req: Request, res: Response, next: NextFunction) 
 // ===== REPLIT AGENT AUTHENTICATION =====
 // Dedicated token for Replit Agent (builders) to access Hive/Wren services
 // Separate from ARCHITECT_SECRET to allow granular permission control
-
-const REPLIT_AGENT_TOKEN = process.env.REPLIT_AGENT_TOKEN;
 
 // Audit log for agent actions (in-memory ring buffer, persists to hiveSnapshots)
 interface AgentAuditEntry {
@@ -344,49 +341,60 @@ export interface AgentAuthenticatedRequest extends Request {
   agentId?: string; // Identifier for the agent (for future multi-agent support)
 }
 
-/**
- * Check if Replit Agent token is properly configured
- */
+/** Check if Luca [Replit]'s dedicated credential is configured. */
 export function isAgentTokenConfigured(): boolean {
-  return !!(REPLIT_AGENT_TOKEN && REPLIT_AGENT_TOKEN.length >= 32);
+  const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
+  return Boolean(token && token.length >= 32);
+}
+
+function resolveReplitAgentRequest(req: Request) {
+  return resolveCoordinationActor(
+    typeof req.headers['x-coordination-token'] === 'string'
+      ? req.headers['x-coordination-token']
+      : undefined,
+    undefined,
+  );
+}
+
+export function isReplitAgentRequest(req: Request): boolean {
+  const resolution = resolveReplitAgentRequest(req);
+  return resolution.ok && resolution.actor === 'luca-replit';
 }
 
 /**
  * Middleware to require Replit Agent token authentication
  * Usage: app.get('/api/agent/sprints', requireAgentToken, handler)
  * 
- * Authenticates via x-agent-token header
+ * Authenticates via Luca [Replit]'s dedicated x-coordination-token header.
  * Provides read-only access to Wren services
  */
 export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     // Check if token is configured
     if (!isAgentTokenConfigured()) {
-      console.warn('[RBAC] REPLIT_AGENT_TOKEN not configured or too short (min 32 chars)');
+      console.warn('[RBAC] Luca agent credential not configured or too short (min 32 chars)');
       logAgentAction('auth_attempt', req.path, false, 'Token not configured');
       return res.status(503).json({ error: 'Agent authentication not configured' });
     }
-    
-    // Get token from header
-    const providedToken = req.headers['x-agent-token'] as string;
-    
-    if (!providedToken) {
+
+    const resolution = resolveReplitAgentRequest(req);
+    if (!resolution.ok && resolution.status === 401 && !req.headers['x-coordination-token']) {
       logAgentAction('auth_attempt', req.path, false, 'No token provided');
-      return res.status(401).json({ error: 'Agent token required (x-agent-token header)' });
+      return res.status(401).json({ error: 'Agent token required (x-coordination-token header)' });
     }
-    
-    // Timing-safe comparison to prevent timing attacks
-    const tokenBuffer = Buffer.from(providedToken);
-    const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN!);
-    
-    if (tokenBuffer.length !== expectedBuffer.length || 
-        !crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
-      logAgentAction('auth_attempt', req.path, false, 'Invalid token');
-      return res.status(401).json({ error: 'Invalid agent token' });
+
+    if (!resolution.ok) {
+      logAgentAction('auth_attempt', req.path, false, resolution.error);
+      return res.status(resolution.status === 503 ? 503 : 401).json({ error: resolution.error });
     }
-    
+
+    if (resolution.actor !== 'luca-replit') {
+      logAgentAction('auth_attempt', req.path, false, `Unexpected actor: ${resolution.actor}`);
+      return res.status(403).json({ error: 'This endpoint requires Luca [Replit]' });
+    }
+
     // Token valid - set agent ID for tracking
-    req.agentId = 'replit-agent-primary'; // Can be extended for multi-agent support
+    req.agentId = resolution.actor;
     
     logAgentAction('auth_success', req.path, true);
     next();
@@ -404,17 +412,12 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
  * Usage: app.get('/api/admin/live-monitor', requireFounderOrAgent, handler)
  */
 export function requireFounderOrAgent(req: Request, res: Response, next: NextFunction) {
-  if (isDevBypass()) return next();
   // Fast path: valid agent token → pass through without needing a session
   try {
-    const providedToken = req.headers['x-agent-token'] as string;
-    if (providedToken && REPLIT_AGENT_TOKEN && providedToken.length === REPLIT_AGENT_TOKEN.length) {
-      const tokenBuffer = Buffer.from(providedToken);
-      const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN);
-      if (crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
-        logAgentAction('auth_success', req.path, true);
-        return next();
-      }
+    const resolution = resolveReplitAgentRequest(req);
+    if (resolution.ok && resolution.actor === 'luca-replit') {
+      logAgentAction('auth_success', req.path, true);
+      return next();
     }
   } catch {
     // fall through to founder check

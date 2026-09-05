@@ -11,7 +11,10 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { waitForCaptureAcknowledgement } from './record-exchange';
+import {
+  isRemoteCaptureAcknowledged,
+  waitForCaptureAcknowledgement,
+} from './record-exchange';
 
 const testDir = join(tmpdir(), `record-exchange-ack-${process.pid}-${randomUUID()}`);
 const cursorPath = join(testDir, 'cursor.json');
@@ -53,6 +56,27 @@ async function run(): Promise<void> {
       fail(`acknowledgement returned cursor ${acknowledgement.cursorOffset}, expected 200`);
     }
     console.log('  ✓ cursor advance releases the exact pending capture');
+
+    const mirrorPendingHealth = {
+      capture: {
+        worker: { armed: true },
+        cursorByteOffset: 250,
+        acknowledgementCursorByteOffset: 150,
+      },
+    };
+    if (isRemoteCaptureAcknowledged(mirrorPendingHealth, 200)) {
+      fail('normal cursor growth released a capture whose live-episode mirror was still pending');
+    }
+    if (!isRemoteCaptureAcknowledged({
+      capture: {
+        worker: { armed: true },
+        cursorByteOffset: 250,
+        acknowledgementCursorByteOffset: 200,
+      },
+    }, 200)) {
+      fail('mirror-aware acknowledgement cursor did not release the completed capture');
+    }
+    console.log('  ✓ remote acknowledgement waits for the mirror-aware cursor, not normal DB progress');
     console.log('[record-exchange-ack] PASS — silence is visible; canonical acknowledgement is required');
   } finally {
     if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });

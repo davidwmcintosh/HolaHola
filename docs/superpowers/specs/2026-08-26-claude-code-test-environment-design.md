@@ -161,3 +161,49 @@ never assumes a connection string is correct — it resolves the database and
 role from the branch's own database list, matched against the real app
 database name parsed from `NEON_SHARED_DATABASE_URL`, and refuses rather
 than guessing if no match is found.
+
+## Amendment (September 2, 2026) — first real provisioning, all Verification items passed
+
+The environment was actually provisioned for the first time (a GitHub
+Codespace via `gh codespace create`, using the `.devcontainer/devcontainer.json`
+this design specifies) and run through every item in Verification above —
+not just planned, actually executed:
+
+- Health-check equivalent (`/api/internal/canonical-conversation-health`)
+  returned `workspaceSource: "current-directory"`, confirming the
+  `WORKSPACE` fix (prerequisite above) works correctly here, not just on
+  Windows.
+- The environment's default DB connection was confirmed as the isolated
+  branch by parsing the actual resolved hostname at runtime and diffing it
+  against the shared primary's hostname — not by trusting the connection
+  string's origin.
+- Restarted the server process (killed it, relaunched it) with no approval
+  step, confirming the standing autonomy this design already grants covers
+  a real crash-and-recover, not just a clean start.
+- Reproduced a real, still-open diagnosis (the `chat_capture` drain-cursor
+  bug found Sep 1) by querying the branch-cloned database directly for the
+  exact evidence row cited in that original diagnosis and getting back the
+  identical row — proving this environment supports the kind of live
+  investigation it was built for, not just a "hello world" boot.
+
+Two gaps found and fixed along the way, unrelated to the environment choice
+itself but blocking until fixed:
+
+1. The base `typescript-node` devcontainer image has no SSH server, so
+   `gh codespace ssh` failed outright until `ghcr.io/devcontainers/features/sshd:1`
+   was added to `devcontainer.json`'s features.
+2. Copying `.env` into the Codespace over `gh codespace ssh` from a Windows
+   PowerShell pipeline (`Get-Content | ...`) silently corrupted it — see
+   `.agents/memory/powershell-ssh-env-file-corruption.md`. Routing the same
+   copy through Bash instead produced a clean file. Anyone repeating this
+   setup from Windows should route file transfers through Bash, not
+   PowerShell, whenever the receiving side parses the bytes exactly.
+
+Separately (found during this same session, not specific to the Codespace):
+neither `npm run dev` nor `npm run db:branch` passed `--env-file` to
+`tsx`/`node`, so both silently required the caller to remember the flag by
+hand outside Replit. Fixed by adding `--env-file-if-exists=.env` to both —
+verified with `node --env-file-if-exists` directly: loads the file when
+present, prints a message and continues without error when absent, so
+Replit's environment (no `.env` file, variables injected directly) is
+unaffected.

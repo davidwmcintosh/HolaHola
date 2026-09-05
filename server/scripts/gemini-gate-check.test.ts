@@ -23,11 +23,17 @@ import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// fileURLToPath, not new URL(...).pathname -- on Windows a file:// URL's
+// .pathname keeps its leading slash ("/C:/Users/..."), which path.resolve()
+// does not parse as an absolute Windows path, producing a doubled drive
+// letter ("C:\C:\Users\..."). fileURLToPath handles this correctly on every
+// platform.
 const GATE_SCRIPT = path.resolve(
-  path.dirname(new URL(import.meta.url).pathname),
+  path.dirname(fileURLToPath(new URL(import.meta.url))),
   '../../scripts/gemini-gate-check.sh',
 );
 

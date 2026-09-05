@@ -8,6 +8,12 @@
  */
 
 import pg from "pg";
+import {
+  formatSyntheticFixtureAlert,
+  refreshSyntheticFixtureAlert,
+  scanForSyntheticFixtureDebris,
+  syntheticFixtureMatchCount,
+} from "../services/synthetic-fixture-sentinel";
 
 const pool = new pg.Pool({
   connectionString: process.env.NEON_SHARED_DATABASE_URL,
@@ -74,6 +80,9 @@ async function checkTables() {
     "agent_north_star", "agent_open_questions", "agent_record_of_david",
     // team room
     "team_rooms",
+    // canonical agent coordination
+    "coordination_threads", "coordination_events", "coordination_adapter_deliveries",
+    "coordination_actor_feed_cursors",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];
@@ -120,6 +129,24 @@ async function checkSeededData() {
   const northStar = await rowCount("agent_north_star");
   if (northStar > 0) pass("agent_north_star", `${northStar} rows`);
   else warn("agent_north_star", "0 rows");
+}
+
+// ─── SHARED DATABASE FIXTURE BOUNDARY ────────────────────────────────────────
+
+async function checkSyntheticFixtureBoundary() {
+  console.log(`\n${BOLD}── Shared Neon Synthetic-Fixture Boundary ─────────────${RESET}`);
+
+  const result = await scanForSyntheticFixtureDebris(pool);
+  const matchCount = syntheticFixtureMatchCount(result);
+  if (matchCount === 0) {
+    pass("No escaped coordination or scratchpad fixtures");
+    return;
+  }
+
+  const alert = formatSyntheticFixtureAlert(result);
+  fail("Synthetic CI fixtures detected in shared Neon", alert.replace(/\n/g, " | "));
+
+  await refreshSyntheticFixtureAlert(pool, alert);
 }
 
 // ─── CURRICULUM ALIGNMENT ────────────────────────────────────────────────────
@@ -240,6 +267,26 @@ async function checkWorkers() {
     } else {
       warn(label, `'${token}' not found in server/index.ts`);
     }
+  }
+
+  const captureStart = indexTs.indexOf("startAgentSessionAutosave();");
+  const delayedWorkerComment = indexTs.indexOf("+85s: Daniela Presence Worker");
+  if (captureStart !== -1 && (delayedWorkerComment === -1 || captureStart < delayedWorkerComment)) {
+    pass("Canonical capture worker starts before delayed worker bundle");
+  } else {
+    fail(
+      "Canonical capture worker startup order",
+      "startAgentSessionAutosave() must run before the unrelated +85s worker bundle",
+    );
+  }
+
+  const captureReadiness = await import("../services/canonical-capture-worker-readiness");
+  captureReadiness.resetCanonicalCaptureWorkerReadinessForTest();
+  const stoppedCapture = captureReadiness.getCanonicalCaptureWorkerReadiness();
+  if (!captureReadiness.isCanonicalCaptureAvailable(true, stoppedCapture)) {
+    pass("Canonical capture readiness fails closed before worker is armed");
+  } else {
+    fail("Canonical capture readiness", "writable workspace reported available while worker was stopped");
   }
 
   // Workers fired from ws-handler on session close (NOT booted at server start)
@@ -727,6 +774,7 @@ async function main() {
   console.log(`${BOLD}╚══════════════════════════════════════════════╝${RESET}`);
 
   await checkTables();
+  await checkSyntheticFixtureBoundary();
   await checkSeededData();
   await checkCurriculum();
   await checkWorkers();

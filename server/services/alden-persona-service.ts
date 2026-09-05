@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildAldenSystemPrompt } from "../alden-system-prompt";
-import { ALDEN_TOOLS, executeAldenTool } from "./alden-functions";
+import { ALDEN_TOOLS, executeAldenTool, toAnthropicAldenTools } from "./alden-functions";
 import { buildAldenWorkspaceContext } from "./alden-workspace-context";
 import { aldenActivity } from "./alden-activity-emitter";
 import { costTracker } from "./cost-tracker";
@@ -156,6 +156,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
   try {
     const claude = getAnthropicClient();
     const systemPrompt = buildAldenSystemPrompt({ founderName, timezone, engine: 'anthropic' });
+    const anthropicTools = toAnthropicAldenTools();
 
     const messages: Anthropic.MessageParam[] = [];
 
@@ -208,7 +209,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
         model: ANTHROPIC_MODEL,
         max_tokens: 4096,
         system: systemPrompt,
-        tools: ALDEN_TOOLS,
+        tools: anthropicTools,
         messages,
       });
 
@@ -260,7 +261,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
           model: ANTHROPIC_MODEL,
           max_tokens: 2048,
           system: systemPrompt,
-          tools: ALDEN_TOOLS,
+          tools: anthropicTools,
           messages,
         });
         totalInputTokens += wrapResp.usage?.input_tokens ?? 0;

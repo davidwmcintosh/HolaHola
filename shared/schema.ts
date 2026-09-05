@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { RESOLUTION_TYPE_VALUES } from "./absence-types";
@@ -8,7 +8,9 @@ import type { ResolutionType } from "./absence-types";
 // ===== Enums =====
 
 // Auth provider enum - distinguishes how user authenticates
-export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending']);
+// 'replit' kept permanently even after Replit auth is fully retired -- Postgres
+// enums are awkward to shrink, and it remains a valid historical value for old rows.
+export const authProviderEnum = pgEnum('auth_provider', ['replit', 'password', 'pending', 'google', 'github', 'apple']);
 
 // Token type enum for password reset and invitations
 export const authTokenTypeEnum = pgEnum('auth_token_type', ['password_reset', 'invitation']);
@@ -86,7 +88,7 @@ export const sessions = pgTable(
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email"), // No unique constraint - using Replit Auth sub (id) as primary identifier
+  email: varchar("email"), // Case-insensitively unique when non-empty -- see idx_users_email_unique below
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -156,7 +158,13 @@ export const users = pgTable("users", {
   tosAcceptedAt: timestamp("tos_accepted_at"), // When user accepted Terms of Service (null = not yet accepted)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Case-insensitive, partial (non-empty emails only) uniqueness -- the same
+  // email must resolve to one account regardless of which auth provider
+  // created it. Partial so multiple pending/system rows without an email
+  // yet don't collide with each other or with NULL.
+  uniqueIndex("idx_users_email_unique").on(sql`lower(${table.email})`).where(sql`${table.email} IS NOT NULL AND ${table.email} != ''`),
+]);
 
 export const updateUserPreferencesSchema = z.object({
   targetLanguage: z.string().optional(),
@@ -306,6 +314,19 @@ export const passwordLoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 export type PasswordLogin = z.infer<typeof passwordLoginSchema>;
+
+// Schema for real self-serve registration (no invitation required)
+export const passwordRegisterSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+export type PasswordRegister = z.infer<typeof passwordRegisterSchema>;
 
 // Per-language self-directed preferences
 // Allows users to have different flexibility settings per language
@@ -7674,6 +7695,174 @@ export const insertAgentNoteSchema = createInsertSchema(agentNotes).omit({
 });
 export type InsertAgentNote = z.infer<typeof insertAgentNoteSchema>;
 export type AgentNote = typeof agentNotes.$inferSelect;
+
+// ===== Canonical Agent Coordination Ledger =====
+// Append-only operational truth for tracked work shared by Luca's runtimes,
+// Alden, David, and future authenticated agents. agent_notes and Team Room are
+// projections/adapters; neither owns lifecycle state.
+
+export const COORDINATION_ACTOR_IDS = [
+  'luca-holahola',
+  'luca-replit',
+  'luca-claude-code',
+  'alden',
+  'daniela',
+  'david',
+  'coordination-system',
+] as const;
+export type CoordinationActorId = typeof COORDINATION_ACTOR_IDS[number];
+
+export const COORDINATION_EVENT_TYPES = [
+  'created',
+  'delivered',
+  'accepted',
+  'progress',
+  'evidence_added',
+  'blocked',
+  'completed',
+  'outcome_acknowledged',
+  'reopened',
+  'reassigned',
+  'comment',
+] as const;
+export type CoordinationEventType = typeof COORDINATION_EVENT_TYPES[number];
+
+export const COORDINATION_THREAD_STATES = [
+  'created',
+  'delivered',
+  'accepted',
+  'in_progress',
+  'blocked',
+  'completed',
+  'outcome_acknowledged',
+  'reopened',
+  'reassigned',
+] as const;
+export type CoordinationThreadState = typeof COORDINATION_THREAD_STATES[number];
+
+export const COORDINATION_EVIDENCE_TYPES = [
+  'repository_path',
+  'design_spec',
+  'implementation_plan',
+  'commit',
+  'branch',
+  'pull_request',
+  'ci_run',
+  'test_result',
+  'conversation_memory',
+  'team_room_message',
+  'agent_note',
+  'external_url',
+] as const;
+export type CoordinationEvidenceType = typeof COORDINATION_EVIDENCE_TYPES[number];
+
+export type CoordinationEvidenceReference = {
+  type: CoordinationEvidenceType;
+  provider: string;
+  identifier: string;
+  label?: string;
+  digest?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export const coordinationThreadStateEnum = pgEnum(
+  'coordination_thread_state',
+  COORDINATION_THREAD_STATES,
+);
+export const coordinationEventTypeEnum = pgEnum(
+  'coordination_event_type',
+  COORDINATION_EVENT_TYPES,
+);
+export const coordinationDeliveryStatusEnum = pgEnum('coordination_delivery_status', [
+  'pending',
+  'delivered',
+  'failed',
+]);
+
+export const coordinationThreads = pgTable("coordination_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 300 }).notNull(),
+  description: text("description").notNull(),
+  originActor: varchar("origin_actor", { length: 80 }).notNull(),
+  intendedRecipient: varchar("intended_recipient", { length: 80 }).notNull(),
+  currentOwner: varchar("current_owner", { length: 80 }),
+  priority: varchar("priority", { length: 20 }).notNull().default('normal'),
+  state: coordinationThreadStateEnum("state").notNull().default('created'),
+  latestSequence: integer("latest_sequence").notNull().default(0),
+  latestGlobalSequence: bigint("latest_global_sequence", { mode: 'number' }).notNull().default(0),
+  sourceReference: jsonb("source_reference").$type<CoordinationEvidenceReference>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_coordination_threads_origin").on(table.originActor, table.updatedAt),
+  index("idx_coordination_threads_recipient").on(table.intendedRecipient, table.updatedAt),
+  index("idx_coordination_threads_owner").on(table.currentOwner, table.updatedAt),
+  index("idx_coordination_threads_state").on(table.state, table.updatedAt),
+]);
+
+export const coordinationEvents = pgTable("coordination_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  globalSequence: bigserial("global_sequence", { mode: 'number' }).notNull(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id, { onDelete: 'cascade' }),
+  sequence: integer("sequence").notNull(),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  recipientActor: varchar("recipient_actor", { length: 80 }),
+  eventType: coordinationEventTypeEnum("event_type").notNull(),
+  content: text("content").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  evidence: jsonb("evidence").$type<CoordinationEvidenceReference[]>().notNull().default(sql`'[]'::jsonb`),
+  causalParentEventId: varchar("causal_parent_event_id"),
+  idempotencyKey: varchar("idempotency_key", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_coordination_events_thread_sequence").on(table.threadId, table.sequence),
+  uniqueIndex("idx_coordination_events_idempotency").on(table.actor, table.idempotencyKey),
+  uniqueIndex("idx_coordination_events_global_sequence").on(table.globalSequence),
+  index("idx_coordination_events_thread_created").on(table.threadId, table.createdAt),
+  index("idx_coordination_events_actor_created").on(table.actor, table.createdAt),
+]);
+
+export const coordinationAdapterDeliveries = pgTable("coordination_adapter_deliveries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => coordinationEvents.id, { onDelete: 'cascade' }),
+  adapterName: varchar("adapter_name", { length: 80 }).notNull(),
+  targetActor: varchar("target_actor", { length: 80 }).notNull(),
+  status: coordinationDeliveryStatusEnum("status").notNull().default('pending'),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+  lastError: text("last_error"),
+  deliveredAt: timestamp("delivered_at"),
+  externalReference: varchar("external_reference", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_coordination_delivery_dedupe").on(table.eventId, table.adapterName, table.targetActor),
+  index("idx_coordination_delivery_retry").on(table.status, table.nextAttemptAt),
+]);
+
+export const coordinationActorFeedCursors = pgTable("coordination_actor_feed_cursors", {
+  actor: varchar("actor", { length: 80 }).primaryKey(),
+  acknowledgedGlobalSequence: bigint("acknowledged_global_sequence", { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
+  id: true,
+  state: true,
+  latestSequence: true,
+  latestGlobalSequence: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertCoordinationEventSchema = createInsertSchema(coordinationEvents).omit({
+  id: true,
+  globalSequence: true,
+  createdAt: true,
+});
+export type CoordinationThread = typeof coordinationThreads.$inferSelect;
+export type CoordinationEvent = typeof coordinationEvents.$inferSelect;
+export type CoordinationAdapterDelivery = typeof coordinationAdapterDeliveries.$inferSelect;
+export type CoordinationActorFeedCursor = typeof coordinationActorFeedCursors.$inferSelect;
 
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.

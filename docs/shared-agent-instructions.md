@@ -112,3 +112,65 @@ rules. Keep this file free of secrets, credentials, and private user data.
 - Project-specific architecture, operating commands, and safety constraints
   remain in `replit.md`; do not duplicate this shared cross-interface contract
   in interface-specific instruction files.
+
+## Landing changes on `main` that touch migrations or data-ops
+
+- `main`'s branch protection allows two equally legitimate ways to land code:
+  a normal PR merge (squash, after the required `test` check passes), or a
+  direct push authenticated with the deploy key that
+  `scripts/cross-tool-promote.ts` / `cross-tool-promote.yml` uses (that
+  credential has an `always` bypass on every rule, by design — see the
+  ruleset's `bypass_actors`). **Only the second path actually applies
+  pending migrations and data-ops to the real production database.** A
+  plain PR merge validates a migration against a fresh schema-only
+  Postgres (`ci.yml`'s `test` job) but never runs `drizzle-kit migrate`
+  against production — the merged code and the production schema can
+  silently diverge. This bit us directly on 2026-09-03: a migration for
+  `memory_embeddings.importance` sat merged on `main` with main's own CI
+  red, and separately a `requireAgentToken` fix got PR-merged without its
+  migration read as "applied" anywhere but a passing PR check.
+- **Any branch whose diff includes new files under `migrations/` or
+  `scripts/data-ops/` must land via `npx tsx scripts/cross-tool-promote.ts
+  push <branch> --source <label>` (Replit's own dev checkout uses its
+  separate `source-control-service.ts` "source-promotion" path instead —
+  same guarantee, different caller), not a bare PR merge.** A change with
+  no migration/data-op is fine to land via a normal PR.
+- This is enforced by convention, not by GitHub — there's no required
+  check today that can tell whether a merge included a validated,
+  applied migration. Don't treat a green PR `test` check as proof a
+  migration reached production.
+- `cross-tool-promote.ts` (and the `gate` subcommand it calls) already
+  return the failure signal directly to whichever process invoked
+  them — a non-zero exit code plus an explicit `FAILED`/`SYNCED` line on
+  stdout, never a silent partial success. Whichever agent runs it is
+  responsible for reading that output and acting on it (don't assume
+  success from "the command returned" alone) — there's deliberately no
+  separate external notification channel (Slack, email, a GitHub issue)
+  for this; the calling agent's own turn is the notification.
+
+## Local dev / agent login (DEV_AUTH_BYPASS retired 2026-09-03)
+
+`DEV_AUTH_BYPASS` no longer exists — it used to skip auth entirely in local
+dev, which meant every agent request was silently treated as the founder's
+real account (id `49847136`). It's been replaced by a real login: a single
+seeded dev/test account (`scripts/data-ops/seed-dev-test-account.ts`, id
+`dev-test-agent`, email `dev-test-agent@holahola.internal`, role `admin`,
+`isTestAccount: true`) that any agent or CI session logs into for real via
+`POST /api/auth/password/login` using the `DEV_TEST_ACCOUNT_PASSWORD` env var,
+then carries the returned session cookie on subsequent requests — exactly
+like a real user, no shortcut branch in the request path.
+
+This account is also allow-listed as founder-equivalent in
+`server/middleware/rbac.ts`'s `isFounderId()` — but **only** when
+`NODE_ENV !== 'production'` (locked by
+`server/scripts/test-prod-founder-bypass-guard.ts`), so it can exercise
+founder-only tooling (Alden tools, Team Room, Brain Health, Voice Health,
+Telemetry, Growth Memories, Curriculum Sync) in dev without ever having any
+effect on real production access, which stays founder-id-only exactly as
+before.
+
+`DEV_TEST_ACCOUNT_PASSWORD` is a new required secret: local `.env` (see
+`.env.template`) and the `cross-tool-promote` GitHub Actions secret (same
+value needed there so its automatic data-ops step can seed/verify the
+account in production too — the row exists there like any other, just never
+founder-equivalent at runtime).

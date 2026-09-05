@@ -381,7 +381,7 @@ export async function generateAgentBriefing(): Promise<void> {
 | DB connection | \`NEON_SHARED_DATABASE_URL\` always, never \`DATABASE_URL\` |
 | Admin auth check | \`getRequestUserId(req) !== '49847136'\` |
 | Write shared insight | \`INSERT INTO editor_insights (id, category, title, content, importance, tags) VALUES (gen_random_uuid(), 'shared', '...', '...', 8, ARRAY['agent'])\` |
-| Leave Alden a note | \`POST /api/agent/note\` with \`x-agent-token: $REPLIT_AGENT_TOKEN\` |
+| Leave Alden a note | \`POST /api/agent/note\` with \`x-coordination-token: $COORDINATION_LUCA_REPLIT_TOKEN\` |
 `);
 
     writeFileSync(BRIEFING_PATH, lines.join('\n'), 'utf-8');

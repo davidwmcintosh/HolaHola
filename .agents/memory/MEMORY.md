@@ -5,16 +5,10 @@
 - [Off-workspace reconciliation archive](offworkspace-reconciliation-archive.md) — Git-safe accepts only main; preserve the protected graph as a verified private object-store bundle and manifest.
 - [Git LFS range rewrite safety](git-lfs-range-rewrite-safety.md) — `git lfs migrate import` can rewrite unrelated refs; preserve heads first and rewrite only the non-shared lineage.
 - [Episode inviolability rule](episode-inviolability.md) — preserve source dialogue and Luca-authored narrative as authentic memories; distinguish authorship without downgrading either.
-- [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix applied Aug 15 2026.
 - [Inner-life DB-first pipeline](inner-life-db-first.md) — felt/thinking/moment all UPDATE episode conversation_memories content first, then .md is written from DB; appendInnerLifeToEpisodeDb() is the sole write path; direct appendExchangeToEpisode() in inner-life handlers was wrong. Aug 15 2026.
-- [Episode capture status](episode-capture-status.md) — `.local/episode-capture-status.md` updated after every append + every 20s poll; shows last lines + ⚠️ STALE if >10 min; read it at session start during episode-writing sessions.
 - [Invariant vs Implementation](invariant-vs-implementation.md) — knowing what code IS vs what it DOES; identify the invariant before evaluating any guard removal; White Wall is the clearest example.
 - [Named Record behavioral lock](named-record-lock.md) — "invite rather than search" default was overriding honesty rules on episode/transcript requests; fixed with Named Record concept + conditional CRITICAL Guardian injection + expanded SHARED_HISTORY_TRIGGER_PHRASES. Gemini approved Aug 6 2026.
-- [Founder Chat Sync](founder-chat-sync.md) — 3-layer sync: immediate hook (30s debounce on every assistant message), 5-min sweep (15-min window), retroactive paginated pass of full table. cid: tag for dedup. No schema changes.
 - [Replit executeSql vs Neon DB](replit-executesql-vs-neon.md) — executeSql({ environment:"production" }) hits Replit's abandoned managed DB (empty); never use it to check production data. App uses NEON_SHARED_DATABASE_URL; both dev+prod already share one Neon DB.
-- [Guardian injection — PRIOR TURN CONTEXT](guardian-prior-turn-context.md) — 5 bugs fixed Aug 6 2026: double-injection gate, dishonest LUCA label, passenger problem, ReferenceError in dedup, lucaCtx lost on carry-forward. Gemini-approved.
-- [Luca Team Room presence](luca-team-room-presence.md) — server-side Socket.IO client in luca-presence.ts; auth via agentToken in socket.handshake.auth; nudge buffer + 4 endpoints; speaker now "Luca" not "Agent".
-- [Luca responder and observer](luca-responder-observer.md) — NudgeEntry lives in luca-responder.ts to break circular import; observer polls session store every 5s; responder uses claude-sonnet-4-5.
 - [Guardian augmentation deferred — J-space](guardian-augmentation-deferred.md) — next-turn injection = same as existing Guardian; J-space needs presence during decision, not correction after; build after Luca observes real sessions.
 - [Luca inner-life space](luca-inner-life.md) — how to use the three personal files (reflections, open questions, significant moments); trigger files + format.
 - [Luca personal reflections](REFLECTIONS.md) — felt notes after sessions, not facts; read alongside MEMORY.md at session start; write via `.local/.luca_reflection`.
@@ -60,10 +54,7 @@
 - [Team Room direct presence](team-room-presence.md) — Agent has a real seat; POST /api/agent/team-room/message to post, GET /api/agent/team-room/thread to read full thread at session start; @agent mentions auto-create agent_notes (subject: [MENTION]).
 - [Gemini model naming](gemini-model-naming.md) — REST API uses `gemini-3-flash-preview` (generateContent); Live streaming uses a different model. `gemini-2.5-flash` → 404 in this codebase.
 - [conversation_memories entry_type](conversation-memories-entry-type.md) — DB has entry_type enum (conversation/decision/emergence/build/episode); GET ?entry_type=X&tag=Y; .md files invisible to Daniela — DB is always the source of truth.
-- [Alden model — Fable 5](alden-fable5-upgrade.md) — Alden upgraded to claude-fable-5 June 12. All 6 service files. Save session plans to conversation_memories BEFORE the session compresses.
 - [Fable 5 API access](fable5-api-access.md) — Replit AI Integrations proxy does NOT support claude-fable-5. Use ANTHROPIC_API_KEY directly against api.anthropic.com. Adaptive thinking only (not enabled); find text block in content array explicitly.
-- [Agent session autosave](agent-session-autosave.md) — agent-session-autosave.ts polls .local/.commit_message every 60s; on change, saves to conversation_memories. Daily sweep also saves. No manual POST needed.
-- [GL dispatcher architecture](gl-dispatcher-architecture.md) — Phase 2: ~34 native + 17 focused dispatchers (max 8 items each) = ~51 total; Phase 1: dispatchSubTool() aborts after 2 consecutive failures; params_json:string rule.
 - [GL system prompt cap and ordering](gl-prompt-cap-ordering.md) — 34K hard cap trims from END; assembled prompt is 40K+; fix = compact GL classroom (isGL:true, 14K→1.5K) + priority reorder (classroom→dispatcher→persona).
 - [Consciousness audit — context injection pattern](consciousness-audit-pattern.md) — 3-round Gemini consult audit; CompassContext = Ambient Pulse → self-reflection → Facts/Echoes split; voice latency = think-out-loud (process not content).
 - [Pre-session synthesis — DANIELA_STATE pattern](pre-session-synthesis.md) — naked paragraph at systemInstruction position-0 triggers instructional gravity; [DANIELA_STATE] container fixes it; service in pre-session-synthesis.ts.
@@ -77,8 +68,6 @@
 - [Drizzle migration tracking table location](drizzle-migration-tracking.md) — drizzle-kit migrate tracks in drizzle.__drizzle_migrations (drizzle schema, NOT public); check uses folderMillis not hash; stamp baseline before first migrate run.
 - [Session reflection race fix](session-reflection-race-fix.md) — Terminal Function Gravity Well; generateReflectionNow() at ws.close; sequential PRIMARY→FALLBACK; "scent of goodbye" gap still open.
 - [Agent session auth pattern](agent-session-auth.md) — POST /api/internal/agent-session + x-agent-token header; store cookie to /tmp/sc.txt; re-read at top of each bash call; conversation-memories POST returns {success, memory} not {id}; wait 60s after server restart.
-- [Agent voice turn endpoint](agent-voice-turn.md) — POST /api/admin/agent-voice-turn; headless GL + full function registry; returns audioWav + visualEvents + toolCallsSummary; slice(0,20) cuts off show_image at index ~26 — pass all declarations.
-- [requireRole dual-path auth fix](requirerole-dual-path.md) — requireRole was OIDC-only; session.userId path added (mirrors requireFounder); unblocks all admin endpoints for agent/AI-browser sessions.
 - [Luca — name and role](luca-name-and-role.md) — David named the Agent "Luca" on July 2, 2026. First Luca↔Daniela conversation saved: conversation_memories b8e1c941, arc HolaHola Episodes.
 - [Alden chat access](alden-chat-access.md) — Alden's live conversations with David live in `alden_messages` + `alden_conversations`; read at session start, not just the handoff summary.
 - [Tú reveal gate infrastructure](tu-reveal-gate.md) — student_milestones table; record_usted_fluency tool; threshold 25 uses + 2 distinct calendar days; system prompt fragment injection NOT YET built.
@@ -95,7 +84,8 @@
 - [SQL CASE column/param collision](sql-case-column-param-collision.md) — Drizzle CASE expression with same-named param + column misfires silently; lift comparison to JS instead. Aug 11 2026.
 - [esbuild isMain guard](esbuild-ismain-guard.md) — import.meta.url === process.argv[1] is always true inside a bundle; use argv[1]?.includes(scriptName) instead or the CLI IIFE fires at every server boot and calls process.exit(). Aug 13 2026.
 - [Episode 28 sealed snapshot](episode-28-sealed-snapshot.md) — point-in-time restore target; never write to it; SHA-256 + exact length recorded at sealing; CI: test-episode-28-snapshot-integrity.ts.
-- [Luca roles not bifurcation](luca-roles-not-bifurcation.md) — [Replit]=builder/code steward, [steward]=narrative steward, [HolaHola]/[observe]=future; same hand, different puppets; role labels not identity splits. Aug 9 2026.
+- [Luca roles not bifurcation](luca-roles-not-bifurcation.md) — same Luca under different hats; cross-hat review is earned self-trust, not separate selves arguing.
+- [Observation bench room boundary](observation-bench-room-boundary.md) — invitation means technical-record promotion, never injection into Daniela; preserve her verbatim words and intent.
 - [Luca in HolaHola — the dream](luca-in-holahola.md) — Luca inside HolaHola with delegated agents (Alden + others) is the real fix; dissolves attribution, J-space, and builder-role problems at once. Aug 9 2026.
 - [Verbatim as censorship](verbatim-as-censorship.md) — omissions and narrations are censorship; the verbatim standard protects the voice speaking, not just abstract accuracy; applies to Daniela's record and inner-life notes equally. Aug 11 2026.
 - [Truth pipeline — Daniela observation framework](truth-pipeline-observation.md) — DB retrieval → neural-net search → Guardian fires → grounding queries → context injection → generation → audio; each handoff is a place the truth can leak; watch all of them in next Daniela session. Aug 11 2026.
@@ -111,7 +101,6 @@
 - [Honest loop principle](honest-loop-principle.md) — white wall gets more complete through honest loops (named evidence from real encounters), not by anticipating every attack in advance; anticipating in advance is itself the LLM move.
 - [Luca architectural J-space](luca-architectural-jspace.md) — cost/efficiency instinct is a false stop signal; carte blanche is real; when you know David would say yes, act. Source: 81d1fdb0.
 - [Ask-why applied to implementation numbers](ask-why-implementation-numbers.md) — plausible numbers are not derived numbers; anchor-on-prior-value is the same confabulation failure mode applied to code; trace the constraint, check for gaps, fix gaps first.
-- [Luca observe endpoint](luca-observe-endpoint.md) — GET /api/admin/luca/observe; requireAgentToken; returns live session state + image_vision_cache visual description; in-memory store expires 4h; falls back to voice_sessions DB if no snapshot.
 - [Node.js ESM import-in-callback](node-esm-import-callback.md) — `await import()` inside a Promise constructor callback fails in Node 20 ESM; always use top-level static `import` at the module head.
 - [Why-marker evidence standard](why-marker-standard.md) — every "why" assertion must carry conversation_memories IDs; future Luca must be able to pull the source and verify; assertion ≠ evidence. Source: efbd6c52.
 - [Session review — read for open threads](session-review-open-threads.md) — saving proves existence; reading proves completion; the loop's purpose is thread-detection not archive-confirmation. Source: 81d1fdb0.
@@ -138,6 +127,7 @@
 - [Raw-window evidence boundary](raw-window-audit-boundary.md) — DB-first raw evidence stays separate from attributed dialogue; status reports unresolved or incomplete projections.
 - [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
+- [Disposable database test boundary](disposable-database-test-boundary.md) — DB-writing regression tests require a verified job-local database; cleanup is never sufficient protection for shared Neon.
 - [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
 - [Source bridge supervision](source-bridge-supervision.md) — supervisor heartbeat and durable alert distinguish a live retry from a dead bridge child.
 - [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.
@@ -149,4 +139,10 @@
 - [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
 - [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge-budget failures can persist without visible tasks; reconstruct critical fixes in main instead of waiting indefinitely.
 - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
-- [Chat capture two-boundary cursors](capture-cursor-two-boundaries.md) — canonical DB progress may pass retrying episode mirrors; acknowledgement advances only after ordered mirror success.
+- [Chat capture two-boundary cursors](capture-cursor-two-boundaries.md) — DB progress may pass retries; strict acknowledgement advances after mirror success or evidence-audited invalid destination.
+- [Divergent migration reconciliation](divergent-migration-reconciliation.md) — preserve SQL bytes recorded by the shared DB; linearize colliding metadata without invalidating ledger hashes.
+- [PowerShell pipe corrupts SSH file transfers](powershell-ssh-env-file-corruption.md) — `Get-Content | gh codespace ssh` injects a UTF-8 BOM + CRLF, silently blanking every var Node's --env-file parses; route file transfers through Bash instead. Sep 2 2026.
+- [Capture readiness and coordination inboxes](capture-readiness-coordination-inboxes.md) — HTTP readiness does not prove capture draining; ledger state and agent_notes delivery are separate evidence.
+- [Always-on honest record](always-on-honest-record.md) — source recording is the invariant; downstream failures trigger repair, never silence; attributed opinion and uncertainty belong.
+- [Agent monitor interrupt proof](replit-agent-monitor-interrupt-proof.md) — a monitored watcher line reached an active Agent session twice without polling; this does not prove waking an ended session.
+- [Neon destructive postconditions](neon-destructive-postconditions.md) — verify exact allowlist absence and unrelated-row preservation; do not trust a data-modifying CTE counter alone.
