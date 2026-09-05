@@ -5,10 +5,12 @@ import { after, test } from 'node:test';
 import { and, eq } from 'drizzle-orm';
 import {
   conversations,
+  contextLineageEvents,
   coordinationEvents,
   coordinationThreads,
   sofiaIssueReports,
   studentSessionHealth,
+  users,
   voicePipelineEvents,
   voiceSessions,
 } from '@shared/schema';
@@ -41,6 +43,7 @@ const conversationId = randomUUID();
 const userId = '49847136';
 let threadId: string | null = null;
 let sessionId: string | null = null;
+let otherSessionId: string | null = null;
 const issueReportIds: string[] = [];
 
 test('pill DTO derives presence only from events on the exact bench', () => {
@@ -135,12 +138,19 @@ after(async () => {
   if (sessionId) await db.delete(studentSessionHealth).where(eq(studentSessionHealth.sessionId, sessionId));
   for (const id of issueReportIds) await db.delete(sofiaIssueReports).where(eq(sofiaIssueReports.id, id));
   if (sessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, sessionId));
+  if (otherSessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, otherSessionId));
   await db.delete(conversations).where(eq(conversations.id, conversationId));
+  await db.delete(users).where(eq(users.id, userId));
   await closeDbConnections();
 });
 
 databaseTest('one Luca receives identical evidence at both benches and promotes observations without injecting Daniela', async () => {
   const db = getSharedDb();
+  await db.insert(users).values({
+    id: userId,
+    role: 'admin',
+    isTestAccount: true,
+  }).onConflictDoNothing();
   await db.insert(conversations).values({
     id: conversationId,
     userId,
@@ -155,10 +165,52 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
     isTestSession: true,
   }).returning({ id: voiceSessions.id });
   sessionId = session.id;
+  const [otherSession] = await db.insert(voiceSessions).values({
+    userId,
+    conversationId,
+    language: 'Spanish',
+    status: 'active',
+    isTestSession: true,
+  }).returning({ id: voiceSessions.id });
+  otherSessionId = otherSession.id;
   const [davidMessage, danielaMessage] = await db.insert(voicePipelineEvents).values([
     { sessionId, userId, eventType: 'input_transcription', eventData: { text: '¿Cómo estás?' } },
     { sessionId, userId, eventType: 'output_transcription', eventData: { text: 'Estoy aquí contigo.' } },
   ]).returning();
+  await db.insert(voicePipelineEvents).values({
+    sessionId: otherSessionId,
+    userId,
+    eventType: 'output_transcription',
+    eventData: { text: 'Different session, must remain isolated.' },
+  });
+  const [lineage] = await db.insert(contextLineageEvents).values({
+    traceId: `bench-test:${runId}:lineage`,
+    sessionId,
+    conversationId,
+    userId,
+    sequenceNumber: 1,
+    sourceRoute: 'gemini-live',
+    eventType: 'context_injected',
+    deliveryChannel: 'system_instruction',
+    deliveryStatus: 'delivered',
+    payloadText: 'Exact observation-bench context lineage.',
+    payloadJson: { sessionId, conversationId, userId },
+    observedAt: new Date(),
+  }).returning();
+  await db.insert(contextLineageEvents).values({
+    traceId: `bench-test:${runId}:lineage-near-miss`,
+    sessionId,
+    conversationId,
+    userId,
+    sequenceNumber: 2,
+    sourceRoute: 'gemini-live',
+    eventType: 'context_injected',
+    deliveryChannel: 'system_instruction',
+    deliveryStatus: 'delivered',
+    payloadText: 'Mismatched nested scope, must remain isolated.',
+    payloadJson: { sessionId, conversationId: randomUUID(), userId },
+    observedAt: new Date(),
+  });
   const [health] = await db.insert(studentSessionHealth).values({
     userId,
     sessionId,
@@ -166,6 +218,13 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
     exchangeCount: 2,
     qualityScore: 0.8,
   }).returning();
+  await db.insert(studentSessionHealth).values({
+    userId: 'ci-test-user',
+    sessionId,
+    language: 'Spanish',
+    exchangeCount: 99,
+    qualityScore: 0.1,
+  });
   const [issue] = await db.insert(sofiaIssueReports).values({
     userId,
     issueType: 'latency',
@@ -180,7 +239,7 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
     diagnosticSnapshot: { sessionId, conversationId: randomUUID() },
   }).returning();
   issueReportIds.push(outOfScopeIssue.id);
-  const [started, secondStart, concurrentlyAttached] = await Promise.all([
+  const [started, secondStart, replitAttached, claudeAttached] = await Promise.all([
     startObservationBench({
       sessionId,
       idempotencyKey: `bench-test:${runId}:start`,
@@ -194,10 +253,18 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
       actor: 'luca-replit',
       idempotencyKey: `bench-test:${runId}:concurrent-attach`,
     }),
+    attachObservationBench({
+      sessionId,
+      actor: 'luca-claude-code',
+      idempotencyKey: `bench-test:${runId}:concurrent-claude-attach`,
+    }),
   ]);
   threadId = started.thread.id;
-  assert.equal(secondStart.thread.id, threadId, 'two founder starts must converge');
-  assert.equal(concurrentlyAttached.thread.id, threadId, 'founder start and Luca attach must converge');
+  assert.deepEqual(
+    new Set([started, secondStart, replitAttached, claudeAttached].map(result => result.thread.id)),
+    new Set([threadId]),
+    'two founder starts and both Luca hats must converge on one thread',
+  );
   const exactSessionBenches = (await db.select().from(coordinationEvents))
     .filter(event => (
       event.sequence === 1
@@ -224,11 +291,11 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
   assert.equal(attachedAgain.deduplicated, true);
   assert.equal(attached.thread.id, threadId);
   const synced = await syncObservationBench({ threadId, actor: 'luca-replit' });
-  assert.equal(synced.appended, 4);
+  assert.equal(synced.appended, 5);
   const synchronizedView = await getCoordinationThread(threadId, 'luca-replit');
   const neutralSourceEvents = synchronizedView.events
     .filter(event => (event.payload as any).kind === 'observation_source');
-  assert.equal(neutralSourceEvents.length, 4);
+  assert.equal(neutralSourceEvents.length, 5);
   assert.equal(
     neutralSourceEvents.every(event => event.actor === 'coordination-system'),
     true,
@@ -237,7 +304,7 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
 
   const replitView = await getObservationBenchComparison(threadId, 'luca-replit');
   const claudeView = await getObservationBenchComparison(threadId, 'luca-claude-code');
-  assert.equal(replitView.sourceCount, 4);
+  assert.equal(replitView.sourceCount, 5);
   assert.deepEqual(
     { sourceCount: replitView.sourceCount, conversationId: replitView.conversationId },
     { sourceCount: claudeView.sourceCount, conversationId: claudeView.conversationId },
@@ -257,7 +324,7 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
   assert.equal(sourceEvents.some(event => JSON.stringify(event.payload).includes('¿Cómo estás?')), false);
   assert.deepEqual(
     new Set(sourceEvents.map(event => (event.payload as any).sourceId)),
-    new Set([davidMessage.id, danielaMessage.id, health.id, issue.id]),
+    new Set([davidMessage.id, danielaMessage.id, lineage.id, health.id, issue.id]),
   );
   const pill = await getObservationBenchPillStatus({ sessionId, userId });
   assert.equal(pill.identity, 'one_luca_multiple_hats');
@@ -442,7 +509,8 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
   assert.match(clientSource, /bench\.comparison\.byHat\[hat\]\[category\]/);
   assert.match(clientSource, /Cross-hat improvements/);
   assert.match(serviceSource, /founder_authorization_receipt/);
-  assert.match(serviceSource, /coordination_feed_cursor/);
+  assert.match(serviceSource, /from\(coordinationActorFeedCursors\)/);
+  assert.match(serviceSource, /acknowledgedGlobalSequence >= event\.globalSequence/);
   assert.match(coordinationRouteSource, /'observation_window_ended'/);
   assert.match(coordinationRouteSource, /'observation_arm_bound'/);
   assert.match(coordinationRouteSource, /appendFromRequest[\s\S]*rejectReservedObservationPayload/);
@@ -462,13 +530,30 @@ databaseTest('one Luca receives identical evidence at both benches and promotes 
       `${actor} must not forge founder closure through generic coordination`,
     );
   }
-  const ended = await endObservationBench({ threadId });
-  assert.equal((ended.event.payload as any).kind, 'observation_window_ended');
-  assert.equal(ended.event.actor, 'david', 'founder closure must retain David authorship');
-  const endedAgain = await endObservationBench({ threadId });
-  assert.equal(endedAgain.deduplicated, true);
-  const closedBySession = await closeObservationBenchBySessionId({ sessionId });
-  assert.equal(closedBySession.deduplicated, true);
+  const closeResults = await Promise.all([
+    endObservationBench({ threadId }),
+    endObservationBench({ threadId }),
+    closeObservationBenchBySessionId({ sessionId }),
+  ]);
+  assert.equal(
+    closeResults.filter(result => result.deduplicated).length,
+    2,
+    'exactly one concurrent close must win and the others must deduplicate',
+  );
+  assert.equal(
+    closeResults.every(result => result.thread?.id === threadId),
+    true,
+    'all concurrent close callers must resolve the exact same bench',
+  );
+  const endedEvents = (await db.select().from(coordinationEvents))
+    .filter(event => (
+      event.threadId === threadId
+      && (event.payload as any).kind === 'observation_window_ended'
+    ));
+  assert.equal(endedEvents.length, 1, 'concurrent close callers must create one terminal event');
+  const [endedEvent] = endedEvents;
+  const ended = await getCoordinationThread(threadId, 'luca-replit');
+  assert.equal(endedEvent.sequence, ended.thread.latestSequence);
   await assert.rejects(
     syncObservationBench({ threadId, actor: 'luca-replit' }),
     (error: any) => error?.code === 'observation_window_ended',
