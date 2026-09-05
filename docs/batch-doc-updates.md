@@ -5258,3 +5258,21 @@ missing blobs, packet tampering, lease and dirty-tree stops, stale remotes,
 stale local pairs, clean auto-merge pair drift, Markdown-conflict/clean-ledger
 drift, validator failure, audit integrity, exact parents, and ref/worktree
 cleanup. The real preflight reported `safe_fast_forward` and made no candidate.
+
+## Live voice provider routing ownership — September 5, 2026
+
+Voice session routing is now provider-authoritative. OpenAI Realtime is selected
+independently of the Gemini feature flag; only enabled Gemini Live providers
+start Gemini Live. Cartesia, ElevenLabs, Google, Gemini, and unset providers
+remain on the legacy pipeline.
+
+The selected live route is stable for the connection and owns every
+response-producing path even while its upstream session starts or after it
+fails. Binary audio, final audio blobs, streaming chunks, push-to-talk release,
+greeting retries, and prop interactions cannot fall into Deepgram or the legacy
+orchestrator merely because the live provider object is unavailable. Live
+startup and runtime failures now surface an explicit `AI_FAILED` state.
+
+Push-to-talk release closes and invalidates any speculative Deepgram state before
+returning. Focused provider-matrix and no-fallback coverage is registered in both
+the Validation suite and Consolidated CI.

@@ -42,6 +42,12 @@ import {
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL, registerGlSession, unregisterGlSession } from './services/gemini-live-session';
 import { OpenAIRealtimeSession, createOpenAIRealtimeSession } from './services/openai-realtime-session';
+import {
+  getLiveVoiceSessionOwner,
+  resolveLiveVoiceRoute,
+  shouldUseLegacyVoicePipeline,
+  type LiveVoiceRoute,
+} from './services/live-voice-routing';
 import { costTracker } from './services/cost-tracker';
 import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS, getDanielajGLFunctionDeclarationsForLanguage, GL_DISPATCHER_SYSTEM_PROMPT } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
@@ -1390,6 +1396,11 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   // resolved tutor voice's provider is 'openai-realtime'. Mutually exclusive with
   // geminiLiveSession: exactly one (or neither, on the legacy pipeline) is active.
   let openaiRealtimeSession: OpenAIRealtimeSession | null = null;
+  // Stable route ownership for this connection. A selected live provider keeps
+  // ownership even if its upstream socket is starting or fails, so no race or
+  // failure can silently re-enter the legacy STT/response pipeline.
+  let selectedLiveVoiceRoute: LiveVoiceRoute = 'legacy';
+  let liveVoiceFailureMessage: string | null = null;
   // Cached system prompt for the Gemini Live session — needed to restart with a new voice
   let geminiLiveSystemPromptCache = '';
   // Prevent duplicate greeting triggers — client may retry if audio is slow
@@ -1560,12 +1571,14 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
           // doesn't flag active GL sessions as stalled (GL audio bypasses the STT path
           // that normally calls resetIdleTimeout).
           if (session) orchestrator.resetIdleTimeoutForSession(session.id);
-          if (geminiLiveSession) {
-            geminiLiveSession.sendAudioChunk(audioBuffer);
-            return;
-          }
-          if (openaiRealtimeSession) {
-            openaiRealtimeSession.sendAudioChunk(audioBuffer);
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (selectedLiveVoiceRoute === 'gemini-live' && geminiLiveSession) {
+              geminiLiveSession.sendAudioChunk(audioBuffer);
+            } else if (selectedLiveVoiceRoute === 'openai-realtime' && openaiRealtimeSession) {
+              openaiRealtimeSession.sendAudioChunk(audioBuffer);
+            } else if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
             return;
           }
 
@@ -1753,12 +1766,24 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             const phase1Ms = Date.now() - initStart;
             console.log(`[SessionInit] Phase 1 (parallel DB lookups) completed in ${phase1Ms}ms`);
 
-            // Resolved once per connection — true when this student's language+gender
-            // tutor voice is explicitly configured (Voice Console) to use OpenAI's
-            // audio-to-audio Realtime model instead of Gemini Live.
-            const useOpenAIRealtime = (tutorVoice as any)?.provider === 'openai-realtime';
+            // Resolve the live engine from the tutor voice that was actually selected.
+            // GEMINI_LIVE_VOICE_ENABLED is only an availability gate; it must never
+            // override an explicit Cartesia, ElevenLabs, Google, or other provider.
+            const resolvedVoiceProvider = (tutorVoice as any)?.provider as string | undefined;
+            const liveVoiceRoute = resolveLiveVoiceRoute(
+              resolvedVoiceProvider,
+              GEMINI_LIVE_VOICE_ENABLED,
+            );
+            selectedLiveVoiceRoute = liveVoiceRoute;
+            liveVoiceFailureMessage = null;
+            const useOpenAIRealtime = liveVoiceRoute === 'openai-realtime';
             if (useOpenAIRealtime) {
               console.log(`[SessionInit] Tutor voice provider is 'openai-realtime' — routing this session to OpenAI GPT Realtime instead of Gemini Live`);
+            } else if (
+              (resolvedVoiceProvider === 'gemini-live' || resolvedVoiceProvider === 'gemini-live-35')
+              && liveVoiceRoute === 'legacy'
+            ) {
+              console.warn(`[SessionInit] Tutor voice provider '${resolvedVoiceProvider}' selected while Gemini Live is disabled — using the legacy voice pipeline`);
             }
 
             // ══════════════════════════════════════════════════════════════
@@ -2650,11 +2675,10 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
               console.log('[ResumeHandle] Injected restored handle into session — GL will reconnect with full context');
             }
 
-            // ── Gemini Live voice session (feature-flagged) ──────────────────
-            // Also entered when this student's tutor voice is explicitly set to
-            // 'openai-realtime' (useOpenAIRealtime), independent of the GL flag —
-            // both live-audio engines share the classroom-context baking below.
-            if (GEMINI_LIVE_VOICE_ENABLED || useOpenAIRealtime) {
+            // ── Live audio voice session (provider-selected) ─────────────────
+            // OpenAI Realtime and Gemini Live share the classroom-context baking
+            // below, but only the resolved provider may activate a live engine.
+            if (liveVoiceRoute !== 'legacy') {
               try {
                 // Gemini Live uses a one-shot system prompt — it bypasses the per-turn orchestrator
                 // injection that the regular pipeline relies on. We must bake ALL of Daniela's
@@ -3415,9 +3439,17 @@ ${lastNote.tutorNotes}`);
                   // context for one admin-selected tutor voice.
                   const studentDisplayName = user?.firstName || 'there';
                   const openaiGreetingTrigger = `You are Daniela, a warm, encouraging language tutor. ${studentDisplayName} just arrived for a voice session. Greet them naturally following the language-mix guidance in your instructions, then begin the conversation.`;
-                  openaiRealtimeSession = createOpenAIRealtimeSession(session, glSendMessage);
+                  const currentOpenAISession = createOpenAIRealtimeSession(session, glSendMessage);
+                  openaiRealtimeSession = currentOpenAISession;
+                  currentOpenAISession.onUnavailable = (reason) => {
+                    if (openaiRealtimeSession !== currentOpenAISession) return;
+                    liveVoiceFailureMessage = `${reason}. Reconnect the voice session or select another provider.`;
+                    currentOpenAISession.stop();
+                    openaiRealtimeSession = null;
+                    sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+                  };
                   try {
-                    await openaiRealtimeSession.start(geminiLiveSystemPrompt, openaiGreetingTrigger, {
+                    await currentOpenAISession.start(geminiLiveSystemPrompt, openaiGreetingTrigger, {
                       personality: (tutorVoice as any)?.personality,
                       emotion: (tutorVoice as any)?.emotion,
                       expressiveness: (tutorVoice as any)?.expressiveness,
@@ -3425,9 +3457,12 @@ ${lastNote.tutorNotes}`);
                     console.log(`[OpenAIRealtime] Session started for ${studentDisplayName}, lang: ${config.targetLanguage || 'spanish'}, voice: ${session.voiceId}`);
                   } catch (oaErr: any) {
                     console.error('[OpenAIRealtime] Failed to start session:', oaErr.message);
-                    openaiRealtimeSession?.stop();
-                    openaiRealtimeSession = null;
-                    throw oaErr; // let the outer catch below fall through to the legacy pipeline
+                    if (openaiRealtimeSession === currentOpenAISession) {
+                      currentOpenAISession.stop();
+                      openaiRealtimeSession = null;
+                    }
+                    liveVoiceFailureMessage = `OpenAI Realtime could not start: ${oaErr.message}. Reconnect the voice session or select another provider.`;
+                    sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
                   }
                   // Minimal idle timeout so a forgotten test session doesn't run indefinitely —
                   // reuses the same idle-timer slot GL uses (mutually exclusive with GL per session).
@@ -3643,7 +3678,8 @@ ${lastNote.tutorNotes}`);
                 if (conversationId && geminiLiveSession) unregisterGlSession(conversationId, geminiLiveSession);
                 geminiLiveSession = null;
                 if (openaiRealtimeSession) { openaiRealtimeSession.stop(); openaiRealtimeSession = null; }
-                // Fall through — session still works via legacy pipeline
+                liveVoiceFailureMessage = `The selected live voice provider could not start: ${glErr.message}. Reconnect the voice session or select another provider.`;
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
               }
             } else {
               // ── Text-mode (Deepgram) absence return resolution ─────────────
@@ -3781,6 +3817,24 @@ ${lastNote.tutorNotes}`);
             sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready for greeting', true);
             return;
           }
+
+          // OpenAI Realtime sends its greeting during start(). A later client
+          // retry is always a no-op, including after startup/runtime failure;
+          // it must never become a legacy text+TTS greeting.
+          if (selectedLiveVoiceRoute === 'openai-realtime') {
+            if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            } else {
+              console.log('[OpenAIRealtime] request_greeting received — already greeted on session start, ignoring');
+            }
+            break;
+          }
+          if (selectedLiveVoiceRoute === 'gemini-live' && !geminiLiveSession) {
+            if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
+            break;
+          }
           
           // RECONNECTION GUARD: If this session was created via reconnection,
           // skip the greeting to prevent double audio after infrastructure timeout.
@@ -3807,7 +3861,7 @@ ${lastNote.tutorNotes}`);
           const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean; scenarioSlug?: string };
           
           // Check for pending handoff intro
-          if (userId && pendingHandoffIntros.has(userId)) {
+          if (shouldUseLegacyVoicePipeline(selectedLiveVoiceRoute) && userId && pendingHandoffIntros.has(userId)) {
             const pendingIntro = pendingHandoffIntros.get(userId)!;
             const age = Date.now() - pendingIntro.timestamp;
             
@@ -3905,15 +3959,7 @@ ${lastNote.tutorNotes}`);
             } else {
               console.log('[GeminiLive] Duplicate request_greeting ignored — greeting already sent');
             }
-          } else if (openaiRealtimeSession) {
-            // OpenAI Realtime already greets automatically when the session starts
-            // (see the openaiGreetingTrigger passed to .start() above) — this
-            // client-side request_greeting message is a no-op here. Falling through
-            // to the legacy orchestrator branch below would fire a second, separate
-            // greeting on Daniela's old text+TTS pipeline in parallel — two voices
-            // talking over each other — so this branch must stay a no-op.
-            console.log('[OpenAIRealtime] request_greeting received — already greeted on session start, ignoring');
-          } else {
+          } else if (shouldUseLegacyVoicePipeline(selectedLiveVoiceRoute)) {
             // Legacy orchestrator path (used when GeminiLive is not active)
             // ── Text-mode absence synthesis injection ──────────────────────
             // Settle the absence promise (started in start_session) before prompt
@@ -3973,6 +4019,16 @@ ${lastNote.tutorNotes}`);
             audioBuffer = Buffer.from(audioMessage.audio, 'base64');
           } else {
             audioBuffer = Buffer.from(audioMessage.audio);
+          }
+
+          // LIVE VOICE PATH: streamed live providers already own this audio turn.
+          // Never process the final blob through legacy STT, even if the upstream
+          // live socket failed after provider selection.
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
+            break;
           }
 
           // GEMINI LIVE PATH: Route PTT through Gemini Live when the Live session is active.
@@ -4081,9 +4137,22 @@ ${lastNote.tutorNotes}`);
           if (tapLabel) {
             const contextText = `*(the student examines the ${tapLabel}${tapNative ? ` — ${tapNative}` : ''})*`;
             console.log(`[PropTap] Injecting context: "${contextText}"`);
-            if (geminiLiveSession) {
-              geminiLiveSession.sendTextTurn(contextText, { label: 'prop-tap', isStudentInput: true });
-            } else if (session) {
+            if (selectedLiveVoiceRoute === 'gemini-live') {
+              if (geminiLiveSession) {
+                geminiLiveSession.sendTextTurn(contextText, { label: 'prop-tap', isStudentInput: true });
+              } else if (liveVoiceFailureMessage) {
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+              }
+            } else if (selectedLiveVoiceRoute === 'openai-realtime') {
+              // The initial OpenAI Realtime integration has no text-event bridge.
+              // Preserve route ownership rather than sending this interaction to
+              // Daniela's separate legacy response pipeline.
+              if (liveVoiceFailureMessage) {
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+              } else {
+                console.log('[OpenAIRealtime] prop_tap ignored — text-event bridge is not available');
+              }
+            } else if (shouldUseLegacyVoicePipeline(selectedLiveVoiceRoute) && session) {
               orchestrator.processOpenMicTranscript(session.id, contextText, 1.0);
             }
             // GOAP Prop Awareness: flag this prop as the student's focus so the next ELICIT
@@ -4207,12 +4276,14 @@ ${lastNote.tutorNotes}`);
             const resetTimer2 = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
             if (resetTimer2) resetTimer2();
           }
-          if (geminiLiveSession) {
-            geminiLiveSession.sendAudioChunk(audioBuffer);
-            break;
-          }
-          if (openaiRealtimeSession) {
-            openaiRealtimeSession.sendAudioChunk(audioBuffer);
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (selectedLiveVoiceRoute === 'gemini-live' && geminiLiveSession) {
+              geminiLiveSession.sendAudioChunk(audioBuffer);
+            } else if (selectedLiveVoiceRoute === 'openai-realtime' && openaiRealtimeSession) {
+              openaiRealtimeSession.sendAudioChunk(audioBuffer);
+            } else if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
             break;
           }
           
@@ -4596,18 +4667,41 @@ ${lastNote.tutorNotes}`);
             return;
           }
 
-          // ── GL fast-path ─────────────────────────────────────────────────────
-          // For Gemini Live sessions the speculative Deepgram PTT session is never
-          // started — audio streams directly to GL via sendAudioChunk(). GL's own
-          // VAD handles turn detection and triggers the response. Waiting 1,200 ms
-          // for a Deepgram final that will never arrive would add dead latency to
-          // every GL PTT turn, so we exit early here.
-          if (geminiLiveSession) {
-            console.log('[GeminiLive PTT] ptt_release — GL active, skipping Deepgram wait');
+          // ── Live-session fast path ────────────────────────────────────────────
+          // Gemini Live and OpenAI Realtime each own the complete audio-to-response
+          // turn. Neither may fall through into the legacy Deepgram/AI pipeline.
+          const liveVoiceOwner = getLiveVoiceSessionOwner(
+            Boolean(geminiLiveSession),
+            Boolean(openaiRealtimeSession),
+          );
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (liveVoiceOwner === 'conflict') {
+              console.error('[LiveVoice PTT] Both live engines are active; suppressing legacy fallthrough');
+            } else if (liveVoiceOwner === 'legacy') {
+              console.error(`[LiveVoice PTT] ${selectedLiveVoiceRoute} owns turn but its session is unavailable; suppressing legacy fallthrough`);
+              if (liveVoiceFailureMessage) {
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+              }
+            } else {
+              console.log(`[LiveVoice PTT] ptt_release — ${liveVoiceOwner} owns turn, skipping Deepgram wait`);
+            }
             if (speculativePttSession) {
               speculativePttSession.close();
               speculativePttSession = null;
             }
+            // Invalidate any partially-started or stale Deepgram turn so callbacks
+            // cannot repopulate transcript state after the live engine takes over.
+            speculativePttSessionId++;
+            speculativePttSessionStarting = false;
+            speculativePttPendingChunks = [];
+            speculativePttTranscript = '';
+            speculativePttWordCount = 0;
+            speculativePttTriggered = false;
+            speculativePttTranscriptUsed = '';
+            speculativePttGotFinal = false;
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            speculativeAiAccepted = false;
             break;
           }
 

@@ -93,6 +93,7 @@ export class OpenAIRealtimeSession {
   private chunkIndex = 0;
   private hadAudioThisResponse = false;
   private closedByUs = false;
+  onUnavailable: ((reason: string) => void) | null = null;
 
   constructor(
     private session: StreamingSession,
@@ -181,12 +182,15 @@ export class OpenAIRealtimeSession {
       ws.on('error', (err: Error) => {
         console.error('[OpenAIRealtime] WebSocket error:', err.message);
         clearTimeout(openTimeout);
+        this.onUnavailable?.(`OpenAI Realtime connection error: ${err.message}`);
         reject(err);
       });
 
       ws.on('close', (code: number, reason: Buffer) => {
         if (!this.closedByUs) {
-          console.warn(`[OpenAIRealtime] Session closed unexpectedly — code: ${code}, reason: ${reason?.toString() || '(none)'}`);
+          const detail = `OpenAI Realtime session closed unexpectedly (code ${code}${reason?.length ? `: ${reason.toString()}` : ''})`;
+          console.warn(`[OpenAIRealtime] ${detail}`);
+          this.onUnavailable?.(detail);
         }
       });
     });
@@ -239,6 +243,7 @@ export class OpenAIRealtimeSession {
 
       case 'error':
         console.error('[OpenAIRealtime] Server error event:', JSON.stringify(event.error ?? event));
+        this.onUnavailable?.(`OpenAI Realtime server error: ${event.error?.message ?? 'unknown error'}`);
         break;
 
       default:
