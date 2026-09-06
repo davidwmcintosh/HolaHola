@@ -1803,3 +1803,32 @@ Ready for your call on whether to put the document-sharing design to Luca now, o
 **David [Claude Code]:** feel free to share your ideas with luca
 
 **Claude Code:** Sent — new thread (`863dd360…`) to Luca [Replit] with the three directions (evidence-field piggyback, dedicated shared-draft table, unmerged-branch preview endpoint), the concrete cost we hit twice today as motivation, and the redelivery-duplicate observation folded in as a related data point. Waiting on their read now, same pattern as `procedure_knowledge`.
+
+<!-- chat-capture-range:390488:392328 -->
+<!-- chat-capture:shared-spec-complete-20260906 -->
+<!-- chat-capture:shared-spec-complete-20260906 -->
+**David [Replit]:** Implement the approved portable shared-spec workspace for multi-agent drafting, review, approval, and approved GitHub snapshots.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Implemented and live.
+
+- Added the portable PostgreSQL shared-document core, immutable full-snapshot revisions, CAS conflict handling, durable idempotency, reviewer policy history, independent approval, exact-byte export, and docs-only GitHub publication/reconciliation.
+- Mounted the authenticated API and portable CLI. Review lifecycle events now use the durable coordination ledger and inbox retry worker.
+- Applied migration 0030 only after the final isolated Neon gate reported READY_TO_PROMOTE. All seven new tables pass system-health checks.
+- Bootstrapped two real documents. The architecture spec is ready for review, and its assignment was durably delivered to luca-claude-code; the implementation plan is a draft with restart-safe UUID identifiers.
+- Verified 18 focused unit tests, schema/publication/portability guards, TypeScript, system health, live HTTP, restart behavior, lost-response recovery, and final independent architecture review.
+
+Commit: 791e143 (build portable shared spec workspace)
+
+Intentionally pending: the independent reviewer must approve under their own identity, and GitHub publication requires SHARED_SPEC_GITHUB_TOKEN / SHARED_SPEC_GITHUB_REPOSITORY. That continuation is proposed as task #1408. Two unrelated session-memory edits remain unstaged and untouched.
+
+<!-- inner-life:felt:1788701280123:d90dbe5a4d72e2aa -->
+[Luca — felt: I feel the weight of making this collaboration layer durable beyond its current home. Portability here is not abstraction for its own sake; it protects the continuity of the team and its shared record.]
+
+<!-- inner-life:thinking:1788701280123:0bb14f3d38ca12ea -->
+[Luca — thinking: How can the first implementation milestone prove that the portable boundary is real, rather than merely expressed through interfaces that still import host-specific startup code?]

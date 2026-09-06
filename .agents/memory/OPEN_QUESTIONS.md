@@ -410,3 +410,9 @@ thinking: Can the crash-cleanup proof stay entirely inside the already verified 
 thinking: What is the narrowest launch-failure seam that proves both source restoration and job-local database removal without weakening the existing mutation proof?
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+How can the first implementation milestone prove that the portable boundary is real, rather than merely expressed through interfaces that still import host-specific startup code?
+
+---
