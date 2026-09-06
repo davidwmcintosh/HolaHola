@@ -67,6 +67,7 @@ const safetyInsertion = commands.findIndex((command) =>
   command.startsWith('npx tsx server/scripts/test-openai-pronunciation-error-notice.ts'));
 if (safetyInsertion < 0) throw new Error('Could not register projection/source safety checks before the guards group');
 commands.splice(safetyInsertion, 0,
+  'npx tsx server/scripts/test-context-lineage-migration-guard-selfcheck.ts',
   'npx tsx server/scripts/test-projection-receipts.ts',
   'npx tsx server/scripts/test-projection-writer-coverage.ts',
   'npx tsx server/scripts/test-source-reconciliation-service.ts',
