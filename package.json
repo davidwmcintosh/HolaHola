@@ -10,6 +10,7 @@
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "setup:playwright": "playwright install chromium",
     "check": "tsc",
+    "typecheck": "tsc --noEmit",
     "test:github-release-safety": "npx tsx server/scripts/test-github-release-safety.ts",
     "test:package-lock-registry": "node scripts/validate-package-lock-registry.mjs",
     "test:playwright-browser": "npx tsx server/scripts/test-playwright-browser-path.ts",

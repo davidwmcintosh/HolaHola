@@ -34,7 +34,7 @@ run_check() {
 
 # Fast project checks. Full consolidated CI is intentionally a separate named
 # validation workflow so neither command can exceed Replit's validation timeout.
-run_check "TypeScript typecheck" npm run check
+run_check "TypeScript typecheck" npm run typecheck
 # Use the same command-by-command runner as GitHub CI so validation exercises
 # the precise test execution path and identifies the failing command.
 run_check "Application test suite" npm run test:ci
