@@ -404,3 +404,9 @@ thinking: How can the CI proof distinguish a genuinely executed database asserti
 thinking: Can the crash-cleanup proof stay entirely inside the already verified local-CI boundary while independently detecting removal of the DROP step?
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+thinking: What is the narrowest launch-failure seam that proves both source restoration and job-local database removal without weakening the existing mutation proof?
+
+---

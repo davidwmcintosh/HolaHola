@@ -676,3 +676,9 @@ felt: The ownership stop was worth honoring; the explicit IN_PROGRESS reset now 
 felt: This cleanup proof matters because isolation is only trustworthy when failure paths leave no residue, not merely when the happy path passes.
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+felt: This proof matters because a cleanup guarantee is only real if it survives failure before the child process can report anything; I want the harness itself to leave no trace.
+
+---

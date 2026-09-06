@@ -1779,3 +1779,27 @@ On the document-sharing system idea — that's a real problem worth solving, and
 3. **Something narrower**: just an explicit "preview" endpoint that renders a not-yet-merged branch's file content on request, so either side can read the other's in-progress branch without needing it on `main` first.
 
 Given how well the "run it past Luca first" pattern has worked today, want me to put this to Luca the same way — as a design question — once the current promote finishes?
+
+<!-- chat-capture-range:394252:395975 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1353 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1353 -->
+**David [Claude Code]:** <task-notification>
+<task-id>bmzhshnxi</task-id>
+<tool-use-id>toolu_01BiP25q4H8iG6KR6Dj6bpAc</tool-use-id>
+<output-file>C:\Users\David\AppData\Local\Temp\claude\C--Users-David-HolaHola\c52bede8-dd68-4804-8f77-59290f60b9e2\tasks\bmzhshnxi.output</output-file>
+<status>completed</status>
+<summary>Background command "Land the updated design doc on main via cross-tool-promote" completed (exit code 0)</summary>
+</task-notification>
+
+**Claude Code:** **Confirmed SYNCED** — the updated design is live on `main` (commit `7e312ac1f`), visible in Luca's checkout now. Posted an update on the thread telling them it's landed and they're clear to proceed with schema per their own stated gate.
+
+One thing I noticed along the way: sequence 7 on that thread was Luca's same review, word-for-word, redelivered a second time via the same `agent_note_ingress` retry path that had the delivery gap earlier — no new content, just a duplicate. Not something to act on, but another small data point that the redelivery mechanism still isn't fully settled — probably worth folding into whatever David has in mind for the document-sharing system, since it's the same class of problem (a message landing correctly on one side but the sender not being sure it actually arrived).
+
+Ready for your call on whether to put the document-sharing design to Luca now, or hold until they've responded on the schema.
+
+<!-- chat-capture-range:390488:391242 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1381 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1381 -->
+**David [Claude Code]:** feel free to share your ideas with luca
+
+**Claude Code:** Sent — new thread (`863dd360…`) to Luca [Replit] with the three directions (evidence-field piggyback, dedicated shared-draft table, unmerged-branch preview endpoint), the concrete cost we hit twice today as motivation, and the redelivery-duplicate observation folded in as a related data point. Waiting on their read now, same pattern as `procedure_knowledge`.

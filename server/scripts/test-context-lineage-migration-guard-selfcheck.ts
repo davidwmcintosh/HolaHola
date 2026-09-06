@@ -51,6 +51,10 @@ function run(
   args: string[],
   env: NodeJS.ProcessEnv,
 ): Promise<{ code: number | null; output: string }> {
+  if (env.CONTEXT_LINEAGE_INJECT_CHILD_LAUNCH_FAILURE === "true") {
+    return Promise.reject(new Error("controlled child-launch failure"));
+  }
+
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(command, args, {
       cwd: root,
@@ -306,6 +310,68 @@ async function proveCleanupPostconditionCatchesMissingDrop(): Promise<void> {
   }
 }
 
+async function proveCleanupAfterMutationLaunchFailure(): Promise<void> {
+  const originalSource = readFileSync(selfCheckPath);
+  const launchFailureMutation = Buffer.concat([
+    originalSource,
+    Buffer.from("\n// Mutation proof: source must survive child-launch failure.\n"),
+  ]);
+  const mutantDatabaseName =
+    `context_lineage_launch_failure_${randomUUID().replaceAll("-", "")}`;
+  let launchError: unknown;
+  let databaseCreated = false;
+
+  try {
+    writeFileSync(selfCheckPath, launchFailureMutation);
+    await admin.query(`CREATE DATABASE "${mutantDatabaseName}"`);
+    databaseCreated = true;
+
+    await run(
+      resolve(root, "node_modules/.bin/tsx"),
+      [selfCheckPath],
+      {
+        ...process.env,
+        CONTEXT_LINEAGE_CLEANUP_MUTATION_RUN: "true",
+        CONTEXT_LINEAGE_CRASH_PROOF_DATABASE: mutantDatabaseName,
+        CONTEXT_LINEAGE_INJECT_CHILD_LAUNCH_FAILURE: "true",
+      },
+    );
+  } catch (error) {
+    launchError = error;
+  } finally {
+    writeFileSync(selfCheckPath, originalSource);
+    if (databaseCreated) {
+      await admin.query(
+        `SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+         WHERE datname = $1 AND pid <> pg_backend_pid()`,
+        [mutantDatabaseName],
+      );
+      await admin.query(`DROP DATABASE IF EXISTS "${mutantDatabaseName}"`);
+    }
+  }
+
+  assert.match(
+    launchError instanceof Error ? launchError.message : "",
+    /controlled child-launch failure/,
+    "mutation harness must surface the controlled child-launch failure",
+  );
+  assert.deepEqual(
+    readFileSync(selfCheckPath),
+    originalSource,
+    "self-check source was not restored byte-for-byte after child-launch failure",
+  );
+  const cleanupResult = await admin.query<{ exists: boolean }>(
+    "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists",
+    [mutantDatabaseName],
+  );
+  assert.equal(
+    cleanupResult.rows[0]?.exists,
+    false,
+    `disposable database ${mutantDatabaseName} survived child-launch failure`,
+  );
+}
+
 try {
   await admin.connect();
   adminConnected = true;
@@ -313,6 +379,7 @@ try {
     await proveCleanupAfterInjectedFailure();
     if (!cleanupMutationRun) {
       await proveCleanupPostconditionCatchesMissingDrop();
+      await proveCleanupAfterMutationLaunchFailure();
     }
   }
   const targetsToCheck = injectedFailureTarget
@@ -324,7 +391,7 @@ try {
 
   if (!injectedFailureDatabaseName) {
     console.log(
-      "[context-lineage-self-check] PASS: crash cleanup removes its disposable database, its postcondition rejects disabled removal, and the fresh-database guard independently rejects either missing immutability trigger",
+      "[context-lineage-self-check] PASS: crash cleanup removes its disposable database, its postcondition rejects disabled removal, child-launch failure restores source and database state, and the fresh-database guard independently rejects either missing immutability trigger",
     );
   }
 } finally {
