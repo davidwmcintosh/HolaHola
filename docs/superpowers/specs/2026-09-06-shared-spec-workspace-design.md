@@ -14,16 +14,49 @@ objects, missing Git credentials, or no reason to fetch at the right moment.
 The result is avoidable latency and repeated uncertainty about whether another
 participant can read the latest document.
 
-The shared spec workspace makes Neon the canonical collaborative surface for
-in-progress design documents. Coordination records review requests and
-decisions. Git receives only an approved immutable revision through a docs-only
-pull request.
+The shared spec workspace makes standard PostgreSQL the canonical
+collaborative surface for in-progress design documents. Coordination records
+review requests and decisions. Git receives only an approved immutable
+revision through a docs-only pull request.
 
 The governing model is:
 
 > **Database:** living collaborative record  
 > **Coordination ledger:** requests, reviews, and decisions  
 > **Git:** approved immutable snapshot
+
+## Portability requirement
+
+The shared spec workspace must continue functioning if HolaHola is moved away
+from Replit.
+
+The core depends only on:
+
+- a Node-compatible JavaScript runtime;
+- a standard PostgreSQL database;
+- HTTP;
+- a GitHub App or token accepted by GitHub's standard REST API when publication
+  is enabled.
+
+The core must not depend on:
+
+- Replit workflows or deployment APIs;
+- Replit integrations or connector runtimes;
+- Replit domains, project IDs, identity, authentication, or agent callbacks;
+- Replit Secrets APIs or Replit-specific environment-variable names;
+- Replit filesystem persistence;
+- Replit database products or platform-managed migration execution.
+
+Neon may remain the current PostgreSQL provider, but no Neon-specific API is
+required for normal document operation. The connection is supplied through a
+portable application database configuration. Standard migrations can be run
+from any CI or operator environment.
+
+HolaHola-specific actor authentication, coordination notifications, and Git
+publication are adapters around a portable document core. Losing an adapter
+may temporarily remove notifications or publication, but it must not prevent
+creating, reading, revising, reviewing, or exporting documents through the core
+API.
 
 ## Scope
 
@@ -154,6 +187,10 @@ Reviewer policy stores or resolves:
 Disabling an actor affects future claims and decisions. It never invalidates or
 rewrites historical approvals.
 
+Actor IDs are application-owned strings. They must not encode a Replit account,
+workspace, deployment, or model-provider identity. Authentication resolves an
+external credential to an actor through an injected adapter.
+
 ### Publications
 
 A publication stores:
@@ -213,8 +250,11 @@ publication.
 9. Pull-request status is reconciled separately. Only a verified merged state
    marks the revision merged.
 
-The Git publisher is a single canonical service. Individual drafting agents do
-not need Git credentials to collaborate or publish.
+The Git publisher is a single canonical service using GitHub's public API.
+Individual drafting agents do not need Git credentials to collaborate or
+publish. The publisher receives credentials through ordinary host secret
+configuration or a GitHub App installation, never through a Replit-only
+connector contract.
 
 ## Coordination integration
 
@@ -256,9 +296,14 @@ Every response includes the relevant document ID, revision ID, content hash,
 actor attribution, and lifecycle state. Mutations require stable idempotency
 keys.
 
-Authorization derives actor identity from existing actor-scoped coordination
-credentials. Callers cannot provide a different author or reviewer identity in
-the request body.
+Authorization receives actor identity from an injected authentication adapter.
+HolaHola's initial adapter may validate the existing actor-scoped coordination
+credentials, while another deployment may use static service credentials,
+OIDC, mTLS, or another identity provider. Callers cannot provide a different
+author or reviewer identity in the request body.
+
+The core service accepts an already-authenticated actor context and contains no
+Replit authentication logic.
 
 ## Failure behavior
 
@@ -281,7 +326,8 @@ the request body.
 
 ## Security and authority boundaries
 
-- Shared-spec access uses actor-scoped authentication.
+- Shared-spec access uses actor-scoped authentication through a replaceable
+  adapter.
 - Database constraints and service checks enforce immutability and authorship.
 - The Git publisher accepts only approved revisions and one configured
   docs/spec path namespace.
@@ -291,6 +337,27 @@ the request body.
   or embedded instructions.
 - Document approval does not authorize implementing the design or performing a
   privileged operation.
+
+## Adapter boundaries
+
+The implementation separates four interfaces:
+
+1. **Document repository:** PostgreSQL-backed documents, revisions, reviews,
+   policies, and publications. This is required.
+2. **Actor authenticator:** maps a request credential to an application actor
+   and capabilities. The initial HolaHola adapter may reuse coordination
+   credentials. This is replaceable.
+3. **Notification sink:** emits review and publication lifecycle references.
+   The initial adapter uses the coordination ledger. A no-op or alternate
+   webhook/message adapter is valid, and notification failure does not disable
+   core document operations.
+4. **Publication provider:** creates and reconciles docs-only pull requests.
+   The initial provider uses standard GitHub REST APIs. The core can export
+   approved bytes without GitHub, allowing another publisher to be substituted.
+
+Adapters must be dependency-injected into the application layer. Portable core
+services must not import Replit SDKs, Replit callbacks, workflow modules, or
+platform-specific secret clients.
 
 ## Verification
 
@@ -315,9 +382,17 @@ Focused tests must prove:
 13. Pull-request creation is not mistaken for merge.
 14. Actor credentials cannot forge author or reviewer identity.
 15. Non-spec paths and caller-selected repositories are rejected.
+16. Core service tests run with an ordinary PostgreSQL connection and fake
+    adapters, with no Replit environment variables or APIs present.
+17. Disabling the notification adapter does not block drafting, revision,
+    review, approval, or approved-byte export.
+18. Publication can use a standard GitHub HTTP client without a Replit
+    integration.
 
-Database schema changes must follow the reviewed-migration process and be
-proved on an isolated Neon branch before application. Standard TypeScript,
+Database schema changes must use portable PostgreSQL migrations. In the current
+environment they still follow HolaHola's reviewed-migration process and are
+proved on an isolated Neon branch before application, but neither the generated
+schema nor runtime service may depend on Neon branch APIs. Standard TypeScript,
 focused coordination/publication tests, consolidated CI, and system-health
 verification remain required before shipping.
 
@@ -332,6 +407,8 @@ verification remain required before shipping.
    pull request.
 7. Only after that evidence, consider extending the system to procedures,
    skills, handoffs, or a visual editor.
+8. Run the core service and tests once with all Replit-specific environment
+   variables absent, proving portability rather than inferring it.
 
 ## Success criteria
 
@@ -339,4 +416,6 @@ The MVP succeeds when two agents in different runtimes can draft and review one
 design specification against the same canonical revision history, detect and
 resolve a concurrent edit without data loss, approve one exact revision, and
 publish that revision through a docs-only pull request without either agent
-needing to synchronize or clean its local Git checkout.
+needing to synchronize or clean its local Git checkout. The same drafting,
+review, and export flow must continue on a non-Replit host using the same
+PostgreSQL schema and public API contracts.
