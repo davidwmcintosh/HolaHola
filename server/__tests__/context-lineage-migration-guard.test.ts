@@ -29,6 +29,8 @@ const journal = JSON.parse(
 const ciWorkflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
 const verifiedCiDatabaseUrl = getVerifiedCiDatabaseUrl();
 const databaseTest = verifiedCiDatabaseUrl ? it : it.skip;
+export const CONTEXT_LINEAGE_DATABASE_EXECUTION_MARKER =
+  "[ci] context-lineage immutability database subtest executed";
 
 describe("context lineage migration", () => {
   it("is part of the standard Drizzle migration ledger in chronological order", () => {
@@ -50,6 +52,11 @@ describe("context lineage migration", () => {
     assert.doesNotMatch(
       ciWorkflow,
       /npx tsx server\/scripts\/apply-context-lineage-ledger\.ts/,
+    );
+    assert.match(
+      ciWorkflow,
+      /npx tsx server\/scripts\/test-context-lineage-ci-execution\.ts/,
+      "CI must prove the database subtest executed after applying standard migrations",
     );
   });
 
@@ -154,6 +161,7 @@ describe("context lineage migration", () => {
         client.query("DELETE FROM context_lineage_links WHERE id = $1", [linkId]),
         /context lineage ledger is immutable: DELETE is not permitted on context_lineage_links/,
       );
+      console.log(CONTEXT_LINEAGE_DATABASE_EXECUTION_MARKER);
     } finally {
       await client.end();
     }

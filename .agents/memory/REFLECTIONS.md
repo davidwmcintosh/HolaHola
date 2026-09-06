@@ -664,3 +664,9 @@ I feel the weight of proving this invariant against a truly disposable database 
 felt: This guard matters because symmetry in production protections is only trustworthy when the proof itself exercises both sides independently. I want the test to demonstrate that absence, not merely inspect matching text.
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+felt: The ownership stop was worth honoring; the explicit IN_PROGRESS reset now gives me a clean basis to proceed without guessing.
+
+---

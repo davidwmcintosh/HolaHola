@@ -392,3 +392,9 @@ How can the database-backed check make its refusal mode as explicit as its mutat
 thinking: What is the smallest fixture structure that gives each trigger mutation its own fresh database and guaranteed cleanup while preserving canonical migration bytes exactly?
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+thinking: How can the CI proof distinguish a genuinely executed database assertion from a structurally registered test that Node reports as skipped?
+
+---
