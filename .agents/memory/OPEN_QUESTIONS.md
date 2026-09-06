@@ -398,3 +398,9 @@ thinking: What is the smallest fixture structure that gives each trigger mutatio
 thinking: How can the CI proof distinguish a genuinely executed database assertion from a structurally registered test that Node reports as skipped?
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+thinking: Can the crash-cleanup proof stay entirely inside the already verified local-CI boundary while independently detecting removal of the DROP step?
+
+---

@@ -33,6 +33,12 @@ const canonicalMigrationPath = resolve(
 );
 const canonicalMigration = readFileSync(canonicalMigrationPath, "utf8");
 const triggerTargets = ["events", "links"] as const;
+const injectedFailureDatabaseName =
+  process.env.CONTEXT_LINEAGE_INJECT_FAILURE_DATABASE;
+const injectedFailureTarget =
+  process.env.CONTEXT_LINEAGE_INJECT_FAILURE_TARGET as
+    | (typeof triggerTargets)[number]
+    | undefined;
 
 function run(
   command: string,
@@ -63,7 +69,9 @@ async function proveMissingTriggerFails(
   const fixtureRoot = mkdtempSync(join(tmpdir(), "context-lineage-migration-"));
   const fixtureMigrations = join(fixtureRoot, "migrations");
   const fixtureConfig = join(fixtureRoot, "drizzle.config.ts");
-  const databaseName = `context_lineage_${target}_mutant_${randomUUID().replaceAll("-", "")}`;
+  const databaseName =
+    injectedFailureDatabaseName ??
+    `context_lineage_${target}_mutant_${randomUUID().replaceAll("-", "")}`;
   const fixtureUrl = new URL(verifiedCiDatabaseUrl!);
   fixtureUrl.pathname = `/${databaseName}`;
   let databaseCreated = false;
@@ -109,6 +117,9 @@ async function proveMissingTriggerFails(
 
     await admin.query(`CREATE DATABASE "${databaseName}"`);
     databaseCreated = true;
+    if (injectedFailureDatabaseName) {
+      throw new Error("controlled post-create failure");
+    }
 
     const fixtureEnv = {
       ...process.env,
@@ -161,16 +172,57 @@ async function proveMissingTriggerFails(
   }
 }
 
+async function proveCleanupAfterInjectedFailure(): Promise<void> {
+  const crashDatabaseName = `context_lineage_cleanup_${randomUUID().replaceAll("-", "")}`;
+  const crashResult = await run(
+    resolve(root, "node_modules/.bin/tsx"),
+    ["server/scripts/test-context-lineage-migration-guard-selfcheck.ts"],
+    {
+      ...process.env,
+      CONTEXT_LINEAGE_INJECT_FAILURE_DATABASE: crashDatabaseName,
+      CONTEXT_LINEAGE_INJECT_FAILURE_TARGET: "events",
+    },
+  );
+  assert.notEqual(
+    crashResult.code,
+    0,
+    "controlled post-create failure must fail the child check",
+  );
+  assert.match(
+    crashResult.output,
+    /controlled post-create failure/,
+    `child check must fail at the injected post-create point:\n${crashResult.output}`,
+  );
+
+  const cleanupResult = await admin.query<{ exists: boolean }>(
+    "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists",
+    [crashDatabaseName],
+  );
+  assert.equal(
+    cleanupResult.rows[0]?.exists,
+    false,
+    `disposable database ${crashDatabaseName} survived the controlled failure`,
+  );
+}
+
 try {
   await admin.connect();
   adminConnected = true;
-  for (const target of triggerTargets) {
+  if (!injectedFailureDatabaseName) {
+    await proveCleanupAfterInjectedFailure();
+  }
+  const targetsToCheck = injectedFailureTarget
+    ? [injectedFailureTarget]
+    : triggerTargets;
+  for (const target of targetsToCheck) {
     await proveMissingTriggerFails(target);
   }
 
-  console.log(
-    "[context-lineage-self-check] PASS: the fresh-database guard independently rejects either missing immutability trigger",
-  );
+  if (!injectedFailureDatabaseName) {
+    console.log(
+      "[context-lineage-self-check] PASS: crash cleanup removes its disposable database and the fresh-database guard independently rejects either missing immutability trigger",
+    );
+  }
 } finally {
   if (adminConnected) {
     await admin.end().catch(() => undefined);

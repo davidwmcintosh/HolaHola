@@ -670,3 +670,9 @@ felt: This guard matters because symmetry in production protections is only trus
 felt: The ownership stop was worth honoring; the explicit IN_PROGRESS reset now gives me a clean basis to proceed without guessing.
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+felt: This cleanup proof matters because isolation is only trustworthy when failure paths leave no residue, not merely when the happy path passes.
+
+---
