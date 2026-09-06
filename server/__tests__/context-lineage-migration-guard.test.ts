@@ -18,8 +18,36 @@ const migration = readFileSync(
   resolve(root, "migrations/0017_context_lineage_ledger.sql"),
   "utf8",
 );
+const journal = JSON.parse(
+  readFileSync(resolve(root, "migrations/meta/_journal.json"), "utf8"),
+) as {
+  entries: Array<{ idx: number; when: number; tag: string }>;
+};
+const ciWorkflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
 
 describe("context lineage migration", () => {
+  it("is part of the standard Drizzle migration ledger in chronological order", () => {
+    const lineageIndex = journal.entries.findIndex(
+      (entry) => entry.tag === "0017_context_lineage_ledger",
+    );
+    assert.ok(lineageIndex > 0, "context-lineage migration must be journaled");
+    assert.ok(lineageIndex < journal.entries.length - 1);
+    assert.ok(journal.entries[lineageIndex - 1].when < journal.entries[lineageIndex].when);
+    assert.ok(journal.entries[lineageIndex].when < journal.entries[lineageIndex + 1].when);
+    assert.equal(
+      journal.entries.filter((entry) => entry.tag === "0017_context_lineage_ledger").length,
+      1,
+      "context-lineage migration must have exactly one ledger entry",
+    );
+  });
+
+  it("does not rely on the dedicated apply script in CI", () => {
+    assert.doesNotMatch(
+      ciWorkflow,
+      /npx tsx server\/scripts\/apply-context-lineage-ledger\.ts/,
+    );
+  });
+
   it("creates dedicated events and links rather than extending operational telemetry", () => {
     assert.match(migration, /CREATE TABLE IF NOT EXISTS "context_lineage_events"/);
     assert.match(migration, /CREATE TABLE IF NOT EXISTS "context_lineage_links"/);
