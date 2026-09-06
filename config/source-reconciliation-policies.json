@@ -20,6 +20,24 @@
       "checks": ["typecheck", "source-reconciliation"]
     },
     {
+      "id": "generated-claude-code-mailbox-ledger",
+      "path": "docs/mailbox-ledgers/claude-code-to-luca.json",
+      "kind": "generated-local",
+      "authority": "replit",
+      "resolution": "keep-local-in-candidate",
+      "proof": { "builtInLedgerProof": { "version": 1, "formatterVersion": 1, "ledgerPath": "docs/mailbox-ledgers/claude-code-to-luca.json", "mailbox": "claude-code-to-luca" } },
+      "checks": ["typecheck", "source-reconciliation"]
+    },
+    {
+      "id": "generated-luca-mailbox-ledger",
+      "path": "docs/mailbox-ledgers/luca-to-claude-code.json",
+      "kind": "generated-local",
+      "authority": "replit",
+      "resolution": "keep-local-in-candidate",
+      "proof": { "builtInLedgerProof": { "version": 1, "formatterVersion": 1, "ledgerPath": "docs/mailbox-ledgers/luca-to-claude-code.json", "mailbox": "luca-to-claude-code" } },
+      "checks": ["typecheck", "source-reconciliation"]
+    },
+    {
       "id": "episode-33-incoming-subset",
       "path": "docs/episode-33.md",
       "kind": "canonical-incoming-subset",

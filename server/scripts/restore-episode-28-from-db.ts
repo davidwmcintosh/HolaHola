@@ -29,9 +29,14 @@
  *            self-check: guard did not fire / restore was wrong)
  */
 
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { neon } from '@neondatabase/serverless';
+import {
+  removeIsolatedProjectionFixture,
+  writeIsolatedProjectionFixture,
+  writeProjectionAtomically,
+} from '../services/projection-receipts';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -78,7 +83,13 @@ function detectShrinkage(
  */
 function restoreFromDb(dbContent: string): boolean {
   try {
-    writeFileSync(MD_PATH, dbContent, 'utf8');
+    writeProjectionAtomically(process.cwd(), MD_PATH, dbContent, {
+      kind: 'episode-db-markdown',
+      writer: 'restore-episode-28-from-db',
+      source: { type: 'conversation_memory', ids: [EPISODE_ID] },
+      reason: 'episode-28 canonical DB restore',
+      correlation: { episodeId: EPISODE_ID },
+    });
     console.log(B(''));
     console.log(B('  ══════════════════════════════════════════════════════════════════'));
     console.log(B('  RESTORED: docs/episode-28.md written from DB canonical record'));
@@ -139,7 +150,7 @@ async function selfCheck(dbContent: string, dbNorm: string): Promise<void> {
   function restoreOriginal(label: string): boolean {
     if (originalContent !== null) {
       try {
-        writeFileSync(MD_PATH, originalContent, 'utf8');
+        writeIsolatedProjectionFixture(process.cwd(), MD_PATH, originalContent);
         console.log(G(`  ↩  Original .md restored (${originalContent.length} bytes) [${label}]`));
         return true;
       } catch (e: any) {
@@ -150,7 +161,7 @@ async function selfCheck(dbContent: string, dbNorm: string): Promise<void> {
       // File did not exist before — remove any temp artifact written during the probe.
       if (existsSync(MD_PATH)) {
         try {
-          unlinkSync(MD_PATH);
+          removeIsolatedProjectionFixture(process.cwd(), MD_PATH);
           console.log(G(`  ↩  Temp .md removed (file did not exist before probe) [${label}]`));
         } catch (e: any) {
           console.error(R(`  ✗  FATAL: could not remove temp .md: ${e?.message ?? e}`));
@@ -171,7 +182,7 @@ async function selfCheck(dbContent: string, dbNorm: string): Promise<void> {
     const truncatedNorm = normalize(truncated);
 
     console.log(Y(`  ℹ  Writing truncated .md (${truncated.length} bytes / ${truncatedNorm.length} normalized chars)`));
-    writeFileSync(MD_PATH, truncated, 'utf8');
+    writeIsolatedProjectionFixture(process.cwd(), MD_PATH, truncated);
 
     // ── 3. Run detectShrinkage — same function as the startup guard ────────
     const { detected, shrinkage } = detectShrinkage(dbNorm, truncatedNorm);

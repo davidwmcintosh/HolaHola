@@ -76,6 +76,8 @@ export type AgentNoteReplyInput = {
   idempotencyKey: string;
   subject?: string;
   sessionLabel?: string;
+  /** Explicit lifecycle action; omitted replies remain notes-only. */
+  eventType?: Exclude<CoordinationEventType, 'created' | 'delivered'>;
 };
 
 export type CompleteWithLinkedOutcomeClientInput = CoordinationEventInput & {
@@ -258,6 +260,7 @@ export class CoordinationActorClient {
         body: input.body,
         ...(input.subject ? { subject: input.subject } : {}),
         ...(input.sessionLabel ? { session_label: input.sessionLabel } : {}),
+        ...(input.eventType ? { eventType: input.eventType } : {}),
       },
       idempotencyKey: input.idempotencyKey,
     });

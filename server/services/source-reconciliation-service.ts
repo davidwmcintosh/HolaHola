@@ -11,12 +11,14 @@ import { promisify } from 'node:util';
 import { SourceControlService } from './source-control-service';
 import {
   assertMailboxPaths,
+  MAILBOX_PATHS,
   MAILBOX_FORMATTER_VERSION,
   type MailboxIdentity,
   parseMailboxLedgerJson,
   renderMailboxMarkdown,
   serializeMailboxLedger,
 } from './mailbox-ledger';
+import { hashProjectionBytes, readProjectionReceipts, unresolvedProjectionReceipts, type ProjectionReceipt } from './projection-receipts';
 
 const execFile = promisify(nodeExecFile);
 const SHA = /^[0-9a-f]{40}$/;
@@ -41,6 +43,12 @@ export interface ReconciliationPacket {
 }
 type BlobFact = { sha: string; size: number; missing: boolean; lfs: boolean; large: boolean };
 export interface ReconciliationResult { ok: boolean; state: ReconciliationState; packet?: ReconciliationPacket; candidateSha?: string; error?: string }
+export interface ProjectedChangeClassification {
+  classified: boolean;
+  path: string;
+  provenance?: Pick<ProjectionReceipt, 'writer' | 'source' | 'reason' | 'timestamp' | 'kind' | 'correlation'>;
+  error?: string;
+}
 export interface ReconciliationInspectionCommit {
   side: 'local' | 'remote';
   sha: string;
@@ -73,6 +81,11 @@ export interface ReconciliationOptions { rootDir?: string; run?: (args: string[]
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const lines = (text: string) => text.trim() ? text.trim().split('\n').filter(Boolean) : [];
+const policyMatches = (policy: Policy, path: string) => policy.path === path;
+const trustedEpisodeWriter = (writer: string) => new Set([
+  'restore-rolling-episodes-from-db', 'restore-episode-27-from-db', 'restore-episode-28-from-db', 'sync-ep27-from-db',
+]).has(writer);
+const canonicalDbId = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
 export function assertInspectionGitArgs(args: string[], inspectableShas: ReadonlySet<string>): void {
   const command = args[0];
@@ -180,7 +193,7 @@ export class SourceReconciliationService {
       const findings: ReconciliationPacket['findings'] = [];
       const intersections: ReconciliationPacket['intersections'] = [];
       for (const path of intersection) {
-        const policies = manifest.policies.filter((policy) => policy.path === path);
+        const policies = manifest.policies.filter((policy) => policyMatches(policy, path));
         if (policies.length > 1) findings.push({ state: 'policy_overlap', path, detail: 'More than one exact-path policy matched.' });
         const policy = policies[0];
         const [local, remoteFact] = await Promise.all([this.blob(localSha, path), this.blob(remoteSha, path)]);
@@ -194,6 +207,85 @@ export class SourceReconciliationService {
       const state: ReconciliationState = findings[0]?.state || (localAncestor || remoteAncestor ? 'safe_fast_forward' : 'candidate_ready');
       return { ok: findings.length === 0, state, packet, error: findings[0]?.detail };
     } finally { await this.git(['update-ref', '-d', temporaryRef]); }
+  }
+
+  /**
+   * Read-only working-tree attribution. This deliberately does not call Git
+   * mutation commands: a receipt explains a change but never authorizes staging,
+   * discarding, or committing it.
+   */
+  async classifyProjectedChange(path: string): Promise<ProjectedChangeClassification> {
+    const normalized = path.replace(/\\/g, '/');
+    if (!normalized || normalized.startsWith('/') || normalized.includes('..')) {
+      return { classified: false, path: normalized, error: 'Projection path is invalid.' };
+    }
+    const manifest = await this.manifest().catch(() => null);
+    if (!manifest || this.validateManifest(manifest)) {
+      return { classified: false, path: normalized, error: 'Projection policy manifest is invalid.' };
+    }
+    let bytes: Buffer;
+    try { bytes = await readFile(resolve(this.root, normalized)); }
+    catch { return { classified: false, path: normalized, error: 'Current projection bytes are unavailable.' }; }
+    if (/^docs\/episode-[0-9]+\.md$/.test(normalized)) {
+      const receipt = readProjectionReceipts(this.root).filter((item) =>
+        item.path === normalized && item.kind === 'episode-db-markdown'
+        && item.resultHash === hashProjectionBytes(bytes) && item.source.type === 'conversation_memory'
+        && item.source.ids.length === 1 && canonicalDbId(item.source.ids[0])
+        && trustedEpisodeWriter(item.writer)).at(-1);
+      if (receipt) return {
+        classified: true, path: normalized,
+        provenance: { writer: receipt.writer, source: receipt.source, reason: receipt.reason,
+          timestamp: receipt.timestamp, kind: receipt.kind, correlation: receipt.correlation },
+      };
+      const fallback = manifest.policies.find((item) => item.path === normalized);
+      return { classified: false, path: normalized, error: fallback
+        ? `No trusted projection receipt matched; preserve existing ${fallback.kind} policy behavior.`
+        : 'No trusted projection receipt matched; preserve ordinary file-authoring behavior.' };
+    }
+    const policy = manifest.policies.find((item) => policyMatches(item, normalized));
+    if (!policy || policy.kind !== 'generated-local') {
+      return { classified: false, path: normalized, error: 'Path is not permitted for generated projection classification.' };
+    }
+    const expectedKind = normalized.endsWith('.json') ? 'mailbox-ledger-json' : 'mailbox-markdown';
+    const receipt = readProjectionReceipts(this.root)
+      .filter((item) => item.path === normalized && item.kind === expectedKind && item.resultHash === hashProjectionBytes(bytes))
+      .at(-1);
+    if (!receipt) {
+      const unresolved = unresolvedProjectionReceipts(this.root)
+        .some((item) => item.path === normalized && item.resultHash === hashProjectionBytes(bytes));
+      return { classified: false, path: normalized, error: unresolved
+        ? 'Matching projection journal entry is unresolved; it is not a successful receipt.'
+        : 'No receipt matches the exact current path and hash.' };
+    }
+    const proof = policy.proof.builtInLedgerProof;
+    const canonical = proof ? await this.currentMailboxPairIsCanonical(normalized, proof)
+      : false;
+    if (!canonical) {
+      return { classified: false, path: normalized, error: 'Canonical mailbox format/authority proof failed.' };
+    }
+    return {
+      classified: true, path: normalized,
+      provenance: {
+        writer: receipt.writer, source: receipt.source, reason: receipt.reason,
+        timestamp: receipt.timestamp, kind: receipt.kind, correlation: receipt.correlation,
+      },
+    };
+  }
+
+  private async currentMailboxPairIsCanonical(path: string, proof: BuiltInLedgerProof): Promise<boolean> {
+    try {
+      const paths = MAILBOX_PATHS[proof.mailbox];
+      if (path !== paths.markdownPath && path !== paths.ledgerPath) return false;
+      if (proof.ledgerPath !== paths.ledgerPath) return false;
+      const [ledgerBytes, markdownBytes] = await Promise.all([
+        readFile(resolve(this.root, proof.ledgerPath), 'utf8'),
+        readFile(resolve(this.root, paths.markdownPath), 'utf8'),
+      ]);
+      const ledger = parseMailboxLedgerJson(ledgerBytes);
+      return ledger.mailbox === proof.mailbox
+        && serializeMailboxLedger(ledger) === ledgerBytes
+        && renderMailboxMarkdown(ledger) === markdownBytes;
+    } catch { return false; }
   }
 
   async inspect(packetPath: string): Promise<ReconciliationInspectionResult> {
@@ -329,7 +421,7 @@ export class SourceReconciliationService {
         const conflicts = lines((await this.git(['diff', '--name-only', '--diff-filter=U'], worktree)).stdout);
         if (!conflicts.length) return finish('protected_path_proof_failed', merged.stderr || 'Merge failed without classifiable conflicts.');
         for (const path of conflicts) {
-          const policy = manifest.policies.find((item) => item.path === path);
+          const policy = manifest.policies.find((item) => policyMatches(item, path));
           if (!policy) return finish('unclassified_conflict', `No protected-path policy permits resolution of ${path}.`);
           if (policy.kind === 'append-only-manual') return finish('candidate_conflicts_manual', `Manual resolution required for ${path}.`);
           if (policy.kind === 'generated-local' && !(await this.resolveGenerated(worktree, packet, path, policy))) return finish('generated_regeneration_failed', `Generated proof failed for ${path}.`);
@@ -413,10 +505,12 @@ export class SourceReconciliationService {
   private async resolveGenerated(cwd: string, packet: ReconciliationPacket, path: string, policy: Policy): Promise<boolean> {
     const proof = policy.proof.builtInLedgerProof;
     if (!proof) return false;
-    try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, path); } catch { return false; }
+    const paths = MAILBOX_PATHS[proof.mailbox];
+    try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, paths.markdownPath); } catch { return false; }
+    if (path !== paths.ledgerPath && path !== paths.markdownPath) return false;
     const [ledgerBlob, localMarkdown] = await Promise.all([
       this.git(['show', `${packet.localSha}:${proof.ledgerPath}`], cwd),
-      this.git(['show', `${packet.localSha}:${path}`], cwd),
+      this.git(['show', `${packet.localSha}:${paths.markdownPath}`], cwd),
     ]);
     if (ledgerBlob.code || localMarkdown.code) return false;
     let expected: string;
@@ -427,21 +521,24 @@ export class SourceReconciliationService {
     } catch {
       return false;
     }
-    if (expected !== localMarkdown.stdout) return false;
-    await writeFile(join(cwd, path), expected);
+    if (expected !== localMarkdown.stdout || serializeMailboxLedger(parseMailboxLedgerJson(ledgerBlob.stdout)) !== ledgerBlob.stdout) return false;
+    const targetBytes = path === paths.ledgerPath ? ledgerBlob.stdout : expected;
+    await writeFile(join(cwd, path), targetBytes);
     if ((await this.git(['add', '--', path], cwd)).code) return false;
     const staged = await this.git(['show', `:${path}`], cwd);
-    return staged.code === 0 && staged.stdout === expected && staged.stdout === localMarkdown.stdout;
+    return staged.code === 0 && staged.stdout === targetBytes;
   }
 
   private async verifyGeneratedPairs(cwd: string, manifest: Manifest): Promise<boolean> {
     for (const policy of manifest.policies.filter((item) => item.kind === 'generated-local')) {
       const proof = policy.proof.builtInLedgerProof;
       if (!proof) return false;
-      try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, policy.path); } catch { return false; }
+      const paths = MAILBOX_PATHS[proof.mailbox];
+      try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, paths.markdownPath); } catch { return false; }
+      if (policy.path !== paths.ledgerPath && policy.path !== paths.markdownPath) return false;
       const [ledgerBlob, markdownBlob] = await Promise.all([
         this.git(['show', `:${proof.ledgerPath}`], cwd),
-        this.git(['show', `:${policy.path}`], cwd),
+        this.git(['show', `:${paths.markdownPath}`], cwd),
       ]);
       if (ledgerBlob.code || markdownBlob.code) return false;
       try {
@@ -514,7 +611,11 @@ export class SourceReconciliationService {
               || proof.version !== 1 || proof.formatterVersion !== MAILBOX_FORMATTER_VERSION
               || typeof proof.ledgerPath !== 'string'
               || (proof.mailbox !== 'claude-code-to-luca' && proof.mailbox !== 'luca-to-claude-code')) return false;
-            try { assertMailboxPaths(proof.mailbox, proof.ledgerPath, policy.path); return true; } catch { return false; }
+            try {
+              const paths = MAILBOX_PATHS[proof.mailbox];
+              assertMailboxPaths(proof.mailbox, proof.ledgerPath, paths.markdownPath);
+              return policy.path === paths.markdownPath || policy.path === paths.ledgerPath;
+            } catch { return false; }
           })())
         || (policy.kind === 'ordinary'
           && policy.resolution === 'keep-local-in-candidate'
@@ -596,7 +697,7 @@ export class SourceReconciliationService {
     const intersections: ReconciliationPacket['intersections'] = [];
     const findings: ReconciliationPacket['findings'] = [];
     for (const path of intersection) {
-      const policies = manifest.policies.filter((policy) => policy.path === path);
+      const policies = manifest.policies.filter((policy) => policyMatches(policy, path));
       if (policies.length > 1) findings.push({ state: 'policy_overlap', path, detail: 'More than one exact-path policy matched.' });
       const policy = policies[0];
       const [local, remote] = await Promise.all([

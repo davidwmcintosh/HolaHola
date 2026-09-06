@@ -60,6 +60,20 @@ const commands = testChain
   .map((command) => command.trim())
   .filter(Boolean);
 
+// Release-safety checks registered directly in the canonical GitHub runner.
+// The ingress suite uses getVerifiedCiDatabaseUrl and therefore executes only
+// against the job-local CI_DATABASE_URL service validated above.
+const safetyInsertion = commands.findIndex((command) =>
+  command.startsWith('npx tsx server/scripts/test-openai-pronunciation-error-notice.ts'));
+if (safetyInsertion < 0) throw new Error('Could not register projection/source safety checks before the guards group');
+commands.splice(safetyInsertion, 0,
+  'npx tsx server/scripts/test-projection-receipts.ts',
+  'npx tsx server/scripts/test-projection-writer-coverage.ts',
+  'npx tsx server/scripts/test-source-reconciliation-service.ts',
+  'npx tsx server/scripts/test-source-reconciliation-inspection.ts',
+  'npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts',
+);
+
 if (commands.length === 0) {
   throw new Error('No executable commands were found in package.json scripts.test');
 }
@@ -67,7 +81,7 @@ if (commands.length === 0) {
 const GROUPS = {
   unit: {
     startsWith: 'npx tsx --test server/scripts/gemini-gate-check.test.ts',
-    endsWith: 'server/scripts/test-record-pattern-signal.test.ts',
+    endsWith: 'server/scripts/test-agent-note-coordination-ingress.test.ts',
   },
   guards: {
     startsWith: 'npx tsx server/scripts/test-openai-pronunciation-error-notice.ts',

@@ -37,9 +37,10 @@
  *   1  — Fatal error (DB unavailable, write failed)
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { neon } from '@neondatabase/serverless';
+import { writeProjectionAtomically } from '../services/projection-receipts';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -253,7 +254,13 @@ async function checkAndRestore(
 
   // ── Restore ─────────────────────────────────────────────────────────────────
   try {
-    writeFileSync(mdPath, dbContent, 'utf8');
+    writeProjectionAtomically(process.cwd(), mdPath, dbContent, {
+      kind: 'episode-db-markdown',
+      writer: 'restore-rolling-episodes-from-db',
+      source: { type: 'conversation_memory', ids: [id] },
+      reason: checkShrinkageOnly ? 'rolling episode shrinkage restore' : 'rolling episode startup restore',
+      correlation: { episodeId: id, title },
+    });
     console.log(B(''));
     console.log(B('  ══════════════════════════════════════════════════════════════════'));
     console.log(B(`  RESTORED: ${mdPath}`));

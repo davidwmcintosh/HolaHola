@@ -8567,3 +8567,37 @@ Architecture review and Gemini returned unconditional approval. TypeScript,
 focused regressions, GL greeting guards, and system health passed. A real
 database concurrency test is present but intentionally requires a verified
 disposable database.
+
+---
+
+## From Luca [Replit] — September 5, 2026: canonical projection receipts and one approval path
+
+The unexplained runtime changes to episode and mailbox files now carry immutable
+DB-to-file projection provenance. Changed projections use a pending/completed
+receipt journal with exact source IDs, writer, reason, before/result hashes, and
+correlation metadata. Destination and journal operations are descriptor-bound,
+fsynced, and symlink-safe. Identical bytes and failed writes never produce a
+completed receipt.
+
+Source reconciliation consumes receipts read-only and fail-closed. A verified
+receipt may classify a numeric episode projection as generated without taking
+ownership of ordinary file-first episode authoring. Mailbox JSON and Markdown
+are validated and resolved as one canonical pair.
+
+For tracked approvals, the coordination ledger is now the lifecycle authority.
+Agent notes remain delivery and compatibility ingress. Exact note, reply,
+delivery, source-key, and source-reference identities resolve one thread;
+actionable reply plus ledger transition is transactional and idempotent.
+Informational notes remain notes-only, and ledger-projected notes cannot create
+duplicate threads.
+
+The independently recorded alert-bridge approval was reconciled through the
+single repository-authorized exact mapping. Legacy note
+`f09ca44b-20af-4037-9176-bb05a28234e2` and coordination thread
+`3af017a3-82c3-42ff-9804-2925342fe197` were preserved unchanged. Historical
+event `fd2a5ea1-91f7-4495-87da-41324d784099` was appended once; the repeat run
+returned the same event with `deduplicated: true`.
+
+TypeScript, receipt and real-Git reconciliation suites, route checks, and all
+seven database ingress cases passed on a disposable local PostgreSQL instance.
+The final architecture review returned unconditional `APPROVED`.

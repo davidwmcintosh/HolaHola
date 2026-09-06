@@ -418,8 +418,8 @@ function validateLifecycle(
   }
 }
 
-async function findIdempotentEvent(actor: CoordinationActorId, idempotencyKey: string) {
-  const [existing] = await getSharedDb()
+async function findIdempotentEvent(actor: CoordinationActorId, idempotencyKey: string, db = getSharedDb()) {
+  const [existing] = await db
     .select()
     .from(coordinationEvents)
     .where(and(
@@ -456,7 +456,9 @@ function shouldCreateInboxDelivery(actor: CoordinationActorId): boolean {
 
 export async function createCoordinationThread(
   rawInput: CoordinationCreateInput,
+  executor?: any,
 ): Promise<CoordinationMutationResult> {
+  const db = executor ?? getSharedDb();
   const input = {
     ...rawInput,
     title: requiredText(rawInput.title, 'title', 300),
@@ -475,14 +477,14 @@ export async function createCoordinationThread(
     throw new CoordinationError('Invalid intended recipient', 400, 'invalid_actor');
   }
   if (input.sourceReference?.type === 'agent_note') {
-    await assertAgentNoteOrigin(getSharedDb(), input.sourceReference, input.intendedRecipient);
+    await assertAgentNoteOrigin(db, input.sourceReference, input.intendedRecipient);
   }
 
-  const existing = await findIdempotentEvent(input.actor, input.idempotencyKey);
+  const existing = await findIdempotentEvent(input.actor, input.idempotencyKey, db);
   if (existing) return mutationResultFromExisting(existing);
 
   try {
-    return await getSharedDb().transaction(async (tx) => {
+    const mutation = async (tx: any) => {
       const [thread] = await tx.insert(coordinationThreads).values({
         title: input.title,
         description: input.description,
@@ -527,9 +529,10 @@ export async function createCoordinationThread(
         deliveryState = 'pending';
       }
       return { thread: updatedThread, event, deduplicated: false, deliveryState };
-    });
+    };
+    return executor ? await mutation(executor) : await db.transaction(mutation);
   } catch (error) {
-    const wonRace = await findIdempotentEvent(input.actor, input.idempotencyKey);
+    const wonRace = await findIdempotentEvent(input.actor, input.idempotencyKey, db);
     if (wonRace) return mutationResultFromExisting(wonRace);
     throw error;
   }
@@ -537,7 +540,9 @@ export async function createCoordinationThread(
 
 export async function appendCoordinationEvent(
   rawInput: CoordinationAppendInput,
+  executor?: any,
 ): Promise<CoordinationMutationResult> {
+  const db = executor ?? getSharedDb();
   const input: CoordinationAppendInput = {
     ...rawInput,
     threadId: requiredText(rawInput.threadId, 'threadId', 255),
@@ -556,7 +561,7 @@ export async function appendCoordinationEvent(
     throw new CoordinationError('expectedSequence must be a positive integer', 400, 'invalid_sequence');
   }
 
-  const existing = await findIdempotentEvent(input.actor, input.idempotencyKey);
+  const existing = await findIdempotentEvent(input.actor, input.idempotencyKey, db);
   if (existing) {
     if (existing.threadId !== input.threadId) {
       throw new CoordinationError('Idempotency key was already used for another thread', 409, 'idempotency_conflict');
@@ -565,7 +570,7 @@ export async function appendCoordinationEvent(
   }
 
   try {
-    return await getSharedDb().transaction(async (tx) => {
+    const mutation = async (tx: any) => {
       const [thread] = await tx
         .select()
         .from(coordinationThreads)
@@ -721,9 +726,10 @@ export async function appendCoordinationEvent(
         deliveryState = 'pending';
       }
       return { thread: updatedThread, event, deduplicated: false, deliveryState };
-    });
+    };
+    return executor ? await mutation(executor) : await db.transaction(mutation);
   } catch (error) {
-    const wonRace = await findIdempotentEvent(input.actor, input.idempotencyKey);
+    const wonRace = await findIdempotentEvent(input.actor, input.idempotencyKey, db);
     if (wonRace && wonRace.threadId === input.threadId) {
       return mutationResultFromExisting(wonRace);
     }

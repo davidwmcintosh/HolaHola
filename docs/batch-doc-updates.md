@@ -5296,3 +5296,33 @@ status without a permanent polling loop.
 Focused tests, TypeScript, system health, architecture review, and Gemini review
 passed. The destructive database-concurrency journey remains isolated and skips
 unless a verified disposable database is configured.
+
+## Projection provenance and canonical approval ingress — September 5, 2026
+
+Canonical DB-to-file projections now use a crash-safe receipt journal. A
+completed receipt is emitted only after changed bytes are written, fsynced,
+renamed through a held directory descriptor, and verified by SHA-256. Pending
+receipts recover only when the destination's exact bytes match; no-op and failed
+projections produce no completed receipt. Numeric episode Markdown and the two
+canonical Luca mailbox Markdown/JSON pairs are covered, while file-first episode
+authoring remains under its existing policy.
+
+Source reconciliation treats a verified episode receipt as an overlay rather
+than declaring every episode edit generated. Mailbox reconciliation verifies the
+ledger JSON and rendered Markdown as one canonical pair. Classification remains
+read-only and fails closed on path, writer, source, format, or hash mismatch.
+
+Tracked agent-note approvals now enter the coordination ledger through exact
+note lineage and deterministic idempotency. Actionable reply creation and ledger
+transition are transactional; informational notes remain notes-only; projected
+ledger notes cannot loop into duplicate threads. The historical alert-bridge
+approval was reconciled through one repository-allowlisted exact mapping. Both
+source records remain unchanged; coordination thread
+`3af017a3-82c3-42ff-9804-2925342fe197` received imported event
+`fd2a5ea1-91f7-4495-87da-41324d784099`, and a second execution deduplicated to
+that event.
+
+The projection, writer-coverage, source-reconciliation, route, and database
+ingress checks are registered in existing validation and consolidated CI groups.
+TypeScript, focused suites, a seven-case disposable PostgreSQL run, and the final
+architecture review passed.

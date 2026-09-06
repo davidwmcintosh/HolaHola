@@ -75,7 +75,7 @@ const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
     'evidence', 'data',
   ]),
   comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
-  'reply-and-verify': new Set(['url', 'id', 'body', 'subject', 'session-label', 'idempotency-key']),
+  'reply-and-verify': new Set(['url', 'id', 'body', 'subject', 'session-label', 'event-type', 'idempotency-key']),
   'complete-with-linked-outcome': new Set([
     'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence',
     'causal-parent-event-id', 'reply-body', 'reply-subject', 'reply-session-label',
@@ -198,6 +198,9 @@ async function main(): Promise<void> {
       body: required(options, 'body'),
       ...(typeof options.subject === 'string' ? { subject: options.subject } : {}),
       ...(typeof options['session-label'] === 'string' ? { sessionLabel: options['session-label'] } : {}),
+      ...(typeof options['event-type'] === 'string'
+        ? { eventType: options['event-type'] as Exclude<import('@shared/schema').CoordinationEventType, 'created' | 'delivered'> }
+        : {}),
       idempotencyKey: required(options, 'idempotency-key'),
     });
   } else if (command === 'complete-with-linked-outcome') {

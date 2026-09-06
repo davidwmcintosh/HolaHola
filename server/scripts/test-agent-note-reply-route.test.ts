@@ -8,6 +8,7 @@ import { agentNotes } from '@shared/schema';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import { closeDbConnections, getSharedDb } from '../db';
 import { registerAgentNoteReplyRoute } from '../routes/agent-note-reply-route';
+import { CoordinationError } from '../services/coordination-ledger-service';
 
 const TOKENS = {
   'luca-replit': 'reply-route-replit-token-'.repeat(2),
@@ -87,6 +88,51 @@ test('reply route rejects missing and invalid coordination credentials', async (
     const response = await request(parentId, token, `${prefix}-${label}`, { body: 'Never delivered.' });
     assert.equal(response.status, 401);
     assert.deepEqual(Object.keys(response.body), ['error']);
+  }
+});
+
+test('reply route preserves expected coordination errors and contains unexpected errors', async () => {
+  const app = express();
+  app.use(express.json());
+  registerAgentNoteReplyRoute(app, {
+    replyToAgentNoteAndVerify: async () => {
+      throw new Error('unexpected route dependency failure');
+    },
+    replyAndIngestActionableAgentNote: async (input) => {
+      if (input.body === 'expected') {
+        throw new CoordinationError('Thread cannot be acknowledged from its current state', 409, 'invalid_transition');
+      }
+      throw new Error('unexpected route dependency failure');
+    },
+  });
+  const localServer = createServer(app);
+  await new Promise<void>((resolve) => localServer.listen(0, '127.0.0.1', resolve));
+  const localUrl = `http://127.0.0.1:${(localServer.address() as AddressInfo).port}`;
+  const invoke = async (body: string) => {
+    const response = await fetch(`${localUrl}/api/agent/notes/parent/reply`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-coordination-token': TOKENS['luca-replit'],
+        'idempotency-key': `${prefix}-${body}`,
+      },
+      body: JSON.stringify({ body, eventType: 'outcome_acknowledged' }),
+    });
+    return { status: response.status, body: await response.json() as Record<string, string> };
+  };
+  try {
+    assert.deepEqual(await invoke('expected'), {
+      status: 409,
+      body: {
+        error: 'Thread cannot be acknowledged from its current state',
+        code: 'invalid_transition',
+      },
+    });
+    const unexpected = await invoke('unexpected');
+    assert.equal(unexpected.status, 500);
+    assert.deepEqual(unexpected.body, { error: 'unexpected route dependency failure' });
+  } finally {
+    await new Promise<void>((resolve, reject) => localServer.close((error) => error ? reject(error) : resolve()));
   }
 });
 

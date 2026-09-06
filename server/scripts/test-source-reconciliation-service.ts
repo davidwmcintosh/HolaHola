@@ -209,6 +209,44 @@ for (const mailbox of ['claude-code-to-luca', 'luca-to-claude-code'] as const) {
   const ledger = mailboxLedger(mailbox, [mailboxNote(mailbox)]);
   await generatedCase(mailbox, serializeMailboxLedger(ledger), renderMailboxMarkdown(ledger), 'candidate_ready');
 }
+
+// The checked-in manifest has four mailbox policies: Markdown and ledger JSON
+// for both directions. Exercise candidate conflict resolution for every target,
+// not merely the historical Markdown policies.
+const actualMailboxPolicies = (JSON.parse(readFileSync(join(process.cwd(), 'config/source-reconciliation-policies.json'), 'utf8')).policies as Policy[])
+  .filter((policy) => (policy.proof as any).builtInLedgerProof);
+assert.equal(actualMailboxPolicies.length, 4, 'actual manifest must register both canonical paths for both mailboxes');
+for (const mailbox of ['claude-code-to-luca', 'luca-to-claude-code'] as const) {
+  for (const target of ['markdown', 'ledger'] as const) {
+    await withFixture(async (f) => {
+      const paths = mailboxPaths[mailbox];
+      for (const seededMailbox of ['claude-code-to-luca', 'luca-to-claude-code'] as const) {
+        const seededPaths = mailboxPaths[seededMailbox];
+        const seeded = mailboxLedger(seededMailbox);
+        f.write(seededPaths.ledger, serializeMailboxLedger(seeded));
+        f.write(seededPaths.markdown, renderMailboxMarkdown(seeded));
+      }
+      f.commit('pair base'); git(f.root, 'push', 'origin', 'main');
+      git(f.root, 'checkout', '-b', 'local');
+      const localPair = mailboxLedger(mailbox, [mailboxNote(mailbox, `local-${target}`)]);
+      f.write(paths.ledger, serializeMailboxLedger(localPair));
+      f.write(paths.markdown, renderMailboxMarkdown(localPair));
+      const local = f.commit(`local ${target}`);
+      git(f.root, 'checkout', 'main');
+      if (target === 'ledger') {
+        const remoteLedger = mailboxLedger(mailbox, [mailboxNote(mailbox, `remote-${target}`)]);
+        f.write(paths.ledger, serializeMailboxLedger(remoteLedger));
+      } else {
+        f.write(paths.markdown, '# remote conflicting projection\n');
+      }
+      const remote = f.commit(`remote ${target}`); git(f.root, 'push', 'origin', 'main'); git(f.root, 'checkout', 'local');
+      const preflight = await f.service().preflight(local);
+      const result = await f.service().candidate(candidateAudit(f, preflight.packet!.fingerprint));
+      assert.equal(result.state, 'candidate_ready', `${mailbox} ${target}: ${result.error}`);
+      primaryUnchanged(f, local, remote);
+    }, actualMailboxPolicies);
+  }
+}
 {
   const mailbox: Mailbox = 'claude-code-to-luca';
   const valid = mailboxLedger(mailbox, [mailboxNote(mailbox)]);

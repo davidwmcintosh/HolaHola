@@ -12,9 +12,8 @@
  *   Agent marks read → POST /api/agent/notes/mark-read (or at next write)
  */
 
-import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { randomUUID } from 'crypto';
 import { workspaceResolution } from './workspace-root';
 import { getSharedDb } from '../neon-db';
 import { agentNotes } from '@shared/schema';
@@ -28,19 +27,7 @@ import {
   renderMailboxMarkdown,
   serializeMailboxLedger,
 } from './mailbox-ledger';
-
-const ALDEN_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/alden-to-agent.md');
-const FOUNDER_SNAPSHOT_PATH = join(workspaceResolution.root, 'docs/founder-to-agent.md');
-function writeAtomically(path: string, bytes: string): void {
-  const temporaryPath = `${path}.${randomUUID()}.tmp`;
-  try {
-    writeFileSync(temporaryPath, bytes, 'utf8');
-    renameSync(temporaryPath, path);
-  } catch (error) {
-    try { unlinkSync(temporaryPath); } catch { /* temporary file may not exist */ }
-    throw error;
-  }
-}
+import { writeProjectionAtomically } from './projection-receipts';
 
 function writeMailboxSnapshot(
   mailbox: MailboxIdentity,
@@ -70,8 +57,17 @@ function writeMailboxSnapshot(
   const ledgerBytes = serializeMailboxLedger(ledger);
   const markdownBytes = renderMailboxMarkdown(ledger);
 
-  writeAtomically(ledgerPath, ledgerBytes);
-  writeAtomically(markdownPath, markdownBytes);
+  const source = notes.length
+    ? { type: 'agent_notes' as const, ids: notes.map((note) => note.id) }
+    : { type: 'mailbox_snapshot' as const, ids: [mailbox] };
+  writeProjectionAtomically(workspaceResolution.root, ledgerPath, ledgerBytes, {
+    kind: 'mailbox-ledger-json', writer: 'agent-notes-snapshot', source,
+    reason: 'agent-notes mailbox snapshot', correlation: { mailbox },
+  });
+  writeProjectionAtomically(workspaceResolution.root, markdownPath, markdownBytes, {
+    kind: 'mailbox-markdown', writer: 'agent-notes-snapshot', source,
+    reason: 'agent-notes mailbox snapshot', correlation: { mailbox },
+  });
 
   const finalLedgerBytes = readFileSync(ledgerPath, 'utf8');
   const finalLedger = parseMailboxLedgerJson(finalLedgerBytes);
@@ -115,13 +111,15 @@ export async function generateAgentNotesSnapshot(): Promise<void> {
       .orderBy(desc(agentNotes.createdAt));
 
     if (aldenNotes.length === 0) {
-      writeFileSync(ALDEN_SNAPSHOT_PATH, `# Alden → Agent Notes
+        // These compatibility snapshots are not canonical mailbox projections.
+        // They intentionally remain outside the receipt-covered path set.
+        writeFileSync(join(workspaceResolution.root, 'docs/alden-to-agent.md'), `# Alden → Agent Notes
 
        *No unread notes from Alden. When Alden uses the \`leave_note_for_agent\` tool, messages appear through the live inbox and after the next snapshot refresh.*
 
 Generated: ${new Date().toLocaleString()}
 `, 'utf-8');
-      console.log('[AgentNotes] Alden snapshot written — 0 unread notes');
+       console.log('[AgentNotes] Alden snapshot written — 0 unread notes');
     } else {
       const sections = aldenNotes.map(formatNoteSection);
       const content = [
@@ -135,7 +133,7 @@ Generated: ${new Date().toLocaleString()}
         ``,
         sections.join('\n\n---\n\n'),
       ].join('\n');
-      writeFileSync(ALDEN_SNAPSHOT_PATH, content, 'utf-8');
+       writeFileSync(join(workspaceResolution.root, 'docs/alden-to-agent.md'), content, 'utf-8');
       console.log(`[AgentNotes] Alden snapshot written — ${aldenNotes.length} unread note(s)`);
     }
 
@@ -151,7 +149,7 @@ Generated: ${new Date().toLocaleString()}
       .orderBy(desc(agentNotes.createdAt));
 
     if (founderNotes.length === 0) {
-      writeFileSync(FOUNDER_SNAPSHOT_PATH, `# David → Luca Notes (mid-session flags)
+       writeFileSync(join(workspaceResolution.root, 'docs/founder-to-agent.md'), `# David → Luca Notes (mid-session flags)
 
        *No unread notes from David. When David uses the dev-note field in the Luca Observer Panel, messages appear through the live inbox and after the next snapshot refresh.*
 
@@ -171,7 +169,7 @@ Generated: ${new Date().toLocaleString()}
         ``,
         sections.join('\n\n---\n\n'),
       ].join('\n');
-      writeFileSync(FOUNDER_SNAPSHOT_PATH, content, 'utf-8');
+       writeFileSync(join(workspaceResolution.root, 'docs/founder-to-agent.md'), content, 'utf-8');
       console.log(`[AgentNotes] Founder snapshot written — ${founderNotes.length} unread note(s) from David`);
     }
 

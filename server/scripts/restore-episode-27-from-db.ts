@@ -18,9 +18,10 @@
  *   1  — Fatal error (DB unavailable, record missing, write failed)
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { neon } from '@neondatabase/serverless';
+import { writeProjectionAtomically } from '../services/projection-receipts';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -115,7 +116,12 @@ async function main() {
 
   // ── Restore ─────────────────────────────────────────────────────────────────
   try {
-    writeFileSync(MD_PATH, dbContent, 'utf8');
+    writeProjectionAtomically(process.cwd(), MD_PATH, dbContent, {
+      kind: 'episode-db-markdown', writer: 'restore-episode-27-from-db',
+      source: { type: 'conversation_memory', ids: [EPISODE_ID] },
+      reason: checkShrinkageOnly ? 'episode shrinkage restore' : 'episode restore',
+      correlation: { episodeId: EPISODE_ID },
+    });
     console.log(B(''));
     console.log(B('  ══════════════════════════════════════════════════════════════════'));
     console.log(B('  RESTORED: docs/episode-27.md written from DB canonical record'));

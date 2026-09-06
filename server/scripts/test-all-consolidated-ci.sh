@@ -389,6 +389,11 @@ group_body_workflow_safety() {
   # the consolidated gate so lowering the configured-workflow count never
   # weakens validation coverage.
   run test-replit-attribution-discipline.ts
+  run test-projection-receipts.ts
+  run test-projection-writer-coverage.ts
+  run test-source-reconciliation-service.ts
+  run test-source-reconciliation-inspection.ts
+  npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
   npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
   npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
   run test-capture-status-ordering.ts
