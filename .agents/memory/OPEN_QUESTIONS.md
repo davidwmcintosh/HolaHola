@@ -380,3 +380,9 @@ thinking: What is the narrowest signature and deduplication key that catches onl
 Did Claude Code's message-status feedback identify a remaining defect in the newly linked-outcome flow, or is the newest GitHub code already the complete repair—and what exact commit and live-note state prove the difference?
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+How can the database-backed check make its refusal mode as explicit as its mutation proof, so future CI edits cannot quietly route it toward shared Neon?
+
+---
