@@ -204,6 +204,13 @@
       "when": 1788477006267,
       "tag": "0028_memory_embeddings_importance_column",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788702563793,
+      "tag": "0030_shared_spec_workspace",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,7 @@ import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimi
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
+import { registerHolaHolaSharedSpecApi } from "./adapters/hola-hola-shared-spec-bootstrap";
 import {
   registerObservationBenchCoordinationRoutes,
   registerObservationBenchFounderRoutes,
@@ -632,6 +633,7 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 
 export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationRoutes(app);
+  registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
   await setupAuth(app as any, authLimiter);

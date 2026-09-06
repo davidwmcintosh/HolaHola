@@ -96,6 +96,31 @@ async function checkTables() {
   }
 }
 
+// ─── SHARED-SPEC WORKSPACE ───────────────────────────────────────────────────
+
+async function checkSharedSpecWorkspace() {
+  console.log(`\n${BOLD}── Shared-Spec Workspace (read-only) ──────────────────${RESET}`);
+  const tables = [
+    "shared_spec_documents",
+    "shared_spec_revisions",
+    "shared_spec_reviewer_policies",
+    "shared_spec_reviews",
+    "shared_spec_publications",
+    "shared_spec_publication_attempts",
+    "shared_spec_idempotency_records",
+  ];
+
+  for (const table of tables) {
+    if (!await tableExists(table)) {
+      fail(table, "MISSING FROM DB");
+      continue;
+    }
+    // This verifier only performs catalog and COUNT reads; it never seeds,
+    // repairs, or otherwise mutates shared-spec records.
+    pass(table, `${await rowCount(table)} rows (read-only check)`);
+  }
+}
+
 // ─── SEEDED DATA ─────────────────────────────────────────────────────────────
 
 async function checkSeededData() {
@@ -774,6 +799,7 @@ async function main() {
   console.log(`${BOLD}╚══════════════════════════════════════════════╝${RESET}`);
 
   await checkTables();
+  await checkSharedSpecWorkspace();
   await checkSyntheticFixtureBoundary();
   await checkSeededData();
   await checkCurriculum();

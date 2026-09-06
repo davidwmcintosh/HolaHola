@@ -5337,3 +5337,28 @@ The projection, writer-coverage, source-reconciliation, route, and database
 ingress checks are registered in existing validation and consolidated CI groups.
 TypeScript, focused suites, a seven-case disposable PostgreSQL run, and the final
 architecture review passed.
+
+---
+
+## Shared-spec workspace Phase 6 integration — September 6, 2026
+
+The portable shared-spec workspace is now registered in the existing CI unit
+and guard groups: core, router, and GitHub publisher tests run as focused unit
+checks, while schema, publication-safety, and portability checks run with the
+guards. No workflow or migration was added by this integration. The portability
+guard verifies that the core, router, and bootstrap do not import Replit host
+APIs and reruns the generic core suite with all `REPLIT_*` variables removed.
+
+System health now performs read-only catalog and row-count checks for all seven
+`shared_spec_*` tables. It does not seed, repair, or alter workspace data.
+
+Hosts mount the generic bootstrap with their own database, authenticator, and
+publication provider. HolaHola supplies the optional adapter: requests use
+`x-shared-spec-token` (or its existing `x-coordination-token` fallback), and
+mutations require `idempotency-key`. GitHub publication is configured only by
+generic `SHARED_SPEC_GITHUB_REPOSITORY`, `SHARED_SPEC_GITHUB_TOKEN`, and
+optional `SHARED_SPEC_GITHUB_BASE_REF`; credentials remain secret-store data.
+The current adapter publishes only into `docs/superpowers/specs/`, opens a PR
+rather than writing the base branch, and leaves publication unavailable when
+GitHub configuration is absent. The CLI currently covers document/review/export
+operations, not publication administration.

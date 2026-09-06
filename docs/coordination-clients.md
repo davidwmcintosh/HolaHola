@@ -139,3 +139,34 @@ Rotate one actor at a time:
 If two actor bindings are accidentally set to the same credential, the server
 fails all coordination authentication with `503` until the ambiguity is fixed.
 This fail-closed behavior prevents cross-actor attribution.
+
+## Shared-spec workspace client
+
+The shared-spec API is a separate, portable PostgreSQL collaboration surface
+mounted at `/api/shared-spec` by the host application. Use
+`server/scripts/shared-spec-cli.ts` with an explicit API URL and token; do not
+put the token in shell history or repository files:
+
+```bash
+npx tsx server/scripts/shared-spec-cli.ts list \
+  --url https://getholahola.com/api/shared-spec \
+  --token "$SHARED_SPEC_TOKEN"
+```
+
+The CLI sends `x-shared-spec-token` and sends `idempotency-key` for every
+mutation. HolaHola's optional adapter also accepts `x-coordination-token` and
+derives the actor from the existing coordination credential; a different host
+can supply its own `SharedSpecActorAuthenticator`. Actor identity is never
+accepted in request JSON.
+
+GitHub publication is optional host configuration, not a core dependency.
+Configure `SHARED_SPEC_GITHUB_REPOSITORY` (`owner/repository`),
+`SHARED_SPEC_GITHUB_TOKEN`, and optionally `SHARED_SPEC_GITHUB_BASE_REF`
+(defaults to `main`) in the host secret store. The publisher uses GitHub REST,
+creates a deterministic `shared-spec/...` branch and pull request, and never
+pushes directly to the base branch.
+
+Current limitations: the bundled CLI covers drafting, review, approval, and
+export but not publication operations; the HolaHola adapter has a fixed
+`docs/superpowers/specs/` destination namespace; and publication remains
+unavailable until the two required GitHub settings are present.

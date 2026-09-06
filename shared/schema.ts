@@ -5,6 +5,278 @@ import { z } from "zod";
 import { RESOLUTION_TYPE_VALUES } from "./absence-types";
 import type { ResolutionType } from "./absence-types";
 
+// ===== Shared Spec Workspace ==================================================
+// This is intentionally a portable PostgreSQL-only collaboration core. Actor
+// IDs are application-owned strings; no hosting, runtime, or identity-provider
+// identifiers are persisted here.
+export const SHARED_SPEC_DOCUMENT_KINDS = ['design', 'architecture'] as const;
+export type SharedSpecDocumentKind = typeof SHARED_SPEC_DOCUMENT_KINDS[number];
+
+export const SHARED_SPEC_DOCUMENT_STATES = [
+  'draft',
+  'ready_for_review',
+  'approved',
+  'published',
+  'merged',
+  'archived',
+] as const;
+export type SharedSpecDocumentState = typeof SHARED_SPEC_DOCUMENT_STATES[number];
+
+export const SHARED_SPEC_REVIEW_STATES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
+export type SharedSpecReviewState = typeof SHARED_SPEC_REVIEW_STATES[number];
+
+export const SHARED_SPEC_PUBLICATION_STATES = [
+  'requested',
+  'creating',
+  'open',
+  'merged',
+  'closed',
+  'conflict',
+  'failed',
+] as const;
+export type SharedSpecPublicationState = typeof SHARED_SPEC_PUBLICATION_STATES[number];
+
+export const SHARED_SPEC_REVIEWER_CAPABILITIES = ['reviewer', 'policy_admin'] as const;
+export type SharedSpecReviewerCapability = typeof SHARED_SPEC_REVIEWER_CAPABILITIES[number];
+
+export const sharedSpecDocumentKindEnum = pgEnum('shared_spec_document_kind', SHARED_SPEC_DOCUMENT_KINDS);
+export const sharedSpecDocumentStateEnum = pgEnum('shared_spec_document_state', SHARED_SPEC_DOCUMENT_STATES);
+export const sharedSpecReviewStateEnum = pgEnum('shared_spec_review_state', SHARED_SPEC_REVIEW_STATES);
+export const sharedSpecPublicationStateEnum = pgEnum('shared_spec_publication_state', SHARED_SPEC_PUBLICATION_STATES);
+export const sharedSpecReviewerCapabilityEnum = pgEnum('shared_spec_reviewer_capability', SHARED_SPEC_REVIEWER_CAPABILITIES);
+
+export type SharedSpecEvidenceReference = {
+  type: string;
+  provider: string;
+  identifier: string;
+  label?: string;
+  digest?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export const sharedSpecDocuments = pgTable("shared_spec_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 300 }).notNull(),
+  summary: text("summary"),
+  kind: sharedSpecDocumentKindEnum("kind").notNull(),
+  canonicalRepository: varchar("canonical_repository", { length: 255 }).notNull(),
+  canonicalPath: varchar("canonical_path", { length: 1024 }).notNull(),
+  // The pointer is populated in the same transaction as the initial revision.
+  // Its cyclic foreign key is added by the migration after both tables exist.
+  currentRevisionId: varchar("current_revision_id"),
+  state: sharedSpecDocumentStateEnum("state").notNull().default('draft'),
+  creatorActor: varchar("creator_actor", { length: 80 }).notNull(),
+  publishedRevisionId: varchar("published_revision_id"),
+  mergedRevisionId: varchar("merged_revision_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_documents_active_destination")
+    .on(table.canonicalRepository, table.canonicalPath)
+    .where(sql`${table.state} <> 'archived'`),
+  index("idx_shared_spec_documents_current_revision").on(table.currentRevisionId),
+  index("idx_shared_spec_documents_state_updated").on(table.state, table.updatedAt),
+  check("shared_spec_documents_repository_nonempty", sql`length(trim(${table.canonicalRepository})) > 0`),
+  check("shared_spec_documents_path_nonempty", sql`length(trim(${table.canonicalPath})) > 0`),
+]);
+
+export const sharedSpecRevisions = pgTable("shared_spec_revisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => sharedSpecDocuments.id),
+  parentRevisionId: varchar("parent_revision_id").references((): any => sharedSpecRevisions.id),
+  markdown: text("markdown").notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  authorActor: varchar("author_actor", { length: 80 }).notNull(),
+  // Request provenance stays with the immutable row; retry authority lives in
+  // shared_spec_idempotency_records, not in a process-local cache.
+  idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_revisions_idempotency")
+    .on(table.documentId, table.authorActor, table.idempotencyKey),
+  index("idx_shared_spec_revisions_document_created").on(table.documentId, table.createdAt),
+  index("idx_shared_spec_revisions_parent").on(table.parentRevisionId),
+  check("shared_spec_revisions_markdown_nonempty", sql`length(${table.markdown}) > 0`),
+  check("shared_spec_revisions_content_hash_sha256", sql`${table.contentHash} ~ '^[0-9a-f]{64}$'`),
+  check("shared_spec_revisions_request_digest_sha256", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+// Policies are versioned facts. The migration adds a database guard so old
+// eligibility decisions cannot be rewritten when an actor is later disabled.
+export const sharedSpecReviewerPolicies = pgTable("shared_spec_reviewer_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Versions are allocated by the transaction repository and never reused.
+  version: integer("version").notNull(),
+  actorId: varchar("actor_id", { length: 80 }).notNull(),
+  capability: sharedSpecReviewerCapabilityEnum("capability").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  documentKind: sharedSpecDocumentKindEnum("document_kind"),
+  boundary: varchar("boundary", { length: 120 }),
+  provenance: text("provenance").notNull(),
+  effectiveAt: timestamp("effective_at").notNull().defaultNow(),
+  createdByActor: varchar("created_by_actor", { length: 80 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_reviewer_policies_version").on(table.version),
+  index("idx_shared_spec_reviewer_policies_lookup")
+    .on(table.actorId, table.capability, table.effectiveAt),
+  index("idx_shared_spec_reviewer_policies_effective").on(table.effectiveAt),
+  check("shared_spec_reviewer_policies_version_positive", sql`${table.version} > 0`),
+  check("shared_spec_reviewer_policies_actor_nonempty", sql`length(trim(${table.actorId})) > 0`),
+  check("shared_spec_reviewer_policies_provenance_nonempty", sql`length(trim(${table.provenance})) > 0`),
+]);
+
+export const sharedSpecReviews = pgTable("shared_spec_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => sharedSpecDocuments.id),
+  revisionId: varchar("revision_id").notNull().references(() => sharedSpecRevisions.id),
+  revisionContentHash: varchar("revision_content_hash", { length: 64 }).notNull(),
+  requestedByActor: varchar("requested_by_actor", { length: 80 }).notNull(),
+  requestedReviewerActor: varchar("requested_reviewer_actor", { length: 80 }),
+  claimedReviewerActor: varchar("claimed_reviewer_actor", { length: 80 }),
+  decisionActor: varchar("decision_actor", { length: 80 }),
+  // Immutable eligibility evidence is copied at decision time, rather than
+  // being re-resolved against policy that may later change.
+  decisionPolicyVersionId: varchar("decision_policy_version_id")
+    .references(() => sharedSpecReviewerPolicies.id),
+  decisionPolicyVersion: integer("decision_policy_version"),
+  decisionPolicyActorId: varchar("decision_policy_actor_id", { length: 80 }),
+  decisionPolicyCapability: sharedSpecReviewerCapabilityEnum("decision_policy_capability"),
+  decisionPolicyActive: boolean("decision_policy_active"),
+  decisionPolicyDocumentKind: sharedSpecDocumentKindEnum("decision_policy_document_kind"),
+  decisionPolicyEffectiveAt: timestamp("decision_policy_effective_at"),
+  state: sharedSpecReviewStateEnum("state").notNull().default('pending'),
+  decisionRationale: text("decision_rationale"),
+  evidenceReferences: jsonb("evidence_references").$type<SharedSpecEvidenceReference[]>(),
+  // The review request keeps its digest for auditability; the durable
+  // idempotency ledger resolves retries across application processes.
+  idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  claimedAt: timestamp("claimed_at"),
+  decidedAt: timestamp("decided_at"),
+  cancelledAt: timestamp("cancelled_at"),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_reviews_revision").on(table.documentId, table.revisionId),
+  uniqueIndex("uq_shared_spec_reviews_idempotency")
+    .on(table.documentId, table.requestedByActor, table.idempotencyKey),
+  index("idx_shared_spec_reviews_pending").on(table.state, table.requestedReviewerActor, table.createdAt),
+  index("idx_shared_spec_reviews_revision").on(table.revisionId),
+  check("shared_spec_reviews_content_hash_sha256", sql`${table.revisionContentHash} ~ '^[0-9a-f]{64}$'`),
+  check("shared_spec_reviews_request_digest_sha256", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("shared_spec_reviews_decision_policy_snapshot", sql`
+    (${table.decisionPolicyVersionId} IS NULL
+      AND ${table.decisionPolicyVersion} IS NULL
+      AND ${table.decisionPolicyActorId} IS NULL
+      AND ${table.decisionPolicyCapability} IS NULL
+      AND ${table.decisionPolicyActive} IS NULL
+      AND ${table.decisionPolicyEffectiveAt} IS NULL)
+    OR
+    (${table.decisionPolicyVersionId} IS NOT NULL
+      AND ${table.decisionPolicyVersion} > 0
+      AND ${table.decisionPolicyActorId} IS NOT NULL
+      AND ${table.decisionPolicyCapability} IS NOT NULL
+      AND ${table.decisionPolicyActive} IS NOT NULL
+      AND ${table.decisionPolicyEffectiveAt} IS NOT NULL)
+  `),
+]);
+
+export const sharedSpecPublications = pgTable("shared_spec_publications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => sharedSpecDocuments.id),
+  revisionId: varchar("revision_id").notNull().references(() => sharedSpecRevisions.id),
+  reviewId: varchar("review_id").notNull().references(() => sharedSpecReviews.id),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  repository: varchar("repository", { length: 255 }).notNull(),
+  baseRef: varchar("base_ref", { length: 255 }).notNull(),
+  expectedBaseCommit: varchar("expected_base_commit", { length: 64 }).notNull(),
+  destinationPath: varchar("destination_path", { length: 1024 }).notNull(),
+  expectedDestinationBlobHash: varchar("expected_destination_blob_hash", { length: 64 }),
+  expectedDestinationAbsent: boolean("expected_destination_absent").notNull().default(false),
+  requestedByActor: varchar("requested_by_actor", { length: 80 }).notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  branchName: varchar("branch_name", { length: 255 }),
+  pullRequestNumber: integer("pull_request_number"),
+  pullRequestUrl: text("pull_request_url"),
+  state: sharedSpecPublicationStateEnum("state").notNull().default('requested'),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  openedAt: timestamp("opened_at"),
+  mergedAt: timestamp("merged_at"),
+  closedAt: timestamp("closed_at"),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_publications_approved_revision")
+    .on(table.documentId, table.revisionId, table.reviewId, table.contentHash),
+  uniqueIndex("uq_shared_spec_publications_idempotency")
+    .on(table.requestedByActor, table.idempotencyKey),
+  index("idx_shared_spec_publications_state_updated").on(table.state, table.updatedAt),
+  index("idx_shared_spec_publications_review").on(table.reviewId),
+  check("shared_spec_publications_content_hash_sha256", sql`${table.contentHash} ~ '^[0-9a-f]{64}$'`),
+  check("shared_spec_publications_request_digest_sha256", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("shared_spec_publications_expected_base_commit_nonempty", sql`length(trim(${table.expectedBaseCommit})) > 0`),
+  check("shared_spec_publications_destination_expectation", sql`(${table.expectedDestinationAbsent} AND ${table.expectedDestinationBlobHash} IS NULL) OR (NOT ${table.expectedDestinationAbsent} AND ${table.expectedDestinationBlobHash} IS NOT NULL)`),
+  check("shared_spec_publications_destination_blob_hash_sha256", sql`${table.expectedDestinationBlobHash} IS NULL OR ${table.expectedDestinationBlobHash} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const sharedSpecPublicationAttempts = pgTable("shared_spec_publication_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  publicationId: varchar("publication_id").notNull().references(() => sharedSpecPublications.id),
+  attemptNumber: integer("attempt_number").notNull(),
+  operation: varchar("operation", { length: 80 }).notNull(),
+  outcome: varchar("outcome", { length: 40 }).notNull(),
+  requestMetadata: jsonb("request_metadata"),
+  responseMetadata: jsonb("response_metadata"),
+  errorDetail: text("error_detail"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_publication_attempts_sequence")
+    .on(table.publicationId, table.attemptNumber),
+  index("idx_shared_spec_publication_attempts_publication_created")
+    .on(table.publicationId, table.createdAt),
+  check("shared_spec_publication_attempts_number_positive", sql`${table.attemptNumber} > 0`),
+  check("shared_spec_publication_attempts_operation_nonempty", sql`length(trim(${table.operation})) > 0`),
+  check("shared_spec_publication_attempts_outcome_nonempty", sql`length(trim(${table.outcome})) > 0`),
+]);
+
+// Mutation retries resolve through this durable ledger, never process-local
+// memory. A reused key must match its original immutable request digest.
+export const sharedSpecIdempotencyRecords = pgTable("shared_spec_idempotency_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scope: varchar("scope", { length: 255 }).notNull(),
+  actorId: varchar("actor_id", { length: 80 }).notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  resultType: varchar("result_type", { length: 40 }).notNull(),
+  resultId: varchar("result_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_shared_spec_idempotency_records_scope_actor_key")
+    .on(table.scope, table.actorId, table.idempotencyKey),
+  index("idx_shared_spec_idempotency_records_created").on(table.createdAt),
+  check("shared_spec_idempotency_records_scope_nonempty", sql`length(trim(${table.scope})) > 0`),
+  check("shared_spec_idempotency_records_actor_nonempty", sql`length(trim(${table.actorId})) > 0`),
+  check("shared_spec_idempotency_records_key_nonempty", sql`length(trim(${table.idempotencyKey})) > 0`),
+  check("shared_spec_idempotency_records_request_digest_sha256", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("shared_spec_idempotency_records_result_type_nonempty", sql`length(trim(${table.resultType})) > 0`),
+  check("shared_spec_idempotency_records_result_id_nonempty", sql`length(trim(${table.resultId})) > 0`),
+]);
+
+export const insertSharedSpecDocumentSchema = createInsertSchema(sharedSpecDocuments).omit({
+  id: true, currentRevisionId: true, state: true, publishedRevisionId: true,
+  mergedRevisionId: true, createdAt: true, updatedAt: true,
+});
+export type InsertSharedSpecDocument = z.infer<typeof insertSharedSpecDocumentSchema>;
+export type SharedSpecDocument = typeof sharedSpecDocuments.$inferSelect;
+export type SharedSpecRevision = typeof sharedSpecRevisions.$inferSelect;
+export type SharedSpecReviewerPolicy = typeof sharedSpecReviewerPolicies.$inferSelect;
+export type SharedSpecReview = typeof sharedSpecReviews.$inferSelect;
+export type SharedSpecPublication = typeof sharedSpecPublications.$inferSelect;
+export type SharedSpecPublicationAttempt = typeof sharedSpecPublicationAttempts.$inferSelect;
+export type SharedSpecIdempotencyRecord = typeof sharedSpecIdempotencyRecords.$inferSelect;
+
 // ===== Enums =====
 
 // Auth provider enum - distinguishes how user authenticates

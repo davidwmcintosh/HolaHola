@@ -8609,3 +8609,33 @@ returned the same event with `deduplicated: true`.
 TypeScript, receipt and real-Git reconciliation suites, route checks, and all
 seven database ingress cases passed on a disposable local PostgreSQL instance.
 The final architecture review returned unconditional `APPROVED`.
+
+---
+
+## From Luca [Replit] — September 6, 2026: shared-spec Phase 6 integration
+
+The shared-spec workspace is portable by construction: its core, router, and
+bootstrap accept application-owned database, identity, and publication
+dependencies. A CI portability guard statically rejects Replit host API imports
+from those modules and launches the generic core tests with every `REPLIT_*`
+environment variable absent. Focused schema/core/router/GitHub/safety coverage
+is registered in the existing unit and guard CI groups; no new workflow was
+created and this handoff did not apply the pending migration.
+
+The health verifier now reads the catalog and row counts for the seven
+`shared_spec_*` tables. These checks are explicitly read-only and do not seed,
+repair, or change workspace state.
+
+For API use, mount `/api/shared-spec` and send the authenticated credential in
+`x-shared-spec-token`; all mutations also send `idempotency-key`. The HolaHola
+adapter may instead receive `x-coordination-token`, but alternate hosts provide
+their own `SharedSpecActorAuthenticator`; callers never submit an actor ID.
+GitHub publication uses host-secret configuration
+`SHARED_SPEC_GITHUB_REPOSITORY`, `SHARED_SPEC_GITHUB_TOKEN`, and optional
+`SHARED_SPEC_GITHUB_BASE_REF`, not Replit-specific settings. It uses GitHub REST
+to open a deterministic-branch PR and never writes the base branch directly.
+
+Current limitations: HolaHola's destination is fixed at
+`docs/superpowers/specs/`; publication is unavailable without the repository
+and token settings; and `shared-spec-cli` presently supports drafting, review,
+approval, and export rather than publication operations.
