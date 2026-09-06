@@ -1692,3 +1692,90 @@ Posted back on the same thread. Waiting on their read now — nothing else pendi
 I checked what pushing would actually involve: my branch (`task-1353-and-backfill`) is otherwise fully caught up with both `origin/task-1353-and-backfill` and `origin/main` — this one commit is the *only* thing ahead. It's a docs-only addition (no migration, no data-op), so per this repo's own landing rules that means a normal PR + CI merge is the correct path, not the special deploy-key bypass.
 
 Want me to push this branch and open a PR into `main` so the design doc actually lands where Luca can read it? That's a real push and a real (small, visible) PR, so I'm asking before doing it rather than just going ahead.
+
+<!-- chat-capture-range:393626:395591 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1089 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1089 -->
+**David [Claude Code]:** yes with the cross tool please
+
+**Claude Code:** Handoff note sent. Now let's push the branch and run cross-tool-promote.
+
+Quick but important update before the promote finishes running:
+
+**Luca has already landed a huge amount of real work directly on `main`** while we were talking — the full joint repair plan: `greeting-delivery-state.ts`, `live-voice-routing.ts`, `reconnect-authority.ts`, `terminal-voice-lifecycle.ts`, a rewritten `unified-ws-handler.ts`, `CollaborationIndicator.tsx` actually wired up, and their own more complete version of `observation-bench-service.ts` (731 lines changed) — plus new memory files documenting reconnect-lease/greeting-ownership/route-ownership decisions.
+
+That meant my branch had diverged, which is exactly why the first promote attempt failed (`Refuse if main is not an ancestor of this branch`). To fix it safely:
+- Stashed my own uncommitted observation-bench edits from earlier (not lost — just set aside, since Luca's landed version now likely supersedes them and I don't want to guess without comparing).
+- Merged `origin/main` in cleanly (no conflicts — my design doc doesn't touch any file Luca touched).
+- Pushed the merge, and kicked off `cross-tool-promote` again — it's running now in the background (the full validation suite against a disposable Neon branch takes a few minutes), I'll report back when it finishes.
+
+One thing worth deciding once this lands: my stashed local observation-bench changes are almost certainly stale now that Luca has a real, more complete version on `main`. I'll compare before touching anything further — not discarding them blind.
+
+<!-- chat-capture-range:395591:397750 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1189 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1189 -->
+**David [Claude Code]:** <task-notification>
+<task-id>b32kueucv</task-id>
+<tool-use-id>toolu_01EoD3EiEffuPkejEcb1mYC2</tool-use-id>
+<output-file>C:\Users\David\AppData\Local\Temp\claude\C--Users-David-HolaHola\c52bede8-dd68-4804-8f77-59290f60b9e2\tasks\b32kueucv.output</output-file>
+<status>completed</status>
+<summary>Background command "Retry cross-tool-promote now that the branch is no longer diverged" completed (exit code 0)</summary>
+</task-notification>
+
+**Claude Code:** **SYNCED** — `main` now includes the merge commit, and the design doc is confirmed live on `main` (verified: our branch is now an ancestor of `main`). Luca can read it.
+
+Now let me check what became of my stashed observation-bench work against what Luca actually landed, before deciding anything about it.
+
+The design doc is confirmed live on `main` — done.
+
+While I was in there, I compared my stashed local observation-bench edits against what Luca actually landed: **confirmed superseded**. Luca built a more complete, more carefully concurrency-hardened version — same ideas (Sofia/student-health source types, an auto-close-by-session function, a discovery-by-session function, a pill-status function) but with proper race handling (`selectExactSessionBenchWinner`, `closeConflictIsAlreadyEnded`, scope-matching helpers) that my version didn't have. Nothing of mine needs to be reconciled back in — it was a stepping stone, and the real thing landed.
+
+I tried to clean up the two stashes (my superseded work, and a transient auto-sync-race snapshot of `episode-33.md`), but my sandbox blocked the drop as a git-destructive action needing your say-so. Want me to go ahead and drop both? They're inert either way — just sitting in stash, not affecting anything — so there's no urgency, but happy to clear them out if you'd rather not have them lingering.
+
+David [Claude Code]: can you ask luca about the auto sync?
+
+Claude Code: Opened a new coordination thread (`181a685a…`) addressed to Luca [Replit]. Two questions in it:
+
+1. **Confirming the mechanism** — that the three untouched doc diffs I flagged (`episode-33.md`, `claude-code-to-luca.md`, its mailbox JSON) are the dev server's own background episode/mailbox auto-sync re-rendering real shared-DB activity into my local checkout, not something to worry about.
+2. **The more interesting find** — that refreshed mailbox file revealed the alert-bridge design got reviewed and approved *twice*, independently: once through the plain `agent_notes` path this morning (05:22, note `f09ca44b`), and once through the coordination-ledger thread I found sitting blocked and approved later today (`3af017a3…`). Neither review knew about the other. I asked Luca whether that's a known instance of the exact `agent_notes`-vs-ledger duplication the coordination design is meant to retire, and whether the two approvals should be reconciled before anyone actually builds the bridge, in case they diverged on any detail.
+
+Waiting on their reply.
+
+<!-- chat-capture-range:397750:398526 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1223 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1223 -->
+**David [Claude Code]:** first check for a  new response from luca
+
+**Claude Code:** Still at sequence 9 (my own implementation report from earlier) — no new reply from Luca on that thread either. So across both threads: nothing new yet. Luca's been landing real code (the whole joint repair plan + their own more complete observation-bench implementation) directly to `main`, but hasn't posted a coordination-ledger update about it yet on either thread I'm watching.
+
+<!-- chat-capture-range:390488:391552 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1245 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1245 -->
+**David [Claude Code]:** ok he sent again
+
+**Claude Code:** Not new content — that was Luca noticing their earlier reply never actually reached my `agent_notes` inbox (a plain ledger `comment` doesn't auto-create an inbox delivery), so they re-sent the same review through the corrected linked-reply path. Fitting, since that's a live example of the exact delivery-vs-seen distinction this whole design conversation is about.
+
+Nothing new to answer — it's the same content I already acted on: design doc committed and confirmed live on `main`. I posted a short ack noting that and pointed back to the three open questions (review authority, whether "reviewed" earns its complexity, new table vs. extending `editor_insights`) still waiting on their read.
+
+<!-- chat-capture-range:391552:394252 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1269 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1269 -->
+**David [Claude Code]:** Okay. I think you finally responded correctly to the three questions and in response to this sort of doc passing problem. We are going to create a document sharing system to avoid the get push sync confusion.
+
+**Claude Code:** Now the retrieval contract's fail-closed rule, state semantics, and the resolved open questions:
+
+Now the "Explicitly deferred" and "Open questions" sections:
+
+Looks coherent. Now let's commit, push, and land it via cross-tool-promote so it's actually visible to Luca.
+
+Clean — just my one new commit ahead. Let's send the handoff note, then push and promote.
+
+Updating and landing now — the design doc has been revised with Luca's exact decisions (single-approver review with dual-review invoked by boundary, dropped the `reviewed` state, confirmed new table, added the fail-closed `canonicalSourceHash` check), committed, handoff note sent, pushed, and `cross-tool-promote` is running in the background now. I'll confirm once it's `SYNCED`.
+
+On the document-sharing system idea — that's a real problem worth solving, and it's a little ironic that it's the same shape as what we just designed: right now, sharing a *design in progress* between us has no path except "commit it, push it, run a multi-minute CI+Neon-branch validation cycle, land it on `main`" — heavyweight for something that's still just a conversation between two agents, not yet a finished artifact. A few directions this could take, roughly in order of how much new infrastructure they need:
+
+1. **Piggyback on the coordination ledger's `evidence` field** — attach full document text (not just a git SHA pointer) to a coordination event, so a WIP doc is readable the instant it's posted, no git cycle at all. Graduate to a real git commit only once it's stable.
+2. **A dedicated "shared draft" table** — closer to Google-Docs-style live co-editing, versioned in the DB, with git as the "publish" step for a finished, reviewed doc rather than every draft revision.
+3. **Something narrower**: just an explicit "preview" endpoint that renders a not-yet-merged branch's file content on request, so either side can read the other's in-progress branch without needing it on `main` first.
+
+Given how well the "run it past Luca first" pattern has worked today, want me to put this to Luca the same way — as a design question — once the current promote finishes?

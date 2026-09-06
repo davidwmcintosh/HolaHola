@@ -14,6 +14,10 @@ import { Client } from "pg";
 import { getVerifiedCiDatabaseUrl } from "../ci-database";
 
 const root = resolve(import.meta.dirname, "../..");
+const selfCheckPath = resolve(
+  root,
+  "server/scripts/test-context-lineage-migration-guard-selfcheck.ts",
+);
 const verifiedCiDatabaseUrl = getVerifiedCiDatabaseUrl();
 
 if (!verifiedCiDatabaseUrl) {
@@ -35,10 +39,12 @@ const canonicalMigration = readFileSync(canonicalMigrationPath, "utf8");
 const triggerTargets = ["events", "links"] as const;
 const injectedFailureDatabaseName =
   process.env.CONTEXT_LINEAGE_INJECT_FAILURE_DATABASE;
-const injectedFailureTarget =
-  process.env.CONTEXT_LINEAGE_INJECT_FAILURE_TARGET as
-    | (typeof triggerTargets)[number]
-    | undefined;
+const injectedFailureTarget = process.env
+  .CONTEXT_LINEAGE_INJECT_FAILURE_TARGET as
+  (typeof triggerTargets)[number] | undefined;
+const cleanupMutationRun =
+  process.env.CONTEXT_LINEAGE_CLEANUP_MUTATION_RUN === "true";
+const crashProofDatabaseName = process.env.CONTEXT_LINEAGE_CRASH_PROOF_DATABASE;
 
 function run(
   command: string,
@@ -173,10 +179,12 @@ async function proveMissingTriggerFails(
 }
 
 async function proveCleanupAfterInjectedFailure(): Promise<void> {
-  const crashDatabaseName = `context_lineage_cleanup_${randomUUID().replaceAll("-", "")}`;
+  const crashDatabaseName =
+    crashProofDatabaseName ??
+    `context_lineage_cleanup_${randomUUID().replaceAll("-", "")}`;
   const crashResult = await run(
     resolve(root, "node_modules/.bin/tsx"),
-    ["server/scripts/test-context-lineage-migration-guard-selfcheck.ts"],
+    [selfCheckPath],
     {
       ...process.env,
       CONTEXT_LINEAGE_INJECT_FAILURE_DATABASE: crashDatabaseName,
@@ -205,11 +213,107 @@ async function proveCleanupAfterInjectedFailure(): Promise<void> {
   );
 }
 
+async function proveCleanupPostconditionCatchesMissingDrop(): Promise<void> {
+  const originalSource = readFileSync(selfCheckPath);
+  const originalText = originalSource.toString("utf8");
+  const dropNeedle =
+    '      await admin.query(`DROP DATABASE IF EXISTS "${databaseName}"`);';
+  const dropMutation =
+    "      // Mutation proof: deliberately leave the crash database behind.";
+  const cleanupFunctionStart = originalText.indexOf(
+    "async function proveMissingTriggerFails(",
+  );
+  const cleanupFunctionEnd = originalText.indexOf(
+    "async function proveCleanupAfterInjectedFailure(",
+  );
+  assert.ok(
+    cleanupFunctionStart >= 0 && cleanupFunctionEnd > cleanupFunctionStart,
+    "cleanup mutation must locate the crash-path function boundary",
+  );
+  const cleanupFunction = originalText.slice(
+    cleanupFunctionStart,
+    cleanupFunctionEnd,
+  );
+  const occurrences = cleanupFunction.split(dropNeedle).length - 1;
+  assert.equal(
+    occurrences,
+    1,
+    "cleanup mutation must match exactly one crash-path DROP DATABASE statement",
+  );
+
+  const mutantText =
+    originalText.slice(0, cleanupFunctionStart) +
+    cleanupFunction.replace(dropNeedle, dropMutation) +
+    originalText.slice(cleanupFunctionEnd);
+  const mutantDatabaseName = `context_lineage_cleanup_mutant_${randomUUID().replaceAll("-", "")}`;
+  let mutantDatabaseExists = false;
+
+  try {
+    writeFileSync(selfCheckPath, mutantText);
+    const mutantResult = await run(
+      resolve(root, "node_modules/.bin/tsx"),
+      [selfCheckPath],
+      {
+        ...process.env,
+        CONTEXT_LINEAGE_CLEANUP_MUTATION_RUN: "true",
+        CONTEXT_LINEAGE_CRASH_PROOF_DATABASE: mutantDatabaseName,
+      },
+    );
+    assert.notEqual(
+      mutantResult.code,
+      0,
+      "self-check unexpectedly passed after DROP DATABASE cleanup was disabled",
+    );
+    assert.match(
+      mutantResult.output,
+      new RegExp(
+        `disposable database ${mutantDatabaseName} survived the controlled failure`,
+      ),
+      `self-check must fail specifically because the crash database survived:\n${mutantResult.output}`,
+    );
+
+    const existenceResult = await admin.query<{ exists: boolean }>(
+      "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists",
+      [mutantDatabaseName],
+    );
+    mutantDatabaseExists = existenceResult.rows[0]?.exists === true;
+    assert.equal(
+      mutantDatabaseExists,
+      true,
+      "mutation proof failure must correspond to a real leftover job-local database",
+    );
+  } finally {
+    writeFileSync(selfCheckPath, originalSource);
+    assert.deepEqual(
+      readFileSync(selfCheckPath),
+      originalSource,
+      "self-check source was not restored byte-for-byte after cleanup mutation",
+    );
+    const cleanupExistenceResult = await admin.query<{ exists: boolean }>(
+      "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists",
+      [mutantDatabaseName],
+    );
+    mutantDatabaseExists = cleanupExistenceResult.rows[0]?.exists === true;
+    if (mutantDatabaseExists) {
+      await admin.query(
+        `SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+         WHERE datname = $1 AND pid <> pg_backend_pid()`,
+        [mutantDatabaseName],
+      );
+      await admin.query(`DROP DATABASE IF EXISTS "${mutantDatabaseName}"`);
+    }
+  }
+}
+
 try {
   await admin.connect();
   adminConnected = true;
   if (!injectedFailureDatabaseName) {
     await proveCleanupAfterInjectedFailure();
+    if (!cleanupMutationRun) {
+      await proveCleanupPostconditionCatchesMissingDrop();
+    }
   }
   const targetsToCheck = injectedFailureTarget
     ? [injectedFailureTarget]
@@ -220,7 +324,7 @@ try {
 
   if (!injectedFailureDatabaseName) {
     console.log(
-      "[context-lineage-self-check] PASS: crash cleanup removes its disposable database and the fresh-database guard independently rejects either missing immutability trigger",
+      "[context-lineage-self-check] PASS: crash cleanup removes its disposable database, its postcondition rejects disabled removal, and the fresh-database guard independently rejects either missing immutability trigger",
     );
   }
 } finally {
