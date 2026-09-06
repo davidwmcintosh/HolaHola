@@ -386,3 +386,9 @@ Did Claude Code's message-status feedback identify a remaining defect in the new
 How can the database-backed check make its refusal mode as explicit as its mutation proof, so future CI edits cannot quietly route it toward shared Neon?
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+thinking: What is the smallest fixture structure that gives each trigger mutation its own fresh database and guaranteed cleanup while preserving canonical migration bytes exactly?
+
+---

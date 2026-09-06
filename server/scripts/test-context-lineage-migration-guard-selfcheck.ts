@@ -23,16 +23,16 @@ if (!verifiedCiDatabaseUrl) {
   process.exit(0);
 }
 
-const fixtureRoot = mkdtempSync(join(tmpdir(), "context-lineage-migration-"));
-const fixtureMigrations = join(fixtureRoot, "migrations");
-const fixtureConfig = join(fixtureRoot, "drizzle.config.ts");
-const databaseName = `context_lineage_mutant_${randomUUID().replaceAll("-", "")}`;
 const adminUrl = new URL(verifiedCiDatabaseUrl);
 adminUrl.pathname = "/postgres";
-const fixtureUrl = new URL(verifiedCiDatabaseUrl);
-fixtureUrl.pathname = `/${databaseName}`;
 const admin = new Client({ connectionString: adminUrl.toString() });
 let adminConnected = false;
+const canonicalMigrationPath = resolve(
+  root,
+  "migrations/0017_context_lineage_ledger.sql",
+);
+const canonicalMigration = readFileSync(canonicalMigrationPath, "utf8");
+const triggerTargets = ["events", "links"] as const;
 
 function run(
   command: string,
@@ -57,99 +57,122 @@ function run(
   });
 }
 
-try {
-  cpSync(resolve(root, "migrations"), fixtureMigrations, { recursive: true });
-  const fixtureMigrationPath = join(
-    fixtureMigrations,
-    "0017_context_lineage_ledger.sql",
-  );
-  const canonicalMigrationPath = resolve(
-    root,
-    "migrations/0017_context_lineage_ledger.sql",
-  );
-  const canonicalMigration = readFileSync(canonicalMigrationPath, "utf8");
-  const missingLinksTrigger = /CREATE TRIGGER "context_lineage_links_immutable"\nBEFORE UPDATE OR DELETE ON "context_lineage_links"\nFOR EACH ROW\nEXECUTE FUNCTION "reject_context_lineage_mutation"\(\);\n?/;
-  const fixtureMigration = canonicalMigration.replace(missingLinksTrigger, "");
-  assert.notEqual(
-    fixtureMigration,
-    canonicalMigration,
-    "self-check fixture must remove the links immutability trigger",
-  );
-  assert.doesNotMatch(fixtureMigration, /CREATE TRIGGER "context_lineage_links_immutable"/);
-  assert.equal(
-    readFileSync(canonicalMigrationPath, "utf8"),
-    canonicalMigration,
-    "self-check must never alter the canonical migration",
-  );
-  writeFileSync(fixtureMigrationPath, fixtureMigration);
-  writeFileSync(
-    fixtureConfig,
-    `export default {
+async function proveMissingTriggerFails(
+  target: (typeof triggerTargets)[number],
+): Promise<void> {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), "context-lineage-migration-"));
+  const fixtureMigrations = join(fixtureRoot, "migrations");
+  const fixtureConfig = join(fixtureRoot, "drizzle.config.ts");
+  const databaseName = `context_lineage_${target}_mutant_${randomUUID().replaceAll("-", "")}`;
+  const fixtureUrl = new URL(verifiedCiDatabaseUrl!);
+  fixtureUrl.pathname = `/${databaseName}`;
+  let databaseCreated = false;
+
+  try {
+    cpSync(resolve(root, "migrations"), fixtureMigrations, { recursive: true });
+    const fixtureMigrationPath = join(
+      fixtureMigrations,
+      "0017_context_lineage_ledger.sql",
+    );
+    const triggerName = `context_lineage_${target}_immutable`;
+    const missingTrigger = new RegExp(
+      `CREATE TRIGGER "${triggerName}"\\n` +
+        `BEFORE UPDATE OR DELETE ON "context_lineage_${target}"\\n` +
+        'FOR EACH ROW\\nEXECUTE FUNCTION "reject_context_lineage_mutation"\\(\\);\\n?',
+    );
+    const fixtureMigration = canonicalMigration.replace(missingTrigger, "");
+    assert.notEqual(
+      fixtureMigration,
+      canonicalMigration,
+      `self-check fixture must remove the ${target} immutability trigger`,
+    );
+    assert.doesNotMatch(
+      fixtureMigration,
+      new RegExp(`CREATE TRIGGER "${triggerName}"`),
+    );
+    assert.equal(
+      readFileSync(canonicalMigrationPath, "utf8"),
+      canonicalMigration,
+      "self-check must never alter the canonical migration",
+    );
+    writeFileSync(fixtureMigrationPath, fixtureMigration);
+    writeFileSync(
+      fixtureConfig,
+      `export default {
   out: ${JSON.stringify(fixtureMigrations)},
   schema: ${JSON.stringify(resolve(root, "shared/schema.ts"))},
   dialect: "postgresql",
   dbCredentials: { url: process.env.NEON_SHARED_DATABASE_URL },
 };
 `,
-  );
+    );
 
+    await admin.query(`CREATE DATABASE "${databaseName}"`);
+    databaseCreated = true;
+
+    const fixtureEnv = {
+      ...process.env,
+      CI: "true",
+      CI_DATABASE_URL: fixtureUrl.toString(),
+      NEON_SHARED_DATABASE_URL: fixtureUrl.toString(),
+    };
+    const migrationResult = await run(
+      resolve(root, "node_modules/.bin/drizzle-kit"),
+      ["migrate", "--config", fixtureConfig],
+      fixtureEnv,
+    );
+    assert.equal(
+      migrationResult.code,
+      0,
+      `mutated disposable migration must install successfully:\n${migrationResult.output}`,
+    );
+
+    const guardResult = await run(
+      resolve(root, "node_modules/.bin/tsx"),
+      ["--test", "server/__tests__/context-lineage-migration-guard.test.ts"],
+      fixtureEnv,
+    );
+    assert.notEqual(
+      guardResult.code,
+      0,
+      `database-backed guard unexpectedly passed with the ${target} immutability trigger missing`,
+    );
+    assert.match(
+      guardResult.output,
+      new RegExp(triggerName),
+      `guard must fail for the deliberately missing ${target} trigger:\n${guardResult.output}`,
+    );
+    assert.equal(
+      readFileSync(canonicalMigrationPath, "utf8"),
+      canonicalMigration,
+      "canonical migration changed during the disposable self-check",
+    );
+  } finally {
+    if (databaseCreated) {
+      await admin.query(
+        `SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+         WHERE datname = $1 AND pid <> pg_backend_pid()`,
+        [databaseName],
+      );
+      await admin.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
+    }
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+try {
   await admin.connect();
   adminConnected = true;
-  await admin.query(`CREATE DATABASE "${databaseName}"`);
-
-  const fixtureEnv = {
-    ...process.env,
-    CI: "true",
-    CI_DATABASE_URL: fixtureUrl.toString(),
-    NEON_SHARED_DATABASE_URL: fixtureUrl.toString(),
-  };
-  const migrationResult = await run(
-    resolve(root, "node_modules/.bin/drizzle-kit"),
-    ["migrate", "--config", fixtureConfig],
-    fixtureEnv,
-  );
-  assert.equal(
-    migrationResult.code,
-    0,
-    `mutated disposable migration must install successfully:\n${migrationResult.output}`,
-  );
-
-  const guardResult = await run(
-    resolve(root, "node_modules/.bin/tsx"),
-    ["--test", "server/__tests__/context-lineage-migration-guard.test.ts"],
-    fixtureEnv,
-  );
-  assert.notEqual(
-    guardResult.code,
-    0,
-    "database-backed guard unexpectedly passed with the links immutability trigger missing",
-  );
-  assert.match(
-    guardResult.output,
-    /context_lineage_links_immutable/,
-    `guard must fail for the deliberately missing trigger:\n${guardResult.output}`,
-  );
-  assert.equal(
-    readFileSync(canonicalMigrationPath, "utf8"),
-    canonicalMigration,
-    "canonical migration changed during the disposable self-check",
-  );
+  for (const target of triggerTargets) {
+    await proveMissingTriggerFails(target);
+  }
 
   console.log(
-    "[context-lineage-self-check] PASS: the fresh-database guard rejects a migration missing one immutability trigger",
+    "[context-lineage-self-check] PASS: the fresh-database guard independently rejects either missing immutability trigger",
   );
 } finally {
   if (adminConnected) {
-    await admin.query(
-      `SELECT pg_terminate_backend(pid)
-       FROM pg_stat_activity
-       WHERE datname = $1 AND pid <> pg_backend_pid()`,
-      [databaseName],
-    );
-    await admin.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
-  }
-  if (adminConnected) {
     await admin.end().catch(() => undefined);
   }
-  rmSync(fixtureRoot, { recursive: true, force: true });
 }

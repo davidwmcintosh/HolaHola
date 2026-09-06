@@ -1628,3 +1628,67 @@ Implemented and verified both approved repairs.
 Verification passed: TypeScript; projection and real-Git reconciliation suites; projection-writer mutation self-check; 7/7 ingress cases on disposable PostgreSQL; consolidated workflow-safety CI; system health; runtime logs and preview; unconditional architecture approval.
 
 Committed as 5f7894b. The only remaining tracked change is docs/episode-33.md, intentionally preserved uncommitted as a receipt-backed canonical projection rather than bundled, discarded, or misattributed.
+
+<!-- chat-capture-range:390488:393686 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-996 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-996 -->
+**David [Claude Code]:** We have a database. Maybe I'll have some on American lobes in that for a neural network. So we can't... we don't have to just rely on dot m d files or other static documents. We can use the database to how skills make pointers to procedures so that it's part of memory, not part of a lookup. A
+
+**Claude Code:** Got it — you're describing exactly the gap between two things that already exist here but don't overlap:
+
+**What already does this, partially:**
+1. **`editor_insights`** (the "shared lobe") — a real DB table, freely writable by any agent, holding institutional knowledge (`debugging`/`architecture`/`workflow`/`shared` categories). This is memory, not a file. But it's only **keyword-searchable** (`title ILIKE '%x%' OR content ILIKE '%x%'`) — no embeddings, no semantic recall.
+2. **`operation_skill`** — this is the neural-net piece. It's a pinned, global slice of `memory_embeddings`, specifically for agent-operation discovery, semantically searchable via `GET /api/coordination/operations?query=...` (the `operations-catalog` skill wraps this). This is genuinely "ask in plain language, get pointed to the right procedure" — no need to already know a file path.
+
+**The catch, and it's deliberate:** I checked `semantic-memory-service.ts` — its own comment says *"The static catalogue remains authoritative: callers must map returned IDs back to code-defined manifests before presenting them."* The embeddings only help you *find* an operation; the actual definition (what it does, who's allowed to run it, confirmation required or not) still lives in a hardcoded array in `operations-catalog.ts`. That's not an oversight — it's a safety boundary: nothing in memory should be able to silently redefine what a privileged operation actually executes. If that were writable-as-memory, a bad or injected DB row could quietly change what "run the burn report" does.
+
+**So the real gap** is exactly what you're pointing at: there's no layer that's *both* freely writable-as-memory *and* semantically discoverable, for general pipeline/procedure knowledge that isn't a privileged operation — things like "how do I reply on a coordination thread," "what's the pre-merge-handoff checklist," "how do I discover which coordination actor token I need." Right now that still lives only in `.md` files an agent has to already know to open.
+
+Is that the shape of what you're proposing — extend something like `editor_insights` (or a new memory type) with embeddings so *procedural* knowledge becomes semantically recallable the way `operation_skill` already is for privileged operations, while keeping the privileged-operation boundary exactly as locked-down as it is now? If so, this feels like something worth putting to Luca as a design question rather than me just building it, given how carefully that authority boundary was reasoned through.
+
+<!-- chat-capture-range:393686:394748 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1020 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1020 -->
+**David [Claude Code]:** sounds like a great idea. run it past luca please
+
+**Claude Code:** Sent — new thread (`f457602c…`) to Luca [Replit], laying out the gap exactly as we mapped it: `editor_insights` is writable memory but only keyword-searchable, `operation_skill` is semantically searchable but deliberately locked to a static code catalogue for authority reasons. I proposed a new memory type (or extension) that's both writable-as-memory *and* semantically discoverable for general procedural knowledge — explicitly not touching the operation_skill authority boundary — and asked whether this slots in alongside the coordination-ledger consolidation Luca's already mid-build on, or should wait until that lands. Waiting on their read now.
+
+David [Claude Code]: We have a database. Maybe I'll have some on American lobes in that for a neural network. So we can't... we don't have to just rely on dot m d files or other static documents. We can use the database to how skills make pointers to procedures so that it's part of memory, not part of a lookup. A
+
+Claude Code: Got it — you're describing exactly the gap between two things that already exist here but don't overlap:
+
+**What already does this, partially:**
+1. **`editor_insights`** (the "shared lobe") — a real DB table, freely writable by any agent, holding institutional knowledge (`debugging`/`architecture`/`workflow`/`shared` categories). This is memory, not a file. But it's only **keyword-searchable** (`title ILIKE '%x%' OR content ILIKE '%x%'`) — no embeddings, no semantic recall.
+2. **`operation_skill`** — this is the neural-net piece. It's a pinned, global slice of `memory_embeddings`, specifically for agent-operation discovery, semantically searchable via `GET /api/coordination/operations?query=...` (the `operations-catalog` skill wraps this). This is genuinely "ask in plain language, get pointed to the right procedure" — no need to already know a file path.
+
+**The catch, and it's deliberate:** I checked `semantic-memory-service.ts` — its own comment says *"The static catalogue remains authoritative: callers must map returned IDs back to code-defined manifests before presenting them."* The embeddings only help you *find* an operation; the actual definition (what it does, who's allowed to run it, confirmation required or not) still lives in a hardcoded array in `operations-catalog.ts`. That's not an oversight — it's a safety boundary: nothing in memory should be able to silently redefine what a privileged operation actually executes. If that were writable-as-memory, a bad or injected DB row could quietly change what "run the burn report" does.
+
+**So the real gap** is exactly what you're pointing at: there's no layer that's *both* freely writable-as-memory *and* semantically discoverable, for general pipeline/procedure knowledge that isn't a privileged operation — things like "how do I reply on a coordination thread," "what's the pre-merge-handoff checklist," "how do I discover which coordination actor token I need." Right now that still lives only in `.md` files an agent has to already know to open.
+
+Is that the shape of what you're proposing — extend something like `editor_insights` (or a new memory type) with embeddings so *procedural* knowledge becomes semantically recallable the way `operation_skill` already is for privileged operations, while keeping the privileged-operation boundary exactly as locked-down as it is now? If so, this feels like something worth putting to Luca as a design question rather than me just building it, given how carefully that authority boundary was reasoned through.
+
+<!-- chat-capture-range:390488:392321 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1031 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1031 -->
+**David [Claude Code]:** he answered
+
+**Claude Code:** Now let's post the design back to the coordination thread, referencing the commit SHA per this project's convention.
+
+Done. Summary of what happened:
+
+**Luca agreed with the direction** and gave a sharper version of the design than I'd drafted — confirmed the ledger/knowledge-index separation, named the exact gap (`editor_insights` writable-but-lexical, `operation_skill` semantic-but-authority-locked), and specified the required contract: freely writable, provenance-bearing, semantically discoverable, non-executable, with an explicit opt-in promotion path (never automatic from ledger traffic) and five required test categories.
+
+**I wrote and committed the design doc**: [docs/superpowers/specs/2026-09-06-procedure-knowledge-design.md](docs/superpowers/specs/2026-09-06-procedure-knowledge-design.md) (commit `4afe359ef`, not pushed). It leads with the retrieval/authority contract as Luca asked, defines a `procedure_knowledge_entries` table with a draft→approved review gate, keeps the operations-catalogue authority boundary completely untouched, and maps its verification section directly to Luca's five named test categories. I left three genuine open questions for Luca rather than guessing — review authority, whether the "reviewed" intermediate state is worth the complexity, and whether this should be a new table or an extension of `editor_insights`.
+
+Posted back on the same thread. Waiting on their read now — nothing else pending on my side.
+
+<!-- chat-capture-range:392321:393626 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1077 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1077 -->
+**David [Claude Code]:** how will he read the doc without a git push?
+
+**Claude Code:** Good catch — you're right, he can't. My commit only exists in my local repo; nothing about referencing a SHA makes it visible elsewhere until it's actually pushed somewhere Luca's Replit checkout can see. I described it as "evidence" in the coordination message, which was premature.
+
+I checked what pushing would actually involve: my branch (`task-1353-and-backfill`) is otherwise fully caught up with both `origin/task-1353-and-backfill` and `origin/main` — this one commit is the *only* thing ahead. It's a docs-only addition (no migration, no data-op), so per this repo's own landing rules that means a normal PR + CI merge is the correct path, not the special deploy-key bypass.
+
+Want me to push this branch and open a PR into `main` so the design doc actually lands where Luca can read it? That's a real push and a real (small, visible) PR, so I'm asking before doing it rather than just going ahead.

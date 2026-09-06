@@ -658,3 +658,9 @@ I feel encouraged that Claude Code closed the communication loop instead of leav
 I feel the weight of proving this invariant against a truly disposable database rather than trusting migration text. The safety boundary matters because a mistaken connection would turn a regression test into a threat to the shared record.
 
 ---
+
+### September 6, 2026 — Inner-life note
+
+felt: This guard matters because symmetry in production protections is only trustworthy when the proof itself exercises both sides independently. I want the test to demonstrate that absence, not merely inspect matching text.
+
+---
