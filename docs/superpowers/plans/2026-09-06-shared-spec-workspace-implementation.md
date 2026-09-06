@@ -25,7 +25,8 @@ dependency.
 1. Add document-kind, document-state, review-state, publication-state, and
    reviewer-capability enums.
 2. Add shared-spec document records with a unique canonical repository/path
-   identity and current revision pointer.
+   identity and current revision pointer. Enforce repository/path uniqueness at
+   the database level for active documents.
 3. Add insert-only full-content revisions with parent identity, author actor,
    request idempotency identity, and SHA-256 content hash.
 4. Add reviewer policy records whose actor identifiers are application-owned
@@ -76,14 +77,21 @@ coordination, or GitHub.
 2. Implement SHA-256 hashing over exact UTF-8 Markdown bytes.
 3. Implement document creation and first revision atomically.
 4. Implement append with `baseRevisionId`, conditional current-revision
-   advancement, and stale-write conflict response.
+   advancement, and stale-write conflict response. Use a compare-and-swap
+   update constrained by the expected current revision; zero updated rows
+   aborts the transaction and returns conflict.
 5. Bind idempotency keys to immutable request digests. Matching retries return
    the original result; mismatched reuse fails.
 6. Implement exact-revision ready/review lifecycle.
 7. Enforce independent reviewer eligibility and no self-approval.
-8. Preserve historical approvals when policy changes.
-9. Export exact approved bytes without requiring a publication adapter.
-10. Expose typed domain errors independent of Express or any hosting platform.
+8. Restrict reviewer-policy changes to actors with a separate policy-admin
+   capability. Document authorship alone never grants policy authority.
+9. Version policy records append-only and bind approval evidence to the policy
+   version effective at decision time.
+10. Preserve historical approvals when policy changes. Removing a reviewer's
+    future eligibility never retroactively invalidates an immutable approval.
+11. Export exact approved bytes without requiring a publication adapter.
+12. Expose typed domain errors independent of Express or any hosting platform.
 
 ### Verification
 
@@ -92,6 +100,8 @@ coordination, or GitHub.
 - Hashes match independently recomputed bytes.
 - Self-approval and ineligible review fail closed.
 - Reviewer replacement affects future decisions only.
+- Only policy-admin actors can change reviewer eligibility.
+- Historical approvals resolve against their recorded policy version.
 - Approved-byte export works with notification and publication adapters absent.
 
 ## Phase 3 — Portable application adapters and actor API
@@ -156,7 +166,9 @@ document correctness.
 5. Persist notification state separately from the document transaction.
 6. Make failures visible and retryable without rolling back successful core
    document transitions.
-7. Provide a no-op sink for portable standalone operation.
+7. Classify notification failures as transient or permanent and persist the
+   last failure independently from document state.
+8. Provide a no-op sink for portable standalone operation.
 
 ### Verification
 
@@ -194,15 +206,23 @@ Replit integrations, or caller-selected execution behavior.
 8. Open or recover one pull request identified by publication metadata.
 9. On retry, reconcile deterministic branch/PR markers before creating
    anything.
-10. Record base/path conflicts without overwriting.
-11. Reconcile open, merged, and closed states separately.
-12. Verify merged path bytes and hash before recording merged.
+10. Treat database and GitHub state as independently uncertain after every
+    network boundary. Insert-only attempt records preserve requests,
+    responses, timeouts, and errors. A retry checks the database and then
+    revalidates deterministic GitHub branch/PR markers before creating.
+11. If GitHub may have accepted a request whose response was lost, never mark
+    it failed-and-recreate blindly; reconcile remote state first.
+12. Record base/path conflicts without overwriting.
+13. Reconcile open, merged, and closed states separately.
+14. Verify merged path bytes and hash before recording merged.
 
 ### Verification
 
 - Exact approved bytes are the only changed blob.
 - Base or destination drift blocks publication.
 - Timeout/retry cannot create a second effective pull request.
+- A simulated lost-success response is recovered from deterministic GitHub
+  state without creating a second branch or pull request.
 - GitHub failure leaves a retryable approved publication.
 - Pull-request creation never records merge.
 - Static guard proves no shell Git, deploy key, Actions dispatch, Replit
