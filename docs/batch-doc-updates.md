@@ -1,3 +1,14 @@
+## 2026-09-05 — Explicit coordination comment delivery intent
+
+- Plain `coordination-cli comment` calls now require `--ledger-only`, making
+  record-only intent explicit before any mutation.
+- Recipient-facing responses continue through `reply-and-verify`, which links
+  the inbox reply to the canonical coordination thread and verifies storage.
+- CLI mutations now print an explicit delivery summary without changing their
+  machine-readable result JSON on stdout.
+- Focused coordination-client tests lock the intent guard and delivery-state
+  classifications.
+
 # Fail-closed task ownership and protected Git inspection
 
 - Added `npm run task:ownership -- --task-ref <ref>` to distinguish current

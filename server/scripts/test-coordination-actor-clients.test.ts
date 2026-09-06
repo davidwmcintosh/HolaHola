@@ -7,7 +7,11 @@ import {
   type CoordinationClientActor,
 } from '../services/coordination-actor-client';
 import { canCoordinationActorPerform } from '../services/coordination-ledger-service';
-import { unsupportedCoordinationCliOptions } from './coordination-cli';
+import {
+  assertExplicitCoordinationCommentIntent,
+  coordinationCliDeliverySummary,
+  unsupportedCoordinationCliOptions,
+} from './coordination-cli';
 
 const TOKENS = {
   'luca-replit': 'r'.repeat(40),
@@ -25,6 +29,49 @@ const ENVIRONMENT = {
   COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
   COORDINATION_API_TOKEN: 'shared-token-must-never-be-used'.repeat(2),
 };
+
+test('coordination CLI requires explicit ledger-only intent for plain comments', () => {
+  assert.throws(
+    () => assertExplicitCoordinationCommentIntent('comment', {}),
+    /does not deliver to a recipient/,
+  );
+  assert.throws(
+    () => assertExplicitCoordinationCommentIntent('comment', { 'ledger-only': 'true' }),
+    /does not deliver to a recipient/,
+  );
+  assert.doesNotThrow(
+    () => assertExplicitCoordinationCommentIntent('comment', { 'ledger-only': true }),
+  );
+  assert.doesNotThrow(
+    () => assertExplicitCoordinationCommentIntent('reply-and-verify', {}),
+  );
+  assert.deepEqual(
+    unsupportedCoordinationCliOptions('comment', { 'ledger-only': true }),
+    [],
+  );
+});
+
+test('coordination CLI makes delivery outcomes explicit', () => {
+  assert.deepEqual(coordinationCliDeliverySummary('comment', { deliveryState: 'not_applicable' }), {
+    state: 'not_requested',
+    message: 'Ledger-only comment recorded; no recipient delivery was requested.',
+  });
+  assert.deepEqual(coordinationCliDeliverySummary('reply-and-verify', { deliveryState: 'delivered' }), {
+    state: 'delivered',
+    message: 'Recipient inbox delivery verified.',
+  });
+  assert.deepEqual(coordinationCliDeliverySummary('create', { deliveryState: 'pending' }), {
+    state: 'queued',
+    message: 'Recipient delivery is queued and has not been verified yet.',
+  });
+  assert.deepEqual(
+    coordinationCliDeliverySummary('complete-with-linked-outcome', {
+      linkedReply: { deliveryState: 'failed' },
+    }),
+    { state: 'failed', message: 'Recipient delivery failed.' },
+  );
+  assert.equal(coordinationCliDeliverySummary('show', { thread: {} }), null);
+});
 
 test('remaining actors resolve only from their dedicated credentials', () => {
   for (const [actor, token] of Object.entries(TOKENS)) {

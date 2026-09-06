@@ -35,7 +35,8 @@ function usage(): never {
     'Configuration: COORDINATION_API_URL, COORDINATION_ACTOR, and that actor’s dedicated COORDINATION_*_TOKEN. ' +
     'There is no shared coordination token. --url overrides the API URL. ' +
     'Mutations require --idempotency-key; event mutations require --id and --expected-sequence. ' +
-    'Use --cursor/--limit for list, --global-sequence for ack-feed, --after-sequence for show, and --evidence/--data with event mutations.',
+    'Use --cursor/--limit for list, --global-sequence for ack-feed, --after-sequence for show, and --evidence/--data with event mutations. ' +
+    'Plain comment is record-only and requires --ledger-only; use reply-and-verify for a recipient-facing response.',
   );
 }
 
@@ -74,7 +75,7 @@ const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
     'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'recipient',
     'evidence', 'data',
   ]),
-  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id']),
+  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id', 'ledger-only']),
   'reply-and-verify': new Set(['url', 'id', 'body', 'subject', 'session-label', 'event-type', 'idempotency-key']),
   'complete-with-linked-outcome': new Set([
     'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence',
@@ -88,6 +89,55 @@ export function unsupportedCoordinationCliOptions(
 ): string[] {
   const allowed = OPTIONS_BY_COMMAND[command] ?? new Set<string>();
   return Object.keys(options).filter((name) => !allowed.has(name));
+}
+
+export function assertExplicitCoordinationCommentIntent(
+  command: string,
+  options: Options,
+): void {
+  if (command !== 'comment') return;
+  if (options['ledger-only'] !== true) {
+    throw new Error(
+      'comment records only in the coordination ledger and does not deliver to a recipient. ' +
+      'Pass --ledger-only to confirm record-only intent, or use reply-and-verify with the parent agent-note ID for a recipient-facing response.',
+    );
+  }
+}
+
+export type CoordinationCliDeliverySummary = {
+  state: 'delivered' | 'queued' | 'not_requested' | 'failed' | 'unknown';
+  message: string;
+};
+
+export function coordinationCliDeliverySummary(
+  command: string,
+  result: unknown,
+): CoordinationCliDeliverySummary | null {
+  if (command === 'comment') {
+    return {
+      state: 'not_requested',
+      message: 'Ledger-only comment recorded; no recipient delivery was requested.',
+    };
+  }
+  if (typeof result !== 'object' || result === null) return null;
+  const record = result as Record<string, unknown>;
+  const linkedReply = typeof record.linkedReply === 'object' && record.linkedReply !== null
+    ? record.linkedReply as Record<string, unknown>
+    : null;
+  const rawState = linkedReply?.deliveryState ?? record.deliveryState;
+  if (rawState === 'delivered') {
+    return { state: 'delivered', message: 'Recipient inbox delivery verified.' };
+  }
+  if (rawState === 'pending' || rawState === 'queued') {
+    return { state: 'queued', message: 'Recipient delivery is queued and has not been verified yet.' };
+  }
+  if (rawState === 'not_applicable' || rawState === 'not_requested') {
+    return { state: 'not_requested', message: 'No recipient delivery was requested.' };
+  }
+  if (rawState === 'failed' || rawState === 'delivery_failed') {
+    return { state: 'failed', message: 'Recipient delivery failed.' };
+  }
+  return null;
 }
 
 function required(options: Options, name: string): string {
@@ -145,6 +195,11 @@ async function main(): Promise<void> {
   const unsupported = unsupportedCoordinationCliOptions(command, options);
   if (unsupported.length > 0) {
     fail(`Unsupported option${unsupported.length === 1 ? '' : 's'} for ${command}: ${unsupported.map((name) => `--${name}`).join(', ')}`);
+  }
+  try {
+    assertExplicitCoordinationCommentIntent(command, options);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
   }
   const apiUrl = typeof options.url === 'string' ? options.url : process.env.COORDINATION_API_URL;
   const actorValue = process.env.COORDINATION_ACTOR;
@@ -259,6 +314,8 @@ async function main(): Promise<void> {
   }
 
   print(result);
+  const delivery = coordinationCliDeliverySummary(command, result);
+  if (delivery) print({ delivery }, process.stderr);
 }
 
 if (process.argv[1]?.includes('coordination-cli')) {

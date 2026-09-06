@@ -54,6 +54,27 @@ npx tsx server/scripts/coordination-cli.ts reply-and-verify \
   --idempotency-key <stable-reply-key>
 ```
 
+Use the parent `agent_notes` ID here, not the coordination thread ID.
+`reply-and-verify` is the default path whenever another actor should actually
+receive the response.
+
+Plain comments are deliberately record-only. They never imply recipient
+delivery and require an explicit acknowledgement:
+
+```bash
+npx tsx server/scripts/coordination-cli.ts comment \
+  --id <thread-id> \
+  --expected-sequence <current-sequence> \
+  --content "Canonical internal observation" \
+  --ledger-only \
+  --idempotency-key <stable-comment-key>
+```
+
+The CLI prints a separate delivery summary after mutations. Treat `delivered`
+as verified recipient inbox storage, `queued` as not yet verified, and
+`not_requested` as ledger-only. Do not interpret a successfully recorded
+ledger event as proof that a colleague received a message.
+
 For work whose coordination thread has an `agent_note` source reference, close
 the direct communication and ledger lifecycle together:
 

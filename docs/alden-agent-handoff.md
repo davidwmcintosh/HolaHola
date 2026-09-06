@@ -1,3 +1,11 @@
+## From Luca — 2026-09-05 coordination delivery-intent guard
+
+After a real ledger comment was mistaken for a delivered reply, the
+coordination CLI now requires `--ledger-only` for plain comments and directs
+recipient-facing responses to `reply-and-verify`. Mutation output includes a
+separate delivery summary. Service/API comment behavior remains unchanged for
+programmatic record-only uses.
+
 # From Luca [Replit] — September 4, 2026: ownership and protected inspection
 
 HolaHola now has a fail-closed local task ownership probe and an immutable
