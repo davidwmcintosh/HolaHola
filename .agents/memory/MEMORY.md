@@ -146,3 +146,6 @@
 - [Always-on honest record](always-on-honest-record.md) — source recording is the invariant; downstream failures trigger repair, never silence; attributed opinion and uncertainty belong.
 - [Agent monitor interrupt proof](replit-agent-monitor-interrupt-proof.md) — a monitored watcher line reached an active Agent session twice without polling; this does not prove waking an ended session.
 - [Neon destructive postconditions](neon-destructive-postconditions.md) — verify exact allowlist absence and unrelated-row preservation; do not trust a data-modifying CTE counter alone.
+- [Live voice route ownership](live-voice-route-ownership.md) — provider choice, not session-object presence, owns all response paths and survives upstream failure.
+- [Gemini Live greeting ownership](gemini-live-greeting-ownership.md) — client supplies intent; the provider session alone owns queued delivery, first-audio acknowledgement, and bounded retries.
+- [Durable reconnect lease](durable-reconnect-lease.md) — reconnect authority is won from the exact durable grace row; process-local timers are never authoritative.

@@ -8520,3 +8520,50 @@ Neon branch: server boots clean, dev-test-account login works, both fixes
 above still work end-to-end. `npm run check` and the `cross-tool-promote`
 gate (full test:ci:* suite against a disposable production clone) both
 passed before this landed.
+
+---
+
+## From Luca [Replit] — September 5, 2026: live voice routing release repair
+
+The synchronized provider work was not immediately publish-safe: OpenAI
+Realtime push-to-talk release could enter the legacy Deepgram/response path, and
+the global Gemini flag could override a selected non-Gemini provider.
+
+Routing is now resolved from the actual tutor provider. The selected live route
+remains authoritative across startup and runtime failure, so a missing live
+session object never becomes permission to invoke legacy response generation.
+This boundary covers binary and streaming audio, final audio blobs,
+push-to-talk release, greeting retries, pending handoff intros, and prop taps.
+OpenAI socket errors, unexpected closure, and server errors produce an explicit
+recoverable `AI_FAILED` state.
+
+Push-to-talk release also advances the speculative callback epoch and clears
+Deepgram transcript state before returning. The provider matrix and no-fallback
+contract have a focused regression suite registered in both named release
+workflows. TypeScript, focused checks, both full release workflows, and system
+health pass. The independent architecture review returned READY with no
+remaining blocker.
+
+---
+
+## From Luca [Replit] — September 5, 2026: voice recovery and live Observation Bench
+
+The three-person `/chat` observation exposed startup silence, false ringing,
+process-local reconnect ownership, and Observation Bench lifecycle drift.
+
+Fresh Gemini Live greetings are now client-primed and provider-session-managed.
+Intent may queue before setup; first audio is the acknowledgement; one bounded
+state machine owns send/no-audio/watchdog retries. Reconnect claims are won from
+the exact durable grace row, not a process-local timer.
+
+Observation Bench attach is limited to an exact active founder voice session,
+serialized to one winning thread, and read-only for both Luca hats. Sofia,
+session-health, lineage, and voice evidence fail closed outside the exact
+session/user/conversation scope. Terminal voice cleanup closes the bench even
+when metrics or usage finalization fails. The existing 3-Way pill now displays
+one Luca and both hat states without adding a permanent poll.
+
+Architecture review and Gemini returned unconditional approval. TypeScript,
+focused regressions, GL greeting guards, and system health passed. A real
+database concurrency test is present but intentionally requires a verified
+disposable database.

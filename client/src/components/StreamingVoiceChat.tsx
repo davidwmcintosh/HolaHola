@@ -816,7 +816,8 @@ export function StreamingVoiceChat({
   };
   
   // Play ringing sound during voice connection
-  // Ringing should continue through 'connecting' → 'connected' → 'ready' → until AUDIO PLAYS
+  // Ring only until the session is confirmed ready/listening. Greeting transport may
+  // still be initializing after that point; continuing the phone ring is misleading.
   // IMPORTANT: Don't ring on reconnects if Daniela has already spoken (prevents mid-call ringing)
   // NOTE: Ringing is started explicitly in connectStreaming() below, not from connectionState,
   // because warm-up can pre-connect the socket causing connect() to skip the 'connecting' state.
@@ -831,8 +832,7 @@ export function StreamingVoiceChat({
       startRinging();
     }
     
-    // Stop ringing on connection failure only (not on 'ready' - wait for audio)
-    if (connectionState === 'disconnected' || connectionState === 'error') {
+    if (connectionState === 'ready' || connectionState === 'disconnected' || connectionState === 'error') {
       stopRinging();
     }
   }, [streamingVoice.state.connectionState, useStreamingMode]);
@@ -2142,14 +2142,6 @@ export function StreamingVoiceChat({
       // isResumed=true on reconnect so Daniela continues naturally rather than re-introducing herself
       const isResumedForGreeting = isResumedConversation || isReconnectGreeting;
 
-      // SETTLING DELAY: Give Daniela a moment to orient before she speaks her first word.
-      // Reconnects and resumes skip the delay — the session context is already established.
-      // New conversations get 1500ms: just enough to feel like a phone connecting, not a freeze.
-      const settlingDelay = isReconnectGreeting || isResumedConversation ? 0 : 1500;
-      if (settlingDelay > 0) {
-        console.log('[STREAMING GREETING] Settling pause (1500ms) — giving Daniela time to orient...');
-      }
-
       greetingSettlingTimeoutRef.current = setTimeout(() => {
         greetingSettlingTimeoutRef.current = null;
         streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);
@@ -2165,7 +2157,7 @@ export function StreamingVoiceChat({
             setShowStartHint(true);
           }
         }, 5000);
-      }, settlingDelay);
+      }, 0);
       
       // Mark resume as handled so we don't keep triggering it
       if (isResumedConversation && onResumeHandled) {
@@ -4503,6 +4495,8 @@ export function StreamingVoiceChat({
 
         <VoiceChatViewManager
           conversationId={conversationId}
+          voiceSessionId={streamingVoice.state.voiceSessionId}
+          connectionState={streamingVoice.state.connectionState}
           messages={messages}
           onRecordingStart={inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording}
           onRecordingStop={inputMode === 'open-mic' ? () => {} : stopPushToTalkRecording}

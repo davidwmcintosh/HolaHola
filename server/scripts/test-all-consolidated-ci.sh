@@ -125,6 +125,7 @@ group_body_absence() {
 group_body_sms_voice() {
   run test-voice-sms-pipeline.ts
   run test-e164-validation.ts
+  npx tsx --test server/__tests__/live-voice-routing.test.ts
 }
 
 group_body_session() {

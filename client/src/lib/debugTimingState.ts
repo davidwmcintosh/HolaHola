@@ -146,7 +146,7 @@ export interface DebugTimingState {
   recentWordEvents: WordTimingEvent[];
   
   // NEW: Connection status
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'streaming' | 'error';
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'streaming' | 'reconnecting' | 'error';
   
   // NEW: Mismatch detection
   wordMismatchCount: number;         // Count of times highlighted word != expected word

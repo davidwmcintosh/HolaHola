@@ -42,6 +42,12 @@ import {
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL, registerGlSession, unregisterGlSession } from './services/gemini-live-session';
 import { OpenAIRealtimeSession, createOpenAIRealtimeSession } from './services/openai-realtime-session';
+import {
+  getLiveVoiceSessionOwner,
+  resolveLiveVoiceRoute,
+  shouldUseLegacyVoicePipeline,
+  type LiveVoiceRoute,
+} from './services/live-voice-routing';
 import { costTracker } from './services/cost-tracker';
 import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS, getDanielajGLFunctionDeclarationsForLanguage, GL_DISPATCHER_SYSTEM_PROMPT } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
@@ -64,7 +70,7 @@ import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 import { voiceGracePeriods, compartmentInstallation, messages, voiceSessions } from '@shared/schema';
 import { db, getUserDb, getSharedDb } from './db';
-import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
+import { eq, and, gt, lt, lte, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment, getStewardshipReminderFragment } from './services/pre-session-synthesis';
 import { autoResolveAbsenceNudgeOnReturn, applyAbsenceReturnFlag } from './services/daniela-absence-worker';
@@ -76,6 +82,25 @@ import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-
 import { selectPedagogicalDirective, type CanvasMutation } from './services/pedagogical-planner';
 import { glLiveAlert } from './services/gl-live-monitor';
 import { combineVoiceMetricTotals } from './services/voice-exchange-accounting';
+import { winDurableReconnectAuthority } from './services/reconnect-authority';
+import { closeObservationBenchBySessionId } from './services/observation-bench-service';
+import { runTerminalVoiceLifecycle } from './services/terminal-voice-lifecycle';
+
+/**
+ * End an exact durable usage session, then await best-effort Observation Bench
+ * closure without changing endSession's return value.
+ */
+async function endDurableVoiceSession(
+  sessionId: string,
+  reason?: 'completed' | 'abandoned' | 'error',
+  metrics?: () => Promise<unknown>,
+) {
+  return runTerminalVoiceLifecycle({
+    metrics,
+    end: () => usageService.endSession(sessionId, reason),
+    cleanup: () => closeObservationBenchBySessionId({ sessionId }),
+  });
+}
 
 // ── Canvas Mutation Executor ──────────────────────────────────────────────────
 // Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
@@ -274,9 +299,16 @@ interface PendingReconnectData {
   rrCarryState?: { notes: string[]; notesSaved: boolean; userId: string };
   /** Daniela's in-session scratchpad notes — carried across grace-period reconnects */
   sessionNotes?: string[];
+  connectionId?: string;
+  closeCode?: number;
+  closeReason?: string;
+  /** Resolves only after the exact durable grace row has been upserted. */
+  persistencePromise?: Promise<void>;
 }
 const RECONNECT_GRACE_PERIOD_MS = 120000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
+// Correlates lifecycle evidence produced by this process without changing durable schema.
+const VOICE_PROCESS_BOOT_ID = `${process.pid}-${Date.now().toString(36)}`;
 
 /**
  * Extract sessionNotes from an active session for inclusion in the reconnect payload.
@@ -321,13 +353,53 @@ function armReconnectTimer(
   delayMs: number
 ): NodeJS.Timeout {
   return setTimeout(async () => {
+    // This is non-null by type and by storePendingReconnect's runtime guard.
+    // Keep the defensive check at the async boundary: malformed legacy data must
+    // never create evidence that claims an undefined voice-session identity.
+    if (!pending.usageSessionId) {
+      console.warn(`[Reconnect Grace] Ignoring timer without durable voiceSessionId (conv ${conversationId.substring(0, 8)})`);
+      return;
+    }
     const current = pendingReconnectSessions.get(conversationId);
-    if (!current) return;
+    // A timer can already be queued when a replacement connection claims or replaces
+    // this conversation. Never let that stale closure end the newer durable session.
+    if (!current || current !== pending || current.usageSessionId !== pending.usageSessionId) {
+      voiceTelemetry.log(pending.usageSessionId ?? conversationId, String(pending.userId ?? ''), 'grace_period_timer_stale', {
+        voiceSessionId: pending.usageSessionId,
+        conversationId,
+        processBootId: VOICE_PROCESS_BOOT_ID,
+        timerAction: 'ignored_stale',
+      });
+      return;
+    }
+    // Finalization must win the durable row before ending usage. If another
+    // process claimed it, this timer is stale even if its local map survived.
+    const wonFinalization = await winDurableReconnectAuthority(
+      pending.persistencePromise ?? Promise.reject(new Error('missing reconnect persistence')),
+      () => db.delete(voiceGracePeriods).where(and(
+        eq(voiceGracePeriods.conversationId, conversationId),
+        eq(voiceGracePeriods.usageSessionId, pending.usageSessionId),
+        eq(voiceGracePeriods.userId, pending.userId),
+        lte(voiceGracePeriods.expiresAt, new Date()),
+      )).returning(),
+    );
+    if (!wonFinalization) {
+      pendingReconnectSessions.delete(conversationId);
+      voiceTelemetry.log(pending.usageSessionId, String(pending.userId ?? ''), 'grace_period_timer_stale', {
+        voiceSessionId: pending.usageSessionId,
+        conversationId,
+        processBootId: VOICE_PROCESS_BOOT_ID,
+        timerAction: 'db_claim_lost',
+      });
+      return;
+    }
     pendingReconnectSessions.delete(conversationId);
-    db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
     console.log(`[Reconnect Grace] Grace period expired for ${conversationId.substring(0, 8)} — ending session`);
     voiceTelemetry.log(current.usageSessionId ?? conversationId, String(current.userId ?? ''), 'grace_period_expired', {
       conversationId,
+      voiceSessionId: current.usageSessionId,
+      processBootId: VOICE_PROCESS_BOOT_ID,
+      timerAction: 'expired_end',
       exchangeCount: current.exchangeCount,
     });
     glLiveAlert({
@@ -337,14 +409,13 @@ function armReconnectTimer(
       detail: { exchangeCount: current.exchangeCount, conversationId },
     });
     try {
-      await usageService.updateSessionMetrics(current.usageSessionId, {
+      const endedSession = await endDurableVoiceSession(current.usageSessionId, 'abandoned', () => usageService.updateSessionMetrics(current.usageSessionId, {
         exchangeCount: current.exchangeCount,
         studentSpeakingSeconds: current.studentSpeakingSeconds,
         tutorSpeakingSeconds: current.tutorSpeakingSeconds,
         ttsCharacters: current.ttsCharacters,
         sttSeconds: current.sttSeconds,
-      });
-      const endedSession = await usageService.endSession(current.usageSessionId, 'abandoned');
+      }));
       if (endedSession) {
         console.log(`[Reconnect Grace] Usage session ended: ${endedSession.durationSeconds}s, ${current.exchangeCount} exchanges`);
       }
@@ -376,6 +447,13 @@ function storePendingReconnect(
   conversationId: string,
   data: Omit<PendingReconnectData, 'timer' | 'conversationId'>
 ): void {
+  // usageSessionId is the durable voice_sessions identifier persisted in
+  // voice_grace_periods. Refuse an incomplete close rather than creating a
+  // conversation-only timer that could later claim/end another session.
+  if (!data.usageSessionId) {
+    console.warn(`[Reconnect Grace] Refusing to arm grace timer without durable voiceSessionId (conv ${conversationId.substring(0, 8)})`);
+    return;
+  }
   const existing = pendingReconnectSessions.get(conversationId);
   if (existing) {
     clearTimeout(existing.timer);
@@ -386,16 +464,26 @@ function storePendingReconnect(
   pendingReconnectSessions.set(conversationId, entry);
   console.log(`[Reconnect Grace] Stored pending session for ${conversationId.substring(0, 8)} (${RECONNECT_GRACE_PERIOD_MS / 1000}s grace)`);
   voiceTelemetry.log(entry.usageSessionId ?? conversationId, String(entry.userId ?? ''), 'grace_period_stored', {
+    voiceSessionId: entry.usageSessionId,
     conversationId,
+    processBootId: VOICE_PROCESS_BOOT_ID,
+    connectionId: entry.connectionId,
+    closeCode: entry.closeCode,
+    closeReason: entry.closeReason,
+    timerAction: 'armed',
     graceMs: RECONNECT_GRACE_PERIOD_MS,
   });
 
-  // Persist to DB for server-restart resilience (fire-and-forget).
+  // Persist for server-restart resilience. Claims/timers await this promise.
+  // Serialize replacement writes behind the prior write so an older upsert can
+  // never land after the replacement row and resurrect stale authority.
   // rrCarryNotes is the JSON-serialised Reading Room carry state — null for non-RR or incognito.
   // sessionNotes is the JSON-serialised general scratchpad — applies to all session types.
   const rrCarryNotesJson = data.rrCarryState ? JSON.stringify(data.rrCarryState) : null;
   const sessionNotesJson = data.sessionNotes?.length ? JSON.stringify(data.sessionNotes) : null;
-  db.insert(voiceGracePeriods).values({
+  entry.persistencePromise = (existing?.persistencePromise ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() => db.insert(voiceGracePeriods).values({
     conversationId,
     usageSessionId: data.usageSessionId,
     compassSessionActive: data.compassSessionActive,
@@ -425,9 +513,14 @@ function storePendingReconnect(
       rrCarryNotes: rrCarryNotesJson,
       sessionNotes: sessionNotesJson,
     },
-  }).catch((err: Error) => {
-    console.warn('[Reconnect Grace] DB write failed (in-memory path still active):', err.message);
+  }).then(() => undefined))
+  .catch((err: Error) => {
+    console.warn('[Reconnect Grace] DB write failed; durable reconnect authority unavailable:', err.message);
+    throw err;
   });
+  // Mark the stored rejection as observed; authority consumers still await the
+  // original rejected promise and therefore fail closed.
+  void entry.persistencePromise.catch(() => undefined);
 }
 
 async function claimPendingReconnect(conversationId: string, userId: string): Promise<PendingReconnectData | null> {
@@ -438,12 +531,34 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
       console.warn(`[Reconnect Grace] User mismatch for ${conversationId.substring(0, 8)}: expected ${pending.userId}, got ${userId}`);
       return null;
     }
+    const wonClaim = await winDurableReconnectAuthority(
+      pending.persistencePromise ?? Promise.reject(new Error('missing reconnect persistence')),
+      () => db.delete(voiceGracePeriods).where(and(
+        eq(voiceGracePeriods.conversationId, conversationId),
+        eq(voiceGracePeriods.usageSessionId, pending.usageSessionId),
+        eq(voiceGracePeriods.userId, userId),
+        gt(voiceGracePeriods.expiresAt, new Date()),
+      )).returning(),
+    );
     clearTimeout(pending.timer);
-    pendingReconnectSessions.delete(conversationId);
-    db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
+    if (pendingReconnectSessions.get(conversationId) === pending) {
+      pendingReconnectSessions.delete(conversationId);
+    }
+    if (!wonClaim) {
+      voiceTelemetry.log(pending.usageSessionId, userId, 'grace_period_claim_lost', {
+        conversationId,
+        voiceSessionId: pending.usageSessionId,
+        processBootId: VOICE_PROCESS_BOOT_ID,
+        reconnectClaim: 'db_claim_lost',
+      });
+      return null;
+    }
     console.log(`[Reconnect Grace] RESUMED session for ${conversationId.substring(0, 8)} — carrying ${pending.exchangeCount} exchanges`);
     voiceTelemetry.log(pending.usageSessionId ?? conversationId, userId, 'grace_period_resumed', {
       conversationId,
+      voiceSessionId: pending.usageSessionId,
+      processBootId: VOICE_PROCESS_BOOT_ID,
+      reconnectClaim: 'claimed',
       exchangeCount: pending.exchangeCount,
       path: 'memory',
     });
@@ -461,10 +576,23 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
     );
     if (rows.length === 0) return null;
     const row = rows[0];
-    await db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId));
+    // Claim only the exact durable session selected above. A stale reconnect must not
+    // delete a replacement grace row that reused this conversation id.
+    const claimedRows = await db.delete(voiceGracePeriods).where(and(
+      eq(voiceGracePeriods.conversationId, conversationId),
+      eq(voiceGracePeriods.usageSessionId, row.usageSessionId),
+      eq(voiceGracePeriods.userId, userId),
+      gt(voiceGracePeriods.expiresAt, new Date()),
+    )).returning();
+    // Another process may have claimed/finalized this row after our lookup.
+    // DELETE ... RETURNING is the authority: without its row this reconnect owns nothing.
+    if (claimedRows.length === 0) return null;
     console.log(`[Reconnect Grace] RESUMED session from DB for ${conversationId.substring(0, 8)} after server restart — carrying ${row.exchangeCount} exchanges`);
     voiceTelemetry.log(row.usageSessionId ?? conversationId, userId, 'grace_period_resumed', {
       conversationId,
+      voiceSessionId: row.usageSessionId,
+      processBootId: VOICE_PROCESS_BOOT_ID,
+      reconnectClaim: 'claimed',
       exchangeCount: row.exchangeCount,
       path: 'db_fallback',
     });
@@ -532,13 +660,13 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
           console.warn(`[Reconnect Grace] Carry-forward persist failed for expired session ${expired.conversationId.substring(0, 8)} (non-fatal):`, rrErr.message);
         }
       }
-      usageService.updateSessionMetrics(expired.usageSessionId, {
+      endDurableVoiceSession(expired.usageSessionId, 'abandoned', () => usageService.updateSessionMetrics(expired.usageSessionId, {
         exchangeCount: expired.exchangeCount,
         studentSpeakingSeconds: expired.studentSpeakingSeconds,
         tutorSpeakingSeconds: expired.tutorSpeakingSeconds,
         ttsCharacters: expired.ttsCharacters,
         sttSeconds: expired.sttSeconds,
-      }).then(() => usageService.endSession(expired.usageSessionId, 'abandoned'))
+      }))
         .then(() => console.log(`[Reconnect Grace] Ended expired session ${expired.usageSessionId.substring(0, 8)} (conv ${expired.conversationId.substring(0, 8)}) on startup`))
         .catch((err: Error) => console.warn(`[Reconnect Grace] Failed to end expired session ${expired.usageSessionId.substring(0, 8)}:`, err.message));
     }
@@ -576,6 +704,7 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
         sessionStartTime: row.sessionStartTime,
         userId: row.userId,
         timer: null as any,
+        persistencePromise: Promise.resolve(),
         rrCarryState: hydratedRrCarryState,
         sessionNotes: deserializeSessionNotesFromDb(row.sessionNotes),
       };
@@ -1390,6 +1519,11 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   // resolved tutor voice's provider is 'openai-realtime'. Mutually exclusive with
   // geminiLiveSession: exactly one (or neither, on the legacy pipeline) is active.
   let openaiRealtimeSession: OpenAIRealtimeSession | null = null;
+  // Stable route ownership for this connection. A selected live provider keeps
+  // ownership even if its upstream socket is starting or fails, so no race or
+  // failure can silently re-enter the legacy STT/response pipeline.
+  let selectedLiveVoiceRoute: LiveVoiceRoute = 'legacy';
+  let liveVoiceFailureMessage: string | null = null;
   // Cached system prompt for the Gemini Live session — needed to restart with a new voice
   let geminiLiveSystemPromptCache = '';
   // Prevent duplicate greeting triggers — client may retry if audio is slow
@@ -1560,12 +1694,14 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
           // doesn't flag active GL sessions as stalled (GL audio bypasses the STT path
           // that normally calls resetIdleTimeout).
           if (session) orchestrator.resetIdleTimeoutForSession(session.id);
-          if (geminiLiveSession) {
-            geminiLiveSession.sendAudioChunk(audioBuffer);
-            return;
-          }
-          if (openaiRealtimeSession) {
-            openaiRealtimeSession.sendAudioChunk(audioBuffer);
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (selectedLiveVoiceRoute === 'gemini-live' && geminiLiveSession) {
+              geminiLiveSession.sendAudioChunk(audioBuffer);
+            } else if (selectedLiveVoiceRoute === 'openai-realtime' && openaiRealtimeSession) {
+              openaiRealtimeSession.sendAudioChunk(audioBuffer);
+            } else if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
             return;
           }
 
@@ -1666,7 +1802,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                   }
 
                   // End the stale DB record so billing is clean
-                  usageService.endSession(existingActiveSession.id).catch((err: Error) => {
+                  endDurableVoiceSession(existingActiveSession.id).catch((err: Error) => {
                     console.warn('[ConcurrentGuard] Failed to end stale session:', err.message);
                   });
 
@@ -1753,12 +1889,24 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             const phase1Ms = Date.now() - initStart;
             console.log(`[SessionInit] Phase 1 (parallel DB lookups) completed in ${phase1Ms}ms`);
 
-            // Resolved once per connection — true when this student's language+gender
-            // tutor voice is explicitly configured (Voice Console) to use OpenAI's
-            // audio-to-audio Realtime model instead of Gemini Live.
-            const useOpenAIRealtime = (tutorVoice as any)?.provider === 'openai-realtime';
+            // Resolve the live engine from the tutor voice that was actually selected.
+            // GEMINI_LIVE_VOICE_ENABLED is only an availability gate; it must never
+            // override an explicit Cartesia, ElevenLabs, Google, or other provider.
+            const resolvedVoiceProvider = (tutorVoice as any)?.provider as string | undefined;
+            const liveVoiceRoute = resolveLiveVoiceRoute(
+              resolvedVoiceProvider,
+              GEMINI_LIVE_VOICE_ENABLED,
+            );
+            selectedLiveVoiceRoute = liveVoiceRoute;
+            liveVoiceFailureMessage = null;
+            const useOpenAIRealtime = liveVoiceRoute === 'openai-realtime';
             if (useOpenAIRealtime) {
               console.log(`[SessionInit] Tutor voice provider is 'openai-realtime' — routing this session to OpenAI GPT Realtime instead of Gemini Live`);
+            } else if (
+              (resolvedVoiceProvider === 'gemini-live' || resolvedVoiceProvider === 'gemini-live-35')
+              && liveVoiceRoute === 'legacy'
+            ) {
+              console.warn(`[SessionInit] Tutor voice provider '${resolvedVoiceProvider}' selected while Gemini Live is disabled — using the legacy voice pipeline`);
             }
 
             // ══════════════════════════════════════════════════════════════
@@ -2650,11 +2798,10 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
               console.log('[ResumeHandle] Injected restored handle into session — GL will reconnect with full context');
             }
 
-            // ── Gemini Live voice session (feature-flagged) ──────────────────
-            // Also entered when this student's tutor voice is explicitly set to
-            // 'openai-realtime' (useOpenAIRealtime), independent of the GL flag —
-            // both live-audio engines share the classroom-context baking below.
-            if (GEMINI_LIVE_VOICE_ENABLED || useOpenAIRealtime) {
+            // ── Live audio voice session (provider-selected) ─────────────────
+            // OpenAI Realtime and Gemini Live share the classroom-context baking
+            // below, but only the resolved provider may activate a live engine.
+            if (liveVoiceRoute !== 'legacy') {
               try {
                 // Gemini Live uses a one-shot system prompt — it bypasses the per-turn orchestrator
                 // injection that the regular pipeline relies on. We must bake ALL of Daniela's
@@ -3415,9 +3562,17 @@ ${lastNote.tutorNotes}`);
                   // context for one admin-selected tutor voice.
                   const studentDisplayName = user?.firstName || 'there';
                   const openaiGreetingTrigger = `You are Daniela, a warm, encouraging language tutor. ${studentDisplayName} just arrived for a voice session. Greet them naturally following the language-mix guidance in your instructions, then begin the conversation.`;
-                  openaiRealtimeSession = createOpenAIRealtimeSession(session, glSendMessage);
+                  const currentOpenAISession = createOpenAIRealtimeSession(session, glSendMessage);
+                  openaiRealtimeSession = currentOpenAISession;
+                  currentOpenAISession.onUnavailable = (reason) => {
+                    if (openaiRealtimeSession !== currentOpenAISession) return;
+                    liveVoiceFailureMessage = `${reason}. Reconnect the voice session or select another provider.`;
+                    currentOpenAISession.stop();
+                    openaiRealtimeSession = null;
+                    sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+                  };
                   try {
-                    await openaiRealtimeSession.start(geminiLiveSystemPrompt, openaiGreetingTrigger, {
+                    await currentOpenAISession.start(geminiLiveSystemPrompt, openaiGreetingTrigger, {
                       personality: (tutorVoice as any)?.personality,
                       emotion: (tutorVoice as any)?.emotion,
                       expressiveness: (tutorVoice as any)?.expressiveness,
@@ -3425,9 +3580,12 @@ ${lastNote.tutorNotes}`);
                     console.log(`[OpenAIRealtime] Session started for ${studentDisplayName}, lang: ${config.targetLanguage || 'spanish'}, voice: ${session.voiceId}`);
                   } catch (oaErr: any) {
                     console.error('[OpenAIRealtime] Failed to start session:', oaErr.message);
-                    openaiRealtimeSession?.stop();
-                    openaiRealtimeSession = null;
-                    throw oaErr; // let the outer catch below fall through to the legacy pipeline
+                    if (openaiRealtimeSession === currentOpenAISession) {
+                      currentOpenAISession.stop();
+                      openaiRealtimeSession = null;
+                    }
+                    liveVoiceFailureMessage = `OpenAI Realtime could not start: ${oaErr.message}. Reconnect the voice session or select another provider.`;
+                    sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
                   }
                   // Minimal idle timeout so a forgotten test session doesn't run indefinitely —
                   // reuses the same idle-timer slot GL uses (mutually exclusive with GL per session).
@@ -3490,7 +3648,10 @@ ${lastNote.tutorNotes}`);
                 // Feature 5 fix (Gemini review): store active tool names so find_teaching_tool
                 // can filter its semantic search results to only return callable tools.
                 (session as any).__activeGLToolNames = new Set(glDeclarations.map((d: any) => d.name).filter(Boolean));
-                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations, glGreetingTrigger);
+                // Greeting intent belongs to the ready-gated client request_greeting path.
+                // Do not bootstrap-dispatch here: setup may complete before session_started,
+                // which leaves the client ringing while Daniela is already speaking.
+                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations);
                 console.log(`[GeminiLive] Session started with ${glDeclarations.length} GL tools (slim set, lang: ${config.targetLanguage || 'spanish'}) alongside orchestrator session ${session.id}`);
                 // Register the playback_ended callback bridge so the Socket.io telemetry
                 // handler (different scope) can call geminiLiveSession.onPlaybackEnded().
@@ -3643,7 +3804,8 @@ ${lastNote.tutorNotes}`);
                 if (conversationId && geminiLiveSession) unregisterGlSession(conversationId, geminiLiveSession);
                 geminiLiveSession = null;
                 if (openaiRealtimeSession) { openaiRealtimeSession.stop(); openaiRealtimeSession = null; }
-                // Fall through — session still works via legacy pipeline
+                liveVoiceFailureMessage = `The selected live voice provider could not start: ${glErr.message}. Reconnect the voice session or select another provider.`;
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
               }
             } else {
               // ── Text-mode (Deepgram) absence return resolution ─────────────
@@ -3762,6 +3924,7 @@ ${lastNote.tutorNotes}`);
             ws.send(JSON.stringify({
               type: 'session_started',
               sessionId: session.id,
+              ...(dbSessionId ? { voiceSessionId: dbSessionId } : {}),
               timestamp: Date.now(),
               isGeminiLive: !!geminiLiveSession,
             }));
@@ -3780,6 +3943,24 @@ ${lastNote.tutorNotes}`);
           if (!isAuthenticated || !session) {
             sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready for greeting', true);
             return;
+          }
+
+          // OpenAI Realtime sends its greeting during start(). A later client
+          // retry is always a no-op, including after startup/runtime failure;
+          // it must never become a legacy text+TTS greeting.
+          if (selectedLiveVoiceRoute === 'openai-realtime') {
+            if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            } else {
+              console.log('[OpenAIRealtime] request_greeting received — already greeted on session start, ignoring');
+            }
+            break;
+          }
+          if (selectedLiveVoiceRoute === 'gemini-live' && !geminiLiveSession) {
+            if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
+            break;
           }
           
           // RECONNECTION GUARD: If this session was created via reconnection,
@@ -3807,7 +3988,7 @@ ${lastNote.tutorNotes}`);
           const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean; scenarioSlug?: string };
           
           // Check for pending handoff intro
-          if (userId && pendingHandoffIntros.has(userId)) {
+          if (shouldUseLegacyVoicePipeline(selectedLiveVoiceRoute) && userId && pendingHandoffIntros.has(userId)) {
             const pendingIntro = pendingHandoffIntros.get(userId)!;
             const age = Date.now() - pendingIntro.timestamp;
             
@@ -3905,15 +4086,7 @@ ${lastNote.tutorNotes}`);
             } else {
               console.log('[GeminiLive] Duplicate request_greeting ignored — greeting already sent');
             }
-          } else if (openaiRealtimeSession) {
-            // OpenAI Realtime already greets automatically when the session starts
-            // (see the openaiGreetingTrigger passed to .start() above) — this
-            // client-side request_greeting message is a no-op here. Falling through
-            // to the legacy orchestrator branch below would fire a second, separate
-            // greeting on Daniela's old text+TTS pipeline in parallel — two voices
-            // talking over each other — so this branch must stay a no-op.
-            console.log('[OpenAIRealtime] request_greeting received — already greeted on session start, ignoring');
-          } else {
+          } else if (shouldUseLegacyVoicePipeline(selectedLiveVoiceRoute)) {
             // Legacy orchestrator path (used when GeminiLive is not active)
             // ── Text-mode absence synthesis injection ──────────────────────
             // Settle the absence promise (started in start_session) before prompt
@@ -3973,6 +4146,16 @@ ${lastNote.tutorNotes}`);
             audioBuffer = Buffer.from(audioMessage.audio, 'base64');
           } else {
             audioBuffer = Buffer.from(audioMessage.audio);
+          }
+
+          // LIVE VOICE PATH: streamed live providers already own this audio turn.
+          // Never process the final blob through legacy STT, even if the upstream
+          // live socket failed after provider selection.
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
+            break;
           }
 
           // GEMINI LIVE PATH: Route PTT through Gemini Live when the Live session is active.
@@ -4081,9 +4264,22 @@ ${lastNote.tutorNotes}`);
           if (tapLabel) {
             const contextText = `*(the student examines the ${tapLabel}${tapNative ? ` — ${tapNative}` : ''})*`;
             console.log(`[PropTap] Injecting context: "${contextText}"`);
-            if (geminiLiveSession) {
-              geminiLiveSession.sendTextTurn(contextText, { label: 'prop-tap', isStudentInput: true });
-            } else if (session) {
+            if (selectedLiveVoiceRoute === 'gemini-live') {
+              if (geminiLiveSession) {
+                geminiLiveSession.sendTextTurn(contextText, { label: 'prop-tap', isStudentInput: true });
+              } else if (liveVoiceFailureMessage) {
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+              }
+            } else if (selectedLiveVoiceRoute === 'openai-realtime') {
+              // The initial OpenAI Realtime integration has no text-event bridge.
+              // Preserve route ownership rather than sending this interaction to
+              // Daniela's separate legacy response pipeline.
+              if (liveVoiceFailureMessage) {
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+              } else {
+                console.log('[OpenAIRealtime] prop_tap ignored — text-event bridge is not available');
+              }
+            } else if (shouldUseLegacyVoicePipeline(selectedLiveVoiceRoute) && session) {
               orchestrator.processOpenMicTranscript(session.id, contextText, 1.0);
             }
             // GOAP Prop Awareness: flag this prop as the student's focus so the next ELICIT
@@ -4207,12 +4403,14 @@ ${lastNote.tutorNotes}`);
             const resetTimer2 = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
             if (resetTimer2) resetTimer2();
           }
-          if (geminiLiveSession) {
-            geminiLiveSession.sendAudioChunk(audioBuffer);
-            break;
-          }
-          if (openaiRealtimeSession) {
-            openaiRealtimeSession.sendAudioChunk(audioBuffer);
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (selectedLiveVoiceRoute === 'gemini-live' && geminiLiveSession) {
+              geminiLiveSession.sendAudioChunk(audioBuffer);
+            } else if (selectedLiveVoiceRoute === 'openai-realtime' && openaiRealtimeSession) {
+              openaiRealtimeSession.sendAudioChunk(audioBuffer);
+            } else if (liveVoiceFailureMessage) {
+              sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+            }
             break;
           }
           
@@ -4596,18 +4794,41 @@ ${lastNote.tutorNotes}`);
             return;
           }
 
-          // ── GL fast-path ─────────────────────────────────────────────────────
-          // For Gemini Live sessions the speculative Deepgram PTT session is never
-          // started — audio streams directly to GL via sendAudioChunk(). GL's own
-          // VAD handles turn detection and triggers the response. Waiting 1,200 ms
-          // for a Deepgram final that will never arrive would add dead latency to
-          // every GL PTT turn, so we exit early here.
-          if (geminiLiveSession) {
-            console.log('[GeminiLive PTT] ptt_release — GL active, skipping Deepgram wait');
+          // ── Live-session fast path ────────────────────────────────────────────
+          // Gemini Live and OpenAI Realtime each own the complete audio-to-response
+          // turn. Neither may fall through into the legacy Deepgram/AI pipeline.
+          const liveVoiceOwner = getLiveVoiceSessionOwner(
+            Boolean(geminiLiveSession),
+            Boolean(openaiRealtimeSession),
+          );
+          if (selectedLiveVoiceRoute !== 'legacy') {
+            if (liveVoiceOwner === 'conflict') {
+              console.error('[LiveVoice PTT] Both live engines are active; suppressing legacy fallthrough');
+            } else if (liveVoiceOwner === 'legacy') {
+              console.error(`[LiveVoice PTT] ${selectedLiveVoiceRoute} owns turn but its session is unavailable; suppressing legacy fallthrough`);
+              if (liveVoiceFailureMessage) {
+                sendErrorAdapter(ws, 'AI_FAILED', liveVoiceFailureMessage, true);
+              }
+            } else {
+              console.log(`[LiveVoice PTT] ptt_release — ${liveVoiceOwner} owns turn, skipping Deepgram wait`);
+            }
             if (speculativePttSession) {
               speculativePttSession.close();
               speculativePttSession = null;
             }
+            // Invalidate any partially-started or stale Deepgram turn so callbacks
+            // cannot repopulate transcript state after the live engine takes over.
+            speculativePttSessionId++;
+            speculativePttSessionStarting = false;
+            speculativePttPendingChunks = [];
+            speculativePttTranscript = '';
+            speculativePttWordCount = 0;
+            speculativePttTriggered = false;
+            speculativePttTranscriptUsed = '';
+            speculativePttGotFinal = false;
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            speculativeAiAccepted = false;
             break;
           }
 
@@ -5089,13 +5310,13 @@ ${lastNote.tutorNotes}`);
               // and usageSession will be null by the time the .then() callbacks fire
               const capturedUsageSessionId = usageSession.id;
               try {
-                usageService.updateSessionMetrics(capturedUsageSessionId, {
+                endDurableVoiceSession(capturedUsageSessionId, undefined, () => usageService.updateSessionMetrics(capturedUsageSessionId, {
                   exchangeCount: metrics.exchangeCount,
                   studentSpeakingSeconds: metrics.studentSpeakingSeconds,
                   tutorSpeakingSeconds: metrics.tutorSpeakingSeconds,
                   ttsCharacters: metrics.ttsCharacters,
                   sttSeconds: metrics.sttSeconds,
-                }).then(() => usageService.endSession(capturedUsageSessionId))
+                }))
                   .then((endedSession) => {
                     if (endedSession) {
                       console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${metrics.exchangeCount} exchanges`);
@@ -5150,6 +5371,8 @@ ${lastNote.tutorNotes}`);
           sessionStartTime,
           userId: userId!,
           orchestratorSessionId: session?.id,
+          connectionId: (ws as any).socketId,
+          closeReason: 'duplicate_replaced',
           rrCarryState: earlyRrCarryState,
           sessionNotes: session ? extractSessionNotesForReconnect(session) : [],
         });
@@ -5429,6 +5652,9 @@ ${lastNote.tutorNotes}`);
         sessionStartTime,
         userId: userId!,
         orchestratorSessionId: session?.id,
+        connectionId: (ws as any).socketId,
+        closeCode,
+        closeReason: closeReason?.toString(),
         rrCarryState: wsRrCarryState,
         sessionNotes: session ? extractSessionNotesForReconnect(session) : [],
       });
@@ -5441,7 +5667,7 @@ ${lastNote.tutorNotes}`);
       const capturedUsageSessionId = usageSession.id;
       const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
       const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
-      usageService.updateSessionMetrics(capturedUsageSessionId, {
+      endDurableVoiceSession(capturedUsageSessionId, 'abandoned', () => usageService.updateSessionMetrics(capturedUsageSessionId, {
         exchangeCount,
         studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
         tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
@@ -5449,7 +5675,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds: Math.round(sttSeconds),
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(capturedUsageSessionId, 'abandoned'))
+      }))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
@@ -5573,7 +5799,7 @@ ${lastNote.tutorNotes}`);
       const capturedUsageSessionId = usageSession.id;
       const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
       const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
-      usageService.updateSessionMetrics(capturedUsageSessionId, {
+      endDurableVoiceSession(capturedUsageSessionId, 'error', () => usageService.updateSessionMetrics(capturedUsageSessionId, {
         exchangeCount,
         studentSpeakingSeconds,
         tutorSpeakingSeconds,
@@ -5581,7 +5807,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds,
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(capturedUsageSessionId, 'error'))
+      }))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on error: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);

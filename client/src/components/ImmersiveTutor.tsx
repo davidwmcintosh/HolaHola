@@ -99,6 +99,8 @@ interface ImmersiveTutorProps {
   classId?: string | null;
   // Conversation ID for hive channel tracking
   conversationId?: string | null;
+  voiceSessionId?: string | null;
+  connectionState?: import("@shared/streaming-voice-types").StreamingClientState;
   onReloadCredits?: () => void;
   onResetData?: () => void;
   isReloadingCredits?: boolean;
@@ -158,6 +160,8 @@ export function ImmersiveTutor({
   isDeveloper = false,
   classId,
   conversationId,
+  voiceSessionId,
+  connectionState = 'disconnected',
   onReloadCredits,
   onResetData,
   isReloadingCredits = false,
@@ -683,7 +687,8 @@ export function ImmersiveTutor({
           isFounderMode={isDeveloper}
           tutorName={tutorGender === 'male' ? (maleVoiceName || 'Agustin') : (femaleVoiceName || 'Daniela')}
           tutorStatus={isPlaying ? 'speaking' : isProcessing ? 'thinking' : isRecording ? 'listening' : 'idle'}
-          isSessionActive={isPlaying || isProcessing || isRecording || openMicState === 'listening' || openMicState === 'ready' || openMicState === 'processing'}
+          isSessionActive={['connecting', 'connected', 'ready', 'processing', 'streaming', 'reconnecting'].includes(connectionState)}
+          voiceSessionId={voiceSessionId}
         />
         
         <img

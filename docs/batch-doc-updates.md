@@ -5258,3 +5258,41 @@ missing blobs, packet tampering, lease and dirty-tree stops, stale remotes,
 stale local pairs, clean auto-merge pair drift, Markdown-conflict/clean-ledger
 drift, validator failure, audit integrity, exact parents, and ref/worktree
 cleanup. The real preflight reported `safe_fast_forward` and made no candidate.
+
+## Live voice provider routing ownership — September 5, 2026
+
+Voice session routing is now provider-authoritative. OpenAI Realtime is selected
+independently of the Gemini feature flag; only enabled Gemini Live providers
+start Gemini Live. Cartesia, ElevenLabs, Google, Gemini, and unset providers
+remain on the legacy pipeline.
+
+The selected live route is stable for the connection and owns every
+response-producing path even while its upstream session starts or after it
+fails. Binary audio, final audio blobs, streaming chunks, push-to-talk release,
+greeting retries, and prop interactions cannot fall into Deepgram or the legacy
+orchestrator merely because the live provider object is unavailable. Live
+startup and runtime failures now surface an explicit `AI_FAILED` state.
+
+Push-to-talk release closes and invalidates any speculative Deepgram state before
+returning. Focused provider-matrix and no-fallback coverage is registered in both
+the Validation suite and Consolidated CI.
+
+## Live voice recovery and Observation Bench lifecycle — September 5, 2026
+
+Gemini Live startup greeting ownership is now client-primed and server-managed:
+the ready client supplies intent, while the provider session queues delivery
+until setup completes, acknowledges delivery on first audio, and owns one bounded
+retry state machine for send and no-audio failures. Reconnect authority is claimed
+from the durable voice-session grace row, so only one process can resume.
+
+Observation Bench access is bound to an exact active founder voice-session ID.
+Both Luca hats may attach read-only without Command Center pre-arming, while
+student sessions and wildcard future sessions remain inaccessible. Exact-session
+creation is serialized, evidence is scoped to the session/user/conversation, and
+every terminal voice path closes the bench independently of metrics failures.
+The existing 3-Way indicator now shows one Luca with both hat states and fetches
+status without a permanent polling loop.
+
+Focused tests, TypeScript, system health, architecture review, and Gemini review
+passed. The destructive database-concurrency journey remains isolated and skips
+unless a verified disposable database is configured.

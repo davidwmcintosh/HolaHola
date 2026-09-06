@@ -3,9 +3,7 @@
  *
  * CONTRACT:
  *   When the socket enters 'reconnecting' state, the stateChange handler must
- *   map it to voiceStatus 'connecting' (not 'speaking' or any other state).
- *   This keeps the widget accurate during auto-reconnect: users see "connecting"
- *   rather than the previous speaking/thinking state they were in before the drop.
+ *   preserve it as 'reconnecting' (not collapse it to connecting or stale speech).
  *
  * Run: npx tsx --test server/__tests__/voice-widget-reconnect-source.test.ts
  */
@@ -19,28 +17,56 @@ const useStreamingVoiceSrc = readFileSync(
   resolve(import.meta.dirname, '../../client/src/hooks/useStreamingVoice.ts'),
   'utf-8',
 );
+const streamingVoiceClientSrc = readFileSync(
+  resolve(import.meta.dirname, '../../client/src/lib/streamingVoiceClient.ts'),
+  'utf-8',
+);
+const streamingVoiceChatSrc = readFileSync(
+  resolve(import.meta.dirname, '../../client/src/components/StreamingVoiceChat.tsx'),
+  'utf-8',
+);
 
-describe("voice widget — 'reconnecting' state maps to 'connecting' voiceStatus (#565)", () => {
-  it("useStreamingVoice.ts maps 'reconnecting' → 'connecting' for voiceStatus", () => {
-    // The stateChange handler must translate the internal socket state
-    // 'reconnecting' into the user-visible 'connecting' voiceStatus.
-    // Without this, the widget freezes on whatever the last speech/thinking
-    // state was during the reconnect window.
+describe("voice widget — preserves 'reconnecting' lifecycle state", () => {
+  it("useStreamingVoice.ts maps 'reconnecting' → 'reconnecting'", () => {
     assert.ok(
-      useStreamingVoiceSrc.includes("'reconnecting' ? 'connecting'") ||
-      useStreamingVoiceSrc.includes('"reconnecting" ? "connecting"'),
-      "useStreamingVoice.ts does not map 'reconnecting' → 'connecting' — widget would show stale state during auto-reconnect",
+      useStreamingVoiceSrc.includes("'reconnecting' ? 'reconnecting'") ||
+      useStreamingVoiceSrc.includes('"reconnecting" ? "reconnecting"'),
+      "useStreamingVoice.ts does not preserve 'reconnecting' — widget would collapse its lifecycle state",
     );
   });
 
-  it("mutation self-check: renaming 'connecting' in the mapping would fail the assertion", () => {
+  it("mutation self-check: renaming 'reconnecting' in the mapping would fail the assertion", () => {
     const mutated = useStreamingVoiceSrc
-      .replace("'reconnecting' ? 'connecting'", "'reconnecting' ? 'idle'")
-      .replace('"reconnecting" ? "connecting"', '"reconnecting" ? "idle"');
+      .replace("'reconnecting' ? 'reconnecting'", "'reconnecting' ? 'idle'")
+      .replace('"reconnecting" ? "reconnecting"', '"reconnecting" ? "idle"');
     assert.ok(
-      !mutated.includes("'reconnecting' ? 'connecting'") &&
-      !mutated.includes('"reconnecting" ? "connecting"'),
+      !mutated.includes("'reconnecting' ? 'reconnecting'") &&
+      !mutated.includes('"reconnecting" ? "reconnecting"'),
       "mapping pattern still found after mutation — assertion is not tight enough",
+    );
+  });
+
+  it('requests one GL startup greeting only after the authoritative ready state', () => {
+    assert.ok(
+      streamingVoiceClientSrc.includes("this.setState('ready');") &&
+      streamingVoiceChatSrc.includes("if (connectionState !== 'ready') return;") &&
+      streamingVoiceChatSrc.includes("connectionState === 'ready' || connectionState === 'disconnected' || connectionState === 'error'") &&
+      streamingVoiceChatSrc.includes('tryAcquireGreetingLock(lockKey)') &&
+      streamingVoiceChatSrc.includes('greetingRequestedRef.current === lockKey') &&
+      streamingVoiceChatSrc.includes('streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);'),
+      'GL greeting must be requested once by the ready-gated, lock-protected StreamingVoiceChat effect',
+    );
+  });
+
+  it('allows the explicit resumed GL reconnect orientation request', () => {
+    const mutated = streamingVoiceClientSrc.replace(
+      'this.startupGreetingRequested && !isResumed',
+      'this.startupGreetingRequested',
+    );
+    assert.ok(
+      streamingVoiceClientSrc.includes('this.startupGreetingRequested && !isResumed') &&
+      !mutated.includes('this.startupGreetingRequested && !isResumed'),
+      'resumed greeting exception must survive duplicate-startup idempotency',
     );
   });
 });

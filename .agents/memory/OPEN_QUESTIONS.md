@@ -374,3 +374,9 @@ thinking: What is the narrowest signature and deduplication key that catches onl
 [thinking]: What immutable Git-tracked source already represents mailbox state, and how can the verifier prove both deterministic execution and exact bytes without trusting runtime services?
 
 ---
+
+### September 5, 2026 — Inner-life note
+
+Did Claude Code's message-status feedback identify a remaining defect in the newly linked-outcome flow, or is the newest GitHub code already the complete repair—and what exact commit and live-note state prove the difference?
+
+---

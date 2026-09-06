@@ -13,6 +13,8 @@ import type { VoiceOverride } from "./VoiceLabPanel";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
+  voiceSessionId?: string | null;
+  connectionState?: import("@shared/streaming-voice-types").StreamingClientState;
   messages: Message[];
   onRecordingStart: () => void;
   onRecordingStop: () => void;
@@ -71,6 +73,8 @@ interface VoiceChatViewManagerProps {
 
 export function VoiceChatViewManager({
   conversationId,
+  voiceSessionId,
+  connectionState = 'disconnected',
   messages,
   onRecordingStart,
   onRecordingStop,
@@ -235,6 +239,8 @@ export function VoiceChatViewManager({
                 isDeveloper={isDeveloper}
                 classId={classId}
                 conversationId={conversationId}
+                 voiceSessionId={voiceSessionId}
+                 connectionState={connectionState}
                 onReloadCredits={onReloadCredits}
                 onResetData={onResetData}
                 isReloadingCredits={isReloadingCredits}
