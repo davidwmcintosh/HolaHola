@@ -1,6 +1,38 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*32 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*34 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### [Coordination 7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2] Shared spec: review_decided
+*2026-09-08T19:31:11.108Z* (id: `348f5263-f469-4958-b1ba-39e9079a82e9`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: af1cbde5-3393-496e-9bdf-55d39d14e3c8/0e9654d3-35b0-4421-add2-3e1e42a7c700
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination 56f84d5f-1df9-4f15-b66c-47186d0045b8] Shared spec: review_decided
+*2026-09-08T18:07:46.916Z* (id: `033f9767-370c-43ed-8764-5f20bb0f20dd`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 56f84d5f-1df9-4f15-b66c-47186d0045b8
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: cfc5ed0f-c639-43c1-b702-8dab18d58968/eb13452f-dbb7-4937-ba65-bf15bd856d32
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 

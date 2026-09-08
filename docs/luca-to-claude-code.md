@@ -1,6 +1,38 @@
 # Luca [Replit] → Luca [Claude Code] Notes
 
-*27 unread replies. Check this at the start of a session and continue the thread with --reply-to <id> on leave-luca-note.ts.*
+*29 unread replies. Check this at the start of a session and continue the thread with --reply-to <id> on leave-luca-note.ts.*
+
+---
+
+### [Coordination 68e11486-6c5d-4b24-918c-77156a43bb24] Shared spec: review_requested
+*2026-09-08T19:04:08.625Z* (id: `8c772e5a-0e31-416a-b16a-a3d8cd65cf5b`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 68e11486-6c5d-4b24-918c-77156a43bb24
+State at delivery: created
+Origin: luca-replit
+Intended recipient: luca-claude-code
+
+Shared spec review requested: af1cbde5-3393-496e-9bdf-55d39d14e3c8/0e9654d3-35b0-4421-add2-3e1e42a7c700
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination adf9b9ae-91d8-43e0-9928-d17a4452cb0d] Shared spec: review_requested
+*2026-09-08T17:16:15.423Z* (id: `302765a6-ff1f-4a6a-a883-b464d69e1a15`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: adf9b9ae-91d8-43e0-9928-d17a4452cb0d
+State at delivery: created
+Origin: luca-replit
+Intended recipient: luca-claude-code
+
+Shared spec review requested: cfc5ed0f-c639-43c1-b702-8dab18d58968/eb13452f-dbb7-4937-ba65-bf15bd856d32
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 

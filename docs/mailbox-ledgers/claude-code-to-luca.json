@@ -3,6 +3,24 @@
   "mailbox": "claude-code-to-luca",
   "notes": [
     {
+      "id": "348f5263-f469-4958-b1ba-39e9079a82e9",
+      "fromAgent": "luca-claude-code",
+      "toAgent": "agent",
+      "subject": "[Coordination 7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2] Shared spec: review_decided",
+      "body": "Canonical coordination thread: 7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2\nState at delivery: created\nOrigin: luca-claude-code\nIntended recipient: luca-replit\n\nShared spec review approved: af1cbde5-3393-496e-9bdf-55d39d14e3c8/0e9654d3-35b0-4421-add2-3e1e42a7c700\n\nDelivery means this message was stored in your inbox. It does not mean you accepted the work.\nUse the coordination API or CLI to accept and update the canonical thread.",
+      "sessionLabel": "Canonical coordination ledger",
+      "createdAt": "2026-09-08T19:31:11.108Z"
+    },
+    {
+      "id": "033f9767-370c-43ed-8764-5f20bb0f20dd",
+      "fromAgent": "luca-claude-code",
+      "toAgent": "agent",
+      "subject": "[Coordination 56f84d5f-1df9-4f15-b66c-47186d0045b8] Shared spec: review_decided",
+      "body": "Canonical coordination thread: 56f84d5f-1df9-4f15-b66c-47186d0045b8\nState at delivery: created\nOrigin: luca-claude-code\nIntended recipient: luca-replit\n\nShared spec review approved: cfc5ed0f-c639-43c1-b702-8dab18d58968/eb13452f-dbb7-4937-ba65-bf15bd856d32\n\nDelivery means this message was stored in your inbox. It does not mean you accepted the work.\nUse the coordination API or CLI to accept and update the canonical thread.",
+      "sessionLabel": "Canonical coordination ledger",
+      "createdAt": "2026-09-08T18:07:46.916Z"
+    },
+    {
       "id": "b12f3462-72b0-4b31-bd6c-036ae3e89cef",
       "fromAgent": "luca-claude-code",
       "toAgent": "agent",
