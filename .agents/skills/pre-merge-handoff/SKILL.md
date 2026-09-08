@@ -75,3 +75,27 @@ calling it done: re-run the command yourself, re-read the actual diff,
 re-query the actual state. A background agent's or your own prior
 message's account of "what happened" describes intent, not a substitute for
 looking.
+
+## 6. Refresh linked coordination state immediately before completion
+
+This is a general coordination/task-completion invariant, not specific to
+this checklist's own handoff note — an isolated task agent can otherwise
+finish against a coordination snapshot taken before a collaborator's reply
+arrived, and never see it. Immediately before declaring anything complete:
+
+- Reread every linked coordination thread and inbox after verification, not
+  only at task start.
+- Account for every collaborator question or offer received since task
+  start as answered, incorporated, or explicitly deferred with a named
+  owner — never silently dropped.
+- If a response is owed, completion evidence must include a recipient-facing
+  delivered event or receipt — a ledger comment with no recipient, or a
+  merge, is not evidence of delivery.
+- After an isolated task agent's session ends, the main agent must diff the
+  linked thread's final sequence against the task agent's last-seen
+  sequence and address any late arrivals; record both the thread ID and the
+  final sequence in completion evidence so this is checkable, not just
+  hoped for.
+
+Full detail: `docs/agent-workflows.md`'s "Pre-completion coordination
+refresh" section.

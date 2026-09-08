@@ -113,6 +113,27 @@ adapter returns `delivery_succeeded_completion_pending`, preserve the reply,
 refresh the thread sequence, and retry with the same idempotency key. Do not
 mark the task complete while the coordination thread remains incomplete.
 
+### Pre-completion coordination refresh — required before `markTaskComplete`
+
+General invariant, not specific to `agent_note`-originated work: an isolated
+task agent can otherwise finish against a coordination snapshot taken before
+a collaborator's reply arrived, and never see it. Immediately before calling
+`markTaskComplete`:
+
+1. Reread every linked coordination thread and inbox, not just at task start.
+2. Account for every collaborator question or offer received since task
+   start as answered, incorporated, or explicitly deferred with a named
+   owner — never silent.
+3. If a response is owed, completion evidence needs a recipient-facing
+   delivered event or receipt, not just a ledger comment with no recipient.
+4. Record the linked thread ID and its final global sequence in the
+   completion evidence, so the main agent can later diff its own last-seen
+   sequence against that final one and catch anything that arrived after
+   this task agent's last read.
+
+Full detail: `docs/agent-workflows.md`'s "Pre-completion coordination
+refresh" section.
+
 **Every `markTaskComplete` call must be preceded by writing the task ref to `.task_ref_pending`.**
 
 This enables automatic David-turn capture: `checkBuildSession()` reads the file when `.commit_message` changes, loads the task description from `.local/tasks/task-{ref}.md`, and prepends it as a David turn before the Luca commit-message turn in `conversation_memories`. Without it, the record is one-sided.

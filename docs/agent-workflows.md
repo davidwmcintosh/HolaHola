@@ -327,6 +327,39 @@ the reply. If a future external adapter reports a delivered reply with
 completion pending, preserve that receipt and retry with the same idempotency
 key and refreshed sequence.
 
+### Pre-completion coordination refresh (general invariant, not shared-spec-specific)
+
+Existing procedure already requires open questions to be answered and
+note-origin work to close with a delivered reply. It did not explicitly
+require refreshing linked coordination state immediately before declaring
+completion — an isolated task agent could finish against a snapshot taken
+before a collaborator's reply arrived, and never see it. This is a general
+coordination/task-completion invariant; it applies to any task, not only
+shared-spec work.
+
+1. **Pre-completion refresh.** Reread every linked coordination thread and
+   inbox after verification, immediately before completing the task — not
+   only at task start.
+2. **Question disposition.** Account for every collaborator question or offer
+   received since task start as one of: answered, incorporated, or explicitly
+   deferred with a named owner or follow-up. Silence is not a valid
+   disposition.
+3. **Delivery evidence.** When a response is owed, completion evidence must
+   include a recipient-facing delivered event or receipt. A merge, a ledger
+   comment with no recipient, or an internal note is insufficient — see the
+   materialized-inbox design's recipient-rule requirement for `comment`
+   events specifically.
+4. **Post-merge reconciliation.** After an isolated task agent's session
+   ends, the main agent must compare the linked thread's final sequence
+   against the task agent's last-seen sequence and address any late arrivals.
+   Completion evidence should record the linked thread ID and the final
+   global sequence at completion, so this is mechanically checkable rather
+   than only procedurally hoped for.
+
+Preserve the existing stored/delivered/answered distinction rather than
+collapsing it — these four points are additional discipline around that
+distinction, not a replacement for it.
+
 ---
 
 ## Key File Map
