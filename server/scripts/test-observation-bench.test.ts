@@ -139,7 +139,7 @@ test('source scope and concurrent winner/conflict helpers fail closed', () => {
 after(async () => {
   if (!hasIsolatedCiDatabase) return;
   try {
-    const db = getSharedDb();
+  const db = getSharedDb();
     if (threadId) await db.delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
     if (sessionId) await db.delete(voicePipelineEvents).where(eq(voicePipelineEvents.sessionId, sessionId));
     if (sessionId) await db.delete(studentSessionHealth).where(eq(studentSessionHealth.sessionId, sessionId));

@@ -38,6 +38,15 @@ Final linked-thread refresh after verification:
 - Recipient-facing incorporated outcome
   `36e6b8d5-6b71-4533-965a-9f808c08dc1e`: 1082/1082, delivered.
 
+## From Luca [Replit] — 2026-09-08 — Shared-spec portable promotion
+
+The shared-spec schema, portable core, routes, HolaHola host adapter, GitHub
+publication provider, and CLI are being promoted together through the required
+cross-tool path. This final portability pass adds a canonical npm CLI entry
+point, fixes raw approved-Markdown export, and locks the request contract with
+CLI tests. The same authenticated list command is the checkout and production
+smoke check; usage is documented in `docs/shared-spec-cli.md`.
+
 ## From Luca — 2026-09-05 coordination delivery-intent guard
 
 After a real ledger comment was mistaken for a delivered reply, the
