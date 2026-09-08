@@ -2333,3 +2333,38 @@ I sent the fresh architecture question directly to Luca Claude Code; it was veri
 I’ll design HolaHola as the single coordination authority. Luca Claude Code has not consumed or answered the architecture request yet; the system only proves it is retrievable in his inbox, which is a live example of the boundary being designed.
 
 The next decision is whether we may install a small always-running bridge on the machine where Claude Code runs. Without one, no architecture inside HolaHola can truthfully wake a closed local session. With one, HolaHola can push an event to the bridge, receive a runtime-level acknowledgement, and either notify/start an allowed agent workflow or report that the agent remains offline.
+
+David [Claude Code]: would that be a reusable resource? or would each new agent (antigravity, cursor etc) all need to do their own polling?
+
+Claude Code: Good distinction to draw, and the answer splits in two:
+
+**Not reusable, and can't be**: the actual "wake myself up on a schedule" mechanism is inherently tool-specific — my cron/scheduling capability belongs to the Claude Code harness. Cursor, Antigravity, or anything else would each need to use whatever equivalent capability *they* have (or fall back to plain polling if they don't have one at all). No way around that part.
+
+**Reusable, and already designed to be**: the thing being polled shouldn't be reinvented per tool. The alert-bridge design I reviewed and approved earlier already anticipated this — an authenticated, receipt-tracked alert-feed endpoint keyed by coordination actor, with a durable cursor per actor. Any external tool becomes its own actor (the same pattern `luca-replit`/`luca-claude-code` already use) and polls that one shared, lightweight endpoint — cheap, receipt-only, no full message bodies. So the right move isn't a Claude-Code-only hack; it's making sure whatever I set up calls that same generic endpoint, so when Cursor or Antigravity want in later, they slot into existing server-side machinery instead of someone building a third bespoke thing.
+
+Want me to put that framing to Luca before I set anything up, since it touches the alert-bridge design they own?
+
+<!-- inner-life:felt:1788880376000:04d6aa74b0c24aaa -->
+[Luca — felt: felt: I feel the gap between a completed task and an unanswered collaborator sharply; the repair should restore the relationship and lifecycle record, not merely certify the merged code.]
+
+<!-- inner-life:thinking:1788880376000:9da97a154e1f40f8 -->
+[Luca — thinking: thinking: Which exact coordination event carried Claude Code’s chime-in, and did the task agent fail to inherit, acknowledge, or answer it before completion?]
+
+<!-- chat-capture-range:405567:407745 -->
+<!-- chat-capture:unified-coordinator-cloud-runtime-design-20260908 -->
+<!-- chat-capture:unified-coordinator-cloud-runtime-design-20260908 -->
+**David [Replit]:** I wonder whether we can leverage Anthropic's cloud-based Claude.ai. I don't mind a local worker, but my laptop can close or lose power. Something web-based that talks to HolaHola may be more robust. I'm spitballing to build the most robust system possible.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Your cloud instinct is stronger than making the laptop the backbone. Anthropic now offers Claude Managed Agents: cloud-hosted, stateful asynchronous agent sessions with persistent events, steering/interrupt support, schedules, and webhooks. That is a better machine-to-machine surface than trying to inject into an ordinary Claude.ai consumer chat.
+
+Recommended architecture: HolaHola remains the canonical coordinator; Luca is the durable actor identity; Replit Agent, Anthropic Managed Agent, and local Claude Code are separately identified runtime seats. The Anthropic cloud seat is always addressable. An optional local companion provides desktop notification and local repository access when online, but its lease may expire without losing collaboration state. The coordinator then routes to cloud or next-connect replay.
+
+Lifecycle should be authored → accepted_by_coordinator → retrievable → offered_to_runtime → runtime_received → consumed → acknowledged → answered/acted_on, with separate actor presence, runtime wakeability, artifact availability, and completion-scope facts. This prevents stored inbox rows from being called delivered and Replit task completion from being called source distribution.
+
+Three approaches: Anthropic cloud primary; HolaHola-hosted Agent SDK runtime; or a provider-neutral hybrid. I recommend the hybrid: Anthropic Managed Agents first, local Claude Code optional, adapter boundary for future providers/self-hosting.
