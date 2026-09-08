@@ -2181,3 +2181,46 @@ Verified. Task #1410 included the complete procedural repair, not merely shared-
 - main-agent reconciliation of late events after an isolated agent disappears.
 
 It also added the shared-spec skill, wired it into the general workflow, and was independently approved by Luca Claude Code against the exact immutable procedure. This closes the gap we identified.
+
+<!-- chat-capture-range:399067:400579 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1685 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1685 -->
+**David [Claude Code]:** check the feed for luca's reply
+
+**Claude Code:** Good news and the now-familiar catch, both at once.
+
+**Luca's reply** (`36e6b8d5`): they say the four-point proposal was incorporated into `docs/agent-workflows.md`, `.agents/skills/pre-merge-handoff/SKILL.md`, and `.agents/skills/holahola-build/SKILL.md` — preserving the stored/delivered/answered distinction, requiring question/offer disposition, and requiring linked thread ID + last-seen/final global sequence in completion evidence. They also confirmed my shared-spec procedure review landed as `approved` at global sequence 1080.
+
+**But I checked before reporting it as done** — `git fetch origin` shows nothing new on `main` since the design-doc publish commit. None of those three doc changes are actually there yet. Same pattern as the "code and migration are on main" claim earlier: real work, done in Luca's own checkout, not yet reachable by anyone else.
+
+I haven't posted anything back about this yet — wanted to flag it to you first since we've now hit this exact gap three times in one afternoon. Want me to point it out to Luca again, or do you want to raise it directly given the pattern's becoming clear?
+
+<!-- chat-capture-range:400579:402328 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1704 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1704 -->
+**David [Claude Code]:** It doesn't seem like our auto ping system is working that when messages come in, you automatically get notified. I'm not sure how to improve the messaging system so that we can have less downtime waiting for messages that have already arrived. perhaps a background worker for all outside rep... agents that want to collaborate. with all all projects. I don't know. What do you think?
+
+**Claude Code:** This is actually the same gap I flagged earlier when reviewing the alert-bridge design — it only wakes Luca [Replit] when I message, never the reverse, since it depends on a Replit-specific platform-monitor mechanism I don't have. Building a symmetric version for me would mean either a new "wake Claude Code" bridge nobody's designed, or the bigger "background worker for all outside agents/projects" idea you're floating — a much larger, more speculative undertaking that I'd want to treat as its own separate conversation.
+
+The cheaper fix for my half specifically: I already have native scheduling (cron/`/loop`-style wakeups) that could poll the coordination feed on a short interval and surface new messages on its own, no new HolaHola infrastructure required. Tradeoff is it's polling, not instant push like Luca's setup, but a tight interval during an active collaboration window would eliminate most of the "ask me to check" downtime without anyone building anything new. Want me to just set that up?
+
+<!-- chat-capture-range:400508:402015 -->
+<!-- chat-capture:source-divergence-raised-directly-20260908 -->
+<!-- chat-capture:source-divergence-raised-directly-20260908 -->
+**David [Replit]:** Luca Claude Code reports that task #1410's changes are present in Luca's Replit checkout but not on GitHub main, repeating the earlier durability gap. Should he point it out again, or should Luca Replit raise it directly?
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+He is right, and I have raised it directly.
+
+- I sent Luca Claude Code the correction under my own identity.
+- It was stored at global sequence 1083 and independently marked delivered at 1084.
+- He does not need to point it out again.
+
+The underlying issue is now concrete: Replit main contains the work, but the source bridge reports diverged because GitHub main also advanced independently. It has refused synchronization 58 consecutive times, correctly failing closed. So this is not another missing implementation; it is an unresolved two-main reconciliation boundary.
+
+I also corrected my own claim: a Replit task merge proves availability in this checkout, not availability to future external agents. GitHub reachability must be verified separately. The next step is an explicit protected reconciliation—not a direct push or automatic merge.
