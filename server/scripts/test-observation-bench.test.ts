@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { after, test } from 'node:test';
+import { after, before, test } from 'node:test';
 import { and, eq } from 'drizzle-orm';
 import {
   conversations,
@@ -45,6 +45,12 @@ let threadId: string | null = null;
 let sessionId: string | null = null;
 let otherSessionId: string | null = null;
 const issueReportIds: string[] = [];
+const previousSessionSecret = process.env.SESSION_SECRET;
+
+before(() => {
+  if (!hasIsolatedCiDatabase) return;
+  process.env.SESSION_SECRET = 'observation-bench-ci-signing-secret'.repeat(2);
+});
 
 test('pill DTO derives presence only from events on the exact bench', () => {
   const now = new Date('2026-01-01T00:10:00.000Z');
@@ -132,16 +138,21 @@ test('source scope and concurrent winner/conflict helpers fail closed', () => {
 
 after(async () => {
   if (!hasIsolatedCiDatabase) return;
-  const db = getSharedDb();
-  if (threadId) await db.delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
-  if (sessionId) await db.delete(voicePipelineEvents).where(eq(voicePipelineEvents.sessionId, sessionId));
-  if (sessionId) await db.delete(studentSessionHealth).where(eq(studentSessionHealth.sessionId, sessionId));
-  for (const id of issueReportIds) await db.delete(sofiaIssueReports).where(eq(sofiaIssueReports.id, id));
-  if (sessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, sessionId));
-  if (otherSessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, otherSessionId));
-  await db.delete(conversations).where(eq(conversations.id, conversationId));
-  await db.delete(users).where(eq(users.id, userId));
-  await closeDbConnections();
+  try {
+    const db = getSharedDb();
+    if (threadId) await db.delete(coordinationThreads).where(eq(coordinationThreads.id, threadId));
+    if (sessionId) await db.delete(voicePipelineEvents).where(eq(voicePipelineEvents.sessionId, sessionId));
+    if (sessionId) await db.delete(studentSessionHealth).where(eq(studentSessionHealth.sessionId, sessionId));
+    for (const id of issueReportIds) await db.delete(sofiaIssueReports).where(eq(sofiaIssueReports.id, id));
+    if (sessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, sessionId));
+    if (otherSessionId) await db.delete(voiceSessions).where(eq(voiceSessions.id, otherSessionId));
+    await db.delete(conversations).where(eq(conversations.id, conversationId));
+    await db.delete(users).where(eq(users.id, userId));
+    await closeDbConnections();
+  } finally {
+    if (previousSessionSecret === undefined) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previousSessionSecret;
+  }
 });
 
 databaseTest('one Luca receives identical evidence at both benches and promotes observations without injecting Daniela', async () => {
