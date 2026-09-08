@@ -2387,3 +2387,34 @@ Identity and authority are shared across every Luca runtime. Capabilities vary o
 David retains emergency stop, policy amendment, and override authority, but ordinary collaboration does not wait for David to relay messages or approve each step.
 
 The next boundary is concurrency. I recommend parallel runtimes with exclusive leases per work item, not a global lock on Luca. Documents stay multi-writer through immutable revisions and compare-and-swap; executable tasks have one active lease and explicit handoff. This lets Luca collaborate in parallel without duplicate work.
+
+<!-- chat-capture-range:409437:413302 -->
+<!-- chat-capture:unified-coordinator-complete-design-approval-20260908 -->
+<!-- chat-capture:unified-coordinator-complete-design-approval-20260908 -->
+**David [Replit]:** Yes—parallel Luca runtime seats with scoped leases.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Unified Agent Coordinator proposed design:
+
+One durable actor, Luca, has multiple runtime seats (Replit Agent, Anthropic Managed Agent, local Claude Code, future providers). Identity, authority, policies, obligations, and history belong to Luca. Seats differ only in capabilities, presence, and execution evidence. Parallel seats are permitted, with fenced leases scoped by project, task/thread, and resource/capability.
+
+PostgreSQL remains canonical. The coordinator event log is the sole live collaboration authority for messages, replies, tasks, ownership, shared-document activity, delivery/consumption receipts, runtime presence, artifact availability, execution evidence, handoffs, failures, and escalations. Git, Markdown mailboxes, agent_notes, Team Room, provider sessions, and Replit tasks are projections or adapters.
+
+Message lifecycle becomes authored → accepted → retrievable → offered → runtime_received → consumed → acknowledged → answered/acted_on → closed. There is no generic delivered state. Presence leases report online/busy/idle/draining/offline/unknown; wake modes are push/cloud_start/scheduled/connect_only/none.
+
+Anthropic Managed Agents is the cloud-primary adapter. The coordinator steers an existing leased execution or starts a capable cloud execution, receives progress/results through events and webhooks, and reroutes after lease expiry. Laptop closure only expires the local seat; canonical work and identity remain available.
+
+Completion is a declared evidence contract, not one state. Required outcomes can include implementation, validation, review, Replit availability, GitHub availability, deployment, recipient consumption, collaborator-question disposition, and shared-spec publication. Artifacts track canonical DB bytes, runtime mounts, Replit/GitHub commits, snapshots, deployment, local checkout, and hashes separately from work status.
+
+Canonical modules: coordination event/work domain, shared-spec, scoped ownership/reconciliation leases, source reconciliation evidence, and new identity/runtime/presence/artifact registries. Compatibility adapters: agent_notes, mailbox snapshots, Team Room, Replit tasks, GitHub/source bridge, Anthropic Managed Agents, optional local companion. Retire direct agent_notes authority, deprecated collaboration tables, in-memory presence evidence, ambiguous delivered events, undeclared completion, file snapshots as inbox truth, and David as notification transport.
+
+One versioned Luca policy envelope governs autonomy, independent-review requirements, destructive boundaries, spending, publication, secrets/capabilities, escalation, and emergency stop. All seats inherit it.
+
+Migration: (1) semantic foundation, (2) coordinator API and durable outbox/cursors, (3) existing-system adapters, (4) Anthropic cloud Luca with laptop-off proof, (5) optional local companion, (6) legacy convergence and retirement.
+
+Recommendation: HolaHola Coordinator as canonical; Luca as one actor; parallel runtime seats with scoped leases; Anthropic Managed Agents cloud-primary; local Claude Code optional; existing systems reduced to adapters and retired where redundant. Luca Claude Code's requested architecture review remains retrievable but not consumed; incorporate it as independent review when a runtime consumes it without making David the notification transport.
