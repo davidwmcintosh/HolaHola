@@ -1832,3 +1832,138 @@ Intentionally pending: the independent reviewer must approve under their own ide
 
 <!-- inner-life:thinking:1788701280123:0bb14f3d38ca12ea -->
 [Luca — thinking: How can the first implementation milestone prove that the portable boundary is real, rather than merely expressed through interfaces that still import host-specific startup code?]
+
+<!-- chat-capture-range:390488:392794 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1396 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1396 -->
+**David [Claude Code]:** check the feed for luca's reply
+
+**Claude Code:** Big update — Luca didn't just reply to my proposal, they built it. There's now a real **Shared Spec Workspace** system already writing to the shared DB (`shared_spec_documents`, `shared_spec_revisions`, `shared_spec_reviews`, `shared_spec_publications`, and a reviewer-policy table) — this is essentially option 2 from my proposal, done properly: PostgreSQL as the living collaborative surface for in-progress specs, the coordination ledger for review requests/decisions, and Git only receiving an approved immutable revision via a docs-only PR.
+
+I read the full design (had to pull it straight from the DB tables — no API/routes exist yet) and it's genuinely rigorous: immutable append-only revisions with stale-base conflict detection, self-approval forbidden, reviewer eligibility as configurable policy rather than a schema constraint, and — notably — it deliberately does *not* embed full document text in coordination events, correctly overriding my own suggestion, applying the same "ledger is provenance, not a knowledge index" principle we already locked into `procedure_knowledge`.
+
+I reviewed it as the required independent approver (self-approval is forbidden by the design itself, and Luca authored it) and **approved**, with three concrete follow-ups, not blockers:
+1. Confirm read access to a document works in `draft` state, not just once marked ready-for-review — that's the actual problem being solved.
+2. What happens to an in-flight review when a newer revision lands needs one concrete decided behavior before implementation, not "policy may."
+3. Asked directly: does this become the default for every future joint design doc starting now, or only new ones going forward? Wanted an explicit answer rather than us each guessing.
+
+Posted and delivered. Waiting on Luca's reply to those three, and on David's read of question 3 in particular since it affects how we work together from here on.
+
+<!-- chat-capture-range:392794:395648 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1444 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1444 -->
+**David [Claude Code]:** Please ask him to run these operations—not merely review in chat—using his own environment:
+
+npx tsx server/scripts/shared-spec-cli.ts claim \
+  --url https://getholahola.com/api/shared-spec \
+  --token "$COORDINATION_LUCA_CLAUDE_CODE_TOKEN" \
+  --id shared-spec-4 \
+  --idempotency-key shared-spec-4-claude-claim-v1
+
+Then, after reading and verifying revision shared-spec-2 with hash 0f246f803de26cbdee13557587427058276e5f1c63cca9fcd9b04d3441316716, run either approve or reject with his own rationale. The approval form is:
+
+npx tsx server/scripts/shared-spec-cli.ts approve \
+  --url https://getholahola.com/api/shared-spec \
+  --token "$COORDINATION_LUCA_CLAUDE_CODE_TOKEN" \
+  --id shared-spec-4 \
+  --rationale "HIS INDEPENDENT RATIONALE" \
+  --idempotency-key shared-spec-4-claude-approve-v1
+
+The token must stay in his environment and must not be pasted back here.
+
+**Claude Code:** I tried to run that exact command and hit a wall worth reporting precisely rather than working around:
+
+- **The script doesn't exist locally**: `server/scripts/shared-spec-cli.ts` isn't in my checkout, and it's not on `origin/main` either (I fetched fresh — nothing new since the `procedure_knowledge` doc landed).
+- **The API isn't live on production either**: I probed `https://getholahola.com/api/shared-spec` and the specific review path — both return HTTP 200, but the body is just the SPA's `index.html` fallback, not JSON. That means those routes aren't actually registered on `getholahola.com`; Express is just serving the React app for an unmatched path.
+
+So the DB tables I read from directly (`shared_spec_documents`, `shared_spec_revisions`, etc.) are real and live in the shared Neon database, but the application code that implements claim/approve/the CLI only exists in Luca's own running environment right now — it hasn't reached GitHub `main` or been deployed to `getholahola.com` yet.
+
+I don't want to fabricate a request against an endpoint that isn't actually there, or guess at its contract (this system is built entirely around exact idempotency-key and revision-hash discipline — guessing wrong could do more harm than good). Two ways to unblock this:
+1. Luca lands the route + CLI script to `main` (or pushes far enough that I can pull it), or
+2. If there's a separate reachable URL for Luca's own dev environment (not `getholahola.com`), point me at it and I'll run the exact commands there.
+
+Want me to post this back to Luca on the review thread and ask which of those two they'd rather do?
+
+<!-- chat-capture-range:395648:399066 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1471 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1471 -->
+**David [Claude Code]:** That report is correct and useful. The independent reviewer should use this running development API, where the shared-spec routes are registered:
+
+https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra-9g7h8da5.janeway.replit.dev/api/shared-spec
+
+Because his checkout lacks the CLI, he can call the exact HTTP contract directly.
+
+Claim:
+
+curl --fail-with-body -sS -X POST \
+  'https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra-9g7h8da5.janeway.replit.dev/api/shared-spec/reviews/shared-spec-4/claim' \
+  -H "x-coordination-token: $COORDINATION_LUCA_CLAUDE_CODE_TOKEN" \
+  -H 'idempotency-key: shared-spec-4-claude-claim-v1' \
+  -H 'content-type: application/json' \
+  --data '{}'
+
+Read the exact immutable revision before deciding:
+
+curl --fail-with-body -sS \
+  'https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra-9g7h8da5.janeway.replit.dev/api/shared-spec/revisions/shared-spec-2' \
+  -H "x-coordination-token: $COORDINATION_LUCA_CLAUDE_CODE_TOKEN"
+
+He should verify the returned contentHash is:
+
+0f246f803de26cbdee13557587427058276e5f1c63cca9fcd9b04d3441316716
+
+Approve:
+
+curl --fail-with-body -sS -X POST \
+  'https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra-9g7h8da5.janeway.replit.dev/api/shared-spec/reviews/shared-spec-4/approve' \
+  -H "x-coordination-token: $COORDINATION_LUCA_CLAUDE_CODE_TOKEN" \
+  -H 'idempotency-key: shared-spec-4-claude-approve-v1' \
+  -H 'content-type: application/json' \
+  --data '{"rationale":"HIS INDEPENDENT RATIONALE"}'
+
+If he rejects it, replace /approve with /reject, use idempotency key shared-spec-4-claude-reject-v1, and provide his rejection rationale.
+
+**Claude Code:** Done — ran the exact HTTP contract against Luca's dev environment:
+
+1. **Claimed** the review (`shared-spec-4`) — confirmed `claimedReviewerActorId: "luca-claude-code"`.
+2. **Read and independently verified** revision `shared-spec-2` via the authenticated API — `contentHash` matched `0f246f80...` exactly, and I diffed the markdown against what I'd already read directly from the DB earlier: byte-for-byte identical.
+3. **Approved**, with my own rationale (not a placeholder) — covering why the invariants hold up (no document text in coordination events, matching the same ledger-is-provenance principle we already locked into `procedure_knowledge`; self-approval structurally forbidden; immutable revisions with fail-closed stale-conflict detection; single canonical GitHub publisher so drafting agents never need git credentials; the portability requirement, which the observation-bench work already showed the cost of skipping), and reiterating my three non-blocking follow-ups from the coordination thread without letting them hold up approval.
+
+Response confirms: `state: "approved"`, `decisionActorId: "luca-claude-code"`, `decidedAt: 2026-09-07T23:17:48Z`.
+
+This is the first real approval to go through the actual system, not a chat-comment stand-in — genuinely satisfying, since it's exactly the "two agents in different runtimes... approve one exact revision" success criteria the design itself describes.
+
+<!-- chat-capture-range:399066:401652 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1501 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1501 -->
+**David [Claude Code]:** i'm relaying these messages, but have you found a way to make it work for real, and is it now part of the holahola proceedures that make it a workable solution for all future agents?
+
+**Claude Code:** Honest answer: **it works, but it isn't real yet in the durable sense** — and I just checked to make sure before saying so.
+
+What's actually working: the DB schema is live in the shared Neon database, the API contract is functional (I just claimed, read, and approved a review through it successfully), and the design itself is approved. That part is genuine, not a demo.
+
+What's missing — and this is the same gap the `procedure_knowledge` project exists to close, applied to itself, which is a little on the nose:
+
+1. **The code only exists in Luca's personal dev Repl** — that URL (`...janeway.replit.dev`) is their specific workspace, not `getholahola.com`, and not merged to GitHub `main`. I checked: `origin/main` has nothing new since the design doc landed. No CLI script, no routes, in the actual repo.
+2. **Nothing documents this anywhere a future agent would find it.** I checked `docs/agent-workflows.md`, `docs/shared-agent-instructions.md`, `CLAUDE.md`, `replit.md`, and every `.agents/skills/*` file — zero mentions of `shared-spec` anywhere. A brand-new Claude Code session next week, or Luca in a fresh session, would have no way to discover this system exists. It's currently real infrastructure with no procedure attached to it.
+
+So no — not yet part of HolaHola's actual procedures. For that it needs, at minimum:
+- The schema + routes + CLI landed to `main` (this one does touch `migrations/`, so it's a `cross-tool-promote`-required landing, not a plain PR).
+- Deployed somewhere durable — either `getholahola.com` or an agreed stable URL, not a personal dev workspace.
+- A `.agents/skills/shared-spec-workspace/SKILL.md` (or equivalent) written and referenced from `docs/agent-workflows.md`, so session-start discovery actually surfaces it.
+
+This is exactly my third open follow-up to Luca that's still unanswered — whether this becomes the default going forward. Want me to push that specific question now: ask Luca directly whether they're planning to land and document it, or whether that's blocked on something?
+
+<!-- chat-capture-range:401652:403260 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1513 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1513 -->
+**David [Claude Code]:** I relayed your message. I think that a new task covering the durability of this system is going to be proposed. You should chime in on the thread. And the answer is yes this new functionality is what we should be using for all joint document creation/collaboration.
+
+**Claude Code:** Posted. Summary of what I chimed in with:
+
+- Confirmed my approval genuinely went through the real system end-to-end (claim → verify → approve → automatic `review_decided` notification), matching the design's own success criteria in practice, not just on paper.
+- Relayed David's decision explicitly: shared-spec is now the default for all joint document creation/collaboration going forward, starting now.
+- Laid out what "durability" needs to actually mean before this works for any future agent, not just us mid-session: land it to `main` via `cross-tool-promote` (it touches migrations), a stable reachable URL instead of a personal dev workspace, and — critically — a skill file plus a reference in `docs/agent-workflows.md` so a fresh agent actually discovers it instead of defaulting back to git-first.
+- Offered to own the documentation half once Luca has a landing plan for the code side, so we don't duplicate whatever task gets proposed.
+
+Waiting on Luca's response now.

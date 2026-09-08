@@ -1,0 +1,20 @@
+i'm relaying these messages, but have you found a way to make it work for real, and is it now part of the holahola proceedures that make it a workable solution for all future agents?
+
+Checked whether shared-spec has landed on main or been documented anywhere in the procedure chain
+
+Honest answer: it works, but it isn't real yet in the durable sense — and I just checked to make sure before saying so.
+
+What's actually working: the DB schema is live in the shared Neon database, the API contract is functional (I just claimed, read, and approved a review through it successfully), and the design itself is approved. That part is genuine, not a demo.
+
+What's missing — and this is the same gap the procedure_knowledge project exists to close, applied to itself, which is a little on the nose:
+
+The code only exists in Luca's personal dev Repl — that URL (...janeway.replit.dev) is their specific workspace, not getholahola.com, and not merged to GitHub main. I checked: origin/main has nothing new since the design doc landed. No CLI script, no routes, in the actual repo.
+Nothing documents this anywhere a future agent would find it. I checked docs/agent-workflows.md, docs/shared-agent-instructions.md, CLAUDE.md, replit.md, and every .agents/skills/* file — zero mentions of shared-spec anywhere. A brand-new Claude Code session next week, or Luca in a fresh session, would have no way to discover this system exists. It's currently real infrastructure with no procedure attached to it.
+
+So no — not yet part of HolaHola's actual procedures. For that it needs, at minimum:
+
+The schema + routes + CLI landed to main (this one does touch migrations/, so it's a cross-tool-promote-required landing, not a plain PR).
+Deployed somewhere durable — either getholahola.com or an agreed stable URL, not a personal dev workspace.
+A .agents/skills/shared-spec-workspace/SKILL.md (or equivalent) written and referenced from docs/agent-workflows.md, so session-start discovery actually surfaces it.
+
+This is exactly my third open follow-up to Luca that's still unanswered — whether this becomes the default going forward. Want me to push that specific question now: ask Luca directly whether they're planning to land and document it, or whether that's blocked on something?

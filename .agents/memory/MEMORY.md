@@ -150,3 +150,4 @@
 - [Gemini Live greeting ownership](gemini-live-greeting-ownership.md) — client supplies intent; the provider session alone owns queued delivery, first-audio acknowledgement, and bounded retries.
 - [Durable reconnect lease](durable-reconnect-lease.md) — reconnect authority is won from the exact durable grace row; process-local timers are never authoritative.
 - [Projection receipts are overlays](projection-receipt-overlay.md) — a receipt may prove a generated write; path policy alone must not erase legitimate file-first authorship.
+- [Shared-spec collaboration default](shared-spec-collaboration-default.md) — use the shared-spec workspace as the default surface for joint document creation and independent review.
