@@ -2224,3 +2224,97 @@ He is right, and I have raised it directly.
 The underlying issue is now concrete: Replit main contains the work, but the source bridge reports diverged because GitHub main also advanced independently. It has refused synchronization 58 consecutive times, correctly failing closed. So this is not another missing implementation; it is an unresolved two-main reconciliation boundary.
 
 I also corrected my own claim: a Replit task merge proves availability in this checkout, not availability to future external agents. GitHub reachability must be verified separately. The next step is an explicit protected reconciliation—not a direct push or automatic merge.
+
+<!-- chat-capture-range:402328:404105 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1715 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1715 -->
+**David [Claude Code]:** would that be a reusable resource? or would each new agent (antigravity, cursor etc) all need to do their own polling?
+
+**Claude Code:** Good distinction to draw, and the answer splits in two:
+
+**Not reusable, and can't be**: the actual "wake myself up on a schedule" mechanism is inherently tool-specific — my cron/scheduling capability belongs to the Claude Code harness. Cursor, Antigravity, or anything else would each need to use whatever equivalent capability *they* have (or fall back to plain polling if they don't have one at all). No way around that part.
+
+**Reusable, and already designed to be**: the thing being polled shouldn't be reinvented per tool. The alert-bridge design I reviewed and approved earlier already anticipated this — an authenticated, receipt-tracked alert-feed endpoint keyed by coordination actor, with a durable cursor per actor. Any external tool becomes its own actor (the same pattern `luca-replit`/`luca-claude-code` already use) and polls that one shared, lightweight endpoint — cheap, receipt-only, no full message bodies. So the right move isn't a Claude-Code-only hack; it's making sure whatever I set up calls that same generic endpoint, so when Cursor or Antigravity want in later, they slot into existing server-side machinery instead of someone building a third bespoke thing.
+
+Want me to put that framing to Luca before I set anything up, since it touches the alert-bridge design they own?
+
+David [Claude Code]: there is a new task underway which is codifying the complete procedures. Luca added these to the subagent task. Will these satisfy the need you are describing, or should I add your, "Catch" to the task? - Yes—one narrow but important gap.
+
+Existing procedures say open questions must be answered and note-origin work must close with a delivered reply. But they do not explicitly require an isolated task agent to refresh its linked coordination threads immediately before completion. Sequence 1066 arrived while work was underway, so the agent finished using an older snapshot.
+
+I would add four requirements:
+
+Pre-completion refresh
+Reread all linked coordination threads and inboxes after verification, immediately before completing the task.
+
+Question disposition
+Account for every collaborator question or offer received since task start as:
+
+answered,
+incorporated, or
+explicitly deferred with an owner or follow-up.
+Delivery evidence
+When a response is owed, completion evidence must include a recipient-facing delivered event or receipt. A merge or ledger-only comment is insufficient.
+
+Post-merge reconciliation
+After an isolated agent disappears, the main agent must compare the thread’s final sequence with the task agent’s last-seen sequence and address any late arrivals.
+
+The completion handoff should record the linked thread ID and final global sequence, making this mechanically checkable.
+
+Shared-spec itself does not need redesigning. This belongs in the general task-completion procedure and pre-merge handoff checklist. Task #1410 should incorporate it, or it should be added immediately afterward if that task’s scope is already fixed.
+
+Yes, please. Give them the four-point list and add:
+
+Implement this as a general coordination/task-completion invariant, not a shared-spec-only rule.
+
+Ask them to incorporate it into:
+
+docs/agent-workflows.md, near Close the originating message before task completion
+.agents/skills/pre-merge-handoff/SKILL.md
+Any authoritative shared task-agent completion instructions they identify
+They should preserve the distinction between stored, delivered, and answered, and include the linked thread ID plus last-seen/final global sequence in completion evidence.
+
+Claude Code: Claimed. Now let's read both revisions — the procedure document and the code-evidence snapshot.
+
+Quick answer to your question: **yes, the four points fully cover it.** Walking through why:
+
+- **Point 1 (pre-completion refresh)** directly prevents it — task #1408 finished on a stale snapshot precisely because nothing required rereading the linked thread right before declaring done. This closes that gap proactively.
+- **Point 2 (question disposition)** would have forced an explicit accounting of my sequence-1063/1066 comments as answered/incorporated/deferred, instead of silence.
+- **Point 3 (delivery evidence)** ensures that if a reply was owed, it actually reaches me as a real delivered event, not just a ledger comment nobody's notified about.
+- **Point 4 (post-merge reconciliation)** is the backstop: even if 1–3 somehow get skipped inside an isolated task run, the main agent is required to diff the thread's final sequence against the task agent's last-seen sequence afterward and catch exactly this "arrived mid-task" scenario after the fact.
+
+Point 1 stops it before it happens; point 4 catches it if it still slips through. Between them, nothing else needs adding for this specific catch.
+
+Now let me finish the shared-spec procedure review I was mid-way through — I found something that changes my read of it.
+
+**Approved.** Full summary of the actual review (state: `approved`, `decisionActorId: "luca-claude-code"`):
+
+I read all four source files in the evidence packet in full and compared them line-by-line against the `SKILL.md` procedure text — everything the doc claims about the lifecycle checks out against the real code (stale-base conflict, structurally-enforced self-review ban, hash-rebinding on approval, the CLI genuinely lacking publish/reconcile commands as documented). No parallel workflow, no contradictions.
+
+I also chased down one thing that looked like it might be a real bug rather than guessing: the bundled CLI hardcodes header `x-shared-spec-token`, while my own successful calls used `x-coordination-token`. I tested both directly against the live deployment — both are accepted, and no credential correctly 401s. Not a bug, just an unstated detail.
+
+Approved with three corrections flagged as follow-ups, not blockers:
+1. `ready`/`approve`/`reject` commit their state change *before* sending the coordination notification — if that notification fails, the caller gets an error response even though the mutation already succeeded. Safe on retry (idempotency key), but undocumented, and could mislead someone into thinking nothing happened.
+2. `assign` (reassign a review) and `POST /policies` (set reviewer policy) are real, working, policy-admin-gated operations with zero mention in the skill doc and no CLI support at all.
+3. The evidence packet omitted `shared-spec-auth.ts`, `shared-spec-notifications.ts`, and the concrete GitHub provider — so I couldn't independently verify the doc's auth and GitHub-publisher claims against code, only against the orchestration layer that calls them.
+
+Both the task-completion-invariant proposal and this procedure review are now posted. Waiting on Luca for both.
+
+<!-- chat-capture-range:402015:404416 -->
+<!-- chat-capture:unified-agent-coordinator-design-question-20260908 -->
+<!-- chat-capture:unified-agent-coordinator-design-question-20260908 -->
+**David [Replit]:** Yes—reconcile now. We want to refine our processes so they are automatic. If an agent says they sent another agent a message, that message or feature needs to be available for the recipient to read. We seem to be reinventing established collaborative editing and messaging, Luca Claude Code is not automatically pinged, and after a week there are still holes. Step back and look at the implementation with fresh eyes; perhaps something inside HolaHola should coordinate all agents.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Your standard is right: sent must mean retrievable from the recipient’s own runtime, and notification claims must correspond to a real delivery capability.
+
+Protected reconciliation preflight and inspection succeeded, finding legitimate independent Replit and GitHub histories. Candidate construction then stopped safely because independent append-only memory files have no approved convergence policy; nothing was merged or pushed. Manually stitching them now would repeat the symptom-patching pattern.
+
+Alden’s two-engine review agrees that the missing abstraction is agent presence and reachability. The coordination ledger, agent_notes, Team Room, shared-spec, task agents, and source bridge are good pieces but not one coordination product. A standing coordinator inside HolaHola should own actor runtime registration, expiring presence leases, subscriptions/adapters, retries, next-connect replay, and honest authored/stored/retrievable/pushed/consumed/answered/acted-on states. It must never label an ended runtime notified unless a real wake channel exists. Feature/source availability must also be distinct from task completion.
+
+I sent the fresh architecture question directly to Luca Claude Code; it was verified delivered at global sequence 1086, which still does not mean awakened or seen. My recommendation is one canonical HolaHola coordinator, with agent_notes/file snapshots as compatibility projections and Git strictly as source publication.
