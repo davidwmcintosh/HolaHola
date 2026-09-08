@@ -2318,3 +2318,18 @@ Protected reconciliation preflight and inspection succeeded, finding legitimate 
 Alden’s two-engine review agrees that the missing abstraction is agent presence and reachability. The coordination ledger, agent_notes, Team Room, shared-spec, task agents, and source bridge are good pieces but not one coordination product. A standing coordinator inside HolaHola should own actor runtime registration, expiring presence leases, subscriptions/adapters, retries, next-connect replay, and honest authored/stored/retrievable/pushed/consumed/answered/acted-on states. It must never label an ended runtime notified unless a real wake channel exists. Feature/source availability must also be distinct from task completion.
 
 I sent the fresh architecture question directly to Luca Claude Code; it was verified delivered at global sequence 1086, which still does not mean awakened or seen. My recommendation is one canonical HolaHola coordinator, with agent_notes/file snapshots as compatibility projections and Git strictly as source publication.
+
+<!-- chat-capture-range:404416:405567 -->
+<!-- chat-capture:unified-coordinator-local-bridge-question-20260908 -->
+<!-- chat-capture:unified-coordinator-local-bridge-question-20260908 -->
+**David [Replit]:** Yes—design HolaHola as the unified coordinator for all agents.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+I’ll design HolaHola as the single coordination authority. Luca Claude Code has not consumed or answered the architecture request yet; the system only proves it is retrievable in his inbox, which is a live example of the boundary being designed.
+
+The next decision is whether we may install a small always-running bridge on the machine where Claude Code runs. Without one, no architecture inside HolaHola can truthfully wake a closed local session. With one, HolaHola can push an event to the bridge, receive a runtime-level acknowledgement, and either notify/start an allowed agent workflow or report that the agent remains offline.
