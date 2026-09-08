@@ -3,6 +3,11 @@ type Options = Record<string, string | boolean>;
 const commands = new Set(["list", "show", "create", "revision", "ready", "claim", "approve", "reject", "export"]);
 const mutationCommands = new Set(["create", "revision", "ready", "claim", "approve", "reject"]);
 
+export interface SharedSpecCliDependencies {
+  readonly fetchImpl?: typeof fetch;
+  readonly writeOutput?: (output: string) => void;
+}
+
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   process.exit(64);
@@ -31,16 +36,18 @@ function json(value: string | boolean | undefined, name: string): unknown {
   try { return JSON.parse(value); } catch { fail(`--${name} must be JSON`); }
 }
 
-export async function runSharedSpecCli(argv = process.argv.slice(2)): Promise<void> {
+export async function runSharedSpecCli(
+  argv = process.argv.slice(2),
+  dependencies: SharedSpecCliDependencies = {},
+): Promise<void> {
   const { command, options } = parse(argv);
   const baseUrl = required(options, "url").replace(/\/$/, "");
   const token = required(options, "token");
-  const documentId = typeof options.id === "string" ? options.id : "";
   let path = "/documents";
   let method = "GET";
   let body: Record<string, unknown> | undefined;
   if (command === "show") path = `/documents/${required(options, "id")}`;
-  if (command === "export") path = `/documents/${required(options, "id")}/export`;
+  if (command === "export") path = `/documents/${required(options, "id")}/export/raw`;
   if (command === "create") { method = "POST"; body = { title: required(options, "title"), kind: required(options, "kind"), repository: required(options, "repository"), gitPath: required(options, "path"), markdown: required(options, "markdown"), summary: options.summary }; }
   if (command === "revision") { method = "POST"; path = `/documents/${required(options, "id")}/revisions`; body = { baseRevisionId: required(options, "base"), markdown: required(options, "markdown") }; }
   if (command === "ready") { method = "POST"; path = `/documents/${required(options, "id")}/ready`; body = { revisionId: required(options, "revision"), requestedReviewerActorId: options.reviewer }; }
@@ -51,12 +58,12 @@ export async function runSharedSpecCli(argv = process.argv.slice(2)): Promise<vo
     headers["idempotency-key"] = required(options, "idempotency-key");
     headers["content-type"] = "application/json";
   }
-  const response = await fetch(`${baseUrl}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const response = await (dependencies.fetchImpl ?? fetch)(`${baseUrl}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const output = command === "export" ? await response.text() : JSON.stringify(await response.json(), null, 2);
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${output}`);
-  process.stdout.write(`${output}\n`);
+  (dependencies.writeOutput ?? ((value) => process.stdout.write(value)))(`${output}\n`);
 }
 
-if (process.argv[1]?.includes("shared-spec-cli")) {
+if (process.argv[1]?.endsWith("/shared-spec-cli.ts")) {
   runSharedSpecCli().catch(error => { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; });
 }

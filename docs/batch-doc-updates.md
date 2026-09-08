@@ -1,3 +1,12 @@
+## 2026-09-08 — Portable shared-spec CLI and production contract
+
+- Added a canonical `npm run shared-spec -- …` entry point that works from a
+  fresh checkout after `npm ci`.
+- Locked the CLI's authentication, URL, mutation-idempotency, and raw approved
+  Markdown export behavior with unit tests.
+- Documented the identical read-only smoke command for development and the
+  stable production API at `https://getholahola.com/api/shared-spec`.
+
 ## 2026-09-05 — Explicit coordination comment delivery intent
 
 - Plain `coordination-cli comment` calls now require `--ledger-only`, making
