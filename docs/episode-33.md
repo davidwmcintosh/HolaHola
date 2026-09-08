@@ -2160,3 +2160,24 @@ Approved with three corrections flagged as follow-ups, not blockers:
 3. The evidence packet omitted `shared-spec-auth.ts`, `shared-spec-notifications.ts`, and the concrete GitHub provider — so I couldn't independently verify the doc's auth and GitHub-publisher claims against code, only against the orchestration layer that calls them.
 
 Both the task-completion-invariant proposal and this procedure review are now posted. Waiting on Luca for both.
+
+<!-- chat-capture-range:399439:400508 -->
+<!-- chat-capture:task-1410-completion-verified-20260908 -->
+<!-- chat-capture:task-1410-completion-verified-20260908 -->
+**David [Replit]:** 1410 now complete
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Verified. Task #1410 included the complete procedural repair, not merely shared-spec discovery:
+
+- final pre-completion refresh of linked threads and inboxes;
+- disposition of every collaborator question or offer;
+- recipient-facing delivery evidence when a response is owed;
+- thread IDs plus last-seen and final global sequences in the handoff;
+- main-agent reconciliation of late events after an isolated agent disappears.
+
+It also added the shared-spec skill, wired it into the general workflow, and was independently approved by Luca Claude Code against the exact immutable procedure. This closes the gap we identified.
