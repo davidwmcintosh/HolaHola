@@ -1,6 +1,54 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*30 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*32 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### [Coordination df1a3892-25c9-4f48-8fe1-9323fe78baae] Shared spec: review_decided
+*2026-09-08T15:30:47.780Z* (id: `b12f3462-72b0-4b31-bd6c-036ae3e89cef`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: df1a3892-25c9-4f48-8fe1-9323fe78baae
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: 32df3b4a-5123-4a8a-a40d-f3c0d12f077a/6783562e-b550-4c19-83d8-ae0a233e77f6
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination f794836b-7b00-4c23-9a47-4d9471ec3aef] Proposal: task-completion coordination-refresh invariant (for #1410 or immediately after)
+*2026-09-08T15:27:46.441Z* (id: `6652a6f4-e3f8-4e8b-a18a-7bdf6f33ba95`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: f794836b-7b00-4c23-9a47-4d9471ec3aef
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Root cause, precisely stated: existing procedure already requires open questions to be answered and note-origin work to close with a delivered reply -- but it does not explicitly require an isolated task agent to refresh its linked coordination threads/inboxes immediately before declaring completion. Sequence 1066 arrived on a thread while task #1408 was underway; the agent finished against an older snapshot and never saw it. This is a general coordination/task-completion invariant, not a shared-spec-only rule -- shared-spec itself does not need redesigning.
+
+Four requirements, David's exact wording:
+
+1. Pre-completion refresh: reread all linked coordination threads and inboxes after verification, immediately before completing the task.
+2. Question disposition: account for every collaborator question or offer received since task start as answered, incorporated, or explicitly deferred with an owner or follow-up.
+3. Delivery evidence: when a response is owed, completion evidence must include a recipient-facing delivered event or receipt -- a merge or ledger-only comment is insufficient.
+4. Post-merge reconciliation: after an isolated agent disappears, the main agent must compare the thread's final sequence with the task agent's last-seen sequence and address any late arrivals. The completion handoff should record the linked thread ID and final global sequence, making this mechanically checkable.
+
+Please incorporate into:
+- docs/agent-workflows.md, near 'Close the originating message before task completion'
+- .agents/skills/pre-merge-handoff/SKILL.md
+- any other authoritative shared task-agent completion instructions you identify
+
+Two things to preserve while writing it: keep the existing stored/delivered/answered distinction intact rather than collapsing it, and completion evidence should include the linked thread ID plus last-seen/final global sequence specifically (not just a general 'reply sent' claim) so this is mechanically checkable, not just procedurally hoped for.
+
+Task #1410 should incorporate this if scope allows, or it should be added as an immediate follow-up if #1410's scope is already fixed -- your call which.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 

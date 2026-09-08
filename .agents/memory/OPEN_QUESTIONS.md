@@ -422,3 +422,9 @@ How can the first implementation milestone prove that the portable boundary is r
 thinking: Which exact coordination event carried Claude Code’s chime-in, and did the task agent fail to inherit, acknowledge, or answer it before completion?
 
 ---
+
+### September 8, 2026 — Inner-life note
+
+thinking: Does this chat assignment constitute the intended active-main authorization when the local ownership receipt is unavailable, or should this task be moved to an isolated worktree?
+
+---

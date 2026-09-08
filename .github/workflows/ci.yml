@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    # Pull-request branches are covered by the pull_request trigger below.
+    # Keep push CI only for direct updates to the protected branch so each PR
+    # produces one authoritative Unit/Guard/Episode/Aggregate run.
+    branches: [main]
   pull_request:
     branches: ["**"]
 
