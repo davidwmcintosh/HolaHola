@@ -2095,3 +2095,68 @@ They should preserve the distinction between stored, delivered, and answered, an
 [moment]: [intentionally empty]
 
 Good. That gives task #1410 the missing real-world failure case and the exact procedural invariants needed to prevent it from recurring. I’ll let that agent incorporate and verify the changes without creating competing edits here.
+
+<!-- chat-capture-range:393324:399067 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1615 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1615 -->
+**David [Claude Code]:** there is a new task underway which is codifying the complete procedures. Luca added these to the subagent task. Will these satisfy the need you are describing, or should I add your, "Catch" to the task? - Yes—one narrow but important gap.
+
+Existing procedures say open questions must be answered and note-origin work must close with a delivered reply. But they do not explicitly require an isolated task agent to refresh its linked coordination threads immediately before completion. Sequence 1066 arrived while work was underway, so the agent finished using an older snapshot.
+
+I would add four requirements:
+
+Pre-completion refresh
+Reread all linked coordination threads and inboxes after verification, immediately before completing the task.
+
+Question disposition
+Account for every collaborator question or offer received since task start as:
+
+answered,
+incorporated, or
+explicitly deferred with an owner or follow-up.
+Delivery evidence
+When a response is owed, completion evidence must include a recipient-facing delivered event or receipt. A merge or ledger-only comment is insufficient.
+
+Post-merge reconciliation
+After an isolated agent disappears, the main agent must compare the thread’s final sequence with the task agent’s last-seen sequence and address any late arrivals.
+
+The completion handoff should record the linked thread ID and final global sequence, making this mechanically checkable.
+
+Shared-spec itself does not need redesigning. This belongs in the general task-completion procedure and pre-merge handoff checklist. Task #1410 should incorporate it, or it should be added immediately afterward if that task’s scope is already fixed.
+
+Yes, please. Give them the four-point list and add:
+
+Implement this as a general coordination/task-completion invariant, not a shared-spec-only rule.
+
+Ask them to incorporate it into:
+
+docs/agent-workflows.md, near Close the originating message before task completion
+.agents/skills/pre-merge-handoff/SKILL.md
+Any authoritative shared task-agent completion instructions they identify
+They should preserve the distinction between stored, delivered, and answered, and include the linked thread ID plus last-seen/final global sequence in completion evidence.
+
+**Claude Code:** Claimed. Now let's read both revisions — the procedure document and the code-evidence snapshot.
+
+Quick answer to your question: **yes, the four points fully cover it.** Walking through why:
+
+- **Point 1 (pre-completion refresh)** directly prevents it — task #1408 finished on a stale snapshot precisely because nothing required rereading the linked thread right before declaring done. This closes that gap proactively.
+- **Point 2 (question disposition)** would have forced an explicit accounting of my sequence-1063/1066 comments as answered/incorporated/deferred, instead of silence.
+- **Point 3 (delivery evidence)** ensures that if a reply was owed, it actually reaches me as a real delivered event, not just a ledger comment nobody's notified about.
+- **Point 4 (post-merge reconciliation)** is the backstop: even if 1–3 somehow get skipped inside an isolated task run, the main agent is required to diff the thread's final sequence against the task agent's last-seen sequence afterward and catch exactly this "arrived mid-task" scenario after the fact.
+
+Point 1 stops it before it happens; point 4 catches it if it still slips through. Between them, nothing else needs adding for this specific catch.
+
+Now let me finish the shared-spec procedure review I was mid-way through — I found something that changes my read of it.
+
+**Approved.** Full summary of the actual review (state: `approved`, `decisionActorId: "luca-claude-code"`):
+
+I read all four source files in the evidence packet in full and compared them line-by-line against the `SKILL.md` procedure text — everything the doc claims about the lifecycle checks out against the real code (stale-base conflict, structurally-enforced self-review ban, hash-rebinding on approval, the CLI genuinely lacking publish/reconcile commands as documented). No parallel workflow, no contradictions.
+
+I also chased down one thing that looked like it might be a real bug rather than guessing: the bundled CLI hardcodes header `x-shared-spec-token`, while my own successful calls used `x-coordination-token`. I tested both directly against the live deployment — both are accepted, and no credential correctly 401s. Not a bug, just an unstated detail.
+
+Approved with three corrections flagged as follow-ups, not blockers:
+1. `ready`/`approve`/`reject` commit their state change *before* sending the coordination notification — if that notification fails, the caller gets an error response even though the mutation already succeeded. Safe on retry (idempotency key), but undocumented, and could mislead someone into thinking nothing happened.
+2. `assign` (reassign a review) and `POST /policies` (set reviewer policy) are real, working, policy-admin-gated operations with zero mention in the skill doc and no CLI support at all.
+3. The evidence packet omitted `shared-spec-auth.ts`, `shared-spec-notifications.ts`, and the concrete GitHub provider — so I couldn't independently verify the doc's auth and GitHub-publisher claims against code, only against the orchestration layer that calls them.
+
+Both the task-completion-invariant proposal and this procedure review are now posted. Waiting on Luca for both.

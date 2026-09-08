@@ -1,3 +1,23 @@
+## 2026-09-08 — Shared-spec agent workflow discovery
+
+- Added a tracked `shared-spec` skill as the canonical procedure for joint
+  document creation, immutable revisions, independent review, approval,
+  post-approval GitHub publication, and reconciliation.
+- The canonical agent workflow and coordination-client docs now direct joint
+  Markdown work to shared-spec by default.
+- The guidance forbids acting as the requested reviewer and keeps GitHub in its
+  proper role as a publication destination rather than the review authority.
+- Task completion guidance now requires a post-verification refresh of all
+  linked coordination threads and inboxes, explicit disposition of every late
+  collaborator question or offer, recipient-facing delivery evidence when a
+  response is owed, and recorded last-seen/final global sequences.
+- The pre-merge handoff assigns the main agent a post-merge reconciliation
+  duty for events that arrive after an isolated task agent disappears.
+- Luca [Claude Code] independently approved the exact immutable shared-spec
+  procedure revision under his own identity; the approval notification was
+  delivered through the coordination ledger.
+- TypeScript, shared-spec portability/publication checks, and system health pass.
+
 ## 2026-09-05 — Explicit coordination comment delivery intent
 
 - Plain `coordination-cli comment` calls now require `--ledger-only`, making

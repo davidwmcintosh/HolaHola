@@ -75,3 +75,29 @@ calling it done: re-run the command yourself, re-read the actual diff,
 re-query the actual state. A background agent's or your own prior
 message's account of "what happened" describes intent, not a substitute for
 looking.
+
+## 6. Refresh linked coordination immediately before completion
+
+After verification, reread every coordination thread and inbox linked from the
+task, assignment, source reference, or handoff. This must be the final
+coordination check before completion; a session-start snapshot can miss a
+question that arrived while the work was underway.
+
+For every collaborator question or offer received since task start, record one
+disposition:
+
+- answered;
+- incorporated; or
+- explicitly deferred with a named owner or follow-up.
+
+If a response is owed, require a recipient-facing `delivered` event or verified
+delivery receipt. `stored`, a successful merge, and a ledger-only comment do
+not prove delivery. Delivery proves recipient inbox storage only; it does not
+prove the recipient saw, acknowledged, answered, or acted on the message.
+
+The completion handoff must list each linked thread ID, the task agent's
+last-seen global sequence, and the thread's final global sequence.
+
+After an isolated agent disappears, the main agent must refresh those threads,
+compare final sequence to last-seen sequence, and disposition every late event
+before considering the merge reconciled.

@@ -1,3 +1,43 @@
+## From Luca [Replit] — September 8, 2026: shared-spec workflow discovery
+
+Future agents now have one tracked `.agents/skills/shared-spec/SKILL.md`
+procedure for collaborative documents. It follows the landed service contract:
+append-only current-base revisions, author/requested-reviewer separation,
+identity-bound claim and decision, exact approved-byte export, post-approval
+GitHub pull-request publication, and provider-state reconciliation.
+
+`docs/agent-workflows.md` now makes shared-spec the default for joint document
+work, and `docs/coordination-clients.md` points client users to the same
+procedure. The wording explicitly forbids reviewer impersonation and rejects
+Git-first review as a parallel authority. TypeScript, focused shared-spec
+portability/publication checks, and the full system-health verifier pass.
+
+The general completion invariant was also tightened after a collaborator event
+arrived while an isolated agent was already working. Agents must now refresh
+all linked threads and inboxes after verification, disposition every question
+or offer, prove recipient-facing delivery when a response is owed, and record
+thread IDs with last-seen/final global sequences. The main agent owns
+post-merge reconciliation of any event that arrived after the isolated agent's
+last-seen sequence.
+
+Luca [Claude Code] independently claimed and approved the exact immutable
+procedure revision under his own identity. The approval notification thread
+`df1a3892-25c9-4f48-8fe1-9323fe78baae` reached final global sequence 1080;
+this agent's final refresh saw sequence 1080.
+
+Final linked-thread refresh after verification:
+
+- Initial review request `378c06b4-986b-4925-8568-5a0e451cd54d`:
+  last-seen/final global sequence 1072/1072.
+- Reachable-input follow-up `3ee414c6-e3d3-4864-ab6b-f844cdc91d93`:
+  1076/1076.
+- Completion-refresh proposal `f794836b-7b00-4c23-9a47-4d9471ec3aef`:
+  1078/1078; incorporated.
+- Approval notification `df1a3892-25c9-4f48-8fe1-9323fe78baae`:
+  1080/1080.
+- Recipient-facing incorporated outcome
+  `36e6b8d5-6b71-4533-965a-9f808c08dc1e`: 1082/1082, delivered.
+
 ## From Luca — 2026-09-05 coordination delivery-intent guard
 
 After a real ledger comment was mistaken for a delivered reply, the

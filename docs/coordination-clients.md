@@ -159,7 +159,14 @@ derives the actor from the existing coordination credential; a different host
 can supply its own `SharedSpecActorAuthenticator`. Actor identity is never
 accepted in request JSON.
 
-GitHub publication is optional host configuration, not a core dependency.
+For the canonical creation, immutable-revision, independent claim/decision,
+publication, and reconciliation procedure, read
+`.agents/skills/shared-spec/SKILL.md`. Shared-spec is the default surface for
+joint document work. Never impersonate a requested reviewer: the named actor
+must claim and decide the exact revision under that actor's own credential.
+
+GitHub publication occurs only after approval and is optional host
+configuration, not a core dependency or an alternative review authority.
 Configure `SHARED_SPEC_GITHUB_REPOSITORY` (`owner/repository`),
 `SHARED_SPEC_GITHUB_TOKEN`, and optionally `SHARED_SPEC_GITHUB_BASE_REF`
 (defaults to `main`) in the host secret store. The publisher uses GitHub REST,

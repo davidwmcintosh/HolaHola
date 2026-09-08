@@ -91,6 +91,18 @@ This checks every critical invariant: DB tables exist, seeded data has rows, cur
 
 ### Linked outcome comes first
 
+After verification and immediately before `markTaskComplete`, refresh every
+coordination thread and inbox linked from the task, assignment, source
+reference, or handoff. Account for every collaborator question or offer
+received since task start as answered, incorporated, or explicitly deferred
+with a named owner or follow-up. Record each linked thread ID plus the agent's
+last-seen and final global sequences in the completion handoff.
+
+When a response is owed, completion evidence must contain a recipient-facing
+`delivered` event or verified receipt. `stored`, a merge, and a ledger-only
+comment are insufficient. Delivery proves inbox storage only; it does not prove
+seen, acknowledgement, answer, or action.
+
 If the work originated from an `agent_notes` message or a coordination thread
 with an `agent_note` source reference, do not call `markTaskComplete` until the
 canonical combined operation has succeeded:
@@ -112,6 +124,11 @@ notified. The current shared-database operation is atomic. If a future external
 adapter returns `delivery_succeeded_completion_pending`, preserve the reply,
 refresh the thread sequence, and retry with the same idempotency key. Do not
 mark the task complete while the coordination thread remains incomplete.
+
+After an isolated task agent disappears, the main agent must compare the
+thread's final global sequence with the last-seen sequence recorded in the
+handoff and disposition any late arrivals before treating the merge as
+reconciled.
 
 **Every `markTaskComplete` call must be preceded by writing the task ref to `.task_ref_pending`.**
 

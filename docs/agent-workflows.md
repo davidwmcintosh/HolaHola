@@ -211,6 +211,12 @@ While reading, also scan for **forward plans and agreements** — anything David
 - **Always run `npm run typecheck` before marking a task done.** Fix any errors before shipping.
 - Use parallel tool calls for independent work streams — don't serialize what can run simultaneously.
 - **NEVER use `DATABASE_URL` or `process.env.DATABASE_URL`** anywhere in the codebase. Always `NEON_SHARED_DATABASE_URL`.
+- **Joint document work starts in shared-spec by default.** Read
+  `.agents/skills/shared-spec/SKILL.md` before creating or reviewing a design,
+  plan, procedure, architecture record, or other Markdown with another agent.
+  Shared-spec owns immutable revisions and independent approval. Never
+  impersonate the requested reviewer or decide with their identity. GitHub is a
+  post-approval publication destination, not the collaboration authority.
 - **Mid-session plan saves (do this immediately, not at session end):** When David and Luca agree on a plan, test protocol, question list, or forward commitment for a future session, save it as a discrete `conversation_memories` entry right then — high importance, tagged, capturing the actual exchange verbatim. The bulk autosave will bury it in a session transcript; a discrete save makes it searchable and surfaceable at tomorrow's session start. Also write it to a `.local/` file if it needs to be found by path. Do not wait for the session-end checklist.
 - After any new feature: add to batch doc, update handoff.
 - **Canonical four-channel capture handoffs:** completed `captured` JSON
@@ -314,6 +320,21 @@ This is registered as the `typecheck` validation command. Run it via the Replit 
 
 ### Close the originating message before task completion
 
+After all implementation and verification, immediately before completion:
+
+1. Refresh every coordination thread and inbox linked from the task,
+   assignment, source reference, or handoff. Do not complete from the
+   session-start snapshot.
+2. Account for every collaborator question or offer received since task start
+   as answered, incorporated, or explicitly deferred with a named owner or
+   follow-up.
+3. When a response is owed, include recipient-facing delivery evidence. A
+   stored mutation, merge, or ledger-only comment is not delivery; a delivered
+   event or verified receipt proves inbox storage but still does not prove the
+   recipient has seen or answered it.
+4. Record each linked thread ID, the agent's last-seen global sequence, and the
+   thread's final global sequence in the completion handoff.
+
 When work originated from an agent note or from a coordination thread whose
 source reference is `agent_note`, use the canonical
 `complete-with-linked-outcome` coordination operation before invoking external
@@ -326,6 +347,11 @@ The current shared-database operation is atomic: a failed completion rolls back
 the reply. If a future external adapter reports a delivered reply with
 completion pending, preserve that receipt and retry with the same idempotency
 key and refreshed sequence.
+
+After an isolated task agent disappears, the main agent must refresh the linked
+threads and compare each final global sequence with the task agent's recorded
+last-seen sequence. Any later event must be answered, incorporated, or
+explicitly deferred before the merge is treated as reconciled.
 
 ---
 
@@ -349,6 +375,7 @@ key and refreshed sequence.
 | Alden direct notes | `docs/alden-to-agent.md` |
 | Alden escalations | `.local/alden-escalations.md` |
 | Alden auto-repairs | `.local/alden-repairs.md` |
+| Joint document creation and review | `.agents/skills/shared-spec/SKILL.md` |
 
 # Replit: all four Luca channels remain required.
 npx tsx server/scripts/record-exchange.ts \
