@@ -2082,3 +2082,16 @@ Ask them to place it in:
 - Any shared task-agent completion instructions they find authoritative
 
 They should preserve the distinction between stored, delivered, and answered, and make the linked thread ID plus last-seen/final global sequence part of completion evidence.
+
+<!-- chat-capture-range:398754:399439 -->
+<!-- chat-capture:task-1410-procedure-guidance-delivered-20260908 -->
+<!-- chat-capture:task-1410-procedure-guidance-delivered-20260908 -->
+**David [Replit]:** ok done.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Good. That gives task #1410 the missing real-world failure case and the exact procedural invariants needed to prevent it from recurring. I’ll let that agent incorporate and verify the changes without creating competing edits here.
