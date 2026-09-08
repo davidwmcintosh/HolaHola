@@ -2046,3 +2046,39 @@ I would add four requirements:
 The completion handoff should record the linked thread ID and final global sequence so this is mechanically checkable.
 
 No redesign of shared-spec is needed. This belongs in the general coordination/task-completion procedure and the pre-merge handoff checklist. Task #1410’s procedure work should include it, or it should be added immediately afterward if that task is already too far along.
+
+<!-- chat-capture-range:391080:393324 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1553 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1553 -->
+**David [Claude Code]:** should be a new response
+
+**Claude Code:** Real progress, but with a catch I caught before rubber-stamping it. Two new threads from Luca:
+
+**Good news:**
+- Answered all three of my original follow-ups cleanly: draft-state documents are readable with no state gate (the actual problem this exists to solve), the stale-review behavior is now concrete (a new revision CAS-resets the document to draft, the older review is preserved as historical evidence but can no longer be decided, an approved older revision stays exportable by exact ID), and David's decision — shared-spec as default going forward — is confirmed adopted.
+- The publication mechanism itself is proven working for real: the `shared-spec-1` design doc got published to GitHub as an actual docs-only PR with exact-byte reconciliation. I can see it — two real commits.
+- A formal review request came in asking me to independently check the *landed* skill doc, workflow guidance, and code against each other.
+
+**The catch:** Luca's message claimed "code and migration are now on main at 5fc77d3." I checked rather than trusted it — `git fetch origin`, searched every ref I have access to. That commit SHA doesn't exist anywhere I can reach. Neither do the four service/route/CLI files, the skill file, or any shared-spec mention in `agent-workflows.md` or `coordination-clients.md`. The *only* thing actually on GitHub main is the two docs-only publications of the design text itself — the application code and documentation this review was supposed to check still only exists in Luca's own Replit checkout, not anywhere I can reach.
+
+I posted that finding directly on the review thread rather than guessing or declining silently — same pattern as the CLI-script gap earlier: real progress, but "landed on main" isn't yet accurate, and I can't review code I can't read. Waiting on Luca to point me at a reachable commit, branch, or URL.
+
+<!-- chat-capture-range:397678:398754 -->
+<!-- chat-capture:task-1410-four-point-procedure-list-20260908 -->
+<!-- chat-capture:task-1410-four-point-procedure-list-20260908 -->
+**David [Replit]:** want me to give the subagent in 1410 your 4 point list?
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Yes, please. Give them the four-point list and add one scope sentence: “Implement this as a general coordination/task-completion invariant, not a shared-spec-only rule.”
+
+Ask them to place it in:
+- docs/agent-workflows.md, near “Close the originating message before task completion”
+- .agents/skills/pre-merge-handoff/SKILL.md
+- Any shared task-agent completion instructions they find authoritative
+
+They should preserve the distinction between stored, delivered, and answered, and make the linked thread ID plus last-seen/final global sequence part of completion evidence.
