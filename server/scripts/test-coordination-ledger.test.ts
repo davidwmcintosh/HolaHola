@@ -342,8 +342,8 @@ databaseTest('agent-note work requires an atomic delivered linked outcome', asyn
       }),
       (error: unknown) => (
         error instanceof CoordinationError
-        && error.code === 'causal_parent_not_found'
-        && error.statusCode === 404
+        && error.code === 'invalid_causal_parent'
+        && error.statusCode === 409
       ),
     );
     assert.equal(
@@ -364,7 +364,8 @@ databaseTest('agent-note work requires an atomic delivered linked outcome', asyn
       }),
       (error: unknown) => (
         error instanceof CoordinationError
-        && error.code === 'invalid_causal_parent'
+        && error.code === 'causal_parent_not_found'
+        && error.statusCode === 404
       ),
     );
     assert.equal(

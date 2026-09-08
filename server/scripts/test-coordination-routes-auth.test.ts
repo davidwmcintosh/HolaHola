@@ -512,18 +512,18 @@ databaseTest('generic coordination routes reject every reserved observation-benc
   app.use(express.json());
   registerCoordinationRoutes(app);
   const server = app.listen(0);
-  const address = server.address();
-  assert.ok(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const token = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
-  assert.ok(token);
-  const reservedKinds = [
-    'dual_luca_observation_bench',
-    'observation_source',
-    'bench_observation',
-    'observation_invitation',
-  ];
   try {
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    const token = TOKENS['luca-holahola'];
+    const reservedKinds = [
+      'dual_luca_observation_bench',
+      'observation_source',
+      'bench_observation',
+      'observation_invitation',
+    ];
+
     for (const kind of reservedKinds) {
       for (const suffix of ['events', 'progress']) {
         const response = await fetch(`${baseUrl}/api/coordination/threads/not-a-real-thread/${suffix}`, {
