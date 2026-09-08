@@ -22,6 +22,7 @@ function fixture(policy: Policy[] = []) {
   git(root, 'init', '-b', 'main'); git(root, 'config', 'user.name', 'test'); git(root, 'config', 'user.email', 'test@example.invalid');
   writeFileSync(join(root, 'package.json'), '{"type":"module"}\n');
   writeFileSync(join(root, 'tsconfig.json'), '{"compilerOptions":{"target":"ES2022"}}\n');
+  writeFileSync(join(root, '.gitignore'), '.local/\n');
   mkdirSync(join(root, 'config'), { recursive: true });
   writeFileSync(join(root, 'config/source-reconciliation-policies.json'), JSON.stringify({ schemaVersion: 1, policies: policy }));
   write('tracked.txt', 'base\n'); const base = commit('base');
