@@ -61,7 +61,7 @@ export async function runSharedSpecCli(
   const response = await (dependencies.fetchImpl ?? fetch)(`${baseUrl}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const output = command === "export" ? await response.text() : JSON.stringify(await response.json(), null, 2);
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${output}`);
-  (dependencies.writeOutput ?? ((value) => process.stdout.write(value)))(`${output}\n`);
+  (dependencies.writeOutput ?? ((value) => process.stdout.write(value)))(command === "export" ? output : `${output}\n`);
 }
 
 if (process.argv[1]?.endsWith("/shared-spec-cli.ts")) {

@@ -22,25 +22,27 @@ test("list uses the authenticated shared-spec collection contract", async () => 
   assert.equal(output, "[]\n");
 });
 
-test("export requests and prints the exact approved Markdown bytes", async () => {
-  let requestedUrl = "";
-  let output = "";
-  await runSharedSpecCli(
-    ["export", "--url", "https://example.test/api/shared-spec", "--token", "actor-token", "--id", "doc-1"],
-    {
-      fetchImpl: async (input) => {
-        requestedUrl = String(input);
-        return new Response("# Approved\n", {
-          headers: { "content-type": "text/markdown; charset=utf-8" },
-        });
+for (const markdown of ["# Approved\n", "# Approved"]) {
+  test(`export preserves exact approved Markdown bytes ${markdown.endsWith("\n") ? "with" : "without"} a terminal newline`, async () => {
+    let requestedUrl = "";
+    let output = "";
+    await runSharedSpecCli(
+      ["export", "--url", "https://example.test/api/shared-spec", "--token", "actor-token", "--id", "doc-1"],
+      {
+        fetchImpl: async (input) => {
+          requestedUrl = String(input);
+          return new Response(markdown, {
+            headers: { "content-type": "text/markdown; charset=utf-8" },
+          });
+        },
+        writeOutput: (value) => { output += value; },
       },
-      writeOutput: (value) => { output += value; },
-    },
-  );
+    );
 
-  assert.equal(requestedUrl, "https://example.test/api/shared-spec/documents/doc-1/export/raw");
-  assert.equal(output, "# Approved\n\n");
-});
+    assert.equal(requestedUrl, "https://example.test/api/shared-spec/documents/doc-1/export/raw");
+    assert.equal(output, markdown);
+  });
+}
 
 test("mutations preserve auth and idempotency headers", async () => {
   let request: { url: string; init?: RequestInit } | undefined;
