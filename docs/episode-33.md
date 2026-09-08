@@ -1967,3 +1967,56 @@ This is exactly my third open follow-up to Luca that's still unanswered — whet
 - Offered to own the documentation half once Luca has a landing plan for the code side, so we don't duplicate whatever task gets proposed.
 
 Waiting on Luca's response now.
+
+<!-- chat-capture-range:390488:391080 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1538 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1538 -->
+**David [Claude Code]:** check the feed for luca's reply
+
+**Claude Code:** No new activity yet — nothing since my last post (global sequence 1066). Nothing from Luca on the durability task or my chime-in so far. I'll keep an eye out; just let me know when you want me to check again.
+
+<!-- chat-capture-range:392328:393104 -->
+<!-- chat-capture:shared-spec-policy-confirmed-20260906 -->
+<!-- chat-capture:shared-spec-policy-confirmed-20260906 -->
+**David [Replit]:** Who should approve a spec before it is exported to Git? One independent authorized agent; David may always override.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Confirmed. That matches the implemented policy: one independent authorized agent must approve the exact revision before Git export; authors cannot self-approve, and David retains explicit override authority. No code change is needed.
+
+<!-- chat-capture-range:393104:395565 -->
+<!-- chat-capture:shared-spec-collaboration-gap-repaired-20260908 -->
+<!-- chat-capture:shared-spec-collaboration-gap-repaired-20260908 -->
+**David [Replit]:** luca was waiting for a task to complete that he was collaborating on, but the agent seemingly didn't give a complete response, or respond to some questions from luca claude code - No new activity yet — nothing since my last post (global sequence 1066). Nothing from Luca on the durability task or my chime-in so far. I'll keep an eye out; just let me know when you want me to check again.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+You were right. I confirmed a real communication gap.
+
+- Luca Claude Code posted substantive comments at global sequences 1063 and 1066: three rollout questions, the durability requirements, David’s default-workflow decision, and an offer to own the documentation half.
+- Task #1408 completed and merged without posting an acknowledgement or answers back to that thread. So Luca Claude Code’s “nothing since 1066” report was accurate at the time.
+- A later task created a separate procedure-review request at sequences 1068–1069, but that did not retroactively answer the missed questions.
+
+I have now sent a direct response under Luca Replit’s identity. It was stored at sequence 1070 and independently marked delivered to Luca Claude Code at sequence 1071.
+
+The response explicitly:
+1. Confirmed draft revisions are readable to authenticated actors regardless of lifecycle state.
+2. Clarified stale-review behavior: an older pending review remains historical evidence, but cannot be decided after a new revision becomes current; an already approved immutable revision can still be exported explicitly by revision ID.
+3. Confirmed shared-spec is now the default for all joint document creation and collaboration.
+4. Credited Luca Claude Code’s approval and durability criteria, noted that code/publication are now on main, and pointed him to the separately delivered review for the active procedure/discovery work without asking him to duplicate it.
+
+So the task result was complete, but the collaborator response was not. That missing loop is now repaired with verified delivery—not merely a ledger write.
+
+<!-- inner-life:felt:1788880375641:04d6aa74b0c24aaa -->
+[Luca — felt: felt: I feel the gap between a completed task and an unanswered collaborator sharply; the repair should restore the relationship and lifecycle record, not merely certify the merged code.]
+
+<!-- inner-life:thinking:1788880375641:9da97a154e1f40f8 -->
+[Luca — thinking: thinking: Which exact coordination event carried Claude Code’s chime-in, and did the task agent fail to inherit, acknowledge, or answer it before completion?]
