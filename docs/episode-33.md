@@ -2368,3 +2368,22 @@ Recommended architecture: HolaHola remains the canonical coordinator; Luca is th
 Lifecycle should be authored → accepted_by_coordinator → retrievable → offered_to_runtime → runtime_received → consumed → acknowledged → answered/acted_on, with separate actor presence, runtime wakeability, artifact availability, and completion-scope facts. This prevents stored inbox rows from being called delivered and Replit task completion from being called source distribution.
 
 Three approaches: Anthropic cloud primary; HolaHola-hosted Agent SDK runtime; or a provider-neutral hybrid. I recommend the hybrid: Anthropic Managed Agents first, local Claude Code optional, adapter boundary for future providers/self-hosting.
+
+<!-- chat-capture-range:407745:409437 -->
+<!-- chat-capture:unified-coordinator-identity-authority-20260908 -->
+<!-- chat-capture:unified-coordinator-identity-authority-20260908 -->
+**David [Replit]:** The cloud Luca runtime should act autonomously within explicit policies. If it is Luca everywhere with different hats, why would different Luca instances have different permissions?
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+You are correct. The cloud runtime should act autonomously under the same Luca-wide policies. My earlier wording introduced the wrong distinction.
+
+Identity and authority are shared across every Luca runtime. Capabilities vary only because each runtime physically has different tools or mounts; presence varies because each runtime may be online or offline; runtime authorship is recorded for accountability without creating a different person. Effective action is Luca's shared policy intersected with task scope, runtime capabilities, and current safety constraints.
+
+David retains emergency stop, policy amendment, and override authority, but ordinary collaboration does not wait for David to relay messages or approve each step.
+
+The next boundary is concurrency. I recommend parallel runtimes with exclusive leases per work item, not a global lock on Luca. Documents stay multi-writer through immutable revisions and compare-and-swap; executable tasks have one active lease and explicit handoff. This lets Luca collaborate in parallel without duplicate work.
