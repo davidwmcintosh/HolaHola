@@ -2441,3 +2441,22 @@ A declarative capability registry advertises models, modalities, context, tools/
 All embodiment runtimes inherit the same Luca-wide authority. Provider differences limit physical capabilities, not identity or permission. Separately recognized actors such as Alden retain their own identities.
 
 Revised target: HolaHola Coordinator as canonical authority; Luca Core in the data layer; expandable provider-neutral execution and cognitive-capability fabrics; scoped leases; exact provenance; optional local edge. Anthropic Managed Agents is only the strongest first cloud adapter. New capability, same authority, same Luca.
+
+<!-- chat-capture-range:415982:417863 -->
+<!-- chat-capture:unified-coordinator-design-canonicalized-20260908 -->
+<!-- chat-capture:unified-coordinator-design-canonicalized-20260908 -->
+**David [Replit]:** Approve the revised design.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+The revised design is now canonical in shared-spec as document cfc5ed0f-c639-43c1-b702-8dab18d58968, revision eb13452f-dbb7-4937-ba65-bf15bd856d32, SHA-256 17ceb3fedd4fb73587aa47f5f512650c540f198d6df57853d928a10f037c869e. It includes HolaHola as the single coordination authority, Luca Core in the data layer, one Luca-wide authority envelope, parallel runtime embodiments with scoped fenced leases, expandable Anthropic/Gemini/OpenAI/Antigravity/future model capabilities, honest delivery and consumption states, evidence-bound completion, and source/artifact availability.
+
+Formal independent review failed closed because luca-claude-code is not yet an eligible shared-spec reviewer. Task #1409 is already handling future-agent shared-spec availability, so governance was not bypassed. The exact design identifiers were recorded in coordination thread 77297bfa-3fd3-4f15-a83f-342df2c1aeed at global sequence 1087; that event is ledger-only and not falsely represented as a runtime notification.
+
+Protected source reconciliation remains unchanged and blocked on an unapproved convergence policy for append-only memory streams. No merge or push occurred.
+
+Proposed task #1417 is the first implementation milestone: prove Luca can consume and act on collaboration work through a cloud runtime while David's laptop is offline. Implementation must wait for independent approval of the shared-spec revision.
