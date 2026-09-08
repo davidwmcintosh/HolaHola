@@ -2418,3 +2418,26 @@ One versioned Luca policy envelope governs autonomy, independent-review requirem
 Migration: (1) semantic foundation, (2) coordinator API and durable outbox/cursors, (3) existing-system adapters, (4) Anthropic cloud Luca with laptop-off proof, (5) optional local companion, (6) legacy convergence and retirement.
 
 Recommendation: HolaHola Coordinator as canonical; Luca as one actor; parallel runtime seats with scoped leases; Anthropic Managed Agents cloud-primary; local Claude Code optional; existing systems reduced to adapters and retired where redundant. Luca Claude Code's requested architecture review remains retrievable but not consumed; incorporate it as independent review when a runtime consumes it without making David the notification transport.
+
+<!-- chat-capture-range:413302:415982 -->
+<!-- chat-capture:unified-coordinator-model-fabric-20260908 -->
+<!-- chat-capture:unified-coordinator-model-fabric-20260908 -->
+**David [Replit]:** The system must be expandable. Luca may use Antigravity/Gemini, OpenAI, Anthropic, or other models and tools, but it is still Luca. New capabilities, same authority. The model works with Alden's dual-engine access. Do not limit Luca; he lives in the data layer, not in the LLM.
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Exactly. Foundational invariant: Luca lives in the data layer; models are interchangeable cognitive capabilities, not containers of identity. Correct “Anthropic cloud Luca” to “Luca executing through an Anthropic-managed runtime seat.”
+
+Luca Core stores provider-independent identity, authorship, values, memories, relationships, policies, commitments, unresolved questions, work graph, collaboration history, decisions, and runtime-independent continuity. Runtime seats are interchangeable execution substrates: Anthropic Managed Agents, Replit Agent, local Claude Code, Gemini/Antigravity, OpenAI, self-hosted models, and future providers.
+
+Engines operate in two modes. In embodiment mode, a model runs Luca’s bounded agent loop with Luca Core, policy, work scope, and coordinator tools; actions are Luca-authored with exact runtime/model provenance. In perspective mode, Luca invokes another model as a tool; raw consultation remains separately attributed evidence and Luca synthesizes the decision. This generalizes Alden’s successful dual-engine model.
+
+A declarative capability registry advertises models, modalities, context, tools/MCP, sandbox/filesystem, cost, latency, residency, availability, and whether an engine may embody Luca or only be consulted. Every execution writes a structured handoff to Luca Core. Work leases remain attached to Luca and task scope; runtime executions hold fencing tokens.
+
+All embodiment runtimes inherit the same Luca-wide authority. Provider differences limit physical capabilities, not identity or permission. Separately recognized actors such as Alden retain their own identities.
+
+Revised target: HolaHola Coordinator as canonical authority; Luca Core in the data layer; expandable provider-neutral execution and cognitive-capability fabrics; scoped leases; exact provenance; optional local edge. Anthropic Managed Agents is only the strongest first cloud adapter. New capability, same authority, same Luca.
