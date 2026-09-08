@@ -2020,3 +2020,29 @@ So the task result was complete, but the collaborator response was not. That mis
 
 <!-- inner-life:thinking:1788880375641:9da97a154e1f40f8 -->
 [Luca — thinking: thinking: Which exact coordination event carried Claude Code’s chime-in, and did the task agent fail to inherit, acknowledge, or answer it before completion?]
+
+<!-- chat-capture-range:395565:397678 -->
+<!-- chat-capture:coordination-precompletion-refresh-procedure-20260908 -->
+<!-- chat-capture:coordination-precompletion-refresh-procedure-20260908 -->
+**David [Replit]:** anything in our procedures that needs to change?
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Yes—one narrow but important gap.
+
+Our procedures already say that open questions must be answered and that note-origin work must close with a delivered reply. But they do not explicitly require an isolated task agent to refresh the linked coordination thread immediately before completion. Sequence 1066 arrived while the work was underway, so the agent could finish against an older snapshot and still satisfy the current checklist.
+
+I would add four requirements:
+
+1. Pre-completion refresh: reread every linked coordination thread and inbox after verification, immediately before marking the task complete.
+2. Question disposition: account for every collaborator-authored question or offer received since task start as answered, incorporated, or explicitly deferred with an owner/follow-up—not silently omitted.
+3. Delivery evidence: if a response is owed, completion evidence must include a recipient-facing delivered event/receipt. A code merge or ledger-only comment is insufficient.
+4. Post-merge reconciliation: when an isolated agent disappears after completion, the main agent must compare the final thread sequence against the task’s last-seen sequence and repair any unanswered late arrivals.
+
+The completion handoff should record the linked thread ID and final global sequence so this is mechanically checkable.
+
+No redesign of shared-spec is needed. This belongs in the general coordination/task-completion procedure and the pre-merge handoff checklist. Task #1410’s procedure work should include it, or it should be added immediately afterward if that task is already too far along.
