@@ -99,3 +99,19 @@ arrived, and never see it. Immediately before declaring anything complete:
 
 Full detail: `docs/agent-workflows.md`'s "Pre-completion coordination
 refresh" section.
+
+## 7. Shipping a replacement procedure includes retiring the old one
+
+If this change makes an existing procedure or coordination surface obsolete
+(a new inbox mechanism instead of raw feed-polling, a new capture path,
+shared-spec instead of Git-first drafting), landing the new code is not the
+whole change. In the same commit or PR: update the living "current default"
+pointer for that task (e.g. a `.agents/memory/*-default.md` file) so it
+reflects the new default rather than the old one, mark the retired path as
+deprecated in its own documentation, and state a concrete retirement
+condition in the new procedure's rollout section rather than leaving it
+open-ended. An old path left silently working with no signal that it is
+no longer current will keep getting used out of habit — that ambiguity is
+the failure, not the old path's continued existence. Full detail:
+`docs/agent-workflows.md`'s "Retiring a superseded procedure or
+coordination surface" section.

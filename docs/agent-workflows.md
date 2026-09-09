@@ -360,6 +360,33 @@ Preserve the existing stored/delivered/answered distinction rather than
 collapsing it — these four points are additional discipline around that
 distinction, not a replacement for it.
 
+### Retiring a superseded procedure or coordination surface
+
+A new procedure that replaces an old one for the same task (a new inbox
+mechanism replacing raw feed-polling, a new capture path replacing an older
+one, shared-spec replacing Git-first drafting) is not finished shipping
+until agents actually stop defaulting to the old one out of habit. Nothing
+does that automatically — an old path that still works will keep getting
+used unless the change that ships the replacement also does the following,
+in the same commit or PR, not as a follow-up:
+
+1. **Update the living "current default" pointer**, or create one if none
+   exists — e.g. a `.agents/memory/*-default.md` file in the style of
+   `shared-spec-collaboration-default.md`. The point is that an agent reads
+   this fresh each time rather than relying on memory of what worked last
+   session; the file must be overwritten to reflect the new default, not
+   merely appended to alongside the old guidance.
+2. **Explicitly mark the retired path as deprecated in its own
+   documentation** — not left silently functional next to the new one with
+   no signal that it is no longer current.
+3. **State an actual retirement point in the new procedure's own
+   rollout/migration section** — "after a separately approved cutover" or
+   an equivalent concrete condition, not "eventually" or left unstated.
+
+If a new surface ships without this, the honest state is that two paths
+now exist and nothing distinguishes which one is current — that ambiguity,
+not the old path's continued existence, is the actual failure.
+
 ---
 
 ## Key File Map
