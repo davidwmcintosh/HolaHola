@@ -8211,6 +8211,36 @@ export const coordinationRuntimeCredentials = pgTable("coordination_runtime_cred
   index("idx_coordination_runtime_credential_actor").on(table.actor, table.expiresAt),
 ]);
 
+export const coordinationRuntimeRotations = pgTable("coordination_runtime_rotations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceRuntimeId: varchar("source_runtime_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'restrict' }),
+  replacementRuntimeId: varchar("replacement_runtime_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'restrict' }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  tokenTtlSeconds: integer("token_ttl_seconds").notNull(),
+  state: varchar("state", { length: 24 }).notNull().default('staged'),
+  readyCredentialId: varchar("ready_credential_id")
+    .references(() => coordinationRuntimeCredentials.id, { onDelete: 'restrict' }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  readyAt: timestamp("ready_at"),
+  completedAt: timestamp("completed_at"),
+  rolledBackAt: timestamp("rolled_back_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_runtime_rotation_active_source")
+    .on(table.sourceRuntimeId)
+    .where(sql`${table.state} IN ('staged', 'ready')`),
+  uniqueIndex("uq_coordination_runtime_rotation_active_replacement")
+    .on(table.replacementRuntimeId)
+    .where(sql`${table.state} IN ('staged', 'ready')`),
+  index("idx_coordination_runtime_rotation_actor").on(table.actor, table.createdAt),
+  check("coordination_runtime_rotation_distinct_ids", sql`${table.sourceRuntimeId} <> ${table.replacementRuntimeId}`),
+  check("coordination_runtime_rotation_state", sql`
+    ${table.state} IN ('staged', 'ready', 'completed', 'rolled_back')
+  `),
+]);
+
 export const coordinationCredentialAuditEvents = pgTable("coordination_credential_audit_events", {
   id: bigserial("id", { mode: 'number' }).primaryKey(),
   eventType: varchar("event_type", { length: 40 }).notNull(),

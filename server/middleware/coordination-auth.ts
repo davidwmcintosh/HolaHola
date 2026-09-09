@@ -95,6 +95,7 @@ function readHeader(req: Request, name: string): string | undefined {
 
 function requiredCapability(req: Request): string {
   if (req.path.endsWith('/credentials/renew')) return 'coordination:credential:renew';
+  if (req.path.endsWith('/credentials/rotation-ready')) return 'coordination:credential:renew';
   if (req.path.endsWith('/credentials/revoke')) return 'coordination:credential:revoke';
   if (req.path.endsWith('/inbox/ack')) return 'coordination:inbox:ack';
   return req.method === 'GET' ? 'coordination:read' : 'coordination:write';

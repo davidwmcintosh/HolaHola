@@ -27,8 +27,11 @@ capability attempts. Source IPs are hashed before audit storage.
 Source IP pseudonyms use keyed HMAC when the server-only
 `COORDINATION_AUDIT_HMAC_KEY` (at least 32 characters) is configured; without
 that key, the broker records the attempt without storing an IP-derived value.
-An existing runtime ID cannot be reprovisioned or rebound to another actor;
-rotation uses explicit revocation followed by a new runtime registration.
+An existing runtime ID cannot be reprovisioned or rebound to another actor.
+Bootstrap rotation uses a staged replacement registration so a running process
+can finish or renew short-lived work while its replacement proves readiness.
+The broker copies the actor, capabilities, and token TTL exactly; callers cannot
+use rotation to expand authority.
 
 Broker capabilities are:
 
@@ -59,6 +62,68 @@ The command prints the bootstrap token once. Paste it directly into a new
 1Password item in a vault readable by only that runtime's service account, then
 clear the terminal scrollback. Never place it in a repository file, shell
 profile, shared `.env`, command argument, chat, or coordination message.
+
+### Zero-downtime bootstrap rotation
+
+Run rotation only from the trusted HolaHola server environment. The bootstrap
+is never passed as a command argument. First stage a new immutable runtime ID:
+
+```bash
+npx tsx server/scripts/coordination-runtime-rotation.ts stage \
+  --from-runtime-id luca-replit-primary \
+  --runtime-id luca-replit-primary-2026-09 \
+  --display-name "Luca [Replit] primary — September 2026"
+```
+
+Store the one-time output directly in a new 1Password item restricted to the
+replacement runtime's service account. During this overlap, both registrations
+remain valid. Update the replacement runtime's `COORDINATION_RUNTIME_ID` and
+injected bootstrap together and start it. After exchange, the replacement must
+call the dedicated broker-authenticated readiness operation with its
+short-lived access token:
+
+```bash
+curl -X POST "$COORDINATION_API_URL/api/coordination/credentials/rotation-ready" \
+  -H "x-coordination-token: $REPLACEMENT_ACCESS_TOKEN" \
+  -H "content-type: application/json" \
+  --data '{"sourceRuntimeId":"luca-replit-primary"}'
+```
+
+Do not put the access token in shell history; the example names an injected
+process environment value. Readiness succeeds only for the exact immutable
+source/replacement pair recorded by the stage operation. A normal denied or
+failed request cannot mark a replacement ready.
+
+After readiness is proven, retire the source:
+
+```bash
+npx tsx server/scripts/coordination-runtime-rotation.ts complete \
+  --from-runtime-id luca-replit-primary \
+  --runtime-id luca-replit-primary-2026-09
+```
+
+Completion fails closed until the replacement has an explicit successful
+readiness receipt. It then revokes the source registration and every remaining
+source credential immediately. Old bootstrap exchange and new credential
+admission stop when the completion transaction commits; a request admitted
+before that cutover may finish. Remove the old 1Password item only after the
+completion audit is visible.
+
+Before completion, rollback revokes only the replacement registration and its
+credentials, leaving the source untouched:
+
+```bash
+npx tsx server/scripts/coordination-runtime-rotation.ts rollback \
+  --from-runtime-id luca-replit-primary \
+  --runtime-id luca-replit-primary-2026-09
+```
+
+After completion, revoked registrations are never re-enabled. Recovery creates
+another replacement runtime ID from the active registration. Audit events
+`rotation_started`, `rotation_ready`, `rotation_completed`, and
+`rotation_rolled_back` link the source and replacement IDs without containing
+bootstrap plaintext; rejected readiness, completion, and rollback attempts are
+audited separately.
 
 Configure only these non-secret/secret values in the runtime:
 

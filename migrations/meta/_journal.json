@@ -232,6 +232,13 @@
       "when": 1788971100432,
       "tag": "0033_jittery_lethal_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788978267205,
+      "tag": "0034_fantastic_sway",
+      "breakpoints": true
     }
   ]
 }

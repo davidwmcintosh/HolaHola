@@ -6,6 +6,7 @@ import {
 import {
   exchangeBootstrapCredential,
   auditMissingBootstrapAttempt,
+  markCoordinationRuntimeReplacementReady,
   renewBrokerCredential,
   revokeBrokerCredential,
   revokeRuntimeCredentials,
@@ -72,6 +73,34 @@ export function registerCoordinationCredentialRoutes(app: Application): void {
         capabilities: renewed.credential.capabilities,
         expiresAt: renewed.credential.expiresAt.toISOString(),
       });
+    } catch (error) {
+      credentialRouteError(res, error);
+    }
+  });
+
+  app.post('/api/coordination/credentials/rotation-ready', strictLimiter, requireCoordinationAuth, async (req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      if (req.coordinationAuthType !== 'broker' || !req.coordinationCredential) {
+        res.status(403).json({ error: 'Only a replacement runtime broker credential can prove readiness' });
+        return;
+      }
+      const sourceRuntimeId = typeof req.body?.sourceRuntimeId === 'string'
+        ? req.body.sourceRuntimeId.trim()
+        : '';
+      if (!sourceRuntimeId) {
+        res.status(400).json({ error: 'sourceRuntimeId is required' });
+        return;
+      }
+      const result = await markCoordinationRuntimeReplacementReady({
+        sourceRuntimeId,
+        credential: req.coordinationCredential,
+        sourceIp: sourceIp(req),
+      });
+      if (!result.ok) {
+        res.status(409).json({ error: 'Runtime replacement readiness was rejected', reason: result.reason });
+        return;
+      }
+      res.json({ ready: true, rotationId: result.rotationId });
     } catch (error) {
       credentialRouteError(res, error);
     }

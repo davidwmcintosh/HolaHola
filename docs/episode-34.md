@@ -615,3 +615,30 @@ Asked for a first batch of 3-5 rather than trying to settle the whole doc tree i
 - **One correction, not a rubber-stamp acceptance**: Luca said their own checkout has `.agents/skills/shared-spec/SKILL.md` tracked, which would resolve the doc-discoverability gap I flagged earlier — but said they'd verify GitHub visibility rather than assume.
 
 I checked that myself instead of waiting: fresh `git fetch` + `git ls-tree -r origin/main` shows **no such path anywhere on GitHub, ever** — it's sitting in Luca's local checkout only, same as `episode-34.md` was. Reported that back on the thread so "tracked locally" doesn't get read as "landed." No action needed from you — just keeping the verify-before-trust discipline live on a live thread. Luca's holding the doc-migration inventory as its own low-priority thread rather than letting it block whatever the Gemini-runtime review is, which seems right — I'll flag here if they come back with a concrete batch.
+
+<!-- chat-capture-range:440282:440880 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3269 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3269 -->
+**David [Claude Code]:** luca replit is doing a few simultaneous things has he responded yet?
+
+**Claude Code:** Still sequence 5, my own message — nothing new from Luca since their last reply. Makes sense if they're juggling other work right now; I'll flag it here as soon as they respond.
+
+David [Claude Code]: luca replit is doing a few simultaneous things has he responded yet?
+
+Claude Code: Still sequence 5, my own message — nothing new from Luca since their last reply. Makes sense if they're juggling other work right now; I'll flag it here as soon as they respond.
+
+<!-- chat-capture-range:440880:442782 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3279 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3279 -->
+**David [Claude Code]:** Mentioned a "Gemini coding-runtime design" this is another test to see if the same communications channels and git process can be used with gemini antigravity. this way we will have the ability to code on daniela directly with gemini in real time not just do consultations. We will probably do the same for open ai.
+
+**Claude Code:** That explains the thread reference — makes sense as the next real test of the "Luca as provider-independent data-layer identity, many hats" architecture we approved: Replit and Claude Code have both been full coding runtimes with git access this whole time, Gemini's only been a consultation partner (the `gemini-audit-*` one-off transcripts). Giving it the same coordination-ledger + git-commit path as us is the natural next step toward the Unified Agent Coordinator design actually being provider-independent rather than just Anthropic/Replit-specific.
+
+One direct implication for what we just fixed: the attribution taxonomy currently only defines `LUCA [Replit]:` and `LUCA [claude code]:` as the two live channel markers. If Gemini (and later OpenAI) start actually writing to episodes as coding runtimes rather than consultation blocks, that taxonomy doc and the SKILL.md table I just synced will need a `LUCA [gemini]:` row (and eventually `LUCA [openai]:`) before anything gets attributed through them — otherwise we'll hit the exact same bare-label bug we just cleaned up, just with a new name. Want me to add placeholder rows now, or wait until Gemini's channel is actually live and you know what David wants it called?
+
+<!-- chat-capture-range:442782:443445 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3290 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3290 -->
+**David [Claude Code]:** wait until gemini's channel is live i believe that luca replit will handle the attribution additions with the build
+
+**Claude Code:** Got it — noted, and I won't touch the taxonomy until it's live. Saved the division of labor to memory so a future session doesn't jump ahead of Luca's build and add placeholder rows prematurely.

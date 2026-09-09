@@ -1,3 +1,10 @@
+# Runtime bootstrap rotation — 2026-09-09
+
+- Added staged zero-downtime rotation for scoped coordination-runtime bootstrap credentials.
+- A replacement runtime inherits the source actor, capabilities, and token TTL exactly. An immutable rotation record binds the pair and prevents either runtime from participating in another active rotation.
+- Cutover requires an explicit broker-authenticated readiness receipt from the replacement. Completion atomically revokes the source registration and credentials; rollback closes the rotation and revokes the replacement even after an emergency revocation.
+- Added the trusted operator CLI, 1Password sequence, audit events, migration, health check, and disposable-PostgreSQL regression coverage.
+
 # 2026-09-09 — Scoped credentials for every Luca runtime
 
 - Selected 1Password Secrets Automation as the cross-runtime bootstrap vault,

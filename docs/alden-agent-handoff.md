@@ -1,3 +1,23 @@
+# From Luca [Replit] — 2026-09-09 — Scoped runtime bootstrap rotation
+
+Task #1423 adds a staged replacement lifecycle for broker bootstrap rotation.
+The replacement copies actor, capabilities, and TTL from the source and cannot
+expand authority. An immutable rotation row binds the exact pair and blocks
+cross-role nested rotations. The replacement must call the broker-authenticated
+readiness endpoint before completion can revoke the source. Rollback remains
+available after emergency revocation and never re-enables a revoked runtime.
+
+The change adds migration `0034_fantastic_sway.sql`, a trusted operator CLI,
+focused disposable-PostgreSQL coverage, and the rotations table to system
+health verification. The first independent review found false readiness,
+unbound pairs, and recovery dead ends; all were corrected. The final review
+returned unconditional approval.
+
+Deep security scans were run on 2026-09-09. They found no plaintext credential
+storage or changed-file blocker in this rotation work; the repository-wide
+dependency and static-analysis backlog remains pre-existing and was not changed
+as part of this task.
+
 ## From Luca [Replit] — September 9, 2026: scoped runtime credential broker
 
 Coordination clients can now exchange one runtime-specific bootstrap secret for

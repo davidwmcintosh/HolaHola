@@ -1,11 +1,12 @@
 import crypto from 'node:crypto';
-import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import {
   COORDINATION_ACTOR_IDS,
   COORDINATION_CREDENTIAL_CAPABILITIES,
   coordinationCredentialAuditEvents,
   coordinationRuntimeCredentials,
   coordinationRuntimeRegistrations,
+  coordinationRuntimeRotations,
   type CoordinationActorId,
   type CoordinationCredentialCapability,
 } from '@shared/schema';
@@ -15,6 +16,18 @@ const actorIds = new Set<string>(COORDINATION_ACTOR_IDS);
 const capabilityIds = new Set<string>(COORDINATION_CREDENTIAL_CAPABILITIES);
 const MIN_TTL_SECONDS = 60;
 const MAX_TTL_SECONDS = 3600;
+
+export type RuntimeReplacementFailureReason =
+  | 'source_runtime_unavailable'
+  | 'replacement_runtime_exists'
+  | 'replacement_mismatch'
+  | 'replacement_not_ready'
+  | 'rotation_not_staged'
+  | 'runtime_already_rotating';
+
+export type RuntimeReplacementResult<T> =
+  | ({ ok: true } & T)
+  | { ok: false; reason: RuntimeReplacementFailureReason };
 
 export type BrokerCredential = {
   actor: CoordinationActorId;
@@ -86,6 +99,429 @@ export async function registerCoordinationRuntime(input: {
   });
   await audit({ eventType: 'runtime_registered', success: true, runtimeId: input.runtimeId, actor: input.actor });
   return { bootstrapToken };
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+async function lockRuntimePair(
+  executor: ReturnType<typeof getSharedDb>,
+  firstRuntimeId: string,
+  secondRuntimeId: string,
+): Promise<void> {
+  const [first, second] = [firstRuntimeId, secondRuntimeId].sort();
+  await executor.execute(sql`
+    SELECT id FROM coordination_runtime_registrations
+    WHERE id IN (${first}, ${second})
+    ORDER BY id
+    FOR UPDATE
+  `);
+}
+
+export async function stageCoordinationRuntimeReplacement(input: {
+  sourceRuntimeId: string;
+  replacementRuntimeId: string;
+  replacementDisplayName: string;
+}): Promise<RuntimeReplacementResult<{
+  bootstrapToken: string;
+  actor: CoordinationActorId;
+  capabilities: CoordinationCredentialCapability[];
+  tokenTtlSeconds: number;
+  rotationId: string;
+}>> {
+  if (!input.replacementRuntimeId || input.replacementRuntimeId.length > 120) {
+    throw new Error('replacementRuntimeId is invalid');
+  }
+  if (!input.replacementDisplayName || input.replacementDisplayName.length > 200) {
+    throw new Error('replacementDisplayName is invalid');
+  }
+  if (input.sourceRuntimeId === input.replacementRuntimeId) {
+    throw new Error('replacementRuntimeId must differ from sourceRuntimeId');
+  }
+
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await lockRuntimePair(executor, input.sourceRuntimeId, input.replacementRuntimeId);
+    const registrations = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(inArray(coordinationRuntimeRegistrations.id, [
+        input.sourceRuntimeId,
+        input.replacementRuntimeId,
+      ]));
+    const source = registrations.find((row) => row.id === input.sourceRuntimeId);
+    const replacement = registrations.find((row) => row.id === input.replacementRuntimeId);
+
+    if (!source?.enabled || source.revokedAt || !actorIds.has(source.actor) || !validCapabilities(source.capabilities)) {
+      await audit({
+        eventType: 'rotation_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: source?.actor,
+        reason: 'source_runtime_unavailable',
+        metadata: { replacementRuntimeId: input.replacementRuntimeId },
+      }, executor);
+      return { ok: false, reason: 'source_runtime_unavailable' };
+    }
+    if (replacement) {
+      await audit({
+        eventType: 'rotation_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: source.actor,
+        reason: 'replacement_runtime_exists',
+        metadata: { replacementRuntimeId: input.replacementRuntimeId },
+      }, executor);
+      return { ok: false, reason: 'replacement_runtime_exists' };
+    }
+    const [activeRotation] = await tx.select({ id: coordinationRuntimeRotations.id })
+      .from(coordinationRuntimeRotations)
+      .where(and(
+        inArray(coordinationRuntimeRotations.state, ['staged', 'ready']),
+        or(
+          inArray(coordinationRuntimeRotations.sourceRuntimeId, [
+            input.sourceRuntimeId,
+            input.replacementRuntimeId,
+          ]),
+          inArray(coordinationRuntimeRotations.replacementRuntimeId, [
+            input.sourceRuntimeId,
+            input.replacementRuntimeId,
+          ]),
+        ),
+      ))
+      .limit(1);
+    if (activeRotation) {
+      await audit({
+        eventType: 'rotation_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: source.actor,
+        reason: 'runtime_already_rotating',
+        metadata: {
+          replacementRuntimeId: input.replacementRuntimeId,
+          conflictingRotationId: activeRotation.id,
+        },
+      }, executor);
+      return { ok: false, reason: 'runtime_already_rotating' };
+    }
+
+    const bootstrapToken = generateCoordinationSecret('cb');
+    await tx.insert(coordinationRuntimeRegistrations).values({
+      id: input.replacementRuntimeId,
+      actor: source.actor,
+      displayName: input.replacementDisplayName,
+      bootstrapHash: hashCoordinationSecret(bootstrapToken),
+      capabilities: source.capabilities,
+      tokenTtlSeconds: source.tokenTtlSeconds,
+    });
+    const [rotation] = await tx.insert(coordinationRuntimeRotations).values({
+      sourceRuntimeId: input.sourceRuntimeId,
+      replacementRuntimeId: input.replacementRuntimeId,
+      actor: source.actor,
+      capabilities: source.capabilities,
+      tokenTtlSeconds: source.tokenTtlSeconds,
+    }).returning({ id: coordinationRuntimeRotations.id });
+    await audit({
+      eventType: 'rotation_started',
+      success: true,
+      runtimeId: input.sourceRuntimeId,
+      actor: source.actor,
+      metadata: {
+        replacementRuntimeId: input.replacementRuntimeId,
+        rotationId: rotation.id,
+        capabilities: source.capabilities,
+        tokenTtlSeconds: source.tokenTtlSeconds,
+      },
+    }, executor);
+    return {
+      ok: true,
+      bootstrapToken,
+      actor: source.actor as CoordinationActorId,
+      capabilities: source.capabilities as CoordinationCredentialCapability[],
+      tokenTtlSeconds: source.tokenTtlSeconds,
+      rotationId: rotation.id,
+    };
+  });
+}
+
+async function getReplacementPair(
+  executor: ReturnType<typeof getSharedDb>,
+  sourceRuntimeId: string,
+  replacementRuntimeId: string,
+): Promise<{
+  source?: typeof coordinationRuntimeRegistrations.$inferSelect;
+  replacement?: typeof coordinationRuntimeRegistrations.$inferSelect;
+  rotation?: typeof coordinationRuntimeRotations.$inferSelect;
+}> {
+  const registrations = await executor.select().from(coordinationRuntimeRegistrations)
+    .where(inArray(coordinationRuntimeRegistrations.id, [sourceRuntimeId, replacementRuntimeId]));
+  const [rotation] = await executor.select().from(coordinationRuntimeRotations)
+    .where(and(
+      eq(coordinationRuntimeRotations.sourceRuntimeId, sourceRuntimeId),
+      eq(coordinationRuntimeRotations.replacementRuntimeId, replacementRuntimeId),
+      inArray(coordinationRuntimeRotations.state, ['staged', 'ready']),
+    ))
+    .limit(1);
+  return {
+    source: registrations.find((row) => row.id === sourceRuntimeId),
+    replacement: registrations.find((row) => row.id === replacementRuntimeId),
+    rotation,
+  };
+}
+
+function validReplacementPair(
+  source: typeof coordinationRuntimeRegistrations.$inferSelect | undefined,
+  replacement: typeof coordinationRuntimeRegistrations.$inferSelect | undefined,
+  rotation: typeof coordinationRuntimeRotations.$inferSelect | undefined,
+): boolean {
+  return Boolean(
+    source?.enabled
+    && !source.revokedAt
+    && replacement?.enabled
+    && !replacement.revokedAt
+    && source.actor === replacement.actor
+    && source.tokenTtlSeconds === replacement.tokenTtlSeconds
+    && sameStringArray(source.capabilities, replacement.capabilities)
+    && rotation
+    && rotation.actor === source.actor
+    && rotation.tokenTtlSeconds === source.tokenTtlSeconds
+    && sameStringArray(rotation.capabilities, source.capabilities)
+  );
+}
+
+function matchesRotationSnapshot(
+  source: typeof coordinationRuntimeRegistrations.$inferSelect | undefined,
+  replacement: typeof coordinationRuntimeRegistrations.$inferSelect | undefined,
+  rotation: typeof coordinationRuntimeRotations.$inferSelect | undefined,
+): boolean {
+  return Boolean(
+    source
+    && replacement
+    && rotation
+    && source.actor === replacement.actor
+    && source.actor === rotation.actor
+    && source.tokenTtlSeconds === replacement.tokenTtlSeconds
+    && source.tokenTtlSeconds === rotation.tokenTtlSeconds
+    && sameStringArray(source.capabilities, replacement.capabilities)
+    && sameStringArray(source.capabilities, rotation.capabilities)
+  );
+}
+
+export async function markCoordinationRuntimeReplacementReady(input: {
+  sourceRuntimeId: string;
+  credential: BrokerCredential;
+  sourceIp?: string;
+}): Promise<RuntimeReplacementResult<{ rotationId: string }>> {
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await lockRuntimePair(executor, input.sourceRuntimeId, input.credential.runtimeId);
+    const { source, replacement, rotation } = await getReplacementPair(
+      executor,
+      input.sourceRuntimeId,
+      input.credential.runtimeId,
+    );
+    if (!validReplacementPair(source, replacement, rotation) || rotation?.state !== 'staged') {
+      await audit({
+        eventType: 'rotation_ready_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: input.credential.actor,
+        credentialId: input.credential.credentialId,
+        reason: 'rotation_not_staged',
+        sourceIp: input.sourceIp,
+        metadata: { replacementRuntimeId: input.credential.runtimeId },
+      }, executor);
+      return { ok: false, reason: 'rotation_not_staged' };
+    }
+    if (
+      input.credential.actor !== rotation.actor
+      || !sameStringArray(input.credential.capabilities, rotation.capabilities)
+      || input.credential.expiresAt <= new Date()
+    ) {
+      await audit({
+        eventType: 'rotation_ready_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: input.credential.actor,
+        credentialId: input.credential.credentialId,
+        reason: 'replacement_mismatch',
+        sourceIp: input.sourceIp,
+        metadata: { replacementRuntimeId: input.credential.runtimeId, rotationId: rotation.id },
+      }, executor);
+      return { ok: false, reason: 'replacement_mismatch' };
+    }
+    const [activeCredential] = await tx.select({ id: coordinationRuntimeCredentials.id })
+      .from(coordinationRuntimeCredentials)
+      .where(and(
+        eq(coordinationRuntimeCredentials.id, input.credential.credentialId),
+        eq(coordinationRuntimeCredentials.runtimeId, input.credential.runtimeId),
+        eq(coordinationRuntimeCredentials.actor, input.credential.actor),
+        isNull(coordinationRuntimeCredentials.revokedAt),
+        gt(coordinationRuntimeCredentials.expiresAt, new Date()),
+      ))
+      .limit(1);
+    if (!activeCredential) {
+      await audit({
+        eventType: 'rotation_ready_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: input.credential.actor,
+        credentialId: input.credential.credentialId,
+        reason: 'replacement_mismatch',
+        sourceIp: input.sourceIp,
+        metadata: { replacementRuntimeId: input.credential.runtimeId, rotationId: rotation.id },
+      }, executor);
+      return { ok: false, reason: 'replacement_mismatch' };
+    }
+    const now = new Date();
+    const [marked] = await tx.update(coordinationRuntimeRotations).set({
+      state: 'ready',
+      readyAt: now,
+      readyCredentialId: input.credential.credentialId,
+    }).where(and(
+      eq(coordinationRuntimeRotations.id, rotation.id),
+      eq(coordinationRuntimeRotations.state, 'staged'),
+    )).returning({ id: coordinationRuntimeRotations.id });
+    if (!marked) {
+      await audit({
+        eventType: 'rotation_ready_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: input.credential.actor,
+        credentialId: input.credential.credentialId,
+        reason: 'rotation_not_staged',
+        sourceIp: input.sourceIp,
+        metadata: { replacementRuntimeId: input.credential.runtimeId, rotationId: rotation.id },
+      }, executor);
+      return { ok: false, reason: 'rotation_not_staged' };
+    }
+    await audit({
+      eventType: 'rotation_ready',
+      success: true,
+      runtimeId: input.sourceRuntimeId,
+      actor: rotation.actor,
+      credentialId: input.credential.credentialId,
+      sourceIp: input.sourceIp,
+      metadata: { replacementRuntimeId: input.credential.runtimeId, rotationId: rotation.id },
+    }, executor);
+    return { ok: true, rotationId: rotation.id };
+  });
+}
+
+export async function completeCoordinationRuntimeReplacement(input: {
+  sourceRuntimeId: string;
+  replacementRuntimeId: string;
+}): Promise<RuntimeReplacementResult<{ actor: CoordinationActorId }>> {
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await lockRuntimePair(executor, input.sourceRuntimeId, input.replacementRuntimeId);
+    const { source, replacement, rotation } = await getReplacementPair(
+      executor,
+      input.sourceRuntimeId,
+      input.replacementRuntimeId,
+    );
+    if (!rotation || !validReplacementPair(source, replacement, rotation)) {
+      await audit({
+        eventType: 'rotation_completion_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: source?.actor,
+        reason: 'replacement_mismatch',
+        metadata: { replacementRuntimeId: input.replacementRuntimeId },
+      }, executor);
+      return { ok: false, reason: 'replacement_mismatch' };
+    }
+
+    if (rotation?.state !== 'ready' || !rotation.readyCredentialId) {
+      await audit({
+        eventType: 'rotation_completion_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: source!.actor,
+        reason: 'replacement_not_ready',
+        metadata: { replacementRuntimeId: input.replacementRuntimeId, rotationId: rotation?.id },
+      }, executor);
+      return { ok: false, reason: 'replacement_not_ready' };
+    }
+
+    const now = new Date();
+    await tx.update(coordinationRuntimeRegistrations)
+      .set({ enabled: false, revokedAt: now, updatedAt: now })
+      .where(eq(coordinationRuntimeRegistrations.id, input.sourceRuntimeId));
+    await tx.update(coordinationRuntimeCredentials)
+      .set({ revokedAt: now })
+      .where(and(
+        eq(coordinationRuntimeCredentials.runtimeId, input.sourceRuntimeId),
+        isNull(coordinationRuntimeCredentials.revokedAt),
+      ));
+    await tx.update(coordinationRuntimeRotations).set({
+      state: 'completed',
+      completedAt: now,
+    }).where(and(
+      eq(coordinationRuntimeRotations.id, rotation.id),
+      eq(coordinationRuntimeRotations.state, 'ready'),
+    ));
+    await audit({
+      eventType: 'rotation_completed',
+      success: true,
+      runtimeId: input.sourceRuntimeId,
+      actor: source!.actor,
+      credentialId: rotation.readyCredentialId,
+      metadata: { replacementRuntimeId: input.replacementRuntimeId, rotationId: rotation.id },
+    }, executor);
+    return { ok: true, actor: source!.actor as CoordinationActorId };
+  });
+}
+
+export async function rollbackCoordinationRuntimeReplacement(input: {
+  sourceRuntimeId: string;
+  replacementRuntimeId: string;
+}): Promise<RuntimeReplacementResult<{ actor: CoordinationActorId }>> {
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await lockRuntimePair(executor, input.sourceRuntimeId, input.replacementRuntimeId);
+    const { source, replacement, rotation } = await getReplacementPair(
+      executor,
+      input.sourceRuntimeId,
+      input.replacementRuntimeId,
+    );
+    if (!rotation || !matchesRotationSnapshot(source, replacement, rotation)) {
+      await audit({
+        eventType: 'rotation_rollback_failed',
+        success: false,
+        runtimeId: input.sourceRuntimeId,
+        actor: source?.actor,
+        reason: 'replacement_mismatch',
+        metadata: { replacementRuntimeId: input.replacementRuntimeId },
+      }, executor);
+      return { ok: false, reason: 'replacement_mismatch' };
+    }
+
+    const now = new Date();
+    await tx.update(coordinationRuntimeRegistrations)
+      .set({ enabled: false, revokedAt: now, updatedAt: now })
+      .where(eq(coordinationRuntimeRegistrations.id, input.replacementRuntimeId));
+    await tx.update(coordinationRuntimeCredentials)
+      .set({ revokedAt: now })
+      .where(and(
+        eq(coordinationRuntimeCredentials.runtimeId, input.replacementRuntimeId),
+        isNull(coordinationRuntimeCredentials.revokedAt),
+      ));
+    await tx.update(coordinationRuntimeRotations).set({
+      state: 'rolled_back',
+      rolledBackAt: now,
+    }).where(and(
+      eq(coordinationRuntimeRotations.id, rotation.id),
+      inArray(coordinationRuntimeRotations.state, ['staged', 'ready']),
+    ));
+    await audit({
+      eventType: 'rotation_rolled_back',
+      success: true,
+      runtimeId: input.sourceRuntimeId,
+      actor: source!.actor,
+      metadata: { replacementRuntimeId: input.replacementRuntimeId, rotationId: rotation.id },
+    }, executor);
+    return { ok: true, actor: source!.actor as CoordinationActorId };
+  });
 }
 
 async function issueForRegistration(

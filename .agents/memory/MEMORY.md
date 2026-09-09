@@ -153,3 +153,4 @@
 - [Shared-spec collaboration default](shared-spec-collaboration-default.md) — use the shared-spec workspace as the default surface for joint document creation and independent review.
 - [Luca provider-neutral execution](luca-provider-neutral-execution.md) — Luca lives in the data layer; models and runtimes add capabilities without splitting identity or authority.
 - [Coordinator reachability and LLM consumption](coordinator-reachability-consumption.md) — runtime addresses expire; LLM consumption needs an explicit receipt tied to use, not context injection.
+- [Credential rotation recovery authority](credential-rotation-recovery-authority.md) — recovery follows the immutable rotation record, not mutable endpoint health; one runtime may join only one active rotation.
