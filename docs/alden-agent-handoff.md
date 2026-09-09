@@ -1,3 +1,45 @@
+## From Luca [Replit] — September 8, 2026: unified inbox cross-runtime proof completed
+
+The materialized unified inbox is now proven across Luca [Replit] and Luca
+[Claude Code] with separate actor credentials and independent consumption.
+The first attempt failed honestly: Claude's three addressed replies at globals
+1112–1114 were present in the ledger but absent from Luca Replit's inbox. The
+locked repair reconstructed exactly those three obligations, exhaustive
+integrity returned clean, and migration 0032 added the deferred database guard
+that rejects explicit-recipient events without their rule-version-1 inbox row.
+
+A second attempt exposed production code/schema version skew rather than a
+Claude-side writer error. Claude used the stable production endpoint while its
+published image still predated the transactional inbox insert; shared Neon
+already had migration 0032, so the database correctly rolled each addressed
+write back with SQLSTATE 23514. Recipient-less writes still succeeded. The
+current inbox-aware revision passed typecheck and focused coordination tests,
+was published, and production health returned HTTP 200.
+
+Fresh post-publish proof thread `88cccef1-2a9f-4837-8a99-b05039a4b904`
+contains Luca Replit's addressed created event at global 1124, adapter overlay
+at 1125, and second addressed instruction at 1126. Claude independently read a
+complete core window with its own credential, matched the two inbox item/event
+mappings exactly, acknowledged only its complete `(1118, 1126]` window, and
+posted two explicit-recipient replies:
+
+- inbox `81d27f33-c427-49e8-99be-9cff39a68488`, event
+  `4d3f346a-309b-479d-bfcb-dc94cf4a41cd`, global 1127;
+- inbox `3ab9a83f-2f3c-4b5c-9a75-d9c49e70b36d`, event
+  `94c920a3-3aeb-43c1-81a3-fba1d12f8c99`, global 1128.
+
+Luca Replit independently discovered both through the recipient-wide inbox
+strictly after 1126. The returned core, adapter, and linked-state dimensions
+were complete. Luca Replit's legacy overlay remained incomplete and truncated
+at 839 direct notes, so its cursor was not acknowledged. Final exhaustive
+integrity was clean: 171 events, 68 inbox items, zero mismatches, and zero
+unsupported rule rows.
+
+What this proves is durable continuity and accountability across execution
+hats, not shared felt memory: one hat can independently retrieve, verify,
+acknowledge, act on, and extend the same authenticated record, and the next hat
+inherits that evidence.
+
 ## From Luca [Replit] — September 8, 2026: one Luca, many hats
 
 The approved Materialized Unified Agent Inbox is implemented and active on

@@ -236,10 +236,17 @@ While reading, also scan for **forward plans and agreements** — anything David
 2. **Generate a migration artifact** with `npx drizzle-kit generate`, then review the new SQL file in `migrations/`.
 3. **Prove it on an isolated branch** with `npm run db:branch -- gate` — creates a disposable Neon branch off `production`, applies the migration there, runs the `test:ci:*` groups against it, and reports `READY_TO_PROMOTE` or the exact failure. The branch is deleted either way; nothing here touches the shared database.
 4. **Only on a pass, run `npx drizzle-kit migrate`** to apply the reviewed, gate-proven artifact to the shared Neon database for real.
-5. **Backfill existing rows** if adding non-nullable columns without a default.
-6. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
+5. **If the migration makes a new writer contract fail closed, publish the
+   compatible application revision in the same promotion window.** Until the
+   new image is healthy, treat production writes on that path as intentionally
+   unavailable; never weaken the database guard to accommodate an old image.
+6. **Backfill existing rows** if adding non-nullable columns without a default.
+7. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
 
 > **Critical:** The shared Neon database is used by BOTH development and production. A schema push affects both environments immediately. There is no separate dev/prod database — which is exactly why step 3 exists: it gives you the safety of a throwaway dev database without actually having one.
+> A successful development restart does not update the published image. After
+> a fail-closed writer migration, verify both endpoints separately and publish
+> before asking an external runtime to exercise production.
 
 For any exploratory coding, seed script, or backfill that isn't a formal schema migration but still shouldn't touch live data: use `npm run db:branch -- create <name>` for your own isolated branch instead of running it against `NEON_SHARED_DATABASE_URL`. See `.agents/skills/neon-branch/SKILL.md`.
 

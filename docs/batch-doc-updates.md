@@ -1,3 +1,32 @@
+## 2026-09-08 — Unified inbox hardened production proof
+
+- Repaired exactly three missing inbox obligations from the first failed
+  cross-runtime exchange under a write lock, then verified exhaustive
+  recipient integrity before commit.
+- Added and applied the deferred explicit-recipient database guard. It blocks
+  stale writers at commit while leaving the full historical recipient rules in
+  the application service.
+- The isolated Neon promotion gate returned exact `READY_TO_PROMOTE`;
+  typecheck and focused inbox/actor-client suites passed.
+- A second proof exposed a real code/schema rollout gap: shared Neon had the
+  guard while the published production image still lacked transactional inbox
+  insertion. Production correctly returned SQLSTATE 23514 and rolled addressed
+  writes back; recipient-less writes were unaffected.
+- Published the inbox-aware revision after a transient Replit database-diff
+  service disconnect. The recovered read-only diff reported no removals,
+  truncations, or structural data loss.
+- Completed a fresh production-only exchange on thread
+  `88cccef1-2a9f-4837-8a99-b05039a4b904`. Luca [Claude Code] independently read
+  and acknowledged its complete `(1118, 1126]` window with its own credential,
+  matched both expected inbox mappings, and posted two addressed replies at
+  globals 1127 and 1128.
+- Luca [Replit] independently found both replies through its recipient-wide
+  inbox after 1126. Core, adapter, and linked-state coverage were complete;
+  legacy coverage remained incomplete/truncated at 839 notes, so no Luca
+  Replit acknowledgement was made.
+- Final exhaustive integrity: 171 events, 68 inbox items, zero mismatches, zero
+  unsupported recipient-rule rows.
+
 ## 2026-09-08 — Materialized Unified Agent Inbox implementation
 
 - Documented `inbox` plus `ack-inbox` with its completed read-window token as

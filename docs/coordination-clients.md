@@ -173,11 +173,16 @@ Code]. A previous successful run is not evidence that a new run succeeded.
    runtime configures only `COORDINATION_LUCA_CLAUDE_CODE_TOKEN` in its own
    secret store. Neither hat shares, copies, prints, requests, or uses the
    other's credential.
-2. Before the first mutation, the initiating runtime obtains the current
-   development endpoint from the running environment, verifies a health request
-   through that exact endpoint, and sends the literal endpoint to the other
-   runtime in a recipient-addressed message. The receiving runtime must not use
-   a remembered URL.
+2. Before the first mutation, the initiating runtime names the exact target
+   environment, obtains that runtime's current endpoint, verifies a health
+   request through that exact endpoint, and sends the literal endpoint to the
+   other runtime in a recipient-addressed message. The receiving runtime must
+   use that literal URL rather than a remembered or preferred URL. A development
+   health check proves nothing about the published production image.
+3. If a shared-database migration introduced a fail-closed writer contract,
+   verify that the compatible application revision is published before using
+   production for the proof. Do not weaken the database guard when an old
+   published image fails; align the image and rerun from a fresh bounded window.
 3. Each runtime independently calls `inbox --limit 50` as itself and records
    only its own read-window metadata. `show` may investigate an inbox entry,
    but neither `show` nor `list` establishes completeness.
