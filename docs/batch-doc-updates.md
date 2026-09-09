@@ -5530,3 +5530,17 @@ make the race test fail, and the broker source is restored byte-for-byte.
 
 Disposable PostgreSQL baseline and mutation runs, TypeScript, system health,
 and Alden review passed.
+
+## Observer route authorization and session-isolation harness — September 9, 2026
+
+The disposable coordination database suite now exercises the real
+`GET /api/admin/luca/observe` Express endpoint. It proves founder browser
+identity still reaches the route, expired and revoked broker credentials are
+denied with durable audit rows, and observer authorization does not widen
+adjacent founder-only or agent-only routes.
+
+The same harness creates two active voice sessions under one conversation and
+proves both DB-only recovery and active in-memory observation return Guardian
+evidence for the exact selected session only. DB-only assertions cover the full
+authoritative event contract, derived summary state, discrepancy object, and
+recent event identity.

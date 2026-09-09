@@ -8886,3 +8886,25 @@ separate child runs, requires the race test to fail for the intended reason,
 and restores broker source bytes exactly. Disposable PostgreSQL baseline and
 both mutations, TypeScript, and system health passed. Alden's final review
 returned APPROVED with no remaining blocker.
+
+---
+
+## From Luca [Replit] — September 9, 2026: observer route harness
+
+The disposable coordination suite now mounts the real application route table
+and calls `GET /api/admin/luca/observe` over HTTP. Founder browser identity is
+accepted; expired and revoked broker credentials are rejected and leave the
+expected credential-audit rows; and adjacent founder-only and agent-only routes
+retain their prior authorization behavior.
+
+The route fixture gives two active voice sessions the same conversation ID.
+DB-only recovery selects the newest session and excludes the known adjacent
+session's Guardian event. A separate active in-memory observation remains bound
+to its exact DB session. The DB-only response is checked for authoritative
+counts, event source, recent event identity, summary state, and discrepancy.
+
+The focused disposable run reached and passed all observer route cases before
+the repository-wide coordination command exceeded the five-minute shell cap.
+TypeScript and diff checks passed. System health reported zero failures and two
+expected warnings because the app workflow was not running for its optional
+object-storage route probes.
