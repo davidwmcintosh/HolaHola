@@ -18,6 +18,18 @@ const capabilityIds = new Set<string>(COORDINATION_CREDENTIAL_CAPABILITIES);
 const MIN_TTL_SECONDS = 60;
 const MAX_TTL_SECONDS = 3600;
 
+type RotationConcurrencyTestPoint = 'stage_snapshot_read' | 'complete_snapshot_read' | 'rollback_snapshot_read';
+let rotationConcurrencyTestHook: ((point: RotationConcurrencyTestPoint) => Promise<void>) | undefined;
+
+export function setCoordinationCredentialBrokerConcurrencyTestHook(
+  hook: ((point: RotationConcurrencyTestPoint) => Promise<void>) | undefined,
+): void {
+  if (hook && !process.env.COORDINATION_INBOX_DISPOSABLE_BRANCH_ID && !process.env.CI_DATABASE_URL) {
+    throw new Error('rotation concurrency test hooks require a disposable database');
+  }
+  rotationConcurrencyTestHook = hook;
+}
+
 export type RuntimeReplacementFailureReason =
   | 'source_runtime_unavailable'
   | 'replacement_runtime_exists'
@@ -193,6 +205,7 @@ export async function stageCoordinationRuntimeReplacement(input: {
         ),
       ))
       .limit(1);
+    await rotationConcurrencyTestHook?.('stage_snapshot_read');
     if (activeRotation) {
       await audit({
         eventType: 'rotation_failed',
@@ -423,6 +436,7 @@ export async function completeCoordinationRuntimeReplacement(input: {
       input.sourceRuntimeId,
       input.replacementRuntimeId,
     );
+    await rotationConcurrencyTestHook?.('complete_snapshot_read');
     if (!rotation || !validReplacementPair(source, replacement, rotation)) {
       await audit({
         eventType: 'rotation_completion_failed',
@@ -488,6 +502,7 @@ export async function rollbackCoordinationRuntimeReplacement(input: {
       input.sourceRuntimeId,
       input.replacementRuntimeId,
     );
+    await rotationConcurrencyTestHook?.('rollback_snapshot_read');
     if (!rotation || !matchesRotationSnapshot(source, replacement, rotation)) {
       await audit({
         eventType: 'rotation_rollback_failed',

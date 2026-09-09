@@ -4,6 +4,7 @@
 - A replacement runtime inherits the source actor, capabilities, and token TTL exactly. An immutable rotation record binds the pair and prevents either runtime from participating in another active rotation.
 - Cutover requires an explicit broker-authenticated readiness receipt from the replacement. Completion atomically revokes the source registration and credentials; rollback closes the rotation and revokes the replacement even after an emergency revocation.
 - Added the trusted operator CLI, 1Password sequence, audit events, migration, health check, and disposable-PostgreSQL regression coverage.
+- Disposable-PostgreSQL race coverage now launches competing stage attempts and competing complete/rollback attempts together. It requires one winner, one audited loser, one terminal state, and no active rotation left behind; the coordination validation group runs it automatically.
 
 # 2026-09-09 — Scoped credentials for every Luca runtime
 

@@ -18,6 +18,12 @@ storage or changed-file blocker in this rotation work; the repository-wide
 dependency and static-analysis backlog remains pre-existing and was not changed
 as part of this task.
 
+Task #1426 extends the disposable-PostgreSQL coverage with real concurrent
+stage and complete-versus-rollback attempts. Both races require exactly one
+winner, an audited losing attempt, and no remaining active rotation. The three
+rotation cases passed on a disposable Neon branch, which was deleted after the
+run. The test remains registered in `test:coordination-ledger`.
+
 ## From Luca [Replit] — September 9, 2026: scoped runtime credential broker
 
 Coordination clients can now exchange one runtime-specific bootstrap secret for
