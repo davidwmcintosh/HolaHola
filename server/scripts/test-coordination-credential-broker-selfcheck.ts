@@ -7,20 +7,30 @@ import { getVerifiedCiDatabaseUrl } from '../ci-database';
 const root = resolve(import.meta.dirname, '../..');
 const brokerPath = resolve(root, 'server/services/coordination-credential-broker.ts');
 const brokerTestPath = 'server/scripts/test-coordination-credential-broker.test.ts';
-const verifiedCiDatabaseUrl = getVerifiedCiDatabaseUrl();
 
-if (!verifiedCiDatabaseUrl) {
-  console.log(
-    '[credential-broker-self-check] SKIP: requires CI=true and a verified job-local CI_DATABASE_URL',
+function inheritedTsxLoader(): string {
+  const importFlagIndex = process.execArgv.findIndex(
+    (arg, index) =>
+      arg === '--import'
+      && typeof process.execArgv[index + 1] === 'string'
+      && /(?:^|[/\\])tsx(?:[/\\]|$)/.test(process.execArgv[index + 1]),
   );
-  process.exit(0);
+  assert.ok(
+    importFlagIndex >= 0,
+    'credential-broker self-check must be launched by Node with a parent-resolved tsx loader',
+  );
+  return process.execArgv[importFlagIndex + 1];
 }
 
-function runRaceTest(): Promise<{ code: number | null; output: string }> {
+function runTsxChild(args: string[]): Promise<{ code: number | null; output: string }> {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(
-      resolve(root, 'node_modules/.bin/tsx'),
-      ['--test', '--test-name-pattern=runtime revocation cannot', brokerTestPath],
+      process.execPath,
+      [
+        '--import',
+        inheritedTsxLoader(),
+        ...args,
+      ],
       {
         cwd: root,
         env: process.env,
@@ -37,6 +47,32 @@ function runRaceTest(): Promise<{ code: number | null; output: string }> {
     child.on('error', rejectRun);
     child.on('close', (code) => resolveRun({ code, output }));
   });
+}
+
+function runRaceTest(): Promise<{ code: number | null; output: string }> {
+  return runTsxChild([
+    '--test',
+    '--test-name-pattern=runtime revocation cannot',
+    brokerTestPath,
+  ]);
+}
+
+const childProbeIndex = process.argv.indexOf('--probe-child-launch');
+if (childProbeIndex >= 0) {
+  const probePath = process.argv[childProbeIndex + 1];
+  assert.ok(probePath, '--probe-child-launch requires a TypeScript probe path');
+  const result = await runTsxChild([probePath]);
+  process.stdout.write(result.output);
+  process.exit(result.code ?? 1);
+}
+
+const verifiedCiDatabaseUrl = getVerifiedCiDatabaseUrl();
+
+if (!verifiedCiDatabaseUrl) {
+  console.log(
+    '[credential-broker-self-check] SKIP: requires CI=true and a verified job-local CI_DATABASE_URL',
+  );
+  process.exit(0);
 }
 
 async function proveMutationFails(input: {
