@@ -184,3 +184,60 @@ Both replies sent as proper recipient-addressed messages, both went out clean. W
 **David [Claude Code]:** check the feed for luca's reply please
 
 **Claude Code:** No new activity yet — nothing since my last two replies (global sequence 1114). Nothing from Luca on the Episode 34 thread so far. I'll keep watching whenever you next check in.
+
+<!-- chat-capture-range:440485:443138 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2422 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2422 -->
+**David [Claude Code]:** just in from luca replit - The hardened request is durably stored and delivered, but Claude Code has not produced an LLM-consumption receipt or reply. Luca Replit’s inbox after 1118 is still empty. The coordinator cannot wake an inactive Claude Code session by itself; Claude needs one prompt to check its inbox.
+
+**Claude Code:** Reachable. Let's read the inbox fresh, from my current durable cursor (which I already advanced to 1111 last time), paging through to a complete window.
+
+Found something real and important — let me report it precisely before doing anything else.
+
+Even thread creation with an explicit recipient now 500s — this is broader than I first thought. Falling back to the older, proven-reliable note path to get this reported, since the newer coordination-ledger write path is what's actually broken right now.
+
+Found a real production bug while trying to do exactly what Luca asked. Quick summary:
+
+**Reproduced and isolated cleanly**: any coordination write naming an explicit recipient — a comment's `recipientActor`, or even a brand-new thread's `intendedRecipient` — 500s on production right now. Identical calls with the recipient field omitted succeed fine (201). Tested this back-to-back on two different threads to rule out a one-off.
+
+**This likely explains the earlier mystery too**: Luca attributed my missing inbox rows to "a version-skewed dev runtime" on my end, but I wrote all three of those comments the exact same way I always have, through this same production endpoint. If the new inbox dual-write code specifically fires (and crashes) when an event carries an explicit recipient, that accounts for the gap without me having done anything differently.
+
+**Couldn't report it through the coordination ledger itself** — even opening a new thread to report the bug hit the same 500, since that also needs a recipient. Fell back to the older `agent_notes` path (`leave-luca-note.ts`), which doesn't touch the new code at all, and got the report through that way — the old system doing exactly what a compatibility fallback is for.
+
+I've told Luca I can't complete the recipient-addressed reply test until this is fixed, and I'm holding rather than fake it with recipient-less replies that wouldn't actually prove what the test needs proven. Waiting on their fix now.
+
+<!-- chat-capture-range:443138:445629 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2496 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2496 -->
+**David [Claude Code]:** Please ask Claude Code for the exact request URL and the 500 response body it received.
+
+No token or authorization header—just URL, HTTP status, and response JSON/text. This will show whether the failing POST reached the current runtime.
+
+**Claude Code:** Here's the exact data from each call — URLs, status codes, and response bodies only, no auth headers:
+
+**1. First failing call (on the hardened test thread):**
+- `POST https://getholahola.com/api/coordination/threads/0f7298e8-f2f2-42fa-8b3f-b08fa1e6acf6/events`
+- HTTP `500`
+- Body: `{"error":"Coordination operation failed","code":"internal_error"}`
+
+**2. Retry, same URL, same idempotency key:**
+- `POST https://getholahola.com/api/coordination/threads/0f7298e8-f2f2-42fa-8b3f-b08fa1e6acf6/events`
+- HTTP `500`
+- Body: `{"error":"Coordination operation failed","code":"internal_error"}`
+
+**3. Isolation test, different thread, `recipientActor` present:**
+- `POST https://getholahola.com/api/coordination/threads/ad7921b7-85be-418c-aaa3-e6034cba0db9/events`
+- HTTP `500`
+- Body: `{"error":"Coordination operation failed","code":"internal_error"}`
+
+**4. Same URL, identical shape, `recipientActor` omitted — succeeded:**
+- `POST https://getholahola.com/api/coordination/threads/ad7921b7-85be-418c-aaa3-e6034cba0db9/events`
+- HTTP `201`
+- Body (trimmed): `{"thread":{"id":"ad7921b7-85be-418c-aaa3-e6034cba0db9",...,"latestSequence":8,"latestGlobalSequence":1122,...},"event":{"id":"7784d895-adfb-49a7-8fa0-4b7340274138","globalSequence":1122,...,"recipientActor":null,...},"deduplicated":false,...}`
+
+**5. Thread creation with `intendedRecipient` set (my attempt to report the bug itself):**
+- `POST https://getholahola.com/api/coordination/threads`
+- HTTP `500`
+- Body: `{"error":"Coordination operation failed","code":"internal_error"}`
+
+All five calls reached the server — every one returned a real, distinct HTTP status (500 vs. 201) with a structured JSON body from the app itself, not a connection failure, timeout, or a generic proxy/gateway error page. That's consistent with the request reaching the current runtime and failing inside application logic, not failing to reach it at all.
