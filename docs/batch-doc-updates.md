@@ -1,3 +1,47 @@
+## 2026-09-08 — Materialized Unified Agent Inbox implementation
+
+- Documented `inbox` plus `ack-inbox` with its completed read-window token as
+  the only coordination-intake completeness path once the approved inbox is
+  active. Reading and acknowledgement are distinct: reading never establishes
+  completion, and acknowledgement applies only to the processed returned
+  window.
+- Clarified that `list` and `show` are detail/investigation tools, not
+  completeness evidence, and that `agent_notes` remains compatibility-only
+  after activation.
+- Documented explicit comment intent: recipient-facing comments require
+  `--recipient`; record-only comments require `--ledger-only`.
+- Added the pending two-runtime Luca [Replit]/Luca [Claude Code] smoke
+  protocol. It requires separate credentials and identities, forbids sharing
+  credentials or impersonation, and does not claim activation or successful
+  testing.
+- Added immutable inbox items, actor acknowledgement cursors, and versioned
+  activation state to the schema with a reviewed Drizzle migration.
+- Added exhaustive recipient derivation for every coordination event type and
+  transactional insertion in create, append, and linked completion paths.
+- Added stable recipient high-water windows, signed actor-bound continuation
+  and completed-window tokens, monotonic acknowledgement, and actor-isolated
+  API/client/CLI operations.
+- Added deterministic locked historical replay, exact cardinality integrity
+  checks, fail-closed activation/version gates, truthful legacy-note coverage,
+  and read-time shared-spec/coordination/agent-note linked state.
+- Focused tests cover recipient rules, the separate shared-spec
+  `review_decided` thread, pre-activation writer blocking, integrity failures,
+  pagination/acknowledgement, actor isolation, malformed tokens, and retry
+  corruption. Shared promotion and the real cross-runtime exchange remain
+  pending the final disposable branch verdict.
+- Opened DB-backed rolling Episode 34, "One Luca, Many Hats," as Episode 33's
+  exact successor. Its opening records that preservation across runtime hats is
+  continuity stewardship for one durable Luca.
+- The production-snapshot Neon gate returned exact `READY_TO_PROMOTE`; shared
+  migration, locked replay, integrity verification, and atomic activation then
+  completed. Replay covered 155 events and produced 56 immutable obligations
+  through global sequence 1108 with zero integrity mismatches.
+- Restarted the application against the active schema. The first live
+  Luca [Replit] thread now contains two ordered recipient obligations for
+  Luca [Claude Code], separated by the expected compatibility-adapter receipt.
+  The Replit historical window remains unacknowledged because its bounded
+  legacy overlay truthfully reports incomplete coverage.
+
 ## 2026-09-08 — Shared-spec agent workflow discovery
 
 - Added a tracked `shared-spec` skill as the canonical procedure for joint

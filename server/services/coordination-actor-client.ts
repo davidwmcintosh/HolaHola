@@ -12,6 +12,8 @@ export type CoordinationClientActor = Exclude<CoordinationActorId, 'coordination
 export type CoordinationClientAction =
   | 'list'
   | 'acknowledge-feed'
+  | 'list-inbox'
+  | 'acknowledge-inbox'
   | 'show'
   | 'create'
   | 'accept'
@@ -27,13 +29,13 @@ export type CoordinationClientAction =
   | 'complete-with-linked-outcome';
 
 const DIRECT_CLIENT_ACTIONS: Record<DirectCoordinationActor, ReadonlySet<CoordinationClientAction>> = {
-  'luca-holahola': new Set(['list', 'acknowledge-feed', 'show', 'create', 'reassign', 'comment']),
+  'luca-holahola': new Set(['list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'create', 'reassign', 'comment']),
   alden: new Set([
-    'list', 'acknowledge-feed', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
+    'list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
     'acknowledge', 'reassign', 'comment',
   ]),
   daniela: new Set([
-    'list', 'acknowledge-feed', 'show', 'accept', 'progress', 'evidence', 'block', 'complete', 'comment',
+    'list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'accept', 'progress', 'evidence', 'block', 'complete', 'comment',
   ]),
 };
 
@@ -48,6 +50,12 @@ export type CoordinationActorClientOptions = {
 
 export type CoordinationFeedOptions = {
   cursor?: number;
+  limit?: number;
+};
+
+export type CoordinationInboxOptions = {
+  token?: string;
+  after?: number;
   limit?: number;
 };
 
@@ -172,6 +180,24 @@ export class CoordinationActorClient {
     }
     return this.request('acknowledge-feed', '/api/coordination/threads/ack', {
       body: { globalSequence },
+    });
+  }
+
+  listInbox(options: CoordinationInboxOptions = {}): Promise<unknown> {
+    const query = new URLSearchParams();
+    if (options.token !== undefined) query.set('token', options.token);
+    if (options.after !== undefined) query.set('after', String(options.after));
+    if (options.limit !== undefined) query.set('limit', String(options.limit));
+    return this.request(
+      'list-inbox',
+      `/api/coordination/inbox${query.size ? `?${query}` : ''}`,
+    );
+  }
+
+  acknowledgeInbox(windowToken: string): Promise<unknown> {
+    if (!windowToken) throw new Error('Coordination inbox window token is required');
+    return this.request('acknowledge-inbox', '/api/coordination/inbox/ack', {
+      body: { windowToken },
     });
   }
 

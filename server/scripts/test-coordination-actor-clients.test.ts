@@ -33,14 +33,24 @@ const ENVIRONMENT = {
 test('coordination CLI requires explicit ledger-only intent for plain comments', () => {
   assert.throws(
     () => assertExplicitCoordinationCommentIntent('comment', {}),
-    /does not deliver to a recipient/,
+    /requires exactly one delivery intent/,
   );
   assert.throws(
     () => assertExplicitCoordinationCommentIntent('comment', { 'ledger-only': 'true' }),
-    /does not deliver to a recipient/,
+    /requires exactly one delivery intent/,
   );
   assert.doesNotThrow(
     () => assertExplicitCoordinationCommentIntent('comment', { 'ledger-only': true }),
+  );
+  assert.doesNotThrow(
+    () => assertExplicitCoordinationCommentIntent('comment', { recipient: 'luca-claude-code' }),
+  );
+  assert.throws(
+    () => assertExplicitCoordinationCommentIntent('comment', {
+      recipient: 'luca-claude-code',
+      'ledger-only': true,
+    }),
+    /requires exactly one delivery intent/,
   );
   assert.doesNotThrow(
     () => assertExplicitCoordinationCommentIntent('reply-and-verify', {}),

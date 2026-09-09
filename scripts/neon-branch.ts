@@ -295,7 +295,11 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   // Deliberately never printed: unlike create/connection-string, this
   // command's stdout can end up in CI/agent logs. The child processes below
   // only ever see the URL via their own env, never via a logged argument.
-  const branchEnv: NodeJS.ProcessEnv = { ...process.env, NEON_SHARED_DATABASE_URL: directUrl };
+  const branchEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    NEON_SHARED_DATABASE_URL: directUrl,
+    COORDINATION_INBOX_DISPOSABLE_BRANCH_ID: branch.id,
+  };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
   // this branch's URL is intentionally a real Neon host, not that service.

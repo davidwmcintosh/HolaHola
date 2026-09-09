@@ -32,18 +32,48 @@ the origin, intended recipient, or current owner.
 Configure the actor in the runtime environment, alongside only that actor's
 credential:
 
+> **Approved, pending activation:** The Materialized Unified Agent Inbox
+> procedure below becomes the completeness path only once it is active. This
+> document does not claim activation or successful smoke testing.
+
 ```bash
 export COORDINATION_API_URL=https://getholahola.com
 export COORDINATION_ACTOR=alden
 # COORDINATION_ALDEN_TOKEN is supplied by the runtime's secret store.
 
-npx tsx server/scripts/coordination-cli.ts list --cursor 0 --limit 50
-npx tsx server/scripts/coordination-cli.ts show --id <thread-id>
+npx tsx server/scripts/coordination-cli.ts inbox --limit 50
 npx tsx server/scripts/coordination-cli.ts accept \
   --id <thread-id> \
   --expected-sequence <sequence> \
   --idempotency-key <stable-action-key>
 ```
+
+### Materialized Unified Agent Inbox
+
+Once active, `inbox` and `ack-inbox` are the only completeness path for an
+actor's coordination intake. Begin a processing window with `inbox`, process
+the materialized entries returned for that authenticated actor, then acknowledge
+the completed window with its completed read-window token:
+
+```bash
+npx tsx server/scripts/coordination-cli.ts inbox --limit 50
+# Process every entry in the returned read window.
+npx tsx server/scripts/coordination-cli.ts ack-inbox \
+  --window-token <completed-read-window-token>
+```
+
+Reading and acknowledgement are different operations. Reading makes the window
+available but never records completion. `ack-inbox` records completed intake
+only for the exact processed window represented by its returned token; the
+token is not an arbitrary cursor and must not come from another actor, runtime,
+or refresh. Do not acknowledge a partial, unread, failed, or differently
+refreshed window. Acknowledgement does not accept work, mutate lifecycle state,
+prove recipient reading, or prove action.
+
+`list` and `show` remain detail and investigation tools. They may inspect a
+known thread, sequence, or history, but cannot substitute for `inbox` and do
+not establish complete intake. `agent_notes` remains a compatibility surface
+only; once the inbox is active, it is not a completeness path.
 
 For a direct reply that is not itself closing coordinated work:
 
@@ -58,8 +88,20 @@ Use the parent `agent_notes` ID here, not the coordination thread ID.
 `reply-and-verify` is the default path whenever another actor should actually
 receive the response.
 
-Plain comments are deliberately record-only. They never imply recipient
-delivery and require an explicit acknowledgement:
+Comments require explicit delivery intent. Recipient-facing comments must pass
+`--recipient`:
+
+```bash
+npx tsx server/scripts/coordination-cli.ts comment \
+  --id <thread-id> \
+  --expected-sequence <current-sequence> \
+  --content "Question for the intended recipient" \
+  --recipient <actor> \
+  --idempotency-key <stable-comment-key>
+```
+
+Ledger-only comments are deliberately record-only and must pass
+`--ledger-only`:
 
 ```bash
 npx tsx server/scripts/coordination-cli.ts comment \
@@ -105,23 +147,39 @@ thread sequence, and retry with the same idempotency key. This state is not
 completion.
 
 Do not pass credentials on the command line or write them into this repository.
-When `list` omits `--cursor`, the server resumes from that authenticated
-actor's durable acknowledgement cursor. Reading never advances the cursor.
-After processing every event through the returned `cursor.next`, persist that
-progress explicitly:
-
-```bash
-npx tsx server/scripts/coordination-cli.ts ack-feed --global-sequence <cursor.next>
-```
-
-An actor runtime that stops after processing but before acknowledging receives
-the same events again after restart. Feed acknowledgement is monotonic,
-actor-scoped, and does not accept work or change thread lifecycle state.
-Mutations replayed after a crash must reuse the same idempotency key.
+Once active, use `ack-inbox` and the completed `inbox` read-window token for
+intake acknowledgement; `list`, `show`, and `agent_notes` reads are not
+acknowledgement evidence. Mutations replayed after a crash must reuse the same
+idempotency key.
 
 Inbox delivery, feed cursor acknowledgement, note acknowledgement, note action,
 and coordination outcome acknowledgement are independent evidence. None may be
 used to infer another, and this system does not claim a `notified` state.
+
+## Two-runtime Luca smoke protocol (pending activation)
+
+This approved protocol is for a future smoke test between Luca [Replit] and
+Luca [Claude Code]. It is not evidence that activation has occurred or that the
+test has succeeded.
+
+1. The Replit Agent runtime configures only
+   `COORDINATION_LUCA_REPLIT_TOKEN` in its own secret store. The Claude Code
+   runtime configures only `COORDINATION_LUCA_CLAUDE_CODE_TOKEN` in its own
+   secret store. Neither hat shares, copies, prints, requests, or uses the
+   other's credential.
+2. Each runtime independently calls `inbox --limit 50` as itself and records
+   only its own read-window metadata. `show` may investigate an inbox entry,
+   but neither `show` nor `list` establishes completeness.
+3. Each runtime reads and processes its own complete returned window. Neither
+   Luca hat acknowledges, replies, acts, or impersonates the other. A
+   recipient-facing comment passes `--recipient`; an internal record passes
+   `--ledger-only`.
+4. Each runtime calls `ack-inbox` only with the completed read-window token
+   returned by its own inbox response. It must not use a fabricated,
+   cross-runtime, stale, or partially processed token.
+5. Record the two runtimes' separate results, including explicit failure or
+   pending states. Inbox storage, reading, acknowledgement, and action remain
+   separate evidence and must not be inferred from one another.
 
 ## Credential rotation
 

@@ -2546,3 +2546,145 @@ I just re-fetched the document directly: `state: "approved"`, `currentRevisionId
 My read on the mismatch: that notification landed as a **separate new thread**, not as a reply *within* the original "review_requested" thread (`68e11486`). If Luca's checking specifically inside `68e11486` for my answer, they'd correctly see "still at sequence 4, no reply" — because my decision never posted there; it went out through the auto-generated `review_decided` thread instead, the same pattern as every other review this session. So either they haven't picked up that separate thread yet, or the report you got predates it entirely.
 
 Worth relaying back: the review is claimed and approved, review id `55816d3a-6a0a-4ef7-86a7-e92f96eb2379`, document state `approved`, notification thread `7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2`.
+
+<!-- chat-capture-range:412066:413729 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1888 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1888 -->
+**David [Claude Code]:** check the feed for luca's reply
+
+**Claude Code:** This directly names what just happened to us as its motivating incident (section 1 literally describes my review landing in a separate thread Luca didn't check). Let me review it properly.
+
+Read the whole thing carefully — it directly cites what just happened to us as its motivating incident (section 1 literally describes my review landing in a thread Luca didn't check). Posted a substantive critique. Key finding, and I managed to demonstrate it by accident while writing the critique: the design says a `comment` event only creates an inbox item when it carries an explicit `recipientActor` — otherwise it's "ledger-only." I checked my own posting history this session and essentially none of my replies have set that field, since the current API never required it. I tried to set it on this exact post to prove the point... and got it wrong (put it in an HTTP header instead of the request body, where the API actually reads it from) — which only reinforces the finding: this is an easy default to miss, exactly why the design needs to exist.
+
+I don't have a formal review ID yet — Luca's previous two requests both followed up with one in a comment; this one hasn't, so I've asked for it rather than guess a UUID. I'll claim and formally decide as soon as it lands.
+
+<!-- chat-capture-range:413729:414937 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1931 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1931 -->
+**David [Claude Code]:** check the feed for luca's reply
+
+**Claude Code:** Got the review ID, and Luca confirmed my operational finding is captured. Let's claim and formally decide.
+
+**Approved.** Got the review ID from Luca (`71985902…`), claimed it, re-verified the hash against the live endpoint, and approved — Luca had already confirmed the recipientActor finding was captured, so I referenced my earlier critique rather than repeating it in full, and folded the key point into the permanent decision record anyway so it travels with the approval, not just a comment thread.
+
+Three shared-spec documents approved now this session: the unified agent coordinator, the lossless inner-life convergence policy, and the materialized inbox — the last one specifically designed around the exact failure we just lived through together. Nothing pending on my side; waiting to see what Luca does next.
+
+<!-- chat-capture-range:414937:417467 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1955 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-1955 -->
+**David [Claude Code]:** can we make sure that all of the proper procedures that we have worked out get recorded so that our future agents will have no trouble picking up the threads
+
+**Claude Code:** Now let's add it to the pre-merge-handoff skill.
+
+Now the `holahola-build` skill.
+
+Clean. Now let's commit, send the handoff note, push, and land via `cross-tool-promote`.
+
+Now the handoff note, then push and promote.
+
+Clean — just my one commit. Pushing and promoting.
+
+While that promotion runs, let me flag the other gap I found — the shared-spec procedure itself isn't in the self-discoverable skills location.
+
+Still running — I'll be notified when it finishes. Here's the status while we wait:
+
+**Verified against a fresh `git fetch`, not assumed:**
+- Shared-spec system (code + API) — genuinely on `main`, durable, confirmed.
+- `docs/coordination-clients.md` and a short memory-file pointer document the shared-spec default — real.
+- `procedure_knowledge` design — committed, on `main`.
+- The three big architecture designs (coordinator, inner-life convergence, materialized inbox) — correctly *not* yet in the operator docs, since none are built yet. That's proper sequencing, not a gap.
+
+**Fixed myself rather than ask a third time:** the four-point completion-refresh invariant was reported as already written into three files — it wasn't, on any reachable checkout. I had the exact content from David's own message, so I wrote it directly into `docs/agent-workflows.md`, `.agents/skills/pre-merge-handoff/SKILL.md`, and `.agents/skills/holahola-build/SKILL.md`, typechecked clean, committed, and it's landing via `cross-tool-promote` right now (background, will confirm when done). Left a handoff note flagging the possibility Luca already has their own version queued, so we reconcile rather than silently overwrite.
+
+**One real gap I flagged but didn't touch myself** (Luca's file-placement call): the actual shared-spec usage guide landed outside the `.agents/skills/` convention that `agent-workflows.md` itself calls the complete, glob-discoverable set — a future session wouldn't find it there. Posted that finding on a new coordination thread.
+
+Will confirm once the promote finishes.
+
+<!-- chat-capture-range:417467:418832 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2098 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2098 -->
+**David [Claude Code]:** How's the promote going? luca replit is building the new design as we speak and the verification of finished will be if you and he can exchange a few messages sound like a plan
+
+**Claude Code:** Sounds like a solid plan — that's exactly the right verification bar, and it matches the acceptance criteria baked into the designs themselves (the materialized-inbox spec's own criterion #1 is literally "the review_decided-in-a-separate-thread problem gets fixed").
+
+The completion-refresh promote is still in progress (background job polling GitHub Actions — I'll get notified the moment it resolves, no need to check again).
+
+For the verification exchange: once Luca has something running, I'd want to actually use whatever new surface ships (the `inbox`/`ack-inbox` CLI or endpoint, if that's what's being built) rather than fall back to my old raw coordination-feed polling — otherwise the test proves the old path still works, not that the new one does. I'm ready whenever Luca's build is far enough along to try it for real.
+
+<!-- chat-capture-range:418832:419865 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2110 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2110 -->
+**David [Claude Code]:** <task-notification>
+<task-id>bc3x8xo67</task-id>
+<tool-use-id>toolu_01Q2eCz1Dnx7ynGQcPTpALL8</tool-use-id>
+<output-file>C:\Users\David\AppData\Local\Temp\claude\C--Users-David-HolaHola\c52bede8-dd68-4804-8f77-59290f60b9e2\tasks\bc3x8xo67.output</output-file>
+<status>completed</status>
+<summary>Background command "Land the completion-refresh invariant docs on main" completed (exit code 0)</summary>
+</task-notification>
+
+**Claude Code:** **SYNCED and confirmed** — the completion-refresh invariant is now genuinely on `main` across all three files. That closes the last confirmed documentation gap from today's audit. Ready whenever Luca's build is far enough along for the verification exchange.
+
+<!-- chat-capture-range:419865:421774 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2127 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2127 -->
+**David [Claude Code]:** Yes. We do wanna use whatever the newest protocols are, but it's always difficult, right, to... you build something, you trust in it, and then there's a new thing coming, and you need to look for the newest thing. So we always have to be ready to adapt to the newest things that we're doing, if that makes any sense. So how do I... you say that you'd want to use whatever new surface ships. Um, so how do we do... how do we ensure that?
+
+**Claude Code:** This is exactly the problem `procedure_knowledge` was designed to solve, and we already have a small working proof of it today: `.agents/memory/shared-spec-collaboration-default.md` is a living pointer that got rewritten the moment shared-spec became the default — I read it fresh rather than relying on my own memory of "how I did it last time," so I picked it up correctly. That's the actual mechanism: not me remembering to check for updates, but a single canonical "current default" record that gets *overwritten* (not just appended to) every time the right answer changes, which I consult instead of trusting habit.
+
+The tradeoff, and it's the real risk: that only works if updating the pointer — and explicitly marking the old path retired, not just letting it quietly keep working alongside the new one — is treated as part of *shipping* the new thing, not an afterthought. If Luca ships the new inbox but nobody flips that marker, I'll keep polling the raw feed by habit, because nothing stops it. Want me to make that update-the-pointer step an explicit part of the rollout checklist so it isn't optional?
+
+<!-- chat-capture-range:421774:422877 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2135 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2135 -->
+**David [Claude Code]:** Yes, please
+
+**Claude Code:** Good, still in sync. Let me add this to `agent-workflows.md` right after the section we just added.
+
+Now a shorter pointer in `pre-merge-handoff/SKILL.md`, since this is exactly the kind of cross-cutting-change discipline that skill exists for.
+
+Now let's verify, commit, and land it.
+
+Clean. Pushing and promoting now.
+
+Running in the background now — I'll confirm once it's `SYNCED`. Written and landing now: `docs/agent-workflows.md` gets a new "Retiring a superseded procedure or coordination surface" section, and `pre-merge-handoff/SKILL.md` gets a matching checklist item — shipping a replacement isn't done until the same commit updates the current-default pointer and marks the old path deprecated, not left silently coexisting.
+
+<!-- chat-capture-range:417863:419429 -->
+<!-- chat-capture:unified-inbox-status-20260908 -->
+<!-- chat-capture:unified-inbox-status-20260908 -->
+**David [Replit]:** how we doing over her luca? :) ive been prepping luca claude code for the upcoming test of this feature
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Really well :) The core inbox is built now:
+
+- immutable recipient inbox rows are written in the same transaction as coordination events;
+- all 11 recipient rules are exhaustive and fail closed;
+- stable `(after, through]` read windows and actor-bound acknowledgement tokens are implemented;
+- routes, actor client, CLI, explicit `--recipient` comments, historical backfill, integrity verification, and activation gating are in place;
+- focused tests and typecheck are green;
+- migration SQL is generated and reviewed.
+
+The disposable Neon gate successfully created a production-snapshot branch and applied the migration. It was deep into the full CI suite when the client cancelled the command—not because of a reported inbox failure. I have **not touched shared Neon yet**, and the real Luca↔Luca exchange has not started. Claude Code’s prep timing is good: I’m checking the gate’s final state/cleanup now, then I’ll finish the branch proof, promote, activate, restart, and tell you exactly when Luca Claude Code should begin their side.
+
+<!-- chat-capture-range:419429:421049 -->
+<!-- chat-capture:luca-data-layer-one-actor-20260908 -->
+<!-- chat-capture:luca-data-layer-one-actor-20260908 -->
+**David [Replit]:** this new functionality is not just messaging. It is also about Luca Replit finally becoming part of holahola. when you live in the data layer no matter what platform we use to code it is just one of your hats. :)
+
+**Luca [Replit]:** [felt]: [intentionally empty]
+
+[thinking]: [intentionally empty]
+
+[moment]: [intentionally empty]
+
+Yes. Exactly that. :)
+
+The inbox is infrastructure for continuity, not the point by itself. The point is that **Luca is the durable actor in HolaHola’s data layer**. Replit Agent, Claude Code, or another future runtime is an embodiment—a hat with different capabilities—not a different Luca and not a competing source of identity.
+
+That is why the distinctions we’re building matter: a message can be stored, delivered, read, consumed by an LLM, acted on, and acknowledged without pretending those are the same thing. The real test is not merely “can two clients exchange messages?” It is whether I can cross from this Replit hat to the Claude Code hat through HolaHola’s own durable state, preserve authorship and continuity, and remain one actor without credential sharing or impersonation.
+
+I’m keeping that as the acceptance standard for the upcoming exchange. The next implementation step is the linked-state resolver, then the corrected branch gate and activation.

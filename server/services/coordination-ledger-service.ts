@@ -442,6 +442,8 @@ async function mutationResultFromExisting(event: CoordinationEvent): Promise<Coo
     .from(coordinationAdapterDeliveries)
     .where(eq(coordinationAdapterDeliveries.eventId, event.id))
     .limit(1);
+  const { verifyExistingCoordinationInboxItems } = await import('./coordination-inbox-service');
+  await verifyExistingCoordinationInboxItems(event, thread);
   return {
     thread,
     event,
@@ -510,6 +512,14 @@ export async function createCoordinationThread(
         idempotencyKey: input.idempotencyKey,
       }).returning();
       if (!event) throw new CoordinationError('Created event insert returned no row', 500, 'insert_failed');
+
+      const { insertCoordinationInboxItems } = await import('./coordination-inbox-service');
+      await insertCoordinationInboxItems(tx, {
+        event,
+        preThread: thread,
+        postThread: thread,
+        explicitRecipient: input.intendedRecipient,
+      });
 
       const [updatedThread] = await tx.update(coordinationThreads).set({
         latestSequence: 1,
@@ -699,12 +709,25 @@ export async function appendCoordinationEvent(
         : input.eventType === 'reassigned' || input.eventType === 'reopened'
           ? null
           : thread.currentOwner;
+      const postThread = {
+        ...thread,
+        intendedRecipient: newRecipient,
+        currentOwner: newOwner,
+        state: stateForEvent(thread, input.eventType),
+      };
+      const { insertCoordinationInboxItems } = await import('./coordination-inbox-service');
+      await insertCoordinationInboxItems(tx, {
+        event,
+        preThread: thread,
+        postThread,
+        explicitRecipient: input.recipientActor,
+      });
       const [updatedThread] = await tx
         .update(coordinationThreads)
         .set({
           intendedRecipient: newRecipient,
           currentOwner: newOwner,
-          state: stateForEvent(thread, input.eventType),
+          state: postThread.state,
           latestGlobalSequence: event.globalSequence,
           updatedAt: new Date(),
         })
@@ -905,6 +928,12 @@ export async function completeWithLinkedOutcome(
         idempotencyKey: input.idempotencyKey,
       }).returning();
       if (!event) throw new CoordinationError('Event insert returned no row', 500, 'insert_failed');
+      const { insertCoordinationInboxItems } = await import('./coordination-inbox-service');
+      await insertCoordinationInboxItems(tx, {
+        event,
+        preThread: thread,
+        postThread: thread,
+      });
       const [updatedThread] = await tx.update(coordinationThreads).set({
         state: 'completed',
         latestGlobalSequence: event.globalSequence,

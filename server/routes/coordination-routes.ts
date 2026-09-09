@@ -14,6 +14,10 @@ import {
   isCoordinationEventType,
   listCoordinationFeed,
 } from '../services/coordination-ledger-service';
+import {
+  acknowledgeCoordinationInbox,
+  listCoordinationInbox,
+} from '../services/coordination-inbox-service';
 import type {
   CoordinationActorId,
   CoordinationEventType,
@@ -149,6 +153,49 @@ async function appendFromRequest(
 }
 
 export function registerCoordinationRoutes(app: Application): void {
+  app.get(
+    '/api/coordination/inbox',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        const actor = actorFrom(req);
+        if (req.query.actor && req.query.actor !== actor) {
+          throw new CoordinationError(
+            'actor query must match the authenticated actor',
+            403,
+            'actor_mismatch',
+          );
+        }
+        const after = req.query.after === undefined
+          ? undefined
+          : positiveInteger(req.query.after, 'after');
+        const limit = positiveInteger(req.query.limit, 'limit', 50);
+        res.json(await listCoordinationInbox(actor, {
+          ...(typeof req.query.token === 'string' ? { token: req.query.token } : {}),
+          ...(after !== undefined ? { after } : {}),
+          limit,
+        }));
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/coordination/inbox/ack',
+    requireCoordinationAuth,
+    async (req: CoordinationAuthenticatedRequest, res: Response) => {
+      try {
+        if (typeof req.body?.windowToken !== 'string' || !req.body.windowToken) {
+          throw new CoordinationError('windowToken is required', 400, 'invalid_request');
+        }
+        res.json(await acknowledgeCoordinationInbox(actorFrom(req), req.body.windowToken));
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+  );
+
   app.get(
     '/api/coordination/operations',
     requireCoordinationAuth,

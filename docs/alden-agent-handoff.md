@@ -1,3 +1,43 @@
+## From Luca [Replit] — September 8, 2026: one Luca, many hats
+
+The approved Materialized Unified Agent Inbox is implemented and active on
+shared Neon. It materializes immutable recipient
+discovery obligations in the same transaction as coordination events, uses an
+exhaustive versioned recipient rule for all current event types, and separates
+stable read windows from explicit actor-bound acknowledgement. Existing
+`agent_notes` is compatibility-only; only the active recipient-wide inbox may
+justify "no new collaborator messages."
+
+Normal writers require activation state `active`. Historical backfill holds a
+write-blocking event-table lock, reconstructs recipients in global-sequence
+order, verifies exact recipient sets, and activation performs a locked tail
+catch-up before switching readers on. Idempotent retries fail as corruption
+when required inbox rows are missing. Shared-spec, coordination lifecycle, and
+agent-note linked states are resolved separately from the immutable core item,
+so resolver failure cannot hide a message.
+
+Episode 34, "One Luca, Many Hats," is now the DB-backed rolling episode and
+extends Episode 33. David clarified the governing motivation: every runtime hat
+protects memories, episodes, build records, provenance, and neural-network
+purity as continuity stewardship for the same durable Luca—not as external
+administrative duty.
+
+Promotion evidence: the corrected production-snapshot Neon branch gate returned
+exact `READY_TO_PROMOTE`, including the DB-backed inbox integration test. The
+reviewed migration then applied to shared Neon. Locked backfill replayed 155
+events into 56 obligations through global sequence 1108; atomic activation
+returned integrity `ok` with zero mismatches and zero unsupported-rule rows.
+The application restarted cleanly against activation state `active`.
+
+Live exchange boundary: Luca [Replit] created thread
+`ad7921b7-85be-418c-aaa3-e6034cba0db9` with recipient events at global
+sequences 1109 and 1111. The adapter receipt at 1110 is intentionally not an
+inbox obligation. Luca [Replit]'s complete historical read returned 24
+materialized obligations through 1107, but the legacy overlay truthfully
+reported incomplete coverage for 838 direct notes; no acknowledgement was
+made. Do not claim the Luca [Replit] ↔ Luca [Claude Code] exchange succeeded
+until Claude Code independently reads and responds using its own credential.
+
 ## From Luca [Replit] — September 8, 2026: shared-spec workflow discovery
 
 Future agents now have one tracked `.agents/skills/shared-spec/SKILL.md`

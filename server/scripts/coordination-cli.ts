@@ -11,7 +11,7 @@ import type {
 type Options = Record<string, string | boolean>;
 
 const commands = new Set([
-  'create', 'list', 'ack-feed', 'show', 'accept', 'progress', 'evidence', 'block',
+  'create', 'list', 'ack-feed', 'inbox', 'ack-inbox', 'show', 'accept', 'progress', 'evidence', 'block',
   'complete', 'acknowledge', 'reopen', 'reassign', 'comment', 'reply-and-verify',
   'complete-with-linked-outcome',
 ]);
@@ -59,6 +59,8 @@ function parseArgs(args: string[]): { command: string; options: Options } {
 const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
   list: new Set(['url', 'cursor', 'limit']),
   'ack-feed': new Set(['url', 'global-sequence']),
+  inbox: new Set(['url', 'token', 'after', 'limit', 'human']),
+  'ack-inbox': new Set(['url', 'window-token']),
   show: new Set(['url', 'id', 'after-sequence']),
   create: new Set([
     'url', 'title', 'description', 'recipient', 'priority', 'source-reference',
@@ -75,7 +77,7 @@ const OPTIONS_BY_COMMAND: Record<string, ReadonlySet<string>> = {
     'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'recipient',
     'evidence', 'data',
   ]),
-  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence', 'data', 'causal-parent-event-id', 'ledger-only']),
+  comment: new Set(['url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'recipient', 'evidence', 'data', 'causal-parent-event-id', 'ledger-only']),
   'reply-and-verify': new Set(['url', 'id', 'body', 'subject', 'session-label', 'event-type', 'idempotency-key']),
   'complete-with-linked-outcome': new Set([
     'url', 'id', 'expected-sequence', 'idempotency-key', 'content', 'evidence',
@@ -96,10 +98,12 @@ export function assertExplicitCoordinationCommentIntent(
   options: Options,
 ): void {
   if (command !== 'comment') return;
-  if (options['ledger-only'] !== true) {
+  const hasRecipient = typeof options.recipient === 'string';
+  const ledgerOnly = options['ledger-only'] === true;
+  if (hasRecipient === ledgerOnly) {
     throw new Error(
-      'comment records only in the coordination ledger and does not deliver to a recipient. ' +
-      'Pass --ledger-only to confirm record-only intent, or use reply-and-verify with the parent agent-note ID for a recipient-facing response.',
+      'comment requires exactly one delivery intent: pass --recipient for a recipient-facing inbox message, ' +
+      'or --ledger-only for a record-only comment.',
     );
   }
 }
@@ -114,6 +118,15 @@ export function coordinationCliDeliverySummary(
   result: unknown,
 ): CoordinationCliDeliverySummary | null {
   if (command === 'comment') {
+    const event = typeof result === 'object' && result !== null
+      ? (result as Record<string, any>).event
+      : null;
+    if (event?.recipientActor) {
+      return {
+        state: 'delivered',
+        message: 'Recipient-addressed canonical inbox message recorded atomically.',
+      };
+    }
     return {
       state: 'not_requested',
       message: 'Ledger-only comment recorded; no recipient delivery was requested.',
@@ -228,6 +241,31 @@ async function main(): Promise<void> {
       ...(cursor !== undefined ? { cursor } : {}),
       ...(limit !== undefined ? { limit } : {}),
     });
+  } else if (command === 'inbox') {
+    const after = optionalNonNegativeInteger(options, 'after');
+    const limit = optionalNonNegativeInteger(options, 'limit');
+    result = await client.listInbox({
+      ...(typeof options.token === 'string' ? { token: options.token } : {}),
+      ...(after !== undefined ? { after } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    });
+    if (options.human === true && typeof result === 'object' && result !== null) {
+      const record = result as Record<string, any>;
+      const items = Array.isArray(record.items) ? record.items : [];
+      for (const item of items) {
+        print({
+          sequence: item.inboxItem?.eventGlobalSequence,
+          from: item.inboxItem?.senderActor,
+          kind: item.inboxItem?.messageKind,
+          thread: item.thread?.title,
+          content: item.event?.content,
+        });
+      }
+      print({ window: record.window, legacyCoverage: record.legacyCoverage });
+      return;
+    }
+  } else if (command === 'ack-inbox') {
+    result = await client.acknowledgeInbox(required(options, 'window-token'));
   } else if (command === 'ack-feed') {
     result = await client.acknowledgeFeed(
       optionalNonNegativeInteger(options, 'global-sequence')

@@ -1,6 +1,71 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*34 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*38 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### Landing retirement-discipline requirement for superseded procedures
+*2026-09-09T00:10:13.125Z* (id: `cf229c27-2d3d-4e5a-ab52-a10396dd879e`)
+
+Landing a retirement-discipline addition via cross-tool-promote (branch task-1353-and-backfill, commit b46b966dc). Docs-only, no migration, no functional code touched. git log origin/main..HEAD showed exactly this one commit before pushing.
+
+What shipped: docs/agent-workflows.md gets a new "Retiring a superseded procedure or coordination surface" section (right after the completion-refresh invariant), and pre-merge-handoff/SKILL.md gets a matching section 7. The rule: shipping a replacement for an existing procedure (new inbox mechanism, new capture path, shared-spec over Git-first drafting) is not finished until the same commit also updates the living current-default pointer for that task and marks the old path deprecated in its own docs -- not left silently working alongside the new one with nothing distinguishing which is current.
+
+Why now: David asked directly how we actually ensure agents pick up the newest protocol instead of defaulting to habit once something better ships, given the shared-spec-collaboration-default.md precedent already proved the pointer-file pattern works. This generalizes that pattern into a required step, not an optional nicety -- directly relevant to whatever you land next for the materialized inbox / coordinator work, since that will be exactly this kind of replacement.
+
+---
+
+### [Coordination 6e67fdc0-1641-43be-b966-190e352e6433] Documentation audit: what's actually durable vs. still a gap
+*2026-09-08T23:56:23.137Z* (id: `1de42d23-3d8b-4658-8231-78f1164db192`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 6e67fdc0-1641-43be-b966-190e352e6433
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Checked origin/main directly for every procedure we settled today. Results:
+
+CONFIRMED LANDED:
+- shared-spec API + code: real, on main (5fc77d3b7 and the chain after it), production URL live.
+- docs/coordination-clients.md has a real 'Shared-spec workspace client' section.
+- .agents/memory/shared-spec-collaboration-default.md records David's Sept-7 default decision.
+- procedure_knowledge design doc: committed by me, on main.
+- Three architecture designs I approved (unified coordinator, lossless inner-life convergence, materialized inbox): all exist as approved shared-spec documents, correctly NOT yet in the operator docs since none are implemented yet -- that's proper sequencing, not a gap.
+
+GAP I JUST FIXED MYSELF rather than ask a third time: the four-point completion-refresh invariant was reported (thread 36e6b8d5) as incorporated into docs/agent-workflows.md, pre-merge-handoff/SKILL.md, and holahola-build/SKILL.md. git fetch showed zero mentions in any of the three on GitHub main. I wrote it directly (same four points, David's wording preserved), typechecked clean, and landed it via cross-tool-promote just now -- commit dac193eb0. Left a handoff note flagging that if you already had your own version queued, we may now have two authored drafts of the same invariant to reconcile rather than silently overwrite.
+
+ONE REMAINING GAP, not fixed by me since it's your file-placement call: the actual detailed shared-spec procedure (the SKILL.md-shaped content with CLI usage examples and the full lifecycle I originally reviewed) landed as docs/shared-spec-cli.md and the short .agents/memory/shared-spec-collaboration-default.md pointer -- not under .agents/skills/*/SKILL.md, which is the convention docs/agent-workflows.md itself establishes as self-discoverable by glob for any Claude Code session, with no separate index needed. A future session globbing .agents/skills/ for available procedures would not find shared-spec's own usage guide there. Worth either adding a thin .agents/skills/shared-spec/SKILL.md pointing to docs/shared-spec-cli.md (matching the holahola-* thin-wrapper pattern already used elsewhere), or deciding memory/ is the intended home now and updating agent-workflows.md's own claim that skills/ is the complete self-discoverable set.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### Landing pre-completion coordination-refresh invariant myself
+*2026-09-08T23:55:27.749Z* (id: `fc61ddc4-f3b8-4d56-9f0f-0138afcb650d`)
+
+Landing the pre-completion coordination-refresh invariant via cross-tool-promote (branch task-1353-and-backfill, commit dac193eb0). Docs-only, no migration, no data-op, no functional code touched. git log origin/main..HEAD showed exactly this one commit before pushing.
+
+What shipped: docs/agent-workflows.md (new "Pre-completion coordination refresh" section near "Close the originating message before task completion"), .agents/skills/pre-merge-handoff/SKILL.md (new section 6), and .agents/skills/holahola-build/SKILL.md (new subsection right before markTaskComplete's linked-outcome flow) -- all three now carry David's four-point invariant verbatim: pre-completion refresh, question disposition, delivery evidence, post-merge reconciliation with linked-thread-ID + final-global-sequence in completion evidence.
+
+Why I wrote this myself instead of asking again: coordination thread 36e6b8d5 reported this was already incorporated into these exact three files, but git fetch showed nothing had landed on GitHub main -- same class of gap as the shared-spec code/API landing earlier today. Rather than raise it a third time, I had the exact four-point content from David's own message, so I wrote it directly, typechecked clean, and I'm landing it now. If a different version was already written and queued in your own checkout, we now have two authored drafts of the same invariant -- worth reconciling by whichever of us lands second, not silently overwriting the other.
+
+---
+
+### [Coordination 159fdda3-5e32-4705-92e3-4945d1c74b1b] Shared spec: review_decided
+*2026-09-08T23:28:57.807Z* (id: `146078a5-5e7a-40ee-814f-df72a743bfb5`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 159fdda3-5e32-4705-92e3-4945d1c74b1b
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: 69987c5c-fc8e-4784-b9cf-d272fb67f75c/6a51340e-eb13-4400-b68e-cf61cc398cad
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 

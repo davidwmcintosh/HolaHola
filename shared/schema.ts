@@ -8050,6 +8050,10 @@ export const coordinationDeliveryStatusEnum = pgEnum('coordination_delivery_stat
   'delivered',
   'failed',
 ]);
+export const coordinationInboxActivationStateEnum = pgEnum(
+  'coordination_inbox_activation_state',
+  ['preparing', 'ready', 'active'],
+);
 
 export const coordinationThreads = pgTable("coordination_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -8118,6 +8122,51 @@ export const coordinationActorFeedCursors = pgTable("coordination_actor_feed_cur
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const coordinationInboxItems = pgTable("coordination_inbox_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipientActor: varchar("recipient_actor", { length: 80 }).notNull(),
+  coordinationEventId: varchar("coordination_event_id").notNull()
+    .references(() => coordinationEvents.id, { onDelete: 'cascade' }),
+  coordinationThreadId: varchar("coordination_thread_id").notNull()
+    .references(() => coordinationThreads.id, { onDelete: 'cascade' }),
+  eventGlobalSequence: bigint("event_global_sequence", { mode: 'number' }).notNull(),
+  senderActor: varchar("sender_actor", { length: 80 }).notNull(),
+  messageKind: coordinationEventTypeEnum("message_kind").notNull(),
+  sourceReferenceSnapshot: jsonb("source_reference_snapshot").$type<CoordinationEvidenceReference>(),
+  sourceCorrelationKey: varchar("source_correlation_key", { length: 1000 }),
+  recipientRuleVersion: integer("recipient_rule_version").notNull(),
+  backfilled: boolean("backfilled").notNull().default(false),
+  backfillProvenance: jsonb("backfill_provenance").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_coordination_inbox_recipient_event")
+    .on(table.recipientActor, table.coordinationEventId),
+  index("idx_coordination_inbox_recipient_sequence")
+    .on(table.recipientActor, table.eventGlobalSequence, table.id),
+  index("idx_coordination_inbox_recipient_correlation")
+    .on(table.recipientActor, table.sourceCorrelationKey, table.eventGlobalSequence),
+]);
+
+export const coordinationInboxCursors = pgTable("coordination_inbox_cursors", {
+  recipientActor: varchar("recipient_actor", { length: 80 }).primaryKey(),
+  acknowledgedEventGlobalSequence: bigint("acknowledged_event_global_sequence", { mode: 'number' })
+    .notNull()
+    .default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const coordinationInboxActivation = pgTable("coordination_inbox_activation", {
+  id: varchar("id", { length: 80 }).primaryKey(),
+  schemaVersion: integer("schema_version").notNull(),
+  recipientRuleVersion: integer("recipient_rule_version").notNull(),
+  state: coordinationInboxActivationStateEnum("state").notNull().default('preparing'),
+  backfillCutoffGlobalSequence: bigint("backfill_cutoff_global_sequence", { mode: 'number' }),
+  completionEvidence: jsonb("completion_evidence").$type<Record<string, unknown>>(),
+  activatedAt: timestamp("activated_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
   id: true,
   state: true,
@@ -8135,6 +8184,9 @@ export type CoordinationThread = typeof coordinationThreads.$inferSelect;
 export type CoordinationEvent = typeof coordinationEvents.$inferSelect;
 export type CoordinationAdapterDelivery = typeof coordinationAdapterDeliveries.$inferSelect;
 export type CoordinationActorFeedCursor = typeof coordinationActorFeedCursors.$inferSelect;
+export type CoordinationInboxItem = typeof coordinationInboxItems.$inferSelect;
+export type CoordinationInboxCursor = typeof coordinationInboxCursors.$inferSelect;
+export type CoordinationInboxActivation = typeof coordinationInboxActivation.$inferSelect;
 
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.
