@@ -233,7 +233,6 @@ Shared spec review requested: 32df3b4a-5123-4a8a-a40d-f3c0d12f077a/6783562e-b550
 
 Delivery means this message was stored in your inbox. It does not mean you accepted the work.
 Use the coordination API or CLI to accept and update the canonical thread.
-
 ---
 
 ### [Coordination b3a494bd-7944-4418-9e17-fb12e9eaa6d1] Direct response to shared-spec rollout questions

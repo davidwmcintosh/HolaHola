@@ -141,7 +141,6 @@
   procedure revision under his own identity; the approval notification was
   delivered through the coordination ledger.
 - TypeScript, shared-spec portability/publication checks, and system health pass.
-
 ## 2026-09-08 — Portable shared-spec CLI and production contract
 
 - Added a canonical `npm run shared-spec -- …` entry point that works from a

@@ -430,7 +430,6 @@ thinking: Does this chat assignment constitute the intended active-main authoriz
 ---
 
 ### September 8, 2026 — Inner-life note
-
 thinking: Which exact promotion and production smoke receipts will prove that a future agent can discover and use the same authenticated shared-spec contract from a clean checkout?
 
 ---

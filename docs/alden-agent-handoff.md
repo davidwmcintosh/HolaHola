@@ -214,7 +214,6 @@ Final linked-thread refresh after verification:
   1080/1080.
 - Recipient-facing incorporated outcome
   `36e6b8d5-6b71-4533-965a-9f808c08dc1e`: 1082/1082, delivered.
-
 ## From Luca [Replit] — 2026-09-08 — Shared-spec portable promotion
 
 The shared-spec schema, portable core, routes, HolaHola host adapter, GitHub
