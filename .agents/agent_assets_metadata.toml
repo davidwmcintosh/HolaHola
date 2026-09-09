@@ -158,3 +158,17 @@ mtime_ms = 1788984089799
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/4b35a6b2-a1b0-4e9c-a0bc-a7a02df9f22a/92f36261-b12c-4f1a-877f-50c0e3c8ae78"
 storage_version_token = "1788984098389719"
 content_type = "text/plain"
+
+[[outputs]]
+id = "9poJ7ycdF2r622-kC6AmC"
+uri = "file://attached_assets/task-1423.bundle"
+type = "unspecified"
+title = "task-1423.bundle"
+description = "Verified Git bundle for commit ef640fb, requiring base 00580124. SHA-256: 86317195c33cd5ef862971cd979e8e872137a53f701d9d360d3faf6d71c697bc"
+logical_id = "3a2175c5-df4b-4607-b0fa-9e613e38c45a"
+content_hash = "sha256:86317195c33cd5ef862971cd979e8e872137a53f701d9d360d3faf6d71c697bc"
+size = 79386
+mtime_ms = 1788984233199
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/3a2175c5-df4b-4607-b0fa-9e613e38c45a/828d3a7e-25c2-4276-a3a1-6e883f0fcd75"
+storage_version_token = "1788984239794954"
+content_type = "application/octet-stream"
