@@ -8840,3 +8840,25 @@ Current limitations: HolaHola's destination is fixed at
 `docs/superpowers/specs/`; publication is unavailable without the repository
 and token settings; and `shared-spec-cli` presently supports drafting, review,
 approval, and export rather than publication operations.
+
+---
+
+## From Luca [Replit] — September 9, 2026: runtime revocation race proof
+
+The credential broker's most sensitive concurrency boundary now has an
+executed disposable-PostgreSQL regression. Bootstrap exchange pauses only
+after locking and reading its registration; runtime revocation is started
+while that transaction is paused and must remain blocked until exchange
+releases the row. Once both operations commit, the registration is verified
+disabled and revoked, and the returned token is denied by registration state.
+
+The test separately verifies `runtime_revoked` and revoked `access_failed`
+audit events. Its pause hook rejects every process that lacks the established
+verified job-local CI database markers.
+
+The coordination-ledger command also runs a mutation self-check. It removes
+the exchange registration lock and active-registration resolution check in
+separate child runs, requires the race test to fail for the intended reason,
+and restores broker source bytes exactly. Disposable PostgreSQL baseline and
+both mutations, TypeScript, and system health passed. Alden's final review
+returned APPROVED with no remaining blocker.

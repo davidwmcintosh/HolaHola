@@ -5503,3 +5503,19 @@ The current adapter publishes only into `docs/superpowers/specs/`, opens a PR
 rather than writing the base branch, and leaves publication unavailable when
 GitHub configuration is absent. The CLI currently covers document/review/export
 operations, not publication administration.
+
+## Runtime revocation credential race guard — September 9, 2026
+
+The coordination credential broker now exposes a test hook only when the
+process is verified against a job-local PostgreSQL database. The broker race
+test pauses bootstrap exchange after it owns the registration row lock, starts
+runtime revocation, proves revocation waits, then confirms the returned token
+cannot authenticate after the registration is disabled and revoked.
+
+The test verifies both the successful runtime-revocation audit and the denied
+access audit. A registered mutation self-check independently removes the
+exchange lock and the active-registration resolution guard; each mutation must
+make the race test fail, and the broker source is restored byte-for-byte.
+
+Disposable PostgreSQL baseline and mutation runs, TypeScript, system health,
+and Alden review passed.

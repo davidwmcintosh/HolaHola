@@ -14,6 +14,7 @@ import {
   renewBrokerCredential,
   resolveBrokerCredential,
   revokeBrokerCredential,
+  revokeRuntimeCredentials,
 } from '../services/coordination-credential-broker';
 
 const hasDisposableDatabase = Boolean(
@@ -21,11 +22,27 @@ const hasDisposableDatabase = Boolean(
 );
 const databaseTest = hasDisposableDatabase ? test : test.skip;
 const runtimeId = `credential-broker-${Date.now()}`;
+const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
+
+function deferred(): {
+  promise: Promise<void>;
+  resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 after(async () => {
   if (!hasDisposableDatabase) return;
   await getSharedDb().delete(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, revocationRaceRuntimeId));
+  await getSharedDb().delete(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  await getSharedDb().delete(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, revocationRaceRuntimeId));
   await getSharedDb().delete(coordinationCredentialAuditEvents)
     .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
   await closeDbConnections();
@@ -91,3 +108,85 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
   assert.equal(auditEvents.some((event) => event.eventType === 'revoked' && event.success), true);
   assert.equal(auditEvents.some((event) => event.eventType === 'exchange_failed' && !event.success), true);
 });
+
+const verifiedDisposableDatabaseTest = getVerifiedCiDatabaseUrl() ? test : test.skip;
+
+verifiedDisposableDatabaseTest(
+  'runtime revocation cannot leave an issued credential usable after an overlapping bootstrap exchange',
+  async () => {
+    const { bootstrapToken } = await registerCoordinationRuntime({
+      runtimeId: revocationRaceRuntimeId,
+      actor: 'luca-replit',
+      displayName: 'Credential broker revocation race CI runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+    const exchangePaused = deferred();
+    const releaseExchange = deferred();
+
+    const exchangePromise = exchangeBootstrapCredential(
+      revocationRaceRuntimeId,
+      bootstrapToken,
+      undefined,
+      {
+        afterRegistrationLocked: async () => {
+          exchangePaused.resolve();
+          await releaseExchange.promise;
+        },
+      },
+    );
+    await exchangePaused.promise;
+
+    const revocationPromise = revokeRuntimeCredentials(
+      revocationRaceRuntimeId,
+      'luca-replit',
+    );
+    const revocationFinishedBeforeRelease = await Promise.race([
+      revocationPromise.then(() => true),
+      new Promise<false>((resolve) => {
+        setTimeout(() => resolve(false), 1_000);
+      }),
+    ]);
+    releaseExchange.resolve();
+    const [issued, revoked] = await Promise.all([exchangePromise, revocationPromise]);
+    assert.equal(
+      revocationFinishedBeforeRelease,
+      false,
+      'runtime revocation must wait while bootstrap exchange holds the registration lock',
+    );
+
+    assert.ok(issued, 'the lock-winning exchange should return its credential before revocation commits');
+    assert.equal(revoked, true);
+
+    const [registration] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, revocationRaceRuntimeId));
+    assert.equal(registration.enabled, false);
+    assert.ok(registration.revokedAt);
+    await getSharedDb().update(coordinationRuntimeCredentials)
+      .set({ revokedAt: null })
+      .where(eq(coordinationRuntimeCredentials.id, issued.credential.credentialId));
+    assert.equal(
+      await resolveBrokerCredential(issued.accessToken),
+      null,
+      'a credential returned by the overlapping exchange must not authenticate through a revoked registration',
+    );
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, revocationRaceRuntimeId));
+    assert.equal(
+      auditEvents.some((event) => event.eventType === 'runtime_revoked' && event.success),
+      true,
+      'runtime revocation must be audited',
+    );
+    assert.equal(
+      auditEvents.some((event) => (
+        event.eventType === 'access_failed'
+        && !event.success
+        && event.reason === 'revoked'
+        && event.credentialId === issued.credential.credentialId
+      )),
+      true,
+      'denied use of the returned credential must be audited as revoked',
+    );
+  },
+);

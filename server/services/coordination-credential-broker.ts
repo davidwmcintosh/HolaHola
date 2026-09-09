@@ -10,6 +10,7 @@ import {
   type CoordinationActorId,
   type CoordinationCredentialCapability,
 } from '@shared/schema';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import { getSharedDb } from '../db';
 
 const actorIds = new Set<string>(COORDINATION_ACTOR_IDS);
@@ -37,6 +38,9 @@ export type BrokerCredential = {
   expiresAt: Date;
 };
 
+type ExchangeBootstrapCredentialTestHooks = {
+  afterRegistrationLocked?: () => Promise<void>;
+};
 export function hashCoordinationSecret(secret: string): string {
   return crypto.createHash('sha256').update(secret, 'utf8').digest('hex');
 }
@@ -565,7 +569,11 @@ export async function exchangeBootstrapCredential(
   runtimeId: string,
   bootstrapToken: string | undefined,
   sourceIp?: string,
+  testHooks?: ExchangeBootstrapCredentialTestHooks,
 ): Promise<{ accessToken: string; credential: BrokerCredential } | null> {
+  if (testHooks && !getVerifiedCiDatabaseUrl()) {
+    throw new Error('credential broker test hooks require a verified disposable CI database');
+  }
   return getSharedDb().transaction(async (tx) => {
     await tx.execute(sql`
       SELECT id FROM coordination_runtime_registrations
@@ -574,6 +582,7 @@ export async function exchangeBootstrapCredential(
     `);
     const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
       .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    await testHooks?.afterRegistrationLocked?.();
     const valid = Boolean(
       registration?.enabled
       && !registration.revokedAt
