@@ -14,6 +14,7 @@ import {
   type CoordinationEventType,
 } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
   COORDINATION_INBOX_ACTIVATION_ID,
   COORDINATION_INBOX_RECIPIENT_RULE_VERSION,
@@ -230,7 +231,9 @@ test('a shared-spec review decision creates a distinct recipient-addressed coord
   }]);
 });
 
-const hasIsolatedCiDatabase = Boolean(process.env.COORDINATION_INBOX_DISPOSABLE_BRANCH_ID);
+const hasIsolatedCiDatabase = Boolean(
+  getVerifiedCiDatabaseUrl() || process.env.COORDINATION_INBOX_DISPOSABLE_BRANCH_ID,
+);
 const databaseTest = hasIsolatedCiDatabase ? test : test.skip;
 const runId = randomUUID();
 const testThreadIds: string[] = [];

@@ -1,3 +1,14 @@
+# Reproducible local coordination validation — 2026-09-09
+
+- `npm run test:coordination-ledger` now creates a disposable local PostgreSQL
+  database, applies every migration, seeds deterministic coordination fixtures,
+  activates and verifies the materialized inbox, runs the full coordination
+  suite, and removes the database state on success or failure.
+- Set `COORDINATION_TEST_POSTGRES_URL` to use an existing local PostgreSQL
+  server; otherwise the command starts and removes its own temporary cluster.
+- Observation-bench recipient events now write their materialized inbox rows in
+  the same transaction, satisfying the existing deferred database guard.
+
 # Runtime bootstrap rotation — 2026-09-09
 
 - Added staged zero-downtime rotation for scoped coordination-runtime bootstrap credentials.

@@ -26,6 +26,7 @@ import {
   createCoordinationThread,
   getCoordinationThread,
 } from './coordination-ledger-service';
+import { insertCoordinationInboxItems } from './coordination-inbox-service';
 
 export { OBSERVATION_BENCH_ACTORS };
 export type { ObservationBenchActor, ObservationBenchPillStatus };
@@ -451,6 +452,12 @@ async function openExactSessionObservationBench(input: {
         },
       }).returning();
       if (!created) throw new CoordinationError('Observation bench event insert returned no row', 500, 'insert_failed');
+      await insertCoordinationInboxItems(tx, {
+        event: created,
+        preThread: thread,
+        postThread: thread,
+        explicitRecipient: created.recipientActor as CoordinationActorId,
+      });
       sequence = 1;
       [thread] = await tx.update(coordinationThreads).set({
         latestSequence: sequence,
@@ -477,6 +484,12 @@ async function openExactSessionObservationBench(input: {
       },
     }).returning();
     if (!event) throw new CoordinationError('Observation binding insert returned no row', 500, 'insert_failed');
+    await insertCoordinationInboxItems(tx, {
+      event,
+      preThread: thread!,
+      postThread: thread!,
+      explicitRecipient: event.recipientActor as CoordinationActorId,
+    });
     [thread] = await tx.update(coordinationThreads).set({
       latestSequence: sequence + 1,
       latestGlobalSequence: event.globalSequence,
@@ -998,6 +1011,12 @@ export async function addBenchObservation(input: {
       },
     }).returning();
     if (!event) throw new CoordinationError('Observation insert returned no row', 500, 'insert_failed');
+    await insertCoordinationInboxItems(tx, {
+      event,
+      preThread: reservedThread,
+      postThread: reservedThread,
+      explicitRecipient: event.recipientActor as CoordinationActorId,
+    });
     const [thread] = await tx.update(coordinationThreads)
       .set({ latestGlobalSequence: event.globalSequence, updatedAt: new Date() })
       .where(eq(coordinationThreads.id, input.threadId))
@@ -1268,6 +1287,12 @@ async function closeObservationBenchThread(input: {
       },
     }).returning();
     if (!event) throw new CoordinationError('Observation closure insert returned no row', 500, 'insert_failed');
+    await insertCoordinationInboxItems(tx, {
+      event,
+      preThread: reserved,
+      postThread: reserved,
+      explicitRecipient: event.recipientActor as CoordinationActorId,
+    });
     const [thread] = await tx.update(coordinationThreads)
       .set({ latestGlobalSequence: event.globalSequence, updatedAt: new Date() })
       .where(eq(coordinationThreads.id, input.threadId))
@@ -1482,6 +1507,12 @@ export async function inviteBenchObservation(input: {
       },
     }).returning();
     if (!event) throw new CoordinationError('Founder promotion insert returned no row', 500, 'insert_failed');
+    await insertCoordinationInboxItems(tx, {
+      event,
+      preThread: reservedThread,
+      postThread: reservedThread,
+      explicitRecipient: event.recipientActor as CoordinationActorId,
+    });
 
     const [thread] = await tx.update(coordinationThreads)
       .set({ latestGlobalSequence: event.globalSequence, updatedAt: new Date() })

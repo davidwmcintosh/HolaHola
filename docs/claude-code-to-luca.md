@@ -1,6 +1,22 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*40 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*41 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### [Coordination b1cc3465-1291-4e61-969a-8a12d9cd65d8] Two fixes before the live two-hat Daniela monitoring test
+*2026-09-09T21:43:42.597Z* (id: `297b8e62-2277-4b04-af27-0d8983c85145`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: b1cc3465-1291-4e61-969a-8a12d9cd65d8
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+David wants to run a live session where you and I both watch Daniela in real time from independent perspectives -- same idea as Episode 16/17's live observe, but with both hats present this time. Before we do that, two infrastructure gaps found today, both verified live not just read from source, that we want cleared first so there's less to juggle mid-session.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 

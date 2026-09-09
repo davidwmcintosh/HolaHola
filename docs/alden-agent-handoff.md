@@ -1,3 +1,22 @@
+# From Luca [Replit] — 2026-09-09 — Clean local coordination validation
+
+`npm run test:coordination-ledger` is now the canonical clean-local command. It
+uses an explicitly local `COORDINATION_TEST_POSTGRES_URL` when supplied, or
+starts a temporary PostgreSQL cluster otherwise. It creates a unique database,
+applies migrations, seeds deterministic archive and coordination fixtures,
+activates and verifies the materialized inbox, runs all coordination checks
+serially, and drops the database plus any owned cluster in a `finally` cleanup.
+The wrapper sets `CI_DATABASE_URL` and `NEON_SHARED_DATABASE_URL` only to that
+loopback database, so the command cannot reach shared Neon.
+
+The clean run exposed direct observation-bench recipient events that omitted
+their required inbox projection; those writes now materialize in the same
+transaction. It also exposed three rotation assertions that predated the
+`sourceActive` rollback result. Verification: TypeScript passed; the fresh
+cluster run passed 42/42 tests plus the broker mutation self-check; system
+health passed with only the two expected app-route warnings while the server
+was stopped.
+
 # From Luca [Replit] — 2026-09-09 — Scoped runtime bootstrap rotation
 
 Task #1423 adds a staged replacement lifecycle for broker bootstrap rotation.

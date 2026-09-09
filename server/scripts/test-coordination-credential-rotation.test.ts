@@ -245,7 +245,7 @@ databaseTest('concurrent stages sharing a runtime create exactly one active rota
       sourceRuntimeId: runtimeIds[3],
       replacementRuntimeId: winningReplacementId,
     }),
-    { ok: true, actor: 'luca-replit' },
+    { ok: true, actor: 'luca-replit', sourceActive: true },
   );
   const remainingActiveRotations = await getSharedDb().select().from(coordinationRuntimeRotations)
     .where(and(
@@ -373,7 +373,7 @@ databaseTest('rollback wins a race with replacement readiness and stale readines
     setCoordinationCredentialBrokerConcurrencyTestHook(undefined);
   });
 
-  assert.deepEqual(rollbackAttempt, { ok: true, actor: 'luca-replit' });
+  assert.deepEqual(rollbackAttempt, { ok: true, actor: 'luca-replit', sourceActive: true });
   assert.deepEqual(readinessResult, { ok: false, reason: 'rotation_not_staged' });
   assert.equal([rollbackAttempt, readinessResult].filter((attempt) => attempt.ok).length, 1);
 
@@ -472,6 +472,6 @@ databaseTest('concurrent sources claiming one replacement return one audited los
       sourceRuntimeId: activeRotations[0].sourceRuntimeId,
       replacementRuntimeId: runtimeIds[12],
     }),
-    { ok: true, actor: 'luca-replit' },
+    { ok: true, actor: 'luca-replit', sourceActive: true },
   );
 });
