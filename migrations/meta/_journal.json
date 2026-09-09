@@ -218,6 +218,13 @@
       "when": 1788912201926,
       "tag": "0031_loose_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788917028749,
+      "tag": "0032_coordination_inbox_explicit_recipient_guard",
+      "breakpoints": true
     }
   ]
 }

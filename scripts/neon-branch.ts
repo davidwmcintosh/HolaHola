@@ -322,6 +322,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Repairing and verifying active coordination inbox obligations on the branch...');
+    const inboxRepair = await runCommand(
+      `npx tsx server/scripts/coordination-inbox-admin.ts repair --migration-run-id gate:${branch.id}`,
+      branchEnv,
+    );
+    if (inboxRepair.code !== 0) {
+      failureReason = `coordination inbox repair exited ${inboxRepair.code}`;
+    }
+  }
+
+  if (!failureReason) {
     for (const group of ['test:ci:unit', 'test:ci:guards', 'test:ci:episodes']) {
       console.log(`[gate] Running npm run ${group} against the branch...`);
       const result = await runCommand(`npm run ${group}`, branchEnv);

@@ -982,3 +982,93 @@ export async function verifyCoordinationInboxIntegrity(executor: any = getShared
     unsupportedRuleRows,
   };
 }
+
+export async function repairActiveCoordinationInbox(
+  migrationRunId: string,
+  executor?: any,
+): Promise<{
+  repairedItemCount: number;
+  repairedEventIds: string[];
+  integrity: Awaited<ReturnType<typeof verifyCoordinationInboxIntegrity>>;
+}> {
+  const db = executor ?? getSharedDb();
+  return db.transaction(async (tx: any) => {
+    await tx.execute(sql`LOCK TABLE ${coordinationEvents} IN SHARE ROW EXCLUSIVE MODE`);
+    const activation = await getCoordinationInboxActivation(tx);
+    if (
+      !activation
+      || activation.state !== 'active'
+      || activation.schemaVersion !== COORDINATION_INBOX_SCHEMA_VERSION
+      || activation.recipientRuleVersion !== COORDINATION_INBOX_RECIPIENT_RULE_VERSION
+    ) {
+      throw new CoordinationError(
+        'Active inbox repair requires the supported inbox version to be active',
+        409,
+        'inbox_repair_not_active',
+      );
+    }
+
+    const expectations = await historicalRecipientExpectations(tx);
+    const existingRows: Array<{ coordinationEventId: string; recipientActor: string }> = await tx
+      .select({
+        coordinationEventId: coordinationInboxItems.coordinationEventId,
+        recipientActor: coordinationInboxItems.recipientActor,
+      })
+      .from(coordinationInboxItems)
+      .where(eq(
+        coordinationInboxItems.recipientRuleVersion,
+        COORDINATION_INBOX_RECIPIENT_RULE_VERSION,
+      ));
+    const existing = new Set(existingRows.map(
+      (row) => `${row.coordinationEventId}:${row.recipientActor}`,
+    ));
+    const repairedEventIds = new Set<string>();
+    let repairedItemCount = 0;
+
+    for (const expectation of expectations) {
+      const missingRecipients = expectation.recipients.filter(
+        (recipient) => !existing.has(`${expectation.event.id}:${recipient}`),
+      );
+      if (missingRecipients.length === 0) continue;
+      await tx.insert(coordinationInboxItems).values(missingRecipients.map((recipientActor) => ({
+        recipientActor,
+        coordinationEventId: expectation.event.id,
+        coordinationThreadId: expectation.event.threadId,
+        eventGlobalSequence: expectation.event.globalSequence,
+        senderActor: expectation.event.actor,
+        messageKind: expectation.event.eventType,
+        sourceReferenceSnapshot:
+          expectation.postThread.sourceReference ?? expectation.preThread.sourceReference,
+        sourceCorrelationKey:
+          sourceCorrelationKey(expectation.postThread) ?? sourceCorrelationKey(expectation.preThread),
+        recipientRuleVersion: COORDINATION_INBOX_RECIPIENT_RULE_VERSION,
+        backfilled: true,
+        backfillProvenance: {
+          migrationRunId,
+          reason: 'active_integrity_repair',
+        },
+        createdAt: expectation.event.createdAt,
+      }))).onConflictDoNothing();
+      for (const recipient of missingRecipients) {
+        existing.add(`${expectation.event.id}:${recipient}`);
+      }
+      repairedItemCount += missingRecipients.length;
+      repairedEventIds.add(expectation.event.id);
+    }
+
+    const integrity = await verifyCoordinationInboxIntegrity(tx);
+    if (!integrity.ok) {
+      throw new CoordinationError(
+        'Active inbox repair did not restore exact recipient integrity',
+        500,
+        'inbox_repair_incomplete',
+        { mismatches: integrity.mismatches.slice(0, 25) },
+      );
+    }
+    return {
+      repairedItemCount,
+      repairedEventIds: [...repairedEventIds],
+      integrity,
+    };
+  });
+}

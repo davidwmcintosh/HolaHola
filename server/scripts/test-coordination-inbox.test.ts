@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
 import { after, test } from 'node:test';
-import { eq } from 'drizzle-orm';
+import { eq, max } from 'drizzle-orm';
 import {
   COORDINATION_EVENT_TYPES,
   agentNotes,
@@ -258,31 +258,79 @@ databaseTest('materialized inbox keeps page windows stable, isolates actors, and
     target: coordinationInboxActivation.id,
     set: { state: 'active', schemaVersion: COORDINATION_INBOX_SCHEMA_VERSION, recipientRuleVersion: COORDINATION_INBOX_RECIPIENT_RULE_VERSION },
   });
+  const [{ highWater }] = await db
+    .select({ highWater: max(coordinationInboxItems.eventGlobalSequence) })
+    .from(coordinationInboxItems)
+    .where(eq(coordinationInboxItems.recipientActor, actors.recipient));
+  await db.insert(coordinationInboxCursors).values({
+    recipientActor: actors.recipient,
+    acknowledgedEventGlobalSequence: Number(highWater ?? 0),
+  }).onConflictDoUpdate({
+    target: coordinationInboxCursors.recipientActor,
+    set: {
+      acknowledgedEventGlobalSequence: Number(highWater ?? 0),
+      updatedAt: new Date(),
+    },
+  });
 
   const insertEvent = async (recipientActor: CoordinationActorId) => {
     const threadId = randomUUID();
     testThreadIds.push(threadId);
-    await db.insert(coordinationThreads).values({
-      id: threadId, title: `Inbox ${runId}`, description: 'Disposable CI inbox row.',
-      originActor: actors.origin, intendedRecipient: recipientActor, state: 'created',
+    return db.transaction(async (tx) => {
+      await tx.insert(coordinationThreads).values({
+        id: threadId, title: `Inbox ${runId}`, description: 'Disposable CI inbox row.',
+        originActor: actors.origin, intendedRecipient: recipientActor, state: 'created',
+      });
+      const [event] = await tx.insert(coordinationEvents).values({
+        threadId, sequence: 1, actor: actors.origin, recipientActor, eventType: 'created',
+        content: 'Inbox event.', idempotencyKey: `inbox:${runId}:${threadId}`,
+      }).returning();
+      await tx.insert(coordinationInboxItems).values({
+        recipientActor, coordinationEventId: event.id, coordinationThreadId: threadId,
+        eventGlobalSequence: event.globalSequence, senderActor: actors.origin, messageKind: 'created',
+        recipientRuleVersion: COORDINATION_INBOX_RECIPIENT_RULE_VERSION,
+      });
+      return event;
     });
-    const [event] = await db.insert(coordinationEvents).values({
-      threadId, sequence: 1, actor: actors.origin, recipientActor, eventType: 'created',
-      content: 'Inbox event.', idempotencyKey: `inbox:${runId}:${threadId}`,
-    }).returning();
-    await db.insert(coordinationInboxItems).values({
-      recipientActor, coordinationEventId: event.id, coordinationThreadId: threadId,
-      eventGlobalSequence: event.globalSequence, senderActor: actors.origin, messageKind: 'created',
-      recipientRuleVersion: COORDINATION_INBOX_RECIPIENT_RULE_VERSION,
-    });
-    return event;
   };
+
+  const staleWriterThreadId = randomUUID();
+  await assert.rejects(
+    () => db.transaction(async (tx) => {
+      await tx.insert(coordinationThreads).values({
+        id: staleWriterThreadId,
+        title: `Stale writer ${runId}`,
+        description: 'A stale runtime must not commit an explicit recipient without an inbox row.',
+        originActor: actors.origin,
+        intendedRecipient: actors.recipient,
+        state: 'created',
+      });
+      await tx.insert(coordinationEvents).values({
+        threadId: staleWriterThreadId,
+        sequence: 1,
+        actor: actors.origin,
+        recipientActor: actors.recipient,
+        eventType: 'created',
+        content: 'This transaction deliberately omits the inbox row.',
+        idempotencyKey: `inbox-stale-writer:${runId}`,
+      });
+    }),
+    (error: unknown) => (
+      error instanceof Error
+      && error.message.includes('Failed query: commit')
+      && error.cause instanceof Error
+      && error.cause.message.includes('has no materialized inbox item')
+    ),
+  );
 
   const first = await insertEvent(actors.recipient);
   const second = await insertEvent(actors.recipient);
   const third = await insertEvent(actors.recipient);
   await insertEvent(actors.owner);
-  const pageOne = await listCoordinationInbox(actors.recipient, { after: 0, limit: 2 });
+  const pageOne = await listCoordinationInbox(actors.recipient, {
+    after: Number(highWater ?? 0),
+    limit: 2,
+  });
   assert.deepEqual(pageOne.items.map((item) => item.event.id), [first.id, second.id]);
   assert.equal(pageOne.window.complete, false);
   await assert.rejects(
