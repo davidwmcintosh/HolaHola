@@ -52,6 +52,8 @@ const runtimeIds = [
   `credential-rotation-concurrent-replacement-b-${Date.now()}`,
   `credential-rotation-terminal-source-${Date.now()}`,
   `credential-rotation-terminal-replacement-${Date.now()}`,
+  `credential-rotation-ready-rollback-source-${Date.now()}`,
+  `credential-rotation-ready-rollback-replacement-${Date.now()}`,
 ];
 
 after(async () => {
@@ -317,4 +319,90 @@ databaseTest('concurrent complete and rollback attempts produce one terminal out
   );
   assert.equal(terminalSuccesses.length, 1);
   assert.equal(terminalFailures.length, 1);
+});
+
+databaseTest('rollback wins a race with replacement readiness and stale readiness is audited', async () => {
+  await registerCoordinationRuntime({
+    runtimeId: runtimeIds[8],
+    actor: 'luca-replit',
+    displayName: 'Readiness rollback race source',
+    capabilities: ['coordination:read', 'coordination:credential:renew'],
+    tokenTtlSeconds: 60,
+  });
+  const staged = await stageCoordinationRuntimeReplacement({
+    sourceRuntimeId: runtimeIds[8],
+    replacementRuntimeId: runtimeIds[9],
+    replacementDisplayName: 'Readiness rollback race replacement',
+  });
+  assert.equal(staged.ok, true);
+  if (!staged.ok) return;
+
+  const issued = await exchangeBootstrapCredential(runtimeIds[9], staged.bootstrapToken);
+  assert.ok(issued);
+  const proof = await resolveBrokerCredential(issued.accessToken);
+  assert.ok(proof);
+
+  let readinessArrived!: () => void;
+  const readinessIsWaiting = new Promise<void>((resolve) => {
+    readinessArrived = resolve;
+  });
+  let releaseReadiness!: () => void;
+  const readinessMayContinue = new Promise<void>((resolve) => {
+    releaseReadiness = resolve;
+  });
+  setCoordinationCredentialBrokerConcurrencyTestHook(async (point) => {
+    if (point !== 'ready_before_lock') return;
+    readinessArrived();
+    await readinessMayContinue;
+  });
+
+  const readinessAttempt = markCoordinationRuntimeReplacementReady({
+    sourceRuntimeId: runtimeIds[8],
+    credential: proof,
+  });
+  await readinessIsWaiting;
+  const rollbackAttempt = await rollbackCoordinationRuntimeReplacement({
+    sourceRuntimeId: runtimeIds[8],
+    replacementRuntimeId: runtimeIds[9],
+  });
+  releaseReadiness();
+  const readinessResult = await readinessAttempt.finally(() => {
+    setCoordinationCredentialBrokerConcurrencyTestHook(undefined);
+  });
+
+  assert.deepEqual(rollbackAttempt, { ok: true, actor: 'luca-replit' });
+  assert.deepEqual(readinessResult, { ok: false, reason: 'rotation_not_staged' });
+  assert.equal([rollbackAttempt, readinessResult].filter((attempt) => attempt.ok).length, 1);
+
+  assert.equal(await resolveBrokerCredential(issued.accessToken), null);
+  assert.equal(await exchangeBootstrapCredential(runtimeIds[9], staged.bootstrapToken), null);
+
+  const [rotation] = await getSharedDb().select().from(coordinationRuntimeRotations)
+    .where(eq(coordinationRuntimeRotations.id, staged.rotationId));
+  assert.ok(rotation);
+  assert.equal(rotation.state, 'rolled_back');
+  assert.ok(rotation.rolledBackAt);
+  assert.equal(rotation.readyAt, null);
+  assert.equal(rotation.readyCredentialId, null);
+
+  const activeRotations = await getSharedDb().select().from(coordinationRuntimeRotations)
+    .where(and(
+      eq(coordinationRuntimeRotations.sourceRuntimeId, runtimeIds[8]),
+      inArray(coordinationRuntimeRotations.state, ['staged', 'ready']),
+    ));
+  assert.equal(activeRotations.length, 0);
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeIds[8]));
+  assert.equal(auditEvents.filter((event) =>
+    event.eventType === 'rotation_rolled_back' && event.success
+  ).length, 1);
+  assert.equal(auditEvents.filter((event) =>
+    event.eventType === 'rotation_ready_failed'
+    && !event.success
+    && event.reason === 'rotation_not_staged'
+  ).length, 1);
+  assert.equal(auditEvents.filter((event) =>
+    event.eventType === 'rotation_ready' && event.success
+  ).length, 0);
 });

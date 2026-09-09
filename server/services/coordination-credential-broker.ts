@@ -18,7 +18,11 @@ const capabilityIds = new Set<string>(COORDINATION_CREDENTIAL_CAPABILITIES);
 const MIN_TTL_SECONDS = 60;
 const MAX_TTL_SECONDS = 3600;
 
-type RotationConcurrencyTestPoint = 'stage_snapshot_read' | 'complete_snapshot_read' | 'rollback_snapshot_read';
+type RotationConcurrencyTestPoint =
+  | 'stage_snapshot_read'
+  | 'ready_before_lock'
+  | 'complete_snapshot_read'
+  | 'rollback_snapshot_read';
 let rotationConcurrencyTestHook: ((point: RotationConcurrencyTestPoint) => Promise<void>) | undefined;
 
 export function setCoordinationCredentialBrokerConcurrencyTestHook(
@@ -328,6 +332,7 @@ export async function markCoordinationRuntimeReplacementReady(input: {
   credential: BrokerCredential;
   sourceIp?: string;
 }): Promise<RuntimeReplacementResult<{ rotationId: string }>> {
+  await rotationConcurrencyTestHook?.('ready_before_lock');
   return getSharedDb().transaction(async (tx) => {
     const executor = tx as unknown as ReturnType<typeof getSharedDb>;
     await lockRuntimePair(executor, input.sourceRuntimeId, input.credential.runtimeId);
