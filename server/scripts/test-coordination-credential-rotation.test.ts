@@ -54,6 +54,9 @@ const runtimeIds = [
   `credential-rotation-terminal-replacement-${Date.now()}`,
   `credential-rotation-ready-rollback-source-${Date.now()}`,
   `credential-rotation-ready-rollback-replacement-${Date.now()}`,
+  `credential-rotation-shared-replacement-source-a-${Date.now()}`,
+  `credential-rotation-shared-replacement-source-b-${Date.now()}`,
+  `credential-rotation-shared-replacement-${Date.now()}`,
 ];
 
 after(async () => {
@@ -405,4 +408,70 @@ databaseTest('rollback wins a race with replacement readiness and stale readines
   assert.equal(auditEvents.filter((event) =>
     event.eventType === 'rotation_ready' && event.success
   ).length, 0);
+});
+
+databaseTest('concurrent sources claiming one replacement return one audited loser without a transaction error', async () => {
+  await Promise.all([
+    registerCoordinationRuntime({
+      runtimeId: runtimeIds[10],
+      actor: 'luca-replit',
+      displayName: 'Shared replacement source A',
+      capabilities: ['coordination:read', 'coordination:credential:renew'],
+      tokenTtlSeconds: 60,
+    }),
+    registerCoordinationRuntime({
+      runtimeId: runtimeIds[11],
+      actor: 'luca-replit',
+      displayName: 'Shared replacement source B',
+      capabilities: ['coordination:read', 'coordination:credential:renew'],
+      tokenTtlSeconds: 60,
+    }),
+  ]);
+
+  setCoordinationCredentialBrokerConcurrencyTestHook(
+    createTwoPartySnapshotBarrier(['stage_snapshot_read']),
+  );
+  const attempts = await Promise.all([
+    stageCoordinationRuntimeReplacement({
+      sourceRuntimeId: runtimeIds[10],
+      replacementRuntimeId: runtimeIds[12],
+      replacementDisplayName: 'Shared replacement candidate',
+    }),
+    stageCoordinationRuntimeReplacement({
+      sourceRuntimeId: runtimeIds[11],
+      replacementRuntimeId: runtimeIds[12],
+      replacementDisplayName: 'Shared replacement candidate',
+    }),
+  ]).finally(() => {
+    setCoordinationCredentialBrokerConcurrencyTestHook(undefined);
+  });
+
+  assert.equal(attempts.filter((attempt) => attempt.ok).length, 1);
+  assert.equal(attempts.filter((attempt) => !attempt.ok).length, 1);
+  assert.equal(attempts.find((attempt) => !attempt.ok)?.reason, 'replacement_runtime_exists');
+
+  const activeRotations = await getSharedDb().select().from(coordinationRuntimeRotations)
+    .where(and(
+      eq(coordinationRuntimeRotations.replacementRuntimeId, runtimeIds[12]),
+      inArray(coordinationRuntimeRotations.state, ['staged', 'ready']),
+    ));
+  assert.equal(activeRotations.length, 1);
+  assert.equal([runtimeIds[10], runtimeIds[11]].includes(activeRotations[0].sourceRuntimeId), true);
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(inArray(coordinationCredentialAuditEvents.runtimeId, [runtimeIds[10], runtimeIds[11]]));
+  assert.equal(auditEvents.filter((event) => event.eventType === 'rotation_started' && event.success).length, 1);
+  assert.equal(auditEvents.filter((event) =>
+    event.eventType === 'rotation_failed'
+    && !event.success
+    && event.reason === 'replacement_runtime_exists'
+  ).length, 1);
+
+  assert.deepEqual(
+    await rollbackCoordinationRuntimeReplacement({
+      sourceRuntimeId: activeRotations[0].sourceRuntimeId,
+      replacementRuntimeId: runtimeIds[12],
+    }),
+    { ok: true, actor: 'luca-replit' },
+  );
 });

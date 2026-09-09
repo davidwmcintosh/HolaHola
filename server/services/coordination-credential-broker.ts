@@ -132,6 +132,12 @@ async function lockRuntimePair(
 ): Promise<void> {
   const [first, second] = [firstRuntimeId, secondRuntimeId].sort();
   await executor.execute(sql`
+    SELECT pg_advisory_xact_lock(hashtextextended(${first}, 0))
+  `);
+  await executor.execute(sql`
+    SELECT pg_advisory_xact_lock(hashtextextended(${second}, 0))
+  `);
+  await executor.execute(sql`
     SELECT id FROM coordination_runtime_registrations
     WHERE id IN (${first}, ${second})
     ORDER BY id
