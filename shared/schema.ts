@@ -7977,12 +7977,22 @@ export const COORDINATION_ACTOR_IDS = [
   'luca-holahola',
   'luca-replit',
   'luca-claude-code',
+  'luca-gemini',
   'alden',
   'daniela',
   'david',
   'coordination-system',
 ] as const;
 export type CoordinationActorId = typeof COORDINATION_ACTOR_IDS[number];
+
+export const COORDINATION_CREDENTIAL_CAPABILITIES = [
+  'coordination:read',
+  'coordination:write',
+  'coordination:inbox:ack',
+  'coordination:credential:renew',
+  'coordination:credential:revoke',
+] as const;
+export type CoordinationCredentialCapability = typeof COORDINATION_CREDENTIAL_CAPABILITIES[number];
 
 export const COORDINATION_EVENT_TYPES = [
   'created',
@@ -8167,6 +8177,57 @@ export const coordinationInboxActivation = pgTable("coordination_inbox_activatio
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const coordinationRuntimeRegistrations = pgTable("coordination_runtime_registrations", {
+  id: varchar("id", { length: 120 }).primaryKey(),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  bootstrapHash: varchar("bootstrap_hash", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  tokenTtlSeconds: integer("token_ttl_seconds").notNull().default(900),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_runtime_bootstrap_hash").on(table.bootstrapHash),
+  index("idx_coordination_runtime_actor").on(table.actor, table.enabled),
+]);
+
+export const coordinationRuntimeCredentials = pgTable("coordination_runtime_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runtimeId: varchar("runtime_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'cascade' }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  revokedAt: timestamp("revoked_at"),
+  renewedFromCredentialId: varchar("renewed_from_credential_id"),
+}, (table) => [
+  uniqueIndex("uq_coordination_runtime_token_hash").on(table.tokenHash),
+  index("idx_coordination_runtime_credential_active").on(table.runtimeId, table.expiresAt, table.revokedAt),
+  index("idx_coordination_runtime_credential_actor").on(table.actor, table.expiresAt),
+]);
+
+export const coordinationCredentialAuditEvents = pgTable("coordination_credential_audit_events", {
+  id: bigserial("id", { mode: 'number' }).primaryKey(),
+  eventType: varchar("event_type", { length: 40 }).notNull(),
+  success: boolean("success").notNull(),
+  runtimeId: varchar("runtime_id", { length: 120 }),
+  actor: varchar("actor", { length: 80 }),
+  credentialId: varchar("credential_id"),
+  reason: varchar("reason", { length: 160 }),
+  sourceIpHash: varchar("source_ip_hash", { length: 64 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_coordination_credential_audit_runtime").on(table.runtimeId, table.createdAt),
+  index("idx_coordination_credential_audit_actor").on(table.actor, table.createdAt),
+  index("idx_coordination_credential_audit_failures").on(table.success, table.createdAt),
+]);
+
 export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
   id: true,
   state: true,
@@ -8187,6 +8248,9 @@ export type CoordinationActorFeedCursor = typeof coordinationActorFeedCursors.$i
 export type CoordinationInboxItem = typeof coordinationInboxItems.$inferSelect;
 export type CoordinationInboxCursor = typeof coordinationInboxCursors.$inferSelect;
 export type CoordinationInboxActivation = typeof coordinationInboxActivation.$inferSelect;
+export type CoordinationRuntimeRegistration = typeof coordinationRuntimeRegistrations.$inferSelect;
+export type CoordinationRuntimeCredential = typeof coordinationRuntimeCredentials.$inferSelect;
+export type CoordinationCredentialAuditEvent = typeof coordinationCredentialAuditEvents.$inferSelect;
 
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.

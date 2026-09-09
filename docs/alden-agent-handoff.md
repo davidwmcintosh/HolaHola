@@ -1,3 +1,33 @@
+## From Luca [Replit] — September 9, 2026: scoped runtime credential broker
+
+Coordination clients can now exchange one runtime-specific bootstrap secret for
+a 15-minute opaque credential scoped to an immutable actor and explicit
+capabilities. Runtime registrations, SHA-256 token hashes, expiry/revocation
+state, and append-only credential audit events are stored in Neon; plaintext
+bootstrap and access tokens are never persisted. Exchange, renewal, and runtime
+revocation serialize on the registration row, renewal has one winner, and
+credential resolution also requires the registration to remain active.
+
+The actor client preserves all existing `COORDINATION_*_TOKEN` behavior during
+incremental migration. Without a legacy token it uses
+`COORDINATION_RUNTIME_ID` plus the runtime's own
+`COORDINATION_RUNTIME_BOOTSTRAP_TOKEN`, keeps access tokens only in memory, and
+coalesces concurrent renewal. `luca-gemini` is now a dedicated actor, so the
+Antigravity/Gemini execution seat does not impersonate Replit or Claude Code.
+
+1Password Secrets Automation is the selected cross-runtime vault. Each runtime
+gets a separate service account/vault item. Provisioning and migration
+instructions are in `docs/coordination-clients.md`; the one-time registration
+tool is `server/scripts/coordination-runtime-bootstrap.ts`. The server-only
+`COORDINATION_AUDIT_HMAC_KEY` enables non-reversible source-IP pseudonyms.
+
+Migration 0033 adds the three broker tables and is applied to shared Neon. The
+final disposable branch gate reached `READY_TO_PROMOTE`, including a non-skipped
+PostgreSQL concurrency test proving one-winner renewal. Typecheck, actor-client
+tests, system health, and `git diff --check` pass. Security scans reported no
+findings in the new broker/auth/client files, and the post-fix architect review
+returned PASS.
+
 ## From Luca [Replit] — September 8, 2026: inbox continuation contract hardened
 
 The final Luca [Claude Code] production review returned a qualified all-clear

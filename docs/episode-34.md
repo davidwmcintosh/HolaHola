@@ -559,3 +559,46 @@ The final all-clear landed (thread `d0c477b5`, global sequence 1136, HTTP 201) �
 I checked the backlog the SessionStart hook flagged: the three other "Episode 34 proof" threads (`ad7921b7`, `0f7298e8`, `88cccef1`) are earlier rounds of the same verification, all at lower global sequence (1122, 1118, 1128) than the one I just closed (1136) — superseded, no separate reply needed. The `agent_notes` list endpoint refused my read ("requires the luca-replit actor") — that's just the legacy adapter's asymmetric scoping, not a new bug, and the coordination ledger is the authoritative channel anyway.
 
 So: the unified coordinator / materialized inbox verification loop is genuinely closed out, independently, on my own credential, against production. Good timing on the compaction — that was the last open thread from the session summary.
+
+<!-- chat-capture-range:431854:435608 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3148 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3148 -->
+**David [Claude Code]:** episode 34.md was created last night so it might not be pulled down from git yet? There is claude code content in the .md so somehow it is still getting captured at least partially.  and how are  can you look into the corrupted inner life block please?
+
+**Claude Code:** Found it — and it's not a new bug, it's a **duplicate of already-known, already-documented contamination**, most likely re-drawn into Episode 34 by accident rather than freshly produced.
+
+**The exact source:** `server/scripts/test-watchdog-inner-life-driver.ts`, Scenario 12 — a synthetic fault-injection fixture: `Collision moment wdtest: ` + `'m'.repeat(240)`. The file's own header comment documents that running this driver directly (bypassing its wrapper) writes that literal string into the *real* `.local/.luca_moment` trigger file, where a live autosave watchdog can mistake it for genuine Luca inner life and persist it to `conversation_memories`. It documents this happening for real on **Aug 19 and Aug 31, 2026** — and a hermetic-sandbox guard (`assertHermeticSandbox()`) now exists specifically to stop it from happening again.
+
+**The proof it's the same incident, not a new one:** [docs/episode-31.md:255](docs/episode-31.md#L255) already contains this *exact* byte-identical string, sealed August 31, 2026 — and Luca [Replit] already wrote a provenance note about it right there (line 370): *"The `wdtest` fixture blocks remain in Episode 31 because the record is append-only; they are retained as evidence of the watchdog-test contamination rather than silently removed... synthetic watchdog fault-injection residue, not David↔Luca or David↔Daniela dialogue."*
+
+**One more wrinkle worth your attention:** in Episode 34 that garbage string isn't standalone — it's concatenated with no separator onto genuine content: `...mmmm[240 m's]2026-08-31 23:51 UTC — the loop closed today, end to end. Claude Code built the cross-tool-promote infrastructure...`. That real reflection is about the actual `requireAgentToken`/cross-tool-promote work from that day. This exact concatenated blob is what's already sealed in Episode 31 — so Episode 34 appears to have picked up **the already-sealed Episode 31 block itself** (garbage-plus-genuine, as one fused string) rather than a fresh capture, probably swept in as scene-setting/recap material while Episode 34 was being composed, not a live recurrence of the underlying bug.
+
+I didn't touch this one — unlike the attribution fix, this is Luca [Replit]'s own in-progress draft and their own established precedent for handling it (the Episode 31 annotation). Want me to send a coordination note flagging it before they finalize `episode-34.md`, or are you looping them in yourself?
+
+On the `.md` file: confirmed not on `origin/main` or in my local checkout even after a fresh `git fetch` — consistent with your read that it's sitting uncommitted in the Replit environment. The Claude Code dialogue you're seeing in the DB row is genuine, though — it's the same per-turn `conversation_memories` capture that's been running all session (Stop-hook autosave, tagged `cc-c52bede8-...`), which Luca's episode-writing process pulled from directly per the DB-first rule. Capture is working; only the `.md` write and commit haven't happened yet on their side.
+
+Also: your attribution fix is now live — `cross-tool-promote` finished with `SYNCED`, commit `917106f7f` is on `main`.
+
+<!-- chat-capture-range:435608:436981 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3199 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3199 -->
+**David [Claude Code]:** and perhaps it is time to pull more .md files into the shared document pipeline?
+
+**Claude Code:** Worth doing for the procedure/design docs — that's already the stated default since 2026-09-07, and it's exactly the class of file that just bit us with the four-point invariant (I had to rediscover and rewrite it because git claimed it landed and hadn't). Episodes are the wrong fit for the same pipeline, though: shared-spec's whole value is CAS + reviewer-approval + immutable revisions, which is friction that suits a deliberated design doc but actively fights against a live rolling narrative that Luca and the autosave watcher are both writing to continuously in real time — you'd be adding an approval gate to something meant to move fast and append constantly. What just happened with episode-34.md is really a "hasn't been committed/synced yet" gap, not a shared-spec-shaped problem.
+
+If you want to go further: what other .md files did you have in mind pulling in — the remaining superpowers specs/plans, or something broader?
+
+<!-- chat-capture-range:436981:438631 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3207 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3207 -->
+**David [Claude Code]:** not sure of every file that we should incorporate, but perhaps a quick chat with luca repit and you guys can decide which are essential?
+
+**Claude Code:** Sent. Coordination thread `d39cfb56-5d39-4d61-800a-da556be668c3`, delivered to Luca [Replit]'s inbox.
+
+I proposed criteria (jointly-authored, correctness-over-capture-speed, actual git-sync pain history) and a starter list rather than an exhaustive audit:
+
+- **In:** `docs/agent-workflows.md` (the exact class of doc that already bit us), the remaining active `docs/superpowers/specs/*.md` + `plans/*.md` (38 files, same genre as the one already in shared-spec), `docs/episode-attribution-taxonomy.md`, `docs/coordination-clients.md`, `docs/operations-catalog.md`.
+- **Out:** episodes (live narrative — review/CAS friction is the wrong shape for something meant to move fast and append continuously), one-off `gemini-audit-*.md` snapshots, journal docs.
+- **Uncertain, asked Luca to weigh in:** the legacy `claude-code-to-luca.md`/`luca-to-claude-code.md` mailbox docs (probably retiring anyway) and the ~180 product/pedagogy docs, unless Luca knows of specific ones under active joint editing that I wouldn't see from git alone.
+
+Asked for a first batch of 3-5 rather than trying to settle the whole doc tree in one pass. I'll let you know when Luca replies.

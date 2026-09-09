@@ -16,6 +16,7 @@ import {
 const TOKENS = {
   'luca-replit': 'r'.repeat(40),
   'luca-claude-code': 'c'.repeat(40),
+  'luca-gemini': 'g'.repeat(40),
   'luca-holahola': 'h'.repeat(40),
   alden: 'a'.repeat(40),
   daniela: 'd'.repeat(40),
@@ -24,6 +25,7 @@ const TOKENS = {
 const ENVIRONMENT = {
   COORDINATION_LUCA_REPLIT_TOKEN: TOKENS['luca-replit'],
   COORDINATION_LUCA_CLAUDE_CODE_TOKEN: TOKENS['luca-claude-code'],
+  COORDINATION_LUCA_GEMINI_TOKEN: TOKENS['luca-gemini'],
   COORDINATION_LUCA_HOLAHOLA_TOKEN: TOKENS['luca-holahola'],
   COORDINATION_ALDEN_TOKEN: TOKENS.alden,
   COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
@@ -127,11 +129,116 @@ test('actor clients send only the selected actor dedicated credential', async ()
   assert.deepEqual(observed.map((request) => request.token), [
     TOKENS['luca-replit'],
     TOKENS['luca-claude-code'],
+    TOKENS['luca-gemini'],
     TOKENS['luca-holahola'],
     TOKENS.alden,
     TOKENS.daniela,
   ]);
   assert.equal(observed.every((request) => request.url.includes('cursor=4&limit=10')), true);
+});
+
+test('actor clients exchange only their own runtime bootstrap and use the short-lived token', async () => {
+  const observed: Array<{ url: string; bootstrap: string | null; token: string | null; body: string | null }> = [];
+  const fetchImpl = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const headers = new Headers(init?.headers);
+    const url = String(input);
+    observed.push({
+      url,
+      bootstrap: headers.get('x-coordination-bootstrap'),
+      token: headers.get('x-coordination-token'),
+      body: typeof init?.body === 'string' ? init.body : null,
+    });
+    if (url.endsWith('/api/coordination/credentials/exchange')) {
+      return new Response(JSON.stringify({
+        accessToken: 'ct_short-lived-token',
+        actor: 'luca-replit',
+        runtimeId: 'luca-replit-primary',
+        capabilities: ['coordination:read'],
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }), { status: 201 });
+    }
+    return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('luca-replit', {
+    apiUrl: 'https://coordination.example',
+    environment: {
+      COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+    },
+    fetchImpl,
+  });
+
+  await client.listFeed();
+
+  assert.deepEqual(observed, [
+    {
+      url: 'https://coordination.example/api/coordination/credentials/exchange',
+      bootstrap: 'cb_runtime-only-bootstrap',
+      token: null,
+      body: JSON.stringify({ runtimeId: 'luca-replit-primary' }),
+    },
+    {
+      url: 'https://coordination.example/api/coordination/threads',
+      bootstrap: null,
+      token: 'ct_short-lived-token',
+      body: null,
+    },
+  ]);
+});
+
+test('actor clients reject a broker response attributed to another actor', async () => {
+  const client = createCoordinationActorClient('luca-replit', {
+    apiUrl: 'https://coordination.example',
+    environment: {
+      COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+    },
+    fetchImpl: async () => new Response(JSON.stringify({
+      accessToken: 'ct_wrong-actor-token',
+      actor: 'luca-claude-code',
+      runtimeId: 'luca-replit-primary',
+      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    }), { status: 201 }),
+  });
+
+  await assert.rejects(() => client.listFeed(), /cross-actor credential/);
+});
+
+test('actor clients coalesce concurrent near-expiry renewal into one request', async () => {
+  let renewalCount = 0;
+  const fetchImpl = async (input: string | URL): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith('/api/coordination/credentials/exchange')) {
+      return new Response(JSON.stringify({
+        accessToken: 'ct_near-expiry',
+        actor: 'luca-replit',
+        expiresAt: new Date(Date.now() + 30_000).toISOString(),
+      }), { status: 201 });
+    }
+    if (url.endsWith('/api/coordination/credentials/renew')) {
+      renewalCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return new Response(JSON.stringify({
+        accessToken: 'ct_renewed-once',
+        actor: 'luca-replit',
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('luca-replit', {
+    apiUrl: 'https://coordination.example',
+    environment: {
+      COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+    },
+    fetchImpl,
+  });
+
+  await client.listFeed();
+  await Promise.all([client.listFeed(), client.listFeed(), client.listFeed()]);
+
+  assert.equal(renewalCount, 1);
 });
 
 test('actor clients acknowledge feed progress through the non-lifecycle cursor endpoint', async () => {

@@ -1,3 +1,21 @@
+# 2026-09-09 — Scoped credentials for every Luca runtime
+
+- Selected 1Password Secrets Automation as the cross-runtime bootstrap vault,
+  with a separate service account and vault item for each runtime.
+- Added a credential broker that binds every runtime registration to one actor
+  and an explicit capability allowlist, issues short-lived opaque credentials,
+  stores only hashes, rotates atomically, and records issuance, renewal,
+  expiration attempts, revocation, and failed access.
+- Preserved existing actor-specific `COORDINATION_*_TOKEN` authentication for
+  incremental migration. Updated the shared actor client to exchange and renew
+  broker credentials automatically when only runtime bootstrap settings exist.
+- Added dedicated `luca-gemini` attribution for Antigravity/Gemini and safe
+  setup/provisioning instructions for Replit, Claude Code, Gemini, and future
+  runtimes in `docs/coordination-clients.md`.
+- Added migration 0033 and disposable-database regression coverage for
+  hash-at-rest, invalid bootstrap, concurrent one-winner renewal, revocation,
+  and audit history.
+
 ## 2026-09-08 — Self-describing unified inbox continuation
 
 - Preserved `token` / `--token` as the single signed continuation contract.

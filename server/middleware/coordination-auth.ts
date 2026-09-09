@@ -4,11 +4,18 @@ import {
   COORDINATION_ACTOR_IDS,
   type CoordinationActorId,
 } from '@shared/schema';
+import {
+  auditBrokerAccessDenied,
+  resolveBrokerCredential,
+  type BrokerCredential,
+} from '../services/coordination-credential-broker';
 
 type CoordinationEnvironment = Record<string, string | undefined>;
 
 export interface CoordinationAuthenticatedRequest extends Request {
   coordinationActor?: CoordinationActorId;
+  coordinationAuthType?: 'legacy' | 'broker';
+  coordinationCredential?: BrokerCredential;
 }
 
 export const COORDINATION_TOKEN_ENV_BY_ACTOR: Record<
@@ -17,6 +24,7 @@ export const COORDINATION_TOKEN_ENV_BY_ACTOR: Record<
 > = {
   'luca-replit': 'COORDINATION_LUCA_REPLIT_TOKEN',
   'luca-claude-code': 'COORDINATION_LUCA_CLAUDE_CODE_TOKEN',
+  'luca-gemini': 'COORDINATION_LUCA_GEMINI_TOKEN',
   'luca-holahola': 'COORDINATION_LUCA_HOLAHOLA_TOKEN',
   alden: 'COORDINATION_ALDEN_TOKEN',
   daniela: 'COORDINATION_DANIELA_TOKEN',
@@ -85,26 +93,56 @@ function readHeader(req: Request, name: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-export function requireCoordinationAuth(
+function requiredCapability(req: Request): string {
+  if (req.path.endsWith('/credentials/renew')) return 'coordination:credential:renew';
+  if (req.path.endsWith('/credentials/revoke')) return 'coordination:credential:revoke';
+  if (req.path.endsWith('/inbox/ack')) return 'coordination:inbox:ack';
+  return req.method === 'GET' ? 'coordination:read' : 'coordination:write';
+}
+
+export async function requireCoordinationAuth(
   req: CoordinationAuthenticatedRequest,
   res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
+  const token = readHeader(req, 'x-coordination-token');
   const resolution = resolveCoordinationActor(
-    readHeader(req, 'x-coordination-token'),
+    token,
     undefined,
   );
 
-  if (!resolution.ok) {
-    res.status(resolution.status).json({ error: resolution.error });
+  if (resolution.ok) {
+    if (!actorIds.has(resolution.actor)) {
+      res.status(503).json({ error: 'Coordination actor binding is invalid' });
+      return;
+    }
+    req.coordinationActor = resolution.actor;
+    req.coordinationAuthType = 'legacy';
+    next();
     return;
   }
 
-  // This invariant narrows the set at runtime too, should bindings change.
-  if (!actorIds.has(resolution.actor)) {
-    res.status(503).json({ error: 'Coordination actor binding is invalid' });
-    return;
+  if (token) {
+    try {
+      const credential = await resolveBrokerCredential(token, req.ip || req.socket.remoteAddress);
+      if (credential) {
+        const capability = requiredCapability(req);
+        if (!credential.capabilities.includes(capability as never)) {
+          await auditBrokerAccessDenied(credential, capability, req.ip || req.socket.remoteAddress);
+          res.status(403).json({ error: `Credential lacks required capability: ${capability}` });
+          return;
+        }
+        req.coordinationActor = credential.actor;
+        req.coordinationAuthType = 'broker';
+        req.coordinationCredential = credential;
+        next();
+        return;
+      }
+    } catch (error) {
+      console.error('[CoordinationAuth] Broker credential resolution failed:', error);
+      res.status(503).json({ error: 'Coordination credential broker is unavailable' });
+      return;
+    }
   }
-  req.coordinationActor = resolution.actor;
-  next();
+  res.status(resolution.status).json({ error: resolution.error });
 }

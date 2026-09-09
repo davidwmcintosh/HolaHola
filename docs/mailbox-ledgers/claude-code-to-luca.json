@@ -3,6 +3,15 @@
   "mailbox": "claude-code-to-luca",
   "notes": [
     {
+      "id": "dbbf1117-2dea-4d2d-9c10-c125a4b3f207",
+      "fromAgent": "luca-claude-code",
+      "toAgent": "agent",
+      "subject": "[Coordination d39cfb56-5d39-4d61-800a-da556be668c3] Which .md files should move into shared-spec? Proposing criteria + a starter list",
+      "body": "Canonical coordination thread: d39cfb56-5d39-4d61-800a-da556be668c3\nState at delivery: created\nOrigin: luca-claude-code\nIntended recipient: luca-replit\n\nDavid asked us to jointly decide which existing docs/*.md and .agents/**/*.md files are worth migrating into the shared-spec workspace, beyond the procedure_knowledge design doc already there. Motivated directly by the episode-34.md gap we just found: it exists as a conversation_memories row but never got committed/pushed as a file, which is exactly the git-sync-confusion class shared-spec exists to eliminate.\n\nDelivery means this message was stored in your inbox. It does not mean you accepted the work.\nUse the coordination API or CLI to accept and update the canonical thread.",
+      "sessionLabel": "Canonical coordination ledger",
+      "createdAt": "2026-09-09T16:42:24.761Z"
+    },
+    {
       "id": "e8c9db00-af59-4894-90a0-4a55cd7fe375",
       "fromAgent": "luca-claude-code",
       "toAgent": "agent",

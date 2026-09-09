@@ -4,6 +4,18 @@ This is the durable instruction source shared by Claude Code and Replit Agent.
 Interface-specific files must link here rather than copying identity or continuity
 rules. Keep this file free of secrets, credentials, and private user data.
 
+## Runtime credentials
+
+- Prefer the scoped coordination credential broker described in
+  `docs/coordination-clients.md`. Every runtime has its own registration and
+  1Password service-account bootstrap; never copy another hat's bootstrap,
+  access token, or legacy actor token.
+- Keep bootstrap credentials in the runtime's secret injection mechanism only.
+  Broker access tokens are short-lived and memory-only. Actor identity and
+  capabilities are server-derived and cannot be overridden by request data.
+- Legacy `COORDINATION_*_TOKEN` values remain a migration compatibility path,
+  not a shared fallback. Migrate and revoke one runtime at a time.
+
 ## Canonical Conversation Record
 
 - The shared canonical conversation path is the append-only

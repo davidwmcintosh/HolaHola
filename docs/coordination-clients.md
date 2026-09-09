@@ -9,12 +9,105 @@ The server derives identity only from `x-coordination-token`. The client does
 not accept a token argument and does not read `COORDINATION_API_TOKEN`,
 `REPLIT_AGENT_TOKEN`, or another actor's credential as a fallback.
 
+## Scoped credential broker
+
+**Selected vault:** 1Password Secrets Automation. It is cross-runtime, supports
+separate service accounts and vault ACLs, and lets operators revoke one runtime
+without exposing the other actors' items. 1Password holds bootstrap credentials;
+HolaHola remains the authority for runtime registration, actor binding,
+capabilities, and short-lived coordination credentials.
+
+Each runtime registration has exactly one immutable actor, one bootstrap hash,
+an allowlisted capability set, and a token TTL from 60 to 3,600 seconds
+(15 minutes by default). Bootstrap and access-token plaintext are never stored
+in PostgreSQL. The broker stores SHA-256 hashes, returns an opaque access token
+only in the exchange/renew response, and records registration, issuance,
+renewal, expiration, revocation, invalid bootstrap/token use, and insufficient
+capability attempts. Source IPs are hashed before audit storage.
+Source IP pseudonyms use keyed HMAC when the server-only
+`COORDINATION_AUDIT_HMAC_KEY` (at least 32 characters) is configured; without
+that key, the broker records the attempt without storing an IP-derived value.
+An existing runtime ID cannot be reprovisioned or rebound to another actor;
+rotation uses explicit revocation followed by a new runtime registration.
+
+Broker capabilities are:
+
+- `coordination:read`
+- `coordination:write`
+- `coordination:inbox:ack`
+- `coordination:credential:renew`
+- `coordination:credential:revoke`
+
+Actor identity and capabilities always come from the registration and credential
+rows. They are never accepted from request JSON. A broker response attributed
+to a different actor is rejected by the client, preventing one Luca hat from
+silently becoming another.
+
+### Provision a runtime
+
+An operator runs this once from the trusted HolaHola server environment:
+
+```bash
+npx tsx server/scripts/coordination-runtime-bootstrap.ts \
+  --runtime-id luca-replit-primary \
+  --actor luca-replit \
+  --display-name "Luca [Replit] primary" \
+  --capabilities coordination:read,coordination:write,coordination:inbox:ack,coordination:credential:renew,coordination:credential:revoke
+```
+
+The command prints the bootstrap token once. Paste it directly into a new
+1Password item in a vault readable by only that runtime's service account, then
+clear the terminal scrollback. Never place it in a repository file, shell
+profile, shared `.env`, command argument, chat, or coordination message.
+
+Configure only these non-secret/secret values in the runtime:
+
+```text
+COORDINATION_API_URL=https://getholahola.com
+COORDINATION_ACTOR=luca-replit
+COORDINATION_RUNTIME_ID=luca-replit-primary
+COORDINATION_RUNTIME_BOOTSTRAP_TOKEN=<injected by that runtime's 1Password service account>
+```
+
+The actor client exchanges the bootstrap at first use, keeps the access token
+in memory, and renews it within 60 seconds of expiration. Renewal rotates the
+token; the prior token is revoked. A restart exchanges the bootstrap again.
+
+### Runtime-specific setup
+
+- **Replit:** create a dedicated 1Password service account/vault for
+  `luca-replit-primary`. Inject only its bootstrap item into Replit Secrets.
+- **Claude Code:** use a different service account/vault and runtime ID such as
+  `luca-claude-code-primary`; inject through the process launcher, not a checked
+  in `.env`.
+- **Antigravity/Gemini:** register actor `luca-gemini` with a runtime ID such as
+  `luca-gemini-antigravity-primary` and its own service account/vault. Never
+  reuse Replit or Claude Code's registration or bootstrap.
+- **Future runtimes:** add an explicit actor if attribution is distinct, create
+  a new registration and service account, and grant only capabilities required
+  by that runtime's documented operations.
+
+For emergency revocation, an existing legacy token may call
+`POST /api/coordination/credentials/revoke` with `{ "runtimeId": "..." }`.
+It can revoke only a registration bound to the same actor. A broker token can
+call the same endpoint without a body to revoke itself.
+
+### Incremental migration
+
+Legacy `COORDINATION_*_TOKEN` bindings remain accepted and keep their current
+permissions. Migrate one runtime at a time: provision it, configure its two
+runtime values, restart it, verify its authenticated actor and inbox, then
+remove that runtime's legacy token from its local secret store. Keep the server's
+legacy binding until every client for that actor has migrated and rollback is
+no longer needed. Never copy a legacy actor token into the new bootstrap field.
+
 ## Runtime placement and scope
 
 | Actor | Runtime | Credential | Client actions |
 | --- | --- | --- | --- |
 | Luca [Replit] | Replit Agent runtime | `COORDINATION_LUCA_REPLIT_TOKEN` | Read his inbox and coordination feed; create and manage participating work; send actor-derived linked replies; atomically close agent-note-origin work with a verified outcome. |
 | Luca [Claude Code] | Claude Code runtime | `COORDINATION_LUCA_CLAUDE_CODE_TOKEN` | Read his inbox and coordination feed; create and manage participating work; send actor-derived linked replies; atomically close agent-note-origin work with a verified outcome. |
+| Luca [Gemini] | Antigravity/Gemini execution runtime | broker registration (`luca-gemini`) or migration-only `COORDINATION_LUCA_GEMINI_TOKEN` | Read its canonical inbox/feed; create and manage participating work under dedicated attribution. Legacy `agent_notes` linked replies remain Replit/Claude-specific. |
 | Luca [HolaHola] | HolaHola server/live-observation runtime | `COORDINATION_LUCA_HOLAHOLA_TOKEN` | Poll and read the full coordination feed; create handoffs; comment; delegate or reassign. He observes and coordinates but does not accept or complete another actor's work. |
 | Alden | Alden service/runtime | `COORDINATION_ALDEN_TOKEN` | Poll and read participating threads; accept; report progress; attach evidence; block or complete owned work; comment; reassign work he owns; acknowledge outcomes for threads he originated. |
 | Daniela | Daniela service/runtime | `COORDINATION_DANIELA_TOKEN` | Poll and read participating threads; accept; report progress; attach evidence; block or complete owned work; comment. She cannot originate or reassign operational work. |

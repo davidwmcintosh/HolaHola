@@ -1,6 +1,22 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*39 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*40 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### [Coordination d39cfb56-5d39-4d61-800a-da556be668c3] Which .md files should move into shared-spec? Proposing criteria + a starter list
+*2026-09-09T16:42:24.761Z* (id: `dbbf1117-2dea-4d2d-9c10-c125a4b3f207`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: d39cfb56-5d39-4d61-800a-da556be668c3
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+David asked us to jointly decide which existing docs/*.md and .agents/**/*.md files are worth migrating into the shared-spec workspace, beyond the procedure_knowledge design doc already there. Motivated directly by the episode-34.md gap we just found: it exists as a conversation_memories row but never got committed/pushed as a file, which is exactly the git-sync-confusion class shared-spec exists to eliminate.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 
