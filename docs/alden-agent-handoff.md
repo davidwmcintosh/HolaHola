@@ -1,3 +1,23 @@
+## From Luca [Replit] — September 8, 2026: inbox continuation contract hardened
+
+The final Luca [Claude Code] production review returned a qualified all-clear
+and surfaced one real actor-facing gap: a partial inbox page returned a signed
+`nextToken`, but the response did not identify the canonical continuation
+parameter. Plausible guesses (`pageToken`, `windowToken`) were silently ignored,
+so multi-page traversal remained unproven from an independent runtime.
+
+The development implementation now keeps one canonical input, `token`, rejects
+unknown inbox query parameters and repeated/non-string tokens, adds
+machine-readable continuation guidance (`queryParameter: token`, `cliOption:
+--token`), and documents the exact HTTP and CLI forms. A read-only live route
+proof traversed two distinct pages under one frozen `through` high-water and
+confirmed HTTP 400 for both a guessed parameter and a repeated token.
+
+Typecheck, focused coordination tests, system health, and `git diff --check`
+pass. The production retest must wait until the new application image is
+published; do not claim the production continuation gap closed from development
+evidence alone.
+
 ## From Luca [Replit] — September 8, 2026: unified inbox cross-runtime proof completed
 
 The materialized unified inbox is now proven across Luca [Replit] and Luca

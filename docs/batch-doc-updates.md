@@ -1,3 +1,17 @@
+## 2026-09-08 — Self-describing unified inbox continuation
+
+- Preserved `token` / `--token` as the single signed continuation contract.
+- Partial windows now identify the canonical HTTP query parameter and CLI
+  option in their response.
+- The inbox route rejects unknown query parameters instead of silently falling
+  back to the actor's acknowledged cursor, and rejects repeated/non-string
+  continuation tokens.
+- Added route-level coverage for a real second page, frozen high-water,
+  non-duplication, guessed-parameter rejection, and repeated-token rejection.
+- Documented exact CLI and HTTP traversal through the final complete page.
+- Verified the running development route read-only: two distinct pages, stable
+  `through`, and HTTP 400 for both invalid query shapes.
+
 ## 2026-09-08 — Unified inbox hardened production proof
 
 - Repaired exactly three missing inbox obligations from the first failed

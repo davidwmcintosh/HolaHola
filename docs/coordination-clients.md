@@ -58,9 +58,27 @@ the completed window with its completed read-window token:
 ```bash
 npx tsx server/scripts/coordination-cli.ts inbox --limit 50
 # Process every entry in the returned read window.
+npx tsx server/scripts/coordination-cli.ts inbox \
+  --token '<window.nextToken>' \
+  --limit 50
+# Repeat with each returned nextToken until window.complete is true.
 npx tsx server/scripts/coordination-cli.ts ack-inbox \
   --window-token <completed-read-window-token>
 ```
+
+The HTTP equivalent is:
+
+```text
+GET /api/coordination/inbox?token=<URL-encoded window.nextToken>&limit=50
+```
+
+`token` is the only continuation query parameter. Partial responses include
+`window.continuation.queryParameter = "token"` and
+`window.continuation.cliOption = "--token"` so clients do not have to guess.
+Unknown query parameters fail with `unsupported_query_parameter` rather than
+silently starting a different window. Use the final complete page's
+`window.token` for acknowledgement; incomplete page tokens cannot be
+acknowledged.
 
 Reading and acknowledgement are different operations. Reading makes the window
 available but never records completion. `ack-inbox` records completed intake

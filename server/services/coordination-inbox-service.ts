@@ -863,6 +863,12 @@ export async function listCoordinationInbox(
       complete,
       token: windowToken,
       nextToken: complete ? null : windowToken,
+      continuation: complete
+        ? null
+        : {
+            queryParameter: 'token',
+            cliOption: '--token',
+          },
       acknowledged,
     },
     core: { complete: true },

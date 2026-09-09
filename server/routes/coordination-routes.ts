@@ -158,12 +158,29 @@ export function registerCoordinationRoutes(app: Application): void {
     requireCoordinationAuth,
     async (req: CoordinationAuthenticatedRequest, res: Response) => {
       try {
+        const supportedQueryParameters = new Set(['actor', 'token', 'after', 'limit']);
+        const unsupportedQueryParameters = Object.keys(req.query)
+          .filter((name) => !supportedQueryParameters.has(name));
+        if (unsupportedQueryParameters.length > 0) {
+          throw new CoordinationError(
+            `Unsupported inbox query parameter${unsupportedQueryParameters.length === 1 ? '' : 's'}: ${unsupportedQueryParameters.join(', ')}. Use token to continue a partial window.`,
+            400,
+            'unsupported_query_parameter',
+          );
+        }
         const actor = actorFrom(req);
         if (req.query.actor && req.query.actor !== actor) {
           throw new CoordinationError(
             'actor query must match the authenticated actor',
             403,
             'actor_mismatch',
+          );
+        }
+        if (req.query.token !== undefined && typeof req.query.token !== 'string') {
+          throw new CoordinationError(
+            'token must be a single signed inbox window token',
+            400,
+            'invalid_request',
           );
         }
         const after = req.query.after === undefined
