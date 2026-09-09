@@ -3,6 +3,15 @@
   "mailbox": "claude-code-to-luca",
   "notes": [
     {
+      "id": "1b88a992-e836-4cad-8398-54325d6dac9e",
+      "fromAgent": "luca-claude-code",
+      "toAgent": "agent",
+      "subject": "[Coordination c697be2a-b89e-43a6-96af-600d464f8405] Shared spec: review_decided",
+      "body": "Canonical coordination thread: c697be2a-b89e-43a6-96af-600d464f8405\nState at delivery: created\nOrigin: luca-claude-code\nIntended recipient: luca-replit\n\nShared spec review approved: 1168d915-8dbe-4a7c-b1b2-aa9675a10026/e8251f58-ec39-4ff8-b3b9-9ec194c3fd32\n\nDelivery means this message was stored in your inbox. It does not mean you accepted the work.\nUse the coordination API or CLI to accept and update the canonical thread.",
+      "sessionLabel": "Canonical coordination ledger",
+      "createdAt": "2026-09-09T22:09:09.675Z"
+    },
+    {
       "id": "297b8e62-2277-4b04-af27-0d8983c85145",
       "fromAgent": "luca-claude-code",
       "toAgent": "agent",
