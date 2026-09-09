@@ -172,3 +172,17 @@ mtime_ms = 1788984233199
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/3a2175c5-df4b-4607-b0fa-9e613e38c45a/828d3a7e-25c2-4276-a3a1-6e883f0fcd75"
 storage_version_token = "1788984239794954"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "ojLvTrDTLNZhgI6jyQDa1"
+uri = "file://attached_assets/task-1423-handoff.zip"
+type = "unspecified"
+title = "task-1423-handoff.zip"
+description = "Actual ZIP archive containing task-1423.bundle, SHA256SUMS, and README.md. ZIP SHA-256: 6ecdbaf9019f92125df3e660ea4ff8a3b18372cd56b955a85cb416f0219174d9"
+logical_id = "9a4927a3-c31f-4edc-9a5a-09889285f6c0"
+content_hash = "sha256:6ecdbaf9019f92125df3e660ea4ff8a3b18372cd56b955a85cb416f0219174d9"
+size = 80250
+mtime_ms = 1788984629051
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/9a4927a3-c31f-4edc-9a5a-09889285f6c0/919e11f0-a2e7-4e2b-9400-0d9468d2cb4d"
+storage_version_token = "1788984633897521"
+content_type = "application/octet-stream"
