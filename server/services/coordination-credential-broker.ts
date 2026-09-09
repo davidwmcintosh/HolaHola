@@ -493,7 +493,7 @@ export async function completeCoordinationRuntimeReplacement(input: {
 export async function rollbackCoordinationRuntimeReplacement(input: {
   sourceRuntimeId: string;
   replacementRuntimeId: string;
-}): Promise<RuntimeReplacementResult<{ actor: CoordinationActorId }>> {
+}): Promise<RuntimeReplacementResult<{ actor: CoordinationActorId; sourceActive: boolean }>> {
   return getSharedDb().transaction(async (tx) => {
     const executor = tx as unknown as ReturnType<typeof getSharedDb>;
     await lockRuntimePair(executor, input.sourceRuntimeId, input.replacementRuntimeId);
@@ -537,9 +537,17 @@ export async function rollbackCoordinationRuntimeReplacement(input: {
       success: true,
       runtimeId: input.sourceRuntimeId,
       actor: source!.actor,
-      metadata: { replacementRuntimeId: input.replacementRuntimeId, rotationId: rotation.id },
+      metadata: {
+        replacementRuntimeId: input.replacementRuntimeId,
+        rotationId: rotation.id,
+        sourceActive: Boolean(source!.enabled && !source!.revokedAt),
+      },
     }, executor);
-    return { ok: true, actor: source!.actor as CoordinationActorId };
+    return {
+      ok: true,
+      actor: source!.actor as CoordinationActorId,
+      sourceActive: Boolean(source!.enabled && !source!.revokedAt),
+    };
   });
 }
 

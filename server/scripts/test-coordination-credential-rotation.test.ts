@@ -19,6 +19,7 @@ import {
   setCoordinationCredentialBrokerConcurrencyTestHook,
   stageCoordinationRuntimeReplacement,
 } from '../services/coordination-credential-broker';
+import { formatRollbackOutcome } from './coordination-runtime-rotation';
 
 const hasDisposableDatabase = Boolean(
   getVerifiedCiDatabaseUrl() || process.env.COORDINATION_INBOX_DISPOSABLE_BRANCH_ID,
@@ -139,16 +140,25 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
   assert.ok(rollbackCredential);
   const rollbackProof = await resolveBrokerCredential(rollbackCredential.accessToken);
   assert.equal(rollbackProof?.runtimeId, runtimeIds[2]);
-  assert.equal(await revokeRuntimeCredentials(runtimeIds[2], 'luca-replit'), true);
+  assert.equal(await revokeRuntimeCredentials(runtimeIds[1], 'luca-replit'), true);
   assert.deepEqual(
     await rollbackCoordinationRuntimeReplacement({
       sourceRuntimeId: runtimeIds[1],
       replacementRuntimeId: runtimeIds[2],
     }),
-    { ok: true, actor: 'luca-replit' },
+    { ok: true, actor: 'luca-replit', sourceActive: false },
   );
   assert.equal(await resolveBrokerCredential(rollbackCredential.accessToken), null);
-  assert.equal((await resolveBrokerCredential(replacementCredential.accessToken))?.runtimeId, runtimeIds[1]);
+  assert.equal(await resolveBrokerCredential(replacementCredential.accessToken), null);
+  const degradedRollbackMessage = formatRollbackOutcome({
+    actor: 'luca-replit',
+    sourceRuntimeId: runtimeIds[1],
+    replacementRuntimeId: runtimeIds[2],
+    sourceActive: false,
+  });
+  assert.match(degradedRollbackMessage, /was not re-enabled/);
+  assert.match(degradedRollbackMessage, /no runtime in this pair remains active/);
+  assert.doesNotMatch(degradedRollbackMessage, /source.*remains active/i);
 
   const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
     .where(inArray(coordinationCredentialAuditEvents.runtimeId, runtimeIds));
@@ -159,6 +169,14 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
   assert.equal(auditEvents.some((event) => event.eventType === 'rotation_ready_failed' && !event.success), true);
   assert.equal(auditEvents.some((event) => event.eventType === 'rotation_completed' && event.success), true);
   assert.equal(auditEvents.some((event) => event.eventType === 'rotation_rolled_back' && event.success), true);
+  assert.equal(
+    auditEvents.some(
+      (event) => event.eventType === 'rotation_rolled_back'
+        && event.success
+        && event.metadata?.sourceActive === false,
+    ),
+    true,
+  );
   assert.equal(JSON.stringify(auditEvents).includes(staged.bootstrapToken), false);
   assert.equal(JSON.stringify(auditEvents).includes(rollbackStage.bootstrapToken), false);
 });

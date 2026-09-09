@@ -110,7 +110,8 @@ before that cutover may finish. Remove the old 1Password item only after the
 completion audit is visible.
 
 Before completion, rollback revokes only the replacement registration and its
-credentials, leaving the source untouched:
+credentials. It leaves the source state unchanged and never re-enables a source
+that an emergency revocation already disabled:
 
 ```bash
 npx tsx server/scripts/coordination-runtime-rotation.ts rollback \
@@ -118,8 +119,12 @@ npx tsx server/scripts/coordination-runtime-rotation.ts rollback \
   --runtime-id luca-replit-primary-2026-09
 ```
 
+The command reports whether the source remains active. If the source was already
+revoked, rollback still closes the staged rotation and revokes the replacement,
+so neither runtime in the pair remains active. Do not treat that result as
+continuity: stage recovery from another active registration for the same actor.
 After completion, revoked registrations are never re-enabled. Recovery creates
-another replacement runtime ID from the active registration. Audit events
+another replacement runtime ID from an active registration. Audit events
 `rotation_started`, `rotation_ready`, `rotation_completed`, and
 `rotation_rolled_back` link the source and replacement IDs without containing
 bootstrap plaintext; rejected readiness, completion, and rollback attempts are

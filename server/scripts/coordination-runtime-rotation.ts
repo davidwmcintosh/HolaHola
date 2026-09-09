@@ -19,6 +19,23 @@ function usage(): never {
   ].join('\n'));
 }
 
+export function formatRollbackOutcome(input: {
+  actor: string;
+  sourceRuntimeId: string;
+  replacementRuntimeId: string;
+  sourceActive: boolean;
+}): string {
+  if (input.sourceActive) {
+    return `Rotation rolled back for ${input.actor}: ${input.replacementRuntimeId} is revoked and ${input.sourceRuntimeId} remains active.\n`;
+  }
+  return [
+    `Rotation rolled back for ${input.actor}: ${input.replacementRuntimeId} is revoked.`,
+    `${input.sourceRuntimeId} was already disabled and was not re-enabled; no runtime in this pair remains active.`,
+    'Recover by staging a new replacement from another active registration for this actor.',
+    '',
+  ].join('\n');
+}
+
 async function main(): Promise<void> {
   const action = process.argv[2];
   const sourceRuntimeId = option('from-runtime-id');
@@ -66,18 +83,23 @@ async function main(): Promise<void> {
       replacementRuntimeId,
     });
     if (!result.ok) throw new Error(`Rotation could not be rolled back: ${result.reason}`);
-    process.stdout.write(
-      `Rotation rolled back for ${result.actor}: ${replacementRuntimeId} is revoked and ${sourceRuntimeId} remains active.\n`,
-    );
+    process.stdout.write(formatRollbackOutcome({
+      actor: result.actor,
+      sourceRuntimeId,
+      replacementRuntimeId,
+      sourceActive: result.sourceActive,
+    }));
     return;
   }
 
   usage();
 }
 
-main()
-  .catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  })
-  .finally(closeDbConnections);
+if (process.argv[1]?.includes('coordination-runtime-rotation')) {
+  main()
+    .catch((error) => {
+      console.error(error instanceof Error ? error.message : error);
+      process.exitCode = 1;
+    })
+    .finally(closeDbConnections);
+}
