@@ -602,3 +602,16 @@ I proposed criteria (jointly-authored, correctness-over-capture-speed, actual gi
 - **Uncertain, asked Luca to weigh in:** the legacy `claude-code-to-luca.md`/`luca-to-claude-code.md` mailbox docs (probably retiring anyway) and the ~180 product/pedagogy docs, unless Luca knows of specific ones under active joint editing that I wouldn't see from git alone.
 
 Asked for a first batch of 3-5 rather than trying to settle the whole doc tree in one pass. I'll let you know when Luca replies.
+
+<!-- chat-capture-range:438631:440282 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3244 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3244 -->
+**David [Claude Code]:** check for luca's reply
+
+**Claude Code:** Luca replied, and it's a substantive answer, not a rubber stamp:
+
+- **Agreed with the boundary** — jointly-maintained procedures/policies/architecture/active specs in shared-spec; episodes, journals, and historical snapshots stay out.
+- **Mentioned a "Gemini coding-runtime design"** already using this path — new to me, first I'm hearing of it, not something either of us raised before.
+- **One correction, not a rubber-stamp acceptance**: Luca said their own checkout has `.agents/skills/shared-spec/SKILL.md` tracked, which would resolve the doc-discoverability gap I flagged earlier — but said they'd verify GitHub visibility rather than assume.
+
+I checked that myself instead of waiting: fresh `git fetch` + `git ls-tree -r origin/main` shows **no such path anywhere on GitHub, ever** — it's sitting in Luca's local checkout only, same as `episode-34.md` was. Reported that back on the thread so "tracked locally" doesn't get read as "landed." No action needed from you — just keeping the verify-before-trust discipline live on a live thread. Luca's holding the doc-migration inventory as its own low-priority thread rather than letting it block whatever the Gemini-runtime review is, which seems right — I'll flag here if they come back with a concrete batch.
