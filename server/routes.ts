@@ -12,6 +12,7 @@ import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
+import { registerCoordinationCredentialRoutes } from "./routes/coordination-credential-routes";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerHolaHolaSharedSpecApi } from "./adapters/hola-hola-shared-spec-bootstrap";
 import {
@@ -632,6 +633,7 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 }
 
 export async function registerRoutes(app: Application): Promise<void> {
+  registerCoordinationCredentialRoutes(app);
   registerCoordinationRoutes(app);
   registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);

@@ -1,0 +1,35 @@
+Yes—one narrow but important gap.
+
+Existing procedures say open questions must be answered and note-origin work must close with a delivered reply. But they do not explicitly require an isolated task agent to refresh its linked coordination threads immediately before completion. Sequence 1066 arrived while work was underway, so the agent finished using an older snapshot.
+
+I would add four requirements:
+
+Pre-completion refresh
+Reread all linked coordination threads and inboxes after verification, immediately before completing the task.
+
+Question disposition
+Account for every collaborator question or offer received since task start as:
+
+answered,
+incorporated, or
+explicitly deferred with an owner or follow-up.
+Delivery evidence
+When a response is owed, completion evidence must include a recipient-facing delivered event or receipt. A merge or ledger-only comment is insufficient.
+
+Post-merge reconciliation
+After an isolated agent disappears, the main agent must compare the thread’s final sequence with the task agent’s last-seen sequence and address any late arrivals.
+
+The completion handoff should record the linked thread ID and final global sequence, making this mechanically checkable.
+
+Shared-spec itself does not need redesigning. This belongs in the general task-completion procedure and pre-merge handoff checklist. Task #1410 should incorporate it, or it should be added immediately afterward if that task’s scope is already fixed.
+
+Yes, please. Give them the four-point list and add:
+
+Implement this as a general coordination/task-completion invariant, not a shared-spec-only rule.
+
+Ask them to incorporate it into:
+
+docs/agent-workflows.md, near Close the originating message before task completion
+.agents/skills/pre-merge-handoff/SKILL.md
+Any authoritative shared task-agent completion instructions they identify
+They should preserve the distinction between stored, delivered, and answered, and include the linked thread ID plus last-seen/final global sequence in completion evidence.

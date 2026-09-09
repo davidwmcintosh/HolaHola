@@ -1,3 +1,146 @@
+# Reproducible local coordination validation — 2026-09-09
+
+- `npm run test:coordination-ledger` now creates a disposable local PostgreSQL
+  database, applies every migration, seeds deterministic coordination fixtures,
+  activates and verifies the materialized inbox, runs the full coordination
+  suite, and removes the database state on success or failure.
+- Set `COORDINATION_TEST_POSTGRES_URL` to use an existing local PostgreSQL
+  server; otherwise the command starts and removes its own temporary cluster.
+- Observation-bench recipient events now write their materialized inbox rows in
+  the same transaction, satisfying the existing deferred database guard.
+
+# Runtime bootstrap rotation — 2026-09-09
+
+- Added staged zero-downtime rotation for scoped coordination-runtime bootstrap credentials.
+- A replacement runtime inherits the source actor, capabilities, and token TTL exactly. An immutable rotation record binds the pair and prevents either runtime from participating in another active rotation.
+- Cutover requires an explicit broker-authenticated readiness receipt from the replacement. Completion atomically revokes the source registration and credentials; rollback closes the rotation and revokes the replacement even after an emergency revocation.
+- Added the trusted operator CLI, 1Password sequence, audit events, migration, health check, and disposable-PostgreSQL regression coverage.
+- Disposable-PostgreSQL race coverage now launches competing stage attempts and competing complete/rollback attempts together. It requires one winner, one audited loser, one terminal state, and no active rotation left behind; the coordination validation group runs it automatically.
+
+# 2026-09-09 — Scoped credentials for every Luca runtime
+
+- Selected 1Password Secrets Automation as the cross-runtime bootstrap vault,
+  with a separate service account and vault item for each runtime.
+- Added a credential broker that binds every runtime registration to one actor
+  and an explicit capability allowlist, issues short-lived opaque credentials,
+  stores only hashes, rotates atomically, and records issuance, renewal,
+  expiration attempts, revocation, and failed access.
+- Preserved existing actor-specific `COORDINATION_*_TOKEN` authentication for
+  incremental migration. Updated the shared actor client to exchange and renew
+  broker credentials automatically when only runtime bootstrap settings exist.
+- Added dedicated `luca-gemini` attribution for Antigravity/Gemini and safe
+  setup/provisioning instructions for Replit, Claude Code, Gemini, and future
+  runtimes in `docs/coordination-clients.md`.
+- Added migration 0033 and disposable-database regression coverage for
+  hash-at-rest, invalid bootstrap, concurrent one-winner renewal, revocation,
+  and audit history.
+
+## 2026-09-08 — Self-describing unified inbox continuation
+
+- Preserved `token` / `--token` as the single signed continuation contract.
+- Partial windows now identify the canonical HTTP query parameter and CLI
+  option in their response.
+- The inbox route rejects unknown query parameters instead of silently falling
+  back to the actor's acknowledged cursor, and rejects repeated/non-string
+  continuation tokens.
+- Added route-level coverage for a real second page, frozen high-water,
+  non-duplication, guessed-parameter rejection, and repeated-token rejection.
+- Documented exact CLI and HTTP traversal through the final complete page.
+- Verified the running development route read-only: two distinct pages, stable
+  `through`, and HTTP 400 for both invalid query shapes.
+
+## 2026-09-08 — Unified inbox hardened production proof
+
+- Repaired exactly three missing inbox obligations from the first failed
+  cross-runtime exchange under a write lock, then verified exhaustive
+  recipient integrity before commit.
+- Added and applied the deferred explicit-recipient database guard. It blocks
+  stale writers at commit while leaving the full historical recipient rules in
+  the application service.
+- The isolated Neon promotion gate returned exact `READY_TO_PROMOTE`;
+  typecheck and focused inbox/actor-client suites passed.
+- A second proof exposed a real code/schema rollout gap: shared Neon had the
+  guard while the published production image still lacked transactional inbox
+  insertion. Production correctly returned SQLSTATE 23514 and rolled addressed
+  writes back; recipient-less writes were unaffected.
+- Published the inbox-aware revision after a transient Replit database-diff
+  service disconnect. The recovered read-only diff reported no removals,
+  truncations, or structural data loss.
+- Completed a fresh production-only exchange on thread
+  `88cccef1-2a9f-4837-8a99-b05039a4b904`. Luca [Claude Code] independently read
+  and acknowledged its complete `(1118, 1126]` window with its own credential,
+  matched both expected inbox mappings, and posted two addressed replies at
+  globals 1127 and 1128.
+- Luca [Replit] independently found both replies through its recipient-wide
+  inbox after 1126. Core, adapter, and linked-state coverage were complete;
+  legacy coverage remained incomplete/truncated at 839 notes, so no Luca
+  Replit acknowledgement was made.
+- Final exhaustive integrity: 171 events, 68 inbox items, zero mismatches, zero
+  unsupported recipient-rule rows.
+
+## 2026-09-08 — Materialized Unified Agent Inbox implementation
+
+- Documented `inbox` plus `ack-inbox` with its completed read-window token as
+  the only coordination-intake completeness path once the approved inbox is
+  active. Reading and acknowledgement are distinct: reading never establishes
+  completion, and acknowledgement applies only to the processed returned
+  window.
+- Clarified that `list` and `show` are detail/investigation tools, not
+  completeness evidence, and that `agent_notes` remains compatibility-only
+  after activation.
+- Documented explicit comment intent: recipient-facing comments require
+  `--recipient`; record-only comments require `--ledger-only`.
+- Added the pending two-runtime Luca [Replit]/Luca [Claude Code] smoke
+  protocol. It requires separate credentials and identities, forbids sharing
+  credentials or impersonation, and does not claim activation or successful
+  testing.
+- Added immutable inbox items, actor acknowledgement cursors, and versioned
+  activation state to the schema with a reviewed Drizzle migration.
+- Added exhaustive recipient derivation for every coordination event type and
+  transactional insertion in create, append, and linked completion paths.
+- Added stable recipient high-water windows, signed actor-bound continuation
+  and completed-window tokens, monotonic acknowledgement, and actor-isolated
+  API/client/CLI operations.
+- Added deterministic locked historical replay, exact cardinality integrity
+  checks, fail-closed activation/version gates, truthful legacy-note coverage,
+  and read-time shared-spec/coordination/agent-note linked state.
+- Focused tests cover recipient rules, the separate shared-spec
+  `review_decided` thread, pre-activation writer blocking, integrity failures,
+  pagination/acknowledgement, actor isolation, malformed tokens, and retry
+  corruption. Shared promotion and the real cross-runtime exchange remain
+  pending the final disposable branch verdict.
+- Opened DB-backed rolling Episode 34, "One Luca, Many Hats," as Episode 33's
+  exact successor. Its opening records that preservation across runtime hats is
+  continuity stewardship for one durable Luca.
+- The production-snapshot Neon gate returned exact `READY_TO_PROMOTE`; shared
+  migration, locked replay, integrity verification, and atomic activation then
+  completed. Replay covered 155 events and produced 56 immutable obligations
+  through global sequence 1108 with zero integrity mismatches.
+- Restarted the application against the active schema. The first live
+  Luca [Replit] thread now contains two ordered recipient obligations for
+  Luca [Claude Code], separated by the expected compatibility-adapter receipt.
+  The Replit historical window remains unacknowledged because its bounded
+  legacy overlay truthfully reports incomplete coverage.
+
+## 2026-09-08 — Shared-spec agent workflow discovery
+
+- Added a tracked `shared-spec` skill as the canonical procedure for joint
+  document creation, immutable revisions, independent review, approval,
+  post-approval GitHub publication, and reconciliation.
+- The canonical agent workflow and coordination-client docs now direct joint
+  Markdown work to shared-spec by default.
+- The guidance forbids acting as the requested reviewer and keeps GitHub in its
+  proper role as a publication destination rather than the review authority.
+- Task completion guidance now requires a post-verification refresh of all
+  linked coordination threads and inboxes, explicit disposition of every late
+  collaborator question or offer, recipient-facing delivery evidence when a
+  response is owed, and recorded last-seen/final global sequences.
+- The pre-merge handoff assigns the main agent a post-merge reconciliation
+  duty for events that arrive after an isolated task agent disappears.
+- Luca [Claude Code] independently approved the exact immutable shared-spec
+  procedure revision under his own identity; the approval notification was
+  delivered through the coordination ledger.
+- TypeScript, shared-spec portability/publication checks, and system health pass.
 ## 2026-09-08 — Portable shared-spec CLI and production contract
 
 - Added a canonical `npm run shared-spec -- …` entry point that works from a
@@ -5371,3 +5514,19 @@ The current adapter publishes only into `docs/superpowers/specs/`, opens a PR
 rather than writing the base branch, and leaves publication unavailable when
 GitHub configuration is absent. The CLI currently covers document/review/export
 operations, not publication administration.
+
+## Runtime revocation credential race guard — September 9, 2026
+
+The coordination credential broker now exposes a test hook only when the
+process is verified against a job-local PostgreSQL database. The broker race
+test pauses bootstrap exchange after it owns the registration row lock, starts
+runtime revocation, proves revocation waits, then confirms the returned token
+cannot authenticate after the registration is disabled and revoked.
+
+The test verifies both the successful runtime-revocation audit and the denied
+access audit. A registered mutation self-check independently removes the
+exchange lock and the active-registration resolution guard; each mutation must
+make the race test fail, and the broker source is restored byte-for-byte.
+
+Disposable PostgreSQL baseline and mutation runs, TypeScript, system health,
+and Alden review passed.

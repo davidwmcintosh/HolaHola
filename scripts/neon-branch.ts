@@ -295,7 +295,11 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   // Deliberately never printed: unlike create/connection-string, this
   // command's stdout can end up in CI/agent logs. The child processes below
   // only ever see the URL via their own env, never via a logged argument.
-  const branchEnv: NodeJS.ProcessEnv = { ...process.env, NEON_SHARED_DATABASE_URL: directUrl };
+  const branchEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    NEON_SHARED_DATABASE_URL: directUrl,
+    COORDINATION_INBOX_DISPOSABLE_BRANCH_ID: branch.id,
+  };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
   // this branch's URL is intentionally a real Neon host, not that service.
@@ -314,6 +318,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     const dataOps = await runCommand('npx tsx scripts/run-data-ops.ts', branchEnv);
     if (dataOps.code !== 0) {
       failureReason = `scripts/run-data-ops.ts exited ${dataOps.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Repairing and verifying active coordination inbox obligations on the branch...');
+    const inboxRepair = await runCommand(
+      `npx tsx server/scripts/coordination-inbox-admin.ts repair --migration-run-id gate:${branch.id}`,
+      branchEnv,
+    );
+    if (inboxRepair.code !== 0) {
+      failureReason = `coordination inbox repair exited ${inboxRepair.code}`;
     }
   }
 

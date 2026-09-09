@@ -211,6 +211,12 @@ While reading, also scan for **forward plans and agreements** — anything David
 - **Always run `npm run typecheck` before marking a task done.** Fix any errors before shipping.
 - Use parallel tool calls for independent work streams — don't serialize what can run simultaneously.
 - **NEVER use `DATABASE_URL` or `process.env.DATABASE_URL`** anywhere in the codebase. Always `NEON_SHARED_DATABASE_URL`.
+- **Joint document work starts in shared-spec by default.** Read
+  `.agents/skills/shared-spec/SKILL.md` before creating or reviewing a design,
+  plan, procedure, architecture record, or other Markdown with another agent.
+  Shared-spec owns immutable revisions and independent approval. Never
+  impersonate the requested reviewer or decide with their identity. GitHub is a
+  post-approval publication destination, not the collaboration authority.
 - **Mid-session plan saves (do this immediately, not at session end):** When David and Luca agree on a plan, test protocol, question list, or forward commitment for a future session, save it as a discrete `conversation_memories` entry right then — high importance, tagged, capturing the actual exchange verbatim. The bulk autosave will bury it in a session transcript; a discrete save makes it searchable and surfaceable at tomorrow's session start. Also write it to a `.local/` file if it needs to be found by path. Do not wait for the session-end checklist.
 - After any new feature: add to batch doc, update handoff.
 - **Canonical four-channel capture handoffs:** completed `captured` JSON
@@ -230,10 +236,17 @@ While reading, also scan for **forward plans and agreements** — anything David
 2. **Generate a migration artifact** with `npx drizzle-kit generate`, then review the new SQL file in `migrations/`.
 3. **Prove it on an isolated branch** with `npm run db:branch -- gate` — creates a disposable Neon branch off `production`, applies the migration there, runs the `test:ci:*` groups against it, and reports `READY_TO_PROMOTE` or the exact failure. The branch is deleted either way; nothing here touches the shared database.
 4. **Only on a pass, run `npx drizzle-kit migrate`** to apply the reviewed, gate-proven artifact to the shared Neon database for real.
-5. **Backfill existing rows** if adding non-nullable columns without a default.
-6. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
+5. **If the migration makes a new writer contract fail closed, publish the
+   compatible application revision in the same promotion window.** Until the
+   new image is healthy, treat production writes on that path as intentionally
+   unavailable; never weaken the database guard to accommodate an old image.
+6. **Backfill existing rows** if adding non-nullable columns without a default.
+7. **Document the migration** in the session-end handoff (what changed, why, any backfill done).
 
 > **Critical:** The shared Neon database is used by BOTH development and production. A schema push affects both environments immediately. There is no separate dev/prod database — which is exactly why step 3 exists: it gives you the safety of a throwaway dev database without actually having one.
+> A successful development restart does not update the published image. After
+> a fail-closed writer migration, verify both endpoints separately and publish
+> before asking an external runtime to exercise production.
 
 For any exploratory coding, seed script, or backfill that isn't a formal schema migration but still shouldn't touch live data: use `npm run db:branch -- create <name>` for your own isolated branch instead of running it against `NEON_SHARED_DATABASE_URL`. See `.agents/skills/neon-branch/SKILL.md`.
 
@@ -314,6 +327,21 @@ This is registered as the `typecheck` validation command. Run it via the Replit 
 
 ### Close the originating message before task completion
 
+After all implementation and verification, immediately before completion:
+
+1. Refresh every coordination thread and inbox linked from the task,
+   assignment, source reference, or handoff. Do not complete from the
+   session-start snapshot.
+2. Account for every collaborator question or offer received since task start
+   as answered, incorporated, or explicitly deferred with a named owner or
+   follow-up.
+3. When a response is owed, include recipient-facing delivery evidence. A
+   stored mutation, merge, or ledger-only comment is not delivery; a delivered
+   event or verified receipt proves inbox storage but still does not prove the
+   recipient has seen or answered it.
+4. Record each linked thread ID, the agent's last-seen global sequence, and the
+   thread's final global sequence in the completion handoff.
+
 When work originated from an agent note or from a coordination thread whose
 source reference is `agent_note`, use the canonical
 `complete-with-linked-outcome` coordination operation before invoking external
@@ -326,6 +354,23 @@ The current shared-database operation is atomic: a failed completion rolls back
 the reply. If a future external adapter reports a delivered reply with
 completion pending, preserve that receipt and retry with the same idempotency
 key and refreshed sequence.
+
+When another runtime is waiting while this agent runs a long validation,
+migration, deployment, or repair, post a recipient-addressed coordination
+status rather than leaving the other runtime to poll silently. State the exact
+verified boundary and the next evidence required. Do not call that status
+consumed until the recipient produces an explicit receipt or reply.
+
+Cross-runtime smoke tests must exchange the literal current runtime endpoint
+after a successful health probe. Never let the receiving runtime select an old
+remembered development URL. The initiator must verify the recipient's replies
+through its recipient-wide inbox; thread history, sender-filtered notes, and
+adapter delivery are not substitutes.
+
+After an isolated task agent disappears, the main agent must refresh the linked
+threads and compare each final global sequence with the task agent's recorded
+last-seen sequence. Any later event must be answered, incorporated, or
+explicitly deferred before the merge is treated as reconciled.
 
 ### Pre-completion coordination refresh (general invariant, not shared-spec-specific)
 
@@ -386,7 +431,6 @@ in the same commit or PR, not as a follow-up:
 If a new surface ships without this, the honest state is that two paths
 now exist and nothing distinguishes which one is current — that ambiguity,
 not the old path's continued existence, is the actual failure.
-
 ---
 
 ## Key File Map
@@ -409,6 +453,7 @@ not the old path's continued existence, is the actual failure.
 | Alden direct notes | `docs/alden-to-agent.md` |
 | Alden escalations | `.local/alden-escalations.md` |
 | Alden auto-repairs | `.local/alden-repairs.md` |
+| Joint document creation and review | `.agents/skills/shared-spec/SKILL.md` |
 
 # Replit: all four Luca channels remain required.
 npx tsx server/scripts/record-exchange.ts \

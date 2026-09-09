@@ -12,6 +12,8 @@ export type CoordinationClientActor = Exclude<CoordinationActorId, 'coordination
 export type CoordinationClientAction =
   | 'list'
   | 'acknowledge-feed'
+  | 'list-inbox'
+  | 'acknowledge-inbox'
   | 'show'
   | 'create'
   | 'accept'
@@ -27,13 +29,13 @@ export type CoordinationClientAction =
   | 'complete-with-linked-outcome';
 
 const DIRECT_CLIENT_ACTIONS: Record<DirectCoordinationActor, ReadonlySet<CoordinationClientAction>> = {
-  'luca-holahola': new Set(['list', 'acknowledge-feed', 'show', 'create', 'reassign', 'comment']),
+  'luca-holahola': new Set(['list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'create', 'reassign', 'comment']),
   alden: new Set([
-    'list', 'acknowledge-feed', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
+    'list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
     'acknowledge', 'reassign', 'comment',
   ]),
   daniela: new Set([
-    'list', 'acknowledge-feed', 'show', 'accept', 'progress', 'evidence', 'block', 'complete', 'comment',
+    'list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'accept', 'progress', 'evidence', 'block', 'complete', 'comment',
   ]),
 };
 
@@ -46,8 +48,20 @@ export type CoordinationActorClientOptions = {
   fetchImpl?: FetchLike;
 };
 
+type CachedCredential = {
+  token: string;
+  expiresAt: number | null;
+  broker: boolean;
+};
+
 export type CoordinationFeedOptions = {
   cursor?: number;
+  limit?: number;
+};
+
+export type CoordinationInboxOptions = {
+  token?: string;
+  after?: number;
   limit?: number;
 };
 
@@ -90,10 +104,10 @@ export function coordinationClientActions(
   return DIRECT_CLIENT_ACTIONS[actor];
 }
 
-function tokenForActor(actor: CoordinationClientActor, environment: Environment): string {
+function legacyTokenForActor(actor: CoordinationClientActor, environment: Environment): string | undefined {
   const envName = COORDINATION_TOKEN_ENV_BY_ACTOR[actor];
   const token = environment[envName]?.trim();
-  if (!token) throw new Error(`${actor} coordination credential is not configured (${envName})`);
+  if (!token) return undefined;
   if (token.length < 32) throw new Error(`${envName} must be at least 32 characters`);
   return token;
 }
@@ -110,7 +124,9 @@ function apiResult(text: string): unknown {
 export class CoordinationActorClient {
   readonly actor: CoordinationClientActor;
   private readonly baseUrl: string;
-  private readonly token: string;
+  private readonly environment: Environment;
+  private credential: CachedCredential | null;
+  private renewalPromise: Promise<CachedCredential> | null = null;
   private readonly fetchImpl: FetchLike;
 
   constructor(
@@ -120,8 +136,82 @@ export class CoordinationActorClient {
     this.actor = actor;
     this.baseUrl = options.apiUrl.replace(/\/+$/, '');
     if (!this.baseUrl) throw new Error('Coordination API URL is required');
-    this.token = tokenForActor(actor, options.environment ?? process.env);
+    this.environment = options.environment ?? process.env;
+    const legacyToken = legacyTokenForActor(actor, this.environment);
+    this.credential = legacyToken ? { token: legacyToken, expiresAt: null, broker: false } : null;
     this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  private async exchangeBootstrap(): Promise<CachedCredential> {
+    const runtimeId = this.environment.COORDINATION_RUNTIME_ID?.trim();
+    const bootstrap = this.environment.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN?.trim();
+    if (!runtimeId || !bootstrap) {
+      const envName = COORDINATION_TOKEN_ENV_BY_ACTOR[this.actor];
+      throw new Error(
+        `${this.actor} coordination authentication is not configured; set ${envName} during migration or set COORDINATION_RUNTIME_ID and COORDINATION_RUNTIME_BOOTSTRAP_TOKEN`,
+      );
+    }
+    const response = await this.fetchImpl(new URL('/api/coordination/credentials/exchange', `${this.baseUrl}/`), {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-coordination-bootstrap': bootstrap,
+      },
+      body: JSON.stringify({ runtimeId }),
+    });
+    const result = apiResult(await response.text());
+    if (!response.ok || typeof result !== 'object' || result === null) {
+      throw new Error(`Coordination credential exchange failed (${response.status})`);
+    }
+    const payload = result as Record<string, unknown>;
+    if (payload.actor !== this.actor || typeof payload.accessToken !== 'string' || typeof payload.expiresAt !== 'string') {
+      throw new Error('Coordination credential exchange returned an invalid or cross-actor credential');
+    }
+    return {
+      token: payload.accessToken,
+      expiresAt: Date.parse(payload.expiresAt),
+      broker: true,
+    };
+  }
+
+  private async currentCredential(): Promise<CachedCredential> {
+    if (!this.credential) {
+      this.credential = await this.exchangeBootstrap();
+    } else if (
+      this.credential.broker
+      && this.credential.expiresAt !== null
+      && this.credential.expiresAt - Date.now() < 60_000
+    ) {
+      this.renewalPromise ??= this.renewCredential(this.credential);
+      try {
+        this.credential = await this.renewalPromise;
+      } finally {
+        this.renewalPromise = null;
+      }
+    }
+    return this.credential;
+  }
+
+  private async renewCredential(current: CachedCredential): Promise<CachedCredential> {
+      const response = await this.fetchImpl(new URL('/api/coordination/credentials/renew', `${this.baseUrl}/`), {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-coordination-token': current.token,
+        },
+        body: '{}',
+      });
+      const result = apiResult(await response.text()) as Record<string, unknown>;
+      if (!response.ok || result.actor !== this.actor || typeof result.accessToken !== 'string' || typeof result.expiresAt !== 'string') {
+        throw new Error(`Coordination credential renewal failed (${response.status})`);
+      }
+      return {
+        token: result.accessToken,
+        expiresAt: Date.parse(result.expiresAt),
+        broker: true,
+      };
   }
 
   private assertAllowed(action: CoordinationClientAction): void {
@@ -139,11 +229,12 @@ export class CoordinationActorClient {
     options: { body?: Record<string, unknown>; idempotencyKey?: string } = {},
   ): Promise<unknown> {
     this.assertAllowed(action);
+    const credential = await this.currentCredential();
     const response = await this.fetchImpl(new URL(path, `${this.baseUrl}/`), {
       method: options.body ? 'POST' : 'GET',
       headers: {
         accept: 'application/json',
-        'x-coordination-token': this.token,
+        'x-coordination-token': credential.token,
         ...(options.body ? { 'content-type': 'application/json' } : {}),
         ...(options.idempotencyKey ? { 'idempotency-key': options.idempotencyKey } : {}),
       },
@@ -172,6 +263,24 @@ export class CoordinationActorClient {
     }
     return this.request('acknowledge-feed', '/api/coordination/threads/ack', {
       body: { globalSequence },
+    });
+  }
+
+  listInbox(options: CoordinationInboxOptions = {}): Promise<unknown> {
+    const query = new URLSearchParams();
+    if (options.token !== undefined) query.set('token', options.token);
+    if (options.after !== undefined) query.set('after', String(options.after));
+    if (options.limit !== undefined) query.set('limit', String(options.limit));
+    return this.request(
+      'list-inbox',
+      `/api/coordination/inbox${query.size ? `?${query}` : ''}`,
+    );
+  }
+
+  acknowledgeInbox(windowToken: string): Promise<unknown> {
+    if (!windowToken) throw new Error('Coordination inbox window token is required');
+    return this.request('acknowledge-inbox', '/api/coordination/inbox/ack', {
+      body: { windowToken },
     });
   }
 

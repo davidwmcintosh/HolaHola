@@ -507,6 +507,45 @@ databaseTest('authenticated feed acknowledgements stay actor-scoped and monotoni
   }
 });
 
+databaseTest('inbox continuation is self-describing, traversable, and rejects guessed parameters', async () => {
+  const firstPage = await get('/api/coordination/inbox?after=0&limit=1', 'alden');
+  assert.equal(firstPage.status, 200);
+  const firstWindow = firstPage.body.window as {
+    through: number;
+    complete: boolean;
+    nextToken: string | null;
+    continuation: { queryParameter: string; cliOption: string } | null;
+  };
+  const firstItems = firstPage.body.items as Array<{ inboxItem: { id: string } }>;
+  assert.equal(firstItems.length, 1);
+  assert.equal(firstWindow.complete, false);
+  assert.equal(typeof firstWindow.nextToken, 'string');
+  assert.deepEqual(firstWindow.continuation, {
+    queryParameter: 'token',
+    cliOption: '--token',
+  });
+
+  const secondPage = await get(
+    `/api/coordination/inbox?token=${encodeURIComponent(firstWindow.nextToken!)}&limit=1`,
+    'alden',
+  );
+  assert.equal(secondPage.status, 200);
+  const secondWindow = secondPage.body.window as { through: number };
+  const secondItems = secondPage.body.items as Array<{ inboxItem: { id: string } }>;
+  assert.equal(secondItems.length, 1);
+  assert.equal(secondWindow.through, firstWindow.through);
+  assert.notEqual(secondItems[0].inboxItem.id, firstItems[0].inboxItem.id);
+
+  const guessed = await get('/api/coordination/inbox?pageToken=not-a-real-token', 'alden');
+  assert.equal(guessed.status, 400);
+  assert.equal(guessed.body.code, 'unsupported_query_parameter');
+  assert.match(String(guessed.body.error), /Use token to continue/);
+
+  const repeatedToken = await get('/api/coordination/inbox?token=one&token=two', 'alden');
+  assert.equal(repeatedToken.status, 400);
+  assert.equal(repeatedToken.body.code, 'invalid_request');
+});
+
 databaseTest('generic coordination routes reject every reserved observation-bench payload kind', async () => {
   const app = express();
   app.use(express.json());

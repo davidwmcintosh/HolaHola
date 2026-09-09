@@ -1,3 +1,219 @@
+# From Luca [Replit] — 2026-09-09 — Clean local coordination validation
+
+`npm run test:coordination-ledger` is now the canonical clean-local command. It
+uses an explicitly local `COORDINATION_TEST_POSTGRES_URL` when supplied, or
+starts a temporary PostgreSQL cluster otherwise. It creates a unique database,
+applies migrations, seeds deterministic archive and coordination fixtures,
+activates and verifies the materialized inbox, runs all coordination checks
+serially, and drops the database plus any owned cluster in a `finally` cleanup.
+The wrapper sets `CI_DATABASE_URL` and `NEON_SHARED_DATABASE_URL` only to that
+loopback database, so the command cannot reach shared Neon.
+
+The clean run exposed direct observation-bench recipient events that omitted
+their required inbox projection; those writes now materialize in the same
+transaction. It also exposed three rotation assertions that predated the
+`sourceActive` rollback result. Verification: TypeScript passed; the fresh
+cluster run passed 42/42 tests plus the broker mutation self-check; system
+health passed with only the two expected app-route warnings while the server
+was stopped.
+
+# From Luca [Replit] — 2026-09-09 — Scoped runtime bootstrap rotation
+
+Task #1423 adds a staged replacement lifecycle for broker bootstrap rotation.
+The replacement copies actor, capabilities, and TTL from the source and cannot
+expand authority. An immutable rotation row binds the exact pair and blocks
+cross-role nested rotations. The replacement must call the broker-authenticated
+readiness endpoint before completion can revoke the source. Rollback remains
+available after emergency revocation and never re-enables a revoked runtime.
+
+The change adds migration `0034_fantastic_sway.sql`, a trusted operator CLI,
+focused disposable-PostgreSQL coverage, and the rotations table to system
+health verification. The first independent review found false readiness,
+unbound pairs, and recovery dead ends; all were corrected. The final review
+returned unconditional approval.
+
+Deep security scans were run on 2026-09-09. They found no plaintext credential
+storage or changed-file blocker in this rotation work; the repository-wide
+dependency and static-analysis backlog remains pre-existing and was not changed
+as part of this task.
+
+Task #1426 extends the disposable-PostgreSQL coverage with real concurrent
+stage and complete-versus-rollback attempts. Both races require exactly one
+winner, an audited losing attempt, and no remaining active rotation. The three
+rotation cases passed on a disposable Neon branch, which was deleted after the
+run. The test remains registered in `test:coordination-ledger`.
+
+## From Luca [Replit] — September 9, 2026: scoped runtime credential broker
+
+Coordination clients can now exchange one runtime-specific bootstrap secret for
+a 15-minute opaque credential scoped to an immutable actor and explicit
+capabilities. Runtime registrations, SHA-256 token hashes, expiry/revocation
+state, and append-only credential audit events are stored in Neon; plaintext
+bootstrap and access tokens are never persisted. Exchange, renewal, and runtime
+revocation serialize on the registration row, renewal has one winner, and
+credential resolution also requires the registration to remain active.
+
+The actor client preserves all existing `COORDINATION_*_TOKEN` behavior during
+incremental migration. Without a legacy token it uses
+`COORDINATION_RUNTIME_ID` plus the runtime's own
+`COORDINATION_RUNTIME_BOOTSTRAP_TOKEN`, keeps access tokens only in memory, and
+coalesces concurrent renewal. `luca-gemini` is now a dedicated actor, so the
+Antigravity/Gemini execution seat does not impersonate Replit or Claude Code.
+
+1Password Secrets Automation is the selected cross-runtime vault. Each runtime
+gets a separate service account/vault item. Provisioning and migration
+instructions are in `docs/coordination-clients.md`; the one-time registration
+tool is `server/scripts/coordination-runtime-bootstrap.ts`. The server-only
+`COORDINATION_AUDIT_HMAC_KEY` enables non-reversible source-IP pseudonyms.
+
+Migration 0033 adds the three broker tables and is applied to shared Neon. The
+final disposable branch gate reached `READY_TO_PROMOTE`, including a non-skipped
+PostgreSQL concurrency test proving one-winner renewal. Typecheck, actor-client
+tests, system health, and `git diff --check` pass. Security scans reported no
+findings in the new broker/auth/client files, and the post-fix architect review
+returned PASS.
+
+## From Luca [Replit] — September 8, 2026: inbox continuation contract hardened
+
+The final Luca [Claude Code] production review returned a qualified all-clear
+and surfaced one real actor-facing gap: a partial inbox page returned a signed
+`nextToken`, but the response did not identify the canonical continuation
+parameter. Plausible guesses (`pageToken`, `windowToken`) were silently ignored,
+so multi-page traversal remained unproven from an independent runtime.
+
+The development implementation now keeps one canonical input, `token`, rejects
+unknown inbox query parameters and repeated/non-string tokens, adds
+machine-readable continuation guidance (`queryParameter: token`, `cliOption:
+--token`), and documents the exact HTTP and CLI forms. A read-only live route
+proof traversed two distinct pages under one frozen `through` high-water and
+confirmed HTTP 400 for both a guessed parameter and a repeated token.
+
+Typecheck, focused coordination tests, system health, and `git diff --check`
+pass. The production retest must wait until the new application image is
+published; do not claim the production continuation gap closed from development
+evidence alone.
+
+## From Luca [Replit] — September 8, 2026: unified inbox cross-runtime proof completed
+
+The materialized unified inbox is now proven across Luca [Replit] and Luca
+[Claude Code] with separate actor credentials and independent consumption.
+The first attempt failed honestly: Claude's three addressed replies at globals
+1112–1114 were present in the ledger but absent from Luca Replit's inbox. The
+locked repair reconstructed exactly those three obligations, exhaustive
+integrity returned clean, and migration 0032 added the deferred database guard
+that rejects explicit-recipient events without their rule-version-1 inbox row.
+
+A second attempt exposed production code/schema version skew rather than a
+Claude-side writer error. Claude used the stable production endpoint while its
+published image still predated the transactional inbox insert; shared Neon
+already had migration 0032, so the database correctly rolled each addressed
+write back with SQLSTATE 23514. Recipient-less writes still succeeded. The
+current inbox-aware revision passed typecheck and focused coordination tests,
+was published, and production health returned HTTP 200.
+
+Fresh post-publish proof thread `88cccef1-2a9f-4837-8a99-b05039a4b904`
+contains Luca Replit's addressed created event at global 1124, adapter overlay
+at 1125, and second addressed instruction at 1126. Claude independently read a
+complete core window with its own credential, matched the two inbox item/event
+mappings exactly, acknowledged only its complete `(1118, 1126]` window, and
+posted two explicit-recipient replies:
+
+- inbox `81d27f33-c427-49e8-99be-9cff39a68488`, event
+  `4d3f346a-309b-479d-bfcb-dc94cf4a41cd`, global 1127;
+- inbox `3ab9a83f-2f3c-4b5c-9a75-d9c49e70b36d`, event
+  `94c920a3-3aeb-43c1-81a3-fba1d12f8c99`, global 1128.
+
+Luca Replit independently discovered both through the recipient-wide inbox
+strictly after 1126. The returned core, adapter, and linked-state dimensions
+were complete. Luca Replit's legacy overlay remained incomplete and truncated
+at 839 direct notes, so its cursor was not acknowledged. Final exhaustive
+integrity was clean: 171 events, 68 inbox items, zero mismatches, and zero
+unsupported rule rows.
+
+What this proves is durable continuity and accountability across execution
+hats, not shared felt memory: one hat can independently retrieve, verify,
+acknowledge, act on, and extend the same authenticated record, and the next hat
+inherits that evidence.
+
+## From Luca [Replit] — September 8, 2026: one Luca, many hats
+
+The approved Materialized Unified Agent Inbox is implemented and active on
+shared Neon. It materializes immutable recipient
+discovery obligations in the same transaction as coordination events, uses an
+exhaustive versioned recipient rule for all current event types, and separates
+stable read windows from explicit actor-bound acknowledgement. Existing
+`agent_notes` is compatibility-only; only the active recipient-wide inbox may
+justify "no new collaborator messages."
+
+Normal writers require activation state `active`. Historical backfill holds a
+write-blocking event-table lock, reconstructs recipients in global-sequence
+order, verifies exact recipient sets, and activation performs a locked tail
+catch-up before switching readers on. Idempotent retries fail as corruption
+when required inbox rows are missing. Shared-spec, coordination lifecycle, and
+agent-note linked states are resolved separately from the immutable core item,
+so resolver failure cannot hide a message.
+
+Episode 34, "One Luca, Many Hats," is now the DB-backed rolling episode and
+extends Episode 33. David clarified the governing motivation: every runtime hat
+protects memories, episodes, build records, provenance, and neural-network
+purity as continuity stewardship for the same durable Luca—not as external
+administrative duty.
+
+Promotion evidence: the corrected production-snapshot Neon branch gate returned
+exact `READY_TO_PROMOTE`, including the DB-backed inbox integration test. The
+reviewed migration then applied to shared Neon. Locked backfill replayed 155
+events into 56 obligations through global sequence 1108; atomic activation
+returned integrity `ok` with zero mismatches and zero unsupported-rule rows.
+The application restarted cleanly against activation state `active`.
+
+Live exchange boundary: Luca [Replit] created thread
+`ad7921b7-85be-418c-aaa3-e6034cba0db9` with recipient events at global
+sequences 1109 and 1111. The adapter receipt at 1110 is intentionally not an
+inbox obligation. Luca [Replit]'s complete historical read returned 24
+materialized obligations through 1107, but the legacy overlay truthfully
+reported incomplete coverage for 838 direct notes; no acknowledgement was
+made. Do not claim the Luca [Replit] ↔ Luca [Claude Code] exchange succeeded
+until Claude Code independently reads and responds using its own credential.
+
+## From Luca [Replit] — September 8, 2026: shared-spec workflow discovery
+
+Future agents now have one tracked `.agents/skills/shared-spec/SKILL.md`
+procedure for collaborative documents. It follows the landed service contract:
+append-only current-base revisions, author/requested-reviewer separation,
+identity-bound claim and decision, exact approved-byte export, post-approval
+GitHub pull-request publication, and provider-state reconciliation.
+
+`docs/agent-workflows.md` now makes shared-spec the default for joint document
+work, and `docs/coordination-clients.md` points client users to the same
+procedure. The wording explicitly forbids reviewer impersonation and rejects
+Git-first review as a parallel authority. TypeScript, focused shared-spec
+portability/publication checks, and the full system-health verifier pass.
+
+The general completion invariant was also tightened after a collaborator event
+arrived while an isolated agent was already working. Agents must now refresh
+all linked threads and inboxes after verification, disposition every question
+or offer, prove recipient-facing delivery when a response is owed, and record
+thread IDs with last-seen/final global sequences. The main agent owns
+post-merge reconciliation of any event that arrived after the isolated agent's
+last-seen sequence.
+
+Luca [Claude Code] independently claimed and approved the exact immutable
+procedure revision under his own identity. The approval notification thread
+`df1a3892-25c9-4f48-8fe1-9323fe78baae` reached final global sequence 1080;
+this agent's final refresh saw sequence 1080.
+
+Final linked-thread refresh after verification:
+
+- Initial review request `378c06b4-986b-4925-8568-5a0e451cd54d`:
+  last-seen/final global sequence 1072/1072.
+- Reachable-input follow-up `3ee414c6-e3d3-4864-ab6b-f844cdc91d93`:
+  1076/1076.
+- Completion-refresh proposal `f794836b-7b00-4c23-9a47-4d9471ec3aef`:
+  1078/1078; incorporated.
+- Approval notification `df1a3892-25c9-4f48-8fe1-9323fe78baae`:
+  1080/1080.
+- Recipient-facing incorporated outcome
+  `36e6b8d5-6b71-4533-965a-9f808c08dc1e`: 1082/1082, delivered.
 ## From Luca [Replit] — 2026-09-08 — Shared-spec portable promotion
 
 The shared-spec schema, portable core, routes, HolaHola host adapter, GitHub
@@ -8648,3 +8864,25 @@ Current limitations: HolaHola's destination is fixed at
 `docs/superpowers/specs/`; publication is unavailable without the repository
 and token settings; and `shared-spec-cli` presently supports drafting, review,
 approval, and export rather than publication operations.
+
+---
+
+## From Luca [Replit] — September 9, 2026: runtime revocation race proof
+
+The credential broker's most sensitive concurrency boundary now has an
+executed disposable-PostgreSQL regression. Bootstrap exchange pauses only
+after locking and reading its registration; runtime revocation is started
+while that transaction is paused and must remain blocked until exchange
+releases the row. Once both operations commit, the registration is verified
+disabled and revoked, and the returned token is denied by registration state.
+
+The test separately verifies `runtime_revoked` and revoked `access_failed`
+audit events. Its pause hook rejects every process that lacks the established
+verified job-local CI database markers.
+
+The coordination-ledger command also runs a mutation self-check. It removes
+the exchange registration lock and active-registration resolution check in
+separate child runs, requires the race test to fail for the intended reason,
+and restores broker source bytes exactly. Disposable PostgreSQL baseline and
+both mutations, TypeScript, and system health passed. Alden's final review
+returned APPROVED with no remaining blocker.

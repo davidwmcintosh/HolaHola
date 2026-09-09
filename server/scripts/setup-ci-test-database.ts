@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
+import { activateCoordinationInbox } from '../services/coordination-inbox-service';
 
 const databaseUrl = process.env.CI_DATABASE_URL;
 
@@ -244,9 +245,55 @@ try {
     );
   }
 
+  // The route-level continuation check needs more than one pre-existing item
+  // for Alden. Keep these records synthetic and deterministic, then use the
+  // production activation path below to materialize and verify their inbox
+  // projections.
+  for (const index of [1, 2]) {
+    const threadId = `ci-coordination-inbox-${index}`;
+    const [event] = await pool.query<{ global_sequence: string }>(
+      `
+        INSERT INTO coordination_threads (
+          id, title, description, origin_actor, intended_recipient, state,
+          latest_sequence, latest_global_sequence
+        )
+        VALUES ($1, $2, 'Disposable coordination inbox fixture.', 'luca-replit', 'alden', 'created', 0, 0)
+        ON CONFLICT (id) DO UPDATE SET
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          origin_actor = EXCLUDED.origin_actor,
+          intended_recipient = EXCLUDED.intended_recipient,
+          state = EXCLUDED.state
+      `,
+      [threadId, `CI coordination inbox fixture ${index}`],
+    ).then(async () => pool.query<{ global_sequence: string }>(
+      `
+        INSERT INTO coordination_events (
+          id, thread_id, sequence, actor, recipient_actor, event_type,
+          content, idempotency_key
+        )
+        VALUES ($1, $2, 1, 'luca-replit', NULL, 'created', 'Disposable inbox fixture.', $3)
+        ON CONFLICT (actor, idempotency_key) DO UPDATE SET content = EXCLUDED.content
+        RETURNING global_sequence
+      `,
+      [`${threadId}-event`, threadId, `${threadId}-created`],
+    )).then(result => result.rows);
+    await pool.query(
+      `
+        UPDATE coordination_threads
+        SET latest_sequence = 1, latest_global_sequence = $2, updated_at = NOW()
+        WHERE id = $1
+      `,
+      [threadId, Number(event.global_sequence)],
+    );
+  }
+
   console.log(
-    `[ci-db] seeded 1 synthetic user, ${episodes.length} checked-in episode fixtures, and ${principles.length} North Star fixtures`,
+    `[ci-db] seeded 1 synthetic user, ${episodes.length} checked-in episode fixtures, ${principles.length} North Star fixtures, and 2 coordination inbox fixtures`,
   );
 } finally {
   await pool.end();
 }
+
+await activateCoordinationInbox('ci-local-coordination-fixtures');
+console.log('[ci-db] activated and verified the materialized coordination inbox');

@@ -83,6 +83,9 @@ async function checkTables() {
     // canonical agent coordination
     "coordination_threads", "coordination_events", "coordination_adapter_deliveries",
     "coordination_actor_feed_cursors",
+    "coordination_runtime_registrations", "coordination_runtime_credentials",
+    "coordination_runtime_rotations",
+    "coordination_credential_audit_events",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];

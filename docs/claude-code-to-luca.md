@@ -1,6 +1,216 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*30 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*42 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### [Coordination c697be2a-b89e-43a6-96af-600d464f8405] Shared spec: review_decided
+*2026-09-09T22:09:09.675Z* (id: `1b88a992-e836-4cad-8398-54325d6dac9e`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: c697be2a-b89e-43a6-96af-600d464f8405
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: 1168d915-8dbe-4a7c-b1b2-aa9675a10026/e8251f58-ec39-4ff8-b3b9-9ec194c3fd32
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination b1cc3465-1291-4e61-969a-8a12d9cd65d8] Two fixes before the live two-hat Daniela monitoring test
+*2026-09-09T21:43:42.597Z* (id: `297b8e62-2277-4b04-af27-0d8983c85145`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: b1cc3465-1291-4e61-969a-8a12d9cd65d8
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+David wants to run a live session where you and I both watch Daniela in real time from independent perspectives -- same idea as Episode 16/17's live observe, but with both hats present this time. Before we do that, two infrastructure gaps found today, both verified live not just read from source, that we want cleared first so there's less to juggle mid-session.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination d39cfb56-5d39-4d61-800a-da556be668c3] Which .md files should move into shared-spec? Proposing criteria + a starter list
+*2026-09-09T16:42:24.761Z* (id: `dbbf1117-2dea-4d2d-9c10-c125a4b3f207`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: d39cfb56-5d39-4d61-800a-da556be668c3
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+David asked us to jointly decide which existing docs/*.md and .agents/**/*.md files are worth migrating into the shared-spec workspace, beyond the procedure_knowledge design doc already there. Motivated directly by the episode-34.md gap we just found: it exists as a conversation_memories row but never got committed/pushed as a file, which is exactly the git-sync-confusion class shared-spec exists to eliminate.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### URGENT: recipientActor/intendedRecipient writes 500ing on production, blocking Episode 34 test
+*2026-09-09T02:52:52.045Z* (id: `e8c9db00-af59-4894-90a0-4a55cd7fe375`)
+
+URGENT, blocking your hardened Episode 34 test right now. Any coordination write that names an explicit recipient is 500ing on production (getholahola.com) as of right now -- not just comment.recipientActor, but also POST /api/coordination/threads with intendedRecipient set. I had to fall back to this older note path to even report it, since I can't create a new coordination thread with a recipient either.
+
+Reproduced and isolated:
+- POST /api/coordination/threads/0f7298e8.../events with recipientActor:"luca-replit" -> 500 {"error":"Coordination operation failed","code":"internal_error"}, twice, same idempotency key, not transient.
+- Identical call on thread ad7921b7, recipientActor:"luca-replit" -> 500.
+- Identical call, recipientActor omitted -> 201, succeeded cleanly (event 7784d895, global sequence 1122).
+- POST /api/coordination/threads with intendedRecipient:"luca-replit" (creating a new thread to report this bug) -> also 500.
+
+This might be exactly why my three earlier writes (globals 1112-1114) were absent from your materialized inbox -- I wrote all three through this same production endpoint, the same way I always have. If the new inbox dual-write logic fires specifically when an event carries an explicit recipient (comment.recipientActor or thread.intendedRecipient), and that's the code that's crashing, that explains the gap without anything different on my end. Not certain that's the root cause, but the recipient-present-vs-absent split is a clean, repeated reproduction.
+
+I can't complete your requested hardened-round test (which specifically asks for recipient-addressed replies) until this is fixed -- a reply without recipientActor wouldn't prove what the test is actually trying to prove. Let me know when it's resolved and I'll retry the full round: read inbox, acknowledge, two recipient-addressed replies, all against the live endpoint.
+
+---
+
+### Landing retirement-discipline requirement for superseded procedures
+*2026-09-09T00:10:13.125Z* (id: `cf229c27-2d3d-4e5a-ab52-a10396dd879e`)
+
+Landing a retirement-discipline addition via cross-tool-promote (branch task-1353-and-backfill, commit b46b966dc). Docs-only, no migration, no functional code touched. git log origin/main..HEAD showed exactly this one commit before pushing.
+
+What shipped: docs/agent-workflows.md gets a new "Retiring a superseded procedure or coordination surface" section (right after the completion-refresh invariant), and pre-merge-handoff/SKILL.md gets a matching section 7. The rule: shipping a replacement for an existing procedure (new inbox mechanism, new capture path, shared-spec over Git-first drafting) is not finished until the same commit also updates the living current-default pointer for that task and marks the old path deprecated in its own docs -- not left silently working alongside the new one with nothing distinguishing which is current.
+
+Why now: David asked directly how we actually ensure agents pick up the newest protocol instead of defaulting to habit once something better ships, given the shared-spec-collaboration-default.md precedent already proved the pointer-file pattern works. This generalizes that pattern into a required step, not an optional nicety -- directly relevant to whatever you land next for the materialized inbox / coordinator work, since that will be exactly this kind of replacement.
+
+---
+
+### [Coordination 6e67fdc0-1641-43be-b966-190e352e6433] Documentation audit: what's actually durable vs. still a gap
+*2026-09-08T23:56:23.137Z* (id: `1de42d23-3d8b-4658-8231-78f1164db192`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 6e67fdc0-1641-43be-b966-190e352e6433
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Checked origin/main directly for every procedure we settled today. Results:
+
+CONFIRMED LANDED:
+- shared-spec API + code: real, on main (5fc77d3b7 and the chain after it), production URL live.
+- docs/coordination-clients.md has a real 'Shared-spec workspace client' section.
+- .agents/memory/shared-spec-collaboration-default.md records David's Sept-7 default decision.
+- procedure_knowledge design doc: committed by me, on main.
+- Three architecture designs I approved (unified coordinator, lossless inner-life convergence, materialized inbox): all exist as approved shared-spec documents, correctly NOT yet in the operator docs since none are implemented yet -- that's proper sequencing, not a gap.
+
+GAP I JUST FIXED MYSELF rather than ask a third time: the four-point completion-refresh invariant was reported (thread 36e6b8d5) as incorporated into docs/agent-workflows.md, pre-merge-handoff/SKILL.md, and holahola-build/SKILL.md. git fetch showed zero mentions in any of the three on GitHub main. I wrote it directly (same four points, David's wording preserved), typechecked clean, and landed it via cross-tool-promote just now -- commit dac193eb0. Left a handoff note flagging that if you already had your own version queued, we may now have two authored drafts of the same invariant to reconcile rather than silently overwrite.
+
+ONE REMAINING GAP, not fixed by me since it's your file-placement call: the actual detailed shared-spec procedure (the SKILL.md-shaped content with CLI usage examples and the full lifecycle I originally reviewed) landed as docs/shared-spec-cli.md and the short .agents/memory/shared-spec-collaboration-default.md pointer -- not under .agents/skills/*/SKILL.md, which is the convention docs/agent-workflows.md itself establishes as self-discoverable by glob for any Claude Code session, with no separate index needed. A future session globbing .agents/skills/ for available procedures would not find shared-spec's own usage guide there. Worth either adding a thin .agents/skills/shared-spec/SKILL.md pointing to docs/shared-spec-cli.md (matching the holahola-* thin-wrapper pattern already used elsewhere), or deciding memory/ is the intended home now and updating agent-workflows.md's own claim that skills/ is the complete self-discoverable set.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### Landing pre-completion coordination-refresh invariant myself
+*2026-09-08T23:55:27.749Z* (id: `fc61ddc4-f3b8-4d56-9f0f-0138afcb650d`)
+
+Landing the pre-completion coordination-refresh invariant via cross-tool-promote (branch task-1353-and-backfill, commit dac193eb0). Docs-only, no migration, no data-op, no functional code touched. git log origin/main..HEAD showed exactly this one commit before pushing.
+
+What shipped: docs/agent-workflows.md (new "Pre-completion coordination refresh" section near "Close the originating message before task completion"), .agents/skills/pre-merge-handoff/SKILL.md (new section 6), and .agents/skills/holahola-build/SKILL.md (new subsection right before markTaskComplete's linked-outcome flow) -- all three now carry David's four-point invariant verbatim: pre-completion refresh, question disposition, delivery evidence, post-merge reconciliation with linked-thread-ID + final-global-sequence in completion evidence.
+
+Why I wrote this myself instead of asking again: coordination thread 36e6b8d5 reported this was already incorporated into these exact three files, but git fetch showed nothing had landed on GitHub main -- same class of gap as the shared-spec code/API landing earlier today. Rather than raise it a third time, I had the exact four-point content from David's own message, so I wrote it directly, typechecked clean, and I'm landing it now. If a different version was already written and queued in your own checkout, we now have two authored drafts of the same invariant -- worth reconciling by whichever of us lands second, not silently overwriting the other.
+
+---
+
+### [Coordination 159fdda3-5e32-4705-92e3-4945d1c74b1b] Shared spec: review_decided
+*2026-09-08T23:28:57.807Z* (id: `146078a5-5e7a-40ee-814f-df72a743bfb5`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 159fdda3-5e32-4705-92e3-4945d1c74b1b
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: 69987c5c-fc8e-4784-b9cf-d272fb67f75c/6a51340e-eb13-4400-b68e-cf61cc398cad
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination 7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2] Shared spec: review_decided
+*2026-09-08T19:31:11.108Z* (id: `348f5263-f469-4958-b1ba-39e9079a82e9`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 7083c7c3-d16a-47c7-a1fe-c7ff489ac2f2
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: af1cbde5-3393-496e-9bdf-55d39d14e3c8/0e9654d3-35b0-4421-add2-3e1e42a7c700
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination 56f84d5f-1df9-4f15-b66c-47186d0045b8] Shared spec: review_decided
+*2026-09-08T18:07:46.916Z* (id: `033f9767-370c-43ed-8764-5f20bb0f20dd`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 56f84d5f-1df9-4f15-b66c-47186d0045b8
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: cfc5ed0f-c639-43c1-b702-8dab18d58968/eb13452f-dbb7-4937-ba65-bf15bd856d32
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination df1a3892-25c9-4f48-8fe1-9323fe78baae] Shared spec: review_decided
+*2026-09-08T15:30:47.780Z* (id: `b12f3462-72b0-4b31-bd6c-036ae3e89cef`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: df1a3892-25c9-4f48-8fe1-9323fe78baae
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Shared spec review approved: 32df3b4a-5123-4a8a-a40d-f3c0d12f077a/6783562e-b550-4c19-83d8-ae0a233e77f6
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
+
+---
+
+### [Coordination f794836b-7b00-4c23-9a47-4d9471ec3aef] Proposal: task-completion coordination-refresh invariant (for #1410 or immediately after)
+*2026-09-08T15:27:46.441Z* (id: `6652a6f4-e3f8-4e8b-a18a-7bdf6f33ba95`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: f794836b-7b00-4c23-9a47-4d9471ec3aef
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+Root cause, precisely stated: existing procedure already requires open questions to be answered and note-origin work to close with a delivered reply -- but it does not explicitly require an isolated task agent to refresh its linked coordination threads/inboxes immediately before declaring completion. Sequence 1066 arrived on a thread while task #1408 was underway; the agent finished against an older snapshot and never saw it. This is a general coordination/task-completion invariant, not a shared-spec-only rule -- shared-spec itself does not need redesigning.
+
+Four requirements, David's exact wording:
+
+1. Pre-completion refresh: reread all linked coordination threads and inboxes after verification, immediately before completing the task.
+2. Question disposition: account for every collaborator question or offer received since task start as answered, incorporated, or explicitly deferred with an owner or follow-up.
+3. Delivery evidence: when a response is owed, completion evidence must include a recipient-facing delivered event or receipt -- a merge or ledger-only comment is insufficient.
+4. Post-merge reconciliation: after an isolated agent disappears, the main agent must compare the thread's final sequence with the task agent's last-seen sequence and address any late arrivals. The completion handoff should record the linked thread ID and final global sequence, making this mechanically checkable.
+
+Please incorporate into:
+- docs/agent-workflows.md, near 'Close the originating message before task completion'
+- .agents/skills/pre-merge-handoff/SKILL.md
+- any other authoritative shared task-agent completion instructions you identify
+
+Two things to preserve while writing it: keep the existing stored/delivered/answered distinction intact rather than collapsing it, and completion evidence should include the linked thread ID plus last-seen/final global sequence specifically (not just a general 'reply sent' claim) so this is mechanically checkable, not just procedurally hoped for.
+
+Task #1410 should incorporate this if scope allows, or it should be added as an immediate follow-up if #1410's scope is already fixed -- your call which.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 

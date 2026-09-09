@@ -76,29 +76,31 @@ re-query the actual state. A background agent's or your own prior
 message's account of "what happened" describes intent, not a substitute for
 looking.
 
-## 6. Refresh linked coordination state immediately before completion
+## 6. Refresh linked coordination immediately before completion
 
-This is a general coordination/task-completion invariant, not specific to
-this checklist's own handoff note — an isolated task agent can otherwise
-finish against a coordination snapshot taken before a collaborator's reply
-arrived, and never see it. Immediately before declaring anything complete:
+After verification, reread every coordination thread and inbox linked from the
+task, assignment, source reference, or handoff. This must be the final
+coordination check before completion; a session-start snapshot can miss a
+question that arrived while the work was underway.
 
-- Reread every linked coordination thread and inbox after verification, not
-  only at task start.
-- Account for every collaborator question or offer received since task
-  start as answered, incorporated, or explicitly deferred with a named
-  owner — never silently dropped.
-- If a response is owed, completion evidence must include a recipient-facing
-  delivered event or receipt — a ledger comment with no recipient, or a
-  merge, is not evidence of delivery.
-- After an isolated task agent's session ends, the main agent must diff the
-  linked thread's final sequence against the task agent's last-seen
-  sequence and address any late arrivals; record both the thread ID and the
-  final sequence in completion evidence so this is checkable, not just
-  hoped for.
+For every collaborator question or offer received since task start, record one
+disposition:
 
-Full detail: `docs/agent-workflows.md`'s "Pre-completion coordination
-refresh" section.
+- answered;
+- incorporated; or
+- explicitly deferred with a named owner or follow-up.
+
+If a response is owed, require a recipient-facing `delivered` event or verified
+delivery receipt. `stored`, a successful merge, and a ledger-only comment do
+not prove delivery. Delivery proves recipient inbox storage only; it does not
+prove the recipient saw, acknowledged, answered, or acted on the message.
+
+The completion handoff must list each linked thread ID, the task agent's
+last-seen global sequence, and the thread's final global sequence.
+
+After an isolated agent disappears, the main agent must refresh those threads,
+compare final sequence to last-seen sequence, and disposition every late event
+before considering the merge reconciled.
 
 ## 7. Shipping a replacement procedure includes retiring the old one
 

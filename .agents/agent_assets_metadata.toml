@@ -65,42 +65,49 @@ id = "cXTsXlRbm3VEWLtKy1l6a"
 uri = "file://fine-tuning-export-2026-05-06.jsonl.gz"
 type = "unspecified"
 title = "Daniela Fine-Tuning Dataset — 185 examples (download & decompress)"
+logical_id = "b5db33f4-2f6c-4a55-b16e-0b4696cf3c0d"
 
 [[outputs]]
 id = "JuvrZ5DKdfMpmNMv2e3Qa"
 uri = "file://attached_assets/daniela_response_session1.mp3"
 type = "audio"
 title = "Daniela's voice — responding to Alex speaking Spanish"
+logical_id = "e5d21c11-a3c8-499b-8b7f-47787645df5f"
 
 [[outputs]]
 id = "87CI-Hlt5pXseOJ4U1XKr"
 uri = "file://attached_assets/daniela_s004_t1.mp3"
 type = "audio"
 title = "Session 002 — Turn 1: Daniela sets the scene (Madrid restaurant)"
+logical_id = "d2b62adf-ee95-43d7-96ab-4c330bf45246"
 
 [[outputs]]
 id = "I7y5eTvcD1ZaT9YfDkSiL"
 uri = "file://attached_assets/daniela_s004_t2.mp3"
 type = "audio"
 title = "Session 002 — Turn 2: Vocab grid with food images"
+logical_id = "1b34bd5b-b000-40d8-bfc0-baee46487e85"
 
 [[outputs]]
 id = "QR6tv9Kn6OM2TeoCbsnoS"
 uri = "file://docs/episodes/episode-07-the-foundation-session.md"
 type = "text"
 title = "Episode 8 — The Foundation Session (January 25, 2026)"
+logical_id = "06e50684-da99-4f74-85eb-2ba368100df5"
 
 [[outputs]]
 id = "C6H-EOfBBL9MHerHX1F5h"
 uri = "file://docs/episode-15.md"
 type = "text"
 title = "Episode 15: \"Nueve\""
+logical_id = "ae2fed98-678c-49db-a321-fd37a68d789b"
 
 [[outputs]]
 id = "_9rW9UMQdgZljbEvyWZDJ"
 uri = "file://docs/episode-17.md"
 type = "text"
 title = "Episode 17 — The Guardian in the Room"
+logical_id = "d1caa1bc-4f4f-4163-a85d-23ed79dd891e"
 
 [[outputs]]
 id = "WMHnAmAeXeJCCzAy0gYE0"
@@ -108,3 +115,74 @@ uri = "file://docs/episode-25.md"
 type = "text"
 title = "Episode 25: \"The Common Room\""
 description = "Still rolling — 'The Two Puppets' section appended August 7 evening."
+logical_id = "1d0b9051-6fc6-4783-8252-376bfd5c3636"
+
+[[outputs]]
+id = "9zAVhf-fbfTJd0GIW6F-i"
+uri = "file://attached_assets/task-1423-handoff/task-1423.bundle"
+type = "unspecified"
+title = "Task #1423 Git bundle"
+description = "Verified portable Git bundle containing ef640fb on top of base 00580124. Preferred handoff for the isolated task checkout."
+logical_id = "6b07fd5e-fbce-4da2-be1f-009ec5dc7fdf"
+content_hash = "sha256:86317195c33cd5ef862971cd979e8e872137a53f701d9d360d3faf6d71c697bc"
+size = 79386
+mtime_ms = 1788984085331
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/6b07fd5e-fbce-4da2-be1f-009ec5dc7fdf/10f4084e-828f-460c-a1de-1d0b1500d130"
+storage_version_token = "1788984096443603"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "2hT1mzvtKtQAkpxiRc5bf"
+uri = "file://attached_assets/task-1423-handoff/task-1423.patch"
+type = "unspecified"
+title = "Task #1423 binary patch"
+description = "Fallback git-format-patch for ef640fb, including binary-safe migration snapshot content."
+logical_id = "76ac2bed-137e-4a35-8406-949c5023361d"
+content_hash = "sha256:e2007e359faaece44818eb0d7de8d89e1c0ce3454bf4237e42440aeaf78bed93"
+size = 1210283
+mtime_ms = 1788984085397
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/76ac2bed-137e-4a35-8406-949c5023361d/1545bbf1-7435-4f9c-a630-763b9ee7d199"
+storage_version_token = "1788984097656877"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "8SoKmqZvd4qJxqdMkYs8U"
+uri = "file://attached_assets/task-1423-handoff/README.txt"
+type = "text"
+title = "Task #1423 import instructions"
+description = "Exact bundle verification, fetch, fast-forward, patch fallback, and checksum commands."
+logical_id = "4b35a6b2-a1b0-4e9c-a0bc-a7a02df9f22a"
+content_hash = "sha256:ee7108b1523b980a591869b38607db20111c5a4f780d9715493122f3a98c03a3"
+size = 589
+mtime_ms = 1788984089799
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/4b35a6b2-a1b0-4e9c-a0bc-a7a02df9f22a/92f36261-b12c-4f1a-877f-50c0e3c8ae78"
+storage_version_token = "1788984098389719"
+content_type = "text/plain"
+
+[[outputs]]
+id = "9poJ7ycdF2r622-kC6AmC"
+uri = "file://attached_assets/task-1423.bundle"
+type = "unspecified"
+title = "task-1423.bundle"
+description = "Verified Git bundle for commit ef640fb, requiring base 00580124. SHA-256: 86317195c33cd5ef862971cd979e8e872137a53f701d9d360d3faf6d71c697bc"
+logical_id = "3a2175c5-df4b-4607-b0fa-9e613e38c45a"
+content_hash = "sha256:86317195c33cd5ef862971cd979e8e872137a53f701d9d360d3faf6d71c697bc"
+size = 79386
+mtime_ms = 1788984233199
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/3a2175c5-df4b-4607-b0fa-9e613e38c45a/828d3a7e-25c2-4276-a3a1-6e883f0fcd75"
+storage_version_token = "1788984239794954"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "ojLvTrDTLNZhgI6jyQDa1"
+uri = "file://attached_assets/task-1423-handoff.zip"
+type = "unspecified"
+title = "task-1423-handoff.zip"
+description = "Actual ZIP archive containing task-1423.bundle, SHA256SUMS, and README.md. ZIP SHA-256: 6ecdbaf9019f92125df3e660ea4ff8a3b18372cd56b955a85cb416f0219174d9"
+logical_id = "9a4927a3-c31f-4edc-9a5a-09889285f6c0"
+content_hash = "sha256:6ecdbaf9019f92125df3e660ea4ff8a3b18372cd56b955a85cb416f0219174d9"
+size = 80250
+mtime_ms = 1788984629051
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/9a4927a3-c31f-4edc-9a5a-09889285f6c0/919e11f0-a2e7-4e2b-9400-0d9468d2cb4d"
+storage_version_token = "1788984633897521"
+content_type = "application/octet-stream"

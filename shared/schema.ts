@@ -7977,12 +7977,22 @@ export const COORDINATION_ACTOR_IDS = [
   'luca-holahola',
   'luca-replit',
   'luca-claude-code',
+  'luca-gemini',
   'alden',
   'daniela',
   'david',
   'coordination-system',
 ] as const;
 export type CoordinationActorId = typeof COORDINATION_ACTOR_IDS[number];
+
+export const COORDINATION_CREDENTIAL_CAPABILITIES = [
+  'coordination:read',
+  'coordination:write',
+  'coordination:inbox:ack',
+  'coordination:credential:renew',
+  'coordination:credential:revoke',
+] as const;
+export type CoordinationCredentialCapability = typeof COORDINATION_CREDENTIAL_CAPABILITIES[number];
 
 export const COORDINATION_EVENT_TYPES = [
   'created',
@@ -8050,6 +8060,10 @@ export const coordinationDeliveryStatusEnum = pgEnum('coordination_delivery_stat
   'delivered',
   'failed',
 ]);
+export const coordinationInboxActivationStateEnum = pgEnum(
+  'coordination_inbox_activation_state',
+  ['preparing', 'ready', 'active'],
+);
 
 export const coordinationThreads = pgTable("coordination_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -8118,6 +8132,132 @@ export const coordinationActorFeedCursors = pgTable("coordination_actor_feed_cur
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const coordinationInboxItems = pgTable("coordination_inbox_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipientActor: varchar("recipient_actor", { length: 80 }).notNull(),
+  coordinationEventId: varchar("coordination_event_id").notNull()
+    .references(() => coordinationEvents.id, { onDelete: 'cascade' }),
+  coordinationThreadId: varchar("coordination_thread_id").notNull()
+    .references(() => coordinationThreads.id, { onDelete: 'cascade' }),
+  eventGlobalSequence: bigint("event_global_sequence", { mode: 'number' }).notNull(),
+  senderActor: varchar("sender_actor", { length: 80 }).notNull(),
+  messageKind: coordinationEventTypeEnum("message_kind").notNull(),
+  sourceReferenceSnapshot: jsonb("source_reference_snapshot").$type<CoordinationEvidenceReference>(),
+  sourceCorrelationKey: varchar("source_correlation_key", { length: 1000 }),
+  recipientRuleVersion: integer("recipient_rule_version").notNull(),
+  backfilled: boolean("backfilled").notNull().default(false),
+  backfillProvenance: jsonb("backfill_provenance").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_coordination_inbox_recipient_event")
+    .on(table.recipientActor, table.coordinationEventId),
+  index("idx_coordination_inbox_recipient_sequence")
+    .on(table.recipientActor, table.eventGlobalSequence, table.id),
+  index("idx_coordination_inbox_recipient_correlation")
+    .on(table.recipientActor, table.sourceCorrelationKey, table.eventGlobalSequence),
+]);
+
+export const coordinationInboxCursors = pgTable("coordination_inbox_cursors", {
+  recipientActor: varchar("recipient_actor", { length: 80 }).primaryKey(),
+  acknowledgedEventGlobalSequence: bigint("acknowledged_event_global_sequence", { mode: 'number' })
+    .notNull()
+    .default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const coordinationInboxActivation = pgTable("coordination_inbox_activation", {
+  id: varchar("id", { length: 80 }).primaryKey(),
+  schemaVersion: integer("schema_version").notNull(),
+  recipientRuleVersion: integer("recipient_rule_version").notNull(),
+  state: coordinationInboxActivationStateEnum("state").notNull().default('preparing'),
+  backfillCutoffGlobalSequence: bigint("backfill_cutoff_global_sequence", { mode: 'number' }),
+  completionEvidence: jsonb("completion_evidence").$type<Record<string, unknown>>(),
+  activatedAt: timestamp("activated_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const coordinationRuntimeRegistrations = pgTable("coordination_runtime_registrations", {
+  id: varchar("id", { length: 120 }).primaryKey(),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  bootstrapHash: varchar("bootstrap_hash", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  tokenTtlSeconds: integer("token_ttl_seconds").notNull().default(900),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_runtime_bootstrap_hash").on(table.bootstrapHash),
+  index("idx_coordination_runtime_actor").on(table.actor, table.enabled),
+]);
+
+export const coordinationRuntimeCredentials = pgTable("coordination_runtime_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runtimeId: varchar("runtime_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'cascade' }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  revokedAt: timestamp("revoked_at"),
+  renewedFromCredentialId: varchar("renewed_from_credential_id"),
+}, (table) => [
+  uniqueIndex("uq_coordination_runtime_token_hash").on(table.tokenHash),
+  index("idx_coordination_runtime_credential_active").on(table.runtimeId, table.expiresAt, table.revokedAt),
+  index("idx_coordination_runtime_credential_actor").on(table.actor, table.expiresAt),
+]);
+
+export const coordinationRuntimeRotations = pgTable("coordination_runtime_rotations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceRuntimeId: varchar("source_runtime_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'restrict' }),
+  replacementRuntimeId: varchar("replacement_runtime_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'restrict' }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  tokenTtlSeconds: integer("token_ttl_seconds").notNull(),
+  state: varchar("state", { length: 24 }).notNull().default('staged'),
+  readyCredentialId: varchar("ready_credential_id")
+    .references(() => coordinationRuntimeCredentials.id, { onDelete: 'restrict' }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  readyAt: timestamp("ready_at"),
+  completedAt: timestamp("completed_at"),
+  rolledBackAt: timestamp("rolled_back_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_runtime_rotation_active_source")
+    .on(table.sourceRuntimeId)
+    .where(sql`${table.state} IN ('staged', 'ready')`),
+  uniqueIndex("uq_coordination_runtime_rotation_active_replacement")
+    .on(table.replacementRuntimeId)
+    .where(sql`${table.state} IN ('staged', 'ready')`),
+  index("idx_coordination_runtime_rotation_actor").on(table.actor, table.createdAt),
+  check("coordination_runtime_rotation_distinct_ids", sql`${table.sourceRuntimeId} <> ${table.replacementRuntimeId}`),
+  check("coordination_runtime_rotation_state", sql`
+    ${table.state} IN ('staged', 'ready', 'completed', 'rolled_back')
+  `),
+]);
+
+export const coordinationCredentialAuditEvents = pgTable("coordination_credential_audit_events", {
+  id: bigserial("id", { mode: 'number' }).primaryKey(),
+  eventType: varchar("event_type", { length: 40 }).notNull(),
+  success: boolean("success").notNull(),
+  runtimeId: varchar("runtime_id", { length: 120 }),
+  actor: varchar("actor", { length: 80 }),
+  credentialId: varchar("credential_id"),
+  reason: varchar("reason", { length: 160 }),
+  sourceIpHash: varchar("source_ip_hash", { length: 64 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_coordination_credential_audit_runtime").on(table.runtimeId, table.createdAt),
+  index("idx_coordination_credential_audit_actor").on(table.actor, table.createdAt),
+  index("idx_coordination_credential_audit_failures").on(table.success, table.createdAt),
+]);
+
 export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
   id: true,
   state: true,
@@ -8135,6 +8275,12 @@ export type CoordinationThread = typeof coordinationThreads.$inferSelect;
 export type CoordinationEvent = typeof coordinationEvents.$inferSelect;
 export type CoordinationAdapterDelivery = typeof coordinationAdapterDeliveries.$inferSelect;
 export type CoordinationActorFeedCursor = typeof coordinationActorFeedCursors.$inferSelect;
+export type CoordinationInboxItem = typeof coordinationInboxItems.$inferSelect;
+export type CoordinationInboxCursor = typeof coordinationInboxCursors.$inferSelect;
+export type CoordinationInboxActivation = typeof coordinationInboxActivation.$inferSelect;
+export type CoordinationRuntimeRegistration = typeof coordinationRuntimeRegistrations.$inferSelect;
+export type CoordinationRuntimeCredential = typeof coordinationRuntimeCredentials.$inferSelect;
+export type CoordinationCredentialAuditEvent = typeof coordinationCredentialAuditEvents.$inferSelect;
 
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.
