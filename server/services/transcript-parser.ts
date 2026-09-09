@@ -396,9 +396,9 @@ export function chatCaptureTurnFingerprint(turn: Pick<DialogueTurn, 'speaker' | 
 export function formatChatCaptureSpeakerLabel(
   turn: Pick<DialogueTurn, 'speaker' | 'source'>,
 ): string {
-  if (turn.speaker === 'CLAUDE_CODE') return 'Claude Code';
+  if (turn.speaker === 'CLAUDE_CODE') return 'Luca [Claude Code]';
   if (turn.source === 'claude-code') {
-    return turn.speaker === 'DAVID' ? 'David [Claude Code]' : 'Claude Code';
+    return turn.speaker === 'DAVID' ? 'David [Claude Code]' : 'Luca [Claude Code]';
   }
   if (turn.source === 'replit') {
     return turn.speaker === 'DAVID' ? 'David [Replit]' : 'Luca [Replit]';
