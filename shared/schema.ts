@@ -7991,6 +7991,7 @@ export const COORDINATION_CREDENTIAL_CAPABILITIES = [
   'coordination:inbox:ack',
   'coordination:credential:renew',
   'coordination:credential:revoke',
+  'observation:read',
 ] as const;
 export type CoordinationCredentialCapability = typeof COORDINATION_CREDENTIAL_CAPABILITIES[number];
 

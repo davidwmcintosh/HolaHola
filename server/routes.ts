@@ -19,7 +19,7 @@ import {
   registerObservationBenchCoordinationRoutes,
   registerObservationBenchFounderRoutes,
 } from "./routes/observation-bench-routes";
-import { requireCoordinationAuth, type CoordinationAuthenticatedRequest } from "./middleware/coordination-auth";
+import { requireCoordinationAuth, requireFounderOrCoordinationCapability, type CoordinationAuthenticatedRequest } from "./middleware/coordination-auth";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { excludesOperationalMemories } from "./services/daniela-memory-boundary";
@@ -27406,7 +27406,11 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Observation bench — Luca reads the live session state from the Replit chat window.
   // Returns in-memory GL state + last N DB messages for the active conversation.
   // Auth: x-coordination-token header OR authenticated founder browser session.
-  app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
+  app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrCoordinationCapability(
+    requireFounder,
+    'observation:read',
+    ['luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-holahola'],
+  ), async (req: any, res: Response) => {
     try {
       const {
         getAllActiveObservations,
@@ -27423,20 +27427,67 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
       const { sql: rawSql } = await import('drizzle-orm');
       const obsDb = getSharedDb();
+      const { deriveGuardianObserverEvidence } = await import('./services/guardian-observer-evidence');
+      const projectGuardianEvidence = (rows: any[], sessionRow: any | null) =>
+        deriveGuardianObserverEvidence(
+          rows.map(row => ({
+            id: row.id,
+            sessionId: row.session_id,
+            eventData: row.event_data,
+            createdAt: row.created_at,
+          })),
+          sessionRow ? {
+            guardianFires: sessionRow.guardian_fires,
+            guardianHardWalls: sessionRow.guardian_hard_walls,
+            guardianHeard: sessionRow.guardian_heard,
+            guardianMissed: sessionRow.guardian_missed,
+            guardianCarryForward: sessionRow.guardian_carry_forward,
+          } : null,
+        );
 
       if (!observation) {
         // Fall back to DB — find the most recent active voice session
-        const activeRow = await obsDb.execute(
-          rawSql`SELECT id, conversation_id, language, exchange_count, started_at, user_id
+        const activeRow = conversationId
+          ? await obsDb.execute(
+            rawSql`SELECT id, conversation_id, language, exchange_count, started_at, ended_at, user_id,
+                        guardian_fires, guardian_hard_walls, guardian_heard,
+                        guardian_missed, guardian_carry_forward
                  FROM voice_sessions
-                 WHERE status = 'active'
+                 WHERE status = 'active' AND conversation_id = ${conversationId}
                  ORDER BY started_at DESC
                  LIMIT 1`
-        );
+          )
+          : await obsDb.execute(
+            rawSql`SELECT id, conversation_id, language, exchange_count, started_at, ended_at, user_id,
+                          guardian_fires, guardian_hard_walls, guardian_heard,
+                          guardian_missed, guardian_carry_forward
+                   FROM voice_sessions
+                   WHERE status = 'active'
+                   ORDER BY started_at DESC
+                   LIMIT 1`
+          );
         const row = (activeRow as any).rows?.[0] ?? (activeRow as any)[0] ?? null;
         if (!row) {
           return res.json({ status: 'no_active_session', message: 'No active GL session found.' });
         }
+        const persistedEvents = await obsDb.execute(rawSql`
+          SELECT event.id, event.session_id, event.event_data, event.created_at
+          FROM voice_pipeline_events event
+          WHERE event.event_type = 'gl_guardian_fire'
+            AND (
+              event.session_id = ${row.id}
+              OR (
+                event.event_data->>'conversationId' = ${row.conversation_id}
+                AND event.created_at >= ${row.started_at}
+                AND (${row.ended_at}::timestamp IS NULL OR event.created_at <= ${row.ended_at})
+                AND NOT EXISTS (
+                  SELECT 1 FROM voice_sessions known
+                  WHERE known.id = event.session_id
+                )
+              )
+            )
+          ORDER BY event.created_at ASC
+        `);
         return res.json({
           status: 'db_only',
           message: 'Session active in DB but not yet in observation store (started before server restart, or store expired).',
@@ -27447,6 +27498,10 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
             startedAt: row.started_at,
             userId: row.user_id,
           },
+          guardianEvidence: projectGuardianEvidence(
+            ((persistedEvents as any).rows ?? []) as any[],
+            row,
+          ),
         });
       }
 
@@ -27484,6 +27539,46 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const elapsedMin = Math.round(elapsedMs / 60000);
       const lineage = observation.contextLineage;
       const lineageAvailability = getContextLineageObservationAvailability(lineage);
+      const guardianSessionResult = observation.dbSessionId
+        ? await obsDb.execute(rawSql`
+          SELECT id, guardian_fires, guardian_hard_walls, guardian_heard,
+                 guardian_missed, guardian_carry_forward, started_at
+          FROM voice_sessions
+          WHERE id = ${observation.dbSessionId}
+          LIMIT 1
+        `)
+        : await obsDb.execute(rawSql`
+          SELECT id, guardian_fires, guardian_hard_walls, guardian_heard,
+                 guardian_missed, guardian_carry_forward, started_at
+          FROM voice_sessions
+          WHERE conversation_id = ${convId}
+            AND user_id = ${observation.userId}
+          ORDER BY started_at DESC
+          LIMIT 1
+        `);
+      const guardianSession = ((guardianSessionResult as any).rows ?? [])[0] ?? null;
+      const guardianEventResult = await obsDb.execute(rawSql`
+          SELECT id, session_id, event_data, created_at
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_guardian_fire'
+            AND (
+              session_id = ${observation.dbSessionId ?? '__no_db_session__'}
+              OR session_id = ${observation.transientSessionId ?? '__no_transient_session__'}
+            )
+          ORDER BY created_at ASC
+        `);
+      let guardianRows = ((guardianEventResult as any).rows ?? []) as any[];
+      if (guardianSession && !observation.dbSessionId) {
+        const bySessionResult = await obsDb.execute(rawSql`
+          SELECT id, session_id, event_data, created_at
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_guardian_fire'
+            AND session_id = ${guardianSession.id}
+          ORDER BY created_at ASC
+        `);
+        guardianRows = [...guardianRows, ...(((bySessionResult as any).rows ?? []) as any[])];
+      }
+      const guardianEvidence = projectGuardianEvidence(guardianRows, guardianSession);
 
       res.json({
         status: 'active',
@@ -27530,6 +27625,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           carryForwardBufferedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length,
           carryForwardInjectedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-injected').length,
         },
+        guardianEvidence,
         // Exact evidence chain for grounding interventions. These are not inferred
         // "heard/missed" labels: each timeline names what the system observed.
         guardianAttemptTimeline: (observation.guardianAttempts ?? []).slice(-10).map(attempt => ({

@@ -112,6 +112,7 @@ import {
   NAMED_RECORD_PHRASES,
 } from './memory-chain-guard';
 import { randomUUID } from 'crypto';
+import { persistGuardianSummary } from './guardian-summary';
 
 /**
  * Immutable identity for one Guardian lookup. Grounding is asynchronous, while
@@ -1663,6 +1664,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.session.conversationId) {
       observeSessionStart({
         conversationId: this.session.conversationId,
+        dbSessionId: this.session.dbSessionId ?? null,
+        transientSessionId: this.session.id,
         userId: this.session.userId ?? '',
         language: this.session.targetLanguage ?? null,
         actflLevel: this.session.studentActflLevel ?? null,
@@ -2330,7 +2333,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
   /**
    * Close the Gemini Live session cleanly.
    */
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.isStopped) return;
     this.isStopped = true;
     // Cancel reconnect first: an intentional stop must never revive this
@@ -2436,29 +2439,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         ),
       });
     }
-    // Persist Guardian metrics to voice_sessions so AldenWatch can monitor patterns.
-    // Wrapped in an awaited async IIFE so the DB write completes before the JS event loop
-    // moves on — previously fire-and-forget caused the write to be silently lost.
-    if (this.guardianFireLog.length > 0 && this.session.id) {
-      const gFires   = this.guardianFireLog.length;
-      const gHard    = this.guardianFireLog.filter(f => f.path === 'hard-wall').length;
-      const gHeard   = this.guardianFireLog.filter(f => f.outcome === 'heard').length;
-      const gMissed  = this.guardianFireLog.filter(f => f.outcome === 'missed').length;
-      const gCarry   = this.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length;
-      const sessionIdForGuardian = this.session.id;
-      void (async () => {
-        try {
-          await getSharedDb()
-            .update(voiceSessions)
-            .set({ guardianFires: gFires, guardianHardWalls: gHard, guardianHeard: gHeard, guardianMissed: gMissed, guardianCarryForward: gCarry })
-            .where(eq(voiceSessions.id, sessionIdForGuardian))
-            .execute();
-          console.log(`[GeminiLive] Guardian stats persisted — fires:${gFires} heard:${gHeard} missed:${gMissed} hard:${gHard} carry:${gCarry}`);
-        } catch (err: any) {
-          console.warn('[GeminiLive] Guardian summary write failed:', err.message);
-        }
-      })();
-    }
+    // Persist the derived Guardian summary against the DB UUID. This is deliberately
+    // awaited (with a bounded timeout) so stop() completion means the summary has
+    // either been persisted or its failure has been made visible.
+    await persistGuardianSummary({
+      dbSessionId: this.session.dbSessionId,
+      transientSessionId: this.session.id,
+      fireLog: this.guardianFireLog,
+      update: (sessionId, values) => getSharedDb()
+        .update(voiceSessions)
+        .set(values)
+        .where(eq(voiceSessions.id, sessionId))
+        .returning({ id: voiceSessions.id }),
+    });
     if (!this.session.isIncognito && this.session.conversationId) {
       import('./shadow-auditor').then(({ runShadowAudit }) => {
         runShadowAudit({

@@ -120,6 +120,10 @@ export function getContextLineageObservationAvailability(
 
 export interface SessionObservation {
   conversationId: string;
+  /** Exact persistent voice_sessions UUID for this live observation. */
+  dbSessionId: string | null;
+  /** Provider/runtime session ID used by very-early pipeline events. */
+  transientSessionId: string | null;
   userId: string;
   language: string | null;
   actflLevel: string | null;
@@ -159,31 +163,51 @@ function now(): number {
 
 export function observeSessionStart(opts: {
   conversationId: string;
+  dbSessionId?: string | null;
+  transientSessionId?: string | null;
   userId: string;
   language: string | null;
   actflLevel: string | null;
 }): void {
   const existing = store.get(opts.conversationId);
+  const sameSession = Boolean(
+    existing
+    && existing.dbSessionId === (opts.dbSessionId ?? null)
+    && existing.transientSessionId === (opts.transientSessionId ?? null),
+  );
   store.set(opts.conversationId, {
     conversationId: opts.conversationId,
+    dbSessionId: opts.dbSessionId ?? null,
+    transientSessionId: opts.transientSessionId ?? null,
     userId: opts.userId,
     language: opts.language,
     actflLevel: opts.actflLevel,
-    exchangeCount: existing?.exchangeCount ?? 0,
-    scenarioSlug: existing?.scenarioSlug ?? null,
-    sceneEnvironment: existing?.sceneEnvironment ?? null,
-    sceneImageUrl: existing?.sceneImageUrl ?? null,
-    sceneProps: existing?.sceneProps ?? [],
-    recentToolCalls: existing?.recentToolCalls ?? [],
+    exchangeCount: sameSession ? existing?.exchangeCount ?? 0 : 0,
+    scenarioSlug: sameSession ? existing?.scenarioSlug ?? null : null,
+    sceneEnvironment: sameSession ? existing?.sceneEnvironment ?? null : null,
+    sceneImageUrl: sameSession ? existing?.sceneImageUrl ?? null : null,
+    sceneProps: sameSession ? existing?.sceneProps ?? [] : [],
+    recentToolCalls: sameSession ? existing?.recentToolCalls ?? [] : [],
     lastUpdatedMs: now(),
-    sessionStartedMs: existing?.sessionStartedMs ?? now(),
-    guardianChannel: existing?.guardianChannel ?? 'concat',
-    guardianFireLog: existing?.guardianFireLog ?? [],
-    guardianAttempts: existing?.guardianAttempts ?? [],
-    recentMemorySearches: existing?.recentMemorySearches ?? [],
-    turnSummaries: existing?.turnSummaries ?? [],
-    frictionHistory: existing?.frictionHistory ?? [],
-    contextLineage: existing?.contextLineage ?? {
+    sessionStartedMs: sameSession ? existing?.sessionStartedMs ?? now() : now(),
+    guardianChannel: sameSession ? existing?.guardianChannel ?? 'concat' : 'concat',
+    guardianFireLog: sameSession ? existing?.guardianFireLog ?? [] : [],
+    guardianAttempts: sameSession ? existing?.guardianAttempts ?? [] : [],
+    recentMemorySearches: sameSession ? existing?.recentMemorySearches ?? [] : [],
+    turnSummaries: sameSession ? existing?.turnSummaries ?? [] : [],
+    frictionHistory: sameSession ? existing?.frictionHistory ?? [] : [],
+    contextLineage: sameSession ? existing?.contextLineage ?? {
+      activeTraceId: null,
+      events: [],
+      links: [],
+      health: {
+        state: "healthy",
+        pendingWrites: 0,
+        failedWrites: 0,
+        firstUnrecordedSequenceNumber: null,
+        lastError: null,
+      },
+    } : {
       activeTraceId: null,
       events: [],
       links: [],

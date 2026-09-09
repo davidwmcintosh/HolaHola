@@ -5181,7 +5181,7 @@ ${lastNote.tutorNotes}`);
               : `languageCode changed ${prevLangCode ?? 'default'} → ${nextLangCode ?? 'default'}`;
             console.log(`[GeminiLive] ${changeReason}, reconnecting…`);
             try {
-              geminiLiveSession.stop();
+              await geminiLiveSession.stop();
               if (conversationId) unregisterGlSession(conversationId, geminiLiveSession);
               geminiLiveSession = null;
 
@@ -5456,7 +5456,9 @@ ${lastNote.tutorNotes}`);
         (usageSession as any)._glInputTokens = glMetrics.inputTokens;
         (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
       }
-      geminiLiveSession.stop();
+      void geminiLiveSession.stop().catch(err =>
+        console.warn('[GeminiLive] Teardown summary error:', err),
+      );
       if (conversationId) unregisterGlSession(conversationId, geminiLiveSession);
       geminiLiveSession = null;
       // Clean up persisted resumption handle — session ended cleanly
@@ -5761,7 +5763,9 @@ ${lastNote.tutorNotes}`);
           `).catch((err: Error) => console.warn('[GeminiLive] Failed to write latency event (error path):', err.message));
         }
       }
-      geminiLiveSession.stop();
+      void geminiLiveSession.stop().catch(err =>
+        console.warn('[GeminiLive] Error teardown summary error:', err),
+      );
       if (conversationId) unregisterGlSession(conversationId, geminiLiveSession);
       geminiLiveSession = null;
       // Clean up persisted resumption handle — session ended (error path)

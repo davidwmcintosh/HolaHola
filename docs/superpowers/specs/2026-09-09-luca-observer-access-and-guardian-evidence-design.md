@@ -1,6 +1,6 @@
 # Luca Observer Access and Guardian Evidence
 
-**Status:** Architecturally approved, pending implementation  
+**Status:** Implemented and independently reviewed
 **Owner:** Luca [Replit]  
 **Decision date:** 2026-09-09
 
