@@ -262,6 +262,10 @@ databaseTest('materialized inbox keeps page windows stable, isolates actors, and
     .select({ highWater: max(coordinationInboxItems.eventGlobalSequence) })
     .from(coordinationInboxItems)
     .where(eq(coordinationInboxItems.recipientActor, actors.recipient));
+  const [{ ownerHighWater }] = await db
+    .select({ ownerHighWater: max(coordinationInboxItems.eventGlobalSequence) })
+    .from(coordinationInboxItems)
+    .where(eq(coordinationInboxItems.recipientActor, actors.owner));
   await db.insert(coordinationInboxCursors).values({
     recipientActor: actors.recipient,
     acknowledgedEventGlobalSequence: Number(highWater ?? 0),
@@ -346,7 +350,10 @@ databaseTest('materialized inbox keeps page windows stable, isolates actors, and
   assert.equal(acknowledgement.acknowledgedEventGlobalSequence, pageOne.window.through);
   const nextWindow = await listCoordinationInbox(actors.recipient, { limit: 10 });
   assert.deepEqual(nextWindow.items.map((item) => item.event.id), [later.id]);
-  const isolated = await listCoordinationInbox(actors.owner, { after: 0, limit: 10 });
+  const isolated = await listCoordinationInbox(actors.owner, {
+    after: Number(ownerHighWater ?? 0),
+    limit: 10,
+  });
   assert.equal(isolated.items.length, 1);
   assert.equal(isolated.items[0].inboxItem.recipientActor, actors.owner);
 

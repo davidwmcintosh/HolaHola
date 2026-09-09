@@ -70,6 +70,13 @@ or refresh. Do not acknowledge a partial, unread, failed, or differently
 refreshed window. Acknowledgement does not accept work, mutate lifecycle state,
 prove recipient reading, or prove action.
 
+Core inbox completeness and overlays are reported separately. A complete core
+window may coexist with incomplete linked-state or legacy coverage; report each
+dimension exactly as returned and never describe incomplete overlay coverage as
+complete. When historical legacy coverage is truncated, use an explicit
+`--after` high-water for a bounded new proof and do not advance the actor's
+historical cursor merely to simplify the test.
+
 `list` and `show` remain detail and investigation tools. They may inspect a
 known thread, sequence, or history, but cannot substitute for `inbox` and do
 not establish complete intake. `agent_notes` remains a compatibility surface
@@ -156,30 +163,47 @@ Inbox delivery, feed cursor acknowledgement, note acknowledgement, note action,
 and coordination outcome acknowledgement are independent evidence. None may be
 used to infer another, and this system does not claim a `notified` state.
 
-## Two-runtime Luca smoke protocol (pending activation)
+## Two-runtime Luca smoke protocol
 
-This approved protocol is for a future smoke test between Luca [Replit] and
-Luca [Claude Code]. It is not evidence that activation has occurred or that the
-test has succeeded.
+Use this protocol for every smoke test between Luca [Replit] and Luca [Claude
+Code]. A previous successful run is not evidence that a new run succeeded.
 
 1. The Replit Agent runtime configures only
    `COORDINATION_LUCA_REPLIT_TOKEN` in its own secret store. The Claude Code
    runtime configures only `COORDINATION_LUCA_CLAUDE_CODE_TOKEN` in its own
    secret store. Neither hat shares, copies, prints, requests, or uses the
    other's credential.
-2. Each runtime independently calls `inbox --limit 50` as itself and records
+2. Before the first mutation, the initiating runtime obtains the current
+   development endpoint from the running environment, verifies a health request
+   through that exact endpoint, and sends the literal endpoint to the other
+   runtime in a recipient-addressed message. The receiving runtime must not use
+   a remembered URL.
+3. Each runtime independently calls `inbox --limit 50` as itself and records
    only its own read-window metadata. `show` may investigate an inbox entry,
    but neither `show` nor `list` establishes completeness.
-3. Each runtime reads and processes its own complete returned window. Neither
+4. Each runtime reads and processes its own complete returned window. Neither
    Luca hat acknowledges, replies, acts, or impersonates the other. A
    recipient-facing comment passes `--recipient`; an internal record passes
    `--ledger-only`.
-4. Each runtime calls `ack-inbox` only with the completed read-window token
+5. Each runtime calls `ack-inbox` only with the completed read-window token
    returned by its own inbox response. It must not use a fabricated,
    cross-runtime, stale, or partially processed token.
-5. Record the two runtimes' separate results, including explicit failure or
+6. The recipient reports the inbox-item IDs for the named coordination events
+   and replies with new explicit-recipient events. The initiator independently
+   proves those replies appeared in its recipient-wide inbox. Ledger transport,
+   adapter delivery, and thread visibility are insufficient.
+7. During any long gate, migration, or external wait, the waiting runtime posts
+   a recipient-addressed status update before the other actor is left silently
+   polling. A status event proves storage and delivery only; LLM consumption
+   still requires the recipient's explicit receipt or reply.
+8. Record the two runtimes' separate results, including explicit failure or
    pending states. Inbox storage, reading, acknowledgement, and action remain
    separate evidence and must not be inferred from one another.
+
+Database-backed tests against production snapshots must capture recipient
+high-waters before inserting fixtures and read only `(after, through]`.
+Production activity may continue while the snapshot is created; tests must
+never assume a recipient inbox is empty at sequence zero.
 
 ## Credential rotation
 

@@ -348,6 +348,18 @@ the reply. If a future external adapter reports a delivered reply with
 completion pending, preserve that receipt and retry with the same idempotency
 key and refreshed sequence.
 
+When another runtime is waiting while this agent runs a long validation,
+migration, deployment, or repair, post a recipient-addressed coordination
+status rather than leaving the other runtime to poll silently. State the exact
+verified boundary and the next evidence required. Do not call that status
+consumed until the recipient produces an explicit receipt or reply.
+
+Cross-runtime smoke tests must exchange the literal current runtime endpoint
+after a successful health probe. Never let the receiving runtime select an old
+remembered development URL. The initiator must verify the recipient's replies
+through its recipient-wide inbox; thread history, sender-filtered notes, and
+adapter delivery are not substitutes.
+
 After an isolated task agent disappears, the main agent must refresh the linked
 threads and compare each final global sequence with the task agent's recorded
 last-seen sequence. Any later event must be answered, incorporated, or
