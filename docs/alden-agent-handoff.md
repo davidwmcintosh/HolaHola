@@ -8897,6 +8897,11 @@ accepted; expired and revoked broker credentials are rejected and leave the
 expected credential-audit rows; and adjacent founder-only and agent-only routes
 retain their prior authorization behavior.
 
+The route-level success case uses an enabled, unexpired Luca broker credential
+with `observation:read`. That same credential is denied by the adjacent
+founder-only route, proving the observer capability is not shared with broader
+administrative surfaces.
+
 The route fixture gives two active voice sessions the same conversation ID.
 DB-only recovery selects the newest session and excludes the known adjacent
 session's Guardian event. A separate active in-memory observation remains bound

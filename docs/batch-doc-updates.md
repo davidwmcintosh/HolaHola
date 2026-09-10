@@ -5537,7 +5537,10 @@ The disposable coordination database suite now exercises the real
 `GET /api/admin/luca/observe` Express endpoint. It proves founder browser
 identity still reaches the route, expired and revoked broker credentials are
 denied with durable audit rows, and observer authorization does not widen
-adjacent founder-only or agent-only routes.
+adjacent founder-only or agent-only routes. The adjacent founder-only denial
+reuses the same valid `observation:read` broker credential that succeeds on the
+observer endpoint, so the assertion proves route isolation rather than generic
+invalid-token rejection.
 
 The same harness creates two active voice sessions under one conversation and
 proves both DB-only recovery and active in-memory observation return Guardian

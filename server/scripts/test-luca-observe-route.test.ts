@@ -32,6 +32,13 @@ const targetSessionId = `${prefix}-target-session`;
 const adjacentSessionId = `${prefix}-adjacent-session`;
 const targetEventId = `${prefix}-target-event`;
 const adjacentEventId = `${prefix}-adjacent-event`;
+const validBrokerFixture = {
+  runtimeId: `${prefix}-valid-runtime`,
+  credentialId: `${prefix}-valid-credential`,
+  token: `${prefix}-valid-token-${'x'.repeat(40)}`,
+  expiresAt: new Date(Date.now() + 10 * 60_000),
+  revokedAt: null,
+} as const;
 
 const brokerFixtures = [
   {
@@ -144,7 +151,7 @@ before(async () => {
     },
   ]);
 
-  for (const fixture of brokerFixtures) {
+  for (const fixture of [validBrokerFixture, ...brokerFixtures]) {
     await db.insert(coordinationRuntimeRegistrations).values({
       id: fixture.runtimeId,
       actor: 'luca-replit',
@@ -250,6 +257,20 @@ databaseTest('an active in-memory observation remains bound to its exact DB sess
   }
 });
 
+databaseTest('a valid Luca broker credential reaches the real observer route', async () => {
+  const response = await request(
+    `/api/admin/luca/observe?conversationId=${encodeURIComponent(conversationId)}`,
+    { token: validBrokerFixture.token },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'db_only');
+  assert.equal(response.body.session.conversationId, conversationId);
+  assert.deepEqual(
+    response.body.guardianEvidence.recentEvents.map((event: { id: string }) => event.id),
+    [targetEventId],
+  );
+});
+
 databaseTest('expired and revoked broker credentials are rejected and audited by the real observer route', async () => {
   for (const fixture of brokerFixtures) {
     const response = await request('/api/admin/luca/observe', { token: fixture.token });
@@ -279,8 +300,9 @@ databaseTest('expired and revoked broker credentials are rejected and audited by
 });
 
 databaseTest('observer authorization does not widen adjacent founder or agent routes', async () => {
-  const brokerToken = brokerFixtures[0].token;
-  const founderOnly = await request('/api/admin/luca-session-view', { token: brokerToken });
+  const founderOnly = await request('/api/admin/luca-session-view', {
+    token: validBrokerFixture.token,
+  });
   assert.equal(founderOnly.status, 401);
 
   const agentOnly = await request('/api/agent/sprints', { founder: true });
@@ -288,7 +310,7 @@ databaseTest('observer authorization does not widen adjacent founder or agent ro
 
   const observer = await request(
     `/api/admin/luca/observe?conversationId=${encodeURIComponent(conversationId)}`,
-    { founder: true },
+    { token: validBrokerFixture.token },
   );
   assert.equal(observer.status, 200);
 });
