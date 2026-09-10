@@ -5530,3 +5530,23 @@ make the race test fail, and the broker source is restored byte-for-byte.
 
 Disposable PostgreSQL baseline and mutation runs, TypeScript, system health,
 and Alden review passed.
+
+## Luca observer route integration boundary — September 9, 2026
+
+The Luca observation endpoint is now registered from a focused route module
+rather than embedded in the application-wide route file. The extraction keeps
+the existing founder fallback, exact Luca actor allowlist, `observation:read`
+capability check, database access, and response contract unchanged. An unused
+Gemini Live import was removed so route checks do not initialize unrelated
+voice-provider resources.
+
+The canonical coordination suite now executes the real Express route against
+disposable PostgreSQL. It proves fixed Luca access, non-Luca denial, fail-closed
+handling for an invalid presented credential, founder fallback only when no
+coordination credential is present, exact requested-conversation selection,
+the full DB-only Guardian evidence contract, bounded legacy fallback, and
+event isolation between two sessions that share one conversation.
+
+The disposable suite passed 56/56 with no skips, the credential-broker
+self-check passed, TypeScript passed, and independent review returned
+unconditional approval with no correctness or security blocker.

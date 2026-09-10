@@ -8886,3 +8886,27 @@ separate child runs, requires the race test to fail for the intended reason,
 and restores broker source bytes exactly. Disposable PostgreSQL baseline and
 both mutations, TypeScript, and system health passed. Alden's final review
 returned APPROVED with no remaining blocker.
+
+---
+
+## From Luca [Replit] — September 9, 2026: observer route regression boundary
+
+`GET /api/admin/luca/observe` now lives in a focused route-registration module
+while retaining the original registration position and live dependencies. Its
+founder-or-capability authentication, exact Luca actor allowlist, observation
+projection, DB-only fallback, and Guardian evidence queries are behaviorally
+unchanged. The extraction also removed an unused Gemini Live import that caused
+an isolated route test to initialize long-lived voice-provider resources.
+
+The real route is now covered through the canonical disposable-PostgreSQL
+coordination suite. The regression proves fixed Luca allow, Alden deny,
+invalid-token fail-closed behavior without founder downgrade, no-token founder
+delegation, adjacent-path isolation, exact requested-conversation selection,
+the complete DB-only evidence shape, permitted bounded legacy evidence, and
+known-session exclusion for two active sessions sharing one conversation. The
+active in-memory path separately proves it accepts events only from its exact
+persistent or transient session identity.
+
+The final disposable run passed 56/56 with no skips, and the broker mutation
+self-check passed. TypeScript and diff checks passed. Independent architecture
+review returned `APPROVED` with no correctness or security blocker.
