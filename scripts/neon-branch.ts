@@ -299,6 +299,9 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     ...process.env,
     NEON_SHARED_DATABASE_URL: directUrl,
     COORDINATION_INBOX_DISPOSABLE_BRANCH_ID: branch.id,
+    COORDINATION_RUNTIME_TEST_DATABASE_URL: directUrl,
+    COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE: '1',
+    COORDINATION_RUNTIME_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -329,6 +332,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (inboxRepair.code !== 0) {
       failureReason = `coordination inbox repair exited ${inboxRepair.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running persisted coordination-runtime parity against the branch...');
+    const runtimeParity = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-runtime-postgres-repository.test.ts',
+      branchEnv,
+    );
+    if (runtimeParity.code !== 0) {
+      failureReason = `coordination runtime PostgreSQL parity exited ${runtimeParity.code}`;
     }
   }
 

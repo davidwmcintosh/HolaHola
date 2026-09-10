@@ -86,6 +86,12 @@ async function checkTables() {
     "coordination_runtime_registrations", "coordination_runtime_credentials",
     "coordination_runtime_rotations",
     "coordination_credential_audit_events",
+    "coordination_runtime_profiles", "coordination_runtime_inbox_windows",
+    "coordination_runtime_inbox_window_items", "coordination_runtime_packets",
+    "coordination_runtime_interactions", "coordination_runtime_receipts",
+    "coordination_runtime_claims", "coordination_runtime_claim_events",
+    "coordination_runtime_executions", "coordination_runtime_completions",
+    "coordination_runtime_verifications", "coordination_runtime_idempotency",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];

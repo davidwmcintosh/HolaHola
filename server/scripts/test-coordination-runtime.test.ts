@@ -47,14 +47,11 @@ const claudeVerifier: RuntimePrincipal = {
   runtimeRegistrationId: 'claude-runtime',
 };
 
-function expectCode(operation: () => unknown, code: string): void {
-  assert.throws(
-    operation,
-    (error: unknown) => error instanceof RuntimeProtocolError && error.code === code,
-  );
+async function expectCode(operation: () => unknown, code: string): Promise<void> {
+  await assert.rejects(Promise.resolve().then(operation), (error: unknown) => error instanceof RuntimeProtocolError && error.code === code);
 }
 
-function harness(author: Assignment['assignmentAuthor'] = 'alden') {
+async function harness(author: Assignment['assignmentAuthor'] = 'alden') {
   const repository = new InMemoryCoordinationRepository();
   let now = 100;
   let nextId = 0;
@@ -72,7 +69,7 @@ function harness(author: Assignment['assignmentAuthor'] = 'alden') {
     envelope,
     1_000,
   );
-  repository.addInboxItem({
+  await repository.addInboxItem({
     id: 'item-1',
     eventId: 'context-event',
     threadId: 'thread-1',
@@ -80,7 +77,7 @@ function harness(author: Assignment['assignmentAuthor'] = 'alden') {
     sequence: 1,
     payload: { content: { context: 'first', emoji: '😀' } },
   });
-  repository.addInboxItem({
+  await repository.addInboxItem({
     id: 'item-2',
     eventId: 'assignment-event',
     threadId: 'thread-1',
@@ -88,7 +85,7 @@ function harness(author: Assignment['assignmentAuthor'] = 'alden') {
     sequence: 2,
     payload: { content: { assignment: 'bounded no-op' } },
   });
-  const window = repository.freezeInboxWindow('thread-1', 0, 2, 'stable-boundary');
+  const window = await repository.freezeInboxWindow('thread-1', 0, 2, 'stable-boundary');
   const assignment: Assignment = {
     assignmentEventId: 'assignment-event',
     assignmentAuthor: author,
@@ -96,8 +93,8 @@ function harness(author: Assignment['assignmentAuthor'] = 'alden') {
     threadId: 'thread-1',
     expectedSequence: 2,
   };
-  const packet = service.createPacket(gemini, window.id, assignment, 'packet-key');
-  const interaction = service.recordInteraction(gemini, {
+  const packet = await service.createPacket(gemini, window.id, assignment, 'packet-key');
+  const interaction = await service.recordInteraction(gemini, {
     packetId: packet.id,
     turn: 1,
     attempt: 1,
@@ -106,7 +103,7 @@ function harness(author: Assignment['assignmentAuthor'] = 'alden') {
     outcome: 'consumed',
     idempotencyKey: 'interaction-key',
   });
-  const receipt = service.recordOutcomeReceipt(
+  const receipt = await service.recordOutcomeReceipt(
     gemini,
     packet.id,
     packet.digest,
@@ -126,9 +123,9 @@ function harness(author: Assignment['assignmentAuthor'] = 'alden') {
   };
 }
 
-test('success path stores an immutable evidence chain and independent approval', () => {
-  const fixture = harness();
-  const claim = fixture.service.claim(
+test('success path stores an immutable evidence chain and independent approval', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -136,14 +133,14 @@ test('success path stores an immutable evidence chain and independent approval',
     100,
     'claim-key',
   );
-  const execution = fixture.service.execute(gemini, claim.id, envelope, 'execution-key');
-  const completion = fixture.service.complete(
+  const execution = await fixture.service.execute(gemini, claim.id, envelope, 'execution-key');
+  const completion = await fixture.service.complete(
     gemini,
     execution.id,
     digestCanonical(execution),
     'completion-key',
   );
-  const verification = fixture.service.verify(
+  const verification = await fixture.service.verify(
     replitVerifier,
     completion.id,
     completion.evidenceDigest,
@@ -151,24 +148,24 @@ test('success path stores an immutable evidence chain and independent approval',
     'verification-key',
   );
   assert.equal(verification.decision, 'approved');
-  assert.equal(fixture.repository.getClaim(claim.id)?.status, 'completed');
+  assert.equal((await fixture.repository.getClaim(claim.id))?.status, 'completed');
   assert(Object.isFrozen(fixture.repository.snapshots()));
 });
 
-test('canonical JSON accepts valid pairs and rejects ambiguous values', () => {
+test('canonical JSON accepts valid pairs and rejects ambiguous values', async () => {
   assert.match(digestCanonical({ emoji: '😀' }), /^[0-9a-f]{64}$/);
   assert.equal(canonicalJson({ z: 1, a: 2 }), '{"a":2,"z":1}');
-  expectCode(() => digestCanonical('\ud800'), 'invalid_json');
-  expectCode(() => digestCanonical('\udc00'), 'invalid_json');
-  expectCode(() => digestCanonical(Number.NaN), 'invalid_json');
-  expectCode(() => digestCanonical({ value: undefined }), 'invalid_json');
+  await expectCode(() => digestCanonical('\ud800'), 'invalid_json');
+  await expectCode(() => digestCanonical('\udc00'), 'invalid_json');
+  await expectCode(() => digestCanonical(Number.NaN), 'invalid_json');
+  await expectCode(() => digestCanonical({ value: undefined }), 'invalid_json');
 });
 
-test('repository transactions roll back every write and reject reentrancy', () => {
+test('repository transactions roll back every write and reject reentrancy', async () => {
   const repository = new InMemoryCoordinationRepository();
-  assert.throws(() => repository.transaction(() => {
+  await assert.rejects(repository.transaction(async () => {
     // Direct repository insertion opens its own transaction and must not interleave.
-    repository.addInboxItem({
+    await repository.addInboxItem({
       id: 'nested',
       eventId: 'event',
       threadId: 'thread',
@@ -177,9 +174,9 @@ test('repository transactions roll back every write and reject reentrancy', () =
       payload: { content: {} },
     });
   }), (error: unknown) => error instanceof RuntimeProtocolError && error.code === 'transaction_reentrant');
-  assert.equal(repository.getThreadSequence('thread'), undefined);
-  assert.throws(() => repository.transaction(() => {
-    repository.saveVerification({
+  assert.equal(await repository.getThreadSequence('thread'), undefined);
+  await assert.rejects(repository.transaction(async () => {
+    await repository.saveVerification({
       id: 'rolled-back',
       completionId: 'none',
       verifierActor: 'luca-replit',
@@ -190,28 +187,28 @@ test('repository transactions roll back every write and reject reentrancy', () =
     });
     throw new Error('rollback');
   }));
-  assert.equal(repository.getVerification('rolled-back'), undefined);
+  assert.equal(await repository.getVerification('rolled-back'), undefined);
 });
 
-test('frozen windows preserve all inherited items and cannot be caller-authored', () => {
-  const fixture = harness();
+test('frozen windows preserve all inherited items and cannot be caller-authored', async () => {
+  const fixture = await harness();
   assert.equal(fixture.packet.inherited.length, 2);
   assert.equal(fixture.packet.inherited[0].content.context, 'first');
   assert.throws(() => {
     fixture.packet.inherited[0].content.context = 'mutated';
   }, TypeError);
   assert.equal(
-    fixture.repository.getPacket(fixture.packet.id)?.inherited[0].content.context,
+    (await fixture.repository.getPacket(fixture.packet.id))?.inherited[0].content.context,
     'first',
   );
-  expectCode(
-    () => fixture.service.createPacket(gemini, 'caller-window', fixture.assignment, 'other'),
+  await expectCode(
+    async () => await fixture.service.createPacket(gemini, 'caller-window', fixture.assignment, 'other'),
     'inbox_window_incomplete',
   );
   assert.deepEqual(fixture.packet.envelope, envelope);
 });
 
-test('all ten outcomes persist as receipts but only consumed authorizes claims', () => {
+test('all ten outcomes persist as receipts but only consumed authorizes claims', async () => {
   const outcomes: NormalizedOutcome[] = [
     'consumed',
     'safety_blocked',
@@ -225,10 +222,10 @@ test('all ten outcomes persist as receipts but only consumed authorizes claims',
     'terminal_provider_error',
   ];
   for (const outcome of outcomes) {
-    const fixture = harness();
+    const fixture = await harness();
     const interaction = outcome === 'consumed'
       ? fixture.interaction
-      : fixture.service.recordInteraction(gemini, {
+      : await fixture.service.recordInteraction(gemini, {
           packetId: fixture.packet.id,
           turn: 2,
           attempt: 1,
@@ -239,7 +236,7 @@ test('all ten outcomes persist as receipts but only consumed authorizes claims',
         });
     const receipt = outcome === 'consumed'
       ? fixture.receipt
-      : fixture.service.recordOutcomeReceipt(
+      : await fixture.service.recordOutcomeReceipt(
           gemini,
           fixture.packet.id,
           fixture.packet.digest,
@@ -249,19 +246,19 @@ test('all ten outcomes persist as receipts but only consumed authorizes claims',
     assert.equal(receipt.outcome, outcome);
     if (outcome === 'consumed') {
       assert.equal(
-        fixture.service.claim(
+        (await fixture.service.claim(
           gemini,
           fixture.packet.id,
           fixture.packet.digest,
           receipt.id,
           10,
           'claim-outcome',
-        ).status,
+        )).status,
         'active',
       );
     } else {
-      expectCode(
-        () => fixture.service.claim(
+      await expectCode(
+        async () => await fixture.service.claim(
           gemini,
           fixture.packet.id,
           fixture.packet.digest,
@@ -275,11 +272,11 @@ test('all ten outcomes persist as receipts but only consumed authorizes claims',
   }
 });
 
-test('runtime and profile own authority while renewed credentials remain valid', () => {
-  const fixture = harness();
+test('runtime and profile own authority while renewed credentials remain valid', async () => {
+  const fixture = await harness();
   const otherRuntime = { ...gemini, runtimeRegistrationId: 'other-runtime' };
-  expectCode(
-    () => fixture.service.recordOutcomeReceipt(
+  await expectCode(
+    async () => await fixture.service.recordOutcomeReceipt(
       otherRuntime,
       fixture.packet.id,
       fixture.packet.digest,
@@ -288,8 +285,8 @@ test('runtime and profile own authority while renewed credentials remain valid',
     ),
     'consumption_not_authorized',
   );
-  expectCode(
-    () => fixture.service.claim(
+  await expectCode(
+    async () => await fixture.service.claim(
       otherRuntime,
       fixture.packet.id,
       fixture.packet.digest,
@@ -299,7 +296,7 @@ test('runtime and profile own authority while renewed credentials remain valid',
     ),
     'consumption_not_authorized',
   );
-  const claim = fixture.service.claim(
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -308,7 +305,7 @@ test('runtime and profile own authority while renewed credentials remain valid',
     'claim-owner',
   );
   const renewedCredential = { ...gemini, credentialId: 'credential-2' };
-  const renewed = fixture.service.renew(
+  const renewed = await fixture.service.renew(
     renewedCredential,
     claim.id,
     claim.epoch,
@@ -317,19 +314,19 @@ test('runtime and profile own authority while renewed credentials remain valid',
   );
   assert.equal(renewed.credentialId, 'credential-2');
   assert.equal(
-    fixture.service.execute(
+    (await fixture.service.execute(
       renewedCredential,
       renewed.id,
       envelope,
       'execute-renewed',
-    ).claimEpoch,
+    )).claimEpoch,
     renewed.epoch,
   );
 });
 
-test('claim contention, expiry takeover, sequence, and TTL rules fail closed', () => {
-  const fixture = harness();
-  const first = fixture.service.claim(
+test('claim contention, expiry takeover, sequence, and TTL rules fail closed', async () => {
+  const fixture = await harness();
+  const first = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -337,7 +334,7 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     5,
     'claim-first',
   );
-  expectCode(() => fixture.secondService.claim(
+  await expectCode(async () => await fixture.secondService.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -345,8 +342,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     5,
     'claim-second',
   ), 'claim_active_conflict');
-  expectCode(
-    () => fixture.service.createPacket(
+  await expectCode(
+    async () => await fixture.service.createPacket(
       gemini,
       fixture.window.id,
       fixture.assignment,
@@ -356,8 +353,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     ),
     'takeover_reference_invalid',
   );
-  expectCode(
-    () => fixture.service.createPacket(
+  await expectCode(
+    async () => await fixture.service.createPacket(
       gemini,
       fixture.window.id,
       fixture.assignment,
@@ -368,8 +365,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     'takeover_not_ready',
   );
   fixture.setNow(106);
-  expectCode(
-    () => fixture.service.claim(
+  await expectCode(
+    async () => await fixture.service.claim(
       gemini,
       fixture.packet.id,
       fixture.packet.digest,
@@ -379,7 +376,7 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     ),
     'fresh_consumption_required',
   );
-  const takeoverPacket = fixture.service.createPacket(
+  const takeoverPacket = await fixture.service.createPacket(
     gemini,
     fixture.window.id,
     fixture.assignment,
@@ -398,8 +395,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     ...predatedBase,
     digest: digestCanonical(predatedBase),
   };
-  fixture.repository.savePacket(predatedPacket);
-  fixture.repository.saveInteraction({
+  await fixture.repository.savePacket(predatedPacket);
+  await fixture.repository.saveInteraction({
     id: 'predated-interaction',
     packetId: predatedPacket.id,
     principal: {
@@ -416,7 +413,7 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     retryLineage: null,
     createdAt: 100,
   });
-  fixture.repository.saveReceipt({
+  await fixture.repository.saveReceipt({
     id: 'predated-receipt',
     packetId: predatedPacket.id,
     packetDigest: predatedPacket.digest,
@@ -426,8 +423,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     outcome: 'consumed',
     createdAt: 100,
   });
-  expectCode(
-    () => fixture.service.claim(
+  await expectCode(
+    async () => await fixture.service.claim(
       gemini,
       predatedPacket.id,
       predatedPacket.digest,
@@ -437,7 +434,7 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     ),
     'fresh_consumption_required',
   );
-  const takeoverInteraction = fixture.service.recordInteraction(gemini, {
+  const takeoverInteraction = await fixture.service.recordInteraction(gemini, {
     packetId: takeoverPacket.id,
     turn: 2,
     attempt: 1,
@@ -446,14 +443,14 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     outcome: 'consumed',
     idempotencyKey: 'takeover-interaction',
   });
-  const takeoverReceipt = fixture.service.recordOutcomeReceipt(
+  const takeoverReceipt = await fixture.service.recordOutcomeReceipt(
     gemini,
     takeoverPacket.id,
     takeoverPacket.digest,
     takeoverInteraction.id,
     'takeover-receipt',
   );
-  const takeover = fixture.secondService.claim(
+  const takeover = await fixture.secondService.claim(
     gemini,
     takeoverPacket.id,
     takeoverPacket.digest,
@@ -463,10 +460,10 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
   );
   assert.equal(takeover.epoch, first.epoch + 1);
   assert.equal(takeover.priorClaimId, first.id);
-  assert.equal(fixture.repository.getClaim(first.id)?.status, 'expired');
+  assert.equal((await fixture.repository.getClaim(first.id))?.status, 'expired');
   for (const ttl of [0, Number.NaN, Number.POSITIVE_INFINITY, 1_001]) {
-    expectCode(
-      () => fixture.service.claim(
+    await expectCode(
+      async () => await fixture.service.claim(
         gemini,
         fixture.packet.id,
         fixture.packet.digest,
@@ -478,8 +475,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     );
   }
 
-  const stale = harness();
-  stale.repository.addInboxItem({
+  const stale = await harness();
+  await stale.repository.addInboxItem({
     id: 'late-item',
     eventId: 'late-event',
     threadId: 'thread-1',
@@ -487,8 +484,8 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
     sequence: 3,
     payload: { content: { late: true } },
   });
-  expectCode(
-    () => stale.service.claim(
+  await expectCode(
+    async () => await stale.service.claim(
       gemini,
       stale.packet.id,
       stale.packet.digest,
@@ -500,9 +497,9 @@ test('claim contention, expiry takeover, sequence, and TTL rules fail closed', (
   );
 });
 
-test('renewal rejects stale epochs, wrong owners, revoked and expired principals', () => {
-  const fixture = harness();
-  const claim = fixture.service.claim(
+test('renewal rejects stale epochs, wrong owners, revoked and expired principals', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -510,12 +507,12 @@ test('renewal rejects stale epochs, wrong owners, revoked and expired principals
     10,
     'claim-renew',
   );
-  expectCode(
-    () => fixture.service.renew(gemini, claim.id, claim.epoch + 1, 10, 'stale'),
+  await expectCode(
+    async () => await fixture.service.renew(gemini, claim.id, claim.epoch + 1, 10, 'stale'),
     'claim_epoch_stale',
   );
-  expectCode(
-    () => fixture.service.renew(
+  await expectCode(
+    async () => await fixture.service.renew(
       { ...gemini, profileId: 'other-profile' },
       claim.id,
       claim.epoch,
@@ -524,8 +521,8 @@ test('renewal rejects stale epochs, wrong owners, revoked and expired principals
     ),
     'claim_not_owned',
   );
-  expectCode(
-    () => fixture.service.renew(
+  await expectCode(
+    async () => await fixture.service.renew(
       { ...gemini, revoked: true },
       claim.id,
       claim.epoch,
@@ -535,15 +532,15 @@ test('renewal rejects stale epochs, wrong owners, revoked and expired principals
     'runtime_revoked',
   );
   fixture.setNow(10_001);
-  expectCode(
-    () => fixture.service.renew(gemini, claim.id, claim.epoch, 10, 'expired-principal'),
+  await expectCode(
+    async () => await fixture.service.renew(gemini, claim.id, claim.epoch, 10, 'expired-principal'),
     'credential_expired',
   );
 });
 
-test('model retries require retryable lineage and limit violations remain durable', () => {
-  const fixture = harness();
-  const claim = fixture.service.claim(
+test('model retries require retryable lineage and limit violations remain durable', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -551,8 +548,8 @@ test('model retries require retryable lineage and limit violations remain durabl
     100,
     'claim-model',
   );
-  expectCode(
-    () => fixture.service.recordInteraction(gemini, {
+  await expectCode(
+    async () => await fixture.service.recordInteraction(gemini, {
       packetId: fixture.packet.id,
       turn: 1,
       attempt: 2,
@@ -563,9 +560,9 @@ test('model retries require retryable lineage and limit violations remain durabl
     }),
     'model_call_limit_exceeded',
   );
-  assert.equal(fixture.repository.getClaim(claim.id)?.status, 'violated');
-  expectCode(
-    () => fixture.service.claim(
+  assert.equal((await fixture.repository.getClaim(claim.id))?.status, 'violated');
+  await expectCode(
+    async () => await fixture.service.claim(
       gemini,
       fixture.packet.id,
       fixture.packet.digest,
@@ -576,8 +573,8 @@ test('model retries require retryable lineage and limit violations remain durabl
     'fresh_consumption_required',
   );
 
-  const fresh = harness();
-  const priorClaim = fresh.service.claim(
+  const fresh = await harness();
+  const priorClaim = await fresh.service.claim(
     gemini,
     fresh.packet.id,
     fresh.packet.digest,
@@ -586,7 +583,7 @@ test('model retries require retryable lineage and limit violations remain durabl
     'limit-prior-claim',
   );
   fresh.setNow(106);
-  const packet = fresh.service.createPacket(
+  const packet = await fresh.service.createPacket(
     gemini,
     fresh.window.id,
     fresh.assignment,
@@ -594,8 +591,8 @@ test('model retries require retryable lineage and limit violations remain durabl
     2,
     priorClaim.id,
   );
-  expectCode(
-    () => fresh.service.recordInteraction(gemini, {
+  await expectCode(
+    async () => await fresh.service.recordInteraction(gemini, {
       packetId: packet.id,
       turn: 1,
       attempt: 1,
@@ -606,7 +603,7 @@ test('model retries require retryable lineage and limit violations remain durabl
     }),
     'duplicate_model_attempt',
   );
-  const consumed = fresh.service.recordInteraction(gemini, {
+  const consumed = await fresh.service.recordInteraction(gemini, {
     packetId: packet.id,
     turn: 2,
     attempt: 1,
@@ -615,14 +612,14 @@ test('model retries require retryable lineage and limit violations remain durabl
     outcome: 'consumed',
     idempotencyKey: 'limit-2-1',
   });
-  const consumedReceipt = fresh.service.recordOutcomeReceipt(
+  const consumedReceipt = await fresh.service.recordOutcomeReceipt(
     gemini,
     packet.id,
     packet.digest,
     consumed.id,
     'limit-receipt',
   );
-  const freshClaim = fresh.service.claim(
+  const freshClaim = await fresh.service.claim(
     gemini,
     packet.id,
     packet.digest,
@@ -631,7 +628,7 @@ test('model retries require retryable lineage and limit violations remain durabl
     'claim-limit',
   );
   for (const turn of [3, 4]) {
-    const first = fresh.service.recordInteraction(gemini, {
+    const first = await fresh.service.recordInteraction(gemini, {
       packetId: packet.id,
       turn,
       attempt: 1,
@@ -640,7 +637,7 @@ test('model retries require retryable lineage and limit violations remain durabl
       responseDigest: `limit-${turn}-1-response`,
       idempotencyKey: `limit-${turn}-1`,
     });
-    fresh.service.recordInteraction(gemini, {
+    await fresh.service.recordInteraction(gemini, {
       packetId: packet.id,
       turn,
       attempt: 2,
@@ -651,9 +648,9 @@ test('model retries require retryable lineage and limit violations remain durabl
       idempotencyKey: `limit-${turn}-2`,
     });
   }
-  assert.equal(fresh.repository.interactionsForAssignment(packet).length, 6);
-  expectCode(
-    () => fresh.service.recordInteraction(gemini, {
+assert.equal((await fresh.repository.interactionsForAssignment(packet)).length, 6);
+  await expectCode(
+    async () => await fresh.service.recordInteraction(gemini, {
       packetId: packet.id,
       turn: 5,
       attempt: 1,
@@ -663,7 +660,7 @@ test('model retries require retryable lineage and limit violations remain durabl
     }),
     'model_call_limit_exceeded',
   );
-  assert.equal(fresh.repository.getClaim(freshClaim.id)?.status, 'violated');
+  assert.equal((await fresh.repository.getClaim(freshClaim.id))?.status, 'violated');
   assert(
     fresh.repository.snapshots().claimEvents.some(
       (event) => event.claimId === freshClaim.id && event.kind === 'violated',
@@ -671,9 +668,9 @@ test('model retries require retryable lineage and limit violations remain durabl
   );
 });
 
-test('execution and completion are bound to runtime, envelope, epoch, and live claim', () => {
-  const fixture = harness();
-  const claim = fixture.service.claim(
+test('execution and completion are bound to runtime, envelope, epoch, and live claim', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -681,8 +678,8 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     100,
     'claim-execute',
   );
-  expectCode(
-    () => fixture.service.execute(
+  await expectCode(
+    async () => await fixture.service.execute(
       { ...gemini, runtimeRegistrationId: 'other-runtime' },
       claim.id,
       envelope,
@@ -690,8 +687,8 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     ),
     'claim_not_owned',
   );
-  expectCode(
-    () => fixture.service.execute(
+  await expectCode(
+    async () => await fixture.service.execute(
       gemini,
       claim.id,
       { ...envelope, argv: ['rm', '-rf', '/'] },
@@ -699,10 +696,10 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     ),
     'execution_envelope_mismatch',
   );
-  assert.equal(fixture.repository.getClaim(claim.id)?.status, 'violated');
+  assert.equal((await fixture.repository.getClaim(claim.id))?.status, 'violated');
 
-  const fresh = harness();
-  const freshClaim = fresh.service.claim(
+  const fresh = await harness();
+  const freshClaim = await fresh.service.claim(
     gemini,
     fresh.packet.id,
     fresh.packet.digest,
@@ -710,15 +707,15 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     100,
     'claim-epoch',
   );
-  const oldExecution = fresh.service.execute(
+  const oldExecution = await fresh.service.execute(
     gemini,
     freshClaim.id,
     envelope,
     'old-execution',
   );
-  fresh.service.renew(gemini, freshClaim.id, freshClaim.epoch, 100, 'renew-epoch');
-  expectCode(
-    () => fresh.service.complete(
+  await fresh.service.renew(gemini, freshClaim.id, freshClaim.epoch, 100, 'renew-epoch');
+  await expectCode(
+    async () => await fresh.service.complete(
       gemini,
       oldExecution.id,
       digestCanonical(oldExecution),
@@ -726,13 +723,13 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     ),
     'claim_epoch_stale',
   );
-  expectCode(
-    () => fresh.service.complete(gemini, 'forged', 'forged', 'forged-completion'),
+  await expectCode(
+    async () => await fresh.service.complete(gemini, 'forged', 'forged', 'forged-completion'),
     'completion_mismatch',
   );
 
-  const expiredExecute = harness();
-  const expiredExecuteClaim = expiredExecute.service.claim(
+  const expiredExecute = await harness();
+  const expiredExecuteClaim = await expiredExecute.service.claim(
     gemini,
     expiredExecute.packet.id,
     expiredExecute.packet.digest,
@@ -741,8 +738,8 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     'claim-expired-execute',
   );
   expiredExecute.setNow(106);
-  expectCode(
-    () => expiredExecute.service.execute(
+  await expectCode(
+    async () => await expiredExecute.service.execute(
       gemini,
       expiredExecuteClaim.id,
       envelope,
@@ -751,8 +748,8 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     'claim_expired',
   );
 
-  const expiredComplete = harness();
-  const expiredCompleteClaim = expiredComplete.service.claim(
+  const expiredComplete = await harness();
+  const expiredCompleteClaim = await expiredComplete.service.claim(
     gemini,
     expiredComplete.packet.id,
     expiredComplete.packet.digest,
@@ -760,15 +757,15 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     5,
     'claim-expired-complete',
   );
-  const expiredExecution = expiredComplete.service.execute(
+  const expiredExecution = await expiredComplete.service.execute(
     gemini,
     expiredCompleteClaim.id,
     envelope,
     'before-expiry-execute',
   );
   expiredComplete.setNow(106);
-  expectCode(
-    () => expiredComplete.service.complete(
+  await expectCode(
+    async () => await expiredComplete.service.complete(
       gemini,
       expiredExecution.id,
       digestCanonical(expiredExecution),
@@ -778,9 +775,9 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
   );
 });
 
-test('terminal claims require a fresh packet and packet identity is digest-bound', () => {
-  const fixture = harness();
-  const claim = fixture.service.claim(
+test('terminal claims require a fresh packet and packet identity is digest-bound', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -788,20 +785,20 @@ test('terminal claims require a fresh packet and packet identity is digest-bound
     100,
     'terminal-claim',
   );
-  const execution = fixture.service.execute(
+  const execution = await fixture.service.execute(
     gemini,
     claim.id,
     envelope,
     'terminal-execution',
   );
-  fixture.service.complete(
+  await fixture.service.complete(
     gemini,
     execution.id,
     digestCanonical(execution),
     'terminal-completion',
   );
-  expectCode(
-    () => fixture.service.claim(
+  await expectCode(
+    async () => await fixture.service.claim(
       gemini,
       fixture.packet.id,
       fixture.packet.digest,
@@ -811,8 +808,8 @@ test('terminal claims require a fresh packet and packet identity is digest-bound
     ),
     'fresh_consumption_required',
   );
-  expectCode(
-    () => fixture.service.createPacket(
+  await expectCode(
+    async () => await fixture.service.createPacket(
       gemini,
       fixture.window.id,
       fixture.assignment,
@@ -829,10 +826,10 @@ test('terminal claims require a fresh packet and packet identity is digest-bound
   );
 });
 
-test('authentication failures use distinct stable error codes', () => {
-  const fixture = harness();
-  expectCode(
-    () => fixture.service.createPacket(
+test('authentication failures use distinct stable error codes', async () => {
+  const fixture = await harness();
+  await expectCode(
+    async () => await fixture.service.createPacket(
       { ...gemini, actor: 'daniela' },
       fixture.window.id,
       fixture.assignment,
@@ -841,8 +838,8 @@ test('authentication failures use distinct stable error codes', () => {
     ),
     'actor_mismatch',
   );
-  expectCode(
-    () => fixture.service.createPacket(
+  await expectCode(
+    async () => await fixture.service.createPacket(
       { ...gemini, capabilities: [] },
       fixture.window.id,
       fixture.assignment,
@@ -851,8 +848,8 @@ test('authentication failures use distinct stable error codes', () => {
     ),
     'capability_required',
   );
-  expectCode(
-    () => fixture.service.createPacket(
+  await expectCode(
+    async () => await fixture.service.createPacket(
       { ...gemini, runtimeEnabled: false },
       fixture.window.id,
       fixture.assignment,
@@ -861,8 +858,8 @@ test('authentication failures use distinct stable error codes', () => {
     ),
     'runtime_disabled',
   );
-  expectCode(
-    () => fixture.service.createPacket(
+  await expectCode(
+    async () => await fixture.service.createPacket(
       { ...gemini, credentialExpiresAt: 100 },
       fixture.window.id,
       fixture.assignment,
@@ -873,9 +870,9 @@ test('authentication failures use distinct stable error codes', () => {
   );
 });
 
-test('verification rejects unsupported, executor, assignment author, and bad evidence', () => {
-  const fixture = harness('luca-replit');
-  const claim = fixture.service.claim(
+test('verification rejects unsupported, executor, assignment author, and bad evidence', async () => {
+  const fixture = await harness('luca-replit');
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -883,15 +880,15 @@ test('verification rejects unsupported, executor, assignment author, and bad evi
     100,
     'claim-verify',
   );
-  const execution = fixture.service.execute(gemini, claim.id, envelope, 'execute-verify');
-  const completion = fixture.service.complete(
+  const execution = await fixture.service.execute(gemini, claim.id, envelope, 'execute-verify');
+  const completion = await fixture.service.complete(
     gemini,
     execution.id,
     digestCanonical(execution),
     'complete-verify',
   );
-  expectCode(
-    () => fixture.service.verify(
+  await expectCode(
+    async () => await fixture.service.verify(
       { ...replitVerifier, actor: 'daniela' },
       completion.id,
       completion.evidenceDigest,
@@ -900,8 +897,8 @@ test('verification rejects unsupported, executor, assignment author, and bad evi
     ),
     'verifier_not_allowed',
   );
-  expectCode(
-    () => fixture.service.verify(
+  await expectCode(
+    async () => await fixture.service.verify(
       replitVerifier,
       completion.id,
       completion.evidenceDigest,
@@ -910,8 +907,8 @@ test('verification rejects unsupported, executor, assignment author, and bad evi
     ),
     'assigner_verification_denied',
   );
-  expectCode(
-    () => fixture.service.verify(
+  await expectCode(
+    async () => await fixture.service.verify(
       { ...claudeVerifier, runtimeRegistrationId: gemini.runtimeRegistrationId },
       completion.id,
       completion.evidenceDigest,
@@ -920,8 +917,8 @@ test('verification rejects unsupported, executor, assignment author, and bad evi
     ),
     'self_verification_denied',
   );
-  expectCode(
-    () => fixture.service.verify(
+  await expectCode(
+    async () => await fixture.service.verify(
       claudeVerifier,
       completion.id,
       'wrong',
@@ -931,30 +928,30 @@ test('verification rejects unsupported, executor, assignment author, and bad evi
     'verification_digest_mismatch',
   );
   assert.equal(
-    fixture.service.verify(
+    (await fixture.service.verify(
       claudeVerifier,
       completion.id,
       completion.evidenceDigest,
       null,
       'valid-verifier',
-    ).decision,
+    )).decision,
     'approved',
   );
 });
 
-test('every mutation family replays exactly and rejects changed payloads', () => {
-  const fixture = harness();
+test('every mutation family replays exactly and rejects changed payloads', async () => {
+  const fixture = await harness();
   assert.equal(
-    fixture.service.createPacket(
+    (await fixture.service.createPacket(
       gemini,
       fixture.window.id,
       fixture.assignment,
       'packet-key',
-    ).id,
+    )).id,
     fixture.packet.id,
   );
   assert.equal(
-    fixture.service.recordInteraction(gemini, {
+    (await fixture.service.recordInteraction(gemini, {
       packetId: fixture.packet.id,
       turn: 1,
       attempt: 1,
@@ -962,20 +959,20 @@ test('every mutation family replays exactly and rejects changed payloads', () =>
       responseDigest: 'response-digest',
       outcome: 'consumed',
       idempotencyKey: 'interaction-key',
-    }).id,
+    })).id,
     fixture.interaction.id,
   );
   assert.equal(
-    fixture.service.recordOutcomeReceipt(
+    (await fixture.service.recordOutcomeReceipt(
       gemini,
       fixture.packet.id,
       fixture.packet.digest,
       fixture.interaction.id,
       'receipt-key',
-    ).id,
+    )).id,
     fixture.receipt.id,
   );
-  const claim = fixture.service.claim(
+  const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,
     fixture.packet.digest,
@@ -984,17 +981,17 @@ test('every mutation family replays exactly and rejects changed payloads', () =>
     'claim-idem',
   );
   assert.equal(
-    fixture.service.claim(
+    (await fixture.service.claim(
       gemini,
       fixture.packet.id,
       fixture.packet.digest,
       fixture.receipt.id,
       100,
       'claim-idem',
-    ).id,
+    )).id,
     claim.id,
   );
-  const renewed = fixture.service.renew(
+  const renewed = await fixture.service.renew(
     gemini,
     claim.id,
     claim.epoch,
@@ -1002,46 +999,46 @@ test('every mutation family replays exactly and rejects changed payloads', () =>
     'renew-idem',
   );
   assert.equal(
-    fixture.service.renew(
+    (await fixture.service.renew(
       gemini,
       claim.id,
       claim.epoch,
       100,
       'renew-idem',
-    ).epoch,
+    )).epoch,
     renewed.epoch,
   );
-  const execution = fixture.service.execute(
+  const execution = await fixture.service.execute(
     gemini,
     renewed.id,
     envelope,
     'execution-idem',
   );
   assert.equal(
-    fixture.service.execute(
+    (await fixture.service.execute(
       gemini,
       renewed.id,
       envelope,
       'execution-idem',
-    ).id,
+    )).id,
     execution.id,
   );
-  const completion = fixture.service.complete(
+  const completion = await fixture.service.complete(
     gemini,
     execution.id,
     digestCanonical(execution),
     'completion-idem',
   );
   assert.equal(
-    fixture.service.complete(
+    (await fixture.service.complete(
       gemini,
       execution.id,
       digestCanonical(execution),
       'completion-idem',
-    ).id,
+    )).id,
     completion.id,
   );
-  const verification = fixture.service.verify(
+  const verification = await fixture.service.verify(
     replitVerifier,
     completion.id,
     completion.evidenceDigest,
@@ -1049,17 +1046,17 @@ test('every mutation family replays exactly and rejects changed payloads', () =>
     'verification-idem',
   );
   assert.equal(
-    fixture.service.verify(
+    (await fixture.service.verify(
       replitVerifier,
       completion.id,
       completion.evidenceDigest,
       null,
       'verification-idem',
-    ).id,
+    )).id,
     verification.id,
   );
-  expectCode(
-    () => fixture.service.claim(
+  await expectCode(
+    async () => await fixture.service.claim(
       gemini,
       fixture.packet.id,
       fixture.packet.digest,
@@ -1069,8 +1066,8 @@ test('every mutation family replays exactly and rejects changed payloads', () =>
     ),
     'idempotency_payload_mismatch',
   );
-  expectCode(
-    () => fixture.service.complete(
+  await expectCode(
+    async () => await fixture.service.complete(
       gemini,
       execution.id,
       'changed',

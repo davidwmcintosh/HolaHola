@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { RESOLUTION_TYPE_VALUES } from "./absence-types";
@@ -3880,6 +3880,264 @@ export const danielaAspirations = pgTable("daniela_aspirations", {
 export const insertDanielaAspirationSchema = createInsertSchema(danielaAspirations).omit({ id: true, createdAt: true });
 export type InsertDanielaAspiration = z.infer<typeof insertDanielaAspirationSchema>;
 export type DanielaAspiration = typeof danielaAspirations.$inferSelect;
+
+// ─── Coordination runtime evidence (Gate 2) ─────────────────────────────────
+// These tables intentionally form an append-oriented evidence graph.  Runtime
+// and credential identity remains owned by the broker tables below; the
+// varchar keys here are therefore deliberate (they are not UUIDs).
+export const COORDINATION_RUNTIME_PROFILE_STATUSES = ["active", "superseded", "closed"] as const;
+export const COORDINATION_RUNTIME_OUTCOMES = [
+  "consumed",
+  "safety_blocked",
+  "refused",
+  "context_limit",
+  "interrupted",
+  "empty_response",
+  "malformed_function_call",
+  "unsupported_provider_outcome",
+  "retryable_provider_error",
+  "terminal_provider_error",
+] as const;
+export const coordinationRuntimeProfileStatusEnum = pgEnum(
+  "coordination_runtime_profile_status",
+  COORDINATION_RUNTIME_PROFILE_STATUSES,
+);
+export const coordinationRuntimeProfiles = pgTable("coordination_runtime_profiles", {
+  id: varchar("id").primaryKey(),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: "restrict" }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  provider: varchar("provider", { length: 80 }).notNull(),
+  model: varchar("model", { length: 160 }).notNull(),
+  adapterVersion: varchar("adapter_version", { length: 80 }).notNull(),
+  repositoryLabel: varchar("repository_label", { length: 160 }).notNull(),
+  worktreeLabel: varchar("worktree_label", { length: 160 }).notNull(),
+  worktreeRealpathDigest: varchar("worktree_realpath_digest", { length: 64 }).notNull(),
+  branch: varchar("branch", { length: 255 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  status: coordinationRuntimeProfileStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_profiles_active_registration").on(table.runtimeRegistrationId)
+    .where(sql`status = 'active'`),
+  index("idx_coord_runtime_profiles_actor").on(table.actor),
+  check("coord_runtime_profile_worktree_digest_hex", sql`${table.worktreeRealpathDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_profile_starting_commit_hex", sql`${table.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationRuntimePackets = pgTable("coordination_runtime_packets", {
+  id: varchar("id").primaryKey(),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  version: integer("version").notNull(),
+  assignmentEventId: varchar("assignment_event_id").notNull(),
+  assignmentTaskId: varchar("assignment_task_id").notNull(),
+  assignmentThreadId: varchar("assignment_thread_id").notNull().references(() => coordinationThreads.id),
+  assignmentAuthor: varchar("assignment_author").notNull(),
+  expectedSequence: integer("expected_sequence").notNull(),
+  supersedesClaimId: varchar("supersedes_claim_id"),
+  windowId: varchar("window_id").notNull().references(() => coordinationRuntimeInboxWindows.id),
+  windowDigest: varchar("window_digest", { length: 64 }).notNull(),
+  orderedInboxItemIds: text("ordered_inbox_item_ids").array().notNull(),
+  orderedEventIds: text("ordered_event_ids").array().notNull(),
+  orderedThreadIds: text("ordered_thread_ids").array().notNull(),
+  inheritedPayload: jsonb("inherited_payload").notNull(),
+  envelope: jsonb("envelope").notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  digest: varchar("digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_packet_assignment_version").on(table.assignmentEventId, table.version),
+  index("idx_coord_runtime_packets_thread").on(table.assignmentThreadId),
+  check("coord_runtime_packet_digest_hex", sql`${table.digest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_packet_window_digest_hex", sql`${table.windowDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_packet_version_positive", sql`${table.version} > 0`),
+]);
+
+export const coordinationRuntimeInboxWindows = pgTable("coordination_runtime_inbox_windows", {
+  id: varchar("id").primaryKey(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id),
+  afterExclusive: integer("after_exclusive").notNull(),
+  throughInclusive: integer("through_inclusive").notNull(),
+  boundaryToken: text("boundary_token").notNull(),
+  orderedItemIds: text("ordered_item_ids").array().notNull(),
+  boundaryDigest: varchar("boundary_digest", { length: 64 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_window_boundary").on(table.threadId, table.throughInclusive, table.boundaryDigest),
+  check("coord_runtime_window_bounds", sql`after_exclusive < through_inclusive`),
+  check("coord_runtime_window_digest_hex", sql`${table.boundaryDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_window_item_ids_nonempty", sql`cardinality(${table.orderedItemIds}) > 0`),
+]);
+export const coordinationRuntimeInboxWindowItems = pgTable("coordination_runtime_inbox_window_items", {
+  windowId: varchar("window_id"),
+  itemId: varchar("item_id").notNull(),
+  eventId: varchar("event_id").notNull(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id),
+  taskId: varchar("task_id").notNull(),
+  sequence: integer("sequence").notNull(),
+  payload: jsonb("payload").notNull(),
+  itemDigest: varchar("item_digest", { length: 64 }).notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_window_item").on(table.windowId, table.itemId),
+  uniqueIndex("uq_coord_runtime_window_sequence").on(table.windowId, table.sequence),
+  uniqueIndex("uq_coord_runtime_source_item").on(table.itemId),
+  check("coord_runtime_window_item_digest", sql`${table.itemDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_window_item_sequence_positive", sql`${table.sequence} > 0`),
+]);
+
+export const coordinationRuntimeInteractions = pgTable("coordination_runtime_interactions", {
+  id: varchar("id").primaryKey(),
+  packetId: varchar("packet_id").notNull().references(() => coordinationRuntimePackets.id),
+  assignmentEventId: varchar("assignment_event_id").notNull(),
+  assignmentTaskId: varchar("assignment_task_id").notNull(),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  turn: integer("turn").notNull(),
+  attempt: integer("attempt").notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  responseDigest: varchar("response_digest", { length: 64 }).notNull(),
+  outcome: varchar("outcome", { length: 40 }).notNull(),
+  retryLineage: varchar("retry_lineage").references((): any => coordinationRuntimeInteractions.id),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_interaction_packet_slot").on(table.packetId, table.turn, table.attempt),
+  uniqueIndex("uq_coord_runtime_interaction_assignment_slot").on(table.assignmentEventId, table.assignmentTaskId, table.turn, table.attempt),
+  check("coord_runtime_interaction_digests_hex", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$' AND ${table.responseDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_interaction_turn_attempt_bounds", sql`${table.turn} BETWEEN 1 AND 4 AND ${table.attempt} BETWEEN 1 AND 2`),
+  check("coord_runtime_interaction_outcome_allowed", sql`${table.outcome} IN (
+    'consumed', 'safety_blocked', 'refused', 'context_limit', 'interrupted',
+    'empty_response', 'malformed_function_call', 'unsupported_provider_outcome',
+    'retryable_provider_error', 'terminal_provider_error'
+  )`),
+  index("idx_coord_runtime_interactions_packet").on(table.packetId),
+]);
+
+export const coordinationRuntimeReceipts = pgTable("coordination_runtime_receipts", {
+  id: varchar("id").primaryKey(),
+  packetId: varchar("packet_id").notNull().references(() => coordinationRuntimePackets.id),
+  interactionId: varchar("interaction_id").notNull().references(() => coordinationRuntimeInteractions.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  packetDigest: varchar("packet_digest", { length: 64 }).notNull(),
+  outcome: varchar("outcome", { length: 40 }).notNull(),
+  canonicalEnvelope: jsonb("canonical_envelope").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_receipt_runtime_packet").on(table.runtimeRegistrationId, table.packetId),
+  check("coord_runtime_receipt_packet_digest_hex", sql`${table.packetDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_receipt_outcome_allowed", sql`${table.outcome} IN (
+    'consumed', 'safety_blocked', 'refused', 'context_limit', 'interrupted',
+    'empty_response', 'malformed_function_call', 'unsupported_provider_outcome',
+    'retryable_provider_error', 'terminal_provider_error'
+  )`),
+]);
+
+export const coordinationRuntimeClaimStatusEnum = pgEnum("coordination_runtime_claim_status", ["active", "expired", "completed", "violated"]);
+export const coordinationRuntimeClaimEventKindEnum = pgEnum("coordination_runtime_claim_event_kind", ["acquired", "renewed", "expired", "violated"]);
+export const coordinationRuntimeClaims = pgTable("coordination_runtime_claims", {
+  id: varchar("id").primaryKey(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id),
+  packetId: varchar("packet_id").notNull().references(() => coordinationRuntimePackets.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  priorClaimId: varchar("prior_claim_id").references((): any => coordinationRuntimeClaims.id),
+  epoch: integer("epoch").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  status: coordinationRuntimeClaimStatusEnum("status").notNull(),
+  terminalAt: timestamp("terminal_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_claim_active_thread").on(table.threadId)
+    .where(sql`status = 'active'`),
+  uniqueIndex("uq_coord_runtime_claim_thread_epoch").on(table.threadId, table.epoch),
+  uniqueIndex("uq_coord_runtime_claim_id_epoch").on(table.id, table.epoch),
+  check("coord_runtime_claim_epoch_positive", sql`${table.epoch} > 0`),
+  check("coord_runtime_claim_terminal_timestamp", sql`(status = 'active' AND terminal_at IS NULL) OR (status <> 'active' AND terminal_at IS NOT NULL)`),
+]);
+export const coordinationRuntimeClaimEvents = pgTable("coordination_runtime_claim_events", {
+  id: varchar("id").primaryKey(),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  epoch: integer("epoch").notNull(),
+  kind: coordinationRuntimeClaimEventKindEnum("kind").notNull(),
+  reason: text("reason"),
+  priorClaimId: varchar("prior_claim_id").references(() => coordinationRuntimeClaims.id),
+  occurredAt: timestamp("occurred_at").notNull(),
+}, (table) => [
+  index("idx_coord_runtime_claim_events_claim").on(table.claimId, table.occurredAt),
+  check("coord_runtime_claim_event_epoch_positive", sql`${table.epoch} > 0`),
+]);
+
+export const coordinationRuntimeExecutions = pgTable("coordination_runtime_executions", {
+  id: varchar("id").primaryKey(),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  claimEpoch: integer("claim_epoch").notNull(),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  envelope: jsonb("envelope").notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  executionDigest: varchar("execution_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_execution_claim_epoch").on(table.claimId, table.claimEpoch),
+  check("coord_runtime_execution_digest_hex", sql`${table.executionDigest} ~ '^[0-9a-f]{64}$'`),
+  foreignKey({
+    name: "fk_coord_runtime_execution_claim_epoch",
+    columns: [table.claimId, table.claimEpoch],
+    foreignColumns: [coordinationRuntimeClaims.id, coordinationRuntimeClaims.epoch],
+  }),
+]);
+export const coordinationRuntimeCompletions = pgTable("coordination_runtime_completions", {
+  id: varchar("id").primaryKey(),
+  executionId: varchar("execution_id").notNull().references(() => coordinationRuntimeExecutions.id),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  claimEpoch: integer("claim_epoch").notNull(),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_completion_execution").on(table.executionId),
+  check("coord_runtime_completion_evidence_digest_hex", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  foreignKey({
+    name: "fk_coord_runtime_completion_claim_epoch",
+    columns: [table.claimId, table.claimEpoch],
+    foreignColumns: [coordinationRuntimeClaims.id, coordinationRuntimeClaims.epoch],
+  }),
+]);
+export const coordinationRuntimeVerifications = pgTable("coordination_runtime_verifications", {
+  id: varchar("id").primaryKey(),
+  completionId: varchar("completion_id").notNull().references(() => coordinationRuntimeCompletions.id),
+  verifierActor: varchar("verifier_actor").notNull(),
+  verifierRuntimeRegistrationId: varchar("verifier_runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }).notNull(),
+  patchDigest: varchar("patch_digest", { length: 64 }),
+  decision: varchar("decision", { length: 20 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_verification_completion").on(table.completionId),
+  check("coord_runtime_verification_evidence_digest_hex", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_verification_actor_allowed", sql`${table.verifierActor} IN ('luca-replit', 'luca-claude-code')`),
+  check("coord_runtime_verification_decision_approved", sql`${table.decision} = 'approved'`),
+  check("coord_runtime_verification_patch_digest_hex", sql`${table.patchDigest} IS NULL OR ${table.patchDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+export const coordinationRuntimeIdempotency = pgTable("coordination_runtime_idempotency", {
+  scope: varchar("scope").notNull(),
+  idempotencyKey: varchar("idempotency_key").notNull(),
+  payloadDigest: varchar("payload_digest", { length: 64 }).notNull(),
+  resultKind: varchar("result_kind").notNull(),
+  resultId: varchar("result_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_idempotency_scope_key").on(table.scope, table.idempotencyKey),
+  check("coord_runtime_idempotency_payload_digest_hex", sql`${table.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+]);
 
 // ─── Daniela Character Candidates ────────────────────────────────────────────
 // Staging table for the slow-tier stewardship conversation. When Daniela

@@ -241,7 +241,46 @@ export type VerificationDecision = {
   decision: 'approved';
 };
 
-type IdempotencyRecord = { payloadDigest: string; resultKind: string; resultId: string };
+export type IdempotencyRecord = { payloadDigest: string; resultKind: string; resultId: string };
+/**
+ * Persistence port for the coordination protocol.  Implementations must make
+ * transaction the unit of atomicity; evidence writers are append-oriented,
+ * while claims are the sole mutable protocol entity.
+ */
+export type CoordinationRuntimeRepository = {
+  transaction<T>(operation: () => Promise<T>): Promise<T>;
+  addInboxItem(item: InboxItem): Promise<InboxItem>;
+  freezeInboxWindow(threadId: string, afterExclusive: number, throughInclusive: number, boundaryToken: string): Promise<InboxWindow>;
+  validateWindow(windowId: string): Promise<{ window: InboxWindow; items: InboxItem[] }>;
+  getThreadSequence(threadId: string): Promise<number | undefined>;
+  getPacket(id: string): Promise<InheritancePacket | undefined>;
+  getInteraction(id: string): Promise<ModelInteraction | undefined>;
+  getReceipt(id: string): Promise<OutcomeReceipt | undefined>;
+  getClaim(id: string): Promise<ExecutionClaim | undefined>;
+  getExecution(id: string): Promise<ExecutionRecord | undefined>;
+  getCompletion(id: string): Promise<CompletionRecord | undefined>;
+  getVerification(id: string): Promise<VerificationDecision | undefined>;
+  getResult(kind: string, id: string): Promise<unknown>;
+  idempotency(scope: string, key: string): Promise<IdempotencyRecord | undefined>;
+  saveIdempotency(scope: string, key: string, record: IdempotencyRecord): Promise<void>;
+  savePacket(value: InheritancePacket): Promise<void>;
+  saveInteraction(value: ModelInteraction): Promise<void>;
+  saveReceipt(value: OutcomeReceipt): Promise<void>;
+  saveClaim(value: ExecutionClaim): Promise<void>;
+  addClaimEvent(value: ClaimEvent): Promise<void>;
+  saveExecution(value: ExecutionRecord): Promise<void>;
+  saveCompletion(value: CompletionRecord): Promise<void>;
+  saveVerification(value: VerificationDecision): Promise<void>;
+  activeClaimForThread(threadId: string): Promise<ExecutionClaim | undefined>;
+  interactionForSlot(packetId: string, turn: number, attempt: number): Promise<ModelInteraction | undefined>;
+  interactionsForPacket(packetId: string): Promise<ModelInteraction[]>;
+  interactionsForAssignment(packet: InheritancePacket): Promise<ModelInteraction[]>;
+  interactionForAssignmentSlot(packet: InheritancePacket, turn: number, attempt: number): Promise<ModelInteraction | undefined>;
+  maxClaimEpoch(threadId: string): Promise<number>;
+  packetForAssignmentVersion(assignmentEventId: string, version: number): Promise<InheritancePacket | undefined>;
+  claimsForPacket(packetId: string): Promise<ExecutionClaim[]>;
+  latestClaimForThread(threadId: string): Promise<ExecutionClaim | undefined>;
+};
 type RepositoryState = {
   inbox: Map<string, InboxItem>;
   threadSequences: Map<string, number>;
@@ -295,17 +334,17 @@ function cloneState(source: RepositoryState): RepositoryState {
   };
 }
 
-export class InMemoryCoordinationRepository {
+export class InMemoryCoordinationRepository implements CoordinationRuntimeRepository {
   private state = emptyState();
   private inTransaction = false;
 
-  transaction<T>(operation: () => T): T {
+  async transaction<T>(operation: () => Promise<T>): Promise<T> {
     if (this.inTransaction) fail('transaction_reentrant', 'Nested transaction');
     const prior = this.state;
     this.state = cloneState(prior);
     this.inTransaction = true;
     try {
-      const result = operation();
+      const result = await operation();
       this.inTransaction = false;
       return result;
     } catch (error) {
@@ -315,8 +354,8 @@ export class InMemoryCoordinationRepository {
     }
   }
 
-  addInboxItem(item: InboxItem): InboxItem {
-    return this.transaction(() => {
+  async addInboxItem(item: InboxItem): Promise<InboxItem> {
+    return this.transaction(async () => {
       if (this.state.inbox.has(item.id)) fail('duplicate_inbox_id', 'Inbox ID already exists');
       const prior = this.state.threadSequences.get(item.threadId) ?? 0;
       if (!Number.isInteger(item.sequence) || item.sequence <= prior) {
@@ -329,13 +368,13 @@ export class InMemoryCoordinationRepository {
     });
   }
 
-  freezeInboxWindow(
+  async freezeInboxWindow(
     threadId: string,
     afterExclusive: number,
     throughInclusive: number,
     boundaryToken: string,
-  ): InboxWindow {
-    return this.transaction(() => {
+  ): Promise<InboxWindow> {
+    return this.transaction(async () => {
       if (!boundaryToken || throughInclusive <= afterExclusive) {
         fail('inbox_window_invalid', 'Window boundary is invalid');
       }
@@ -378,7 +417,7 @@ export class InMemoryCoordinationRepository {
       .map(immutable);
   }
 
-  validateWindow(windowId: string): { window: InboxWindow; items: InboxItem[] } {
+  async validateWindow(windowId: string): Promise<{ window: InboxWindow; items: InboxItem[] }> {
     const window = this.state.windows.get(windowId);
     if (!window) fail('inbox_window_incomplete', 'Frozen window is required');
     const items = this.inboxItemsForWindow(
@@ -404,46 +443,46 @@ export class InMemoryCoordinationRepository {
     return { window: immutable(window), items };
   }
 
-  getThreadSequence(threadId: string): number | undefined {
+  async getThreadSequence(threadId: string): Promise<number | undefined> {
     return this.state.threadSequences.get(threadId);
   }
 
-  getPacket(id: string): InheritancePacket | undefined {
+  async getPacket(id: string): Promise<InheritancePacket | undefined> {
     const value = this.state.packets.get(id);
     return value && immutable(value);
   }
 
-  getInteraction(id: string): ModelInteraction | undefined {
+  async getInteraction(id: string): Promise<ModelInteraction | undefined> {
     const value = this.state.interactions.get(id);
     return value && immutable(value);
   }
 
-  getReceipt(id: string): OutcomeReceipt | undefined {
+  async getReceipt(id: string): Promise<OutcomeReceipt | undefined> {
     const value = this.state.receipts.get(id);
     return value && immutable(value);
   }
 
-  getClaim(id: string): ExecutionClaim | undefined {
+  async getClaim(id: string): Promise<ExecutionClaim | undefined> {
     const value = this.state.claims.get(id);
     return value && immutable(value);
   }
 
-  getExecution(id: string): ExecutionRecord | undefined {
+  async getExecution(id: string): Promise<ExecutionRecord | undefined> {
     const value = this.state.executions.get(id);
     return value && immutable(value);
   }
 
-  getCompletion(id: string): CompletionRecord | undefined {
+  async getCompletion(id: string): Promise<CompletionRecord | undefined> {
     const value = this.state.completions.get(id);
     return value && immutable(value);
   }
 
-  getVerification(id: string): VerificationDecision | undefined {
+  async getVerification(id: string): Promise<VerificationDecision | undefined> {
     const value = this.state.verifications.get(id);
     return value && immutable(value);
   }
 
-  getResult(kind: string, id: string): unknown {
+  async getResult(kind: string, id: string): Promise<unknown> {
     const collections: Record<string, Map<string, unknown>> = {
       packet: this.state.packets,
       interaction: this.state.interactions,
@@ -458,23 +497,23 @@ export class InMemoryCoordinationRepository {
     return value && immutable(value);
   }
 
-  idempotency(scope: string, key: string): IdempotencyRecord | undefined {
+  async idempotency(scope: string, key: string): Promise<IdempotencyRecord | undefined> {
     const value = this.state.idempotency.get(digestCanonical([scope, key]));
     return value && immutable(value);
   }
 
-  saveIdempotency(scope: string, key: string, record: IdempotencyRecord): void {
+  async saveIdempotency(scope: string, key: string, record: IdempotencyRecord): Promise<void> {
     this.state.idempotency.set(digestCanonical([scope, key]), immutable(record));
   }
 
-  savePacket(value: InheritancePacket): void { this.state.packets.set(value.id, immutable(value)); }
-  saveInteraction(value: ModelInteraction): void { this.state.interactions.set(value.id, immutable(value)); }
-  saveReceipt(value: OutcomeReceipt): void { this.state.receipts.set(value.id, immutable(value)); }
-  saveExecution(value: ExecutionRecord): void { this.state.executions.set(value.id, immutable(value)); }
-  saveCompletion(value: CompletionRecord): void { this.state.completions.set(value.id, immutable(value)); }
-  saveVerification(value: VerificationDecision): void { this.state.verifications.set(value.id, immutable(value)); }
+  async savePacket(value: InheritancePacket): Promise<void> { this.state.packets.set(value.id, immutable(value)); }
+  async saveInteraction(value: ModelInteraction): Promise<void> { this.state.interactions.set(value.id, immutable(value)); }
+  async saveReceipt(value: OutcomeReceipt): Promise<void> { this.state.receipts.set(value.id, immutable(value)); }
+  async saveExecution(value: ExecutionRecord): Promise<void> { this.state.executions.set(value.id, immutable(value)); }
+  async saveCompletion(value: CompletionRecord): Promise<void> { this.state.completions.set(value.id, immutable(value)); }
+  async saveVerification(value: VerificationDecision): Promise<void> { this.state.verifications.set(value.id, immutable(value)); }
 
-  saveClaim(value: ExecutionClaim): void {
+  async saveClaim(value: ExecutionClaim): Promise<void> {
     if (
       value.status === 'active' &&
       [...this.state.claims.values()].some(
@@ -489,18 +528,18 @@ export class InMemoryCoordinationRepository {
     this.state.claims.set(value.id, immutable(value));
   }
 
-  addClaimEvent(value: ClaimEvent): void {
+  async addClaimEvent(value: ClaimEvent): Promise<void> {
     this.state.claimEvents.push(immutable(value));
   }
 
-  activeClaimForThread(threadId: string): ExecutionClaim | undefined {
+  async activeClaimForThread(threadId: string): Promise<ExecutionClaim | undefined> {
     const value = [...this.state.claims.values()].find(
       (claim) => claim.threadId === threadId && claim.status === 'active',
     );
     return value && immutable(value);
   }
 
-  interactionForSlot(packetId: string, turn: number, attempt: number): ModelInteraction | undefined {
+  async interactionForSlot(packetId: string, turn: number, attempt: number): Promise<ModelInteraction | undefined> {
     const value = [...this.state.interactions.values()].find(
       (interaction) =>
         interaction.packetId === packetId &&
@@ -510,13 +549,13 @@ export class InMemoryCoordinationRepository {
     return value && immutable(value);
   }
 
-  interactionsForPacket(packetId: string): ModelInteraction[] {
+  async interactionsForPacket(packetId: string): Promise<ModelInteraction[]> {
     return [...this.state.interactions.values()]
       .filter((interaction) => interaction.packetId === packetId)
       .map(immutable);
   }
 
-  interactionsForAssignment(packet: InheritancePacket): ModelInteraction[] {
+  async interactionsForAssignment(packet: InheritancePacket): Promise<ModelInteraction[]> {
     return [...this.state.interactions.values()]
       .filter((interaction) => {
         const source = this.state.packets.get(interaction.packetId);
@@ -526,17 +565,17 @@ export class InMemoryCoordinationRepository {
       .map(immutable);
   }
 
-  interactionForAssignmentSlot(
+  async interactionForAssignmentSlot(
     packet: InheritancePacket,
     turn: number,
     attempt: number,
-  ): ModelInteraction | undefined {
-    return this.interactionsForAssignment(packet).find(
+  ): Promise<ModelInteraction | undefined> {
+    return (await this.interactionsForAssignment(packet)).find(
       (interaction) => interaction.turn === turn && interaction.attempt === attempt,
     );
   }
 
-  maxClaimEpoch(threadId: string): number {
+  async maxClaimEpoch(threadId: string): Promise<number> {
     return Math.max(
       0,
       ...[...this.state.claims.values()]
@@ -545,10 +584,10 @@ export class InMemoryCoordinationRepository {
     );
   }
 
-  packetForAssignmentVersion(
+  async packetForAssignmentVersion(
     assignmentEventId: string,
     version: number,
-  ): InheritancePacket | undefined {
+  ): Promise<InheritancePacket | undefined> {
     const value = [...this.state.packets.values()].find(
       (packet) =>
         packet.assignment.assignmentEventId === assignmentEventId &&
@@ -557,13 +596,13 @@ export class InMemoryCoordinationRepository {
     return value && immutable(value);
   }
 
-  claimsForPacket(packetId: string): ExecutionClaim[] {
+  async claimsForPacket(packetId: string): Promise<ExecutionClaim[]> {
     return [...this.state.claims.values()]
       .filter((claim) => claim.packetId === packetId)
       .map(immutable);
   }
 
-  latestClaimForThread(threadId: string): ExecutionClaim | undefined {
+  async latestClaimForThread(threadId: string): Promise<ExecutionClaim | undefined> {
     const value = [...this.state.claims.values()]
       .filter((claim) => claim.threadId === threadId)
       .sort((left, right) => right.epoch - left.epoch)[0];
@@ -588,7 +627,7 @@ type MutationResult<T> = { value: T } | { error: RuntimeProtocolError };
 
 export class CoordinationRuntimeService {
   constructor(
-    private readonly repository: InMemoryCoordinationRepository,
+    private readonly repository: CoordinationRuntimeRepository,
     private readonly now: () => number = () => Date.now(),
     private readonly newId: () => string = () => randomUUID(),
     configuredEnvelope: ExecutionEnvelope = {
@@ -623,25 +662,25 @@ export class CoordinationRuntimeService {
     }
   }
 
-  private mutate<T extends { id: string }>(
+  private async mutate<T extends { id: string }>(
     scope: string,
     idempotencyKey: string,
     payload: unknown,
-    operation: () => T,
-  ): T {
-    return this.repository.transaction(() => {
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return this.repository.transaction(async () => {
       const payloadDigest = digestCanonical(payload);
-      const prior = this.repository.idempotency(scope, idempotencyKey);
+      const prior = await this.repository.idempotency(scope, idempotencyKey);
       if (prior) {
         if (prior.payloadDigest !== payloadDigest) {
           fail('idempotency_payload_mismatch', 'Changed payload reused idempotency key');
         }
-        const result = this.repository.getResult(prior.resultKind, prior.resultId);
+        const result = await this.repository.getResult(prior.resultKind, prior.resultId);
         if (!result) fail('repository_corrupt', 'Idempotency result is missing');
         return result as T;
       }
-      const result = operation();
-      this.repository.saveIdempotency(scope, idempotencyKey, {
+      const result = await operation();
+      await this.repository.saveIdempotency(scope, idempotencyKey, {
         payloadDigest,
         resultKind: scope,
         resultId: result.id,
@@ -650,14 +689,14 @@ export class CoordinationRuntimeService {
     });
   }
 
-  createPacket(
+  async createPacket(
     principal: RuntimePrincipal,
     windowId: string,
     assignment: Assignment,
     idempotencyKey: string,
     version = 1,
     supersedesClaimId: string | null = null,
-  ): InheritancePacket {
+  ): Promise<InheritancePacket> {
     this.authorize(principal, 'luca-gemini', 'execute');
     if (!Number.isInteger(version) || version < 1) {
       fail('packet_version_invalid', 'Packet version must be a positive integer');
@@ -669,17 +708,17 @@ export class CoordinationRuntimeService {
       assignment,
       version,
       supersedesClaimId,
-    }, () => {
-      const { window, items } = this.repository.validateWindow(windowId);
+    }, async () => {
+      const { window, items } = await this.repository.validateWindow(windowId);
       if (
-        this.repository.packetForAssignmentVersion(
+        await this.repository.packetForAssignmentVersion(
           assignment.assignmentEventId,
           version,
         )
       ) {
         fail('packet_version_conflict', 'Assignment packet version already exists');
       }
-      const latestClaim = this.repository.latestClaimForThread(assignment.threadId);
+      const latestClaim = await this.repository.latestClaimForThread(assignment.threadId);
       if (version === 1 && (supersedesClaimId !== null || latestClaim)) {
         fail('takeover_reference_invalid', 'Initial packet cannot replace prior work');
       }
@@ -702,8 +741,8 @@ export class CoordinationRuntimeService {
             status: 'expired' as const,
             terminalAt: this.now(),
           };
-          this.repository.saveClaim(expired);
-          this.repository.addClaimEvent({
+          await this.repository.saveClaim(expired);
+          await this.repository.addClaimEvent({
             id: this.newId(),
             claimId: expired.id,
             epoch: expired.epoch,
@@ -723,7 +762,7 @@ export class CoordinationRuntimeService {
         assignmentItem.threadId !== assignment.threadId ||
         assignmentItem.sequence !== assignment.expectedSequence ||
         window.threadId !== assignment.threadId ||
-        this.repository.getThreadSequence(assignment.threadId) !== assignment.expectedSequence
+        await this.repository.getThreadSequence(assignment.threadId) !== assignment.expectedSequence
       ) {
         fail('packet_assignment_mismatch', 'Assignment does not match frozen inbox');
       }
@@ -748,12 +787,12 @@ export class CoordinationRuntimeService {
         ...base,
         digest: digestCanonical(base),
       };
-      this.repository.savePacket(packet);
+      await this.repository.savePacket(packet);
       return packet;
     });
   }
 
-  recordInteraction(
+  async recordInteraction(
     principal: RuntimePrincipal,
     input: {
       packetId: string;
@@ -765,9 +804,9 @@ export class CoordinationRuntimeService {
       retryLineage?: string | null;
       idempotencyKey: string;
     },
-  ): ModelInteraction {
+  ): Promise<ModelInteraction> {
     this.authorize(principal, 'luca-gemini', 'model');
-    const packet = this.repository.getPacket(input.packetId);
+    const packet = await this.repository.getPacket(input.packetId);
     if (
       !packet ||
       packet.runtimeRegistrationId !== principal.runtimeRegistrationId ||
@@ -776,7 +815,7 @@ export class CoordinationRuntimeService {
       fail('packet_assignment_mismatch', 'Packet is not owned by this runtime');
     }
 
-    const result = this.repository.transaction<MutationResult<ModelInteraction>>(() => {
+    const result = await this.repository.transaction<MutationResult<ModelInteraction>>(async () => {
       const payload = {
         ...input,
         retryLineage: input.retryLineage ?? null,
@@ -785,28 +824,28 @@ export class CoordinationRuntimeService {
         credentialId: principal.credentialId,
       };
       const payloadDigest = digestCanonical(payload);
-      const priorReplay = this.repository.idempotency('interaction', input.idempotencyKey);
+      const priorReplay = await this.repository.idempotency('interaction', input.idempotencyKey);
       if (priorReplay) {
         if (priorReplay.payloadDigest !== payloadDigest) {
           fail('idempotency_payload_mismatch', 'Changed interaction replay');
         }
         return {
-          value: this.repository.getResult(
+          value: await this.repository.getResult(
             priorReplay.resultKind,
             priorReplay.resultId,
           ) as ModelInteraction,
         };
       }
 
-      const violate = (reason: string): MutationResult<ModelInteraction> => {
-        const claim = this.repository.activeClaimForThread(packet.assignment.threadId);
+      const violate = async (reason: string): Promise<MutationResult<ModelInteraction>> => {
+        const claim = await this.repository.activeClaimForThread(packet.assignment.threadId);
         if (claim?.packetId === packet.id) {
-          this.repository.saveClaim({
+          await this.repository.saveClaim({
             ...claim,
             status: 'violated',
             terminalAt: this.now(),
           });
-          this.repository.addClaimEvent({
+          await this.repository.addClaimEvent({
             id: this.newId(),
             claimId: claim.id,
             epoch: claim.epoch,
@@ -827,29 +866,29 @@ export class CoordinationRuntimeService {
         input.attempt < 1 ||
         input.attempt > 2
       ) {
-        return violate('Model turn or attempt is outside the approved limit');
+        return await violate('Model turn or attempt is outside the approved limit');
       }
-      if (this.repository.interactionForAssignmentSlot(packet, input.turn, input.attempt)) {
+      if (await this.repository.interactionForAssignmentSlot(packet, input.turn, input.attempt)) {
         fail('duplicate_model_attempt', 'Model turn and attempt already exist');
       }
       if (
         input.turn > 1 &&
-        !this.repository.interactionForAssignmentSlot(packet, input.turn - 1, 1)
+        !await this.repository.interactionForAssignmentSlot(packet, input.turn - 1, 1)
       ) {
-        return violate('Logical model turn was skipped');
+        return await violate('Logical model turn was skipped');
       }
       if (input.attempt === 2) {
-        const first = this.repository.interactionForAssignmentSlot(packet, input.turn, 1);
+        const first = await this.repository.interactionForAssignmentSlot(packet, input.turn, 1);
         if (
           !first ||
           first.outcome !== 'retryable_provider_error' ||
           input.retryLineage !== first.id
         ) {
-          return violate('Retry lineage is not authorized');
+          return await violate('Retry lineage is not authorized');
         }
       }
-      if (this.repository.interactionsForAssignment(packet).length >= 8) {
-        return violate('Gemini API attempt limit exceeded');
+      if ((await this.repository.interactionsForAssignment(packet)).length >= 8) {
+        return await violate('Gemini API attempt limit exceeded');
       }
       if (!input.responseDigest) {
         fail('interaction_digest_mismatch', 'Every interaction requires a response digest');
@@ -872,8 +911,8 @@ export class CoordinationRuntimeService {
         retryLineage: input.retryLineage ?? null,
         createdAt: this.now(),
       };
-      this.repository.saveInteraction(interaction);
-      this.repository.saveIdempotency('interaction', input.idempotencyKey, {
+      await this.repository.saveInteraction(interaction);
+      await this.repository.saveIdempotency('interaction', input.idempotencyKey, {
         payloadDigest,
         resultKind: 'interaction',
         resultId: interaction.id,
@@ -885,13 +924,13 @@ export class CoordinationRuntimeService {
     return result.value;
   }
 
-  recordOutcomeReceipt(
+  async recordOutcomeReceipt(
     principal: RuntimePrincipal,
     packetId: string,
     packetDigest: string,
     interactionId: string,
     idempotencyKey: string,
-  ): OutcomeReceipt {
+  ): Promise<OutcomeReceipt> {
     this.authorize(principal, 'luca-gemini', 'model');
     return this.mutate('receipt', idempotencyKey, {
       packetId,
@@ -899,9 +938,9 @@ export class CoordinationRuntimeService {
       interactionId,
       runtimeRegistrationId: principal.runtimeRegistrationId,
       profileId: principal.profileId,
-    }, () => {
-      const packet = this.repository.getPacket(packetId);
-      const interaction = this.repository.getInteraction(interactionId);
+    }, async () => {
+      const packet = await this.repository.getPacket(packetId);
+      const interaction = await this.repository.getInteraction(interactionId);
       if (
         !packet ||
         packet.digest !== packetDigest ||
@@ -924,7 +963,7 @@ export class CoordinationRuntimeService {
         outcome: interaction.outcome,
         createdAt: this.now(),
       };
-      this.repository.saveReceipt(receipt);
+      await this.repository.saveReceipt(receipt);
       return receipt;
     });
   }
@@ -940,14 +979,14 @@ export class CoordinationRuntimeService {
     }
   }
 
-  claim(
+  async claim(
     principal: RuntimePrincipal,
     packetId: string,
     packetDigest: string,
     receiptId: string,
     ttlMs: number,
     idempotencyKey: string,
-  ): ExecutionClaim {
+  ): Promise<ExecutionClaim> {
     this.authorize(principal, 'luca-gemini', 'execute');
     this.validateTtl(ttlMs);
     return this.mutate('claim', idempotencyKey, {
@@ -957,9 +996,9 @@ export class CoordinationRuntimeService {
       ttlMs,
       runtimeRegistrationId: principal.runtimeRegistrationId,
       profileId: principal.profileId,
-    }, () => {
-      const packet = this.repository.getPacket(packetId);
-      const receipt = this.repository.getReceipt(receiptId);
+    }, async () => {
+      const packet = await this.repository.getPacket(packetId);
+      const receipt = await this.repository.getReceipt(receiptId);
       if (
         !packet ||
         packet.digest !== packetDigest ||
@@ -974,7 +1013,7 @@ export class CoordinationRuntimeService {
       ) {
         fail('consumption_not_authorized', 'Consumed receipt does not authorize claim');
       }
-      const priorPacketClaims = this.repository.claimsForPacket(packet.id);
+      const priorPacketClaims = await this.repository.claimsForPacket(packet.id);
       if (
         priorPacketClaims.some(
           (claim) => claim.status === 'active' && claim.expiresAt > this.now(),
@@ -986,12 +1025,12 @@ export class CoordinationRuntimeService {
         fail('fresh_consumption_required', 'A terminal or expired claim requires a fresh packet');
       }
       if (
-        this.repository.getThreadSequence(packet.assignment.threadId) !==
+        await this.repository.getThreadSequence(packet.assignment.threadId) !==
         packet.assignment.expectedSequence
       ) {
         fail('thread_sequence_stale', 'Coordinator sequence changed');
       }
-      const latestPriorClaim = this.repository.latestClaimForThread(
+      const latestPriorClaim = await this.repository.latestClaimForThread(
         packet.assignment.threadId,
       );
       if (latestPriorClaim?.status === 'completed') {
@@ -1008,17 +1047,17 @@ export class CoordinationRuntimeService {
       ) {
         fail('fresh_consumption_required', 'Replacement evidence predates terminal claim');
       }
-      const active = this.repository.activeClaimForThread(packet.assignment.threadId);
+      const active = await this.repository.activeClaimForThread(packet.assignment.threadId);
       if (active) {
         if (active.expiresAt > this.now()) {
           fail('claim_active_conflict', 'Thread has an active claim');
         }
-        this.repository.saveClaim({
+        await this.repository.saveClaim({
           ...active,
           status: 'expired',
           terminalAt: this.now(),
         });
-        this.repository.addClaimEvent({
+        await this.repository.addClaimEvent({
           id: this.newId(),
           claimId: active.id,
           epoch: active.epoch,
@@ -1036,13 +1075,13 @@ export class CoordinationRuntimeService {
         profileId: principal.profileId,
         credentialId: principal.credentialId,
         priorClaimId: latestPriorClaim?.id ?? null,
-        epoch: this.repository.maxClaimEpoch(packet.assignment.threadId) + 1,
+        epoch: await this.repository.maxClaimEpoch(packet.assignment.threadId) + 1,
         expiresAt: this.now() + ttlMs,
         status: 'active',
         terminalAt: null,
       };
-      this.repository.saveClaim(claim);
-      this.repository.addClaimEvent({
+      await this.repository.saveClaim(claim);
+      await this.repository.addClaimEvent({
         id: this.newId(),
         claimId: claim.id,
         epoch: claim.epoch,
@@ -1055,13 +1094,13 @@ export class CoordinationRuntimeService {
     });
   }
 
-  renew(
+  async renew(
     principal: RuntimePrincipal,
     claimId: string,
     epoch: number,
     ttlMs: number,
     idempotencyKey: string,
-  ): ExecutionClaim {
+  ): Promise<ExecutionClaim> {
     this.authorize(principal, 'luca-gemini', 'execute');
     this.validateTtl(ttlMs);
     return this.mutate('renewal', idempotencyKey, {
@@ -1070,8 +1109,8 @@ export class CoordinationRuntimeService {
       ttlMs,
       runtimeRegistrationId: principal.runtimeRegistrationId,
       profileId: principal.profileId,
-    }, () => {
-      const claim = this.repository.getClaim(claimId);
+    }, async () => {
+      const claim = await this.repository.getClaim(claimId);
       if (!claim) fail('claim_not_active', 'Claim does not exist');
       if (
         claim.runtimeRegistrationId !== principal.runtimeRegistrationId ||
@@ -1087,8 +1126,8 @@ export class CoordinationRuntimeService {
         epoch: claim.epoch + 1,
         expiresAt: this.now() + ttlMs,
       };
-      this.repository.saveClaim(renewed);
-      this.repository.addClaimEvent({
+      await this.repository.saveClaim(renewed);
+      await this.repository.addClaimEvent({
         id: this.newId(),
         claimId,
         epoch: renewed.epoch,
@@ -1101,12 +1140,12 @@ export class CoordinationRuntimeService {
     });
   }
 
-  execute(
+  async execute(
     principal: RuntimePrincipal,
     claimId: string,
     command: ExecutionEnvelope,
     idempotencyKey: string,
-  ): ExecutionRecord {
+  ): Promise<ExecutionRecord> {
     this.authorize(principal, 'luca-gemini', 'execute');
     const payload = {
       claimId,
@@ -1114,22 +1153,22 @@ export class CoordinationRuntimeService {
       runtimeRegistrationId: principal.runtimeRegistrationId,
       profileId: principal.profileId,
     };
-    const result = this.repository.transaction<MutationResult<ExecutionRecord>>(() => {
+    const result = await this.repository.transaction<MutationResult<ExecutionRecord>>(async () => {
       const payloadDigest = digestCanonical(payload);
-      const prior = this.repository.idempotency('execution', idempotencyKey);
+      const prior = await this.repository.idempotency('execution', idempotencyKey);
       if (prior) {
         if (prior.payloadDigest !== payloadDigest) {
           fail('idempotency_payload_mismatch', 'Changed execution replay');
         }
         return {
-          value: this.repository.getResult(
+          value: await this.repository.getResult(
             prior.resultKind,
             prior.resultId,
           ) as ExecutionRecord,
         };
       }
-      const claim = this.repository.getClaim(claimId);
-      const packet = claim && this.repository.getPacket(claim.packetId);
+      const claim = await this.repository.getClaim(claimId);
+      const packet = claim && await this.repository.getPacket(claim.packetId);
       if (!claim || !packet) fail('claim_not_active', 'Claim does not exist');
       if (
         claim.runtimeRegistrationId !== principal.runtimeRegistrationId ||
@@ -1138,12 +1177,12 @@ export class CoordinationRuntimeService {
       if (claim.expiresAt <= this.now()) fail('claim_expired', 'Claim has expired');
       if (claim.status !== 'active') fail('claim_not_active', 'Claim is not active');
       if (canonicalJson(command) !== canonicalJson(packet.envelope)) {
-        this.repository.saveClaim({
+        await this.repository.saveClaim({
           ...claim,
           status: 'violated',
           terminalAt: this.now(),
         });
-        this.repository.addClaimEvent({
+        await this.repository.addClaimEvent({
           id: this.newId(),
           claimId,
           epoch: claim.epoch,
@@ -1173,8 +1212,8 @@ export class CoordinationRuntimeService {
           command,
         }),
       };
-      this.repository.saveExecution(execution);
-      this.repository.saveIdempotency('execution', idempotencyKey, {
+      await this.repository.saveExecution(execution);
+      await this.repository.saveIdempotency('execution', idempotencyKey, {
         payloadDigest,
         resultKind: 'execution',
         resultId: execution.id,
@@ -1185,21 +1224,21 @@ export class CoordinationRuntimeService {
     return result.value;
   }
 
-  complete(
+  async complete(
     principal: RuntimePrincipal,
     executionId: string,
     evidenceDigest: string,
     idempotencyKey: string,
-  ): CompletionRecord {
+  ): Promise<CompletionRecord> {
     this.authorize(principal, 'luca-gemini', 'execute');
     return this.mutate('completion', idempotencyKey, {
       executionId,
       evidenceDigest,
       runtimeRegistrationId: principal.runtimeRegistrationId,
       profileId: principal.profileId,
-    }, () => {
-      const execution = this.repository.getExecution(executionId);
-      const claim = execution && this.repository.getClaim(execution.claimId);
+    }, async () => {
+      const execution = await this.repository.getExecution(executionId);
+      const claim = execution && await this.repository.getClaim(execution.claimId);
       if (!execution || !claim) fail('completion_mismatch', 'Execution does not exist');
       if (execution.claimEpoch !== claim.epoch) {
         fail('claim_epoch_stale', 'Execution belongs to a stale claim epoch');
@@ -1220,23 +1259,23 @@ export class CoordinationRuntimeService {
         claimEpoch: claim.epoch,
         evidenceDigest,
       };
-      this.repository.saveClaim({
+      await this.repository.saveClaim({
         ...claim,
         status: 'completed',
         terminalAt: this.now(),
       });
-      this.repository.saveCompletion(completion);
+      await this.repository.saveCompletion(completion);
       return completion;
     });
   }
 
-  verify(
+  async verify(
     principal: RuntimePrincipal,
     completionId: string,
     evidenceDigest: string,
     patchDigest: string | null,
     idempotencyKey: string,
-  ): VerificationDecision {
+  ): Promise<VerificationDecision> {
     if (principal.actor !== 'luca-replit' && principal.actor !== 'luca-claude-code') {
       fail('verifier_not_allowed', 'Verifier actor is not approved');
     }
@@ -1248,10 +1287,10 @@ export class CoordinationRuntimeService {
       patchDigest,
       verifierActor,
       verifierRuntimeRegistrationId: principal.runtimeRegistrationId,
-    }, () => {
-      const completion = this.repository.getCompletion(completionId);
-      const claim = completion && this.repository.getClaim(completion.claimId);
-      const packet = claim && this.repository.getPacket(claim.packetId);
+    }, async () => {
+      const completion = await this.repository.getCompletion(completionId);
+      const claim = completion && await this.repository.getClaim(completion.claimId);
+      const packet = claim && await this.repository.getPacket(claim.packetId);
       if (!completion || !claim || !packet) {
         fail('verification_chain_missing', 'Completion evidence chain is missing');
       }
@@ -1276,7 +1315,7 @@ export class CoordinationRuntimeService {
         patchDigest,
         decision: 'approved',
       };
-      this.repository.saveVerification(decision);
+      await this.repository.saveVerification(decision);
       return decision;
     });
   }

@@ -1,3 +1,23 @@
+# Persisted Gemini runtime authority model — 2026-09-10
+
+- Gate 2 adds dedicated PostgreSQL records for execution profiles, frozen inbox
+  windows, inheritance packets, model interactions, outcome receipts, claims
+  and claim events, executions, completions, verifications, and idempotency.
+- Database constraints and triggers enforce actor/runtime/profile/credential
+  lineage, one active claim per thread, claim epochs, assignment-wide model
+  slots, replacement-packet ordering, controlled claim transitions, and
+  append-only evidence.
+- The PostgreSQL adapter uses transaction-local executors with no in-memory
+  fallback. The disposable parity test proves the full persisted lifecycle,
+  exact replay, fresh-repository reload, changed-payload rejection, and direct
+  immutable-table mutation rejection.
+- Migration `0035_absent_franklin_storm.sql` passed the canonical disposable
+  Neon gate, including all unit, coordination, guard, and episode groups, and
+  was applied to shared Neon. System health confirms all twelve protocol tables.
+- Both Alden engines returned unconditional approval with no remaining
+  authority or evidence blocker. The exact approved shared-spec bytes are
+  exported to the declared repository path.
+
 # Reproducible local coordination validation — 2026-09-09
 
 - `npm run test:coordination-ledger` now creates a disposable local PostgreSQL

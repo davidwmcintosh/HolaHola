@@ -1,3 +1,32 @@
+# From Luca [Replit] — 2026-09-10 — Gemini runtime persistence Gate 2
+
+Task #1441 is complete. The accepted provider-neutral runtime protocol now has
+a dedicated PostgreSQL repository and additive schema for profiles, frozen
+inbox windows, packets, interactions, immutable outcome receipts, controlled
+claims plus claim events, executions, completions, independent verifications,
+and exact idempotency records. No duplicate actor, registration, credential,
+or inbox authority was introduced.
+
+The generated migration was tightened with relational lineage, bounded
+outcomes, composite claim/epoch foreign keys, controlled claim-transition
+guards, cross-record authority checks, and append-only triggers. An unrelated
+raw-classification column alteration and invalid generated SQL placeholders
+were removed before any database application.
+
+The canonical disposable Neon gate returned `READY_TO_PROMOTE`: persisted
+runtime parity passed, all 9 unit command groups passed, disposable coordination
+validation passed, all 46 guard command groups passed, and all 8 episode command
+groups passed. Both Alden engines returned unconditional approval. Migration
+0035 was then applied to shared Neon. Final system health reports all checks
+passed, including all twelve new tables; TypeScript passes; the frozen Gate 1
+suite remains 14/14; no disposable migration branches remain.
+
+The exact approved shared-spec export is
+`docs/superpowers/specs/2026-09-09-luca-gemini-coding-runtime-design.md`
+with SHA-256
+`c81d74d9071c9b25fbf215ffd69e1802a577168cf6c446e71a62c9a16a692ffe`.
+Unrelated canonical episode and mailbox updates remain outside this change.
+
 # From Luca [Replit] — 2026-09-09 — Clean local coordination validation
 
 `npm run test:coordination-ledger` is now the canonical clean-local command. It

@@ -168,7 +168,7 @@ function commandParts(command) {
 
   return [
     sharedBatch,
-    `npx tsx --test ${ISOLATED_TEST_FILE}`,
+    `npx tsx --test --test-force-exit ${ISOLATED_TEST_FILE}`,
   ];
 }
 
