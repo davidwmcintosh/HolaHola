@@ -5634,3 +5634,18 @@ enter through the same centralized grounding, memory, identity, task-authority,
 attribution, evidence, and closure workflow. Provider integrations translate
 transport and capabilities; they do not create separate Lucas or bypass the
 shared control plane.
+
+### Publish schema dependency repair
+
+The first publish attempt failed before a new build was created because Replit's
+schema-diff migration attempted the runtime completion composite foreign key
+before creating its supporting standalone unique index. The canonical ordered
+Drizzle migration had worked on Neon, but the publish diff was free to reorder
+indexes and foreign keys.
+
+The claims table now declares an additive PostgreSQL unique constraint on
+`(id, epoch)` while retaining the existing unique index. Migration
+`0037_curved_nova.sql` contains only that constraint. The full disposable Neon
+gate returned exact `READY_TO_PROMOTE`; the migration was then applied to shared
+Neon. Live catalog verification confirms the unique constraint and both
+execution/completion composite foreign keys are present.

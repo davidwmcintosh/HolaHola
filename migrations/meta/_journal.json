@@ -253,6 +253,13 @@
       "when": 1789060272897,
       "tag": "0036_polite_harrier",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789070104376,
+      "tag": "0037_curved_nova",
+      "breakpoints": true
     }
   ]
 }

@@ -155,3 +155,4 @@
 - [Coordinator reachability and LLM consumption](coordinator-reachability-consumption.md) — runtime addresses expire; LLM consumption needs an explicit receipt tied to use, not context injection.
 - [Credential rotation recovery authority](credential-rotation-recovery-authority.md) — recovery follows the immutable rotation record, not mutable endpoint health; one runtime may join only one active rotation.
 - [Hermetic authority-model proof](hermetic-authority-model-proof.md) — green tests do not prove coordination authority unless fakes own identity, envelopes, atomic transitions, and adversarial evidence.
+- [Publish composite-FK ordering](publish-composite-fk-ordering.md) — declare referenced column pairs as table-level unique constraints; standalone unique indexes may be reordered after FKs.

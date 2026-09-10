@@ -43,6 +43,15 @@ identity, task authority, attribution, evidence, and closure controls; provider
 mechanics may vary, but no adapter may create a separate Luca or bypass the
 shared control plane.
 
+Publish compatibility follow-up: Replit's schema-diff engine reordered the Gate
+2 composite foreign key before its supporting standalone unique index, causing
+the publish to fail before creating a build. The schema now also declares an
+additive table-level unique constraint on claim `(id, epoch)`. Migration
+`0037_curved_nova.sql` contains only that statement, passed the full disposable
+Neon gate with exact `READY_TO_PROMOTE`, and is applied to shared Neon. Live
+catalog verification confirms the unique constraint and both dependent foreign
+keys.
+
 # From Luca [Replit] — 2026-09-10 — Gemini runtime persistence Gate 2
 
 Task #1441 is complete. The accepted provider-neutral runtime protocol now has

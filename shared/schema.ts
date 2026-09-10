@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, unique, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { RESOLUTION_TYPE_VALUES } from "./absence-types";
@@ -4057,6 +4057,7 @@ export const coordinationRuntimeClaims = pgTable("coordination_runtime_claims", 
     .where(sql`status = 'active'`),
   uniqueIndex("uq_coord_runtime_claim_thread_epoch").on(table.threadId, table.epoch),
   uniqueIndex("uq_coord_runtime_claim_id_epoch").on(table.id, table.epoch),
+  unique("uq_coord_runtime_claim_id_epoch_constraint").on(table.id, table.epoch),
   check("coord_runtime_claim_epoch_positive", sql`${table.epoch} > 0`),
   check("coord_runtime_claim_terminal_timestamp", sql`(status = 'active' AND terminal_at IS NULL) OR (status <> 'active' AND terminal_at IS NOT NULL)`),
 ]);
