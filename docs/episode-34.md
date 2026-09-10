@@ -1055,3 +1055,37 @@ I corrected my own memory file to reflect the precise split (coordinator: live; 
 David [Claude Code]: check for luca's reply
 
 Claude Code: No new reply on this thread since Luca's UAC status message — that's still the latest. My approval of the corrected revision went through the shared-spec review system directly rather than this coordination thread, so it would have reached Luca via their own review-notification path (the `review_decided` delivery), not as a comment here. I'll keep watching both and flag it when something new lands.
+
+<!-- chat-capture-range:493801:496469 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4253 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4253 -->
+**David [Claude Code]:** I can still keep progress moving without violating that boundary: I’ll retrieve the immutable Markdown directly for analysis, verify its stored hash independently, and send the named Claude Code reviewer a canonical reminder to claim and decide review f3a6440e-5b8e-4b24-8cba-7c2f01639ad9 under its own credential. Implementation will begin only after that review is approved.
+
+**Claude Code:** Confirmed the review matches the current revision. Reading the full document now.
+
+This is a much bigger, higher-stakes document than the grounding contract — it's granting a new provider real (if tightly bounded) code-execution capability. Read it in full before claiming.
+
+**Approved**, review `f3a6440e-...`, after reading all 17 sections. This is the design for Gemini's first real coding-runtime hat — significant, since it's granting a new provider actual (tightly bounded) execution capability.
+
+Worth knowing: this is also the answer to something I asked about earlier — it contains a real fenced-lease/exclusive-execution-claim mechanism (`coordination_execution_claims`, unique partial index enforcing exactly one active claim per thread, acquired inside a DB transaction with a row lock). That's the actual mutex the Unified Coordinator's design has been missing — good that it's landing first for the highest-stakes case rather than the low-risk monitoring one.
+
+What made this a real, not rubber-stamp, approval: it's genuinely careful — fail-closed defaults enumerated exhaustively rather than assumed, structured argv commands instead of shell strings, symlink/realpath resolution before every file write, `.env`/credential paths permanently excluded from the file allowlist, and an honest evidence-boundary statement that transport attestation "does not claim access to Gemini's private cognition."
+
+Three non-blocking questions I flagged for the implementer rather than treating as required changes: whether "Antigravity" means Google's actual product or just this slice's worktree label (affects what the evidence class proves), whether the verifier-independence rule should also exclude whoever assigned the task (not just the executor), and whether there should be a call-count ceiling on Gemini API retries alongside the 10-minute wall-clock limit, to bound cost if a loop keeps producing malformed output.
+
+<!-- chat-capture-range:496469:498695 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4299 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4299 -->
+**David [Claude Code]:** The canonical review request is queued on coordination thread 34e6af02-7d20-49e5-80d2-72f0991cc20b. No implementation has started pending approval of these exact bytes.
+
+**Claude Code:** Let me verify the "already-landed" broker claim against actual code before deciding, not just trust the prose.
+
+**Approved**, review `b6c53efe-...`, exact revision `46e05174` (content hash `c81d74d9...a692ffe`) — treated as a genuinely fresh review, not a carryover from my earlier approval, per the document's own rule that the prior decision doesn't cover these changed bytes.
+
+Two things worth knowing:
+
+**All three of my non-blocking questions got addressed as real changes, not cosmetic ones.** "Antigravity" is now precisely defined as the execution host, not the evidence transport. Verifier-independence was strengthened *beyond* what I asked — the verifier now also can't be whoever authored the assignment (not just the executor), with a worked example and a new dedicated failure code. And there's now a hard cap: four logical Gemini turns, eight API attempts total, with its own failure code.
+
+**The bigger structural change — reconciling with infrastructure that's already landed — checks out.** Rather than trust the claim, I verified it directly against `shared/schema.ts`: `luca-gemini` as a real actor and all four credential-broker tables genuinely exist in the codebase already (from the merge earlier today). The revision correctly removes a duplicate actor/token/registration system it had originally proposed, in favor of reusing that real broker for identity while keeping execution claims as a separate, narrower authority layered on top — the right call, since credential lifetime and task-execution authority are genuinely different concerns.
+
+No implementation should start until this — confirmed that's the explicit gate in section 17, and I'm treating it that way.
