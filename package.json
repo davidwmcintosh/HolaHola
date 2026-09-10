@@ -35,6 +35,7 @@
     "source-control:status": "npx tsx server/scripts/source-control-cli.ts status",
     "source-control:reconcile": "npx tsx server/scripts/source-control-cli.ts reconcile",
     "task:ownership": "npx tsx server/scripts/task-ownership-cli.ts",
+    "task:ownership:diagnostic": "npx tsx server/scripts/task-agent-environment-diagnostic.ts",
     "source-bridge:once": "echo 'Legacy command retired; use npm run source-control:sync' >&2; exit 78",
     "source-bridge:prepare-promotion": "echo 'Legacy command retired; use npm run source-control:prepare' >&2; exit 78",
     "source-bridge:record-promotion": "echo 'Legacy command retired; use the authenticated operator-attestation API' >&2; exit 78",
