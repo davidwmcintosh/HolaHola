@@ -637,7 +637,6 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationCredentialRoutes(app);
   registerCoordinationRoutes(app);
-  registerFounderTaskOwnershipRoutes(app);
   registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
@@ -645,6 +644,7 @@ export async function registerRoutes(app: Application): Promise<void> {
   // Set up Google OAuth (Phase 5 of the Replit-auth replacement) -- additive,
   // does not touch or replace Replit auth's routes.
   await setupGoogleAuth(app as any, authLimiter);
+  registerFounderTaskOwnershipRoutes(app);
   registerObservationBenchFounderRoutes(app, [
     loadAuthenticatedUser(storage),
     requireFounder,

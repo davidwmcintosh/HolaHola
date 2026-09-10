@@ -4,6 +4,7 @@ import {
   loadAuthenticatedUser,
   type AuthenticatedRequest,
 } from "../middleware/rbac";
+import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import {
   requireCoordinationAuth,
@@ -76,7 +77,7 @@ function decisionReason(req: FounderRequest): string | undefined {
 }
 
 export function registerFounderTaskOwnershipRoutes(app: Application): void {
-  const founderSession = [loadAuthenticatedUser(storage), requireFounder] as const;
+  const founderSession = [isAuthenticated, loadAuthenticatedUser(storage), requireFounder] as const;
 
   app.post(
     "/api/task-ownership/challenges",

@@ -52,6 +52,12 @@ Neon gate with exact `READY_TO_PROMOTE`, and is applied to shared Neon. Live
 catalog verification confirms the unique constraint and both dependent foreign
 keys.
 
+Production ownership UI follow-up: Task #1448 successfully created a challenge,
+but the founder list request returned 401 because those routes mounted before
+Replit/Google auth middleware. Ownership routes now mount after both auth setups
+and use the standard authenticated-founder chain. Focused auth/ownership tests
+pass 12/12 and a registration-order regression test locks the fix.
+
 # From Luca [Replit] — 2026-09-10 — Gemini runtime persistence Gate 2
 
 Task #1441 is complete. The accepted provider-neutral runtime protocol now has

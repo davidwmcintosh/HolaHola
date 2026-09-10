@@ -5649,3 +5649,11 @@ The claims table now declares an additive PostgreSQL unique constraint on
 gate returned exact `READY_TO_PROMOTE`; the migration was then applied to shared
 Neon. Live catalog verification confirms the unique constraint and both
 execution/completion composite foreign keys are present.
+
+### Ownership founder-session repair
+
+The first production ownership-page request returned 401 even for the signed-in
+founder because the ownership routes were mounted before Replit and Google
+authentication middleware. The routes now mount after both auth setups and use
+the standard authenticated-user then founder authorization sequence. A
+regression test locks the registration order.
