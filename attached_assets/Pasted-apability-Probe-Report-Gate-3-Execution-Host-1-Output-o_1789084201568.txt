@@ -1,0 +1,103 @@
+apability Probe Report: Gate 3 Execution Host
+1. Output of pwd -P
+In default host shell (PowerShell):
+text
+Get-Location : Parameter cannot be processed because the parameter name 'P' is ambiguous. Possible matches include: -PSProvider -PSDrive -PipelineVariable.
+(Exit code: 1)
+In Git Bash (bash -c "pwd -P"):
+text
+/c/Users/David/HolaHola-antigravity
+2. Output of git rev-parse HEAD
+text
+b46b966dc26a598df48a13799402f2d5586d6e84
+3. Output of git status --short
+(Empty output — working tree is clean)
+
+4. Output of node --version
+text
+v24.19.0
+5. Which of these commands exist: bwrap, firejail, unshare, nsjail
+None exist. None of bwrap, firejail, unshare, or nsjail are present on this host.
+
+6. Whether unshare -Urn true succeeds; report only exit code and stderr
+PowerShell:
+Exit code: 1
+Stderr:
+text
+unshare : The term 'unshare' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+Git Bash:
+Exit code: 1 (command not found)
+Stderr:
+text
+/usr/bin/bash: line 1: unshare: command not found
+7. Environment-variable names only (env | cut -d= -f1 | sort)
+text
+ALLUSERSPROFILE
+ANTHROPIC_API_KEY
+ANTIGRAVITY_AGENT
+ANTIGRAVITY_AGENTAPI_EXE
+ANTIGRAVITY_CONVERSATION_ID
+ANTIGRAVITY_CSRF_TOKEN
+ANTIGRAVITY_EDITOR_APP_ROOT
+ANTIGRAVITY_LS_ADDRESS
+ANTIGRAVITY_LS_VERSION
+ANTIGRAVITY_SAFECLIS_SOURCE
+ANTIGRAVITY_SOURCE_METADATA
+ANTIGRAVITY_TRAJECTORY_ID
+APPDATA
+CHROME_CRASHPAD_PIPE_NAME
+COMMONPROGRAMFILES
+COMPUTERNAME
+COMSPEC
+ChocolateyInstall
+ChocolateyLastPathUpdate
+CommonProgramFiles(x86)
+CommonProgramW6432
+DriverData
+EFC_8180_1592913036
+EFC_8180_4126798990
+EXEPATH
+HOME
+HOMEDRIVE
+HOMEPATH
+LOCALAPPDATA
+LOGONSERVER
+MSYSTEM
+NUMBER_OF_PROCESSORS
+OS
+OneDrive
+OneDriveConsumer
+PATH
+PATHEXT
+PLINK_PROTOCOL
+PROCESSOR_ARCHITECTURE
+PROCESSOR_IDENTIFIER
+PROCESSOR_LEVEL
+PROCESSOR_REVISION
+PROGRAMFILES
+PSModulePath
+PUBLIC
+PWD
+ProgramData
+ProgramFiles(x86)
+ProgramW6432
+SESSIONNAME
+SHLVL
+SYSTEMDRIVE
+SYSTEMROOT
+TEMP
+TERM
+TMP
+USERDOMAIN
+USERDOMAIN_ROAMINGPROFILE
+USERNAME
+USERPROFILE
+VSCODE_CODE_CACHE_PATH
+VSCODE_CWD
+VSCODE_IPC_HOOK
+VSCODE_NLS_CONFIG
+VSCODE_PID
+WINDIR
+_
+8. Host Type Assessment
+Local machine: According to Antigravity's environment metadata and host configuration, the workspace executes directly on the user's local Windows host machine (C:\Users\David\HolaHola-antigravity), not inside a dedicated VM or container.
