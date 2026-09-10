@@ -28,7 +28,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { sql, eq, and } from 'drizzle-orm';
-import { getSharedDb, getUserDb } from '../db';
+import { closeDbConnections, getSharedDb, getUserDb } from '../db';
 import { users, conversationMemories, memoryEmbeddings } from '@shared/schema';
 import { semanticSearchByVector } from '../services/semantic-memory-service';
 import { assertMemoryDecaySchema } from '../services/memory-decay-service';
@@ -195,6 +195,7 @@ describe('Global pool security — conversation-memory ownership model', () => {
         DELETE FROM users WHERE id IN (${OWNER_USER_ID}, ${OTHER_USER_ID}, ${FOUNDER2_USER_ID})
       `);
     } catch { /* non-fatal */ }
+    await closeDbConnections();
   });
 
   it('owner retrieves their user-scoped conversation_memory (user pool)', async () => {
