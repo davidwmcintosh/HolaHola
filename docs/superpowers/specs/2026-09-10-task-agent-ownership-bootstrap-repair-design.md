@@ -52,43 +52,89 @@ The diagnostic result is evidence, not authority. Its purpose is to determine
 whether Replit exposes a stable task-agent-specific identifier that the real
 main checkout cannot present.
 
-## Phase 2: Authenticated Assignment Receipt
+## Phase 2: Founder-Attested Assignment Receipt
 
-Phase 2 proceeds only if Phase 1 proves a suitable platform identity or
-assignment signal.
+Phase 1 proved that Replit exposes no task-specific identity to project code.
+The founder therefore supplies the missing authority bridge explicitly.
 
-An immutable assignment receipt is stored in the existing coordination ledger.
-The receipt binds:
+### Challenge creation
+
+The requesting process generates an Ed25519 keypair. The private key is written
+mode `0600` under `/tmp`, never inside the workspace, database, logs, or chat.
+The process submits:
 
 - task reference;
 - exact task-artifact SHA-256 digest;
 - intended actor;
-- isolated environment identity;
-- issuance and expiry timestamps;
-- receipt identifier and version;
-- issuer identity and authentication evidence;
-- revocation state, when applicable.
+- public key and fingerprint;
+- a server-issued cryptographically random nonce;
+- an optional workspace-context digest shown only as corroborating context.
 
-The ownership CLI validates the receipt through a read-only project endpoint.
-The endpoint verifies the durable ledger record and compares every bound field
-with the current request. The probe does not create, renew, revoke, or consume
-assignment authority.
+Challenge creation grants no ownership. Pending challenges expire quickly and
+cannot be renewed or approved more than once.
+
+### Founder approval
+
+A founder-authenticated browser UI lists pending challenges and displays the
+task reference, task title when available, artifact digest, public-key
+fingerprint, creation/expiry times, and workspace context.
+
+The UI states the exact boundary: the founder is authorizing the process holding
+this private key to perform the named task. This does not independently prove
+that Replit provisioned a particular sandbox.
+
+Only an authenticated founder browser session may approve, reject, or revoke.
+Coordination tokens, runtime credentials, API keys shared with task copies, and
+task agents themselves cannot exercise founder approval authority.
+
+### Receipt and proof
+
+Approval creates one immutable receipt linked by a foreign key to exactly one
+challenge. The receipt binds:
+
+- challenge ID and receipt ID;
+- task reference and task-artifact digest;
+- intended actor and public key;
+- approval identity and timestamp;
+- issuance and expiry timestamps;
+- receipt version and canonical payload digest.
+
+Only one live receipt may exist per task. Approving a replacement atomically
+revokes the prior active receipt and records immutable revocation evidence.
+Receipts have a short bounded lifetime and cannot renew silently.
+
+For each ownership proof, the server issues a fresh one-time nonce. The process
+signs canonical bytes containing the nonce and every receipt-bound field. The
+verifier checks the signature, canonical payload digest, challenge-to-receipt
+foreign key, task artifact, actor, expiry, revocation, and contradictory main
+evidence. Successful verification atomically consumes the nonce and records an
+immutable attempt result.
+
+The private key proves continuity of the exact process the founder authorized.
+Copying a receipt without the private key grants nothing. Losing `/tmp` state
+through restart or reprovisioning fails closed and requires a new founder
+approval.
+
+### Classifier rule
 
 The classifier may return `isolated_agent` only when:
 
 1. the exact task artifact is present and valid;
-2. the authenticated receipt names the same task and artifact digest;
-3. the receipt names the current isolated environment and intended actor;
+2. an active founder-approved receipt names the same task, artifact, actor, and
+   public key;
+3. the requester proves possession with a fresh one-time nonce;
 4. the receipt is active and unexpired;
 5. no verified main-session receipt or other contradictory evidence exists.
 
-Git checkout kind remains in the evidence record but cannot independently
-authorize or reject an otherwise valid isolated assignment.
+Git checkout kind and workspace-context digests remain evidence but cannot
+independently authorize or reject a valid founder-attested assignment.
 
-## Stop Condition
+## Security Boundary
 
-If Phase 1 finds no platform-provided identity or assignment signal that the
-main checkout cannot forge, implementation stops after the diagnostic.
+The founder-attested receipt proves that the human founder authorized the
+process holding a particular private key for one task. It does not independently
+attest to Replit's sandbox provisioning. Replit continues to provide task-copy
+isolation; the founder approval bridges the task UI and the project verifier.
 
 The project must not replace missing platform authority with:
 
@@ -96,18 +142,14 @@ The project must not replace missing platform authority with:
 - branch naming;
 - a normal-versus-linked `.git` distinction;
 - the task artifact alone;
-- a project-generated workspace nonce available to both copies;
+- a project-generated workspace nonce without founder approval and key proof;
 - an operator flag that any agent could invoke.
-
-In that case, safe completion requires Replit to expose verifiable assignment
-evidence. Until then, ambiguous environments continue to return `unknown_stop`.
 
 ## Compatibility
 
 Existing positive main-session receipts remain valid only in the real primary
-checkout. Existing linked-worktree evidence may remain supported as a legacy
-path when it is corroborated by an authenticated isolated assignment receipt;
-it is no longer sufficient by itself.
+checkout. Existing linked-worktree evidence remains corroborating context but is
+no longer sufficient by itself.
 
 No task lifecycle, assignment, cancellation, merge, credential, or publication
 authority moves into the ownership probe.
@@ -115,33 +157,41 @@ authority moves into the ownership probe.
 ## Failure Handling
 
 - Unavailable receipt endpoint: `unknown_stop`.
-- Missing or malformed receipt: `unknown_stop`.
-- Wrong task, actor, environment, or artifact digest: `unknown_stop`.
+- Missing or malformed challenge, receipt, nonce, or signature: `unknown_stop`.
+- Wrong task, actor, public key, or artifact digest: `unknown_stop`.
 - Expired or revoked receipt: `unknown_stop`.
 - Main and isolated evidence both present: `unknown_stop` with contradiction.
-- Platform identity changed during the task: `unknown_stop`; no silent rebinding.
+- Consumed, replayed, or mismatched nonce: `unknown_stop`.
+- Lost private key: `unknown_stop`; no silent rebinding.
 
 Errors must distinguish unavailable evidence from contradictory evidence while
 remaining nonzero for automation.
 
 ## Verification
 
-Phase 1 must produce a sanitized evidence report from a real task-agent copy and
-the main Repl.
+Phase 1 produced sanitized evidence from the main Repl and two real task-agent
+copies. Both task copies appeared as primary Git worktrees and exposed no
+task-specific platform identity.
 
-If Phase 2 is possible, tests must prove:
+Phase 2 tests must prove:
 
-- isolated copy with the matching authenticated receipt returns
-  `isolated_agent`;
+- founder-approved process with matching key proof returns `isolated_agent`;
 - the real main checkout with a historical task artifact returns
   `unknown_stop`;
-- a receipt copied from another environment returns `unknown_stop`;
-- wrong task reference or artifact digest returns `unknown_stop`;
-- expired, revoked, malformed, and replayed receipts return `unknown_stop`;
+- a copied receipt without its private key returns `unknown_stop`;
+- wrong task reference, artifact digest, public key, or actor returns
+  `unknown_stop`;
+- expired, revoked, malformed, and replayed receipts or nonces return
+  `unknown_stop`;
+- one challenge cannot create two receipts;
+- only one active receipt may exist per task;
+- replacement approval revokes the prior receipt atomically;
+- coordination tokens and task credentials cannot approve, reject, or revoke;
 - conflicting main and isolated receipts return `unknown_stop`;
 - Git checkout shape alone cannot authorize isolated ownership;
-- the probe and verifier perform no workspace or task-state writes.
+- private keys never enter the workspace, database, logs, or API responses;
+- proof attempts and founder decisions are immutable and idempotent;
+- the probe does not write workspace or task-state data.
 
 The repair is complete only after a newly launched bounded Gemini-runtime task
-passes the ownership probe in its real isolated environment before making any
-edit.
+passes the ownership probe before its first edit and again before completion.
