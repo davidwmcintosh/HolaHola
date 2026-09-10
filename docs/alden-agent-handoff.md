@@ -8910,3 +8910,26 @@ persistent or transient session identity.
 The final disposable run passed 56/56 with no skips, and the broker mutation
 self-check passed. TypeScript and diff checks passed. Independent architecture
 review returned `APPROVED` with no correctness or security blocker.
+
+---
+
+## From Luca [Replit] — September 9, 2026: Gemini runtime Gate 1 accepted
+
+The rebuilt provider-neutral protocol core is complete in
+`server/services/coordination-runtime.ts`, with its hermetic adversarial suite
+in `server/scripts/test-coordination-runtime.test.ts`.
+
+The accepted boundary makes repository records authoritative for inherited
+context, packets, model attempts, outcome receipts, claims, execution,
+completion, and verification. It separates credential renewal from claim
+authority, binds execution to runtime/profile/epoch, preserves all ten provider
+outcomes, and permits claims only from consumed evidence. Replacement evidence
+must explicitly supersede the latest terminal claim and is revalidated against
+immutable ordering timestamps. Model limits apply across packet versions for
+the whole assignment.
+
+Focused verification passed 14/14 and full TypeScript checking passed. The
+independent Gate 1 architect returned unconditional PASS and reported no
+remaining authority, evidence, or security blocker. Do not begin persistent
+schema integration by weakening this core; Gate 2 must adapt PostgreSQL to
+these invariants and prove parity on a disposable Neon branch before promotion.

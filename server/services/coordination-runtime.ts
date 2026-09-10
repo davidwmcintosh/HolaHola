@@ -1,253 +1,1283 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-export type Actor = 'luca-gemini' | 'luca-replit' | 'luca-claude-code' | 'alden' | 'daniela';
-export type Outcome = 'consumed' | 'safety_blocked' | 'refused' | 'context_limit' | 'interrupted' | 'empty_response' | 'malformed_function_call' | 'unsupported_provider_outcome' | 'retryable_provider_error' | 'terminal_provider_error';
-export type Principal = {
-  actor: Actor; runtimeRegistrationId: string; credentialId: string; profileId: string;
-  capabilities: readonly string[]; credentialExpiresAt: number; runtimeEnabled: boolean; revoked: boolean;
-};
-export class RuntimeProtocolError extends Error {
-  constructor(readonly code: string, message: string) { super(message); this.name = 'RuntimeProtocolError'; }
-}
-function fail(code: string, message: string): never { throw new RuntimeProtocolError(code, message); }
+export type RuntimeActor =
+  | 'luca-gemini'
+  | 'luca-replit'
+  | 'luca-claude-code'
+  | 'alden'
+  | 'daniela';
 
-function canonical(value: unknown, seen = new Set<unknown>()): string {
+export type NormalizedOutcome =
+  | 'consumed'
+  | 'safety_blocked'
+  | 'refused'
+  | 'context_limit'
+  | 'interrupted'
+  | 'empty_response'
+  | 'malformed_function_call'
+  | 'unsupported_provider_outcome'
+  | 'retryable_provider_error'
+  | 'terminal_provider_error';
+
+export type RuntimePrincipal = {
+  actor: RuntimeActor;
+  runtimeRegistrationId: string;
+  credentialId: string;
+  profileId: string;
+  capabilities: readonly string[];
+  credentialExpiresAt: number;
+  runtimeEnabled: boolean;
+  revoked: boolean;
+};
+
+export class RuntimeProtocolError extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message);
+    this.name = 'RuntimeProtocolError';
+  }
+}
+
+function fail(code: string, message: string): never {
+  throw new RuntimeProtocolError(code, message);
+}
+
+function hasUnpairedSurrogate(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const unit = value.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!Number.isFinite(next) || next < 0xdc00 || next > 0xdfff) return true;
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function canonicalize(value: unknown, active: Set<object>): string {
   if (value === null || typeof value === 'boolean') return JSON.stringify(value);
   if (typeof value === 'string') {
-    if (/[\uD800-\uDFFF]/u.test(value)) fail('invalid_json', 'Lone surrogate is not supported');
+    if (hasUnpairedSurrogate(value)) fail('invalid_json', 'Unpaired Unicode surrogate');
     return JSON.stringify(value);
   }
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) fail('invalid_json', 'Non-finite number is not supported');
+    if (!Number.isFinite(value)) fail('invalid_json', 'Non-finite number');
     return JSON.stringify(value);
   }
-  if (typeof value !== 'object' || value === undefined || typeof value === 'function' || typeof value === 'bigint') {
-    fail('invalid_json', 'Unsupported JSON value');
-  }
-  if (seen.has(value)) fail('invalid_json', 'Cyclic value is not supported');
-  seen.add(value);
+  if (typeof value !== 'object') fail('invalid_json', 'Unsupported JSON value');
+  if (active.has(value)) fail('invalid_json', 'Cyclic JSON value');
+
+  active.add(value);
   let result: string;
-  if (Array.isArray(value)) result = `[${value.map((item) => canonical(item, seen)).join(',')}]`;
-  else {
-    const proto = Object.getPrototypeOf(value);
-    if (proto !== Object.prototype && proto !== null) fail('invalid_json', 'Only plain objects are supported');
+  if (Array.isArray(value)) {
+    result = `[${value.map((item) => canonicalize(item, active)).join(',')}]`;
+  } else {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      fail('invalid_json', 'Only plain objects are supported');
+    }
     const object = value as Record<string, unknown>;
-    result = `{${Object.keys(object).sort().map((key) => `${canonical(key)}:${canonical(object[key], seen)}`).join(',')}}`;
+    result = `{${Object.keys(object)
+      .sort()
+      .map((key) => `${canonicalize(key, active)}:${canonicalize(object[key], active)}`)
+      .join(',')}}`;
   }
-  seen.delete(value);
+  active.delete(value);
   return result;
 }
-export function canonicalJson(value: unknown): string { return canonical(value); }
+
+export function canonicalJson(value: unknown): string {
+  return canonicalize(value, new Set());
+}
+
 export function digestCanonical(value: unknown): string {
-  return createHash('sha256').update(canonicalJson(value)).digest('hex');
+  return createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');
 }
-function clone<T>(value: T): T {
-  const text = canonicalJson(value);
-  return JSON.parse(text) as T;
+
+function deepClone<T>(value: T): T {
+  return JSON.parse(canonicalJson(value)) as T;
 }
-function freeze<T>(value: T): T {
+
+function deepFreeze<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
     Object.freeze(value);
-    for (const child of Object.values(value as object)) freeze(child);
+    for (const child of Object.values(value as object)) deepFreeze(child);
   }
   return value;
 }
-function stored<T>(value: T): T { return freeze(clone(value)); }
-function tuple(...parts: unknown[]): string { return digestCanonical(parts); }
 
-export type InboxItem = { id: string; eventId: string; threadId: string; taskId: string; sequence: number; payload: { content: Record<string, unknown> } };
-export type Assignment = { assignmentEventId: string; assignmentAuthor: Actor; taskId: string; threadId: string; expectedSequence: number };
-export type Envelope = { worktreeLabel: string; worktreePath: string; argv: readonly string[]; patchDigest: string | null };
-export type InboxWindow = { id: string; threadId: string; after: number; through: number; boundaryDigest: string; boundaryToken: string; orderedItemIds: string[]; complete: boolean };
-export type Packet = { id: string; version: 1; actor: 'luca-gemini'; runtimeRegistrationId: string; profileId: string; credentialId: string; orderedInboxItemIds: string[]; orderedEventIds: string[]; threadId: string; assignment: Assignment; after: number; through: number; inherited: InboxItem['payload'][]; envelope: Envelope; digest: string };
-export type Interaction = { id: string; packetId: string; principal: Pick<Principal, 'actor' | 'runtimeRegistrationId' | 'credentialId' | 'profileId'>; turn: number; attempt: number; requestDigest: string; responseDigest?: string; normalizedOutcome: Outcome; retryLineage?: string | null; idempotencyKey: string };
-export type Receipt = { id: string; packetId: string; packetDigest: string; interactionId: string; outcome: Outcome; assignment: Assignment };
-export type Claim = { id: string; threadId: string; packetId: string; actor: 'luca-gemini'; runtimeRegistrationId: string; profileId: string; credentialId: string; epoch: number; expiresAt: number; status: 'active' | 'released' | 'expired' | 'completed' | 'violated' };
-export type ClaimEvent = { id: string; claimId: string; kind: string; epoch: number };
-export type Execution = { id: string; claimId: string; claimEpoch: number; principal: Pick<Principal, 'actor' | 'runtimeRegistrationId' | 'credentialId' | 'profileId'>; envelope: Envelope; executionDigest: string };
-export type Completion = { id: string; executionId: string; claimId: string; evidenceDigest: string };
-export type VerificationDecision = { id: string; completionId: string; actor: Actor; decision: 'approved' | 'rejected'; patchDigest: string | null; evidenceDigest: string };
-
-export class InMemoryCoordinationRepository {
-  private readonly data = {
-    inbox: new Map<string, InboxItem>(), windows: new Map<string, InboxWindow>(), threads: new Map<string, number>(),
-    packets: new Map<string, Packet>(), interactions: new Map<string, Interaction>(), receipts: new Map<string, Receipt>(),
-    claims: new Map<string, Claim>(), claimEvents: [] as ClaimEvent[], executions: new Map<string, Execution>(),
-    completions: new Map<string, Completion>(), verifications: new Map<string, VerificationDecision>(), idem: new Map<string, { digest: string; id: string }>(),
-  };
-  private atomicDepth = 0;
-  transaction<T>(fn: () => T): T { this.atomicDepth++; try { return fn(); } finally { this.atomicDepth--; } }
-  putInbox(item: InboxItem): void {
-    const old = this.data.threads.get(item.threadId);
-    this.data.inbox.set(item.id, stored(item));
-    this.data.threads.set(item.threadId, Math.max(old ?? 0, item.sequence));
-  }
-  putThread(threadId: string, currentSequence: number): void { this.data.threads.set(threadId, currentSequence); }
-  putWindow(window: InboxWindow): void { this.data.windows.set(window.id, stored(window)); }
-  getInbox(id: string): InboxItem | undefined { const v = this.data.inbox.get(id); return v && stored(v); }
-  listInbox(): InboxItem[] { return stored([...this.data.inbox.values()]); }
-  getWindow(id: string): InboxWindow | undefined { const v = this.data.windows.get(id); return v && stored(v); }
-  getThreadSequence(id: string): number | undefined { return this.data.threads.get(id); }
-  getPacket(id: string): Packet | undefined { const v = this.data.packets.get(id); return v && stored(v); }
-  getInteraction(id: string): Interaction | undefined { const v = this.data.interactions.get(id); return v && stored(v); }
-  getReceipt(id: string): Receipt | undefined { const v = this.data.receipts.get(id); return v && stored(v); }
-  getClaim(id: string): Claim | undefined { const v = this.data.claims.get(id); return v && stored(v); }
-  getExecution(id: string): Execution | undefined { const v = this.data.executions.get(id); return v && stored(v); }
-  getCompletion(id: string): Completion | undefined { const v = this.data.completions.get(id); return v && stored(v); }
-  findCompletion(executionId: string): Completion | undefined {
-    const value = [...this.data.completions.values()].find((item) => item.executionId === executionId);
-    return value && stored(value);
-  }
-  findExecution(claimId: string): Execution | undefined {
-    const value = [...this.data.executions.values()].find((item) => item.claimId === claimId);
-    return value && stored(value);
-  }
-  getVerification(id: string): VerificationDecision | undefined { const v = this.data.verifications.get(id); return v && stored(v); }
-  getById(id: string): unknown {
-    for (const collection of [this.data.packets, this.data.interactions, this.data.receipts, this.data.claims, this.data.executions, this.data.completions, this.data.verifications]) {
-      const value = collection.get(id);
-      if (value) return stored(value);
-    }
-    return undefined;
-  }
-  snapshots() { return stored({ packets: [...this.data.packets.values()], interactions: [...this.data.interactions.values()], claims: [...this.data.claims.values()], claimEvents: this.data.claimEvents, executions: [...this.data.executions.values()], completions: [...this.data.completions.values()], verifications: [...this.data.verifications.values()] }); }
-  snapshotClaims(): Claim[] { return stored([...this.data.claims.values()]); }
-  snapshotInteractions(): Interaction[] { return stored([...this.data.interactions.values()]); }
-  snapshotPackets(): Packet[] { return stored([...this.data.packets.values()]); }
-  // These methods are repository operations, rather than exposed mutable state.
-  savePacket(v: Packet): void { this.data.packets.set(v.id, stored(v)); }
-  saveInteraction(v: Interaction): void { this.data.interactions.set(v.id, stored(v)); }
-  saveReceipt(v: Receipt): void { this.data.receipts.set(v.id, stored(v)); }
-  saveClaim(v: Claim): void {
-    if (v.status === 'active') {
-      const conflict = [...this.data.claims.values()].find((old) => old.threadId === v.threadId && old.status === 'active' && old.id !== v.id);
-      if (conflict) fail('claim_active_conflict', 'Active claim exists');
-    }
-    this.data.claims.set(v.id, stored(v));
-  }
-  saveExecution(v: Execution): void { this.data.executions.set(v.id, stored(v)); }
-  saveCompletion(v: Completion): void { this.data.completions.set(v.id, stored(v)); }
-  saveVerification(v: VerificationDecision): void { this.data.verifications.set(v.id, stored(v)); }
-  addClaimEvent(v: ClaimEvent): void { this.data.claimEvents.push(stored(v)); }
-  findActiveClaim(threadId: string): Claim | undefined {
-    const found = [...this.data.claims.values()].find((claim) => claim.threadId === threadId && claim.status === 'active');
-    return found && stored(found);
-  }
-  findInteraction(packetId: string, turn: number, attempt: number): Interaction | undefined {
-    const found = [...this.data.interactions.values()].find((v) => v.packetId === packetId && v.turn === turn && v.attempt === attempt);
-    return found && stored(found);
-  }
-  idemGet(scope: string, key: string): { digest: string; id: string } | undefined { return this.data.idem.get(tuple(scope, key)); }
-  idemPut(scope: string, key: string, digest: string, id: string): void { this.data.idem.set(tuple(scope, key), { digest, id }); }
+function immutable<T>(value: T): T {
+  return deepFreeze(deepClone(value));
 }
 
-export class CoordinationRuntimeService {
-  constructor(private readonly repo: InMemoryCoordinationRepository, private readonly now = () => Date.now(), private readonly newId = () => randomUUID(), private readonly configuredEnvelope: Envelope = { worktreeLabel: 'gate-1', worktreePath: '/work', argv: ['true'], patchDigest: null }, private readonly maxTtl = 86_400_000) {}
-  private auth(p: Principal, actor: Actor, capability: string): void {
-    if (p.actor !== actor || !p.capabilities.includes(capability) || !p.runtimeEnabled || p.revoked || !Number.isFinite(p.credentialExpiresAt) || p.credentialExpiresAt <= this.now()) fail('principal_denied', 'Principal is not active');
-  }
-  private violatePacket(packet: Packet, kind: string): void {
-    const claim = this.repo.findActiveClaim(packet.threadId);
-    if (claim) {
-      this.repo.saveClaim({ ...claim, status: 'violated' });
-      this.repo.addClaimEvent({ id: this.newId(), claimId: claim.id, kind, epoch: claim.epoch });
+export type InboxItem = {
+  id: string;
+  eventId: string;
+  threadId: string;
+  taskId: string;
+  sequence: number;
+  payload: { content: Record<string, unknown> };
+};
+
+export type Assignment = {
+  assignmentEventId: string;
+  assignmentAuthor: RuntimeActor;
+  taskId: string;
+  threadId: string;
+  expectedSequence: number;
+};
+
+export type ExecutionEnvelope = {
+  worktreeLabel: string;
+  worktreePath: string;
+  argv: readonly string[];
+  patchDigest: string | null;
+};
+
+export type InboxWindow = {
+  id: string;
+  threadId: string;
+  afterExclusive: number;
+  throughInclusive: number;
+  boundaryToken: string;
+  orderedItemIds: string[];
+  boundaryDigest: string;
+};
+
+export type InheritancePacket = {
+  id: string;
+  version: number;
+  actor: 'luca-gemini';
+  runtimeRegistrationId: string;
+  profileId: string;
+  createdAt: number;
+  supersedesClaimId: string | null;
+  windowId: string;
+  windowDigest: string;
+  orderedInboxItemIds: string[];
+  orderedEventIds: string[];
+  orderedThreadIds: string[];
+  assignment: Assignment;
+  inherited: InboxItem['payload'][];
+  envelope: ExecutionEnvelope;
+  digest: string;
+};
+
+export type ModelInteraction = {
+  id: string;
+  packetId: string;
+  principal: Pick<RuntimePrincipal, 'actor' | 'runtimeRegistrationId' | 'credentialId' | 'profileId'>;
+  turn: number;
+  attempt: number;
+  requestDigest: string;
+  responseDigest?: string;
+  outcome: NormalizedOutcome;
+  retryLineage: string | null;
+  createdAt: number;
+};
+
+export type OutcomeReceipt = {
+  id: string;
+  packetId: string;
+  packetDigest: string;
+  interactionId: string;
+  runtimeRegistrationId: string;
+  profileId: string;
+  outcome: NormalizedOutcome;
+  createdAt: number;
+};
+
+export type ExecutionClaim = {
+  id: string;
+  threadId: string;
+  packetId: string;
+  runtimeRegistrationId: string;
+  profileId: string;
+  credentialId: string;
+  priorClaimId: string | null;
+  epoch: number;
+  expiresAt: number;
+  status: 'active' | 'expired' | 'completed' | 'violated';
+  terminalAt: number | null;
+};
+
+export type ClaimEvent = {
+  id: string;
+  claimId: string;
+  epoch: number;
+  kind: 'acquired' | 'renewed' | 'expired' | 'violated';
+  reason: string | null;
+  priorClaimId: string | null;
+  occurredAt: number;
+};
+
+export type ExecutionRecord = {
+  id: string;
+  claimId: string;
+  claimEpoch: number;
+  runtimeRegistrationId: string;
+  profileId: string;
+  credentialId: string;
+  envelope: ExecutionEnvelope;
+  executionDigest: string;
+};
+
+export type CompletionRecord = {
+  id: string;
+  executionId: string;
+  claimId: string;
+  claimEpoch: number;
+  evidenceDigest: string;
+};
+
+export type VerificationDecision = {
+  id: string;
+  completionId: string;
+  verifierActor: 'luca-replit' | 'luca-claude-code';
+  verifierRuntimeRegistrationId: string;
+  evidenceDigest: string;
+  patchDigest: string | null;
+  decision: 'approved';
+};
+
+type IdempotencyRecord = { payloadDigest: string; resultKind: string; resultId: string };
+type RepositoryState = {
+  inbox: Map<string, InboxItem>;
+  threadSequences: Map<string, number>;
+  windows: Map<string, InboxWindow>;
+  packets: Map<string, InheritancePacket>;
+  interactions: Map<string, ModelInteraction>;
+  receipts: Map<string, OutcomeReceipt>;
+  claims: Map<string, ExecutionClaim>;
+  claimEvents: ClaimEvent[];
+  executions: Map<string, ExecutionRecord>;
+  completions: Map<string, CompletionRecord>;
+  verifications: Map<string, VerificationDecision>;
+  idempotency: Map<string, IdempotencyRecord>;
+};
+
+function emptyState(): RepositoryState {
+  return {
+    inbox: new Map(),
+    threadSequences: new Map(),
+    windows: new Map(),
+    packets: new Map(),
+    interactions: new Map(),
+    receipts: new Map(),
+    claims: new Map(),
+    claimEvents: [],
+    executions: new Map(),
+    completions: new Map(),
+    verifications: new Map(),
+    idempotency: new Map(),
+  };
+}
+
+function cloneMap<T>(source: Map<string, T>): Map<string, T> {
+  return new Map([...source].map(([key, value]) => [key, immutable(value)]));
+}
+
+function cloneState(source: RepositoryState): RepositoryState {
+  return {
+    inbox: cloneMap(source.inbox),
+    threadSequences: new Map(source.threadSequences),
+    windows: cloneMap(source.windows),
+    packets: cloneMap(source.packets),
+    interactions: cloneMap(source.interactions),
+    receipts: cloneMap(source.receipts),
+    claims: cloneMap(source.claims),
+    claimEvents: source.claimEvents.map(immutable),
+    executions: cloneMap(source.executions),
+    completions: cloneMap(source.completions),
+    verifications: cloneMap(source.verifications),
+    idempotency: cloneMap(source.idempotency),
+  };
+}
+
+export class InMemoryCoordinationRepository {
+  private state = emptyState();
+  private inTransaction = false;
+
+  transaction<T>(operation: () => T): T {
+    if (this.inTransaction) fail('transaction_reentrant', 'Nested transaction');
+    const prior = this.state;
+    this.state = cloneState(prior);
+    this.inTransaction = true;
+    try {
+      const result = operation();
+      this.inTransaction = false;
+      return result;
+    } catch (error) {
+      this.state = prior;
+      this.inTransaction = false;
+      throw error;
     }
   }
-  addInbox(item: InboxItem): void { this.repo.putInbox(item); }
-  addWindow(window: InboxWindow): void { this.repo.putWindow(window); }
-  addInboxWindow(window: InboxWindow): void { this.addWindow(window); }
-  private idempotent<T>(scope: string, key: unknown, payload: unknown, action: () => T): T {
-    const k = canonicalJson(key); const d = digestCanonical(payload); const old = this.repo.idemGet(scope, k);
-    if (old) {
-      if (old.digest !== d) fail('idempotency_payload_mismatch', 'Changed idempotency payload');
-      const replay = this.repo.getById(old.id);
-      if (replay === undefined) fail('repository_corrupt', 'Idempotency record points to a missing mutation');
-      return replay as T;
-    }
-    const result = this.repo.transaction(action); const id = (result as { id?: string }).id;
-    if (id) this.repo.idemPut(scope, k, d, id);
-    return result;
-  }
-  createPacket(p: Principal, windowId: string, assignment: Assignment, after?: number, through?: number): Packet {
-    this.auth(p, 'luca-gemini', 'execute');
-    const window = this.repo.getWindow(windowId);
-    if (!window || !window.complete || !window.boundaryToken) fail('inbox_window_incomplete', 'Complete stable window is required');
-    const actualAfter = after ?? window.after; const actualThrough = through ?? window.through;
-    const candidates = this.repo.listInbox();
-    const authoritative = candidates.filter((item) => item.threadId === window.threadId && item.sequence >= actualAfter && item.sequence <= actualThrough).sort((a, b) => a.sequence - b.sequence);
-    const ids = authoritative.map((item) => item.id);
-    const boundary = digestCanonical({ window: { id: window.id, threadId: window.threadId, after: window.after, through: window.through, boundaryToken: window.boundaryToken }, items: authoritative.map((item) => ({ id: item.id, digest: digestCanonical(item) })) });
-    if (window.threadId !== assignment.threadId || window.after !== actualAfter || window.through !== actualThrough || window.boundaryDigest !== boundary || canonicalJson(ids) !== canonicalJson(window.orderedItemIds) || !authoritative.length) fail('inbox_window_boundary_mismatch', 'Authoritative window changed');
-    const item = authoritative[0];
-    if (item.taskId !== assignment.taskId || item.eventId !== assignment.assignmentEventId || item.sequence !== assignment.expectedSequence) fail('packet_assignment_mismatch', 'Inbox assignment mismatch');
-    const base = { version: 1 as const, actor: 'luca-gemini' as const, runtimeRegistrationId: p.runtimeRegistrationId, profileId: p.profileId, credentialId: p.credentialId, orderedInboxItemIds: ids, orderedEventIds: authoritative.map((v) => v.eventId), threadId: assignment.threadId, assignment, after: actualAfter, through: actualThrough, inherited: authoritative.map((v) => v.payload), envelope: this.configuredEnvelope };
-    return this.idempotent('packet', [p.runtimeRegistrationId, windowId], base, () => { const packet = { ...base, id: this.newId(), digest: digestCanonical(base) }; this.repo.savePacket(packet); return stored(packet); });
-  }
-  recordInteraction(p: Principal, input: Omit<Interaction, 'id' | 'principal'>): Interaction {
-    this.auth(p, 'luca-gemini', 'model'); const packet = this.repo.getPacket(input.packetId);
-    if (!packet || packet.runtimeRegistrationId !== p.runtimeRegistrationId || packet.profileId !== p.profileId) fail('packet_assignment_mismatch', 'Packet is not owned by principal');
-    if (!Number.isInteger(input.turn) || input.turn < 1 || input.turn > 4 || !Number.isInteger(input.attempt) || input.attempt < 1 || input.attempt > 2) { this.violatePacket(packet, 'model_call_limit_exceeded'); fail('model_call_limit_exceeded', 'Invalid model turn or attempt'); }
-    if (input.normalizedOutcome === 'consumed' && !input.responseDigest) fail('response_required', 'Consumed interaction needs a response digest');
-    const request = { ...input, principal: { actor: p.actor, runtimeRegistrationId: p.runtimeRegistrationId, credentialId: p.credentialId, profileId: p.profileId } };
-    return this.idempotent('interaction', [p.runtimeRegistrationId, input.idempotencyKey], request, () => {
-      if (this.repo.findInteraction(input.packetId, input.turn, input.attempt)) fail('duplicate_model_attempt', 'Packet turn and attempt already exist');
-      const first = this.repo.findInteraction(input.packetId, input.turn, 1);
-      const prior = input.attempt === 2 && !first;
-      if (prior) { this.violatePacket(packet!, 'retry_order_invalid'); fail('retry_order_invalid', 'Retry requires the first attempt'); }
-      if (input.attempt === 2 && input.retryLineage !== first!.id) { this.violatePacket(packet!, 'retry_lineage_invalid'); fail('retry_lineage_invalid', 'Retry lineage must identify attempt one'); }
-      const priorTurns = this.repo.snapshotInteractions().filter((v) => v.packetId === input.packetId).map((v) => v.turn);
-      if (input.turn > Math.max(1, ...priorTurns) + 1) { this.violatePacket(packet!, 'logical_turn_skipped'); fail('model_call_limit_exceeded', 'Logical turn was skipped'); }
-      const count = this.repo.snapshotInteractions().filter((v) => v.packetId === input.packetId).length;
-      if (count >= 8) { this.violatePacket(packet!, 'model_call_limit_exceeded'); fail('model_call_limit_exceeded', 'Model call limit'); }
-      const value = { ...input, id: this.newId(), principal: request.principal }; this.repo.saveInteraction(value); return stored(value);
+
+  addInboxItem(item: InboxItem): InboxItem {
+    return this.transaction(() => {
+      if (this.state.inbox.has(item.id)) fail('duplicate_inbox_id', 'Inbox ID already exists');
+      const prior = this.state.threadSequences.get(item.threadId) ?? 0;
+      if (!Number.isInteger(item.sequence) || item.sequence <= prior) {
+        fail('inbox_sequence_conflict', 'Thread sequence must increase');
+      }
+      const stored = immutable(item);
+      this.state.inbox.set(item.id, stored);
+      this.state.threadSequences.set(item.threadId, item.sequence);
+      return immutable(stored);
     });
   }
-  consume(p: Principal, packetId: string, packetDigest: string, interactionId: string): Receipt {
-    this.auth(p, 'luca-gemini', 'model'); const packet = this.repo.getPacket(packetId); const interaction = this.repo.getInteraction(interactionId);
-    if (!packet || packet.digest !== packetDigest || packet.runtimeRegistrationId !== p.runtimeRegistrationId || packet.profileId !== p.profileId) fail('packet_digest_mismatch', 'Authoritative packet mismatch');
-    if (!interaction || interaction.packetId !== packetId || interaction.principal.actor !== p.actor || interaction.principal.runtimeRegistrationId !== p.runtimeRegistrationId || interaction.principal.profileId !== p.profileId || interaction.principal.credentialId !== p.credentialId || interaction.normalizedOutcome !== 'consumed' || !interaction.responseDigest) fail('consumption_not_authorized', 'Interaction cannot be consumed');
-    return this.idempotent('consumption', [p.runtimeRegistrationId, interactionId], { packetId, packetDigest, interactionId }, () => { const value = { id: this.newId(), packetId, packetDigest, interactionId, outcome: interaction.normalizedOutcome, assignment: packet.assignment }; this.repo.saveReceipt(value); return stored(value); });
+
+  freezeInboxWindow(
+    threadId: string,
+    afterExclusive: number,
+    throughInclusive: number,
+    boundaryToken: string,
+  ): InboxWindow {
+    return this.transaction(() => {
+      if (!boundaryToken || throughInclusive <= afterExclusive) {
+        fail('inbox_window_invalid', 'Window boundary is invalid');
+      }
+      if (this.state.threadSequences.get(threadId) !== throughInclusive) {
+        fail('inbox_window_unstable', 'Through boundary is not current');
+      }
+      const items = this.inboxItemsForWindow(threadId, afterExclusive, throughInclusive);
+      if (items.length === 0) fail('inbox_window_incomplete', 'Window is empty');
+      const base = {
+        threadId,
+        afterExclusive,
+        throughInclusive,
+        boundaryToken,
+        orderedItemIds: items.map((item) => item.id),
+        itemDigests: items.map((item) => digestCanonical(item)),
+      };
+      const window: InboxWindow = {
+        id: `window-${digestCanonical(base)}`,
+        threadId,
+        afterExclusive,
+        throughInclusive,
+        boundaryToken,
+        orderedItemIds: base.orderedItemIds,
+        boundaryDigest: digestCanonical(base),
+      };
+      this.state.windows.set(window.id, immutable(window));
+      return immutable(window);
+    });
   }
-  private ttl(ttl: number): void { if (!Number.isFinite(ttl) || !Number.isInteger(ttl) || ttl <= 0 || ttl > this.maxTtl) fail('claim_expired', 'Invalid TTL'); }
-  claim(p: Principal, threadId: string, packetId: string, packetDigest: string, receiptId: string, ttl: number): Claim {
-    this.auth(p, 'luca-gemini', 'execute'); this.ttl(ttl); const packet = this.repo.getPacket(packetId); const receipt = this.repo.getReceipt(receiptId);
-    if (!packet || packet.digest !== packetDigest || packet.threadId !== threadId || packet.runtimeRegistrationId !== p.runtimeRegistrationId || packet.profileId !== p.profileId || packet.credentialId !== p.credentialId) fail('packet_digest_mismatch', 'Packet mismatch');
-    if (!receipt || receipt.packetId !== packetId || receipt.packetDigest !== packetDigest || receipt.outcome !== 'consumed') fail('consumption_not_authorized', 'Consumption required');
-    if (this.repo.getThreadSequence(threadId) !== packet.assignment.expectedSequence) fail('claim_epoch_stale', 'Thread sequence stale');
-    const old = this.repo.findActiveClaim(threadId); if (old) { if (old.expiresAt > this.now()) fail('claim_active_conflict', 'Active claim exists'); this.repo.saveClaim({ ...old, status: 'expired' }); this.repo.addClaimEvent({ id: this.newId(), claimId: old.id, kind: 'expired', epoch: old.epoch }); }
-    return this.idempotent('claim', [threadId, p.runtimeRegistrationId, ttl], { packetId, packetDigest, receiptId, ttl }, () => { const previous = this.repo.snapshotClaims().filter((v) => v.threadId === threadId); const value = { id: this.newId(), threadId, packetId, actor: 'luca-gemini' as const, runtimeRegistrationId: p.runtimeRegistrationId, profileId: p.profileId, credentialId: p.credentialId, epoch: (previous.reduce((n, v) => Math.max(n, v.epoch), 0) + 1), expiresAt: this.now() + ttl, status: 'active' as const }; this.repo.saveClaim(value); this.repo.addClaimEvent({ id: this.newId(), claimId: value.id, kind: 'acquired', epoch: value.epoch }); return stored(value); });
+
+  private inboxItemsForWindow(threadId: string, afterExclusive: number, throughInclusive: number): InboxItem[] {
+    return [...this.state.inbox.values()]
+      .filter(
+        (item) =>
+          item.threadId === threadId &&
+          item.sequence > afterExclusive &&
+          item.sequence <= throughInclusive,
+      )
+      .sort((left, right) => left.sequence - right.sequence)
+      .map(immutable);
   }
-  renew(p: Principal, claimId: string, epoch: number, ttl: number): Claim {
-    this.auth(p, 'luca-gemini', 'execute'); this.ttl(ttl); const c = this.repo.getClaim(claimId);
-    if (!c || c.runtimeRegistrationId !== p.runtimeRegistrationId || c.profileId !== p.profileId || c.credentialId !== p.credentialId || c.epoch !== epoch) fail('claim_epoch_stale', 'Stale claim epoch');
-    if (c.status !== 'active' || c.expiresAt <= this.now()) fail('claim_expired', 'Claim expired');
-    return this.idempotent('renewal', [claimId, epoch], { ttl }, () => { const next = { ...c, epoch: c.epoch + 1, expiresAt: this.now() + ttl }; this.repo.saveClaim(next); this.repo.addClaimEvent({ id: this.newId(), claimId, kind: 'renewed', epoch: next.epoch }); return stored(next); });
-  }
-  execute(p: Principal, claimId: string, envelope: Envelope): Execution {
-    this.auth(p, 'luca-gemini', 'execute'); const claim = this.repo.getClaim(claimId); const packet = claim && this.repo.getPacket(claim.packetId);
-    if (!claim || !packet || claim.runtimeRegistrationId !== p.runtimeRegistrationId || claim.profileId !== p.profileId || claim.credentialId !== p.credentialId || claim.status !== 'active' || claim.expiresAt <= this.now()) fail('claim_unavailable', 'Claim unavailable');
-    const replay = this.repo.findExecution(claimId);
-    if (replay && canonicalJson(envelope) === canonicalJson(replay.envelope)) return replay;
-    if (canonicalJson(envelope) !== canonicalJson(packet.envelope)) { this.repo.saveClaim({ ...claim, status: 'violated' }); this.repo.addClaimEvent({ id: this.newId(), claimId, kind: 'envelope_mismatch', epoch: claim.epoch }); fail('execution_envelope_mismatch', 'Envelope mismatch'); }
-    return this.idempotent('execution', [claimId, claim.epoch], { envelope, principal: { actor: p.actor, runtimeRegistrationId: p.runtimeRegistrationId, credentialId: p.credentialId, profileId: p.profileId } }, () => { const value = { id: this.newId(), claimId, claimEpoch: claim.epoch, principal: { actor: p.actor, runtimeRegistrationId: p.runtimeRegistrationId, credentialId: p.credentialId, profileId: p.profileId }, envelope, executionDigest: digestCanonical({ claimId, claimEpoch: claim.epoch, envelope }) }; this.repo.saveExecution(value); return stored(value); });
-  }
-  complete(p: Principal, executionId: string, evidenceDigest: string): Completion {
-    this.auth(p, 'luca-gemini', 'execute'); const execution = this.repo.getExecution(executionId); const claim = execution && this.repo.getClaim(execution.claimId);
-    const replay = this.repo.findCompletion(executionId);
-    if (replay) {
-      if (replay.evidenceDigest !== evidenceDigest) fail('idempotency_payload_mismatch', 'Changed completion payload');
-      return replay;
+
+  validateWindow(windowId: string): { window: InboxWindow; items: InboxItem[] } {
+    const window = this.state.windows.get(windowId);
+    if (!window) fail('inbox_window_incomplete', 'Frozen window is required');
+    const items = this.inboxItemsForWindow(
+      window.threadId,
+      window.afterExclusive,
+      window.throughInclusive,
+    );
+    const base = {
+      threadId: window.threadId,
+      afterExclusive: window.afterExclusive,
+      throughInclusive: window.throughInclusive,
+      boundaryToken: window.boundaryToken,
+      orderedItemIds: items.map((item) => item.id),
+      itemDigests: items.map((item) => digestCanonical(item)),
+    };
+    if (
+      this.state.threadSequences.get(window.threadId) !== window.throughInclusive ||
+      canonicalJson(window.orderedItemIds) !== canonicalJson(base.orderedItemIds) ||
+      window.boundaryDigest !== digestCanonical(base)
+    ) {
+      fail('inbox_window_unstable', 'Frozen window no longer matches source records');
     }
-    if (!execution || !claim || execution.claimEpoch !== claim.epoch || execution.principal.runtimeRegistrationId !== p.runtimeRegistrationId || execution.principal.profileId !== p.profileId || execution.principal.credentialId !== p.credentialId || claim.runtimeRegistrationId !== p.runtimeRegistrationId || claim.profileId !== p.profileId || claim.status !== 'active' || claim.expiresAt <= this.now()) fail('completion_forbidden', 'Execution claim unavailable');
-    if (evidenceDigest !== digestCanonical(execution)) { this.repo.saveClaim({ ...claim, status: 'violated' }); fail('evidence_mismatch', 'Evidence digest mismatch'); }
-    return this.idempotent('completion', [executionId], { evidenceDigest }, () => { const old = this.repo.snapshotClaims().find((v) => v.id === claim.id); if (old?.status === 'completed') return this.repo.getCompletion(executionId)!; const value = { id: this.newId(), executionId, claimId: claim.id, evidenceDigest }; this.repo.saveClaim({ ...claim, status: 'completed' }); this.repo.saveCompletion(value); return stored(value); });
+    return { window: immutable(window), items };
   }
-  verify(p: Principal, completionId: string, patchDigest?: string | null, evidenceDigest?: string): VerificationDecision {
-    if (!['luca-replit', 'luca-claude-code'].includes(p.actor)) fail('verifier_not_allowed', 'Verifier actor is not approved');
-    this.auth(p, p.actor, 'verify'); const completion = this.repo.getCompletion(completionId); const claim = completion && this.repo.getClaim(completion.claimId); const packet = claim && this.repo.getPacket(claim.packetId);
-    if (!completion || !claim || !packet) fail('verification_chain_missing', 'Completion chain is missing');
-    if (packet.assignment.assignmentAuthor === p.actor || claim.runtimeRegistrationId === p.runtimeRegistrationId) fail('self_verification_denied', 'Verifier is not independent');
-    const evidence = evidenceDigest ?? completion.evidenceDigest; if (evidence !== completion.evidenceDigest || (patchDigest ?? packet.envelope.patchDigest) !== packet.envelope.patchDigest) fail('verification_digest_mismatch', 'Verification digest mismatch');
-    return this.idempotent('verification', [completionId, p.actor], { patchDigest: patchDigest ?? packet.envelope.patchDigest, evidenceDigest: evidence }, () => { const value = { id: this.newId(), completionId, actor: p.actor, decision: 'approved' as const, patchDigest: packet.envelope.patchDigest, evidenceDigest: evidence }; this.repo.saveVerification(value); return stored(value); });
+
+  getThreadSequence(threadId: string): number | undefined {
+    return this.state.threadSequences.get(threadId);
+  }
+
+  getPacket(id: string): InheritancePacket | undefined {
+    const value = this.state.packets.get(id);
+    return value && immutable(value);
+  }
+
+  getInteraction(id: string): ModelInteraction | undefined {
+    const value = this.state.interactions.get(id);
+    return value && immutable(value);
+  }
+
+  getReceipt(id: string): OutcomeReceipt | undefined {
+    const value = this.state.receipts.get(id);
+    return value && immutable(value);
+  }
+
+  getClaim(id: string): ExecutionClaim | undefined {
+    const value = this.state.claims.get(id);
+    return value && immutable(value);
+  }
+
+  getExecution(id: string): ExecutionRecord | undefined {
+    const value = this.state.executions.get(id);
+    return value && immutable(value);
+  }
+
+  getCompletion(id: string): CompletionRecord | undefined {
+    const value = this.state.completions.get(id);
+    return value && immutable(value);
+  }
+
+  getVerification(id: string): VerificationDecision | undefined {
+    const value = this.state.verifications.get(id);
+    return value && immutable(value);
+  }
+
+  getResult(kind: string, id: string): unknown {
+    const collections: Record<string, Map<string, unknown>> = {
+      packet: this.state.packets,
+      interaction: this.state.interactions,
+      receipt: this.state.receipts,
+      claim: this.state.claims,
+      renewal: this.state.claims,
+      execution: this.state.executions,
+      completion: this.state.completions,
+      verification: this.state.verifications,
+    };
+    const value = collections[kind]?.get(id);
+    return value && immutable(value);
+  }
+
+  idempotency(scope: string, key: string): IdempotencyRecord | undefined {
+    const value = this.state.idempotency.get(digestCanonical([scope, key]));
+    return value && immutable(value);
+  }
+
+  saveIdempotency(scope: string, key: string, record: IdempotencyRecord): void {
+    this.state.idempotency.set(digestCanonical([scope, key]), immutable(record));
+  }
+
+  savePacket(value: InheritancePacket): void { this.state.packets.set(value.id, immutable(value)); }
+  saveInteraction(value: ModelInteraction): void { this.state.interactions.set(value.id, immutable(value)); }
+  saveReceipt(value: OutcomeReceipt): void { this.state.receipts.set(value.id, immutable(value)); }
+  saveExecution(value: ExecutionRecord): void { this.state.executions.set(value.id, immutable(value)); }
+  saveCompletion(value: CompletionRecord): void { this.state.completions.set(value.id, immutable(value)); }
+  saveVerification(value: VerificationDecision): void { this.state.verifications.set(value.id, immutable(value)); }
+
+  saveClaim(value: ExecutionClaim): void {
+    if (
+      value.status === 'active' &&
+      [...this.state.claims.values()].some(
+        (claim) =>
+          claim.id !== value.id &&
+          claim.threadId === value.threadId &&
+          claim.status === 'active',
+      )
+    ) {
+      fail('claim_active_conflict', 'Thread already has an active claim');
+    }
+    this.state.claims.set(value.id, immutable(value));
+  }
+
+  addClaimEvent(value: ClaimEvent): void {
+    this.state.claimEvents.push(immutable(value));
+  }
+
+  activeClaimForThread(threadId: string): ExecutionClaim | undefined {
+    const value = [...this.state.claims.values()].find(
+      (claim) => claim.threadId === threadId && claim.status === 'active',
+    );
+    return value && immutable(value);
+  }
+
+  interactionForSlot(packetId: string, turn: number, attempt: number): ModelInteraction | undefined {
+    const value = [...this.state.interactions.values()].find(
+      (interaction) =>
+        interaction.packetId === packetId &&
+        interaction.turn === turn &&
+        interaction.attempt === attempt,
+    );
+    return value && immutable(value);
+  }
+
+  interactionsForPacket(packetId: string): ModelInteraction[] {
+    return [...this.state.interactions.values()]
+      .filter((interaction) => interaction.packetId === packetId)
+      .map(immutable);
+  }
+
+  interactionsForAssignment(packet: InheritancePacket): ModelInteraction[] {
+    return [...this.state.interactions.values()]
+      .filter((interaction) => {
+        const source = this.state.packets.get(interaction.packetId);
+        return source?.assignment.taskId === packet.assignment.taskId &&
+          source.assignment.assignmentEventId === packet.assignment.assignmentEventId;
+      })
+      .map(immutable);
+  }
+
+  interactionForAssignmentSlot(
+    packet: InheritancePacket,
+    turn: number,
+    attempt: number,
+  ): ModelInteraction | undefined {
+    return this.interactionsForAssignment(packet).find(
+      (interaction) => interaction.turn === turn && interaction.attempt === attempt,
+    );
+  }
+
+  maxClaimEpoch(threadId: string): number {
+    return Math.max(
+      0,
+      ...[...this.state.claims.values()]
+        .filter((claim) => claim.threadId === threadId)
+        .map((claim) => claim.epoch),
+    );
+  }
+
+  packetForAssignmentVersion(
+    assignmentEventId: string,
+    version: number,
+  ): InheritancePacket | undefined {
+    const value = [...this.state.packets.values()].find(
+      (packet) =>
+        packet.assignment.assignmentEventId === assignmentEventId &&
+        packet.version === version,
+    );
+    return value && immutable(value);
+  }
+
+  claimsForPacket(packetId: string): ExecutionClaim[] {
+    return [...this.state.claims.values()]
+      .filter((claim) => claim.packetId === packetId)
+      .map(immutable);
+  }
+
+  latestClaimForThread(threadId: string): ExecutionClaim | undefined {
+    const value = [...this.state.claims.values()]
+      .filter((claim) => claim.threadId === threadId)
+      .sort((left, right) => right.epoch - left.epoch)[0];
+    return value && immutable(value);
+  }
+
+  snapshots() {
+    return immutable({
+      packets: [...this.state.packets.values()],
+      interactions: [...this.state.interactions.values()],
+      receipts: [...this.state.receipts.values()],
+      claims: [...this.state.claims.values()],
+      claimEvents: this.state.claimEvents,
+      executions: [...this.state.executions.values()],
+      completions: [...this.state.completions.values()],
+      verifications: [...this.state.verifications.values()],
+    });
+  }
+}
+
+type MutationResult<T> = { value: T } | { error: RuntimeProtocolError };
+
+export class CoordinationRuntimeService {
+  constructor(
+    private readonly repository: InMemoryCoordinationRepository,
+    private readonly now: () => number = () => Date.now(),
+    private readonly newId: () => string = () => randomUUID(),
+    configuredEnvelope: ExecutionEnvelope = {
+      worktreeLabel: 'gate-1',
+      worktreePath: '/work',
+      argv: ['true'],
+      patchDigest: null,
+    },
+    private readonly maxClaimTtlMs = 86_400_000,
+  ) {
+    this.envelope = immutable(configuredEnvelope);
+  }
+
+  private readonly envelope: ExecutionEnvelope;
+
+  private authorize(
+    principal: RuntimePrincipal,
+    actor: RuntimeActor,
+    capability: string,
+  ): void {
+    if (principal.actor !== actor) fail('actor_mismatch', 'Principal actor does not match');
+    if (!principal.capabilities.includes(capability)) {
+      fail('capability_required', `Capability ${capability} is required`);
+    }
+    if (!principal.runtimeEnabled) fail('runtime_disabled', 'Runtime is disabled');
+    if (principal.revoked) fail('runtime_revoked', 'Runtime is revoked');
+    if (
+      !Number.isFinite(principal.credentialExpiresAt) ||
+      principal.credentialExpiresAt <= this.now()
+    ) {
+      fail('credential_expired', 'Runtime credential has expired');
+    }
+  }
+
+  private mutate<T extends { id: string }>(
+    scope: string,
+    idempotencyKey: string,
+    payload: unknown,
+    operation: () => T,
+  ): T {
+    return this.repository.transaction(() => {
+      const payloadDigest = digestCanonical(payload);
+      const prior = this.repository.idempotency(scope, idempotencyKey);
+      if (prior) {
+        if (prior.payloadDigest !== payloadDigest) {
+          fail('idempotency_payload_mismatch', 'Changed payload reused idempotency key');
+        }
+        const result = this.repository.getResult(prior.resultKind, prior.resultId);
+        if (!result) fail('repository_corrupt', 'Idempotency result is missing');
+        return result as T;
+      }
+      const result = operation();
+      this.repository.saveIdempotency(scope, idempotencyKey, {
+        payloadDigest,
+        resultKind: scope,
+        resultId: result.id,
+      });
+      return immutable(result);
+    });
+  }
+
+  createPacket(
+    principal: RuntimePrincipal,
+    windowId: string,
+    assignment: Assignment,
+    idempotencyKey: string,
+    version = 1,
+    supersedesClaimId: string | null = null,
+  ): InheritancePacket {
+    this.authorize(principal, 'luca-gemini', 'execute');
+    if (!Number.isInteger(version) || version < 1) {
+      fail('packet_version_invalid', 'Packet version must be a positive integer');
+    }
+    return this.mutate('packet', idempotencyKey, {
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      profileId: principal.profileId,
+      windowId,
+      assignment,
+      version,
+      supersedesClaimId,
+    }, () => {
+      const { window, items } = this.repository.validateWindow(windowId);
+      if (
+        this.repository.packetForAssignmentVersion(
+          assignment.assignmentEventId,
+          version,
+        )
+      ) {
+        fail('packet_version_conflict', 'Assignment packet version already exists');
+      }
+      const latestClaim = this.repository.latestClaimForThread(assignment.threadId);
+      if (version === 1 && (supersedesClaimId !== null || latestClaim)) {
+        fail('takeover_reference_invalid', 'Initial packet cannot replace prior work');
+      }
+      if (version > 1) {
+        if (!latestClaim || latestClaim.id !== supersedesClaimId) {
+          fail('takeover_reference_invalid', 'Replacement packet must name latest claim');
+        }
+        if (latestClaim.status === 'completed') {
+          fail('claim_not_active', 'Completed work cannot be replaced');
+        }
+        if (latestClaim.status === 'active' && latestClaim.expiresAt > this.now()) {
+          fail('takeover_not_ready', 'Prior claim is still active');
+        }
+        if (
+          latestClaim.status === 'active' ||
+          latestClaim.terminalAt === null
+        ) {
+          const expired = {
+            ...latestClaim,
+            status: 'expired' as const,
+            terminalAt: this.now(),
+          };
+          this.repository.saveClaim(expired);
+          this.repository.addClaimEvent({
+            id: this.newId(),
+            claimId: expired.id,
+            epoch: expired.epoch,
+            kind: 'expired',
+            reason: null,
+            priorClaimId: expired.priorClaimId,
+            occurredAt: this.now(),
+          });
+        }
+      }
+      const assignmentItem = items.find(
+        (item) => item.eventId === assignment.assignmentEventId,
+      );
+      if (
+        !assignmentItem ||
+        assignmentItem.taskId !== assignment.taskId ||
+        assignmentItem.threadId !== assignment.threadId ||
+        assignmentItem.sequence !== assignment.expectedSequence ||
+        window.threadId !== assignment.threadId ||
+        this.repository.getThreadSequence(assignment.threadId) !== assignment.expectedSequence
+      ) {
+        fail('packet_assignment_mismatch', 'Assignment does not match frozen inbox');
+      }
+      const base = {
+        id: this.newId(),
+        version,
+        actor: 'luca-gemini' as const,
+        runtimeRegistrationId: principal.runtimeRegistrationId,
+        profileId: principal.profileId,
+        createdAt: this.now(),
+        supersedesClaimId,
+        windowId,
+        windowDigest: window.boundaryDigest,
+        orderedInboxItemIds: items.map((item) => item.id),
+        orderedEventIds: items.map((item) => item.eventId),
+        orderedThreadIds: items.map((item) => item.threadId),
+        assignment,
+        inherited: items.map((item) => item.payload),
+        envelope: this.envelope,
+      };
+      const packet = {
+        ...base,
+        digest: digestCanonical(base),
+      };
+      this.repository.savePacket(packet);
+      return packet;
+    });
+  }
+
+  recordInteraction(
+    principal: RuntimePrincipal,
+    input: {
+      packetId: string;
+      turn: number;
+      attempt: number;
+      requestDigest: string;
+      responseDigest?: string;
+      outcome: NormalizedOutcome;
+      retryLineage?: string | null;
+      idempotencyKey: string;
+    },
+  ): ModelInteraction {
+    this.authorize(principal, 'luca-gemini', 'model');
+    const packet = this.repository.getPacket(input.packetId);
+    if (
+      !packet ||
+      packet.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+      packet.profileId !== principal.profileId
+    ) {
+      fail('packet_assignment_mismatch', 'Packet is not owned by this runtime');
+    }
+
+    const result = this.repository.transaction<MutationResult<ModelInteraction>>(() => {
+      const payload = {
+        ...input,
+        retryLineage: input.retryLineage ?? null,
+        runtimeRegistrationId: principal.runtimeRegistrationId,
+        profileId: principal.profileId,
+        credentialId: principal.credentialId,
+      };
+      const payloadDigest = digestCanonical(payload);
+      const priorReplay = this.repository.idempotency('interaction', input.idempotencyKey);
+      if (priorReplay) {
+        if (priorReplay.payloadDigest !== payloadDigest) {
+          fail('idempotency_payload_mismatch', 'Changed interaction replay');
+        }
+        return {
+          value: this.repository.getResult(
+            priorReplay.resultKind,
+            priorReplay.resultId,
+          ) as ModelInteraction,
+        };
+      }
+
+      const violate = (reason: string): MutationResult<ModelInteraction> => {
+        const claim = this.repository.activeClaimForThread(packet.assignment.threadId);
+        if (claim?.packetId === packet.id) {
+          this.repository.saveClaim({
+            ...claim,
+            status: 'violated',
+            terminalAt: this.now(),
+          });
+          this.repository.addClaimEvent({
+            id: this.newId(),
+            claimId: claim.id,
+            epoch: claim.epoch,
+            kind: 'violated',
+            reason,
+            priorClaimId: claim.priorClaimId,
+            occurredAt: this.now(),
+          });
+        }
+        return { error: new RuntimeProtocolError('model_call_limit_exceeded', reason) };
+      };
+
+      if (
+        !Number.isInteger(input.turn) ||
+        input.turn < 1 ||
+        input.turn > 4 ||
+        !Number.isInteger(input.attempt) ||
+        input.attempt < 1 ||
+        input.attempt > 2
+      ) {
+        return violate('Model turn or attempt is outside the approved limit');
+      }
+      if (this.repository.interactionForAssignmentSlot(packet, input.turn, input.attempt)) {
+        fail('duplicate_model_attempt', 'Model turn and attempt already exist');
+      }
+      if (
+        input.turn > 1 &&
+        !this.repository.interactionForAssignmentSlot(packet, input.turn - 1, 1)
+      ) {
+        return violate('Logical model turn was skipped');
+      }
+      if (input.attempt === 2) {
+        const first = this.repository.interactionForAssignmentSlot(packet, input.turn, 1);
+        if (
+          !first ||
+          first.outcome !== 'retryable_provider_error' ||
+          input.retryLineage !== first.id
+        ) {
+          return violate('Retry lineage is not authorized');
+        }
+      }
+      if (this.repository.interactionsForAssignment(packet).length >= 8) {
+        return violate('Gemini API attempt limit exceeded');
+      }
+      if (!input.responseDigest) {
+        fail('interaction_digest_mismatch', 'Every interaction requires a response digest');
+      }
+
+      const interaction: ModelInteraction = {
+        id: this.newId(),
+        packetId: packet.id,
+        principal: {
+          actor: principal.actor,
+          runtimeRegistrationId: principal.runtimeRegistrationId,
+          credentialId: principal.credentialId,
+          profileId: principal.profileId,
+        },
+        turn: input.turn,
+        attempt: input.attempt,
+        requestDigest: input.requestDigest,
+        ...(input.responseDigest ? { responseDigest: input.responseDigest } : {}),
+        outcome: input.outcome,
+        retryLineage: input.retryLineage ?? null,
+        createdAt: this.now(),
+      };
+      this.repository.saveInteraction(interaction);
+      this.repository.saveIdempotency('interaction', input.idempotencyKey, {
+        payloadDigest,
+        resultKind: 'interaction',
+        resultId: interaction.id,
+      });
+      return { value: immutable(interaction) };
+    });
+
+    if ('error' in result) throw result.error;
+    return result.value;
+  }
+
+  recordOutcomeReceipt(
+    principal: RuntimePrincipal,
+    packetId: string,
+    packetDigest: string,
+    interactionId: string,
+    idempotencyKey: string,
+  ): OutcomeReceipt {
+    this.authorize(principal, 'luca-gemini', 'model');
+    return this.mutate('receipt', idempotencyKey, {
+      packetId,
+      packetDigest,
+      interactionId,
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      profileId: principal.profileId,
+    }, () => {
+      const packet = this.repository.getPacket(packetId);
+      const interaction = this.repository.getInteraction(interactionId);
+      if (
+        !packet ||
+        packet.digest !== packetDigest ||
+        packet.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        packet.profileId !== principal.profileId ||
+        !interaction ||
+        interaction.packetId !== packet.id ||
+        interaction.principal.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        interaction.principal.profileId !== principal.profileId
+      ) {
+        fail('consumption_not_authorized', 'Interaction and packet chain do not match');
+      }
+      const receipt: OutcomeReceipt = {
+        id: this.newId(),
+        packetId,
+        packetDigest,
+        interactionId,
+        runtimeRegistrationId: principal.runtimeRegistrationId,
+        profileId: principal.profileId,
+        outcome: interaction.outcome,
+        createdAt: this.now(),
+      };
+      this.repository.saveReceipt(receipt);
+      return receipt;
+    });
+  }
+
+  private validateTtl(ttlMs: number): void {
+    if (
+      !Number.isFinite(ttlMs) ||
+      !Number.isInteger(ttlMs) ||
+      ttlMs <= 0 ||
+      ttlMs > this.maxClaimTtlMs
+    ) {
+      fail('claim_ttl_invalid', 'Claim TTL is invalid');
+    }
+  }
+
+  claim(
+    principal: RuntimePrincipal,
+    packetId: string,
+    packetDigest: string,
+    receiptId: string,
+    ttlMs: number,
+    idempotencyKey: string,
+  ): ExecutionClaim {
+    this.authorize(principal, 'luca-gemini', 'execute');
+    this.validateTtl(ttlMs);
+    return this.mutate('claim', idempotencyKey, {
+      packetId,
+      packetDigest,
+      receiptId,
+      ttlMs,
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      profileId: principal.profileId,
+    }, () => {
+      const packet = this.repository.getPacket(packetId);
+      const receipt = this.repository.getReceipt(receiptId);
+      if (
+        !packet ||
+        packet.digest !== packetDigest ||
+        packet.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        packet.profileId !== principal.profileId ||
+        !receipt ||
+        receipt.packetId !== packet.id ||
+        receipt.packetDigest !== packet.digest ||
+        receipt.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        receipt.profileId !== principal.profileId ||
+        receipt.outcome !== 'consumed'
+      ) {
+        fail('consumption_not_authorized', 'Consumed receipt does not authorize claim');
+      }
+      const priorPacketClaims = this.repository.claimsForPacket(packet.id);
+      if (
+        priorPacketClaims.some(
+          (claim) => claim.status === 'active' && claim.expiresAt > this.now(),
+        )
+      ) {
+        fail('claim_active_conflict', 'Packet already has an active claim');
+      }
+      if (priorPacketClaims.length > 0) {
+        fail('fresh_consumption_required', 'A terminal or expired claim requires a fresh packet');
+      }
+      if (
+        this.repository.getThreadSequence(packet.assignment.threadId) !==
+        packet.assignment.expectedSequence
+      ) {
+        fail('thread_sequence_stale', 'Coordinator sequence changed');
+      }
+      const latestPriorClaim = this.repository.latestClaimForThread(
+        packet.assignment.threadId,
+      );
+      if (latestPriorClaim?.status === 'completed') {
+        fail('claim_not_active', 'Completed work cannot be claimed again');
+      }
+      if (
+        latestPriorClaim &&
+        (
+          packet.supersedesClaimId !== latestPriorClaim.id ||
+          latestPriorClaim.terminalAt === null ||
+          packet.createdAt < latestPriorClaim.terminalAt ||
+          receipt.createdAt < packet.createdAt
+        )
+      ) {
+        fail('fresh_consumption_required', 'Replacement evidence predates terminal claim');
+      }
+      const active = this.repository.activeClaimForThread(packet.assignment.threadId);
+      if (active) {
+        if (active.expiresAt > this.now()) {
+          fail('claim_active_conflict', 'Thread has an active claim');
+        }
+        this.repository.saveClaim({
+          ...active,
+          status: 'expired',
+          terminalAt: this.now(),
+        });
+        this.repository.addClaimEvent({
+          id: this.newId(),
+          claimId: active.id,
+          epoch: active.epoch,
+          kind: 'expired',
+          reason: null,
+          priorClaimId: active.priorClaimId,
+          occurredAt: this.now(),
+        });
+      }
+      const claim: ExecutionClaim = {
+        id: this.newId(),
+        threadId: packet.assignment.threadId,
+        packetId,
+        runtimeRegistrationId: principal.runtimeRegistrationId,
+        profileId: principal.profileId,
+        credentialId: principal.credentialId,
+        priorClaimId: latestPriorClaim?.id ?? null,
+        epoch: this.repository.maxClaimEpoch(packet.assignment.threadId) + 1,
+        expiresAt: this.now() + ttlMs,
+        status: 'active',
+        terminalAt: null,
+      };
+      this.repository.saveClaim(claim);
+      this.repository.addClaimEvent({
+        id: this.newId(),
+        claimId: claim.id,
+        epoch: claim.epoch,
+        kind: 'acquired',
+        reason: null,
+        priorClaimId: latestPriorClaim?.id ?? null,
+        occurredAt: this.now(),
+      });
+      return claim;
+    });
+  }
+
+  renew(
+    principal: RuntimePrincipal,
+    claimId: string,
+    epoch: number,
+    ttlMs: number,
+    idempotencyKey: string,
+  ): ExecutionClaim {
+    this.authorize(principal, 'luca-gemini', 'execute');
+    this.validateTtl(ttlMs);
+    return this.mutate('renewal', idempotencyKey, {
+      claimId,
+      epoch,
+      ttlMs,
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      profileId: principal.profileId,
+    }, () => {
+      const claim = this.repository.getClaim(claimId);
+      if (!claim) fail('claim_not_active', 'Claim does not exist');
+      if (
+        claim.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        claim.profileId !== principal.profileId
+      ) fail('claim_not_owned', 'Claim belongs to another runtime');
+      if (claim.epoch !== epoch) fail('claim_epoch_stale', 'Claim epoch is stale');
+      if (claim.status !== 'active' || claim.expiresAt <= this.now()) {
+        fail('claim_expired', 'Claim is not active');
+      }
+      const renewed = {
+        ...claim,
+        credentialId: principal.credentialId,
+        epoch: claim.epoch + 1,
+        expiresAt: this.now() + ttlMs,
+      };
+      this.repository.saveClaim(renewed);
+      this.repository.addClaimEvent({
+        id: this.newId(),
+        claimId,
+        epoch: renewed.epoch,
+        kind: 'renewed',
+        reason: null,
+        priorClaimId: claim.priorClaimId,
+        occurredAt: this.now(),
+      });
+      return renewed;
+    });
+  }
+
+  execute(
+    principal: RuntimePrincipal,
+    claimId: string,
+    command: ExecutionEnvelope,
+    idempotencyKey: string,
+  ): ExecutionRecord {
+    this.authorize(principal, 'luca-gemini', 'execute');
+    const payload = {
+      claimId,
+      command,
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      profileId: principal.profileId,
+    };
+    const result = this.repository.transaction<MutationResult<ExecutionRecord>>(() => {
+      const payloadDigest = digestCanonical(payload);
+      const prior = this.repository.idempotency('execution', idempotencyKey);
+      if (prior) {
+        if (prior.payloadDigest !== payloadDigest) {
+          fail('idempotency_payload_mismatch', 'Changed execution replay');
+        }
+        return {
+          value: this.repository.getResult(
+            prior.resultKind,
+            prior.resultId,
+          ) as ExecutionRecord,
+        };
+      }
+      const claim = this.repository.getClaim(claimId);
+      const packet = claim && this.repository.getPacket(claim.packetId);
+      if (!claim || !packet) fail('claim_not_active', 'Claim does not exist');
+      if (
+        claim.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        claim.profileId !== principal.profileId
+      ) fail('claim_not_owned', 'Claim belongs to another runtime');
+      if (claim.expiresAt <= this.now()) fail('claim_expired', 'Claim has expired');
+      if (claim.status !== 'active') fail('claim_not_active', 'Claim is not active');
+      if (canonicalJson(command) !== canonicalJson(packet.envelope)) {
+        this.repository.saveClaim({
+          ...claim,
+          status: 'violated',
+          terminalAt: this.now(),
+        });
+        this.repository.addClaimEvent({
+          id: this.newId(),
+          claimId,
+          epoch: claim.epoch,
+          kind: 'violated',
+          reason: 'execution_envelope_mismatch',
+          priorClaimId: claim.priorClaimId,
+          occurredAt: this.now(),
+        });
+        return {
+          error: new RuntimeProtocolError(
+            'execution_envelope_mismatch',
+            'Command exceeds configured envelope',
+          ),
+        };
+      }
+      const execution: ExecutionRecord = {
+        id: this.newId(),
+        claimId,
+        claimEpoch: claim.epoch,
+        runtimeRegistrationId: principal.runtimeRegistrationId,
+        profileId: principal.profileId,
+        credentialId: principal.credentialId,
+        envelope: command,
+        executionDigest: digestCanonical({
+          claimId,
+          claimEpoch: claim.epoch,
+          command,
+        }),
+      };
+      this.repository.saveExecution(execution);
+      this.repository.saveIdempotency('execution', idempotencyKey, {
+        payloadDigest,
+        resultKind: 'execution',
+        resultId: execution.id,
+      });
+      return { value: immutable(execution) };
+    });
+    if ('error' in result) throw result.error;
+    return result.value;
+  }
+
+  complete(
+    principal: RuntimePrincipal,
+    executionId: string,
+    evidenceDigest: string,
+    idempotencyKey: string,
+  ): CompletionRecord {
+    this.authorize(principal, 'luca-gemini', 'execute');
+    return this.mutate('completion', idempotencyKey, {
+      executionId,
+      evidenceDigest,
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      profileId: principal.profileId,
+    }, () => {
+      const execution = this.repository.getExecution(executionId);
+      const claim = execution && this.repository.getClaim(execution.claimId);
+      if (!execution || !claim) fail('completion_mismatch', 'Execution does not exist');
+      if (execution.claimEpoch !== claim.epoch) {
+        fail('claim_epoch_stale', 'Execution belongs to a stale claim epoch');
+      }
+      if (
+        execution.runtimeRegistrationId !== principal.runtimeRegistrationId ||
+        execution.profileId !== principal.profileId
+      ) fail('claim_not_owned', 'Execution belongs to another runtime');
+      if (claim.expiresAt <= this.now()) fail('claim_expired', 'Claim has expired');
+      if (claim.status !== 'active') fail('claim_not_active', 'Claim is not active');
+      if (evidenceDigest !== digestCanonical(execution)) {
+        fail('evidence_mismatch', 'Completion evidence digest is invalid');
+      }
+      const completion: CompletionRecord = {
+        id: this.newId(),
+        executionId,
+        claimId: claim.id,
+        claimEpoch: claim.epoch,
+        evidenceDigest,
+      };
+      this.repository.saveClaim({
+        ...claim,
+        status: 'completed',
+        terminalAt: this.now(),
+      });
+      this.repository.saveCompletion(completion);
+      return completion;
+    });
+  }
+
+  verify(
+    principal: RuntimePrincipal,
+    completionId: string,
+    evidenceDigest: string,
+    patchDigest: string | null,
+    idempotencyKey: string,
+  ): VerificationDecision {
+    if (principal.actor !== 'luca-replit' && principal.actor !== 'luca-claude-code') {
+      fail('verifier_not_allowed', 'Verifier actor is not approved');
+    }
+    this.authorize(principal, principal.actor, 'verify');
+    const verifierActor = principal.actor;
+    return this.mutate('verification', idempotencyKey, {
+      completionId,
+      evidenceDigest,
+      patchDigest,
+      verifierActor,
+      verifierRuntimeRegistrationId: principal.runtimeRegistrationId,
+    }, () => {
+      const completion = this.repository.getCompletion(completionId);
+      const claim = completion && this.repository.getClaim(completion.claimId);
+      const packet = claim && this.repository.getPacket(claim.packetId);
+      if (!completion || !claim || !packet) {
+        fail('verification_chain_missing', 'Completion evidence chain is missing');
+      }
+      if (packet.assignment.assignmentAuthor === verifierActor) {
+        fail('assigner_verification_denied', 'Assignment author cannot verify');
+      }
+      if (claim.runtimeRegistrationId === principal.runtimeRegistrationId) {
+        fail('self_verification_denied', 'Executing runtime cannot verify');
+      }
+      if (
+        completion.evidenceDigest !== evidenceDigest ||
+        packet.envelope.patchDigest !== patchDigest
+      ) {
+        fail('verification_digest_mismatch', 'Verification evidence does not match');
+      }
+      const decision: VerificationDecision = {
+        id: this.newId(),
+        completionId,
+        verifierActor,
+        verifierRuntimeRegistrationId: principal.runtimeRegistrationId,
+        evidenceDigest,
+        patchDigest,
+        decision: 'approved',
+      };
+      this.repository.saveVerification(decision);
+      return decision;
+    });
   }
 }

@@ -5550,3 +5550,25 @@ event isolation between two sessions that share one conversation.
 The disposable suite passed 56/56 with no skips, the credential-broker
 self-check passed, TypeScript passed, and independent review returned
 unconditional approval with no correctness or security blocker.
+
+## Gemini coding runtime Gate 1 — September 9, 2026
+
+The provider-neutral coordination core now has a hermetic in-memory repository
+and adversarial protocol suite. Repository-owned frozen inbox windows and
+server-owned execution envelopes produce immutable, digest-bound inheritance
+packets. Authenticated runtime/profile ownership governs model evidence,
+consumption receipts, claims, renewal, execution, completion, and independent
+verification.
+
+The protocol stores every normalized provider outcome while allowing only a
+consumed receipt to authorize a claim. Claims have exclusive epochs, stable
+transition errors, durable violation evidence, and explicit prior-claim
+lineage. Replacement packets cannot be precomputed: they must name the latest
+terminal claim, follow its terminal timestamp, and use newly consumed evidence.
+Model turns and attempts are bounded across every packet version for the same
+assignment.
+
+The focused suite passes 14/14 and TypeScript passes. Independent architecture
+review returned an unconditional PASS with no Gate 1 authority, evidence, or
+security blocker. This gate is intentionally persistence-neutral; schema and
+database integration belong to Gate 2.
