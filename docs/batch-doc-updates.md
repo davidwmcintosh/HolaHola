@@ -5592,3 +5592,45 @@ The focused suite passes 14/14 and TypeScript passes. Independent architecture
 review returned an unconditional PASS with no Gate 1 authority, evidence, or
 security blocker. This gate is intentionally persistence-neutral; schema and
 database integration belong to Gate 2.
+
+## Founder-attested task ownership bootstrap — September 10, 2026
+
+Task-agent ownership can now be established without treating Git checkout shape,
+workspace paths, or historical task artifacts as assignment authority. A Luca
+runtime creates or reuses a task-specific Ed25519 key under protected `/tmp`
+custody, submits the exact task-artifact digest through coordination
+authentication, waits for an explicit founder decision, and proves fresh
+private-key possession with a single-use server nonce. Lost key state, expired
+challenges, revoked receipts, actor mismatch, replay, ambiguous credentials, and
+contradictory retries all fail closed.
+
+Founder decisions use the authenticated browser session and are exposed in the
+Command Center through a founder-only Ownership tab. The surface shows the full
+artifact digest, key fingerprint, optional context digest, lifecycle state, and
+the explicit boundary: approval authorizes the key-holding process for the exact
+task; it does not independently attest Replit's sandbox identity. Replit
+provides the isolated runtime boundary. Git shape remains corroborating context
+only.
+
+Migration `0036_polite_harrier.sql` adds challenge, receipt, proof-nonce,
+decision-event, and proof-attempt records with controlled lifecycle triggers,
+single-active-receipt enforcement, and immutable evidence. The migration was
+proved on a disposable Neon branch before application to shared Neon. The final
+branch gate returned exact `READY_TO_PROMOTE`, including concurrent no-context
+challenge convergence, concurrent founder decisions, valid and invalid
+Ed25519 proofs, nonce replay, revocation, expiry, transition rejection, the full
+63-command CI suite, and automatic branch deletion.
+
+The Gemini Code credential name is an explicit alias for the Luca Gemini actor.
+If legacy and current aliases are both configured with different values,
+authentication fails closed; duplicate-token ambiguity protections remain
+active. TypeScript, focused tests, system health, independent architecture
+review, and both Alden engines passed. Both Alden engines returned
+`APPROVED — Ship it`.
+
+This is one assignment adapter within the provider-neutral Luca coordinator.
+Claude Code, Gemini/Antigravity, OpenAI, Replit, and future runtimes must all
+enter through the same centralized grounding, memory, identity, task-authority,
+attribution, evidence, and closure workflow. Provider integrations translate
+transport and capabilities; they do not create separate Lucas or bypass the
+shared control plane.

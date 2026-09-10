@@ -19,6 +19,10 @@ export interface TaskOwnershipEvidence {
     gitMetadataPath: string;
   };
   verifiedActiveMainReceipt: boolean;
+  /** A server-verified, fresh proof for the founder-attested receipt. */
+  verifiedActiveIsolatedProof?: boolean;
+  /** Compatibility name for callers that inject a verified receipt result. */
+  verifiedActiveIsolatedReceipt?: boolean;
 }
 
 export interface TaskOwnershipResult {
@@ -33,20 +37,38 @@ export interface TaskOwnershipResult {
 export interface TaskOwnershipServiceOptions {
   rootDir?: string;
   verifyActiveMainReceipt?: (taskRef: string) => Promise<boolean>;
+  verifyActiveIsolatedProof?: (taskRef: string, artifactSha256?: string) => Promise<boolean>;
+  verifyActiveIsolatedReceipt?: (taskRef: string, artifactSha256?: string) => Promise<boolean>;
 }
 
 const TASK_REF = /^[1-9][0-9]*$/;
 const MAX_TASK_ARTIFACT_BYTES = 256 * 1024;
 
+/** Canonical JSON used by the challenge/proof protocol. */
+export function canonicalJson(value: unknown): string {
+  if (value === undefined) throw new Error('Canonical JSON cannot contain undefined.');
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`;
+}
+
 export function classifyTaskOwnership(evidence: TaskOwnershipEvidence): TaskOwnershipResult {
   const contradictions: string[] = [];
-  const artifactValid = evidence.taskArtifact.exists && evidence.taskArtifact.regularFile;
+  const artifactValid = evidence.taskArtifact.exists
+    && evidence.taskArtifact.regularFile
+    && /^[a-f0-9]{64}$/.test(evidence.taskArtifact.sha256 || '');
 
   if (evidence.taskArtifact.exists && !evidence.taskArtifact.regularFile) {
     contradictions.push('The exact task artifact exists but is not a regular file.');
   }
   if (evidence.verifiedActiveMainReceipt && evidence.checkout.kind !== 'primary_worktree') {
     contradictions.push('Verified main-session evidence conflicts with the current checkout.');
+  }
+  const isolatedVerified = evidence.verifiedActiveIsolatedProof === true
+    || evidence.verifiedActiveIsolatedReceipt === true;
+  if (evidence.verifiedActiveMainReceipt && isolatedVerified) {
+    contradictions.push('Verified main-session and isolated-agent evidence conflict.');
   }
 
   if (
@@ -69,7 +91,7 @@ export function classifyTaskOwnership(evidence: TaskOwnershipEvidence): TaskOwne
     contradictions.length === 0
     && artifactValid
     && !evidence.verifiedActiveMainReceipt
-    && evidence.checkout.kind === 'linked_worktree'
+    && isolatedVerified
   ) {
     return {
       ok: true,
@@ -77,7 +99,7 @@ export function classifyTaskOwnership(evidence: TaskOwnershipEvidence): TaskOwne
       taskRef: evidence.taskRef,
       evidence,
       contradictions,
-      explanation: 'The exact task artifact is present in a current linked Git worktree.',
+      explanation: 'The exact task artifact and a fresh founder-attested key proof agree.',
     };
   }
 
@@ -97,10 +119,14 @@ export function classifyTaskOwnership(evidence: TaskOwnershipEvidence): TaskOwne
 export class TaskOwnershipService {
   private readonly rootDir: string;
   private readonly verifyActiveMainReceipt: (taskRef: string) => Promise<boolean>;
+  private readonly verifyActiveIsolatedProof: (taskRef: string, artifactSha256?: string) => Promise<boolean>;
 
   constructor(options: TaskOwnershipServiceOptions = {}) {
     this.rootDir = resolve(options.rootDir || process.cwd());
     this.verifyActiveMainReceipt = options.verifyActiveMainReceipt || (async () => false);
+    this.verifyActiveIsolatedProof = options.verifyActiveIsolatedProof
+      || options.verifyActiveIsolatedReceipt
+      || (async () => false);
   }
 
   async probe(taskRef: string): Promise<TaskOwnershipResult> {
@@ -112,7 +138,14 @@ export class TaskOwnershipService {
       taskArtifact: await this.readTaskArtifact(taskRef),
       checkout: await this.readCheckout(),
       verifiedActiveMainReceipt: await this.verifyActiveMainReceipt(taskRef),
+      verifiedActiveIsolatedProof: false,
+      verifiedActiveIsolatedReceipt: false,
     };
+    evidence.verifiedActiveIsolatedProof = await this.verifyActiveIsolatedProof(
+      taskRef,
+      evidence.taskArtifact.sha256,
+    );
+    evidence.verifiedActiveIsolatedReceipt = evidence.verifiedActiveIsolatedProof;
     return classifyTaskOwnership(evidence);
   }
 

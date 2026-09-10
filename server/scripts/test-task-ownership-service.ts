@@ -8,6 +8,10 @@ import {
   TaskOwnershipService,
   type TaskOwnershipEvidence,
 } from '../services/task-ownership-service';
+import {
+  ensureTaskAgentKey,
+  TASK_AGENT_KEY_ROOT,
+} from '../services/task-ownership-key-custody';
 
 async function fixture(gitKind: 'primary' | 'linked' | 'none', taskRef = '1391') {
   const root = await mkdtemp(join(tmpdir(), 'task-ownership-'));
@@ -44,16 +48,45 @@ const baseEvidence = (overrides: Partial<TaskOwnershipEvidence>): TaskOwnershipE
   taskArtifact: { path: '/workspace/.local/tasks/task-1391.md', exists: true, regularFile: true, sha256: 'a'.repeat(64), size: 10 },
   checkout: { kind: 'primary_worktree', gitMetadataPath: '/workspace/.git' },
   verifiedActiveMainReceipt: false,
+  verifiedActiveIsolatedProof: false,
   ...overrides,
 });
 
 assert.equal(classifyTaskOwnership(baseEvidence({ verifiedActiveMainReceipt: true })).state, 'main_session');
-assert.equal(classifyTaskOwnership(baseEvidence({ checkout: { kind: 'linked_worktree', gitMetadataPath: '/workspace/.git' } })).state, 'isolated_agent');
+assert.equal(classifyTaskOwnership(baseEvidence({
+  checkout: { kind: 'linked_worktree', gitMetadataPath: '/workspace/.git' },
+  verifiedActiveIsolatedProof: true,
+})).state, 'isolated_agent');
+assert.equal(classifyTaskOwnership(baseEvidence({
+  checkout: { kind: 'linked_worktree', gitMetadataPath: '/workspace/.git' },
+})).state, 'unknown_stop');
 assert.equal(classifyTaskOwnership(baseEvidence({})).state, 'unknown_stop');
 assert.equal(classifyTaskOwnership(baseEvidence({
   checkout: { kind: 'linked_worktree', gitMetadataPath: '/workspace/.git' },
   verifiedActiveMainReceipt: true,
 })).state, 'unknown_stop');
+
+{
+  const taskRef = `${Date.now()}${Math.floor(Math.random() * 100000)}`;
+  const keyDir = join(TASK_AGENT_KEY_ROOT, `task-${taskRef}`);
+  try {
+    const keys = await Promise.all(
+      Array.from({ length: 12 }, () => ensureTaskAgentKey(taskRef)),
+    );
+    assert.equal(
+      new Set(keys.map(key => key.publicKey)).size,
+      1,
+      'concurrent key initialization must converge on one published key',
+    );
+    assert.equal(
+      new Set(keys.map(key => key.fingerprint)).size,
+      1,
+      'concurrent key initialization must converge on one fingerprint',
+    );
+  } finally {
+    await rm(keyDir, { recursive: true, force: true });
+  }
+}
 
 {
   const f = await fixture('primary');
@@ -73,7 +106,7 @@ assert.equal(classifyTaskOwnership(baseEvidence({
   try {
     await writeFile(f.taskPath, '# assigned task\n');
     const result = await new TaskOwnershipService({ rootDir: f.root }).probe('1391');
-    assert.equal(result.state, 'isolated_agent');
+     assert.equal(result.state, 'unknown_stop');
     assert.equal(result.evidence.taskArtifact.sha256?.length, 64);
   } finally { await f.cleanup(); }
 }

@@ -11016,3 +11016,104 @@ export const sophiaMessages = pgTable("sophia_messages", {
 export const insertSophiaMessageSchema = createInsertSchema(sophiaMessages).omit({ id: true, createdAt: true });
 export type InsertSophiaMessage = z.infer<typeof insertSophiaMessageSchema>;
 export type SophiaMessage = typeof sophiaMessages.$inferSelect;
+
+// Founder-attested task ownership.  Challenge/receipt/nonce rows are the only
+// mutable state; decision and proof rows are append-only evidence.
+export const taskOwnershipChallenges = pgTable("task_ownership_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+  intendedActor: varchar("intended_actor", { length: 128 }).notNull(),
+  coordinationActor: varchar("coordination_actor", { length: 128 }).notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 128 }).notNull(),
+  contextDigest: varchar("context_digest", { length: 128 }),
+  serverNonce: varchar("server_nonce", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  decidedAt: timestamp("decided_at"),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+}, (t) => [
+  uniqueIndex("uq_task_ownership_challenge_nonce").on(t.serverNonce),
+  uniqueIndex("uq_task_ownership_challenge_idempotency").on(t.coordinationActor, t.idempotencyKey),
+  index("idx_task_ownership_challenge_status").on(t.status, t.expiresAt),
+  check("task_ownership_challenge_task_ref", sql`${t.taskRef} ~ '^[1-9][0-9]*$'`),
+  check("task_ownership_challenge_artifact_sha256", sql`${t.artifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_fingerprint_sha256", sql`${t.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_context_digest", sql`${t.contextDigest} IS NULL OR ${t.contextDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_request_digest", sql`${t.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_actor_match", sql`${t.intendedActor} = ${t.coordinationActor}`),
+  check("task_ownership_challenge_status", sql`${t.status} IN ('pending','approved','rejected','expired')`),
+  check("task_ownership_challenge_lifecycle", sql`${t.expiresAt} > ${t.createdAt} AND ((${t.status} = 'pending' AND ${t.decidedAt} IS NULL) OR (${t.status} <> 'pending' AND ${t.decidedAt} IS NOT NULL))`),
+]);
+
+export const taskOwnershipReceipts = pgTable("task_ownership_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull().references(() => taskOwnershipChallenges.id),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+  intendedActor: varchar("intended_actor", { length: 128 }).notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 128 }).notNull(),
+  contextDigest: varchar("context_digest", { length: 128 }),
+  approvedBy: varchar("approved_by").notNull(),
+  approvedAt: timestamp("approved_at").notNull().defaultNow(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  version: integer("version").notNull().default(1),
+  payloadDigest: varchar("payload_digest", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("active"),
+  revokedAt: timestamp("revoked_at"),
+}, (t) => [
+  uniqueIndex("uq_task_ownership_receipt_challenge").on(t.challengeId),
+  uniqueIndex("uq_task_ownership_active_task").on(t.taskRef).where(sql`${t.status} = 'active'`),
+  index("idx_task_ownership_receipt_task").on(t.taskRef, t.status),
+  check("task_ownership_receipt_task_ref", sql`${t.taskRef} ~ '^[1-9][0-9]*$'`),
+  check("task_ownership_receipt_artifact_sha256", sql`${t.artifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_fingerprint_sha256", sql`${t.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_context_digest", sql`${t.contextDigest} IS NULL OR ${t.contextDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_payload_digest", sql`${t.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_version", sql`${t.version} = 1`),
+  check("task_ownership_receipt_status", sql`${t.status} IN ('active','revoked','expired')`),
+  check("task_ownership_receipt_lifecycle", sql`${t.expiresAt} > ${t.issuedAt} AND ((${t.status} = 'active' AND ${t.revokedAt} IS NULL) OR (${t.status} <> 'active' AND ${t.revokedAt} IS NOT NULL))`),
+]);
+
+export const taskOwnershipProofNonces = pgTable("task_ownership_proof_nonces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptId: varchar("receipt_id").notNull().references(() => taskOwnershipReceipts.id),
+  nonce: varchar("nonce", { length: 128 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_task_ownership_proof_nonce").on(t.nonce),
+  check("task_ownership_proof_nonce_lifecycle", sql`${t.expiresAt} > ${t.createdAt} AND (${t.consumedAt} IS NULL OR ${t.consumedAt} >= ${t.createdAt})`),
+]);
+
+export const taskOwnershipDecisionEvents = pgTable("task_ownership_decision_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull().references(() => taskOwnershipChallenges.id),
+  receiptId: varchar("receipt_id").references(() => taskOwnershipReceipts.id),
+  decision: varchar("decision", { length: 16 }).notNull(),
+  actorId: varchar("actor_id").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  check("task_ownership_decision_event_decision", sql`${t.decision} IN ('approved','rejected','revoked','expired')`),
+  check("task_ownership_decision_event_actor", sql`length(trim(${t.actorId})) > 0`),
+]);
+
+export const taskOwnershipProofAttempts = pgTable("task_ownership_proof_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nonceId: varchar("nonce_id").notNull().references(() => taskOwnershipProofNonces.id),
+  receiptId: varchar("receipt_id").notNull().references(() => taskOwnershipReceipts.id),
+  success: boolean("success").notNull(),
+  errorCode: varchar("error_code", { length: 64 }),
+  payloadDigest: varchar("payload_digest", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  check("task_ownership_proof_attempt_outcome", sql`(${t.success} AND ${t.errorCode} IS NULL) OR (NOT ${t.success} AND ${t.errorCode} IS NOT NULL)`),
+  check("task_ownership_proof_attempt_digest", sql`${t.payloadDigest} IS NULL OR ${t.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+]);

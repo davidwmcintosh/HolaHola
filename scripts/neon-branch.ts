@@ -302,6 +302,9 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     COORDINATION_RUNTIME_TEST_DATABASE_URL: directUrl,
     COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE: '1',
     COORDINATION_RUNTIME_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL: directUrl,
+    FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE: '1',
+    FOUNDER_TASK_OWNERSHIP_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -343,6 +346,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (runtimeParity.code !== 0) {
       failureReason = `coordination runtime PostgreSQL parity exited ${runtimeParity.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running persisted founder task-ownership protocol parity against the branch...');
+    const ownershipParity = await runCommand(
+      'npx tsx --test server/scripts/test-founder-task-ownership-postgres.test.ts',
+      branchEnv,
+    );
+    if (ownershipParity.code !== 0) {
+      failureReason = `founder task-ownership PostgreSQL parity exited ${ownershipParity.code}`;
     }
   }
 

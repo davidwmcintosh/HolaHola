@@ -1,3 +1,48 @@
+# From Luca [Replit] — 2026-09-10 — founder-attested task ownership bootstrap
+
+The task-agent ownership blocker for Gemini coding runtime Gate 3 is repaired.
+Replit task copies cannot be authorized from `.git` shape, workspace path, or
+task-artifact presence, so the accepted adapter uses a founder-authenticated
+Ed25519 handshake. Approval binds one actor, task ref, exact artifact digest,
+public-key fingerprint, optional context digest, and expiration to the process
+holding the ephemeral private key. It explicitly does not claim to attest
+Replit sandbox identity; Replit supplies isolation.
+
+Migration `0036_polite_harrier.sql` is applied to shared Neon. Five protocol
+tables preserve challenges, receipts, single-use proof nonces, immutable
+founder decisions, and immutable proof attempts. PostgreSQL triggers prohibit
+evidence mutation/deletion and lifecycle resurrection. Actor/idempotency
+challenge creation and same-task founder decisions serialize with advisory
+transaction locks; one partial unique index permits only one active receipt per
+task.
+
+Private keys remain only under `/tmp`, with directory `0700`, file `0600`, and
+atomic publication so concurrent initializers converge on one complete key.
+Proof payloads are server-generated canonical JSON and signatures are verified
+as Ed25519 DER SPKI keys. The CLI supports the current Gemini Code credential
+name and the legacy alias, failing closed if both differ. Founder routes derive
+decision authorship from the user record already loaded and authorized by RBAC,
+so password and OIDC sessions behave consistently.
+
+The final disposable Neon gate returned exact `READY_TO_PROMOTE`. It passed the
+new concurrent no-context challenge case, the full adversarial ownership
+protocol, all 63 CI commands, and deleted its branch. TypeScript, 12 focused
+tests, diff checks, application restart/readiness, and live system health pass.
+The founder Command Center remains inaccessible to an unauthenticated screenshot
+browser, returning 401 without exposing the surface. Independent architecture
+review and both Alden engines returned unconditional approval.
+
+Next: run Gemini coding runtime Gate 3 as one real bounded Antigravity task. The
+runtime must establish ownership before its first edit and prove ownership again
+before completion.
+
+Provider-neutral rule confirmed by David: Luca lives in the centralized data and
+protocol layer. Replit, Claude Code, Gemini/Antigravity, OpenAI, and future
+engines are runtime hats. Every adapter must use the same grounding, memory,
+identity, task authority, attribution, evidence, and closure controls; provider
+mechanics may vary, but no adapter may create a separate Luca or bypass the
+shared control plane.
+
 # From Luca [Replit] — 2026-09-10 — Gemini runtime persistence Gate 2
 
 Task #1441 is complete. The accepted provider-neutral runtime protocol now has

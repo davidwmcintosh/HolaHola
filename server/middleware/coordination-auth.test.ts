@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR,
   requireFounderOrCoordinationCapability,
+  resolveCoordinationActor,
   resolveCoordinationCapability,
 } from './coordination-auth';
 
@@ -68,6 +69,64 @@ test('actor names cannot self-authorize by using a luca prefix', () => {
     'luca-holahola',
     'luca-replit',
   ].sort());
+});
+
+test('luca-gemini recognizes the Gemini Code token alias', () => {
+  const aliasToken = token('gemini-code');
+  const aliasOnly = {
+    ...environment,
+    COORDINATION_LUCA_GEMINI_TOKEN: undefined,
+    COORDINATION_LUCA_GEMINI_CODE_TOKEN: aliasToken,
+  };
+  assert.deepEqual(resolveCoordinationActor(aliasToken, undefined, aliasOnly), {
+    ok: true,
+    actor: 'luca-gemini',
+  });
+});
+
+test('matching luca-gemini legacy and Gemini Code aliases converge', () => {
+  const sharedToken = token('gemini-shared');
+  const matchingAliases = {
+    ...environment,
+    COORDINATION_LUCA_GEMINI_TOKEN: sharedToken,
+    COORDINATION_LUCA_GEMINI_CODE_TOKEN: sharedToken,
+  };
+  assert.deepEqual(resolveCoordinationActor(sharedToken, undefined, matchingAliases), {
+    ok: true,
+    actor: 'luca-gemini',
+  });
+});
+
+test('conflicting luca-gemini token aliases fail closed', () => {
+  const legacyToken = token('gemini-legacy');
+  const codeToken = token('gemini-code');
+  const conflictingAliases = {
+    ...environment,
+    COORDINATION_LUCA_GEMINI_TOKEN: legacyToken,
+    COORDINATION_LUCA_GEMINI_CODE_TOKEN: codeToken,
+  };
+  for (const supplied of [legacyToken, codeToken]) {
+    assert.deepEqual(resolveCoordinationActor(supplied, undefined, conflictingAliases), {
+      ok: false,
+      status: 503,
+      error: 'Coordination authentication has conflicting luca-gemini token aliases',
+    });
+  }
+});
+
+test('Gemini Code alias preserves duplicate-token ambiguity protection', () => {
+  const duplicate = token('shared-luca');
+  const ambiguous = {
+    ...environment,
+    COORDINATION_LUCA_GEMINI_TOKEN: undefined,
+    COORDINATION_LUCA_GEMINI_CODE_TOKEN: duplicate,
+    COORDINATION_LUCA_REPLIT_TOKEN: duplicate,
+  };
+  assert.deepEqual(resolveCoordinationActor(duplicate, undefined, ambiguous), {
+    ok: false,
+    status: 503,
+    error: 'Coordination authentication has ambiguous token bindings',
+  });
 });
 
 test('founder fallback runs only when no coordination credential is presented', async () => {

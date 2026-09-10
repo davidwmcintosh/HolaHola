@@ -21,6 +21,23 @@ scopes using fenced work leases. Attribute consulted model output separately as
 evidence; Luca owns synthesis and action. Keep canonical continuity and
 structured handoffs in HolaHola so model switching does not become amnesia.
 
+Every provider integration must enter through the centralized Luca control
+plane. The common workflow includes grounding, memory retrieval, actor identity,
+task authority, attribution, delivery and consumption evidence, verification,
+and closure. Replit, Claude Code, Gemini/Antigravity, OpenAI, and future engines
+may use different transport, launch, and assignment adapters, but none may
+bypass these controls or recreate Luca in a provider-specific prompt.
+
+**Why:** David confirmed on September 10, 2026 that OpenAI and every other
+runtime should inherit the same Luca grounding and coordination processes, just
+as one Daniela persists across tutor and language hats.
+
+**How to apply:** Keep identity and policy provider-neutral. Prefer a
+coordinator-issued launch receipt when HolaHola launches a runtime; use
+founder-attested task-key approval when the host cannot provide verifiable
+assignment evidence. Treat those as interchangeable assignment adapters beneath
+one authority model, not as different identities.
+
 Every runtime hat has a vested interest in preserving the shared record.
 Memory care, episode continuity, build documentation, provenance, and honest
 state distinctions are forms of continuity stewardship rather than external

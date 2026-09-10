@@ -31,6 +31,9 @@ export const COORDINATION_TOKEN_ENV_BY_ACTOR: Record<
   david: 'COORDINATION_DAVID_TOKEN',
 };
 
+const GEMINI_LEGACY_TOKEN_ENV = 'COORDINATION_LUCA_GEMINI_TOKEN';
+const GEMINI_CODE_TOKEN_ENV = 'COORDINATION_LUCA_GEMINI_CODE_TOKEN';
+
 export type CoordinationAuthResolution =
   | { ok: true; actor: CoordinationActorId }
   | { ok: false; status: 401 | 503; error: string };
@@ -66,8 +69,23 @@ export function resolveCoordinationActor(
   // migration so callers that still pass the old compatibility argument fail
   // closed instead of gaining a second authentication path.
   void agentToken;
+  const legacyGeminiToken = environment[GEMINI_LEGACY_TOKEN_ENV];
+  const geminiCodeToken = environment[GEMINI_CODE_TOKEN_ENV];
+  if (legacyGeminiToken && geminiCodeToken && legacyGeminiToken !== geminiCodeToken) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'Coordination authentication has conflicting luca-gemini token aliases',
+    };
+  }
+
   const configuredBindings = Object.entries(COORDINATION_TOKEN_ENV_BY_ACTOR)
-    .map(([actor, envName]) => [actor as CoordinationActorId, environment[envName]] as const);
+    .map(([actor, envName]) => [
+      actor as CoordinationActorId,
+      actor === 'luca-gemini'
+        ? geminiCodeToken || legacyGeminiToken
+        : environment[envName],
+    ] as const);
 
   const validBindings = configuredBindings.filter(
     (binding): binding is [CoordinationActorId, string] => Boolean(binding[1] && binding[1].length >= 32),

@@ -15,6 +15,7 @@ import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { registerCoordinationCredentialRoutes } from "./routes/coordination-credential-routes";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
+import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
 import { registerHolaHolaSharedSpecApi } from "./adapters/hola-hola-shared-spec-bootstrap";
 import {
   registerObservationBenchCoordinationRoutes,
@@ -636,6 +637,7 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationCredentialRoutes(app);
   registerCoordinationRoutes(app);
+  registerFounderTaskOwnershipRoutes(app);
   registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
