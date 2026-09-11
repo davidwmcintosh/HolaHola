@@ -1,6 +1,7 @@
 import { createHash, createPublicKey, generateKeyPairSync, randomUUID } from 'node:crypto';
 import { chmod, link, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 export interface TaskAgentKey {
   taskRef: string;
@@ -9,7 +10,7 @@ export interface TaskAgentKey {
   privateKeyPath: string;
 }
 
-export const TASK_AGENT_KEY_ROOT = '/tmp/task-agent-ownership';
+export const TASK_AGENT_KEY_ROOT = join(tmpdir(), 'task-agent-ownership');
 const safeRef = (ref: string) => /^[1-9][0-9]*$/.test(ref);
 
 export function publicKeyFingerprint(publicKey: string): string {
