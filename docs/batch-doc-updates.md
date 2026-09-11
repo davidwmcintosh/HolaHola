@@ -10,8 +10,10 @@
 - Deep security scanning found no changed-file Gate 3 credential exposure. A
   pre-existing log that printed an eight-character `GEMINI_API_KEY` prefix now
   logs only the model; the corresponding HoundDog finding is gone.
-- Final protected promotion and real Windows/Antigravity task 1448 execution
-  remain pending and require separate evidence.
+- Core protected promotion returned exact `SYNCED` in GitHub run `34580846499`;
+  GitHub `main` then exactly matched
+  `0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. A docs-only runbook correction and
+  real Windows/Antigravity task 1448 execution still require separate evidence.
 
 # Persisted Gemini runtime authority model — 2026-09-10
 

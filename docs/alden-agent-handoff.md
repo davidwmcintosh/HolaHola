@@ -25,10 +25,12 @@ of `GEMINI_API_KEY`; it now logs only the model, and the route's HoundDog
 auth-token finding is gone. The repository-wide dependency/static-analysis
 backlog remains pre-existing.
 
-Final protected promotion and the real Windows/Antigravity execution of task
-1448 are still pending. Do not claim a synchronized final `main` SHA, founder
-activation, Windows execution, or adversarial host containment until those
-steps produce their own evidence.
+Core protected promotion succeeded with exact `SYNCED` in GitHub run
+`34580846499`; GitHub `main` then exactly matched
+`0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. A docs-only runbook correction is
+still pending protected promotion. The real Windows/Antigravity execution of
+task 1448 remains pending. Do not claim founder activation, Windows execution,
+or adversarial host containment until those steps produce their own evidence.
 
 # From Luca [Replit] — 2026-09-10 — founder-attested task ownership bootstrap
 
