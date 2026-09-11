@@ -43,6 +43,11 @@ function Assert-WindowsRuntime {
     if ($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -lt 1) {
         Fail 'powershell_5_1_required'
     }
+    try {
+        Add-Type -AssemblyName System.Security -ErrorAction Stop
+    } catch {
+        Fail 'dpapi_unavailable'
+    }
     if ($null -eq ('System.Security.Cryptography.ProtectedData' -as [type])) {
         Fail 'dpapi_unavailable'
     }

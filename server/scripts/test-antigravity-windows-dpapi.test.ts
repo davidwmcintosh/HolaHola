@@ -28,6 +28,25 @@ test('Windows DPAPI launcher has a fixed action and command boundary', async () 
   assert.doesNotMatch(source, /\[(?:string|object)\]\s*\$(?:Command|Executable|ChildCommand|ArgumentsFromUser)\b/i);
 });
 
+test('Windows runtime loads System.Security before resolving ProtectedData', async () => {
+  const source = await read(launcherPath);
+  const start = source.indexOf('function Assert-WindowsRuntime');
+  const end = source.indexOf('function Assert-NoFixedActorTokens', start);
+  assert.ok(start >= 0 && end > start, 'Assert-WindowsRuntime must have a bounded source section');
+  const runtimeGuard = source.slice(start, end);
+
+  const assemblyLoadAt = runtimeGuard.indexOf('Add-Type -AssemblyName System.Security -ErrorAction Stop');
+  const protectedDataCheckAt = runtimeGuard.indexOf(
+    "'System.Security.Cryptography.ProtectedData' -as [type]",
+  );
+  assert.ok(assemblyLoadAt >= 0, 'must explicitly load the exact System.Security assembly');
+  assert.ok(protectedDataCheckAt > assemblyLoadAt, 'assembly load must precede the ProtectedData type check');
+  assert.match(
+    runtimeGuard,
+    /try\s*\{\s*Add-Type -AssemblyName System\.Security -ErrorAction Stop\s*\}\s*catch\s*\{\s*Fail 'dpapi_unavailable'\s*\}/,
+  );
+});
+
 test('source guard requires CurrentUser-protected ciphertext outside the repository', async () => {
   const source = await read(launcherPath);
 
