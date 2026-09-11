@@ -17,6 +17,7 @@ const actorIds = new Set<string>(COORDINATION_ACTOR_IDS);
 const capabilityIds = new Set<string>(COORDINATION_CREDENTIAL_CAPABILITIES);
 const MIN_TTL_SECONDS = 60;
 const MAX_TTL_SECONDS = 3600;
+const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
 type RotationConcurrencyTestPoint =
   | 'stage_snapshot_read'
@@ -69,6 +70,24 @@ function validCapabilities(values: string[]): values is CoordinationCredentialCa
   return values.length > 0 && values.every((value) => capabilityIds.has(value));
 }
 
+function validateRuntimeRegistrationInput(input: {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  tokenTtlSeconds?: number;
+}): number {
+  if (!input.runtimeId || input.runtimeId.length > 120) throw new Error('runtimeId is invalid');
+  if (!actorIds.has(input.actor) || input.actor === 'coordination-system') throw new Error('actor is invalid');
+  if (!input.displayName || input.displayName.length > 200) throw new Error('displayName is invalid');
+  if (!validCapabilities(input.capabilities)) throw new Error('capabilities are invalid');
+  const tokenTtlSeconds = input.tokenTtlSeconds ?? 900;
+  if (tokenTtlSeconds < MIN_TTL_SECONDS || tokenTtlSeconds > MAX_TTL_SECONDS) {
+    throw new Error(`tokenTtlSeconds must be between ${MIN_TTL_SECONDS} and ${MAX_TTL_SECONDS}`);
+  }
+  return tokenTtlSeconds;
+}
+
 async function audit(input: {
   eventType: string;
   success: boolean;
@@ -101,13 +120,7 @@ export async function registerCoordinationRuntime(input: {
   capabilities: CoordinationCredentialCapability[];
   tokenTtlSeconds?: number;
 }): Promise<{ bootstrapToken: string }> {
-  if (!input.runtimeId || input.runtimeId.length > 120) throw new Error('runtimeId is invalid');
-  if (!actorIds.has(input.actor) || input.actor === 'coordination-system') throw new Error('actor is invalid');
-  if (!validCapabilities(input.capabilities)) throw new Error('capabilities are invalid');
-  const tokenTtlSeconds = input.tokenTtlSeconds ?? 900;
-  if (tokenTtlSeconds < MIN_TTL_SECONDS || tokenTtlSeconds > MAX_TTL_SECONDS) {
-    throw new Error(`tokenTtlSeconds must be between ${MIN_TTL_SECONDS} and ${MAX_TTL_SECONDS}`);
-  }
+  const tokenTtlSeconds = validateRuntimeRegistrationInput(input);
   const bootstrapToken = generateCoordinationSecret('cb');
   await getSharedDb().insert(coordinationRuntimeRegistrations).values({
     id: input.runtimeId,
@@ -120,6 +133,120 @@ export async function registerCoordinationRuntime(input: {
   await audit({ eventType: 'runtime_registered', success: true, runtimeId: input.runtimeId, actor: input.actor });
   return { bootstrapToken };
 }
+
+export type PrehashedRuntimeRegistration = {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  tokenTtlSeconds: number;
+  status: 'created' | 'replayed';
+};
+
+/**
+ * Registers a runtime from a trusted operator-side SHA-256 verifier.
+ * This deliberately has no HTTP exposure: callers must already have validated
+ * the public provisioning bundle and must never pass the plaintext bootstrap.
+ */
+export async function registerCoordinationRuntimeWithBootstrapSha256(input: {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  tokenTtlSeconds?: number;
+  bootstrapSha256: string;
+}): Promise<PrehashedRuntimeRegistration> {
+  const tokenTtlSeconds = validateRuntimeRegistrationInput(input);
+  if (!SHA256_HEX_PATTERN.test(input.bootstrapSha256)) {
+    await audit({
+      eventType: 'runtime_registration_rejected',
+      success: false,
+      runtimeId: input.runtimeId,
+      actor: input.actor,
+      reason: 'invalid_bootstrap_digest',
+      metadata: { registrationMode: 'trusted_prehashed' },
+    });
+    throw new Error('bootstrapSha256 must be lowercase hexadecimal SHA-256');
+  }
+
+  const result = await getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${input.runtimeId}, 0))
+    `);
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${input.bootstrapSha256}, 0))
+    `);
+    const [existing] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, input.runtimeId))
+      .for('update');
+    if (existing) {
+      const compatible = existing.actor === input.actor
+        && existing.displayName === input.displayName
+        && sameStringArray(existing.capabilities, input.capabilities)
+        && existing.tokenTtlSeconds === tokenTtlSeconds
+        && existing.bootstrapHash === input.bootstrapSha256
+        && existing.enabled
+        && !existing.revokedAt;
+      if (compatible) {
+        await audit({
+          eventType: 'runtime_registration_replayed',
+          success: true,
+          runtimeId: input.runtimeId,
+          actor: input.actor,
+          metadata: { status: 'compatible_retry' },
+        }, executor);
+        return { ...input, tokenTtlSeconds, status: 'replayed' as const };
+      }
+      return { conflict: true as const };
+    }
+    const [sameDigest] = await tx.select({ id: coordinationRuntimeRegistrations.id })
+      .from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.bootstrapHash, input.bootstrapSha256))
+      .limit(1);
+    if (sameDigest) return { conflict: true as const };
+
+    await tx.insert(coordinationRuntimeRegistrations).values({
+      id: input.runtimeId,
+      actor: input.actor,
+      displayName: input.displayName,
+      bootstrapHash: input.bootstrapSha256,
+      capabilities: input.capabilities,
+      tokenTtlSeconds,
+    });
+    await audit({
+      eventType: 'runtime_registered',
+      success: true,
+      runtimeId: input.runtimeId,
+      actor: input.actor,
+      metadata: { registrationMode: 'trusted_prehashed' },
+    }, executor);
+    return { ...input, tokenTtlSeconds, status: 'created' as const };
+  });
+  if ('conflict' in result) {
+    await audit({
+      eventType: 'runtime_registration_rejected',
+      success: false,
+      runtimeId: input.runtimeId,
+      actor: input.actor,
+      reason: 'conflicting_registration',
+      metadata: { registrationMode: 'trusted_prehashed' },
+    });
+    throw new Error('runtime registration conflicts with an existing record');
+  }
+  return {
+    runtimeId: result.runtimeId,
+    actor: result.actor,
+    displayName: result.displayName,
+    capabilities: result.capabilities,
+    tokenTtlSeconds: result.tokenTtlSeconds,
+    status: result.status,
+  };
+}
+
+// Descriptive compatibility alias for trusted operator callers.
+export const registerCoordinationRuntimeWithBootstrapHash =
+  registerCoordinationRuntimeWithBootstrapSha256;
 
 function sameStringArray(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);

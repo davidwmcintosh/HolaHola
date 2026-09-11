@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { after, test } from 'node:test';
 import { eq } from 'drizzle-orm';
 import {
@@ -11,6 +12,8 @@ import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
   exchangeBootstrapCredential,
   registerCoordinationRuntime,
+  registerCoordinationRuntimeWithBootstrapSha256,
+  hashCoordinationSecret,
   renewBrokerCredential,
   resolveBrokerCredential,
   revokeBrokerCredential,
@@ -23,6 +26,7 @@ const hasDisposableDatabase = Boolean(
 const databaseTest = hasDisposableDatabase ? test : test.skip;
 const runtimeId = `credential-broker-${Date.now()}`;
 const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
+const prehashedRuntimeId = `${runtimeId}-prehashed`;
 
 function deferred(): {
   promise: Promise<void>;
@@ -41,11 +45,79 @@ after(async () => {
     .where(eq(coordinationRuntimeRegistrations.id, revocationRaceRuntimeId));
   await getSharedDb().delete(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  await getSharedDb().delete(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, prehashedRuntimeId));
   await getSharedDb().delete(coordinationCredentialAuditEvents)
     .where(eq(coordinationCredentialAuditEvents.runtimeId, revocationRaceRuntimeId));
   await getSharedDb().delete(coordinationCredentialAuditEvents)
     .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
+  await getSharedDb().delete(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, prehashedRuntimeId));
   await closeDbConnections();
+});
+
+databaseTest('trusted prehashed registration is strict, retry-safe, and never returns or audits secrets', async () => {
+  const bootstrap = `cb_${crypto.randomBytes(32).toString('base64url')}`;
+  const digest = hashCoordinationSecret(bootstrap);
+  const input: Parameters<typeof registerCoordinationRuntimeWithBootstrapSha256>[0] = {
+    runtimeId: prehashedRuntimeId,
+    actor: 'luca-replit',
+    displayName: 'Prehashed broker CI runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+    bootstrapSha256: digest,
+  };
+
+  const created = await registerCoordinationRuntimeWithBootstrapSha256(input);
+  assert.equal(created.status, 'created');
+  assert.equal(JSON.stringify(created).includes(digest), false);
+  assert.equal(JSON.stringify(created).includes(bootstrap), false);
+
+  const captureError = async (operation: () => Promise<unknown>): Promise<unknown> => {
+    let caught: unknown;
+    try {
+      await operation();
+    } catch (error) {
+      caught = error;
+    }
+    assert.ok(caught, 'expected operation to reject');
+    return caught;
+  };
+  assert.equal(await exchangeBootstrapCredential(prehashedRuntimeId, digest), null);
+
+  const replayed = await registerCoordinationRuntimeWithBootstrapSha256(input);
+  assert.equal(replayed.status, 'replayed');
+  assert.deepEqual(replayed, { ...created, status: 'replayed' });
+  assert.ok(await exchangeBootstrapCredential(prehashedRuntimeId, bootstrap));
+
+  for (const invalidDigest of [
+    digest.toUpperCase(),
+    digest.slice(0, 63),
+    `${digest}0`,
+    `${digest.slice(0, 63)}g`,
+  ]) {
+    const error = await captureError(
+      () => registerCoordinationRuntimeWithBootstrapSha256({ ...input, bootstrapSha256: invalidDigest }),
+    );
+    assert.match(String(error), /lowercase hexadecimal SHA-256/);
+    assert.equal(String(error).includes(bootstrap), false);
+    assert.equal(String(error).includes(digest), false);
+  }
+
+  const conflictError = await captureError(() => registerCoordinationRuntimeWithBootstrapSha256({
+      ...input,
+      actor: 'luca-claude-code',
+    }));
+  assert.match(String(conflictError), /conflicts with an existing record/);
+  assert.equal(String(conflictError).includes(bootstrap), false);
+  assert.equal(String(conflictError).includes(digest), false);
+  const events = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, prehashedRuntimeId));
+  const serializedEvents = JSON.stringify(events);
+  assert.equal(serializedEvents.includes(bootstrap), false);
+  assert.equal(serializedEvents.includes(digest), false);
+  assert.equal(events.some((event) => event.eventType === 'runtime_registration_replayed'), true);
+  assert.equal(events.some((event) => event.eventType === 'runtime_registration_rejected'), true);
 });
 
 databaseTest('broker issues, rotates, expires from use, revokes, and audits without plaintext storage', async () => {
