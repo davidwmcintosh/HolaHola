@@ -24,7 +24,12 @@ function postgresBinary(name) {
   if (fromPath) return fromPath;
   const found = spawnSync(
     'sh',
-    ['-c', `find /nix/store -path '*/bin/${name}' -type f 2>/dev/null | head -n 1`],
+    [
+      '-c',
+      `for root in /usr/lib/postgresql /nix/store; do ` +
+        `[ -d "$root" ] && find "$root" -path '*/bin/${name}' -type f 2>/dev/null; ` +
+      `done | head -n 1`,
+    ],
     { encoding: 'utf8' },
   ).stdout.trim();
   if (!found) throw new Error(`PostgreSQL command "${name}" is required`);
