@@ -50,7 +50,12 @@ Add a repository script dedicated to Antigravity Gate 3. It exposes fixed action
 - `run`: consume the protected bootstrap and run the existing bounded driver;
 - `status`: report only non-secret local state.
 
-The launcher must run under both 64-bit Windows PowerShell 5.1 and PowerShell 7. It must reject non-Windows hosts and unavailable DPAPI APIs.
+The launcher must run under both 64-bit Windows PowerShell 5.1 and PowerShell 7.
+After confirming the Windows host and minimum PowerShell version, it must
+explicitly load the exact `System.Security` assembly with terminating error
+handling before resolving `System.Security.Cryptography.ProtectedData`.
+Assembly-load failure and a still-missing type both fail closed as DPAPI
+unavailable. It must reject non-Windows hosts and unavailable DPAPI APIs.
 
 It must resolve and validate the approved worktree:
 
@@ -193,6 +198,8 @@ These checks do not claim that DPAPI or Windows process behavior ran successfull
 The approved Windows host must provide the actual DPAPI evidence:
 
 - Windows PowerShell 5.1 parses and runs the launcher;
+- Windows PowerShell 5.1 loads `System.Security` before resolving
+  `ProtectedData`;
 - initialization creates a decryptable CurrentUser-protected envelope;
 - another Windows user cannot use it;
 - ACL and owner validation pass;
