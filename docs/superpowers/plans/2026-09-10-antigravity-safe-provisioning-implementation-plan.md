@@ -13,6 +13,12 @@
 - No work-authorizing action may occur before a fresh founder-approved ownership proof succeeds.
 - The exact task starting commit is resolved only after this implementation completes protected promotion.
 - Do not claim adversarial Windows host containment.
+- Implement Phase B as one transaction in registration → profile → receipt →
+  challenge row order; any receipt/challenge failure rolls back the new
+  registration and profile.
+- For protected executor/verifier mutations, acquire the credential advisory
+  lock and then hold registration → profile → credential → receipt → challenge
+  → grant.
 
 ## Step 1: Lock bootstrap-digest registration behavior with tests
 

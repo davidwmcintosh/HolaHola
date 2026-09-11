@@ -247,6 +247,10 @@ export type ExecutionEnvelope = {
   maxApiAttempts?: 8;
   startingCommit?: string;
   timeoutMs?: 600000;
+  grantId?: string;
+  taskRef?: string;
+  artifactSha256?: string;
+  contextDigest?: string;
 };
 export type Gate3ExecutionEnvelope = ExecutionEnvelope & {
   repositoryLabel: 'HolaHola';

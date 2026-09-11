@@ -1,3 +1,18 @@
+# Gate 3 coordinator final local proof — 2026-09-11
+
+- Phase B now documents and implements one transaction in registration →
+  profile → receipt → challenge order, with full rollback on ownership failure.
+- Protected executor/verifier mutations hold registration → profile →
+  credential → receipt → challenge → grant after the credential advisory lock.
+- The final source tree passed the registered Validation suite, Consolidated
+  CI, system health, 14/14 focused Gate 3 tests, 67/67 disposable-PostgreSQL
+  coordination tests, `git diff --check`, and protected GitHub-main ancestry.
+- Deep security scanning found no changed-file Gate 3 credential exposure. A
+  pre-existing log that printed an eight-character `GEMINI_API_KEY` prefix now
+  logs only the model; the corresponding HoundDog finding is gone.
+- Final protected promotion and real Windows/Antigravity task 1448 execution
+  remain pending and require separate evidence.
+
 # Persisted Gemini runtime authority model — 2026-09-10
 
 # Gate 3 server Gemini boundary — 2026-09-10

@@ -9,6 +9,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve, relative, sep } from 'node:path';
 import { digestCanonical } from '../services/coordination-runtime';
+import { TaskOwnershipHttpClient, proveTaskOwnership, type OwnershipProofResult } from '../services/task-ownership-client';
 
 export const TARGET = 'server/scripts/test-coordination-runtime.test.ts';
 const ALLOWED = {
@@ -33,8 +34,11 @@ export type Fs = {
 };
 export type DriverOptions = {
   baseUrl: string; runtimeId: string; worktree: string; windowId: string;
-  assignmentEventId?: string; bootstrap?: string; receiptFile?: string;
+  assignmentEventId?: string; bootstrap?: string; ownershipReceiptId?: string; ownershipArtifactSha256?: string; receiptFile?: string;
   http?: Http; spawn?: Spawn; fs?: Fs; env?: Record<string, string>;
+  platform?: NodeJS.Platform;
+  ownershipClient?: TaskOwnershipHttpClient;
+  proveOwnership?: (client: TaskOwnershipHttpClient | undefined, taskRef: string, actor: string, receiptId: string) => Promise<unknown>;
   now?: () => number; sleep?: (milliseconds: number) => Promise<void>;
 };
 
@@ -58,6 +62,26 @@ function safeError(error: unknown): Error {
   return new Error(text.replace(/(?:cb|ct)_[A-Za-z0-9_-]{12,}/g, '[redacted]').replace(/Bearer\s+\S+/gi, 'Bearer [redacted]'));
 }
 function idempotency(prefix: string): string { return `antigravity-${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+
+/** Strict parser shared by the HTTP proof contract and the portable driver. */
+export function parseOwnershipProof(value: unknown, receiptId: string, artifactSha256: string): OwnershipProofResult {
+  const proof = value as Record<string, unknown> | null;
+  const keys = proof ? Object.keys(proof).sort().join(',') : '';
+  const grant = proof?.grant as Record<string, unknown> | undefined;
+  const grantKeys = grant ? Object.keys(grant).sort().join(',') : '';
+  if (!proof || keys !== 'artifactSha256,contextDigest,grant,intendedActor,ok,proofPayloadDigest,receiptId,taskRef,verified' ||
+      !grant || grantKeys !== 'artifactSha256,contextDigest,expiresAt,id,startingCommit,taskRef' ||
+      proof.ok !== true || proof.verified !== true || proof.receiptId !== receiptId ||
+      proof.taskRef !== '1448' || proof.intendedActor !== 'luca-gemini' ||
+      proof.artifactSha256 !== artifactSha256 || typeof proof.contextDigest !== 'string' ||
+      typeof proof.proofPayloadDigest !== 'string' || !/^[0-9a-f]{64}$/.test(proof.proofPayloadDigest) ||
+      typeof grant.id !== 'string' || grant.id === '' || grant.taskRef !== '1448' || grant.artifactSha256 !== artifactSha256 ||
+      grant.contextDigest !== proof.contextDigest || typeof grant.startingCommit !== 'string' ||
+      typeof grant.expiresAt !== 'string' || !Number.isFinite(Date.parse(grant.expiresAt))) {
+    throw new Error('ownership_proof_rejected');
+  }
+  return proof as OwnershipProofResult;
+}
 
 export function validateArgv(argv: string[]): void {
   const key = argv.join('\0');
@@ -107,12 +131,32 @@ async function assertSafePath(fs: Fs, root: string, path: string): Promise<void>
   }
 }
 
+async function readApprovedArtifact(fs: Fs, root: string): Promise<Buffer> {
+  const artifact = resolve(root, '.local', 'tasks', 'task-1448.md');
+  const rootKey = normalizedWindowsPath(root);
+  const artifactKey = normalizedWindowsPath(artifact);
+  if (!artifactKey.startsWith(rootKey + '/')) throw new Error('path_not_allowed');
+  let current = root;
+  for (const part of relative(root, artifact).split(sep).filter(Boolean)) {
+    current = resolve(current, part);
+    const stat = await fs.lstat(current);
+    if (stat.isSymbolicLink() || stat.isReparsePoint?.() ||
+        (stat.fileAttributes !== undefined && (stat.fileAttributes & 0x400) !== 0)) throw new Error('symlink_not_allowed');
+    if (current !== artifact && !stat.isDirectory()) throw new Error('path_not_allowed');
+    if (current === artifact && !stat.isFile()) throw new Error('path_not_allowed');
+    const resolved = normalizedWindowsPath(await fs.realpath(current));
+    if (!(resolved === rootKey || resolved.startsWith(rootKey + '/'))) throw new Error('path_not_allowed');
+  }
+  return fs.readFile(artifact);
+}
+
 export class Gate3Executor {
   constructor(private readonly root: string, private readonly fs: Fs = realFs, private readonly run: Spawn = spawn,
-    private readonly childEnv: Record<string, string> = {}) {}
+    private readonly childEnv: Record<string, string> = {}, private readonly platform: NodeJS.Platform = process.platform) {}
   private async command(argv: string[]) {
     validateArgv(argv);
-    return this.run(argv, { cwd: this.root, env: { PATH: this.childEnv.PATH ?? process.env.PATH ?? '', ...this.childEnv }, timeoutMs: LIMITS.command });
+    const spawnArgv = this.platform === 'win32' && argv[0] === 'npx' ? ['npx.cmd', ...argv.slice(1)] : argv;
+    return this.run(spawnArgv, { cwd: this.root, env: { PATH: this.childEnv.PATH ?? process.env.PATH ?? '', ...this.childEnv }, timeoutMs: LIMITS.command });
   }
   async measure(argv: string[]) { return this.command(argv); }
   async execute(intent: { name: string; arguments: Record<string, unknown> }): Promise<Record<string, unknown>> {
@@ -142,6 +186,9 @@ export class Gate3Executor {
 
 export class AntigravityDriver {
   private token: string | undefined;
+  private ownershipGrantId = '';
+  private grantEstablished = false;
+  private ownershipGrantExpiry = 0;
   private credentialExpiry = 0;
   private claimId = '';
   private epoch = 0;
@@ -154,6 +201,7 @@ export class AntigravityDriver {
   private renewalLoop?: Promise<void>;
   private readonly http: Http;
   private readonly fs: Fs;
+  private readonly ownershipClient?: TaskOwnershipHttpClient;
   constructor(private readonly options: DriverOptions) {
     this.http = options.http ?? (async ({ method, path, headers, body }) => {
       const response = await fetch(new URL(path, options.baseUrl), {
@@ -163,6 +211,7 @@ export class AntigravityDriver {
       return { status: response.status, body: await response.json().catch(() => ({})) };
     });
     this.fs = options.fs ?? realFs;
+    this.ownershipClient = options.ownershipClient;
     this.now = options.now ?? Date.now;
     this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolveSleep) => {
       const timer = setTimeout(resolveSleep, milliseconds);
@@ -208,8 +257,13 @@ export class AntigravityDriver {
     return this.renewalActive ? Promise.race([operation, this.renewalFailure]) as Promise<T> : operation;
   }
   private async request(path: string, method: string, body?: unknown, key = idempotency(path)): Promise<any> {
+    if (this.grantEstablished && (this.now() >= this.credentialExpiry - 30000 ||
+        this.now() >= this.ownershipGrantExpiry - 30000)) {
+      throw new Error('credential_expired_during_granted_run');
+    }
     const result = await this.http({ method, path, body, headers: {
       ...(this.token ? { 'x-coordination-token': this.token } : {}),
+      ...(this.ownershipGrantId ? { 'x-coordination-ownership-grant': this.ownershipGrantId } : {}),
       'idempotency-key': key,
     }});
     if (result.status < 200 || result.status >= 300) throw new Error(`server_rejected:${(result.body as any)?.error ?? result.status}`);
@@ -233,13 +287,60 @@ export class AntigravityDriver {
   }
   async run(): Promise<void> {
     if (this.options.bootstrap === undefined) throw new Error('bootstrap_missing');
+    const hostEnv = this.options.env ?? process.env;
+    if (Object.prototype.hasOwnProperty.call(hostEnv, 'COORDINATION_LUCA_GEMINI_CODE_TOKEN') ||
+        Object.prototype.hasOwnProperty.call(hostEnv, 'COORDINATION_LUCA_GEMINI_TOKEN')) {
+      throw new Error('fixed_actor_token_present');
+    }
+    if (!this.options.ownershipReceiptId) throw new Error('ownership_receipt_missing');
+    if (!this.options.ownershipArtifactSha256 || !/^[0-9a-f]{64}$/.test(this.options.ownershipArtifactSha256)) {
+      throw new Error('ownership_artifact_digest_invalid');
+    }
     const root = await this.fs.realpath(this.options.worktree);
+    const artifact = await readApprovedArtifact(this.fs, root);
+    if (digest(artifact) !== this.options.ownershipArtifactSha256) throw new Error('ownership_artifact_mismatch');
+    const verifyArtifact = async () => {
+      const current = await readApprovedArtifact(this.fs, root);
+      if (digest(current) !== this.options.ownershipArtifactSha256) throw new Error('ownership_artifact_mismatch');
+    };
     const executor = new Gate3Executor(root, this.fs, this.options.spawn ?? spawn,
-      { PATH: this.options.env?.PATH ?? process.env.PATH ?? '', NODE_ENV: 'test' });
+      { PATH: this.options.env?.PATH ?? process.env.PATH ?? '', NODE_ENV: 'test' }, this.options.platform);
     const started = this.now();
     await this.ensureCredential();
+    if (this.credentialExpiry - this.now() < LIMITS.elapsed + 30000) {
+      throw new Error('credential_expiry_insufficient_for_granted_run');
+    }
+    const prove = this.options.proveOwnership
+      ?? ((client, taskRef, actor, receiptId) => proveTaskOwnership(client!, taskRef, actor, receiptId));
+    const ownershipClient = this.options.proveOwnership ? this.ownershipClient : (this.ownershipClient ?? new TaskOwnershipHttpClient(
+      this.options.baseUrl,
+      this.token!,
+    ));
+    await verifyArtifact();
+    const ownership = await prove(ownershipClient, '1448', 'luca-gemini', this.options.ownershipReceiptId);
+    const proof = parseOwnershipProof(ownership, this.options.ownershipReceiptId, this.options.ownershipArtifactSha256) as Record<string, unknown>;
+    const ownershipGrant = proof.grant as Record<string, unknown>;
+    this.ownershipGrantId = ownershipGrant.id as string;
+    this.ownershipGrantExpiry = Date.parse(ownershipGrant.expiresAt as string);
+    if (!Number.isFinite(this.ownershipGrantExpiry) ||
+        this.ownershipGrantExpiry - this.now() < LIMITS.elapsed + 30000 ||
+        this.credentialExpiry - this.now() < LIMITS.elapsed + 30000) {
+      throw new Error('grant_expiry_insufficient_for_granted_run');
+    }
+    this.grantEstablished = true;
+    await verifyArtifact();
     const packet = await this.request('/api/coordination/runtime/packets', 'POST',
       { windowId: this.options.windowId, ...(this.options.assignmentEventId ? { assignmentEventId: this.options.assignmentEventId } : {}) });
+    if (
+      packet?.envelope?.grantId !== ownershipGrant.id
+      || packet.envelope.taskRef !== ownershipGrant.taskRef
+      || packet.envelope.artifactSha256 !== ownershipGrant.artifactSha256
+      || packet.envelope.contextDigest !== ownershipGrant.contextDigest
+      || packet.envelope.startingCommit !== ownershipGrant.startingCommit
+      || proof.contextDigest !== ownershipGrant.contextDigest
+    ) {
+      throw new Error('ownership_packet_binding_mismatch');
+    }
     const measured: Array<{ argv: string[]; exitCode: number; stdoutDigest: string; stderrDigest: string; truncated: boolean; stdout: string }> = [];
     const measure = async (argv: string[]) => {
       const value = await executor.measure(argv);
@@ -316,9 +417,14 @@ export class AntigravityDriver {
     const local = { startingCommit: packet.envelope.startingCommit, resultingHead: preCompletionHead.stdout.trim(),
       changedPaths: paths, patchDigest: digest(diff.stdout), commandResults: measured.map(({ stdout, ...record }) => record),
       elapsedMs: this.now() - started, modelTurns: turn, apiAttempts: attempts };
+    await verifyArtifact();
     await this.renewClaim();
     await this.stopRenewalController();
     const execution = await this.request(`/api/coordination/runtime/claims/${claim.id}/execute`, 'POST', { attestedLocalState: local });
+    await verifyArtifact();
+    const finalHead = await this.guardAfterClaim(measure([...ALLOWED.head]));
+    if (finalHead.stdout.trim() !== packet.envelope.startingCommit) throw new Error('starting_state_changed');
+    await verifyArtifact();
     const completion = await this.request(`/api/coordination/runtime/executions/${execution.id}/complete`, 'POST');
     if (this.options.receiptFile) await this.fs.writeFile(this.options.receiptFile, JSON.stringify({
       packetId: packet.id, receiptId: receipt.id, claimId: claim.id, executionId: execution.id, completionId: completion.id,
@@ -333,16 +439,18 @@ function option(name: string): string | undefined {
 }
 export async function main(): Promise<void> {
   const env = process.env;
-  const bootstrap = env.COORDINATION_BOOTSTRAP;
+  const bootstrap = env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN;
   // The protected interface is a one-shot handoff. Remove its process
   // environment entry before constructing any other request or child env.
-  delete env.COORDINATION_BOOTSTRAP;
+  delete env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN;
   const driver = new AntigravityDriver({
     baseUrl: option('api-base') ?? env.COORDINATION_API_BASE_URL ?? '',
     runtimeId: option('runtime-id') ?? env.COORDINATION_RUNTIME_ID ?? '',
     worktree: option('worktree') ?? env.COORDINATION_WORKTREE ?? '',
     windowId: option('window-id') ?? env.COORDINATION_WINDOW_ID ?? '',
     assignmentEventId: option('assignment-event-id') ?? env.COORDINATION_ASSIGNMENT_EVENT_ID,
+    ownershipReceiptId: option('ownership-receipt-id') ?? env.COORDINATION_OWNERSHIP_RECEIPT_ID,
+    ownershipArtifactSha256: option('ownership-artifact-sha256') ?? env.COORDINATION_OWNERSHIP_ARTIFACT_SHA256,
     bootstrap,
     receiptFile: option('receipt-file') ?? env.COORDINATION_RECEIPT_FILE,
   });

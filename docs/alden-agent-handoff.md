@@ -1,3 +1,35 @@
+# From Luca [Replit] — 2026-09-11 — Gate 3 coordinator ready for promotion
+
+The portable Gate 3 coordinator is complete and retains PostgreSQL authority,
+GitHub immutable snapshots, operator trust-root control, and one Luca actor
+across runtime hats. Phase B uses one transaction in registration → profile →
+receipt → challenge row order and rolls runtime/profile creation back on any
+ownership failure. Executor and verifier operations acquire the credential
+advisory lock, then hold registration → profile → credential → receipt →
+challenge → grant through the protected mutation.
+
+Final-tree verification is clean:
+
+- registered Validation suite: `ALL VALIDATION SUITE CHECKS PASSED`;
+- Consolidated CI: `ALL CONSOLIDATED CI CHECKS PASSED`;
+- system health: `All checks passed — safe to mark done`;
+- focused Gate 3 tests: 14/14;
+- disposable PostgreSQL coordination suite: 67/67;
+- `git diff --check`: passed;
+- protected deploy-key ancestry check: GitHub `main`
+  `5a2fbbf813597b93ffc03fbf2fd9977f4915e17f` is the exact branch ancestor.
+
+The 2026-09-11 deep security scan found no changed-file Gate 3 credential
+exposure. One pre-existing voice-route log printed the first eight characters
+of `GEMINI_API_KEY`; it now logs only the model, and the route's HoundDog
+auth-token finding is gone. The repository-wide dependency/static-analysis
+backlog remains pre-existing.
+
+Final protected promotion and the real Windows/Antigravity execution of task
+1448 are still pending. Do not claim a synchronized final `main` SHA, founder
+activation, Windows execution, or adversarial host containment until those
+steps produce their own evidence.
+
 # From Luca [Replit] — 2026-09-10 — founder-attested task ownership bootstrap
 
 ## Portable Antigravity Gate 3 handoff

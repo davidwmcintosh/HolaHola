@@ -2,10 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { AntigravityDriver, Gate3Executor, TARGET, validateArgv } from './coordination-runtime-antigravity';
+import type { TaskOwnershipHttpClient } from '../services/task-ownership-client';
 
 const digest = 'a'.repeat(64);
+const artifactContent = 'approved task artifact';
+const artifactDigest = createHash('sha256').update(artifactContent).digest('hex');
 function fakeFs(content = '') {
-  const files = new Map([[`/approved/${TARGET}`, Buffer.from(content)]]);
+  const files = new Map([
+    [`/approved/${TARGET}`, Buffer.from(content)],
+    ['/approved/.local/tasks/task-1448.md', Buffer.from(artifactContent)],
+  ]);
   return {
     files,
     realpath: async (p: string) => p,
@@ -18,19 +24,23 @@ function fakeFs(content = '') {
 test('portable driver uses the broker lifecycle and never leaks bootstrap', async () => {
   const secret = 'cb_test_secret_that_must_not_escape';
   const calls: Array<{ path: string; headers: Record<string, string>; body?: unknown }> = [];
+  const ordering: string[] = [];
   const fs = fakeFs();
   let reveal = 0;
   let statusCount = 0;
   const http = async (request: { method: string; path: string; headers: Record<string, string>; body?: unknown }) => {
     calls.push(request);
     if (request.path.endsWith('/credentials/exchange')) {
+      ordering.push('exchange');
       assert.equal(request.headers['x-coordination-bootstrap'], secret);
       return { status: 201, body: { accessToken: 'ct_short', expiresAt: new Date(Date.now() + 3600000).toISOString() } };
     }
     assert.equal(request.headers['x-coordination-token'], 'ct_short');
+    if (request.path === '/api/coordination/runtime/packets') ordering.push('packet');
     if (request.path === '/api/coordination/runtime/packets') return { status: 200, body: {
       id: 'packet-1', digest, envelope: { startingCommit: 'head', branch: 'main',
-        worktreeRealpathDigest: createHash('sha256').update('/approved').digest('hex') },
+        worktreeRealpathDigest: createHash('sha256').update('/approved').digest('hex'),
+        grantId: 'grant-1', taskRef: '1448', artifactSha256: artifactDigest, contextDigest: digest },
     } };
     if (request.path.endsWith('/initial-turn')) return { status: 200, body: { interactionIds: ['interaction-1'], receiptId: 'receipt-1' } };
     if (request.path.endsWith('/receipt')) return { status: 200, body: { id: 'receipt-1' } };
@@ -49,7 +59,30 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
   const spawned: Array<{ argv: string[]; env: Record<string, string> }> = [];
   const driver = new AntigravityDriver({
     baseUrl: 'https://unused.invalid', runtimeId: 'runtime-1', worktree: '/approved',
-    windowId: 'window-1', bootstrap: secret, http, fs,
+     windowId: 'window-1', bootstrap: secret, ownershipReceiptId: 'receipt-1', ownershipArtifactSha256: artifactDigest,
+     ownershipClient: {} as TaskOwnershipHttpClient,
+     proveOwnership: async (client, taskRef, actor, receiptId) => {
+       ordering.push('proof');
+       assert.equal(taskRef, '1448'); assert.equal(actor, 'luca-gemini'); assert.equal(receiptId, 'receipt-1');
+        return {
+          ok: true,
+          verified: true,
+          receiptId: 'receipt-1',
+          taskRef: '1448',
+          intendedActor: 'luca-gemini',
+          artifactSha256: artifactDigest,
+          proofPayloadDigest: digest,
+          contextDigest: digest,
+          grant: {
+            id: 'grant-1',
+            taskRef: '1448',
+            artifactSha256: artifactDigest,
+            contextDigest: digest,
+            startingCommit: 'head',
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          },
+        };
+     }, http, fs, env: {},
     spawn: async (argv, options) => {
       spawned.push({ argv, env: options.env });
       const output = argv[1] === 'rev-parse' && argv[2] === '--show-toplevel' ? '/approved\n'
@@ -61,6 +94,12 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
     },
   });
   await driver.run();
+  assert.deepEqual(ordering.slice(0, 3), ['exchange', 'proof', 'packet']);
+  assert.equal(
+    calls.filter((call) => call.path === '/api/coordination/credentials/renew').length,
+    0,
+    'the driver must never renew its credential after establishing the ownership grant',
+  );
   assert.deepEqual(calls.map((call) => call.path), [
     '/api/coordination/credentials/exchange', '/api/coordination/runtime/packets',
     '/api/coordination/runtime/packets/packet-1/initial-turn',
@@ -73,7 +112,7 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
     '/api/coordination/runtime/claims/claim-1/execute',
     '/api/coordination/runtime/executions/execution-1/complete',
   ]);
-  assert.equal(spawned.length, 9);
+  assert.equal(spawned.length, 10);
   assert.ok(spawned.every(({ env }) => !('COORDINATION_BOOTSTRAP' in env) && !('DATABASE_URL' in env)));
   assert.ok(calls.every((call) => call.path.endsWith('/credentials/exchange')
     ? call.headers['x-coordination-bootstrap'] === secret
@@ -91,6 +130,12 @@ test('executor is shell-free and rejects commands, paths, and oversized writes',
   await assert.rejects(() => executor.execute({ name: 'write_file', arguments: { content: 'x'.repeat(40961) } }), /output_limit_exceeded/);
   await assert.rejects(() => executor.execute({ name: 'git_diff', arguments: { path: 'other.txt' } }), /argument_not_allowed/);
   assert.equal(spawned.length, 0);
+  const windowsSpawned: string[][] = [];
+  const windowsExecutor = new Gate3Executor('/approved', fs, async (argv) => {
+    windowsSpawned.push(argv); return { code: 0, stdout: '', stderr: '' };
+  }, { PATH: 'safe' }, 'win32');
+  await windowsExecutor.execute({ name: 'run_test', arguments: {} });
+  assert.deepEqual(windowsSpawned, [['npx.cmd', 'tsx', TARGET]]);
 });
 
 test('broker failure has no fixed-token fallback', async () => {
@@ -99,8 +144,113 @@ test('broker failure has no fixed-token fallback', async () => {
   const driver = new AntigravityDriver({
     baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
     bootstrap: 'cb_test_secret', http, fs, spawn: async () => { throw new Error('must not execute'); },
+    ownershipReceiptId: 'receipt-1', ownershipArtifactSha256: artifactDigest,
+    env: {},
   });
   await assert.rejects(() => driver.run(), /authentication_failed/);
+});
+
+test('Gate 3 rejects either fixed Gemini actor-token alias before any exchange', async () => {
+  for (const variable of ['COORDINATION_LUCA_GEMINI_CODE_TOKEN', 'COORDINATION_LUCA_GEMINI_TOKEN']) {
+    const calls: string[] = [];
+    const driver = new AntigravityDriver({
+      baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
+      bootstrap: 'cb_test_secret', ownershipReceiptId: 'receipt-1', fs: fakeFs(),
+      env: { [variable]: 'fixed-secret' },
+      http: async (request) => { calls.push(request.path); return { status: 500, body: {} }; },
+      spawn: async () => { throw new Error('must not execute'); },
+    });
+    await assert.rejects(() => driver.run(), /fixed_actor_token_present/);
+    assert.deepEqual(calls, []);
+  }
+});
+
+test('Gate 3 requires a caller-supplied ownership receipt before packet fetch', async () => {
+  const calls: string[] = [];
+  const driver = new AntigravityDriver({
+    baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
+    bootstrap: 'cb_test_secret', fs: fakeFs(),
+    env: {},
+    http: async (request) => { calls.push(request.path); return { status: 201, body: { accessToken: 'ct_short', expiresAt: new Date(Date.now() + 3600000).toISOString() } }; },
+    spawn: async () => { throw new Error('must not execute'); },
+  });
+  await assert.rejects(() => driver.run(), /ownership_receipt_missing/);
+  assert.deepEqual(calls, []);
+});
+
+test('rejected ownership proof fails closed before packet fetch', async () => {
+  const calls: string[] = [];
+  const driver = new AntigravityDriver({
+    baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
+    bootstrap: 'cb_test_secret', ownershipReceiptId: 'receipt-1', ownershipArtifactSha256: artifactDigest, fs: fakeFs(), env: {},
+    http: async (request) => {
+      calls.push(request.path);
+      if (request.path.endsWith('/credentials/exchange')) {
+        return { status: 201, body: { accessToken: 'ct_short', expiresAt: new Date(Date.now() + 3600000).toISOString() } };
+      }
+      throw new Error('packet_fetch_must_not_run');
+    },
+    proveOwnership: async () => ({ ok: false, verified: false }),
+    spawn: async () => { throw new Error('must not execute'); },
+  });
+  await assert.rejects(() => driver.run(), /ownership_proof_rejected/);
+  assert.deepEqual(calls, ['/api/coordination/credentials/exchange']);
+});
+
+test('Gate 3 requires a lowercase ownership artifact digest', async () => {
+  const driver = new AntigravityDriver({
+    baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
+    bootstrap: 'cb_test_secret', ownershipReceiptId: 'receipt-1', fs: fakeFs(), env: {},
+    http: async () => { throw new Error('must not exchange'); },
+    spawn: async () => { throw new Error('must not execute'); },
+  });
+  await assert.rejects(() => driver.run(), /ownership_artifact_digest_invalid/);
+});
+
+test('artifact validation fails closed before exchange for changed, missing, and unsafe files', async () => {
+  for (const mode of ['changed', 'missing', 'symlink', 'reparse'] as const) {
+    const fs = fakeFs();
+    if (mode === 'changed') fs.files.set('/approved/.local/tasks/task-1448.md', Buffer.from('changed'));
+    if (mode === 'missing') fs.files.delete('/approved/.local/tasks/task-1448.md');
+    if (mode === 'symlink' || mode === 'reparse') {
+      fs.lstat = async (path: string) => path.endsWith('task-1448.md')
+        ? { isSymbolicLink: () => mode === 'symlink', isFile: () => true, isDirectory: () => false,
+          isReparsePoint: () => mode === 'reparse' }
+        : { isSymbolicLink: () => false, isFile: () => false, isDirectory: () => true };
+    }
+    const driver = new AntigravityDriver({
+      baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
+      bootstrap: 'cb_test_secret', ownershipReceiptId: 'receipt-1', ownershipArtifactSha256: artifactDigest,
+      fs, env: {}, http: async () => { throw new Error('must not exchange'); },
+      spawn: async () => { throw new Error('must not execute'); },
+    });
+    await assert.rejects(() => driver.run());
+  }
+});
+
+test('ownership proof fields must match the caller-supplied binding', async () => {
+  const fields = ['taskRef', 'intendedActor', 'receiptId', 'artifactSha256'] as const;
+  for (const field of fields) {
+    const response: Record<string, unknown> = {
+      ok: true, verified: true, receiptId: 'receipt-1', taskRef: '1448',
+      intendedActor: 'luca-gemini', artifactSha256: artifactDigest,
+    };
+    response[field] = field === 'artifactSha256' ? 'c'.repeat(64) : 'wrong';
+    const paths: string[] = [];
+    const driver = new AntigravityDriver({
+      baseUrl: 'https://unused.invalid', runtimeId: 'r', worktree: '/approved', windowId: 'w',
+      bootstrap: 'cb_test_secret', ownershipReceiptId: 'receipt-1', ownershipArtifactSha256: artifactDigest,
+      fs: fakeFs(), env: {}, ownershipClient: {} as TaskOwnershipHttpClient,
+      http: async (request) => {
+        paths.push(request.path);
+        return { status: 201, body: { accessToken: 'ct_short', expiresAt: new Date(Date.now() + 3600000).toISOString() } };
+      },
+      proveOwnership: async () => response,
+      spawn: async () => { throw new Error('must not execute'); },
+    });
+    await assert.rejects(() => driver.run(), /ownership_proof_rejected/);
+    assert.deepEqual(paths, ['/api/coordination/credentials/exchange']);
+  }
 });
 
 test('symlink/reparse targets and malformed intents fail before mutation', async () => {

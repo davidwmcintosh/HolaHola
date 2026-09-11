@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { after, test } from 'node:test';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
   coordinationCredentialAuditEvents,
+  coordinationGate3ProofGrants,
   coordinationRuntimeCredentials,
+  coordinationRuntimeInboxWindows,
+  coordinationRuntimePackets,
   coordinationRuntimeRegistrations,
+  coordinationRuntimeProfiles,
+  coordinationThreads,
+  taskOwnershipChallenges,
+  taskOwnershipReceipts,
 } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
@@ -19,6 +26,25 @@ import {
   revokeBrokerCredential,
   revokeRuntimeCredentials,
 } from '../services/coordination-credential-broker';
+import {
+  createPublicProvisioningBundle,
+  type PublicProvisioningBundle,
+} from '../services/antigravity-provisioning-bundle';
+import {
+  submitAntigravityChallenge,
+  registerAntigravityRuntime,
+} from './provision-antigravity-runtime';
+import { createChallenge, decideChallenge, revokeReceipt, issueProofNonce, verifyProof } from '../services/founder-task-ownership-service';
+import { canonicalJson } from '../services/task-ownership-service';
+import { buildGate3ProofResponse } from '../routes/founder-task-ownership-routes';
+import { parseOwnershipProof } from './coordination-runtime-antigravity';
+import {
+  issueGate3ProofGrant,
+  computeGate3GrantExpiry,
+  validateGate3ProofGrant,
+  validateGate3ProofGrantForVerifier,
+  withGate3ProofGrantAuthority,
+} from '../services/coordination-gate3-proof-grant-service';
 
 const hasDisposableDatabase = Boolean(
   getVerifiedCiDatabaseUrl() || process.env.COORDINATION_INBOX_DISPOSABLE_BRANCH_ID,
@@ -27,6 +53,8 @@ const databaseTest = hasDisposableDatabase ? test : test.skip;
 const runtimeId = `credential-broker-${Date.now()}`;
 const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
 const prehashedRuntimeId = `${runtimeId}-prehashed`;
+const operatorRuntimeId = 'luca-gemini-antigravity-primary';
+const operatorTaskRef = `operator-${Date.now()}`;
 
 function deferred(): {
   promise: Promise<void>;
@@ -41,18 +69,6 @@ function deferred(): {
 
 after(async () => {
   if (!hasDisposableDatabase) return;
-  await getSharedDb().delete(coordinationRuntimeRegistrations)
-    .where(eq(coordinationRuntimeRegistrations.id, revocationRaceRuntimeId));
-  await getSharedDb().delete(coordinationRuntimeRegistrations)
-    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
-  await getSharedDb().delete(coordinationRuntimeRegistrations)
-    .where(eq(coordinationRuntimeRegistrations.id, prehashedRuntimeId));
-  await getSharedDb().delete(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.runtimeId, revocationRaceRuntimeId));
-  await getSharedDb().delete(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
-  await getSharedDb().delete(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.runtimeId, prehashedRuntimeId));
   await closeDbConnections();
 });
 
@@ -118,6 +134,433 @@ databaseTest('trusted prehashed registration is strict, retry-safe, and never re
   assert.equal(serializedEvents.includes(digest), false);
   assert.equal(events.some((event) => event.eventType === 'runtime_registration_replayed'), true);
   assert.equal(events.some((event) => event.eventType === 'runtime_registration_rejected'), true);
+});
+
+databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and concurrent-retry safe', async () => {
+  const keys = crypto.generateKeyPairSync('ed25519');
+  const der = keys.publicKey.export({ format: 'der', type: 'spki' }) as Buffer;
+  const publicKey = der.toString('base64url');
+  const keyFingerprint = crypto.createHash('sha256').update(der).digest('hex');
+  const secret = `operator-secret-${crypto.randomBytes(24).toString('hex')}`;
+  const bundle = createPublicProvisioningBundle({
+    runtimeId: operatorRuntimeId,
+    actor: 'luca-gemini',
+    credentialCapabilities: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew'],
+    runtimeCapabilities: ['execute', 'model'],
+    tokenTtlSeconds: 900,
+    taskRef: '1448',
+    artifactSha256: crypto.createHash('sha256').update(`${operatorTaskRef}-artifact`).digest('hex'),
+    publicKey,
+    keyFingerprint,
+    bootstrapSha256: hashCoordinationSecret(secret),
+    worktreeRealpathDigest: '1'.repeat(64),
+    branch: 'luca/gemini-experiment',
+    startingCommit: '2'.repeat(40),
+    provider: 'gemini',
+    model: 'gemini-3-flash-preview',
+    adapterVersion: 'coordination-gemini-v1',
+    repositoryLabel: 'HolaHola',
+    worktreeLabel: 'HolaHola-antigravity',
+  });
+  const assertNoAuthority = async () => {
+    assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 0);
+    assert.equal((await getSharedDb().select().from(coordinationRuntimeProfiles)
+      .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId))).length, 0);
+  };
+
+  const phaseA = await submitAntigravityChallenge(bundle);
+  assert.equal(phaseA.bundleDigest, bundle.bundleDigest);
+  await assert.rejects(() => registerAntigravityRuntime(bundle, phaseA.challengeId), /challenge_not_approved/);
+  await assertNoAuthority();
+
+  const receipt = await decideChallenge(phaseA.challengeId, 'approved', 'founder-operator-test');
+  assert.ok('id' in receipt);
+  await getSharedDb().execute(sql`
+    CREATE FUNCTION reject_antigravity_profile_insert() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+    BEGIN
+      IF NEW.runtime_registration_id = 'luca-gemini-antigravity-primary' THEN
+        RAISE EXCEPTION 'forced antigravity profile insert failure';
+      END IF;
+      RETURN NEW;
+    END
+    $$
+  `);
+  await getSharedDb().execute(sql`
+    CREATE TRIGGER reject_antigravity_profile_insert
+    BEFORE INSERT ON coordination_runtime_profiles
+    FOR EACH ROW EXECUTE FUNCTION reject_antigravity_profile_insert()
+  `);
+  try {
+    await assert.rejects(
+      () => registerAntigravityRuntime(bundle, phaseA.challengeId),
+      /Failed query: insert into "coordination_runtime_profiles"/,
+    );
+    await assertNoAuthority();
+  } finally {
+    await getSharedDb().execute(sql`
+      DROP TRIGGER IF EXISTS reject_antigravity_profile_insert
+      ON coordination_runtime_profiles
+    `);
+    await getSharedDb().execute(sql`
+      DROP FUNCTION IF EXISTS reject_antigravity_profile_insert()
+    `);
+  }
+  const registered = await registerAntigravityRuntime(bundle, phaseA.challengeId);
+  assert.equal(registered.status, 'created');
+  assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 1);
+  assert.equal((await getSharedDb().select().from(coordinationRuntimeProfiles)
+    .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId))).length, 1);
+  const replay = await registerAntigravityRuntime(bundle, phaseA.challengeId);
+  assert.equal(replay.status, 'replayed');
+  const exchanged = await exchangeBootstrapCredential(operatorRuntimeId, secret);
+  assert.ok(exchanged);
+  const brokerCredential = await resolveBrokerCredential(exchanged!.accessToken);
+  assert.ok(brokerCredential);
+  const renewedGrantCredential = await renewBrokerCredential(brokerCredential);
+  assert.ok(renewedGrantCredential);
+  const nonce = await issueProofNonce(registered.receiptId, 'luca-gemini');
+  const payload = canonicalJson(nonce.signedPayload);
+  const signature = crypto.sign(null, Buffer.from(payload), keys.privateKey).toString('base64url');
+  const proof = await verifyProof(nonce.nonceId, signature, 'luca-gemini');
+  assert.equal(proof.verified, true);
+  const grant = await issueGate3ProofGrant(proof as any, renewedGrantCredential!.credential);
+  assert.equal(grant.taskRef, '1448');
+  assert.equal(grant.runtimeRegistrationId, operatorRuntimeId);
+  assert.equal(JSON.stringify(grant).includes(secret), false);
+  const syntheticIssuedAt = new Date('2026-09-11T12:00:00.000Z');
+  const syntheticLateChallengeExpiry = new Date(syntheticIssuedAt.getTime() + 40_000);
+  assert.equal(
+    computeGate3GrantExpiry(
+      syntheticIssuedAt,
+      syntheticLateChallengeExpiry,
+      new Date(syntheticIssuedAt.getTime() + 20 * 60_000),
+      new Date(syntheticIssuedAt.getTime() + 30 * 60_000),
+    ).getTime(),
+    syntheticLateChallengeExpiry.getTime(),
+    'late issuance must advertise no authority beyond the challenge expiry',
+  );
+  const routeResponse = buildGate3ProofResponse(proof as any, grant);
+  assert.deepEqual(Object.keys(routeResponse).sort(), [
+    'artifactSha256', 'contextDigest', 'grant', 'intendedActor', 'ok',
+    'proofPayloadDigest', 'receiptId', 'taskRef', 'verified',
+  ]);
+  assert.deepEqual(Object.keys(routeResponse.grant).sort(), [
+    'artifactSha256', 'contextDigest', 'expiresAt', 'id', 'startingCommit', 'taskRef',
+  ]);
+  const parsedRouteResponse = parseOwnershipProof(
+    routeResponse, registered.receiptId, bundle.artifactSha256,
+  );
+  assert.equal(parsedRouteResponse.grant.id, grant.id);
+  const [replayedGrant, concurrentGrant] = await Promise.all([
+    issueGate3ProofGrant(proof as any, renewedGrantCredential!.credential),
+    issueGate3ProofGrant(proof as any, renewedGrantCredential!.credential),
+  ]);
+  assert.equal(replayedGrant.id, grant.id);
+  assert.equal(concurrentGrant.id, grant.id);
+  assert.equal((await validateGate3ProofGrant(grant.id, renewedGrantCredential!.credential)).grantId, grant.id);
+  assert.equal((await validateGate3ProofGrantForVerifier(grant.id)).grantId, grant.id);
+  assert.equal(await renewBrokerCredential(renewedGrantCredential!.credential), null);
+  const successorGrant = grant;
+  await assert.rejects(() => validateGate3ProofGrant(grant.id, brokerCredential), /GATE3_PROOF_GRANT_INVALID/);
+  const concurrent = await Promise.all([
+    registerAntigravityRuntime(bundle, phaseA.challengeId),
+    registerAntigravityRuntime(bundle, phaseA.challengeId),
+  ]);
+  assert.deepEqual(concurrent.map((result) => result.status).sort(), ['replayed', 'replayed']);
+  await getSharedDb().update(coordinationRuntimeProfiles)
+    .set({ model: 'conflicting-model' })
+    .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId));
+  await assert.rejects(() => registerAntigravityRuntime(bundle, phaseA.challengeId), /profile_conflict/);
+  assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 1);
+  await getSharedDb().update(coordinationRuntimeProfiles)
+    .set({ model: bundle.model })
+    .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId));
+
+  await assert.rejects(
+    () => registerAntigravityRuntime({ ...bundle, bootstrapSha256: '3'.repeat(64) }, phaseA.challengeId),
+    /invalid_bundle/,
+  );
+  await assert.rejects(
+    () => registerAntigravityRuntime({ ...bundle, keyFingerprint: '4'.repeat(64) }, phaseA.challengeId),
+    /invalid_bundle|receipt_mismatch/,
+  );
+  assert.equal(JSON.stringify(registered).includes(secret), false);
+  const rollbackProbe = new Error('ROLLBACK_AUTHORITY_LOCK_PROBE');
+  const authorityUpdateCases = [
+    {
+      name: 'grant',
+      run: () => getSharedDb().transaction(async (tx) => {
+        await tx.update(coordinationGate3ProofGrants).set({ revokedAt: null })
+          .where(eq(coordinationGate3ProofGrants.id, successorGrant.id));
+        throw rollbackProbe;
+      }),
+    },
+    {
+      name: 'receipt',
+      run: () => getSharedDb().transaction(async (tx) => {
+        await tx.update(taskOwnershipReceipts).set({ revokedAt: null })
+          .where(eq(taskOwnershipReceipts.id, registered.receiptId));
+        throw rollbackProbe;
+      }),
+    },
+    {
+      name: 'challenge',
+      run: () => getSharedDb().transaction(async (tx) => {
+        await tx.update(taskOwnershipChallenges).set({ status: 'approved' })
+          .where(eq(taskOwnershipChallenges.id, phaseA.challengeId));
+        throw rollbackProbe;
+      }),
+    },
+    {
+      name: 'credential',
+      run: () => getSharedDb().transaction(async (tx) => {
+        await tx.update(coordinationRuntimeCredentials).set({ revokedAt: null })
+          .where(eq(coordinationRuntimeCredentials.id, renewedGrantCredential!.credential.credentialId));
+        throw rollbackProbe;
+      }),
+    },
+    {
+      name: 'registration',
+      run: () => getSharedDb().transaction(async (tx) => {
+        await tx.update(coordinationRuntimeRegistrations).set({ enabled: true })
+          .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
+        throw rollbackProbe;
+      }),
+    },
+    {
+      name: 'profile',
+      run: () => getSharedDb().transaction(async (tx) => {
+        await tx.update(coordinationRuntimeProfiles).set({ status: 'active' })
+          .where(eq(coordinationRuntimeProfiles.id, registered.profileId));
+        throw rollbackProbe;
+      }),
+    },
+  ];
+  for (const authorityCase of authorityUpdateCases) {
+    const authorityEntered = deferred();
+    const releaseAuthority = deferred();
+    const leasedOperation = withGate3ProofGrantAuthority(
+      successorGrant.id,
+      renewedGrantCredential!.credential,
+      async () => {
+        authorityEntered.resolve();
+        await releaseAuthority.promise;
+        return 'completed-under-authority';
+      },
+    );
+    await authorityEntered.promise;
+    let updateSettled = false;
+    const updateAttempt = authorityCase.run().then(
+      () => assert.fail(`${authorityCase.name} lock probe unexpectedly committed`),
+      (error) => {
+        if (error !== rollbackProbe) {
+          const message = String(
+            (error as { cause?: { message?: string } })?.cause?.message
+            ?? (error as Error)?.message
+            ?? error,
+          );
+          if (authorityCase.name === 'receipt') {
+            assert.match(message, /invalid task ownership receipt transition/);
+          } else if (authorityCase.name === 'challenge') {
+            assert.match(message, /invalid task ownership challenge transition/);
+          } else {
+            throw error;
+          }
+        }
+        updateSettled = true;
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(updateSettled, false, `${authorityCase.name} update must wait for the authority lease`);
+    releaseAuthority.resolve();
+    assert.equal(await leasedOperation, 'completed-under-authority');
+    await updateAttempt;
+    assert.equal(updateSettled, true);
+    assert.equal(
+      (await validateGate3ProofGrant(successorGrant.id, renewedGrantCredential!.credential)).grantId,
+      successorGrant.id,
+    );
+  }
+
+  const [probeThread] = await getSharedDb().select().from(coordinationThreads).limit(1);
+  assert.ok(probeThread);
+  const probeWindowId = `gate3-fk-window-${Date.now()}`;
+  const probeWindowDigest = crypto.createHash('sha256').update(probeWindowId).digest('hex');
+  const [probeWindow] = await getSharedDb().insert(coordinationRuntimeInboxWindows).values({
+    id: probeWindowId,
+    threadId: probeThread.id,
+    afterExclusive: 0,
+    throughInclusive: 1,
+    boundaryToken: 'gate3-fk-probe',
+    orderedItemIds: [`${probeWindowId}-item`],
+    boundaryDigest: probeWindowDigest,
+    canonicalPayload: { kind: 'gate3-fk-probe' },
+  }).returning();
+  await withGate3ProofGrantAuthority(
+    successorGrant.id,
+    renewedGrantCredential!.credential,
+    async () => {
+      const packetProbe = getSharedDb().transaction(async (tx) => {
+        const probeId = `gate3-fk-probe-${Date.now()}`;
+        await tx.insert(coordinationRuntimePackets).values({
+          id: probeId,
+          profileId: registered.profileId,
+          runtimeRegistrationId: operatorRuntimeId,
+          version: 1,
+          assignmentEventId: probeId,
+          assignmentTaskId: '1448',
+          assignmentThreadId: probeWindow.threadId,
+          assignmentAuthor: 'luca-replit',
+          expectedSequence: 1,
+          supersedesClaimId: null,
+          windowId: probeWindow.id,
+          windowDigest: probeWindow.boundaryDigest,
+          orderedInboxItemIds: [probeId],
+          orderedEventIds: [probeId],
+          orderedThreadIds: [probeWindow.threadId],
+          inheritedPayload: [],
+          envelope: {},
+          canonicalPayload: {},
+          digest: crypto.createHash('sha256').update(probeId).digest('hex'),
+          createdAt: new Date(),
+        });
+        throw rollbackProbe;
+      });
+      await assert.rejects(
+        Promise.race([
+          packetProbe,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('FK_PACKET_INSERT_DEADLOCK')), 2_000)),
+        ]),
+        (error: unknown) => error === rollbackProbe,
+      );
+    },
+  );
+
+  const phaseBLeaseEntered = deferred();
+  const releasePhaseBLease = deferred();
+  const phaseBLeasedOperation = withGate3ProofGrantAuthority(
+    successorGrant.id,
+    renewedGrantCredential!.credential,
+    async () => {
+      phaseBLeaseEntered.resolve();
+      await releasePhaseBLease.promise;
+      return 'phase-b-overlap-complete';
+    },
+  );
+  await phaseBLeaseEntered.promise;
+  let phaseBReplaySettled = false;
+  const phaseBReplay = registerAntigravityRuntime(bundle, phaseA.challengeId).then((value) => {
+    phaseBReplaySettled = true;
+    return value;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(
+    phaseBReplaySettled,
+    false,
+    'Phase B replay must wait for the authority lease without deadlocking',
+  );
+  releasePhaseBLease.resolve();
+  assert.equal(await phaseBLeasedOperation, 'phase-b-overlap-complete');
+  assert.equal((await phaseBReplay).status, 'replayed');
+  assert.equal(phaseBReplaySettled, true);
+
+  const runtimeAuthorityEntered = deferred();
+  const releaseRuntimeAuthority = deferred();
+  const runtimeLeasedOperation = withGate3ProofGrantAuthority(
+    successorGrant.id,
+    renewedGrantCredential!.credential,
+    async () => {
+      runtimeAuthorityEntered.resolve();
+      await releaseRuntimeAuthority.promise;
+      return 'runtime-revocation-overlap-complete';
+    },
+  );
+  await runtimeAuthorityEntered.promise;
+  let runtimeRevocationSettled = false;
+  const runtimeRevocation = revokeRuntimeCredentials(
+    operatorRuntimeId,
+    'luca-gemini',
+  ).then((result) => {
+    runtimeRevocationSettled = true;
+    return result;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(
+    runtimeRevocationSettled,
+    false,
+    'multi-row runtime revocation must wait for the authority lease without deadlocking',
+  );
+  releaseRuntimeAuthority.resolve();
+  assert.equal(await runtimeLeasedOperation, 'runtime-revocation-overlap-complete');
+  assert.equal(await runtimeRevocation, true);
+  assert.equal(runtimeRevocationSettled, true);
+  await assert.rejects(
+    () => validateGate3ProofGrant(successorGrant.id, renewedGrantCredential!.credential),
+    /GATE3_PROOF_GRANT_INVALID/,
+  );
+  // Restore only this disposable fixture so the remaining negative cases
+  // continue to exercise challenge/receipt validation rather than short-circuit
+  // on the runtime revocation proven above.
+  await getSharedDb().update(coordinationRuntimeRegistrations)
+    .set({ enabled: true, revokedAt: null, updatedAt: new Date() })
+    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
+  await getSharedDb().update(coordinationRuntimeCredentials)
+    .set({ revokedAt: null })
+    .where(eq(coordinationRuntimeCredentials.id, renewedGrantCredential!.credential.credentialId));
+  assert.equal(
+    (await validateGate3ProofGrant(successorGrant.id, renewedGrantCredential!.credential)).grantId,
+    successorGrant.id,
+  );
+
+  await revokeReceipt(registered.receiptId, 'founder-grant-test', 'grant lifecycle test');
+  await assert.rejects(
+    () => validateGate3ProofGrant(successorGrant.id, renewedGrantCredential!.credential),
+    /GATE3_PROOF_GRANT_INVALID/,
+  );
+  await assert.rejects(
+    () => validateGate3ProofGrantForVerifier(successorGrant.id),
+    /GATE3_PROOF_GRANT_INVALID/,
+  );
+
+  const makeChallenge = async (suffix: string) => {
+    const { bundleDigest: _bundleDigest, ...unsigned } = bundle;
+    const challengeBundle = createPublicProvisioningBundle({
+      ...unsigned,
+      artifactSha256: crypto.createHash('sha256').update(`${operatorTaskRef}-${suffix}`).digest('hex'),
+    });
+    const challenge = await submitAntigravityChallenge(challengeBundle);
+    return challenge;
+  };
+  const rejected = await makeChallenge('rejected');
+  await decideChallenge(rejected.challengeId, 'rejected', 'founder-operator-test');
+  await assert.rejects(() => registerAntigravityRuntime(bundle, rejected.challengeId), /challenge_not_approved|receipt_mismatch/);
+  const expired = await makeChallenge('expired');
+  await decideChallenge(expired.challengeId, 'approved', 'founder-operator-test');
+  await getSharedDb().transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+    const expiredAt = new Date(Date.now() - 1);
+    await tx.update(taskOwnershipChallenges)
+      .set({ expiresAt: expiredAt })
+      .where(eq(taskOwnershipChallenges.id, expired.challengeId));
+    await tx.update(taskOwnershipReceipts)
+      .set({ expiresAt: expiredAt })
+      .where(eq(taskOwnershipReceipts.challengeId, expired.challengeId));
+  });
+  await assert.rejects(() => registerAntigravityRuntime(bundle, expired.challengeId), /challenge_expired/);
+  const revoked = await makeChallenge('revoked');
+  const revokedReceipt = await decideChallenge(revoked.challengeId, 'approved', 'founder-operator-test');
+  assert.ok('id' in revokedReceipt);
+  await revokeReceipt(revokedReceipt.id, 'founder-operator-test');
+  await assert.rejects(() => registerAntigravityRuntime(bundle, revoked.challengeId), /receipt_mismatch/);
+  assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 1);
+  const auditRows = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, operatorRuntimeId));
+  assert.equal(JSON.stringify(auditRows).includes(secret), false);
 });
 
 databaseTest('broker issues, rotates, expires from use, revokes, and audits without plaintext storage', async () => {

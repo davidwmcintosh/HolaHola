@@ -19,6 +19,10 @@ import {
   issueProofNonce,
   verifyProof,
 } from "../services/founder-task-ownership-service";
+import {
+  isGate3BrokerCredential,
+  issueGate3ProofGrant,
+} from "../services/coordination-gate3-proof-grant-service";
 
 type FounderRequest = Request<{ id: string }, unknown, { reason?: unknown }>;
 
@@ -44,6 +48,7 @@ const STATUS_BY_ERROR_CODE: Readonly<Record<string, number>> = {
   RECEIPT_NOT_ACTIVE: 410,
   RECEIPT_NOT_FOUND: 404,
   SIGNATURE_INVALID: 401,
+  GATE3_PROOF_GRANT_INVALID: 403,
 };
 
 function replyError(res: Response, error: unknown): void {
@@ -74,6 +79,24 @@ export function resolveFounderDecisionActor(req: Request): string {
 
 function decisionReason(req: FounderRequest): string | undefined {
   return typeof req.body?.reason === "string" ? req.body.reason : undefined;
+}
+
+export function buildGate3ProofResponse(proof: {
+  ok: true; verified: true; receiptId: string; taskRef: string;
+  artifactSha256: string; proofPayloadDigest: string;
+}, grant: {
+  id: string; taskRef: string; artifactSha256: string; contextDigest: string;
+  startingCommit: string; expiresAt: Date;
+}) {
+  return {
+    ...proof,
+    contextDigest: grant.contextDigest,
+    grant: {
+      id: grant.id, taskRef: grant.taskRef, artifactSha256: grant.artifactSha256,
+      contextDigest: grant.contextDigest, startingCommit: grant.startingCommit,
+      expiresAt: grant.expiresAt.toISOString(),
+    },
+  };
 }
 
 export function registerFounderTaskOwnershipRoutes(app: Application): void {
@@ -191,7 +214,22 @@ export function registerFounderTaskOwnershipRoutes(app: Application): void {
       try {
         const nonceId = typeof req.body?.nonceId === "string" ? req.body.nonceId : "";
         const signature = typeof req.body?.signature === "string" ? req.body.signature : "";
-        res.json(await verifyProof(nonceId, signature, req.coordinationActor));
+        const proof = await verifyProof(nonceId, signature, req.coordinationActor);
+        if (!proof.ok) {
+          res.json(proof);
+          return;
+        }
+        // Gate 3 grants require broker provenance.  Fixed/legacy actor tokens
+        // may continue to verify ownership, but can never mint authority.
+        if (
+          req.coordinationAuthType !== "broker"
+          || !isGate3BrokerCredential(req.coordinationCredential)
+        ) {
+          res.json(proof);
+          return;
+        }
+        const grant = await issueGate3ProofGrant(proof, req.coordinationCredential);
+        res.json(buildGate3ProofResponse(proof, grant));
       } catch (error) {
         replyError(res, error);
       }

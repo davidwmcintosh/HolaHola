@@ -5,6 +5,12 @@ The canonical coordination ledger is available to Alden, Daniela, and Luca
 `server/services/coordination-actor-client.ts`; operators can invoke the same
 client through `server/scripts/coordination-cli.ts`.
 
+For Gate 3, trusted Phase B provisioning uses one transaction in registration
+→ profile → receipt → challenge row order, with full rollback on ownership
+failure. Protected executor/verifier mutations acquire the credential advisory
+lock and then hold registration → profile → credential → receipt → challenge
+→ grant.
+
 The server derives identity only from `x-coordination-token`. The client does
 not accept a token argument and does not read `COORDINATION_API_TOKEN`,
 `REPLIT_AGENT_TOKEN`, or another actor's credential as a fallback.

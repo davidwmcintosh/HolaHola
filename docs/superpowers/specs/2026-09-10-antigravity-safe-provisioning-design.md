@@ -10,6 +10,12 @@ Provision `luca-gemini-antigravity-primary` on the operator-approved Windows wor
 
 The operator remains the trust root. PostgreSQL remains canonical. The runtime label records provenance and capabilities; it does not create a separate identity or trust rank.
 
+Phase B is atomic: registration → profile → receipt → challenge row order in
+one transaction, with registration/profile rollback if ownership validation
+fails. Protected executor and verifier operations acquire the credential
+advisory lock, then hold registration → profile → credential → receipt →
+challenge → grant through the authorized mutation.
+
 ## 2. Current gap
 
 The existing ownership CLI combines three actions:

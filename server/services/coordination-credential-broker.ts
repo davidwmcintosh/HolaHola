@@ -4,6 +4,7 @@ import {
   COORDINATION_ACTOR_IDS,
   COORDINATION_CREDENTIAL_CAPABILITIES,
   coordinationCredentialAuditEvents,
+  coordinationGate3ProofGrants,
   coordinationRuntimeCredentials,
   coordinationRuntimeRegistrations,
   coordinationRuntimeRotations,
@@ -148,29 +149,20 @@ export type PrehashedRuntimeRegistration = {
  * This deliberately has no HTTP exposure: callers must already have validated
  * the public provisioning bundle and must never pass the plaintext bootstrap.
  */
-export async function registerCoordinationRuntimeWithBootstrapSha256(input: {
+export async function registerCoordinationRuntimeWithBootstrapSha256InExecutor(input: {
   runtimeId: string;
   actor: CoordinationActorId;
   displayName: string;
   capabilities: CoordinationCredentialCapability[];
   tokenTtlSeconds?: number;
   bootstrapSha256: string;
-}): Promise<PrehashedRuntimeRegistration> {
+}, executor: ReturnType<typeof getSharedDb>): Promise<PrehashedRuntimeRegistration> {
   const tokenTtlSeconds = validateRuntimeRegistrationInput(input);
   if (!SHA256_HEX_PATTERN.test(input.bootstrapSha256)) {
-    await audit({
-      eventType: 'runtime_registration_rejected',
-      success: false,
-      runtimeId: input.runtimeId,
-      actor: input.actor,
-      reason: 'invalid_bootstrap_digest',
-      metadata: { registrationMode: 'trusted_prehashed' },
-    });
     throw new Error('bootstrapSha256 must be lowercase hexadecimal SHA-256');
   }
 
-  const result = await getSharedDb().transaction(async (tx) => {
-    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+  const result = await (async (tx: ReturnType<typeof getSharedDb>) => {
     await tx.execute(sql`
       SELECT pg_advisory_xact_lock(hashtextextended(${input.runtimeId}, 0))
     `);
@@ -222,16 +214,8 @@ export async function registerCoordinationRuntimeWithBootstrapSha256(input: {
       metadata: { registrationMode: 'trusted_prehashed' },
     }, executor);
     return { ...input, tokenTtlSeconds, status: 'created' as const };
-  });
+  })(executor);
   if ('conflict' in result) {
-    await audit({
-      eventType: 'runtime_registration_rejected',
-      success: false,
-      runtimeId: input.runtimeId,
-      actor: input.actor,
-      reason: 'conflicting_registration',
-      metadata: { registrationMode: 'trusted_prehashed' },
-    });
     throw new Error('runtime registration conflicts with an existing record');
   }
   return {
@@ -242,6 +226,35 @@ export async function registerCoordinationRuntimeWithBootstrapSha256(input: {
     tokenTtlSeconds: result.tokenTtlSeconds,
     status: result.status,
   };
+}
+
+export async function registerCoordinationRuntimeWithBootstrapSha256(input: {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  tokenTtlSeconds?: number;
+  bootstrapSha256: string;
+}): Promise<PrehashedRuntimeRegistration> {
+  try {
+    return await getSharedDb().transaction(async (tx) =>
+      registerCoordinationRuntimeWithBootstrapSha256InExecutor(
+        input,
+        tx as unknown as ReturnType<typeof getSharedDb>,
+      ));
+  } catch (error) {
+    await audit({
+      eventType: 'runtime_registration_rejected',
+      success: false,
+      runtimeId: input.runtimeId,
+      actor: input.actor,
+      reason: error instanceof Error && error.message.includes('lowercase hexadecimal')
+        ? 'invalid_bootstrap_digest'
+        : 'conflicting_registration',
+      metadata: { registrationMode: 'trusted_prehashed' },
+    });
+    throw error;
+  }
 }
 
 // Descriptive compatibility alias for trusted operator callers.
@@ -841,6 +854,11 @@ export async function renewBrokerCredential(
 ): Promise<{ accessToken: string; credential: BrokerCredential } | null> {
   return getSharedDb().transaction(async (tx) => {
     await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${'gate3-credential:' + credential.credentialId}, 0)
+      )
+    `);
+    await tx.execute(sql`
       SELECT id FROM coordination_runtime_registrations
       WHERE id = ${credential.runtimeId}
       FOR UPDATE
@@ -851,6 +869,24 @@ export async function renewBrokerCredential(
         eq(coordinationRuntimeRegistrations.enabled, true),
         isNull(coordinationRuntimeRegistrations.revokedAt),
       ));
+    const [activeGate3Grant] = await tx.select({ id: coordinationGate3ProofGrants.id })
+      .from(coordinationGate3ProofGrants)
+      .where(and(
+        eq(coordinationGate3ProofGrants.credentialId, credential.credentialId),
+        isNull(coordinationGate3ProofGrants.revokedAt),
+        gt(coordinationGate3ProofGrants.expiresAt, new Date()),
+      ))
+      .limit(1);
+    if (activeGate3Grant) {
+      await audit({
+        eventType: 'renewal_failed',
+        success: false,
+        ...credential,
+        reason: 'gate3_grant_active',
+        sourceIp,
+      }, tx as unknown as ReturnType<typeof getSharedDb>);
+      return null;
+    }
     const [won] = await tx.update(coordinationRuntimeCredentials)
       .set({ revokedAt: new Date() })
       .where(and(

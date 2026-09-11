@@ -8,6 +8,8 @@ import {
 import { canonicalJson } from "./task-ownership-service";
 
 const CHALLENGE_TTL = 10 * 60_000;
+const MAX_CHALLENGE_TTL = 30 * 60_000;
+const GATE3_AUTHORITY_TTL = 20 * 60_000;
 const NONCE_TTL = 90_000;
 const error = (code: string): never => {
   const value = new Error(code);
@@ -31,13 +33,18 @@ function validatePublicKey(encoded: string, suppliedFingerprint: string): string
 export async function createChallenge(input: {
   taskRef: string; artifactSha256: string; intendedActor?: string; coordinationActor: string;
   publicKey: string; keyFingerprint: string; contextDigest?: string; idempotencyKey: string;
+  ttlMs?: number;
 }) {
+  const ttlMs = input.ttlMs ?? CHALLENGE_TTL;
   if (input.intendedActor && input.intendedActor !== input.coordinationActor) error("ACTOR_MISMATCH");
   if (
     !input.coordinationActor.startsWith("luca-")
     || !/^[a-f0-9]{64}$/.test(input.artifactSha256)
     || input.idempotencyKey.length < 1
     || input.idempotencyKey.length > 128
+    || !Number.isSafeInteger(ttlMs)
+    || ttlMs < 60_000
+    || ttlMs > MAX_CHALLENGE_TTL
   ) error("INVALID_CHALLENGE");
   validatePublicKey(input.publicKey, input.keyFingerprint);
   const requestFields: Record<string, unknown> = {
@@ -46,6 +53,7 @@ export async function createChallenge(input: {
     actor: input.coordinationActor,
     publicKey: input.publicKey,
     keyFingerprint: input.keyFingerprint,
+    ttlMs,
   };
   if (input.contextDigest !== undefined) requestFields.contextDigest = input.contextDigest;
   const requestDigest = digest(canonical(requestFields));
@@ -73,7 +81,7 @@ export async function createChallenge(input: {
       keyFingerprint: input.keyFingerprint,
       contextDigest: input.contextDigest,
       serverNonce: crypto.randomBytes(32).toString("base64url"),
-      expiresAt: new Date(Date.now() + CHALLENGE_TTL),
+      expiresAt: new Date(Date.now() + ttlMs),
       idempotencyKey: input.idempotencyKey,
       requestDigest,
     }).returning({
@@ -165,7 +173,12 @@ export async function decideChallenge(id: string, decision: "approved" | "reject
       await tx.insert(taskOwnershipDecisionEvents).values({ challengeId: id, receiptId: old.id, decision: "revoked", actorId: founderId, reason: "replaced" });
     }
     const receiptIssuedAt = new Date();
-    const receiptExpiresAt = new Date(receiptIssuedAt.getTime() + CHALLENGE_TTL);
+    const receiptTtl = (
+      challenge.taskRef === "1448"
+      && challenge.coordinationActor === "luca-gemini"
+      && challenge.intendedActor === "luca-gemini"
+    ) ? GATE3_AUTHORITY_TTL : CHALLENGE_TTL;
+    const receiptExpiresAt = new Date(receiptIssuedAt.getTime() + receiptTtl);
     const receiptApprovedAt = receiptIssuedAt;
     const receiptId = crypto.randomUUID();
     const payload = canonical({ challengeId: id, receiptId, receiptVersion: 1, taskRef: challenge.taskRef, artifactSha256: challenge.artifactSha256,
@@ -280,15 +293,17 @@ export async function verifyProof(nonceId: string, signature: string, actor: str
         Buffer.from(signature || "", "base64url"),
       );
     } catch { /* evidence below */ }
-    await tx.insert(taskOwnershipProofAttempts).values({ nonceId, receiptId: receipt.id, success, errorCode: success ? null : "SIGNATURE_INVALID", payloadDigest: digest(payload) });
+    const proofPayloadDigest = digest(payload);
+    await tx.insert(taskOwnershipProofAttempts).values({ nonceId, receiptId: receipt.id, success, errorCode: success ? null : "SIGNATURE_INVALID", payloadDigest: proofPayloadDigest });
     return success
       ? {
           ok: true as const,
-          verified: true,
+          verified: true as const,
           receiptId: receipt.id,
           taskRef: receipt.taskRef,
           artifactSha256: receipt.artifactSha256,
           intendedActor: receipt.intendedActor,
+           proofPayloadDigest,
         }
       : { ok: false as const, errorCode: "SIGNATURE_INVALID" };
   });

@@ -24,6 +24,7 @@ import {
   type BrokerCredential,
 } from '../services/coordination-credential-broker';
 import type { Application as ExpressApplication } from 'express';
+import { validateGate3ProofGrant, validateGate3ProofGrantForVerifier, withGate3ProofGrantAuthority, withGate3VerifierGrantAuthority } from '../services/coordination-gate3-proof-grant-service';
 
 export type CoordinationRuntimeRouteDeps = {
   repository?: CoordinationRuntimeRepository;
@@ -35,6 +36,10 @@ export type CoordinationRuntimeRouteDeps = {
   apiKey?: string;
   baseUrl?: string;
   now?: () => number;
+  validateGrant?: typeof validateGate3ProofGrant;
+  validateVerifierGrant?: typeof validateGate3ProofGrantForVerifier;
+  withGrantAuthority?: typeof withGate3ProofGrantAuthority;
+  withVerifierAuthority?: typeof withGate3VerifierGrantAuthority;
 };
 
 const model = 'gemini-3-flash-preview';
@@ -130,7 +135,7 @@ function statusFor(code: string): number {
   if (['authentication_required', 'credential_expired', 'runtime_revoked'].includes(code)) return 401;
   if (['invalid_request', 'malformed_function_call', 'unsupported_provider_outcome'].includes(code)) return 400;
   if (['claim_active_conflict', 'claim_epoch_stale', 'claim_expired', 'claim_not_active', 'claim_not_owned', 'consumption_conflict', 'fresh_consumption_required', 'thread_sequence_stale', 'stale_epoch', 'idempotency_payload_mismatch', 'execution_already_recorded', 'execution_violated'].includes(code)) return 409;
-  if (['capability_required', 'actor_mismatch', 'profile_not_found', 'profile_not_active', 'verifier_not_allowed', 'self_verification_denied', 'assigner_verification_denied'].includes(code)) return 403;
+  if (['capability_required', 'actor_mismatch', 'profile_not_found', 'profile_not_active', 'verifier_not_allowed', 'self_verification_denied', 'assigner_verification_denied', 'gate3_proof_grant_invalid'].includes(code)) return 403;
   if (['packet_not_found', 'claim_not_found', 'completion_mismatch'].includes(code)) return 404;
   return 500;
 }
@@ -148,7 +153,7 @@ async function authenticated(
   deps: Required<Pick<CoordinationRuntimeRouteDeps, 'resolveCredential' | 'repository'>>,
   brokerCapability: string,
   profileCapability: string,
-): Promise<{ principal: RuntimePrincipal; profile: CodingRuntimeProfile }> {
+): Promise<{ principal: RuntimePrincipal; profile: CodingRuntimeProfile; credential: BrokerCredential }> {
   const supplied = token(req);
   if (!supplied) throw new RuntimeProtocolError('authentication_required', 'Broker credential required');
   const credential = await deps.resolveCredential(supplied, req.ip || req.socket.remoteAddress);
@@ -180,7 +185,66 @@ async function authenticated(
     runtimeEnabled: true,
     revoked: false,
   };
-  return { principal, profile };
+  (req as Request & { coordinationCredential?: BrokerCredential; gate3GrantValidator?: typeof validateGate3ProofGrant }).coordinationCredential = credential;
+  return { principal, profile, credential };
+}
+
+type Gate3Grant = Awaited<ReturnType<typeof validateGate3ProofGrant>>;
+
+function assertGate3PacketBinding(
+  packet: NonNullable<Awaited<ReturnType<CoordinationRuntimeRepository['getPacket']>>>,
+  grant: Gate3Grant,
+): void {
+  const envelope = packet.envelope;
+  if (
+    packet.assignment.taskId !== grant.taskRef
+    || envelope.grantId !== grant.grantId
+    || envelope.taskRef !== grant.taskRef
+    || envelope.artifactSha256 !== grant.artifactSha256
+    || envelope.contextDigest !== grant.contextDigest
+    || envelope.startingCommit !== grant.startingCommit
+    || packet.runtimeRegistrationId !== grant.runtimeRegistrationId
+    || packet.profileId !== grant.profileId
+    || grant.actor !== 'luca-gemini'
+  ) {
+    throw new Error('gate3_packet_binding_mismatch');
+  }
+}
+
+async function withGate3Operation<T>(
+  req: Request,
+  principal: RuntimePrincipal,
+  profile: CodingRuntimeProfile,
+  credential: BrokerCredential,
+  authority: typeof withGate3ProofGrantAuthority,
+  packet?: Awaited<ReturnType<CoordinationRuntimeRepository['getPacket']>>,
+  operation?: (grant: Gate3Grant | undefined) => Promise<T>,
+): Promise<T> {
+  if (!operation) throw new Error('gate3_operation_missing');
+  if (principal.runtimeRegistrationId !== 'luca-gemini-antigravity-primary') {
+    return operation(undefined);
+  }
+  const header = req.headers['x-coordination-ownership-grant'];
+  if (typeof header !== 'string' || !header) throw new RuntimeProtocolError('gate3_proof_grant_invalid', 'Ownership grant is required');
+  let operationStarted = false;
+  try {
+    return await authority(header, credential, async (grant) => {
+      if (
+        grant.credentialId !== principal.credentialId
+        || grant.runtimeRegistrationId !== principal.runtimeRegistrationId
+        || grant.profileId !== profile.id
+        || grant.actor !== principal.actor
+      ) {
+        throw new Error('gate3_principal_binding_mismatch');
+      }
+      if (packet) assertGate3PacketBinding(packet, grant);
+      operationStarted = true;
+      return operation(grant);
+    });
+  } catch (error) {
+    if (operationStarted) throw error;
+    throw new RuntimeProtocolError('gate3_proof_grant_invalid', 'Ownership grant is invalid');
+  }
 }
 
 export function registerCoordinationRuntimeRoutes(
@@ -201,18 +265,38 @@ export function registerCoordinationRuntimeRoutes(
   const deps = {
     repository,
     resolveCredential: input.resolveCredential ?? resolveBrokerCredential,
+    validateGrant: input.validateGrant,
+    validateVerifierGrant: input.validateVerifierGrant ?? validateGate3ProofGrantForVerifier,
+    withGrantAuthority: input.withGrantAuthority ?? (
+      input.validateGrant
+        ? async <T>(grantId: string, credential: BrokerCredential | undefined, operation: (grant: Gate3Grant) => Promise<T>) =>
+          operation(await input.validateGrant!(grantId, credential))
+        : withGate3ProofGrantAuthority
+    ),
+    withVerifierAuthority: input.withVerifierAuthority ?? (
+      input.validateVerifierGrant
+        ? async <T>(grantId: string, operation: (grant: Gate3Grant) => Promise<T>) =>
+          operation(await input.validateVerifierGrant!(grantId))
+        : withGate3VerifierGrantAuthority
+    ),
   };
   const route = (handler: (req: Request) => Promise<unknown>) => async (req: Request, res: Response) => {
-    try { res.json(await handler(req)); } catch (error) { publicError(res, error); }
+    try {
+      res.json(await handler(req));
+    } catch (error) { publicError(res, error); }
   };
 
   app.post('/api/coordination/runtime/packets', route(async (req) => {
-    const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'execute');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'execute');
     if (principal.actor !== 'luca-gemini') throw new RuntimeProtocolError('actor_mismatch', 'Gemini actor required');
     if (!profile.worktreeRealpathDigest || !/^[0-9a-f]{64}$/.test(profile.worktreeRealpathDigest) ||
         !profile.branch || !profile.startingCommit || !profile.worktreeLabel) {
       throw new RuntimeProtocolError('execution_envelope_mismatch', 'Active profile lacks complete Gate 3 metadata');
     }
+    const worktreeRealpathDigest = profile.worktreeRealpathDigest;
+    const branch = profile.branch;
+    const startingCommit = profile.startingCommit;
+    const worktreeLabel = profile.worktreeLabel;
     const body = bodyObject(req);
     const windowId = stringField(body.windowId, 'windowId');
     const frozen = await repository.validateWindow(windowId);
@@ -237,69 +321,92 @@ export function registerCoordinationRuntimeRoutes(
       threadId: stringField(threadId, 'threadId'),
       expectedSequence: numberField(expectedSequence, 'expectedSequence'),
     };
-    const envelope: Gate3ExecutionEnvelope = {
-      worktreeLabel: profile.worktreeLabel,
-      worktreePath: `approved:${profile.worktreeRealpathDigest}`,
-      argv: ['npx', 'tsx', 'server/scripts/test-coordination-runtime.test.ts'],
-      patchDigest: null,
-      repositoryLabel: 'HolaHola',
-      worktreeRealpathDigest: profile.worktreeRealpathDigest,
-      branch: profile.branch,
-      startingCommit: profile.startingCommit,
-      targetPath: 'server/scripts/test-coordination-runtime.test.ts',
-      maxChangedFiles: 1,
-      maxPatchBytes: 40960,
-      maxElapsedMs: 600000,
-      maxModelTurns: 4,
-      maxApiAttempts: 8,
-    };
-    return service.createGate3Packet(principal, windowId, assignment, key(req), envelope);
+    if (principal.runtimeRegistrationId === 'luca-gemini-antigravity-primary' && assignment.taskId !== '1448') {
+      throw new RuntimeProtocolError('packet_assignment_mismatch', 'Gate 3 task assignment is invalid');
+    }
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, undefined, async (grant) => {
+      const envelope: Gate3ExecutionEnvelope = {
+        worktreeLabel,
+        worktreePath: `approved:${worktreeRealpathDigest}`,
+        argv: ['npx', 'tsx', 'server/scripts/test-coordination-runtime.test.ts'],
+        patchDigest: null,
+        repositoryLabel: 'HolaHola',
+        worktreeRealpathDigest,
+        branch,
+        startingCommit,
+        targetPath: 'server/scripts/test-coordination-runtime.test.ts',
+        maxChangedFiles: 1,
+        maxPatchBytes: 40960,
+        maxElapsedMs: 600000,
+        maxModelTurns: 4,
+        maxApiAttempts: 8,
+        ...(grant ? { grantId: grant.grantId, taskRef: grant.taskRef, artifactSha256: grant.artifactSha256, contextDigest: grant.contextDigest } : {}),
+      };
+      return service.createGate3Packet(principal, windowId, assignment, key(req), envelope);
+    });
   }));
 
   app.post('/api/coordination/runtime/packets/:packetId/initial-turn', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:write', 'model');
-    const result = await coordinator.initialTurn(principal, req.params.packetId, key(req));
-    return { ...result, interactions: result.interactions.map((item) => ({ ...item, intents: [] })) };
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'model');
+    const packet = await repository.getPacket(req.params.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () => {
+      const result = await coordinator.initialTurn(principal, req.params.packetId, key(req));
+      return { ...result, interactions: result.interactions.map((item) => ({ ...item, intents: [] })) };
+    });
   }));
 
   app.post('/api/coordination/runtime/packets/:packetId/receipt', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:write', 'model');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'model');
     const body = bodyObject(req);
     const packet = await repository.getPacket(req.params.packetId);
     if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
-    return service.recordOutcomeReceipt(principal, packet.id,
-      stringField(body.packetDigest, 'packetDigest'),
-      stringField(body.interactionId, 'interactionId'), key(req));
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () =>
+      service.recordOutcomeReceipt(principal, packet.id,
+        stringField(body.packetDigest, 'packetDigest'),
+        stringField(body.interactionId, 'interactionId'), key(req)));
   }));
 
   app.post('/api/coordination/runtime/packets/:packetId/claim', route(async (req) => {
-    const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'execute');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'execute');
     const body = bodyObject(req);
     const packet = await repository.getPacket(req.params.packetId);
     if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
-    return service.claim(principal, packet.id, packet.digest, stringField(body.receiptId, 'receiptId'),
-      300_000, key(req));
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () =>
+      service.claim(principal, packet.id, packet.digest, stringField(body.receiptId, 'receiptId'),
+        300_000, key(req)));
   }));
 
   app.get('/api/coordination/runtime/claims/:claimId/intents', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:read', 'execute');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:read', 'execute');
     const claim = await repository.getClaim(req.params.claimId);
     if (!claim) throw new RuntimeProtocolError('claim_not_found', 'Claim not found');
-    const intents = await coordinator.revealIntents(principal, claim.packetId, claim.id);
-    return { intents: intents.map((intent) => ({ ...intent, validatedIntentDigest: digestCanonical(intent) })), epoch: claim.epoch };
+    const packet = await repository.getPacket(claim.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () => {
+      const intents = await coordinator.revealIntents(principal, claim.packetId, claim.id);
+      return { intents: intents.map((intent) => ({ ...intent, validatedIntentDigest: digestCanonical(intent) })), epoch: claim.epoch };
+    });
   }));
 
   app.post('/api/coordination/runtime/claims/:claimId/renew', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:write', 'execute');
-    const body = bodyObject(req);
-    return service.renew(principal, req.params.claimId, numberField(body.epoch, 'epoch'), 300_000, key(req));
-  }));
-
-  app.post('/api/coordination/runtime/claims/:claimId/continuation', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:write', 'model');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'execute');
     const body = bodyObject(req);
     const claim = await repository.getClaim(req.params.claimId);
     if (!claim) throw new RuntimeProtocolError('claim_not_found', 'Claim not found');
+    const packet = await repository.getPacket(claim.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () =>
+      service.renew(principal, req.params.claimId, numberField(body.epoch, 'epoch'), 300_000, key(req)));
+  }));
+
+  app.post('/api/coordination/runtime/claims/:claimId/continuation', route(async (req) => {
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'model');
+    const body = bodyObject(req);
+    const claim = await repository.getClaim(req.params.claimId);
+    if (!claim) throw new RuntimeProtocolError('claim_not_found', 'Claim not found');
+    const packet = await repository.getPacket(claim.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
     if (numberField(body.epoch, 'epoch') !== claim.epoch) {
       throw new RuntimeProtocolError('claim_epoch_stale', 'Claim epoch is stale');
     }
@@ -319,43 +426,86 @@ export function registerCoordinationRuntimeRoutes(
       };
       return normalized;
     });
-    const storedResults = await service.appendToolResultBatch(principal, claim.id, claim.epoch, results[0]?.interactionId ?? '', results, `${key(req)}:results`);
-    if (storedResults.some((result) => result.outcome === 'rejected')) {
-      throw new RuntimeProtocolError('execution_violated', 'Rejected local tool result violated the claim');
-    }
-    const attempts = await coordinator.continuationTurn(principal, claim.id, claim.packetId, numberField(body.turn, 'turn'), [], key(req));
-    const persisted = (await repository.interactionsForPacket(claim.packetId))
-      .filter((item: { turn: number }) => item.turn === numberField(body.turn, 'turn'))
-      .sort((left: { attempt: number }, right: { attempt: number }) => left.attempt - right.attempt);
-    return attempts.map((attempt, index) => ({ ...attempt, interactionId: persisted[index]?.id }));
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () => {
+      const storedResults = await service.appendToolResultBatch(principal, claim.id, claim.epoch, results[0]?.interactionId ?? '', results, `${key(req)}:results`);
+      if (storedResults.some((result) => result.outcome === 'rejected')) {
+        throw new RuntimeProtocolError('execution_violated', 'Rejected local tool result violated the claim');
+      }
+      const attempts = await coordinator.continuationTurn(principal, claim.id, claim.packetId, numberField(body.turn, 'turn'), [], key(req));
+      const persisted = (await repository.interactionsForPacket(claim.packetId))
+        .filter((item: { turn: number }) => item.turn === numberField(body.turn, 'turn'))
+        .sort((left: { attempt: number }, right: { attempt: number }) => left.attempt - right.attempt);
+      return attempts.map((attempt, index) => ({ ...attempt, interactionId: persisted[index]?.id }));
+    });
   }));
 
   app.post('/api/coordination/runtime/claims/:claimId/execute', route(async (req) => {
-    const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'execute');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'execute');
     const claim = await repository.getClaim(req.params.claimId);
     if (!claim) throw new RuntimeProtocolError('claim_not_found', 'Claim not found');
     const packet = await repository.getPacket(claim.packetId);
     if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
     const attested = attestedState(bodyObject(req).attestedLocalState, profile);
-    const persistedAttempts = (await repository.interactionsForPacket(packet.id)).length;
-    if (attested.apiAttempts !== persistedAttempts || attested.modelTurns < 1) {
-      throw new RuntimeProtocolError('consumption_conflict', 'Attestation does not match persisted model evidence');
-    }
-    return service.execute(principal, claim.id, packet.envelope, key(req), attested);
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () => {
+      const persistedAttempts = (await repository.interactionsForPacket(packet.id)).length;
+      if (attested.apiAttempts !== persistedAttempts || attested.modelTurns < 1) {
+        throw new RuntimeProtocolError('consumption_conflict', 'Attestation does not match persisted model evidence');
+      }
+      return service.execute(principal, claim.id, packet.envelope, key(req), attested);
+    });
   }));
 
   app.post('/api/coordination/runtime/executions/:executionId/complete', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:write', 'execute');
+    const { principal, profile, credential } = await authenticated(req, deps, 'coordination:write', 'execute');
     const execution = await repository.getExecution(req.params.executionId);
     if (!execution) throw new RuntimeProtocolError('completion_mismatch', 'Execution not found');
-    return service.complete(principal, execution.id, digestCanonical(execution), key(req));
+    const claim = await repository.getClaim(execution.claimId);
+    const packet = claim && await repository.getPacket(claim.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
+    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () =>
+      service.complete(principal, execution.id, digestCanonical(execution), key(req)));
   }));
 
   app.post('/api/coordination/runtime/completions/:completionId/verify', route(async (req) => {
-    const { principal } = await authenticated(req, deps, 'coordination:write', 'verify');
+    const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'verify');
     const body = bodyObject(req);
     const completion = await repository.getCompletion(req.params.completionId);
     if (!completion) throw new RuntimeProtocolError('completion_mismatch', 'Completion not found');
+    const execution = await repository.getExecution(completion.executionId);
+    const claim = execution && await repository.getClaim(execution.claimId);
+    const packet = claim && await repository.getPacket(claim.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
+    const isGate3Packet = packet.runtimeRegistrationId === 'luca-gemini-antigravity-primary';
+    if (isGate3Packet) {
+      const envelope = packet.envelope;
+      if (
+        typeof envelope.grantId !== 'string'
+        || typeof envelope.taskRef !== 'string'
+        || typeof envelope.artifactSha256 !== 'string'
+        || typeof envelope.contextDigest !== 'string'
+        || typeof envelope.startingCommit !== 'string'
+      ) {
+        throw new RuntimeProtocolError('gate3_proof_grant_invalid', 'Ownership grant is invalid');
+      }
+      const header = req.headers['x-coordination-ownership-grant'];
+      if (typeof header !== 'string' || header !== envelope.grantId) {
+        throw new RuntimeProtocolError('gate3_proof_grant_invalid', 'Ownership grant is invalid');
+      }
+      let operationStarted = false;
+      try {
+        return await deps.withVerifierAuthority(envelope.grantId, async (grant) => {
+          assertGate3PacketBinding(packet, grant);
+          operationStarted = true;
+          const decision = body.decision === 'rejected' ? 'rejected' : 'approved';
+          return service.verify(principal, completion.id, completion.evidenceDigest,
+            body.patchDigest === null ? null : String(body.patchDigest), key(req), decision,
+            typeof body.rationale === 'string' ? body.rationale : undefined, body.rerunEvidence);
+        });
+      } catch (error) {
+        if (operationStarted) throw error;
+        throw new RuntimeProtocolError('gate3_proof_grant_invalid', 'Ownership grant is invalid');
+      }
+    }
     const decision = body.decision === 'rejected' ? 'rejected' : 'approved';
     return service.verify(principal, completion.id, completion.evidenceDigest,
       body.patchDigest === null ? null : String(body.patchDigest), key(req), decision,

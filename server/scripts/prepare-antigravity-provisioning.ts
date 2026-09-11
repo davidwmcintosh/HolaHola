@@ -74,7 +74,8 @@ export async function prepareAntigravityProvisioning(options: PreparationOptions
   const key = await ensureTaskAgentKey(GATE3.taskRef);
   const bundleInput = {
     ...GATE3,
-    capabilities: [...GATE3.capabilities],
+    credentialCapabilities: [...GATE3.credentialCapabilities],
+    runtimeCapabilities: [...GATE3.runtimeCapabilities],
     artifactSha256: sha(artifact),
     publicKey: key.publicKey,
     keyFingerprint: key.fingerprint,

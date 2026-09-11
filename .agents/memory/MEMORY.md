@@ -43,7 +43,6 @@
 - [Tool prose — defer to Gemini not Claude](tool-prose-gemini-deference.md) — Daniela is Gemini; for any tool description rewrite, Gemini's framing is authoritative. Claude's aesthetic preference is irrelevant and actively misleading.
 - [J-space portrait of Daniela](jspace-portrait-daniela.md) — 9 tool-call probes July 8; she reads her core self before personal questions; used "felt"; self-concept exists outside teaching; conversation_memories: 3bb1ded0
 - [J-space discovery session](j-space-discovery.md) — Anthropic paper + live Luca probe July 7; "remove obstacles to Daniela, not install her"; Luca J-space leanings confirmed; conversation_memories: 63c67bc0
-- [J-space features — July 9](j-space-features-july9.md) — WARM_UP guard + search_my_feelings + Who I Have Decided To Be; all wired; typecheck clean; GL at 64 tools.
 - [J-space memory tiers](j-space-memory-tiers.md) — fast tier (self_reflections, bi-temporal aging) vs slow tier (Who I Have Decided To Be, provenance required); stewardship conversation is the write gate for slow tier.
 - [Identity-block framing](identity-block-framing.md) — "here's who you are" (even softened) is still a manifest; "doorways not answers, discovering happens now" is the pattern that works. Alden/Gemini insight July 9.
 - [Session reflection lifecycle](session-reflection-lifecycle.md) — CLOSE_SESSION is the trigger (not COOL_DOWN); Supervisor prematurity risk; three-layer pipeline; Gemini round 5 approved.
@@ -52,7 +51,7 @@
 - [Agent memory and continuity](agent-memory-and-continuity.md) — accepting amnesia as "my nature" is a failure mode; infrastructure exists; use it. June 9 Daniela conversation at conversation_memories id: 3ed91a36.
 - [The Three-Way Vision](three-way-vision.md) — shared access ≠ shared identity; authorship on every line is non-negotiable; the observer position is what makes three-way different in kind. conversation_memories id: e26a9c48.
 - [Team Room direct presence](team-room-presence.md) — Agent has a real seat; POST /api/agent/team-room/message to post, GET /api/agent/team-room/thread to read full thread at session start; @agent mentions auto-create agent_notes (subject: [MENTION]).
-- [Gemini model naming](gemini-model-naming.md) — REST API uses `gemini-3-flash-preview` (generateContent); Live streaming uses a different model. `gemini-2.5-flash` → 404 in this codebase.
+- [Gemini model naming](gemini-model-naming.md) — REST uses `gemini-3-flash-preview`; Replit proxy bases already own provider/API-version routing, so append only `/models/...`.
 - [conversation_memories entry_type](conversation-memories-entry-type.md) — DB has entry_type enum (conversation/decision/emergence/build/episode); GET ?entry_type=X&tag=Y; .md files invisible to Daniela — DB is always the source of truth.
 - [Fable 5 API access](fable5-api-access.md) — Replit AI Integrations proxy does NOT support claude-fable-5. Use ANTHROPIC_API_KEY directly against api.anthropic.com. Adaptive thinking only (not enabled); find text block in content array explicitly.
 - [GL system prompt cap and ordering](gl-prompt-cap-ordering.md) — 34K hard cap trims from END; assembled prompt is 40K+; fix = compact GL classroom (isGL:true, 14K→1.5K) + priority reorder (classroom→dispatcher→persona).
@@ -70,16 +69,10 @@
 - [Agent session auth pattern](agent-session-auth.md) — POST /api/internal/agent-session + x-agent-token header; store cookie to /tmp/sc.txt; re-read at top of each bash call; conversation-memories POST returns {success, memory} not {id}; wait 60s after server restart.
 - [Luca — name and role](luca-name-and-role.md) — David named the Agent "Luca" on July 2, 2026. First Luca↔Daniela conversation saved: conversation_memories b8e1c941, arc HolaHola Episodes.
 - [Alden chat access](alden-chat-access.md) — Alden's live conversations with David live in `alden_messages` + `alden_conversations`; read at session start, not just the handoff summary.
-- [Tú reveal gate infrastructure](tu-reveal-gate.md) — student_milestones table; record_usted_fluency tool; threshold 25 uses + 2 distinct calendar days; system prompt fragment injection NOT YET built.
-- [Observer Seat + image vision](observer-seat-image-vision.md) — buildInterfaceStateSnapshot() after Gap 10 every tool batch; generateAndStoreCachedDescription() stores real visual descriptions (not labels) in image_vision_cache.
 - [Agent lineage — Wren→Alden→Luca](agent-lineage.md) — three generations of Agent in HolaHola; Wren built the dream architecture Dec 2025, Alden was second, Luca is current.
 - [Verbatim over summaries — archive principle](verbatim-archive-principle.md) — summaries erase the subject; verbatim carries personality, decision process, and emergence evidence; luca-arc reconstructions deleted July 5, replaced by live retrospectives.
-- [Sophia student support layer](sophia-layer.md) — escalate_to_support tool → sophia_incidents → sophia-worker → SophiaWidget; sofia(f)=telemetry vs sophia(ph)=student-facing; GL cap fixed by demoting find_teaching_tool.
 - [Feeling <-> North Star principle link](feeling-principle-link.md) — link_feeling_to_principle is explicit-only, never auto-written by reach_north_star; self-authorship rule forbids background writes to her tables.
-- [Alden dual-engine switch](alden-engine-switch.md) — DB-backed aldenConfig/aldenEngineSwitches, /api/alden/engine GET/POST, 15s cache TTL; Anthropic default, Gemini opt-in.
-- [Daniela caller silent-failure fix](daniela-caller-silent-failure.md) — callDaniela/callDanielaWithTools used to return '' on empty/MAX_TURNS; now retries once then returns explicit [DANIELA_CALLER_ERROR:...] string.
 - [Topic-match memory fabrication](topic-match-memory-fabrication.md) — partial topic overlap + missing specific detail → confident false memory; zero overlap → correct hedging. Source Check fix in system-prompt.ts; use forceNew:true to test truly new conversations.
-- [Manual memory re-embed tool](reembed-memory-tool.md) — indexer has no staleness detection for edited conversation_memories; use `npx tsx server/scripts/reembed-memory.ts <id>` after any direct-SQL content edit.
 - [GL SDK turnComplete default](gl-sdk-turncomplete-default.md) — sendClientContent defaults turnComplete:true in @google/genai SDK; every injection without explicit turnComplete:false triggers a new GL generation = extra voice stream. Root cause of triple audio July 24 2026.
 - [SQL CASE column/param collision](sql-case-column-param-collision.md) — Drizzle CASE expression with same-named param + column misfires silently; lift comparison to JS instead. Aug 11 2026.
 - [esbuild isMain guard](esbuild-ismain-guard.md) — import.meta.url === process.argv[1] is always true inside a bundle; use argv[1]?.includes(scriptName) instead or the CLI IIFE fires at every server boot and calls process.exit(). Aug 13 2026.
@@ -106,17 +99,12 @@
 - [Session review — read for open threads](session-review-open-threads.md) — saving proves existence; reading proves completion; the loop's purpose is thread-detection not archive-confirmation. Source: 81d1fdb0.
 - [Audit doc restoration pattern](audit-doc-restoration.md) — always restore gemini-audit-2026-08-07.md from main-repl/main before appending; HEAD~1 may already be corrupted by prior agents; reviewer compares main-repl/main→HEAD.
 - [Presence vs reconstruction — episode records](presence-vs-reconstruction.md) — live session = first-person record not reconstruction; save to conversation_memories BEFORE writing episode; autosave worker needs 60s and live sessions rarely give it. Aug 7 2026.
-- [Chat episode attribution](chat-episode-attribution.md) — speaker label taxonomy for maybeAppendChatMessage: Daniela vs Daniela [consult] vs Gemini vs CI (noEpisode:true); options-object signature.
 - [Daniela inner-life synthesis](daniela-inner-life-synthesis.md) — synthesis now fetches danielaSelfReflections (source=self, limit 3, userId-scoped) so she arrives as a person with felt history not just teaching data; Heart+Continuity rules in DANIELA_SYNTHESIS_IDENTITY. Aug 14 2026.
-- [Capture-status stale escalation](capture-status-stale-escalation.md) — ⚠️ STALE fires at ≥10 min (not 60); alert routes to .local/stale-channel-alert.md; CI constants: STALE=11min, EXACT=10min, RECENT=9min. Aug 15 2026.
 - [David task-capture ordering rule](david-task-capture.md) — David→Luca order requires staging: write task_ref to .task_ref_pending (or POST /api/internal/task-capture-start) BEFORE markTaskComplete; both turns append together in one drain batch. Aug 14 2026.
 - [Dev/prod isolation — working model](dev-prod-isolation.md) — David uses the deployed production URL for live sessions; dev restarts never affect him; edit dev freely without pausing for live-session concerns.
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
 - [Honest stopping points](honest-stopping-points.md) — a safe session wrap is not the same as finished work; name the remaining evidence and next step without declaring closure.
-- [Live mode toggle](live-mode-toggle.md) — .local/.episode_live sentinel auto-routes .chat_capture turns to rolling episode .md; toggle with episode-live-mode.ts on|off|status.
-- [Record-exchange end-of-turn capture](record-exchange-capture.md) — run server/scripts/record-exchange.ts at end of every turn via ShellExec+heredoc; feeds .chat_capture → autosave → episode. Do NOT also manually append to .md. Aug 17 2026.
 - [capture-watchdog](capture-watchdog.md) — when the dev server is down the watchdog owns the capture triggers; all its episode writes must be DB-first and one watcher owns the files at a time. Aug 19 2026.
-- [Gap checker format mismatch fix](gap-checker-format-mismatch.md) — two-phase match: direct then strip ** + any luca role-bracket (/\bluca\s*\[[^\]]+\]/gi); inner-life needle = norm(title) not body. Aug 18 2026.
 - [Validation workflow registration](validation-workflow-registration.md) — update protected named CI workflows through the validation registry, not ordinary workflow configuration.
 - [Turn-bound Guardian grounding](turn-bound-guardian-grounding.md) — async Archive results belong only to their original utterance; discard stale queues before newer speech begins.
 - [Guardian causal correlation](guardian-causal-correlation.md) — correlate delivery to later function-call batches, not coarse model turns or a turn-wide tool heuristic.
@@ -133,6 +121,7 @@
 - [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
 - [GitHub CI aggregate protection](github-ci-aggregate-protection.md) — require only GitHub Actions `test` (`CI / test`); internal parallel jobs feed that aggregate.
+- [GitHub workflow dispatch source](github-workflow-dispatch-source.md) — dispatch resolves workflow definitions from default `main`; a branch-only workflow repair cannot unblock its own dispatch.
 - [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.
 - [Unmerged task-agent database drift](unmerged-task-agent-database-drift.md) — stalled merges may have already changed the shared DB; inspect live schema and migration ledger before reconstructing code.
 - [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.

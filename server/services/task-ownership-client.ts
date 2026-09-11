@@ -7,6 +7,12 @@ export interface OwnershipHttp {
   request(path: string, init: { method: string; body?: unknown }): Promise<unknown>;
 }
 
+export type OwnershipProofResult = {
+  ok: true; verified: true; receiptId: string; taskRef: string;
+  intendedActor: string; artifactSha256: string; proofPayloadDigest: string; contextDigest: string;
+  grant: { id: string; taskRef: string; artifactSha256: string; contextDigest: string; startingCommit: string; expiresAt: string };
+};
+
 export class TaskOwnershipHttpClient {
   constructor(
     private readonly baseUrl: string,
@@ -51,7 +57,7 @@ export function canonicalProofBytes(payload: unknown): Buffer {
   return Buffer.from(canonicalJson(payload), 'utf8');
 }
 
-export async function proveTaskOwnership(client: TaskOwnershipHttpClient, taskRef: string, actor: string, receiptId: string) {
+export async function proveTaskOwnership(client: TaskOwnershipHttpClient, taskRef: string, actor: string, receiptId: string): Promise<OwnershipProofResult> {
   const key: TaskAgentKey = await loadTaskAgentKey(taskRef);
   const nonceResponse: any = await client.proofNonce(receiptId);
   if (
@@ -71,5 +77,11 @@ export async function proveTaskOwnership(client: TaskOwnershipHttpClient, taskRe
     canonicalProofBytes(nonceResponse.signedPayload),
     await readFile(key.privateKeyPath, 'utf8'),
   ).toString('base64url');
-  return client.proof({ nonceId: nonceResponse.nonceId, signature });
+  const result = await client.proof({ nonceId: nonceResponse.nonceId, signature }) as OwnershipProofResult;
+  if (!result || result.ok !== true || result.verified !== true || !/^[0-9a-f]{64}$/.test(result.proofPayloadDigest) ||
+      !result.grant || typeof result.grant.id !== 'string' || typeof result.contextDigest !== 'string' ||
+      typeof result.grant.expiresAt !== 'string') {
+    throw new Error('Malformed ownership grant response.');
+  }
+  return result;
 }

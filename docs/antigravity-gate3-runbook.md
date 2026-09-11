@@ -18,6 +18,12 @@ file, prompt, or log value. Do not register or provision a runtime as part of
 this run. The driver exchanges it once, renews broker credentials in memory,
 and never places credentials in child processes.
 
+Trusted Phase B provisioning runs as one transaction in registration → profile
+→ receipt → challenge row order. Ownership failure rolls back the registration
+and profile. Protected executor and verifier operations acquire the credential
+advisory lock, then hold registration → profile → credential → receipt →
+challenge → grant through the mutation.
+
 Paused **#1448 resume sequence**: confirm the operator-approved runtime,
 worktree, branch and starting HEAD; obtain a fresh frozen window and its
 non-secret IDs; confirm the protected secret handoff; then resume with the

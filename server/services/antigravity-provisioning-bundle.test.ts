@@ -10,7 +10,8 @@ function input() {
   const pair = generateKeyPairSync('ed25519', { publicKeyEncoding: { type: 'spki', format: 'der' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
   const publicKey = pair.publicKey.toString('base64url');
   return {
-    ...GATE3, capabilities: [...GATE3.capabilities], artifactSha256: 'a'.repeat(64),
+    ...GATE3, credentialCapabilities: [...GATE3.credentialCapabilities],
+    runtimeCapabilities: [...GATE3.runtimeCapabilities], artifactSha256: 'a'.repeat(64),
     publicKey, keyFingerprint: publicKeyFingerprint(publicKey),
     bootstrapSha256: 'b'.repeat(64), worktreeRealpathDigest: 'c'.repeat(64),
     startingCommit: 'd'.repeat(40),
@@ -29,4 +30,5 @@ test('bundle rejects tampering, unknown fields, and key mismatch', () => {
   assert.throws(() => validatePublicProvisioningBundle({ ...bundle, artifactSha256: 'A'.repeat(64) }));
   assert.throws(() => validatePublicProvisioningBundle({ ...bundle, secret: 'sentinel' }));
   assert.throws(() => validatePublicProvisioningBundle({ ...bundle, keyFingerprint: 'e'.repeat(64) }));
+  assert.throws(() => validatePublicProvisioningBundle({ ...bundle, capabilities: ['execute'] }));
 });

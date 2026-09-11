@@ -3,7 +3,8 @@ import { createHash, createPublicKey } from 'node:crypto';
 export const GATE3 = {
   runtimeId: 'luca-gemini-antigravity-primary',
   actor: 'luca-gemini',
-  capabilities: ['coordination:read', 'coordination:write', 'coordination:inbox:ack'] as const,
+  credentialCapabilities: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew'] as const,
+  runtimeCapabilities: ['execute', 'model'] as const,
   tokenTtlSeconds: 900,
   taskRef: '1448',
   repositoryLabel: 'HolaHola',
@@ -15,11 +16,13 @@ export const GATE3 = {
 } as const;
 
 export type PublicProvisioningBundle = {
-  runtimeId: string; actor: string; capabilities: string[]; tokenTtlSeconds: number;
+  runtimeId: string; actor: string; credentialCapabilities: string[]; runtimeCapabilities: string[]; tokenTtlSeconds: number;
   taskRef: string; artifactSha256: string; publicKey: string; keyFingerprint: string;
   bootstrapSha256: string; worktreeRealpathDigest: string; branch: string;
   startingCommit: string; provider: string; model: string; adapterVersion: string;
   repositoryLabel: string; worktreeLabel: string; bundleDigest: string;
+  // Keeps older consumers type-compatible while the runtime rejects legacy fields.
+  [key: string]: any;
 };
 
 const SHA = /^[0-9a-f]{64}$/;
@@ -43,7 +46,7 @@ export function canonicalBundleJson(bundle: Omit<PublicProvisioningBundle, 'bund
 
 export function createPublicProvisioningBundle(input: Omit<PublicProvisioningBundle, 'bundleDigest'>): PublicProvisioningBundle {
   validatePublicProvisioningBundle(input);
-  return { ...input, bundleDigest: digest(input) };
+  return { ...input, bundleDigest: digest(input) } as PublicProvisioningBundle;
 }
 
 export function validatePublicProvisioningBundle(value: unknown): asserts value is Omit<PublicProvisioningBundle, 'bundleDigest'> & { bundleDigest?: string } {
@@ -54,7 +57,7 @@ export function validatePublicProvisioningBundle(value: unknown): asserts value 
     'worktreeRealpathDigest', 'startingCommit', 'bundleDigest',
   ]));
   for (const key of Object.keys(object)) {
-    if (!allowed.has(key) || (SECRET_KEYS.test(key) && key !== 'bootstrapSha256' && key !== 'tokenTtlSeconds')) throw new ProvisioningBundleError('field');
+    if (!allowed.has(key) || (SECRET_KEYS.test(key) && !['bootstrapSha256', 'tokenTtlSeconds', 'credentialCapabilities'].includes(key))) throw new ProvisioningBundleError('field');
   }
   for (const key of ['artifactSha256', 'bootstrapSha256', 'worktreeRealpathDigest', 'keyFingerprint'] as const) {
     if (typeof object[key] !== 'string' || !SHA.test(object[key])) throw new ProvisioningBundleError(key);

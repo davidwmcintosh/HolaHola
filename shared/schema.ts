@@ -11142,3 +11142,37 @@ export const taskOwnershipProofAttempts = pgTable("task_ownership_proof_attempts
   check("task_ownership_proof_attempt_outcome", sql`(${t.success} AND ${t.errorCode} IS NULL) OR (NOT ${t.success} AND ${t.errorCode} IS NOT NULL)`),
   check("task_ownership_proof_attempt_digest", sql`${t.payloadDigest} IS NULL OR ${t.payloadDigest} ~ '^[0-9a-f]{64}$'`),
 ]);
+
+// Gate 3 is a durable capability: it is only valid while every authority row
+// it names remains valid.  All values are copied from locked source rows at
+// issuance time so validation never trusts request-supplied task metadata.
+export const coordinationGate3ProofGrants = pgTable("coordination_gate3_proof_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptId: varchar("receipt_id").notNull().references(() => taskOwnershipReceipts.id, { onDelete: "restrict" }),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id, { onDelete: "restrict" }),
+  runtimeRegistrationId: varchar("runtime_registration_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: "restrict" }),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id, { onDelete: "restrict" }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+  contextDigest: varchar("context_digest", { length: 64 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  proofPayloadDigest: varchar("proof_payload_digest", { length: 64 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_coordination_gate3_grant_bindings")
+    .on(t.receiptId, t.credentialId, t.runtimeRegistrationId, t.profileId),
+  index("idx_coordination_gate3_grants_credential").on(t.credentialId, t.expiresAt),
+  index("idx_coordination_gate3_grants_runtime_profile").on(t.runtimeRegistrationId, t.profileId, t.expiresAt),
+  check("coordination_gate3_grant_actor", sql`${t.actor} = 'luca-gemini'`),
+  check("coordination_gate3_grant_task_ref", sql`${t.taskRef} = '1448'`),
+  check("coordination_gate3_grant_artifact_sha256", sql`${t.artifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_context_digest", sql`${t.contextDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_starting_commit", sql`${t.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_proof_digest", sql`${t.proofPayloadDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_lifecycle", sql`${t.expiresAt} > ${t.issuedAt} AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.issuedAt})`),
+]);
