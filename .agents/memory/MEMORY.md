@@ -147,3 +147,4 @@
 - [Publish composite-FK ordering](publish-composite-fk-ordering.md) — declare referenced column pairs as table-level unique constraints; standalone unique indexes may be reordered after FKs.
 - [Gate 3 host isolation](gate3-host-isolation.md) — task-agent worktree isolation is insufficient when project secrets are inherited; execution authority requires a secret-minimal host.
 - [Coordinator product opportunity](coordinator-product-opportunity.md) — the provider-neutral coordinator may be a standalone multi-LLM coding control plane.
+- [Cross-host artifact digests](cross-host-artifact-digests.md) — bind execution authority to target-host bytes; Windows CRLF may differ from the immutable LF Git blob.
