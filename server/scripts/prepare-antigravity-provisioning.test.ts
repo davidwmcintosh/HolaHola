@@ -51,3 +51,12 @@ test('preparation fails closed for worktree, head, remote, and bootstrap invaria
   await writeFile(join(root, 'dirty'), 'x');
   await assert.rejects(() => prepareAntigravityProvisioning({ root, startingCommit: commit, env: env() }), /dirty_worktree/);
 });
+
+test('production preparation removes bootstrap from subprocess environment before Git checks', async () => {
+  const source = await readFile(new URL('./prepare-antigravity-provisioning.ts', import.meta.url), 'utf8');
+  const functionStart = source.indexOf('export async function prepareAntigravityProvisioning');
+  const deleteAt = source.indexOf('delete process.env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN', functionStart);
+  const firstGitAt = source.indexOf('await git(', functionStart);
+  assert.ok(deleteAt > functionStart, 'production bootstrap must be removed');
+  assert.ok(firstGitAt > deleteAt, 'bootstrap must be removed before the first Git subprocess');
+});

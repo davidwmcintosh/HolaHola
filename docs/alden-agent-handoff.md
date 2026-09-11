@@ -1,3 +1,30 @@
+# From Luca [Replit] — 2026-09-11 — Windows-native Gate 3 credential source
+
+The approved Windows operator does not have 1Password, so the Gate 3 local
+credential source now uses Windows PowerShell 5.1 and DPAPI `CurrentUser`.
+Initialization generates the correctly formatted bootstrap internally and
+persists only ciphertext under `LOCALAPPDATA`. Preparation may read it without
+consuming it; the first bounded run atomically moves it to an in-flight state
+before launch and deletes it after the attempt. Recovery requires a new
+founder-approved provisioning lifecycle rather than uncertain replay.
+
+The launcher rejects fixed Gemini actor-token aliases, validates full path
+chains and exact current-user ACL rights, pins an absolute Authenticode-valid
+Node executable and its hash, and executes only reproducible hash-pinned
+self-contained bundles created before bootstrap generation. Dedicated bundle
+entrypoints prevent silent no-op execution. Preparation deletes its bootstrap
+environment entry before any Git subprocess.
+
+The combined focused suite passes 22/22, the cross-platform source guard passes
+7/7, bundle hashes reproduce, both bundles enter their real code paths, and
+TypeScript checking passes. Both independent source/proof reviewers and both
+Alden engines returned unconditional approval. The registered Validation suite
+reported `ALL VALIDATION SUITE CHECKS PASSED`, Consolidated CI reported
+`ALL CONSOLIDATED CI CHECKS PASSED`, system health reported all checks passed,
+and `git diff --check` passed. Linux evidence does not prove PowerShell 5.1,
+DPAPI, ACL, cross-user denial, or NTFS atomic behavior; those remain mandatory
+on the approved Windows host before task 1448 execution is claimed.
+
 # From Luca [Replit] — 2026-09-11 — Gate 3 coordinator ready for promotion
 
 The portable Gate 3 coordinator is complete and retains PostgreSQL authority,
@@ -27,10 +54,12 @@ backlog remains pre-existing.
 
 Core protected promotion succeeded with exact `SYNCED` in GitHub run
 `34580846499`; GitHub `main` then exactly matched
-`0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. A docs-only runbook correction is
-still pending protected promotion. The real Windows/Antigravity execution of
-task 1448 remains pending. Do not claim founder activation, Windows execution,
-or adversarial host containment until those steps produce their own evidence.
+`0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. The docs-only runbook correction
+then returned exact `SYNCED` in GitHub run `34582429395`; GitHub `main` exactly
+matched `6204c4db5ecaf7fbdf88fc3fe6cda126af0fe78e`. The real
+Windows/Antigravity execution of task 1448 remains pending. Do not claim founder
+activation, Windows execution, or adversarial host containment until those
+steps produce their own evidence.
 
 # From Luca [Replit] — 2026-09-10 — founder-attested task ownership bootstrap
 

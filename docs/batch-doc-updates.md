@@ -1,3 +1,22 @@
+# Windows-native Antigravity Gate 3 credential source — 2026-09-11
+
+- Replaced the Windows-only 1Password dependency with a fixed-action Windows
+  PowerShell 5.1 launcher using DPAPI `CurrentUser`.
+- Initialization generates the bootstrap internally and stores only ciphertext
+  under `LOCALAPPDATA`; bounded execution atomically consumes it before launch.
+- The launcher rejects fixed Gemini actor-token aliases, validates full reparse
+  chains and current-user ACLs, pins an absolute signed Node executable, and
+  runs only reproducible hash-pinned bundles built before credential generation.
+- Production preparation now removes the bootstrap from its process environment
+  before any Git subprocess can inherit it.
+- The cross-platform source guard rebuilds and executes both approved bundles
+  but explicitly does not claim Windows DPAPI execution. The focused combined
+  suite passes 22/22, both independent source reviews and both Alden engines
+  returned unconditional approval, the registered Validation suite and
+  Consolidated CI passed their exact final markers, system health passed, and
+  `git diff --check` passed. Genuine PowerShell 5.1, DPAPI, ACL, and
+  atomic-consumption evidence remains an approved-host step.
+
 # Gate 3 coordinator final local proof — 2026-09-11
 
 - Phase B now documents and implements one transaction in registration →
@@ -12,8 +31,10 @@
   logs only the model; the corresponding HoundDog finding is gone.
 - Core protected promotion returned exact `SYNCED` in GitHub run `34580846499`;
   GitHub `main` then exactly matched
-  `0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. A docs-only runbook correction and
-  real Windows/Antigravity task 1448 execution still require separate evidence.
+  `0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. The docs-only correction later
+  returned exact `SYNCED` in run `34582429395`, and GitHub `main` exactly matched
+  `6204c4db5ecaf7fbdf88fc3fe6cda126af0fe78e`. Real Windows/Antigravity task
+  1448 execution still requires separate evidence.
 
 # Persisted Gemini runtime authority model — 2026-09-10
 

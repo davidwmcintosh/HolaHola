@@ -72,6 +72,7 @@ commands.splice(safetyInsertion, 0,
   'npx tsx server/scripts/test-projection-writer-coverage.ts',
   'npx tsx server/scripts/test-source-reconciliation-service.ts',
   'npx tsx server/scripts/test-source-reconciliation-inspection.ts',
+  'npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts',
   'npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts',
 );
 

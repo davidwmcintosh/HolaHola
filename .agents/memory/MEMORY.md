@@ -146,3 +146,4 @@
 - [Hermetic authority-model proof](hermetic-authority-model-proof.md) — green tests do not prove coordination authority unless fakes own identity, envelopes, atomic transitions, and adversarial evidence.
 - [Publish composite-FK ordering](publish-composite-fk-ordering.md) — declare referenced column pairs as table-level unique constraints; standalone unique indexes may be reordered after FKs.
 - [Gate 3 host isolation](gate3-host-isolation.md) — task-agent worktree isolation is insufficient when project secrets are inherited; execution authority requires a secret-minimal host.
+- [Coordinator product opportunity](coordinator-product-opportunity.md) — the provider-neutral coordinator may be a standalone multi-LLM coding control plane.

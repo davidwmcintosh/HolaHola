@@ -17,11 +17,18 @@ not accept a token argument and does not read `COORDINATION_API_TOKEN`,
 
 ## Scoped credential broker
 
-**Selected vault:** 1Password Secrets Automation. It is cross-runtime, supports
+**Default cross-runtime vault:** 1Password Secrets Automation. It supports
 separate service accounts and vault ACLs, and lets operators revoke one runtime
 without exposing the other actors' items. 1Password holds bootstrap credentials;
 HolaHola remains the authority for runtime registration, actor binding,
 capabilities, and short-lived coordination credentials.
+
+The bounded Windows Antigravity Gate 3 path uses Windows DPAPI `CurrentUser`
+instead because its approved operator does not have 1Password. The fixed-action
+launcher in `scripts/antigravity-gate3.ps1` generates the bootstrap internally,
+stores only ciphertext outside the repository, and atomically consumes it on
+the first bounded launch. This changes the local credential source only; it
+does not change broker, actor, capability, founder-approval, or task authority.
 
 Each runtime registration has exactly one immutable actor, one bootstrap hash,
 an allowlisted capability set, and a token TTL from 60 to 3,600 seconds
@@ -156,9 +163,10 @@ token; the prior token is revoked. A restart exchanges the bootstrap again.
 - **Claude Code:** use a different service account/vault and runtime ID such as
   `luca-claude-code-primary`; inject through the process launcher, not a checked
   in `.env`.
-- **Antigravity/Gemini:** register actor `luca-gemini` with a runtime ID such as
-  `luca-gemini-antigravity-primary` and its own service account/vault. Never
-  reuse Replit or Claude Code's registration or bootstrap.
+- **Antigravity/Gemini Gate 3 on Windows:** register actor `luca-gemini` with a
+  runtime ID such as `luca-gemini-antigravity-primary`. Use the documented
+  DPAPI launcher under the approved Windows user; never reuse Replit or Claude
+  Code's registration or bootstrap.
 - **Future runtimes:** add an explicit actor if attribution is distinct, create
   a new registration and service account, and grant only capabilities required
   by that runtime's documented operations.

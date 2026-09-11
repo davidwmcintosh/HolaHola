@@ -9,7 +9,7 @@
 - `luca-gemini` remains the actor; `luca-gemini-antigravity-primary` is a runtime provenance label.
 - The Windows execution host must not receive a fixed Luca actor token.
 - Bootstrap and broker credential values must not appear in chat, stdout, command arguments, logs, repository files, `.env` files, or evidence receipts.
-- The bootstrap originates in the runtime-specific 1Password item. Only its SHA-256 leaves the Windows process during preparation.
+- The bootstrap originates in the fixed-action Windows DPAPI launcher. Only its SHA-256 leaves the Windows process during preparation.
 - No work-authorizing action may occur before a fresh founder-approved ownership proof succeeds.
 - The exact task starting commit is resolved only after this implementation completes protected promotion.
 - Do not claim adversarial Windows host containment.
@@ -119,7 +119,7 @@ Update the task-ownership client and the Antigravity runtime driver:
 
 - allow an already-issued short-lived broker credential to authenticate nonce issuance and proof;
 - do not read or fall back to `COORDINATION_LUCA_GEMINI_CODE_TOKEN` in the Gate 3 path;
-- exchange the 1Password-injected bootstrap first;
+- exchange the DPAPI-launcher-injected bootstrap first;
 - prove the active receipt with the Windows-held Ed25519 key;
 - gate packet fetch, consumption, claim, model call, file write, command execution, completion, and evidence on successful proof;
 - fail startup if a fixed Gemini actor-token variable is present.
@@ -178,8 +178,8 @@ On Windows:
 
 1. fetch GitHub `main`;
 2. move the clean `luca/gemini-experiment` worktree to the exact synchronized commit;
-3. create the Antigravity-only 1Password item;
-4. run preparation under `op run`;
+3. initialize the Antigravity-only DPAPI `CurrentUser` credential;
+4. run preparation through `scripts/antigravity-gate3.ps1`;
 5. inspect the generated task artifact and public bundle.
 
 On Replit:
@@ -190,7 +190,7 @@ On Replit:
 
 On Windows:
 
-1. start Antigravity under `op run`;
+1. start Antigravity through the fixed-action DPAPI launcher, atomically consuming the active ciphertext;
 2. exchange bootstrap;
 3. prove ownership;
 4. execute the bounded task;

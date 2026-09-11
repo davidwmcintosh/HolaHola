@@ -45,6 +45,7 @@ run_check "Source reconciliation safety" npm run test:source-reconciliation
 run_check "Agent-note coordination ingress" npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
 run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
+run_check "Antigravity Windows DPAPI source boundary" npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.

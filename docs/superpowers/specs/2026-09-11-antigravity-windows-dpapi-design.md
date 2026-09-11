@@ -56,7 +56,13 @@ It must resolve and validate the approved worktree:
 
 `C:\Users\David\HolaHola-antigravity`
 
-It must not accept an alternate worktree, arbitrary executable, arbitrary script, or arbitrary child argument.
+It must not accept an alternate worktree, arbitrary executable, arbitrary
+script, or arbitrary child argument. Before bootstrap generation, initialization
+builds the two approved TypeScript entry points into self-contained ESM bundles
+and requires their exact repository-pinned hashes. Later actions verify those
+bundles and invoke them with the same absolute Authenticode-valid Node
+executable recorded at initialization. No runtime `PATH` lookup, command shell,
+`.cmd` shim, or untracked TypeScript loader receives the bootstrap.
 
 ### Protected local store
 
@@ -94,7 +100,9 @@ Initialization fails closed if the active or in-flight store already exists. The
 
 `prepare` decrypts the active bootstrap in memory and launches only:
 
-`npx tsx server/scripts/prepare-antigravity-provisioning.ts --starting-commit`, followed by the exact synchronized 40-character Git commit SHA
+the verified preparation bundle under the protected local store with
+`--starting-commit`, followed by the exact synchronized 40-character Git commit
+SHA
 
 The starting commit remains an explicit non-secret input and must pass the existing TypeScript validation. Preparation does not consume the local bootstrap because Phase B has not registered its digest yet.
 
@@ -110,7 +118,7 @@ Before decryption or child launch, it atomically moves the active store to an in
 
 It then launches only:
 
-`npx tsx server/scripts/coordination-runtime-antigravity.ts`
+the verified bounded-driver bundle under the protected local store
 
 The in-flight ciphertext is deleted in `finally`, regardless of child success or failure. A crash residue is never accepted as an active credential. If execution fails after local consumption, the operator must create a fresh bootstrap and repeat provisioning; the launcher must not guess whether broker exchange occurred or replay uncertain authority.
 

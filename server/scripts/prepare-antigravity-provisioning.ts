@@ -31,6 +31,14 @@ async function git(root: string, args: string[]): Promise<string> {
 }
 
 export async function prepareAntigravityProvisioning(options: PreparationOptions): Promise<PublicProvisioningBundle> {
+  const env = options.env || process.env;
+  for (const variable of FIXED_TOKEN_VARS) {
+    if (Object.prototype.hasOwnProperty.call(env, variable)) throw new Error('fixed_actor_token');
+  }
+  const bootstrap = env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN;
+  if (!bootstrap || !/^cb_[A-Za-z0-9_-]{43}$/.test(bootstrap)) throw new Error('bootstrap_format');
+  if (env === process.env) delete process.env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN;
+
   const root = await realpath(options.root || process.cwd());
   // The production path is intentionally explicit; tests must opt into their temporary root.
   const normalizePath = (value: string) => value.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase();
@@ -54,11 +62,6 @@ export async function prepareAntigravityProvisioning(options: PreparationOptions
       lines.includes(`branch refs/heads/${GATE3.branch}`);
   });
   if (!entry || !entry.split('\n').includes(`branch refs/heads/${GATE3.branch}`)) throw new Error('linked_worktree');
-
-  const env = options.env || process.env;
-  for (const variable of FIXED_TOKEN_VARS) if (Object.prototype.hasOwnProperty.call(env, variable)) throw new Error('fixed_actor_token');
-  const bootstrap = env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN;
-  if (!bootstrap || !/^cb_[A-Za-z0-9_-]{43}$/.test(bootstrap)) throw new Error('bootstrap_format');
 
   const template = await readFile(options.templatePath || TEMPLATE, 'utf8');
   const occurrences = template.match(/__FINAL_STARTING_COMMIT__/g) || [];
