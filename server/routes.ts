@@ -25457,7 +25457,7 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           }
         };
 
-        console.log(`[Agent Voice Turn] Connecting to GL model=${MODEL} key=${process.env.GEMINI_API_KEY ? 'present(' + process.env.GEMINI_API_KEY.slice(0,8) + '...)' : 'MISSING'}`);
+        console.log(`[Agent Voice Turn] Connecting to GL model=${MODEL}`);
         ai.live.connect({
           model: MODEL,
           config: {
