@@ -8,7 +8,7 @@
 import { readFile } from "node:fs/promises";
 import { stdin } from "node:process";
 import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
-import { getSharedDb } from "../db";
+import { closeDbConnections, getSharedDb } from "../db";
 import {
   coordinationCredentialAuditEvents,
   coordinationGate3ProofGrants,
@@ -33,6 +33,7 @@ import {
 } from "../services/coordination-credential-broker";
 
 const MAX_BUNDLE_BYTES = 1024 * 1024;
+const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class AntigravityProvisioningError extends Error {
   readonly code: string;
@@ -58,14 +59,22 @@ function checkedBundle(value: unknown): PublicProvisioningBundle {
  * Phase A only creates the founder challenge.  Runtime and profile rows are
  * intentionally not touched here.
  */
-export async function submitAntigravityChallenge(value: unknown): Promise<{
+export async function submitAntigravityChallenge(value: unknown, attemptIdValue: unknown): Promise<{
   challengeId: string;
   taskDigest: string;
   keyFingerprint: string;
   bundleDigest: string;
+  attemptId: string;
   expiresAt: Date;
 }> {
   const bundle = checkedBundle(value);
+  if (typeof attemptIdValue !== "string" || attemptIdValue.length === 0) {
+    throw new AntigravityProvisioningError("attempt_id_required");
+  }
+  if (!CANONICAL_UUID.test(attemptIdValue)) {
+    throw new AntigravityProvisioningError("attempt_id_invalid");
+  }
+  const attemptId = attemptIdValue;
   try {
     const result = await createChallenge({
       taskRef: GATE3.taskRef,
@@ -75,7 +84,7 @@ export async function submitAntigravityChallenge(value: unknown): Promise<{
       publicKey: bundle.publicKey,
       keyFingerprint: bundle.keyFingerprint,
       contextDigest: bundle.bundleDigest,
-      idempotencyKey: `antigravity:${bundle.bundleDigest}`,
+      idempotencyKey: `antigravity:${bundle.bundleDigest}:${attemptId}`,
       ttlMs: 20 * 60_000,
     });
     return {
@@ -83,6 +92,7 @@ export async function submitAntigravityChallenge(value: unknown): Promise<{
       taskDigest: bundle.artifactSha256,
       keyFingerprint: bundle.keyFingerprint,
       bundleDigest: bundle.bundleDigest,
+      attemptId,
       expiresAt: result.expiresAt,
     };
   } catch (error) {
@@ -402,11 +412,13 @@ if (process.argv[1]?.endsWith("provision-antigravity-runtime.ts")) {
   const phase = process.argv[2];
   const bundlePath = process.argv.includes("--bundle") ? process.argv[process.argv.indexOf("--bundle") + 1] : undefined;
   const challengeId = process.argv.includes("--challenge-id") ? process.argv[process.argv.indexOf("--challenge-id") + 1] : undefined;
+  const attemptId = process.argv.includes("--attempt-id") ? process.argv[process.argv.indexOf("--attempt-id") + 1] : undefined;
   readBundle(bundlePath).then(async (bundle) => {
-    if (phase === "phase-a") return submitAntigravityChallenge(bundle);
+    if (phase === "phase-a") return submitAntigravityChallenge(bundle, attemptId);
     if (phase === "phase-b" && challengeId) return registerAntigravityRuntime(bundle, challengeId);
     throw new AntigravityProvisioningError("usage");
   })
     .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))
-    .catch((error) => { process.stderr.write(error instanceof AntigravityProvisioningError ? `${error.message}\n` : "antigravity_provisioning_failed\n"); process.exitCode = 1; });
+    .catch((error) => { process.stderr.write(error instanceof AntigravityProvisioningError ? `${error.message}\n` : "antigravity_provisioning_failed\n"); process.exitCode = 1; })
+    .finally(() => closeDbConnections());
 }

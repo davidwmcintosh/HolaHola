@@ -34,11 +34,15 @@ runs Phase A, the founder approves the exact challenge in an authenticated
 session, and Replit runs Phase B:
 
 ```bash
-npx tsx server/scripts/provision-antigravity-runtime.ts phase-a --bundle <PUBLIC_BUNDLE.json>
+npx tsx server/scripts/provision-antigravity-runtime.ts phase-a --bundle <PUBLIC_BUNDLE.json> --attempt-id <NEW_UUID>
 npx tsx server/scripts/provision-antigravity-runtime.ts phase-b \
   --bundle <PUBLIC_BUNDLE.json> \
   --challenge-id <FOUNDER_APPROVED_CHALLENGE_ID>
 ```
+
+Generate a new lowercase UUID for each intentional Phase A attempt. Reuse that
+same UUID only when retrying the same attempt so retries converge on one
+challenge.
 
 Phase B returns only non-secret IDs and digests. After it succeeds, configure
 the non-secret run inputs on Windows and launch the bounded driver through the

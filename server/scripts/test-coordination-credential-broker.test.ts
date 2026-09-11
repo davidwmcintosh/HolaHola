@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { after, test } from 'node:test';
 import { and, eq, sql } from 'drizzle-orm';
@@ -56,6 +57,20 @@ const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
 const prehashedRuntimeId = `${runtimeId}-prehashed`;
 const operatorRuntimeId = 'luca-gemini-antigravity-primary';
 const operatorTaskRef = `operator-${Date.now()}`;
+
+function runProvisioningCli(args: string[], bundle: PublicProvisioningBundle) {
+  return spawnSync(
+    'npx',
+    ['tsx', 'server/scripts/provision-antigravity-runtime.ts', ...args],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: process.env,
+      input: JSON.stringify(bundle),
+      timeout: 30_000,
+    },
+  );
+}
 
 function deferred(): {
   promise: Promise<void>;
@@ -173,12 +188,93 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
       .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId))).length, 0);
   };
 
-  const phaseA = await submitAntigravityChallenge(bundle);
+  const [challengeCountBeforeInvalid] = await getSharedDb().select({
+    count: sql<number>`count(*)::int`,
+  }).from(taskOwnershipChallenges);
+  await assert.rejects(
+    () => submitAntigravityChallenge(bundle, undefined),
+    /attempt_id_required/,
+  );
+  await assert.rejects(
+    () => submitAntigravityChallenge(bundle, crypto.randomUUID().toUpperCase()),
+    /attempt_id_invalid/,
+  );
+  await assert.rejects(
+    () => submitAntigravityChallenge(bundle, 'a'.repeat(201)),
+    /attempt_id_invalid/,
+  );
+  const [challengeCountAfterInvalid] = await getSharedDb().select({
+    count: sql<number>`count(*)::int`,
+  }).from(taskOwnershipChallenges);
+  assert.equal(challengeCountAfterInvalid.count, challengeCountBeforeInvalid.count);
+
+  const cliMissing = runProvisioningCli(['phase-a'], bundle);
+  assert.equal(cliMissing.status, 1);
+  assert.match(cliMissing.stderr, /antigravity_provisioning_attempt_id_required/);
+  const cliMalformed = runProvisioningCli(['phase-a', '--attempt-id', 'NOT-A-UUID'], bundle);
+  assert.equal(cliMalformed.status, 1);
+  assert.match(cliMalformed.stderr, /antigravity_provisioning_attempt_id_invalid/);
+  const cliOversized = runProvisioningCli(['phase-a', '--attempt-id', 'a'.repeat(201)], bundle);
+  assert.equal(cliOversized.status, 1);
+  assert.match(cliOversized.stderr, /antigravity_provisioning_attempt_id_invalid/);
+  const cliAttemptId = crypto.randomUUID();
+  const cliValid = runProvisioningCli(['phase-a', '--attempt-id', cliAttemptId], bundle);
+  assert.equal(cliValid.status, 0, cliValid.stderr);
+  const cliJsonLine = cliValid.stdout.split('\n').find((line) => line.startsWith('{'));
+  assert.ok(cliJsonLine);
+  const cliResult = JSON.parse(cliJsonLine);
+  assert.equal(cliResult.attemptId, cliAttemptId);
+  const cliPhaseB = runProvisioningCli(
+    ['phase-b', '--challenge-id', cliResult.challengeId],
+    bundle,
+  );
+  assert.equal(cliPhaseB.status, 1);
+  assert.match(cliPhaseB.stderr, /antigravity_provisioning_challenge_not_approved/);
+  assert.doesNotMatch(cliPhaseB.stderr, /attempt_id/);
+
+  const phaseAAttemptId = crypto.randomUUID();
+  const phaseA = await submitAntigravityChallenge(bundle, phaseAAttemptId);
   assert.equal(phaseA.bundleDigest, bundle.bundleDigest);
-  await assert.rejects(() => registerAntigravityRuntime(bundle, phaseA.challengeId), /challenge_not_approved/);
+  assert.equal(phaseA.attemptId, phaseAAttemptId);
+  const phaseARetry = await submitAntigravityChallenge(bundle, phaseAAttemptId);
+  assert.equal(phaseARetry.challengeId, phaseA.challengeId);
+  await getSharedDb().transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+    await tx.update(taskOwnershipChallenges)
+      .set({ expiresAt: new Date(Date.now() - 1) })
+      .where(eq(taskOwnershipChallenges.id, phaseA.challengeId));
+  });
+  await assert.rejects(
+    () => decideChallenge(phaseA.challengeId, 'approved', 'expired-attempt-test'),
+    /CHALLENGE_EXPIRED/,
+  );
+  const [expiredPhaseARow] = await getSharedDb().select().from(taskOwnershipChallenges)
+    .where(eq(taskOwnershipChallenges.id, phaseA.challengeId));
+  assert.equal(expiredPhaseARow.status, 'expired');
+  const freshAttemptId = crypto.randomUUID();
+  const freshPhaseA = await submitAntigravityChallenge(bundle, freshAttemptId);
+  assert.notEqual(freshPhaseA.challengeId, phaseA.challengeId);
+  const [freshPhaseARow] = await getSharedDb().select().from(taskOwnershipChallenges)
+    .where(eq(taskOwnershipChallenges.id, freshPhaseA.challengeId));
+  assert.equal(freshPhaseARow.status, 'pending');
+  assert.equal(freshPhaseARow.taskRef, bundle.taskRef);
+  assert.equal(freshPhaseARow.artifactSha256, bundle.artifactSha256);
+  assert.equal(freshPhaseARow.intendedActor, bundle.actor);
+  assert.equal(freshPhaseARow.coordinationActor, bundle.actor);
+  assert.equal(freshPhaseARow.publicKey, bundle.publicKey);
+  assert.equal(freshPhaseARow.keyFingerprint, bundle.keyFingerprint);
+  assert.equal(freshPhaseARow.contextDigest, bundle.bundleDigest);
+  assert.equal(
+    freshPhaseARow.idempotencyKey,
+    `antigravity:${bundle.bundleDigest}:${freshAttemptId}`,
+  );
+  const [expiredPhaseARowAfterFresh] = await getSharedDb().select().from(taskOwnershipChallenges)
+    .where(eq(taskOwnershipChallenges.id, phaseA.challengeId));
+  assert.deepEqual(expiredPhaseARowAfterFresh, expiredPhaseARow);
+  await assert.rejects(() => registerAntigravityRuntime(bundle, freshPhaseA.challengeId), /challenge_not_approved/);
   await assertNoAuthority();
 
-  const receipt = await decideChallenge(phaseA.challengeId, 'approved', 'founder-operator-test');
+  const receipt = await decideChallenge(freshPhaseA.challengeId, 'approved', 'founder-operator-test');
   assert.ok('id' in receipt);
   await getSharedDb().execute(sql`
     CREATE FUNCTION reject_antigravity_profile_insert() RETURNS trigger
@@ -198,7 +294,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   `);
   try {
     await assert.rejects(
-      () => registerAntigravityRuntime(bundle, phaseA.challengeId),
+      () => registerAntigravityRuntime(bundle, freshPhaseA.challengeId),
       /Failed query: insert into "coordination_runtime_profiles"/,
     );
     await assertNoAuthority();
@@ -211,13 +307,13 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
       DROP FUNCTION IF EXISTS reject_antigravity_profile_insert()
     `);
   }
-  const registered = await registerAntigravityRuntime(bundle, phaseA.challengeId);
+  const registered = await registerAntigravityRuntime(bundle, freshPhaseA.challengeId);
   assert.equal(registered.status, 'created');
   assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 1);
   assert.equal((await getSharedDb().select().from(coordinationRuntimeProfiles)
     .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId))).length, 1);
-  const replay = await registerAntigravityRuntime(bundle, phaseA.challengeId);
+  const replay = await registerAntigravityRuntime(bundle, freshPhaseA.challengeId);
   assert.equal(replay.status, 'replayed');
   const exchanged = await exchangeBootstrapCredential(operatorRuntimeId, secret);
   assert.ok(exchanged);
@@ -270,14 +366,14 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   const successorGrant = grant;
   await assert.rejects(() => validateGate3ProofGrant(grant.id, brokerCredential), /GATE3_PROOF_GRANT_INVALID/);
   const concurrent = await Promise.all([
-    registerAntigravityRuntime(bundle, phaseA.challengeId),
-    registerAntigravityRuntime(bundle, phaseA.challengeId),
+    registerAntigravityRuntime(bundle, freshPhaseA.challengeId),
+    registerAntigravityRuntime(bundle, freshPhaseA.challengeId),
   ]);
   assert.deepEqual(concurrent.map((result) => result.status).sort(), ['replayed', 'replayed']);
   await getSharedDb().update(coordinationRuntimeProfiles)
     .set({ model: 'conflicting-model' })
     .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId));
-  await assert.rejects(() => registerAntigravityRuntime(bundle, phaseA.challengeId), /profile_conflict/);
+  await assert.rejects(() => registerAntigravityRuntime(bundle, freshPhaseA.challengeId), /profile_conflict/);
   assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 1);
   await getSharedDb().update(coordinationRuntimeProfiles)
@@ -285,11 +381,11 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId));
 
   await assert.rejects(
-    () => registerAntigravityRuntime({ ...bundle, bootstrapSha256: '3'.repeat(64) }, phaseA.challengeId),
+    () => registerAntigravityRuntime({ ...bundle, bootstrapSha256: '3'.repeat(64) }, freshPhaseA.challengeId),
     /invalid_bundle/,
   );
   await assert.rejects(
-    () => registerAntigravityRuntime({ ...bundle, keyFingerprint: '4'.repeat(64) }, phaseA.challengeId),
+    () => registerAntigravityRuntime({ ...bundle, keyFingerprint: '4'.repeat(64) }, freshPhaseA.challengeId),
     /invalid_bundle|receipt_mismatch/,
   );
   assert.equal(JSON.stringify(registered).includes(secret), false);
@@ -315,7 +411,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
       name: 'challenge',
       run: () => getSharedDb().transaction(async (tx) => {
         await tx.update(taskOwnershipChallenges).set({ status: 'approved' })
-          .where(eq(taskOwnershipChallenges.id, phaseA.challengeId));
+          .where(eq(taskOwnershipChallenges.id, freshPhaseA.challengeId));
         throw rollbackProbe;
       }),
     },
@@ -457,7 +553,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   );
   await phaseBLeaseEntered.promise;
   let phaseBReplaySettled = false;
-  const phaseBReplay = registerAntigravityRuntime(bundle, phaseA.challengeId).then((value) => {
+  const phaseBReplay = registerAntigravityRuntime(bundle, freshPhaseA.challengeId).then((value) => {
     phaseBReplaySettled = true;
     return value;
   });
@@ -536,7 +632,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
       ...unsigned,
       artifactSha256: crypto.createHash('sha256').update(`${operatorTaskRef}-${suffix}`).digest('hex'),
     });
-    const challenge = await submitAntigravityChallenge(challengeBundle);
+    const challenge = await submitAntigravityChallenge(challengeBundle, crypto.randomUUID());
     return challenge;
   };
   const rejected = await makeChallenge('rejected');
@@ -569,7 +665,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     ...recoveryBase,
     bootstrapSha256: hashCoordinationSecret(recoverySecret),
   });
-  const recoveryPhaseA = await submitAntigravityChallenge(recoveryBundle);
+  const recoveryPhaseA = await submitAntigravityChallenge(recoveryBundle, crypto.randomUUID());
   const [beforeRecovery] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
   await assert.rejects(
@@ -677,7 +773,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     ...recoveryBase,
     bootstrapSha256: hashCoordinationSecret(postRecoverySecret),
   });
-  const postRecoveryPhaseA = await submitAntigravityChallenge(postRecoveryBundle);
+  const postRecoveryPhaseA = await submitAntigravityChallenge(postRecoveryBundle, crypto.randomUUID());
   await decideChallenge(postRecoveryPhaseA.challengeId, 'approved', 'founder-bootstrap-recovery-test');
   await assert.rejects(
     () => registerAntigravityRuntime(postRecoveryBundle, postRecoveryPhaseA.challengeId),
@@ -721,7 +817,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     ...recoveryBase,
     bootstrapSha256: hashCoordinationSecret(packetBlockedSecret),
   });
-  const packetBlockedPhaseA = await submitAntigravityChallenge(packetBlockedBundle);
+  const packetBlockedPhaseA = await submitAntigravityChallenge(packetBlockedBundle, crypto.randomUUID());
   await decideChallenge(packetBlockedPhaseA.challengeId, 'approved', 'founder-bootstrap-recovery-test');
   await assert.rejects(
     () => registerAntigravityRuntime(packetBlockedBundle, packetBlockedPhaseA.challengeId),

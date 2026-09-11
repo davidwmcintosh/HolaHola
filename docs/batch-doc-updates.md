@@ -5811,3 +5811,22 @@ Anthropic and Gemini engines and the independent architecture reviewer all
 returned unconditional approval. Windows Gate 3 remains paused until this
 recovery is committed and published, a fresh founder challenge is approved,
 Phase B returns `recovered`, and a fresh task assignment/window is created.
+
+## Gate 3 Phase A fresh-attempt idempotency — September 11, 2026
+
+After the recovery publish, Phase A correctly preserved immutable challenge
+evidence but returned the prior expired challenge because its idempotency key
+contained only the unchanged bundle digest. Phase A now requires an explicit
+non-secret lowercase UUID attempt ID. Retries with the same UUID converge;
+a new intentional attempt uses a new UUID and creates fresh founder authority
+without changing the public bundle, Windows artifact, bootstrap, or Phase B
+bindings.
+
+The CLI closes its own database pool after printing success or failure.
+Expanded disposable-PostgreSQL coverage proves invalid IDs create zero rows,
+the real CLI rejects missing/malformed/oversized IDs, a valid CLI invocation
+returns its attempt ID, Phase B does not consume the ID, an expired immutable
+challenge remains unchanged, and the fresh row preserves every founder
+authority binding. The focused suite passed 4/4 with zero skips. TypeScript and
+system health passed. Both Alden engines and the independent architecture
+reviewer returned unconditional approval.

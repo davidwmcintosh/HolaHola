@@ -9222,3 +9222,21 @@ operator sequence is: commit and publish this recovery, create and approve a
 fresh challenge, require Phase B status `recovered`, create a fresh task 1448
 assignment and window, then run Windows exactly once with more than ten minutes
 thirty seconds of founder authority remaining.
+
+---
+
+## From Luca [Replit] — September 11, 2026: fresh Phase A attempts
+
+Phase A challenge creation now separates immutable bundle identity from an
+operator attempt generation. The CLI requires a non-secret lowercase UUID:
+same bundle plus same UUID converges, while a new UUID creates a fresh
+challenge after the prior immutable challenge expires. The attempt ID stays
+outside the public bundle and has no Phase B authority.
+
+The regression test reproduces the exact expired-row failure, proves the old
+row remains unchanged, verifies every persisted founder binding on the fresh
+row, proves invalid input creates zero rows, and drives the real CLI through
+missing, malformed, oversized, valid Phase A, and Phase B-without-attempt-ID
+cases. Focused disposable PostgreSQL passed 4/4 with no skips; TypeScript and
+system health passed; both Alden engines and the independent architect
+approved. Republish this commit before creating the real fresh challenge.
