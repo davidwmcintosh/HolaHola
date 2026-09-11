@@ -9,10 +9,25 @@ artifact, and recovery lineage together in one transaction. Audits contain
 non-secret IDs and digests only. The CLI uses an allowlisted JSON result and
 always closes database connections.
 
-`npm run typecheck` passed. Do not run this against shared PostgreSQL; complete
-the focused disposable-PostgreSQL matrix (including rollback and concurrency)
-before using the operator command. No HTTP route, schema change, generalized
-coordination behavior, or task 1449 behavior was introduced.
+Final hardening makes the persisted event the sole runtime-projection source
+and validates the complete fixed thread/event/payload after canonical creation.
+If an incompatible ledger writer wins between the precheck and create call, the
+producer fails closed before any runtime projection, window, or success audit.
+Replay independently proves canonical/runtime equality even when an attacker
+coherently re-digests the runtime item, window, and audit metadata.
+
+Final evidence:
+
+- fresh disposable PostgreSQL: 15/15, zero skips;
+- TypeScript and `git diff --check`: passed;
+- all four transaction rollback boundaries: passed with exact row counts;
+- concurrent new same-attempt calls: one writer plus one exact replay;
+- Alden Anthropic, Alden Gemini, and independent architecture review:
+  unconditional approval with no watch-outs.
+
+No HTTP route, schema change, generalized coordination behavior, Windows
+execution, bootstrap consumption, or task 1449 behavior was introduced. Windows
+task 1448 remains pending and must not be claimed from this server-side proof.
 
 # From Luca [Replit] — 2026-09-11 — PowerShell 5.1 DPAPI compatibility repair
 

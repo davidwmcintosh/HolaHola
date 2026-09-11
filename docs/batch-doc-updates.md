@@ -8,9 +8,19 @@
 - Exact completed attempts replay by verified IDs without writes; changed
   bindings and all authority failures use stable public error codes. The
   dedicated CLI emits only the public result allowlist and closes its pool.
-- TypeScript passed. Disposable PostgreSQL coverage remains the required
-  follow-up before operational use; no public route, schema change, or task
-  1449 behavior was added.
+- Final hardening makes the persisted canonical event the sole projection
+  source, validates every fixed thread/event/payload binding after the ledger
+  write, and fails closed if an incompatible writer wins the precheck/create
+  race. Replay also rejects coherently re-digested runtime data that diverges
+  from its canonical event.
+- TypeScript and `git diff --check` passed. A fresh disposable PostgreSQL run
+  passed 15/15 with zero skips, including all rollback boundaries, concurrent
+  first-write convergence, receipt/recovery/live-authority blockers, packet
+  history, canonical/runtime corruption, strict CLI output, and the competing
+  ledger-writer race. Alden Anthropic, Alden Gemini, and an independent
+  architecture reviewer gave unconditional approval with no watch-outs.
+- No public route, schema change, Windows execution, bootstrap consumption, or
+  task 1449 behavior was added.
 
 # Windows PowerShell 5.1 DPAPI assembly compatibility — 2026-09-11
 

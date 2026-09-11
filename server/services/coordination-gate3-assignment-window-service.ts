@@ -26,7 +26,7 @@ export class Gate3AssignmentWindowError extends Error {
   constructor(code: string) { super(`gate3_assignment_window_${code}`); this.name = "Gate3AssignmentWindowError"; this.code = code; }
 }
 const fail = (code: string): never => { throw new Gate3AssignmentWindowError(code); };
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a: unknown, b: unknown) => digestCanonical(a) === digestCanonical(b);
 const AUDIT_KEYS = [
   "assignmentAttemptId", "receiptId", "threadId", "assignmentEventId",
   "runtimeInboxItemId", "windowId", "boundaryDigest", "artifactSha256", "bundleDigest",
@@ -39,6 +39,7 @@ export type AssignmentWindowResult = {
 };
 
 export type Gate3AssignmentWindowTestHooks = {
+  afterPartialEventChecked?: () => Promise<void>;
   afterCanonicalThreadCreated?: () => Promise<void>;
   afterRuntimeInboxItemCreated?: () => Promise<void>;
   afterWindowFrozen?: () => Promise<void>;
@@ -90,7 +91,7 @@ export async function createGate3AssignmentWindow(input: {
   const key = `gate3-assignment:${bundle.bundleDigest}:${attempt}`;
   return getSharedDb().transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${bundle.runtimeId}, 0))`);
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${attempt}, 0))`);
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
     const priorRows = await tx.select().from(coordinationCredentialAuditEvents).where(and(
       eq(coordinationCredentialAuditEvents.eventType, "gate3_assignment_window_created"),
       eq(coordinationCredentialAuditEvents.success, true),
@@ -115,11 +116,15 @@ export async function createGate3AssignmentWindow(input: {
       const [thread] = threads, [event] = events, [item] = items, [window] = windows, [ordinary] = ordinaryRows;
       if (!thread || !event || !item || !window || !ordinary
         || threads.length !== 1 || events.length !== 1 || items.length !== 1 || windows.length !== 1 || ordinaryRows.length !== 1
+        || thread.title !== "Gate 3 task 1448 assignment"
+        || thread.description !== "Approved Gate 3 assignment for task 1448."
         || thread.originActor !== "luca-replit" || thread.intendedRecipient !== GATE3.actor || thread.latestSequence !== 1
         || event.threadId !== thread.id || event.id !== item.eventId || item.windowId !== window.id
         || event.sequence !== 1 || event.actor !== "luca-replit" || event.recipientActor !== GATE3.actor
         || event.eventType !== "created" || event.idempotencyKey !== key
+        || event.content !== "Gate 3 task 1448 assignment."
         || item.threadId !== thread.id || item.taskId !== GATE3.taskRef || item.sequence !== 1
+        || !same(item.payload, event.payload)
         || ordinary.coordinationEventId !== event.id || ordinary.coordinationThreadId !== thread.id
         || ordinary.recipientActor !== GATE3.actor || ordinary.senderActor !== "luca-replit"
         || ordinary.messageKind !== "created"
@@ -204,6 +209,7 @@ export async function createGate3AssignmentWindow(input: {
       eq(coordinationEvents.idempotencyKey, key),
     )).limit(1);
     if (partialEvent) fail("attempt_corrupt");
+    await input.testHooks?.afterPartialEventChecked?.();
     const payload = {
       kind: "gate3_assignment", receiptId: input.receiptId, artifactSha256: bundle.artifactSha256,
       bundleDigest: bundle.bundleDigest,
@@ -215,7 +221,40 @@ export async function createGate3AssignmentWindow(input: {
       priority: "normal", payload, idempotencyKey: key, createInboxDelivery: false,
     }, tx);
     await input.testHooks?.afterCanonicalThreadCreated?.();
-    const item = { id: `gate3-assignment-${mutation.event.id}`, eventId: mutation.event.id, threadId: mutation.thread.id, taskId: "1448", sequence: 1, payload };
+    const canonicalPayload = mutation.event.payload as typeof payload;
+    const canonicalAssignment = canonicalPayload?.content?.assignment;
+    if (
+      mutation.thread.title !== "Gate 3 task 1448 assignment"
+      || mutation.thread.description !== "Approved Gate 3 assignment for task 1448."
+      || mutation.thread.originActor !== "luca-replit"
+      || mutation.thread.intendedRecipient !== GATE3.actor
+      || mutation.thread.latestSequence !== 1
+      || mutation.event.threadId !== mutation.thread.id
+      || mutation.event.sequence !== 1
+      || mutation.event.actor !== "luca-replit"
+      || mutation.event.recipientActor !== GATE3.actor
+      || mutation.event.eventType !== "created"
+      || mutation.event.idempotencyKey !== key
+      || mutation.event.content !== "Gate 3 task 1448 assignment."
+      || !same(canonicalPayload, payload)
+      || canonicalPayload.kind !== "gate3_assignment"
+      || canonicalPayload.receiptId !== input.receiptId
+      || canonicalPayload.artifactSha256 !== bundle.artifactSha256
+      || canonicalPayload.bundleDigest !== bundle.bundleDigest
+      || canonicalAssignment?.author !== "luca-replit"
+      || canonicalAssignment?.taskId !== GATE3.taskRef
+      || canonicalAssignment?.expectedSequence !== mutation.event.sequence
+    ) {
+      fail("canonical_assignment_invalid");
+    }
+    const item = {
+      id: `gate3-assignment-${mutation.event.id}`,
+      eventId: mutation.event.id,
+      threadId: mutation.event.threadId,
+      taskId: canonicalAssignment.taskId,
+      sequence: mutation.event.sequence,
+      payload: canonicalPayload,
+    };
     const repository = new PostgresCoordinationRuntimeRepository(tx);
     await repository.addInboxItem(item);
     await input.testHooks?.afterRuntimeInboxItemCreated?.();

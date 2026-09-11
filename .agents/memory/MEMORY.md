@@ -149,3 +149,4 @@
 - [Coordinator product opportunity](coordinator-product-opportunity.md) — the provider-neutral coordinator may be a standalone multi-LLM coding control plane.
 - [Cross-host artifact digests](cross-host-artifact-digests.md) — bind execution authority to target-host bytes; Windows CRLF may differ from the immutable LF Git blob.
 - [Immutable challenge attempt IDs](immutable-challenge-attempt-ids.md) — stable payload identity needs an explicit attempt generation so expired immutable challenges do not block renewal.
+- [Canonical projection race](canonical-projection-race.md) — after an idempotent ledger call, validate the persisted record before projecting; another writer may win after a precheck.
