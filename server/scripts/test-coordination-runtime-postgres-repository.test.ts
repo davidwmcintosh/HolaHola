@@ -8,6 +8,7 @@ import {
   CoordinationRuntimeService,
   RuntimeProtocolError,
   digestCanonical,
+  validateToolIntent,
   type ExecutionEnvelope,
   type RuntimePrincipal,
 } from "../services/coordination-runtime";
@@ -125,11 +126,32 @@ test("PostgreSQL parity: complete persisted lifecycle and replay", async (contex
     const service = new CoordinationRuntimeService(repo, now, () => `${suffix}-${Math.random()}`, envelope, 1_000);
     const packet = await service.createPacket(principal, window.id, assignment, "packet-key");
     assert.equal((await service.createPacket(principal, window.id, assignment, "packet-key")).id, packet.id);
-    const interaction = await service.recordInteraction(principal, { packetId: packet.id, turn: 1, attempt: 1, requestDigest: digestCanonical("request"), responseDigest: digestCanonical("response"), outcome: "consumed", idempotencyKey: "interaction-key" });
-    assert.equal((await service.recordInteraction(principal, { packetId: packet.id, turn: 1, attempt: 1, requestDigest: digestCanonical("request"), responseDigest: digestCanonical("response"), outcome: "consumed", idempotencyKey: "interaction-key" })).id, interaction.id);
+    const intent = { name: "read_file", arguments: {}, callId: `${suffix}-call`, candidateIndex: 0 as const, executionEligible: true as const };
+    const validatedIntent = validateToolIntent(intent);
+    const normalizedEvidence = { textParts: [], intents: [intent], validatedIntents: [validatedIntent], additionalCandidateHashes: [], providerDetails: {}, normalizedResponseDigest: digestCanonical("response") };
+    const interaction = await service.recordInteraction(principal, { packetId: packet.id, turn: 1, attempt: 1, requestDigest: digestCanonical("request"), responseDigest: digestCanonical("response"), outcome: "consumed", normalizedEvidence, idempotencyKey: "interaction-key" });
+    assert.equal((await service.recordInteraction(principal, { packetId: packet.id, turn: 1, attempt: 1, requestDigest: digestCanonical("request"), responseDigest: digestCanonical("response"), outcome: "consumed", normalizedEvidence, idempotencyKey: "interaction-key" })).id, interaction.id);
     const receipt = await service.recordOutcomeReceipt(principal, packet.id, packet.digest, interaction.id, "receipt-key");
     const claim = await service.claim(principal, packet.id, packet.digest, receipt.id, 100, "claim-key");
     const renewed = await service.renew(principal, claim.id, claim.epoch, 100, "renew-key");
+    const [toolResult] = await service.appendToolResultBatch(principal, renewed.id, renewed.epoch, interaction.id, [{
+      interactionId: interaction.id,
+      callId: intent.callId,
+      toolName: intent.name,
+      validatedIntentDigest: validatedIntent.digest,
+      outcome: "succeeded",
+      payload: { ok: true, output: "read" },
+    }], "tool-result-key");
+    await service.recordInteraction(principal, {
+      packetId: packet.id,
+      turn: 2,
+      attempt: 1,
+      requestDigest: digestCanonical("final-request"),
+      responseDigest: digestCanonical("final-response"),
+      outcome: "consumed",
+      normalizedEvidence: { textParts: ["done"], intents: [], validatedIntents: [], additionalCandidateHashes: [], providerDetails: {}, normalizedResponseDigest: digestCanonical("final-response") },
+      idempotencyKey: "final-interaction-key",
+    });
     const execution = await service.execute(principal, renewed.id, envelope, "execution-key");
     const completion = await service.complete(principal, execution.id, digestCanonical(execution), "completion-key");
     const verification = await service.verify(verifier, completion.id, completion.evidenceDigest, null, "verification-key");
@@ -149,6 +171,14 @@ test("PostgreSQL parity: complete persisted lifecycle and replay", async (contex
     );
     await assert.rejects(
       () => db.execute(sql`DELETE FROM coordination_runtime_completions WHERE id = ${completion.id}`),
+      (error: unknown) => errorChainIncludes(error, "immutable"),
+    );
+    await assert.rejects(
+      () => db.execute(sql`UPDATE coordination_runtime_tool_results SET outcome = 'rejected' WHERE id = ${toolResult.id}`),
+      (error: unknown) => errorChainIncludes(error, "immutable"),
+    );
+    await assert.rejects(
+      () => db.execute(sql`DELETE FROM coordination_runtime_tool_results WHERE id = ${toolResult.id}`),
       (error: unknown) => errorChainIncludes(error, "immutable"),
     );
   } finally {

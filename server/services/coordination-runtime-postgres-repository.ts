@@ -13,6 +13,7 @@ import {
   coordinationRuntimeProfiles,
   coordinationRuntimeReceipts,
   coordinationRuntimeVerifications,
+  coordinationRuntimeToolResults,
 } from '@shared/schema';
 import type {
   ClaimEvent,
@@ -28,6 +29,7 @@ import type {
   VerificationDecision,
   IdempotencyRecord,
   CodingRuntimeProfile,
+  ToolResultRecord,
 } from './coordination-runtime';
 import { digestCanonical, RuntimeProtocolError } from './coordination-runtime';
 
@@ -155,12 +157,20 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   }
   async getCompletion(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeCompletions).where(eq(coordinationRuntimeCompletions.id, id)); return r && completion(r); }
   async getVerification(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeVerifications).where(eq(coordinationRuntimeVerifications.id, id)); return r && verification(r); }
+  async getToolResult(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeToolResults).where(eq(coordinationRuntimeToolResults.id, id)); return r && toolResult(r); }
+  async toolResultsForClaim(claimId: string, claimEpoch: number) {
+    return (await this.tx.select().from(coordinationRuntimeToolResults).where(and(eq(coordinationRuntimeToolResults.claimId, claimId), eq(coordinationRuntimeToolResults.claimEpoch, claimEpoch)))).map(toolResult);
+  }
+  async toolResultsForClaimAllEpochs(claimId: string) {
+    return (await this.tx.select().from(coordinationRuntimeToolResults).where(eq(coordinationRuntimeToolResults.claimId, claimId))).map(toolResult);
+  }
   async getResult(kind: string, id: string): Promise<unknown> {
     const readers: Record<string, (id: string) => Promise<unknown>> = {
       packet: this.getPacket.bind(this), interaction: this.getInteraction.bind(this),
       receipt: this.getReceipt.bind(this), claim: this.getClaim.bind(this),
       renewal: this.getClaim.bind(this), execution: this.getExecution.bind(this),
       completion: this.getCompletion.bind(this), verification: this.getVerification.bind(this),
+      tool_result: this.getToolResult.bind(this),
     };
     return readers[kind]?.(id);
   }
@@ -216,6 +226,11 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   async saveExecution(v: ExecutionRecord) { await this.tx.insert(coordinationRuntimeExecutions).values({ ...v, envelope: v.envelope, canonicalPayload: v, createdAt: new Date() }); }
   async saveCompletion(v: CompletionRecord) { await this.tx.insert(coordinationRuntimeCompletions).values({ ...v, canonicalPayload: v, createdAt: new Date() }); }
   async saveVerification(v: VerificationDecision) { await this.tx.insert(coordinationRuntimeVerifications).values({ ...v, canonicalPayload: v, createdAt: new Date() }); }
+  async saveToolResult(v: ToolResultRecord) {
+    await this.tx.insert(coordinationRuntimeToolResults).values({
+      ...v, canonicalPayload: v.canonicalPayload, createdAt: new Date(v.createdAt),
+    });
+  }
   async activeClaimForThread(threadId: string) { const [r] = await this.tx.select().from(coordinationRuntimeClaims).where(and(eq(coordinationRuntimeClaims.threadId, threadId), eq(coordinationRuntimeClaims.status, 'active'))); return r && claim(r); }
   async interactionForSlot(packetId: string, turn: number, attempt: number) { const [r] = await this.tx.select().from(coordinationRuntimeInteractions).where(and(eq(coordinationRuntimeInteractions.packetId, packetId), eq(coordinationRuntimeInteractions.turn, turn), eq(coordinationRuntimeInteractions.attempt, attempt))); return r && interaction(r); }
   async interactionsForPacket(packetId: string) { return (await this.tx.select().from(coordinationRuntimeInteractions).where(eq(coordinationRuntimeInteractions.packetId, packetId))).map(interaction); }
@@ -225,6 +240,15 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   async packetForAssignmentVersion(event: string, version: number) { const [r] = await this.tx.select().from(coordinationRuntimePackets).where(and(eq(coordinationRuntimePackets.assignmentEventId, event), eq(coordinationRuntimePackets.version, version))); return r && packet(r); }
   async claimsForPacket(packetId: string) { return (await this.tx.select().from(coordinationRuntimeClaims).where(eq(coordinationRuntimeClaims.packetId, packetId))).map(claim); }
   async latestClaimForThread(threadId: string) { const [r] = await this.tx.select().from(coordinationRuntimeClaims).where(eq(coordinationRuntimeClaims.threadId, threadId)).orderBy(desc(coordinationRuntimeClaims.epoch)).limit(1); return r && claim(r); }
+  async claimEventForEpoch(claimId: string, epoch: number) {
+    const [r] = await this.tx.select().from(coordinationRuntimeClaimEvents)
+      .where(and(eq(coordinationRuntimeClaimEvents.claimId, claimId), eq(coordinationRuntimeClaimEvents.epoch, epoch)))
+      .orderBy(desc(coordinationRuntimeClaimEvents.occurredAt)).limit(1);
+    return r && {
+      id: r.id, claimId: r.claimId, epoch: r.epoch, kind: r.kind, reason: r.reason,
+      priorClaimId: r.priorClaimId, occurredAt: +new Date(r.occurredAt),
+    } as ClaimEvent;
+  }
   async getActiveProfile(runtimeRegistrationId: string): Promise<CodingRuntimeProfile | undefined> {
     const [r] = await this.tx.select().from(coordinationRuntimeProfiles)
       .where(and(eq(coordinationRuntimeProfiles.runtimeRegistrationId, runtimeRegistrationId), eq(coordinationRuntimeProfiles.status, 'active')))
@@ -258,4 +282,12 @@ const verification = (r: any): VerificationDecision => ({
   verifierRuntimeRegistrationId: r.verifierRuntimeRegistrationId, evidenceDigest: r.evidenceDigest,
   patchDigest: r.patchDigest, decision: r.canonicalPayload?.decision ?? 'approved',
   ...(r.canonicalPayload?.rationale ? { rationale: r.canonicalPayload.rationale } : {}),
+  ...(r.canonicalPayload?.rerunEvidence !== undefined ? { rerunEvidence: r.canonicalPayload.rerunEvidence } : {}),
+});
+const toolResult = (r: any): ToolResultRecord => ({
+  id: r.id, claimId: r.claimId, claimEpoch: r.claimEpoch, claimEventId: r.claimEventId, interactionId: r.interactionId,
+  callId: r.callId, runtimeRegistrationId: r.runtimeRegistrationId, profileId: r.profileId,
+  credentialId: r.credentialId, validatedIntentDigest: r.validatedIntentDigest, toolName: r.toolName,
+  outcome: r.outcome, canonicalPayload: r.canonicalPayload, resultDigest: r.resultDigest,
+  createdAt: +new Date(r.createdAt),
 });

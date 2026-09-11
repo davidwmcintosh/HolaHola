@@ -1,0 +1,353 @@
+/**
+ * Portable Gate 3 operator driver.  This file deliberately has no provider,
+ * database, shell, or fixed-token implementation: the coordinator is the
+ * authority and Antigravity is only the bounded local executor.
+ */
+import { createHash } from 'node:crypto';
+import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
+import { spawn as nodeSpawn } from 'node:child_process';
+import { promisify } from 'node:util';
+import { resolve, relative, sep } from 'node:path';
+import { digestCanonical } from '../services/coordination-runtime';
+
+export const TARGET = 'server/scripts/test-coordination-runtime.test.ts';
+const ALLOWED = {
+  root: ['git', 'rev-parse', '--show-toplevel'],
+  branch: ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+  head: ['git', 'rev-parse', 'HEAD'],
+  status: ['git', 'status', '--short'],
+  diff: ['git', 'diff', '--', TARGET],
+  test: ['npx', 'tsx', TARGET],
+} as const;
+const LIMITS = { bytes: 40960, turns: 4, attempts: 8, elapsed: 600000, command: 600000 };
+
+export type Http = (input: { method: string; path: string; headers: Record<string, string>; body?: unknown }) =>
+  Promise<{ status: number; body: unknown }>;
+export type Spawn = (argv: string[], options: { cwd: string; env: Record<string, string>; timeoutMs: number }) =>
+  Promise<{ code: number; stdout: string; stderr: string; timedOut?: boolean }>;
+export type Fs = {
+  realpath(path: string): Promise<string>;
+  lstat(path: string): Promise<{ isSymbolicLink(): boolean; isFile(): boolean; isDirectory(): boolean; isReparsePoint?: () => boolean; fileAttributes?: number }>;
+  readFile(path: string): Promise<Buffer>;
+  writeFile(path: string, data: string): Promise<void>;
+};
+export type DriverOptions = {
+  baseUrl: string; runtimeId: string; worktree: string; windowId: string;
+  assignmentEventId?: string; bootstrap?: string; receiptFile?: string;
+  http?: Http; spawn?: Spawn; fs?: Fs; env?: Record<string, string>;
+  now?: () => number; sleep?: (milliseconds: number) => Promise<void>;
+};
+
+const realFs: Fs = { realpath, lstat, readFile, writeFile };
+const spawn: Spawn = (argv, options) => new Promise((resolvePromise, reject) => {
+  const child = nodeSpawn(argv[0], argv.slice(1), { cwd: options.cwd, env: options.env, shell: false });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', (value) => { stdout += value; });
+  child.stderr.on('data', (value) => { stderr += value; });
+  const timer = setTimeout(() => { child.kill(); resolvePromise({ code: -1, stdout, stderr, timedOut: true }); }, options.timeoutMs);
+  child.on('error', reject);
+  child.on('close', (code) => { clearTimeout(timer); resolvePromise({ code: code ?? -1, stdout, stderr }); });
+});
+
+function digest(value: string | Buffer): string { return createHash('sha256').update(value).digest('hex'); }
+function normalizedWindowsPath(value: string): string {
+  return value.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase();
+}
+function safeError(error: unknown): Error {
+  const text = error instanceof Error ? error.message : String(error);
+  return new Error(text.replace(/(?:cb|ct)_[A-Za-z0-9_-]{12,}/g, '[redacted]').replace(/Bearer\s+\S+/gi, 'Bearer [redacted]'));
+}
+function idempotency(prefix: string): string { return `antigravity-${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+
+export function validateArgv(argv: string[]): void {
+  const key = argv.join('\0');
+  if (Object.values(ALLOWED).some((allowed) => key === allowed.join('\0'))) return;
+  throw new Error('command_not_allowed');
+}
+
+function targetPath(root: string): string {
+  const path = resolve(root, TARGET);
+  const rel = relative(root, path);
+  if (!rel || rel.startsWith('..' + sep) || resolve(root, rel) !== path) throw new Error('path_not_allowed');
+  return path;
+}
+
+async function assertSafePath(fs: Fs, root: string, path: string): Promise<void> {
+  const rootReal = await fs.realpath(root);
+  const target = targetPath(rootReal);
+  const normalize = (value: string) => value.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase();
+  const rootKey = normalize(rootReal);
+  const targetKey = normalize(path);
+  if (targetKey !== normalize(target) && targetKey !== rootKey) throw new Error('path_not_allowed');
+  if (!(targetKey === rootKey || targetKey.startsWith(rootKey + '/'))) throw new Error('path_not_allowed');
+  const rootStat = await fs.lstat(rootReal);
+  if (rootStat.isSymbolicLink() || rootStat.isReparsePoint?.() ||
+      (rootStat.fileAttributes !== undefined && (rootStat.fileAttributes & 0x400) !== 0)) throw new Error('symlink_not_allowed');
+  if (!rootStat.isDirectory()) throw new Error('path_not_allowed');
+  const parts = relative(rootReal, path).split(sep).filter(Boolean);
+  let current = rootReal;
+  for (const part of parts) {
+    current = resolve(current, part);
+    try {
+      const stat = await fs.lstat(current);
+      if (stat.isSymbolicLink()) throw new Error('symlink_not_allowed');
+      if (stat.isReparsePoint?.() || (stat.fileAttributes !== undefined && (stat.fileAttributes & 0x400) !== 0)) {
+        throw new Error('symlink_not_allowed');
+      }
+      if (current !== path && !stat.isDirectory()) throw new Error('path_not_allowed');
+      if (current === path && !stat.isFile()) throw new Error('path_not_allowed');
+      const resolved = await fs.realpath(current);
+      const resolvedKey = normalize(resolved);
+      if (!(resolvedKey === rootKey || resolvedKey.startsWith(rootKey + '/'))) throw new Error('path_not_allowed');
+    } catch (error) {
+      // The declared target may be the one new file in Gate 3. Its parent
+      // must still have been resolved and checked above.
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || current !== path) throw error;
+    }
+  }
+}
+
+export class Gate3Executor {
+  constructor(private readonly root: string, private readonly fs: Fs = realFs, private readonly run: Spawn = spawn,
+    private readonly childEnv: Record<string, string> = {}) {}
+  private async command(argv: string[]) {
+    validateArgv(argv);
+    return this.run(argv, { cwd: this.root, env: { PATH: this.childEnv.PATH ?? process.env.PATH ?? '', ...this.childEnv }, timeoutMs: LIMITS.command });
+  }
+  async measure(argv: string[]) { return this.command(argv); }
+  async execute(intent: { name: string; arguments: Record<string, unknown> }): Promise<Record<string, unknown>> {
+    const path = targetPath(await this.fs.realpath(this.root));
+    if (!['git_status', 'git_diff', 'run_test', 'read_file', 'write_file'].includes(intent.name)) throw new Error('command_not_allowed');
+    if (intent.name === 'write_file') {
+      if (Object.keys(intent.arguments).length !== 1 || typeof intent.arguments.content !== 'string' ||
+          Buffer.byteLength(intent.arguments.content, 'utf8') > LIMITS.bytes) throw new Error('output_limit_exceeded');
+      await assertSafePath(this.fs, await this.fs.realpath(this.root), path);
+      await this.fs.writeFile(path, intent.arguments.content);
+      return { ok: true, output: 'written', bytes: Buffer.byteLength(intent.arguments.content, 'utf8'),
+        argv: ['write_file', TARGET], truncated: false };
+    }
+    if (Object.keys(intent.arguments).length !== 0) throw new Error('argument_not_allowed');
+    if (intent.name === 'read_file') {
+      await assertSafePath(this.fs, await this.fs.realpath(this.root), path);
+      const content = await this.fs.readFile(path);
+      return { ok: true, output: content.toString('utf8'), stdoutDigest: digest(content),
+        argv: ['read_file', TARGET], truncated: false };
+    }
+    const argv = intent.name === 'git_status' ? [...ALLOWED.status] : intent.name === 'git_diff' ? [...ALLOWED.diff] : [...ALLOWED.test];
+    const result = await this.command(argv);
+    return { ok: result.code === 0, output: result.stdout, error: result.stderr, exitCode: result.code,
+      stdoutDigest: digest(result.stdout), stderrDigest: digest(result.stderr), argv, truncated: Boolean(result.timedOut) };
+  }
+}
+
+export class AntigravityDriver {
+  private token: string | undefined;
+  private credentialExpiry = 0;
+  private claimId = '';
+  private epoch = 0;
+  private readonly now: () => number;
+  private readonly sleep: (milliseconds: number) => Promise<void>;
+  private renewing?: Promise<void>;
+  private renewalActive = false;
+  private renewalFailure!: Promise<never>;
+  private rejectRenewalFailure!: (reason?: unknown) => void;
+  private renewalLoop?: Promise<void>;
+  private readonly http: Http;
+  private readonly fs: Fs;
+  constructor(private readonly options: DriverOptions) {
+    this.http = options.http ?? (async ({ method, path, headers, body }) => {
+      const response = await fetch(new URL(path, options.baseUrl), {
+        method, headers: { ...headers, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      return { status: response.status, body: await response.json().catch(() => ({})) };
+    });
+    this.fs = options.fs ?? realFs;
+    this.now = options.now ?? Date.now;
+    this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolveSleep) => {
+      const timer = setTimeout(resolveSleep, milliseconds);
+      timer.unref();
+    }));
+  }
+  private async renewClaim(): Promise<void> {
+    if (!this.claimId) return;
+    if (this.renewing) return this.renewing;
+    this.renewing = (async () => {
+      await this.ensureCredential();
+      const renewed = await this.request(`/api/coordination/runtime/claims/${this.claimId}/renew`, 'POST', { epoch: this.epoch });
+      if (!Number.isSafeInteger(renewed.epoch)) throw new Error('claim_epoch_invalid');
+      this.epoch = renewed.epoch;
+    })();
+    try { await this.renewing; } finally { this.renewing = undefined; }
+  }
+  private startRenewalController(): void {
+    this.renewalActive = true;
+    this.renewalFailure = new Promise<never>((_, reject) => { this.rejectRenewalFailure = reject; });
+    void this.renewalFailure.catch(() => undefined);
+    this.renewalLoop = (async () => {
+      while (this.renewalActive) {
+        await this.sleep(90000);
+        if (this.renewalActive) {
+          try { await this.renewClaim(); } catch (error) {
+            this.renewalActive = false;
+            this.rejectRenewalFailure(error);
+            return;
+          }
+        }
+      }
+    })().catch((error) => {
+      if (this.renewalActive) { this.renewalActive = false; this.rejectRenewalFailure(error); }
+    });
+  }
+  private async stopRenewalController(): Promise<void> {
+    this.renewalActive = false;
+    // The injected/default sleep is cancellable at the controller boundary;
+    // do not wait for an already pending timer before terminal HTTP calls.
+  }
+  private guardAfterClaim<T>(operation: Promise<T>): Promise<T> {
+    return this.renewalActive ? Promise.race([operation, this.renewalFailure]) as Promise<T> : operation;
+  }
+  private async request(path: string, method: string, body?: unknown, key = idempotency(path)): Promise<any> {
+    const result = await this.http({ method, path, body, headers: {
+      ...(this.token ? { 'x-coordination-token': this.token } : {}),
+      'idempotency-key': key,
+    }});
+    if (result.status < 200 || result.status >= 300) throw new Error(`server_rejected:${(result.body as any)?.error ?? result.status}`);
+    return result.body;
+  }
+  private async ensureCredential(): Promise<void> {
+    if (this.token && this.now() < this.credentialExpiry - 30000) return;
+    if (this.token) {
+      const renewed = await this.request('/api/coordination/credentials/renew', 'POST', undefined, idempotency('renew'));
+      this.token = String(renewed.accessToken); this.credentialExpiry = Date.parse(renewed.expiresAt);
+    } else {
+      if (!this.options.bootstrap) throw new Error('bootstrap_missing');
+      const issued = await this.http({ method: 'POST', path: '/api/coordination/credentials/exchange',
+        headers: { 'x-coordination-bootstrap': this.options.bootstrap, 'idempotency-key': idempotency('exchange') },
+        body: { runtimeId: this.options.runtimeId } });
+      if (issued.status < 200 || issued.status >= 300) throw new Error('authentication_failed');
+      this.token = String((issued.body as any).accessToken); this.credentialExpiry = Date.parse((issued.body as any).expiresAt);
+      // Do not retain the one-time bootstrap beyond the exchange request.
+      (this.options as { bootstrap?: string }).bootstrap = undefined;
+    }
+  }
+  async run(): Promise<void> {
+    if (this.options.bootstrap === undefined) throw new Error('bootstrap_missing');
+    const root = await this.fs.realpath(this.options.worktree);
+    const executor = new Gate3Executor(root, this.fs, this.options.spawn ?? spawn,
+      { PATH: this.options.env?.PATH ?? process.env.PATH ?? '', NODE_ENV: 'test' });
+    const started = this.now();
+    await this.ensureCredential();
+    const packet = await this.request('/api/coordination/runtime/packets', 'POST',
+      { windowId: this.options.windowId, ...(this.options.assignmentEventId ? { assignmentEventId: this.options.assignmentEventId } : {}) });
+    const measured: Array<{ argv: string[]; exitCode: number; stdoutDigest: string; stderrDigest: string; truncated: boolean; stdout: string }> = [];
+    const measure = async (argv: string[]) => {
+      const value = await executor.measure(argv);
+      const record = { argv, exitCode: value.code, stdoutDigest: digest(value.stdout), stderrDigest: digest(value.stderr),
+        truncated: Boolean(value.timedOut), stdout: value.stdout };
+      measured.push(record);
+      if (value.code !== 0 || value.timedOut) throw new Error('evidence_command_failed');
+      return record;
+    };
+    const top = await measure([...ALLOWED.root]);
+    if (normalizedWindowsPath(top.stdout.trim()) !== normalizedWindowsPath(root)) throw new Error('worktree_path_mismatch');
+    if (digest(normalizedWindowsPath(root)) !== packet.envelope.worktreeRealpathDigest) throw new Error('worktree_digest_mismatch');
+    const branch = await measure([...ALLOWED.branch]);
+    const head = await measure([...ALLOWED.head]);
+    if (branch.stdout.trim() !== packet.envelope.branch) throw new Error('branch_mismatch');
+    if (head.stdout.trim() !== packet.envelope.startingCommit) throw new Error('starting_head_mismatch');
+    const startingStatus = await measure([...ALLOWED.status]);
+    if (startingStatus.stdout.trim()) throw new Error('unexpected_starting_changes');
+    const initial = await this.request(`/api/coordination/runtime/packets/${packet.id}/initial-turn`, 'POST');
+    let interactionId = initial.interactionIds?.[initial.interactionIds.length - 1];
+    if (!interactionId || !initial.receiptId) throw new Error('consumption_not_authorized');
+    const receipt = { id: initial.receiptId };
+    const claim = await this.request(`/api/coordination/runtime/packets/${packet.id}/claim`, 'POST',
+      { receiptId: receipt.id });
+    this.claimId = claim.id; this.epoch = claim.epoch;
+    this.startRenewalController();
+    let turn = 1; let attempts = initial.interactionIds.length;
+    if (attempts > LIMITS.attempts) throw new Error('model_call_limit_exceeded');
+    let intents = (await this.guardAfterClaim(this.request(`/api/coordination/runtime/claims/${claim.id}/intents`, 'GET'))).intents ?? [];
+    while (intents.length) {
+      if (++turn > LIMITS.turns || this.now() - started > LIMITS.elapsed) throw new Error('model_call_limit_exceeded');
+      // Renewal is deliberately before result evidence is submitted. The
+      // server advances the epoch, preventing results from straddling leases.
+      await this.ensureCredential();
+      const renewed = await this.request(`/api/coordination/runtime/claims/${claim.id}/renew`, 'POST',
+        { epoch: this.epoch });
+      if (!Number.isSafeInteger(renewed.epoch)) throw new Error('claim_epoch_invalid');
+      this.epoch = renewed.epoch;
+      const results = [];
+      let rejected = false;
+      for (const intent of intents) {
+        // The server's validated digest covers the complete normalized intent,
+        // including provider-neutral candidate metadata.
+        const validatedIntentDigest = typeof intent.validatedIntentDigest === 'string'
+          ? intent.validatedIntentDigest : digestCanonical(intent);
+        let payload: Record<string, unknown>; let outcome: 'succeeded' | 'rejected' = 'succeeded';
+        try { payload = await this.guardAfterClaim(executor.execute(intent)); } catch (error) { outcome = 'rejected'; rejected = true; payload = { ok: false, error: safeError(error).message }; }
+        results.push({ interactionId, callId: intent.callId, toolName: intent.name, validatedIntentDigest, outcome, payload });
+      }
+      await this.ensureCredential();
+      const next = await this.guardAfterClaim(this.request(`/api/coordination/runtime/claims/${claim.id}/continuation`, 'POST',
+        { epoch: this.epoch, turn, toolResults: results }));
+      if (rejected) throw new Error('execution_violated');
+      // Continuation returns normalized attempts; intent disclosure remains
+      // claim-gated and is fetched through the dedicated reveal route.
+      if (!Array.isArray(next)) throw new Error('provider_result_invalid');
+      attempts += next.length;
+      if (attempts > LIMITS.attempts) throw new Error('model_call_limit_exceeded');
+      if (next.length && typeof next[next.length - 1].interactionId === 'string') interactionId = next[next.length - 1].interactionId;
+      intents = (await this.guardAfterClaim(this.request(`/api/coordination/runtime/claims/${claim.id}/intents`, 'GET'))).intents ?? [];
+    }
+    const diff = await this.guardAfterClaim(measure([...ALLOWED.diff]));
+    const test = await this.guardAfterClaim(measure([...ALLOWED.test]));
+    const after = await this.guardAfterClaim(measure([...ALLOWED.status]));
+    const paths = after.stdout.split(/\r?\n/).filter(Boolean).map((line) => line.slice(3).trim());
+    if (paths.length !== 1 || paths[0] !== TARGET) throw new Error('path_not_allowed');
+    const patchBytes = Buffer.byteLength(diff.stdout, 'utf8');
+    if (patchBytes < 1 || patchBytes > LIMITS.bytes) throw new Error('patch_limit_exceeded');
+    const preCompletionBranch = await this.guardAfterClaim(measure([...ALLOWED.branch]));
+    const preCompletionHead = await this.guardAfterClaim(measure([...ALLOWED.head]));
+    if (preCompletionBranch.stdout.trim() !== packet.envelope.branch || preCompletionHead.stdout.trim() !== packet.envelope.startingCommit) {
+      throw new Error('starting_state_changed');
+    }
+    const local = { startingCommit: packet.envelope.startingCommit, resultingHead: preCompletionHead.stdout.trim(),
+      changedPaths: paths, patchDigest: digest(diff.stdout), commandResults: measured.map(({ stdout, ...record }) => record),
+      elapsedMs: this.now() - started, modelTurns: turn, apiAttempts: attempts };
+    await this.renewClaim();
+    await this.stopRenewalController();
+    const execution = await this.request(`/api/coordination/runtime/claims/${claim.id}/execute`, 'POST', { attestedLocalState: local });
+    const completion = await this.request(`/api/coordination/runtime/executions/${execution.id}/complete`, 'POST');
+    if (this.options.receiptFile) await this.fs.writeFile(this.options.receiptFile, JSON.stringify({
+      packetId: packet.id, receiptId: receipt.id, claimId: claim.id, executionId: execution.id, completionId: completion.id,
+      packetDigest: packet.digest, patchDigest: local.patchDigest,
+    }) + '\n');
+  }
+}
+
+function option(name: string): string | undefined {
+  const index = process.argv.indexOf(`--${name}`);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
+export async function main(): Promise<void> {
+  const env = process.env;
+  const bootstrap = env.COORDINATION_BOOTSTRAP;
+  // The protected interface is a one-shot handoff. Remove its process
+  // environment entry before constructing any other request or child env.
+  delete env.COORDINATION_BOOTSTRAP;
+  const driver = new AntigravityDriver({
+    baseUrl: option('api-base') ?? env.COORDINATION_API_BASE_URL ?? '',
+    runtimeId: option('runtime-id') ?? env.COORDINATION_RUNTIME_ID ?? '',
+    worktree: option('worktree') ?? env.COORDINATION_WORKTREE ?? '',
+    windowId: option('window-id') ?? env.COORDINATION_WINDOW_ID ?? '',
+    assignmentEventId: option('assignment-event-id') ?? env.COORDINATION_ASSIGNMENT_EVENT_ID,
+    bootstrap,
+    receiptFile: option('receipt-file') ?? env.COORDINATION_RECEIPT_FILE,
+  });
+  await driver.run();
+}
+if (process.argv[1]?.endsWith('coordination-runtime-antigravity.ts')) main().catch((error) => {
+  console.error(safeError(error).message); process.exitCode = 1;
+});

@@ -2,6 +2,17 @@
 
 # Gate 3 server Gemini boundary — 2026-09-10
 
+### Portable Windows Antigravity Gate 3 driver
+
+Added `server/scripts/coordination-runtime-antigravity.ts`, an injectable
+HTTP/spawn/filesystem driver for the approved Windows worktree. It uses only
+the broker exchange/renewal routes and current packet, receipt, claim,
+intent, continuation, execution, and completion routes; credentials stay in
+memory and child environments are explicitly allowlisted. Fixed target/path,
+argv, write-size, turn, attempt, and elapsed-time bounds fail closed. The
+operator runbook is `docs/antigravity-gate3-runbook.md`; bootstrap generation
+is intentionally not yet available.
+
 - Added a project-owned, injectable non-streaming Gemini adapter pinned to
   `gemini-3-flash-preview`. It canonicalizes packet-bound requests, keeps the
   integration key in a protected header, normalizes safety/refusal/context,

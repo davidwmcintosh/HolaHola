@@ -8,6 +8,10 @@ import {
   type Assignment,
   type CodingRuntimeProfile,
   type AttestedLocalState,
+  type ExecutionEnvelope,
+  type Gate3ExecutionEnvelope,
+  type NormalizedToolResult,
+  digestCanonical,
 } from '../services/coordination-runtime';
 import { PostgresCoordinationRuntimeRepository } from '../services/coordination-runtime-postgres-repository';
 import {
@@ -87,8 +91,11 @@ function attestedState(value: unknown, profile: CodingRuntimeProfile): AttestedL
     throw new RuntimeProtocolError('invalid_request', 'patchDigest is invalid');
   }
   const commands = state.commandResults;
-  if (!Array.isArray(commands) || commands.length !== 3) throw new RuntimeProtocolError('invalid_request', 'commandResults are invalid');
+  if (!Array.isArray(commands) || commands.length < 3) throw new RuntimeProtocolError('invalid_request', 'commandResults are invalid');
   const allowed = new Set([
+    'git rev-parse --show-toplevel',
+    'git rev-parse --abbrev-ref HEAD',
+    'git rev-parse HEAD',
     'git status --short',
     'git diff -- server/scripts/test-coordination-runtime.test.ts',
     'npx tsx server/scripts/test-coordination-runtime.test.ts',
@@ -111,9 +118,8 @@ function attestedState(value: unknown, profile: CodingRuntimeProfile): AttestedL
   const apiAttempts = numberField(state.apiAttempts, 'apiAttempts');
   if (elapsedMs > 600_000 || modelTurns > 4 || apiAttempts > 8) throw new RuntimeProtocolError('output_limit_exceeded', 'Attested execution exceeds bounds');
   const commandKeys = commandResults.map((command) => command.argv.join(' '));
-  if (new Set(commandKeys).size !== 3 ||
-      !allowed.has('git status --short') || !allowed.has('git diff -- server/scripts/test-coordination-runtime.test.ts') ||
-      !allowed.has('npx tsx server/scripts/test-coordination-runtime.test.ts')) {
+  if (!commandKeys.includes('git status --short') || !commandKeys.includes('git diff -- server/scripts/test-coordination-runtime.test.ts') ||
+      !commandKeys.includes('npx tsx server/scripts/test-coordination-runtime.test.ts')) {
     throw new RuntimeProtocolError('command_not_allowed', 'Required commands are missing');
   }
   return { startingCommit, resultingHead, changedPaths: changedPaths as string[], patchDigest, commandResults, elapsedMs, modelTurns, apiAttempts };
@@ -122,7 +128,7 @@ function attestedState(value: unknown, profile: CodingRuntimeProfile): AttestedL
 function statusFor(code: string): number {
   if (['authentication_required', 'credential_expired', 'runtime_revoked'].includes(code)) return 401;
   if (['invalid_request', 'malformed_function_call', 'unsupported_provider_outcome'].includes(code)) return 400;
-  if (['claim_active_conflict', 'claim_epoch_stale', 'claim_expired', 'claim_not_active', 'claim_not_owned', 'consumption_conflict', 'fresh_consumption_required', 'thread_sequence_stale', 'stale_epoch', 'idempotency_payload_mismatch', 'execution_already_recorded'].includes(code)) return 409;
+  if (['claim_active_conflict', 'claim_epoch_stale', 'claim_expired', 'claim_not_active', 'claim_not_owned', 'consumption_conflict', 'fresh_consumption_required', 'thread_sequence_stale', 'stale_epoch', 'idempotency_payload_mismatch', 'execution_already_recorded', 'execution_violated'].includes(code)) return 409;
   if (['capability_required', 'actor_mismatch', 'profile_not_found', 'profile_not_active', 'verifier_not_allowed', 'self_verification_denied', 'assigner_verification_denied'].includes(code)) return 403;
   if (['packet_not_found', 'claim_not_found', 'completion_mismatch'].includes(code)) return 404;
   return 500;
@@ -201,6 +207,10 @@ export function registerCoordinationRuntimeRoutes(
   app.post('/api/coordination/runtime/packets', route(async (req) => {
     const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'execute');
     if (principal.actor !== 'luca-gemini') throw new RuntimeProtocolError('actor_mismatch', 'Gemini actor required');
+    if (!profile.worktreeRealpathDigest || !/^[0-9a-f]{64}$/.test(profile.worktreeRealpathDigest) ||
+        !profile.branch || !profile.startingCommit || !profile.worktreeLabel) {
+      throw new RuntimeProtocolError('execution_envelope_mismatch', 'Active profile lacks complete Gate 3 metadata');
+    }
     const body = bodyObject(req);
     const windowId = stringField(body.windowId, 'windowId');
     const frozen = await repository.validateWindow(windowId);
@@ -225,23 +235,23 @@ export function registerCoordinationRuntimeRoutes(
       threadId: stringField(threadId, 'threadId'),
       expectedSequence: numberField(expectedSequence, 'expectedSequence'),
     };
-    const envelope = {
-      worktreeLabel: profile.worktreeLabel ?? 'HolaHola-antigravity',
-      worktreePath: '/work',
-      argv: ['true'],
+    const envelope: Gate3ExecutionEnvelope = {
+      worktreeLabel: profile.worktreeLabel,
+      worktreePath: `approved:${profile.worktreeRealpathDigest}`,
+      argv: ['npx', 'tsx', 'server/scripts/test-coordination-runtime.test.ts'],
       patchDigest: null,
       repositoryLabel: 'HolaHola',
-      worktreeRealpathDigest: profile.worktreeRealpathDigest ?? '',
-      branch: profile.branch ?? 'luca/gemini-experiment',
-      startingCommit: profile.startingCommit ?? '',
+      worktreeRealpathDigest: profile.worktreeRealpathDigest,
+      branch: profile.branch,
+      startingCommit: profile.startingCommit,
       targetPath: 'server/scripts/test-coordination-runtime.test.ts',
       maxChangedFiles: 1,
       maxPatchBytes: 40960,
-      timeoutMs: 600000,
+      maxElapsedMs: 600000,
       maxModelTurns: 4,
       maxApiAttempts: 8,
-    } as unknown as import('../services/coordination-runtime').ExecutionEnvelope;
-    return service.createPacket(principal, windowId, assignment, key(req), 1, null, envelope);
+    };
+    return service.createGate3Packet(principal, windowId, assignment, key(req), envelope);
   }));
 
   app.post('/api/coordination/runtime/packets/:packetId/initial-turn', route(async (req) => {
@@ -250,26 +260,37 @@ export function registerCoordinationRuntimeRoutes(
     return { ...result, interactions: result.interactions.map((item) => ({ ...item, intents: [] })) };
   }));
 
+  app.post('/api/coordination/runtime/packets/:packetId/receipt', route(async (req) => {
+    const { principal } = await authenticated(req, deps, 'coordination:write', 'model');
+    const body = bodyObject(req);
+    const packet = await repository.getPacket(req.params.packetId);
+    if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
+    return service.recordOutcomeReceipt(principal, packet.id,
+      stringField(body.packetDigest, 'packetDigest'),
+      stringField(body.interactionId, 'interactionId'), key(req));
+  }));
+
   app.post('/api/coordination/runtime/packets/:packetId/claim', route(async (req) => {
     const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'execute');
     const body = bodyObject(req);
     const packet = await repository.getPacket(req.params.packetId);
     if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
     return service.claim(principal, packet.id, packet.digest, stringField(body.receiptId, 'receiptId'),
-      numberField(body.ttlMs, 'ttlMs'), key(req));
+      300_000, key(req));
   }));
 
   app.get('/api/coordination/runtime/claims/:claimId/intents', route(async (req) => {
     const { principal } = await authenticated(req, deps, 'coordination:read', 'execute');
     const claim = await repository.getClaim(req.params.claimId);
     if (!claim) throw new RuntimeProtocolError('claim_not_found', 'Claim not found');
-    return { intents: await coordinator.revealIntents(principal, claim.packetId, claim.id), epoch: claim.epoch };
+    const intents = await coordinator.revealIntents(principal, claim.packetId, claim.id);
+    return { intents: intents.map((intent) => ({ ...intent, validatedIntentDigest: digestCanonical(intent) })), epoch: claim.epoch };
   }));
 
   app.post('/api/coordination/runtime/claims/:claimId/renew', route(async (req) => {
     const { principal } = await authenticated(req, deps, 'coordination:write', 'execute');
     const body = bodyObject(req);
-    return service.renew(principal, req.params.claimId, numberField(body.epoch, 'epoch'), numberField(body.ttlMs, 'ttlMs'), key(req));
+    return service.renew(principal, req.params.claimId, numberField(body.epoch, 'epoch'), 300_000, key(req));
   }));
 
   app.post('/api/coordination/runtime/claims/:claimId/continuation', route(async (req) => {
@@ -280,25 +301,31 @@ export function registerCoordinationRuntimeRoutes(
     if (numberField(body.epoch, 'epoch') !== claim.epoch) {
       throw new RuntimeProtocolError('claim_epoch_stale', 'Claim epoch is stale');
     }
-    const results = Array.isArray(body.toolResults) ? body.toolResults : [];
-    const intents = await coordinator.revealIntents(principal, claim.packetId, claim.id);
-    const allowed = new Set(intents.map((intent) => intent.callId));
-    if (results.length !== intents.length) {
-      throw new RuntimeProtocolError('consumption_conflict', 'One result is required for every revealed intent');
-    }
-    const seen = new Set<string>();
-    for (const result of results) {
-      if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    const rawResults = Array.isArray(body.toolResults) ? body.toolResults : [];
+    const results = rawResults.map((value) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new RuntimeProtocolError('invalid_request', 'Tool result must be an object');
       }
-      const callId = (result as Record<string, unknown>).callId;
-      if (typeof callId !== 'string' || !allowed.has(callId)) {
-        throw new RuntimeProtocolError('claim_not_owned', 'Tool result is not bound to a revealed intent');
-      }
-      if (seen.has(callId)) throw new RuntimeProtocolError('consumption_conflict', 'Duplicate tool result');
-      seen.add(callId);
+      const item = value as Record<string, unknown>;
+      const normalized: NormalizedToolResult = {
+        interactionId: stringField(item.interactionId, 'interactionId'),
+        callId: stringField(item.callId, 'callId'),
+        toolName: stringField(item.toolName ?? item.name, 'toolName'),
+        validatedIntentDigest: stringField(item.validatedIntentDigest ?? item.intentDigest, 'validatedIntentDigest'),
+        outcome: item.outcome === 'rejected' ? 'rejected' as const : 'succeeded' as const,
+        payload: (item.payload ?? item.output) as NormalizedToolResult['payload'],
+      };
+      return normalized;
+    });
+    const storedResults = await service.appendToolResultBatch(principal, claim.id, claim.epoch, results[0]?.interactionId ?? '', results, `${key(req)}:results`);
+    if (storedResults.some((result) => result.outcome === 'rejected')) {
+      throw new RuntimeProtocolError('execution_violated', 'Rejected local tool result violated the claim');
     }
-    return coordinator.continuationTurn(principal, claim.id, claim.packetId, numberField(body.turn, 'turn'), results, key(req));
+    const attempts = await coordinator.continuationTurn(principal, claim.id, claim.packetId, numberField(body.turn, 'turn'), [], key(req));
+    const persisted = (await repository.interactionsForPacket(claim.packetId))
+      .filter((item: { turn: number }) => item.turn === numberField(body.turn, 'turn'))
+      .sort((left: { attempt: number }, right: { attempt: number }) => left.attempt - right.attempt);
+    return attempts.map((attempt, index) => ({ ...attempt, interactionId: persisted[index]?.id }));
   }));
 
   app.post('/api/coordination/runtime/claims/:claimId/execute', route(async (req) => {
@@ -319,7 +346,7 @@ export function registerCoordinationRuntimeRoutes(
     const { principal } = await authenticated(req, deps, 'coordination:write', 'execute');
     const execution = await repository.getExecution(req.params.executionId);
     if (!execution) throw new RuntimeProtocolError('completion_mismatch', 'Execution not found');
-    return service.complete(principal, execution.id, execution.executionDigest, key(req));
+    return service.complete(principal, execution.id, digestCanonical(execution), key(req));
   }));
 
   app.post('/api/coordination/runtime/completions/:completionId/verify', route(async (req) => {
@@ -330,6 +357,6 @@ export function registerCoordinationRuntimeRoutes(
     const decision = body.decision === 'rejected' ? 'rejected' : 'approved';
     return service.verify(principal, completion.id, completion.evidenceDigest,
       body.patchDigest === null ? null : String(body.patchDigest), key(req), decision,
-      typeof body.rationale === 'string' ? body.rationale : undefined);
+       typeof body.rationale === 'string' ? body.rationale : undefined, body.rerunEvidence);
   }));
 }

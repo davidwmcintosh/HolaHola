@@ -39,6 +39,7 @@ export type CodingRuntimeProfile = {
   adapterVersion: string;
   status: 'active' | 'superseded' | 'closed';
   startingCommit?: string;
+  timeoutMs?: 600000;
   repositoryLabel?: string;
   branch?: string;
   worktreeLabel?: string;
@@ -60,6 +61,35 @@ export type DerivedToolEvidence = Array<{
   callIds: string[];
   results: unknown[];
 }>;
+export type ToolResultOutcome = 'succeeded' | 'rejected';
+/** Canonical wire payload shared by the HTTP route, service and portable driver. */
+export type NormalizedToolResultPayload = {
+  ok: boolean;
+  output?: string;
+  error?: string;
+  exitCode?: number;
+  stdoutDigest?: string;
+  stderrDigest?: string;
+  changedPaths?: string[];
+  argv?: string[];
+  truncated?: boolean;
+  bytes?: number;
+};
+export type NormalizedToolResult = {
+  interactionId: string;
+  callId: string;
+  toolName: string;
+  validatedIntentDigest: string;
+  outcome: ToolResultOutcome;
+  payload: NormalizedToolResultPayload;
+};
+export type ToolResultRecord = {
+  id: string; claimId: string; claimEpoch: number; interactionId: string; callId: string;
+  claimEventId: string;
+  runtimeRegistrationId: string; profileId: string; credentialId: string;
+  validatedIntentDigest: string; toolName: string; outcome: ToolResultOutcome;
+  canonicalPayload: NormalizedToolResultPayload; resultDigest: string; createdAt: number;
+};
 
 export class RuntimeProtocolError extends Error {
   constructor(readonly code: string, message: string) {
@@ -126,6 +156,48 @@ export function digestCanonical(value: unknown): string {
   return createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');
 }
 
+/** The single policy boundary used before an interaction can expose a call. */
+export function validateToolIntent(intent: { name: string; arguments: Record<string, unknown>; callId: string }): { name: string; operation: string; digest: string } {
+  const keys = Object.keys(intent.arguments);
+  const fixed = intent.name === 'git_status' || intent.name === 'git_diff' ||
+    intent.name === 'run_test' || intent.name === 'read_file';
+  const valid = (fixed && keys.length === 0) ||
+    (intent.name === 'write_file' && keys.length === 1 &&
+      typeof intent.arguments.content === 'string' &&
+      Buffer.byteLength(intent.arguments.content, 'utf8') <= 40960);
+  if (!valid || !intent.callId) fail('malformed_function_call', 'Tool intent violates execution policy');
+  return {
+    name: intent.name,
+    operation: intent.name === 'git_diff' || intent.name === 'read_file' ? 'fixed-target' :
+      intent.name === 'run_test' ? 'fixed-test' : intent.name,
+    digest: digestCanonical(intent),
+  };
+}
+
+function validateToolResultPayload(toolName: string, outcome: ToolResultOutcome, payload: unknown): void {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    fail('invalid_request', 'Tool result payload must be an object');
+  }
+  const value = payload as Record<string, unknown>;
+  const keys = Object.keys(value);
+  const allowed = new Set(['ok', 'output', 'error', 'exitCode', 'stdoutDigest', 'stderrDigest', 'changedPaths', 'argv', 'truncated', 'bytes']);
+  if (keys.some((key) => !allowed.has(key)) || typeof value.ok !== 'boolean') {
+    fail('invalid_request', 'Tool result payload does not match the normalized schema');
+  }
+  if (outcome === 'succeeded' && value.ok !== true) fail('invalid_request', 'Successful result must have ok=true');
+  if (outcome === 'rejected' && (value.ok !== false || typeof value.error !== 'string')) {
+    fail('invalid_request', 'Rejected result must include an error');
+  }
+  if (toolName === 'run_test' && value.ok === true && typeof value.exitCode !== 'number') {
+    fail('invalid_request', 'run_test result requires exitCode');
+  }
+  if (value.argv !== undefined && (!Array.isArray(value.argv) || value.argv.some((part) => typeof part !== 'string'))) {
+    fail('invalid_request', 'argv is invalid');
+  }
+  if (value.truncated !== undefined && typeof value.truncated !== 'boolean') fail('invalid_request', 'truncated is invalid');
+  if (value.bytes !== undefined && (typeof value.bytes !== 'number' || !Number.isSafeInteger(value.bytes) || value.bytes < 0)) fail('invalid_request', 'bytes is invalid');
+}
+
 function deepClone<T>(value: T): T {
   return JSON.parse(canonicalJson(value)) as T;
 }
@@ -164,6 +236,29 @@ export type ExecutionEnvelope = {
   worktreePath: string;
   argv: readonly string[];
   patchDigest: string | null;
+  repositoryLabel?: 'HolaHola';
+  worktreeRealpathDigest?: string;
+  branch?: string;
+  targetPath?: 'server/scripts/test-coordination-runtime.test.ts';
+  maxChangedFiles?: 1;
+  maxPatchBytes?: 40960;
+  maxElapsedMs?: 600000;
+  maxModelTurns?: 4;
+  maxApiAttempts?: 8;
+  startingCommit?: string;
+  timeoutMs?: 600000;
+};
+export type Gate3ExecutionEnvelope = ExecutionEnvelope & {
+  repositoryLabel: 'HolaHola';
+  worktreeRealpathDigest: string;
+  branch: string;
+  startingCommit: string;
+  targetPath: 'server/scripts/test-coordination-runtime.test.ts';
+  maxChangedFiles: 1;
+  maxPatchBytes: 40960;
+  maxElapsedMs: 600000;
+  maxModelTurns: 4;
+  maxApiAttempts: 8;
 };
 
 export type InboxWindow = {
@@ -285,6 +380,7 @@ export type VerificationDecision = {
   patchDigest: string | null;
   decision: 'approved' | 'rejected';
   rationale?: string;
+  rerunEvidence?: unknown;
 };
 
 export type IdempotencyRecord = { payloadDigest: string; resultKind: string; resultId: string };
@@ -308,6 +404,9 @@ export type CoordinationRuntimeRepository = {
   executionForClaim(claimId: string): Promise<ExecutionRecord | undefined>;
   getCompletion(id: string): Promise<CompletionRecord | undefined>;
   getVerification(id: string): Promise<VerificationDecision | undefined>;
+  getToolResult(id: string): Promise<ToolResultRecord | undefined>;
+  toolResultsForClaim(claimId: string, claimEpoch: number): Promise<ToolResultRecord[]>;
+  toolResultsForClaimAllEpochs(claimId: string): Promise<ToolResultRecord[]>;
   getResult(kind: string, id: string): Promise<unknown>;
   idempotency(scope: string, key: string): Promise<IdempotencyRecord | undefined>;
   saveIdempotency(scope: string, key: string, record: IdempotencyRecord): Promise<void>;
@@ -319,6 +418,7 @@ export type CoordinationRuntimeRepository = {
   saveExecution(value: ExecutionRecord): Promise<void>;
   saveCompletion(value: CompletionRecord): Promise<void>;
   saveVerification(value: VerificationDecision): Promise<void>;
+  saveToolResult(value: ToolResultRecord): Promise<void>;
   activeClaimForThread(threadId: string): Promise<ExecutionClaim | undefined>;
   interactionForSlot(packetId: string, turn: number, attempt: number): Promise<ModelInteraction | undefined>;
   interactionsForPacket(packetId: string): Promise<ModelInteraction[]>;
@@ -328,6 +428,7 @@ export type CoordinationRuntimeRepository = {
   packetForAssignmentVersion(assignmentEventId: string, version: number): Promise<InheritancePacket | undefined>;
   claimsForPacket(packetId: string): Promise<ExecutionClaim[]>;
   latestClaimForThread(threadId: string): Promise<ExecutionClaim | undefined>;
+  claimEventForEpoch(claimId: string, epoch: number): Promise<ClaimEvent | undefined>;
   getActiveProfile(runtimeRegistrationId: string): Promise<CodingRuntimeProfile | undefined>;
 };
 type RepositoryState = {
@@ -342,6 +443,7 @@ type RepositoryState = {
   executions: Map<string, ExecutionRecord>;
   completions: Map<string, CompletionRecord>;
   verifications: Map<string, VerificationDecision>;
+  toolResults: Map<string, ToolResultRecord>;
   idempotency: Map<string, IdempotencyRecord>;
   profiles: Map<string, CodingRuntimeProfile>;
 };
@@ -359,6 +461,7 @@ function emptyState(): RepositoryState {
     executions: new Map(),
     completions: new Map(),
     verifications: new Map(),
+    toolResults: new Map(),
     idempotency: new Map(),
     profiles: new Map(),
   };
@@ -381,6 +484,7 @@ function cloneState(source: RepositoryState): RepositoryState {
     executions: cloneMap(source.executions),
     completions: cloneMap(source.completions),
     verifications: cloneMap(source.verifications),
+    toolResults: cloneMap(source.toolResults),
     idempotency: cloneMap(source.idempotency),
     profiles: cloneMap(source.profiles),
   };
@@ -552,6 +656,13 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
     const value = this.state.verifications.get(id);
     return value && immutable(value);
   }
+  async getToolResult(id: string) { const value = this.state.toolResults.get(id); return value && immutable(value); }
+  async toolResultsForClaim(claimId: string, claimEpoch: number) {
+    return [...this.state.toolResults.values()].filter((r) => r.claimId === claimId && r.claimEpoch === claimEpoch).map(immutable);
+  }
+  async toolResultsForClaimAllEpochs(claimId: string) {
+    return [...this.state.toolResults.values()].filter((r) => r.claimId === claimId).map(immutable);
+  }
 
   async getResult(kind: string, id: string): Promise<unknown> {
     const collections: Record<string, Map<string, unknown>> = {
@@ -563,6 +674,7 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
       execution: this.state.executions,
       completion: this.state.completions,
       verification: this.state.verifications,
+      toolResult: this.state.toolResults,
     };
     const value = collections[kind]?.get(id);
     return value && immutable(value);
@@ -583,6 +695,13 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
   async saveExecution(value: ExecutionRecord): Promise<void> { this.state.executions.set(value.id, immutable(value)); }
   async saveCompletion(value: CompletionRecord): Promise<void> { this.state.completions.set(value.id, immutable(value)); }
   async saveVerification(value: VerificationDecision): Promise<void> { this.state.verifications.set(value.id, immutable(value)); }
+  async saveToolResult(value: ToolResultRecord): Promise<void> {
+    const duplicate = [...this.state.toolResults.values()].find((r) =>
+      r.claimId === value.claimId && r.claimEpoch === value.claimEpoch &&
+      r.interactionId === value.interactionId && r.callId === value.callId);
+    if (duplicate && digestCanonical(duplicate) !== digestCanonical(value)) fail('tool_result_conflict', 'Tool result is immutable');
+    if (!duplicate) this.state.toolResults.set(value.id, immutable(value));
+  }
 
   async saveClaim(value: ExecutionClaim): Promise<void> {
     if (
@@ -679,6 +798,11 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
       .sort((left, right) => right.epoch - left.epoch)[0];
     return value && immutable(value);
   }
+  async claimEventForEpoch(claimId: string, epoch: number): Promise<ClaimEvent | undefined> {
+    const event = this.state.claimEvents.find((candidate) => candidate.claimId === claimId && candidate.epoch === epoch &&
+      (candidate.kind === 'acquired' || candidate.kind === 'renewed'));
+    return event && immutable(event);
+  }
 
   async getActiveProfile(runtimeRegistrationId: string): Promise<CodingRuntimeProfile | undefined> {
     const profile = [...this.state.profiles.values()].find(
@@ -701,6 +825,7 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
       executions: [...this.state.executions.values()],
       completions: [...this.state.completions.values()],
       verifications: [...this.state.verifications.values()],
+      toolResults: [...this.state.toolResults.values()],
     });
   }
 }
@@ -718,7 +843,7 @@ export class CoordinationRuntimeService {
       argv: ['true'],
       patchDigest: null,
     },
-    private readonly maxClaimTtlMs = 86_400_000,
+    private readonly maxClaimTtlMs = 300_000,
   ) {
     this.envelope = immutable(configuredEnvelope);
   }
@@ -875,6 +1000,18 @@ export class CoordinationRuntimeService {
     });
   }
 
+  async createGate3Packet(
+    principal: RuntimePrincipal,
+    windowId: string,
+    assignment: Assignment,
+    idempotencyKey: string,
+    envelope: Gate3ExecutionEnvelope,
+    version = 1,
+    supersedesClaimId: string | null = null,
+  ): Promise<InheritancePacket> {
+    return this.createPacket(principal, windowId, assignment, idempotencyKey, version, supersedesClaimId, envelope);
+  }
+
   async recordInteraction(
     principal: RuntimePrincipal,
     input: {
@@ -921,7 +1058,7 @@ export class CoordinationRuntimeService {
         };
       }
 
-      const violate = async (reason: string): Promise<MutationResult<ModelInteraction>> => {
+      const violate = async (reason: string, code = 'model_call_limit_exceeded', rejectedIntents: unknown[] = []): Promise<MutationResult<ModelInteraction>> => {
         const claim = await this.repository.activeClaimForThread(packet.assignment.threadId);
         if (claim?.packetId === packet.id) {
           await this.repository.saveClaim({
@@ -939,7 +1076,42 @@ export class CoordinationRuntimeService {
             occurredAt: this.now(),
           });
         }
-        return { error: new RuntimeProtocolError('model_call_limit_exceeded', reason) };
+        // Rejection evidence is itself immutable protocol evidence.  It must
+        // survive the rejected operation so auditors can distinguish a
+        // provider-policy violation from a missing/failed host tool result.
+        const rejected: ModelInteraction = {
+          id: this.newId(),
+          packetId: packet.id,
+          principal: {
+            actor: principal.actor,
+            runtimeRegistrationId: principal.runtimeRegistrationId,
+            credentialId: principal.credentialId,
+            profileId: principal.profileId,
+          },
+          turn: input.turn,
+          attempt: input.attempt,
+          requestDigest: input.requestDigest,
+          responseDigest: input.responseDigest ?? digestCanonical({ rejected: reason }),
+          outcome: 'malformed_function_call',
+          retryLineage: input.retryLineage ?? null,
+          normalizedEvidence: immutable({
+            textParts: [],
+            intents: [],
+            validatedIntents: [],
+            ...(rejectedIntents.length ? { rejectedIntents: immutable(rejectedIntents) } : {}),
+            additionalCandidateHashes: [],
+            providerDetails: { rejected: true, reason },
+            normalizedResponseDigest: input.responseDigest ?? digestCanonical({ rejected: reason }),
+          }),
+          createdAt: this.now(),
+        };
+        await this.repository.saveInteraction(rejected);
+        await this.repository.saveIdempotency('interaction', input.idempotencyKey, {
+          payloadDigest,
+          resultKind: 'interaction',
+          resultId: rejected.id,
+        });
+        return { error: new RuntimeProtocolError(code, reason) };
       };
 
       if (
@@ -978,7 +1150,27 @@ export class CoordinationRuntimeService {
         fail('interaction_digest_mismatch', 'Every interaction requires a response digest');
       }
 
-      const interaction: ModelInteraction = {
+       if (input.normalizedEvidence) {
+         const evidence = input.normalizedEvidence;
+         let validated: Array<{ name: string; operation: string; digest: string }>;
+         try {
+           validated = evidence.intents.map((intent) => validateToolIntent(intent));
+         } catch (error) {
+           const rejectedIntents = evidence.intents.map((intent) => ({
+             name: intent.name, callId: intent.callId, digest: digestCanonical(intent),
+             reason: error instanceof RuntimeProtocolError ? error.message : 'policy validation failed',
+           }));
+           return await violate('Provider intent failed the execution policy', 'malformed_function_call', rejectedIntents);
+         }
+         if (evidence.validatedIntents &&
+             (validated.length !== evidence.validatedIntents.length ||
+             validated.some((v, i) => v.name !== evidence.validatedIntents![i].name ||
+               v.operation !== evidence.validatedIntents![i].operation ||
+               v.digest !== evidence.validatedIntents![i].digest))) {
+           return await violate('Provider intent failed the execution policy', 'malformed_function_call');
+         }
+       }
+       const interaction: ModelInteraction = {
         id: this.newId(),
         packetId: packet.id,
         principal: {
@@ -1007,6 +1199,83 @@ export class CoordinationRuntimeService {
 
     if ('error' in result) throw result.error;
     return result.value;
+  }
+
+  async appendToolResultBatch(
+    principal: RuntimePrincipal,
+    claimId: string,
+    claimEpoch: number,
+    answeredInteractionId: string,
+    results: Array<{
+      interactionId: string; callId: string; toolName: string; validatedIntentDigest: string;
+      outcome: ToolResultOutcome; payload: unknown;
+    }>,
+    idempotencyKey: string,
+  ): Promise<ToolResultRecord[]> {
+    this.authorize(principal, 'luca-gemini', 'execute');
+    return this.repository.transaction(async () => {
+      const payloadDigest = digestCanonical({ claimId, claimEpoch, results, runtimeRegistrationId: principal.runtimeRegistrationId, profileId: principal.profileId });
+      const prior = await this.repository.idempotency('tool_result_batch', idempotencyKey);
+      if (prior) {
+        if (prior.payloadDigest !== payloadDigest) fail('idempotency_payload_mismatch', 'Changed tool result replay');
+        return this.repository.toolResultsForClaim(claimId, claimEpoch);
+      }
+      const claim = await this.repository.getClaim(claimId);
+      if (!claim || claim.status !== 'active' || claim.epoch !== claimEpoch ||
+          claim.runtimeRegistrationId !== principal.runtimeRegistrationId || claim.profileId !== principal.profileId) {
+        fail('claim_not_owned', 'Claim identity is not active');
+      }
+      const interactions = await this.repository.interactionsForPacket(claim.packetId);
+      const answered = interactions.find((interaction) => interaction.id === answeredInteractionId);
+      if (!answered) fail('interaction_not_found', 'Answered interaction does not exist');
+      const earlier = interactions.filter((interaction) => interaction.createdAt < answered.createdAt);
+      const earlierExpected = earlier.flatMap((interaction) => (interaction.normalizedEvidence?.intents ?? [])
+        .map((intent) => ({ interactionId: interaction.id, callId: intent.callId })));
+      const existing = await this.repository.toolResultsForClaimAllEpochs(claim.id);
+      if (earlierExpected.some((item) => !existing.some((row) => row.interactionId === item.interactionId && row.callId === item.callId))) {
+        fail('consumption_conflict', 'Earlier interaction tool results are incomplete');
+      }
+      const expected = (answered.normalizedEvidence?.intents ?? [])
+        .map((intent) => ({ interactionId: answered.id, ...intent, validated: validateToolIntent(intent) }))
+        .filter((item) => item.validated);
+      if (results.length !== expected.length) fail('consumption_conflict', 'Exactly one result is required for every validated intent');
+      const seen = new Set<string>();
+      const records: ToolResultRecord[] = [];
+      const authorityEvent = await this.repository.claimEventForEpoch(claim.id, claimEpoch);
+      if (!authorityEvent || !['acquired', 'renewed'].includes(authorityEvent.kind)) {
+        fail('claim_not_active', 'Claim authority event is missing');
+      }
+      for (const result of results) {
+        const match = expected.find((item) => item.interactionId === result.interactionId && item.callId === result.callId);
+        if (!match || seen.has(`${result.interactionId}:${result.callId}`) ||
+            match.name !== result.toolName || match.validated.digest !== result.validatedIntentDigest) {
+          fail('consumption_conflict', 'Tool result is not bound to a validated intent');
+        }
+        if (!['succeeded', 'rejected'].includes(result.outcome)) fail('invalid_request', 'Tool result outcome is invalid');
+        validateToolResultPayload(result.toolName, result.outcome, result.payload);
+        seen.add(`${result.interactionId}:${result.callId}`);
+        records.push({
+          id: this.newId(), claimId, claimEpoch, claimEventId: authorityEvent.id, interactionId: result.interactionId, callId: result.callId,
+          runtimeRegistrationId: principal.runtimeRegistrationId, profileId: principal.profileId,
+          credentialId: principal.credentialId, validatedIntentDigest: result.validatedIntentDigest,
+          toolName: result.toolName, outcome: result.outcome, canonicalPayload: immutable(result.payload as NormalizedToolResultPayload),
+          resultDigest: digestCanonical(result.payload), createdAt: this.now(),
+        });
+      }
+      for (const record of records) await this.repository.saveToolResult(record);
+      if (records.some((record) => record.outcome === 'rejected')) {
+        const violated = { ...claim, status: 'violated' as const, terminalAt: this.now() };
+        await this.repository.saveClaim(violated);
+        await this.repository.addClaimEvent({
+          id: this.newId(), claimId: claim.id, epoch: claim.epoch, kind: 'violated',
+          reason: 'rejected_tool_result', priorClaimId: claim.priorClaimId, occurredAt: this.now(),
+        });
+      }
+      await this.repository.saveIdempotency('tool_result_batch', idempotencyKey, {
+        payloadDigest, resultKind: 'tool_result_batch', resultId: records[0]?.id ?? `empty-${claimId}-${claimEpoch}`,
+      });
+      return records;
+    });
   }
 
   async recordOutcomeReceipt(
@@ -1312,6 +1581,21 @@ export class CoordinationRuntimeService {
             results: Array.isArray(details.toolResults) ? details.toolResults : [],
           };
         });
+      const allResults = await this.repository.toolResultsForClaimAllEpochs(claim.id);
+      const expected = (await this.repository.interactionsForPacket(packet.id)).flatMap((interaction) =>
+        (interaction.normalizedEvidence?.intents ?? []).map((intent) => ({
+          interactionId: interaction.id, callId: intent.callId,
+          digest: digestCanonical(intent),
+        })));
+      const resultKeys = allResults.map((result) => `${result.interactionId}:${result.callId}:${result.validatedIntentDigest}`);
+      const expectedKeys = expected.map((item) => `${item.interactionId}:${item.callId}:${item.digest}`);
+      if (allResults.length !== expected.length || new Set(resultKeys).size !== resultKeys.length ||
+          new Set(resultKeys).size !== new Set(expectedKeys).size ||
+          allResults.some((result) => result.outcome !== 'succeeded' ||
+            !expected.some((item) => item.interactionId === result.interactionId &&
+              item.callId === result.callId && item.digest === result.validatedIntentDigest))) {
+        fail('completion_evidence_missing', 'Every validated intent requires one succeeded result');
+      }
       const execution: ExecutionRecord = {
         id: this.newId(),
         claimId,
@@ -1329,6 +1613,8 @@ export class CoordinationRuntimeService {
           envelope: command,
           derivedToolEvidence,
           attestedLocalState,
+          toolLedger: allResults.sort((a, b) => a.id.localeCompare(b.id))
+            .map((result) => ({ id: result.id, claimEventId: result.claimEventId, resultDigest: result.resultDigest })),
         }),
       };
       await this.repository.saveExecution(execution);
@@ -1371,6 +1657,28 @@ export class CoordinationRuntimeService {
       if (evidenceDigest !== digestCanonical(execution)) {
         fail('evidence_mismatch', 'Completion evidence digest is invalid');
       }
+       const interactions = (await this.repository.interactionsForPacket(claim.packetId))
+         .filter((item) => item.normalizedEvidence)
+         .sort((a, b) => a.turn - b.turn || a.attempt - b.attempt);
+       const finalInteraction = interactions[interactions.length - 1];
+       if (!finalInteraction || finalInteraction.outcome !== 'consumed' ||
+           (finalInteraction.normalizedEvidence?.intents?.length ?? 0) !== 0) {
+         fail('consumption_conflict', 'Completion requires a consumed final interaction with no tool intents');
+       }
+       const expected = interactions.flatMap((interaction) =>
+         (interaction.normalizedEvidence?.intents ?? []).map((intent) => ({
+           interactionId: interaction.id, callId: intent.callId, digest: digestCanonical(intent),
+         })));
+       const results = await this.repository.toolResultsForClaimAllEpochs(claim.id);
+       const resultKeys = results.map((result) => `${result.interactionId}:${result.callId}:${result.validatedIntentDigest}`);
+       const expectedKeys = expected.map((item) => `${item.interactionId}:${item.callId}:${item.digest}`);
+       if (results.length !== expected.length || new Set(resultKeys).size !== resultKeys.length ||
+           new Set(resultKeys).size !== new Set(expectedKeys).size ||
+           results.some((result) => result.outcome !== 'succeeded' ||
+             !expected.some((item) => item.interactionId === result.interactionId &&
+               item.callId === result.callId && item.digest === result.validatedIntentDigest))) {
+         fail('consumption_conflict', 'Tool-result chain is incomplete');
+       }
       const completion: CompletionRecord = {
         id: this.newId(),
         executionId,
@@ -1396,6 +1704,7 @@ export class CoordinationRuntimeService {
     idempotencyKey: string,
     decision: 'approved' | 'rejected' = 'approved',
     rationale?: string,
+    rerunEvidence?: unknown,
   ): Promise<VerificationDecision> {
     if (principal.actor !== 'luca-replit' && principal.actor !== 'luca-claude-code') {
       fail('verifier_not_allowed', 'Verifier actor is not approved');
@@ -1408,6 +1717,9 @@ export class CoordinationRuntimeService {
       patchDigest,
       verifierActor,
       verifierRuntimeRegistrationId: principal.runtimeRegistrationId,
+      decision,
+      rationale: rationale ?? null,
+      rerunEvidence: rerunEvidence ?? null,
     }, async () => {
       const completion = await this.repository.getCompletion(completionId);
       const claim = completion && await this.repository.getClaim(completion.claimId);
@@ -1436,6 +1748,7 @@ export class CoordinationRuntimeService {
         patchDigest,
         decision,
         ...(rationale ? { rationale } : {}),
+        ...(rerunEvidence !== undefined ? { rerunEvidence: immutable(rerunEvidence) } : {}),
       };
       await this.repository.saveVerification(verification);
       return verification;

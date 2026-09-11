@@ -101,6 +101,14 @@ async function harness(author: Assignment['assignmentAuthor'] = 'alden') {
     requestDigest: 'request-digest',
     responseDigest: 'response-digest',
     outcome: 'consumed',
+    normalizedEvidence: {
+      textParts: [],
+      intents: [],
+      validatedIntents: [],
+      additionalCandidateHashes: [],
+      providerDetails: {},
+      normalizedResponseDigest: 'response-digest',
+    },
     idempotencyKey: 'interaction-key',
   });
   const receipt = await service.recordOutcomeReceipt(
@@ -967,6 +975,10 @@ test('every mutation family replays exactly and rejects changed payloads', async
       requestDigest: 'request-digest',
       responseDigest: 'response-digest',
       outcome: 'consumed',
+       normalizedEvidence: {
+         textParts: [], intents: [], validatedIntents: [], additionalCandidateHashes: [],
+         providerDetails: {}, normalizedResponseDigest: 'response-digest',
+       },
       idempotencyKey: 'interaction-key',
     })).id,
     fixture.interaction.id,
@@ -1084,4 +1096,30 @@ test('every mutation family replays exactly and rejects changed payloads', async
     ),
     'idempotency_payload_mismatch',
   );
+});
+
+test('invalid provider intent leaves durable rejection evidence and violates the claim', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
+    gemini, fixture.packet.id, fixture.packet.digest, fixture.receipt.id, 100, 'invalid-intent-claim',
+  );
+  await expectCode(
+    async () => await fixture.service.recordInteraction(gemini, {
+      packetId: fixture.packet.id, turn: 2, attempt: 1,
+      requestDigest: digestCanonical('invalid-request'),
+      responseDigest: digestCanonical('invalid-response'), outcome: 'consumed',
+      normalizedEvidence: {
+        textParts: [], intents: [{ name: 'run_test', arguments: { argv: ['rm', '-rf', '/'] }, callId: 'bad-call', candidateIndex: 0, executionEligible: true }],
+        validatedIntents: [], additionalCandidateHashes: [], providerDetails: {},
+        normalizedResponseDigest: digestCanonical('invalid-response'),
+      },
+      idempotencyKey: 'invalid-intent',
+    }), 'malformed_function_call',
+  );
+  assert.equal((await fixture.repository.getClaim(claim.id))?.status, 'violated');
+  const rejected = (await fixture.repository.interactionsForPacket(fixture.packet.id))
+    .find((interaction) => interaction.normalizedEvidence?.providerDetails.rejected === true);
+  assert(rejected);
+  assert.equal(rejected?.normalizedEvidence?.intents.length, 0);
+  assert.equal((rejected?.normalizedEvidence as any)?.rejectedIntents?.[0]?.callId, 'bad-call');
 });

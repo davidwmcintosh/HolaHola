@@ -52,9 +52,11 @@ export function buildPacketBoundGeminiRequest(packet: InheritancePacket, priorTo
       { text: `[INHERITANCE_PACKET]\n${canonicalJson(packet)}` },
       ...(priorToolResults.length ? [{ text: `[TOOL_RESULTS]\n${canonicalJson(priorToolResults.map((result) => sanitize(result)))}` }] : []),
     ] }],
-    tools: [{ functionDeclarations: [...knownTools].sort().map((name) => ({
+  tools: [{ functionDeclarations: [...knownTools].sort().map((name) => ({
       name, description: `Bounded coordinator tool: ${name}`,
-      parameters: { type: 'OBJECT', properties: {} },
+      parameters: name === 'write_file'
+        ? { type: 'OBJECT', properties: { content: { type: 'STRING' } }, required: ['content'] }
+        : { type: 'OBJECT', properties: {} },
     })) }],
   };
   const bytes = canonicalJson(request);
@@ -84,7 +86,7 @@ function sanitize(value: unknown, depth = 0): unknown {
   return null;
 }
 
-function normalized(value: unknown): {
+function normalized(value: unknown, callSeed = ''): {
   outcome: NormalizedOutcome;
   intents: NormalizedToolIntent[];
   textParts: string[];
@@ -110,22 +112,39 @@ function normalized(value: unknown): {
   const calls: NormalizedToolIntent[] = [];
   const textParts: string[] = [];
   let usable = false;
-  for (const part of parts) {
+  for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+    const part = parts[partIndex];
     if (typeof part.text === 'string' && part.text.length) { usable = true; textParts.push(part.text); }
     if (part.functionCall !== undefined) {
       const call = part.functionCall;
       if (!call || typeof call.name !== 'string' || !knownTools.has(call.name) ||
         !call.name.length || !call.args || typeof call.args !== 'object' ||
-        typeof call.id !== 'string' || calls.some((item) => item.callId === call.id)) {
+        (call.id !== undefined && typeof call.id !== 'string')) {
         return { outcome: 'malformed_function_call', intents: [], textParts: [], additionalCandidateHashes, providerDetails: {} };
       }
-      calls.push({ name: call.name, arguments: sanitize(call.args) as Record<string, unknown>, callId: call.id, candidateIndex: 0, executionEligible: true });
+      const args = sanitize(call.args) as Record<string, unknown>;
+      const callId = call.id ?? sha(`${callSeed}:${partIndex}:${call.name}:${digestCanonical(args)}`);
+      if (calls.some((item) => item.callId === callId)) {
+        return { outcome: 'malformed_function_call', intents: [], textParts: [], additionalCandidateHashes, providerDetails: {} };
+      }
+      calls.push({ name: call.name, arguments: args, callId, candidateIndex: 0, executionEligible: true });
       usable = true;
     } else if (part.text === undefined) {
         return { outcome: 'unsupported_provider_outcome', intents: [], textParts: [], additionalCandidateHashes, providerDetails: {} };
     }
   }
-  return { outcome: usable ? 'consumed' : 'empty_response', intents: calls, textParts, additionalCandidateHashes, usage: root.usageMetadata, providerDetails: { finishReason: first.finishReason } };
+  return {
+    outcome: usable ? 'consumed' : 'empty_response',
+    intents: calls,
+    textParts,
+    additionalCandidateHashes,
+    usage: root.usageMetadata,
+    providerDetails: {
+      finishReason: first.finishReason,
+      ...(calls.some((call) => !((first.content?.parts ?? []).find((part: any) => part.functionCall?.id === call.callId)))
+        ? { serverDerivedCallIds: calls.map((call) => call.callId) } : {}),
+    },
+  };
 }
 
 export class CoordinationGeminiAdapter {
@@ -167,7 +186,7 @@ export class CoordinationGeminiAdapter {
           results.push({ outcome: 'unsupported_provider_outcome', requestBytes, requestDigest, normalizedResponseBytes, responseDigest: sha(normalizedResponseBytes), intents: [], textParts: [], additionalCandidateHashes: [], providerDetails: { status } });
           break;
         }
-        const result = normalized(parsed);
+         const result = normalized(parsed, `${requestDigest}:1:0`);
         const normalizedResponseBytes = safeJson({
           outcome: result.outcome,
           intents: result.intents,
@@ -206,7 +225,7 @@ export class CoordinationGeminiCoordinator {
     receiptId?: string;
   }> {
     return this.repository.withAttemptLock(
-      `initial:${principal.runtimeRegistrationId}:${principal.profileId}:${packetId}:${idempotencyPrefix}`,
+      `initial:${principal.runtimeRegistrationId}:${principal.profileId}:${packetId}:1`,
       () => this.initialTurnUnlocked(principal, packetId, idempotencyPrefix),
     );
   }
@@ -261,6 +280,11 @@ export class CoordinationGeminiCoordinator {
         receiptId: receipt.id,
       };
     }
+    // The canonical packet/turn slot is authoritative independently of the
+    // caller's idempotency key.  This check runs while withAttemptLock holds
+    // the slot lock, before any provider transport.
+    const occupied = await this.repository.interactionForSlot(packetId, 1, 1);
+    if (occupied) throw new Error('duplicate_model_attempt');
     const attempts = await this.adapter.turn(packet, 1);
     const policyAttempts = attempts.map((attempt) => {
       const validated = attempt.intents.map((intent) => {
@@ -322,12 +346,12 @@ export class CoordinationGeminiCoordinator {
     claimId: string,
     packetId: string,
     turn: number,
-    priorToolResults: unknown[],
+    _priorToolResults: unknown[] = [],
     idempotencyPrefix: string,
   ): Promise<Awaited<ReturnType<CoordinationGeminiAdapter['turn']>>> {
     return this.repository.withAttemptLock(
-      `continuation:${principal.runtimeRegistrationId}:${principal.profileId}:${packetId}:${turn}:${idempotencyPrefix}`,
-      () => this.continuationTurnUnlocked(principal, claimId, packetId, turn, priorToolResults, idempotencyPrefix),
+      `continuation:${principal.runtimeRegistrationId}:${principal.profileId}:${packetId}:${turn}`,
+      () => this.continuationTurnUnlocked(principal, claimId, packetId, turn, idempotencyPrefix),
     );
   }
 
@@ -336,7 +360,6 @@ export class CoordinationGeminiCoordinator {
     claimId: string,
     packetId: string,
     turn: number,
-    priorToolResults: unknown[],
     idempotencyPrefix: string,
   ): Promise<Awaited<ReturnType<CoordinationGeminiAdapter['turn']>>> {
     const priorRecord = await this.repository.idempotency('interaction', `${idempotencyPrefix}:interaction:1`);
@@ -356,18 +379,25 @@ export class CoordinationGeminiCoordinator {
         };
       });
     }
-    const claim = await this.repository.getClaim(claimId);
+    const occupied = await this.repository.interactionForSlot(packetId, turn, 1);
+    if (occupied) throw new Error('duplicate_model_attempt');
     const packet = await this.repository.getPacket(packetId);
-    if (!claim || claim.status !== 'active' || claim.runtimeRegistrationId !== principal.runtimeRegistrationId ||
-      claim.profileId !== principal.profileId || !packet || packet.id !== claim.packetId) {
-      throw new Error('claim_not_owned');
-    }
     const prior = (await this.repository.interactionsForPacket(packetId))
       .filter((interaction) => interaction.normalizedEvidence)
       .sort((left, right) => right.turn - left.turn || right.attempt - left.attempt)[0];
     if (!prior) throw new Error('interaction_not_found');
     const storedEvidence = prior.normalizedEvidence;
-    const sanitizedResults = priorToolResults.map((result) => sanitize(result));
+    const claim = await this.repository.getClaim(claimId);
+    if (!claim || claim.status !== 'active' || claim.packetId !== packetId ||
+      claim.runtimeRegistrationId !== principal.runtimeRegistrationId || claim.profileId !== principal.profileId ||
+      !packet || packet.id !== claim.packetId) {
+      throw new Error('claim_not_owned');
+    }
+    const storedResults = (await this.repository.toolResultsForClaim(claimId, claim.epoch))
+      .filter((result) => result.interactionId === prior.id);
+    const sanitizedResults = storedResults.map((result) => sanitize({
+      callId: result.callId, name: result.toolName, outcome: result.outcome, payload: result.canonicalPayload,
+    }));
     const boundResults = [{ priorInteractionId: prior.id, evidenceDigest: storedEvidence?.normalizedResponseDigest, results: sanitizedResults }];
     const attempts = await this.adapter.turn(packet, turn, boundResults);
     for (let index = 0; index < attempts.length; index += 1) {

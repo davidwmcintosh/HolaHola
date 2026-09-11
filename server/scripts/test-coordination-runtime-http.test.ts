@@ -28,6 +28,11 @@ const profile: CodingRuntimeProfile = {
   provider: 'gemini',
   model: 'gemini-3-flash-preview',
   adapterVersion: 'coordination-gemini-v1',
+  repositoryLabel: 'HolaHola',
+  worktreeLabel: 'HolaHola-antigravity',
+  worktreeRealpathDigest: 'a'.repeat(64),
+  branch: 'luca/gemini-experiment',
+  startingCommit: 'b'.repeat(40),
   status: 'active',
 };
 
@@ -148,8 +153,8 @@ test('HTTP lifecycle hides initial intents, persists retries, binds reveal and c
       method: 'POST', token: 'broker-token', key: 'continuation',
       body: { epoch: claim.body.epoch, turn: 2, toolResults: [{ callId: 'wrong', output: 'bad' }] },
     });
-    assert.equal(continuation.status, 409);
-    assert.equal(continuation.body.error, 'claim_not_owned');
+    assert.equal(continuation.status, 400);
+    assert.equal(continuation.body.error, 'invalid_request');
     const countBeforeReplay = f.requests.length;
     const retry = await httpRequest(f.server, `/api/coordination/runtime/packets/${packet.id}/initial-turn`, {
       method: 'POST', token: 'broker-token', key: 'initial',

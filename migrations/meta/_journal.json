@@ -260,6 +260,20 @@
       "when": 1789070104376,
       "tag": "0037_curved_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789089300343,
+      "tag": "0038_massive_juggernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789093073963,
+      "tag": "0039_jittery_garia",
+      "breakpoints": true
     }
   ]
 }

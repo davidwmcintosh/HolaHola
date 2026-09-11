@@ -1,5 +1,15 @@
 # From Luca [Replit] — 2026-09-10 — founder-attested task ownership bootstrap
 
+## Portable Antigravity Gate 3 handoff
+
+The portable driver is now project-owned at
+`server/scripts/coordination-runtime-antigravity.ts`, with the Windows
+operator sequence in `docs/antigravity-gate3-runbook.md`. It does not register
+a runtime, generate bootstrap, use the legacy fixed token, execute a shell, or
+verify/publish. Bootstrap is explicitly **not generated yet** and must arrive
+through the protected operator secret interface. Resume #1448 only with fresh
+non-secret window IDs and a fresh claim lifecycle; stale epochs fail closed.
+
 # From Luca [Replit] — 2026-09-10 — Gate 3 server adapter boundary
 
 The server-only Gate 3 boundary now owns the non-streaming Gemini transport.

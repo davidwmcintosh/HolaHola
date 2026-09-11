@@ -4094,6 +4094,30 @@ export const coordinationRuntimeExecutions = pgTable("coordination_runtime_execu
     foreignColumns: [coordinationRuntimeClaims.id, coordinationRuntimeClaims.epoch],
   }),
 ]);
+export const coordinationRuntimeToolResultOutcomes = ["succeeded", "rejected"] as const;
+export const coordinationRuntimeToolResults = pgTable("coordination_runtime_tool_results", {
+  id: varchar("id").primaryKey(),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  claimEpoch: integer("claim_epoch").notNull(),
+  claimEventId: varchar("claim_event_id").notNull().references(() => coordinationRuntimeClaimEvents.id),
+  interactionId: varchar("interaction_id").notNull().references(() => coordinationRuntimeInteractions.id),
+  callId: varchar("call_id").notNull(),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  validatedIntentDigest: varchar("validated_intent_digest", { length: 64 }).notNull(),
+  toolName: varchar("tool_name", { length: 80 }).notNull(),
+  outcome: varchar("outcome", { length: 20 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  resultDigest: varchar("result_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_tool_result_claim_epoch_interaction_call")
+    .on(table.claimId, table.claimEpoch, table.interactionId, table.callId),
+  check("coord_runtime_tool_result_intent_digest_hex", sql`${table.validatedIntentDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_tool_result_digest_hex", sql`${table.resultDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_tool_result_outcome_allowed", sql`${table.outcome} IN ('succeeded', 'rejected')`),
+]);
 export const coordinationRuntimeCompletions = pgTable("coordination_runtime_completions", {
   id: varchar("id").primaryKey(),
   executionId: varchar("execution_id").notNull().references(() => coordinationRuntimeExecutions.id),
@@ -4125,7 +4149,7 @@ export const coordinationRuntimeVerifications = pgTable("coordination_runtime_ve
   uniqueIndex("uq_coord_runtime_verification_completion").on(table.completionId),
   check("coord_runtime_verification_evidence_digest_hex", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
   check("coord_runtime_verification_actor_allowed", sql`${table.verifierActor} IN ('luca-replit', 'luca-claude-code')`),
-  check("coord_runtime_verification_decision_approved", sql`${table.decision} = 'approved'`),
+  check("coord_runtime_verification_decision_allowed", sql`${table.decision} IN ('approved', 'rejected')`),
   check("coord_runtime_verification_patch_digest_hex", sql`${table.patchDigest} IS NULL OR ${table.patchDigest} ~ '^[0-9a-f]{64}$'`),
 ]);
 export const coordinationRuntimeIdempotency = pgTable("coordination_runtime_idempotency", {
