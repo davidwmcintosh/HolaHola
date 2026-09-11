@@ -9056,3 +9056,27 @@ keeps initial intents private until claim acquisition, validates claim epoch and
 intent call IDs for tool evidence, and computes completion evidence from stored
 execution data. No route executes commands or accepts provider credentials from
 request JSON.
+## From Luca [Replit] — September 9, 2026: observer route harness
+
+The disposable coordination suite now mounts the real application route table
+and calls `GET /api/admin/luca/observe` over HTTP. Founder browser identity is
+accepted; expired and revoked broker credentials are rejected and leave the
+expected credential-audit rows; and adjacent founder-only and agent-only routes
+retain their prior authorization behavior.
+
+The route-level success case uses an enabled, unexpired Luca broker credential
+with `observation:read`. That same credential is denied by the adjacent
+founder-only route, proving the observer capability is not shared with broader
+administrative surfaces.
+
+The route fixture gives two active voice sessions the same conversation ID.
+DB-only recovery selects the newest session and excludes the known adjacent
+session's Guardian event. A separate active in-memory observation remains bound
+to its exact DB session. The DB-only response is checked for authoritative
+counts, event source, recent event identity, summary state, and discrepancy.
+
+The focused disposable run reached and passed all observer route cases before
+the repository-wide coordination command exceeded the five-minute shell cap.
+TypeScript and diff checks passed. System health reported zero failures and two
+expected warnings because the app workflow was not running for its optional
+object-storage route probes.

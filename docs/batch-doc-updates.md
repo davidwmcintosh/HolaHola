@@ -5690,3 +5690,19 @@ active claim, bind continuations to claim epochs and intent call IDs, and
 derive completion evidence from the persisted execution record. Tests use an
 in-memory repository and fake transport; they do not provision credentials,
 mutate shared Neon, or execute server commands.
+## Observer route authorization and session-isolation harness — September 9, 2026
+
+The disposable coordination database suite now exercises the real
+`GET /api/admin/luca/observe` Express endpoint. It proves founder browser
+identity still reaches the route, expired and revoked broker credentials are
+denied with durable audit rows, and observer authorization does not widen
+adjacent founder-only or agent-only routes. The adjacent founder-only denial
+reuses the same valid `observation:read` broker credential that succeeds on the
+observer endpoint, so the assertion proves route isolation rather than generic
+invalid-token rejection.
+
+The same harness creates two active voice sessions under one conversation and
+proves both DB-only recovery and active in-memory observation return Guardian
+evidence for the exact selected session only. DB-only assertions cover the full
+authoritative event contract, derived summary state, discrepancy object, and
+recent event identity.
