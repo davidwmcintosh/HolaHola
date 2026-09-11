@@ -87,6 +87,15 @@ jobs:
       - name: Validate package lock registry URLs
         run: npm run test:package-lock-registry
 
+      - name: Install PostgreSQL test binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql
+          POSTGRES_BINDIR="$(pg_config --bindir)"
+          test -x "$POSTGRES_BINDIR/initdb"
+          test -x "$POSTGRES_BINDIR/postgres"
+          echo "$POSTGRES_BINDIR" >> "$GITHUB_PATH"
+
       - name: Install dependencies
         run: npm ci --include=dev
 
