@@ -1,7 +1,7 @@
 # Antigravity Safe Provisioning Design
 
 **Date:** 2026-09-10  
-**Status:** Approved design, pending implementation-plan review  
+**Status:** Approved design
 **Scope:** Gate 3 provisioning for task #1448
 
 ## 1. Purpose
@@ -26,9 +26,13 @@ The approved Windows worktree is:
 
 - path: `C:\Users\David\HolaHola-antigravity`;
 - branch: `luca/gemini-experiment`;
-- required starting commit: `5a2fbbf813597b93ffc03fbf2fd9977f4915e17f`.
+- pre-provisioning baseline: `5a2fbbf813597b93ffc03fbf2fd9977f4915e17f`.
 
-The worktree must be clean at that exact commit before preparation begins.
+The exact execution starting commit is the GitHub `main` commit produced by the
+protected promotion of this safe-provisioning implementation. The worktree must
+be clean at that exact final commit before preparation begins. The task
+artifact, public provisioning bundle, coding-runtime profile, and execution
+envelope all bind that same SHA.
 
 ## 3. Chosen approach
 
@@ -59,17 +63,18 @@ Replit uses existing server-side authority to submit the ownership challenge and
 
 The required sequence is:
 
-1. Fast-forward the clean Windows worktree to the required starting commit.
-2. Create and review the exact task #1448 artifact in `.local/tasks/task-1448.md`.
-3. Generate or reuse task #1448's local ownership key in that worktree.
-4. Create the bootstrap in the runtime-specific 1Password item.
-5. Run the Windows preparation command under 1Password injection and export only the public provisioning bundle.
-6. Replit validates the bundle and submits the ownership challenge.
-7. The founder approves the challenge, including the exact task digest, actor, and ownership-key binding.
-8. Replit registers the runtime with the bootstrap digest and creates its coding-runtime profile from the same reviewed bundle.
-9. Antigravity starts under 1Password injection and exchanges the original bootstrap for a short-lived broker credential.
-10. Antigravity signs the server nonce with the Windows-held ownership private key and proves the active founder-approved receipt.
-11. Only after proof succeeds may the runtime fetch, consume, claim, or execute task #1448.
+1. Complete protected promotion of the safe-provisioning implementation and record the exact synchronized GitHub `main` commit.
+2. Fast-forward the clean Windows worktree to that required starting commit.
+3. Create and review the exact task #1448 artifact in `.local/tasks/task-1448.md`, substituting that final commit into the approved local template.
+4. Generate or reuse task #1448's local ownership key in that worktree.
+5. Create the bootstrap in the runtime-specific 1Password item.
+6. Run the Windows preparation command under 1Password injection and export only the public provisioning bundle.
+7. Replit validates the bundle and submits the ownership challenge.
+8. The founder approves the challenge, including the exact task digest, actor, and ownership-key binding.
+9. Replit registers the runtime with the bootstrap digest and creates its coding-runtime profile from the same reviewed bundle.
+10. Antigravity starts under 1Password injection and exchanges the original bootstrap for a short-lived broker credential.
+11. Antigravity signs the server nonce with the Windows-held ownership private key and proves the active founder-approved receipt.
+12. Only after proof succeeds may the runtime fetch, consume, claim, or execute task #1448.
 
 Challenge approval precedes runtime registration in the operator flow. Cryptographic ownership proof follows short-lived credential exchange because the proof endpoint itself requires authenticated actor provenance. Proof still precedes every work-authorizing action.
 
