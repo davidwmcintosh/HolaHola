@@ -186,3 +186,17 @@ mtime_ms = 1788984629051
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/9a4927a3-c31f-4edc-9a5a-09889285f6c0/919e11f0-a2e7-4e2b-9400-0d9468d2cb4d"
 storage_version_token = "1788984633897521"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "DDctpFYZb2oxlazgTp2ow"
+uri = "file://attached_assets/luca-product-runtime-onboarding-draft.md"
+type = "text"
+title = "Luca — Unified Multi-LLM Agent Coordinator"
+description = "Exact review copy of shared-spec revision 6bf8db26-d802-41ae-9e14-655d3e33585f. Hybrid product vision and provider-neutral runtime onboarding contract."
+logical_id = "1f84e418-3785-4873-8b3a-e0ab63ded56b"
+content_hash = "sha256:971ae04c08acb1caa3b396a6eb607b41a36f4142cb7f1d44d5586b740e841e4e"
+size = 16363
+mtime_ms = 1789148663560
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/1f84e418-3785-4873-8b3a-e0ab63ded56b/5617301e-b8ce-4e62-8d7a-5859b2480f5c"
+storage_version_token = "1789148664733921"
+content_type = "text/markdown"
