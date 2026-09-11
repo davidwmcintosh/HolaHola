@@ -14,8 +14,12 @@
   suite passes 22/22, both independent source reviews and both Alden engines
   returned unconditional approval, the registered Validation suite and
   Consolidated CI passed their exact final markers, system health passed, and
-  `git diff --check` passed. Genuine PowerShell 5.1, DPAPI, ACL, and
-  atomic-consumption evidence remains an approved-host step.
+  `git diff --check` passed.
+- Protected promotion returned exact `SYNCED` in GitHub run `34617755993`;
+  GitHub `main` and the source branch then exactly matched
+  `032cd12009ad286819315ff8fc81cb8adb609c35`.
+- Genuine PowerShell 5.1, DPAPI, ACL, and atomic-consumption evidence remains an
+  approved-host step.
 
 # Gate 3 coordinator final local proof — 2026-09-11
 

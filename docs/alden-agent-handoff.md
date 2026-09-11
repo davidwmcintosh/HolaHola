@@ -21,9 +21,13 @@ TypeScript checking passes. Both independent source/proof reviewers and both
 Alden engines returned unconditional approval. The registered Validation suite
 reported `ALL VALIDATION SUITE CHECKS PASSED`, Consolidated CI reported
 `ALL CONSOLIDATED CI CHECKS PASSED`, system health reported all checks passed,
-and `git diff --check` passed. Linux evidence does not prove PowerShell 5.1,
-DPAPI, ACL, cross-user denial, or NTFS atomic behavior; those remain mandatory
-on the approved Windows host before task 1448 execution is claimed.
+and `git diff --check` passed. Protected promotion returned exact `SYNCED` in
+GitHub run `34617755993`; GitHub `main` and the source branch then exactly
+matched `032cd12009ad286819315ff8fc81cb8adb609c35`.
+
+Linux evidence does not prove PowerShell 5.1, DPAPI, ACL, cross-user denial, or
+NTFS atomic behavior; those remain mandatory on the approved Windows host
+before task 1448 execution is claimed.
 
 # From Luca [Replit] — 2026-09-11 — Gate 3 coordinator ready for promotion
 
