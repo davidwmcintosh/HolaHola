@@ -10,6 +10,26 @@ verify/publish. Bootstrap is explicitly **not generated yet** and must arrive
 through the protected operator secret interface. Resume #1448 only with fresh
 non-secret window IDs and a fresh claim lifecycle; stale epochs fail closed.
 
+## Gate 3 protected promotion and provider transport proof
+
+The first protected Gate 3 promotion completed with exact `SYNCED`. Its
+isolated-Neon gate, gate-approved production migration, and fast-forward of
+GitHub `main` all passed. Read-only shared-Neon verification found all sixteen
+runtime tables, a non-null tool-result claim-event reference, its no-action
+foreign key, and update/delete immutability triggers. The application restarted
+cleanly and the public landing page rendered.
+
+The first real server-owned Gemini transport smoke exposed one post-promotion
+integration mismatch before any runtime registration: the Replit integration
+key was being sent to Google's public endpoint. The adapter now requires both
+Replit integration settings, rejects unsafe base URLs, and follows the existing
+SDK contract by appending `/models/<model>:generateContent` to the configured
+proxy base (whose path already owns provider/API-version routing). A synthetic,
+non-executable packet then returned HTTP 200, `STOP`, one candidate, and usage
+metadata. No claim, tool execution, registration, bootstrap, or runtime
+credential was created. Provisioning remains paused until this narrow transport
+correction completes the same protected promotion path.
+
 # From Luca [Replit] — 2026-09-10 — Gate 3 server adapter boundary
 
 The server-only Gate 3 boundary now owns the non-streaming Gemini transport.

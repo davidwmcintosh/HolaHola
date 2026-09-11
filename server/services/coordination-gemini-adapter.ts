@@ -148,14 +148,40 @@ function normalized(value: unknown, callSeed = ''): {
 }
 
 export class CoordinationGeminiAdapter {
+  private readonly apiKey: string;
+  private readonly endpointUrl: string;
+
   constructor(
     private readonly transport: GeminiTransport,
-    private readonly apiKey: string | undefined = process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    apiKey: string | undefined = process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    baseUrl: string | undefined = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
     private readonly maxAttempts = 2,
-  ) {}
+  ) {
+    if (!apiKey) throw new Error('AI_INTEGRATIONS_GEMINI_API_KEY is not configured');
+    if (!baseUrl) throw new Error('AI_INTEGRATIONS_GEMINI_BASE_URL is not configured');
+    let parsedBaseUrl: URL;
+    try {
+      parsedBaseUrl = new URL(baseUrl);
+    } catch {
+      throw new Error('AI_INTEGRATIONS_GEMINI_BASE_URL is invalid');
+    }
+    if (
+      !['http:', 'https:'].includes(parsedBaseUrl.protocol)
+      || parsedBaseUrl.username
+      || parsedBaseUrl.password
+      || parsedBaseUrl.search
+      || parsedBaseUrl.hash
+    ) {
+      throw new Error('AI_INTEGRATIONS_GEMINI_BASE_URL must be a credential-free HTTP(S) base URL');
+    }
+    this.apiKey = apiKey;
+    // Replit's Gemini integration base URL already owns the provider/API-version
+    // prefix (the SDK uses apiVersion: ""). Adding /v1beta is an unsupported
+    // proxy endpoint, so append only the model operation.
+    this.endpointUrl = `${baseUrl.replace(/\/+$/, '')}/models/${COORDINATION_GEMINI_MODEL}:generateContent`;
+  }
 
   async turn(packet: InheritancePacket, turn: number, priorToolResults: unknown[] = [], signal?: AbortSignal): Promise<GeminiTurnResult[]> {
-    if (!this.apiKey) throw new Error('AI_INTEGRATIONS_GEMINI_API_KEY is not configured');
     if (!Number.isInteger(turn) || turn < 1 || turn > 4) throw new Error('model_call_limit_exceeded');
     const request = buildPacketBoundGeminiRequest(packet, priorToolResults);
     const requestBytes = request.bytes;
@@ -166,7 +192,7 @@ export class CoordinationGeminiAdapter {
       let body = '';
       try {
         const response = await this.transport({
-          url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+          url: this.endpointUrl,
           headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
           body: requestBytes,
           signal,

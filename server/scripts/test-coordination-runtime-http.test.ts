@@ -92,6 +92,7 @@ async function fixture(response: unknown = {
     repository,
     transport,
     apiKey: 'server-only-key',
+    baseUrl: 'https://gemini-proxy.example.test/',
     resolveCredential: async (value) => value === 'broker-token' ? credential : null,
   });
   const server = await new Promise<http.Server>((resolve) => {
@@ -114,6 +115,29 @@ test('fixed compatibility tokens and authority overrides cannot authenticate', a
   } finally { await new Promise<void>((resolve) => f.server.close(() => resolve())); }
 });
 
+test('Gemini transport requires a credential-free configured HTTP(S) base URL', () => {
+  const transport = async () => ({ status: 200, body: '{}' });
+  assert.throws(
+    () => new CoordinationGeminiAdapter(transport, 'test-key', ''),
+    /AI_INTEGRATIONS_GEMINI_BASE_URL is not configured/,
+  );
+  assert.throws(
+    () => new CoordinationGeminiAdapter(transport, 'test-key', 'not-a-url'),
+    /AI_INTEGRATIONS_GEMINI_BASE_URL is invalid/,
+  );
+  for (const baseUrl of [
+    'ftp://gemini-proxy.example.test',
+    'https://user:password@gemini-proxy.example.test',
+    'https://gemini-proxy.example.test?credential=value',
+    'https://gemini-proxy.example.test#fragment',
+  ]) {
+    assert.throws(
+      () => new CoordinationGeminiAdapter(transport, 'test-key', baseUrl),
+      /credential-free HTTP\(S\) base URL/,
+    );
+  }
+});
+
 test('HTTP lifecycle hides initial intents, persists retries, binds reveal and continuation', async () => {
   const f = await fixture();
   try {
@@ -133,6 +157,10 @@ test('HTTP lifecycle hides initial intents, persists retries, binds reveal and c
     assert.equal(initial.status, 200);
     assert.deepEqual(initial.body.interactions[0].intents, []);
     assert.equal(f.requests.length, 1);
+    assert.equal(
+      f.requests[0].url,
+      'https://gemini-proxy.example.test/models/gemini-3-flash-preview:generateContent',
+    );
     assert.equal(f.requests[0].headers['x-goog-api-key'], 'server-only-key');
     assert(!f.requests[0].url.includes('server-only-key'));
     assert(!f.requests[0].body.includes('server-only-key'));
@@ -173,7 +201,11 @@ test('normalization records provider outcomes and additional candidates without 
     [{ candidates: [{ content: { parts: [{ functionCall: { name: 'unknown', id: 'x', args: {} } }] } }] }, 'malformed_function_call'],
   ];
   for (const [body, expected] of outcomes) {
-    const adapter = new CoordinationGeminiAdapter(async () => ({ status: 200, body: JSON.stringify(body) }), 'test-key');
+    const adapter = new CoordinationGeminiAdapter(
+      async () => ({ status: 200, body: JSON.stringify(body) }),
+      'test-key',
+      'https://gemini-proxy.example.test',
+    );
     assert.equal((await adapter.turn({
       id: 'p', version: 1, actor: 'luca-gemini', runtimeRegistrationId: 'r', profileId: 'p',
       createdAt: 1, supersedesClaimId: null, windowId: 'w', windowDigest: 'd',

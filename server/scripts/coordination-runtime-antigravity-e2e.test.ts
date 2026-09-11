@@ -62,7 +62,11 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
   }));
   registerCoordinationRuntimeRoutes(app, {
     repository, service: new CoordinationRuntimeService(repository), coordinator: undefined,
-    adapter: new CoordinationGeminiAdapter(transport, 'server-key'),
+    adapter: new CoordinationGeminiAdapter(
+      transport,
+      'server-key',
+      'https://gemini-proxy.example.test',
+    ),
     resolveCredential: async (value) => value === token ? credential : null,
   });
   const server = await new Promise<http.Server>((resolveServer) => { const value = app.listen(0, () => resolveServer(value)); });

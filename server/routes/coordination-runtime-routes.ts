@@ -33,6 +33,7 @@ export type CoordinationRuntimeRouteDeps = {
   resolveCredential?: (token: string, sourceIp?: string) => Promise<BrokerCredential | null>;
   transport?: GeminiTransport;
   apiKey?: string;
+  baseUrl?: string;
   now?: () => number;
 };
 
@@ -194,6 +195,7 @@ export function registerCoordinationRuntimeRoutes(
       return { status: response.status, body: await response.text() };
     }),
     input.apiKey,
+    input.baseUrl,
   );
   const coordinator = input.coordinator ?? new CoordinationGeminiCoordinator(service, repository, adapter);
   const deps = {

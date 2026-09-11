@@ -5706,3 +5706,24 @@ proves both DB-only recovery and active in-memory observation return Guardian
 evidence for the exact selected session only. DB-only assertions cover the full
 authoritative event contract, derived summary state, discrepancy object, and
 recent event identity.
+
+## Gate 3 protected promotion and Gemini proxy transport — September 10, 2026
+
+The protected Gate 3 workflow completed its isolated-Neon gate, applied the
+gate-approved migrations to shared Neon, fast-forwarded GitHub `main`, and
+returned exact `SYNCED`. Read-only catalog checks confirmed all sixteen runtime
+tables plus the non-null claim-event tool-result binding, no-action foreign key,
+and update/delete immutability triggers. The application restarted cleanly and
+system health reported all checks passed.
+
+A first real, synthetic, non-executable adapter request then found that the
+server was sending the Replit integration key to Google's public endpoint. The
+Replit base URL already includes provider routing and, like the existing SDK
+configuration with an empty API version, expects
+`/models/gemini-3-flash-preview:generateContent` rather than `/v1beta/models/...`.
+The adapter now requires and validates the configured base URL, rejects
+credential-bearing or non-HTTP(S) forms, strips trailing slashes, and keeps the
+key in the request header only. The corrected live request returned HTTP 200
+with `STOP` and usage metadata. No runtime, bootstrap, claim, tool execution, or
+credential was created; provisioning stays paused until this correction passes
+the same protected promotion path.
