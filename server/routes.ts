@@ -13,6 +13,7 @@ import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimi
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { registerCoordinationCredentialRoutes } from "./routes/coordination-credential-routes";
+import { registerCoordinationRuntimeRoutes } from "./routes/coordination-runtime-routes";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
 import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
@@ -636,6 +637,7 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 
 export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationCredentialRoutes(app);
+  registerCoordinationRuntimeRoutes(app);
   registerCoordinationRoutes(app);
   registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);

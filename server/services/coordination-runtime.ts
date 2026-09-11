@@ -29,6 +29,37 @@ export type RuntimePrincipal = {
   runtimeEnabled: boolean;
   revoked: boolean;
 };
+export type CodingRuntimeProfile = {
+  id: string;
+  runtimeRegistrationId: string;
+  actor: RuntimeActor;
+  capabilities: string[];
+  provider: string;
+  model: string;
+  adapterVersion: string;
+  status: 'active' | 'superseded' | 'closed';
+  startingCommit?: string;
+  repositoryLabel?: string;
+  branch?: string;
+  worktreeLabel?: string;
+  worktreeRealpathDigest?: string;
+};
+export type AttestedLocalState = {
+  startingCommit: string;
+  resultingHead: string;
+  changedPaths: string[];
+  patchDigest: string | null;
+  commandResults: Array<{ argv: string[]; exitCode: number; stdoutDigest: string; stderrDigest: string; truncated: boolean }>;
+  elapsedMs: number;
+  modelTurns: number;
+  apiAttempts: number;
+};
+export type DerivedToolEvidence = Array<{
+  priorInteractionId: string;
+  normalizedResponseDigest: string;
+  callIds: string[];
+  results: unknown[];
+}>;
 
 export class RuntimeProtocolError extends Error {
   constructor(readonly code: string, message: string) {
@@ -174,7 +205,19 @@ export type ModelInteraction = {
   responseDigest?: string;
   outcome: NormalizedOutcome;
   retryLineage: string | null;
+  normalizedEvidence?: NormalizedInteractionEvidence;
   createdAt: number;
+};
+
+export type NormalizedInteractionEvidence = {
+  textParts: string[];
+  intents: Array<{ name: string; arguments: Record<string, unknown>; callId: string; candidateIndex: 0; executionEligible: true }>;
+  additionalCandidateHashes: string[];
+  providerDetails: Record<string, unknown>;
+  usage?: Record<string, unknown>;
+  normalizedResponseDigest: string;
+  validatedIntents?: Array<{ name: string; operation: string; digest: string }>;
+  toolResults?: unknown[];
 };
 
 export type OutcomeReceipt = {
@@ -220,6 +263,8 @@ export type ExecutionRecord = {
   profileId: string;
   credentialId: string;
   envelope: ExecutionEnvelope;
+  derivedToolEvidence: DerivedToolEvidence;
+  attestedLocalState: AttestedLocalState;
   executionDigest: string;
 };
 
@@ -238,7 +283,8 @@ export type VerificationDecision = {
   verifierRuntimeRegistrationId: string;
   evidenceDigest: string;
   patchDigest: string | null;
-  decision: 'approved';
+  decision: 'approved' | 'rejected';
+  rationale?: string;
 };
 
 export type IdempotencyRecord = { payloadDigest: string; resultKind: string; resultId: string };
@@ -249,6 +295,7 @@ export type IdempotencyRecord = { payloadDigest: string; resultKind: string; res
  */
 export type CoordinationRuntimeRepository = {
   transaction<T>(operation: () => Promise<T>): Promise<T>;
+  withAttemptLock<T>(key: string, operation: () => Promise<T>): Promise<T>;
   addInboxItem(item: InboxItem): Promise<InboxItem>;
   freezeInboxWindow(threadId: string, afterExclusive: number, throughInclusive: number, boundaryToken: string): Promise<InboxWindow>;
   validateWindow(windowId: string): Promise<{ window: InboxWindow; items: InboxItem[] }>;
@@ -258,6 +305,7 @@ export type CoordinationRuntimeRepository = {
   getReceipt(id: string): Promise<OutcomeReceipt | undefined>;
   getClaim(id: string): Promise<ExecutionClaim | undefined>;
   getExecution(id: string): Promise<ExecutionRecord | undefined>;
+  executionForClaim(claimId: string): Promise<ExecutionRecord | undefined>;
   getCompletion(id: string): Promise<CompletionRecord | undefined>;
   getVerification(id: string): Promise<VerificationDecision | undefined>;
   getResult(kind: string, id: string): Promise<unknown>;
@@ -280,6 +328,7 @@ export type CoordinationRuntimeRepository = {
   packetForAssignmentVersion(assignmentEventId: string, version: number): Promise<InheritancePacket | undefined>;
   claimsForPacket(packetId: string): Promise<ExecutionClaim[]>;
   latestClaimForThread(threadId: string): Promise<ExecutionClaim | undefined>;
+  getActiveProfile(runtimeRegistrationId: string): Promise<CodingRuntimeProfile | undefined>;
 };
 type RepositoryState = {
   inbox: Map<string, InboxItem>;
@@ -294,6 +343,7 @@ type RepositoryState = {
   completions: Map<string, CompletionRecord>;
   verifications: Map<string, VerificationDecision>;
   idempotency: Map<string, IdempotencyRecord>;
+  profiles: Map<string, CodingRuntimeProfile>;
 };
 
 function emptyState(): RepositoryState {
@@ -310,6 +360,7 @@ function emptyState(): RepositoryState {
     completions: new Map(),
     verifications: new Map(),
     idempotency: new Map(),
+    profiles: new Map(),
   };
 }
 
@@ -331,12 +382,28 @@ function cloneState(source: RepositoryState): RepositoryState {
     completions: cloneMap(source.completions),
     verifications: cloneMap(source.verifications),
     idempotency: cloneMap(source.idempotency),
+    profiles: cloneMap(source.profiles),
   };
 }
 
 export class InMemoryCoordinationRepository implements CoordinationRuntimeRepository {
   private state = emptyState();
   private inTransaction = false;
+  private readonly attemptQueues = new Map<string, Promise<void>>();
+
+  async withAttemptLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+    const prior = this.attemptQueues.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    const chain = prior.then(() => current);
+    this.attemptQueues.set(key, chain);
+    await prior;
+    try { return await operation(); }
+    finally {
+      release();
+      if (this.attemptQueues.get(key) === chain) this.attemptQueues.delete(key);
+    }
+  }
 
   async transaction<T>(operation: () => Promise<T>): Promise<T> {
     if (this.inTransaction) fail('transaction_reentrant', 'Nested transaction');
@@ -469,6 +536,10 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
 
   async getExecution(id: string): Promise<ExecutionRecord | undefined> {
     const value = this.state.executions.get(id);
+    return value && immutable(value);
+  }
+  async executionForClaim(claimId: string): Promise<ExecutionRecord | undefined> {
+    const value = [...this.state.executions.values()].find((execution) => execution.claimId === claimId);
     return value && immutable(value);
   }
 
@@ -609,6 +680,17 @@ export class InMemoryCoordinationRepository implements CoordinationRuntimeReposi
     return value && immutable(value);
   }
 
+  async getActiveProfile(runtimeRegistrationId: string): Promise<CodingRuntimeProfile | undefined> {
+    const profile = [...this.state.profiles.values()].find(
+      (candidate) => candidate.runtimeRegistrationId === runtimeRegistrationId && candidate.status === 'active',
+    );
+    return profile && immutable(profile);
+  }
+
+  async saveProfile(profile: CodingRuntimeProfile): Promise<void> {
+    this.state.profiles.set(profile.id, immutable(profile));
+  }
+
   snapshots() {
     return immutable({
       packets: [...this.state.packets.values()],
@@ -696,6 +778,7 @@ export class CoordinationRuntimeService {
     idempotencyKey: string,
     version = 1,
     supersedesClaimId: string | null = null,
+    envelopeOverride?: ExecutionEnvelope,
   ): Promise<InheritancePacket> {
     this.authorize(principal, 'luca-gemini', 'execute');
     if (!Number.isInteger(version) || version < 1) {
@@ -781,7 +864,7 @@ export class CoordinationRuntimeService {
         orderedThreadIds: items.map((item) => item.threadId),
         assignment,
         inherited: items.map((item) => item.payload),
-        envelope: this.envelope,
+        envelope: envelopeOverride ? immutable(envelopeOverride) : this.envelope,
       };
       const packet = {
         ...base,
@@ -802,6 +885,7 @@ export class CoordinationRuntimeService {
       responseDigest?: string;
       outcome: NormalizedOutcome;
       retryLineage?: string | null;
+      normalizedEvidence?: NormalizedInteractionEvidence;
       idempotencyKey: string;
     },
   ): Promise<ModelInteraction> {
@@ -909,6 +993,7 @@ export class CoordinationRuntimeService {
         ...(input.responseDigest ? { responseDigest: input.responseDigest } : {}),
         outcome: input.outcome,
         retryLineage: input.retryLineage ?? null,
+        ...(input.normalizedEvidence ? { normalizedEvidence: immutable(input.normalizedEvidence) } : {}),
         createdAt: this.now(),
       };
       await this.repository.saveInteraction(interaction);
@@ -1120,6 +1205,9 @@ export class CoordinationRuntimeService {
       if (claim.status !== 'active' || claim.expiresAt <= this.now()) {
         fail('claim_expired', 'Claim is not active');
       }
+      if (await this.repository.executionForClaim(claimId)) {
+        fail('execution_already_recorded', 'Claim cannot renew after execution');
+      }
       const renewed = {
         ...claim,
         credentialId: principal.credentialId,
@@ -1145,6 +1233,16 @@ export class CoordinationRuntimeService {
     claimId: string,
     command: ExecutionEnvelope,
     idempotencyKey: string,
+    attestedLocalState: AttestedLocalState = {
+      startingCommit: '',
+      resultingHead: '',
+      changedPaths: [],
+      patchDigest: null,
+      commandResults: [],
+      elapsedMs: 0,
+      modelTurns: 0,
+      apiAttempts: 0,
+    },
   ): Promise<ExecutionRecord> {
     this.authorize(principal, 'luca-gemini', 'execute');
     const payload = {
@@ -1152,6 +1250,7 @@ export class CoordinationRuntimeService {
       command,
       runtimeRegistrationId: principal.runtimeRegistrationId,
       profileId: principal.profileId,
+      attestedLocalState,
     };
     const result = await this.repository.transaction<MutationResult<ExecutionRecord>>(async () => {
       const payloadDigest = digestCanonical(payload);
@@ -1198,6 +1297,21 @@ export class CoordinationRuntimeService {
           ),
         };
       }
+      const derivedToolEvidence: DerivedToolEvidence = (await this.repository.interactionsForPacket(packet.id))
+        .filter((interaction) => interaction.normalizedEvidence)
+        .sort((a, b) => a.turn - b.turn || a.attempt - b.attempt)
+        .map((interaction) => {
+          const evidence = interaction.normalizedEvidence!;
+          const details = evidence.providerDetails as Record<string, unknown>;
+          const binding = details.toolEvidenceBinding as Record<string, unknown> | undefined;
+          return {
+            priorInteractionId: typeof binding?.priorInteractionId === 'string' ? binding.priorInteractionId : interaction.id,
+            normalizedResponseDigest: typeof binding?.normalizedResponseDigest === 'string'
+              ? binding.normalizedResponseDigest : evidence.normalizedResponseDigest,
+            callIds: Array.isArray(binding?.callIds) ? binding.callIds.filter((id): id is string => typeof id === 'string') : evidence.intents.map((intent) => intent.callId),
+            results: Array.isArray(details.toolResults) ? details.toolResults : [],
+          };
+        });
       const execution: ExecutionRecord = {
         id: this.newId(),
         claimId,
@@ -1206,10 +1320,15 @@ export class CoordinationRuntimeService {
         profileId: principal.profileId,
         credentialId: principal.credentialId,
         envelope: command,
+        derivedToolEvidence: immutable(derivedToolEvidence),
+        attestedLocalState: immutable(attestedLocalState),
         executionDigest: digestCanonical({
           claimId,
           claimEpoch: claim.epoch,
-          command,
+          packetDigest: packet.digest,
+          envelope: command,
+          derivedToolEvidence,
+          attestedLocalState,
         }),
       };
       await this.repository.saveExecution(execution);
@@ -1275,6 +1394,8 @@ export class CoordinationRuntimeService {
     evidenceDigest: string,
     patchDigest: string | null,
     idempotencyKey: string,
+    decision: 'approved' | 'rejected' = 'approved',
+    rationale?: string,
   ): Promise<VerificationDecision> {
     if (principal.actor !== 'luca-replit' && principal.actor !== 'luca-claude-code') {
       fail('verifier_not_allowed', 'Verifier actor is not approved');
@@ -1302,21 +1423,22 @@ export class CoordinationRuntimeService {
       }
       if (
         completion.evidenceDigest !== evidenceDigest ||
-        packet.envelope.patchDigest !== patchDigest
+        (await this.repository.getExecution(completion.executionId))?.attestedLocalState.patchDigest !== patchDigest
       ) {
         fail('verification_digest_mismatch', 'Verification evidence does not match');
       }
-      const decision: VerificationDecision = {
+      const verification: VerificationDecision = {
         id: this.newId(),
         completionId,
         verifierActor,
         verifierRuntimeRegistrationId: principal.runtimeRegistrationId,
         evidenceDigest,
         patchDigest,
-        decision: 'approved',
+        decision,
+        ...(rationale ? { rationale } : {}),
       };
-      await this.repository.saveVerification(decision);
-      return decision;
+      await this.repository.saveVerification(verification);
+      return verification;
     });
   }
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, lte } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, lte, sql } from 'drizzle-orm';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   coordinationRuntimeClaims,
@@ -27,6 +27,7 @@ import type {
   OutcomeReceipt,
   VerificationDecision,
   IdempotencyRecord,
+  CodingRuntimeProfile,
 } from './coordination-runtime';
 import { digestCanonical, RuntimeProtocolError } from './coordination-runtime';
 
@@ -46,7 +47,14 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   constructor(private readonly db: Executor) {}
 
   async transaction<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.transactionContext.getStore()) return operation();
     return this.db.transaction((tx: Executor) => this.transactionContext.run(tx, operation));
+  }
+  async withAttemptLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+    return this.transaction(async () => {
+      await this.tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+      return operation();
+    });
   }
   private get tx(): Executor { return this.transactionContext.getStore() ?? this.db; }
   /** Authority provisioning is intentionally separate from evidence writes. */
@@ -140,6 +148,11 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   async getReceipt(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeReceipts).where(eq(coordinationRuntimeReceipts.id, id)); return r && receipt(r); }
   async getClaim(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeClaims).where(eq(coordinationRuntimeClaims.id, id)); return r && claim(r); }
   async getExecution(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeExecutions).where(eq(coordinationRuntimeExecutions.id, id)); return r && execution(r); }
+  async executionForClaim(claimId: string) {
+    const [r] = await this.tx.select().from(coordinationRuntimeExecutions)
+      .where(eq(coordinationRuntimeExecutions.claimId, claimId)).limit(1);
+    return r && execution(r);
+  }
   async getCompletion(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeCompletions).where(eq(coordinationRuntimeCompletions.id, id)); return r && completion(r); }
   async getVerification(id: string) { const [r] = await this.tx.select().from(coordinationRuntimeVerifications).where(eq(coordinationRuntimeVerifications.id, id)); return r && verification(r); }
   async getResult(kind: string, id: string): Promise<unknown> {
@@ -212,12 +225,37 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   async packetForAssignmentVersion(event: string, version: number) { const [r] = await this.tx.select().from(coordinationRuntimePackets).where(and(eq(coordinationRuntimePackets.assignmentEventId, event), eq(coordinationRuntimePackets.version, version))); return r && packet(r); }
   async claimsForPacket(packetId: string) { return (await this.tx.select().from(coordinationRuntimeClaims).where(eq(coordinationRuntimeClaims.packetId, packetId))).map(claim); }
   async latestClaimForThread(threadId: string) { const [r] = await this.tx.select().from(coordinationRuntimeClaims).where(eq(coordinationRuntimeClaims.threadId, threadId)).orderBy(desc(coordinationRuntimeClaims.epoch)).limit(1); return r && claim(r); }
+  async getActiveProfile(runtimeRegistrationId: string): Promise<CodingRuntimeProfile | undefined> {
+    const [r] = await this.tx.select().from(coordinationRuntimeProfiles)
+      .where(and(eq(coordinationRuntimeProfiles.runtimeRegistrationId, runtimeRegistrationId), eq(coordinationRuntimeProfiles.status, 'active')))
+      .limit(1);
+    return r && {
+      id: r.id, runtimeRegistrationId: r.runtimeRegistrationId, actor: r.actor as CodingRuntimeProfile['actor'],
+      capabilities: r.capabilities, provider: r.provider, model: r.model, adapterVersion: r.adapterVersion, status: r.status,
+      startingCommit: r.startingCommit, repositoryLabel: r.repositoryLabel, branch: r.branch,
+      worktreeLabel: r.worktreeLabel, worktreeRealpathDigest: r.worktreeRealpathDigest,
+    };
+  }
 }
 
 const packet = (r: any): InheritancePacket => ({ id: r.id, version: r.version, actor: 'luca-gemini', runtimeRegistrationId: r.runtimeRegistrationId, profileId: r.profileId, createdAt: +new Date(r.createdAt), supersedesClaimId: r.supersedesClaimId, windowId: r.windowId, windowDigest: r.windowDigest, orderedInboxItemIds: r.orderedInboxItemIds, orderedEventIds: r.orderedEventIds, orderedThreadIds: r.orderedThreadIds, assignment: { assignmentEventId: r.assignmentEventId, assignmentAuthor: r.assignmentAuthor, taskId: r.assignmentTaskId, threadId: r.assignmentThreadId, expectedSequence: r.expectedSequence }, inherited: r.inheritedPayload, envelope: r.envelope, digest: r.digest });
-const interaction = (r: any): ModelInteraction => ({ id: r.id, packetId: r.packetId, principal: { actor: 'luca-gemini', runtimeRegistrationId: r.runtimeRegistrationId, credentialId: r.credentialId, profileId: r.profileId }, turn: r.turn, attempt: r.attempt, requestDigest: r.requestDigest, responseDigest: r.responseDigest, outcome: r.outcome, retryLineage: r.retryLineage, createdAt: +new Date(r.createdAt) });
+const interaction = (r: any): ModelInteraction => ({ id: r.id, packetId: r.packetId, principal: { actor: 'luca-gemini', runtimeRegistrationId: r.runtimeRegistrationId, credentialId: r.credentialId, profileId: r.profileId }, turn: r.turn, attempt: r.attempt, requestDigest: r.requestDigest, responseDigest: r.responseDigest, outcome: r.outcome, retryLineage: r.retryLineage, ...(r.canonicalPayload?.normalizedEvidence ? { normalizedEvidence: r.canonicalPayload.normalizedEvidence } : {}), createdAt: +new Date(r.createdAt) });
 const receipt = (r: any): OutcomeReceipt => ({ id: r.id, packetId: r.packetId, packetDigest: r.packetDigest, interactionId: r.interactionId, runtimeRegistrationId: r.runtimeRegistrationId, profileId: r.profileId, outcome: r.outcome, createdAt: +new Date(r.createdAt) });
 const claim = (r: any): ExecutionClaim => ({ id: r.id, threadId: r.threadId, packetId: r.packetId, runtimeRegistrationId: r.runtimeRegistrationId, profileId: r.profileId, credentialId: r.credentialId, priorClaimId: r.priorClaimId, epoch: r.epoch, expiresAt: +new Date(r.expiresAt), status: r.status, terminalAt: r.terminalAt && +new Date(r.terminalAt) });
-const execution = (r: any): ExecutionRecord => ({ id: r.id, claimId: r.claimId, claimEpoch: r.claimEpoch, runtimeRegistrationId: r.runtimeRegistrationId, profileId: r.profileId, credentialId: r.credentialId, envelope: r.envelope, executionDigest: r.executionDigest });
+const execution = (r: any): ExecutionRecord => ({
+  id: r.id, claimId: r.claimId, claimEpoch: r.claimEpoch, runtimeRegistrationId: r.runtimeRegistrationId,
+  profileId: r.profileId, credentialId: r.credentialId, envelope: r.envelope,
+  derivedToolEvidence: r.canonicalPayload?.derivedToolEvidence ?? [],
+  attestedLocalState: r.canonicalPayload?.attestedLocalState ?? {
+    startingCommit: '', resultingHead: '', changedPaths: [], patchDigest: null,
+    commandResults: [], elapsedMs: 0, modelTurns: 0, apiAttempts: 0,
+  },
+  executionDigest: r.executionDigest,
+});
 const completion = (r: any): CompletionRecord => ({ id: r.id, executionId: r.executionId, claimId: r.claimId, claimEpoch: r.claimEpoch, evidenceDigest: r.evidenceDigest });
-const verification = (r: any): VerificationDecision => ({ id: r.id, completionId: r.completionId, verifierActor: r.verifierActor, verifierRuntimeRegistrationId: r.verifierRuntimeRegistrationId, evidenceDigest: r.evidenceDigest, patchDigest: r.patchDigest, decision: 'approved' });
+const verification = (r: any): VerificationDecision => ({
+  id: r.id, completionId: r.completionId, verifierActor: r.verifierActor,
+  verifierRuntimeRegistrationId: r.verifierRuntimeRegistrationId, evidenceDigest: r.evidenceDigest,
+  patchDigest: r.patchDigest, decision: r.canonicalPayload?.decision ?? 'approved',
+  ...(r.canonicalPayload?.rationale ? { rationale: r.canonicalPayload.rationale } : {}),
+});

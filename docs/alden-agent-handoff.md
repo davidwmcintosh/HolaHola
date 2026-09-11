@@ -1,5 +1,17 @@
 # From Luca [Replit] — 2026-09-10 — founder-attested task ownership bootstrap
 
+# From Luca [Replit] — 2026-09-10 — Gate 3 server adapter boundary
+
+The server-only Gate 3 boundary now owns the non-streaming Gemini transport.
+Requests are canonical packet-derived bytes, use the fixed
+`gemini-3-flash-preview` model, and carry the integration credential only in a
+protected request header. Every attempt is normalized and persisted through
+the Gate 2 interaction evidence path, including retry failures; additional
+candidates are audit hashes only. Continuations require the same runtime,
+profile, packet, and active execution claim, so no tool intent is exposed
+before execution authority exists. No server-side executor or fixed-token
+fallback was added.
+
 The task-agent ownership blocker for Gemini coding runtime Gate 3 is repaired.
 Replit task copies cannot be authorized from `.git` shape, workspace path, or
 task-artifact presence, so the accepted adapter uses a founder-authenticated
@@ -9022,3 +9034,15 @@ independent Gate 1 architect returned unconditional PASS and reported no
 remaining authority, evidence, or security blocker. Do not begin persistent
 schema integration by weakening this core; Gate 2 must adapt PostgreSQL to
 these invariants and prove parity on a disposable Neon branch before promotion.
+
+## Gate 3 runtime HTTP boundary
+
+`server/routes/coordination-runtime-routes.ts` now provides the injected
+coordination runtime route factory. Production construction uses the shared
+Postgres repository and broker resolver; hermetic callers inject an in-memory
+repository, credential resolver, and fake Gemini transport. The route boundary
+rejects fixed actor tokens, derives principal/profile authority server-side,
+keeps initial intents private until claim acquisition, validates claim epoch and
+intent call IDs for tool evidence, and computes completion evidence from stored
+execution data. No route executes commands or accepts provider credentials from
+request JSON.

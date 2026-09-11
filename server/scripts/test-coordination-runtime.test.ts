@@ -713,7 +713,16 @@ test('execution and completion are bound to runtime, envelope, epoch, and live c
     envelope,
     'old-execution',
   );
-  await fresh.service.renew(gemini, freshClaim.id, freshClaim.epoch, 100, 'renew-epoch');
+  await expectCode(
+    async () => await fresh.service.renew(gemini, freshClaim.id, freshClaim.epoch, 100, 'renew-epoch'),
+    'execution_already_recorded',
+  );
+  await fresh.repository.saveClaim({
+    ...freshClaim,
+    epoch: freshClaim.epoch + 1,
+    credentialId: gemini.credentialId,
+    expiresAt: 10_000,
+  });
   await expectCode(
     async () => await fresh.service.complete(
       gemini,

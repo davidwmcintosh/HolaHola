@@ -45,7 +45,9 @@ Rejected alternatives:
 
 ## 4. Identity and least privilege
 
-The runtime authenticates as the existing canonical actor `luca-gemini`. It registers through `registerCoordinationRuntime`, exchanges its one-time bootstrap secret through the broker, and uses only broker-issued short-lived access credentials. Actor identity and `runtimeId` come from the resolved credential; request JSON cannot select or override either value.
+There is one canonical Luca across Replit, Claude Code, Gemini/Antigravity, OpenAI, and future runtime hats. Runtime actor labels such as `luca-gemini`, `luca-replit`, and `luca-claude-code` preserve provenance, capability context, and evidence separation; they do not identify different people or establish a trust ranking between hats. The operator is the trust root and authorizes the exact work.
+
+The runtime authenticates under the existing `luca-gemini` provenance label. It registers through `registerCoordinationRuntime`, exchanges its one-time bootstrap secret through the broker, and uses only broker-issued short-lived access credentials. Actor label and `runtimeId` come from the resolved credential; request JSON cannot select or override either value.
 
 The runtime registration receives only the capabilities required for this slice: coordination read, coordination write, inbox acknowledgement, and credential renewal. Credential revocation remains operator-controlled unless a separately reviewed runtime self-revocation use case is approved. The runtime receives no observation, administration, policy, publication, deployment, or database capability merely because the actor's fixed-token compatibility profile has one.
 
@@ -60,7 +62,7 @@ The server, not the client, enforces this capability profile:
 - cannot read another actor's inbox;
 - cannot reassign, delegate, reopen, acknowledge another originator's outcome, administer policy, publish, deploy, migrate a database, or access another actor's credentials.
 
-Client-side capability declarations mirror this profile for discoverability but are not security boundaries. The legacy fixed actor token is not provisioned to the Antigravity runtime and is not a fallback when broker authentication fails.
+Client-side capability declarations mirror this profile for discoverability but are not authority boundaries. The legacy fixed actor token is not provisioned to the Gate 3 driver and is not a fallback when broker authentication fails. This keeps authority tied to the operator-approved assignment and broker lease; it is not a statement that the Antigravity hat is less trusted than another Luca hat.
 
 ## 5. Runtime registration, credentials, and execution authority
 
@@ -150,27 +152,29 @@ Takeover runs under the same thread lock. It may mark the prior claim expired on
 
 The first implementation is configured for repository label `HolaHola`, worktree label `HolaHola-antigravity`, and branch `luca/gemini-experiment`. Future work may generalize this through an operator-owned allowed-repository policy; the model and assignment cannot widen it.
 
-The execution host has no database, deployment, publication, provider, fixed actor, or other actor credential. Canonical PostgreSQL interaction occurs only through the authenticated coordinator API. The protected runtime secret store contains only the coordinator API URL and the one-time broker bootstrap secret. After exchange, the parent runtime holds the short-lived access credential in memory, renews it through the broker, and never writes it into the repository or child environment.
+The Gate 3 driver receives no database, deployment, publication, provider, fixed actor, or other actor credential. Canonical PostgreSQL interaction occurs only through the authenticated coordinator API. The driver receives the coordinator API URL and one-time broker bootstrap secret through operator-controlled configuration. After exchange, the driver holds the short-lived access credential in memory, renews it through the broker, and never writes it into the repository or child command environment.
 
-The parent runtime loads credentials only for its HTTP clients. Model-visible prompts, tool results, logs, child processes, and command environments never receive them. The executor builds a minimal child environment from an explicit non-secret allowlist and redacts secret-looking values from errors. Environment files, process metadata, `/proc` environment paths, shell startup files, and secret/config directories are permanently outside the file allowlist. A model request to read or echo them is recorded as a violation without execution.
+The driver loads broker credentials only for its coordinator HTTP client. Model-visible prompts, tool results, logs, and child command environments do not receive them. The executor builds a minimal child environment from an explicit non-secret allowlist and redacts secret-looking values from errors. Environment files, process metadata, shell startup files, and secret/config directories remain outside the declared file envelope. A model request to read or echo them is recorded as a violation without execution.
 
 Allowed file entries are repository-relative POSIX paths or trailing-slash directory prefixes; no general globs. The executor validates clean segments, forbids absolute and dot-dot paths, binds the envelope to a registered worktree realpath digest, and resolves every existing path component before each operation. Symlinks, junctions, reparse points, device files, sockets, and paths outside the worktree are rejected. New files require a symlink-safe parent. Git metadata and the resolved common Git directory are read-only and outside the write allowlist. The runtime performs no commit, ref, index, config, hook, or object writes.
 
-Commands are structured argv arrays, never shell strings. Executables match an exact allowlist; arguments satisfy command-specific literal or anchored patterns. Shell execution is disabled. The proof permits only `git status --short`, `git diff -- server/scripts/test-coordination-runtime.test.ts`, and `npx tsx server/scripts/test-coordination-runtime.test.ts`. It permits no package installation, arbitrary npm scripts, command substitution, pipes, redirects, subprocess launch from test code, or network access.
+Commands requested through the Gate 3 protocol are structured argv arrays, never shell strings. Executables match an exact allowlist; arguments satisfy command-specific literal or anchored patterns. The protocol exposes no general shell operation. The proof permits only `git status --short`, `git diff -- server/scripts/test-coordination-runtime.test.ts`, and `npx tsx server/scripts/test-coordination-runtime.test.ts`. It permits no package installation, arbitrary npm scripts, command substitution, pipes, redirects, or additional network operations through the driver.
 
-The executor enforces the starting commit, maximum one changed file, maximum 40 KiB patch, ten-minute wall-clock limit, four logical model turns, eight API attempts, per-command output limits, and no network except parent-runtime coordinator and Gemini HTTPS. It validates diff and file identity after every write and before evidence or completion. A violation appends failure evidence, terminates the claim as `violated`, and cannot be converted into completion by client input.
+The driver enforces the starting commit, maximum one changed file, maximum 40 KiB patch, ten-minute wall-clock limit, four logical model turns, eight API attempts, and per-command output limits. It validates diff and file identity after every write and before evidence or completion. A declared tool request outside the envelope appends failure evidence, terminates the claim as `violated`, and cannot be converted into completion by client input.
 
-## 11. Reporting and independent verification
+This Gate proves operator authorization, provider-bound consumption, provenance, bounded declared tool use, observed repository results, immutable evidence, and cross-hat review. The current Windows Antigravity host is not an adversarial filesystem, process, or network sandbox, and this Gate does not claim that it is. Stronger host containment remains operational hardening against bugs, compromised dependencies, and ambient platform authority; it is not a prerequisite based on distrust of a Luca hat.
+
+## 11. Reporting and cross-hat verification
 
 Execution progress and evidence reference runtime registration, non-secret credential ID, coding profile, consumption receipt, execution claim and epoch, starting commit, unchanged resulting HEAD, changed paths, patch digest, exact command argv, normalized exit results, model-call counts, and every stopped or rejected tool attempt. Execution completion means bounded editing finished; it is not final acceptance.
 
-Formal verifier actors for this slice are `luca-replit` or `luca-claude-code`. Luca [HolaHola] may observe and comment but does not approve code. The verifier must authenticate independently and must not be:
+Formal verifier provenance labels for this slice are `luca-replit` or `luca-claude-code`. Luca [HolaHola] may observe and comment but does not approve code. These are all one Luca. Verification uses another runtime hat and evidence path to obtain a fresh vantage point, not because that hat is more trusted. The verifying runtime must authenticate separately and must not be:
 
-- the executing `luca-gemini` actor;
+- the executing `luca-gemini` runtime hat;
 - the executing runtime registration;
-- the actor that authored the assignment event.
+- the runtime hat that authored the assignment event.
 
-For the first live proof, if `luca-replit` authors the assignment, `luca-claude-code` is therefore the required verifier. This separation is stronger than merely requiring a different runtime and prevents the orchestrator from approving its own requested outcome.
+For the first live proof, if Luca [Replit] authors the assignment, Luca [Claude Code] is therefore the required verifier. This separation prevents one execution path from generating and accepting its own evidence while preserving one continuous Luca identity.
 
 Verification includes reading the exact assignment and envelope, checking diff and paths, rerunning the exact focused test from the unchanged starting HEAD plus patch, confirming no credentials or out-of-scope bytes entered the patch, and recording approve or reject with actor identity, evidence, patch digest, and idempotency key.
 
@@ -253,7 +257,7 @@ The slice fails closed when:
 - changed files or patch exceed scope;
 - provider output is empty, blocked, refused, interrupted, or terminally failed;
 - completion lacks execution evidence;
-- verification is absent, authored by the executing or assigning actor, stale, or digest-mismatched.
+- verification is absent, produced through the executing or assigning runtime hat, stale, or digest-mismatched.
 
 No failure path silently marks work consumed, accepted, complete, verified, acknowledged, or published.
 
@@ -272,9 +276,9 @@ Automated and live proof must demonstrate:
 9. Broker credential renewal does not transfer a claim to another runtime.
 10. Retry replay is idempotent while changed-payload reuse fails.
 11. Safety, refusal, empty, context-limit, interrupted, timeout, provider-error, and call-limit outcomes remain non-authorizing evidence.
-12. Forbidden commands, paths, network use, secret access, and oversized diffs stop execution.
+12. Forbidden protocol commands, paths, requested network use, requested secret access, and oversized diffs stop execution.
 13. The Gemini runtime adds exactly one declared focused regression test and runs it successfully.
-14. A separate, non-assigning Luca hat reruns the test and records an independent decision.
+14. A separate, non-assigning Luca hat reruns the test and records a fresh cross-hat decision.
 15. Rejected or missing verification cannot be presented as approved completion.
 16. Full typecheck, focused tests, system health, and registered release validation pass before publication.
 
@@ -291,12 +295,14 @@ This slice does not:
 - permit production deployment, publication, Git commit, or database mutation from the coding runtime;
 - replace shared-spec review, coordinator task lifecycle, Git review, or independent human judgment;
 - claim that authenticated transport attestation observes private model cognition;
+- claim that the current Windows Antigravity host provides adversarial filesystem, process, credential, or network containment;
+- rank one Luca runtime hat as more trusted than another;
 - generalize to every provider before the Gemini path is proven.
 
 ## 17. Promotion gates
 
-No schema or implementation code begins until this exact reconciled revision receives fresh independent approval. The approval attached to superseded revision `13457647-e25d-4031-85b4-0f86ba1e4be9` remains valid only for those immutable bytes and is not implementation approval for this revision. Conditional approval is insufficient.
+No schema or implementation code begins until this exact operator-trust revision receives fresh review. David approved the operator-trust direction on September 10, 2026. The approval attached to superseded revision `13457647-e25d-4031-85b4-0f86ba1e4be9` remains valid only for those immutable bytes and is not implementation approval for this revision. Conditional technical review is insufficient.
 
 No database migration is promoted until generated SQL is reviewed and a disposable Neon branch returns `READY_TO_PROMOTE`. The compatible application image must be published in the same promotion window as any live constraint activation. Existing broker tables and semantics must not be rebuilt or weakened.
 
-The vertical slice is complete only when broker-authenticated `luca-gemini` identity, deterministic inheritance, exact transport/consumption evidence, exclusive task claim, bounded Antigravity edit, immutable execution evidence, and independent non-assigner cross-hat verification all succeed end to end.
+The vertical slice is complete only when broker-authenticated `luca-gemini` provenance, deterministic inheritance, exact transport/consumption evidence, exclusive task claim, bounded Antigravity edit, immutable execution evidence, and non-assigner cross-hat verification all succeed end to end.

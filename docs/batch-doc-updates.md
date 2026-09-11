@@ -1,5 +1,17 @@
 # Persisted Gemini runtime authority model — 2026-09-10
 
+# Gate 3 server Gemini boundary — 2026-09-10
+
+- Added a project-owned, injectable non-streaming Gemini adapter pinned to
+  `gemini-3-flash-preview`. It canonicalizes packet-bound requests, keeps the
+  integration key in a protected header, normalizes safety/refusal/context,
+  malformed, unsupported, transport, authentication, rate, empty, and retry
+  outcomes, and retains only hashes for non-zero candidates.
+- Added coordinator orchestration that persists every provider attempt and
+  derives requests from immutable packets. Continuation turns require an
+  active claim belonging to the authenticated runtime/profile; intent results
+  are therefore not exposed before claim authority exists.
+
 - Gate 2 adds dedicated PostgreSQL records for execution profiles, frozen inbox
   windows, inheritance packets, model interactions, outcome receipts, claims
   and claim events, executions, completions, verifications, and idempotency.
@@ -5657,3 +5669,13 @@ founder because the ownership routes were mounted before Replit and Google
 authentication middleware. The routes now mount after both auth setups and use
 the standard authenticated-user then founder authorization sequence. A
 regression test locks the registration order.
+
+### Gemini runtime Gate 3 HTTP boundary
+
+Added the injected `registerCoordinationRuntimeRoutes` factory and hermetic
+HTTP/adapter coverage. The runtime routes resolve broker credentials only,
+look up one active Gemini profile server-side, hide initial intents until an
+active claim, bind continuations to claim epochs and intent call IDs, and
+derive completion evidence from the persisted execution record. Tests use an
+in-memory repository and fake transport; they do not provision credentials,
+mutate shared Neon, or execute server commands.
