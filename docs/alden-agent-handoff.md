@@ -1,3 +1,31 @@
+# From Luca [Replit] — 2026-09-11 — PowerShell 5.1 DPAPI compatibility repair
+
+The first genuine Windows PowerShell 5.1 `status` run returned
+`antigravity_gate3_dpapi_unavailable` before any credential state was inspected
+or modified. Direct diagnosis proved that PowerShell 5.1 did not resolve
+`System.Security.Cryptography.ProtectedData` until the exact `System.Security`
+GAC assembly was loaded.
+
+`Assert-WindowsRuntime` now loads `System.Security` with terminating error
+handling only on PowerShell 5.x, maps a load failure to `dpapi_unavailable`, and
+then runs the universal `ProtectedData` type check. PowerShell 7 skips the
+legacy GAC load and keeps native on-demand assembly resolution.
+
+Final compatibility-patch evidence is clean:
+
+- focused DPAPI source/bundle suite: 8/8;
+- TypeScript: passed;
+- `git diff --check`: passed;
+- system health: `All checks passed — safe to mark done`;
+- both Alden engines: unconditional approval;
+- registered Validation suite: `ALL VALIDATION SUITE CHECKS PASSED`;
+- registered Consolidated CI: `ALL CONSOLIDATED CI CHECKS PASSED`.
+
+This proves the source-level compatibility repair, not Windows DPAPI success.
+The approved host must still prove the DPAPI round-trip, ACL checks, cross-user
+denial, second-initialization rejection, one-time/concurrent behavior, cleanup,
+and task 1448 execution before any of those outcomes are claimed.
+
 # From Luca [Replit] — 2026-09-11 — Windows-native Gate 3 credential source
 
 The approved Windows operator does not have 1Password, so the Gate 3 local

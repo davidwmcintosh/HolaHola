@@ -1,3 +1,22 @@
+# Windows PowerShell 5.1 DPAPI assembly compatibility — 2026-09-11
+
+- Genuine Windows PowerShell 5.1 reached the fixed-action launcher but returned
+  `antigravity_gate3_dpapi_unavailable` before inspecting or modifying any
+  credential state.
+- Diagnosis proved `ProtectedData` was unresolved until Windows PowerShell 5.1
+  loaded the exact `System.Security` GAC assembly. The launcher now performs
+  that terminating load only on PowerShell 5.x, maps load failure to
+  `dpapi_unavailable`, and then applies the universal `ProtectedData` type check.
+  PowerShell 7 retains its native on-demand assembly resolution.
+- The focused DPAPI source/bundle suite passed 8/8, TypeScript passed,
+  `git diff --check` passed, system health passed, and both Alden engines gave
+  unconditional approval. The registered workflows then reported exact
+  `ALL VALIDATION SUITE CHECKS PASSED` and
+  `ALL CONSOLIDATED CI CHECKS PASSED`.
+- This repairs the diagnosed compatibility boundary; genuine DPAPI round-trip,
+  ACL, cross-user denial, one-time consumption, and task 1448 execution remain
+  unclaimed until approved-host evidence exists.
+
 # Windows-native Antigravity Gate 3 credential source — 2026-09-11
 
 - Replaced the Windows-only 1Password dependency with a fixed-action Windows

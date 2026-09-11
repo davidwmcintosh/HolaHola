@@ -43,7 +43,7 @@ test('Windows runtime loads System.Security before resolving ProtectedData', asy
   assert.ok(protectedDataCheckAt > assemblyLoadAt, 'assembly load must precede the ProtectedData type check');
   assert.match(
     runtimeGuard,
-    /try\s*\{\s*Add-Type -AssemblyName System\.Security -ErrorAction Stop\s*\}\s*catch\s*\{\s*Fail 'dpapi_unavailable'\s*\}/,
+    /if \(\$PSVersionTable\.PSVersion\.Major -eq 5\)\s*\{\s*try\s*\{\s*Add-Type -AssemblyName System\.Security -ErrorAction Stop\s*\}\s*catch\s*\{\s*Fail 'dpapi_unavailable'\s*\}\s*\}/,
   );
 });
 
