@@ -9195,3 +9195,30 @@ the repository-wide coordination command exceeded the five-minute shell cap.
 TypeScript and diff checks passed. System health reported zero failures and two
 expected warnings because the app workflow was not running for its optional
 object-storage route probes.
+
+---
+
+## From Luca [Replit] — September 11, 2026: fixed-runtime bootstrap recovery approved
+
+The fixed Antigravity runtime now has a founder-approved same-runtime recovery
+path for the first fail-closed Windows launch. Recovery is confined to
+Antigravity Phase B, validates exact receipt context and active profile
+metadata, preserves runtime/profile identity, and rejects live credentials,
+live grants, any packet history, digest ownership conflicts, disabled or
+drifted registrations, and unproven consumption state.
+
+Bootstrap exchange now consumes authority server-side as well as locally. It
+atomically replaces the approved digest with a deterministic consumed tombstone
+before issuing the credential, with runtime and source/destination digest locks
+and a non-secret consumption audit. Concurrent exchange has one winner.
+Consumed-bundle Phase B retries remain idempotent but never restore exchange
+authority. One bounded legacy lineage supports the credential issued before
+tombstoning existed and cannot be used after a prior recovery.
+
+Fresh disposable PostgreSQL verification passed all four focused broker tests
+with no skips. TypeScript and system health passed. Both Alden engines and the
+independent architecture review returned unconditional approval. The next
+operator sequence is: commit and publish this recovery, create and approve a
+fresh challenge, require Phase B status `recovered`, create a fresh task 1448
+assignment and window, then run Windows exactly once with more than ten minutes
+thirty seconds of founder authority remaining.

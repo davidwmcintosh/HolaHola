@@ -116,6 +116,22 @@ Successful recovery:
 The audit must not contain plaintext bootstrap material, access tokens, local
 credential paths, environment values, or receipts containing secrets.
 
+The first successful server-side bootstrap exchange is also one-time. Under
+the same runtime and digest advisory locks, it atomically replaces the approved
+public bootstrap digest with a deterministic consumed tombstone derived from
+the runtime ID and approved digest before issuing the broker credential. It
+records a `runtime_bootstrap_consumed` audit event containing only the approved
+digest and consumed tombstone. Concurrent exchanges therefore have exactly one
+winner. Phase B recognizes that exact tombstone as an idempotent replay of the
+already-consumed bundle without restoring exchange authority.
+
+Recovery normally requires the current tombstone to match the latest durable
+consumption audit. The one pre-tombstone Gate 3 registration has a bounded
+compatibility path: an exact matching registration and profile, historical
+issued credential, no prior same-runtime recovery, no live credential or grant,
+and no packet history. Its recovery audit is explicitly labeled
+`legacy_issued_credential`; all later recoveries use audited tombstone lineage.
+
 ## Failure behavior
 
 Recovery fails closed with a stable non-secret reason for:
@@ -174,3 +190,21 @@ After the recovery implementation is reviewed and deployed:
 7. Do not claim task execution until packet, consumption, diff, focused-test,
    claim, and cleanup evidence exists.
 8. Require independent cross-hat verification before claiming Gate 3 complete.
+
+## Implementation verification — September 11, 2026
+
+The final implementation confines bootstrap replacement to founder-validated
+Antigravity Phase B. Generic broker registration has no recovery authority.
+Runtime and source/destination digest locks use a consistent order, exact
+registration and active-profile metadata are preserved, receipt context is
+bound to the complete bundle digest, and any packet history blocks recovery.
+Because interactions and claims require packets and executions require claims,
+the packet-history guard strictly subsumes all downstream work-authority state.
+
+A fresh disposable PostgreSQL database passed all four focused credential
+broker/provisioning tests with zero skips. Coverage includes live credential
+and grant rejection, immutable packet-history rejection, unconsumed-state
+rejection, tombstone ownership collision, old-digest audit lineage, disabled
+replay rejection, and concurrent exactly-once exchange. TypeScript and system
+health passed. Alden's Anthropic and Gemini reviewers and the independent
+architecture reviewer all returned unconditional approval.

@@ -5788,3 +5788,26 @@ key in the request header only. The corrected live request returned HTTP 200
 with `STOP` and usage metadata. No runtime, bootstrap, claim, tool execution, or
 credential was created; provisioning stays paused until this correction passes
 the same protected promotion path.
+
+## Gate 3 same-runtime bootstrap recovery — September 11, 2026
+
+Implemented the founder-approved recovery path for the fixed Antigravity
+runtime after a fail-closed Windows launch consumes its local bootstrap. Phase
+B now validates and locks the complete founder authority chain before mutation,
+preserves the exact runtime and active profile, rejects live credentials,
+grants, any packet history, digest collisions, metadata drift, and unproven
+consumption state, and records non-secret old/new digest lineage.
+
+Broker exchange now enforces server-side one-time consumption. It atomically
+replaces the approved public digest with a deterministic consumed tombstone
+before issuing a credential, locks both digest states in sorted order, and
+audits only public digests. Phase B recognizes the consumed tombstone as an
+idempotent replay without restoring exchange authority. A bounded, auditable
+legacy path supports the single credential issued before tombstoning existed.
+
+The focused broker/provisioning suite passed 4/4 with no skips on a fresh
+disposable PostgreSQL database. TypeScript and system health passed. Alden's
+Anthropic and Gemini engines and the independent architecture reviewer all
+returned unconditional approval. Windows Gate 3 remains paused until this
+recovery is committed and published, a fresh founder challenge is approved,
+Phase B returns `recovered`, and a fresh task assignment/window is created.
