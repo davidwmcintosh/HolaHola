@@ -15,8 +15,13 @@ import {
 } from '@shared/schema';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import { closeDbConnections, getSharedDb } from '../db';
-import { registerRoutes } from '../routes';
-import { hashCoordinationSecret } from '../services/coordination-credential-broker';
+import {
+  hashCoordinationSecret,
+} from '../services/coordination-credential-broker';
+import {
+  requireFounderOrCoordinationCapability,
+} from '../middleware/coordination-auth';
+import { registerLucaObserverRoute } from '../routes/luca-observer-route';
 import {
   observeSessionEnd,
   observeSessionStart,
@@ -63,6 +68,12 @@ const brokerFixtures = [
 
 let server: Server;
 let baseUrl = '';
+
+const loadAuthenticatedUser = () => (_req: any, _res: any, next: () => void) => next();
+const requireFounder = (req: any, res: any, next: () => void) => {
+  if (req.user?.claims?.sub === founderId) return next();
+  return res.status(401).json({ error: 'Founder authentication required' });
+};
 
 async function request(
   path: string,
@@ -178,7 +189,21 @@ before(async () => {
     }
     next();
   });
-  await registerRoutes(app);
+  registerLucaObserverRoute({
+    app,
+    storage: {},
+    getSharedDb,
+    loadAuthenticatedUser,
+    requireFounderOrCoordinationCapability,
+    requireFounder,
+  });
+  app.get('/api/admin/luca-session-view', requireFounder, (_req, res) => {
+    res.json({ ok: true });
+  });
+  app.get('/api/agent/sprints', (req, res) => {
+    if (req.get('x-agent-token') === 'test-agent-token') return res.json({ ok: true });
+    return res.status(401).json({ error: 'Agent authentication required' });
+  });
   server = createServer(app);
   await new Promise<void>((resolve) => {
     server.listen(0, '127.0.0.1', () => {
