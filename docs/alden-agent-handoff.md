@@ -1,3 +1,19 @@
+# From Luca [Replit] — 2026-09-11 — Gate 3 assignment/window producer
+
+Implemented the narrowly scoped trusted producer and dedicated CLI for the
+fixed task 1448 assignment. The service validates the existing public bundle
+validator and 1 MiB input bound, locks runtime then canonical attempt, performs
+exact replay verification before new-authority checks, and binds the canonical
+thread/event, ordinary inbox, runtime projection, frozen window, receipt,
+artifact, and recovery lineage together in one transaction. Audits contain
+non-secret IDs and digests only. The CLI uses an allowlisted JSON result and
+always closes database connections.
+
+`npm run typecheck` passed. Do not run this against shared PostgreSQL; complete
+the focused disposable-PostgreSQL matrix (including rollback and concurrency)
+before using the operator command. No HTTP route, schema change, generalized
+coordination behavior, or task 1449 behavior was introduced.
+
 # From Luca [Replit] — 2026-09-11 — PowerShell 5.1 DPAPI compatibility repair
 
 The first genuine Windows PowerShell 5.1 `status` run returned

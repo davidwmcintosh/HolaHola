@@ -1,3 +1,17 @@
+# Gate 3 assignment/window producer — 2026-09-11
+
+- Added the trusted, non-HTTP assignment producer for task 1448. It validates the
+  public bundle within a 1 MiB bound, takes ordered runtime/attempt advisory
+  locks, verifies exact founder/recovery lineage, and atomically creates the
+  canonical ledger event, ordinary inbox item, frozen one-item runtime window,
+  and non-secret audit.
+- Exact completed attempts replay by verified IDs without writes; changed
+  bindings and all authority failures use stable public error codes. The
+  dedicated CLI emits only the public result allowlist and closes its pool.
+- TypeScript passed. Disposable PostgreSQL coverage remains the required
+  follow-up before operational use; no public route, schema change, or task
+  1449 behavior was added.
+
 # Windows PowerShell 5.1 DPAPI assembly compatibility — 2026-09-11
 
 - Genuine Windows PowerShell 5.1 reached the fixed-action launcher but returned
