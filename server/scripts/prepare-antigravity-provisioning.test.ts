@@ -38,6 +38,19 @@ test('preparation materializes and emits only public data', async () => {
   const bundle = await prepareAntigravityProvisioning({ root, startingCommit: commit, env: env() });
   const artifact = await readFile(join(root, '.local/tasks/task-1448.md'), 'utf8');
   assert.match(artifact, new RegExp(commit));
+  for (const needle of [
+    'A passing baseline is not completion.',
+    'recordOutcomeReceipt',
+    'otherProfile',
+    'runtimeRegistrationId',
+    'credentialId',
+    'consumption_not_authorized',
+    'Preserve the existing claim assertions.',
+    'server/scripts/test-coordination-runtime.test.ts',
+    'npx tsx server/scripts/test-coordination-runtime.test.ts',
+  ]) {
+    assert.equal(artifact.includes(needle), true, `task artifact missing required text: ${needle}`);
+  }
   assert.equal(JSON.stringify(bundle).includes(secret), false);
   assert.equal(bundle.model, 'gemini-3-flash-preview');
   assert.equal(

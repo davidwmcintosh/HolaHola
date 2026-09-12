@@ -151,3 +151,4 @@
 - [Immutable challenge attempt IDs](immutable-challenge-attempt-ids.md) — stable payload identity needs an explicit attempt generation so expired immutable challenges do not block renewal.
 - [Canonical projection race](canonical-projection-race.md) — after an idempotent ledger call, validate the persisted record before projecting; another writer may win after a precheck.
 - [Historical provenance vs current authority](historical-provenance-current-authority.md) — require both proofs, but do not force a historical transition receipt to equal fresh action authority.
+- [Bounded assignment baseline deltas](bounded-assignment-baseline-deltas.md) — state the exact missing delta; a green baseline can otherwise consume a one-time generation and end in a correct zero-patch refusal.
