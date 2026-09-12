@@ -492,6 +492,7 @@ the existing evidence and secrecy policy; it is not printed automatically.
 
 Implementation should prefer additive tables for:
 
+- host enrollments and host lifecycle;
 - trust policies and immutable policy versions;
 - founder policy decisions;
 - operator policy grants;

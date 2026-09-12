@@ -94,6 +94,7 @@ one-time authority.
 
 Add narrowly scoped tables for:
 
+- host enrollments and host lifecycle;
 - trust-policy identities;
 - immutable trust-policy versions;
 - founder policy decisions;
@@ -109,7 +110,7 @@ Add narrowly scoped tables for:
 
 1. Policy version content is immutable after creation.
 2. A policy version has one canonical digest and an explicit approval state.
-3. A session references exactly one policy version.
+3. A session references exactly one policy version and one enrolled host.
 4. Session task, repository, starting commit, host, expiration, and budgets are
    non-null and bounded.
 5. Session terminal state and terminal timestamp agree.
