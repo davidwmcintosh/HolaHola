@@ -9411,3 +9411,47 @@ Windows generation still requires explicit founder authorization and entirely
 new identifiers and authority. Never reuse any identifier or authority from the
 failed run. Task 1449 remains cancelled and task 1450 remains independently
 owned.
+
+## September 12, 2026 — real Gate 3 generation found raw-template hash mismatch
+
+The first fresh Windows generation after the bounded-replacement repair exposed
+a real producer/consumer mismatch. Windows correctly materialized
+`server/templates/task-1448.md` with the exact starting commit before hashing.
+The assignment-window producer instead hashed the raw checked-in template,
+including `__FINAL_STARTING_COMMIT__`. The assignment attempt failed closed
+with `gate3_assignment_window_artifact_digest_mismatch` before transaction
+entry.
+
+The founder receipt for challenge
+`164d49e4-d611-4ee9-a1fc-f9c11dc9f114` was revoked. Its runtime is
+`luca-gemini-antigravity-f48d08043a29a23a2621e8a7`; its receipt is
+`deec7037-264e-4502-807b-55d37f3509c7`. Phase B had created only the runtime and
+profile. There was no bootstrap exchange, credential, assignment, frozen
+window, packet, claim, execution, or completion. Assignment attempt
+`1b9bb1da-25e6-4d37-83bb-3a7de5d3b8b7` is permanently retired.
+
+The approved repair makes the server the deterministic materializer. It reads
+the fixed template once from an already-open no-follow handle through EOF,
+rejects empty or over-64-KiB content, strictly decodes UTF-8, requires exactly
+one case-sensitive placeholder, inserts `bundle.startingCommit`, encodes once,
+and hashes those exact bytes. The returned text and digest are reused throughout
+the transaction and replay checks.
+
+The first repair draft still trusted the pre-read file size. An independent
+architect identified that growth of the same inode after `stat` could hide
+appended bytes and a second placeholder. The final implementation reads through
+EOF with a one-byte overflow sentinel and includes a deterministic same-inode
+growth regression. The architect then issued unconditional approval with no
+remaining cautions. Gemini 3 reviewed the actual final service, Windows
+preparation source, complete focused test suite, and approved design, and
+returned exact `APPROVED — Ship it.`
+
+Verification currently passes: assignment-window disposable PostgreSQL 19/19,
+core runtime 15/15, HTTP runtime 5/5, adjacent coordination 67/67, TypeScript,
+and diff checks. System health, application restart, clean source publication,
+and production republish remain before another fresh Windows generation.
+
+Do not publish the uploaded approval screenshot or treat the unexpected local
+draft commit as review evidence. Publish only the final reviewed repair, its
+approved design, and these required records. Task 1449 remains cancelled. Task
+1450 remains independently owned.

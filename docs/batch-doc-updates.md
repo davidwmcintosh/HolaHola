@@ -5958,3 +5958,40 @@ immutable evidence remains intact: two consumed interactions, acquired plus two
 renewal claim events, zero executions, and zero completions. The database claim
 label remains `active`, but the expired lease has no authority. No fresh
 generation has been prepared or authorized.
+
+## Gate 3 task-artifact materialization repair — September 12, 2026
+
+A real fresh Windows preparation exposed a contract mismatch that the prior
+assignment fixtures had masked. Windows replaced the task template's single
+starting-commit placeholder before hashing, while the server hashed the raw
+template. The assignment producer correctly failed closed before creating any
+assignment or frozen window.
+
+The server now reads the canonical template from one no-follow file handle
+through EOF with a 64 KiB plus one-byte bound, strictly decodes UTF-8, requires
+exactly one case-sensitive starting-commit placeholder, substitutes the
+bundle's validated commit, and hashes the resulting bytes. The same captured
+materialized text and digest are used for the canonical event, inbox projection,
+replay validation, and audit binding. Caller-supplied task bytes remain
+forbidden.
+
+Regression coverage now proves raw-template hashes are rejected, different
+starting commits produce different accepted artifacts, zero or multiple
+placeholders fail before database mutation, and growth of the same opened inode
+after metadata inspection is read through EOF and rejected rather than allowing
+a stale prefix.
+
+The affected disposable-PostgreSQL suite passes 19/19. Core runtime passes
+15/15, HTTP runtime passes 5/5, adjacent coordination validation passes 67/67,
+and TypeScript and diff checks pass. The independent architect found the
+stale-prefix race in the first repair draft, then issued unconditional approval
+after the EOF-bound fix. Gemini 3 returned exact `APPROVED — Ship it.`
+
+The failed fresh chain used runtime
+`luca-gemini-antigravity-f48d08043a29a23a2621e8a7`, founder challenge
+`164d49e4-d611-4ee9-a1fc-f9c11dc9f114`, and receipt
+`deec7037-264e-4502-807b-55d37f3509c7`. The assignment attempt failed before
+mutation with `artifact_digest_mismatch`; its receipt was then canonically
+revoked. No bootstrap exchange, runtime credential, assignment, window, packet,
+claim, execution, or completion was created. The Windows bootstrap and task key
+must be deleted and never reused before another fully fresh generation.

@@ -24,6 +24,7 @@ import {
 const MAX_BUNDLE_BYTES = 1024 * 1024;
 const MAX_TASK_ARTIFACT_BYTES = 64 * 1024;
 const GATE3_TASK_ARTIFACT_PATH = resolve(process.cwd(), "server/templates/task-1448.md");
+const STARTING_COMMIT_PLACEHOLDER = "__FINAL_STARTING_COMMIT__";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MARGIN_MS = 10 * 60_000 + 30_000;
 
@@ -45,6 +46,8 @@ export type AssignmentWindowResult = {
 };
 
 export type Gate3AssignmentWindowTestHooks = {
+  taskArtifactPath?: string;
+  afterTaskArtifactStat?: () => Promise<void>;
   afterPartialEventChecked?: () => Promise<void>;
   afterCanonicalThreadCreated?: () => Promise<void>;
   afterRuntimeInboxItemCreated?: () => Promise<void>;
@@ -59,29 +62,48 @@ export function validateGate3AssignmentBundle(value: unknown): PublicProvisionin
   return bundle;
 }
 
-async function readApprovedTaskArtifact(): Promise<{ sha256: string; text: string }> {
+async function readApprovedTaskArtifact(
+  startingCommit: string,
+  artifactPath = GATE3_TASK_ARTIFACT_PATH,
+  afterStat?: () => Promise<void>,
+): Promise<{ sha256: string; text: string }> {
   let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
     handle = await open(
-      GATE3_TASK_ARTIFACT_PATH,
+      artifactPath,
       constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
     );
     const stat = await handle.stat();
     if (!stat.isFile() || stat.size < 1 || stat.size > MAX_TASK_ARTIFACT_BYTES) {
       fail("artifact_invalid");
     }
-    const bytes = Buffer.alloc(stat.size);
-    const read = await handle.read(bytes, 0, bytes.length, 0);
-    if (read.bytesRead !== stat.size) fail("artifact_read_failed");
+    await afterStat?.();
+    const chunks: Buffer[] = [];
+    let total = 0;
+    while (true) {
+      const chunk = Buffer.alloc(Math.min(16 * 1024, MAX_TASK_ARTIFACT_BYTES + 1 - total));
+      const read = await handle.read(chunk, 0, chunk.length, null);
+      if (read.bytesRead === 0) break;
+      total += read.bytesRead;
+      if (total > MAX_TASK_ARTIFACT_BYTES) fail("artifact_invalid");
+      chunks.push(chunk.subarray(0, read.bytesRead));
+    }
+    if (total < 1) fail("artifact_invalid");
+    const bytes = Buffer.concat(chunks, total);
     let text: string;
     try {
       text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch {
       fail("artifact_invalid");
     }
+    const occurrences = text!.split(STARTING_COMMIT_PLACEHOLDER).length - 1;
+    if (occurrences !== 1) fail("artifact_template_invalid");
+    const materializedText = text!.replace(STARTING_COMMIT_PLACEHOLDER, startingCommit);
+    const materializedBytes = new TextEncoder().encode(materializedText);
+    if (materializedBytes.byteLength > MAX_TASK_ARTIFACT_BYTES) fail("artifact_invalid");
     return {
-      sha256: createHash("sha256").update(bytes).digest("hex"),
-      text: text!,
+      sha256: createHash("sha256").update(materializedBytes).digest("hex"),
+      text: materializedText,
     };
   } catch (error) {
     if (error instanceof Gate3AssignmentWindowError) throw error;
@@ -126,12 +148,12 @@ export async function createGate3AssignmentWindow(input: {
   const bundle = validateGate3AssignmentBundle(input.bundle);
   if (!UUID.test(input.assignmentAttemptId) || input.assignmentAttemptId !== input.assignmentAttemptId.toLowerCase()) fail("attempt_id_invalid");
   if (!input.receiptId || input.receiptId.length > 255) fail("receipt_invalid");
-  const templateArtifact = await readApprovedTaskArtifact();
-  const occurrences = templateArtifact.text.match(/__FINAL_STARTING_COMMIT__/g) || [];
-  if (occurrences.length !== 1) fail("template_placeholder_mismatch");
-  const materializedArtifactText = templateArtifact.text.replace('__FINAL_STARTING_COMMIT__', bundle.startingCommit);
-  const materializedArtifactSha256 = createHash("sha256").update(materializedArtifactText, "utf8").digest("hex");
-  if (materializedArtifactSha256 !== bundle.artifactSha256) fail("artifact_digest_mismatch");
+  const taskArtifact = await readApprovedTaskArtifact(
+    bundle.startingCommit,
+    input.testHooks?.taskArtifactPath,
+    input.testHooks?.afterTaskArtifactStat,
+  );
+  if (taskArtifact.sha256 !== bundle.artifactSha256) fail("artifact_digest_mismatch");
   const attempt = input.assignmentAttemptId;
   const key = `gate3-assignment:${bundle.bundleDigest}:${attempt}`;
   return getSharedDb().transaction(async (tx) => {
