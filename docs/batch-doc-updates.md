@@ -5877,3 +5877,27 @@ challenge remains unchanged, and the fresh row preserves every founder
 authority binding. The focused suite passed 4/4 with zero skips. TypeScript and
 system health passed. Both Alden engines and the independent architecture
 reviewer returned unconditional approval.
+
+## Gate 3 Windows npm-shim launch repair — September 11, 2026
+
+The first bounded Windows attempt proved the authority path through bootstrap
+exchange, packet consumption, and claim renewal, then failed before local test
+execution. Canonical evidence records one accepted `run_test` intent followed
+by a `rejected_tool_result` claim violation and no execution row. The runtime
+was attempting to start `npx.cmd` directly with Node `shell: false`, which is
+not a valid Windows batch-shim launch path.
+
+After exact logical allowlist validation, the Windows host adapter now invokes
+the fixed system command processor with `/d /s /c` and fixed
+`npx.cmd tsx server/scripts/test-coordination-runtime.test.ts` arguments.
+Node's shell option remains disabled, and logical evidence remains the exact
+approved `npx tsx ...` command. Non-Windows behavior and all credential
+boundaries are unchanged.
+
+The corrected runtime bundle hash is pinned in the PowerShell launcher.
+Regression coverage adds the two required same-runtime/different-profile claim
+denials. The bounded runtime/launcher/bundle suite passed 22/22, the exact
+task-1448 suite passed 15/15, TypeScript passed, and both Alden engines plus the
+independent reviewer issued unconditional approval. The failed authority chain
+must not be reused; the retry requires a new published source snapshot and full
+fresh provisioning cycle.

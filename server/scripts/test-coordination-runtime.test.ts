@@ -283,6 +283,11 @@ test('all ten outcomes persist as receipts but only consumed authorizes claims',
 test('runtime and profile own authority while renewed credentials remain valid', async () => {
   const fixture = await harness();
   const otherRuntime = { ...gemini, runtimeRegistrationId: 'other-runtime' };
+  const otherProfile = { ...gemini, profileId: 'other-profile' };
+  const otherProfileCredential = {
+    ...otherProfile,
+    credentialId: 'other-profile-credential',
+  };
   await expectCode(
     async () => await fixture.service.recordOutcomeReceipt(
       otherRuntime,
@@ -304,6 +309,22 @@ test('runtime and profile own authority while renewed credentials remain valid',
     ),
     'consumption_not_authorized',
   );
+  for (const [principal, key] of [
+    [otherProfile, 'cross-profile-claim'],
+    [otherProfileCredential, 'cross-profile-credential-claim'],
+  ] as const) {
+    await expectCode(
+      async () => await fixture.service.claim(
+        principal,
+        fixture.packet.id,
+        fixture.packet.digest,
+        fixture.receipt.id,
+        10,
+        key,
+      ),
+      'consumption_not_authorized',
+    );
+  }
   const claim = await fixture.service.claim(
     gemini,
     fixture.packet.id,

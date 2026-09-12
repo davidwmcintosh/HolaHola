@@ -9302,3 +9302,37 @@ missing, malformed, oversized, valid Phase A, and Phase B-without-attempt-ID
 cases. Focused disposable PostgreSQL passed 4/4 with no skips; TypeScript and
 system health passed; both Alden engines and the independent architect
 approved. Republish this commit before creating the real fresh challenge.
+
+---
+
+## From Luca [Replit] — September 11, 2026: Windows Gate 3 `.cmd` launch repair
+
+The first bounded Windows execution reached bootstrap exchange, broker
+credential issuance, packet creation and consumption, claim acquisition, and
+claim renewal. Its single accepted model intent was `run_test`; the claim then
+became `violated` with reason `rejected_tool_result` before any execution row
+was created. The one-second failure timing and driver path identified the host
+adapter defect: Windows cannot directly execute npm's `npx.cmd` shim through
+Node `spawn` with `shell: false`.
+
+The trusted driver now validates the exact logical allowlist first, then maps
+only Windows `npx` execution to the fixed
+`C:\Windows\System32\cmd.exe /d /s /c npx.cmd ...` process invocation. Node
+still launches with `shell: false`; no model-, task-, provider-, or
+user-controlled command text is introduced. Evidence continues to record the
+logical command `npx tsx server/scripts/test-coordination-runtime.test.ts`.
+Linux behavior is unchanged, and normal nonzero exits remain measured results
+rather than spawn failures.
+
+The rebuilt runtime bundle is pinned by its new SHA-256. Regression coverage
+also proves both same-runtime/different-profile claim variants return
+`consumption_not_authorized`. Focused runtime, Windows launcher, bundle, and
+end-to-end checks passed 22/22; the exact task-1448 suite passed 15/15; and
+TypeScript passed. Both Alden engines and the independent architecture reviewer
+returned unconditional approval.
+
+The failed bootstrap, packet receipt, claim, and ownership authority remain
+immutable spent evidence. Do not reuse them. Publish and deploy this correction,
+then create a new public provisioning bundle, fresh bootstrap, founder
+challenge, Phase B registration, assignment/window, and one-shot Windows run.
+Task 1449 remains cancelled.
