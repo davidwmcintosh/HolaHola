@@ -9458,5 +9458,12 @@ console error; startup separately restored the larger canonical
 Do not publish the uploaded approval screenshot or treat the unexpected local
 draft commit as review evidence. Publish only the final reviewed repair, its
 approved design, and these required records. Task 1449 remains cancelled. Task
-1450 remains independently owned. Source publication and production republish
-remain before another fresh Windows generation.
+1450 remains independently owned.
+
+Source and production publication are complete. GitHub `main` contains the
+reviewed final tree at `6b90b24897cbe790cfd39fc90e36f13127c9efce`; the approval
+screenshot is absent from that tree and excluded from deployment packaging.
+Replit reports a successful public autoscale build at
+`https://getholahola.com`, whose homepage returns HTTP 200. Before any new
+bootstrap or challenge is created, the operator must confirm that cleanup of
+the failed Windows generation ended at `ANTIGRAVITY_GATE3_UNINITIALIZED`.
