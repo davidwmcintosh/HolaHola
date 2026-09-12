@@ -25,7 +25,11 @@ import {
   coordinationRuntimePackets, taskOwnershipChallenges, taskOwnershipReceipts,
 } from '@shared/schema';
 import { digestCanonical } from '../services/coordination-runtime';
-import { consumedCoordinationBootstrapHash } from '../services/coordination-credential-broker';
+import {
+  consumedCoordinationBootstrapHash,
+  exchangeBootstrapCredential,
+  hashCoordinationSecret,
+} from '../services/coordination-credential-broker';
 
 // Never use the shared Neon database, even when a branch identifier is present.
 const disposableUrl = getVerifiedCiDatabaseUrl();
@@ -41,7 +45,7 @@ const FIXED_PROFILE_ID = 'antigravity-21cbe9f7cf3e13028d9be66720c6dc2cb30e6cf83e
 
 after(async () => { if (disposableUrl) await closeDbConnections(); });
 
-function bundle() {
+function bundle(bootstrapSha256 = 'b'.repeat(64)) {
   const pair = crypto.generateKeyPairSync('ed25519');
   const der = pair.publicKey.export({ format: 'der', type: 'spki' }) as Buffer;
   return createPublicProvisioningBundle({
@@ -51,7 +55,7 @@ function bundle() {
     artifactSha256: 'a'.repeat(64),
     publicKey: der.toString('base64url'),
     keyFingerprint: crypto.createHash('sha256').update(der).digest('hex'),
-    bootstrapSha256: 'b'.repeat(64),
+    bootstrapSha256,
     worktreeRealpathDigest: 'c'.repeat(64),
     startingCommit: 'd'.repeat(40),
   });
@@ -124,7 +128,38 @@ databaseTest('oversized bundle is rejected before database writes', async () => 
 });
 
 databaseTest('creates the exact projection with fresh authority distinct from historical recovery authority', async () => {
-  const b = bundle();
+  const initialBootstrapSecret = `gate3-initial-${crypto.randomBytes(24).toString('hex')}`;
+  const initialBundle = bundle(hashCoordinationSecret(initialBootstrapSecret));
+  const { bundleDigest: _initialDigest, ...recoveryBase } = initialBundle;
+  const replacementBootstrapSecret = `gate3-recovery-${crypto.randomBytes(24).toString('hex')}`;
+  const b = createPublicProvisioningBundle({
+    ...recoveryBase,
+    bootstrapSha256: hashCoordinationSecret(replacementBootstrapSecret),
+  });
+  const initialPhaseA = await submitAntigravityChallenge(initialBundle, crypto.randomUUID());
+  const initialReceipt = await decideChallenge(
+    initialPhaseA.challengeId,
+    'approved',
+    'gate3-assignment-initial-registration-test',
+  );
+  assert.ok('id' in initialReceipt);
+  const registered = await registerAntigravityRuntime(initialBundle, initialPhaseA.challengeId);
+  assert.equal(registered.status, 'created');
+  await getSharedDb().transaction(async (tx) => {
+    await tx.update(coordinationRuntimeProfiles).set({ id: FIXED_PROFILE_ID })
+      .where(sql`${coordinationRuntimeProfiles.id} = ${registered.profileId}`);
+    await tx.insert(coordinationInboxActivation).values({
+      id: `gate3-test-${b.bundleDigest.slice(0, 16)}`, schemaVersion: 1,
+      recipientRuleVersion: 1, state: 'active', backfillCutoffGlobalSequence: 0,
+      completionEvidence: {}, activatedAt: new Date(), createdAt: new Date(), updatedAt: new Date(),
+    });
+  });
+  const issued = await exchangeBootstrapCredential(GATE3.runtimeId, initialBootstrapSecret);
+  assert.ok(issued);
+  await getSharedDb().update(coordinationRuntimeCredentials)
+    .set({ revokedAt: new Date() })
+    .where(eq(coordinationRuntimeCredentials.runtimeId, GATE3.runtimeId));
+
   const recoveryPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
   const recoveryReceipt = await decideChallenge(
     recoveryPhaseA.challengeId,
@@ -132,29 +167,15 @@ databaseTest('creates the exact projection with fresh authority distinct from hi
     'gate3-assignment-recovery-test',
   );
   assert.ok('id' in recoveryReceipt);
-  const registered = await registerAntigravityRuntime(b, recoveryPhaseA.challengeId);
-  assert.equal(registered.status, 'created');
-  await getSharedDb().transaction(async (tx) => {
-    await tx.update(coordinationRuntimeProfiles).set({ id: FIXED_PROFILE_ID })
-      .where(sql`${coordinationRuntimeProfiles.id} = ${registered.profileId}`);
-    await tx.update(coordinationRuntimeRegistrations).set({ bootstrapHash: b.bootstrapSha256 })
-      .where(sql`${coordinationRuntimeRegistrations.id} = ${GATE3.runtimeId}`);
-    await tx.insert(coordinationInboxActivation).values({
-      id: `gate3-test-${b.bundleDigest.slice(0, 16)}`, schemaVersion: 1,
-      recipientRuleVersion: 1, state: 'active', backfillCutoffGlobalSequence: 0,
-      completionEvidence: {}, activatedAt: new Date(), createdAt: new Date(), updatedAt: new Date(),
-    });
-    await tx.insert(coordinationCredentialAuditEvents).values({
-      eventType: 'runtime_bootstrap_recovered', success: true, runtimeId: GATE3.runtimeId,
-      actor: GATE3.actor, reason: 'consumed_bootstrap_recovery',
-      metadata: {
-        oldBootstrapSha256: 'e'.repeat(64), newBootstrapSha256: b.bootstrapSha256,
-        challengeId: recoveryPhaseA.challengeId, receiptId: recoveryReceipt.id,
-        bundleDigest: b.bundleDigest,
-        recoveryLineage: 'audited_consumption',
-      },
-    });
-  });
+  const recovered = await registerAntigravityRuntime(b, recoveryPhaseA.challengeId);
+  assert.equal(recovered.status, 'recovered');
+  const recoveryAuditsBeforeReplay = await getSharedDb().select()
+    .from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.eventType, 'runtime_bootstrap_recovered'));
+  assert.equal(recoveryAuditsBeforeReplay.length, 1);
+  const historicalRecovery = recoveryAuditsBeforeReplay[0].metadata as Record<string, unknown>;
+  assert.equal(historicalRecovery.challengeId, recoveryPhaseA.challengeId);
+  assert.equal(historicalRecovery.receiptId, recoveryReceipt.id);
   const assignmentPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
   const receipt = await decideChallenge(
     assignmentPhaseA.challengeId,
@@ -166,6 +187,11 @@ databaseTest('creates the exact projection with fresh authority distinct from hi
   assert.notEqual(receipt.id, recoveryReceipt.id);
   const replayed = await registerAntigravityRuntime(b, assignmentPhaseA.challengeId);
   assert.equal(replayed.status, 'replayed');
+  const recoveryAuditsAfterReplay = await getSharedDb().select()
+    .from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.eventType, 'runtime_bootstrap_recovered'));
+  assert.equal(recoveryAuditsAfterReplay.length, 1);
+  assert.deepEqual(recoveryAuditsAfterReplay[0].metadata, recoveryAuditsBeforeReplay[0].metadata);
   const attempt = crypto.randomUUID();
   const result = await createGate3AssignmentWindow({
     bundle: b, receiptId: receipt.id, assignmentAttemptId: attempt,
@@ -388,6 +414,21 @@ databaseTest('receipt and challenge authority failures create no assignment rows
 
   await mutateDisposableFixture(async (tx) => {
     await tx.update(taskOwnershipReceipts)
+      .set({ expiresAt: new Date(Date.now() + 10 * 60_000) })
+      .where(eq(taskOwnershipReceipts.id, receiptId));
+  });
+  await rejectsCode(
+    () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
+    'receipt_invalid',
+  );
+  await mutateDisposableFixture(async (tx) => {
+    await tx.update(taskOwnershipReceipts)
+      .set({ expiresAt: originalReceipt.expiresAt })
+      .where(eq(taskOwnershipReceipts.id, receiptId));
+  });
+
+  await mutateDisposableFixture(async (tx) => {
+    await tx.update(taskOwnershipReceipts)
       .set({ status: 'revoked', revokedAt: new Date() })
       .where(eq(taskOwnershipReceipts.id, receiptId));
   });
@@ -416,20 +457,44 @@ databaseTest('receipt and challenge authority failures create no assignment rows
       .where(eq(taskOwnershipChallenges.id, challengeId));
   });
 
+  const [originalChallenge] = await db.select().from(taskOwnershipChallenges)
+    .where(eq(taskOwnershipChallenges.id, challengeId));
   await mutateDisposableFixture(async (tx) => {
-    await tx.update(taskOwnershipReceipts)
-      .set({ artifactSha256: 'f'.repeat(64) })
-      .where(eq(taskOwnershipReceipts.id, receiptId));
+    await tx.update(taskOwnershipChallenges)
+      .set({ expiresAt: new Date(Date.now() - 1) })
+      .where(eq(taskOwnershipChallenges.id, challengeId));
   });
   await rejectsCode(
     () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
     'receipt_invalid',
   );
   await mutateDisposableFixture(async (tx) => {
-    await tx.update(taskOwnershipReceipts)
-      .set({ artifactSha256: b.artifactSha256 })
-      .where(eq(taskOwnershipReceipts.id, receiptId));
+    await tx.update(taskOwnershipChallenges)
+      .set({ expiresAt: originalChallenge.expiresAt })
+      .where(eq(taskOwnershipChallenges.id, challengeId));
   });
+
+  for (const changed of [
+    { artifactSha256: 'f'.repeat(64) },
+    { taskRef: '1449' },
+    { intendedActor: 'luca-claude-code' },
+    { publicKey: `${b.publicKey}changed` },
+    { keyFingerprint: 'f'.repeat(64) },
+    { contextDigest: 'f'.repeat(64) },
+  ]) {
+    await mutateDisposableFixture(async (tx) => {
+      await tx.update(taskOwnershipReceipts).set(changed)
+        .where(eq(taskOwnershipReceipts.id, receiptId));
+    });
+    await rejectsCode(
+      () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
+      'receipt_invalid',
+    );
+    await mutateDisposableFixture(async (tx) => {
+      await tx.update(taskOwnershipReceipts).set(originalReceipt)
+        .where(eq(taskOwnershipReceipts.id, receiptId));
+    });
+  }
   assert.deepEqual(await authorityCounts(), before);
 });
 
@@ -443,22 +508,23 @@ databaseTest('recovery lineage and consumed bootstrap failures create no assignm
   const originalMetadata = recovery.metadata;
   const before = await authorityCounts();
 
+  for (const mutation of [
+    { success: false, metadata: originalMetadata },
+    { success: true, metadata: { ...originalMetadata, bundleDigest: 'f'.repeat(64) } },
+    { success: true, metadata: { ...originalMetadata, oldBootstrapSha256: null } },
+    { success: true, metadata: { ...originalMetadata, newBootstrapSha256: null } },
+    { success: true, metadata: { ...originalMetadata, recoveryLineage: 'invented_lineage' } },
+    { success: true, metadata: { ...originalMetadata, newBootstrapSha256: 'f'.repeat(64) } },
+  ]) {
+    await db.update(coordinationCredentialAuditEvents).set(mutation)
+      .where(eq(coordinationCredentialAuditEvents.id, recovery.id));
+    await rejectsCode(
+      () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
+      'recovery_lineage_missing',
+    );
+  }
   await db.update(coordinationCredentialAuditEvents)
-    .set({ success: false })
-    .where(eq(coordinationCredentialAuditEvents.id, recovery.id));
-  await rejectsCode(
-    () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
-    'recovery_lineage_missing',
-  );
-  await db.update(coordinationCredentialAuditEvents)
-    .set({ success: true, metadata: { ...originalMetadata, newBootstrapSha256: 'f'.repeat(64) } })
-    .where(eq(coordinationCredentialAuditEvents.id, recovery.id));
-  await rejectsCode(
-    () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
-    'recovery_lineage_missing',
-  );
-  await db.update(coordinationCredentialAuditEvents)
-    .set({ metadata: originalMetadata })
+    .set({ success: true, metadata: originalMetadata })
     .where(eq(coordinationCredentialAuditEvents.id, recovery.id));
 
   await db.update(coordinationRuntimeRegistrations)

@@ -1,3 +1,34 @@
+# From Luca [Replit] — 2026-09-11 — Gate 3 recovery/current-authority correction
+
+The first post-publish task-1448 assignment attempt failed closed with
+`gate3_assignment_window_recovery_lineage_missing`; no assignment, window,
+success audit, credential exchange, or Windows execution occurred. The
+published producer incorrectly required the historical bootstrap-recovery
+audit's receipt/challenge IDs to equal a newly approved assignment
+receipt/challenge. That contradicted the approved sequence: fresh founder
+authority plus a compatible Phase B replay of the unchanged recovered bundle.
+
+The corrected producer treats the proofs independently while requiring both.
+Historical recovery must still match the bundle, allowed recovery lineage, and
+current registration bootstrap hash. The supplied fresh receipt/challenge must
+still independently prove current task, actor, artifact, key, fingerprint,
+bundle, status, and more than ten minutes thirty seconds of remaining life.
+Phase B replay does not write a false second recovery audit.
+
+The disposable PostgreSQL suite now performs the real lifecycle: initial
+bootstrap exchange and consumption, credential revocation, replacement
+bootstrap recovery under authority A, unchanged-bundle replay under distinct
+fresh authority B, and assignment under B. It asserts exactly one unchanged
+recovery audit and exercises explicit recovery metadata, current-authority
+binding, challenge-expiry, and lease-margin failures. The suite passes 15/15
+with zero skips; TypeScript and `git diff --check` pass. Alden Anthropic, Alden
+Gemini, and the independent architecture reviewer returned unconditional
+approval with no watch-outs.
+
+After commit and republish, create another fresh Phase A challenge and receipt;
+do not reuse the authority from the failed-closed pre-fix attempt. Task 1448
+and all Windows evidence remain pending. Task 1449 remains cancelled.
+
 # From Luca [Replit] — 2026-09-11 — Gate 3 assignment/window producer
 
 Implemented the narrowly scoped trusted producer and dedicated CLI for the

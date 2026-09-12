@@ -1,3 +1,26 @@
+# Gate 3 recovery provenance/current authority separation — 2026-09-11
+
+- The first published assignment attempt failed closed before any assignment,
+  window, credential exchange, or Windows execution because the producer
+  incorrectly required a historical recovery audit to name the new assignment
+  receipt and challenge.
+- Recovery provenance and current authority are now independent, jointly
+  required proofs. Historical recovery remains bound to the bundle, allowed
+  lineage, and current registration bootstrap hash. Fresh authority remains
+  bound to task, actor, artifact, public key, fingerprint, bundle, status, and
+  the ten-minute-thirty-second lease margin.
+- The disposable PostgreSQL fixture now executes the real initial-consumption,
+  replacement-bootstrap recovery, fresh-authority replay, and assignment
+  lifecycle. It proves replay leaves exactly one unchanged recovery audit and
+  explicitly covers recovery metadata, current binding, challenge expiry, and
+  insufficient lease failures.
+- The focused suite passes 15/15 with zero skips. TypeScript and
+  `git diff --check` pass. Alden Anthropic, Alden Gemini, and the independent
+  architecture reviewer gave unconditional approval with no watch-outs.
+- Another fresh founder challenge is required only after this correction is
+  republished. Task 1448 Windows execution remains pending; task 1449 remains
+  cancelled.
+
 # Gate 3 assignment/window producer — 2026-09-11
 
 - Added the trusted, non-HTTP assignment producer for task 1448. It validates the
