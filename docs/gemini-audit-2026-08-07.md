@@ -504,3 +504,52 @@ approval with no watch-outs, and Gemini's final review returned exactly
 - TypeScript and diff checks: passed.
 - Runtime bundle SHA-256:
   `ea68ed35dd87e3d5f341cef93839e0dc08cce337a294f3404d5bd8ec053d6818`.
+
+---
+
+# Gemini Audit — Gate 3 replacement EOL canonicalization
+**Date:** September 12, 2026
+**Auditor:** Gemini 3-flash-preview
+**Protected files touched:** None
+**Verdict:** APPROVED unconditionally; exact terminal response:
+`APPROVED — Ship it.`
+
+## What was reviewed
+
+- The actual executor implementation that classifies source and model text as
+  no-EOL, LF, or CRLF and rejects mixed or lone-CR input.
+- Canonical LF exact-once matching with overlapping-match detection.
+- Source-style serialization and final output-style measurement.
+- Fixed-path, strict UTF-8, size, symlink/reparse, and no-mutation boundaries.
+- The shared strict tool-result schema for bounded EOL metadata.
+- HTTP persistence of metadata alongside unchanged raw provider arguments.
+- The exact captured fourth-run replacement replay.
+- The independently rebuilt Windows runtime bundle and launcher pin.
+
+## Review history
+
+The first independent architect review found that the executor's new `eol`
+field was not accepted by the server's strict normalized-result schema, which
+would have rejected every successful continuation. It also found that output
+style was reported from the source instead of classified from serialized
+output, and that several explicit proof cases were absent.
+
+The shared schema now permits and requires one exact nested EOL object only for
+successful `replace_once` results. Output style is measured from the final
+serialized text. Tests now prove HTTP acceptance/persistence, raw-argument
+immutability, exact captured CRLF/LF replay, LF-to-LF, CRLF-to-CRLF, no-EOL
+metadata, mixed and lone-CR rejection, zero and overlapping canonical matches,
+and output-limit rejection without mutation.
+
+The architect re-reviewed the actual corrected diff and returned exactly
+`APPROVED — Ship it.` Gemini 3 reviewed the actual final source, tests, design,
+and launcher and independently returned exactly `APPROVED — Ship it.`
+
+## Verified evidence supplied to Gemini
+
+- Runtime policy: 16/16.
+- Gemini adapter/HTTP: 7/7.
+- Windows executor: 15/15.
+- Windows DPAPI source boundary: 8/8.
+- Runtime bundle SHA-256:
+  `93f6edbfca3b027962af8ced7a72d5b365169ab6981b04b8a7e6c2dcfe1ca227`.

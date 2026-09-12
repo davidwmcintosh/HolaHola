@@ -153,3 +153,4 @@
 - [Historical provenance vs current authority](historical-provenance-current-authority.md) — require both proofs, but do not force a historical transition receipt to equal fresh action authority.
 - [Bounded assignment baseline deltas](bounded-assignment-baseline-deltas.md) — state the exact missing delta; a green baseline can otherwise consume a one-time generation and end in a correct zero-patch refusal.
 - [Fixed-target provider echoes](fixed-target-provider-echo.md) — empty tool schemas do not prevent echoed prompt paths; tolerate only exact fixed values and preserve raw malformed shapes.
+- [Cross-host exact text replacement](cross-host-exact-text-replacement.md) — compare valid text in canonical LF space, preserve source EOL style, and keep raw provider arguments as evidence.

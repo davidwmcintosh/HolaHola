@@ -382,3 +382,93 @@ test('initial malformed fixed-read array preserves raw provider evidence', async
     await new Promise<void>((resolve) => f.server.close(() => resolve()));
   }
 });
+
+test('HTTP continuation accepts bounded EOL metadata and preserves raw replacement arguments', async () => {
+  const rawArguments = {
+    oldText: 'before\nline',
+    newText: 'after\nline',
+  };
+  const f = await fixture({
+    candidates: [{
+      finishReason: 'STOP',
+      content: {
+        parts: [{
+          functionCall: {
+            name: 'replace_once',
+            id: 'eol-replacement',
+            args: rawArguments,
+          },
+        }],
+      },
+    }],
+  });
+  try {
+    const created = await httpRequest(f.server, '/api/coordination/runtime/packets', {
+      method: 'POST',
+      token: 'broker-token',
+      key: 'eol-packet',
+      body: { windowId: f.window.id, assignmentEventId: 'http-event-1' },
+    });
+    const packet = created.body as { id: string };
+    const initial = await httpRequest(
+      f.server,
+      `/api/coordination/runtime/packets/${packet.id}/initial-turn`,
+      { method: 'POST', token: 'broker-token', key: 'eol-initial' },
+    );
+    const claim = await httpRequest(f.server, `/api/coordination/runtime/packets/${packet.id}/claim`, {
+      method: 'POST',
+      token: 'broker-token',
+      key: 'eol-claim',
+      body: { receiptId: initial.body.receiptId, ttlMs: 5000 },
+    });
+    const reveal = await httpRequest(f.server, `/api/coordination/runtime/claims/${claim.body.id}/intents`, {
+      method: 'GET',
+      token: 'broker-token',
+    });
+    const intent = reveal.body.intents[0];
+    const payload = {
+      ok: true,
+      output: 'replaced',
+      bytes: 11,
+      stdoutDigest: 'a'.repeat(64),
+      argv: ['replace_once', 'server/scripts/test-coordination-runtime.test.ts'],
+      truncated: false,
+      eol: {
+        source: 'crlf',
+        oldText: 'lf',
+        newText: 'lf',
+        canonicalized: true,
+        output: 'crlf',
+      },
+    };
+    const continuation = await httpRequest(
+      f.server,
+      `/api/coordination/runtime/claims/${claim.body.id}/continuation`,
+      {
+        method: 'POST',
+        token: 'broker-token',
+        key: 'eol-continuation',
+        body: {
+          epoch: claim.body.epoch,
+          turn: 2,
+          toolResults: [{
+            interactionId: initial.body.interactionIds.at(-1),
+            callId: intent.callId,
+            toolName: intent.name,
+            validatedIntentDigest: intent.validatedIntentDigest,
+            outcome: 'succeeded',
+            payload,
+          }],
+        },
+      },
+    );
+    assert.equal(continuation.status, 200);
+    const interactions = await f.repository.interactionsForPacket(packet.id);
+    assert.deepEqual(interactions[0]?.normalizedEvidence?.intents[0]?.arguments, rawArguments);
+    const storedResults = await f.repository.toolResultsForClaimAllEpochs(claim.body.id);
+    assert.equal(storedResults.length, 1);
+    assert.deepEqual(storedResults[0]?.canonicalPayload.eol, payload.eol);
+  } finally {
+    await new Promise<void>((resolve) => f.server.close(() => resolve()));
+  }
+});

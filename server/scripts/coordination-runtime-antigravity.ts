@@ -156,6 +156,32 @@ async function readApprovedArtifact(fs: Fs, root: string): Promise<Buffer> {
   return fs.readFile(artifact);
 }
 
+type EolStyle = 'none' | 'lf' | 'crlf';
+
+function classifyEol(text: string, invalidCode: string): EolStyle {
+  let sawLf = false;
+  let sawCrlf = false;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === '\r') {
+      if (text[index + 1] !== '\n') throw new Error(invalidCode);
+      sawCrlf = true;
+      index += 1;
+    } else if (text[index] === '\n') {
+      sawLf = true;
+    }
+    if (sawLf && sawCrlf) throw new Error(invalidCode);
+  }
+  return sawCrlf ? 'crlf' : sawLf ? 'lf' : 'none';
+}
+
+function canonicalLf(text: string, style: EolStyle): string {
+  return style === 'crlf' ? text.replace(/\r\n/g, '\n') : text;
+}
+
+function restoreEol(text: string, style: EolStyle): string {
+  return style === 'crlf' ? text.replace(/\n/g, '\r\n') : text;
+}
+
 export class Gate3Executor {
   constructor(private readonly root: string, private readonly fs: Fs = realFs, private readonly run: Spawn = spawn,
     private readonly childEnv: Record<string, string> = {}, private readonly platform: NodeJS.Platform = process.platform) {}
@@ -193,10 +219,17 @@ export class Gate3Executor {
       } catch {
         throw new Error('source_not_utf8');
       }
+      const sourceEol = classifyEol(source, 'source_invalid_eol');
+      const oldTextEol = classifyEol(oldText, 'old_text_invalid_eol');
+      const newTextEol = classifyEol(newText, 'new_text_invalid_eol');
+      const canonicalSource = canonicalLf(source, sourceEol);
+      const canonicalOldText = canonicalLf(oldText, oldTextEol);
+      const canonicalNewText = canonicalLf(newText, newTextEol);
+      if (canonicalOldText === canonicalNewText) throw new Error('argument_not_allowed');
       let matches = 0;
       let matchAt = -1;
-      for (let cursor = 0; cursor <= source.length - oldText.length;) {
-        const found = source.indexOf(oldText, cursor);
+      for (let cursor = 0; cursor <= canonicalSource.length - canonicalOldText.length;) {
+        const found = canonicalSource.indexOf(canonicalOldText, cursor);
         if (found < 0) break;
         matches += 1;
         matchAt = found;
@@ -204,7 +237,11 @@ export class Gate3Executor {
         cursor = found + 1;
       }
       if (matches !== 1) throw new Error(matches === 0 ? 'replace_text_not_found' : 'replace_text_not_unique');
-      const updated = source.slice(0, matchAt) + newText + source.slice(matchAt + oldText.length);
+      const canonicalUpdated = canonicalSource.slice(0, matchAt) + canonicalNewText
+        + canonicalSource.slice(matchAt + canonicalOldText.length);
+      const updated = restoreEol(canonicalUpdated, sourceEol);
+      if (Buffer.byteLength(updated, 'utf8') > LIMITS.bytes) throw new Error('output_limit_exceeded');
+      const outputEol = classifyEol(updated, 'output_invalid_eol');
       await this.fs.writeFile(path, updated);
       return {
         ok: true,
@@ -213,6 +250,13 @@ export class Gate3Executor {
         stdoutDigest: digest(updated),
         argv: ['replace_once', TARGET],
         truncated: false,
+        eol: {
+          source: sourceEol,
+          oldText: oldTextEol,
+          newText: newTextEol,
+          canonicalized: sourceEol === 'crlf' || oldTextEol === 'crlf' || newTextEol === 'crlf',
+          output: outputEol,
+        },
       };
     }
     if (intent.name === 'read_file') {

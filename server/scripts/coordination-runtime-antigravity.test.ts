@@ -153,6 +153,13 @@ test('executor uses only fixed host adapters and applies one bounded exact repla
   assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'after target');
   assert.equal(replaced.output, 'replaced');
   assert.deepEqual(replaced.argv, ['replace_once', TARGET]);
+  assert.deepEqual(replaced.eol, {
+    source: 'none',
+    oldText: 'none',
+    newText: 'none',
+    canonicalized: false,
+    output: 'none',
+  });
   await assert.rejects(() => executor.execute({
     name: 'replace_once',
     arguments: { oldText: 'missing', newText: 'value' },
@@ -196,6 +203,159 @@ test('executor uses only fixed host adapters and applies one bounded exact repla
   assert.equal(nonWindowsResult.ok, false);
   assert.equal(nonWindowsResult.exitCode, 7);
   assert.deepEqual(nonWindowsResult.argv, ['npx', 'tsx', TARGET]);
+});
+
+test('executor matches replacements canonically while preserving the source EOL style', async () => {
+  const capturedOld = [
+    '  await expectCode(',
+    '    async () => await fixture.service.recordOutcomeReceipt(',
+    '      otherRuntime,',
+    '      fixture.packet.id,',
+    '      fixture.packet.digest,',
+    '      fixture.interaction.id,',
+    "      'cross-runtime-receipt',",
+    '    ),',
+    "    'consumption_not_authorized',",
+    '  );',
+  ].join('\n');
+  const capturedNew = [
+    capturedOld,
+    '  await expectCode(',
+    '    async () => await fixture.service.recordOutcomeReceipt(',
+    '      otherProfile,',
+    '      fixture.packet.id,',
+    '      fixture.packet.digest,',
+    '      fixture.interaction.id,',
+    "      'cross-profile-receipt',",
+    '    ),',
+    "    'consumption_not_authorized',",
+    '  );',
+  ].join('\n');
+  const crlfSource = `test start\r\n${capturedOld.replace(/\n/g, '\r\n')}\r\ntest end`;
+  const crlfFs = fakeFs(crlfSource);
+  const crlfExecutor = new Gate3Executor('/approved', crlfFs, async () => {
+    throw new Error('spawn must not run');
+  });
+  const crlfResult = await crlfExecutor.execute({
+    name: 'replace_once',
+    arguments: { oldText: capturedOld, newText: capturedNew },
+  });
+  const crlfOutput = crlfFs.files.get(`/approved/${TARGET}`)?.toString('utf8') ?? '';
+  assert.equal(crlfOutput, `test start\r\n${capturedNew.replace(/\n/g, '\r\n')}\r\ntest end`);
+  assert.equal(/(^|[^\r])\n/.test(crlfOutput), false);
+  assert.deepEqual(crlfResult.eol, {
+    source: 'crlf',
+    oldText: 'lf',
+    newText: 'lf',
+    canonicalized: true,
+    output: 'crlf',
+  });
+
+  const lfFs = fakeFs('first\nsecond\nthird');
+  const lfExecutor = new Gate3Executor('/approved', lfFs, async () => {
+    throw new Error('spawn must not run');
+  });
+  const lfResult = await lfExecutor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'second\r\nthird', newText: 'changed\r\nthird' },
+  });
+  assert.equal(lfFs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'first\nchanged\nthird');
+  assert.deepEqual(lfResult.eol, {
+    source: 'lf',
+    oldText: 'crlf',
+    newText: 'crlf',
+    canonicalized: true,
+    output: 'lf',
+  });
+
+  const sameStyleCases = [
+    { source: 'a\nb', oldText: 'a\n', newText: 'c\n', expected: 'c\nb', style: 'lf' },
+    { source: 'a\r\nb', oldText: 'a\r\n', newText: 'c\r\n', expected: 'c\r\nb', style: 'crlf' },
+  ] as const;
+  for (const item of sameStyleCases) {
+    const fs = fakeFs(item.source);
+    const executor = new Gate3Executor('/approved', fs, async () => {
+      throw new Error('spawn must not run');
+    });
+    const result = await executor.execute({
+      name: 'replace_once',
+      arguments: { oldText: item.oldText, newText: item.newText },
+    });
+    assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), item.expected);
+    assert.deepEqual(result.eol, {
+      source: item.style,
+      oldText: item.style,
+      newText: item.style,
+      canonicalized: item.style === 'crlf',
+      output: item.style,
+    });
+  }
+});
+
+test('executor rejects ambiguous EOL input before mutation', async () => {
+  const cases = [
+    { source: 'one\r\ntwo\nthree', oldText: 'two\nthree', newText: 'changed', error: /source_invalid_eol/ },
+    { source: 'one\rtwo', oldText: 'one', newText: 'changed', error: /source_invalid_eol/ },
+    { source: 'one\ntwo', oldText: 'one\r\ntwo\n', newText: 'changed', error: /old_text_invalid_eol/ },
+    { source: 'one\ntwo', oldText: 'one\rtwo', newText: 'changed', error: /old_text_invalid_eol/ },
+    { source: 'one\ntwo', oldText: 'one', newText: 'changed\r\nvalue\n', error: /new_text_invalid_eol/ },
+    { source: 'one\ntwo', oldText: 'one', newText: 'changed\rvalue', error: /new_text_invalid_eol/ },
+    { source: 'one\ntwo', oldText: 'one\n', newText: 'one\r\n', error: /argument_not_allowed/ },
+  ];
+  for (const item of cases) {
+    const fs = fakeFs(item.source);
+    const executor = new Gate3Executor('/approved', fs, async () => {
+      throw new Error('spawn must not run');
+    });
+    await assert.rejects(() => executor.execute({
+      name: 'replace_once',
+      arguments: { oldText: item.oldText, newText: item.newText },
+    }), item.error);
+    assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), item.source);
+  }
+});
+
+test('executor counts zero and overlapping matches after EOL canonicalization', async () => {
+  const missingFs = fakeFs('one\r\ntwo');
+  const missingExecutor = new Gate3Executor('/approved', missingFs, async () => {
+    throw new Error('spawn must not run');
+  });
+  await assert.rejects(() => missingExecutor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'missing\ntext', newText: 'changed' },
+  }), /replace_text_not_found/);
+  assert.equal(missingFs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'one\r\ntwo');
+
+  const duplicateFs = fakeFs('aa\r\naa');
+  const duplicateExecutor = new Gate3Executor('/approved', duplicateFs, async () => {
+    throw new Error('spawn must not run');
+  });
+  await assert.rejects(() => duplicateExecutor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'aa', newText: 'changed' },
+  }), /replace_text_not_unique/);
+  assert.equal(duplicateFs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'aa\r\naa');
+
+  const overlappingFs = fakeFs('aaa\r\n');
+  const overlappingExecutor = new Gate3Executor('/approved', overlappingFs, async () => {
+    throw new Error('spawn must not run');
+  });
+  await assert.rejects(() => overlappingExecutor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'aa', newText: 'changed' },
+  }), /replace_text_not_unique/);
+  assert.equal(overlappingFs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'aaa\r\n');
+
+  const oversizedSource = `${'x'.repeat(39_000)}needle`;
+  const oversizedFs = fakeFs(oversizedSource);
+  const oversizedExecutor = new Gate3Executor('/approved', oversizedFs, async () => {
+    throw new Error('spawn must not run');
+  });
+  await assert.rejects(() => oversizedExecutor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'needle', newText: 'y'.repeat(3_000) },
+  }), /output_limit_exceeded/);
+  assert.equal(oversizedFs.files.get(`/approved/${TARGET}`)?.toString('utf8'), oversizedSource);
 });
 
 test('broker failure has no fixed-token fallback', async () => {

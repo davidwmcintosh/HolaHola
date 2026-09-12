@@ -62,6 +62,13 @@ export type DerivedToolEvidence = Array<{
   results: unknown[];
 }>;
 export type ToolResultOutcome = 'succeeded' | 'rejected';
+export type ToolResultEolMetadata = {
+  source: 'none' | 'lf' | 'crlf';
+  oldText: 'none' | 'lf' | 'crlf';
+  newText: 'none' | 'lf' | 'crlf';
+  canonicalized: boolean;
+  output: 'none' | 'lf' | 'crlf';
+};
 /** Canonical wire payload shared by the HTTP route, service and portable driver. */
 export type NormalizedToolResultPayload = {
   ok: boolean;
@@ -74,6 +81,7 @@ export type NormalizedToolResultPayload = {
   argv?: string[];
   truncated?: boolean;
   bytes?: number;
+  eol?: ToolResultEolMetadata;
 };
 export type NormalizedToolResult = {
   interactionId: string;
@@ -208,7 +216,7 @@ function validateToolResultPayload(toolName: string, outcome: ToolResultOutcome,
   }
   const value = payload as Record<string, unknown>;
   const keys = Object.keys(value);
-  const allowed = new Set(['ok', 'output', 'error', 'exitCode', 'stdoutDigest', 'stderrDigest', 'changedPaths', 'argv', 'truncated', 'bytes']);
+  const allowed = new Set(['ok', 'output', 'error', 'exitCode', 'stdoutDigest', 'stderrDigest', 'changedPaths', 'argv', 'truncated', 'bytes', 'eol']);
   if (keys.some((key) => !allowed.has(key)) || typeof value.ok !== 'boolean') {
     fail('invalid_request', 'Tool result payload does not match the normalized schema');
   }
@@ -224,6 +232,26 @@ function validateToolResultPayload(toolName: string, outcome: ToolResultOutcome,
   }
   if (value.truncated !== undefined && typeof value.truncated !== 'boolean') fail('invalid_request', 'truncated is invalid');
   if (value.bytes !== undefined && (typeof value.bytes !== 'number' || !Number.isSafeInteger(value.bytes) || value.bytes < 0)) fail('invalid_request', 'bytes is invalid');
+  if (value.eol !== undefined) {
+    if (toolName !== 'replace_once' || outcome !== 'succeeded' || !isPlainRecord(value.eol)) {
+      fail('invalid_request', 'eol metadata is not allowed');
+    }
+    const eol = value.eol;
+    const eolKeys = Object.keys(eol).sort();
+    const styles = new Set(['none', 'lf', 'crlf']);
+    if (
+      eolKeys.join(',') !== 'canonicalized,newText,oldText,output,source'
+      || !styles.has(eol.source as string)
+      || !styles.has(eol.oldText as string)
+      || !styles.has(eol.newText as string)
+      || !styles.has(eol.output as string)
+      || typeof eol.canonicalized !== 'boolean'
+    ) {
+      fail('invalid_request', 'eol metadata is invalid');
+    }
+  } else if (toolName === 'replace_once' && outcome === 'succeeded') {
+    fail('invalid_request', 'replace_once result requires eol metadata');
+  }
 }
 
 function deepClone<T>(value: T): T {

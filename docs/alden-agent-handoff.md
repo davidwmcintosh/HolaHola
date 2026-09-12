@@ -9553,3 +9553,47 @@ Publish and verify this tree before any new Windows authority. The next
 generation must again be entirely fresh and must pass the pre-Phase-A
 cross-host artifact digest comparison. Task 1449 remains cancelled. Task 1450
 remains independently owned.
+
+## September 12, 2026 — CRLF replacement mismatch blocked the fourth generation
+
+The fourth Windows generation passed the exact fixed-path echo boundary. Gemini
+read only `server/scripts/test-coordination-runtime.test.ts` and the read tool
+result was stored. The checkout bytes used CRLF, but Gemini's next
+`replace_once` arguments used LF. Raw string matching found no occurrence, so
+the child failed before writing or recording the replacement result. Canonical
+evidence contains two consumed interactions, one claim, and one successful read
+tool result, with no execution or completion.
+
+The one-time authority is permanently retired. Receipt
+`14205386-1c00-419f-a03e-06d1272eea80`, runtime
+`luca-gemini-antigravity-0ae663a46d884a159d11aed9`, and its credential are
+revoked. Windows is `ANTIGRAVITY_GATE3_UNINITIALIZED`; none of this generation's
+authority or identifiers may be reused.
+
+The reviewed repair moves replacement equivalence to a deterministic local
+boundary. Source, old text, and new text must each be uniformly LF, uniformly
+CRLF, or contain no line endings. Mixed endings and lone carriage returns fail
+before mutation. Valid text is compared in canonical LF form, overlapping
+occurrences are counted, exactly one logical match is required, and output is
+serialized using the original source style. The final output style is measured
+from the serialized text.
+
+The strict shared tool-result contract now requires exact non-sensitive EOL
+metadata for successful `replace_once` results and rejects it for other tools
+or rejected outcomes. Raw Gemini arguments remain unchanged in interaction
+evidence. An HTTP lifecycle regression proves the server accepts and persists
+the metadata without rewriting the provider arguments.
+
+Final focused results are runtime policy 16/16, adapter/HTTP 7/7, Windows
+executor 15/15, and DPAPI launcher boundary 8/8. The public runtime bundle pin
+is `93f6edbfca3b027962af8ced7a72d5b365169ab6981b04b8a7e6c2dcfe1ca227`.
+The architect initially found the server-schema mismatch, inaccurate output
+metadata, and incomplete proof cases. After correction it returned exact
+`APPROVED — Ship it.` Gemini 3 independently returned exact
+`APPROVED — Ship it.`
+
+Commit, publish to GitHub, republish production, and verify live health before
+preparing a fifth generation. That generation must use fresh bootstrap,
+challenge, attempt, receipt, runtime, profile, credential, packet, claim, and
+window identifiers. Task 1449 remains cancelled. Task 1450 remains independently
+owned.

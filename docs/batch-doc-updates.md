@@ -6091,3 +6091,44 @@ Do not create another Windows generation until this repair is committed,
 published to GitHub, republished to production, and live health is verified.
 Any later generation must use entirely fresh identifiers and authority
 artifacts. Task 1449 remains cancelled; task 1450 remains independently owned.
+
+## Gate 3 replacement EOL canonicalization repair — September 12, 2026
+
+The next fresh Windows generation reached two consumed Gemini turns. Its fixed
+read succeeded and preserved a CRLF checkout file. Gemini then returned the
+approved bounded `replace_once` content with LF line endings. Raw exact matching
+found zero occurrences and the child exited before mutation. PostgreSQL
+preserves two interactions, one claim, and one successful read tool result,
+with zero executions or completions.
+
+That one-time generation is permanently retired. Founder receipt
+`14205386-1c00-419f-a03e-06d1272eea80`, runtime
+`luca-gemini-antigravity-0ae663a46d884a159d11aed9`, and its issued credential
+are revoked. Windows confirmed `ANTIGRAVITY_GATE3_UNINITIALIZED`.
+
+The executor now classifies source and replacement text as no-EOL, LF, or CRLF,
+rejects mixed line endings and lone carriage returns, matches exactly once in
+canonical LF space, and serializes the result using the source file's style.
+The fixed path, UTF-8 boundary, size bounds, symlink/reparse checks, and raw
+provider evidence remain unchanged. Successful replacement results carry a
+strict, non-sensitive EOL metadata object accepted only by the shared server
+schema.
+
+The first post-build architect review caught that the new metadata was not yet
+allowed by the strict server validator, that output style was inferred rather
+than measured, and that several explicit rejection proofs were missing. Those
+were repaired. HTTP coverage now proves metadata persistence and raw argument
+immutability. Executor coverage replays the captured failed replacement and
+proves LF/CRLF combinations, same-style behavior, malformed-EOL rejection,
+overlapping canonical matches, and output-limit no-mutation.
+
+Final focused verification passes: runtime policy 16/16, Gemini adapter/HTTP
+7/7, Windows executor 15/15, and Windows DPAPI boundary 8/8. The final runtime
+bundle rebuilds to launcher pin
+`93f6edbfca3b027962af8ced7a72d5b365169ab6981b04b8a7e6c2dcfe1ca227`.
+The architect and Gemini 3 both returned exact `APPROVED — Ship it.`
+
+Do not create another Windows generation until this tree is committed,
+published to GitHub, republished to production, and live health is verified.
+The next generation must use entirely fresh authority and identifiers. Task
+1449 remains cancelled; task 1450 remains independently owned.
