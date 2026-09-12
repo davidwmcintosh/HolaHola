@@ -7,10 +7,15 @@
  */
 import { readFile } from "node:fs/promises";
 import { stdin } from "node:process";
-import { eq } from "drizzle-orm";
-import { getSharedDb } from "../db";
+import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
+import { closeDbConnections, getSharedDb } from "../db";
 import {
+  coordinationCredentialAuditEvents,
+  coordinationGate3ProofGrants,
+  coordinationRuntimeCredentials,
+  coordinationRuntimePackets,
   coordinationRuntimeProfiles,
+  coordinationRuntimeRegistrations,
   taskOwnershipChallenges,
   taskOwnershipReceipts,
 } from "@shared/schema";
@@ -22,9 +27,13 @@ import {
 import {
   createChallenge,
 } from "../services/founder-task-ownership-service";
-import { registerCoordinationRuntimeWithBootstrapSha256InExecutor } from "../services/coordination-credential-broker";
+import {
+  consumedCoordinationBootstrapHash,
+  registerCoordinationRuntimeWithBootstrapSha256InExecutor,
+} from "../services/coordination-credential-broker";
 
 const MAX_BUNDLE_BYTES = 1024 * 1024;
+const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class AntigravityProvisioningError extends Error {
   readonly code: string;
@@ -50,14 +59,22 @@ function checkedBundle(value: unknown): PublicProvisioningBundle {
  * Phase A only creates the founder challenge.  Runtime and profile rows are
  * intentionally not touched here.
  */
-export async function submitAntigravityChallenge(value: unknown): Promise<{
+export async function submitAntigravityChallenge(value: unknown, attemptIdValue: unknown): Promise<{
   challengeId: string;
   taskDigest: string;
   keyFingerprint: string;
   bundleDigest: string;
+  attemptId: string;
   expiresAt: Date;
 }> {
   const bundle = checkedBundle(value);
+  if (typeof attemptIdValue !== "string" || attemptIdValue.length === 0) {
+    throw new AntigravityProvisioningError("attempt_id_required");
+  }
+  if (!CANONICAL_UUID.test(attemptIdValue)) {
+    throw new AntigravityProvisioningError("attempt_id_invalid");
+  }
+  const attemptId = attemptIdValue;
   try {
     const result = await createChallenge({
       taskRef: GATE3.taskRef,
@@ -67,7 +84,7 @@ export async function submitAntigravityChallenge(value: unknown): Promise<{
       publicKey: bundle.publicKey,
       keyFingerprint: bundle.keyFingerprint,
       contextDigest: bundle.bundleDigest,
-      idempotencyKey: `antigravity:${bundle.bundleDigest}`,
+      idempotencyKey: `antigravity:${bundle.bundleDigest}:${attemptId}`,
       ttlMs: 20 * 60_000,
     });
     return {
@@ -75,6 +92,7 @@ export async function submitAntigravityChallenge(value: unknown): Promise<{
       taskDigest: bundle.artifactSha256,
       keyFingerprint: bundle.keyFingerprint,
       bundleDigest: bundle.bundleDigest,
+      attemptId,
       expiresAt: result.expiresAt,
     };
   } catch (error) {
@@ -83,9 +101,8 @@ export async function submitAntigravityChallenge(value: unknown): Promise<{
   }
 }
 
-function profileMatches(row: typeof coordinationRuntimeProfiles.$inferSelect, bundle: PublicProvisioningBundle, profileId: string): boolean {
-  return row.id === profileId
-    && row.runtimeRegistrationId === bundle.runtimeId
+function profileMatches(row: typeof coordinationRuntimeProfiles.$inferSelect, bundle: PublicProvisioningBundle): boolean {
+  return row.runtimeRegistrationId === bundle.runtimeId
     && row.actor === bundle.actor
     && JSON.stringify(row.capabilities) === JSON.stringify(bundle.runtimeCapabilities)
     && row.provider === bundle.provider
@@ -99,6 +116,18 @@ function profileMatches(row: typeof coordinationRuntimeProfiles.$inferSelect, bu
     && row.status === "active";
 }
 
+function registrationMatches(
+  row: typeof coordinationRuntimeRegistrations.$inferSelect,
+  bundle: PublicProvisioningBundle,
+): boolean {
+  return row.actor === bundle.actor
+    && row.displayName === bundle.worktreeLabel
+    && JSON.stringify(row.capabilities) === JSON.stringify(bundle.credentialCapabilities)
+    && row.tokenTtlSeconds === bundle.tokenTtlSeconds
+    && row.enabled
+    && !row.revokedAt;
+}
+
 /**
  * Phase B rereads the challenge and the bundle, and fails closed unless the
  * founder receipt is active, unexpired, and byte-for-byte bound to the bundle.
@@ -109,44 +138,38 @@ export async function registerAntigravityRuntime(value: unknown, challengeId: st
   challengeId: string;
   receiptId: string;
   bundleDigest: string;
-  status: "created" | "replayed";
+  status: "created" | "replayed" | "recovered";
 }> {
   const bundle = checkedBundle(value);
   if (!challengeId || challengeId.length > 200) throw new AntigravityProvisioningError("challenge_required");
 
   const db = getSharedDb();
-  const profileId = `antigravity-${bundle.bundleDigest}`;
   const result = await db.transaction(async (tx) => {
-    const registration = await registerCoordinationRuntimeWithBootstrapSha256InExecutor({
-      runtimeId: bundle.runtimeId,
-      actor: bundle.actor as "luca-gemini",
-      displayName: bundle.worktreeLabel,
-      capabilities: bundle.credentialCapabilities as ("coordination:read" | "coordination:write" | "coordination:inbox:ack" | "coordination:credential:renew")[],
-      tokenTtlSeconds: bundle.tokenTtlSeconds,
-      bootstrapSha256: bundle.bootstrapSha256,
-    }, tx as unknown as ReturnType<typeof getSharedDb>);
-    const [existing] = await tx.select().from(coordinationRuntimeProfiles)
-      .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, bundle.runtimeId))
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${bundle.runtimeId}, 0))
+    `);
+    const [registrationSnapshot] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, bundle.runtimeId));
+    const bootstrapDigests = [...new Set(
+      [registrationSnapshot?.bootstrapHash, bundle.bootstrapSha256].filter(
+        (value): value is string => Boolean(value),
+      ),
+    )].sort();
+    for (const digest of bootstrapDigests) {
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))
+      `);
+    }
+    const [existingRegistration] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, bundle.runtimeId))
       .for("update");
-    if (existing && !profileMatches(existing, bundle, profileId)) {
-      throw new AntigravityProvisioningError("profile_conflict");
-    }
-    if (!existing) {
-      await tx.insert(coordinationRuntimeProfiles).values({
-        id: profileId,
-        runtimeRegistrationId: bundle.runtimeId,
-        actor: bundle.actor,
-        capabilities: bundle.runtimeCapabilities,
-        provider: bundle.provider,
-        model: bundle.model,
-        adapterVersion: bundle.adapterVersion,
-        repositoryLabel: bundle.repositoryLabel,
-        worktreeLabel: bundle.worktreeLabel,
-        worktreeRealpathDigest: bundle.worktreeRealpathDigest,
-        branch: bundle.branch,
-        startingCommit: bundle.startingCommit,
-      });
-    }
+    const [existingProfile] = await tx.select().from(coordinationRuntimeProfiles)
+      .where(and(
+        eq(coordinationRuntimeProfiles.runtimeRegistrationId, bundle.runtimeId),
+        eq(coordinationRuntimeProfiles.status, "active"),
+      ))
+      .for("update");
     const [receipt] = await tx.select().from(taskOwnershipReceipts)
       .where(eq(taskOwnershipReceipts.challengeId, challengeId)).for("update");
     const [fullChallenge] = await tx.select().from(taskOwnershipChallenges)
@@ -169,14 +192,198 @@ export async function registerAntigravityRuntime(value: unknown, challengeId: st
       || receipt.artifactSha256 !== bundle.artifactSha256
       || receipt.intendedActor !== bundle.actor
       || receipt.publicKey !== bundle.publicKey
-      || receipt.keyFingerprint !== bundle.keyFingerprint) {
+      || receipt.keyFingerprint !== bundle.keyFingerprint
+      || receipt.contextDigest !== bundle.bundleDigest) {
       throw new AntigravityProvisioningError("receipt_mismatch");
     }
-    return { registration, receiptId: receipt.id };
+    if (existingProfile && !profileMatches(existingProfile, bundle)) {
+      throw new AntigravityProvisioningError("profile_conflict");
+    }
+    if (existingRegistration && !existingProfile) {
+      throw new AntigravityProvisioningError("profile_missing");
+    }
+    const registrationInput = {
+      runtimeId: bundle.runtimeId,
+      actor: bundle.actor as "luca-gemini",
+      displayName: bundle.worktreeLabel,
+      capabilities: bundle.credentialCapabilities as ("coordination:read" | "coordination:write" | "coordination:inbox:ack" | "coordination:credential:renew")[],
+      tokenTtlSeconds: bundle.tokenTtlSeconds,
+      bootstrapSha256: bundle.bootstrapSha256,
+    };
+    let registration: {
+      runtimeId: string;
+      actor: string;
+      displayName: string;
+      capabilities: string[];
+      tokenTtlSeconds: number;
+      status: "created" | "replayed" | "recovered";
+    };
+    const consumedBundleHash = consumedCoordinationBootstrapHash(
+      bundle.runtimeId,
+      bundle.bootstrapSha256,
+    );
+    if (existingRegistration?.bootstrapHash === consumedBundleHash) {
+      if (!registrationMatches(existingRegistration, bundle)) {
+        throw new AntigravityProvisioningError("replay_registration_conflict");
+      }
+      await tx.insert(coordinationCredentialAuditEvents).values({
+        eventType: "runtime_registration_replayed",
+        success: true,
+        runtimeId: bundle.runtimeId,
+        actor: bundle.actor,
+        metadata: { status: "consumed_bootstrap_compatible_retry" },
+      });
+      registration = {
+        runtimeId: bundle.runtimeId,
+        actor: "luca-gemini",
+        displayName: bundle.worktreeLabel,
+        capabilities: registrationInput.capabilities,
+        tokenTtlSeconds: bundle.tokenTtlSeconds,
+        status: "replayed",
+      };
+    } else if (existingRegistration && existingRegistration.bootstrapHash !== bundle.bootstrapSha256) {
+      if (!registrationMatches(existingRegistration, bundle)) {
+        throw new AntigravityProvisioningError("recovery_registration_conflict");
+      }
+      const [consumptionAudit] = await tx.select({
+        metadata: coordinationCredentialAuditEvents.metadata,
+      }).from(coordinationCredentialAuditEvents).where(and(
+        eq(coordinationCredentialAuditEvents.runtimeId, bundle.runtimeId),
+        eq(coordinationCredentialAuditEvents.eventType, "runtime_bootstrap_consumed"),
+        eq(coordinationCredentialAuditEvents.success, true),
+      )).orderBy(desc(coordinationCredentialAuditEvents.createdAt)).limit(1);
+      const auditMetadata = consumptionAudit?.metadata && typeof consumptionAudit.metadata === "object"
+        ? consumptionAudit.metadata as Record<string, unknown>
+        : undefined;
+      const auditedApprovedDigest = typeof auditMetadata?.approvedBootstrapSha256 === "string"
+        ? auditMetadata.approvedBootstrapSha256
+        : undefined;
+      const auditedConsumedDigest = typeof auditMetadata?.consumedBootstrapSha256 === "string"
+        ? auditMetadata.consumedBootstrapSha256
+        : undefined;
+      let priorApprovedBootstrapSha256: string;
+      let recoveryLineage: "audited_consumption" | "legacy_issued_credential";
+      if (
+        auditedApprovedDigest
+        && auditedConsumedDigest === existingRegistration.bootstrapHash
+        && consumedCoordinationBootstrapHash(bundle.runtimeId, auditedApprovedDigest) === auditedConsumedDigest
+      ) {
+        priorApprovedBootstrapSha256 = auditedApprovedDigest;
+        recoveryLineage = "audited_consumption";
+      } else {
+        const [historicalCredential] = await tx.select({ id: coordinationRuntimeCredentials.id })
+          .from(coordinationRuntimeCredentials)
+          .where(eq(coordinationRuntimeCredentials.runtimeId, bundle.runtimeId))
+          .limit(1);
+        const [priorRecovery] = await tx.select({ id: coordinationCredentialAuditEvents.id })
+          .from(coordinationCredentialAuditEvents)
+          .where(and(
+            eq(coordinationCredentialAuditEvents.runtimeId, bundle.runtimeId),
+            eq(coordinationCredentialAuditEvents.eventType, "runtime_bootstrap_recovered"),
+            eq(coordinationCredentialAuditEvents.success, true),
+          ))
+          .limit(1);
+        if (!historicalCredential || priorRecovery) {
+          throw new AntigravityProvisioningError("recovery_unconsumed_bootstrap");
+        }
+        priorApprovedBootstrapSha256 = existingRegistration.bootstrapHash;
+        recoveryLineage = "legacy_issued_credential";
+      }
+      const [digestOwner] = await tx.select({ id: coordinationRuntimeRegistrations.id })
+        .from(coordinationRuntimeRegistrations)
+        .where(and(
+          eq(coordinationRuntimeRegistrations.bootstrapHash, bundle.bootstrapSha256),
+          ne(coordinationRuntimeRegistrations.id, bundle.runtimeId),
+        ))
+        .limit(1);
+      if (digestOwner) throw new AntigravityProvisioningError("recovery_digest_conflict");
+      const now = new Date();
+      const [liveCredential] = await tx.select({ id: coordinationRuntimeCredentials.id })
+        .from(coordinationRuntimeCredentials)
+        .where(and(
+          eq(coordinationRuntimeCredentials.runtimeId, bundle.runtimeId),
+          isNull(coordinationRuntimeCredentials.revokedAt),
+          gt(coordinationRuntimeCredentials.expiresAt, now),
+        ))
+        .limit(1);
+      if (liveCredential) throw new AntigravityProvisioningError("recovery_live_credential");
+      const [liveGrant] = await tx.select({ id: coordinationGate3ProofGrants.id })
+        .from(coordinationGate3ProofGrants)
+        .where(and(
+          eq(coordinationGate3ProofGrants.runtimeRegistrationId, bundle.runtimeId),
+          eq(coordinationGate3ProofGrants.profileId, existingProfile!.id),
+          isNull(coordinationGate3ProofGrants.revokedAt),
+          gt(coordinationGate3ProofGrants.expiresAt, now),
+        ))
+        .limit(1);
+      if (liveGrant) throw new AntigravityProvisioningError("recovery_live_grant");
+      const [packet] = await tx.select({ id: coordinationRuntimePackets.id })
+        .from(coordinationRuntimePackets)
+        .where(eq(coordinationRuntimePackets.runtimeRegistrationId, bundle.runtimeId))
+        .limit(1);
+      if (packet) throw new AntigravityProvisioningError("recovery_packet_history");
+      const [updated] = await tx.update(coordinationRuntimeRegistrations).set({
+        bootstrapHash: bundle.bootstrapSha256,
+        updatedAt: now,
+      }).where(and(
+        eq(coordinationRuntimeRegistrations.id, bundle.runtimeId),
+        eq(coordinationRuntimeRegistrations.bootstrapHash, existingRegistration.bootstrapHash),
+        eq(coordinationRuntimeRegistrations.enabled, true),
+        isNull(coordinationRuntimeRegistrations.revokedAt),
+      )).returning({ id: coordinationRuntimeRegistrations.id });
+      if (!updated) throw new AntigravityProvisioningError("recovery_concurrent_update");
+      await tx.insert(coordinationCredentialAuditEvents).values({
+        eventType: "runtime_bootstrap_recovered",
+        success: true,
+        runtimeId: bundle.runtimeId,
+        actor: bundle.actor,
+        reason: "consumed_bootstrap_recovery",
+        metadata: {
+          oldBootstrapSha256: priorApprovedBootstrapSha256,
+          newBootstrapSha256: bundle.bootstrapSha256,
+          challengeId,
+          receiptId: receipt.id,
+          bundleDigest: bundle.bundleDigest,
+          recoveryLineage,
+        },
+      });
+      registration = {
+        runtimeId: bundle.runtimeId,
+        actor: bundle.actor as "luca-gemini",
+        displayName: bundle.worktreeLabel,
+        capabilities: registrationInput.capabilities,
+        tokenTtlSeconds: bundle.tokenTtlSeconds,
+        status: "recovered",
+      };
+    } else {
+      registration = await registerCoordinationRuntimeWithBootstrapSha256InExecutor(
+        registrationInput,
+        executor,
+      );
+    }
+    let profileId = existingProfile?.id;
+    if (!existingProfile) {
+      profileId = `antigravity-${bundle.bundleDigest}`;
+      await tx.insert(coordinationRuntimeProfiles).values({
+        id: profileId,
+        runtimeRegistrationId: bundle.runtimeId,
+        actor: bundle.actor,
+        capabilities: bundle.runtimeCapabilities,
+        provider: bundle.provider,
+        model: bundle.model,
+        adapterVersion: bundle.adapterVersion,
+        repositoryLabel: bundle.repositoryLabel,
+        worktreeLabel: bundle.worktreeLabel,
+        worktreeRealpathDigest: bundle.worktreeRealpathDigest,
+        branch: bundle.branch,
+        startingCommit: bundle.startingCommit,
+      });
+    }
+    return { registration, receiptId: receipt.id, profileId: profileId! };
   });
   return {
     runtimeId: bundle.runtimeId,
-    profileId,
+    profileId: result.profileId,
     challengeId,
     receiptId: result.receiptId,
     bundleDigest: bundle.bundleDigest,
@@ -205,11 +412,13 @@ if (process.argv[1]?.endsWith("provision-antigravity-runtime.ts")) {
   const phase = process.argv[2];
   const bundlePath = process.argv.includes("--bundle") ? process.argv[process.argv.indexOf("--bundle") + 1] : undefined;
   const challengeId = process.argv.includes("--challenge-id") ? process.argv[process.argv.indexOf("--challenge-id") + 1] : undefined;
+  const attemptId = process.argv.includes("--attempt-id") ? process.argv[process.argv.indexOf("--attempt-id") + 1] : undefined;
   readBundle(bundlePath).then(async (bundle) => {
-    if (phase === "phase-a") return submitAntigravityChallenge(bundle);
+    if (phase === "phase-a") return submitAntigravityChallenge(bundle, attemptId);
     if (phase === "phase-b" && challengeId) return registerAntigravityRuntime(bundle, challengeId);
     throw new AntigravityProvisioningError("usage");
   })
     .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))
-    .catch((error) => { process.stderr.write(error instanceof AntigravityProvisioningError ? `${error.message}\n` : "antigravity_provisioning_failed\n"); process.exitCode = 1; });
+    .catch((error) => { process.stderr.write(error instanceof AntigravityProvisioningError ? `${error.message}\n` : "antigravity_provisioning_failed\n"); process.exitCode = 1; })
+    .finally(() => closeDbConnections());
 }

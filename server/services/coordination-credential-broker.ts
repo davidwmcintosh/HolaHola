@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import {
   COORDINATION_ACTOR_IDS,
   COORDINATION_CREDENTIAL_CAPABILITIES,
@@ -61,6 +61,10 @@ type ExchangeBootstrapCredentialTestHooks = {
 };
 export function hashCoordinationSecret(secret: string): string {
   return crypto.createHash('sha256').update(secret, 'utf8').digest('hex');
+}
+
+export function consumedCoordinationBootstrapHash(runtimeId: string, bootstrapSha256: string): string {
+  return hashCoordinationSecret(`consumed-bootstrap:${runtimeId}:${bootstrapSha256}`);
 }
 
 export function generateCoordinationSecret(prefix: 'cb' | 'ct'): string {
@@ -749,6 +753,18 @@ export async function exchangeBootstrapCredential(
     throw new Error('credential broker test hooks require a verified disposable CI database');
   }
   return getSharedDb().transaction(async (tx) => {
+    const bootstrapSha256 = bootstrapToken
+      ? hashCoordinationSecret(bootstrapToken)
+      : hashCoordinationSecret('missing-bootstrap');
+    const consumedHash = consumedCoordinationBootstrapHash(runtimeId, bootstrapSha256);
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${runtimeId}, 0))
+    `);
+    for (const digest of [bootstrapSha256, consumedHash].sort()) {
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))
+      `);
+    }
     await tx.execute(sql`
       SELECT id FROM coordination_runtime_registrations
       WHERE id = ${runtimeId}
@@ -762,7 +778,7 @@ export async function exchangeBootstrapCredential(
       && !registration.revokedAt
       && bootstrapToken
       && crypto.timingSafeEqual(
-        Buffer.from(hashCoordinationSecret(bootstrapToken)),
+         Buffer.from(bootstrapSha256),
         Buffer.from(registration.bootstrapHash),
       ),
     );
@@ -777,6 +793,55 @@ export async function exchangeBootstrapCredential(
       }, tx as unknown as ReturnType<typeof getSharedDb>);
       return null;
     }
+    const [tombstoneOwner] = await tx.select({ id: coordinationRuntimeRegistrations.id })
+      .from(coordinationRuntimeRegistrations)
+      .where(and(
+        eq(coordinationRuntimeRegistrations.bootstrapHash, consumedHash),
+        ne(coordinationRuntimeRegistrations.id, runtimeId),
+      ))
+      .limit(1);
+    if (tombstoneOwner) {
+      await audit({
+        eventType: 'exchange_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'consumed_bootstrap_digest_conflict',
+        sourceIp,
+      }, tx as unknown as ReturnType<typeof getSharedDb>);
+      return null;
+    }
+    const [consumed] = await tx.update(coordinationRuntimeRegistrations).set({
+      bootstrapHash: consumedHash,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(coordinationRuntimeRegistrations.id, runtimeId),
+      eq(coordinationRuntimeRegistrations.bootstrapHash, registration.bootstrapHash),
+      eq(coordinationRuntimeRegistrations.enabled, true),
+      isNull(coordinationRuntimeRegistrations.revokedAt),
+    )).returning({ id: coordinationRuntimeRegistrations.id });
+    if (!consumed) {
+      await audit({
+        eventType: 'exchange_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'bootstrap_already_consumed',
+        sourceIp,
+      }, tx as unknown as ReturnType<typeof getSharedDb>);
+      return null;
+    }
+    await audit({
+      eventType: 'runtime_bootstrap_consumed',
+      success: true,
+      runtimeId,
+      actor: registration.actor,
+      sourceIp,
+      metadata: {
+        approvedBootstrapSha256: bootstrapSha256,
+        consumedBootstrapSha256: consumedHash,
+      },
+    }, tx as unknown as ReturnType<typeof getSharedDb>);
     return issueForRegistration(
       registration,
       'issued',

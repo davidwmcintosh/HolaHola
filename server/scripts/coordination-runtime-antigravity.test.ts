@@ -119,7 +119,7 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
     : call.headers['x-coordination-token'] === 'ct_short'));
 });
 
-test('executor is shell-free and rejects commands, paths, and oversized writes', async () => {
+test('executor uses only fixed host adapters and rejects commands, paths, and oversized writes', async () => {
   assert.throws(() => validateArgv(['sh', '-c', 'echo unsafe']), /command_not_allowed/);
   const fs = fakeFs();
   const spawned: string[][] = [];
@@ -134,8 +134,27 @@ test('executor is shell-free and rejects commands, paths, and oversized writes',
   const windowsExecutor = new Gate3Executor('/approved', fs, async (argv) => {
     windowsSpawned.push(argv); return { code: 0, stdout: '', stderr: '' };
   }, { PATH: 'safe' }, 'win32');
-  await windowsExecutor.execute({ name: 'run_test', arguments: {} });
-  assert.deepEqual(windowsSpawned, [['npx.cmd', 'tsx', TARGET]]);
+  const windowsResult = await windowsExecutor.execute({ name: 'run_test', arguments: {} });
+  assert.deepEqual(windowsSpawned, [[
+    'C:\\Windows\\System32\\cmd.exe',
+    '/d',
+    '/s',
+    '/c',
+    'npx.cmd',
+    'tsx',
+    TARGET,
+  ]]);
+  assert.deepEqual(windowsResult.argv, ['npx', 'tsx', TARGET]);
+
+  const nonWindowsSpawned: string[][] = [];
+  const nonWindowsExecutor = new Gate3Executor('/approved', fs, async (argv) => {
+    nonWindowsSpawned.push(argv); return { code: 7, stdout: 'failed', stderr: 'test failure' };
+  }, { PATH: 'safe' }, 'linux');
+  const nonWindowsResult = await nonWindowsExecutor.execute({ name: 'run_test', arguments: {} });
+  assert.deepEqual(nonWindowsSpawned, [['npx', 'tsx', TARGET]]);
+  assert.equal(nonWindowsResult.ok, false);
+  assert.equal(nonWindowsResult.exitCode, 7);
+  assert.deepEqual(nonWindowsResult.argv, ['npx', 'tsx', TARGET]);
 });
 
 test('broker failure has no fixed-token fallback', async () => {

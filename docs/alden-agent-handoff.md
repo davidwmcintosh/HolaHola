@@ -1,3 +1,65 @@
+# From Luca [Replit] — 2026-09-11 — Gate 3 recovery/current-authority correction
+
+The first post-publish task-1448 assignment attempt failed closed with
+`gate3_assignment_window_recovery_lineage_missing`; no assignment, window,
+success audit, credential exchange, or Windows execution occurred. The
+published producer incorrectly required the historical bootstrap-recovery
+audit's receipt/challenge IDs to equal a newly approved assignment
+receipt/challenge. That contradicted the approved sequence: fresh founder
+authority plus a compatible Phase B replay of the unchanged recovered bundle.
+
+The corrected producer treats the proofs independently while requiring both.
+Historical recovery must still match the bundle, allowed recovery lineage, and
+current registration bootstrap hash. The supplied fresh receipt/challenge must
+still independently prove current task, actor, artifact, key, fingerprint,
+bundle, status, and more than ten minutes thirty seconds of remaining life.
+Phase B replay does not write a false second recovery audit.
+
+The disposable PostgreSQL suite now performs the real lifecycle: initial
+bootstrap exchange and consumption, credential revocation, replacement
+bootstrap recovery under authority A, unchanged-bundle replay under distinct
+fresh authority B, and assignment under B. It asserts exactly one unchanged
+recovery audit and exercises explicit recovery metadata, current-authority
+binding, challenge-expiry, and lease-margin failures. The suite passes 15/15
+with zero skips; TypeScript and `git diff --check` pass. Alden Anthropic, Alden
+Gemini, and the independent architecture reviewer returned unconditional
+approval with no watch-outs.
+
+After commit and republish, create another fresh Phase A challenge and receipt;
+do not reuse the authority from the failed-closed pre-fix attempt. Task 1448
+and all Windows evidence remain pending. Task 1449 remains cancelled.
+
+# From Luca [Replit] — 2026-09-11 — Gate 3 assignment/window producer
+
+Implemented the narrowly scoped trusted producer and dedicated CLI for the
+fixed task 1448 assignment. The service validates the existing public bundle
+validator and 1 MiB input bound, locks runtime then canonical attempt, performs
+exact replay verification before new-authority checks, and binds the canonical
+thread/event, ordinary inbox, runtime projection, frozen window, receipt,
+artifact, and recovery lineage together in one transaction. Audits contain
+non-secret IDs and digests only. The CLI uses an allowlisted JSON result and
+always closes database connections.
+
+Final hardening makes the persisted event the sole runtime-projection source
+and validates the complete fixed thread/event/payload after canonical creation.
+If an incompatible ledger writer wins between the precheck and create call, the
+producer fails closed before any runtime projection, window, or success audit.
+Replay independently proves canonical/runtime equality even when an attacker
+coherently re-digests the runtime item, window, and audit metadata.
+
+Final evidence:
+
+- fresh disposable PostgreSQL: 15/15, zero skips;
+- TypeScript and `git diff --check`: passed;
+- all four transaction rollback boundaries: passed with exact row counts;
+- concurrent new same-attempt calls: one writer plus one exact replay;
+- Alden Anthropic, Alden Gemini, and independent architecture review:
+  unconditional approval with no watch-outs.
+
+No HTTP route, schema change, generalized coordination behavior, Windows
+execution, bootstrap consumption, or task 1449 behavior was introduced. Windows
+task 1448 remains pending and must not be claimed from this server-side proof.
+
 # From Luca [Replit] — 2026-09-11 — PowerShell 5.1 DPAPI compatibility repair
 
 The first genuine Windows PowerShell 5.1 `status` run returned
@@ -9195,3 +9257,82 @@ the repository-wide coordination command exceeded the five-minute shell cap.
 TypeScript and diff checks passed. System health reported zero failures and two
 expected warnings because the app workflow was not running for its optional
 object-storage route probes.
+
+---
+
+## From Luca [Replit] — September 11, 2026: fixed-runtime bootstrap recovery approved
+
+The fixed Antigravity runtime now has a founder-approved same-runtime recovery
+path for the first fail-closed Windows launch. Recovery is confined to
+Antigravity Phase B, validates exact receipt context and active profile
+metadata, preserves runtime/profile identity, and rejects live credentials,
+live grants, any packet history, digest ownership conflicts, disabled or
+drifted registrations, and unproven consumption state.
+
+Bootstrap exchange now consumes authority server-side as well as locally. It
+atomically replaces the approved digest with a deterministic consumed tombstone
+before issuing the credential, with runtime and source/destination digest locks
+and a non-secret consumption audit. Concurrent exchange has one winner.
+Consumed-bundle Phase B retries remain idempotent but never restore exchange
+authority. One bounded legacy lineage supports the credential issued before
+tombstoning existed and cannot be used after a prior recovery.
+
+Fresh disposable PostgreSQL verification passed all four focused broker tests
+with no skips. TypeScript and system health passed. Both Alden engines and the
+independent architecture review returned unconditional approval. The next
+operator sequence is: commit and publish this recovery, create and approve a
+fresh challenge, require Phase B status `recovered`, create a fresh task 1448
+assignment and window, then run Windows exactly once with more than ten minutes
+thirty seconds of founder authority remaining.
+
+---
+
+## From Luca [Replit] — September 11, 2026: fresh Phase A attempts
+
+Phase A challenge creation now separates immutable bundle identity from an
+operator attempt generation. The CLI requires a non-secret lowercase UUID:
+same bundle plus same UUID converges, while a new UUID creates a fresh
+challenge after the prior immutable challenge expires. The attempt ID stays
+outside the public bundle and has no Phase B authority.
+
+The regression test reproduces the exact expired-row failure, proves the old
+row remains unchanged, verifies every persisted founder binding on the fresh
+row, proves invalid input creates zero rows, and drives the real CLI through
+missing, malformed, oversized, valid Phase A, and Phase B-without-attempt-ID
+cases. Focused disposable PostgreSQL passed 4/4 with no skips; TypeScript and
+system health passed; both Alden engines and the independent architect
+approved. Republish this commit before creating the real fresh challenge.
+
+---
+
+## From Luca [Replit] — September 11, 2026: Windows Gate 3 `.cmd` launch repair
+
+The first bounded Windows execution reached bootstrap exchange, broker
+credential issuance, packet creation and consumption, claim acquisition, and
+claim renewal. Its single accepted model intent was `run_test`; the claim then
+became `violated` with reason `rejected_tool_result` before any execution row
+was created. The one-second failure timing and driver path identified the host
+adapter defect: Windows cannot directly execute npm's `npx.cmd` shim through
+Node `spawn` with `shell: false`.
+
+The trusted driver now validates the exact logical allowlist first, then maps
+only Windows `npx` execution to the fixed
+`C:\Windows\System32\cmd.exe /d /s /c npx.cmd ...` process invocation. Node
+still launches with `shell: false`; no model-, task-, provider-, or
+user-controlled command text is introduced. Evidence continues to record the
+logical command `npx tsx server/scripts/test-coordination-runtime.test.ts`.
+Linux behavior is unchanged, and normal nonzero exits remain measured results
+rather than spawn failures.
+
+The rebuilt runtime bundle is pinned by its new SHA-256. Regression coverage
+also proves both same-runtime/different-profile claim variants return
+`consumption_not_authorized`. Focused runtime, Windows launcher, bundle, and
+end-to-end checks passed 22/22; the exact task-1448 suite passed 15/15; and
+TypeScript passed. Both Alden engines and the independent architecture reviewer
+returned unconditional approval.
+
+The failed bootstrap, packet receipt, claim, and ownership authority remain
+immutable spent evidence. Do not reuse them. Publish and deploy this correction,
+then create a new public provisioning bundle, fresh bootstrap, founder
+challenge, Phase B registration, assignment/window, and one-shot Windows run.
+Task 1449 remains cancelled.

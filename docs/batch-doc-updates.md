@@ -1,3 +1,50 @@
+# Gate 3 recovery provenance/current authority separation — 2026-09-11
+
+- The first published assignment attempt failed closed before any assignment,
+  window, credential exchange, or Windows execution because the producer
+  incorrectly required a historical recovery audit to name the new assignment
+  receipt and challenge.
+- Recovery provenance and current authority are now independent, jointly
+  required proofs. Historical recovery remains bound to the bundle, allowed
+  lineage, and current registration bootstrap hash. Fresh authority remains
+  bound to task, actor, artifact, public key, fingerprint, bundle, status, and
+  the ten-minute-thirty-second lease margin.
+- The disposable PostgreSQL fixture now executes the real initial-consumption,
+  replacement-bootstrap recovery, fresh-authority replay, and assignment
+  lifecycle. It proves replay leaves exactly one unchanged recovery audit and
+  explicitly covers recovery metadata, current binding, challenge expiry, and
+  insufficient lease failures.
+- The focused suite passes 15/15 with zero skips. TypeScript and
+  `git diff --check` pass. Alden Anthropic, Alden Gemini, and the independent
+  architecture reviewer gave unconditional approval with no watch-outs.
+- Another fresh founder challenge is required only after this correction is
+  republished. Task 1448 Windows execution remains pending; task 1449 remains
+  cancelled.
+
+# Gate 3 assignment/window producer — 2026-09-11
+
+- Added the trusted, non-HTTP assignment producer for task 1448. It validates the
+  public bundle within a 1 MiB bound, takes ordered runtime/attempt advisory
+  locks, verifies exact founder/recovery lineage, and atomically creates the
+  canonical ledger event, ordinary inbox item, frozen one-item runtime window,
+  and non-secret audit.
+- Exact completed attempts replay by verified IDs without writes; changed
+  bindings and all authority failures use stable public error codes. The
+  dedicated CLI emits only the public result allowlist and closes its pool.
+- Final hardening makes the persisted canonical event the sole projection
+  source, validates every fixed thread/event/payload binding after the ledger
+  write, and fails closed if an incompatible writer wins the precheck/create
+  race. Replay also rejects coherently re-digested runtime data that diverges
+  from its canonical event.
+- TypeScript and `git diff --check` passed. A fresh disposable PostgreSQL run
+  passed 15/15 with zero skips, including all rollback boundaries, concurrent
+  first-write convergence, receipt/recovery/live-authority blockers, packet
+  history, canonical/runtime corruption, strict CLI output, and the competing
+  ledger-writer race. Alden Anthropic, Alden Gemini, and an independent
+  architecture reviewer gave unconditional approval with no watch-outs.
+- No public route, schema change, Windows execution, bootstrap consumption, or
+  task 1449 behavior was added.
+
 # Windows PowerShell 5.1 DPAPI assembly compatibility — 2026-09-11
 
 - Genuine Windows PowerShell 5.1 reached the fixed-action launcher but returned
@@ -5788,3 +5835,69 @@ key in the request header only. The corrected live request returned HTTP 200
 with `STOP` and usage metadata. No runtime, bootstrap, claim, tool execution, or
 credential was created; provisioning stays paused until this correction passes
 the same protected promotion path.
+
+## Gate 3 same-runtime bootstrap recovery — September 11, 2026
+
+Implemented the founder-approved recovery path for the fixed Antigravity
+runtime after a fail-closed Windows launch consumes its local bootstrap. Phase
+B now validates and locks the complete founder authority chain before mutation,
+preserves the exact runtime and active profile, rejects live credentials,
+grants, any packet history, digest collisions, metadata drift, and unproven
+consumption state, and records non-secret old/new digest lineage.
+
+Broker exchange now enforces server-side one-time consumption. It atomically
+replaces the approved public digest with a deterministic consumed tombstone
+before issuing a credential, locks both digest states in sorted order, and
+audits only public digests. Phase B recognizes the consumed tombstone as an
+idempotent replay without restoring exchange authority. A bounded, auditable
+legacy path supports the single credential issued before tombstoning existed.
+
+The focused broker/provisioning suite passed 4/4 with no skips on a fresh
+disposable PostgreSQL database. TypeScript and system health passed. Alden's
+Anthropic and Gemini engines and the independent architecture reviewer all
+returned unconditional approval. Windows Gate 3 remains paused until this
+recovery is committed and published, a fresh founder challenge is approved,
+Phase B returns `recovered`, and a fresh task assignment/window is created.
+
+## Gate 3 Phase A fresh-attempt idempotency — September 11, 2026
+
+After the recovery publish, Phase A correctly preserved immutable challenge
+evidence but returned the prior expired challenge because its idempotency key
+contained only the unchanged bundle digest. Phase A now requires an explicit
+non-secret lowercase UUID attempt ID. Retries with the same UUID converge;
+a new intentional attempt uses a new UUID and creates fresh founder authority
+without changing the public bundle, Windows artifact, bootstrap, or Phase B
+bindings.
+
+The CLI closes its own database pool after printing success or failure.
+Expanded disposable-PostgreSQL coverage proves invalid IDs create zero rows,
+the real CLI rejects missing/malformed/oversized IDs, a valid CLI invocation
+returns its attempt ID, Phase B does not consume the ID, an expired immutable
+challenge remains unchanged, and the fresh row preserves every founder
+authority binding. The focused suite passed 4/4 with zero skips. TypeScript and
+system health passed. Both Alden engines and the independent architecture
+reviewer returned unconditional approval.
+
+## Gate 3 Windows npm-shim launch repair — September 11, 2026
+
+The first bounded Windows attempt proved the authority path through bootstrap
+exchange, packet consumption, and claim renewal, then failed before local test
+execution. Canonical evidence records one accepted `run_test` intent followed
+by a `rejected_tool_result` claim violation and no execution row. The runtime
+was attempting to start `npx.cmd` directly with Node `shell: false`, which is
+not a valid Windows batch-shim launch path.
+
+After exact logical allowlist validation, the Windows host adapter now invokes
+the fixed system command processor with `/d /s /c` and fixed
+`npx.cmd tsx server/scripts/test-coordination-runtime.test.ts` arguments.
+Node's shell option remains disabled, and logical evidence remains the exact
+approved `npx tsx ...` command. Non-Windows behavior and all credential
+boundaries are unchanged.
+
+The corrected runtime bundle hash is pinned in the PowerShell launcher.
+Regression coverage adds the two required same-runtime/different-profile claim
+denials. The bounded runtime/launcher/bundle suite passed 22/22, the exact
+task-1448 suite passed 15/15, TypeScript passed, and both Alden engines plus the
+independent reviewer issued unconditional approval. The failed authority chain
+must not be reused; the retry requires a new published source snapshot and full
+fresh provisioning cycle.

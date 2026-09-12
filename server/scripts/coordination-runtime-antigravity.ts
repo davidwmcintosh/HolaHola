@@ -21,6 +21,7 @@ const ALLOWED = {
   test: ['npx', 'tsx', TARGET],
 } as const;
 const LIMITS = { bytes: 40960, turns: 4, attempts: 8, elapsed: 600000, command: 600000 };
+const WINDOWS_COMMAND_PROCESSOR = 'C:\\Windows\\System32\\cmd.exe';
 
 export type Http = (input: { method: string; path: string; headers: Record<string, string>; body?: unknown }) =>
   Promise<{ status: number; body: unknown }>;
@@ -155,7 +156,12 @@ export class Gate3Executor {
     private readonly childEnv: Record<string, string> = {}, private readonly platform: NodeJS.Platform = process.platform) {}
   private async command(argv: string[]) {
     validateArgv(argv);
-    const spawnArgv = this.platform === 'win32' && argv[0] === 'npx' ? ['npx.cmd', ...argv.slice(1)] : argv;
+    // Windows cannot execute npm's .cmd shim directly through CreateProcess.
+    // The logical argv has already passed the exact allowlist above; this is
+    // only a fixed host adapter and never accepts a constructed command string.
+    const spawnArgv = this.platform === 'win32' && argv[0] === 'npx'
+      ? [WINDOWS_COMMAND_PROCESSOR, '/d', '/s', '/c', 'npx.cmd', ...argv.slice(1)]
+      : argv;
     return this.run(spawnArgv, { cwd: this.root, env: { PATH: this.childEnv.PATH ?? process.env.PATH ?? '', ...this.childEnv }, timeoutMs: LIMITS.command });
   }
   async measure(argv: string[]) { return this.command(argv); }
