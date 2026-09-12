@@ -5901,3 +5901,51 @@ task-1448 suite passed 15/15, TypeScript passed, and both Alden engines plus the
 independent reviewer issued unconditional approval. The failed authority chain
 must not be reused; the retry requires a new published source snapshot and full
 fresh provisioning cycle.
+
+## Gate 3 bounded replacement and durable rejection repair — September 12, 2026
+
+The frozen Gate 3 assignment now carries the exact approved
+`server/templates/task-1448.md` UTF-8 text and its SHA-256 inside the immutable
+assignment payload. The coordinator reads that fixed no-follow file before
+opening the database transaction, rejects non-regular files, invalid UTF-8, and
+digest drift, and validates the same bytes during replay. An approved bundle can
+therefore no longer authorize a generic task description that omits the exact
+Windows edit.
+
+The model-facing and Windows execution boundary now exposes `replace_once`
+instead of whole-file `write_file`. The only writable target remains
+`server/scripts/test-coordination-runtime.test.ts`. Replacement requires exactly
+one non-empty `oldText` and one different `newText`, a combined UTF-8 size no
+greater than 40,960 bytes, and exactly one occurrence including overlapping
+matches. Zero, multiple, overlapping, malformed, oversized, non-UTF-8, symlink,
+and reparse cases fail before mutation. Gemini arguments are no longer passed
+through the former 20,000-character normalizer, and the adapter reuses the
+runtime validator before emitting executable intent evidence.
+
+The continuation route now shares the PostgreSQL repository's exact transaction
+executor with the proof-grant lock boundary. A durably recorded
+`malformed_function_call` or `model_call_limit_exceeded` returns an internal
+tagged result so rejected interaction evidence, claim violation, idempotency,
+and that request's submitted tool-result batch commit before the same public
+error is returned. Unexpected coordinator or database errors still escape and
+roll back the complete continuation request. Malformed initial responses remain
+durable non-authorizing receipts and expose no execution intent.
+
+Focused verification passed 53/53 across core runtime, HTTP, Windows driver,
+end-to-end, assignment-window, PostgreSQL parity/transaction, and provisioning
+suites. The database-backed checks ran with zero skips against a fresh temporary
+localhost PostgreSQL cluster initialized from committed migrations. TypeScript,
+diff checks, and system health also passed. The independent architect, Gemini 3,
+and both Alden engines issued unconditional approval over the complete code
+diff.
+
+Shared-spec document `13b48fed-5f5e-46f8-a1f7-82f853e45afa`, revision
+`f9ec70d9-4993-4384-a4ae-a3940ae02c7a`, review
+`3d997fc9-d87b-4d79-aa05-64a4b2ca60c0`, and content hash
+`1d1b323df1a889c78f6fd2a6e3c821c5d91183e02e379be7328712915141d2a1`
+form the exact independently approved record. The exported bytes are published
+unchanged at
+`docs/superpowers/specs/2026-09-12-gate3-bounded-replacement-repair-design.md`.
+No Windows generation, bootstrap, credential, packet, claim, or execution was
+created. The failed generation remains permanently retired; tasks 1449 and 1450
+remain untouched.

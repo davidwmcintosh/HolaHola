@@ -9381,20 +9381,19 @@ unconditional approval over the complete current diff.
 Shared-spec document `13b48fed-5f5e-46f8-a1f7-82f853e45afa`, revision
 `f9ec70d9-4993-4384-a4ae-a3940ae02c7a`, hash
 `1d1b323df1a889c78f6fd2a6e3c821c5d91183e02e379be7328712915141d2a1`
-is still `ready_for_review`; do not call it approved or exportable. Alden first
-reported an approval without mutating the canonical review, then confirmed his
-runtime cannot make authenticated shared-spec calls. The same pending review
-`3d997fc9-d87b-4d79-aa05-64a4b2ca60c0` is now assigned to
-`luca-claude-code`. The exact request was delivered in coordination thread
-`0eeacff1-45bf-426c-8ca3-40ddae33f930` (delivery event global sequence 1185).
-Delivery does not prove seen, claim, or decision.
+is canonically approved by Luca Claude Code under review
+`3d997fc9-d87b-4d79-aa05-64a4b2ca60c0`. The exported bytes hash and compare
+exactly and are present at
+`docs/superpowers/specs/2026-09-12-gate3-bounded-replacement-repair-design.md`.
+The review request was delivered through coordination thread
+`0eeacff1-45bf-426c-8ca3-40ddae33f930`.
 
-Next: Luca Claude Code must authenticate as itself, read the exact immutable
-revision from shared-spec, claim and approve or reject the assigned review, and
-return the canonical state. After an approval, export only those approved bytes
-to the intended Git path, rerun final verification, commit and publish this
-repair, then verify the failed generation's credential/claim are revoked or
-expired while preserving evidence. Only after that may a completely fresh
-Windows generation be prepared. Never reuse any identifier or authority from
-the failed run. Task 1449 remains cancelled and task 1450 remains independently
-owned.
+Final verification is green: 53 focused checks passed with zero skips,
+including 17 checks against fresh disposable PostgreSQL clusters; typecheck,
+diff checks, system health, and application restart also passed.
+
+After source publication, verify the failed generation's credential/claim are
+revoked or expired while preserving evidence. Only after that may a completely
+fresh Windows generation be prepared. Never reuse any identifier or authority
+from the failed run. Task 1449 remains cancelled and task 1450 remains
+independently owned.
