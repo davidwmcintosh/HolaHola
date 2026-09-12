@@ -9597,3 +9597,44 @@ preparing a fifth generation. That generation must use fresh bootstrap,
 challenge, attempt, receipt, runtime, profile, credential, packet, claim, and
 window identifiers. Task 1449 remains cancelled. Task 1450 remains independently
 owned.
+
+## September 12, 2026 — Coordinator V2 persistence and pure state milestone complete
+
+Coordinator V2 persistence and pure transition logic are now built and live.
+The additive model covers enrolled hosts, policy identities and immutable
+versions, founder decisions, operator grants, bounded sessions, fresh attempts,
+append-only session/attempt events, transport lease epochs, and cleanup
+obligations and acknowledgements. Legacy runtime packet/execution evidence is
+referenced restrictively rather than repurposed as V2 authority.
+
+Migration 0041 passed the disposable Neon gate and was applied to shared Neon.
+Its controls include restrictive foreign keys, unique attempt generations and
+session digests, one active lease per session, append-only evidence triggers,
+and immutable decided policy versions. The pure policy, session, attempt,
+lease, and cleanup state machines use caller-supplied identity/time and frozen
+outputs. Transport recovery preserves the current attempt; logical provider or
+tool failures require a fresh attempt and consume budget.
+
+The first dual-engine implementation review found two blockers. Duplicate
+policy approval returned a generic terminal code instead of the stable
+`policy_already_approved` code, and cleanup obligations did not persist the
+terminal outcome that cleanup repair must preserve. Both were fixed.
+Migration 0042 adds non-null terminal outcome and reason columns with terminal
+state and nonblank checks plus a trigger preventing either value from changing.
+
+The Neon migration gate now runs a dedicated V2 PostgreSQL parity test before
+the full CI groups. It inserts a rolled-back dependency graph on the disposable
+branch and proves terminal outcome mutation and session-event mutation fail
+with check violations, while a second active lease fails with unique violation.
+The definitive gate passed this test and all 68 configured commands, deleted
+the branch, and returned `READY_TO_PROMOTE`. Shared Neon catalog verification
+confirms the two columns, two checks, and trigger are live. Focused schema tests
+pass 6/6, state tests pass 7/7, TypeScript passes, and the health verifier
+reports `All checks passed — safe to mark done.` Both Alden engines then issued
+unconditional approval with no remaining milestone blocker.
+
+Next: implement transactional policy/session authority services. Cross-row
+policy, grant, host, digest, budget, sequence, lease, and cleanup correspondence
+must be enforced under locks; database checks alone are not sufficient. Do not
+create or rerun any Windows generation during this phase. Task 1449 remains
+cancelled, and Alden-owned task 1450 must not be modified or duplicated.

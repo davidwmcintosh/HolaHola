@@ -8893,6 +8893,8 @@ export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup
     .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
   kind: varchar("kind", { length: 64 }).notNull(),
   state: varchar("state", { length: 24 }).notNull().default("pending"),
+  terminalOutcome: varchar("terminal_outcome", { length: 16 }).notNull(),
+  terminalReason: varchar("terminal_reason", { length: 128 }).notNull(),
   required: boolean("required").notNull().default(true),
   idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
   attemptCount: integer("attempt_count").notNull().default(0),
@@ -8911,6 +8913,12 @@ export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup
   `),
   check("coordination_v2_cleanup_state_value", sql`
     ${table.state} IN ('pending', 'in_progress', 'acknowledged', 'repair_required')
+  `),
+  check("coordination_v2_cleanup_terminal_outcome", sql`
+    ${table.terminalOutcome} IN ('succeeded', 'failed', 'exhausted', 'expired', 'revoked')
+  `),
+  check("coordination_v2_cleanup_terminal_reason_nonblank", sql`
+    length(trim(${table.terminalReason})) > 0
   `),
   check("coordination_v2_cleanup_attempt_count", sql`${table.attemptCount} >= 0`),
   check("coordination_v2_cleanup_deadline", sql`

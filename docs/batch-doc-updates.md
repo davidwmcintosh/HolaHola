@@ -6132,3 +6132,36 @@ Do not create another Windows generation until this tree is committed,
 published to GitHub, republished to production, and live health is verified.
 The next generation must use entirely fresh authority and identifiers. Task
 1449 remains cancelled; task 1450 remains independently owned.
+
+## Coordinator V2 persistence and pure state machines — September 12, 2026
+
+Coordinator V2 now has an additive PostgreSQL control-plane foundation for
+enrolled hosts, immutable versioned policies and founder decisions, bounded
+operator grants and sessions, fresh logical attempts, append-only transition
+events, epoch-based transport leases, and cleanup obligations and
+acknowledgements. Existing coordination runtime evidence remains separate and
+is referenced restrictively; no legacy Gate 3 authority was reused.
+
+Migration 0041 established the twelve-table model, restrictive foreign keys,
+partial single-active-lease uniqueness, append-only evidence triggers, and
+post-decision policy immutability. Dual-engine review then found that cleanup
+obligations did not persist the terminal session outcome promised by the pure
+cleanup state. Additive migration 0042 repaired that contract with non-null,
+constrained, immutable terminal outcome and reason fields. The same review
+found and fixed the stable duplicate-approval rejection code.
+
+The migration gate now includes a real disposable PostgreSQL V2 parity test.
+It proves cleanup terminal provenance cannot be rewritten, session events are
+append-only, and a second active lease for one session is rejected. The
+definitive gate passed that proof and all 68 configured CI commands, deleted
+its branch, and returned `READY_TO_PROMOTE` before each migration was applied
+to shared Neon. Live catalog checks confirm both cleanup columns, both checks,
+and the immutability trigger. Focused schema tests pass 6/6, pure state tests
+pass 7/7, TypeScript passes, and system health reports all checks passed.
+Both Alden engines issued unconditional approval after the repair.
+
+The next implementation boundary is transactional policy/session authority
+services. They must persist cleanup terminal outcome and reason at creation,
+enforce all cross-row authorization and budget rules under row locks, and
+remain provider- and host-neutral. No real Windows generation or authority may
+be created during that work.

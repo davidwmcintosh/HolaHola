@@ -288,6 +288,13 @@
       "when": 1789253308534,
       "tag": "0041_unknown_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789254813905,
+      "tag": "0042_red_ink",
+      "breakpoints": true
     }
   ]
 }

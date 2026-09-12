@@ -4,6 +4,7 @@ import test from "node:test";
 
 const schema = readFileSync("shared/schema.ts", "utf8");
 const migration = readFileSync("migrations/0041_unknown_beyonder.sql", "utf8");
+const followupMigration = readFileSync("migrations/0042_red_ink.sql", "utf8");
 
 const tables = [
   "coordination_v2_host_enrollments",
@@ -66,6 +67,15 @@ test("Coordinator V2 historical evidence and decided policies are protected", ()
   }
   assert.match(migration, /IF OLD\."approval_state" <> 'draft'/);
   assert.match(migration, /Coordinator V2 policy provenance is immutable/);
+});
+
+test("cleanup obligations persist immutable terminal session outcomes", () => {
+  assert.match(schema, /terminalOutcome: varchar\("terminal_outcome"/);
+  assert.match(schema, /terminalReason: varchar\("terminal_reason"/);
+  assert.match(followupMigration, /ADD COLUMN "terminal_outcome"/);
+  assert.match(followupMigration, /ADD COLUMN "terminal_reason"/);
+  assert.match(followupMigration, /coordination_v2_cleanup_terminal_outcome/);
+  assert.match(followupMigration, /coordination_v2_cleanup_terminal_provenance_immutable/);
 });
 
 test("Coordinator V2 relationships fail closed with restrictive foreign keys", () => {

@@ -305,6 +305,9 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL: directUrl,
     FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE: '1',
     FOUNDER_TASK_OWNERSHIP_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    COORDINATOR_V2_TEST_DATABASE_URL: directUrl,
+    COORDINATOR_V2_TEST_DATABASE_DISPOSABLE: '1',
+    COORDINATOR_V2_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -357,6 +360,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (ownershipParity.code !== 0) {
       failureReason = `founder task-ownership PostgreSQL parity exited ${ownershipParity.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 PostgreSQL constraint parity against the branch...');
+    const coordinatorV2Parity = await runCommand(
+      'npx tsx --test server/scripts/test-coordinator-v2-schema-postgres.test.ts',
+      branchEnv,
+    );
+    if (coordinatorV2Parity.code !== 0) {
+      failureReason = `Coordinator V2 PostgreSQL parity exited ${coordinatorV2Parity.code}`;
     }
   }
 

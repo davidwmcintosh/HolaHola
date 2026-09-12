@@ -35,6 +35,10 @@ test('policy approval and revocation are explicit immutable transitions', () => 
   assert.equal(approved.state.state, 'approved');
   assert(Object.isFrozen(approved.state));
   assert(Object.isFrozen(approved.event));
+  assert.equal(
+    transitionPolicy(approved.state, { ...base, requestId: 'duplicate-approval', eventId: 'duplicate-approval', type: 'approve' }).code,
+    'policy_already_approved',
+  );
   const revoked = transitionPolicy(approved.state, {
     ...base,
     requestId: 'request-2',

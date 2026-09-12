@@ -37,6 +37,9 @@ export function transitionPolicy(
       event(command, 'draft', 'approved', 'policy_approved'),
     );
   }
+  if (current.state === 'approved' && command.type === 'approve') {
+    return failure('policy_already_approved');
+  }
   if (current.state === 'approved' && command.type === 'revoke') {
     return success(
       freezeV2({ ...current, state: 'revoked' as const, revokedAt: command.now }),
