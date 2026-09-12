@@ -190,7 +190,6 @@ export async function createGate3AssignmentWindow(input: {
     if (!registration || !profile || profile.id !== GATE3_PROFILE_ID
       || !registrationMatches(registration, bundle) || !profileMatches(profile, bundle)
       || !recovery || rm?.bundleDigest !== bundle.bundleDigest
-      || rm?.receiptId !== receipt.id || rm?.challengeId !== challenge.id
       || typeof rm?.oldBootstrapSha256 !== "string" || typeof rm?.newBootstrapSha256 !== "string"
       || (rm?.recoveryLineage !== "audited_consumption" && rm?.recoveryLineage !== "legacy_issued_credential")
       || rm?.newBootstrapSha256 !== registration.bootstrapHash) fail("recovery_lineage_missing");

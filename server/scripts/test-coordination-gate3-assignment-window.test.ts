@@ -123,12 +123,16 @@ databaseTest('oversized bundle is rejected before database writes', async () => 
   }
 });
 
-databaseTest('creates and exactly binds the complete canonical assignment projection', async () => {
+databaseTest('creates the exact projection with fresh authority distinct from historical recovery authority', async () => {
   const b = bundle();
-  const phaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
-  const receipt = await decideChallenge(phaseA.challengeId, 'approved', 'gate3-assignment-test');
-  assert.ok('id' in receipt);
-  const registered = await registerAntigravityRuntime(b, phaseA.challengeId);
+  const recoveryPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
+  const recoveryReceipt = await decideChallenge(
+    recoveryPhaseA.challengeId,
+    'approved',
+    'gate3-assignment-recovery-test',
+  );
+  assert.ok('id' in recoveryReceipt);
+  const registered = await registerAntigravityRuntime(b, recoveryPhaseA.challengeId);
   assert.equal(registered.status, 'created');
   await getSharedDb().transaction(async (tx) => {
     await tx.update(coordinationRuntimeProfiles).set({ id: FIXED_PROFILE_ID })
@@ -145,11 +149,23 @@ databaseTest('creates and exactly binds the complete canonical assignment projec
       actor: GATE3.actor, reason: 'consumed_bootstrap_recovery',
       metadata: {
         oldBootstrapSha256: 'e'.repeat(64), newBootstrapSha256: b.bootstrapSha256,
-        challengeId: phaseA.challengeId, receiptId: receipt.id, bundleDigest: b.bundleDigest,
+        challengeId: recoveryPhaseA.challengeId, receiptId: recoveryReceipt.id,
+        bundleDigest: b.bundleDigest,
         recoveryLineage: 'audited_consumption',
       },
     });
   });
+  const assignmentPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
+  const receipt = await decideChallenge(
+    assignmentPhaseA.challengeId,
+    'approved',
+    'gate3-assignment-current-authority-test',
+  );
+  assert.ok('id' in receipt);
+  assert.notEqual(assignmentPhaseA.challengeId, recoveryPhaseA.challengeId);
+  assert.notEqual(receipt.id, recoveryReceipt.id);
+  const replayed = await registerAntigravityRuntime(b, assignmentPhaseA.challengeId);
+  assert.equal(replayed.status, 'replayed');
   const attempt = crypto.randomUUID();
   const result = await createGate3AssignmentWindow({
     bundle: b, receiptId: receipt.id, assignmentAttemptId: attempt,
@@ -215,7 +231,7 @@ databaseTest('creates and exactly binds the complete canonical assignment projec
   completedFixture = {
     bundle: b,
     receiptId: receipt.id,
-    challengeId: phaseA.challengeId,
+    challengeId: assignmentPhaseA.challengeId,
     attemptId: attempt,
     result,
   };
