@@ -6,6 +6,7 @@ import {
   taskOwnershipDecisionEvents, taskOwnershipProofAttempts,
 } from "@shared/schema";
 import { canonicalJson } from "./task-ownership-service";
+export { canonicalJson };
 
 const CHALLENGE_TTL = 10 * 60_000;
 const MAX_CHALLENGE_TTL = 30 * 60_000;

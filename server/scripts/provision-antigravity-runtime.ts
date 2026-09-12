@@ -23,6 +23,7 @@ import {
   validatePublicProvisioningBundle,
 } from "../services/antigravity-provisioning-bundle";
 import {
+  canonicalJson,
   createChallenge,
 } from "../services/founder-task-ownership-service";
 import {
@@ -103,7 +104,7 @@ function profileMatches(row: typeof coordinationRuntimeProfiles.$inferSelect, bu
   return row.id === `antigravity-${bundle.bundleDigest}`
     && row.runtimeRegistrationId === bundle.runtimeId
     && row.actor === bundle.actor
-    && JSON.stringify(row.capabilities) === JSON.stringify(bundle.runtimeCapabilities)
+    && canonicalJson(row.capabilities) === canonicalJson(bundle.runtimeCapabilities)
     && row.provider === bundle.provider
     && row.model === bundle.model
     && row.adapterVersion === bundle.adapterVersion
@@ -121,7 +122,7 @@ function registrationMatches(
 ): boolean {
   return row.actor === bundle.actor
     && row.displayName === bundle.worktreeLabel
-    && JSON.stringify(row.capabilities) === JSON.stringify(bundle.credentialCapabilities)
+    && canonicalJson(row.capabilities) === canonicalJson(bundle.credentialCapabilities)
     && row.tokenTtlSeconds === bundle.tokenTtlSeconds
     && row.enabled
     && !row.revokedAt;
@@ -296,7 +297,7 @@ export async function registerAntigravityRuntime(value: unknown, challengeId: st
     const [priorGeneration] = priorGenerations;
     if (priorGeneration) {
       const metadata = priorGeneration.metadata;
-      if (!metadata || JSON.stringify(metadata) !== JSON.stringify(generationMetadata)) {
+      if (!metadata || canonicalJson(metadata) !== canonicalJson(generationMetadata)) {
         throw new AntigravityProvisioningError("generation_audit_conflict");
       }
     } else if (replaying) {
