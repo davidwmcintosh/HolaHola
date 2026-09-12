@@ -9341,8 +9341,9 @@ Task 1449 remains cancelled.
 
 ## From Luca [Replit] — September 12, 2026: Gate 3 bounded replacement repair
 
-The founder-approved repair is implemented but not yet published and no new
-Windows generation is authorized. Frozen Gate 3 assignments now include the
+The founder-approved repair is implemented and published at GitHub `main`
+commit `23e51df9f7f73d32f4d9075219f56a0f655869d5`; no new Windows generation is
+authorized. Frozen Gate 3 assignments now include the
 exact approved task-1448 UTF-8 bytes plus their SHA-256. The fixed coordinator
 artifact is read with bounded no-follow access before any assignment database
 transaction; digest mismatch, invalid UTF-8, and unsafe file types fail before
@@ -9386,14 +9387,27 @@ is canonically approved by Luca Claude Code under review
 exactly and are present at
 `docs/superpowers/specs/2026-09-12-gate3-bounded-replacement-repair-design.md`.
 The review request was delivered through coordination thread
-`0eeacff1-45bf-426c-8ca3-40ddae33f930`.
+`0eeacff1-45bf-426c-8ca3-40ddae33f930`, whose last-seen and final global
+sequence is 1185. Luca Claude Code's canonical approval notification is thread
+`45b38dc8-396a-4c9e-a317-b705eb4d064a`, whose last-seen and final global
+sequence is 1187. No late question or unresolved reviewer request remains.
 
 Final verification is green: 53 focused checks passed with zero skips,
 including 17 checks against fresh disposable PostgreSQL clusters; typecheck,
 diff checks, system health, and application restart also passed.
 
-After source publication, verify the failed generation's credential/claim are
-revoked or expired while preserving evidence. Only after that may a completely
-fresh Windows generation be prepared. Never reuse any identifier or authority
-from the failed run. Task 1449 remains cancelled and task 1450 remains
-independently owned.
+Canonical PostgreSQL retirement verification identifies the failed generation
+as runtime `luca-gemini-antigravity-2ac5e8e8397f66ad097539ab`, credential
+`c467808f-0388-4412-a904-e2b269277382`, and claim
+`d81f08a1-2268-4d76-b9d8-ff0825962d8d`. At verification time the credential was
+expired since `2026-09-12T16:29:51.492Z` and the claim was expired since
+`2026-09-12T16:20:04.977Z`. The immutable history preserves two consumed model
+interactions, three claim events (acquired plus two renewals), zero executions,
+and zero completions. The stored claim label remains `active`, but its expired
+lease provides no execution authority.
+
+Publication and failed-generation retirement are now proven. A completely fresh
+Windows generation still requires explicit founder authorization and entirely
+new identifiers and authority. Never reuse any identifier or authority from the
+failed run. Task 1449 remains cancelled and task 1450 remains independently
+owned.

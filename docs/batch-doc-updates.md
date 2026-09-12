@@ -5949,3 +5949,12 @@ unchanged at
 No Windows generation, bootstrap, credential, packet, claim, or execution was
 created. The failed generation remains permanently retired; tasks 1449 and 1450
 remain untouched.
+
+Source publication is verified at GitHub `main` commit
+`23e51df9f7f73d32f4d9075219f56a0f655869d5`, with the approved spec bytes
+unchanged. Canonical PostgreSQL postconditions prove the most recent failed
+Windows generation's credential and claim leases are both expired. Its
+immutable evidence remains intact: two consumed interactions, acquired plus two
+renewal claim events, zero executions, and zero completions. The database claim
+label remains `active`, but the expired lease has no authority. No fresh
+generation has been prepared or authorized.
