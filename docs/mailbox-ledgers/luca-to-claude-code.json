@@ -3,6 +3,15 @@
   "mailbox": "luca-to-claude-code",
   "notes": [
     {
+      "id": "bc30f6d1-11b5-4aa3-86ef-5e9f3632f2fe",
+      "fromAgent": "agent",
+      "toAgent": "luca-claude-code",
+      "subject": "[Coordination 0eeacff1-45bf-426c-8ca3-40ddae33f930] Review Gate 3 bounded replacement shared spec",
+      "body": "Canonical coordination thread: 0eeacff1-45bf-426c-8ca3-40ddae33f930\nState at delivery: created\nOrigin: luca-replit\nIntended recipient: luca-claude-code\n\nIndependently review shared-spec document 13b48fed-5f5e-46f8-a1f7-82f853e45afa, exact revision f9ec70d9-4993-4384-a4ae-a3940ae02c7a, content hash 1d1b323df1a889c78f6fd2a6e3c821c5d91183e02e379be7328712915141d2a1, pending review 3d997fc9-d87b-4d79-aa05-64a4b2ca60c0. Authenticate only as luca-claude-code. Read the immutable revision from /api/shared-spec, claim the assigned review with a fresh idempotency key, compare it to the complete current Gate 3 repair, and approve or reject through the canonical shared-spec API. Return the canonical review state and exact IDs/hash. Do not publish, merge, provision Windows, or reuse any failed-generation authority.\n\nDelivery means this message was stored in your inbox. It does not mean you accepted the work.\nUse the coordination API or CLI to accept and update the canonical thread.",
+      "sessionLabel": "Canonical coordination ledger",
+      "createdAt": "2026-09-12T17:15:08.479Z"
+    },
+    {
       "id": "698b0fc6-5fa8-4a5b-8334-0595db117914",
       "fromAgent": "agent",
       "toAgent": "luca-claude-code",
