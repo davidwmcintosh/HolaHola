@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,7 +25,12 @@ import {
   coordinationInboxActivation, coordinationRuntimeCredentials, coordinationGate3ProofGrants,
   coordinationRuntimePackets, taskOwnershipChallenges, taskOwnershipReceipts,
 } from '@shared/schema';
-import { digestCanonical } from '../services/coordination-runtime';
+import {
+  CoordinationRuntimeService,
+  digestCanonical,
+  type RuntimePrincipal,
+} from '../services/coordination-runtime';
+import { PostgresCoordinationRuntimeRepository } from '../services/coordination-runtime-postgres-repository';
 import {
   exchangeBootstrapCredential,
   hashCoordinationSecret,
@@ -41,6 +47,8 @@ let completedFixture: {
   result: Awaited<ReturnType<typeof createGate3AssignmentWindow>>;
 } | undefined;
 const profileId = (bundle: { bundleDigest: string }) => `antigravity-${bundle.bundleDigest}`;
+const taskArtifactText = readFileSync(new URL('../templates/task-1448.md', import.meta.url), 'utf8');
+const taskArtifactSha256 = crypto.createHash('sha256').update(taskArtifactText, 'utf8').digest('hex');
 
 after(async () => { if (disposableUrl) await closeDbConnections(); });
 
@@ -51,7 +59,7 @@ function bundle(bootstrapSha256 = 'b'.repeat(64)) {
     ...GATE3,
     credentialCapabilities: [...GATE3.credentialCapabilities],
     runtimeCapabilities: [...GATE3.runtimeCapabilities],
-    artifactSha256: 'a'.repeat(64),
+    artifactSha256: taskArtifactSha256,
     publicKey: der.toString('base64url'),
     keyFingerprint: crypto.createHash('sha256').update(der).digest('hex'),
     bootstrapSha256,
@@ -111,6 +119,19 @@ databaseTest('malformed attempt and bundle reject with zero audit writes', async
       receiptId: 'r', assignmentAttemptId: crypto.randomUUID(),
     }),
     (e: unknown) => e instanceof Gate3AssignmentWindowError && e.code === 'invalid_bundle',
+  );
+  const { bundleDigest: _digest, ...driftedBase } = bundle();
+  const drifted = createPublicProvisioningBundle({
+    ...driftedBase,
+    artifactSha256: 'f'.repeat(64),
+  });
+  await assert.rejects(
+    () => createGate3AssignmentWindow({
+      bundle: drifted,
+      receiptId: 'receipt-not-read',
+      assignmentAttemptId: crypto.randomUUID(),
+    }),
+    (e: unknown) => e instanceof Gate3AssignmentWindowError && e.code === 'artifact_digest_mismatch',
   );
   assert.equal(await auditCount(), before);
 });
@@ -193,24 +214,6 @@ databaseTest('creates exact projection for a fresh generation and preserves the 
   const result = await createGate3AssignmentWindow({
     bundle: b, receiptId: generationReceipt.id, assignmentAttemptId: attempt,
   });
-  const oldPacketId = `gate3-old-generation-packet-${crypto.randomUUID()}`;
-  await getSharedDb().insert(coordinationRuntimePackets).values({
-    id: oldPacketId, profileId: registered.profileId, runtimeRegistrationId: registered.runtimeId,
-    version: 1, assignmentEventId: result.assignmentEventId, assignmentTaskId: GATE3.taskRef,
-    assignmentThreadId: result.threadId, assignmentAuthor: 'luca-replit', expectedSequence: 1,
-    windowId: result.windowId, windowDigest: result.boundaryDigest,
-    orderedInboxItemIds: [result.runtimeInboxItemId], orderedEventIds: [result.assignmentEventId],
-    orderedThreadIds: [result.threadId], inheritedPayload: {}, envelope: {},
-    canonicalPayload: {}, digest: crypto.createHash('sha256').update(oldPacketId).digest('hex'),
-    createdAt: new Date(),
-  });
-  const [oldPacket] = await getSharedDb().select().from(coordinationRuntimePackets)
-    .where(eq(coordinationRuntimePackets.id, oldPacketId));
-  assert.deepEqual(
-    await getSharedDb().select().from(coordinationRuntimePackets)
-      .where(eq(coordinationRuntimePackets.id, oldPacketId)),
-    [oldPacket],
-  );
   const [thread] = await getSharedDb().select().from(coordinationThreads).where(
     sql`${coordinationThreads.id} = ${result.threadId}`,
   );
@@ -237,6 +240,7 @@ databaseTest('creates exact projection for a fresh generation and preserves the 
   assert.deepEqual(event.payload, {
     kind: 'gate3_assignment', receiptId: generationReceipt.id, artifactSha256: b.artifactSha256,
     bundleDigest: b.bundleDigest,
+    taskArtifact: { sha256: taskArtifactSha256, text: taskArtifactText },
     content: { assignment: { author: 'luca-replit', taskId: '1448', expectedSequence: 1 } },
   });
   assert.equal(items.length, 1);
@@ -388,7 +392,7 @@ databaseTest('exact replay performs no second writes and changed receipt binding
       receiptId,
       assignmentAttemptId: attemptId,
     }),
-    'attempt_binding_conflict',
+    'receipt_invalid',
   );
   assert.deepEqual(await authorityCounts(), before);
 });
@@ -601,27 +605,24 @@ databaseTest('packet history blocks new authority but not exact completed replay
   assert.ok(completedFixture);
   const { bundle: b, receiptId, attemptId, result } = completedFixture;
   const db = getSharedDb();
-  await db.insert(coordinationRuntimePackets).values({
-    id: `gate3-test-packet-${crypto.randomUUID()}`,
-    profileId: profileId(b),
+  const principal: RuntimePrincipal = {
+    actor: GATE3.actor,
     runtimeRegistrationId: b.runtimeId,
-    version: 1,
+    credentialId: `packet-history-${crypto.randomUUID()}`,
+    profileId: profileId(b),
+    capabilities: [...GATE3.runtimeCapabilities],
+    credentialExpiresAt: Date.now() + 60_000,
+    runtimeEnabled: true,
+    revoked: false,
+  };
+  const service = new CoordinationRuntimeService(new PostgresCoordinationRuntimeRepository(db));
+  await service.createPacket(principal, result.windowId, {
     assignmentEventId: result.assignmentEventId,
-    assignmentTaskId: GATE3.taskRef,
-    assignmentThreadId: result.threadId,
     assignmentAuthor: 'luca-replit',
+    taskId: GATE3.taskRef,
+    threadId: result.threadId,
     expectedSequence: 1,
-    windowId: result.windowId,
-    windowDigest: result.boundaryDigest,
-    orderedInboxItemIds: [result.runtimeInboxItemId],
-    orderedEventIds: [result.assignmentEventId],
-    orderedThreadIds: [result.threadId],
-    inheritedPayload: {},
-    envelope: {},
-    canonicalPayload: {},
-    digest: 'f'.repeat(64),
-    createdAt: new Date(),
-  });
+  }, `packet-history-${crypto.randomUUID()}`);
   await rejectsCode(
     () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
     'packet_history',

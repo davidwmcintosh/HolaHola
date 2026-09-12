@@ -364,6 +364,8 @@ export async function validateGate3ProofGrantForVerifier(grantId: string) {
 }
 
 type GrantAuthorityOperation<T> = (grant: Awaited<ReturnType<typeof validateGate3ProofGrantForVerifier>>) => Promise<T>;
+export type Gate3AuthorityTransaction = <T>(operation: (tx: any) => Promise<T>) => Promise<T>;
+const sharedDbTransaction: Gate3AuthorityTransaction = (operation) => getSharedDb().transaction(operation);
 
 /**
  * Holds the complete Gate 3 authority chain locked until the protected
@@ -374,8 +376,9 @@ export async function withGate3ProofGrantAuthority<T>(
   grantId: string,
   credential: BrokerCredential | undefined,
   operation: GrantAuthorityOperation<T>,
+  transaction: Gate3AuthorityTransaction = sharedDbTransaction,
 ): Promise<T> {
-  return getSharedDb().transaction(async (tx) => {
+  return transaction(async (tx) => {
     const [grantReference] = await tx.select().from(coordinationGate3ProofGrants)
       .where(eq(coordinationGate3ProofGrants.id, grantId));
     if (!grantReference) fail();

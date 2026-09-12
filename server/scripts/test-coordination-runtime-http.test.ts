@@ -37,7 +37,7 @@ const profile: CodingRuntimeProfile = {
 };
 
 async function httpRequest(server: http.Server, path: string, options: {
-  method?: string; body?: unknown; token?: string; key?: string;
+  method?: string; body?: unknown; token?: string; key?: string; grant?: string;
 } = {}): Promise<{ status: number; body: any; raw: string }> {
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('server did not bind');
@@ -49,6 +49,7 @@ async function httpRequest(server: http.Server, path: string, options: {
         ...(payload ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } : {}),
         ...(options.token ? { 'x-coordination-token': options.token } : {}),
         ...(options.key ? { 'idempotency-key': options.key } : {}),
+        ...(options.grant ? { 'x-coordination-ownership-grant': options.grant } : {}),
       },
     }, (response) => {
       let raw = '';
@@ -219,7 +220,84 @@ test('normalization records provider outcomes and additional candidates without 
     createdAt: 1, supersedesClaimId: null, windowId: 'w', windowDigest: 'd',
     orderedInboxItemIds: [], orderedEventIds: [], orderedThreadIds: [],
     assignment: { assignmentEventId: 'e', assignmentAuthor: 'alden', taskId: 't', threadId: 'th', expectedSequence: 1 },
-    inherited: [{ content: { exact: 'bytes' } }], envelope: { worktreeLabel: 'x', worktreePath: '/x', argv: ['true'], patchDigest: null }, digest: 'd',
+    inherited: [{ taskArtifact: { sha256: 'a'.repeat(64), text: 'exact approved task bytes' }, content: { exact: 'bytes' } }],
+    envelope: { worktreeLabel: 'x', worktreePath: '/x', argv: ['true'], patchDigest: null }, digest: 'd',
   });
   assert.match(request.bytes, /\[INHERITANCE_PACKET\]/);
+  const parsedRequest = JSON.parse(request.bytes);
+  assert.match(parsedRequest.contents[0].parts[0].text, /exact approved task bytes/);
+  const declarations = parsedRequest.tools[0].functionDeclarations;
+  assert.equal(declarations.some((declaration: { name: string }) => declaration.name === 'write_file'), false);
+  const replace = declarations.find((declaration: { name: string }) => declaration.name === 'replace_once');
+  assert.deepEqual(replace.parameters.required, ['oldText', 'newText']);
+  assert.deepEqual(Object.keys(replace.parameters.properties).sort(), ['newText', 'oldText']);
+
+  const longOldText = 'x'.repeat(20_001);
+  const exactArguments = await new CoordinationGeminiAdapter(
+    async () => ({ status: 200, body: JSON.stringify({ candidates: [{
+      finishReason: 'STOP',
+      content: { parts: [{ functionCall: {
+        name: 'replace_once',
+        id: 'long-replace',
+        args: { oldText: longOldText, newText: 'y' },
+      } }] },
+    }] }) }),
+    'test-key',
+    'https://gemini-proxy.example.test',
+  ).turn({
+    id: 'long-p', version: 1, actor: 'luca-gemini', runtimeRegistrationId: 'r', profileId: 'p',
+    createdAt: 1, supersedesClaimId: null, windowId: 'w', windowDigest: 'd',
+    orderedInboxItemIds: [], orderedEventIds: [], orderedThreadIds: [],
+    assignment: { assignmentEventId: 'e', assignmentAuthor: 'alden', taskId: 't', threadId: 'th', expectedSequence: 1 },
+    inherited: [], envelope: { worktreeLabel: 'x', worktreePath: '/x', argv: ['true'], patchDigest: null }, digest: 'd',
+  }, 1);
+  assert.equal(exactArguments[0].outcome, 'consumed');
+  assert.equal(exactArguments[0].intents[0].arguments.oldText, longOldText);
+});
+
+test('initial malformed replacement is persisted as a non-authorizing receipt', async () => {
+  const f = await fixture({
+    candidates: [{
+      content: {
+        parts: [{
+          functionCall: {
+            name: 'replace_once',
+            id: 'malformed-initial-call',
+            args: { oldText: 'before', newText: 'after', path: 'forbidden.ts' },
+          },
+        }],
+      },
+    }],
+  });
+  try {
+    const created = await httpRequest(f.server, '/api/coordination/runtime/packets', {
+      method: 'POST',
+      token: 'broker-token',
+      key: 'malformed-initial-packet',
+      body: { windowId: f.window.id, assignmentEventId: 'http-event-1' },
+    });
+    assert.equal(created.status, 200);
+    const packet = created.body as { id: string };
+
+    const response = await httpRequest(
+      f.server,
+      `/api/coordination/runtime/packets/${packet.id}/initial-turn`,
+      { method: 'POST', token: 'broker-token', key: 'malformed-initial-turn' },
+    );
+    assert.equal(response.status, 200);
+    const body = response.body as {
+      receiptId?: string;
+      interactions: Array<{ outcome: string; intents: unknown[] }>;
+    };
+    assert.equal(typeof body.receiptId, 'string');
+    assert.equal(body.interactions[0]?.outcome, 'malformed_function_call');
+    assert.deepEqual(body.interactions[0]?.intents, []);
+
+    const stored = await f.repository.interactionsForPacket(packet.id);
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0]?.outcome, 'malformed_function_call');
+    assert.equal(await f.repository.activeClaimForThread('http-thread'), undefined);
+  } finally {
+    await new Promise<void>((resolve) => f.server.close(() => resolve()));
+  }
 });

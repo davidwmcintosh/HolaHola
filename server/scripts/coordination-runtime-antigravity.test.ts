@@ -25,7 +25,7 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
   const secret = 'cb_test_secret_that_must_not_escape';
   const calls: Array<{ path: string; headers: Record<string, string>; body?: unknown }> = [];
   const ordering: string[] = [];
-  const fs = fakeFs();
+  const fs = fakeFs('before');
   let reveal = 0;
   let statusCount = 0;
   const http = async (request: { method: string; path: string; headers: Record<string, string>; body?: unknown }) => {
@@ -48,7 +48,9 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
     if (request.path.endsWith('/renew')) return { status: 200, body: { id: 'claim-1', epoch: 2 } };
     if (request.path.endsWith('/intents')) {
       reveal++;
-      return reveal === 1 ? { status: 200, body: { intents: [{ name: 'write_file', callId: 'call-1', arguments: { content: 'ok' } }] } }
+      return reveal === 1 ? { status: 200, body: { intents: [{
+        name: 'replace_once', callId: 'call-1', arguments: { oldText: 'before', newText: 'ok' },
+      }] } }
         : { status: 200, body: { intents: [] } };
     }
     if (request.path.endsWith('/continuation')) return { status: 200, body: [{ interactionId: 'interaction-2' }] };
@@ -119,16 +121,55 @@ test('portable driver uses the broker lifecycle and never leaks bootstrap', asyn
     : call.headers['x-coordination-token'] === 'ct_short'));
 });
 
-test('executor uses only fixed host adapters and rejects commands, paths, and oversized writes', async () => {
+test('executor uses only fixed host adapters and applies one bounded exact replacement', async () => {
   assert.throws(() => validateArgv(['sh', '-c', 'echo unsafe']), /command_not_allowed/);
-  const fs = fakeFs();
+  const fs = fakeFs('before target');
   const spawned: string[][] = [];
   const executor = new Gate3Executor('/approved', fs, async (argv, options) => {
     spawned.push(argv); assert.equal(options.cwd, '/approved'); return { code: 0, stdout: '', stderr: '' };
   }, { PATH: 'safe' });
   await assert.rejects(() => executor.execute({ name: 'unknown', arguments: {} }), /command_not_allowed/);
-  await assert.rejects(() => executor.execute({ name: 'write_file', arguments: { content: 'x'.repeat(40961) } }), /output_limit_exceeded/);
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'x'.repeat(40960), newText: 'y' },
+  }), /output_limit_exceeded/);
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'before', newText: 'after', path: 'other.txt' },
+  }), /argument_not_allowed/);
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: '', newText: 'after' },
+  }), /argument_not_allowed/);
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'same', newText: 'same' },
+  }), /argument_not_allowed/);
   await assert.rejects(() => executor.execute({ name: 'git_diff', arguments: { path: 'other.txt' } }), /argument_not_allowed/);
+  const replaced = await executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'before', newText: 'after' },
+  });
+  assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'after target');
+  assert.equal(replaced.output, 'replaced');
+  assert.deepEqual(replaced.argv, ['replace_once', TARGET]);
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'missing', newText: 'value' },
+  }), /replace_text_not_found/);
+  assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'after target');
+  fs.files.set(`/approved/${TARGET}`, Buffer.from('same same'));
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'same', newText: 'changed' },
+  }), /replace_text_not_unique/);
+  assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'same same');
+  fs.files.set(`/approved/${TARGET}`, Buffer.from('aaa'));
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'aa', newText: 'changed' },
+  }), /replace_text_not_unique/);
+  assert.equal(fs.files.get(`/approved/${TARGET}`)?.toString('utf8'), 'aaa');
   assert.equal(spawned.length, 0);
   const windowsSpawned: string[][] = [];
   const windowsExecutor = new Gate3Executor('/approved', fs, async (argv) => {
@@ -276,10 +317,14 @@ test('symlink/reparse targets and malformed intents fail before mutation', async
   const fs = fakeFs();
   fs.lstat = async () => ({ isSymbolicLink: () => true, isFile: () => true, isDirectory: () => true });
   let wrote = false;
+  fs.writeFile = async () => { wrote = true; };
   const executor = new Gate3Executor('/approved', fs, async () => {
     throw new Error('spawn must not run');
   });
-  await assert.rejects(() => executor.execute({ name: 'write_file', arguments: { content: 'unsafe' } }), /symlink_not_allowed/);
+  await assert.rejects(() => executor.execute({
+    name: 'replace_once',
+    arguments: { oldText: 'safe', newText: 'unsafe' },
+  }), /symlink_not_allowed/);
   assert.equal(wrote, false);
   await assert.rejects(() => executor.execute({ name: 'read_file', arguments: { content: '' } }), /argument_not_allowed/);
 });

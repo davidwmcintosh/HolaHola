@@ -90,7 +90,9 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
     providerAttempt++;
     if (providerAttempt === 1) return { status: 503, body: '{}' };
     if (providerAttempt === 2) return { status: 200, body: JSON.stringify({ candidates: [{ finishReason: 'STOP',
-      content: { parts: [{ functionCall: { name: 'write_file', id: 'write-1', args: { content: 'test' } } }] } }] }) };
+      content: { parts: [{ functionCall: {
+        name: 'replace_once', id: 'replace-1', args: { oldText: 'before', newText: 'test' },
+      } }] } }] }) };
     if (providerAttempt === 3) return { status: 200, body: JSON.stringify({ candidates: [{ finishReason: 'STOP',
       content: { parts: [{ functionCall: { name: 'run_test', id: 'test-1', args: {} } }] } }] }) };
     return { status: 200, body: JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'done' }] } }] }) };
@@ -155,7 +157,10 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
     });
     assert.equal(malformedProfileMissingGrant.status, 403);
     let statusCount = 0;
-    const files = new Map<string, Buffer>([['/approved/.local/tasks/task-1448.md', Buffer.from(artifactContent)]]);
+    const files = new Map<string, Buffer>([
+      ['/approved/.local/tasks/task-1448.md', Buffer.from(artifactContent)],
+      [`/approved/${TARGET}`, Buffer.from('before')],
+    ]);
     const fs = {
       realpath: async (value: string) => value,
       lstat: async () => ({ isSymbolicLink: () => false, isFile: () => true, isDirectory: () => true }),

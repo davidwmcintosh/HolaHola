@@ -285,7 +285,15 @@ export function registerCoordinationRuntimeRoutes(
       input.validateGrant
         ? async <T>(grantId: string, credential: BrokerCredential | undefined, operation: (grant: Gate3Grant) => Promise<T>) =>
           operation(await input.validateGrant!(grantId, credential))
-        : withGate3ProofGrantAuthority
+        : async <T>(grantId: string, credential: BrokerCredential | undefined, operation: (grant: Gate3Grant) => Promise<T>) =>
+          withGate3ProofGrantAuthority(
+            grantId,
+            credential,
+            operation,
+            repository instanceof PostgresCoordinationRuntimeRepository
+              ? (transactionOperation) => repository.withTransactionExecutor(transactionOperation)
+              : undefined,
+          )
     ),
     withVerifierAuthority: input.withVerifierAuthority ?? (
       input.validateVerifierGrant
@@ -440,17 +448,30 @@ export function registerCoordinationRuntimeRoutes(
       };
       return normalized;
     });
-    return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () => {
+    const continuation = await withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, packet, async () => {
       const storedResults = await service.appendToolResultBatch(principal, claim.id, claim.epoch, results[0]?.interactionId ?? '', results, `${key(req)}:results`);
       if (storedResults.some((result) => result.outcome === 'rejected')) {
         throw new RuntimeProtocolError('execution_violated', 'Rejected local tool result violated the claim');
       }
-      const attempts = await coordinator.continuationTurn(principal, claim.id, claim.packetId, numberField(body.turn, 'turn'), [], key(req));
+      let attempts;
+      try {
+        attempts = await coordinator.continuationTurn(principal, claim.id, claim.packetId, numberField(body.turn, 'turn'), [], key(req));
+      } catch (error) {
+        if (
+          error instanceof RuntimeProtocolError &&
+          (error.code === 'malformed_function_call' || error.code === 'model_call_limit_exceeded')
+        ) {
+          return { ok: false as const, error };
+        }
+        throw error;
+      }
       const persisted = (await repository.interactionsForPacket(claim.packetId))
         .filter((item: { turn: number }) => item.turn === numberField(body.turn, 'turn'))
         .sort((left: { attempt: number }, right: { attempt: number }) => left.attempt - right.attempt);
-      return attempts.map((attempt, index) => ({ ...attempt, interactionId: persisted[index]?.id }));
+      return { ok: true as const, value: attempts.map((attempt, index) => ({ ...attempt, interactionId: persisted[index]?.id })) };
     });
+    if (!continuation.ok) throw continuation.error;
+    return continuation.value;
   }));
 
   app.post('/api/coordination/runtime/claims/:claimId/execute', route(async (req) => {

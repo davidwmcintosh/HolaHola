@@ -49,8 +49,12 @@ export class PostgresCoordinationRuntimeRepository implements CoordinationRuntim
   constructor(private readonly db: Executor) {}
 
   async transaction<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.transactionContext.getStore()) return operation();
-    return this.db.transaction((tx: Executor) => this.transactionContext.run(tx, operation));
+    return this.withTransactionExecutor(() => operation());
+  }
+  async withTransactionExecutor<T>(operation: (tx: Executor) => Promise<T>): Promise<T> {
+    const current = this.transactionContext.getStore();
+    if (current) return operation(current);
+    return this.db.transaction((tx: Executor) => this.transactionContext.run(tx, () => operation(tx)));
   }
   async withAttemptLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
     return this.transaction(async () => {

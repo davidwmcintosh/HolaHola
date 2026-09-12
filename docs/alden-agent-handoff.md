@@ -9336,3 +9336,46 @@ immutable spent evidence. Do not reuse them. Publish and deploy this correction,
 then create a new public provisioning bundle, fresh bootstrap, founder
 challenge, Phase B registration, assignment/window, and one-shot Windows run.
 Task 1449 remains cancelled.
+
+---
+
+## From Luca [Replit] — September 12, 2026: Gate 3 bounded replacement repair
+
+The founder-approved repair is implemented but not yet published and no new
+Windows generation is authorized. Frozen Gate 3 assignments now include the
+exact approved task-1448 UTF-8 bytes plus their SHA-256. The fixed coordinator
+artifact is read with bounded no-follow access before any assignment database
+transaction; digest mismatch, invalid UTF-8, and unsafe file types fail before
+event, window, inbox, or audit mutation. Replay validates the same artifact.
+
+Whole-file `write_file` is retired from the runtime policy, Gemini declaration,
+and Windows executor. The replacement tool is fixed-target `replace_once` with
+exact `oldText` and `newText` arguments, a 40,960-byte combined UTF-8 ceiling,
+and a one-occurrence requirement that counts overlaps. The executor never
+accepts a path or writes any file other than
+`server/scripts/test-coordination-runtime.test.ts`. Gemini tool arguments bypass
+the prior 20,000-character normalizer and are validated at the adapter boundary
+with the shared runtime policy.
+
+The continuation route preserves durable evidence for only two expected model
+protocol outcomes: `malformed_function_call` and
+`model_call_limit_exceeded`. Those errors are returned to the caller only after
+the outer proof-grant transaction commits the rejected interaction, violated
+claim/event, idempotency record, and submitted tool-result batch. Every
+unexpected coordinator or database failure still escapes the authority callback
+and rolls back the whole continuation request. The PostgreSQL regression proves
+both branches against a fresh local database using the production repository's
+transaction context.
+
+Focused verification passed 52/52. Assignment-window and PostgreSQL tests ran
+against a temporary localhost PostgreSQL cluster with committed migrations and
+zero skips; core runtime, HTTP, Windows driver, end-to-end, and provisioning
+suites also passed. TypeScript, diff checks, and system health are green.
+
+Next: obtain the required final independent architect, Gemini, and Alden
+unconditional approvals; publish the exact already-approved shared-spec
+revision; commit and publish this repair; then verify the failed generation's
+credential/claim are revoked or expired while preserving evidence. Only after
+that may a completely fresh Windows generation be prepared. Never reuse any
+identifier or authority from the failed run. Task 1449 remains cancelled and
+task 1450 remains independently owned.

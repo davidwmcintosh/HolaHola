@@ -1,5 +1,7 @@
+import { constants } from "node:fs";
 import { open } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { resolve } from "node:path";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import {
@@ -20,6 +22,8 @@ import {
 } from "./antigravity-provisioning-bundle";
 
 const MAX_BUNDLE_BYTES = 1024 * 1024;
+const MAX_TASK_ARTIFACT_BYTES = 64 * 1024;
+const GATE3_TASK_ARTIFACT_PATH = resolve(process.cwd(), "server/templates/task-1448.md");
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MARGIN_MS = 10 * 60_000 + 30_000;
 
@@ -53,6 +57,38 @@ export function validateGate3AssignmentBundle(value: unknown): PublicProvisionin
   const bundle = value as PublicProvisioningBundle;
   if (!bundle.bundleDigest) fail("invalid_bundle");
   return bundle;
+}
+
+async function readApprovedTaskArtifact(): Promise<{ sha256: string; text: string }> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    handle = await open(
+      GATE3_TASK_ARTIFACT_PATH,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_TASK_ARTIFACT_BYTES) {
+      fail("artifact_invalid");
+    }
+    const bytes = Buffer.alloc(stat.size);
+    const read = await handle.read(bytes, 0, bytes.length, 0);
+    if (read.bytesRead !== stat.size) fail("artifact_read_failed");
+    let text: string;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      fail("artifact_invalid");
+    }
+    return {
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      text: text!,
+    };
+  } catch (error) {
+    if (error instanceof Gate3AssignmentWindowError) throw error;
+    throw new Gate3AssignmentWindowError("artifact_read_failed");
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 function profileMatches(row: any, b: PublicProvisioningBundle) {
@@ -90,6 +126,8 @@ export async function createGate3AssignmentWindow(input: {
   const bundle = validateGate3AssignmentBundle(input.bundle);
   if (!UUID.test(input.assignmentAttemptId) || input.assignmentAttemptId !== input.assignmentAttemptId.toLowerCase()) fail("attempt_id_invalid");
   if (!input.receiptId || input.receiptId.length > 255) fail("receipt_invalid");
+  const taskArtifact = await readApprovedTaskArtifact();
+  if (taskArtifact.sha256 !== bundle.artifactSha256) fail("artifact_digest_mismatch");
   const attempt = input.assignmentAttemptId;
   const key = `gate3-assignment:${bundle.bundleDigest}:${attempt}`;
   return getSharedDb().transaction(async (tx) => {
@@ -151,6 +189,7 @@ export async function createGate3AssignmentWindow(input: {
         || !same(event.payload, {
           kind: "gate3_assignment", receiptId: input.receiptId,
           artifactSha256: bundle.artifactSha256, bundleDigest: bundle.bundleDigest,
+          taskArtifact,
           content: { assignment: { author: "luca-replit", taskId: "1448", expectedSequence: 1 } },
         })) fail("attempt_corrupt");
       const receipts = await tx.select().from(taskOwnershipReceipts).where(eq(taskOwnershipReceipts.id, input.receiptId));
@@ -234,6 +273,7 @@ export async function createGate3AssignmentWindow(input: {
     const payload = {
       kind: "gate3_assignment", receiptId: input.receiptId, artifactSha256: bundle.artifactSha256,
       bundleDigest: bundle.bundleDigest,
+      taskArtifact,
       content: { assignment: { author: "luca-replit", taskId: "1448", expectedSequence: 1 } },
     };
     const mutation = await createCoordinationThread({
@@ -262,6 +302,8 @@ export async function createGate3AssignmentWindow(input: {
       || canonicalPayload.receiptId !== input.receiptId
       || canonicalPayload.artifactSha256 !== bundle.artifactSha256
       || canonicalPayload.bundleDigest !== bundle.bundleDigest
+      || canonicalPayload.taskArtifact?.sha256 !== bundle.artifactSha256
+      || canonicalPayload.taskArtifact?.text !== taskArtifact.text
       || canonicalAssignment?.author !== "luca-replit"
       || canonicalAssignment?.taskId !== GATE3.taskRef
       || canonicalAssignment?.expectedSequence !== mutation.event.sequence

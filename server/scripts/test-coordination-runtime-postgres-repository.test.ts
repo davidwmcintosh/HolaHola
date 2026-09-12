@@ -185,3 +185,212 @@ test("PostgreSQL parity: complete persisted lifecycle and replay", async (contex
     await pool.end();
   }
 });
+
+test("PostgreSQL authority transaction commits expected rejection and rolls back unexpected continuation failure", async (context) => {
+  const url = disposableTarget();
+  if (!url) {
+    context.skip("set COORDINATION_RUNTIME_TEST_DATABASE_URL and COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE=1");
+    return;
+  }
+  const suffix = `authority-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const pool = new Pool({ connectionString: url });
+  const db = drizzle(pool, { schema });
+  const repo = new PostgresCoordinationRuntimeRepository(db);
+  const principal: RuntimePrincipal = {
+    actor: "luca-gemini",
+    runtimeRegistrationId: `${suffix}-runtime`,
+    credentialId: `${suffix}-credential`,
+    profileId: `${suffix}-profile`,
+    capabilities: ["execute", "model"],
+    credentialExpiresAt: 10_000,
+    runtimeEnabled: true,
+    revoked: false,
+  };
+  let generated = 0;
+  const service = new CoordinationRuntimeService(
+    repo,
+    () => 100,
+    () => `${suffix}-${++generated}`,
+    envelope,
+    1_000,
+  );
+  try {
+    await db.insert(schema.coordinationRuntimeRegistrations).values({
+      id: principal.runtimeRegistrationId,
+      actor: principal.actor,
+      displayName: suffix,
+      bootstrapHash: digestCanonical(suffix),
+      capabilities: principal.capabilities,
+    });
+    await db.insert(schema.coordinationRuntimeCredentials).values({
+      id: principal.credentialId,
+      runtimeId: principal.runtimeRegistrationId,
+      actor: principal.actor,
+      tokenHash: digestCanonical(`${suffix}-token`),
+      capabilities: principal.capabilities,
+      expiresAt: new Date("2099-01-01"),
+    });
+    await repo.provisionProfile({
+      id: principal.profileId,
+      runtimeRegistrationId: principal.runtimeRegistrationId,
+      actor: principal.actor,
+      capabilities: [...principal.capabilities],
+      provider: "google",
+      model: "gemini-test",
+      adapterVersion: "postgres-authority-v1",
+      repositoryLabel: "HolaHola",
+      worktreeLabel: "postgres-authority",
+      worktreeRealpathDigest: digestCanonical("/tmp/coordination-authority"),
+      branch: "test/postgres-authority",
+      startingCommit: "0".repeat(40),
+    });
+    const prepare = async (label: string) => {
+      const threadId = `${suffix}-${label}-thread`;
+      const assignmentEventId = `${suffix}-${label}-assignment`;
+      await db.insert(schema.coordinationThreads).values({
+        id: threadId,
+        title: `${suffix}-${label}`,
+        description: "Authority transaction fixture",
+        originActor: "alden",
+        intendedRecipient: "luca-gemini",
+      });
+      await repo.addInboxItem({
+        id: `${suffix}-${label}-item`,
+        eventId: assignmentEventId,
+        threadId,
+        taskId: `${suffix}-${label}-task`,
+        sequence: 1,
+        payload: { content: { assignment: "bounded" } },
+      });
+      const window = await repo.freezeInboxWindow(threadId, 0, 1, `${suffix}-${label}-boundary`);
+      const packet = await service.createPacket(principal, window.id, {
+        assignmentEventId,
+        assignmentAuthor: "alden",
+        taskId: `${suffix}-${label}-task`,
+        threadId,
+        expectedSequence: 1,
+      }, `${suffix}-${label}-packet`);
+      const intent = {
+        name: "git_status",
+        arguments: {},
+        callId: `${suffix}-${label}-call`,
+        candidateIndex: 0 as const,
+        executionEligible: true as const,
+      };
+      const validatedIntent = validateToolIntent(intent);
+      const interaction = await service.recordInteraction(principal, {
+        packetId: packet.id,
+        turn: 1,
+        attempt: 1,
+        requestDigest: digestCanonical(`${label}-request`),
+        responseDigest: digestCanonical(`${label}-response`),
+        outcome: "consumed",
+        normalizedEvidence: {
+          textParts: [],
+          intents: [intent],
+          validatedIntents: [validatedIntent],
+          additionalCandidateHashes: [],
+          providerDetails: {},
+          normalizedResponseDigest: digestCanonical(`${label}-response`),
+        },
+        idempotencyKey: `${suffix}-${label}-interaction`,
+      });
+      const receipt = await service.recordOutcomeReceipt(
+        principal,
+        packet.id,
+        packet.digest,
+        interaction.id,
+        `${suffix}-${label}-receipt`,
+      );
+      const claim = await service.claim(
+        principal,
+        packet.id,
+        packet.digest,
+        receipt.id,
+        100,
+        `${suffix}-${label}-claim`,
+      );
+      return { packet, intent, validatedIntent, interaction, claim };
+    };
+
+    const expected = await prepare("expected");
+    const rejection = await repo.transaction(async () => {
+      await service.appendToolResultBatch(
+        principal,
+        expected.claim.id,
+        expected.claim.epoch,
+        expected.interaction.id,
+        [{
+          interactionId: expected.interaction.id,
+          callId: expected.intent.callId,
+          toolName: expected.intent.name,
+          validatedIntentDigest: expected.validatedIntent.digest,
+          outcome: "succeeded",
+          payload: { ok: true, output: "clean" },
+        }],
+        `${suffix}-expected-results`,
+      );
+      try {
+        await service.recordInteraction(principal, {
+          packetId: expected.packet.id,
+          turn: 2,
+          attempt: 1,
+          requestDigest: digestCanonical("expected-rejected-request"),
+          responseDigest: digestCanonical("expected-rejected-response"),
+          outcome: "consumed",
+          normalizedEvidence: {
+            textParts: [],
+            intents: [{
+              name: "replace_once",
+              arguments: { oldText: "one", newText: "two", path: "forbidden.ts" },
+              callId: `${suffix}-rejected-call`,
+              candidateIndex: 0,
+              executionEligible: true,
+            }],
+            additionalCandidateHashes: [],
+            providerDetails: {},
+            normalizedResponseDigest: digestCanonical("expected-rejected-response"),
+          },
+          idempotencyKey: `${suffix}-rejected-interaction`,
+        });
+        throw new Error("expected malformed function call");
+      } catch (error) {
+        if (error instanceof RuntimeProtocolError && error.code === "malformed_function_call") {
+          return error;
+        }
+        throw error;
+      }
+    });
+    assert.equal(rejection.code, "malformed_function_call");
+    assert.equal((await repo.getClaim(expected.claim.id))?.status, "violated");
+    assert(await repo.idempotency("tool_result_batch", `${suffix}-expected-results`));
+    assert(await repo.idempotency("interaction", `${suffix}-rejected-interaction`));
+
+    const unexpected = await prepare("unexpected");
+    await assert.rejects(
+      repo.transaction(async () => {
+        await service.appendToolResultBatch(
+          principal,
+          unexpected.claim.id,
+          unexpected.claim.epoch,
+          unexpected.interaction.id,
+          [{
+            interactionId: unexpected.interaction.id,
+            callId: unexpected.intent.callId,
+            toolName: unexpected.intent.name,
+            validatedIntentDigest: unexpected.validatedIntent.digest,
+            outcome: "succeeded",
+            payload: { ok: true, output: "clean" },
+          }],
+          `${suffix}-unexpected-results`,
+        );
+        throw new Error("unexpected coordinator failure");
+      }),
+      /unexpected coordinator failure/,
+    );
+    assert.equal(await repo.idempotency("tool_result_batch", `${suffix}-unexpected-results`), undefined);
+    assert.equal((await repo.getClaim(unexpected.claim.id))?.status, "active");
+  } finally {
+    await pool.end();
+  }
+});

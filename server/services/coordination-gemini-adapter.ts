@@ -3,6 +3,8 @@ import {
   canonicalJson,
   digestCanonical,
   CoordinationRuntimeService,
+  RuntimeProtocolError,
+  validateToolIntent,
   type CoordinationRuntimeRepository,
   type InheritancePacket,
   type NormalizedOutcome,
@@ -54,8 +56,15 @@ export function buildPacketBoundGeminiRequest(packet: InheritancePacket, priorTo
     ] }],
   tools: [{ functionDeclarations: [...knownTools].sort().map((name) => ({
       name, description: `Bounded coordinator tool: ${name}`,
-      parameters: name === 'write_file'
-        ? { type: 'OBJECT', properties: { content: { type: 'STRING' } }, required: ['content'] }
+      parameters: name === 'replace_once'
+        ? {
+          type: 'OBJECT',
+          properties: {
+            oldText: { type: 'STRING' },
+            newText: { type: 'STRING' },
+          },
+          required: ['oldText', 'newText'],
+        }
         : { type: 'OBJECT', properties: {} },
     })) }],
   };
@@ -64,7 +73,7 @@ export function buildPacketBoundGeminiRequest(packet: InheritancePacket, priorTo
 }
 
 const retryable = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
-const knownTools = new Set(['git_status', 'git_diff', 'run_test', 'read_file', 'write_file']);
+const knownTools = new Set(['git_status', 'git_diff', 'run_test', 'read_file', 'replace_once']);
 
 function sha(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
@@ -117,13 +126,24 @@ function normalized(value: unknown, callSeed = ''): {
     if (typeof part.text === 'string' && part.text.length) { usable = true; textParts.push(part.text); }
     if (part.functionCall !== undefined) {
       const call = part.functionCall;
-      if (!call || typeof call.name !== 'string' || !knownTools.has(call.name) ||
+      if (!call || typeof call.name !== 'string' ||
         !call.name.length || !call.args || typeof call.args !== 'object' ||
         (call.id !== undefined && typeof call.id !== 'string')) {
         return { outcome: 'malformed_function_call', intents: [], textParts: [], additionalCandidateHashes, providerDetails: {} };
       }
-      const args = sanitize(call.args) as Record<string, unknown>;
+      const args = { ...call.args } as Record<string, unknown>;
       const callId = call.id ?? sha(`${callSeed}:${partIndex}:${call.name}:${digestCanonical(args)}`);
+      try {
+        validateToolIntent({ name: call.name, arguments: args, callId });
+      } catch {
+        return {
+          outcome: 'malformed_function_call',
+          intents: [{ name: call.name, arguments: args, callId, candidateIndex: 0, executionEligible: true }],
+          textParts: [],
+          additionalCandidateHashes,
+          providerDetails: {},
+        };
+      }
       if (calls.some((item) => item.callId === callId)) {
         return { outcome: 'malformed_function_call', intents: [], textParts: [], additionalCandidateHashes, providerDetails: {} };
       }
@@ -182,7 +202,9 @@ export class CoordinationGeminiAdapter {
   }
 
   async turn(packet: InheritancePacket, turn: number, priorToolResults: unknown[] = [], signal?: AbortSignal): Promise<GeminiTurnResult[]> {
-    if (!Number.isInteger(turn) || turn < 1 || turn > 4) throw new Error('model_call_limit_exceeded');
+    if (!Number.isInteger(turn) || turn < 1 || turn > 4) {
+      throw new RuntimeProtocolError('model_call_limit_exceeded', 'Model turn is outside the approved limit');
+    }
     const request = buildPacketBoundGeminiRequest(packet, priorToolResults);
     const requestBytes = request.bytes;
     const requestDigest = request.digest;
@@ -314,18 +336,15 @@ export class CoordinationGeminiCoordinator {
     const attempts = await this.adapter.turn(packet, 1);
     const policyAttempts = attempts.map((attempt) => {
       const validated = attempt.intents.map((intent) => {
-        const args = Object.keys(intent.arguments);
-        const valid = (intent.name === 'git_status' || intent.name === 'git_diff' ||
-          intent.name === 'run_test' || intent.name === 'read_file') && args.length === 0 ||
-          intent.name === 'write_file' && args.length === 1 && typeof intent.arguments.content === 'string' &&
-          Buffer.byteLength(intent.arguments.content, 'utf8') <= 40960;
-        if (!valid) return null;
-        return { name: intent.name, operation: intent.name === 'git_diff' || intent.name === 'read_file'
-          ? 'fixed-target' : intent.name === 'run_test' ? 'fixed-test' : intent.name, digest: digestCanonical(intent) };
+        try {
+          return validateToolIntent(intent);
+        } catch {
+          return null;
+        }
       }).filter((item): item is { name: string; operation: string; digest: string } => item !== null);
       return validated.length === attempt.intents.length
         ? { attempt, validated }
-        : { attempt: { ...attempt, outcome: 'malformed_function_call' as const, intents: [] }, validated: [] };
+        : { attempt: { ...attempt, outcome: 'malformed_function_call' as const }, validated: [] };
     });
     let receiptId: string | undefined;
     const interactionIds: string[] = [];
@@ -418,6 +437,31 @@ export class CoordinationGeminiCoordinator {
       claim.runtimeRegistrationId !== principal.runtimeRegistrationId || claim.profileId !== principal.profileId ||
       !packet || packet.id !== claim.packetId) {
       throw new Error('claim_not_owned');
+    }
+    if (!Number.isInteger(turn) || turn < 1 || turn > 4) {
+      const rejectionDigest = digestCanonical({
+        kind: 'model_call_limit_rejection',
+        packetId,
+        claimId,
+        turn,
+      });
+      await this.runtime.recordInteraction(principal, {
+        packetId,
+        turn,
+        attempt: 1,
+        requestDigest: rejectionDigest,
+        responseDigest: rejectionDigest,
+        outcome: 'malformed_function_call',
+        normalizedEvidence: {
+          textParts: [],
+          intents: [],
+          validatedIntents: [],
+          additionalCandidateHashes: [],
+          providerDetails: { rejected: true, reason: 'model_call_limit_exceeded' },
+          normalizedResponseDigest: rejectionDigest,
+        },
+        idempotencyKey: `${idempotencyPrefix}:interaction:1`,
+      });
     }
     const storedResults = (await this.repository.toolResultsForClaim(claimId, claim.epoch))
       .filter((result) => result.interactionId === prior.id);

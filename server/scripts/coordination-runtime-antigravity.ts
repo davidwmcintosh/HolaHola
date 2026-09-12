@@ -167,14 +167,47 @@ export class Gate3Executor {
   async measure(argv: string[]) { return this.command(argv); }
   async execute(intent: { name: string; arguments: Record<string, unknown> }): Promise<Record<string, unknown>> {
     const path = targetPath(await this.fs.realpath(this.root));
-    if (!['git_status', 'git_diff', 'run_test', 'read_file', 'write_file'].includes(intent.name)) throw new Error('command_not_allowed');
-    if (intent.name === 'write_file') {
-      if (Object.keys(intent.arguments).length !== 1 || typeof intent.arguments.content !== 'string' ||
-          Buffer.byteLength(intent.arguments.content, 'utf8') > LIMITS.bytes) throw new Error('output_limit_exceeded');
+    if (!['git_status', 'git_diff', 'run_test', 'read_file', 'replace_once'].includes(intent.name)) throw new Error('command_not_allowed');
+    if (intent.name === 'replace_once') {
+      const keys = Object.keys(intent.arguments).sort();
+      const oldText = intent.arguments.oldText;
+      const newText = intent.arguments.newText;
+      if (keys.join(',') !== 'newText,oldText' || typeof oldText !== 'string' || typeof newText !== 'string' ||
+          !oldText || oldText === newText) {
+        throw new Error('argument_not_allowed');
+      }
+      if (Buffer.byteLength(oldText, 'utf8') + Buffer.byteLength(newText, 'utf8') > LIMITS.bytes) {
+        throw new Error('output_limit_exceeded');
+      }
       await assertSafePath(this.fs, await this.fs.realpath(this.root), path);
-      await this.fs.writeFile(path, intent.arguments.content);
-      return { ok: true, output: 'written', bytes: Buffer.byteLength(intent.arguments.content, 'utf8'),
-        argv: ['write_file', TARGET], truncated: false };
+      const sourceBytes = await this.fs.readFile(path);
+      let source: string;
+      try {
+        source = new TextDecoder('utf-8', { fatal: true }).decode(sourceBytes);
+      } catch {
+        throw new Error('source_not_utf8');
+      }
+      let matches = 0;
+      let matchAt = -1;
+      for (let cursor = 0; cursor <= source.length - oldText.length;) {
+        const found = source.indexOf(oldText, cursor);
+        if (found < 0) break;
+        matches += 1;
+        matchAt = found;
+        if (matches > 1) break;
+        cursor = found + 1;
+      }
+      if (matches !== 1) throw new Error(matches === 0 ? 'replace_text_not_found' : 'replace_text_not_unique');
+      const updated = source.slice(0, matchAt) + newText + source.slice(matchAt + oldText.length);
+      await this.fs.writeFile(path, updated);
+      return {
+        ok: true,
+        output: 'replaced',
+        bytes: Buffer.byteLength(updated, 'utf8'),
+        stdoutDigest: digest(updated),
+        argv: ['replace_once', TARGET],
+        truncated: false,
+      };
     }
     if (Object.keys(intent.arguments).length !== 0) throw new Error('argument_not_allowed');
     if (intent.name === 'read_file') {

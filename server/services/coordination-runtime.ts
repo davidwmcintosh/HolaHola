@@ -158,18 +158,23 @@ export function digestCanonical(value: unknown): string {
 
 /** The single policy boundary used before an interaction can expose a call. */
 export function validateToolIntent(intent: { name: string; arguments: Record<string, unknown>; callId: string }): { name: string; operation: string; digest: string } {
-  const keys = Object.keys(intent.arguments);
+  const keys = Object.keys(intent.arguments).sort();
   const fixed = intent.name === 'git_status' || intent.name === 'git_diff' ||
     intent.name === 'run_test' || intent.name === 'read_file';
   const valid = (fixed && keys.length === 0) ||
-    (intent.name === 'write_file' && keys.length === 1 &&
-      typeof intent.arguments.content === 'string' &&
-      Buffer.byteLength(intent.arguments.content, 'utf8') <= 40960);
+    (intent.name === 'replace_once' && keys.join(',') === 'newText,oldText' &&
+      typeof intent.arguments.oldText === 'string' &&
+      typeof intent.arguments.newText === 'string' &&
+      intent.arguments.oldText.length > 0 &&
+      intent.arguments.oldText !== intent.arguments.newText &&
+      Buffer.byteLength(intent.arguments.oldText, 'utf8') +
+        Buffer.byteLength(intent.arguments.newText, 'utf8') <= 40960);
   if (!valid || !intent.callId) fail('malformed_function_call', 'Tool intent violates execution policy');
   return {
     name: intent.name,
     operation: intent.name === 'git_diff' || intent.name === 'read_file' ? 'fixed-target' :
-      intent.name === 'run_test' ? 'fixed-test' : intent.name,
+      intent.name === 'run_test' ? 'fixed-test' :
+        intent.name === 'replace_once' ? 'fixed-target-replace-once' : intent.name,
     digest: digestCanonical(intent),
   };
 }
@@ -1154,7 +1159,24 @@ export class CoordinationRuntimeService {
         fail('interaction_digest_mismatch', 'Every interaction requires a response digest');
       }
 
-       if (input.normalizedEvidence) {
+       if (input.outcome === 'malformed_function_call') {
+         const activeClaim = await this.repository.activeClaimForThread(packet.assignment.threadId);
+         if (activeClaim?.packetId === packet.id) {
+           const rejectedIntents = (input.normalizedEvidence?.intents ?? []).map((intent) => ({
+             name: intent.name,
+             callId: intent.callId,
+             digest: digestCanonical(intent),
+             reason: 'provider returned a malformed or unauthorized function call',
+           }));
+           return await violate(
+             'Provider returned a malformed or unauthorized function call',
+             'malformed_function_call',
+             rejectedIntents,
+           );
+         }
+       }
+
+       if (input.outcome !== 'malformed_function_call' && input.normalizedEvidence) {
          const evidence = input.normalizedEvidence;
          let validated: Array<{ name: string; operation: string; digest: string }>;
          try {
