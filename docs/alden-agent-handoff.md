@@ -9448,10 +9448,15 @@ returned exact `APPROVED — Ship it.`
 
 Verification currently passes: assignment-window disposable PostgreSQL 19/19,
 core runtime 15/15, HTTP runtime 5/5, adjacent coordination 67/67, TypeScript,
-and diff checks. System health, application restart, clean source publication,
-and production republish remain before another fresh Windows generation.
+and diff checks. Canonical PostgreSQL also confirms zero credentials,
+assignments, windows, packets, interactions, runtime receipts, claims,
+executions, and completions for the revoked fresh generation. System health
+passes with no red failures. The application restarted cleanly with no browser
+console error; startup separately restored the larger canonical
+`docs/episode-34.md` record.
 
 Do not publish the uploaded approval screenshot or treat the unexpected local
 draft commit as review evidence. Publish only the final reviewed repair, its
 approved design, and these required records. Task 1449 remains cancelled. Task
-1450 remains independently owned.
+1450 remains independently owned. Source publication and production republish
+remain before another fresh Windows generation.

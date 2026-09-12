@@ -5995,3 +5995,11 @@ mutation with `artifact_digest_mismatch`; its receipt was then canonically
 revoked. No bootstrap exchange, runtime credential, assignment, window, packet,
 claim, execution, or completion was created. The Windows bootstrap and task key
 must be deleted and never reused before another fully fresh generation.
+
+Canonical PostgreSQL postconditions later confirmed exact zero counts for
+credentials, assignment events, windows, window items, packets, interactions,
+runtime receipts, claims, executions, and completions for that runtime and
+bundle. System health passed with no red failures, and the application restarted
+cleanly with no browser-console error. Startup separately restored
+`docs/episode-34.md` from its larger canonical database record; that episode
+mirror is not part of this Gate 3 repair.
