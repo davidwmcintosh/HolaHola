@@ -456,3 +456,51 @@ occurrence of `APPROVED — Ship it.`
 - Isolated cross-host oracle: 1/1 against fresh disposable PostgreSQL.
 - Windows DPAPI source boundary: 8/8.
 - TypeScript and diff checks: passed.
+
+---
+
+# Gemini Audit — Gate 3 fixed-target provider-echo repair
+**Date:** September 12, 2026
+**Auditor:** Gemini 3-flash-preview
+**Protected files touched:** None
+**Verdict:** APPROVED unconditionally; exact terminal response:
+`APPROVED — Ship it.`
+
+## What was reviewed
+
+- The real malformed first-turn evidence in which Gemini repeated the exact
+  fixed read target as a `path` argument despite an empty object declaration.
+- The shared server/executor predicate accepting only an empty plain object or
+  that exact fixed-target echo.
+- Rejection of alternate paths, wrong types, extra keys, arrays, null, and
+  non-plain argument values.
+- Preservation of malformed provider arguments as immutable normalized
+  evidence.
+- The unchanged empty public tool schema and hardcoded executor target.
+- Parameterized zero-argument enforcement for every other fixed tool.
+- The independently rebuilt Windows runtime bundle and updated launcher pin.
+
+## Review history
+
+Gemini's preflight rejected schema-only enforcement because Gemini may echo
+prominent prompt strings even when the function declaration exposes no
+properties. It recommended keeping the schema empty while treating only the
+exact fixed path as syntactic provider noise.
+
+The first architect post-review found that array arguments could be spread into
+an empty object and accepted, and that negative and persistence proof was
+incomplete. Argument values now remain unknown until a strict non-array plain
+record check; malformed arrays remain stored as raw evidence. Tests now cover
+all other fixed tools and persistence. The architect then issued unconditional
+approval with no watch-outs, and Gemini's final review returned exactly
+`APPROVED — Ship it.`
+
+## Verified evidence supplied to Gemini
+
+- Runtime policy: 16/16.
+- Gemini adapter/HTTP: 6/6.
+- Windows executor: 12/12.
+- Windows DPAPI source boundary: 8/8.
+- TypeScript and diff checks: passed.
+- Runtime bundle SHA-256:
+  `ea68ed35dd87e3d5f341cef93839e0dc08cce337a294f3404d5bd8ec053d6818`.

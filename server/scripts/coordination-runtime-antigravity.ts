@@ -8,10 +8,15 @@ import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
 import { spawn as nodeSpawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve, relative, sep } from 'node:path';
-import { digestCanonical } from '../services/coordination-runtime';
+import {
+  COORDINATION_GATE3_FIXED_TARGET,
+  digestCanonical,
+  isFixedTargetReadArguments,
+  isPlainRecord,
+} from '../services/coordination-runtime';
 import { TaskOwnershipHttpClient, proveTaskOwnership, type OwnershipProofResult } from '../services/task-ownership-client';
 
-export const TARGET = 'server/scripts/test-coordination-runtime.test.ts';
+export const TARGET = COORDINATION_GATE3_FIXED_TARGET;
 const ALLOWED = {
   root: ['git', 'rev-parse', '--show-toplevel'],
   branch: ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
@@ -165,10 +170,11 @@ export class Gate3Executor {
     return this.run(spawnArgv, { cwd: this.root, env: { PATH: this.childEnv.PATH ?? process.env.PATH ?? '', ...this.childEnv }, timeoutMs: LIMITS.command });
   }
   async measure(argv: string[]) { return this.command(argv); }
-  async execute(intent: { name: string; arguments: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async execute(intent: { name: string; arguments: unknown }): Promise<Record<string, unknown>> {
     const path = targetPath(await this.fs.realpath(this.root));
     if (!['git_status', 'git_diff', 'run_test', 'read_file', 'replace_once'].includes(intent.name)) throw new Error('command_not_allowed');
     if (intent.name === 'replace_once') {
+      if (!isPlainRecord(intent.arguments)) throw new Error('argument_not_allowed');
       const keys = Object.keys(intent.arguments).sort();
       const oldText = intent.arguments.oldText;
       const newText = intent.arguments.newText;
@@ -209,13 +215,14 @@ export class Gate3Executor {
         truncated: false,
       };
     }
-    if (Object.keys(intent.arguments).length !== 0) throw new Error('argument_not_allowed');
     if (intent.name === 'read_file') {
+      if (!isFixedTargetReadArguments(intent.arguments)) throw new Error('argument_not_allowed');
       await assertSafePath(this.fs, await this.fs.realpath(this.root), path);
       const content = await this.fs.readFile(path);
       return { ok: true, output: content.toString('utf8'), stdoutDigest: digest(content),
         argv: ['read_file', TARGET], truncated: false };
     }
+    if (!isPlainRecord(intent.arguments) || Object.keys(intent.arguments).length !== 0) throw new Error('argument_not_allowed');
     const argv = intent.name === 'git_status' ? [...ALLOWED.status] : intent.name === 'git_diff' ? [...ALLOWED.diff] : [...ALLOWED.test];
     const result = await this.command(argv);
     return { ok: result.code === 0, output: result.stdout, error: result.stderr, exitCode: result.code,

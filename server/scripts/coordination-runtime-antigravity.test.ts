@@ -329,6 +329,42 @@ test('symlink/reparse targets and malformed intents fail before mutation', async
   await assert.rejects(() => executor.execute({ name: 'read_file', arguments: { content: '' } }), /argument_not_allowed/);
 });
 
+test('fixed-target reader tolerates only the exact provider path echo and ignores it', async () => {
+  const fs = fakeFs('fixed target bytes');
+  const executor = new Gate3Executor('/approved', fs, async () => {
+    throw new Error('spawn must not run');
+  });
+  assert.equal((await executor.execute({ name: 'read_file', arguments: {} })).output, 'fixed target bytes');
+  const echoed = await executor.execute({
+    name: 'read_file',
+    arguments: { path: TARGET },
+  });
+  assert.equal(echoed.output, 'fixed target bytes');
+  assert.deepEqual(echoed.argv, ['read_file', TARGET]);
+  await assert.rejects(
+    () => executor.execute({ name: 'read_file', arguments: { path: 'server/routes.ts' } }),
+    /argument_not_allowed/,
+  );
+  await assert.rejects(
+    () => executor.execute({ name: 'read_file', arguments: { path: 123 } }),
+    /argument_not_allowed/,
+  );
+  await assert.rejects(
+    () => executor.execute({ name: 'read_file', arguments: { path: TARGET, encoding: 'utf8' } }),
+    /argument_not_allowed/,
+  );
+  await assert.rejects(
+    () => executor.execute({ name: 'read_file', arguments: [] }),
+    /argument_not_allowed/,
+  );
+  for (const name of ['git_status', 'git_diff', 'run_test']) {
+    await assert.rejects(
+      () => executor.execute({ name, arguments: { path: TARGET } }),
+      /argument_not_allowed/,
+    );
+  }
+});
+
 test('result and receipt surfaces contain identifiers/digests, not credentials', () => {
   const receipt = { packetId: 'p', claimId: 'c', executionId: 'e', completionId: 'z', packetDigest: digest, patchDigest: digest };
   assert.deepEqual(Object.keys(receipt).sort(), ['claimId', 'completionId', 'executionId', 'packetDigest', 'packetId', 'patchDigest']);

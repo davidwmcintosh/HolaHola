@@ -4,8 +4,10 @@ import {
   CoordinationRuntimeService,
   InMemoryCoordinationRepository,
   RuntimeProtocolError,
+  COORDINATION_GATE3_FIXED_TARGET,
   canonicalJson,
   digestCanonical,
+  validateToolIntent,
   type Assignment,
   type ExecutionEnvelope,
   type NormalizedOutcome,
@@ -46,6 +48,42 @@ const claudeVerifier: RuntimePrincipal = {
   actor: 'luca-claude-code',
   runtimeRegistrationId: 'claude-runtime',
 };
+
+test('fixed-target read tolerates only the exact provider path echo', () => {
+  assert.equal(validateToolIntent({
+    name: 'read_file',
+    arguments: {},
+    callId: 'empty-read',
+  }).operation, 'fixed-target');
+  assert.equal(validateToolIntent({
+    name: 'read_file',
+    arguments: { path: COORDINATION_GATE3_FIXED_TARGET },
+    callId: 'echoed-read',
+  }).operation, 'fixed-target');
+
+  for (const argumentsValue of [
+    [],
+    null,
+    { path: 'server/routes.ts' },
+    { path: 123 },
+    { path: COORDINATION_GATE3_FIXED_TARGET, encoding: 'utf8' },
+  ]) {
+    assert.throws(
+      () => validateToolIntent({ name: 'read_file', arguments: argumentsValue, callId: 'rejected-read' }),
+      (error: unknown) => error instanceof RuntimeProtocolError && error.code === 'malformed_function_call',
+    );
+  }
+  for (const name of ['git_status', 'git_diff', 'run_test']) {
+    assert.throws(
+      () => validateToolIntent({
+        name,
+        arguments: { path: COORDINATION_GATE3_FIXED_TARGET },
+        callId: `${name}-with-args`,
+      }),
+      (error: unknown) => error instanceof RuntimeProtocolError && error.code === 'malformed_function_call',
+    );
+  }
+});
 
 async function expectCode(operation: () => unknown, code: string): Promise<void> {
   await assert.rejects(Promise.resolve().then(operation), (error: unknown) => error instanceof RuntimeProtocolError && error.code === code);

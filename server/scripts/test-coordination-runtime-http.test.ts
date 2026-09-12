@@ -231,6 +231,50 @@ test('normalization records provider outcomes and additional candidates without 
   const replace = declarations.find((declaration: { name: string }) => declaration.name === 'replace_once');
   assert.deepEqual(replace.parameters.required, ['oldText', 'newText']);
   assert.deepEqual(Object.keys(replace.parameters.properties).sort(), ['newText', 'oldText']);
+  const readFileDeclaration = declarations.find((declaration: { name: string }) => declaration.name === 'read_file');
+  assert.deepEqual(readFileDeclaration.parameters, { type: 'OBJECT', properties: {} });
+
+  const capturedReadFileEcho = await new CoordinationGeminiAdapter(
+    async () => ({ status: 200, body: JSON.stringify({ candidates: [{
+      finishReason: 'STOP',
+      content: { parts: [{ functionCall: {
+        name: 'read_file',
+        id: 'call_284980',
+        args: { path: 'server/scripts/test-coordination-runtime.test.ts' },
+      } }] },
+    }] }) }),
+    'test-key',
+    'https://gemini-proxy.example.test',
+  ).turn({
+    id: 'captured-p', version: 1, actor: 'luca-gemini', runtimeRegistrationId: 'r', profileId: 'p',
+    createdAt: 1, supersedesClaimId: null, windowId: 'w', windowDigest: 'd',
+    orderedInboxItemIds: [], orderedEventIds: [], orderedThreadIds: [],
+    assignment: { assignmentEventId: 'e', assignmentAuthor: 'alden', taskId: '1448', threadId: 'th', expectedSequence: 1 },
+    inherited: [], envelope: { worktreeLabel: 'x', worktreePath: '/x', argv: ['true'], patchDigest: null }, digest: 'd',
+  }, 1);
+  assert.equal(capturedReadFileEcho[0].outcome, 'consumed');
+  assert.deepEqual(capturedReadFileEcho[0].intents[0], {
+    name: 'read_file',
+    arguments: { path: 'server/scripts/test-coordination-runtime.test.ts' },
+    callId: 'call_284980',
+    candidateIndex: 0,
+    executionEligible: true,
+  });
+  const malformedArrayArguments = await new CoordinationGeminiAdapter(
+    async () => ({ status: 200, body: JSON.stringify({ candidates: [{
+      content: { parts: [{ functionCall: { name: 'read_file', id: 'array-args', args: [] } }] },
+    }] }) }),
+    'test-key',
+    'https://gemini-proxy.example.test',
+  ).turn({
+    id: 'array-p', version: 1, actor: 'luca-gemini', runtimeRegistrationId: 'r', profileId: 'p',
+    createdAt: 1, supersedesClaimId: null, windowId: 'w', windowDigest: 'd',
+    orderedInboxItemIds: [], orderedEventIds: [], orderedThreadIds: [],
+    assignment: { assignmentEventId: 'e', assignmentAuthor: 'alden', taskId: '1448', threadId: 'th', expectedSequence: 1 },
+    inherited: [], envelope: { worktreeLabel: 'x', worktreePath: '/x', argv: ['true'], patchDigest: null }, digest: 'd',
+  }, 1);
+  assert.equal(malformedArrayArguments[0].outcome, 'malformed_function_call');
+  assert.deepEqual(malformedArrayArguments[0].intents[0].arguments, []);
 
   const longOldText = 'x'.repeat(20_001);
   const exactArguments = await new CoordinationGeminiAdapter(
@@ -296,6 +340,43 @@ test('initial malformed replacement is persisted as a non-authorizing receipt', 
     const stored = await f.repository.interactionsForPacket(packet.id);
     assert.equal(stored.length, 1);
     assert.equal(stored[0]?.outcome, 'malformed_function_call');
+    assert.equal(await f.repository.activeClaimForThread('http-thread'), undefined);
+  } finally {
+    await new Promise<void>((resolve) => f.server.close(() => resolve()));
+  }
+});
+
+test('initial malformed fixed-read array preserves raw provider evidence', async () => {
+  const f = await fixture({
+    candidates: [{
+      content: {
+        parts: [{
+          functionCall: {
+            name: 'read_file',
+            id: 'malformed-array-read',
+            args: [],
+          },
+        }],
+      },
+    }],
+  });
+  try {
+    const created = await httpRequest(f.server, '/api/coordination/runtime/packets', {
+      method: 'POST',
+      token: 'broker-token',
+      key: 'malformed-array-packet',
+      body: { windowId: f.window.id, assignmentEventId: 'http-event-1' },
+    });
+    const packet = created.body as { id: string };
+    const response = await httpRequest(
+      f.server,
+      `/api/coordination/runtime/packets/${packet.id}/initial-turn`,
+      { method: 'POST', token: 'broker-token', key: 'malformed-array-turn' },
+    );
+    assert.equal(response.status, 200);
+    const stored = await f.repository.interactionsForPacket(packet.id);
+    assert.equal(stored[0]?.outcome, 'malformed_function_call');
+    assert.deepEqual(stored[0]?.normalizedEvidence?.intents[0]?.arguments, []);
     assert.equal(await f.repository.activeClaimForThread('http-thread'), undefined);
   } finally {
     await new Promise<void>((resolve) => f.server.close(() => resolve()));

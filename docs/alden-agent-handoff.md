@@ -9513,3 +9513,43 @@ verified. Before Phase A, compare the Windows public artifact digest with the
 server's locally materialized canonical-LF digest and retire locally before
 founder approval if they differ. Task 1449 remains cancelled. Task 1450 remains
 independently owned.
+
+## September 12, 2026 — fixed-target provider echo blocked the third generation
+
+The first Windows generation after canonical-LF publication reached the real
+Gemini call. Windows and server task-artifact SHA-256 matched exactly, founder
+approval and Phase B succeeded, and the bootstrap exchange created one runtime
+credential and packet. Gemini then called `read_file` with the correct fixed
+target repeated in a `path` argument. Because fixed tools were zero-argument,
+the adapter persisted `malformed_function_call` and stopped before any claim or
+host tool execution.
+
+That one-shot generation is permanently retired. Receipt
+`cbb4ba5e-84b7-4264-b721-001caf74bd0b`, runtime
+`luca-gemini-antigravity-913d918eccd2564fdaa5a41a`, and its credential are
+revoked. Canonical evidence is one packet, one malformed interaction, and one
+non-authorizing receipt, with zero claims, executions, tool results, or
+completions. Windows must confirm `ANTIGRAVITY_GATE3_UNINITIALIZED`; no artifact
+from this generation may be reused.
+
+The reviewed repair treats only the exact fixed-target repetition as provider
+echo noise. The public Gemini declaration remains an empty object, the
+executor still derives the target from one shared hardcoded constant, and the
+received arguments remain immutable evidence. Server and executor accept only
+an empty plain object or the exact fixed path. Different paths, wrong types,
+extra keys, arrays, null, and non-plain records fail closed. Other fixed tools
+remain strictly zero-argument.
+
+Verification passes: runtime 16/16, adapter/HTTP 6/6, Windows executor 12/12,
+DPAPI boundary 8/8, TypeScript, and diff checks. The final runtime entry bundle
+rebuilds to the launcher pin
+`ea68ed35dd87e3d5f341cef93839e0dc08cce337a294f3404d5bd8ec053d6818`.
+The architect found and required repair of array-to-empty-object coercion,
+expanded all-fixed-tool negative coverage, and persistence proof for malformed
+raw arguments. It then issued unconditional approval with no watch-outs.
+Gemini 3 returned exact `APPROVED — Ship it.`
+
+Publish and verify this tree before any new Windows authority. The next
+generation must again be entirely fresh and must pass the pre-Phase-A
+cross-host artifact digest comparison. Task 1449 remains cancelled. Task 1450
+remains independently owned.

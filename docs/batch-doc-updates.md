@@ -6055,3 +6055,39 @@ pins refreshed in the PowerShell launcher. The same architect issued
 unconditional approval with no watch-outs, and Gemini 3 returned exact
 `APPROVED — Ship it.` No third Windows generation has been prepared or
 authorized.
+
+## Gate 3 fixed-target provider-echo repair — September 12, 2026
+
+The first post-canonicalization Windows generation passed the cross-host digest
+gate, founder approval, Phase B, bootstrap exchange, credential issuance, and
+packet creation. Its first Gemini turn returned `read_file` with the exact fixed
+target as a redundant `path` argument. The public tool schema intentionally had
+no properties, and the server rejected the non-empty argument object as
+`malformed_function_call` before claim acquisition or host execution.
+
+The one-time Windows bootstrap was consumed, so the generation was permanently
+retired. Founder receipt `cbb4ba5e-84b7-4264-b721-001caf74bd0b`, runtime
+`luca-gemini-antigravity-913d918eccd2564fdaa5a41a`, and its only issued
+credential are revoked. PostgreSQL preserves one packet, one malformed
+interaction, and one non-authorizing runtime receipt; it has zero claims,
+executions, tool results, or completions.
+
+The selected repair keeps the public `read_file` schema empty and the executor
+target hardcoded. One shared policy accepts only `{}` or the exact redundant
+echo `{ path: "server/scripts/test-coordination-runtime.test.ts" }`. Every
+different path, non-string value, extra key, array, null, or non-plain record
+fails closed. Raw malformed argument shapes remain in immutable normalized
+evidence instead of being spread or coerced.
+
+Focused verification passes: runtime policy 16/16, Gemini adapter/HTTP 6/6,
+Windows executor 12/12, Windows DPAPI boundary 8/8, TypeScript, and diff checks.
+The final runtime bundle was independently rebuilt and pinned at
+`ea68ed35dd87e3d5f341cef93839e0dc08cce337a294f3404d5bd8ec053d6818`.
+The architect first identified empty-array coercion and missing negative and
+persistence proof; after those fixes it issued unconditional approval with no
+watch-outs. Gemini 3 returned exact `APPROVED — Ship it.`
+
+Do not create another Windows generation until this repair is committed,
+published to GitHub, republished to production, and live health is verified.
+Any later generation must use entirely fresh identifiers and authority
+artifacts. Task 1449 remains cancelled; task 1450 remains independently owned.

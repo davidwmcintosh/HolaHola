@@ -3,6 +3,7 @@ import {
   canonicalJson,
   digestCanonical,
   CoordinationRuntimeService,
+  isPlainRecord,
   RuntimeProtocolError,
   validateToolIntent,
   type CoordinationRuntimeRepository,
@@ -23,7 +24,7 @@ export type GeminiTransport = (request: {
 
 export type NormalizedToolIntent = {
   name: string;
-  arguments: Record<string, unknown>;
+  arguments: unknown;
   callId: string;
   candidateIndex: 0;
   executionEligible: true;
@@ -127,12 +128,21 @@ function normalized(value: unknown, callSeed = ''): {
     if (part.functionCall !== undefined) {
       const call = part.functionCall;
       if (!call || typeof call.name !== 'string' ||
-        !call.name.length || !call.args || typeof call.args !== 'object' ||
+        !call.name.length || call.args === undefined ||
         (call.id !== undefined && typeof call.id !== 'string')) {
         return { outcome: 'malformed_function_call', intents: [], textParts: [], additionalCandidateHashes, providerDetails: {} };
       }
+      const callId = call.id ?? sha(`${callSeed}:${partIndex}:${call.name}:${digestCanonical(call.args)}`);
+      if (!isPlainRecord(call.args)) {
+        return {
+          outcome: 'malformed_function_call',
+          intents: [{ name: call.name, arguments: call.args, callId, candidateIndex: 0, executionEligible: true }],
+          textParts: [],
+          additionalCandidateHashes,
+          providerDetails: {},
+        };
+      }
       const args = { ...call.args } as Record<string, unknown>;
-      const callId = call.id ?? sha(`${callSeed}:${partIndex}:${call.name}:${digestCanonical(args)}`);
       try {
         validateToolIntent({ name: call.name, arguments: args, callId });
       } catch {

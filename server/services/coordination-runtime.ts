@@ -156,12 +156,35 @@ export function digestCanonical(value: unknown): string {
   return createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');
 }
 
+export const COORDINATION_GATE3_FIXED_TARGET = 'server/scripts/test-coordination-runtime.test.ts';
+
+export function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+export function isFixedTargetReadArguments(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length === 0 || (
+    keys.length === 1
+    && keys[0] === 'path'
+    && value.path === COORDINATION_GATE3_FIXED_TARGET
+  );
+}
+
 /** The single policy boundary used before an interaction can expose a call. */
-export function validateToolIntent(intent: { name: string; arguments: Record<string, unknown>; callId: string }): { name: string; operation: string; digest: string } {
+export function validateToolIntent(intent: { name: string; arguments: unknown; callId: string }): { name: string; operation: string; digest: string } {
+  if (!isPlainRecord(intent.arguments)) {
+    fail('malformed_function_call', 'Tool intent violates execution policy');
+  }
   const keys = Object.keys(intent.arguments).sort();
-  const fixed = intent.name === 'git_status' || intent.name === 'git_diff' ||
-    intent.name === 'run_test' || intent.name === 'read_file';
-  const valid = (fixed && keys.length === 0) ||
+  const zeroArgument = intent.name === 'git_status' || intent.name === 'git_diff' ||
+    intent.name === 'run_test';
+  const valid = (zeroArgument && keys.length === 0) ||
+    (intent.name === 'read_file' && isFixedTargetReadArguments(intent.arguments)) ||
     (intent.name === 'replace_once' && keys.join(',') === 'newText,oldText' &&
       typeof intent.arguments.oldText === 'string' &&
       typeof intent.arguments.newText === 'string' &&
@@ -315,7 +338,7 @@ export type ModelInteraction = {
 
 export type NormalizedInteractionEvidence = {
   textParts: string[];
-  intents: Array<{ name: string; arguments: Record<string, unknown>; callId: string; candidateIndex: 0; executionEligible: true }>;
+  intents: Array<{ name: string; arguments: unknown; callId: string; candidateIndex: 0; executionEligible: true }>;
   additionalCandidateHashes: string[];
   providerDetails: Record<string, unknown>;
   usage?: Record<string, unknown>;
