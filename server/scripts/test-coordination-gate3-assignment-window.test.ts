@@ -47,24 +47,26 @@ let completedFixture: {
   result: Awaited<ReturnType<typeof createGate3AssignmentWindow>>;
 } | undefined;
 const profileId = (bundle: { bundleDigest: string }) => `antigravity-${bundle.bundleDigest}`;
-const taskArtifactText = readFileSync(new URL('../templates/task-1448.md', import.meta.url), 'utf8');
-const taskArtifactSha256 = crypto.createHash('sha256').update(taskArtifactText, 'utf8').digest('hex');
+const taskArtifactTemplateText = readFileSync(new URL('../templates/task-1448.md', import.meta.url), 'utf8');
+const TEST_STARTING_COMMIT = 'd'.repeat(40);
+const materializedTaskArtifactText = taskArtifactTemplateText.replace('__FINAL_STARTING_COMMIT__', TEST_STARTING_COMMIT);
+const materializedTaskArtifactSha256 = crypto.createHash('sha256').update(materializedTaskArtifactText, 'utf8').digest('hex');
 
 after(async () => { if (disposableUrl) await closeDbConnections(); });
 
-function bundle(bootstrapSha256 = 'b'.repeat(64)) {
+function bundle(bootstrapSha256 = 'b'.repeat(64), artifactSha256 = materializedTaskArtifactSha256) {
   const pair = crypto.generateKeyPairSync('ed25519');
   const der = pair.publicKey.export({ format: 'der', type: 'spki' }) as Buffer;
   return createPublicProvisioningBundle({
     ...GATE3,
     credentialCapabilities: [...GATE3.credentialCapabilities],
     runtimeCapabilities: [...GATE3.runtimeCapabilities],
-    artifactSha256: taskArtifactSha256,
+    artifactSha256: artifactSha256,
     publicKey: der.toString('base64url'),
     keyFingerprint: crypto.createHash('sha256').update(der).digest('hex'),
     bootstrapSha256,
     worktreeRealpathDigest: 'c'.repeat(64),
-    startingCommit: 'd'.repeat(40),
+    startingCommit: TEST_STARTING_COMMIT,
   });
 }
 
@@ -759,6 +761,50 @@ databaseTest('CLI success emits only the public allowlist and exits', async () =
       'bundleDigest', 'expectedSequence', 'receiptId', 'runtimeInboxItemId', 'threadId', 'windowId',
     ]);
     assert.ok(!result.error || result.error.code !== 'ETIMEDOUT');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+databaseTest('raw template hashing fails', async () => {
+  const rawTemplateSha256 = crypto.createHash('sha256').update(taskArtifactTemplateText, 'utf8').digest('hex');
+  const b = bundle('b'.repeat(64), rawTemplateSha256); // Use raw template hash
+  await rejectsCode(
+    () => createGate3AssignmentWindow({ bundle: b, receiptId: 'r', assignmentAttemptId: crypto.randomUUID() }),
+    'artifact_digest_mismatch',
+  );
+});
+
+databaseTest('template placeholder count mismatch', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gate3-template-test-'));
+  try {
+    const zeroPlaceholderPath = join(dir, 'zero-placeholder.md');
+    await writeFile(zeroPlaceholderPath, 'No placeholders here', 'utf8');
+    // Temporarily override GATE3_TASK_ARTIFACT_PATH for this test
+    const originalPath = (global as any).GATE3_TASK_ARTIFACT_PATH;
+    (global as any).GATE3_TASK_ARTIFACT_PATH = zeroPlaceholderPath;
+    try {
+      const b = bundle(); // Use default materialized hash
+      await rejectsCode(
+        () => createGate3AssignmentWindow({ bundle: b, receiptId: 'r', assignmentAttemptId: crypto.randomUUID() }),
+        'template_placeholder_mismatch',
+      );
+    } finally {
+      (global as any).GATE3_TASK_ARTIFACT_PATH = originalPath;
+    }
+
+    const multiplePlaceholderPath = join(dir, 'multiple-placeholders.md');
+    await writeFile(multiplePlaceholderPath, '__FINAL_STARTING_COMMIT__\n__FINAL_STARTING_COMMIT__', 'utf8');
+    (global as any).GATE3_TASK_ARTIFACT_PATH = multiplePlaceholderPath;
+    try {
+      const b = bundle(); // Use default materialized hash
+      await rejectsCode(
+        () => createGate3AssignmentWindow({ bundle: b, receiptId: 'r', assignmentAttemptId: crypto.randomUUID() }),
+        'template_placeholder_mismatch',
+      );
+    } finally {
+      (global as any).GATE3_TASK_ARTIFACT_PATH = originalPath;
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -126,8 +126,12 @@ export async function createGate3AssignmentWindow(input: {
   const bundle = validateGate3AssignmentBundle(input.bundle);
   if (!UUID.test(input.assignmentAttemptId) || input.assignmentAttemptId !== input.assignmentAttemptId.toLowerCase()) fail("attempt_id_invalid");
   if (!input.receiptId || input.receiptId.length > 255) fail("receipt_invalid");
-  const taskArtifact = await readApprovedTaskArtifact();
-  if (taskArtifact.sha256 !== bundle.artifactSha256) fail("artifact_digest_mismatch");
+  const templateArtifact = await readApprovedTaskArtifact();
+  const occurrences = templateArtifact.text.match(/__FINAL_STARTING_COMMIT__/g) || [];
+  if (occurrences.length !== 1) fail("template_placeholder_mismatch");
+  const materializedArtifactText = templateArtifact.text.replace('__FINAL_STARTING_COMMIT__', bundle.startingCommit);
+  const materializedArtifactSha256 = createHash("sha256").update(materializedArtifactText, "utf8").digest("hex");
+  if (materializedArtifactSha256 !== bundle.artifactSha256) fail("artifact_digest_mismatch");
   const attempt = input.assignmentAttemptId;
   const key = `gate3-assignment:${bundle.bundleDigest}:${attempt}`;
   return getSharedDb().transaction(async (tx) => {
