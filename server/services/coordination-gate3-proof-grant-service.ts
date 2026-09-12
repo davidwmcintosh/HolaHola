@@ -4,19 +4,19 @@ import {
   coordinationRuntimeCredentials,
   coordinationRuntimeProfiles,
   coordinationRuntimeRegistrations,
+  coordinationCredentialAuditEvents,
   taskOwnershipChallenges,
   taskOwnershipProofAttempts,
   taskOwnershipReceipts,
 } from "@shared/schema";
 import type { BrokerCredential } from "./coordination-credential-broker";
 import { getSharedDb } from "../db";
-import { GATE3 } from "./antigravity-provisioning-bundle";
+import { deriveAntigravityRuntimeId, GATE3 } from "./antigravity-provisioning-bundle";
 import {
   COORDINATION_GEMINI_ADAPTER_VERSION,
   COORDINATION_GEMINI_MODEL,
 } from "./coordination-gemini-adapter";
 
-const RUNTIME_ID = "luca-gemini-antigravity-primary";
 const ACTOR = "luca-gemini";
 const TASK_REF = "1448";
 const GRANT_TTL_MS = 15 * 60_000;
@@ -58,7 +58,7 @@ export function isGate3BrokerCredential(
   return Boolean(
     credential
     && credential.actor === ACTOR
-    && credential.runtimeId === RUNTIME_ID,
+    && /^luca-gemini-antigravity-[0-9a-f]{24}$/.test(credential.runtimeId),
   );
 }
 
@@ -68,7 +68,7 @@ function requireGate3BrokerCredential(
   const authenticatedCredential = credential ?? fail();
   if (
     authenticatedCredential.actor !== ACTOR
-    || authenticatedCredential.runtimeId !== RUNTIME_ID
+    || !/^luca-gemini-antigravity-[0-9a-f]{24}$/.test(authenticatedCredential.runtimeId)
   ) fail();
   return authenticatedCredential;
 }
@@ -94,7 +94,7 @@ export async function issueGate3ProofGrant(
     const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
       .where(eq(coordinationRuntimeRegistrations.id, boundRuntimeId!)).for("update");
     const [profile] = await tx.select().from(coordinationRuntimeProfiles)
-      .where(and(eq(coordinationRuntimeProfiles.runtimeRegistrationId, RUNTIME_ID), eq(coordinationRuntimeProfiles.status, "active")))
+      .where(and(eq(coordinationRuntimeProfiles.runtimeRegistrationId, boundRuntimeId), eq(coordinationRuntimeProfiles.status, "active")))
       .for("update");
     const [storedCredential] = await tx.select().from(coordinationRuntimeCredentials)
       .where(eq(coordinationRuntimeCredentials.id, boundCredentialId!)).for("update");
@@ -110,13 +110,13 @@ export async function issueGate3ProofGrant(
       || challenge.intendedActor !== receipt.intendedActor
       || challenge.publicKey !== receipt.publicKey
       || challenge.keyFingerprint !== receipt.keyFingerprint
-      || !storedCredential || storedCredential.runtimeId !== RUNTIME_ID
+      || !storedCredential || storedCredential.runtimeId !== boundRuntimeId
       || storedCredential.actor !== ACTOR || storedCredential.revokedAt
       || storedCredential.expiresAt <= new Date()
        || !sameValues(storedCredential.capabilities, GATE3.credentialCapabilities)
-      || !registration || registration.id !== RUNTIME_ID || registration.actor !== ACTOR
+      || !registration || registration.id !== boundRuntimeId || registration.actor !== ACTOR
       || !registration.enabled || registration.revokedAt
-      || !profile || profile.actor !== ACTOR
+       || !profile || profile.actor !== ACTOR
        || !sameValues(profile.capabilities, GATE3.runtimeCapabilities)
        || profile.provider !== "gemini"
        || profile.model !== COORDINATION_GEMINI_MODEL
@@ -128,7 +128,32 @@ export async function issueGate3ProofGrant(
        || !/^[0-9a-f]{64}$/.test(proof.proofPayloadDigest)
       || !receipt.contextDigest || challenge.contextDigest !== receipt.contextDigest
       || profile.startingCommit.length === 0
-    ) fail();
+     ) fail();
+     if (profile.id !== `antigravity-${receipt.contextDigest}`
+       || profile.runtimeRegistrationId !== boundRuntimeId) fail();
+     const generationAudits = await tx.select().from(coordinationCredentialAuditEvents)
+       .where(and(
+         eq(coordinationCredentialAuditEvents.runtimeId, boundRuntimeId),
+         eq(coordinationCredentialAuditEvents.eventType, "runtime_generation_provisioned"),
+         eq(coordinationCredentialAuditEvents.success, true),
+       )).limit(2);
+     const [generationAudit] = generationAudits;
+     const generation = generationAudit?.metadata as Record<string, unknown> | undefined;
+     if (generationAudits.length !== 1 || !generation
+       || generation.runtimeId !== boundRuntimeId
+       || generation.profileId !== profile.id
+       || generation.receiptId !== receipt.id
+       || generation.challengeId !== challenge.id
+       || generation.actor !== ACTOR || generation.taskRef !== TASK_REF
+       || generation.artifactSha256 !== receipt.artifactSha256
+       || generation.keyFingerprint !== receipt.keyFingerprint
+       || generation.bundleDigest !== receipt.contextDigest
+       || typeof generation.bootstrapSha256 !== "string"
+       || !/^[0-9a-f]{64}$/.test(generation.bootstrapSha256)
+       || deriveAntigravityRuntimeId(generation.bootstrapSha256) !== boundRuntimeId
+       || generation.startingCommit !== profile.startingCommit
+       || generation.worktreeRealpathDigest !== profile.worktreeRealpathDigest
+       || generation.registrationOutcome !== "created") fail();
     const contextDigest = receipt.contextDigest as string;
     const [proofAttempt] = await tx.select({ id: taskOwnershipProofAttempts.id })
       .from(taskOwnershipProofAttempts)
@@ -197,6 +222,29 @@ export async function validateGate3ProofGrant(grantId: string, credential: Broke
     .where(eq(coordinationGate3ProofGrants.id, grantId));
   if (!row) fail();
   const { grant, receipt, challenge, credentialRow, registration, profile, proofAttempt } = row;
+  const generationAudits = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(and(
+      eq(coordinationCredentialAuditEvents.runtimeId, grant.runtimeRegistrationId),
+      eq(coordinationCredentialAuditEvents.eventType, "runtime_generation_provisioned"),
+      eq(coordinationCredentialAuditEvents.success, true),
+    )).limit(2);
+  const [generationAudit] = generationAudits;
+  const generation = generationAudit?.metadata as Record<string, unknown> | undefined;
+  if (generationAudits.length !== 1 || !generation
+    || generation.runtimeId !== grant.runtimeRegistrationId
+    || generation.profileId !== profile.id
+    || generation.receiptId !== receipt.id
+    || generation.challengeId !== challenge.id
+    || generation.actor !== ACTOR || generation.taskRef !== TASK_REF
+    || generation.bundleDigest !== receipt.contextDigest
+    || typeof generation.bootstrapSha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(generation.bootstrapSha256)
+    || deriveAntigravityRuntimeId(generation.bootstrapSha256) !== grant.runtimeRegistrationId
+    || generation.artifactSha256 !== receipt.artifactSha256
+    || generation.keyFingerprint !== receipt.keyFingerprint
+    || generation.startingCommit !== profile.startingCommit
+    || generation.worktreeRealpathDigest !== profile.worktreeRealpathDigest
+    || generation.registrationOutcome !== "created") fail();
   if (
     grant.revokedAt || grant.expiresAt <= now || grant.actor !== ACTOR || grant.taskRef !== TASK_REF
     || grant.receiptId !== receipt.id || grant.credentialId !== credentialRow.id
@@ -208,12 +256,12 @@ export async function validateGate3ProofGrant(grantId: string, credential: Broke
     || challenge.artifactSha256 !== receipt.artifactSha256 || challenge.contextDigest !== receipt.contextDigest
     || challenge.publicKey !== receipt.publicKey || challenge.keyFingerprint !== receipt.keyFingerprint
     || proofAttempt.receiptId !== receipt.id || proofAttempt.payloadDigest !== grant.proofPayloadDigest
-    || credentialRow.runtimeId !== RUNTIME_ID || credentialRow.actor !== ACTOR
+    || credentialRow.runtimeId !== grant.runtimeRegistrationId || credentialRow.actor !== ACTOR
     || credentialRow.revokedAt || credentialRow.expiresAt <= now
     || !sameValues(credentialRow.capabilities, GATE3.credentialCapabilities)
-    || registration.id !== RUNTIME_ID || registration.actor !== ACTOR
+    || registration.id !== grant.runtimeRegistrationId || registration.actor !== ACTOR
     || !registration.enabled || registration.revokedAt
-    || profile.runtimeRegistrationId !== RUNTIME_ID || profile.actor !== ACTOR || profile.status !== "active"
+    || profile.runtimeRegistrationId !== grant.runtimeRegistrationId || profile.id !== `antigravity-${receipt.contextDigest}` || profile.actor !== ACTOR || profile.status !== "active"
     || !sameValues(profile.capabilities, GATE3.runtimeCapabilities)
     || profile.provider !== "gemini" || profile.model !== COORDINATION_GEMINI_MODEL
     || profile.adapterVersion !== COORDINATION_GEMINI_ADAPTER_VERSION
@@ -263,6 +311,29 @@ export async function validateGate3ProofGrantForVerifier(grantId: string) {
   const now = new Date();
   if (!row) fail();
   const { grant, receipt, challenge, credentialRow, registration, profile, proofAttempt } = row;
+  const generationAudits = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(and(
+      eq(coordinationCredentialAuditEvents.runtimeId, grant.runtimeRegistrationId),
+      eq(coordinationCredentialAuditEvents.eventType, "runtime_generation_provisioned"),
+      eq(coordinationCredentialAuditEvents.success, true),
+    )).limit(2);
+  const [generationAudit] = generationAudits;
+  const generation = generationAudit?.metadata as Record<string, unknown> | undefined;
+  if (generationAudits.length !== 1 || !generation
+    || generation.runtimeId !== grant.runtimeRegistrationId
+    || generation.profileId !== profile.id
+    || generation.receiptId !== receipt.id
+    || generation.challengeId !== challenge.id
+    || generation.actor !== ACTOR || generation.taskRef !== TASK_REF
+    || generation.bundleDigest !== receipt.contextDigest
+    || typeof generation.bootstrapSha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(generation.bootstrapSha256)
+    || deriveAntigravityRuntimeId(generation.bootstrapSha256) !== grant.runtimeRegistrationId
+    || generation.artifactSha256 !== receipt.artifactSha256
+    || generation.keyFingerprint !== receipt.keyFingerprint
+    || generation.startingCommit !== profile.startingCommit
+    || generation.worktreeRealpathDigest !== profile.worktreeRealpathDigest
+    || generation.registrationOutcome !== "created") fail();
   if (
     grant.revokedAt || grant.expiresAt <= now || grant.actor !== ACTOR || grant.taskRef !== TASK_REF ||
     grant.receiptId !== receipt.id || grant.credentialId !== credentialRow.id ||
@@ -273,10 +344,10 @@ export async function validateGate3ProofGrantForVerifier(grantId: string) {
     challenge.intendedActor !== receipt.intendedActor ||
     challenge.artifactSha256 !== receipt.artifactSha256 || challenge.contextDigest !== receipt.contextDigest ||
     challenge.publicKey !== receipt.publicKey || challenge.keyFingerprint !== receipt.keyFingerprint ||
-    credentialRow.runtimeId !== RUNTIME_ID || credentialRow.actor !== ACTOR || credentialRow.revokedAt ||
+    credentialRow.runtimeId !== grant.runtimeRegistrationId || credentialRow.actor !== ACTOR || credentialRow.revokedAt ||
     credentialRow.expiresAt <= now || !sameValues(credentialRow.capabilities, GATE3.credentialCapabilities) ||
-    registration.id !== RUNTIME_ID || registration.actor !== ACTOR || !registration.enabled || registration.revokedAt ||
-    profile.runtimeRegistrationId !== RUNTIME_ID || profile.actor !== ACTOR || profile.status !== 'active' ||
+    registration.id !== grant.runtimeRegistrationId || registration.actor !== ACTOR || !registration.enabled || registration.revokedAt ||
+    profile.runtimeRegistrationId !== grant.runtimeRegistrationId || profile.id !== `antigravity-${receipt.contextDigest}` || profile.actor !== ACTOR || profile.status !== 'active' ||
     !sameValues(profile.capabilities, GATE3.runtimeCapabilities) || profile.provider !== 'gemini' ||
     profile.model !== COORDINATION_GEMINI_MODEL || profile.adapterVersion !== COORDINATION_GEMINI_ADAPTER_VERSION ||
     grant.artifactSha256 !== receipt.artifactSha256 || grant.contextDigest !== receipt.contextDigest ||

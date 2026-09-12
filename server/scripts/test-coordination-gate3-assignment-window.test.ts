@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
@@ -26,7 +26,6 @@ import {
 } from '@shared/schema';
 import { digestCanonical } from '../services/coordination-runtime';
 import {
-  consumedCoordinationBootstrapHash,
   exchangeBootstrapCredential,
   hashCoordinationSecret,
 } from '../services/coordination-credential-broker';
@@ -41,7 +40,7 @@ let completedFixture: {
   attemptId: string;
   result: Awaited<ReturnType<typeof createGate3AssignmentWindow>>;
 } | undefined;
-const FIXED_PROFILE_ID = 'antigravity-21cbe9f7cf3e13028d9be66720c6dc2cb30e6cf83e92b2b739963a4bdbba14a9';
+const profileId = (bundle: { bundleDigest: string }) => `antigravity-${bundle.bundleDigest}`;
 
 after(async () => { if (disposableUrl) await closeDbConnections(); });
 
@@ -127,13 +126,13 @@ databaseTest('oversized bundle is rejected before database writes', async () => 
   }
 });
 
-databaseTest('creates the exact projection with fresh authority distinct from historical recovery authority', async () => {
+databaseTest('creates exact projection for a fresh generation and preserves the prior generation', async () => {
   const initialBootstrapSecret = `gate3-initial-${crypto.randomBytes(24).toString('hex')}`;
   const initialBundle = bundle(hashCoordinationSecret(initialBootstrapSecret));
-  const { bundleDigest: _initialDigest, ...recoveryBase } = initialBundle;
-  const replacementBootstrapSecret = `gate3-recovery-${crypto.randomBytes(24).toString('hex')}`;
+  const { bundleDigest: _initialDigest, ...generationBase } = initialBundle;
+  const replacementBootstrapSecret = `gate3-second-${crypto.randomBytes(24).toString('hex')}`;
   const b = createPublicProvisioningBundle({
-    ...recoveryBase,
+    ...generationBase,
     bootstrapSha256: hashCoordinationSecret(replacementBootstrapSecret),
   });
   const initialPhaseA = await submitAntigravityChallenge(initialBundle, crypto.randomUUID());
@@ -146,56 +145,72 @@ databaseTest('creates the exact projection with fresh authority distinct from hi
   const registered = await registerAntigravityRuntime(initialBundle, initialPhaseA.challengeId);
   assert.equal(registered.status, 'created');
   await getSharedDb().transaction(async (tx) => {
-    await tx.update(coordinationRuntimeProfiles).set({ id: FIXED_PROFILE_ID })
-      .where(sql`${coordinationRuntimeProfiles.id} = ${registered.profileId}`);
     await tx.insert(coordinationInboxActivation).values({
       id: `gate3-test-${b.bundleDigest.slice(0, 16)}`, schemaVersion: 1,
       recipientRuleVersion: 1, state: 'active', backfillCutoffGlobalSequence: 0,
       completionEvidence: {}, activatedAt: new Date(), createdAt: new Date(), updatedAt: new Date(),
     });
   });
-  const issued = await exchangeBootstrapCredential(GATE3.runtimeId, initialBootstrapSecret);
+  const issued = await exchangeBootstrapCredential(initialBundle.runtimeId, initialBootstrapSecret);
   assert.ok(issued);
   await getSharedDb().update(coordinationRuntimeCredentials)
     .set({ revokedAt: new Date() })
-    .where(eq(coordinationRuntimeCredentials.runtimeId, GATE3.runtimeId));
+    .where(eq(coordinationRuntimeCredentials.runtimeId, initialBundle.runtimeId));
+  const oldRegistration = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, registered.runtimeId));
+  const oldProfile = await getSharedDb().select().from(coordinationRuntimeProfiles)
+    .where(eq(coordinationRuntimeProfiles.id, registered.profileId));
 
-  const recoveryPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
-  const recoveryReceipt = await decideChallenge(
-    recoveryPhaseA.challengeId,
+  const generationPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
+  const generationReceipt = await decideChallenge(
+    generationPhaseA.challengeId,
     'approved',
-    'gate3-assignment-recovery-test',
+    'gate3-assignment-generation-test',
   );
-  assert.ok('id' in recoveryReceipt);
-  const recovered = await registerAntigravityRuntime(b, recoveryPhaseA.challengeId);
-  assert.equal(recovered.status, 'recovered');
-  const recoveryAuditsBeforeReplay = await getSharedDb().select()
-    .from(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.eventType, 'runtime_bootstrap_recovered'));
-  assert.equal(recoveryAuditsBeforeReplay.length, 1);
-  const historicalRecovery = recoveryAuditsBeforeReplay[0].metadata as Record<string, unknown>;
-  assert.equal(historicalRecovery.challengeId, recoveryPhaseA.challengeId);
-  assert.equal(historicalRecovery.receiptId, recoveryReceipt.id);
-  const assignmentPhaseA = await submitAntigravityChallenge(b, crypto.randomUUID());
-  const receipt = await decideChallenge(
-    assignmentPhaseA.challengeId,
-    'approved',
-    'gate3-assignment-current-authority-test',
-  );
-  assert.ok('id' in receipt);
-  assert.notEqual(assignmentPhaseA.challengeId, recoveryPhaseA.challengeId);
-  assert.notEqual(receipt.id, recoveryReceipt.id);
-  const replayed = await registerAntigravityRuntime(b, assignmentPhaseA.challengeId);
+  assert.ok('id' in generationReceipt);
+  const second = await registerAntigravityRuntime(b, generationPhaseA.challengeId);
+  assert.equal(second.status, 'created');
+  assert.notEqual(second.runtimeId, registered.runtimeId);
+  assert.notEqual(second.profileId, registered.profileId);
+  assert.deepEqual(await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, registered.runtimeId)), oldRegistration);
+  assert.deepEqual(await getSharedDb().select().from(coordinationRuntimeProfiles)
+    .where(eq(coordinationRuntimeProfiles.id, registered.profileId)), oldProfile);
+  const replayed = await registerAntigravityRuntime(b, generationPhaseA.challengeId);
   assert.equal(replayed.status, 'replayed');
-  const recoveryAuditsAfterReplay = await getSharedDb().select()
-    .from(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.eventType, 'runtime_bootstrap_recovered'));
-  assert.equal(recoveryAuditsAfterReplay.length, 1);
-  assert.deepEqual(recoveryAuditsAfterReplay[0].metadata, recoveryAuditsBeforeReplay[0].metadata);
+  const [generationAudit] = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(sql`${coordinationCredentialAuditEvents.eventType} = 'runtime_generation_provisioned'
+      AND ${coordinationCredentialAuditEvents.runtimeId} = ${b.runtimeId}`);
+  assert.deepEqual(generationAudit.metadata, {
+    runtimeId: b.runtimeId, profileId: profileId(b),
+    challengeId: generationPhaseA.challengeId, receiptId: generationReceipt.id,
+    actor: b.actor, taskRef: b.taskRef, artifactSha256: b.artifactSha256,
+    keyFingerprint: b.keyFingerprint, bundleDigest: b.bundleDigest,
+    bootstrapSha256: b.bootstrapSha256, worktreeRealpathDigest: b.worktreeRealpathDigest,
+    startingCommit: b.startingCommit, registrationOutcome: 'created',
+  });
   const attempt = crypto.randomUUID();
   const result = await createGate3AssignmentWindow({
-    bundle: b, receiptId: receipt.id, assignmentAttemptId: attempt,
+    bundle: b, receiptId: generationReceipt.id, assignmentAttemptId: attempt,
   });
+  const oldPacketId = `gate3-old-generation-packet-${crypto.randomUUID()}`;
+  await getSharedDb().insert(coordinationRuntimePackets).values({
+    id: oldPacketId, profileId: registered.profileId, runtimeRegistrationId: registered.runtimeId,
+    version: 1, assignmentEventId: result.assignmentEventId, assignmentTaskId: GATE3.taskRef,
+    assignmentThreadId: result.threadId, assignmentAuthor: 'luca-replit', expectedSequence: 1,
+    windowId: result.windowId, windowDigest: result.boundaryDigest,
+    orderedInboxItemIds: [result.runtimeInboxItemId], orderedEventIds: [result.assignmentEventId],
+    orderedThreadIds: [result.threadId], inheritedPayload: {}, envelope: {},
+    canonicalPayload: {}, digest: crypto.createHash('sha256').update(oldPacketId).digest('hex'),
+    createdAt: new Date(),
+  });
+  const [oldPacket] = await getSharedDb().select().from(coordinationRuntimePackets)
+    .where(eq(coordinationRuntimePackets.id, oldPacketId));
+  assert.deepEqual(
+    await getSharedDb().select().from(coordinationRuntimePackets)
+      .where(eq(coordinationRuntimePackets.id, oldPacketId)),
+    [oldPacket],
+  );
   const [thread] = await getSharedDb().select().from(coordinationThreads).where(
     sql`${coordinationThreads.id} = ${result.threadId}`,
   );
@@ -220,7 +235,7 @@ databaseTest('creates the exact projection with fresh authority distinct from hi
   assert.equal(event.sequence, 1);
   assert.equal(event.idempotencyKey, `gate3-assignment:${b.bundleDigest}:${attempt}`);
   assert.deepEqual(event.payload, {
-    kind: 'gate3_assignment', receiptId: receipt.id, artifactSha256: b.artifactSha256,
+    kind: 'gate3_assignment', receiptId: generationReceipt.id, artifactSha256: b.artifactSha256,
     bundleDigest: b.bundleDigest,
     content: { assignment: { author: 'luca-replit', taskId: '1448', expectedSequence: 1 } },
   });
@@ -245,10 +260,10 @@ databaseTest('creates the exact projection with fresh authority distinct from hi
   assert.equal(ordinary[0].recipientActor, GATE3.actor);
   assert.equal(ordinary[0].senderActor, 'luca-replit');
   const [profile] = await getSharedDb().select().from(coordinationRuntimeProfiles)
-    .where(sql`${coordinationRuntimeProfiles.id} = ${FIXED_PROFILE_ID}`);
-  assert.equal(profile.runtimeRegistrationId, GATE3.runtimeId);
+    .where(sql`${coordinationRuntimeProfiles.id} = ${profileId(b)}`);
+  assert.equal(profile.runtimeRegistrationId, b.runtimeId);
   const [audit] = await getSharedDb().select().from(coordinationCredentialAuditEvents).where(
-    sql`${coordinationCredentialAuditEvents.eventType} = 'gate3_assignment_window_created' AND ${coordinationCredentialAuditEvents.runtimeId} = ${GATE3.runtimeId}`,
+    sql`${coordinationCredentialAuditEvents.eventType} = 'gate3_assignment_window_created' AND ${coordinationCredentialAuditEvents.runtimeId} = ${b.runtimeId}`,
   );
   assert.deepEqual(Object.keys(audit.metadata).sort(), [
     'artifactSha256', 'assignmentAttemptId', 'assignmentEventId', 'boundaryDigest',
@@ -256,8 +271,8 @@ databaseTest('creates the exact projection with fresh authority distinct from hi
   ]);
   completedFixture = {
     bundle: b,
-    receiptId: receipt.id,
-    challengeId: assignmentPhaseA.challengeId,
+    receiptId: generationReceipt.id,
+    challengeId: generationPhaseA.challengeId,
     attemptId: attempt,
     result,
   };
@@ -498,45 +513,36 @@ databaseTest('receipt and challenge authority failures create no assignment rows
   assert.deepEqual(await authorityCounts(), before);
 });
 
-databaseTest('recovery lineage and consumed bootstrap failures create no assignment rows', async () => {
+databaseTest('missing or mismatched generation provisioning evidence creates no assignment rows', async () => {
   assert.ok(completedFixture);
   const { bundle: b, receiptId } = completedFixture;
   const db = getSharedDb();
-  const [recovery] = await db.select().from(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.eventType, 'runtime_bootstrap_recovered'));
-  assert.ok(recovery);
-  const originalMetadata = recovery.metadata;
+  const [generation] = await db.select().from(coordinationCredentialAuditEvents)
+    .where(and(
+      eq(coordinationCredentialAuditEvents.eventType, 'runtime_generation_provisioned'),
+      eq(coordinationCredentialAuditEvents.runtimeId, b.runtimeId),
+    ));
+  assert.ok(generation);
+  const originalMetadata = generation.metadata;
   const before = await authorityCounts();
 
   for (const mutation of [
     { success: false, metadata: originalMetadata },
     { success: true, metadata: { ...originalMetadata, bundleDigest: 'f'.repeat(64) } },
-    { success: true, metadata: { ...originalMetadata, oldBootstrapSha256: null } },
-    { success: true, metadata: { ...originalMetadata, newBootstrapSha256: null } },
-    { success: true, metadata: { ...originalMetadata, recoveryLineage: 'invented_lineage' } },
-    { success: true, metadata: { ...originalMetadata, newBootstrapSha256: 'f'.repeat(64) } },
+    { success: true, metadata: { ...originalMetadata, profileId: 'antigravity-wrong' } },
+    { success: true, metadata: { ...originalMetadata, receiptId: 'wrong-receipt' } },
+    { success: true, metadata: { ...originalMetadata, bootstrapSha256: 'f'.repeat(64) } },
   ]) {
     await db.update(coordinationCredentialAuditEvents).set(mutation)
-      .where(eq(coordinationCredentialAuditEvents.id, recovery.id));
+      .where(eq(coordinationCredentialAuditEvents.id, generation.id));
     await rejectsCode(
       () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
-      'recovery_lineage_missing',
+      'generation_provisioning_missing',
     );
   }
   await db.update(coordinationCredentialAuditEvents)
     .set({ success: true, metadata: originalMetadata })
-    .where(eq(coordinationCredentialAuditEvents.id, recovery.id));
-
-  await db.update(coordinationRuntimeRegistrations)
-    .set({ bootstrapHash: consumedCoordinationBootstrapHash(GATE3.runtimeId, b.bootstrapSha256) })
-    .where(eq(coordinationRuntimeRegistrations.id, GATE3.runtimeId));
-  await rejectsCode(
-    () => createGate3AssignmentWindow({ bundle: b, receiptId, assignmentAttemptId: crypto.randomUUID() }),
-    'recovery_lineage_missing',
-  );
-  await db.update(coordinationRuntimeRegistrations)
-    .set({ bootstrapHash: b.bootstrapSha256 })
-    .where(eq(coordinationRuntimeRegistrations.id, GATE3.runtimeId));
+    .where(eq(coordinationCredentialAuditEvents.id, generation.id));
   assert.deepEqual(await authorityCounts(), before);
 });
 
@@ -546,7 +552,7 @@ databaseTest('live credential and live grant block new assignment authority', as
   const db = getSharedDb();
   const before = await authorityCounts();
   const [liveCredential] = await db.insert(coordinationRuntimeCredentials).values({
-    runtimeId: GATE3.runtimeId,
+    runtimeId: b.runtimeId,
     actor: GATE3.actor,
     tokenHash: crypto.randomBytes(32).toString('hex'),
     capabilities: [...GATE3.credentialCapabilities],
@@ -560,7 +566,7 @@ databaseTest('live credential and live grant block new assignment authority', as
     .where(eq(coordinationRuntimeCredentials.id, liveCredential.id));
 
   const [expiredCredential] = await db.insert(coordinationRuntimeCredentials).values({
-    runtimeId: GATE3.runtimeId,
+    runtimeId: b.runtimeId,
     actor: GATE3.actor,
     tokenHash: crypto.randomBytes(32).toString('hex'),
     capabilities: [...GATE3.credentialCapabilities],
@@ -570,8 +576,8 @@ databaseTest('live credential and live grant block new assignment authority', as
   const [grant] = await db.insert(coordinationGate3ProofGrants).values({
     receiptId,
     credentialId: expiredCredential.id,
-    runtimeRegistrationId: GATE3.runtimeId,
-    profileId: FIXED_PROFILE_ID,
+    runtimeRegistrationId: b.runtimeId,
+    profileId: profileId(b),
     actor: GATE3.actor,
     taskRef: GATE3.taskRef,
     artifactSha256: b.artifactSha256,
@@ -597,8 +603,8 @@ databaseTest('packet history blocks new authority but not exact completed replay
   const db = getSharedDb();
   await db.insert(coordinationRuntimePackets).values({
     id: `gate3-test-packet-${crypto.randomUUID()}`,
-    profileId: FIXED_PROFILE_ID,
-    runtimeRegistrationId: GATE3.runtimeId,
+    profileId: profileId(b),
+    runtimeRegistrationId: b.runtimeId,
     version: 1,
     assignmentEventId: result.assignmentEventId,
     assignmentTaskId: GATE3.taskRef,

@@ -18,7 +18,6 @@ import {
 import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
-  consumedCoordinationBootstrapHash,
   exchangeBootstrapCredential,
   registerCoordinationRuntime,
   registerCoordinationRuntimeWithBootstrapSha256,
@@ -55,7 +54,7 @@ const databaseTest = hasDisposableDatabase ? test : test.skip;
 const runtimeId = `credential-broker-${Date.now()}`;
 const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
 const prehashedRuntimeId = `${runtimeId}-prehashed`;
-const operatorRuntimeId = 'luca-gemini-antigravity-primary';
+let operatorRuntimeId = '';
 const operatorTaskRef = `operator-${Date.now()}`;
 
 function runProvisioningCli(args: string[], bundle: PublicProvisioningBundle) {
@@ -181,6 +180,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     repositoryLabel: 'HolaHola',
     worktreeLabel: 'HolaHola-antigravity',
   });
+  operatorRuntimeId = bundle.runtimeId;
   const assertNoAuthority = async () => {
     assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
       .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 0);
@@ -280,10 +280,7 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     CREATE FUNCTION reject_antigravity_profile_insert() RETURNS trigger
     LANGUAGE plpgsql AS $$
     BEGIN
-      IF NEW.runtime_registration_id = 'luca-gemini-antigravity-primary' THEN
-        RAISE EXCEPTION 'forced antigravity profile insert failure';
-      END IF;
-      RETURN NEW;
+      RAISE EXCEPTION 'forced antigravity profile insert failure';
     END
     $$
   `);
@@ -659,178 +656,76 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   assert.equal((await getSharedDb().select().from(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId))).length, 1);
 
-  const recoverySecret = `recovery-secret-${crypto.randomBytes(24).toString('hex')}`;
-  const { bundleDigest: _originalBundleDigest, ...recoveryBase } = bundle;
-  const recoveryBundle = createPublicProvisioningBundle({
-    ...recoveryBase,
-    bootstrapSha256: hashCoordinationSecret(recoverySecret),
+  // A fresh bootstrap is a fresh generation, not same-runtime recovery.
+  const oldRegistration = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
+  const oldProfile = await getSharedDb().select().from(coordinationRuntimeProfiles)
+    .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId));
+  const secondSecret = `second-generation-${crypto.randomBytes(24).toString('hex')}`;
+  const { bundleDigest: _originalBundleDigest, ...generationBase } = bundle;
+  const secondBundle = createPublicProvisioningBundle({
+    ...generationBase,
+    bootstrapSha256: hashCoordinationSecret(secondSecret),
   });
-  const recoveryPhaseA = await submitAntigravityChallenge(recoveryBundle, crypto.randomUUID());
-  const [beforeRecovery] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
-    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
-  await assert.rejects(
-    () => registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId),
-    /challenge_not_approved/,
+  assert.notEqual(secondBundle.runtimeId, bundle.runtimeId);
+  const secondPhaseA = await submitAntigravityChallenge(secondBundle, crypto.randomUUID());
+  const secondReceipt = await decideChallenge(
+    secondPhaseA.challengeId, 'approved', 'founder-second-generation-test',
   );
-  const [afterUnapprovedRecovery] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
-    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
-  assert.equal(afterUnapprovedRecovery.bootstrapHash, beforeRecovery.bootstrapHash);
-
-  const recoveryReceipt = await decideChallenge(
-    recoveryPhaseA.challengeId,
-    'approved',
-    'founder-bootstrap-recovery-test',
+  assert.ok('id' in secondReceipt);
+  const second = await registerAntigravityRuntime(secondBundle, secondPhaseA.challengeId);
+  assert.equal(second.status, 'created');
+  assert.notEqual(second.runtimeId, registered.runtimeId);
+  assert.notEqual(second.profileId, registered.profileId);
+  assert.deepEqual(
+    await getSharedDb().select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId)),
+    oldRegistration,
   );
-  assert.ok('id' in recoveryReceipt);
-  await assert.rejects(
-    () => registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId),
-    /antigravity_provisioning_recovery_live_credential/,
+  assert.deepEqual(
+    await getSharedDb().select().from(coordinationRuntimeProfiles)
+      .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId)),
+    oldProfile,
   );
-  await getSharedDb().update(coordinationRuntimeCredentials)
-    .set({ revokedAt: new Date() })
-    .where(eq(coordinationRuntimeCredentials.runtimeId, operatorRuntimeId));
-  await assert.rejects(
-    () => registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId),
-    /antigravity_provisioning_recovery_live_grant/,
-  );
-  await getSharedDb().update(coordinationGate3ProofGrants)
-    .set({ revokedAt: new Date() })
-    .where(eq(coordinationGate3ProofGrants.runtimeRegistrationId, operatorRuntimeId));
-
-  const recovered = await registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId);
-  assert.equal(recovered.status, 'recovered');
-  assert.equal(recovered.runtimeId, registered.runtimeId);
-  assert.equal(recovered.profileId, registered.profileId);
-  assert.equal((await getSharedDb().select().from(coordinationRuntimeProfiles)
-    .where(eq(coordinationRuntimeProfiles.runtimeRegistrationId, operatorRuntimeId))).length, 1);
-  assert.equal(await exchangeBootstrapCredential(operatorRuntimeId, secret), null);
+  const generationAudits = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.eventType, 'runtime_generation_provisioned'));
+  assert.equal(generationAudits.length >= 2, true);
+  assert.equal(generationAudits.some((row) => {
+    const metadata = row.metadata as Record<string, unknown>;
+    return metadata.runtimeId === second.runtimeId
+      && metadata.profileId === second.profileId
+      && metadata.challengeId === secondPhaseA.challengeId
+      && metadata.receiptId === secondReceipt.id
+      && metadata.bundleDigest === secondBundle.bundleDigest
+      && metadata.registrationOutcome === 'created';
+  }), true);
+  assert.equal(JSON.stringify(generationAudits).includes(secondSecret), false);
+  // The exact approved challenge is idempotent before bootstrap consumption.
   assert.equal(
-    (await registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId)).status,
+    (await registerAntigravityRuntime(secondBundle, secondPhaseA.challengeId)).status,
     'replayed',
   );
-  const [recoveryAudit] = await getSharedDb().select().from(coordinationCredentialAuditEvents)
-    .where(and(
-      eq(coordinationCredentialAuditEvents.runtimeId, operatorRuntimeId),
-      eq(coordinationCredentialAuditEvents.eventType, 'runtime_bootstrap_recovered'),
-    ));
-  assert.equal(
-    (recoveryAudit.metadata as Record<string, unknown>).oldBootstrapSha256,
-    bundle.bootstrapSha256,
+  const secondExchanged = await exchangeBootstrapCredential(second.runtimeId, secondSecret);
+  assert.ok(secondExchanged);
+  const secondCredential = await resolveBrokerCredential(secondExchanged!.accessToken);
+  assert.ok(secondCredential);
+  await assert.rejects(
+    () => validateGate3ProofGrant(grant.id, secondCredential!.credential),
+    /GATE3_PROOF_GRANT_INVALID/,
   );
   assert.equal(
-    (recoveryAudit.metadata as Record<string, unknown>).recoveryLineage,
-    'audited_consumption',
-  );
-
-  const tombstoneHash = consumedCoordinationBootstrapHash(
-    operatorRuntimeId,
-    recoveryBundle.bootstrapSha256,
-  );
-  const collisionRuntimeId = `${runtimeId}-tombstone-collision`;
-  await registerCoordinationRuntimeWithBootstrapSha256({
-    runtimeId: collisionRuntimeId,
-    actor: 'luca-replit',
-    displayName: 'Tombstone collision fixture',
-    capabilities: ['coordination:read'],
-    tokenTtlSeconds: 60,
-    bootstrapSha256: tombstoneHash,
-  });
-  assert.equal(await exchangeBootstrapCredential(operatorRuntimeId, recoverySecret), null);
-  await getSharedDb().delete(coordinationRuntimeRegistrations)
-    .where(eq(coordinationRuntimeRegistrations.id, collisionRuntimeId));
-
-  const recoveredExchanges = await Promise.all([
-    exchangeBootstrapCredential(operatorRuntimeId, recoverySecret),
-    exchangeBootstrapCredential(operatorRuntimeId, recoverySecret),
-  ]);
-  assert.equal(
-    recoveredExchanges.filter((value) => value !== null).length,
-    1,
-    'a recovered bootstrap must exchange exactly once under concurrency',
-  );
-  assert.equal(await exchangeBootstrapCredential(operatorRuntimeId, recoverySecret), null);
-  assert.equal(
-    (await registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId)).status,
+    (await registerAntigravityRuntime(secondBundle, secondPhaseA.challengeId)).status,
     'replayed',
   );
-  await getSharedDb().update(coordinationRuntimeRegistrations)
-    .set({ enabled: false })
-    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
   await assert.rejects(
-    () => registerAntigravityRuntime(recoveryBundle, recoveryPhaseA.challengeId),
-    /antigravity_provisioning_replay_registration_conflict/,
-  );
-  await getSharedDb().update(coordinationRuntimeRegistrations)
-    .set({ enabled: true })
-    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
-
-  const arbitraryDigest = hashCoordinationSecret('not-a-consumed-bootstrap-state');
-  await getSharedDb().update(coordinationRuntimeRegistrations)
-    .set({ bootstrapHash: arbitraryDigest })
-    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
-  const postRecoverySecret = `post-recovery-${crypto.randomBytes(24).toString('hex')}`;
-  const postRecoveryBundle = createPublicProvisioningBundle({
-    ...recoveryBase,
-    bootstrapSha256: hashCoordinationSecret(postRecoverySecret),
-  });
-  const postRecoveryPhaseA = await submitAntigravityChallenge(postRecoveryBundle, crypto.randomUUID());
-  await decideChallenge(postRecoveryPhaseA.challengeId, 'approved', 'founder-bootstrap-recovery-test');
-  await assert.rejects(
-    () => registerAntigravityRuntime(postRecoveryBundle, postRecoveryPhaseA.challengeId),
-    /antigravity_provisioning_recovery_unconsumed_bootstrap/,
-  );
-  await getSharedDb().update(coordinationRuntimeRegistrations)
-    .set({ bootstrapHash: tombstoneHash })
-    .where(eq(coordinationRuntimeRegistrations.id, operatorRuntimeId));
-
-  await getSharedDb().update(coordinationRuntimeCredentials)
-    .set({ revokedAt: new Date() })
-    .where(eq(coordinationRuntimeCredentials.runtimeId, operatorRuntimeId));
-  await getSharedDb().update(coordinationGate3ProofGrants)
-    .set({ revokedAt: new Date() })
-    .where(eq(coordinationGate3ProofGrants.runtimeRegistrationId, operatorRuntimeId));
-  const packetBlockerId = `gate3-recovery-packet-${Date.now()}`;
-  await getSharedDb().insert(coordinationRuntimePackets).values({
-    id: packetBlockerId,
-    profileId: registered.profileId,
-    runtimeRegistrationId: operatorRuntimeId,
-    version: 1,
-    assignmentEventId: packetBlockerId,
-    assignmentTaskId: '1448',
-    assignmentThreadId: probeWindow.threadId,
-    assignmentAuthor: 'luca-replit',
-    expectedSequence: 1,
-    supersedesClaimId: null,
-    windowId: probeWindow.id,
-    windowDigest: probeWindow.boundaryDigest,
-    orderedInboxItemIds: [packetBlockerId],
-    orderedEventIds: [packetBlockerId],
-    orderedThreadIds: [probeWindow.threadId],
-    inheritedPayload: [],
-    envelope: {},
-    canonicalPayload: {},
-    digest: crypto.createHash('sha256').update(packetBlockerId).digest('hex'),
-    createdAt: new Date(),
-  });
-  const packetBlockedSecret = `packet-blocked-${crypto.randomBytes(24).toString('hex')}`;
-  const packetBlockedBundle = createPublicProvisioningBundle({
-    ...recoveryBase,
-    bootstrapSha256: hashCoordinationSecret(packetBlockedSecret),
-  });
-  const packetBlockedPhaseA = await submitAntigravityChallenge(packetBlockedBundle, crypto.randomUUID());
-  await decideChallenge(packetBlockedPhaseA.challengeId, 'approved', 'founder-bootstrap-recovery-test');
-  await assert.rejects(
-    () => registerAntigravityRuntime(packetBlockedBundle, packetBlockedPhaseA.challengeId),
-    /antigravity_provisioning_recovery_packet_history/,
-  );
-
-  const auditRows = await getSharedDb().select().from(coordinationCredentialAuditEvents)
-    .where(eq(coordinationCredentialAuditEvents.runtimeId, operatorRuntimeId));
-  assert.equal(JSON.stringify(auditRows).includes(secret), false);
-  assert.equal(JSON.stringify(auditRows).includes(recoverySecret), false);
-  assert.equal(
-    auditRows.some((row) => row.eventType === 'runtime_bootstrap_recovered'),
-    true,
+    () => registerAntigravityRuntime(
+      createPublicProvisioningBundle({
+        ...generationBase,
+        bootstrapSha256: hashCoordinationSecret(`third-generation-${Date.now()}`),
+      }),
+      secondPhaseA.challengeId,
+    ),
+    /challenge_not_approved|receipt_mismatch/,
   );
 });
 

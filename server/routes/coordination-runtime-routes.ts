@@ -44,6 +44,15 @@ export type CoordinationRuntimeRouteDeps = {
 
 const model = 'gemini-3-flash-preview';
 const adapterVersion = 'coordination-gemini-v1';
+const LEGACY_ANTIGRAVITY_RUNTIME_ID = 'luca-gemini-antigravity-primary';
+const GENERATION_RUNTIME_ID = /^luca-gemini-antigravity-[0-9a-f]{24}$/;
+const isAntigravityCandidate = (principal: RuntimePrincipal, profile: CodingRuntimeProfile): boolean =>
+  principal.actor === 'luca-gemini'
+  && (
+    principal.runtimeRegistrationId === LEGACY_ANTIGRAVITY_RUNTIME_ID
+    || GENERATION_RUNTIME_ID.test(principal.runtimeRegistrationId)
+    || profile.id.startsWith('antigravity-')
+  );
 
 function token(req: Request): string | undefined {
   const header = req.headers['x-coordination-token'];
@@ -197,7 +206,11 @@ function assertGate3PacketBinding(
 ): void {
   const envelope = packet.envelope;
   if (
-    packet.assignment.taskId !== grant.taskRef
+    !/^luca-gemini-antigravity-[0-9a-f]{24}$/.test(grant.runtimeRegistrationId)
+    || grant.profileId !== `antigravity-${grant.contextDigest}`
+    || grant.actor !== 'luca-gemini'
+    || grant.taskRef !== '1448'
+    || packet.assignment.taskId !== grant.taskRef
     || envelope.grantId !== grant.grantId
     || envelope.taskRef !== grant.taskRef
     || envelope.artifactSha256 !== grant.artifactSha256
@@ -205,7 +218,6 @@ function assertGate3PacketBinding(
     || envelope.startingCommit !== grant.startingCommit
     || packet.runtimeRegistrationId !== grant.runtimeRegistrationId
     || packet.profileId !== grant.profileId
-    || grant.actor !== 'luca-gemini'
   ) {
     throw new Error('gate3_packet_binding_mismatch');
   }
@@ -221,7 +233,7 @@ async function withGate3Operation<T>(
   operation?: (grant: Gate3Grant | undefined) => Promise<T>,
 ): Promise<T> {
   if (!operation) throw new Error('gate3_operation_missing');
-  if (principal.runtimeRegistrationId !== 'luca-gemini-antigravity-primary') {
+  if (!isAntigravityCandidate(principal, profile)) {
     return operation(undefined);
   }
   const header = req.headers['x-coordination-ownership-grant'];
@@ -233,6 +245,8 @@ async function withGate3Operation<T>(
         grant.credentialId !== principal.credentialId
         || grant.runtimeRegistrationId !== principal.runtimeRegistrationId
         || grant.profileId !== profile.id
+        || grant.profileId !== `antigravity-${grant.contextDigest}`
+        || grant.taskRef !== '1448'
         || grant.actor !== principal.actor
       ) {
         throw new Error('gate3_principal_binding_mismatch');
@@ -321,7 +335,7 @@ export function registerCoordinationRuntimeRoutes(
       threadId: stringField(threadId, 'threadId'),
       expectedSequence: numberField(expectedSequence, 'expectedSequence'),
     };
-    if (principal.runtimeRegistrationId === 'luca-gemini-antigravity-primary' && assignment.taskId !== '1448') {
+    if (isAntigravityCandidate(principal, profile) && assignment.taskId !== '1448') {
       throw new RuntimeProtocolError('packet_assignment_mismatch', 'Gate 3 task assignment is invalid');
     }
     return withGate3Operation(req, principal, profile, credential, deps.withGrantAuthority, undefined, async (grant) => {
@@ -475,7 +489,11 @@ export function registerCoordinationRuntimeRoutes(
     const claim = execution && await repository.getClaim(execution.claimId);
     const packet = claim && await repository.getPacket(claim.packetId);
     if (!packet) throw new RuntimeProtocolError('packet_not_found', 'Packet not found');
-    const isGate3Packet = packet.runtimeRegistrationId === 'luca-gemini-antigravity-primary';
+    // The verifier is a different principal, so classify from the packet
+    // bindings; authority still comes only from the exact grant chain below.
+    const isGate3Packet = packet.runtimeRegistrationId === LEGACY_ANTIGRAVITY_RUNTIME_ID
+      || GENERATION_RUNTIME_ID.test(packet.runtimeRegistrationId)
+      || packet.profileId.startsWith('antigravity-');
     if (isGate3Packet) {
       const envelope = packet.envelope;
       if (

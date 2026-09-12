@@ -6,6 +6,10 @@ import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { prepareAntigravityProvisioning } from './prepare-antigravity-provisioning';
+import {
+  deriveAntigravityRuntimeId,
+  validatePublicProvisioningBundle,
+} from '../services/antigravity-provisioning-bundle';
 
 const run = promisify(execFile);
 let root: string;
@@ -36,6 +40,10 @@ test('preparation materializes and emits only public data', async () => {
   assert.match(artifact, new RegExp(commit));
   assert.equal(JSON.stringify(bundle).includes(secret), false);
   assert.equal(bundle.model, 'gemini-3-flash-preview');
+  assert.equal(
+    bundle.runtimeId,
+    deriveAntigravityRuntimeId(bundle.bootstrapSha256),
+  );
   const again = await prepareAntigravityProvisioning({ root, startingCommit: commit, env: env() });
   assert.equal(again.artifactSha256, bundle.artifactSha256);
   await writeFile(join(root, '.local/tasks/task-1448.md'), 'conflict');
@@ -59,4 +67,19 @@ test('production preparation removes bootstrap from subprocess environment befor
   const firstGitAt = source.indexOf('await git(', functionStart);
   assert.ok(deleteAt > functionStart, 'production bootstrap must be removed');
   assert.ok(firstGitAt > deleteAt, 'bootstrap must be removed before the first Git subprocess');
+});
+
+test('public bundle validation rejects arbitrary or malformed generation IDs', async () => {
+  const bundle = await prepareAntigravityProvisioning({ root, startingCommit: commit, env: env() });
+  for (const runtimeId of [
+    'luca-gemini-antigravity-primary',
+    bundle.runtimeId.toUpperCase(),
+    bundle.runtimeId.slice(0, -1),
+    `${bundle.runtimeId}x`,
+  ]) {
+    assert.throws(
+      () => validatePublicProvisioningBundle({ ...bundle, runtimeId }),
+      /provisioning_bundle_(runtime_id|digest)/,
+    );
+  }
 });

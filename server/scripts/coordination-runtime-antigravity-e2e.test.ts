@@ -8,22 +8,35 @@ import { CoordinationGeminiAdapter, CoordinationGeminiCoordinator } from '../ser
 import { registerCoordinationRuntimeRoutes } from '../routes/coordination-runtime-routes';
 import { AntigravityDriver, TARGET } from './coordination-runtime-antigravity';
 import type { TaskOwnershipHttpClient } from '../services/task-ownership-client';
+import { deriveAntigravityRuntimeId } from '../services/antigravity-provisioning-bundle';
 
 const token = 'ct_e2e_short';
 const grantId = 'grant-e2e';
+const bootstrapDigest = createHash('sha256').update('e2e-bootstrap').digest('hex');
+const contextDigest = createHash('sha256').update('e2e-context').digest('hex');
 const credential = {
-  actor: 'luca-gemini' as const, runtimeId: 'luca-gemini-antigravity-primary', credentialId: 'e2e-credential',
+  actor: 'luca-gemini' as const, runtimeId: deriveAntigravityRuntimeId(bootstrapDigest), credentialId: 'e2e-credential',
   capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 3600000),
 };
 const verifierCredential = {
   actor: 'luca-replit' as const, runtimeId: 'e2e-verifier-runtime', credentialId: 'e2e-verifier-credential',
   capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 3600000),
 };
+const legacyCredential = {
+  actor: 'luca-gemini' as const, runtimeId: 'luca-gemini-antigravity-primary', credentialId: 'e2e-legacy-credential',
+  capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 3600000),
+};
+const malformedProfileCredential = {
+  actor: 'luca-gemini' as const,
+  runtimeId: deriveAntigravityRuntimeId(createHash('sha256').update('malformed-profile-bootstrap').digest('hex')),
+  credentialId: 'e2e-malformed-profile-credential',
+  capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 3600000),
+};
 const rootDigest = createHash('sha256').update('/approved').digest('hex');
 const artifactContent = 'approved task artifact';
 const artifactDigest = createHash('sha256').update(artifactContent).digest('hex');
 const profile = {
-  id: 'e2e-profile', runtimeRegistrationId: credential.runtimeId, actor: credential.actor,
+  id: `antigravity-${contextDigest}`, runtimeRegistrationId: credential.runtimeId, actor: credential.actor,
   capabilities: ['execute', 'model'], provider: 'gemini', model: 'gemini-3-flash-preview',
   adapterVersion: 'coordination-gemini-v1', status: 'active' as const,
   worktreeLabel: 'HolaHola-antigravity', worktreeRealpathDigest: rootDigest,
@@ -33,6 +46,18 @@ const verifierProfile = {
   id: 'e2e-verifier-profile', runtimeRegistrationId: verifierCredential.runtimeId, actor: verifierCredential.actor,
   capabilities: ['verify'], provider: 'gemini', model: 'gemini-3-flash-preview',
   adapterVersion: 'coordination-gemini-v1', status: 'active' as const,
+};
+const legacyProfile = {
+  ...profile,
+  id: 'antigravity-legacy-profile',
+  runtimeRegistrationId: legacyCredential.runtimeId,
+  startingCommit: 'legacy-head',
+};
+const malformedProfile = {
+  ...profile,
+  id: 'ordinary-profile',
+  runtimeRegistrationId: malformedProfileCredential.runtimeId,
+  startingCommit: 'malformed-head',
 };
 
 async function request(server: http.Server, path: string, init: { method?: string; body?: unknown; token?: string; key?: string; grant?: string } = {}) {
@@ -52,6 +77,8 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
   const repository = new InMemoryCoordinationRepository();
   await repository.saveProfile(profile);
   await repository.saveProfile(verifierProfile);
+  await repository.saveProfile(legacyProfile);
+  await repository.saveProfile(malformedProfile);
   await repository.addInboxItem({ id: 'e2e-item', eventId: 'e2e-event', threadId: 'e2e-thread', taskId: '1448', sequence: 1,
     payload: { content: { assignment: { author: 'daniela', taskId: '1448', threadId: 'e2e-thread', expectedSequence: 1 } } } });
   const window = await repository.freezeInboxWindow('e2e-thread', 0, 1, 'e2e-boundary');
@@ -85,12 +112,14 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
       'https://gemini-proxy.example.test',
     ),
     resolveCredential: async (value) => value === token ? credential
-      : value === 'verifier-token' ? verifierCredential : null,
+      : value === 'verifier-token' ? verifierCredential
+        : value === 'legacy-token' ? legacyCredential
+          : value === 'malformed-profile-token' ? malformedProfileCredential : null,
     validateGrant: async (id) => {
       executorValidationCalls++;
       assert.equal(id, grantId);
       return { grantId, actor: 'luca-gemini', taskRef: '1448', artifactSha256: artifactDigest,
-        contextDigest: 'context-e2e', startingCommit: 'head', receiptId: 'receipt-e2e',
+        contextDigest, startingCommit: 'head', receiptId: 'receipt-e2e',
         credentialId: credential.credentialId, runtimeRegistrationId: credential.runtimeId,
         profileId: profile.id, expiresAt: new Date(Date.now() + 3600000) };
     },
@@ -99,13 +128,13 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
       verifierValidationCalls++;
       if (rejectVerifierGrant) throw new Error('GATE3_PROOF_GRANT_INVALID');
       return { grantId, actor: 'luca-gemini', taskRef: '1448', artifactSha256: artifactDigest,
-        contextDigest: 'context-e2e', startingCommit: 'head', receiptId: 'receipt-e2e',
+        contextDigest, startingCommit: 'head', receiptId: 'receipt-e2e',
         credentialId: credential.credentialId, runtimeRegistrationId: credential.runtimeId,
         profileId: profile.id, expiresAt: new Date(Date.now() + 3600000) };
     },
     withGrantAuthority: async (_id, _credential, operation) => operation({
       grantId, actor: 'luca-gemini', taskRef: '1448', artifactSha256: artifactDigest,
-      contextDigest: 'context-e2e', startingCommit: 'head', receiptId: 'receipt-e2e',
+      contextDigest, startingCommit: 'head', receiptId: 'receipt-e2e',
       credentialId: credential.credentialId, runtimeRegistrationId: credential.runtimeId,
       profileId: profile.id, expiresAt: new Date(Date.now() + 3600000),
     }),
@@ -116,6 +145,15 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
       method: 'POST', token, key: 'missing-grant', body: { windowId: window.id },
     });
     assert.equal(missingGrant.status, 403);
+    const legacyMissingGrant = await request(server, '/api/coordination/runtime/packets', {
+      method: 'POST', token: 'legacy-token', key: 'legacy-missing-grant', body: { windowId: window.id },
+    });
+    assert.equal(legacyMissingGrant.status, 403);
+    const malformedProfileMissingGrant = await request(server, '/api/coordination/runtime/packets', {
+      method: 'POST', token: 'malformed-profile-token', key: 'malformed-profile-missing-grant',
+      body: { windowId: window.id },
+    });
+    assert.equal(malformedProfileMissingGrant.status, 403);
     let statusCount = 0;
     const files = new Map<string, Buffer>([['/approved/.local/tasks/task-1448.md', Buffer.from(artifactContent)]]);
     const fs = {
@@ -141,7 +179,7 @@ test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evide
       proveOwnership: async (_client, taskRef, actor, receiptId) => {
         assert.equal(taskRef, '1448'); assert.equal(actor, 'luca-gemini'); assert.equal(receiptId, 'receipt-e2e');
         return { ok: true, verified: true, receiptId: 'receipt-e2e', taskRef: '1448', intendedActor: 'luca-gemini', artifactSha256: artifactDigest, proofPayloadDigest: 'd'.repeat(64),
-          contextDigest: 'context-e2e', grant: { id: grantId, taskRef: '1448', artifactSha256: artifactDigest, contextDigest: 'context-e2e', startingCommit: 'head', expiresAt: new Date(Date.now() + 3600000).toISOString() } };
+          contextDigest, grant: { id: grantId, taskRef: '1448', artifactSha256: artifactDigest, contextDigest, startingCommit: 'head', expiresAt: new Date(Date.now() + 3600000).toISOString() } };
       },
        env: {}, fs, spawn, http: async (input) => {
          const response = await request(server, input.path, { method: input.method, body: input.body, key: input.headers['idempotency-key'], token: input.headers['x-coordination-token'], grant: input.headers['x-coordination-ownership-grant'] });

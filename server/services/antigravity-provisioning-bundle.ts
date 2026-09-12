@@ -1,7 +1,6 @@
 import { createHash, createPublicKey } from 'node:crypto';
 
 export const GATE3 = {
-  runtimeId: 'luca-gemini-antigravity-primary',
   actor: 'luca-gemini',
   credentialCapabilities: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew'] as const,
   runtimeCapabilities: ['execute', 'model'] as const,
@@ -35,6 +34,14 @@ const json = (value: unknown): string => {
 };
 const digest = (value: unknown): string => createHash('sha256').update(json(value)).digest('hex');
 
+/** The only source of identity for an Antigravity generation. */
+export function deriveAntigravityRuntimeId(bootstrapSha256: string): string {
+  if (!/^[0-9a-f]{64}$/.test(bootstrapSha256)) {
+    throw new ProvisioningBundleError('bootstrapSha256');
+  }
+  return `luca-gemini-antigravity-${bootstrapSha256.slice(0, 24)}`;
+}
+
 export class ProvisioningBundleError extends Error {
   readonly code: string;
   constructor(code: string) { super(`provisioning_bundle_${code}`); this.name = 'ProvisioningBundleError'; this.code = code; }
@@ -44,16 +51,24 @@ export function canonicalBundleJson(bundle: Omit<PublicProvisioningBundle, 'bund
   return json(bundle);
 }
 
-export function createPublicProvisioningBundle(input: Omit<PublicProvisioningBundle, 'bundleDigest'>): PublicProvisioningBundle {
-  validatePublicProvisioningBundle(input);
-  return { ...input, bundleDigest: digest(input) } as PublicProvisioningBundle;
+export function createPublicProvisioningBundle(
+  input: Omit<PublicProvisioningBundle, 'bundleDigest' | 'runtimeId'> & { runtimeId?: string },
+): PublicProvisioningBundle {
+  // Do not allow a caller-supplied identifier to influence the bundle. It is
+  // deliberately overwritten before validation and canonicalization.
+  const bundle = {
+    ...input,
+    runtimeId: deriveAntigravityRuntimeId(input.bootstrapSha256),
+  };
+  validatePublicProvisioningBundle(bundle);
+  return { ...bundle, bundleDigest: digest(bundle) } as PublicProvisioningBundle;
 }
 
 export function validatePublicProvisioningBundle(value: unknown): asserts value is Omit<PublicProvisioningBundle, 'bundleDigest'> & { bundleDigest?: string } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ProvisioningBundleError('shape');
   const object = value as Record<string, unknown>;
   const allowed = new Set(Object.keys(GATE3).concat([
-    'artifactSha256', 'publicKey', 'keyFingerprint', 'bootstrapSha256',
+    'runtimeId', 'artifactSha256', 'publicKey', 'keyFingerprint', 'bootstrapSha256',
     'worktreeRealpathDigest', 'startingCommit', 'bundleDigest',
   ]));
   for (const key of Object.keys(object)) {
@@ -61,6 +76,10 @@ export function validatePublicProvisioningBundle(value: unknown): asserts value 
   }
   for (const key of ['artifactSha256', 'bootstrapSha256', 'worktreeRealpathDigest', 'keyFingerprint'] as const) {
     if (typeof object[key] !== 'string' || !SHA.test(object[key])) throw new ProvisioningBundleError(key);
+  }
+  if (typeof object.runtimeId !== 'string'
+    || object.runtimeId !== deriveAntigravityRuntimeId(object.bootstrapSha256 as string)) {
+    throw new ProvisioningBundleError('runtime_id');
   }
   if (typeof object.startingCommit !== 'string' || !COMMIT.test(object.startingCommit)) throw new ProvisioningBundleError('commit');
   if (typeof object.publicKey !== 'string') throw new ProvisioningBundleError('public_key');

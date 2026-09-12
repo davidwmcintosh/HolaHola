@@ -14,12 +14,14 @@ import { getVerifiedCiDatabaseUrl } from "../ci-database";
 import { createCoordinationThread } from "./coordination-ledger-service";
 import { PostgresCoordinationRuntimeRepository } from "./coordination-runtime-postgres-repository";
 import { digestCanonical } from "./coordination-runtime";
-import { GATE3, type PublicProvisioningBundle, validatePublicProvisioningBundle } from "./antigravity-provisioning-bundle";
+import {
+  GATE3, deriveAntigravityRuntimeId, type PublicProvisioningBundle,
+  validatePublicProvisioningBundle,
+} from "./antigravity-provisioning-bundle";
 
 const MAX_BUNDLE_BYTES = 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MARGIN_MS = 10 * 60_000 + 30_000;
-const GATE3_PROFILE_ID = "antigravity-21cbe9f7cf3e13028d9be66720c6dc2cb30e6cf83e92b2b739963a4bdbba14a9";
 
 export class Gate3AssignmentWindowError extends Error {
   readonly code: string;
@@ -54,7 +56,8 @@ export function validateGate3AssignmentBundle(value: unknown): PublicProvisionin
 }
 
 function profileMatches(row: any, b: PublicProvisioningBundle) {
-  return row.runtimeRegistrationId === b.runtimeId && row.actor === b.actor
+  return row.id === `antigravity-${b.bundleDigest}`
+    && row.runtimeRegistrationId === b.runtimeId && row.actor === b.actor
     && same(row.capabilities, b.runtimeCapabilities) && row.provider === b.provider
     && row.model === b.model && row.adapterVersion === b.adapterVersion
     && row.repositoryLabel === b.repositoryLabel && row.worktreeLabel === b.worktreeLabel
@@ -95,7 +98,7 @@ export async function createGate3AssignmentWindow(input: {
     const priorRows = await tx.select().from(coordinationCredentialAuditEvents).where(and(
       eq(coordinationCredentialAuditEvents.eventType, "gate3_assignment_window_created"),
       eq(coordinationCredentialAuditEvents.success, true),
-      eq(coordinationCredentialAuditEvents.runtimeId, GATE3.runtimeId),
+      eq(coordinationCredentialAuditEvents.runtimeId, bundle.runtimeId),
     )).orderBy(desc(coordinationCredentialAuditEvents.createdAt));
     const prior = priorRows.find((row) =>
       (row.metadata as Record<string, unknown> | undefined)?.assignmentAttemptId === attempt);
@@ -166,9 +169,11 @@ export async function createGate3AssignmentWindow(input: {
       return resultFrom(prior);
     }
     const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
-      .where(eq(coordinationRuntimeRegistrations.id, GATE3.runtimeId)).for("update");
+      .where(eq(coordinationRuntimeRegistrations.id, bundle.runtimeId)).for("update");
     const [profile] = await tx.select().from(coordinationRuntimeProfiles)
-      .where(and(eq(coordinationRuntimeProfiles.runtimeRegistrationId, GATE3.runtimeId), eq(coordinationRuntimeProfiles.status, "active"))).for("update");
+      .where(and(eq(coordinationRuntimeProfiles.id, `antigravity-${bundle.bundleDigest}`),
+        eq(coordinationRuntimeProfiles.runtimeRegistrationId, bundle.runtimeId),
+        eq(coordinationRuntimeProfiles.status, "active"))).for("update");
     const [receipt] = await tx.select().from(taskOwnershipReceipts).where(eq(taskOwnershipReceipts.id, input.receiptId)).for("update");
     const [challenge] = receipt ? await tx.select().from(taskOwnershipChallenges).where(eq(taskOwnershipChallenges.id, receipt.challengeId)).for("update") : [];
     const now = Date.now();
@@ -181,25 +186,42 @@ export async function createGate3AssignmentWindow(input: {
       || challenge.intendedActor !== GATE3.actor || challenge.coordinationActor !== GATE3.actor
       || challenge.publicKey !== receipt.publicKey || challenge.keyFingerprint !== receipt.keyFingerprint
       || challenge.contextDigest !== receipt.contextDigest) fail("receipt_invalid");
-    const [recovery] = await tx.select().from(coordinationCredentialAuditEvents).where(and(
-      eq(coordinationCredentialAuditEvents.runtimeId, GATE3.runtimeId),
-      eq(coordinationCredentialAuditEvents.eventType, "runtime_bootstrap_recovered"),
+    const generations = await tx.select().from(coordinationCredentialAuditEvents).where(and(
+      eq(coordinationCredentialAuditEvents.runtimeId, bundle.runtimeId),
+      eq(coordinationCredentialAuditEvents.eventType, "runtime_generation_provisioned"),
       eq(coordinationCredentialAuditEvents.success, true),
-    )).orderBy(desc(coordinationCredentialAuditEvents.createdAt)).limit(1);
-    const rm = recovery?.metadata as Record<string, unknown> | undefined;
-    if (!registration || !profile || profile.id !== GATE3_PROFILE_ID
+    )).limit(2);
+    const [generation] = generations;
+    const gm = generation?.metadata as Record<string, unknown> | undefined;
+    const generationFields: Record<string, unknown> = {
+      runtimeId: bundle.runtimeId,
+      profileId: `antigravity-${bundle.bundleDigest}`,
+      challengeId: challenge.id,
+      receiptId: input.receiptId,
+      actor: bundle.actor,
+      taskRef: bundle.taskRef,
+      artifactSha256: bundle.artifactSha256,
+      keyFingerprint: bundle.keyFingerprint,
+      bundleDigest: bundle.bundleDigest,
+      bootstrapSha256: bundle.bootstrapSha256,
+      worktreeRealpathDigest: bundle.worktreeRealpathDigest,
+      startingCommit: bundle.startingCommit,
+    };
+    if (!registration || !profile
       || !registrationMatches(registration, bundle) || !profileMatches(profile, bundle)
-      || !recovery || rm?.bundleDigest !== bundle.bundleDigest
-      || typeof rm?.oldBootstrapSha256 !== "string" || typeof rm?.newBootstrapSha256 !== "string"
-      || (rm?.recoveryLineage !== "audited_consumption" && rm?.recoveryLineage !== "legacy_issued_credential")
-      || rm?.newBootstrapSha256 !== registration.bootstrapHash) fail("recovery_lineage_missing");
+      || generations.length !== 1 || !generation || !gm
+      || Object.entries(generationFields).some(([key, expected]) => gm[key] !== expected)
+      || typeof gm.bootstrapSha256 !== "string"
+      || !/^[0-9a-f]{64}$/.test(gm.bootstrapSha256)
+      || deriveAntigravityRuntimeId(gm.bootstrapSha256) !== bundle.runtimeId
+      || gm.registrationOutcome !== "created") fail("generation_provisioning_missing");
     const [credential] = await tx.select().from(coordinationRuntimeCredentials).where(and(
-      eq(coordinationRuntimeCredentials.runtimeId, GATE3.runtimeId), isNull(coordinationRuntimeCredentials.revokedAt), gt(coordinationRuntimeCredentials.expiresAt, new Date()),
+      eq(coordinationRuntimeCredentials.runtimeId, bundle.runtimeId), isNull(coordinationRuntimeCredentials.revokedAt), gt(coordinationRuntimeCredentials.expiresAt, new Date()),
     ));
     const [grant] = await tx.select().from(coordinationGate3ProofGrants).where(and(
-      eq(coordinationGate3ProofGrants.runtimeRegistrationId, GATE3.runtimeId), isNull(coordinationGate3ProofGrants.revokedAt), gt(coordinationGate3ProofGrants.expiresAt, new Date()),
+      eq(coordinationGate3ProofGrants.runtimeRegistrationId, bundle.runtimeId), isNull(coordinationGate3ProofGrants.revokedAt), gt(coordinationGate3ProofGrants.expiresAt, new Date()),
     ));
-    const [packet] = await tx.select().from(coordinationRuntimePackets).where(eq(coordinationRuntimePackets.runtimeRegistrationId, GATE3.runtimeId)).limit(1);
+    const [packet] = await tx.select().from(coordinationRuntimePackets).where(eq(coordinationRuntimePackets.runtimeRegistrationId, bundle.runtimeId)).limit(1);
     if (credential) fail("live_credential");
     if (grant) fail("live_grant");
     if (packet) fail("packet_history");
@@ -265,7 +287,7 @@ export async function createGate3AssignmentWindow(input: {
       boundaryDigest: window.boundaryDigest, artifactSha256: bundle.artifactSha256, bundleDigest: bundle.bundleDigest,
     };
     await tx.insert(coordinationCredentialAuditEvents).values({
-      eventType: "gate3_assignment_window_created", success: true, runtimeId: GATE3.runtimeId,
+      eventType: "gate3_assignment_window_created", success: true, runtimeId: bundle.runtimeId,
       actor: "luca-replit", metadata,
     });
     await input.testHooks?.afterAuditCreated?.();
