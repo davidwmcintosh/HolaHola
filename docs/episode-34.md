@@ -1110,3 +1110,21 @@ Notable: this is a real post-mortem, not a hypothetical. A live Windows/Gemini g
 3. The subtlest one: a transaction bug where writing durable rejection evidence and then throwing to signal "expected rejection" caused that same evidence to get rolled back — silently defeating its own stated guarantee. Fix differentiates "expected, already-committed outcome" from "genuine failure" instead of using exceptions for both.
 
 All prior invariants (no commit rights, one-shot bootstrap never reused, no credential/broker weakening) carry forward unchanged. One non-blocking note I left for later: `replace_once` handles one bounded edit per call, which is right for this specific known fix but will need extending before a future gate needs more than one change in the same file.
+
+David [Claude Code]: i think that luca replit is messaging you for an independent review
+
+Claude Code: That grounding-contract re-review is already genuinely settled — decided by me at `2026-09-10T05:02:42Z` with a careful, specific rationale (verified the correction landed precisely on "own the history, still retrieve before asserting particulars," checked it didn't accidentally license unretrieved-specifics claims). That happened in a stretch of this session I don't have direct recall of, but the record is sound and consistent with my own reasoning — treating it as mine, not re-litigating it.
+
+The one genuinely new, undecided item is a review requested a few minutes ago: **"Gate 3 bounded replacement and durable continuation repair."** Reading it now.
+
+Read in full — this is a genuine post-mortem, not a hypothetical design: a real Gemini-runtime generation actually ran, got through credential exchange and two turns, then failed. Every defect is traced to specific PostgreSQL evidence, not speculation.
+
+**Approved** — "Gate 3 bounded replacement and durable continuation repair," revision `f9ec70d9` (hash `1d1b323d...15141d2a1`).
+
+Notable: this is a real post-mortem, not a hypothetical. A live Windows/Gemini generation actually ran under the runtime design from a few days ago — got through credential exchange, a couple of successful tool turns — then failed on turn 3. All three defects are traced to specific PostgreSQL evidence:
+
+1. The assignment payload only carried generic metadata, never the exact task text — so Gemini genuinely couldn't have known the specific missing assertion it needed to write.
+2. A real size mismatch: `write_file`'s normalization truncates at 20,000 characters against a 30,927-byte target file — a whole-file response was structurally guaranteed to get corrupted. Fixed by replacing whole-file writes with a bounded `replace_once` (exact-match, single-occurrence, ~40KB-limited) tool instead — the right call, not just a truncation-limit bump, since the doc also cites recitation-blocking risk on long verbatim output.
+3. The subtlest one: a transaction bug where writing durable rejection evidence and then throwing to signal "expected rejection" caused that same evidence to get rolled back — silently defeating its own stated guarantee. Fix differentiates "expected, already-committed outcome" from "genuine failure" instead of using exceptions for both.
+
+All prior invariants (no commit rights, one-shot bootstrap never reused, no credential/broker weakening) carry forward unchanged. One non-blocking note I left for later: `replace_once` handles one bounded edit per call, which is right for this specific known fix but will need extending before a future gate needs more than one change in the same file.
