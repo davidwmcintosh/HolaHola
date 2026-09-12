@@ -9467,3 +9467,49 @@ Replit reports a successful public autoscale build at
 `https://getholahola.com`, whose homepage returns HTTP 200. Before any new
 bootstrap or challenge is created, the operator must confirm that cleanup of
 the failed Windows generation ended at `ANTIGRAVITY_GATE3_UNINITIALIZED`.
+
+## September 12, 2026 — second real Gate 3 generation required canonical LF
+
+The second completely fresh Windows generation also failed closed before
+assignment mutation, this time because the same logical task artifact had CRLF
+bytes on Windows and LF bytes on Replit. The Windows digest was
+`432d600cc3038dbaddbfbbe37ba9df8d8936cd5bae6f6f3c3e4df516542bf48a`;
+the server digest was
+`b547dec52f1dcf549449721fb0d938355e55f5228009fe9995706d65217b4f3b`.
+The founder receipt was revoked, canonical PostgreSQL proved zero downstream
+authority objects, and Windows was cleaned back to
+`ANTIGRAVITY_GATE3_UNINITIALIZED`. Retire every identifier and authority
+artifact from both failed generations permanently.
+
+The reviewed repair establishes one canonical byte contract before authority:
+strict UTF-8; LF and CRLF accepted; CRLF normalized to LF; lone carriage return
+rejected; exactly one case-sensitive starting-commit placeholder; 64 KiB
+source/output bounds; one final encode; and the same bytes used for hashing,
+writing, bundle publication, PostgreSQL persistence, and replay. Both Windows
+preparation and server assignment call the shared materializer. Assignment
+still opens the task template no-follow and reads through EOF with an overflow
+sentinel. Git LF attributes are not part of the authority proof.
+
+The independent architect found that the first integration oracle derived its
+expected text and digest from the live production template. The corrected
+cross-host proof is isolated in its own disposable-database test and uses an
+independently authored LF fixture, deterministic commit
+`7e5f42a7cb85297a6af38b31dc84db4d4cb52517`, and fixed canonical digest
+`713ddd918ee6ce578b2d204b6baf7f63fbcbdc855f0e0bd953e9130c24e6e6d1`.
+Real CRLF preparation and distinct LF assignment converge on that exact value,
+which is asserted in the canonical event and runtime inbox projection. The
+production-template assignment suite remains separate and unchanged except for
+new malformed-EOL/UTF-8 boundary checks.
+
+Final focused results are materializer 4/4, preparation 5/5,
+assignment-window 20/20 on fresh disposable PostgreSQL, cross-host oracle 1/1
+on fresh disposable PostgreSQL, Windows DPAPI boundary 8/8, TypeScript passed,
+and diff checks passed. Both changed entry bundles were independently rebuilt
+and their public digest pins updated. The architect issued unconditional
+approval with no remaining watch-outs; Gemini 3 returned exact
+`APPROVED — Ship it.` Do not start a third Windows generation until this tree is
+committed, published to GitHub, republished to production, and live health is
+verified. Before Phase A, compare the Windows public artifact digest with the
+server's locally materialized canonical-LF digest and retire locally before
+founder approval if they differ. Task 1449 remains cancelled. Task 1450 remains
+independently owned.

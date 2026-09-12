@@ -842,6 +842,43 @@ databaseTest('template placeholder count mismatch fails before database writes',
   }
 });
 
+databaseTest('malformed line endings and UTF-8 fail before database writes', async () => {
+  const before = await authorityCounts();
+  const dir = await mkdtemp(join(tmpdir(), 'gate3-template-encoding-test-'));
+  try {
+    const loneCarriageReturnPath = join(dir, 'lone-cr.md');
+    await writeFile(
+      loneCarriageReturnPath,
+      `Task\r${STARTING_COMMIT_PLACEHOLDER}`,
+      'utf8',
+    );
+    await rejectsCode(
+      () => createGate3AssignmentWindow({
+        bundle: bundle(),
+        receiptId: 'r',
+        assignmentAttemptId: crypto.randomUUID(),
+        testHooks: { taskArtifactPath: loneCarriageReturnPath },
+      }),
+      'artifact_line_endings_invalid',
+    );
+
+    const malformedUtf8Path = join(dir, 'malformed-utf8.md');
+    await writeFile(malformedUtf8Path, Uint8Array.from([0xc3, 0x28]));
+    await rejectsCode(
+      () => createGate3AssignmentWindow({
+        bundle: bundle(),
+        receiptId: 'r',
+        assignmentAttemptId: crypto.randomUUID(),
+        testHooks: { taskArtifactPath: malformedUtf8Path },
+      }),
+      'artifact_invalid',
+    );
+    assert.deepEqual(await authorityCounts(), before);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 databaseTest('artifact growth after stat is read through EOF and fails closed', async () => {
   const before = await authorityCounts();
   const dir = await mkdtemp(join(tmpdir(), 'gate3-template-growth-test-'));

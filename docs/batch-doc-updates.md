@@ -6011,3 +6011,47 @@ packaging. Production was republished successfully to
 `https://getholahola.com`; Replit reports a successful public autoscale build,
 and the live homepage returns HTTP 200. No new Windows authority has been
 created.
+
+## Gate 3 cross-host canonical LF repair — September 12, 2026
+
+A second entirely fresh Windows generation exposed a second producer/consumer
+byte mismatch. Windows materialized the task artifact with CRLF bytes and
+reported SHA-256
+`432d600cc3038dbaddbfbbe37ba9df8d8936cd5bae6f6f3c3e4df516542bf48a`;
+Replit materialized the same logical text with LF bytes and reported
+`b547dec52f1dcf549449721fb0d938355e55f5228009fe9995706d65217b4f3b`.
+The assignment failed closed with
+`gate3_assignment_window_artifact_digest_mismatch`. Its founder receipt was
+revoked, all downstream PostgreSQL authority counts were verified at zero, and
+Windows returned to `ANTIGRAVITY_GATE3_UNINITIALIZED`. No identifier,
+credential, challenge, receipt, attempt, packet, claim, key, runtime, profile,
+or generation from either failed run may be reused.
+
+The approved repair defines one canonical artifact representation independent
+of checkout policy: accept LF and CRLF input, reject any lone carriage return,
+normalize CRLF to LF, strictly decode UTF-8, require exactly one case-sensitive
+starting-commit placeholder, encode once, and hash, write, and persist those
+exact canonical bytes. Source and output are each bounded at 64 KiB. Windows
+preparation and server assignment share the same pure materializer; assignment
+retains the no-follow handle and bounded read-through-EOF behavior. The
+`.gitattributes` LF rule is defense-in-depth only.
+
+The first integrated regression used an expected value derived from the live
+template. The independent architect rejected that circular oracle. The final
+proof uses a separately authored LF template, deterministic Git commit
+`7e5f42a7cb85297a6af38b31dc84db4d4cb52517`, fixed canonical SHA-256
+`713ddd918ee6ce578b2d204b6baf7f63fbcbdc855f0e0bd953e9130c24e6e6d1`,
+real CRLF preparation, a distinct LF assignment fixture, and PostgreSQL
+canonical-event/runtime-window assertions. It is isolated from the original
+production-template assignment suite so synthetic authority cannot contaminate
+later checks.
+
+Final focused verification passes: materializer 4/4, preparation 5/5,
+assignment-window 20/20 against fresh disposable PostgreSQL, isolated
+cross-host proof 1/1 against fresh disposable PostgreSQL, and Windows DPAPI
+source-boundary 8/8. TypeScript and diff checks pass. The changed preparation
+and runtime bundle bytes were independently rebuilt and their public SHA-256
+pins refreshed in the PowerShell launcher. The same architect issued
+unconditional approval with no watch-outs, and Gemini 3 returned exact
+`APPROVED — Ship it.` No third Windows generation has been prepared or
+authorized.

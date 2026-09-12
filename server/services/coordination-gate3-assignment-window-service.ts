@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -20,11 +20,14 @@ import {
   GATE3, deriveAntigravityRuntimeId, type PublicProvisioningBundle,
   validatePublicProvisioningBundle,
 } from "./antigravity-provisioning-bundle";
+import {
+  GATE3_TASK_ARTIFACT_MAX_BYTES,
+  Gate3TaskArtifactMaterializationError,
+  materializeGate3TaskArtifact,
+} from "./gate3-task-artifact-materializer";
 
 const MAX_BUNDLE_BYTES = 1024 * 1024;
-const MAX_TASK_ARTIFACT_BYTES = 64 * 1024;
 const GATE3_TASK_ARTIFACT_PATH = resolve(process.cwd(), "server/templates/task-1448.md");
-const STARTING_COMMIT_PLACEHOLDER = "__FINAL_STARTING_COMMIT__";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MARGIN_MS = 10 * 60_000 + 30_000;
 
@@ -74,37 +77,32 @@ async function readApprovedTaskArtifact(
       constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
     );
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_TASK_ARTIFACT_BYTES) {
+    if (!stat.isFile() || stat.size < 1 || stat.size > GATE3_TASK_ARTIFACT_MAX_BYTES) {
       fail("artifact_invalid");
     }
     await afterStat?.();
     const chunks: Buffer[] = [];
     let total = 0;
     while (true) {
-      const chunk = Buffer.alloc(Math.min(16 * 1024, MAX_TASK_ARTIFACT_BYTES + 1 - total));
+      const chunk = Buffer.alloc(Math.min(
+        16 * 1024,
+        GATE3_TASK_ARTIFACT_MAX_BYTES + 1 - total,
+      ));
       const read = await handle.read(chunk, 0, chunk.length, null);
       if (read.bytesRead === 0) break;
       total += read.bytesRead;
-      if (total > MAX_TASK_ARTIFACT_BYTES) fail("artifact_invalid");
+      if (total > GATE3_TASK_ARTIFACT_MAX_BYTES) fail("artifact_invalid");
       chunks.push(chunk.subarray(0, read.bytesRead));
     }
     if (total < 1) fail("artifact_invalid");
     const bytes = Buffer.concat(chunks, total);
-    let text: string;
     try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    } catch {
-      fail("artifact_invalid");
+      const artifact = materializeGate3TaskArtifact(bytes, startingCommit);
+      return { sha256: artifact.sha256, text: artifact.text };
+    } catch (error) {
+      if (error instanceof Gate3TaskArtifactMaterializationError) fail(error.code);
+      throw error;
     }
-    const occurrences = text!.split(STARTING_COMMIT_PLACEHOLDER).length - 1;
-    if (occurrences !== 1) fail("artifact_template_invalid");
-    const materializedText = text!.replace(STARTING_COMMIT_PLACEHOLDER, startingCommit);
-    const materializedBytes = new TextEncoder().encode(materializedText);
-    if (materializedBytes.byteLength > MAX_TASK_ARTIFACT_BYTES) fail("artifact_invalid");
-    return {
-      sha256: createHash("sha256").update(materializedBytes).digest("hex"),
-      text: materializedText,
-    };
   } catch (error) {
     if (error instanceof Gate3AssignmentWindowError) throw error;
     throw new Gate3AssignmentWindowError("artifact_read_failed");

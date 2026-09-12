@@ -403,3 +403,56 @@ Two targeted changes to `server/system-prompt.ts` to remove the tutor-filtered i
 ## Files changed
 
 - `server/system-prompt.ts` — `buildRawHonestyModeContext` identity line, `isRawHonestyMode` return statement
+
+---
+
+# Gemini Audit — Gate 3 cross-host canonical LF repair
+**Date:** September 12, 2026
+**Auditor:** Gemini 3-flash-preview
+**Protected files touched:** None
+**Verdict:** APPROVED unconditionally; exact terminal response:
+`APPROVED — Ship it.`
+
+## What was reviewed
+
+- Shared byte-level task-artifact materialization for Windows preparation and
+  server assignment.
+- Strict UTF-8, CRLF-to-LF normalization, lone-CR rejection, exact placeholder
+  cardinality, and source/output bounds.
+- Exact-byte write, digest, PostgreSQL persistence, and replay authority.
+- No-follow bounded read-through-EOF assignment behavior.
+- Independent fixed-oracle cross-host integration proof and its isolation from
+  the production-template assignment suite.
+- Localhost-only disposable database CI registration.
+- Rebuilt public preparation/runtime bundle digest pins in the PowerShell
+  launcher.
+
+## Review history
+
+The first substantive review approved production logic but its response was
+truncated before the required terminal phrase. An independent architect then
+identified a circular integration oracle: expected text and SHA-256 were
+derived from the same live template supplied to the system under test. The
+proof was replaced with a separately authored LF fixture, deterministic commit,
+fixed canonical digest, real CRLF preparation, distinct LF assignment fixture,
+and canonical PostgreSQL projection assertions.
+
+The first combined-suite placement contaminated later tests by replacing their
+production-template bundle with the synthetic oracle bundle. The proof was
+moved into a dedicated disposable-database test; the original 20-test
+assignment suite was restored. The architect re-reviewed the final actual diff
+and issued unconditional approval with no watch-outs.
+
+Gemini's first final retry emitted the approval phrase twice and was rejected as
+non-exact. A low token-cap retry emitted no text and was also rejected. The
+terminal rerun reviewed the final isolated files and returned exactly one
+occurrence of `APPROVED — Ship it.`
+
+## Verified evidence supplied to Gemini
+
+- Materializer: 4/4.
+- Preparation: 5/5.
+- Assignment window: 20/20 against fresh disposable PostgreSQL.
+- Isolated cross-host oracle: 1/1 against fresh disposable PostgreSQL.
+- Windows DPAPI source boundary: 8/8.
+- TypeScript and diff checks: passed.

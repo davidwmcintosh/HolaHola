@@ -63,6 +63,40 @@ test('preparation materializes and emits only public data', async () => {
   await assert.rejects(() => prepareAntigravityProvisioning({ root, startingCommit: commit, env: env() }), /artifact_conflict/);
 });
 
+test('preparation canonicalizes CRLF to exact LF bytes and rejects lone CR', async () => {
+  const templatePath = join(root, '..', 'windows-template.md');
+  const canonicalTemplate = 'Task\nCommit: __FINAL_STARTING_COMMIT__\nDone\n';
+  const canonicalArtifact = `Task\nCommit: ${commit}\nDone\n`;
+  const expectedBytes = Buffer.from(canonicalArtifact, 'utf8');
+  const expectedSha256 = (await import('node:crypto'))
+    .createHash('sha256').update(expectedBytes).digest('hex');
+  await writeFile(templatePath, canonicalTemplate.replace(/\n/g, '\r\n'), 'utf8');
+
+  const bundle = await prepareAntigravityProvisioning({
+    root,
+    startingCommit: commit,
+    env: env(),
+    templatePath,
+  });
+  const written = await readFile(join(root, '.local/tasks/task-1448.md'));
+  assert.deepEqual(written, expectedBytes);
+  assert.equal(written.includes(13), false);
+  assert.equal(bundle.artifactSha256, expectedSha256);
+
+  await writeFile(join(root, '.local/tasks/task-1448.md'), canonicalArtifact.replace(/\n/g, '\r\n'));
+  await assert.rejects(
+    () => prepareAntigravityProvisioning({ root, startingCommit: commit, env: env(), templatePath }),
+    /artifact_conflict/,
+  );
+
+  await rm(join(root, '.local/tasks/task-1448.md'), { force: true });
+  await writeFile(templatePath, 'Task\rCommit: __FINAL_STARTING_COMMIT__', 'utf8');
+  await assert.rejects(
+    () => prepareAntigravityProvisioning({ root, startingCommit: commit, env: env(), templatePath }),
+    /template_line_endings/,
+  );
+});
+
 test('preparation fails closed for worktree, head, remote, and bootstrap invariants', async () => {
   await assert.rejects(() => prepareAntigravityProvisioning({ root, startingCommit: commit, env: { ...env(), FIXED: 'x', COORDINATION_LUCA_GEMINI_CODE_TOKEN: 'sentinel' } }), /fixed_actor_token/);
   await assert.rejects(() => prepareAntigravityProvisioning({ root, startingCommit: commit, env: { ...env(), COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_weak' } }), /bootstrap_format/);

@@ -8,6 +8,10 @@ import { ensureTaskAgentKey } from '../services/task-ownership-key-custody';
 import {
   GATE3, createPublicProvisioningBundle, type PublicProvisioningBundle,
 } from '../services/antigravity-provisioning-bundle';
+import {
+  Gate3TaskArtifactMaterializationError,
+  materializeGate3TaskArtifact,
+} from '../services/gate3-task-artifact-materializer';
 
 const execFile = promisify(nodeExecFile);
 const TEMPLATE = resolve(dirname(fileURLToPath(import.meta.url)), '../templates/task-1448.md');
@@ -63,23 +67,33 @@ export async function prepareAntigravityProvisioning(options: PreparationOptions
   });
   if (!entry || !entry.split('\n').includes(`branch refs/heads/${GATE3.branch}`)) throw new Error('linked_worktree');
 
-  const template = await readFile(options.templatePath || TEMPLATE, 'utf8');
-  const occurrences = template.match(/__FINAL_STARTING_COMMIT__/g) || [];
-  if (occurrences.length !== 1) throw new Error('template_placeholder');
-  const artifact = template.replace('__FINAL_STARTING_COMMIT__', options.startingCommit.toLowerCase());
+  let artifact: ReturnType<typeof materializeGate3TaskArtifact>;
+  try {
+    artifact = materializeGate3TaskArtifact(
+      await readFile(options.templatePath || TEMPLATE),
+      options.startingCommit.toLowerCase(),
+    );
+  } catch (error) {
+    if (error instanceof Gate3TaskArtifactMaterializationError) {
+      if (error.code === 'artifact_template_invalid') throw new Error('template_placeholder');
+      if (error.code === 'artifact_line_endings_invalid') throw new Error('template_line_endings');
+      throw new Error('template_invalid');
+    }
+    throw error;
+  }
   const artifactPath = resolve(root, '.local/tasks/task-1448.md');
   await mkdir(dirname(artifactPath), { recursive: true });
-  await writeFile(artifactPath, artifact, { encoding: 'utf8', flag: 'wx' }).catch(async (error: any) => {
+  await writeFile(artifactPath, artifact.bytes, { flag: 'wx' }).catch(async (error: any) => {
     if (error?.code !== 'EEXIST') throw error;
-    const existing = await readFile(artifactPath, 'utf8');
-    if (existing !== artifact) throw new Error('artifact_conflict');
+    const existing = await readFile(artifactPath);
+    if (!existing.equals(Buffer.from(artifact.bytes))) throw new Error('artifact_conflict');
   });
   const key = await ensureTaskAgentKey(GATE3.taskRef);
   const bundleInput = {
     ...GATE3,
     credentialCapabilities: [...GATE3.credentialCapabilities],
     runtimeCapabilities: [...GATE3.runtimeCapabilities],
-    artifactSha256: sha(artifact),
+    artifactSha256: artifact.sha256,
     publicKey: key.publicKey,
     keyFingerprint: key.fingerprint,
     bootstrapSha256: sha(bootstrap),
