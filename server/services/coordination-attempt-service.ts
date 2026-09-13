@@ -125,6 +125,40 @@ export async function createFreshAttempt(
   const now = input.now ?? new Date();
   try {
     return await db.transaction(async (tx) => {
+      const historicalRows = await tx.select({
+        event: coordinationV2AttemptEvents,
+        attempt: coordinationV2Attempts,
+        operatorActor: coordinationV2Sessions.operatorActor,
+      }).from(coordinationV2AttemptEvents)
+        .innerJoin(coordinationV2Attempts, eq(coordinationV2AttemptEvents.attemptId, coordinationV2Attempts.id))
+        .innerJoin(coordinationV2Sessions, eq(coordinationV2Attempts.sessionId, coordinationV2Sessions.id))
+        .where(and(
+          eq(coordinationV2AttemptEvents.requestKey, input.requestKey),
+          eq(coordinationV2Attempts.sessionId, input.sessionId),
+        ));
+      if (historicalRows[0]) {
+        const historical = historicalRows[0];
+        if (historical.operatorActor !== input.actorId) fail('ATTEMPT_SESSION_NOT_FOUND');
+        const generation = input.attemptGeneration ?? historical.attempt.attemptGeneration;
+        const immutableMatch = historical.attempt.attemptGeneration === generation
+          && historical.attempt.provider === provider
+          && historical.attempt.model === model
+          && historical.attempt.adapterVersion === adapterVersion
+          && (historical.attempt.previousAttemptId ?? null) === (input.previousAttemptId ?? null);
+        const replayDigest = hash({
+          generation, provider, model, adapterVersion,
+          previousAttemptId: input.previousAttemptId ?? null,
+        });
+        if (!immutableMatch
+          || (historical.event.metadata as Record<string, unknown>)?.commandDigest !== replayDigest) {
+          fail('ATTEMPT_REQUEST_REPLAY_CONFLICT');
+        }
+        return {
+          ...((historical.event.metadata as Record<string, unknown>)?.resultSnapshot
+            ?? dto(historical.attempt)),
+          created: false,
+        };
+      }
       // Session is the authority/budget lock. Attempts are read and written
       // only after it, preserving grant -> policy -> host -> session -> attempt.
        let session: CoordinationV2Session;
@@ -284,6 +318,31 @@ export async function transitionCoordinationAttempt(input: AttemptTransitionInpu
         .where(eq(coordinationV2Attempts.id, input.attemptId));
       const attemptRef = attemptLookup[0] as CoordinationV2Attempt | undefined;
       if (!attemptRef) fail('ATTEMPT_NOT_FOUND');
+      // Exact historical replays read an immutable event snapshot; they do
+      // not create new execution authority. Bind the replay to the immutable
+      // session actor before consulting mutable grant, host, expiry, or
+      // terminal state.
+      const historical = await tx.select().from(coordinationV2AttemptEvents)
+        .where(and(
+          eq(coordinationV2AttemptEvents.attemptId, attemptRef.id),
+          eq(coordinationV2AttemptEvents.requestKey, input.requestKey),
+        ));
+      if (historical[0]) {
+        const sessionRows = await tx.select({
+          id: coordinationV2Sessions.id,
+          operatorActor: coordinationV2Sessions.operatorActor,
+        }).from(coordinationV2Sessions)
+          .where(eq(coordinationV2Sessions.id, attemptRef.sessionId));
+        if (!sessionRows[0]) fail('ATTEMPT_SESSION_NOT_FOUND');
+        if (sessionRows[0].operatorActor !== input.actorId) {
+          fail('ATTEMPT_TRANSITION_REJECTED', { reason: 'historical_actor_mismatch' });
+        }
+        if ((historical[0].metadata as Record<string, unknown>)?.commandDigest !== hash(input.command)) {
+          fail('ATTEMPT_REQUEST_REPLAY_CONFLICT');
+        }
+        return ((historical[0].metadata as Record<string, unknown>)?.resultSnapshot
+          ?? dto(attemptRef)) as ReturnType<typeof dto>;
+      }
       let session: CoordinationV2Session;
       try {
         ({ session } = await authorizeCoordinationLifecycleInTransaction(tx, {
@@ -303,6 +362,12 @@ export async function transitionCoordinationAttempt(input: AttemptTransitionInpu
       if (prior[0]) {
         if ((prior[0].metadata as Record<string, unknown>)?.commandDigest !== hash(input.command)) fail('ATTEMPT_REQUEST_REPLAY_CONFLICT');
         return ((prior[0].metadata as Record<string, unknown>)?.resultSnapshot ?? dto(attempt)) as ReturnType<typeof dto>;
+      }
+      // A terminal session is an authority boundary, not merely a lifecycle
+      // label. Exact replays above remain readable, but no new transition can
+      // be appended during the cleanup repair/acknowledgement window.
+      if (['succeeded', 'failed', 'exhausted', 'expired', 'revoked'].includes(session.state)) {
+        fail('ATTEMPT_SESSION_TERMINAL');
       }
       const result = reduceAttempt(attemptState(attempt), {
         ...(input.command as AttemptCommand), requestId: input.requestKey, eventId: randomUUID(), now: now.getTime(),

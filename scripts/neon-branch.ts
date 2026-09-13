@@ -486,13 +486,13 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
-    console.log('[gate] Running Coordinator V2 one-command host lifecycle tests...');
+    console.log('[gate] Running Coordinator V2 one-command lifecycle, diagnostics, and cleanup tests...');
     const windowsHostLifecycleTests = await runCommand(
-      'npx tsx --test server/scripts/test-coordination-lifecycle-facade.test.ts server/scripts/test-coordination-windows-host.test.ts server/scripts/test-coordination-v2-cli.test.ts',
+      'npx tsx --test server/scripts/test-coordination-lifecycle-facade.test.ts server/scripts/test-coordination-windows-host.test.ts server/scripts/test-coordination-v2-cli.test.ts server/scripts/test-coordination-errors.test.ts server/scripts/test-coordination-session-status.test.ts server/scripts/test-coordination-cleanup.test.ts',
       branchEnv,
     );
     if (windowsHostLifecycleTests.code !== 0) {
-      failureReason = `Coordinator V2 one-command host lifecycle tests exited ${windowsHostLifecycleTests.code}`;
+      failureReason = `Coordinator V2 one-command lifecycle diagnostics and cleanup tests exited ${windowsHostLifecycleTests.code}`;
     }
   }
 

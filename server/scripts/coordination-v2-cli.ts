@@ -16,6 +16,81 @@ export type CoordinationV2CliRunner = (
   input: CoordinationWindowsOperatorInput,
 ) => Promise<CoordinationWindowsHostResult | CoordinationLifecycleSafeStatus>;
 
+/**
+ * These are the only states the CLI may serialize as a normal safe status.
+ * The PowerShell boundary mirrors this closed set before forwarding output from
+ * a native child.  Anything else is treated as an unstructured child exit.
+ */
+export const COORDINATION_V2_CLI_SAFE_STATES = Object.freeze([
+  "preparing",
+  "ready",
+  "running",
+  "waiting_for_host",
+  "verifying",
+  "succeeded",
+  "failed",
+  "exhausted",
+  "expired",
+  "revoked",
+  "cleanup_pending",
+  "preflight_failed",
+  "host_unavailable",
+  "invalid_request",
+] as const);
+
+export const COORDINATION_V2_CLI_EXECUTABLE_ROLE = "coordinator_cli";
+export const COORDINATION_V2_CLI_MIN_EXIT_STATUS = -2_147_483_648;
+export const COORDINATION_V2_CLI_MAX_EXIT_STATUS = 2_147_483_647;
+
+export type CoordinationV2CliUnclassifiedExit = Readonly<{
+  state: "host_child_unclassified_exit";
+  cleanupAcknowledged: false;
+  executableRole: typeof COORDINATION_V2_CLI_EXECUTABLE_ROLE;
+  exitStatus: number;
+}>;
+
+/**
+ * Validate the two-field JSON status emitted by the CLI.  Keeping this
+ * predicate here makes the output contract explicit for the native host
+ * boundary without accepting arbitrary child stdout as a diagnostic.
+ */
+export function isSafeCoordinationV2CliStatus(value: unknown): value is {
+  state: string;
+  cleanupAcknowledged: boolean;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return keys.length === 2
+    && keys[0] === "cleanupAcknowledged"
+    && keys[1] === "state"
+    && typeof record.state === "string"
+    && (COORDINATION_V2_CLI_SAFE_STATES as readonly string[]).includes(record.state)
+    && typeof record.cleanupAcknowledged === "boolean";
+}
+
+/**
+ * Construct the safe replacement for a native child invocation which did
+ * not produce a recognized CLI status.  Native Windows exit codes are signed
+ * 32-bit integers; rejecting values outside that range prevents unbounded
+ * provenance from crossing the operator boundary.
+ */
+export function createCoordinationV2CliUnclassifiedExit(
+  exitStatus: number,
+): CoordinationV2CliUnclassifiedExit {
+  if (!Number.isSafeInteger(exitStatus)
+    || exitStatus < COORDINATION_V2_CLI_MIN_EXIT_STATUS
+    || exitStatus > COORDINATION_V2_CLI_MAX_EXIT_STATUS) {
+    throw new Error("invalid_child_exit_status");
+  }
+  return Object.freeze({
+    state: "host_child_unclassified_exit" as const,
+    cleanupAcknowledged: false as const,
+    executableRole: COORDINATION_V2_CLI_EXECUTABLE_ROLE as typeof COORDINATION_V2_CLI_EXECUTABLE_ROLE,
+    exitStatus,
+  });
+}
+
 const safeFormats = new Set<CoordinationV2CliFormat>(["json", "text"]);
 const forbiddenOptionWords = new Set([
   "id", "digest", "receipt", "challenge", "runtime", "packet", "window", "claim",

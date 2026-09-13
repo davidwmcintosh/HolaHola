@@ -17,6 +17,7 @@ import { canonicalJson } from './coordination-policy-canonicalization';
 import { transitionSession as reduceSession, type SessionCommand } from './coordination-session-state';
 import type { FailureClassification, SessionState, SessionStatus } from './coordination-v2-types';
 import { authorizeCoordinationLifecycleInTransaction, CoordinationLifecycleAuthorizationError } from './coordination-lifecycle-authorization';
+import { applyCoordinationCleanupAuthorityEffectInTransaction } from './coordination-cleanup-service';
 import {
   DEFAULT_PROVIDER_REGISTRY,
   type CoordinationProviderRegistry,
@@ -385,12 +386,15 @@ export async function transitionCoordinationSession(input: SessionTransitionInpu
         const kinds = ['revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials'] as const;
         const terminalReason = result.state.terminalReason ?? 'terminal session';
         for (const kind of kinds) {
-          await tx.insert(coordinationV2CleanupObligations).values({
+          const inserted = await tx.insert(coordinationV2CleanupObligations).values({
             id: randomUUID(), sessionId: row.id, kind, state: 'pending',
             terminalOutcome: result.state.state, terminalReason,
             required: true, idempotencyKey: `${input.requestKey}:${kind}`,
             requestedAt: now, createdAt: now, updatedAt: now,
-          });
+          }).returning();
+          await applyCoordinationCleanupAuthorityEffectInTransaction(
+            tx, inserted[0], input.actorId, `${input.requestKey}:${kind}`, now,
+          );
         }
       }
       return dto(updatedRows[0]);

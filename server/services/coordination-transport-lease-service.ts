@@ -273,6 +273,40 @@ function replay(receipt: any, digest: string): Record<string, unknown> {
   return receipt.responseSnapshot as Record<string, unknown>;
 }
 
+function mutationDigest(
+  input: LeaseInput,
+  operation: Extract<LeaseOperation, 'acquire' | 'renew' | 'release' | 'expire' | 'takeover'>,
+  enrolledHostId: string,
+): string {
+  return hash({
+    operation, sessionId: input.sessionId, enrolledHostId, actorId: input.actorId,
+    holderInstanceId: input.holderInstanceId, epoch: input.epoch ?? null,
+    durationMs: input.durationMs ?? input.duration ?? null, leaseId: input.leaseId ?? null,
+    command: input.command ?? null,
+  });
+}
+
+/**
+ * A durable receipt is an immutable historical read, not fresh execution
+ * authority. Validate its immutable actor/host binding and command digest
+ * before consulting current grant, host, lease, expiry, or terminal state.
+ */
+async function historicalReceiptReplay(
+  tx: any,
+  input: LeaseInput,
+  operation: LeaseOperation,
+  digestForHost: (hostId: string) => string,
+): Promise<Record<string, unknown> | undefined> {
+  const receipt = await priorReceipt(tx, input.sessionId, input.requestKey);
+  if (!receipt) return undefined;
+  if (receipt.operation !== operation
+    || receipt.actorId !== input.actorId
+    || (input.enrolledHostId !== undefined && receipt.enrolledHostId !== input.enrolledHostId)) {
+    fail('LEASE_REPLAY_CONFLICT');
+  }
+  return replay(receipt, digestForHost(receipt.enrolledHostId));
+}
+
 function mapDatabaseError(error: unknown): never {
   if (error instanceof CoordinationTransportLeaseError) throw error;
   const code = (error as { code?: string }).code;
@@ -286,6 +320,10 @@ async function mutateLease(operation: Extract<LeaseOperation, 'acquire' | 'renew
   validateIdentity(input);
   try {
     return await db.transaction(async (tx) => {
+      const historical = await historicalReceiptReplay(
+        tx, input, operation, (hostId) => mutationDigest(input, operation, hostId),
+      );
+      if (historical) return historical;
       const now = await databaseNow(tx);
       const { session, host } = await authorizeOperation(tx, input, operation, now, operation === 'expire');
       const enrolledHostId = host.id as string;
@@ -295,12 +333,7 @@ async function mutateLease(operation: Extract<LeaseOperation, 'acquire' | 'renew
           fail('LEASE_INVALID_REQUEST', { field: 'durationMs' });
         }
       }
-      const digest = hash({
-        operation, sessionId: input.sessionId, enrolledHostId, actorId: input.actorId,
-        holderInstanceId: input.holderInstanceId, epoch: input.epoch ?? null,
-        durationMs: input.durationMs ?? input.duration ?? null, leaseId: input.leaseId ?? null,
-        command: input.command ?? null,
-      });
+      const digest = mutationDigest(input, operation, enrolledHostId);
       const receipt = await priorReceipt(tx, session.id, input.requestKey);
       if (receipt) return replay(receipt, digest);
       let old = await latestLease(tx, session.id);
@@ -429,6 +462,12 @@ export async function validateCurrentCoordinationTransportLease(input: LeaseFenc
   const epoch = positiveEpoch(input.epoch);
   try {
     return await db.transaction(async (tx) => {
+      const historical = await historicalReceiptReplay(tx, input, input.operation, (hostId) => hash({
+        operation: input.operation, sessionId: input.sessionId, enrolledHostId: hostId, actorId: input.actorId,
+        holderInstanceId: input.holderInstanceId, command: input.command ?? null,
+        epoch, leaseId: input.leaseId ?? null,
+      }));
+      if (historical) return historical;
       const now = await databaseNow(tx);
       const { session, host } = await authorizeOperation(tx, input, input.operation, now);
       const enrolledHostId = host.id as string;
@@ -561,6 +600,10 @@ async function fencedOperation(
   if (input.epoch === undefined) fail('LEASE_INVALID_REQUEST', { field: 'epoch' });
   const epoch = positiveEpoch(input.epoch);
   return db.transaction(async (tx) => {
+    const historical = await historicalReceiptReplay(
+      tx, input, operation, (hostId) => operationDigest(input, operation, hostId),
+    );
+    if (historical) return historical;
     const now = await databaseNow(tx);
     const { session, host } = await authorizeOperation(tx, input, operation, now);
     const hostId = host.id as string;
@@ -696,13 +739,11 @@ export async function resultCoordinationTransportWork(input: LeaseInput) {
 }
 
 export async function acknowledgeCoordinationCleanup(input: LeaseInput) {
+  validateIdentity(input);
   try {
     return await db.transaction(async (tx) => {
-      if (input.epoch === undefined || !input.obligationId) fail('LEASE_INVALID_REQUEST');
-      const now = await databaseNow(tx);
-      const { session, host } = await authorizeOperation(tx, input, 'ack', now);
-      const hostId = host.id as string;
-      const digest = operationDigest(input, 'ack', hostId);
+      if (input.epoch === undefined || !input.obligationId || !input.leaseId) fail('LEASE_INVALID_REQUEST');
+      const epoch = positiveEpoch(input.epoch);
       const canonicalRows = await tx.select().from(coordinationV2CleanupAcknowledgements)
         .where(and(
           eq(coordinationV2CleanupAcknowledgements.obligationId, input.obligationId),
@@ -710,30 +751,80 @@ export async function acknowledgeCoordinationCleanup(input: LeaseInput) {
         )).for('update');
       if (canonicalRows[0]) {
         const canonical = canonicalRows[0];
+        if (!canonical.enrolledHostId) fail('LEASE_REPLAY_CONFLICT');
+        const digest = operationDigest(input, 'ack', canonical.enrolledHostId);
         const snapshot = canonical.responseSnapshot as Record<string, unknown>;
         if (canonical.commandDigest !== digest
-          || canonical.sessionId !== session.id
+          || canonical.sessionId !== input.sessionId
           || canonical.obligationId !== input.obligationId
           || canonical.actorId !== input.actorId
-          || canonical.enrolledHostId !== hostId
+          || (input.enrolledHostId !== undefined && canonical.enrolledHostId !== input.enrolledHostId)
           || canonical.holderInstanceId !== input.holderInstanceId
           || canonical.transportLeaseId !== input.leaseId
-          || canonical.transportLeaseEpoch !== positiveEpoch(input.epoch)
+          || canonical.transportLeaseEpoch !== epoch
           || snapshot.operation !== 'ack'
-          || snapshot.obligationId !== input.obligationId || snapshot.sessionId !== session.id) {
+          || snapshot.obligationId !== input.obligationId || snapshot.sessionId !== input.sessionId) {
           fail('LEASE_REPLAY_CONFLICT');
         }
         return snapshot;
       }
-      const receipt = await priorReceipt(tx, session.id, input.requestKey);
-      if (receipt) return replay(receipt, digest);
-      const lease = await currentLease(tx, session.id);
-      if (!lease || lease.expiresAt <= now) fail('LEASE_EXPIRED');
-      if (lease.epoch !== positiveEpoch(input.epoch) || lease.holderInstanceId !== input.holderInstanceId
+      const historical = await historicalReceiptReplay(
+        tx, input, 'ack', (hostId) => operationDigest(input, 'ack', hostId),
+      );
+      if (historical) return historical;
+      const now = await databaseNow(tx);
+
+      // Cleanup acknowledgement is terminal repair authority, not execution
+      // authority. Bind it to the immutable session actor and exact latest
+      // lease lineage even after that execution lease has been released.
+      const sessionRows = await tx.select().from(coordinationV2Sessions)
+        .where(eq(coordinationV2Sessions.id, input.sessionId)).for('update');
+      const session = sessionRows[0] as CoordinationV2Session | undefined;
+      if (!session) fail('LEASE_NOT_FOUND');
+      if (session.operatorActor !== input.actorId) fail('LEASE_AUTHORIZATION_DENIED');
+      if (!['succeeded', 'failed', 'exhausted', 'expired', 'revoked'].includes(session.state)) {
+        fail('LEASE_SESSION_TERMINAL');
+      }
+      const hostId = session.enrolledHostId;
+      if (input.enrolledHostId !== undefined && input.enrolledHostId !== hostId) {
+        fail('LEASE_HOST_MISMATCH');
+      }
+      const digest = operationDigest(input, 'ack', hostId);
+      const lease = await latestLease(tx, session.id);
+      if (!lease) fail('LEASE_EXPIRED');
+      if (lease.state !== 'released') fail('LEASE_CONFLICT');
+      if (lease.epoch !== epoch || lease.holderInstanceId !== input.holderInstanceId
         || lease.enrolledHostId !== hostId || (input.leaseId !== undefined && input.leaseId !== lease.id)) {
         fail('LEASE_STALE_EPOCH');
       }
       validateProtocolBinding(input, session, hostId, lease, 'ack');
+      // An identical request can miss the initial receipt read and then wait
+      // on the session lock while the first transaction commits. Recheck under
+      // the serialization lock before reducing an already-complete obligation.
+      const committedRows = await tx.select().from(coordinationV2CleanupAcknowledgements)
+        .where(and(
+          eq(coordinationV2CleanupAcknowledgements.obligationId, input.obligationId),
+          eq(coordinationV2CleanupAcknowledgements.acknowledgementKey, input.requestKey),
+        )).for('update');
+      if (committedRows[0]) {
+        const committed = committedRows[0];
+        const snapshot = committed.responseSnapshot as Record<string, unknown>;
+        if (!committed.enrolledHostId
+          || committed.commandDigest !== digest
+          || committed.sessionId !== session.id
+          || committed.obligationId !== input.obligationId
+          || committed.actorId !== input.actorId
+          || committed.enrolledHostId !== hostId
+          || committed.holderInstanceId !== input.holderInstanceId
+          || committed.transportLeaseId !== input.leaseId
+          || committed.transportLeaseEpoch !== epoch
+          || snapshot.operation !== 'ack'
+          || snapshot.obligationId !== input.obligationId
+          || snapshot.sessionId !== session.id) {
+          fail('LEASE_REPLAY_CONFLICT');
+        }
+        return snapshot;
+      }
       const obligations = await tx.select().from(coordinationV2CleanupObligations)
         .where(and(eq(coordinationV2CleanupObligations.id, input.obligationId), eq(coordinationV2CleanupObligations.sessionId, session.id)))
         .for('update');

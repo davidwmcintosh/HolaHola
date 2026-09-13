@@ -16,6 +16,16 @@ test("PowerShell boundary is explicit and narrow", () => {
   assert.match(source, /CoordinatorScript/);
   assert.match(source, /ApprovedWorktree/);
   assert.match(source, /@\(ApprovedTsx,\s*\$CoordinatorScript|'--task-ref'/);
+  assert.match(source, /Test-SafeCliOutput/);
+  assert.match(source, /host_child_unclassified_exit/);
+  assert.match(source, /executableRole\s*=\s*'coordinator_cli'/);
+  assert.match(source, /exitStatus\s*=\s*\$observedChildExit/);
+  assert.match(source, /if\s*\(\$observedChildExit\s*-eq\s*0\)\s*\{\s*\$childExit\s*=\s*70\s*\}/);
+  assert.doesNotMatch(source, /\$childExit\s*-ne\s*0\s*-and\s*-not\s*\(Test-SafeCliOutput/);
+  assert.match(source, /ConvertFrom-Json/);
+  assert.match(source, /ConvertTo-Json\s+-Compress/);
+  assert.match(source, /2>\$null/);
+  assert.doesNotMatch(source, /stderr\s*=/i);
   assert.doesNotMatch(source, /--import/);
   assert.doesNotMatch(source, /\$Mode\b|\$Url\b|\$Provider\b|\$Credential\b/);
   assert.doesNotMatch(source, /COORDINATION_RUNTIME_BOOTSTRAP_TOKEN/);

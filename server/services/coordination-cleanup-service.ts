@@ -2,10 +2,18 @@ import { createHash, randomUUID } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db';
 import {
+  coordinationV2Attempts,
+  coordinationV2AttemptEvents,
   coordinationV2CleanupObligations,
+  coordinationV2HostEnrollments,
+  coordinationV2OperatorGrants,
+  coordinationV2PolicyIdentities,
+  coordinationV2PolicyVersions,
   coordinationV2SessionEvents,
   coordinationV2Sessions,
+  coordinationV2TransportLeases,
   type CoordinationV2CleanupObligation,
+  type CoordinationV2Attempt,
   type CoordinationV2Session,
 } from '@shared/schema';
 import { canonicalJson } from './coordination-policy-canonicalization';
@@ -43,6 +51,51 @@ async function lockById(tx: any, table: any, id: string): Promise<any | undefine
   const rows = await tx.select().from(table).where(eq(table.id, id)).for('update');
   return rows[0];
 }
+
+/**
+ * Cleanup retries remain server-owned after the reusable operator grant
+ * expires or is revoked. We still bind the request to the session's original
+ * actor and acquire the same grant -> policy -> host -> session lock order as
+ * normal lifecycle authorization, but deliberately do not extend the grant's
+ * launch/resume authority or require the host to remain active.
+ */
+async function authorizeCleanupSession(
+  tx: any,
+  sessionId: string,
+  actorId: string,
+): Promise<CoordinationV2Session> {
+  const found = await tx.select().from(coordinationV2Sessions)
+    .where(eq(coordinationV2Sessions.id, sessionId));
+  const reference = found[0] as CoordinationV2Session | undefined;
+  if (!reference || reference.operatorActor !== actorId) {
+    fail('CLEANUP_TRANSITION_REJECTED', { reason: 'cleanup_actor_mismatch' });
+  }
+  const grants = await tx.select().from(coordinationV2OperatorGrants)
+    .where(eq(coordinationV2OperatorGrants.id, reference.operatorGrantId)).for('update');
+  const grant = grants[0];
+  if (!grant || grant.operatorActor !== reference.operatorActor) {
+    fail('CLEANUP_TRANSITION_REJECTED', { reason: 'cleanup_grant_missing' });
+  }
+  const identities = await tx.select().from(coordinationV2PolicyIdentities)
+    .where(eq(coordinationV2PolicyIdentities.id, grant.policyIdentityId)).for('update');
+  const identity = identities[0];
+  if (!identity) fail('CLEANUP_TRANSITION_REJECTED', { reason: 'cleanup_policy_missing' });
+  const versions = await tx.select().from(coordinationV2PolicyVersions)
+    .where(eq(coordinationV2PolicyVersions.id, reference.policyVersionId)).for('update');
+  if (!versions[0] || versions[0].policyIdentityId !== identity.id) {
+    fail('CLEANUP_TRANSITION_REJECTED', { reason: 'cleanup_version_missing' });
+  }
+  const hosts = await tx.select().from(coordinationV2HostEnrollments)
+    .where(eq(coordinationV2HostEnrollments.id, reference.enrolledHostId)).for('update');
+  if (!hosts[0]) fail('CLEANUP_TRANSITION_REJECTED', { reason: 'cleanup_host_missing' });
+  const sessions = await tx.select().from(coordinationV2Sessions)
+    .where(eq(coordinationV2Sessions.id, sessionId)).for('update');
+  const session = sessions[0] as CoordinationV2Session | undefined;
+  if (!session || session.operatorActor !== actorId) {
+    fail('CLEANUP_TRANSITION_REJECTED', { reason: 'cleanup_session_missing' });
+  }
+  return session;
+}
 function sessionState(row: CoordinationV2Session): SessionState {
   return {
     sessionId: row.id, policyVersionId: row.policyVersionId, state: row.state as any, providerOrder: row.requestedProviders,
@@ -68,6 +121,99 @@ function cleanupDto(row: CoordinationV2CleanupObligation) {
     requestedAt: row.requestedAt.toISOString(), deadlineAt: row.deadlineAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null, lastErrorCode: row.lastErrorCode,
   };
+}
+
+/**
+ * Cleanup is the only coordinator-owned path that can retire an attempt after
+ * its session has become terminal. This is deliberately a narrow authority
+ * effect: it does not delete the attempt or any of its evidence, and it does
+ * not touch reusable policy grants, hosts, or credentials that do not exist in
+ * the present-day model.
+ */
+async function revokeActiveAttemptAuthority(
+  tx: any,
+  sessionId: string,
+  actorId: string,
+  requestKey: string,
+  now: Date,
+): Promise<void> {
+  const attempts = await tx.select().from(coordinationV2Attempts)
+    .where(eq(coordinationV2Attempts.sessionId, sessionId))
+    .orderBy(coordinationV2Attempts.sessionOrdinal)
+    .for('update') as CoordinationV2Attempt[];
+  for (const attempt of attempts) {
+    if (['completed', 'retryable_failed', 'terminal_failed', 'cancelled'].includes(attempt.state)) continue;
+
+    // Do not use the normal attempt service here: it intentionally rejects
+    // expired attempts before cancellation, while terminal cleanup must revoke
+    // every still-live attempt regardless of its deadline.
+    await tx.update(coordinationV2Attempts).set({
+      state: 'cancelled',
+      failureClassification: 'terminal_failure',
+      terminalAt: now,
+      resultCode: 'cancelled',
+      updatedAt: now,
+    }).where(eq(coordinationV2Attempts.id, attempt.id));
+    const events = await tx.select({ sequence: coordinationV2AttemptEvents.sequence })
+      .from(coordinationV2AttemptEvents)
+      .where(eq(coordinationV2AttemptEvents.attemptId, attempt.id))
+      .orderBy(desc(coordinationV2AttemptEvents.sequence)).limit(1);
+    await tx.insert(coordinationV2AttemptEvents).values({
+      id: randomUUID(),
+      attemptId: attempt.id,
+      sequence: (events[0]?.sequence ?? 0) + 1,
+      fromState: attempt.state,
+      toState: 'cancelled',
+      eventType: 'attempt_cancelled',
+      actorType: 'operator',
+      actorId,
+      failureClassification: 'terminal_failure',
+      resultCode: 'cancelled',
+      requestKey: `${requestKey}:attempt:${attempt.id}`.slice(0, 128),
+      metadata: {
+        cleanupAuthorityRevoked: true,
+        previousAttemptState: attempt.state,
+      },
+      createdAt: now,
+    });
+  }
+}
+
+/**
+ * Apply only authority effects represented by durable PostgreSQL rows today.
+ * Every effect is safe to run again: a released lease and terminal attempts
+ * are no-ops on subsequent retries. Future credential and host-generation
+ * revocation remains intentionally outside this service.
+ */
+export async function applyCoordinationCleanupAuthorityEffectInTransaction(
+  tx: any,
+  obligation: CoordinationV2CleanupObligation,
+  actorId: string,
+  requestKey: string,
+  now: Date,
+): Promise<void> {
+  const sessionId = obligation.sessionId;
+  if (obligation.kind === 'release_lease') {
+    const leases = await tx.select().from(coordinationV2TransportLeases)
+      .where(and(
+        eq(coordinationV2TransportLeases.sessionId, sessionId),
+        eq(coordinationV2TransportLeases.state, 'active'),
+      ))
+      .orderBy(desc(coordinationV2TransportLeases.epoch))
+      .for('update');
+    for (const lease of leases) {
+      await tx.update(coordinationV2TransportLeases).set({
+        state: 'released',
+        endedAt: now,
+      }).where(eq(coordinationV2TransportLeases.id, lease.id));
+    }
+    return;
+  }
+  if (obligation.kind === 'revoke_authority') {
+    await revokeActiveAttemptAuthority(tx, sessionId, actorId, requestKey, now);
+  }
+  // cleanup_generation and revoke_credentials have no present-day authority
+  // row. Acknowledge them without inventing credentials or host authority.
 }
 
 export type CompletionInput = {
@@ -148,6 +294,13 @@ export async function acceptCoordinationCompletion(input: CompletionInput) {
           required: true, idempotencyKey: `${input.requestKey}:${kind}`,
           requestedAt: now, createdAt: now, updatedAt: now,
         }).returning();
+        // Terminal completion is itself the cleanup trigger. The durable
+        // obligations remain pending until independently acknowledged, but
+        // present-day authority must not remain live while that acknowledgement
+        // is being delivered or repaired.
+        await applyCoordinationCleanupAuthorityEffectInTransaction(
+          tx, inserted[0], input.actorId, `${input.requestKey}:${kind}`, now,
+        );
         obligations.push(inserted[0]);
       }
       const snapshot = { session: sessionDto(updated[0]), obligations: obligations.map(cleanupDto) };
@@ -184,7 +337,7 @@ export type CleanupTransitionInput = {
   obligationId: string;
   requestKey: string;
   actorId: string;
-  command: { type: 'start' | 'failed' | 'retry'; code?: string };
+  command: { type: 'start' | 'acknowledge' | 'failed' | 'retry'; code?: string };
   now?: Date;
 };
 
@@ -198,16 +351,7 @@ export async function transitionCoordinationCleanup(input: CleanupTransitionInpu
         .where(eq(coordinationV2CleanupObligations.id, input.obligationId));
       const reference = lookup[0] as CoordinationV2CleanupObligation | undefined;
       if (!reference) fail('CLEANUP_NOT_FOUND');
-      let session: CoordinationV2Session;
-      try {
-        ({ session } = await authorizeCoordinationLifecycleInTransaction(tx, {
-          sessionId: reference.sessionId, actorId: input.actorId, action: 'terminate',
-          now,
-        }));
-      } catch (error) {
-        if (error instanceof CoordinationLifecycleAuthorizationError) fail('CLEANUP_TRANSITION_REJECTED', { reason: error.code });
-        throw error;
-      }
+      const session = await authorizeCleanupSession(tx, reference.sessionId, input.actorId);
       const obligation = await lockById(tx, coordinationV2CleanupObligations, reference.id) as CoordinationV2CleanupObligation;
       const receipts = obligation.operationReceipts ?? {};
       const prior = receipts[input.requestKey];
@@ -220,6 +364,15 @@ export async function transitionCoordinationCleanup(input: CleanupTransitionInpu
         ...(input.command as any), requestId: input.requestKey, eventId: randomUUID(), now: now.getTime(),
       } as any);
       if (!result.ok) fail('CLEANUP_TRANSITION_REJECTED', { reason: result.code });
+      // Starting an obligation is the coordinator's terminal cleanup action,
+      // not merely a bookkeeping transition. Apply the authority effect in
+      // this same PostgreSQL transaction so a successful start can never
+      // advertise cleanup while a live lease or attempt remains usable.
+      if (input.command.type === 'start' || input.command.type === 'acknowledge') {
+        await applyCoordinationCleanupAuthorityEffectInTransaction(
+          tx, obligation, input.actorId, input.requestKey, now,
+        );
+      }
       const resultSnapshot = cleanupDto({
         ...obligation,
         state: result.state.status,

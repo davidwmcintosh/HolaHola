@@ -198,24 +198,6 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
     assert.equal(attemptRows.rowCount, 1);
     assert.equal(attemptRows.rows[0].id, attemptId);
     assert.equal(attemptRows.rows[0].state, 'result_ready');
-    const obligationId = id('cleanup');
-    await client.query(
-      `INSERT INTO coordination_v2_cleanup_obligations
-       (id, session_id, kind, terminal_outcome, terminal_reason, idempotency_key)
-       VALUES ($1,$2,'release_lease','succeeded','lease-test',$3)`,
-      [obligationId, sessionId, id('cleanup-key')],
-    );
-    const ackInput = {
-      ...base, holderInstanceId: 'instance-c', leaseId: successor.id, requestKey: id('ack-work'), epoch: 3,
-      obligationId, evidence: { revoked: true },
-    };
-    const acknowledged = await leases.acknowledgeCoordinationCleanup(ackInput);
-    assert.equal(acknowledged.obligationId, obligationId);
-    assert.deepEqual(await leases.acknowledgeCoordinationCleanup(ackInput), acknowledged);
-    await assert.rejects(
-      leases.acknowledgeCoordinationCleanup({ ...ackInput, evidence: { revoked: false } }),
-      (error: unknown) => (error as { code?: string }).code === 'LEASE_REPLAY_CONFLICT',
-    );
     await leases.releaseCoordinationTransportLease({
       ...base, holderInstanceId: 'instance-c', requestKey: id('release-after-work'), epoch: 3,
     });
@@ -252,21 +234,16 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
         ...base, holderInstanceId: 'instance-c', requestKey: id('poll-work'), epoch: 3,
       });
       assert.deepEqual(replayAfterAdvance, polled);
-      assert.deepEqual(await leases.acknowledgeCoordinationCleanup(ackInput), acknowledged);
     });
-    await context.test('poll claim result and cleanup acknowledgement persist durably', async () => {
+    await context.test('poll claim and result persist durably', async () => {
       const persisted = await client.query(
         `SELECT
            (SELECT count(*) FROM coordination_v2_transport_work_claims WHERE id=$1) AS claims,
-           (SELECT count(*) FROM coordination_v2_transport_work_results WHERE claim_id=$1) AS results,
-           (SELECT count(*) FROM coordination_v2_cleanup_acknowledgements a
-            JOIN coordination_v2_cleanup_obligations o ON o.id=a.obligation_id
-            WHERE o.idempotency_key=$2) AS acknowledgements`,
-        [claimed.claimId, id('cleanup-key')],
+           (SELECT count(*) FROM coordination_v2_transport_work_results WHERE claim_id=$1) AS results`,
+        [claimed.claimId],
       );
       assert.equal(Number(persisted.rows[0].claims), 1);
       assert.equal(Number(persisted.rows[0].results), 1);
-      assert.equal(Number(persisted.rows[0].acknowledgements), 1);
       const attemptsAfterReacquire = await client.query(
         'SELECT count(*)::int AS count, min(id) AS id FROM coordination_v2_attempts WHERE session_id=$1',
         [sessionId],
@@ -282,7 +259,7 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
          (SELECT count(*) FROM coordination_v2_cleanup_acknowledgements WHERE session_id=$1) AS acknowledgements`,
       [sessionId, attemptId],
     );
-    await context.test('stale epoch mutates no work, result, event, or ack rows', async () => {
+    await context.test('stale epoch mutates no work, result, or event rows', async () => {
       await assert.rejects(
         leases.claimCoordinationTransportWork({
           ...base, holderInstanceId: 'instance-a', requestKey: id('stale-claim'),
@@ -294,12 +271,6 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
         leases.resultCoordinationTransportWork({
           ...base, holderInstanceId: 'instance-a', requestKey: id('stale-result'),
           epoch: 1, claimId: claimed.claimId, result: { stale: true },
-        }),
-        (error: unknown) => (error as { code?: string }).code === 'LEASE_STALE_EPOCH',
-      );
-      await assert.rejects(
-        leases.acknowledgeCoordinationCleanup({
-          ...ackInput, holderInstanceId: 'instance-a', requestKey: id('stale-ack'), epoch: 1,
         }),
         (error: unknown) => (error as { code?: string }).code === 'LEASE_STALE_EPOCH',
       );

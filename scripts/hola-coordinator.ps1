@@ -34,6 +34,51 @@ function Assert-ReadablePrivateAcl {
     if ($null -eq $acl -or $acl.Access.Count -lt 1) { Fail-Safe 'acl_unavailable' }
 }
 
+function Test-SafeCliOutput {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Output
+    )
+
+    # A native child is allowed through only when it produced exactly one
+    # complete, known CLI status.  This accepts both the JSON and text forms
+    # emitted by the CLI, while preventing arbitrary child stdout from being
+    # mistaken for a safe diagnostic.
+    if ($null -eq $Output -or $Output.Count -ne 1) { return $false }
+    $line = [string]$Output[0]
+    if ([string]::IsNullOrWhiteSpace($line)) { return $false }
+
+    $safeStates = @(
+        'preparing', 'ready', 'running', 'waiting_for_host', 'verifying',
+        'succeeded', 'failed', 'exhausted', 'expired', 'revoked',
+        'cleanup_pending', 'preflight_failed', 'host_unavailable',
+        'invalid_request'
+    )
+
+    # Text is intentionally checked against the same closed state vocabulary.
+    if ($safeStates -contains $line -or $line -eq 'succeeded (cleanup pending)') {
+        return $true
+    }
+
+    try {
+        $payload = $line | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        return $false
+    }
+    if ($null -eq $payload -or $payload -is [System.Array]
+        -or $payload -isnot [PSCustomObject]) { return $false }
+    if ($payload.state -isnot [string] -or $safeStates -notcontains $payload.state) {
+        return $false
+    }
+    if ($payload.cleanupAcknowledged -isnot [bool]) { return $false }
+    $propertyNames = @($payload.PSObject.Properties | ForEach-Object { $_.Name })
+    return $propertyNames.Count -eq 2 `
+        -and $propertyNames -contains 'state' `
+        -and $propertyNames -contains 'cleanupAcknowledged'
+}
+
 function Assert-Host {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Fail-Safe 'windows_required' }
     if ($PSVersionTable.PSVersion.Major -lt 5 -or
@@ -79,9 +124,34 @@ function Invoke-HolaCoordinator {
     if ($PSBoundParameters.ContainsKey('Policy')) {
         $arguments += @('--policy', $Policy)
     }
-    # Keep safe stdout from the CLI, but never surface a child native stderr.
-    & $ApprovedNode @arguments 2>$null
-    $childExit = $LASTEXITCODE
+    # Keep safe stdout from the CLI, but never surface a child native error
+    # stream. Capture it so an unstructured nonzero child exit can be replaced
+    # with a bounded, safe diagnostic.
+    $childOutput = @(& $ApprovedNode @arguments 2>$null)
+    $observedChildExit = [int64]$LASTEXITCODE
+    $childExit = $observedChildExit
+    if (-not (Test-SafeCliOutput -Output $childOutput)) {
+        # Native Windows exit status is a bounded signed integer. Do not
+        # coerce it in diagnostics: the exact observed status is retained.
+        if ($observedChildExit -lt -2147483648 -or $observedChildExit -gt 2147483647) {
+            Fail-Safe 'child_exit_out_of_range'
+        }
+        $childOutput = @(
+            ([ordered]@{
+                state = 'host_child_unclassified_exit'
+                cleanupAcknowledged = $false
+                executableRole = 'coordinator_cli'
+                exitStatus = $observedChildExit
+            } | ConvertTo-Json -Compress)
+        )
+        # A zero-exit child with missing or unstructured output did not satisfy
+        # the coordinator contract. Preserve its observed zero above but make
+        # the wrapper fail closed.
+        if ($observedChildExit -eq 0) { $childExit = 70 }
+    }
+    foreach ($line in $childOutput) {
+        [Console]::Out.WriteLine([string]$line)
+    }
     # Preserve native status for callers without emitting it as a pipeline
     # value (which would contaminate the CLI's safe stdout contract).
     $global:LASTEXITCODE = $childExit

@@ -15,6 +15,10 @@ import {
   CoordinationLifecycleFacadeError,
   type CoordinationLifecycleFacadeDependencies,
 } from '../services/coordination-lifecycle-facade-service';
+import {
+  getCoordinationSessionStatus,
+  CoordinationSessionStatusError,
+} from '../services/coordination-session-status';
 
 type AuthRequest = CoordinationAuthenticatedRequest & { body: Record<string, unknown>; params: { id: string; attemptId?: string; obligationId?: string } };
 type Services = {
@@ -26,6 +30,7 @@ type Services = {
   acceptCoordinationCompletion: typeof acceptCoordinationCompletion;
   transitionCoordinationCleanup: typeof transitionCoordinationCleanup;
   launchOrResumeCoordinationLifecycle: typeof launchOrResumeCoordinationLifecycle;
+  getCoordinationSessionStatus: typeof getCoordinationSessionStatus;
 };
 class RouteCommandError extends Error {
   readonly code = 'COORDINATION_INVALID_COMMAND';
@@ -45,6 +50,7 @@ function actor(req: AuthRequest): string {
 function errorCode(error: unknown): string {
   if (error instanceof RouteCommandError) return error.code;
   if (error instanceof CoordinationSessionError || error instanceof CoordinationAttemptError || error instanceof CoordinationCleanupError) return error.code;
+  if (error instanceof CoordinationSessionStatusError) return error.code;
   return 'COORDINATION_DATABASE_UNAVAILABLE';
 }
 function status(code: string): number {
@@ -53,6 +59,7 @@ function status(code: string): number {
   if (code.includes('CONFLICT') || code.includes('REPLAY') || code.includes('BUDGET') || code.includes('TERMINAL')) return 409;
   if (code.includes('DATABASE')) return 503;
   if (code.includes('GRANT') || code.includes('POLICY') || code.includes('HOST')) return 403;
+  if (code === 'STATUS_NOT_AUTHORIZED') return 403;
   return 422;
 }
 function reply(res: Response, error: unknown): void {
@@ -82,8 +89,19 @@ export function registerCoordinationSessionRoutes(
     createOrResumeSession, transitionCoordinationSession, createFreshAttempt,
     transitionCoordinationAttempt, resumeSameCoordinationAttempt, acceptCoordinationCompletion, transitionCoordinationCleanup,
     launchOrResumeCoordinationLifecycle,
+    getCoordinationSessionStatus,
     ...dependencies.services,
   };
+
+  app.get('/api/coordination/v2/sessions/:id/status', auth, async (req: Request, res: Response) => {
+    const request = req as AuthRequest;
+    try {
+      res.json(await services.getCoordinationSessionStatus({
+        sessionId: request.params.id,
+        actorId: actor(request),
+      }));
+    } catch (error) { reply(res, error); }
+  });
 
   app.post('/api/coordination/v2/sessions', auth, async (req: Request, res: Response) => {
     const request = req as AuthRequest;

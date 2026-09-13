@@ -9919,3 +9919,55 @@ Gemini-Alden returned the same unconditional approval. An independent cold
 Next: Milestone 10 diagnostics only. Do not activate real Windows authority or
 consume the Milestones 14–15 transport, credential, provisioning, DPAPI,
 scheduled-task, or host-enrollment scope early.
+
+## September 13, 2026 — Coordinator V2 diagnostics and cleanup complete
+
+Milestone 10 is built and independently architect-reviewed. A stable error
+catalog now projects every lifecycle failure into a fixed safe message, phase,
+retry classification, evidence reference, and closed bounded provenance.
+`host_child_unclassified_exit` carries only executable role and signed 32-bit
+exit status. Raw stderr remains evidence-only. PowerShell validates child
+stdout regardless of child exit status, so malformed zero-exit output fails
+closed instead of being treated as success.
+
+Every terminal session transition now cancels live attempts and releases active
+transport leases in the same PostgreSQL transaction that persists the terminal
+state and cleanup obligations. Reusable policy grants and enrolled hosts are
+not revoked. Cleanup repair remains separately retryable and idempotent and
+cannot rewrite the original terminal result, reason, or evidence.
+
+Historical status binds to the immutable session operator actor rather than a
+mutable grant. Exact attempt creation, attempt transition, and transport
+receipt replay occur before current grant, host, expiry, and terminal-state
+authorization; new mutations still require current execution authority.
+Cleanup acknowledgement requires a terminal session, explicit lease ID, the
+immutable session actor, and the exact latest released lease. It rechecks the
+canonical acknowledgement after acquiring serialization locks, so concurrent
+identical requests converge on the same stored snapshot without restoring
+execution authority.
+
+The status route exposes canonical state, current lease holder, last
+transition, next action, blocking reason, and cleanup state without exposing
+credentials, raw stderr, or internal authority material. No real Windows
+transport, credential, provisioning, DPAPI operation, scheduled task, or host
+authority was created.
+
+Focused local verification passed TypeScript, 16 runnable assertions with the
+two PostgreSQL suites correctly skipped outside a verified disposable
+database, PowerShell static boundaries, and diff validation. The definitive
+disposable Neon gate passed the combined lifecycle, diagnostics, and cleanup
+bundle 39/39 with zero skips, the durable transport matrix 7/7, and all 68
+established CI commands. It deleted the branch, exited 0, and returned
+`READY_TO_PROMOTE`; no migration or shared-database mutation was required.
+System health passed with zero failures. The final independent architect review
+reported PASS with no blocking defects.
+
+The final review packet contained the actual tracked diff and new production
+source files. Anthropic-Alden, Gemini-Alden, and the independent cold
+`gemini-3-flash-preview` review each returned unconditional
+`APPROVED — SHIP MILESTONE 10` with no required changes, suggestions, or
+remaining watch-outs.
+
+Next: Milestone 11 only. Keep real Windows transport, credentials,
+provisioning, DPAPI protection, scheduled execution, and host-authority
+activation deferred to Milestones 14–15.

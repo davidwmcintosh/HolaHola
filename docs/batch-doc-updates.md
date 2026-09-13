@@ -6417,3 +6417,57 @@ Gemini-Alden returned the same approval, and the independent
 Next boundary: Milestone 10 diagnostics only. Keep real Windows transport,
 credentials, provisioning, DPAPI protection, scheduled execution, and
 host-authority activation deferred to Milestones 14–15.
+
+## Coordinator V2 structured diagnostics and automatic cleanup — September 13, 2026
+
+Milestone 10 adds a stable lifecycle error catalog and safe status projection.
+Every service error now maps to a fixed operator message, lifecycle phase,
+retry classification, evidence reference, and closed bounded provenance.
+`host_child_unclassified_exit` records only the executable role and a signed
+32-bit exit status. Raw child stderr remains evidence-only and cannot enter
+operator text, JSON, or provenance. The PowerShell wrapper validates child
+stdout on every exit path, including a malformed zero-exit response, and fails
+closed with a nonzero wrapper exit.
+
+Terminal session transitions now revoke present-day execution authority inside
+the same PostgreSQL transaction as the terminal state. Live attempts are
+cancelled and active transport leases are released before the terminal call
+returns. Reusable policy grants and enrolled hosts remain unchanged. Cleanup
+obligations remain separate, independently retryable, and idempotent; cleanup
+repair cannot overwrite the original terminal result, reason, or evidence.
+
+Historical reads and exact replay no longer depend on mutable execution
+authority. Terminal status binds to the immutable session operator actor.
+Exact attempt creation, attempt transition, and transport receipt replay occur
+before current grant, host, expiry, or terminal-state authorization. New
+mutations still require current authorization. Terminal cleanup
+acknowledgement requires the immutable session actor, an explicit lease ID, the
+exact latest released lease lineage, and a terminal session. A second receipt
+lookup after acquiring the serialization locks makes concurrent identical
+acknowledgements return the same canonical snapshot.
+
+Status exposes only canonical state, the current lease holder, the last
+transition, the next action, the blocking reason, and cleanup state. It does
+not leak credentials, raw stderr, authority internals, or host/provider control
+inputs. No real Windows transport, credentials, provisioning, DPAPI operation,
+scheduled execution, or host authority was created.
+
+Focused local verification passed TypeScript, 16 runnable assertions with the
+two database suites correctly skipped outside a verified disposable database,
+PowerShell static boundaries, and `git diff --check`. The definitive disposable
+Neon gate then ran the combined one-command lifecycle, diagnostics, and cleanup
+bundle 39/39 with zero skips, including concurrent identical cleanup
+acknowledgements and the transport lease matrix 7/7. All 68 established CI
+commands passed. The gate deleted its branch, exited 0, and returned
+`READY_TO_PROMOTE`; no migration or shared-database mutation was required.
+System health passed with zero failures.
+
+The final review packet included the actual tracked diff and the new production
+source files. Anthropic-Alden, Gemini-Alden, and the independent cold
+`gemini-3-flash-preview` review each returned unconditional
+`APPROVED — SHIP MILESTONE 10` with no required changes, suggestions, or
+remaining watch-outs.
+
+Next boundary: Milestone 11 only. Keep real Windows transport, credentials,
+provisioning, DPAPI protection, scheduled execution, and host-authority
+activation deferred to Milestones 14–15.

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createCoordinationV2CliUnclassifiedExit,
+  isSafeCoordinationV2CliStatus,
   parseCoordinationV2CliArgs,
   runCoordinationV2Command,
   runCoordinationV2Cli,
@@ -8,6 +10,31 @@ import {
 } from "./coordination-v2-cli";
 import { createHostEnvelope } from "../services/coordination-host-protocol";
 import { CoordinationHostFake } from "./coordination-host-fake";
+
+test("CLI safe output is closed and child exits carry bounded provenance", () => {
+  assert.equal(isSafeCoordinationV2CliStatus({
+    state: "failed",
+    cleanupAcknowledged: false,
+  }), true);
+  assert.equal(isSafeCoordinationV2CliStatus({
+    state: "child_exit_1",
+    cleanupAcknowledged: false,
+  }), false);
+  assert.equal(isSafeCoordinationV2CliStatus({
+    state: "failed",
+    cleanupAcknowledged: false,
+    extra: "must not cross the boundary",
+  }), false);
+  assert.deepEqual(createCoordinationV2CliUnclassifiedExit(17), {
+    state: "host_child_unclassified_exit",
+    cleanupAcknowledged: false,
+    executableRole: "coordinator_cli",
+    exitStatus: 17,
+  });
+  assert.equal(createCoordinationV2CliUnclassifiedExit(-1073741510).exitStatus, -1073741510);
+  assert.equal(createCoordinationV2CliUnclassifiedExit(0).exitStatus, 0);
+  assert.throws(() => createCoordinationV2CliUnclassifiedExit(2_147_483_648));
+});
 
 function fakeClaim() {
   return createHostEnvelope("operation_claim", {
