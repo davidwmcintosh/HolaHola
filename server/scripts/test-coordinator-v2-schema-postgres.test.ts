@@ -48,7 +48,10 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
   await client.connect();
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const id = (kind: string) => `v2-schema-${kind}-${suffix}`;
-  const digest = (character: string) => character.repeat(64);
+  const digest = (character: string) => {
+    assert.match(character, /^[0-9a-f]$/, "digest fixture seed must be one lowercase hexadecimal character");
+    return character.repeat(64);
+  };
 
   try {
     const nullKeys = await client.query(
@@ -257,7 +260,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
       `INSERT INTO coordination_v2_transport_lease_receipts
        (id, session_id, request_key, operation, actor_id, enrolled_host_id, command_digest, response_snapshot)
        VALUES ($1, $2, $3, 'poll', 'schema-test', $4, $5, '{}'::jsonb)`,
-      [id("lease-receipt"), id("session"), id("lease-request"), id("host"), digest("g")],
+      [id("lease-receipt"), id("session"), id("lease-request"), id("host"), digest("9")],
     );
     await rejectCode(
       client,
@@ -266,7 +269,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
         `INSERT INTO coordination_v2_transport_lease_receipts
          (id, session_id, request_key, operation, actor_id, enrolled_host_id, command_digest, response_snapshot)
          VALUES ($1, $2, $3, 'poll', 'schema-test', $4, $5, '{}'::jsonb)`,
-        [id("lease-receipt-two"), id("session"), id("lease-request"), id("host"), digest("h")],
+        [id("lease-receipt-two"), id("session"), id("lease-request"), id("host"), digest("a")],
       ),
       "23505",
     );
@@ -279,7 +282,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
           request_key, evidence_digest, evidence)
          VALUES ($1, $2, $3, $4, 'stale-holder', 1, $5, $6, $7::jsonb)`,
         [id("reconciliation"), id("session"), id("lease-1"), id("host"),
-          id("reconciliation-request"), digest("i"), JSON.stringify({ evidence: "x".repeat(9000) })],
+          id("reconciliation-request"), digest("b"), JSON.stringify({ evidence: "x".repeat(9000) })],
       ),
       "23514",
     );
@@ -289,7 +292,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
         epoch, request_key, command_digest)
        VALUES ($1, $2, $3, $4, $5, 'schema-holder', 1, $6, $7)`,
       [id("claim"), id("session"), id("attempt"), id("lease-1"), id("host"),
-        id("claim-request"), digest("m")],
+        id("claim-request"), digest("c")],
     );
     await rejectCode(
       client,
@@ -297,10 +300,10 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
       () => client.query(
         `INSERT INTO coordination_v2_transport_work_claims
          (id, session_id, attempt_id, lease_id, enrolled_host_id, holder_instance_id,
-          epoch, request_key, command_digest)
-         VALUES ($1, $2, $3, $4, $5, 'schema-holder-2', 1, $6, $7)`,
+           epoch, request_key, command_digest, state, terminal_at)
+          VALUES ($1, $2, $3, $4, $5, 'schema-holder-2', 1, $6, $7, 'completed', now())`,
         [id("claim-bad-host"), id("session"), id("attempt"), id("lease-1"), id("host-two"),
-          id("claim-bad-host-request"), digest("n")],
+          id("claim-bad-host-request"), digest("d")],
       ),
       "23503",
     );
@@ -313,7 +316,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
           holder_instance_id, epoch, request_key, result_digest, result)
          VALUES ($1, $2, $3, $4, $5, $6, 'schema-holder', 1, $7, $8, '{}'::jsonb)`,
         [id("result-bad-host"), id("session"), id("attempt"), id("claim"), id("lease-1"),
-          id("host-two"), id("result-bad-host-request"), digest("o")],
+          id("host-two"), id("result-bad-host-request"), digest("e")],
       ),
       "23503",
     );
@@ -324,7 +327,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
         command_digest, outcome, evidence_digest)
        VALUES ($1, $2, $3, $4, 'schema-test', 'holder-1', $5, 1, $6, $7, 'acknowledged', $8)`,
       [id("ack-valid"), id("cleanup"), id("session"), id("host"), id("lease-1"),
-        id("ack-valid-request"), digest("p"), digest("q")],
+        id("ack-valid-request"), digest("f"), digest("0")],
     );
     await rejectCode(
       client,
@@ -336,7 +339,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
           command_digest, outcome, evidence_digest)
          VALUES ($1, $2, $3, $4, 'schema-test', 'holder-1', $5, 1, $6, $7, 'acknowledged', $8)`,
         [id("ack-bad-host"), id("cleanup"), id("session"), id("host-two"), id("lease-1"),
-          id("ack-bad-host-request"), digest("r"), digest("s")],
+          id("ack-bad-host-request"), digest("1"), digest("2")],
       ),
       "23514",
     );
@@ -350,7 +353,7 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
           command_digest, outcome, evidence_digest)
          VALUES ($1, $2, $3, $4, 'schema-test', 'holder-1', $5, 2, $6, $7, 'acknowledged', $8)`,
         [id("ack-bad-epoch"), id("cleanup"), id("session"), id("host"), id("lease-1"),
-          id("ack-bad-epoch-request"), digest("t"), digest("u")],
+          id("ack-bad-epoch-request"), digest("3"), digest("4")],
       ),
       "23503",
     );

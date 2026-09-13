@@ -112,7 +112,7 @@ async function lockById(tx: any, table: any, id: string): Promise<any | undefine
 }
 
 async function databaseNow(tx: any): Promise<Date> {
-  const result = await tx.execute(sql`SELECT CURRENT_TIMESTAMP AS now`);
+  const result = await tx.execute(sql`SELECT clock_timestamp() AS now`);
   const row = (result as any).rows?.[0] ?? (result as any)[0];
   const value = row?.now;
   const now = value instanceof Date ? value : new Date(value);

@@ -6233,8 +6233,17 @@ poll, claim, result, acknowledgement, and cleanup evidence. Dedicated bounded
 V2 work provenance is used where legacy runtime IDs cannot preserve session
 identity; holder instances remain ephemeral lease CAS identifiers.
 
-Migration 0045 is a narrowly additive, generated-and-reviewed artifact only.
-It has not been applied to shared Neon, no host has been provisioned, no
-credentials have been generated, and no Windows workflow has been run. The
-disposable database and HTTP suites are registered in `scripts/neon-branch.ts`
-for the owning agent's gate.
+Migration 0045 is a narrowly additive, generated-and-reviewed artifact. The
+definitive disposable gate applied it from the live 0044 baseline, passed all
+seven durable lease cases with zero skips, passed the host HTTP suite and all
+68 established CI commands, deleted the branch, and returned
+`READY_TO_PROMOTE`. Both Alden engines then returned unconditional
+`APPROVED — Ship it.`
+
+Migration 0045 is applied to shared Neon. The live ledger contains 46
+migrations; all new lease, receipt, claim, result, and reconciliation tables
+remain empty. The one-active-lease index, claim epoch fence, result provenance
+constraint, and cleanup host-provenance trigger are installed. The application
+restarted cleanly, `/api/health` returned 200, and an unauthenticated lease
+request returned 401. No host was provisioned, no credential was generated,
+and no Windows workflow was run.

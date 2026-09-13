@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import pg from 'pg';
 
@@ -34,7 +34,7 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
   await client.connect();
   const suffix = `${Date.now()}-${randomUUID()}`;
   const id = (kind: string) => `lease-test-${kind}-${suffix}`;
-  const hex = (character: string) => character.repeat(64);
+  const hex = (label: string) => createHash('sha256').update(`${suffix}:${label}`).digest('hex');
   const hostId = id('host');
   const identityId = id('identity');
   const versionId = id('version');
@@ -65,7 +65,7 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
     await client.query(
       `INSERT INTO coordination_v2_operator_grants
        (id, policy_identity_id, operator_actor, actions, issued_by, expires_at, grant_digest, request_key)
-       VALUES ($1,$2,'operator-test',ARRAY['resume','terminate'],'founder',now()+interval '1 hour',$3,$4)`,
+        VALUES ($1,$2,'operator-test',ARRAY['launch','resume','terminate'],'founder',now()+interval '1 hour',$3,$4)`,
       [grantId, identityId, hex('d'), id('grant-key')],
     );
     await client.query(
@@ -226,7 +226,7 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
     await context.test('database-time expiry and concurrent takeover have one successor', async () => {
       await client.query(
         `UPDATE coordination_v2_transport_leases
-         SET expires_at = CURRENT_TIMESTAMP - interval '1 second'
+          SET expires_at = issued_at + interval '1 millisecond'
          WHERE session_id=$1 AND state='active'`,
         [sessionId],
       );
@@ -245,6 +245,7 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
         (result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled',
       )!.value;
       assert.equal(takeoverWinner.epoch, 5);
+      assert.ok(new Date(takeoverWinner.expiresAt).getTime() > new Date(takeoverWinner.issuedAt).getTime());
     });
     await context.test('exact operation replay survives lease advancement', async () => {
       const replayAfterAdvance = await leases.pollCoordinationTransportWork({

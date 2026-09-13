@@ -9727,8 +9727,16 @@ identity, and request-key/digest replay.
 True host credential middleware remains deferred. `holderInstanceId` is an
 ephemeral lease CAS identifier, never a host identity.
 
-Migration `0045_quiet_warbird.sql` is generated from the 0044 snapshot and
-reviewed but must not be applied to shared Neon by this handoff. The disposable Neon gate
-must run the registered transport-lease and host HTTP suites with
-`COORDINATOR_V2_REQUIRE_DATABASE_TESTS=1`; no Windows authority, host
-provisioning, credentials, or shared migration work is part of this milestone.
+Migration `0045_quiet_warbird.sql` passed the definitive disposable Neon gate
+from the live 0044 baseline. The gate passed the seven-case transport lease
+matrix with zero skips, the host HTTP suite, and all 68 established CI
+commands, deleted the branch, and returned `READY_TO_PROMOTE`. Both Alden
+engines independently returned unconditional `APPROVED — Ship it.`
+
+0045 is applied to shared Neon. The migration ledger is at 46; the new lease,
+receipt, claim, result, and reconciliation tables are empty. Live catalog
+checks confirm the one-active-lease index, claim epoch fence, result provenance
+constraint, and cleanup host-provenance trigger. The application restarted
+cleanly, health returned 200, and an unauthenticated lease request returned
+401. No Windows authority, host provisioning, or credential generation
+occurred. Next boundary: Milestone 6 only.
