@@ -17,6 +17,7 @@ import { registerCoordinationRuntimeRoutes } from "./routes/coordination-runtime
 import { registerCoordinationPolicyRoutes } from "./routes/coordination-policy-routes";
 import { registerCoordinationSessionRoutes } from "./routes/coordination-session-routes";
 import { registerCoordinationHostRoutes } from "./routes/coordination-host-routes";
+import { DEFAULT_COORDINATION_TASK_METADATA_REGISTRY } from "./services/coordination-task-metadata-service";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
 import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
@@ -650,7 +651,9 @@ export async function registerRoutes(app: Application): Promise<void> {
   // does not touch or replace Replit auth's routes.
   await setupGoogleAuth(app as any, authLimiter);
   registerCoordinationPolicyRoutes(app);
-  registerCoordinationSessionRoutes(app);
+  registerCoordinationSessionRoutes(app, {
+    lifecycle: { taskMetadataRegistry: DEFAULT_COORDINATION_TASK_METADATA_REGISTRY },
+  });
   registerCoordinationHostRoutes(app);
   registerFounderTaskOwnershipRoutes(app);
   registerObservationBenchFounderRoutes(app, [

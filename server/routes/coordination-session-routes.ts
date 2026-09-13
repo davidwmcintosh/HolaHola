@@ -10,6 +10,11 @@ import { resumeSameCoordinationAttempt } from '../services/coordination-attempt-
 import {
   acceptCoordinationCompletion, transitionCoordinationCleanup, CoordinationCleanupError,
 } from '../services/coordination-cleanup-service';
+import {
+  launchOrResumeCoordinationLifecycle,
+  CoordinationLifecycleFacadeError,
+  type CoordinationLifecycleFacadeDependencies,
+} from '../services/coordination-lifecycle-facade-service';
 
 type AuthRequest = CoordinationAuthenticatedRequest & { body: Record<string, unknown>; params: { id: string; attemptId?: string; obligationId?: string } };
 type Services = {
@@ -20,6 +25,7 @@ type Services = {
   resumeSameCoordinationAttempt: typeof resumeSameCoordinationAttempt;
   acceptCoordinationCompletion: typeof acceptCoordinationCompletion;
   transitionCoordinationCleanup: typeof transitionCoordinationCleanup;
+  launchOrResumeCoordinationLifecycle: typeof launchOrResumeCoordinationLifecycle;
 };
 class RouteCommandError extends Error {
   readonly code = 'COORDINATION_INVALID_COMMAND';
@@ -27,6 +33,7 @@ class RouteCommandError extends Error {
 export type CoordinationSessionRouteDependencies = {
   coordinationAuthMiddleware?: RequestHandler;
   services?: Partial<Services>;
+  lifecycle?: CoordinationLifecycleFacadeDependencies;
 };
 
 function stringBody(body: Record<string, unknown>, key: string): string | undefined {
@@ -74,6 +81,7 @@ export function registerCoordinationSessionRoutes(
   const services: Services = {
     createOrResumeSession, transitionCoordinationSession, createFreshAttempt,
     transitionCoordinationAttempt, resumeSameCoordinationAttempt, acceptCoordinationCompletion, transitionCoordinationCleanup,
+    launchOrResumeCoordinationLifecycle,
     ...dependencies.services,
   };
 
@@ -94,6 +102,37 @@ export function registerCoordinationSessionRoutes(
       });
       res.status(result.created === false ? 200 : 201).json(result);
     } catch (error) { reply(res, error); }
+  });
+
+  // One-command operator boundary.  All authority bindings and immutable task
+  // metadata are resolved by the facade; neither can be supplied in this body.
+  app.post('/api/coordination/v2/lifecycle', auth, async (req: Request, res: Response) => {
+    const request = req as AuthRequest;
+    try {
+      const body = request.body;
+      const allowed = new Set(['taskRef', 'policySelector']);
+      if (Object.keys(body).some((key) => !allowed.has(key))) throw new RouteCommandError();
+      const taskRef = stringBody(body, 'taskRef');
+      if (!taskRef) throw new RouteCommandError();
+      const policySelector = body.policySelector === undefined
+        ? undefined : stringBody(body, 'policySelector');
+      if (body.policySelector !== undefined && !policySelector) throw new RouteCommandError();
+      const result = await services.launchOrResumeCoordinationLifecycle(
+        { taskRef, ...(policySelector ? { policySelector } : {}) },
+        { actorId: actor(request), ...(requestKey(request) ? { requestKey: requestKey(request) } : {}) },
+        dependencies.lifecycle,
+      );
+      res.json(result);
+    } catch (error) {
+      if (error instanceof CoordinationLifecycleFacadeError) {
+        const httpStatus = error.code.includes('DATABASE') ? 503
+          : error.code === 'LIFECYCLE_INVALID_REQUEST' ? 422
+            : error.code === 'LIFECYCLE_TASK_UNSUPPORTED' ? 404
+            : error.code === 'LIFECYCLE_HOST_UNAVAILABLE' || error.code === 'LIFECYCLE_POLICY_UNAVAILABLE' ? 403
+              : 409;
+        res.status(httpStatus).json({ error: { code: error.code } });
+      } else reply(res, error);
+    }
   });
 
   app.post('/api/coordination/v2/sessions/:id/transitions', auth, async (req: Request, res: Response) => {

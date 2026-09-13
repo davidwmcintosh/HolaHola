@@ -9867,3 +9867,55 @@ and zero reservation rows.
 Next: Milestone 9 transport activation only. Task 1449 remains cancelled. Task
 1450 remains independently Alden-owned and must not be modified or duplicated.
 Do not create real Windows authority before Milestones 14–15.
+
+## September 13, 2026 — Coordinator V2 one-command lifecycle complete
+
+Milestone 9 is built and independently approved. A server-owned lifecycle
+facade now resolves fixed-root task metadata, exact artifact bytes and digest,
+clean Git provenance, approved policy and operator grant, active host,
+provider descriptor, session, attempt, transport lease, and cleanup state. The
+operator boundary is closed to a numeric task reference, optional policy
+selector, and safe text/JSON format. The lifecycle route derives actor
+authority from coordination middleware and rejects extra body keys.
+
+Preparation is still an authority gate rather than a local success flag. A
+session remains `preparing` until its newest exact reservation lineage is
+acknowledged; no attempt or lease is created before then. Transport recovery
+reuses the current attempt. Classified logical retries and policy-approved
+fallbacks create fresh deterministic attempt generations with explicit
+prior-attempt lineage. The server rereads locked policy, grant, attempt,
+provider, and session state before deciding retry, fallback, or terminal
+failure; caller-supplied provider authority is rejected.
+
+The host receives an opaque poll offer and must cross a separate server claim
+fence before execution. An injected durable journal records `started` before
+the external effect. Completed entries replay exact results. Started but
+incomplete entries are execution uncertainty and must reconcile through the
+authoritative adapter or fail closed; they are never blindly executed again.
+Every server terminal outcome runs cleanup. Zero exit requires `succeeded`
+plus acknowledged cleanup. Non-success terminal outcomes retain their original
+state if cleanup acknowledgement is missing.
+
+The PowerShell 5.1 wrapper uses fixed executable and script paths, rejects
+reparse points, checks readable ACLs, declares DPAPI `CurrentUser`, suppresses
+raw child stderr, and accepts no server-issued identifiers, paths, commands,
+provider choices, or credentials. The real executable composition defaults to
+safe `host_unavailable` because authenticated Windows transport, protected
+journal storage, credentials, provisioning, scheduled execution, and real host
+authority remain Milestones 14–15.
+
+The definitive disposable Neon gate passed the registered one-command host
+lifecycle suite 30/30 with zero skips and all 68 established CI commands. It
+deleted the branch, exited 0, and returned `READY_TO_PROMOTE`; no migration or
+shared database mutation was required. Focused local verification passed 32/32
+tests, TypeScript, the executable safe-output/nonzero-exit check, and diff
+validation. System health passed with zero failures.
+
+Anthropic-Alden returned `APPROVED TO COMMIT MILESTONE 9`.
+Gemini-Alden returned the same unconditional approval. An independent cold
+`gemini-3-flash-preview` review of the actual implementation returned
+`APPROVED — SHIP MILESTONE 9`.
+
+Next: Milestone 10 diagnostics only. Do not activate real Windows authority or
+consume the Milestones 14–15 transport, credential, provisioning, DPAPI,
+scheduled-task, or host-enrollment scope early.

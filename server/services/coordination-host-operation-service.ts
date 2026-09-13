@@ -30,6 +30,16 @@ export type ServerAuthorizedOperation = {
 export type HostOperationAdapter = {
   execute(request: { operation: string; operationDigest: string; input: Record<string, unknown> }):
     Promise<Record<string, unknown>>;
+  /**
+   * Resolve an execution whose protected journal says started but incomplete.
+   * The adapter must return the exact coordinator result envelope, not raw
+   * provider output; undefined is an intentional fail-closed answer.
+   */
+  reconcile?(request: {
+    claimIdentity: string;
+    operationDigest: string;
+    claim: HostEnvelope<'operation_claim'>;
+  }): Promise<HostEnvelope<'structured_result'> | undefined>;
 };
 
 export class CoordinationHostOperationError extends Error {
