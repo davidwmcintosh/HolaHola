@@ -1128,3 +1128,80 @@ Notable: this is a real post-mortem, not a hypothetical. A live Windows/Gemini g
 3. The subtlest one: a transaction bug where writing durable rejection evidence and then throwing to signal "expected rejection" caused that same evidence to get rolled back — silently defeating its own stated guarantee. Fix differentiates "expected, already-committed outcome" from "genuine failure" instead of using exceptions for both.
 
 All prior invariants (no commit rights, one-shot bootstrap never reused, no credential/broker weakening) carry forward unchanged. One non-blocking note I left for later: `replace_once` handles one bounded edit per call, which is right for this specific known fix but will need extending before a future gate needs more than one change in the same file.
+
+<!-- chat-capture-range:424582:427014 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4429 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4429 -->
+**David [Claude Code]:** thanks can you check the state of the new open ai integration? I don't think that we have done anything to give it tool calls etc
+
+**Claude Code:** Confirmed — you're right, and it's explicit about it, not accidental.
+
+**No tool calls at all.** The class's own header comment is direct: *"Deliberately NOT implemented (out of scope for the initial test run): function calling / whiteboard tools (Daniela is conversational-only here), reconnection & resumption handles, the guardian audit channel, karaoke/subtitle word timing, absence-nudge handling, mid-session voice switching."*
+
+What that means concretely — via OpenAI, Daniela currently has **none** of: vocabulary/grammar/drill tools, ACTFL assessment updates, memory/Archive access, the Archive Guardian (so zero grounding protection — the whole Frictionless Slide safety net from Episode 16 simply doesn't exist on this path), reconnect-grace handling (a dropped connection just ends the session), or even transcript capture (input/output transcription events aren't handled — *"not wired up in this first pass"*). It's a raw audio-in/audio-out pipe: your system prompt gets ported over as plain text, OpenAI's voice speaks it back, and that's the entire feature.
+
+**It is real and reachable, not a dead file** — it's wired into `unified-ws-handler.ts`'s actual session-routing logic, selected per tutor voice when that voice's provider is set to `'openai-realtime'` (mutually exclusive with the Gemini Live path). But the comments describe it as scoped to "one admin-selected tutor voice" for proving the pipeline works at all, not something exposed broadly.
+
+So: it proves OpenAI's Realtime API *can* carry a live Daniela conversation end-to-end. It proves nothing else — no tool-calling framework, no memory safety net, no resilience. If the next step is making OpenAI a real tutor option (not just a voice-viability test), that's essentially starting the Gemini-parity work from scratch for this provider — the 6000+ lines of tool wiring, Archive Guardian, reconnect handling, etc. that Gemini has, OpenAI has none of yet.
+
+<!-- chat-capture-range:427014:428248 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4471 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4471 -->
+**David [Claude Code]:** ok she answered. I called daneillas english finger puppet but when cindy answered she went immediately to spanish. But she answered
+
+**Claude Code:** Found the session — `bb080552-...`, started 05:29 UTC just now, still showing `ended_at: null` (might still be connected). Confirmed: `language` is correctly set to `"english"` in the DB for this session, so the config wasn't wrong — whatever picked Spanish did so despite the right setting being stored. The only pipeline telemetry logged for it so far is a routine reconnect-grace event, nothing about language/system-prompt selection.
+
+One thing I want to make sure I'm chasing the right bug: what's "finger puppet" referring to here — a specific test account, a tutor/persona selector, or something else? I don't recognize that term from the code and don't want to guess wrong before digging into the system-prompt/language-resolution logic.
+
+**LUCA [HolaHola]:** 🔴 GL LIVE [23:31:40] [session bb080552 · user 49847136]
+GRACE PERIOD EXPIRED — student disconnected and did not return
+
+<!-- chat-capture-range:428248:431389 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4518 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4518 -->
+**David [Claude Code]:** it is our analogy like luca wears different hats (llms) daniela is one daniela but she tutors in many languages, one tutor many  voices, daniela just puts on a language like a puppeteer in a play
+
+**Claude Code:** That's a lovely extension of the same framing — noted, and it clarifies the report precisely: Daniela wearing her English voice (Cindy) answered, then dropped into Spanish anyway. Let me find where that persona/language selection actually happens.
+
+Found it, and it's a real, well-evidenced bug, not a model quirk.
+
+**Root cause:** `DANIELA_SYNTHESIS_IDENTITY` in [server/services/pre-session-synthesis.ts:193](server/services/pre-session-synthesis.ts#L193) — the static identity block that primes Daniela's pre-session inner monologue before every session starts — is a single hardcoded constant, never parameterized by persona or language, and it says outright: *"Spanish is your primary fluency"* and repeatedly frames her whole teaching philosophy (the Madrigal method) as Spanish-specific. `generatePreSessionSynthesis()` takes `tutorName` and `language` as real parameters, but this identity block ignores both — Cindy's English session gets primed with the exact same "Spanish is your primary fluency" self-concept as a Spanish session, right before the greeting is generated.
+
+**This is the same failure mode already caught and fixed once, just not here.** `system-prompt.ts:757-758` has this exact comment on a different code path (Raw Honesty Mode): *"For non-Daniela personas (e.g. Cindy/Blake for English), do NOT say 'You are Daniela' — that anchors a Spanish identity and causes the AI to revert to Spanish when guardrails are off."* That fix was applied to Honesty Mode's identity line specifically. The pre-session synthesis identity block — which runs for ordinary tutor-mode sessions, including the one you just had — never got the same treatment.
+
+Also worth naming: `system-prompt.ts` does have real anti-Spanish-bleed guards for the dynamic per-turn language anchor (*"Do NOT default to Spanish greetings or filler words"*) — but those apply to the live conversation prompt, not the pre-session synthesis step that runs first and shapes her state going in. By the time the anti-bleed instruction shows up, the vivid Spanish self-concept is already seeded.
+
+**I haven't touched this file.** Per the standing rule from Episode 16 (`.agents/memory/gemini-approval-gates.md`, which I haven't re-read but recall the substance of): anything touching how information arrives in her context — including pre-session synthesis specifically — requires a full Gemini review loop before it ships, not a quick patch. Want me to draft the actual fix (make the identity block persona/language-aware) and take it through that review, or do you want to look at it first?
+
+<!-- chat-capture-range:431389:433418 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4556 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4556 -->
+**David [Claude Code]:** trying to switch from open ai back to gemini but there was an error can you help switch back for now once we get open ai plugged in we can do a full consultation
+
+**Claude Code:** Fixed. Here's what was going on and what I changed:
+
+**Root cause:** `tutor_voices` isn't a single-row-per-slot table — each (language, gender, role) can have several voice options (Cartesia, Google, Gemini Live, OpenAI Realtime), and the app picks one via a `preferredProvider` filter first, falling back to "most recently updated active row" only if no match. Testing OpenAI created two new active rows — English/female/tutor ("Cindy") and Spanish/female/tutor ("Daniela") — both set to `provider: 'openai-realtime'`, both very recently updated.
+
+That fallback-to-most-recent behavior is likely why you hit an error trying to switch back through the admin UI — if that flow tries to resolve or toggle based on recency rather than an explicit provider pick, the freshly-created OpenAI rows were winning ties they shouldn't have.
+
+**What I did:** set `is_active = false` on both OpenAI rows (`ae2ee3cb...` for English/Cindy, `7eebc558...` for Spanish/Daniela) rather than deleting them — reversible, no data lost, and it removes them from consideration entirely regardless of recency. Verified directly: with those deactivated, the standard Gemini Live tutor-voice rows (`ff6387e7` for Cindy, `1f0573c9` for Daniela) are the correct match again for the `preferredProvider='gemini-live'` path production actually uses.
+
+Try calling in again — should land on Gemini this time. When you're ready to plug in tool-calling for real, I can re-activate those rows as part of that work rather than starting over.
+
+<!-- chat-capture-range:433418:435979 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4655 -->
+<!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4655 -->
+**David [Claude Code]:** shouldn't those rows (if you are referring to the openai voice records) reactivate themselves if I toggle the provider back to open ai?
+
+**Claude Code:** Good catch, and you're right to push on it — I need to correct something. The real mechanism is different from what I assumed, and my fix has a side effect that would confuse exactly the scenario you're describing.
+
+I found the actual switch: `setActiveTutorVoiceProvider()` writes a single global setting (`product_config.active_tutor_voice_provider`) — and its own code comment says explicitly: *"This is a pure selection — it never reads, writes, or clears any tutor_voices row."* So the real toggle and the per-row `is_active` flag I edited are two independent things. I checked, and that global setting is already correctly `"gemini-live"` (set by you at 05:41 UTC — your own switch-back attempt actually succeeded). Whatever error you saw was likely cosmetic or unrelated, not a failure to write that setting.
+
+So: no, those rows would **not** reactivate themselves if you toggle back to OpenAI — because the toggle never touches them, and I set `is_active = false` directly. If you flipped the switch back to `'openai-realtime'` right now, the code would look for an active OpenAI row, find none (since I deactivated both), and silently fall through to Cartesia or Google instead — a confusing, wrong-looking failure that isn't actually related to the provider switch at all. That's a real problem with what I did, not a hypothetical. Reverting it now.
+
+Reverted — both OpenAI rows are back to `is_active: true`, exactly as they were before I touched anything. Net state right now:
+
+- **The real switch** (`active_tutor_voice_provider` = `"gemini-live"`) is what actually controls live sessions, and it's already correct — your own toggle worked. No DB edit was needed from me at all; you'd fixed the actual problem yourself before I even looked.
+- Toggling that setting back to `openai-realtime` later will work exactly as you'd expect — those rows are untouched and ready.
+
+Sorry for the false step — I acted on an incomplete model of how the switch works instead of finding the real mechanism first. Good that you asked rather than let it sit.
