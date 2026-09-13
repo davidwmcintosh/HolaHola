@@ -475,6 +475,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 Windows preflight and atomic preparation tests...');
+    const windowsPreparationTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-windows-preflight.test.ts server/scripts/test-coordination-windows-preparation.test.ts server/scripts/test-coordination-windows-static-boundary.test.ts server/scripts/test-coordination-windows-generation.test.ts',
+      branchEnv,
+    );
+    if (windowsPreparationTests.code !== 0) {
+      failureReason = `Coordinator V2 Windows preparation tests exited ${windowsPreparationTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
     for (const group of ['test:ci:unit', 'test:ci:guards', 'test:ci:episodes']) {
       console.log(`[gate] Running npm run ${group} against the branch...`);
       const result = await runCommand(`npm run ${group}`, branchEnv);

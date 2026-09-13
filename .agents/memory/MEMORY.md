@@ -156,3 +156,4 @@
 - [Cross-host exact text replacement](cross-host-exact-text-replacement.md) — compare valid text in canonical LF space, preserve source EOL style, and keep raw provider arguments as evidence.
 - [PostgreSQL lease clocks](postgresql-lease-clocks.md) — lease decisions need an advancing database clock; transaction-start timestamps can make valid expiry tests and takeovers inconsistent.
 - [Database CLI termination](database-cli-termination.md) — one-shot database CLIs must flush output and terminate explicitly when shared pools keep the event loop alive.
+- [PostgreSQL control checks and immutable expiry tests](postgres-control-and-expiry-tests.md) — use POSIX control classes; expire immutable authority through a short-lived parent bound.

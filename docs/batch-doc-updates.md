@@ -6328,3 +6328,42 @@ unconditional `APPROVED — Ship it.`
 Next boundary: Milestone 8 only. Keep task 1449 cancelled, leave Alden-owned
 task 1450 untouched, and create no real Windows authority before Milestones
 14–15.
+
+## Coordinator V2 Windows preflight and atomic preparation — September 13, 2026
+
+Milestone 8 adds a read-only Windows preflight, durable PostgreSQL preparation
+reservations, and local atomic generation staging behind a thin PowerShell 5.1
+boundary. Canonical branch and public-material identity come only from the
+approved policy's legal host constraints. Reservation lifetime is fixed
+server-side, capped by the locked session expiry using the database clock, and
+requires an active protocol-v1 Windows host with `preflight` and `prepare`
+capabilities. Identical concurrent reserves converge through one bounded retry;
+different active request identities fail closed.
+
+Migration 0046 adds the preparation-reservation authority table, scoped unique
+indexes, restrictive foreign keys, lifecycle checks, and an immutability
+trigger. PostgreSQL stores identifiers, digests, bounded codes, and timestamps
+only—never local paths, artifact bytes, plaintext, ciphertext, credentials, or
+Windows commands. Identity, promotion evidence, and terminal rows are
+immutable; deletion and `promoted → expired` are forbidden so acknowledgement
+loss remains recoverable.
+
+Local preparation writes bounded public artifacts and an opaque protected blob
+to staging, records a local-only protected-blob digest in the manifest, renames
+the completed generation, and atomically replaces the active pointer. Exact
+retry rejects protected-blob tampering. Secret and protected buffers are zeroed.
+DPAPI remains an injected protection boundary and was not executed; transport,
+provisioning, credentials, scheduled tasks, and real Windows authority remain
+absent.
+
+The definitive disposable Neon gate applied 0046, ran the Milestone 8 database
+matrix with zero skips, passed the preflight/preparation/static tests and every
+established gate suite, deleted the branch, returned `READY_TO_PROMOTE`, and
+exited 0. Both Alden engines returned exact `APPROVED FOR SHARED MIGRATION`.
+Migration 0046 was then applied to shared Neon. Live verification confirms the
+exact migration hash, 21 constraints, 7 indexes, the reservation guard trigger,
+and zero preparation-reservation rows.
+
+Next boundary: Milestone 9 transport activation only. Keep task 1449 cancelled,
+leave Alden-owned task 1450 untouched, and create no real Windows authority
+before Milestones 14–15.

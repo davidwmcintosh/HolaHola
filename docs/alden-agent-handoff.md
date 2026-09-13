@@ -9820,3 +9820,50 @@ with zero skips, host HTTP 1/1, transport 7/7, provider 15/15, session/attempt
 Next: Milestone 8 only. Task 1449 remains cancelled. Task 1450 remains
 independently owned and must not be duplicated or modified. No real Windows
 authority may be created before Milestones 14–15.
+
+## September 13, 2026 — Coordinator V2 Windows preparation milestone complete
+
+Milestone 8 is built, gated, migrated, and independently approved. A read-only
+preflight now aggregates repository, runtime, PowerShell 5.1, capability,
+storage, policy, session, and host failures without mutation. The PowerShell
+launcher remains boundary scaffolding only. It declares that Milestone 9
+transport activation is absent and contains no provisioning token, credential,
+scheduled-task, or transport execution path.
+
+The preparation authority service reserves against a locked active Windows host
+and approved canonical policy. Branch and public-material digest come only from
+`windowsRepositoryBranch` and `windowsPublicMaterialDigest`; callers cannot
+choose them or the lifetime. PostgreSQL time fixes reservation expiry at the
+minimum of 15 minutes and the locked session expiry. Reserve requires protocol
+version 1 plus `preflight` and `prepare`; promotion and acknowledgement require
+`launch`, while reads and recovery require `status`. A wrapped PostgreSQL
+`23505` receives one bounded retry so identical concurrent requests converge
+on the winner and different request identities remain conflicts.
+
+Migration 0046 creates `coordination_v2_preparation_reservations`. Its checks,
+foreign keys, partial unique indexes, and guard trigger make reservation
+identity immutable, preserve promoted evidence, freeze terminal rows, forbid
+deletion, and forbid `promoted → expired`. PostgreSQL receives no local path,
+artifact bytes, plaintext, ciphertext, credential, or Windows command.
+Lifecycle evidence reuses immutable session events rather than adding a second
+audit ledger.
+
+Local preparation stages bounded public material and an opaque protected blob,
+records a local-only protected-blob SHA-256 in the manifest, renames a complete
+generation, and atomically replaces the active pointer. Recovery reuses the
+exact generation after acknowledgement loss and rejects protected-blob
+tampering. Owned plaintext and protected buffers are zeroed. DPAPI remained an
+injected fake boundary; no real Windows, DPAPI, provisioning, enrollment,
+credential, or host-authority operation ran.
+
+The final disposable Neon gate applied 0046 from the live baseline. The
+Milestone 8 database matrix ran with zero skips, all focused/static checks and
+established gate suites passed, the branch was deleted, and the gate returned
+`READY_TO_PROMOTE` with process exit 0. Anthropic-Alden and Gemini-Alden both
+returned exact `APPROVED FOR SHARED MIGRATION`. Shared migration verification
+found the exact ledger hash, 21 constraints, 7 indexes, the immutability trigger,
+and zero reservation rows.
+
+Next: Milestone 9 transport activation only. Task 1449 remains cancelled. Task
+1450 remains independently Alden-owned and must not be modified or duplicated.
+Do not create real Windows authority before Milestones 14–15.

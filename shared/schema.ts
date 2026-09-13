@@ -8771,6 +8771,9 @@ export const coordinationV2Sessions = pgTable("coordination_v2_sessions", {
 }, (table) => [
   uniqueIndex("uq_coordination_v2_session_request").on(table.operatorActor, table.idempotencyKey),
   uniqueIndex("uq_coordination_v2_session_digest").on(table.sessionDigest),
+  // Also serves as the referenced key for preparation reservations: a
+  // reservation may only ever bind a session to its enrolled host.
+  uniqueIndex("uq_coordination_v2_session_host_binding").on(table.id, table.enrolledHostId),
   index("idx_coordination_v2_session_policy_state").on(table.policyVersionId, table.state),
   index("idx_coordination_v2_session_host_state").on(table.enrolledHostId, table.state),
   index("idx_coordination_v2_session_expiry").on(table.expiresAt, table.state),
@@ -8797,6 +8800,110 @@ export const coordinationV2Sessions = pgTable("coordination_v2_sessions", {
     )
   `),
   check("coordination_v2_session_expiration", sql`${table.expiresAt} > ${table.createdAt}`),
+]);
+
+/**
+ * A server-owned, one-generation preparation authority.  This table contains
+ * identifiers and digests only: local paths, artifact bytes, ciphertext, and
+ * credentials never cross this boundary. The migration trigger makes these
+ * rows durable authority: identity, promoted evidence, and terminal rows are
+ * immutable, and deletion is forbidden.
+ */
+export const coordinationV2PreparationReservations = pgTable("coordination_v2_preparation_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  generationId: varchar("generation_id", { length: 128 }).notNull(),
+  reservationDigest: varchar("reservation_digest", { length: 64 }).notNull(),
+  publicMaterialDigest: varchar("public_material_digest", { length: 64 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  repositoryIdentity: varchar("repository_identity", { length: 255 }).notNull(),
+  branch: varchar("branch", { length: 255 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("reserved"),
+  reserveRequestKey: varchar("reserve_request_key", { length: 128 }).notNull(),
+  reserveCommandDigest: varchar("reserve_command_digest", { length: 64 }).notNull(),
+  acknowledgementRequestKey: varchar("acknowledgement_request_key", { length: 128 }),
+  ackCommandDigest: varchar("ack_command_digest", { length: 64 }),
+  safePromotionEvidenceDigest: varchar("safe_promotion_evidence_digest", { length: 64 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  promotedAt: timestamp("promoted_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  expiredAt: timestamp("expired_at"),
+  failedAt: timestamp("failed_at"),
+  abandonedAt: timestamp("abandoned_at"),
+  failureCode: varchar("failure_code", { length: 128 }),
+  abandonCode: varchar("abandon_code", { length: 128 }),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_preparation_generation").on(table.generationId),
+  uniqueIndex("uq_coordination_v2_preparation_reserve_request").on(table.sessionId, table.reserveRequestKey),
+  uniqueIndex("uq_coordination_v2_preparation_ack_request")
+    .on(table.sessionId, table.acknowledgementRequestKey)
+    .where(sql`${table.acknowledgementRequestKey} IS NOT NULL`),
+  uniqueIndex("uq_coordination_v2_preparation_active_session")
+    .on(table.sessionId)
+    .where(sql`${table.state} IN ('reserved', 'promoted')`),
+  index("idx_coordination_v2_preparation_host_state").on(table.enrolledHostId, table.state),
+  index("idx_coordination_v2_preparation_expiry").on(table.expiresAt, table.state),
+  foreignKey({
+    name: "fk_coordination_v2_preparation_session_host",
+    columns: [table.sessionId, table.enrolledHostId],
+    foreignColumns: [coordinationV2Sessions.id, coordinationV2Sessions.enrolledHostId],
+  }),
+  check("coordination_v2_preparation_protocol_version", sql`${table.protocolVersion} = 1`),
+  check("coordination_v2_preparation_generation_nonblank", sql`length(trim(${table.generationId})) > 0`),
+  check("coordination_v2_preparation_repository_nonblank", sql`length(trim(${table.repositoryIdentity})) > 0`),
+  check("coordination_v2_preparation_branch", sql`length(trim(${table.branch})) > 0 AND ${table.branch} !~ '[[:cntrl:]]'`),
+  check("coordination_v2_preparation_starting_commit", sql`${table.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_reservation_digest", sql`${table.reservationDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_public_digest", sql`${table.publicMaterialDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_reserve_digest", sql`${table.reserveCommandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_ack_digest", sql`${table.ackCommandDigest} IS NULL OR ${table.ackCommandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_evidence_digest", sql`${table.safePromotionEvidenceDigest} IS NULL OR ${table.safePromotionEvidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_request_key", sql`length(trim(${table.reserveRequestKey})) > 0 AND ${table.reserveRequestKey} !~ '[[:cntrl:]]'`),
+  check("coordination_v2_preparation_ack_key", sql`${table.acknowledgementRequestKey} IS NULL OR (length(trim(${table.acknowledgementRequestKey})) > 0 AND ${table.acknowledgementRequestKey} !~ '[[:cntrl:]]')`),
+  check("coordination_v2_preparation_expiry", sql`${table.expiresAt} > ${table.createdAt}`),
+  check("coordination_v2_preparation_state", sql`${table.state} IN ('reserved', 'promoted', 'acknowledged', 'failed', 'expired', 'abandoned')`),
+  check("coordination_v2_preparation_failure_code", sql`
+    (${table.failureCode} IS NULL OR (length(trim(${table.failureCode})) > 0 AND ${table.failureCode} !~ '[[:cntrl:]]'))
+    AND (${table.abandonCode} IS NULL OR (length(trim(${table.abandonCode})) > 0 AND ${table.abandonCode} !~ '[[:cntrl:]]'))
+  `),
+  check("coordination_v2_preparation_lifecycle", sql`
+    (${table.state} = 'reserved'
+      AND ${table.promotedAt} IS NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NULL AND ${table.abandonedAt} IS NULL
+      AND ${table.acknowledgementRequestKey} IS NULL AND ${table.ackCommandDigest} IS NULL
+      AND ${table.safePromotionEvidenceDigest} IS NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'promoted'
+      AND ${table.promotedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NULL AND ${table.abandonedAt} IS NULL
+      AND ${table.acknowledgementRequestKey} IS NULL AND ${table.ackCommandDigest} IS NULL
+      AND ${table.safePromotionEvidenceDigest} IS NOT NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'acknowledged'
+      AND ${table.promotedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NOT NULL
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NULL AND ${table.abandonedAt} IS NULL
+      AND ${table.acknowledgementRequestKey} IS NOT NULL AND ${table.ackCommandDigest} IS NOT NULL
+      AND ${table.safePromotionEvidenceDigest} IS NOT NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'failed'
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.abandonedAt} IS NULL AND ${table.failureCode} IS NOT NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'expired'
+      AND ${table.expiredAt} IS NOT NULL AND ${table.failedAt} IS NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.abandonedAt} IS NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'abandoned'
+      AND ${table.expiredAt} IS NULL AND ${table.abandonedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NOT NULL)
+  `),
+  check("coordination_v2_preparation_timestamp_order", sql`
+    (${table.promotedAt} IS NULL OR ${table.promotedAt} >= ${table.createdAt})
+    AND (${table.acknowledgedAt} IS NULL OR (${table.promotedAt} IS NOT NULL AND ${table.acknowledgedAt} >= ${table.promotedAt}))
+    AND (${table.failedAt} IS NULL OR ${table.failedAt} >= ${table.createdAt})
+    AND (${table.expiredAt} IS NULL OR ${table.expiredAt} >= ${table.createdAt})
+    AND (${table.abandonedAt} IS NULL OR ${table.abandonedAt} >= ${table.createdAt})
+  `),
 ]);
 
 export const coordinationV2SessionEvents = pgTable("coordination_v2_session_events", {
@@ -9274,6 +9381,7 @@ export type CoordinationV2FounderDecision = typeof coordinationV2FounderDecision
 export type CoordinationV2OperatorGrant = typeof coordinationV2OperatorGrants.$inferSelect;
 export type CoordinationV2Session = typeof coordinationV2Sessions.$inferSelect;
 export type CoordinationV2SessionEvent = typeof coordinationV2SessionEvents.$inferSelect;
+export type CoordinationV2PreparationReservation = typeof coordinationV2PreparationReservations.$inferSelect;
 export type CoordinationV2Attempt = typeof coordinationV2Attempts.$inferSelect;
 export type CoordinationV2AttemptEvent = typeof coordinationV2AttemptEvents.$inferSelect;
 export type CoordinationV2TransportLease = typeof coordinationV2TransportLeases.$inferSelect;
