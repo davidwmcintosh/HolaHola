@@ -8773,7 +8773,7 @@ export const coordinationV2Sessions = pgTable("coordination_v2_sessions", {
   uniqueIndex("uq_coordination_v2_session_digest").on(table.sessionDigest),
   // Also serves as the referenced key for preparation reservations: a
   // reservation may only ever bind a session to its enrolled host.
-  uniqueIndex("uq_coordination_v2_session_host_binding").on(table.id, table.enrolledHostId),
+  unique("uq_coordination_v2_session_host_binding").on(table.id, table.enrolledHostId),
   index("idx_coordination_v2_session_policy_state").on(table.policyVersionId, table.state),
   index("idx_coordination_v2_session_host_state").on(table.enrolledHostId, table.state),
   index("idx_coordination_v2_session_expiry").on(table.expiresAt, table.state),
@@ -8956,7 +8956,7 @@ export const coordinationV2Attempts = pgTable("coordination_v2_attempts", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   terminalAt: timestamp("terminal_at"),
 }, (table) => [
-  uniqueIndex("uq_coordination_v2_attempt_session_id").on(table.sessionId, table.id),
+  unique("uq_coordination_v2_attempt_session_id").on(table.sessionId, table.id),
   uniqueIndex("uq_coordination_v2_attempt_generation").on(table.attemptGeneration),
   uniqueIndex("uq_coordination_v2_attempt_session_ordinal").on(table.sessionId, table.sessionOrdinal),
   uniqueIndex("uq_coordination_v2_attempt_provider_ordinal")
@@ -9040,9 +9040,9 @@ export const coordinationV2TransportLeases = pgTable("coordination_v2_transport_
   endedAt: timestamp("ended_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex("uq_coordination_v2_lease_session_id").on(table.sessionId, table.id),
-  uniqueIndex("uq_coordination_v2_lease_id_epoch").on(table.id, table.epoch),
-  uniqueIndex("uq_coordination_v2_lease_id_host").on(table.id, table.enrolledHostId),
+  unique("uq_coordination_v2_lease_session_id").on(table.sessionId, table.id),
+  unique("uq_coordination_v2_lease_id_epoch").on(table.id, table.epoch),
+  unique("uq_coordination_v2_lease_id_host").on(table.id, table.enrolledHostId),
   uniqueIndex("uq_coordination_v2_lease_epoch").on(table.sessionId, table.epoch),
   uniqueIndex("uq_coordination_v2_lease_active").on(table.sessionId)
     .where(sql`${table.state} = 'active'`),
@@ -9250,7 +9250,7 @@ export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup
 }, (table) => [
   uniqueIndex("uq_coordination_v2_cleanup_kind").on(table.sessionId, table.kind),
   uniqueIndex("uq_coordination_v2_cleanup_request").on(table.sessionId, table.idempotencyKey),
-  uniqueIndex("uq_coordination_v2_cleanup_id_session").on(table.id, table.sessionId),
+  unique("uq_coordination_v2_cleanup_id_session").on(table.id, table.sessionId),
   index("idx_coordination_v2_cleanup_state").on(table.state, table.requestedAt),
   check("coordination_v2_cleanup_kind_value", sql`
     ${table.kind} IN ('revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials')

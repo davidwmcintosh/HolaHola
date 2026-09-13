@@ -330,6 +330,13 @@
       "when": 1789318769556,
       "tag": "0047_short_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789326632442,
+      "tag": "0048_outstanding_avengers",
+      "breakpoints": true
     }
   ]
 }
