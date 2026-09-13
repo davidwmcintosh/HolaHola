@@ -9740,3 +9740,42 @@ constraint, and cleanup host-provenance trigger. The application restarted
 cleanly, health returned 200, and an unauthenticated lease request returned
 401. No Windows authority, host provisioning, or credential generation
 occurred. Next boundary: Milestone 6 only.
+
+## September 12, 2026 — Coordinator V2 provider adapter milestone complete
+
+Milestone 6 is complete with no database migration. A neutral TypeScript
+contract now separates provider descriptors, normalized intents/results,
+bounded usage, raw argument evidence, selection policy, and attempt history
+from provider-native payloads. The default registry contains only the exact
+Gemini descriptor. Claude and OpenAI appear only in opaque contract and
+selection fixtures.
+
+Gemini-native construction and decoding were extracted into the provider
+adapter module. The legacy Gemini coordinator remains as a compatibility
+consumer for task 1448. It preserves the fixed tool set and command bounds.
+Raw argument evidence records canonical UTF-8 and SHA-256; over-limit values
+become explicit bounded non-authorizing markers that retain full byte length
+and digest. Malformed calls and disallowed provider echoes remain in evidence
+with `executionEligible: false`; all validation, claim, execution, result, and
+completion paths filter them out. `read_file` still permits server-derived
+empty arguments and the exact fixed-target echo only.
+
+Production session creation requires every requested provider to have a
+policy-allowed registered descriptor. Fresh-attempt creation resolves the exact
+provider/model/adapter version against the locked policy before inserting any
+attempt or event. A synthetic registry preserves the established
+Gemini-to-OpenAI state-machine test without making OpenAI live. The database
+suite asserts production rejection and zero inserted rows at both boundaries.
+
+The definitive disposable gate passed bounded sessions/attempts 9/9, session
+HTTP 1/1, transport leases 7/7, host HTTP 1/1, provider contract/Gemini 15/15,
+and the full 68-command CI matrix. The branch was deleted and the gate returned
+`READY_TO_PROMOTE`. There was no shared migration to apply. Both Alden engines
+returned unconditional `APPROVED — Ship it.` after reviewing the corrected
+no-migration implementation.
+
+Next: Milestone 7 only—versioned host envelopes, server-owned operation
+authorization, a fake-host contract consumer, and the Windows operation adapter
+boundary. Do not create real Windows authority before Milestones 14–15. Task
+1449 remains cancelled; task 1450 remains independently owned and must not be
+duplicated or modified.

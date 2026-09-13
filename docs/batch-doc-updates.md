@@ -6247,3 +6247,43 @@ constraint, and cleanup host-provenance trigger are installed. The application
 restarted cleanly, `/api/health` returned 200, and an unauthenticated lease
 request returned 401. No host was provisioned, no credential was generated,
 and no Windows workflow was run.
+
+## Coordinator V2 provider contract and Gemini adapter — September 12, 2026
+
+Milestone 6 adds a provider-neutral adapter vocabulary, exact descriptor
+registry, stable provider-failure mapping, and full-history retry/fallback
+selection. Only the exact Gemini model and adapter version are registered in
+production. Claude and OpenAI remain opaque contract fixtures and cannot be
+selected for a live session or fresh attempt.
+
+Gemini-native request construction, response decoding, finish/status mapping,
+bounded retries, raw function-argument evidence, and candidate hashing now live
+behind the provider adapter module. The historical Gemini coordinator module is
+a compatibility consumer and preserves task-1448 command bounds. Raw arguments
+carry canonical UTF-8 and SHA-256 evidence; oversized arguments persist only an
+explicit bounded marker with full digest and byte length. Malformed or
+disallowed calls remain immutable evidence with `executionEligible: false` and
+never reach policy validation, claim acquisition, tool execution, or completion
+requirements. Both server-derived `read_file {}` and the exact fixed-path echo
+remain eligible; no other path is accepted.
+
+Session launch now fails closed unless every requested provider has a
+policy-allowed registered descriptor. Fresh-attempt creation resolves the exact
+provider/model/adapter version against the locked canonical policy before any
+new attempt or event is written. The existing multi-provider state-machine test
+uses an explicit synthetic registry; production remains Gemini-only. Database
+tests prove rejected production descriptors create zero session and attempt
+rows.
+
+No schema migration, provider table, provider route, host provisioning,
+credential generation, PowerShell, DPAPI, or Windows authority was added. The
+definitive disposable Neon gate passed the session/attempt suite 9/9, session
+HTTP 1/1, transport lease 7/7, host HTTP 1/1, provider contract/Gemini 15/15,
+and all 68 established CI commands. It deleted the branch and returned
+`READY_TO_PROMOTE`; there was no shared schema change to apply. Both Alden
+engines returned unconditional `APPROVED — Ship it.` after the gate-discovered
+exact-descriptor repair.
+
+Next boundary: Milestone 7 host protocol and fake-host contract. Keep task 1449
+cancelled, leave Alden-owned task 1450 untouched, and create no real Windows
+authority before Milestones 14–15.

@@ -14,6 +14,12 @@ import { transitionAttempt as reduceAttempt, type AttemptCommand } from './coord
 import { transitionSession } from './coordination-session-state';
 import type { AttemptState, FailureClassification, SessionState } from './coordination-v2-types';
 import { authorizeCoordinationLifecycleInTransaction, CoordinationLifecycleAuthorizationError } from './coordination-lifecycle-authorization';
+import {
+  DEFAULT_PROVIDER_REGISTRY,
+  ProviderRegistryError,
+  type CoordinationProviderRegistry,
+} from './coordination-provider-adapters/registry';
+import type { ProviderSelectionPolicy } from './coordination-provider-adapters/types';
 
 export type AttemptServiceErrorCode =
   | 'ATTEMPT_INVALID_REQUEST' | 'ATTEMPT_NOT_FOUND' | 'ATTEMPT_SESSION_NOT_FOUND'
@@ -100,7 +106,10 @@ export type CreateAttemptInput = {
   now?: Date;
 };
 
-export async function createFreshAttempt(input: CreateAttemptInput) {
+export async function createFreshAttempt(
+  input: CreateAttemptInput,
+  dependencies: { providerRegistry?: CoordinationProviderRegistry } = {},
+) {
   required(input.sessionId, 'sessionId'); required(input.requestKey, 'requestKey'); required(input.actorId, 'actorId');
   const provider = required(input.provider, 'provider');
   const model = required(input.model, 'model');
@@ -118,12 +127,15 @@ export async function createFreshAttempt(input: CreateAttemptInput) {
     return await db.transaction(async (tx) => {
       // Session is the authority/budget lock. Attempts are read and written
       // only after it, preserving grant -> policy -> host -> session -> attempt.
-      let session: CoordinationV2Session;
+       let session: CoordinationV2Session;
+       let policyVersion: { canonicalPolicy: unknown };
       try {
-        ({ session } = await authorizeCoordinationLifecycleInTransaction(tx, {
+         const authorization = await authorizeCoordinationLifecycleInTransaction(tx, {
           sessionId: input.sessionId, actorId: input.actorId,
           action: input.classification ? 'resume' : 'launch', now,
-        }));
+         });
+         session = authorization.session;
+         policyVersion = authorization.version;
       } catch (error) {
         if (error instanceof CoordinationLifecycleAuthorizationError) {
           if (error.code === 'LIFECYCLE_SESSION_NOT_FOUND') fail('ATTEMPT_SESSION_NOT_FOUND');
@@ -171,6 +183,17 @@ export async function createFreshAttempt(input: CreateAttemptInput) {
           created: false,
         };
       }
+       try {
+         (dependencies.providerRegistry ?? DEFAULT_PROVIDER_REGISTRY).resolve(
+           { provider, model, adapterVersion },
+           policyVersion.canonicalPolicy as ProviderSelectionPolicy,
+         );
+       } catch (error) {
+         if (error instanceof ProviderRegistryError) {
+           fail('ATTEMPT_PROVIDER_NOT_ALLOWED', { reason: error.code });
+         }
+         throw error;
+       }
       if (['succeeded', 'failed', 'exhausted', 'expired', 'revoked'].includes(session.state)) fail('ATTEMPT_SESSION_TERMINAL');
       const allAttempts = await tx.select().from(coordinationV2Attempts)
         .where(eq(coordinationV2Attempts.sessionId, session.id)).orderBy(desc(coordinationV2Attempts.sessionOrdinal));

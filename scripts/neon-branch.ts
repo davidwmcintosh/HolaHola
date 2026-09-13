@@ -453,6 +453,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 provider contract and Gemini adapter tests...');
+    const providerAdapterTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-provider-contract.test.ts server/scripts/test-coordination-provider-gemini.test.ts',
+      branchEnv,
+    );
+    if (providerAdapterTests.code !== 0) {
+      failureReason = `Coordinator V2 provider adapter tests exited ${providerAdapterTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
     for (const group of ['test:ci:unit', 'test:ci:guards', 'test:ci:episodes']) {
       console.log(`[gate] Running npm run ${group} against the branch...`);
       const result = await runCommand(`npm run ${group}`, branchEnv);

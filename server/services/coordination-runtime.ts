@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import type { RawArgumentsEvidence } from './coordination-provider-adapters/types';
 
 export type RuntimeActor =
   | 'luca-gemini'
@@ -165,6 +166,8 @@ export function digestCanonical(value: unknown): string {
 }
 
 export const COORDINATION_GATE3_FIXED_TARGET = 'server/scripts/test-coordination-runtime.test.ts';
+const MAX_NORMALIZED_EVIDENCE_BYTES = 128_000;
+const MAX_NORMALIZED_ARGUMENT_BYTES = 40_960;
 
 export function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return value !== null
@@ -366,7 +369,16 @@ export type ModelInteraction = {
 
 export type NormalizedInteractionEvidence = {
   textParts: string[];
-  intents: Array<{ name: string; arguments: unknown; callId: string; candidateIndex: 0; executionEligible: true }>;
+  intents: Array<{
+    name: string;
+    arguments: unknown;
+    callId: string;
+    candidateIndex: 0;
+    /** Optional raw evidence is tolerated for pre-Milestone-6 replays. */
+    rawArguments?: RawArgumentsEvidence;
+    operation?: string;
+    executionEligible: boolean;
+  }>;
   additionalCandidateHashes: string[];
   providerDetails: Record<string, unknown>;
   usage?: Record<string, unknown>;
@@ -1095,6 +1107,26 @@ export class CoordinationRuntimeService {
     ) {
       fail('packet_assignment_mismatch', 'Packet is not owned by this runtime');
     }
+    if (input.normalizedEvidence) {
+      let evidenceBytes: number;
+      try {
+        evidenceBytes = Buffer.byteLength(canonicalJson(input.normalizedEvidence), 'utf8');
+        for (const intent of input.normalizedEvidence.intents) {
+          const argumentBytes = Buffer.byteLength(canonicalJson(intent.arguments), 'utf8');
+          const rawBytes = intent.rawArguments
+            ? Buffer.byteLength(intent.rawArguments.canonicalUtf8, 'utf8') : 0;
+          if (argumentBytes > MAX_NORMALIZED_ARGUMENT_BYTES || rawBytes > MAX_NORMALIZED_ARGUMENT_BYTES) {
+            fail('output_limit_exceeded', 'Tool argument evidence exceeds the approved bound');
+          }
+        }
+      } catch (error) {
+        if (error instanceof RuntimeProtocolError) throw error;
+        fail('invalid_request', 'Normalized evidence is not canonical JSON');
+      }
+      if (evidenceBytes > MAX_NORMALIZED_EVIDENCE_BYTES) {
+        fail('output_limit_exceeded', 'Normalized interaction evidence exceeds the approved bound');
+      }
+    }
 
     const result = await this.repository.transaction<MutationResult<ModelInteraction>>(async () => {
       const payload = {
@@ -1229,18 +1261,21 @@ export class CoordinationRuntimeService {
 
        if (input.outcome !== 'malformed_function_call' && input.normalizedEvidence) {
          const evidence = input.normalizedEvidence;
-         let validated: Array<{ name: string; operation: string; digest: string }>;
+          // Ineligible provider evidence is retained for auditability, but it
+          // is never policy-validated or granted execution authority.
+          const executableIntents = evidence.intents.filter((intent) => intent.executionEligible !== false);
+          let validated: Array<{ name: string; operation: string; digest: string }>;
          try {
-           validated = evidence.intents.map((intent) => validateToolIntent(intent));
+            validated = executableIntents.map((intent) => validateToolIntent(intent));
          } catch (error) {
-           const rejectedIntents = evidence.intents.map((intent) => ({
+            const rejectedIntents = executableIntents.map((intent) => ({
              name: intent.name, callId: intent.callId, digest: digestCanonical(intent),
              reason: error instanceof RuntimeProtocolError ? error.message : 'policy validation failed',
            }));
            return await violate('Provider intent failed the execution policy', 'malformed_function_call', rejectedIntents);
          }
-         if (evidence.validatedIntents &&
-             (validated.length !== evidence.validatedIntents.length ||
+          if (evidence.validatedIntents &&
+              (validated.length !== evidence.validatedIntents.length ||
              validated.some((v, i) => v.name !== evidence.validatedIntents![i].name ||
                v.operation !== evidence.validatedIntents![i].operation ||
                v.digest !== evidence.validatedIntents![i].digest))) {
@@ -1306,13 +1341,15 @@ export class CoordinationRuntimeService {
       const answered = interactions.find((interaction) => interaction.id === answeredInteractionId);
       if (!answered) fail('interaction_not_found', 'Answered interaction does not exist');
       const earlier = interactions.filter((interaction) => interaction.createdAt < answered.createdAt);
-      const earlierExpected = earlier.flatMap((interaction) => (interaction.normalizedEvidence?.intents ?? [])
+       const earlierExpected = earlier.flatMap((interaction) => (interaction.normalizedEvidence?.intents ?? [])
+         .filter((intent) => intent.executionEligible !== false)
         .map((intent) => ({ interactionId: interaction.id, callId: intent.callId })));
       const existing = await this.repository.toolResultsForClaimAllEpochs(claim.id);
       if (earlierExpected.some((item) => !existing.some((row) => row.interactionId === item.interactionId && row.callId === item.callId))) {
         fail('consumption_conflict', 'Earlier interaction tool results are incomplete');
       }
       const expected = (answered.normalizedEvidence?.intents ?? [])
+        .filter((intent) => intent.executionEligible !== false)
         .map((intent) => ({ interactionId: answered.id, ...intent, validated: validateToolIntent(intent) }))
         .filter((item) => item.validated);
       if (results.length !== expected.length) fail('consumption_conflict', 'Exactly one result is required for every validated intent');
@@ -1654,13 +1691,14 @@ export class CoordinationRuntimeService {
             priorInteractionId: typeof binding?.priorInteractionId === 'string' ? binding.priorInteractionId : interaction.id,
             normalizedResponseDigest: typeof binding?.normalizedResponseDigest === 'string'
               ? binding.normalizedResponseDigest : evidence.normalizedResponseDigest,
-            callIds: Array.isArray(binding?.callIds) ? binding.callIds.filter((id): id is string => typeof id === 'string') : evidence.intents.map((intent) => intent.callId),
+           callIds: Array.isArray(binding?.callIds) ? binding.callIds.filter((id): id is string => typeof id === 'string') : evidence.intents
+             .filter((intent) => intent.executionEligible !== false).map((intent) => intent.callId),
             results: Array.isArray(details.toolResults) ? details.toolResults : [],
           };
         });
       const allResults = await this.repository.toolResultsForClaimAllEpochs(claim.id);
       const expected = (await this.repository.interactionsForPacket(packet.id)).flatMap((interaction) =>
-        (interaction.normalizedEvidence?.intents ?? []).map((intent) => ({
+        (interaction.normalizedEvidence?.intents ?? []).filter((intent) => intent.executionEligible !== false).map((intent) => ({
           interactionId: interaction.id, callId: intent.callId,
           digest: digestCanonical(intent),
         })));
@@ -1738,12 +1776,12 @@ export class CoordinationRuntimeService {
          .filter((item) => item.normalizedEvidence)
          .sort((a, b) => a.turn - b.turn || a.attempt - b.attempt);
        const finalInteraction = interactions[interactions.length - 1];
-       if (!finalInteraction || finalInteraction.outcome !== 'consumed' ||
-           (finalInteraction.normalizedEvidence?.intents?.length ?? 0) !== 0) {
+        if (!finalInteraction || finalInteraction.outcome !== 'consumed' ||
+            (finalInteraction.normalizedEvidence?.intents?.filter((intent) => intent.executionEligible !== false).length ?? 0) !== 0) {
          fail('consumption_conflict', 'Completion requires a consumed final interaction with no tool intents');
        }
-       const expected = interactions.flatMap((interaction) =>
-         (interaction.normalizedEvidence?.intents ?? []).map((intent) => ({
+        const expected = interactions.flatMap((interaction) =>
+          (interaction.normalizedEvidence?.intents ?? []).filter((intent) => intent.executionEligible !== false).map((intent) => ({
            interactionId: interaction.id, callId: intent.callId, digest: digestCanonical(intent),
          })));
        const results = await this.repository.toolResultsForClaimAllEpochs(claim.id);

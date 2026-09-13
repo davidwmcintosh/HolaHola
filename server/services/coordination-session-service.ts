@@ -17,6 +17,12 @@ import { canonicalJson } from './coordination-policy-canonicalization';
 import { transitionSession as reduceSession, type SessionCommand } from './coordination-session-state';
 import type { FailureClassification, SessionState, SessionStatus } from './coordination-v2-types';
 import { authorizeCoordinationLifecycleInTransaction, CoordinationLifecycleAuthorizationError } from './coordination-lifecycle-authorization';
+import {
+  DEFAULT_PROVIDER_REGISTRY,
+  type CoordinationProviderRegistry,
+  descriptorAllowedByPolicy,
+} from './coordination-provider-adapters/registry';
+import type { ProviderSelectionPolicy } from './coordination-provider-adapters/types';
 
 export type SessionServiceErrorCode =
   | 'SESSION_INVALID_REQUEST' | 'SESSION_NOT_FOUND' | 'SESSION_CONFLICT'
@@ -125,6 +131,17 @@ function policyValue(policy: Record<string, unknown>, key: string): unknown {
   return policy[key];
 }
 
+/** Pure fail-closed provider boundary used before any session mutation. */
+export function requestedProvidersHaveRegisteredDescriptors(
+  requestedProviders: readonly string[],
+  policy: ProviderSelectionPolicy,
+  registry: CoordinationProviderRegistry = DEFAULT_PROVIDER_REGISTRY,
+): boolean {
+  return requestedProviders.every((provider) =>
+    registry.descriptorsForProvider(provider)
+      .some((descriptor) => descriptorAllowedByPolicy(descriptor, policy)));
+}
+
 function immutableEnvelope(input: CreateSessionInput): Record<string, unknown> {
   // This is the sole launch envelope.  It intentionally contains every
   // immutable launch input; sessionDigest is not a second request ledger.
@@ -161,7 +178,10 @@ async function lockById(tx: any, table: any, id: string): Promise<any | undefine
   return rows[0];
 }
 
-export async function createOrResumeSession(input: CreateSessionInput): Promise<SessionDto> {
+export async function createOrResumeSession(
+  input: CreateSessionInput,
+  dependencies: { providerRegistry?: CoordinationProviderRegistry } = {},
+): Promise<SessionDto> {
   const operatorActor = required(input.operatorActor, 'operatorActor');
   const operatorGrantId = required(input.operatorGrantId, 'operatorGrantId');
   const policyVersionId = required(input.policyVersionId, 'policyVersionId');
@@ -210,6 +230,18 @@ export async function createOrResumeSession(input: CreateSessionInput): Promise<
         cursor = index;
         return index < 0;
       })) {
+        fail('SESSION_PROVIDER_NOT_ALLOWED');
+      }
+      // Provider approval is identifier-only.  Native request/response values
+      // never participate in policy approval.  A launch is fail-closed unless
+      // every requested provider resolves to at least one exact live
+      // descriptor allowed by this canonical policy.
+      const selectionPolicy = policy as unknown as ProviderSelectionPolicy;
+       if (!requestedProvidersHaveRegisteredDescriptors(
+         input.requestedProviders,
+         selectionPolicy,
+         dependencies.providerRegistry ?? DEFAULT_PROVIDER_REGISTRY,
+       )) {
         fail('SESSION_PROVIDER_NOT_ALLOWED');
       }
       const prior = await tx.select().from(coordinationV2Sessions)

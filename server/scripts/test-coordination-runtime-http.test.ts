@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import http from 'node:http';
 import express from 'express';
 import test from 'node:test';
@@ -253,13 +254,19 @@ test('normalization records provider outcomes and additional candidates without 
     inherited: [], envelope: { worktreeLabel: 'x', worktreePath: '/x', argv: ['true'], patchDigest: null }, digest: 'd',
   }, 1);
   assert.equal(capturedReadFileEcho[0].outcome, 'consumed');
-  assert.deepEqual(capturedReadFileEcho[0].intents[0], {
-    name: 'read_file',
-    arguments: { path: 'server/scripts/test-coordination-runtime.test.ts' },
-    callId: 'call_284980',
-    candidateIndex: 0,
-    executionEligible: true,
-  });
+  const capturedIntent = capturedReadFileEcho[0].intents[0];
+  assert.equal(capturedIntent.name, 'read_file');
+  assert.equal(capturedIntent.operation, 'fixed-target');
+  assert.deepEqual(capturedIntent.arguments, { path: 'server/scripts/test-coordination-runtime.test.ts' });
+  assert.equal(capturedIntent.callId, 'call_284980');
+  assert.equal(capturedIntent.candidateIndex, 0);
+  assert.equal(capturedIntent.executionEligible, true);
+  assert.equal(capturedIntent.rawArguments!.parsedValue, capturedIntent.arguments);
+  assert.equal(capturedIntent.rawArguments!.canonicalUtf8, '{"path":"server/scripts/test-coordination-runtime.test.ts"}');
+  assert.equal(
+    capturedIntent.rawArguments!.sha256,
+    createHash('sha256').update(capturedIntent.rawArguments!.canonicalUtf8, 'utf8').digest('hex'),
+  );
   const malformedArrayArguments = await new CoordinationGeminiAdapter(
     async () => ({ status: 200, body: JSON.stringify({ candidates: [{
       content: { parts: [{ functionCall: { name: 'read_file', id: 'array-args', args: [] } }] },

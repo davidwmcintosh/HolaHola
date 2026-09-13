@@ -61,15 +61,42 @@ test('bounded session create-or-resume converges concurrent identical launches',
       [id('grant'), id('identity'), hex('d'), id('grant-key')],
     );
     await client.query('COMMIT');
-    const { createOrResumeSession, transitionCoordinationSession } = await import('../services/coordination-session-service');
-    const { createFreshAttempt, transitionCoordinationAttempt } = await import('../services/coordination-attempt-service');
+    const { createOrResumeSession: createOrResumeSessionImpl, transitionCoordinationSession } = await import('../services/coordination-session-service');
+    const { createFreshAttempt: createFreshAttemptImpl, transitionCoordinationAttempt } = await import('../services/coordination-attempt-service');
+    const { CoordinationProviderRegistry } = await import('../services/coordination-provider-adapters/registry');
     const { acceptCoordinationCompletion, transitionCoordinationCleanup } = await import('../services/coordination-cleanup-service');
+    const limits = {
+      maxRequestBytes: 1, maxResponseBytes: 1, maxIntents: 1,
+      maxArgumentBytes: 1, maxInputTokens: 1, maxOutputTokens: 1,
+    };
+    const providerRegistry = new CoordinationProviderRegistry()
+      .register({
+        provider: 'gemini', model: 'test-model', adapterVersion: 'test-adapter',
+        supportedOperations: ['test'], limits,
+      })
+      .register({
+        provider: 'openai', model: 'test-model', adapterVersion: 'test-adapter',
+        supportedOperations: ['test'], limits,
+      });
+    const createOrResumeSession = (value: Parameters<typeof createOrResumeSessionImpl>[0]) =>
+      createOrResumeSessionImpl(value, { providerRegistry });
+    const createFreshAttempt = (value: Parameters<typeof createFreshAttemptImpl>[0]) =>
+      createFreshAttemptImpl(value, { providerRegistry });
     const input = {
       operatorActor: 'operator-test', operatorGrantId: id('grant'), policyVersionId: id('version'),
       taskRef: '1', taskArtifactSha256: hex('e'), repositoryIdentity: 'repo/test',
       startingCommit: '1'.repeat(40), enrolledHostId: id('host'), requestedProviders: ['gemini', 'openai'],
       idempotencyKey: id('launch-key'),
     };
+    await assert.rejects(
+      createOrResumeSessionImpl({ ...input, idempotencyKey: id('production-registry-launch') }),
+      (error: unknown) => (error as { code?: string }).code === 'SESSION_PROVIDER_NOT_ALLOWED',
+    );
+    const rejectedSessions = await client.query(
+      'SELECT count(*)::int AS count FROM coordination_v2_sessions WHERE idempotency_key = $1',
+      [id('production-registry-launch')],
+    );
+    assert.equal(rejectedSessions.rows[0].count, 0);
     const results = await Promise.all([createOrResumeSession(input), createOrResumeSession(input)]);
     await context.test('identical launches converge with one durable session', () => {
       assert.equal(results[0].id, results[1].id);
@@ -78,6 +105,19 @@ test('bounded session create-or-resume converges concurrent identical launches',
       sessionId: results[0].id, requestKey: id('ready-request'), actorId: 'operator-test',
       command: { type: 'preparation_ready' },
     });
+    await assert.rejects(
+      createFreshAttemptImpl({
+        sessionId: results[0].id, requestKey: id('production-registry-attempt'), actorId: 'operator-test',
+        provider: 'gemini', model: 'test-model', adapterVersion: 'test-adapter',
+        attemptGeneration: '00000000-0000-4000-8000-000000000010',
+      }),
+      (error: unknown) => (error as { code?: string }).code === 'ATTEMPT_PROVIDER_NOT_ALLOWED',
+    );
+    const rejectedAttempts = await client.query(
+      'SELECT count(*)::int AS count FROM coordination_v2_attempts WHERE session_id = $1',
+      [results[0].id],
+    );
+    assert.equal(rejectedAttempts.rows[0].count, 0);
     const generation = '00000000-0000-4000-8000-000000000001';
     const attempts = await Promise.all([
       createFreshAttempt({
