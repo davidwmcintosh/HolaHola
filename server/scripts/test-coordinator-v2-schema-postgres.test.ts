@@ -75,6 +75,96 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
       [id("grant"), id("policy"), digest("d"), id("grant-request")],
     );
     await client.query(
+      `INSERT INTO coordination_v2_policy_identities
+       (id, policy_key, display_name, status, created_by)
+       VALUES ($1, $2, 'Second disposable policy', 'active', 'schema-test')`,
+      [id("policy-two"), id("policy-key-two")],
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_policy_versions
+       (id, policy_identity_id, version, canonical_policy, policy_digest, approval_state,
+        created_by, approved_by, approved_at)
+       VALUES ($1, $2, 1, '{}'::jsonb, $3, 'approved', 'schema-test', 'founder-test', now())`,
+      [id("policy-version-two"), id("policy-two"), digest("0")],
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_operator_grants
+       (id, policy_identity_id, operator_actor, actions, issued_by, expires_at, grant_digest, request_key)
+       VALUES ($1, $2, 'operator-two', ARRAY['launch'], 'founder-test', now() + interval '1 hour', $3, $4)`,
+      [id("grant-two"), id("policy-two"), digest("1"), id("grant-request-two")],
+    );
+    await rejectCode(
+      client,
+      "policy_audit_mismatched_version_identity",
+      () => client.query(
+        `INSERT INTO coordination_v2_policy_audit_events
+         (id, policy_identity_id, policy_version_id, actor_type, actor_id, action, request_key, request_digest, success)
+         VALUES ($1, $2, $3, 'founder', 'schema-test', 'policy_approved', $4, $5, TRUE)`,
+        [id("bad-audit-version"), id("policy"), id("policy-version-two"), id("bad-request-version"), digest("2")],
+      ),
+      "23503",
+    );
+    await rejectCode(
+      client,
+      "policy_audit_mismatched_grant_identity",
+      () => client.query(
+        `INSERT INTO coordination_v2_policy_audit_events
+         (id, policy_identity_id, operator_grant_id, actor_type, actor_id, action, request_key, request_digest, success)
+         VALUES ($1, $2, $3, 'founder', 'schema-test', 'grant_issued', $4, $5, TRUE)`,
+        [id("bad-audit-grant"), id("policy"), id("grant-two"), id("bad-request-grant"), digest("3")],
+      ),
+      "23503",
+    );
+    await rejectCode(
+      client,
+      "policy_audit_bad_action_shape",
+      () => client.query(
+        `INSERT INTO coordination_v2_policy_audit_events
+         (id, policy_identity_id, actor_type, actor_id, action, request_key, request_digest, success)
+         VALUES ($1, $2, 'founder', 'schema-test', 'grant_issued', $3, $4, TRUE)`,
+        [id("bad-audit-shape"), id("policy"), id("bad-request-shape"), digest("4")],
+      ),
+      "23514",
+    );
+    await rejectCode(
+      client,
+      "policy_audit_metadata_bound",
+      () => client.query(
+        `INSERT INTO coordination_v2_policy_audit_events
+         (id, policy_identity_id, policy_version_id, actor_type, actor_id, action,
+          request_key, request_digest, success, metadata)
+         VALUES ($1, $2, $3, 'founder', 'schema-test', 'policy_approved', $4, $5, TRUE, $6::jsonb)`,
+        [
+          id("bad-audit-metadata"), id("policy"), id("policy-version"),
+          id("bad-request-metadata"), digest("5"),
+          JSON.stringify({ oversized: "x".repeat(20_000) }),
+        ],
+      ),
+      "23514",
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_policy_audit_events
+       (id, policy_identity_id, operator_grant_id, actor_type, actor_id,
+        action, request_key, request_digest, success, metadata)
+       VALUES ($1, $2, $3, 'founder', 'schema-test', 'grant_issued', $4, $5, TRUE, '{}'::jsonb)`,
+      [id("audit"), id("policy"), id("grant"), id("audit-request"), digest("6")],
+    );
+    await rejectCode(
+      client,
+      "policy_audit_mutation",
+      () => client.query(
+        `UPDATE coordination_v2_policy_audit_events SET success = FALSE WHERE id = $1`,
+        [id("audit")],
+      ),
+      "23514",
+    );
+    await rejectCode(
+      client,
+      "policy_audit_delete",
+      () => client.query(`DELETE FROM coordination_v2_policy_audit_events WHERE id = $1`, [id("audit")]),
+      "23514",
+    );
+    await client.query(
       `INSERT INTO coordination_v2_sessions
        (id, policy_version_id, operator_grant_id, operator_actor, task_ref, task_artifact_sha256,
         repository_identity, starting_commit, enrolled_host_id, requested_providers, expires_at,

@@ -6165,3 +6165,35 @@ services. They must persist cleanup terminal outcome and reason at creation,
 enforce all cross-row authorization and budget rules under row locks, and
 remain provider- and host-neutral. No real Windows generation or authority may
 be created during that work.
+
+## Coordinator V2 trust-policy and operator authority — September 12, 2026
+
+Plan Milestone 3 is complete. Strict canonical policy documents now receive
+deterministic SHA-256 identities; concurrent identical drafts converge under
+database locks; founder approval, rejection, and revocation bind the actor,
+normalized reason, policy digest, and request key. Operator grants use canonical
+sorted action sets, approved-version and lifetime bounds, exact replay
+semantics, and authenticated coordination actors rather than body-supplied
+identity.
+
+Migration 0043 adds an append-only policy audit ledger with restrictive foreign
+keys, action-shape and size constraints, action-scoped idempotency, and
+insert-time cross-identity provenance validation. It also repairs the original
+policy-version trigger so immutable approved policy content may make exactly
+one approved-to-revoked lifecycle transition while retaining approval
+provenance. Authorization rechecks the active identity, approved version,
+version range, grant lifetime, revocation, actor, and action; distinct denial
+envelopes remain distinct immutable evidence.
+
+The definitive disposable Neon gate applied 0043, passed V2 PostgreSQL parity,
+the 4/4 transactional policy suite, the 1/1 real Express HTTP authority suite,
+and all 68 established CI commands. It deleted the branch and returned
+`READY_TO_PROMOTE`. Migration 0043 was then applied to shared Neon. Live catalog
+verification confirms the restrictive foreign keys, unique index, provenance
+and immutability triggers, and zero V2 host, policy, grant, audit, session, or
+attempt rows. System health is green. Both Alden engines returned exact
+`APPROVED — Ship it.`
+
+Milestone 4 session orchestration remains separate. Do not create or rerun
+Windows generation or authority. Cancelled task 1449 remains cancelled, and
+Alden-owned task 1450 remains untouched.

@@ -9638,3 +9638,41 @@ policy, grant, host, digest, budget, sequence, lease, and cleanup correspondence
 must be enforced under locks; database checks alone are not sufficient. Do not
 create or rerun any Windows generation during this phase. Task 1449 remains
 cancelled, and Alden-owned task 1450 must not be modified or duplicated.
+
+## September 12, 2026 — Coordinator V2 trust-policy services complete
+
+Plan Milestone 3 is built, live, and independently approved. Policy
+canonicalization is strict and deterministically hashed. Concurrent identical
+drafts converge under advisory and row locks, version allocation is monotonic,
+and founder decisions bind policy/version/digest, actor, normalized reason,
+decision, and request key.
+
+Operator grants canonicalize action sets before digesting, enforce approved
+policy scope and credential lifetime bounds, and detect changed request
+envelopes as stable idempotency conflicts. Authorization derives the operator
+from coordination middleware and rechecks active policy identity, approved
+version, grant range, expiry, revocation, action, and actor. Revocation supports
+only exact replay; changed or later requests receive stable terminal errors.
+Real Express HTTP tests prove unauthenticated, non-founder, founder, and
+coordination-actor boundaries and body-forgery resistance.
+
+Migration 0043 adds `coordination_v2_policy_audit_events` as an append-only
+ledger. Restrictive foreign keys, action-shape checks, bounded metadata,
+action-scoped request uniqueness, and a provenance trigger prevent immutable
+but contradictory version/grant attribution. The migration also replaces the
+0041 policy-version protection function: provenance fields remain immutable,
+rejected and revoked versions remain terminal, and an approved version may
+transition exactly once to revoked without changing its approval provenance.
+
+The definitive disposable gate passed migration application, V2 PostgreSQL
+constraint parity, policy service tests 4/4, real HTTP tests 1/1, and all 68
+existing CI commands; it deleted the branch and returned `READY_TO_PROMOTE`.
+0043 is applied to shared Neon. Live catalog verification confirms all three
+audit foreign keys are delete-restrict, both audit triggers and the policy
+version trigger are active, and V2 host/policy/version/decision/grant/audit/
+session/attempt counts are all zero. System health is green. Both Alden engines
+returned exact `APPROVED — Ship it.` with no blockers.
+
+Next boundary: Plan Milestone 4 session orchestration. Do not begin it as part
+of this milestone, and do not create or rerun Windows authority. Task 1449
+remains cancelled; task 1450 remains independently Alden-owned.

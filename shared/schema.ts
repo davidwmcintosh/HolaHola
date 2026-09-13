@@ -8614,6 +8614,7 @@ export const coordinationV2PolicyVersions = pgTable("coordination_v2_policy_vers
   revokedAt: timestamp("revoked_at"),
 }, (table) => [
   uniqueIndex("uq_coordination_v2_policy_version").on(table.policyIdentityId, table.version),
+  uniqueIndex("uq_coordination_v2_policy_version_identity").on(table.id, table.policyIdentityId),
   uniqueIndex("uq_coordination_v2_policy_digest").on(table.policyIdentityId, table.policyDigest),
   index("idx_coordination_v2_policy_version_state").on(table.policyIdentityId, table.approvalState),
   check("coordination_v2_policy_version_positive", sql`${table.version} > 0`),
@@ -8652,6 +8653,61 @@ export const coordinationV2FounderDecisions = pgTable("coordination_v2_founder_d
   check("coordination_v2_founder_policy_digest", sql`${table.policyDigest} ~ '^[0-9a-f]{64}$'`),
 ]);
 
+export const coordinationV2PolicyAuditEvents = pgTable("coordination_v2_policy_audit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyIdentityId: varchar("policy_identity_id").notNull()
+    .references(() => coordinationV2PolicyIdentities.id, { onDelete: "restrict" }),
+  policyVersionId: varchar("policy_version_id")
+    .references(() => coordinationV2PolicyVersions.id, { onDelete: "restrict" }),
+  operatorGrantId: varchar("operator_grant_id")
+    .references(() => coordinationV2OperatorGrants.id, { onDelete: "restrict" }),
+  actorType: varchar("actor_type", { length: 32 }).notNull(),
+  actorId: varchar("actor_id", { length: 128 }).notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  reason: text("reason"),
+  success: boolean("success").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_policy_audit_request")
+    .on(table.policyIdentityId, table.action, table.requestKey),
+  index("idx_coordination_v2_policy_audit_version").on(table.policyVersionId, table.createdAt),
+  index("idx_coordination_v2_policy_audit_grant").on(table.operatorGrantId, table.createdAt),
+  index("idx_coordination_v2_policy_audit_actor").on(table.actorId, table.createdAt),
+  check("coordination_v2_policy_audit_actor_type", sql`${table.actorType} IN ('founder', 'operator', 'system')`),
+  check("coordination_v2_policy_audit_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_policy_audit_action", sql`${table.action} IN (
+    'draft_created', 'policy_approved', 'policy_rejected', 'policy_revoked',
+    'grant_issued', 'grant_revoked', 'authorization_denied'
+  )`),
+  check("coordination_v2_policy_audit_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_policy_audit_digest", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_policy_audit_metadata_size", sql`length(${table.metadata}::text) <= 16384`),
+  check("coordination_v2_policy_audit_action_shape", sql`
+    (
+      ${table.action} IN ('draft_created', 'policy_approved', 'policy_rejected', 'policy_revoked')
+      AND ${table.policyVersionId} IS NOT NULL
+      AND ${table.operatorGrantId} IS NULL
+      AND ${table.actorType} = 'founder'
+      AND ${table.success} = TRUE
+    )
+    OR (
+      ${table.action} IN ('grant_issued', 'grant_revoked')
+      AND ${table.policyVersionId} IS NULL
+      AND ${table.operatorGrantId} IS NOT NULL
+      AND ${table.actorType} = 'founder'
+      AND ${table.success} = TRUE
+    )
+    OR (
+      ${table.action} = 'authorization_denied'
+      AND ${table.actorType} = 'operator'
+      AND ${table.success} = FALSE
+    )
+  `),
+]);
+
 export const coordinationV2OperatorGrants = pgTable("coordination_v2_operator_grants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   policyIdentityId: varchar("policy_identity_id").notNull()
@@ -8669,6 +8725,7 @@ export const coordinationV2OperatorGrants = pgTable("coordination_v2_operator_gr
 }, (table) => [
   uniqueIndex("uq_coordination_v2_operator_grant_request")
     .on(table.policyIdentityId, table.operatorActor, table.requestKey),
+  uniqueIndex("uq_coordination_v2_operator_grant_identity").on(table.id, table.policyIdentityId),
   index("idx_coordination_v2_operator_grant_actor").on(table.operatorActor, table.expiresAt),
   index("idx_coordination_v2_operator_grant_policy").on(table.policyIdentityId, table.expiresAt),
   check("coordination_v2_operator_actor_nonblank", sql`length(trim(${table.operatorActor})) > 0`),

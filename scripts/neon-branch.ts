@@ -375,6 +375,28 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 policy service transactional tests against the branch...');
+    const policyServiceTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-policy-service.test.ts',
+      branchEnv,
+    );
+    if (policyServiceTests.code !== 0) {
+      failureReason = `Coordinator V2 policy service tests exited ${policyServiceTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 policy HTTP tests against the branch...');
+    const policyHttpTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-policy-http.test.ts',
+      branchEnv,
+    );
+    if (policyHttpTests.code !== 0) {
+      failureReason = `Coordinator V2 policy HTTP tests exited ${policyHttpTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
     for (const group of ['test:ci:unit', 'test:ci:guards', 'test:ci:episodes']) {
       console.log(`[gate] Running npm run ${group} against the branch...`);
       const result = await runCommand(`npm run ${group}`, branchEnv);

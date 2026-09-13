@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  coordinationV2OperatorGrants,
+  coordinationV2PolicyAuditEvents,
+  coordinationV2PolicyIdentities,
+  coordinationV2PolicyVersions,
+} from "@shared/schema";
 
 const schema = readFileSync("shared/schema.ts", "utf8");
 const migration = readFileSync("migrations/0041_unknown_beyonder.sql", "utf8");
 const followupMigration = readFileSync("migrations/0042_red_ink.sql", "utf8");
+const policyAuditMigration = readFileSync("migrations/0043_fuzzy_boomer.sql", "utf8");
 
 const tables = [
   "coordination_v2_host_enrollments",
@@ -26,6 +33,29 @@ test("Coordinator V2 schema and migration contain the complete persistence model
     assert.match(schema, new RegExp(`pgTable\\("${table}"`), `${table} missing from schema`);
     assert.match(migration, new RegExp(`CREATE TABLE "${table}"`), `${table} missing from migration`);
   }
+});
+
+test("Coordinator V2 policy audit events are append-only and independently persisted", () => {
+  assert.ok(coordinationV2PolicyAuditEvents);
+  assert.ok(coordinationV2PolicyIdentities);
+  assert.ok(coordinationV2PolicyVersions);
+  assert.ok(coordinationV2OperatorGrants);
+  assert.match(schema, /pgTable\("coordination_v2_policy_audit_events"/);
+  assert.match(policyAuditMigration, /CREATE TABLE "coordination_v2_policy_audit_events"/);
+  assert.match(policyAuditMigration, /FOREIGN KEY .*policy_identity_id/);
+  assert.match(policyAuditMigration, /FOREIGN KEY .*policy_version_id/);
+  assert.match(policyAuditMigration, /FOREIGN KEY .*operator_grant_id/);
+  assert.match(policyAuditMigration, /uq_coordination_v2_policy_audit_request/);
+  assert.match(policyAuditMigration, /coordination_v2_policy_audit_events_immutable/);
+  assert.match(policyAuditMigration, /approved Coordinator V2 policy versions may only transition once to revoked/);
+  assert.match(
+    policyAuditMigration,
+    /uq_coordination_v2_policy_audit_request"[\s\S]*\("policy_identity_id","action","request_key"\)/,
+  );
+  assert.match(policyAuditMigration, /coordination_v2_policy_audit_action_shape/);
+  assert.match(policyAuditMigration, /coordination_v2_policy_audit_metadata_size/);
+  assert.match(policyAuditMigration, /validate_coordination_v2_policy_audit_provenance/);
+  assert.match(policyAuditMigration, /coordination_v2_policy_audit_provenance/);
 });
 
 test("Coordinator V2 lifecycle checks use the canonical state vocabulary", () => {

@@ -295,6 +295,13 @@
       "when": 1789254813905,
       "tag": "0042_red_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789257055474,
+      "tag": "0043_fuzzy_boomer",
+      "breakpoints": true
     }
   ]
 }
