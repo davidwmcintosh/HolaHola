@@ -145,6 +145,7 @@ PUBLIC_OBJECT_SEARCH_PATHS = "/holaholar2bucket/public"
 [userenv.development]
 SYNC_PEER_URL = "https://getholahola.com"
 NEON_STRICT_MODE = "true"
+SOURCE_CONTROL_SCHEDULER_ENABLED = "false"
 
 [userenv.production]
 SYNC_PEER_URL = "https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev"
