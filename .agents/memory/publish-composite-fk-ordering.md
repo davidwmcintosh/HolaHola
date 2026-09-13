@@ -18,3 +18,8 @@ the referenced columns do not yet have a unique constraint or index.
 `unique(...)` in the table definition before publishing. Generate and review the
 migration, prove it on a disposable Neon branch, and apply it through the
 canonical migration path. Never repair this with startup DDL or `db:push`.
+
+When converting an existing standalone unique index that already supports a
+foreign key, promote it in place with PostgreSQL's `UNIQUE USING INDEX` form.
+Dropping and recreating that index fails because the foreign key depends on the
+existing index object.

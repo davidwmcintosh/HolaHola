@@ -9114,8 +9114,7 @@ export const coordinationV2TransportWorkClaims = pgTable("coordination_v2_transp
   uniqueIndex("uq_coordination_v2_transport_work_claim_request").on(table.sessionId, table.requestKey),
   uniqueIndex("uq_coordination_v2_transport_work_claim_active_attempt").on(table.attemptId)
     .where(sql`${table.state} = 'active'`),
-  uniqueIndex("uq_coordination_v2_transport_work_claim_provenance")
-    .on(table.id, table.sessionId, table.attemptId, table.leaseId, table.epoch),
+  unique("uq_coordination_v2_transport_work_claim_provenance").on(table.id, table.sessionId, table.attemptId, table.leaseId, table.epoch),
   index("idx_coordination_v2_transport_work_claim_session").on(table.sessionId, table.createdAt),
   foreignKey({
     name: "fk_coordination_v2_work_claim_attempt_session",
