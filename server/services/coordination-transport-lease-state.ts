@@ -8,10 +8,10 @@ import {
 } from './coordination-v2-types';
 
 export type TransportLeaseCommand =
-  | (TransitionCommandBase & { readonly type: 'acquire'; readonly holderInstanceId: string; readonly duration: number })
+  | (TransitionCommandBase & { readonly type: 'acquire'; readonly newLeaseId: string; readonly holderInstanceId: string; readonly duration: number })
   | (TransitionCommandBase & { readonly type: 'renew'; readonly holderInstanceId: string; readonly epoch: number; readonly duration: number })
   | (TransitionCommandBase & { readonly type: 'expire' })
-  | (TransitionCommandBase & { readonly type: 'takeover'; readonly holderInstanceId: string; readonly duration: number })
+  | (TransitionCommandBase & { readonly type: 'takeover'; readonly newLeaseId: string; readonly holderInstanceId: string; readonly duration: number })
   | (TransitionCommandBase & { readonly type: 'release'; readonly holderInstanceId: string; readonly epoch: number })
   | (TransitionCommandBase & { readonly type: 'supersede' });
 
@@ -49,13 +49,15 @@ export function transitionTransportLease(
     return success(freezeV2({ ...current, state: 'expired' as const, endedAt: command.now }), event(command, 'active', 'expired', 'lease_expired'));
   }
   if (command.type === 'acquire') {
-    if (!validDuration(command.duration)) return failure('invalid_command');
+    if (!validDuration(command.duration) || !command.newLeaseId) return failure('invalid_command');
     if (current.state === 'active') return failure('lease_holder_conflict');
     if (current.state !== 'unheld') return failure('lease_terminal');
     const epoch = current.epoch + 1;
     return success(
       freezeV2({
         ...current,
+        leaseId: command.newLeaseId,
+        predecessorLeaseId: current.epoch > 0 ? current.leaseId : current.predecessorLeaseId,
         state: 'active' as const,
         holderInstanceId: command.holderInstanceId,
         epoch,
@@ -67,10 +69,11 @@ export function transitionTransportLease(
     );
   }
   if (command.type === 'takeover') {
-    if (!validDuration(command.duration) || current.state !== 'expired') return failure('invalid_state');
+    if (!validDuration(command.duration) || !command.newLeaseId || current.state !== 'expired') return failure('invalid_state');
     return success(
       freezeV2({
         ...current,
+        leaseId: command.newLeaseId,
         state: 'active' as const,
         holderInstanceId: command.holderInstanceId,
         epoch: current.epoch + 1,

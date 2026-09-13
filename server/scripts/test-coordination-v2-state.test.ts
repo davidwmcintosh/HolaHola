@@ -190,8 +190,9 @@ test('attempt state machine permits transport resume only without reopening term
 test('transport lease epochs prevent stale renewal and allow only expired takeover', () => {
   let lease = createTransportLeaseState({ leaseId: 'lease-1', sessionId: 'session-1', enrolledHostId: 'host-1' });
   assert.equal(lease.state, 'unheld');
-  let active = next(transitionTransportLease(lease, { ...base, type: 'acquire', holderInstanceId: 'host-instance-1', duration: 10 }));
+  let active = next(transitionTransportLease(lease, { ...base, type: 'acquire', newLeaseId: 'lease-2', holderInstanceId: 'host-instance-1', duration: 10 }));
   assert.equal(active.state, 'active');
+  assert.equal(active.leaseId, 'lease-2');
   lease = active;
   assert.equal(lease.epoch, 1);
   assert.equal(transitionTransportLease(lease, {
@@ -204,10 +205,11 @@ test('transport lease epochs prevent stale renewal and allow only expired takeov
   }).code, 'lease_epoch_stale');
   lease = next(transitionTransportLease(lease, { ...base, now: 20, eventId: 'expired', type: 'expire' }));
   assert.equal(lease.state, 'expired');
-  lease = next(transitionTransportLease(lease, { ...base, now: 21, eventId: 'takeover', type: 'takeover', holderInstanceId: 'host-instance-2', duration: 10 }));
+  lease = next(transitionTransportLease(lease, { ...base, now: 21, eventId: 'takeover', type: 'takeover', newLeaseId: 'lease-3', holderInstanceId: 'host-instance-2', duration: 10 }));
   assert.equal(lease.state, 'active');
   assert.equal(lease.epoch, 2);
-  assert.equal(lease.predecessorLeaseId, 'lease-1');
+  assert.equal(lease.leaseId, 'lease-3');
+  assert.equal(lease.predecessorLeaseId, 'lease-2');
   lease = next(transitionTransportLease(lease, { ...base, now: 22, eventId: 'release', type: 'release', holderInstanceId: 'host-instance-2', epoch: 2 }));
   assert.equal(lease.state, 'released');
   assert.equal(transitionTransportLease(lease, { ...base, eventId: 'late-renew', type: 'renew', holderInstanceId: 'host-instance-2', epoch: 2, duration: 10 }).code, 'lease_terminal');

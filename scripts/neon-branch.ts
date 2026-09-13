@@ -17,7 +17,7 @@
  * @neondatabase/serverless directly instead of wrapping a CLI.
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 // Replit/Codespace inject secrets directly into the process environment, no
 // .env file involved. A local checkout (this repo's own convention, see
@@ -36,6 +36,16 @@ function requireEnv(name: string): string {
     throw new Error(`Missing ${name} — add it to .env (see .env.template) before running scripts/neon-branch.ts`);
   }
   return value;
+}
+
+function assertCoordinatorV2DatabaseGateGuard(): void {
+  const source = readFileSync('server/scripts/test-coordination-transport-lease.test.ts', 'utf8');
+  const requiredGuard = "COORDINATOR_V2_REQUIRE_DATABASE_TESTS === '1'";
+  const forbiddenProof = 'COORDINATOR_V2_FORBIDDEN_SHARED_URL';
+  const skipPath = "context.skip('run through the Neon migration gate')";
+  if (!source.includes(requiredGuard) || !source.includes(forbiddenProof) || !source.includes(skipPath)) {
+    throw new Error('Coordinator V2 transport test is missing the disposable-gate hard-fail guard');
+  }
 }
 
 // The database and role names are never assumed. A past incident (see the
@@ -284,6 +294,7 @@ async function cmdDelete(positional: string[], flags: Record<string, string | bo
 // both pass and fail — nothing ephemeral survives past this run except
 // through the --expires-at backstop, in case the process is killed mid-way.
 async function cmdGate(flags: Record<string, string | boolean>) {
+  assertCoordinatorV2DatabaseGateGuard();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const branchName = `test/migration-${timestamp}`;
   const expiresAt = parseExpiresAt((flags['expires-at'] as string) ?? '6h');
@@ -416,6 +427,28 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (sessionHttpTests.code !== 0) {
       failureReason = `Coordinator V2 session HTTP tests exited ${sessionHttpTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 durable transport lease tests...');
+    const transportLeaseTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-transport-lease.test.ts',
+      branchEnv,
+    );
+    if (transportLeaseTests.code !== 0) {
+      failureReason = `Coordinator V2 transport lease tests exited ${transportLeaseTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 host HTTP tests...');
+    const hostHttpTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-host-http.test.ts',
+      branchEnv,
+    );
+    if (hostHttpTests.code !== 0) {
+      failureReason = `Coordinator V2 host HTTP tests exited ${hostHttpTests.code}`;
     }
   }
 

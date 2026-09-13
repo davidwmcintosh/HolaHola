@@ -1114,6 +1114,7 @@ export const actflProgress = pgTable("actfl_progress", {
   currentActflLevel: text("current_actfl_level").default('novice_low'),
   readyForAdvancement: boolean("ready_for_advancement").default(false), // AI recommendation
   advancementReason: text("advancement_reason"), // Why student is/isn't ready
+  operationReceipts: jsonb("operation_receipts").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -8848,6 +8849,7 @@ export const coordinationV2Attempts = pgTable("coordination_v2_attempts", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   terminalAt: timestamp("terminal_at"),
 }, (table) => [
+  uniqueIndex("uq_coordination_v2_attempt_session_id").on(table.sessionId, table.id),
   uniqueIndex("uq_coordination_v2_attempt_generation").on(table.attemptGeneration),
   uniqueIndex("uq_coordination_v2_attempt_session_ordinal").on(table.sessionId, table.sessionOrdinal),
   uniqueIndex("uq_coordination_v2_attempt_provider_ordinal")
@@ -8931,6 +8933,9 @@ export const coordinationV2TransportLeases = pgTable("coordination_v2_transport_
   endedAt: timestamp("ended_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
+  uniqueIndex("uq_coordination_v2_lease_session_id").on(table.sessionId, table.id),
+  uniqueIndex("uq_coordination_v2_lease_id_epoch").on(table.id, table.epoch),
+  uniqueIndex("uq_coordination_v2_lease_id_host").on(table.id, table.enrolledHostId),
   uniqueIndex("uq_coordination_v2_lease_epoch").on(table.sessionId, table.epoch),
   uniqueIndex("uq_coordination_v2_lease_active").on(table.sessionId)
     .where(sql`${table.state} = 'active'`),
@@ -8944,6 +8949,175 @@ export const coordinationV2TransportLeases = pgTable("coordination_v2_transport_
     (${table.state} = 'active' AND ${table.endedAt} IS NULL)
     OR (${table.state} IN ('released', 'expired', 'superseded') AND ${table.endedAt} IS NOT NULL)
   `),
+]);
+
+/**
+ * Transport request receipts are separate from authority state so retries
+ * cannot grow a lease row's mutable JSON under concurrent host delivery.
+ */
+export const coordinationV2TransportLeaseReceipts = pgTable("coordination_v2_transport_lease_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  operation: varchar("operation", { length: 24 }).notNull(),
+  actorId: varchar("actor_id", { length: 128 }).notNull(),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  commandDigest: varchar("command_digest", { length: 64 }).notNull(),
+  responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_lease_receipt_request").on(table.sessionId, table.requestKey),
+  index("idx_coordination_v2_transport_lease_receipt_session").on(table.sessionId, table.createdAt),
+  check("coordination_v2_transport_lease_receipt_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_transport_lease_receipt_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_transport_lease_receipt_operation", sql`
+    ${table.operation} IN ('acquire', 'renew', 'release', 'expire', 'takeover', 'poll', 'claim', 'result', 'ack', 'cleanup')
+  `),
+  check("coordination_v2_transport_lease_receipt_digest", sql`${table.commandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_transport_lease_receipt_snapshot_size", sql`length(${table.responseSnapshot}::text) <= 32768`),
+]);
+
+/**
+ * V2 work evidence cannot safely use the legacy runtime claim identity:
+ * those rows require provider/runtime credentials and thread provenance that a
+ * host lease does not possess. These narrow tables preserve V2 session,
+ * attempt, lease, holder, and epoch provenance without granting new policy
+ * vocabulary or authority.
+ */
+export const coordinationV2TransportWorkClaims = pgTable("coordination_v2_transport_work_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id").notNull()
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  commandDigest: varchar("command_digest", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  terminalAt: timestamp("terminal_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_work_claim_request").on(table.sessionId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_transport_work_claim_active_attempt").on(table.attemptId)
+    .where(sql`${table.state} = 'active'`),
+  uniqueIndex("uq_coordination_v2_transport_work_claim_provenance")
+    .on(table.id, table.sessionId, table.attemptId, table.leaseId, table.epoch),
+  index("idx_coordination_v2_transport_work_claim_session").on(table.sessionId, table.createdAt),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_attempt_session",
+    columns: [table.sessionId, table.attemptId],
+    foreignColumns: [coordinationV2Attempts.sessionId, coordinationV2Attempts.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_lease_session",
+    columns: [table.sessionId, table.leaseId],
+    foreignColumns: [coordinationV2TransportLeases.sessionId, coordinationV2TransportLeases.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_lease_host",
+    columns: [table.leaseId, table.enrolledHostId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.enrolledHostId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_lease_epoch",
+    columns: [table.leaseId, table.epoch],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.epoch],
+  }),
+  check("coordination_v2_transport_work_claim_epoch", sql`${table.epoch} > 0`),
+  check("coordination_v2_transport_work_claim_state", sql`${table.state} IN ('active', 'completed', 'expired')`),
+  check("coordination_v2_transport_work_claim_lifecycle", sql`
+    (${table.state} = 'active' AND ${table.terminalAt} IS NULL)
+    OR (${table.state} IN ('completed', 'expired') AND ${table.terminalAt} IS NOT NULL)
+  `),
+  check("coordination_v2_transport_work_claim_digest", sql`${table.commandDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationV2TransportWorkResults = pgTable("coordination_v2_transport_work_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  claimId: varchar("claim_id").notNull()
+    .references(() => coordinationV2TransportWorkClaims.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id").notNull()
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  resultDigest: varchar("result_digest", { length: 64 }).notNull(),
+  result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_work_result_request").on(table.sessionId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_transport_work_result_claim").on(table.claimId),
+  index("idx_coordination_v2_transport_work_result_attempt").on(table.attemptId, table.createdAt),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_claim_provenance",
+    columns: [table.claimId, table.sessionId, table.attemptId, table.leaseId, table.epoch],
+    foreignColumns: [
+      coordinationV2TransportWorkClaims.id,
+      coordinationV2TransportWorkClaims.sessionId,
+      coordinationV2TransportWorkClaims.attemptId,
+      coordinationV2TransportWorkClaims.leaseId,
+      coordinationV2TransportWorkClaims.epoch,
+    ],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_attempt_session",
+    columns: [table.sessionId, table.attemptId],
+    foreignColumns: [coordinationV2Attempts.sessionId, coordinationV2Attempts.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_lease_session",
+    columns: [table.sessionId, table.leaseId],
+    foreignColumns: [coordinationV2TransportLeases.sessionId, coordinationV2TransportLeases.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_lease_host",
+    columns: [table.leaseId, table.enrolledHostId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.enrolledHostId],
+  }),
+  check("coordination_v2_transport_work_result_epoch", sql`${table.epoch} > 0`),
+  check("coordination_v2_transport_work_result_digest", sql`${table.resultDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_transport_work_result_size", sql`length(${table.result}::text) <= 32768`),
+]);
+
+/**
+ * Stale hosts may report bounded evidence, but this ledger is never an
+ * authority source and cannot grant work or mutate the current lease.
+ */
+export const coordinationV2TransportLeaseReconciliations = pgTable("coordination_v2_transport_lease_reconciliations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id")
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }).notNull(),
+  evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_lease_reconciliation_request").on(table.sessionId, table.requestKey),
+  index("idx_coordination_v2_transport_lease_reconciliation_session").on(table.sessionId, table.createdAt),
+  check("coordination_v2_transport_lease_reconciliation_epoch", sql`${table.epoch} > 0`),
+  check("coordination_v2_transport_lease_reconciliation_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_transport_lease_reconciliation_holder_nonblank", sql`length(trim(${table.holderInstanceId})) > 0`),
+  check("coordination_v2_transport_lease_reconciliation_digest", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_transport_lease_reconciliation_size", sql`length(${table.evidence}::text) <= 8192`),
 ]);
 
 export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup_obligations", {
@@ -8970,6 +9144,7 @@ export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup
 }, (table) => [
   uniqueIndex("uq_coordination_v2_cleanup_kind").on(table.sessionId, table.kind),
   uniqueIndex("uq_coordination_v2_cleanup_request").on(table.sessionId, table.idempotencyKey),
+  uniqueIndex("uq_coordination_v2_cleanup_id_session").on(table.id, table.sessionId),
   index("idx_coordination_v2_cleanup_state").on(table.state, table.requestedAt),
   check("coordination_v2_cleanup_kind_value", sql`
     ${table.kind} IN ('revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials')
@@ -9002,7 +9177,14 @@ export const coordinationV2CleanupAcknowledgements = pgTable("coordination_v2_cl
     .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
   enrolledHostId: varchar("enrolled_host_id")
     .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  actorId: varchar("actor_id", { length: 128 }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }),
+  transportLeaseId: varchar("transport_lease_id")
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  transportLeaseEpoch: integer("transport_lease_epoch"),
   acknowledgementKey: varchar("acknowledgement_key", { length: 128 }).notNull(),
+  commandDigest: varchar("command_digest", { length: 64 }).notNull().default(sql`repeat('0', 64)`),
+  responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   outcome: varchar("outcome", { length: 16 }).notNull(),
   evidenceDigest: varchar("evidence_digest", { length: 64 }),
   safeMessage: text("safe_message"),
@@ -9012,9 +9194,49 @@ export const coordinationV2CleanupAcknowledgements = pgTable("coordination_v2_cl
   uniqueIndex("uq_coordination_v2_cleanup_ack").on(table.obligationId, table.acknowledgementKey),
   index("idx_coordination_v2_cleanup_ack_session").on(table.sessionId, table.createdAt),
   index("idx_coordination_v2_cleanup_ack_obligation").on(table.obligationId, table.createdAt),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_obligation_session",
+    columns: [table.obligationId, table.sessionId],
+    foreignColumns: [coordinationV2CleanupObligations.id, coordinationV2CleanupObligations.sessionId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_lease_session",
+    columns: [table.transportLeaseId, table.sessionId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.sessionId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_lease_epoch",
+    columns: [table.transportLeaseId, table.transportLeaseEpoch],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.epoch],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_lease_host",
+    columns: [table.transportLeaseId, table.enrolledHostId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.enrolledHostId],
+  }),
   check("coordination_v2_cleanup_ack_outcome", sql`${table.outcome} IN ('acknowledged', 'rejected')`),
   check("coordination_v2_cleanup_ack_digest", sql`
     ${table.evidenceDigest} IS NULL OR ${table.evidenceDigest} ~ '^[0-9a-f]{64}$'
+  `),
+  check("coordination_v2_cleanup_ack_command_digest", sql`${table.commandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_cleanup_ack_snapshot_size", sql`length(${table.responseSnapshot}::text) <= 32768`),
+  check("coordination_v2_cleanup_ack_actor_nonblank", sql`
+    ${table.actorId} IS NULL OR length(trim(${table.actorId})) > 0
+  `),
+  check("coordination_v2_cleanup_ack_holder_nonblank", sql`
+    ${table.holderInstanceId} IS NULL OR length(trim(${table.holderInstanceId})) > 0
+  `),
+  check("coordination_v2_cleanup_ack_m5_provenance", sql`
+    (${table.commandDigest} = repeat('0', 64)
+      AND ${table.actorId} IS NULL
+      AND ${table.holderInstanceId} IS NULL
+      AND ${table.transportLeaseId} IS NULL
+      AND ${table.transportLeaseEpoch} IS NULL)
+    OR (${table.commandDigest} <> repeat('0', 64)
+      AND ${table.actorId} IS NOT NULL
+      AND ${table.holderInstanceId} IS NOT NULL
+      AND ${table.transportLeaseId} IS NOT NULL
+      AND ${table.transportLeaseEpoch} IS NOT NULL)
   `),
   check("coordination_v2_cleanup_ack_lifecycle", sql`
     (${table.outcome} = 'acknowledged' AND ${table.evidenceDigest} IS NOT NULL AND ${table.errorCode} IS NULL)
@@ -9055,6 +9277,10 @@ export type CoordinationV2SessionEvent = typeof coordinationV2SessionEvents.$inf
 export type CoordinationV2Attempt = typeof coordinationV2Attempts.$inferSelect;
 export type CoordinationV2AttemptEvent = typeof coordinationV2AttemptEvents.$inferSelect;
 export type CoordinationV2TransportLease = typeof coordinationV2TransportLeases.$inferSelect;
+export type CoordinationV2TransportLeaseReceipt = typeof coordinationV2TransportLeaseReceipts.$inferSelect;
+export type CoordinationV2TransportLeaseReconciliation = typeof coordinationV2TransportLeaseReconciliations.$inferSelect;
+export type CoordinationV2TransportWorkClaim = typeof coordinationV2TransportWorkClaims.$inferSelect;
+export type CoordinationV2TransportWorkResult = typeof coordinationV2TransportWorkResults.$inferSelect;
 export type CoordinationV2CleanupObligation = typeof coordinationV2CleanupObligations.$inferSelect;
 export type CoordinationV2CleanupAcknowledgement = typeof coordinationV2CleanupAcknowledgements.$inferSelect;
 

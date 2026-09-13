@@ -9710,3 +9710,25 @@ Next boundary: Milestone 5 durable transport leases. Preserve the current
 attempt across transport recovery and require a fresh attempt only for logical
 retry or fallback. Do not create real Windows authority before Milestones
 14–15. Task 1449 remains cancelled and task 1450 remains independently owned.
+
+## Milestone 5 durable transport lease implementation
+
+The implementation is staged but not promoted. The new lease service uses
+PostgreSQL row locks and the existing pure `coordination-transport-lease-state`
+reducer for CAS acquire/renew/release/expire/takeover. Lease operation
+receipts are globally request-key scoped under a session, and stale-holder
+reconciliation is stored in a bounded dedicated ledger with no authority
+mutation. Host routes authenticate through the existing coordination middleware
+and derive enrolled-host/session binding under the lifecycle lock order; the
+body cannot supply host authority. Poll, claim, result, acknowledgement, and
+cleanup are transactional services with current-epoch fencing, dedicated
+bounded V2 provenance where legacy runtime IDs cannot preserve the session
+identity, and request-key/digest replay.
+True host credential middleware remains deferred. `holderInstanceId` is an
+ephemeral lease CAS identifier, never a host identity.
+
+Migration `0045_quiet_warbird.sql` is generated from the 0044 snapshot and
+reviewed but must not be applied to shared Neon by this handoff. The disposable Neon gate
+must run the registered transport-lease and host HTTP suites with
+`COORDINATOR_V2_REQUIRE_DATABASE_TESTS=1`; no Windows authority, host
+provisioning, credentials, or shared migration work is part of this milestone.

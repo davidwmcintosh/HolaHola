@@ -16,6 +16,7 @@ import { registerCoordinationCredentialRoutes } from "./routes/coordination-cred
 import { registerCoordinationRuntimeRoutes } from "./routes/coordination-runtime-routes";
 import { registerCoordinationPolicyRoutes } from "./routes/coordination-policy-routes";
 import { registerCoordinationSessionRoutes } from "./routes/coordination-session-routes";
+import { registerCoordinationHostRoutes } from "./routes/coordination-host-routes";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
 import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
@@ -650,6 +651,7 @@ export async function registerRoutes(app: Application): Promise<void> {
   await setupGoogleAuth(app as any, authLimiter);
   registerCoordinationPolicyRoutes(app);
   registerCoordinationSessionRoutes(app);
+  registerCoordinationHostRoutes(app);
   registerFounderTaskOwnershipRoutes(app);
   registerObservationBenchFounderRoutes(app, [
     loadAuthenticatedUser(storage),

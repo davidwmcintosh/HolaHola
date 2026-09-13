@@ -191,6 +191,22 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
       ],
     );
     await client.query(
+      `INSERT INTO coordination_v2_host_enrollments
+       (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
+        capabilities, enrollment_digest, status, created_by)
+       VALUES ($1, $2, 'windows', 'Second disposable host', 1, 'test-public-key-2', $3,
+        ARRAY['powershell'], $4, 'active', 'schema-test')`,
+      [id("host-two"), id("host-key-two"), digest("7"), digest("8")],
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_attempts
+       (id, session_id, attempt_generation, provider, model, adapter_version,
+        session_ordinal, provider_ordinal, state, attempt_digest, deadline_at)
+       VALUES ($1, $2, $3, 'test-provider', 'test-model', 'adapter-1', 1, 1,
+        'waiting_for_host', $4, now() + interval '1 hour')`,
+      [id("attempt"), id("session"), id("attempt-generation"), digest("c")],
+    );
+    await client.query(
       `INSERT INTO coordination_v2_cleanup_obligations
        (id, session_id, kind, terminal_outcome, terminal_reason, idempotency_key)
        VALUES ($1, $2, 'revoke_authority', 'succeeded', 'accepted-evidence', $3)`,
@@ -236,6 +252,107 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
         [id("lease-2"), id("session"), id("host")],
       ),
       "23505",
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_transport_lease_receipts
+       (id, session_id, request_key, operation, actor_id, enrolled_host_id, command_digest, response_snapshot)
+       VALUES ($1, $2, $3, 'poll', 'schema-test', $4, $5, '{}'::jsonb)`,
+      [id("lease-receipt"), id("session"), id("lease-request"), id("host"), digest("g")],
+    );
+    await rejectCode(
+      client,
+      "duplicate_lease_receipt_request",
+      () => client.query(
+        `INSERT INTO coordination_v2_transport_lease_receipts
+         (id, session_id, request_key, operation, actor_id, enrolled_host_id, command_digest, response_snapshot)
+         VALUES ($1, $2, $3, 'poll', 'schema-test', $4, $5, '{}'::jsonb)`,
+        [id("lease-receipt-two"), id("session"), id("lease-request"), id("host"), digest("h")],
+      ),
+      "23505",
+    );
+    await rejectCode(
+      client,
+      "bounded_reconciliation_evidence",
+      () => client.query(
+        `INSERT INTO coordination_v2_transport_lease_reconciliations
+         (id, session_id, lease_id, enrolled_host_id, holder_instance_id, epoch,
+          request_key, evidence_digest, evidence)
+         VALUES ($1, $2, $3, $4, 'stale-holder', 1, $5, $6, $7::jsonb)`,
+        [id("reconciliation"), id("session"), id("lease-1"), id("host"),
+          id("reconciliation-request"), digest("i"), JSON.stringify({ evidence: "x".repeat(9000) })],
+      ),
+      "23514",
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_transport_work_claims
+       (id, session_id, attempt_id, lease_id, enrolled_host_id, holder_instance_id,
+        epoch, request_key, command_digest)
+       VALUES ($1, $2, $3, $4, $5, 'schema-holder', 1, $6, $7)`,
+      [id("claim"), id("session"), id("attempt"), id("lease-1"), id("host"),
+        id("claim-request"), digest("m")],
+    );
+    await rejectCode(
+      client,
+      "work_claim_host_provenance",
+      () => client.query(
+        `INSERT INTO coordination_v2_transport_work_claims
+         (id, session_id, attempt_id, lease_id, enrolled_host_id, holder_instance_id,
+          epoch, request_key, command_digest)
+         VALUES ($1, $2, $3, $4, $5, 'schema-holder-2', 1, $6, $7)`,
+        [id("claim-bad-host"), id("session"), id("attempt"), id("lease-1"), id("host-two"),
+          id("claim-bad-host-request"), digest("n")],
+      ),
+      "23503",
+    );
+    await rejectCode(
+      client,
+      "work_result_host_provenance",
+      () => client.query(
+        `INSERT INTO coordination_v2_transport_work_results
+         (id, session_id, attempt_id, claim_id, lease_id, enrolled_host_id,
+          holder_instance_id, epoch, request_key, result_digest, result)
+         VALUES ($1, $2, $3, $4, $5, $6, 'schema-holder', 1, $7, $8, '{}'::jsonb)`,
+        [id("result-bad-host"), id("session"), id("attempt"), id("claim"), id("lease-1"),
+          id("host-two"), id("result-bad-host-request"), digest("o")],
+      ),
+      "23503",
+    );
+    await client.query(
+      `INSERT INTO coordination_v2_cleanup_acknowledgements
+       (id, obligation_id, session_id, enrolled_host_id, actor_id, holder_instance_id,
+        transport_lease_id, transport_lease_epoch, acknowledgement_key,
+        command_digest, outcome, evidence_digest)
+       VALUES ($1, $2, $3, $4, 'schema-test', 'holder-1', $5, 1, $6, $7, 'acknowledged', $8)`,
+      [id("ack-valid"), id("cleanup"), id("session"), id("host"), id("lease-1"),
+        id("ack-valid-request"), digest("p"), digest("q")],
+    );
+    await rejectCode(
+      client,
+      "cleanup_ack_host_provenance",
+      () => client.query(
+        `INSERT INTO coordination_v2_cleanup_acknowledgements
+         (id, obligation_id, session_id, enrolled_host_id, actor_id, holder_instance_id,
+          transport_lease_id, transport_lease_epoch, acknowledgement_key,
+          command_digest, outcome, evidence_digest)
+         VALUES ($1, $2, $3, $4, 'schema-test', 'holder-1', $5, 1, $6, $7, 'acknowledged', $8)`,
+        [id("ack-bad-host"), id("cleanup"), id("session"), id("host-two"), id("lease-1"),
+          id("ack-bad-host-request"), digest("r"), digest("s")],
+      ),
+      "23514",
+    );
+    await rejectCode(
+      client,
+      "cleanup_ack_epoch_provenance",
+      () => client.query(
+        `INSERT INTO coordination_v2_cleanup_acknowledgements
+         (id, obligation_id, session_id, enrolled_host_id, actor_id, holder_instance_id,
+          transport_lease_id, transport_lease_epoch, acknowledgement_key,
+          command_digest, outcome, evidence_digest)
+         VALUES ($1, $2, $3, $4, 'schema-test', 'holder-1', $5, 2, $6, $7, 'acknowledged', $8)`,
+        [id("ack-bad-epoch"), id("cleanup"), id("session"), id("host"), id("lease-1"),
+          id("ack-bad-epoch-request"), digest("t"), digest("u")],
+      ),
+      "23503",
     );
   } finally {
     await client.query("ROLLBACK").catch(() => undefined);

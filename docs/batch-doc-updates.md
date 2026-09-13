@@ -6219,3 +6219,22 @@ Milestone 5 remains separate: durable transport leases may now be implemented,
 but no real Windows authority may be created before the plan's explicit Windows
 acceptance milestones. Cancelled task 1449 remains cancelled, and Alden-owned
 task 1450 remains untouched.
+
+## Coordinator V2 durable transport lease implementation — September 12, 2026
+
+Milestone 5 implementation adds PostgreSQL-backed CAS transport leases using
+the existing `coordination_v2_transport_leases` table and pure lease reducer.
+Acquisition, renewal, release, expiry, and takeover bind session, enrolled
+host, holder instance, epoch, and predecessor lineage. Lease operation receipts
+and a bounded stale-holder reconciliation ledger are dedicated additive tables;
+reconciliation evidence never mutates authority. Host protocol routes derive
+host identity from the locked session and transactionally persist current-epoch
+poll, claim, result, acknowledgement, and cleanup evidence. Dedicated bounded
+V2 work provenance is used where legacy runtime IDs cannot preserve session
+identity; holder instances remain ephemeral lease CAS identifiers.
+
+Migration 0045 is a narrowly additive, generated-and-reviewed artifact only.
+It has not been applied to shared Neon, no host has been provisioned, no
+credentials have been generated, and no Windows workflow has been run. The
+disposable database and HTTP suites are registered in `scripts/neon-branch.ts`
+for the owning agent's gate.
