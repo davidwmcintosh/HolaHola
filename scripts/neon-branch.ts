@@ -312,6 +312,7 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     COORDINATION_INBOX_DISPOSABLE_BRANCH_ID: branch.id,
     COORDINATION_RUNTIME_TEST_DATABASE_URL: directUrl,
     COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE: '1',
+    COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS: '1',
     COORDINATION_RUNTIME_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
     FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL: directUrl,
     FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE: '1',
@@ -486,13 +487,13 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
-    console.log('[gate] Running Coordinator V2 one-command lifecycle, diagnostics, and cleanup tests...');
+    console.log('[gate] Running Coordinator V2 lifecycle, diagnostics, cleanup, fault, fallback, and evidence tests...');
     const windowsHostLifecycleTests = await runCommand(
-      'npx tsx --test server/scripts/test-coordination-lifecycle-facade.test.ts server/scripts/test-coordination-windows-host.test.ts server/scripts/test-coordination-v2-cli.test.ts server/scripts/test-coordination-errors.test.ts server/scripts/test-coordination-session-status.test.ts server/scripts/test-coordination-cleanup.test.ts',
+      'npx tsx --test server/scripts/test-coordination-lifecycle-facade.test.ts server/scripts/test-coordination-windows-host.test.ts server/scripts/test-coordination-v2-cli.test.ts server/scripts/test-coordination-errors.test.ts server/scripts/test-coordination-session-status.test.ts server/scripts/test-coordination-cleanup.test.ts server/scripts/test-coordination-v2-e2e.test.ts server/scripts/test-coordination-v2-fault-injection.test.ts server/scripts/test-coordination-v2-provider-fallback.test.ts server/scripts/test-coordination-v2-evidence-integrity.test.ts',
       branchEnv,
     );
     if (windowsHostLifecycleTests.code !== 0) {
-      failureReason = `Coordinator V2 one-command lifecycle diagnostics and cleanup tests exited ${windowsHostLifecycleTests.code}`;
+      failureReason = `Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence tests exited ${windowsHostLifecycleTests.code}`;
     }
   }
 

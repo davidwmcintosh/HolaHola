@@ -394,6 +394,11 @@ group_body_workflow_safety() {
   run test-source-reconciliation-service.ts
   run test-source-reconciliation-inspection.ts
   npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
+  npx tsx --test \
+    server/scripts/test-coordination-v2-e2e.test.ts \
+    server/scripts/test-coordination-v2-fault-injection.test.ts \
+    server/scripts/test-coordination-v2-provider-fallback.test.ts \
+    server/scripts/test-coordination-v2-evidence-integrity.test.ts
   npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
   npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
   run test-capture-status-ordering.ts

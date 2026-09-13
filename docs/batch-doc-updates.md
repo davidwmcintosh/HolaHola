@@ -6471,3 +6471,67 @@ remaining watch-outs.
 Next boundary: Milestone 11 only. Keep real Windows transport, credentials,
 provisioning, DPAPI protection, scheduled execution, and host-authority
 activation deferred to Milestones 14–15.
+
+## Coordinator V2 end-to-end recovery, fallback, and evidence proof — September 13, 2026
+
+Milestone 11 adds four focused suites:
+
+- `server/scripts/test-coordination-v2-e2e.test.ts`;
+- `server/scripts/test-coordination-v2-fault-injection.test.ts`;
+- `server/scripts/test-coordination-v2-provider-fallback.test.ts`; and
+- `server/scripts/test-coordination-v2-evidence-integrity.test.ts`.
+
+The end-to-end suite drives the production Coordinator V2 services from
+preparation through attempt creation, transport recovery, host claim and
+result, provider continuation, completion acceptance, terminal cleanup, and
+canonical evidence inspection. The fault suite injects interruption before and
+after session reservation, local promotion, attempt creation, provider
+response persistence, host claim, host mutation, result persistence, provider
+continuation, and completion acceptance, plus interruption during server
+revocation and local cleanup. Each recovery is classified as same-attempt
+transport resume, fresh same-provider attempt, fresh next-provider attempt,
+terminal failure, terminal success, or cleanup repair. Confirmed host mutation
+and provider continuation never repeat, logical retries never reuse attempt
+authority, fallback remains inside policy order and budgets, and at most one
+completion is accepted.
+
+Mutation cases use only an explicitly disposable PostgreSQL target. The
+production-service suites bind `NEON_SHARED_DATABASE_URL` to the already
+verified disposable branch and remove the CI localhost selectors before
+loading the service graph; they reject an absent disposable marker, an invalid
+PostgreSQL URL, or the forbidden shared Neon URL. The local fault seams use
+disposable in-process storage for filesystem, host, journal, and transport
+effects, while its authoritative matrix uses the real production services on
+the disposable PostgreSQL branch. No shared Neon database is used by the
+mutation suites.
+
+The provider suite proves that transport interruption resumes the same attempt,
+logical provider failure creates a fresh same-provider attempt, and a
+policy-eligible failure creates a fresh next-provider attempt with immutable
+lineage and new authority. Provider order, fallback eligibility, per-provider
+budgets, total budget, terminal classifications, and the registered descriptor
+are authoritative; the two-provider registry is a synthetic test policy and
+does not broaden the production provider registry. The evidence suite proves
+exact request replay, changed-payload replay conflicts, complete claim/result/
+lease/session/attempt evidence, one-winner concurrent completion, and
+unchanged terminal outcome, reason, event evidence, result digest, and attempt
+state through cleanup failure and repair.
+
+All four suites are registered in the established validation registry,
+`server/scripts/test-all-consolidated-ci.sh`, and the disposable Neon gate in
+`scripts/neon-branch.ts`; the gate does not create a duplicate workflow.
+`COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS=1` is injected by the Neon gate,
+so a database suite fails closed when its verified disposable target is absent
+instead of silently skipping. Outside that gate, the focused local run reports
+only the expected database skips.
+
+Verified proof: `npm run typecheck` is clean; focused local verification
+reported 3 passed, 4 expected database skips, and 0 failures; system health
+reported all checks passed. The definitive disposable Neon gate passed all 46
+Milestone 11 tests with zero skips, then the repository-wide gate returned
+`READY_TO_PROMOTE`; the disposable branch was deleted and shared Neon was left
+untouched.
+
+No real Windows authority was activated. Milestones 12–15 remain: independent
+documentation/review, publish-before-authority, real-Windows one-command
+acceptance, and real-Windows transport-resume acceptance.

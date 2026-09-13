@@ -46,13 +46,17 @@ run_check "Agent-note coordination ingress" npx tsx --test server/scripts/test-a
 run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
 run_check "Antigravity Windows DPAPI source boundary" npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts
-run_check "Coordinator V2 lifecycle diagnostics and cleanup suites" npx tsx --test \
+run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence suites" npx tsx --test \
   server/scripts/test-coordination-lifecycle-facade.test.ts \
   server/scripts/test-coordination-windows-host.test.ts \
   server/scripts/test-coordination-v2-cli.test.ts \
   server/scripts/test-coordination-errors.test.ts \
   server/scripts/test-coordination-session-status.test.ts \
-  server/scripts/test-coordination-cleanup.test.ts
+  server/scripts/test-coordination-cleanup.test.ts \
+  server/scripts/test-coordination-v2-e2e.test.ts \
+  server/scripts/test-coordination-v2-fault-injection.test.ts \
+  server/scripts/test-coordination-v2-provider-fallback.test.ts \
+  server/scripts/test-coordination-v2-evidence-integrity.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.

@@ -9971,3 +9971,58 @@ remaining watch-outs.
 Next: Milestone 11 only. Keep real Windows transport, credentials,
 provisioning, DPAPI protection, scheduled execution, and host-authority
 activation deferred to Milestones 14–15.
+
+## September 13, 2026 — Coordinator V2 end-to-end recovery and evidence proof
+
+Milestone 11 is complete. Four new suites are present and registered:
+`test-coordination-v2-e2e.test.ts`, `test-coordination-v2-fault-injection.test.ts`,
+`test-coordination-v2-provider-fallback.test.ts`, and
+`test-coordination-v2-evidence-integrity.test.ts`. The end-to-end path uses the
+production lifecycle, attempt, transport, cleanup, and evidence services from
+preparation through terminal cleanup. The fault suite covers interruption before
+and after session reservation, local promotion, attempt creation, provider
+response persistence, host claim, host mutation, result persistence, provider
+continuation, and completion acceptance, plus interruption during server
+revocation and local cleanup.
+
+Every injected interruption resolves to same-attempt transport resume, a fresh
+same-provider attempt, a fresh next-provider attempt, terminal failure,
+terminal success, or cleanup repair. Host mutation and provider continuation
+are at-most-once, logical retries receive fresh attempt authority, fallback
+cannot bypass policy order or budgets, and completion acceptance has one
+winner. The provider suite separately proves transport resume, fresh
+same-provider retry, policy-eligible next-provider fallback, immutable prior
+attempt lineage, descriptor selection, and terminal/budget exhaustion. Its
+two-provider registry is synthetic test policy only; it does not change the
+production provider registry.
+
+The mutation suites require an explicitly disposable PostgreSQL URL and reject
+the forbidden shared Neon URL. Production services are exercised against that
+disposable branch by binding `NEON_SHARED_DATABASE_URL` to the verified branch
+and removing CI's localhost database selectors. The local fault-effect matrix
+uses disposable in-process filesystem, host, journal, and transport stores;
+its authoritative cases use the real production services and PostgreSQL. No
+shared Neon database is used by the mutation suite.
+
+Evidence remains complete and authoritative across success, failure, replay,
+and cleanup repair: exact request replay returns the stored result, changed
+payloads fail with replay conflict, claim/result/lease/session/attempt rows
+remain present, concurrent completion accepts only one winner, and cleanup
+repair cannot change terminal outcome, reason, event evidence, result digest,
+or attempt state. The four suites are registered in
+`server/scripts/run-validation-suite.sh`,
+`server/scripts/test-all-consolidated-ci.sh`, and the disposable Neon gate.
+The gate sets `COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS=1`; missing verified
+database configuration therefore fails the gate rather than turning database
+coverage into an accidental skip.
+
+Verified proof is clean `npm run typecheck`, focused local verification with
+3 passes, 4 expected database skips, and 0 failures, and system health with
+all checks passed. The definitive disposable Neon gate passed all 46
+Milestone 11 tests with zero skips. The repository-wide gate returned
+`READY_TO_PROMOTE`, deleted its disposable branch, and left shared Neon
+untouched.
+
+No real Windows authority was activated. Milestones 12–15 remain:
+documentation and independent final review, publish-before-authority, real
+Windows one-command acceptance, and real Windows transport-resume acceptance.
