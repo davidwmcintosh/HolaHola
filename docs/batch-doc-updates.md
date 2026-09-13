@@ -6535,3 +6535,39 @@ untouched.
 No real Windows authority was activated. Milestones 12–15 remain: independent
 documentation/review, publish-before-authority, real-Windows one-command
 acceptance, and real-Windows transport-resume acceptance.
+
+## Coordinator V2 operator guidance — September 13, 2026
+
+The canonical operator path now begins every Coordinator V2 reference:
+
+```powershell
+Invoke-HolaCoordinator -TaskRef <task reference>
+```
+
+The documentation separates immutable founder policy approval from bounded
+operator launch; defines the canonical policy, session, attempt, lease, and
+cleanup states; and uses the implemented recovery classifications
+`resume_transport`, `fresh_attempt_same_provider`,
+`fresh_attempt_next_provider`, `terminal_failure`, and `cleanup_repair`.
+
+Operators may inspect internal identifiers through authorized diagnostics but
+must never manually transfer them or supply them to a launch. PostgreSQL owns
+preparation, attempts, provider fallback, host leases, terminal results, and
+cleanup. Provider/model/adapter and host/repository/Git provenance describe one
+Luca execution lineage rather than separate identities.
+
+The Windows launcher is explicitly limited to the same Windows user because its
+credential uses DPAPI `CurrentUser`; it does not protect against malicious
+software already running as that user. Earlier Gate 3 evidence remains
+historical and non-authorizing. Cancelled legacy activation work remains
+cancelled, separately owned work remains untouched, and no real Windows
+authority was activated during documentation.
+
+Canonical references:
+
+- `docs/coordination-v2-architecture.md`
+- `docs/coordination-v2-policy-reference.md`
+- `docs/coordination-v2-host-protocol.md`
+- `docs/coordination-v2-provider-adapters.md`
+- `docs/coordination-v2-error-codes.md`
+- `docs/coordination-v2-recovery-runbook.md`

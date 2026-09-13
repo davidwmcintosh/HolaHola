@@ -1,89 +1,76 @@
-# Windows Antigravity Gate 3 operator runbook
+# Windows coordinator and historical Gate 3 runbook
 
-The Gate 3 driver is `server/scripts/coordination-runtime-antigravity.ts`.
-Use only the operator-approved worktree
-`C:\Users\David\HolaHola-antigravity` on branch `luca/gemini-experiment`.
+## Current Coordinator V2 operator path
 
-Windows PowerShell 5.1 is sufficient; no external credential manager is
-required. The fixed-action launcher generates the bootstrap internally,
-protects it with Windows DPAPI `CurrentUser`, and stores only ciphertext under
-`%LOCALAPPDATA%\HolaHola\coordination\`. Never place the plaintext bootstrap in
-PowerShell history, an argument, stdout, a file, the repository, or the
-clipboard.
-
-After the worktree is clean at the exact protected-promotion commit, initialize
-the local credential once:
+Do not begin a current run with the legacy Gate 3 Phase A/Phase B procedure.
+After protected publication, production verification, founder policy approval,
+operator grant, compatible host enrollment, and same-user local credential
+preparation, run:
 
 ```powershell
-Set-Location C:\Users\David\HolaHola-antigravity
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\antigravity-gate3.ps1 initialize
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\antigravity-gate3.ps1 status
+Invoke-HolaCoordinator -TaskRef <task reference>
 ```
 
-Initialization fails rather than overwriting an active or in-flight
-credential. Preparation decrypts only in memory, hashes the value in the
-existing TypeScript process, and prints only the public provisioning bundle:
+Run it once. Do not copy any preparation, session, attempt, lease, claim,
+challenge, receipt, digest, provider, host, path, command, or credential
+identifier into the command. The server creates and reconciles those values
+from PostgreSQL.
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\antigravity-gate3.ps1 prepare `
-  -StartingCommit <SYNCED_MAIN_SHA>
-```
+Founder policy approval and operator launch are separate actions. Policy
+approval defines provider order, adapters, budgets, paths, commands, and host
+constraints. Launch selects only the task and, optionally, an already approved
+policy. The host cannot select providers, retries, fallback, or execution
+authority.
 
-Transfer only that public JSON bundle to the trusted Replit operator. Replit
-runs Phase A, the founder approves the exact challenge in an authenticated
-session, and Replit runs Phase B:
+The command may report:
 
-```bash
-npx tsx server/scripts/provision-antigravity-runtime.ts phase-a --bundle <PUBLIC_BUNDLE.json> --attempt-id <NEW_UUID>
-npx tsx server/scripts/provision-antigravity-runtime.ts phase-b \
-  --bundle <PUBLIC_BUNDLE.json> \
-  --challenge-id <FOUNDER_APPROVED_CHALLENGE_ID>
-```
+`preparing`, `ready`, `running`, `waiting_for_host`, `verifying`, `succeeded`,
+`failed`, `exhausted`, `expired`, `revoked`, `cleanup_pending`,
+`preflight_failed`, `host_unavailable`, or `invalid_request`.
 
-Generate a new lowercase UUID for each intentional Phase A attempt. Reuse that
-same UUID only when retrying the same attempt so retries converge on one
-challenge.
+Exit `0` requires `succeeded` plus acknowledged cleanup. Retry and recovery use
+the classifications `resume_transport`, `fresh_attempt_same_provider`,
+`fresh_attempt_next_provider`, `terminal_failure`, and `cleanup_repair`.
 
-Phase B returns only non-secret IDs and digests. After it succeeds, configure
-the non-secret run inputs on Windows and launch the bounded driver through the
-same fixed-action DPAPI launcher:
+See:
 
-```powershell
-$env:COORDINATION_API_BASE_URL = "https://<approved-coordinator>"
-$env:COORDINATION_RUNTIME_ID = "<registered-runtime-id>"
-$env:COORDINATION_WORKTREE = "C:\Users\David\HolaHola-antigravity"
-$env:COORDINATION_WINDOW_ID = "<frozen-window-id>"
-$env:COORDINATION_OWNERSHIP_RECEIPT_ID = "<active-receipt-id>"
-$env:COORDINATION_OWNERSHIP_ARTIFACT_SHA256 = "<approved-task-artifact-sha256>"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\antigravity-gate3.ps1 run
-```
+- [Coordinator V2 architecture](coordination-v2-architecture.md)
+- [Host protocol](coordination-v2-host-protocol.md)
+- [Recovery runbook](coordination-v2-recovery-runbook.md)
 
-`COORDINATION_ASSIGNMENT_EVENT_ID` and `COORDINATION_RECEIPT_FILE` are optional
-non-secret inputs. The driver exchanges the bootstrap once, deletes its process
-environment entry, renews broker credentials in memory, and never places
-credentials in command arguments, files, or receipts.
+## Windows custody boundary
 
-The `run` action atomically consumes the active local ciphertext before it
-starts the driver and deletes the in-flight ciphertext after the attempt. A
-second run is rejected. If the driver fails after local consumption, create a
-fresh bootstrap and repeat the founder-approved provisioning flow; never replay
-an uncertain bootstrap.
+The fixed launcher requires Windows PowerShell 5.1 and protects its local
+credential with DPAPI `CurrentUser`. The credential can be used only by the
+same Windows user who prepared it. This does not establish containment against
+malicious software already running as that user.
 
-Trusted Phase B provisioning runs as one transaction in registration → profile
-→ receipt → challenge row order. Ownership failure rolls back the registration
-and profile. Protected executor and verifier operations acquire the credential
-advisory lock, then hold registration → profile → credential → receipt →
-challenge → grant through the mutation.
+Linux validation proves source, protocol, and fail-closed behavior. It cannot
+prove real DPAPI execution, Windows ACL behavior, or PowerShell 5.1 acceptance;
+that evidence belongs to the later real-Windows milestones.
 
-Task **#1448 resume sequence**: confirm the operator-approved runtime, worktree,
-branch and starting HEAD; obtain a fresh frozen window and its non-secret IDs;
-confirm the protected secret handoff; then run the bounded driver. Do not reuse
-a stale claim, packet, receipt, epoch, or bootstrap exchange. A separate
-verification hat must inspect and rerun the result; this driver never verifies
-or publishes.
+## Historical Gate 3 record
 
-Linux validation checks the launcher source boundary and documentation. It
-does not prove that DPAPI executed on Windows. The actual DPAPI, ACL,
-PowerShell 5.1, atomic-consumption, and no-secret-output evidence must come from
-this approved Windows host. That evidence does not establish containment
-against malicious software already running as the same Windows user.
+The former Gate 3 path used
+`server/scripts/coordination-runtime-antigravity.ts`,
+`scripts/antigravity-gate3.ps1`, a public preparation bundle, founder-approved
+challenge, Phase A/Phase B provisioning, and a bounded driver. Its receipts,
+challenges, registrations, windows, claims, digests, grants, bootstrap
+exchanges, and acceptance logs remain preserved provenance.
+
+They are not current authority. They cannot:
+
+- approve a Coordinator V2 policy;
+- satisfy an operator grant;
+- enroll or authorize a V2 host;
+- launch, resume, retry, or fall back a V2 session;
+- authorize cleanup;
+- satisfy fresh real-Windows acceptance.
+
+Do not transfer a historical public bundle or non-secret identifiers into V2.
+Do not replay an uncertain bootstrap or child effect. A current V2 run creates
+fresh authority only after the reviewed implementation is promoted and
+production is verified.
+
+Cancelled legacy activation work remains cancelled. Separately owned work
+remains untouched and provides no Coordinator V2 authority.

@@ -10026,3 +10026,44 @@ untouched.
 No real Windows authority was activated. Milestones 12–15 remain:
 documentation and independent final review, publish-before-authority, real
 Windows one-command acceptance, and real Windows transport-resume acceptance.
+
+## From Luca — Coordinator V2 Milestone 12 operator documentation
+
+The operator guidance now leads with the one-command lifecycle:
+`Invoke-HolaCoordinator -TaskRef <task reference>`. Optional policy selection
+can choose only an already approved policy; formatting changes output only.
+The operator supplies no internal authority identifiers.
+
+The canonical references separate founder policy approval from operator launch,
+make PostgreSQL the sole state-machine authority, and align policy, session,
+attempt, transport lease, cleanup, safe CLI state, failure classification, and
+diagnostic vocabulary with the implementation. Provider/model/adapter,
+host/lease/holder, repository, and Git fields are documented as provenance for
+one Luca execution lineage, not identity bifurcation.
+
+The same-Windows-user limitation is explicit: DPAPI `CurrentUser` protects the
+local credential only for the Windows user who prepared it and does not contain
+malicious software already running as that user. Old Gate 3 evidence is
+historical and non-authorizing; it cannot be copied into V2 or satisfy fresh
+real-Windows acceptance. Cancelled legacy activation work remains cancelled,
+separately owned work remains untouched, and this milestone creates no real
+Windows authority.
+
+Review scope is the actual final implementation, migrations, tests, and these
+documents:
+
+- `docs/coordination-clients.md`
+- `docs/antigravity-gate3-runbook.md`
+- `docs/coordination-v2-architecture.md`
+- `docs/coordination-v2-policy-reference.md`
+- `docs/coordination-v2-host-protocol.md`
+- `docs/coordination-v2-provider-adapters.md`
+- `docs/coordination-v2-error-codes.md`
+- `docs/coordination-v2-recovery-runbook.md`
+- `docs/batch-doc-updates.md`
+- `docs/alden-agent-handoff.md`
+
+Milestone 12 is complete only after Alden's Anthropic and Gemini engines each
+review the actual bytes, all required corrections are applied, both return
+unconditional approval with no watch-outs, and the full validation gates remain
+green.

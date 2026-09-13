@@ -1,7 +1,29 @@
 # Coordinator V2 stable diagnostics
 
-Milestone 10 adds a diagnostics projection without changing the existing
-Coordinator V2 HTTP error contract.  Existing routes may continue to return
+## Operator path and outcome
+
+Start the lifecycle with:
+
+```powershell
+Invoke-HolaCoordinator -TaskRef <task reference>
+```
+
+Do not pass internal identifiers. Founder policy approval and the operator
+launch are separate authorities. The command's safe outcome uses the catalog
+below; exit `0` requires `succeeded` plus acknowledged cleanup.
+
+The safe CLI states are `preparing`, `ready`, `running`, `waiting_for_host`,
+`verifying`, `succeeded`, `failed`, `exhausted`, `expired`, `revoked`,
+`cleanup_pending`, `preflight_failed`, `host_unavailable`, and
+`invalid_request`.
+
+The server's failure classifications are `resume_transport`,
+`fresh_attempt_same_provider`, `fresh_attempt_next_provider`,
+`terminal_failure`, and `cleanup_repair`. Completion is not a failure
+classification.
+
+The diagnostics projection does not change the existing Coordinator V2 HTTP
+error contract. Existing routes may continue to return
 the historical `{ error: { code } }` response.  Internal/operator diagnostics
 can resolve that code with
 `server/services/coordination-error-catalog.ts`.
@@ -30,6 +52,11 @@ the host evidence policy and is not copied into a safe message or provenance.
 `cleanup_required` means the original terminal outcome remains authoritative
 while one or more terminal cleanup obligations still need repair.  It is not a
 replacement for the original success/failure result.
+
+Catalog codes preserve their source spelling. Service and authorization codes
+are uppercase. Canonicalizer, registry, `cleanup_required`, and
+`host_child_unclassified_exit` codes are lowercase. Consumers must compare the
+exact catalog value rather than normalizing case.
 
 ## Cataloged codes
 
@@ -138,3 +165,12 @@ are typed pointers only; they do not inline evidence contents.  In particular,
 raw host stderr is never accepted as a catalog message or provenance value.
 Evidence retention and cleanup are independent: cleanup may be retried while
 session events and evidence counts remain durable.
+
+Internal IDs may appear only as bounded, allow-listed provenance or typed
+evidence references. They are inspectable but never transferable into another
+launch or host. Provider and host provenance describe one Luca execution
+lineage, not separate identities.
+
+The current Windows credential uses DPAPI `CurrentUser` and is limited to the
+same Windows user who prepared it. Historical Gate 3 errors and evidence remain
+non-authorizing for Coordinator V2.

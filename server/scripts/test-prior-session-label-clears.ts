@@ -302,5 +302,6 @@ async function runSelfCheckMode(): Promise<void> {
     process.exit(1);
   } else {
     console.log(G('\nPASSED — prior-session label clears correctly after first live exchange.'));
+    process.exit(0);
   }
 })();

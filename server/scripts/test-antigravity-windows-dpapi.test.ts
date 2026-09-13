@@ -160,13 +160,15 @@ test('source guard permits only fixed non-secret output statements', async () =>
   assert.doesNotMatch(source, /Write-(?:Output|Host|Verbose|Information|Warning|Error)\s+\$(?:bootstrap|cipherBytes|plainBytes|raw|envelope)/i);
 });
 
-test('runbook selects DPAPI launcher and rejects a false Linux execution claim', async () => {
+test('runbook selects Coordinator V2 and keeps historical Gate 3 non-authorizing', async () => {
   const runbook = await read(runbookPath);
 
-  assert.match(runbook, /antigravity-gate3\.ps1 initialize/);
-  assert.match(runbook, /antigravity-gate3\.ps1 prepare/);
-  assert.match(runbook, /antigravity-gate3\.ps1 run/);
+  assert.match(runbook, /Invoke-HolaCoordinator -TaskRef <task reference>/);
+  assert.match(runbook, /Do not begin a current run with the legacy Gate 3 Phase A\/Phase B procedure/);
+  assert.match(runbook, /scripts\/antigravity-gate3\.ps1/);
+  assert.match(runbook, /They are not current authority/);
+  assert.match(runbook, /cannot:\s*[\s\S]*launch, resume, retry, or fall back a V2 session/i);
   assert.match(runbook, /Windows PowerShell 5\.1/);
-  assert.match(runbook, /does not prove that DPAPI executed on Windows/i);
+  assert.match(runbook, /cannot\s+prove real DPAPI execution/i);
   assert.doesNotMatch(runbook, /op run|op:\/\/|1Password item/i);
 });
