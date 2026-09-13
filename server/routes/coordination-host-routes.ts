@@ -14,6 +14,12 @@ import {
   cleanupCoordinationTransportWork,
   CoordinationTransportLeaseError,
 } from '../services/coordination-transport-lease-service';
+import {
+  validateHostEnvelope,
+  CoordinationHostProtocolError,
+  type HostEnvelope,
+  type HostBinding,
+} from '../services/coordination-host-protocol';
 
 type HostRequest = CoordinationAuthenticatedRequest & {
   body: Record<string, unknown>;
@@ -37,47 +43,42 @@ type HostServices = {
 export type CoordinationHostRouteDependencies = {
   coordinationAuthMiddleware?: RequestHandler;
   services?: Partial<HostServices>;
+  /** Server wall clock used only for protocol freshness, never lease authority. */
+  now?: () => number;
 };
 
-class HostRouteCommandError extends Error {
-  readonly code = 'COORDINATION_INVALID_COMMAND';
-}
+class HostRouteCommandError extends Error { readonly code = 'COORDINATION_INVALID_COMMAND'; }
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
-}
-
-function requestKey(req: HostRequest): string {
-  return req.get('Idempotency-Key') || stringValue(req.body?.requestKey) || '';
 }
 
 function actor(req: HostRequest): string {
   return req.coordinationActor ?? '';
 }
 
-function bodyCommand(body: Record<string, unknown>): Record<string, unknown> {
-  body = body ?? {};
-  if (body.command && typeof body.command === 'object' && !Array.isArray(body.command)) {
-    return body.command as Record<string, unknown>;
-  }
-  return body;
-}
-
-function operation(body: Record<string, unknown>, allowed: readonly string[]): string {
-  const value = stringValue(bodyCommand(body).type);
-  if (!value || !allowed.includes(value)) throw new HostRouteCommandError();
+function envelope(req: HostRequest, expected?: string, now = Date.now()): HostEnvelope {
+  const value = validateHostEnvelope(req.body, { now });
+  if (expected && value.kind !== expected) throw new HostRouteCommandError();
   return value;
 }
 
-function hostInput(req: HostRequest, command: Record<string, unknown>, leaseId?: string) {
-  const body = req.body ?? {};
-  const sessionId = stringValue(body.sessionId) || stringValue(command.sessionId) || '';
-  const holderInstanceId = stringValue(body.holderInstanceId) || stringValue(command.holderInstanceId) || '';
-  const rawEpoch = command.epoch ?? body.epoch;
-  const rawDuration = command.durationMs ?? command.duration ?? body.durationMs ?? body.duration;
+function requestKey(req: HostRequest, value: HostEnvelope): string {
+  return req.get('Idempotency-Key') || value.requestId;
+}
+
+function hostInput(req: HostRequest, value: HostEnvelope, leaseId?: string) {
+  const payload = value.payload as Record<string, unknown>;
+  const binding = payload.binding as Record<string, unknown> | undefined;
+  const sessionId = stringValue(binding?.sessionId) || stringValue(payload.sessionId) || '';
+  const holderInstanceId = stringValue(binding?.holderInstanceId) || stringValue(payload.holderInstanceId) || '';
+  const rawEpoch = binding?.leaseEpoch;
+  const rawDuration = payload.durationMs;
   return {
     sessionId, holderInstanceId, actorId: actor(req),
-    requestKey: requestKey(req), leaseId,
+    requestKey: requestKey(req, value), leaseId,
+    command: value,
+    ...(binding ? { protocolBinding: binding as HostBinding } : {}),
     ...(typeof rawEpoch === 'number' ? { epoch: rawEpoch } : {}),
     ...(typeof rawDuration === 'number' ? { durationMs: rawDuration } : {}),
   };
@@ -85,6 +86,7 @@ function hostInput(req: HostRequest, command: Record<string, unknown>, leaseId?:
 
 function errorCode(error: unknown): string {
   if (error instanceof HostRouteCommandError) return error.code;
+  if (error instanceof CoordinationHostProtocolError) return error.code;
   if (error instanceof CoordinationTransportLeaseError) return error.code;
   return 'LEASE_DATABASE_UNAVAILABLE';
 }
@@ -92,6 +94,7 @@ function errorCode(error: unknown): string {
 function errorStatus(code: string): number {
   if (code === 'LEASE_NOT_FOUND') return 404;
   if (code === 'LEASE_INVALID_REQUEST' || code === 'COORDINATION_INVALID_COMMAND') return 422;
+  if (code.startsWith('HOST_PROTOCOL_')) return 422;
   if (code === 'LEASE_AUTHORIZATION_DENIED' || code === 'LEASE_HOST_MISMATCH') return 403;
   if (code === 'LEASE_DATABASE_UNAVAILABLE') return 503;
   return 409;
@@ -121,15 +124,17 @@ export function registerCoordinationHostRoutes(
     cleanupCoordinationTransportWork,
     ...dependencies.services,
   };
+  const protocolNow = dependencies.now ?? Date.now;
 
   // Acquire and takeover are explicit commands rather than an implicit
   // "ensure lease" operation; this keeps takeover's epoch boundary visible.
   app.post('/api/coordination/v2/host/leases', auth, async (rawReq: Request, res: Response) => {
     const req = rawReq as HostRequest;
     try {
-      const body = bodyCommand(req.body);
-      const kind = operation(req.body, ['acquire', 'takeover']);
-      const input = hostInput(req, body);
+      const value = envelope(req, 'lease_request', protocolNow());
+      const payload = value.payload as Record<string, unknown>;
+      const kind = 'acquire';
+      const input = hostInput(req, value);
       const result = kind === 'acquire'
         ? await services.acquireCoordinationTransportLease(input)
         : await services.takeoverCoordinationTransportLease(input);
@@ -141,9 +146,11 @@ export function registerCoordinationHostRoutes(
     app.post(`/api/coordination/v2/host/leases/:id/${kind}`, auth, async (rawReq: Request, res: Response) => {
       const req = rawReq as HostRequest;
       try {
-        const command = bodyCommand(req.body);
-        if (command.type !== undefined && command.type !== kind) throw new HostRouteCommandError();
-        const input = hostInput(req, command, req.params.id);
+        const value = envelope(req, 'lease_renewal', protocolNow());
+        const input = {
+          ...hostInput(req, value, req.params.id),
+          authorizedOperation: kind,
+        };
         const result = kind === 'renew'
           ? await services.renewCoordinationTransportLease(input)
           : kind === 'release'
@@ -157,9 +164,8 @@ export function registerCoordinationHostRoutes(
   app.post('/api/coordination/v2/host/leases/:id/takeover', auth, async (rawReq: Request, res: Response) => {
     const req = rawReq as HostRequest;
     try {
-      const command = bodyCommand(req.body);
-      if (command.type !== undefined && command.type !== 'takeover') throw new HostRouteCommandError();
-      res.json(await services.takeoverCoordinationTransportLease(hostInput(req, command, req.params.id)));
+        const value = envelope(req, 'lease_request', protocolNow());
+        res.json(await services.takeoverCoordinationTransportLease(hostInput(req, value, req.params.id)));
     } catch (error) { replyError(res, error); }
   });
 
@@ -169,21 +175,27 @@ export function registerCoordinationHostRoutes(
     app.post(`/api/coordination/v2/host/sessions/:id/${kind}`, auth, async (rawReq: Request, res: Response) => {
       const req = rawReq as HostRequest;
       try {
-        const command = bodyCommand(req.body);
-        if (command.type !== undefined && command.type !== kind) throw new HostRouteCommandError();
-        const { enrolledHostId: _ignoredEnrolledHostId, ...safeCommand } = command;
-      const commandLeaseId = stringValue(safeCommand.leaseId);
+        const expectedKind = kind === 'poll' ? 'work_poll' : kind === 'claim' ? 'operation_claim'
+          : kind === 'result' ? 'structured_result' : 'cleanup_acknowledgement';
+        const value = envelope(req, expectedKind, protocolNow());
+        const payload = value.payload as Record<string, unknown>;
+        const binding = payload.binding as Record<string, unknown>;
+        if (binding?.sessionId !== req.params.id) throw new CoordinationHostProtocolError('HOST_PROTOCOL_BINDING_MISMATCH');
+      const commandLeaseId = stringValue(binding?.transportLeaseId);
+      const safeCommand = payload;
       const input = {
-          ...hostInput(req, { ...safeCommand, sessionId: req.params.id }, commandLeaseId),
+          ...hostInput(req, value, commandLeaseId),
           sessionId: req.params.id,
           operation: kind,
-          command: safeCommand,
-          ...(typeof safeCommand.attemptId === 'string' ? { attemptId: safeCommand.attemptId } : {}),
+          protocolBinding: binding,
+          authorizedOperation: kind,
+           command: value,
+           ...(typeof binding?.attemptId === 'string' ? { attemptId: binding.attemptId } : {}),
           ...(typeof safeCommand.claimId === 'string' ? { claimId: safeCommand.claimId } : {}),
           ...(typeof safeCommand.obligationId === 'string' ? { obligationId: safeCommand.obligationId } : {}),
           ...(safeCommand.result && typeof safeCommand.result === 'object' ? { result: safeCommand.result } : {}),
           ...(safeCommand.evidence && typeof safeCommand.evidence === 'object' ? { evidence: safeCommand.evidence } : {}),
-        } as Parameters<typeof services.pollCoordinationTransportWork>[0];
+        } as unknown as Parameters<typeof services.pollCoordinationTransportWork>[0];
         const serviceInput = input as any;
         const result = kind === 'poll'
           ? await services.pollCoordinationTransportWork(serviceInput)
@@ -202,11 +214,12 @@ export function registerCoordinationHostRoutes(
   app.post('/api/coordination/v2/host/sessions/:id/reconciliation', auth, async (rawReq: Request, res: Response) => {
     const req = rawReq as HostRequest;
     try {
-      const command = bodyCommand(req.body);
-      if (command.type !== undefined && command.type !== 'reconciliation') throw new HostRouteCommandError();
-      const { enrolledHostId: _ignoredEnrolledHostId, ...safeCommand } = command;
-      const input = hostInput(req, { ...safeCommand, sessionId: req.params.id });
-      const evidence = safeCommand.evidence ?? req.body.evidence;
+       const value = envelope(req, 'safe_diagnostics', protocolNow());
+       const payload = value.payload as Record<string, unknown>;
+       const binding = payload.binding as Record<string, unknown>;
+       if (binding?.sessionId !== req.params.id) throw new CoordinationHostProtocolError('HOST_PROTOCOL_BINDING_MISMATCH');
+       const input = hostInput(req, value);
+       const evidence = { entries: payload.entries };
       res.status(201).json(await services.submitStaleCoordinationLeaseReconciliation({
         ...input,
         sessionId: req.params.id!,

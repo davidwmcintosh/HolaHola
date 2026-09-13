@@ -15,6 +15,7 @@ import {
   isPlainRecord,
 } from '../services/coordination-runtime';
 import { TaskOwnershipHttpClient, proveTaskOwnership, type OwnershipProofResult } from '../services/task-ownership-client';
+import type { HostOperationAdapter } from '../services/coordination-host-operation-service';
 
 export const TARGET = COORDINATION_GATE3_FIXED_TARGET;
 const ALLOWED = {
@@ -38,6 +39,13 @@ export type Fs = {
   readFile(path: string): Promise<Buffer>;
   writeFile(path: string, data: string): Promise<void>;
 };
+/** Provider-neutral boundary consumed by the Coordinator host protocol. */
+export type LogicalOperationRequest = {
+  operation: string;
+  operationDigest: string;
+  input: Record<string, unknown>;
+};
+export type LogicalOperationResult = Record<string, unknown>;
 export type DriverOptions = {
   baseUrl: string; runtimeId: string; worktree: string; windowId: string;
   assignmentEventId?: string; bootstrap?: string; ownershipReceiptId?: string; ownershipArtifactSha256?: string; receiptFile?: string;
@@ -271,6 +279,23 @@ export class Gate3Executor {
     const result = await this.command(argv);
     return { ok: result.code === 0, output: result.stdout, error: result.stderr, exitCode: result.code,
       stdoutDigest: digest(result.stdout), stderrDigest: digest(result.stderr), argv, truncated: Boolean(result.timedOut) };
+  }
+}
+
+/**
+ * OS translation lives at this edge.  The coordinator and generic host
+ * protocol deal only in logical operations; this adapter is the sole place
+ * that maps one of those operations to the existing bounded Gate3 executor.
+ */
+export class WindowsHostOperationAdapter implements HostOperationAdapter {
+  constructor(private readonly executor: Gate3Executor) {}
+  async execute(request: LogicalOperationRequest): Promise<LogicalOperationResult> {
+    if (!request.operation || !request.operationDigest || !isPlainRecord(request.input)) {
+      throw new Error('operation_request_invalid');
+    }
+    const allowed = new Set(['git_status', 'git_diff', 'run_test', 'read_file', 'replace_once']);
+    if (!allowed.has(request.operation)) throw new Error('operation_not_declared');
+    return this.executor.execute({ name: request.operation, arguments: request.input });
   }
 }
 

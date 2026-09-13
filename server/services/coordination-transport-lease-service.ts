@@ -28,6 +28,7 @@ import {
   authorizeCoordinationLifecycleInTransaction,
   CoordinationLifecycleAuthorizationError,
 } from './coordination-lifecycle-authorization';
+import type { HostBinding } from './coordination-host-protocol';
 
 /**
  * The host protocol deliberately has no process-local lease cache. PostgreSQL
@@ -159,6 +160,10 @@ type LeaseInput = {
   result?: Record<string, unknown>;
   evidence?: Record<string, unknown>;
   command?: unknown;
+  /** Untrusted envelope binding, compared with locked rows before mutation. */
+  protocolBinding?: HostBinding;
+  /** Coordinator-selected logical operation, never taken from host payload. */
+  authorizedOperation?: string;
 };
 
 function validateIdentity(input: LeaseInput): void {
@@ -284,15 +289,25 @@ async function mutateLease(operation: Extract<LeaseOperation, 'acquire' | 'renew
       const now = await databaseNow(tx);
       const { session, host } = await authorizeOperation(tx, input, operation, now, operation === 'expire');
       const enrolledHostId = host.id as string;
+      if (['acquire', 'renew', 'takeover'].includes(operation)) {
+        const requestedDuration = commandDuration(input);
+        if (requestedDuration > Math.max(0, session.expiresAt.getTime() - now.getTime())) {
+          fail('LEASE_INVALID_REQUEST', { field: 'durationMs' });
+        }
+      }
       const digest = hash({
         operation, sessionId: input.sessionId, enrolledHostId, actorId: input.actorId,
         holderInstanceId: input.holderInstanceId, epoch: input.epoch ?? null,
         durationMs: input.durationMs ?? input.duration ?? null, leaseId: input.leaseId ?? null,
+        command: input.command ?? null,
       });
       const receipt = await priorReceipt(tx, session.id, input.requestKey);
       if (receipt) return replay(receipt, digest);
       let old = await latestLease(tx, session.id);
       if (old && input.leaseId && old.id !== input.leaseId) fail('LEASE_STALE_EPOCH');
+      if (old && !['acquire', 'takeover'].includes(operation)) {
+        validateProtocolBinding(input, session, enrolledHostId, old, operation);
+      }
 
       const commandBase = { requestId: input.requestKey, eventId: randomUUID(), now: now.getTime() };
       let resultState: TransportLeaseState;
@@ -494,6 +509,38 @@ function operationDigest(input: LeaseInput, operation: LeaseOperation, hostId: s
   });
 }
 
+function validateProtocolBinding(
+  input: LeaseInput,
+  session: CoordinationV2Session,
+  hostId: string,
+  lease: CoordinationV2TransportLease,
+  operation: LeaseOperation,
+  attemptId?: string,
+): void {
+  const binding = input.protocolBinding;
+  if (!binding) return;
+  if (binding.policyVersionId !== session.policyVersionId
+    || binding.sessionId !== session.id
+    || binding.enrolledHostId !== hostId
+    || binding.transportLeaseId !== lease.id
+    || binding.leaseEpoch !== lease.epoch
+    || binding.holderInstanceId !== lease.holderInstanceId
+    || (attemptId !== undefined && binding.attemptId !== attemptId)) {
+    fail('LEASE_AUTHORIZATION_DENIED');
+  }
+  const authorizedOperation = input.authorizedOperation ?? operation;
+  if (binding.operation !== authorizedOperation) fail('LEASE_AUTHORIZATION_DENIED');
+  if (binding.operationDigest !== undefined && (attemptId !== undefined || binding.attemptId === undefined)) {
+    const expected = hash({
+      policyVersionId: session.policyVersionId,
+      sessionId: session.id,
+      attemptId: binding.attemptId ?? attemptId ?? null,
+      operation: authorizedOperation,
+    });
+    if (binding.operationDigest !== expected) fail('LEASE_AUTHORIZATION_DENIED');
+  }
+}
+
 function boundedObject(value: unknown, field: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)
     || Buffer.byteLength(JSON.stringify(value), 'utf8') > 32768) {
@@ -526,6 +573,7 @@ async function fencedOperation(
     if (lease.holderInstanceId !== input.holderInstanceId) fail('LEASE_HOLDER_MISMATCH');
     if (input.leaseId && input.leaseId !== lease.id) fail('LEASE_STALE_EPOCH');
     if (lease.expiresAt <= now) fail('LEASE_EXPIRED');
+    validateProtocolBinding(input, session, hostId, lease, operation);
     return work({ tx, now, session, hostId, lease, digest });
   });
 }
@@ -534,6 +582,7 @@ export async function pollCoordinationTransportWork(input: LeaseInput) {
   try {
     return await fencedOperation('poll', input, async (context) => {
       const attempt = await openAttempt(context.tx, context.session.id);
+      validateProtocolBinding(input, context.session, context.hostId, context.lease, 'poll', attempt?.id);
       const snapshot = {
         operation: 'poll', sessionId: context.session.id, leaseId: context.lease.id,
         epoch: context.lease.epoch, attempt: attempt ? {
@@ -554,6 +603,7 @@ export async function claimCoordinationTransportWork(input: LeaseInput) {
     return await fencedOperation('claim', input, async (context) => {
       const attempt = await openAttempt(context.tx, context.session.id);
       if (!attempt) fail('LEASE_NOT_FOUND');
+      validateProtocolBinding(input, context.session, context.hostId, context.lease, 'claim', attempt.id);
       if (input.attemptId && input.attemptId !== attempt.id) fail('LEASE_CONFLICT');
       const transition = transitionAttempt(attemptState(attempt), {
         type: 'host_started', requestId: input.requestKey, eventId: randomUUID(), now: context.now.getTime(),
@@ -601,6 +651,7 @@ export async function resultCoordinationTransportWork(input: LeaseInput) {
         .where(eq(coordinationV2Attempts.id, claim.attemptId)).for('update');
       const attempt = attemptRows[0] as CoordinationV2Attempt | undefined;
       if (!attempt) fail('LEASE_NOT_FOUND');
+      validateProtocolBinding(input, context.session, context.hostId, context.lease, 'result', attempt.id);
       const transition = transitionAttempt(attemptState(attempt), {
         type: 'result_ready', requestId: input.requestKey, eventId: randomUUID(), now: context.now.getTime(),
       });
@@ -682,6 +733,7 @@ export async function acknowledgeCoordinationCleanup(input: LeaseInput) {
         || lease.enrolledHostId !== hostId || (input.leaseId !== undefined && input.leaseId !== lease.id)) {
         fail('LEASE_STALE_EPOCH');
       }
+      validateProtocolBinding(input, session, hostId, lease, 'ack');
       const obligations = await tx.select().from(coordinationV2CleanupObligations)
         .where(and(eq(coordinationV2CleanupObligations.id, input.obligationId), eq(coordinationV2CleanupObligations.sessionId, session.id)))
         .for('update');

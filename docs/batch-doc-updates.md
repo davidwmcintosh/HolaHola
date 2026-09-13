@@ -6287,3 +6287,44 @@ exact-descriptor repair.
 Next boundary: Milestone 7 host protocol and fake-host contract. Keep task 1449
 cancelled, leave Alden-owned task 1450 untouched, and create no real Windows
 authority before Milestones 14–15.
+
+## Coordinator V2 host protocol and adapter boundary — September 12, 2026
+
+Milestone 7 replaces the provisional unversioned host payloads with a strict
+protocol-v1 contract. Closed envelopes carry canonical SHA-256 evidence,
+bounded bytes, issued/expiry times, request and correlation IDs, and complete
+policy/session/attempt/host/lease/epoch/holder/operation bindings. Unknown
+versions and kinds, extra keys, malformed payloads, digest mismatches, future
+skew, expiry, and binding mismatches fail closed. PostgreSQL remains the only
+authority for lease time, identity, current attempts, claims, results, cleanup,
+and replay; the existing receipt command digest remains the single replay
+ledger.
+
+Host routes preserve their URLs and authentication boundary but now accept only
+v1 envelopes. URL identity and locked database rows are authoritative. The
+transport service compares every host protocol binding against locked policy,
+session, enrollment, lease, current attempt, logical operation, and
+server-derived operation digest before mutation. Exact duplicate requests still
+converge through the existing immutable receipts. Host input cannot choose a
+provider, retry/fallback, path, command, tool, capability, or operation.
+Requested lease duration remains capped by the locked session policy.
+
+A deterministic in-process fake host consumes only server-issued logical
+operation envelopes and returns strict result evidence through the normal
+persistence path. The generic host operation interface contains no Windows
+paths or commands. Existing Antigravity Windows translation is isolated behind
+an injected adapter; no Windows process, workflow, credential, or authority was
+created. The enrollment boundary is pure validation and read-only compatibility
+only. It has no database mutation or public provisioning route; actual
+enrollment remains deferred to Milestones 14–15.
+
+The definitive disposable Neon gate passed host protocol and authorization
+5/5 with zero skips, host HTTP 1/1, transport leases 7/7, provider contracts
+15/15, bounded sessions and attempts 9/9, and all 68 established CI commands.
+The branch was deleted and the gate returned `READY_TO_PROMOTE`. No migration
+or shared database change was required. Both Alden engines returned
+unconditional `APPROVED — Ship it.`
+
+Next boundary: Milestone 8 only. Keep task 1449 cancelled, leave Alden-owned
+task 1450 untouched, and create no real Windows authority before Milestones
+14–15.

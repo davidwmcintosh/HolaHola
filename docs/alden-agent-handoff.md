@@ -9779,3 +9779,44 @@ authorization, a fake-host contract consumer, and the Windows operation adapter
 boundary. Do not create real Windows authority before Milestones 14–15. Task
 1449 remains cancelled; task 1450 remains independently owned and must not be
 duplicated or modified.
+
+## September 12, 2026 — Coordinator V2 host protocol milestone complete
+
+Milestone 7 is complete with no migration. Provisional unversioned host bodies
+have been replaced by closed protocol-v1 envelopes with canonical SHA-256
+digests, byte/time bounds, request/correlation IDs, and exact
+policy/session/attempt/host/lease/epoch/holder/operation bindings. Unknown
+versions and kinds, extra fields, bad digests, future skew, expiry, and binding
+mismatches fail closed.
+
+PostgreSQL remains the sole authority. Host routes use URL-owned session
+identity, and the transport service compares the protocol evidence with locked
+policy, session, enrollment, lease, current attempt, claim, cleanup, and
+server-derived logical operation state before mutation. Existing immutable
+transport receipts remain the only replay ledger; no parallel protocol ledger
+was added. Exact retries converge, while changed envelopes fail their digest or
+binding checks. A host cannot choose provider order, retry/fallback, attempts,
+paths, commands, tools, capabilities, logical operations, or a duration beyond
+the locked session bound.
+
+The deterministic fake host validates server-issued operation envelopes and
+submits strict result evidence through the normal services. The neutral host
+operation interface has no Windows paths or command strings. Antigravity's
+Windows translation now sits behind the adapter boundary and was tested only
+with injected fake dependencies. No Windows execution, host provisioning,
+credential, DPAPI flow, or authority row was created.
+
+Enrollment in this milestone is deliberately limited to pure declaration
+validation and read-only compatibility evaluation. There is no enrollment
+mutation or public provisioning route. Real enrollment remains part of
+Milestones 14–15.
+
+The definitive disposable Neon gate passed host protocol/authorization 5/5
+with zero skips, host HTTP 1/1, transport 7/7, provider 15/15, session/attempt
+9/9, and all 68 established CI commands. It deleted the branch and returned
+`READY_TO_PROMOTE`. Both Alden engines returned unconditional
+`APPROVED — Ship it.`
+
+Next: Milestone 8 only. Task 1449 remains cancelled. Task 1450 remains
+independently owned and must not be duplicated or modified. No real Windows
+authority may be created before Milestones 14–15.

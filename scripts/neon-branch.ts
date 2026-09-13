@@ -464,6 +464,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 host protocol and authorization contract tests...');
+    const hostContractTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-host-contract.test.ts server/scripts/test-coordination-host-authorization.test.ts',
+      branchEnv,
+    );
+    if (hostContractTests.code !== 0) {
+      failureReason = `Coordinator V2 host contract tests exited ${hostContractTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
     for (const group of ['test:ci:unit', 'test:ci:guards', 'test:ci:episodes']) {
       console.log(`[gate] Running npm run ${group} against the branch...`);
       const result = await runCommand(`npm run ${group}`, branchEnv);
