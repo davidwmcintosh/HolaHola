@@ -12,6 +12,9 @@ const schema = readFileSync("shared/schema.ts", "utf8");
 const migration = readFileSync("migrations/0041_unknown_beyonder.sql", "utf8");
 const followupMigration = readFileSync("migrations/0042_red_ink.sql", "utf8");
 const policyAuditMigration = readFileSync("migrations/0043_fuzzy_boomer.sql", "utf8");
+const lifecycleHardeningMigration = readFileSync("migrations/0044_burly_thunderbolts.sql", "utf8");
+const routes = readFileSync("server/routes/coordination-session-routes.ts", "utf8");
+const gate = readFileSync("scripts/neon-branch.ts", "utf8");
 
 const tables = [
   "coordination_v2_host_enrollments",
@@ -106,6 +109,38 @@ test("cleanup obligations persist immutable terminal session outcomes", () => {
   assert.match(followupMigration, /ADD COLUMN "terminal_reason"/);
   assert.match(followupMigration, /coordination_v2_cleanup_terminal_outcome/);
   assert.match(followupMigration, /coordination_v2_cleanup_terminal_provenance_immutable/);
+});
+
+test("Coordinator V2 event request keys are durable and nonblank", () => {
+  assert.match(schema, /requestKey: varchar\("request_key", \{ length: 128 \}\)\.notNull\(\)/);
+  assert.match(schema, /coordination_v2_session_event_request_nonblank/);
+  assert.match(schema, /coordination_v2_attempt_event_request_nonblank/);
+  assert.match(lifecycleHardeningMigration, /ALTER TABLE "coordination_v2_session_events" ALTER COLUMN "request_key" SET NOT NULL/);
+  assert.match(lifecycleHardeningMigration, /ALTER TABLE "coordination_v2_attempt_events" ALTER COLUMN "request_key" SET NOT NULL/);
+  assert.match(lifecycleHardeningMigration, /legacy-session-' \|\| "id"::text/);
+  assert.match(lifecycleHardeningMigration, /legacy-attempt-' \|\| "id"::text/);
+  assert.doesNotMatch(lifecycleHardeningMigration, /digest\(|encode\(/);
+});
+
+test("Coordinator V2 keeps attempts as the sole durable budget consumption authority", () => {
+  assert.doesNotMatch(schema, /coordination_v2_session_budget_counters?/);
+  assert.match(schema, /coordinationV2Attempts = pgTable\("coordination_v2_attempts"/);
+  assert.match(schema, /attemptBudget: integer\("attempt_budget"\)/);
+  assert.match(schema, /perProviderBudgets: jsonb\("per_provider_budgets"\)/);
+});
+
+test("M4 cleanup receipts are typed operation receipts and host acknowledgements stay deferred", () => {
+  assert.match(schema, /operationReceipts: jsonb\("operation_receipts"\)/);
+  assert.match(lifecycleHardeningMigration, /ADD COLUMN "operation_receipts"/);
+  assert.doesNotMatch(routes, /coordination\/v2\/cleanup/);
+});
+
+test("Coordinator V2 disposable database tests cannot silently skip in the gate", () => {
+  assert.match(gate, /COORDINATOR_V2_REQUIRE_DATABASE_TESTS: '1'/);
+  assert.match(readFileSync("server/scripts/test-coordination-session-service.test.ts", "utf8"),
+    /COORDINATOR_V2_REQUIRE_DATABASE_TESTS === '1'/);
+  assert.match(readFileSync("server/scripts/test-coordinator-v2-schema-postgres.test.ts", "utf8"),
+    /COORDINATOR_V2_REQUIRE_DATABASE_TESTS === "1"/);
 });
 
 test("Coordinator V2 relationships fail closed with restrictive foreign keys", () => {

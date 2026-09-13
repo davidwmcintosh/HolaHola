@@ -302,6 +302,13 @@
       "when": 1789257055474,
       "tag": "0043_fuzzy_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789261079106,
+      "tag": "0044_burly_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

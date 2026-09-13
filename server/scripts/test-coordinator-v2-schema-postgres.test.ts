@@ -4,7 +4,12 @@ import pg from "pg";
 
 function disposableTarget(): string | undefined {
   const url = process.env.NEON_SHARED_DATABASE_URL;
-  if (!url) return undefined;
+  if (!url) {
+    if (process.env.COORDINATOR_V2_REQUIRE_DATABASE_TESTS === "1") {
+      throw new Error("COORDINATOR_V2_TEST_DATABASE_URL is required by the migration gate");
+    }
+    return undefined;
+  }
   if (process.env.COORDINATOR_V2_TEST_DATABASE_DISPOSABLE !== "1") {
     throw new Error("COORDINATOR_V2_TEST_DATABASE_DISPOSABLE=1 is required");
   }
@@ -46,6 +51,13 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
   const digest = (character: string) => character.repeat(64);
 
   try {
+    const nullKeys = await client.query(
+      `SELECT
+         (SELECT count(*) FROM coordination_v2_session_events WHERE request_key IS NULL) AS session_nulls,
+         (SELECT count(*) FROM coordination_v2_attempt_events WHERE request_key IS NULL) AS attempt_nulls`,
+    );
+    assert.equal(Number(nullKeys.rows[0].session_nulls), 0);
+    assert.equal(Number(nullKeys.rows[0].attempt_nulls), 0);
     await client.query("BEGIN");
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
@@ -196,10 +208,10 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
     );
 
     await client.query(
-      `INSERT INTO coordination_v2_session_events
-       (id, session_id, sequence, from_state, to_state, event_type, actor_type, actor_id)
-       VALUES ($1, $2, 1, 'verifying', 'succeeded', 'completion_accepted', 'server', 'schema-test')`,
-      [id("event"), id("session")],
+        `INSERT INTO coordination_v2_session_events
+         (id, session_id, sequence, from_state, to_state, event_type, actor_type, actor_id, request_key)
+         VALUES ($1, $2, 1, 'verifying', 'succeeded', 'completion_accepted', 'server', 'schema-test', $3)`,
+       [id("event"), id("session"), id("event-request")],
     );
     await rejectCode(
       client,

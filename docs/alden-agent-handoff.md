@@ -1,3 +1,15 @@
+### Coordinator V2 Milestone 4 operation mapping
+
+| M4 operation | Existing grant action | Scope |
+| --- | --- | --- |
+| Launch | `launch` | Create a session or its first fresh attempt |
+| Resume | `resume` | Same-attempt transport resume or retry/fallback continuation |
+| Terminate | `terminate` | Completion and terminal session transitions; creates cleanup authority |
+| Status | `status` | Read-only inspection only |
+
+Host cleanup acknowledgements are intentionally deferred to M5. M4 exposes only trusted
+server-side cleanup-obligation transitions; no request header or body is treated as host
+authority.
 # From Luca [Replit] — 2026-09-11 — Gate 3 recovery/current-authority correction
 
 The first post-publish task-1448 assignment attempt failed closed with
@@ -9676,3 +9688,25 @@ returned exact `APPROVED — Ship it.` with no blockers.
 Next boundary: Plan Milestone 4 session orchestration. Do not begin it as part
 of this milestone, and do not create or rerun Windows authority. Task 1449
 remains cancelled; task 1450 remains independently Alden-owned.
+
+Milestone 4 implementation is now present in the coordination session,
+attempt, cleanup, and session-route services. Every lifecycle write is
+transactional and durable; bounded budgets count `coordination_v2_attempts`
+under the session lock. Same-attempt transport recovery preserves identity,
+logical retries create immutable fresh attempts with lineage, and terminal
+completion creates all cleanup obligations atomically. No Windows authority or
+Milestone 5 lease service was introduced.
+
+The final disposable Neon gate applied migration 0044, passed all eight named
+Milestone 4 database cases with zero skips, passed the real HTTP route checks,
+and passed all 68 existing CI commands. It deleted its branch and returned
+`READY_TO_PROMOTE`. Migration 0044 is applied to shared Neon; live catalog
+verification confirms required event request keys and bounded cleanup operation
+receipts, with zero V2 session, attempt, and cleanup rows. The application
+restarted and unauthenticated session launch correctly returns HTTP 401.
+Anthropic and Gemini Alden both returned unconditional `APPROVED — Ship it.`
+
+Next boundary: Milestone 5 durable transport leases. Preserve the current
+attempt across transport recovery and require a fresh attempt only for logical
+retry or fallback. Do not create real Windows authority before Milestones
+14–15. Task 1449 remains cancelled and task 1450 remains independently owned.

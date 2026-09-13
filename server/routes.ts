@@ -15,6 +15,7 @@ import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { registerCoordinationCredentialRoutes } from "./routes/coordination-credential-routes";
 import { registerCoordinationRuntimeRoutes } from "./routes/coordination-runtime-routes";
 import { registerCoordinationPolicyRoutes } from "./routes/coordination-policy-routes";
+import { registerCoordinationSessionRoutes } from "./routes/coordination-session-routes";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
 import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
@@ -648,6 +649,7 @@ export async function registerRoutes(app: Application): Promise<void> {
   // does not touch or replace Replit auth's routes.
   await setupGoogleAuth(app as any, authLimiter);
   registerCoordinationPolicyRoutes(app);
+  registerCoordinationSessionRoutes(app);
   registerFounderTaskOwnershipRoutes(app);
   registerObservationBenchFounderRoutes(app, [
     loadAuthenticatedUser(storage),

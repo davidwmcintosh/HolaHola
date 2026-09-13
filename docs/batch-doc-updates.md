@@ -6197,3 +6197,25 @@ attempt rows. System health is green. Both Alden engines returned exact
 Milestone 4 session orchestration remains separate. Do not create or rerun
 Windows generation or authority. Cancelled task 1449 remains cancelled, and
 Alden-owned task 1450 remains untouched.
+
+Plan Milestone 4 adds transactional bounded-session create/resume, durable
+attempt consumption, same-attempt transport recovery, fresh-attempt lineage,
+atomic terminal cleanup obligations, and real Express routes. Launch envelopes
+are hashed canonically in the existing `session_digest`; no session counter
+table or process-local authority was added. Migration 0044 only hardens event
+request-key nullability and request checks.
+
+The definitive disposable Neon gate applied migration 0044, executed all eight
+named bounded-session and fresh-attempt database cases with zero skips, passed
+the real HTTP boundary, and passed all 68 established CI commands. The branch
+was deleted and the gate returned `READY_TO_PROMOTE`. Migration 0044 was then
+applied to shared Neon. Live verification found 45 migration-ledger rows, zero
+V2 sessions, attempts, or cleanup obligations, required event request keys, and
+the bounded cleanup operation-receipt column. The application restarted and an
+unauthenticated session launch returned HTTP 401. Both Alden engines returned
+unconditional `APPROVED — Ship it.`
+
+Milestone 5 remains separate: durable transport leases may now be implemented,
+but no real Windows authority may be created before the plan's explicit Windows
+acceptance milestones. Cancelled task 1449 remains cancelled, and Alden-owned
+task 1450 remains untouched.

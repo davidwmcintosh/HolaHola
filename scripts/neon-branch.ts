@@ -308,6 +308,7 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     COORDINATOR_V2_TEST_DATABASE_URL: directUrl,
     COORDINATOR_V2_TEST_DATABASE_DISPOSABLE: '1',
     COORDINATOR_V2_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    COORDINATOR_V2_REQUIRE_DATABASE_TESTS: '1',
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -393,6 +394,28 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (policyHttpTests.code !== 0) {
       failureReason = `Coordinator V2 policy HTTP tests exited ${policyHttpTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 bounded session/attempt PostgreSQL tests against the branch...');
+    const sessionServiceTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-session-service.test.ts',
+      branchEnv,
+    );
+    if (sessionServiceTests.code !== 0) {
+      failureReason = `Coordinator V2 session service tests exited ${sessionServiceTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 session HTTP middleware tests...');
+    const sessionHttpTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-session-http.test.ts',
+      branchEnv,
+    );
+    if (sessionHttpTests.code !== 0) {
+      failureReason = `Coordinator V2 session HTTP tests exited ${sessionHttpTests.code}`;
     }
   }
 

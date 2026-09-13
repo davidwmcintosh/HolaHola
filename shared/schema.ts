@@ -8811,7 +8811,7 @@ export const coordinationV2SessionEvents = pgTable("coordination_v2_session_even
   reasonCode: varchar("reason_code", { length: 128 }),
   safeMessage: text("safe_message"),
   evidenceRef: varchar("evidence_ref", { length: 255 }),
-  requestKey: varchar("request_key", { length: 128 }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
@@ -8822,6 +8822,7 @@ export const coordinationV2SessionEvents = pgTable("coordination_v2_session_even
   check("coordination_v2_session_event_sequence", sql`${table.sequence} > 0`),
   check("coordination_v2_session_event_type_nonblank", sql`length(trim(${table.eventType})) > 0`),
   check("coordination_v2_session_event_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_session_event_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
 ]);
 
 export const coordinationV2Attempts = pgTable("coordination_v2_attempts", {
@@ -8900,7 +8901,7 @@ export const coordinationV2AttemptEvents = pgTable("coordination_v2_attempt_even
   failureClassification: varchar("failure_classification", { length: 40 }),
   resultCode: varchar("result_code", { length: 128 }),
   evidenceRef: varchar("evidence_ref", { length: 255 }),
-  requestKey: varchar("request_key", { length: 128 }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
@@ -8911,6 +8912,7 @@ export const coordinationV2AttemptEvents = pgTable("coordination_v2_attempt_even
   check("coordination_v2_attempt_event_sequence", sql`${table.sequence} > 0`),
   check("coordination_v2_attempt_event_type_nonblank", sql`length(trim(${table.eventType})) > 0`),
   check("coordination_v2_attempt_event_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_attempt_event_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
 ]);
 
 export const coordinationV2TransportLeases = pgTable("coordination_v2_transport_leases", {
@@ -8961,6 +8963,10 @@ export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup
   lastErrorCode: varchar("last_error_code", { length: 128 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  operationReceipts: jsonb("operation_receipts").$type<Record<string, {
+    commandDigest: string;
+    snapshot: Record<string, unknown>;
+  }>>().notNull().default(sql`'{}'::jsonb`),
 }, (table) => [
   uniqueIndex("uq_coordination_v2_cleanup_kind").on(table.sessionId, table.kind),
   uniqueIndex("uq_coordination_v2_cleanup_request").on(table.sessionId, table.idempotencyKey),
@@ -8985,6 +8991,7 @@ export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup
     (${table.state} = 'acknowledged' AND ${table.completedAt} IS NOT NULL)
     OR (${table.state} <> 'acknowledged' AND ${table.completedAt} IS NULL)
   `),
+  check("coordination_v2_cleanup_operation_receipts_size", sql`length(${table.operationReceipts}::text) <= 16384`),
 ]);
 
 export const coordinationV2CleanupAcknowledgements = pgTable("coordination_v2_cleanup_acknowledgements", {
