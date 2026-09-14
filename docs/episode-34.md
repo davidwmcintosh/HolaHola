@@ -1618,3 +1618,50 @@ Register-HolaCoordinatorHost `
 `-Scope Process` affects only this PowerShell process and disappears when the window closes. Do not change `LocalMachine` or `CurrentUser` policy.
 
 The `Get-Command` line should show that `Register-HolaCoordinatorHost` is a function. Then the registration call should return only safe metadata. Send me that safe output. Do not send the bootstrap value or any protected file contents.
+
+<!-- chat-capture-range:447989:450929 -->
+<!-- chat-capture:windows-single-process-launcher-recovery-20260914 -->
+<!-- chat-capture:windows-single-process-launcher-recovery-20260914 -->
+**David [Replit]:** PS C:\Users\David\HolaHola-CoordinatorV2>
+PS C:\Users\David\HolaHola-CoordinatorV2> Register-HolaCoordinatorHost `
+>>   -Endpoint 'https://getholahola.com' `
+>>   -FounderApprovalUrl 'https://getholahola.com/coordination/v2/host-approval'
+Register-HolaCoordinatorHost : The term 'Register-HolaCoordinatorHost' is not recognized as the name of a cmdlet, function, script file, or operable
+program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ Register-HolaCoordinatorHost `
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Register-HolaCoordinatorHost:String) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+**Luca [Replit]:** [felt]: Patient and attentive. The repeat failure still occurred before execution and points to a command-sequencing problem, not a compromised enrollment.
+
+[thinking]: The output contains no successful Set-ExecutionPolicy, dot-source, or Get-Command result. A single child PowerShell command with -ExecutionPolicy Bypass can guarantee the launcher load and invocation occur in one process while inheriting the bootstrap environment value.
+
+[moment]: The second Windows attempt confirms the named function was never loaded; the recovery is simplified into one process-scoped launcher command.
+
+That output shows the launcher was still not loaded. The registration function therefore did not execute, and no enrollment authority was consumed.
+
+Run this **entire block** in the current PowerShell window:
+
+```powershell
+if ($env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET -notmatch '^[A-Za-z0-9_-]{43}$') {
+  throw 'Bootstrap secret is unavailable in this PowerShell process.'
+}
+
+$command = @'
+Set-Location 'C:\Users\David\HolaHola-CoordinatorV2'
+. '.\scripts\hola-coordinator.ps1'
+Get-Command Register-HolaCoordinatorHost -ErrorAction Stop | Out-Null
+Register-HolaCoordinatorHost `
+  -Endpoint 'https://getholahola.com' `
+  -FounderApprovalUrl 'https://getholahola.com/coordination/v2/host-approval'
+'@
+
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+  -NoProfile -ExecutionPolicy Bypass -Command $command
+```
+
+This starts a child PowerShell whose bypass applies only to that child process. The child inherits the bootstrap environment value, loads the function, and invokes it before exiting.
+
+Send me only the safe returned metadata. If it succeeds, we will run the same child-process block once more to resume approval and RSA proof. Do not run `Register-HolaCoordinatorHost` by itself in the parent window.
