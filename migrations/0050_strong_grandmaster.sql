@@ -1,0 +1,2 @@
+ALTER TABLE "coordination_v2_preparation_reservations"
+  VALIDATE CONSTRAINT "coordination_v2_preparation_authority_shape";

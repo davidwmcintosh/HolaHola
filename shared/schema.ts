@@ -8988,6 +8988,16 @@ export const coordinationV2PreparationReservations = pgTable("coordination_v2_pr
   check("coordination_v2_preparation_protocol_version", sql`${table.protocolVersion} = 1`),
   check("coordination_v2_preparation_task_shape", sql`${table.taskRef} IS NULL OR (${table.taskRef} ~ '^[1-9][0-9]*$' AND ${table.taskArtifactSha256} ~ '^[0-9a-f]{64}$')`),
   check("coordination_v2_preparation_promotion_shape", sql`${table.promotedCommitSha} IS NULL OR (${table.promotedCommitSha} ~ '^[0-9a-f]{40}$' AND ${table.exactTreeSha} ~ '^[0-9a-f]{40}$')`),
+  check("coordination_v2_preparation_authority_shape", sql`
+    (
+      ${table.state} IN ('reserved', 'promoted', 'acknowledged')
+      AND ${table.taskRef} IS NOT NULL
+      AND ${table.policyVersionId} IS NOT NULL
+      AND ${table.operatorGrantId} IS NOT NULL
+      AND ${table.operatorActor} IS NOT NULL
+    )
+    OR ${table.state} IN ('failed', 'expired', 'abandoned')
+  `),
   check("coordination_v2_preparation_generation_nonblank", sql`length(trim(${table.generationId})) > 0`),
   check("coordination_v2_preparation_repository_nonblank", sql`length(trim(${table.repositoryIdentity})) > 0`),
   check("coordination_v2_preparation_branch", sql`length(trim(${table.branch})) > 0 AND ${table.branch} !~ '[[:cntrl:]]'`),

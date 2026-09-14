@@ -344,6 +344,13 @@
       "when": 1789349793401,
       "tag": "0049_brainy_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789409101888,
+      "tag": "0050_strong_grandmaster",
+      "breakpoints": true
     }
   ]
 }
