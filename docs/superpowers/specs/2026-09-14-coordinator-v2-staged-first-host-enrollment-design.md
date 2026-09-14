@@ -24,7 +24,7 @@ The command does not weaken or bypass any server-side authority check.
 
 Add a named first-host enrollment command to `scripts/hola-coordinator.ps1`. The operator supplies the HTTPS endpoint and founder-approval URL. The bootstrap secret is accepted only from `COORDINATION_V2_HOST_BOOTSTRAP_SECRET`; it is never accepted as a command-line argument and is never printed.
 
-The command emits only safe enrollment metadata: request ID, public-key fingerprint, request status, and non-sensitive persistence status.
+The existing `Register-HolaCoordinatorHost` function gains the staged behavior and emits only safe enrollment metadata: request ID, public-key fingerprint, request status, and non-sensitive persistence status. Reinvoking the same function automatically enters resume mode when protected retry authority exists.
 
 ## Durable local state
 
@@ -36,9 +36,11 @@ Before any network request, write one DPAPI-protected retry record atomically. I
 - The endpoint and public-key fingerprint.
 - An optional server request ID after a response is confirmed.
 
-Materialize the existing DPAPI-protected runtime private-key file from that retry record before submission. A retry must reuse the exact request bytes and request key; it must never generate a second identity after an ambiguous transport result.
+Write the retry record first, then materialize the existing DPAPI-protected runtime private-key file from that record before submission. A retry must reuse the exact request bytes and request key; it must never generate a second identity after an ambiguous transport result.
 
-If only one local file exists after interruption, recovery is driven from the complete retry record. A private-key file without retry authority fails closed because no exact request identity can be proven.
+If only one local file exists after interruption, recovery is driven from the complete retry record. If the retry record exists without the runtime private-key file, the function validates the record and recreates the runtime file before submission. A private-key file without retry authority fails closed because no exact request identity can be proven.
+
+On recovery, load the RSA private key from the retry record, derive its public key, recompute the canonical fingerprint, and require it to match both the stored fingerprint and exact request body. Any mismatch fails closed as corrupted retry authority.
 
 ## Enrollment lifecycle
 
@@ -55,17 +57,19 @@ On first invocation:
 7. Clear the process environment value and clipboard.
 8. Return safe metadata.
 
-On retry:
+On automatic retry or resume:
 
 1. Load and validate the protected retry record.
 2. Restore the runtime private-key file if needed.
 3. Reuse the exact body and request key.
-4. Send the bootstrap header only while request creation is not confirmed.
+4. Send the bootstrap header on the initial attempt and every ambiguous retry until an HTTP `200` or `201` response confirms the idempotent request.
 5. Treat the server’s idempotent response as confirmation of the same request.
+
+The bootstrap secret is consumed durably by the server transaction that creates the first request. The Windows process value and clipboard remain available through ambiguous failure so the exact request can be retried, then are cleared only after confirmation. This does not claim to remove the separately configured Replit deployment secret.
 
 ### Approve and complete
 
-After the request is verified durably, the founder opens the existing approval page and approves it. A resume command loads the protected RSA key and request state, polls with the protected request key, signs the issued nonce using RSA-SHA256, submits proof, and stores the returned `v2h_…` credential with CurrentUser DPAPI without printing it.
+After the request is verified durably, the founder opens the existing approval page and approves it. The approval URL builder inserts the escaped request ID query parameter before any URL fragment. Reinvoking `Register-HolaCoordinatorHost` loads the protected RSA key and request state, polls with the protected request key, signs the issued nonce using RSA-SHA256, submits proof, and stores the returned `v2h_…` credential with CurrentUser DPAPI without printing it.
 
 The retry record is removed only after host credential persistence succeeds.
 
@@ -82,9 +86,12 @@ The retry record is removed only after host credential persistence succeeds.
 
 Add regression coverage that proves:
 
-- DPAPI retry persistence occurs before the network submission seam.
+- The complete DPAPI retry record is persisted before runtime-key materialization, and both occur before the network submission seam.
+- An interruption after retry-record persistence but before runtime-key persistence restores the runtime key from validated retry authority.
+- A runtime private-key file without retry authority fails closed before any network call.
 - An ambiguous transport retry reuses the exact request key, request bytes, RSA identity, and fingerprint.
-- The bootstrap header is present for initial creation and absent after confirmed creation.
+- Recovery recomputes the public-key fingerprint and verifies it against the stored fingerprint and exact request body.
+- The bootstrap header is present for initial creation and ambiguous retries, and absent after confirmed creation.
 - Bootstrap clearing occurs only after confirmation.
 - No host or host credential is created by request submission.
 - Founder approval and valid RSA proof remain required.
