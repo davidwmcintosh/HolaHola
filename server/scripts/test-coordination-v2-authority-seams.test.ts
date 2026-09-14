@@ -15,6 +15,14 @@ import { buildCoordinationV2PublicConfig } from '../services/coordination-v2-pre
 test('fixture Ed25519 preflight is nonce-bound, public-only, and rejects replay/mutation', async () => {
   assert.throws(() => loadServerSigningPrivateKey({}), /COORDINATION_V2_SERVER_SIGNING_KEY_MISSING/);
   const pair = generateKeyPairSync('ed25519');
+  const compactPrivatePem = pair.privateKey
+    .export({ type: 'pkcs8', format: 'pem' })
+    .toString()
+    .replace(/\r?\n/g, ' ');
+  assert.equal(
+    loadServerSigningPrivateKey({ COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY: compactPrivatePem }).asymmetricKeyType,
+    'ed25519',
+  );
   const publicPem = pair.publicKey.export({ type: 'spki', format: 'pem' }).toString();
   const root = await mkdtemp(join(tmpdir(), 'coordination-v2-signing-'));
   const pin = join(root, 'server-signing-public.pem');

@@ -4,6 +4,20 @@ import { join } from 'node:path';
 
 const PUBLIC_KEY_PATH = join(process.cwd(), 'scripts', 'coordination-v2-server-signing-public.pem');
 
+function normalizePrivateKeyPem(value: string): string {
+  const normalizedNewlines = value.replaceAll('\\n', '\n').trim();
+  if (normalizedNewlines.includes('\n')) return normalizedNewlines;
+
+  const compactPkcs8 = normalizedNewlines.match(
+    /^-----BEGIN PRIVATE KEY-----([\sA-Za-z0-9+/=]+)-----END PRIVATE KEY-----$/,
+  );
+  if (!compactPkcs8) return normalizedNewlines;
+
+  const compactBody = compactPkcs8[1].replace(/\s/g, '');
+  const body = compactBody.match(/.{1,64}/g)?.join('\n') ?? '';
+  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
+}
+
 function fingerprint(key: KeyObject): string {
   const publicKey = key.type === 'private' ? createPublicKey(key) : key;
   const der = publicKey.export({ type: 'spki', format: 'der' });
@@ -14,7 +28,7 @@ export function loadServerSigningPrivateKey(env: NodeJS.ProcessEnv = process.env
   const value = env.COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY;
   if (!value) throw new Error('COORDINATION_V2_SERVER_SIGNING_KEY_MISSING');
   try {
-    const key = createPrivateKey(value.replaceAll('\\n', '\n'));
+    const key = createPrivateKey(normalizePrivateKeyPem(value));
     if (key.asymmetricKeyType !== 'ed25519') throw new Error('not-ed25519');
     return key;
   } catch {

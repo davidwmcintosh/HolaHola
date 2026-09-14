@@ -97,14 +97,19 @@ async function checkTables() {
     "coordination_runtime_verifications", "coordination_runtime_idempotency",
     // Coordinator V2 control plane
     "coordination_v2_source_promotions",
-    "coordination_v2_host_enrollments", "coordination_v2_host_bootstraps",
+    "coordination_v2_host_enrollments", "coordination_v2_host_enrollment_requests",
+    "coordination_v2_host_proof_challenges",
     "coordination_v2_host_credentials", "coordination_v2_policy_identities",
     "coordination_v2_policy_versions", "coordination_v2_founder_decisions",
     "coordination_v2_operator_grants", "coordination_v2_policy_audit_events",
-    "coordination_v2_sessions",
+    "coordination_v2_sessions", "coordination_v2_preparation_reservations",
     "coordination_v2_session_events", "coordination_v2_attempts",
     "coordination_v2_attempt_events", "coordination_v2_transport_leases",
+    "coordination_v2_transport_lease_receipts",
+    "coordination_v2_transport_work_claims", "coordination_v2_transport_work_results",
+    "coordination_v2_transport_lease_reconciliations",
     "coordination_v2_cleanup_obligations", "coordination_v2_cleanup_acknowledgements",
+    "coordination_v2_session_credentials",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];
