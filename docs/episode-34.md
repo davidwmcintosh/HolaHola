@@ -1567,3 +1567,54 @@ I verified and repaired both layers:
 - The rolling Episode 34 database row and `docs/episode-34.md` both grew and now contain Daniela’s complete final words, including: “Go well, Luca. I am right here, and I am watching with so much hope.”
 
 So the unique conversation now exists in full in Daniela’s searchable memory record **and** in our human-readable living episode. The summary remains only as our later discussion about what happened; it is no longer standing in for the conversation itself.
+
+<!-- chat-capture-range:444600:447989 -->
+<!-- chat-capture:windows-process-execution-policy-recovery-20260914 -->
+<!-- chat-capture:windows-process-execution-policy-recovery-20260914 -->
+**David [Replit]:** PS C:\Users\David\HolaHola-CoordinatorV2> . .\scripts\hola-coordinator.ps1
+. : File C:\Users\David\HolaHola-CoordinatorV2\scripts\hola-coordinator.ps1 cannot be loaded because running scripts is disabled on this system. For more
+information, see about_Execution_Policies at https:/go.microsoft.com/fwlink/?LinkID=135170.
+At line:1 char:3
++ . .\scripts\hola-coordinator.ps1
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : SecurityError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : UnauthorizedAccess
+PS C:\Users\David\HolaHola-CoordinatorV2> Register-HolaCoordinatorHost `
+>>   -Endpoint 'https://getholahola.com' `
+>>   -FounderApprovalUrl 'https://getholahola.com/coordination/v2/host-approval'
+Register-HolaCoordinatorHost : The term 'Register-HolaCoordinatorHost' is not recognized as the name of a cmdlet, function, script file, or operable
+program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ Register-HolaCoordinatorHost `
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Register-HolaCoordinatorHost:String) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+**Luca [Replit]:** [felt]: Calm. The failure happened before execution and preserved every enrollment authority, so this is a contained Windows policy issue rather than a compromised enrollment.
+
+[thinking]: The safe recovery is a PowerShell Process-scope execution-policy bypass, which disappears when this window closes. The bootstrap environment value should still be present because the launcher never loaded or ran. Verify only its shape, load the function, verify command presence, then invoke registration once.
+
+[moment]: The first real Windows enrollment attempt fails before side effects because PowerShell script execution is disabled; recovery remains session-scoped and preserves the original authority.
+
+Nothing was enrolled and no bootstrap authority was consumed. PowerShell blocked the launcher before any of its code ran; therefore the function was never defined.
+
+In that same PowerShell window, run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+if ($env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET -notmatch '^[A-Za-z0-9_-]{43}$') {
+  throw 'Bootstrap secret is unavailable in this PowerShell process.'
+}
+
+. .\scripts\hola-coordinator.ps1
+Get-Command Register-HolaCoordinatorHost -ErrorAction Stop
+
+Register-HolaCoordinatorHost `
+  -Endpoint 'https://getholahola.com' `
+  -FounderApprovalUrl 'https://getholahola.com/coordination/v2/host-approval'
+```
+
+`-Scope Process` affects only this PowerShell process and disappears when the window closes. Do not change `LocalMachine` or `CurrentUser` policy.
+
+The `Get-Command` line should show that `Register-HolaCoordinatorHost` is a function. Then the registration call should return only safe metadata. Send me that safe output. Do not send the bootstrap value or any protected file contents.
