@@ -8988,7 +8988,7 @@ export const coordinationV2PreparationReservations = pgTable("coordination_v2_pr
   check("coordination_v2_preparation_protocol_version", sql`${table.protocolVersion} = 1`),
   check("coordination_v2_preparation_task_shape", sql`${table.taskRef} IS NULL OR (${table.taskRef} ~ '^[1-9][0-9]*$' AND ${table.taskArtifactSha256} ~ '^[0-9a-f]{64}$')`),
   check("coordination_v2_preparation_promotion_shape", sql`${table.promotedCommitSha} IS NULL OR (${table.promotedCommitSha} ~ '^[0-9a-f]{40}$' AND ${table.exactTreeSha} ~ '^[0-9a-f]{40}$')`),
-  check("coordination_v2_preparation_authority_shape", sql`
+  check("coordination_v2_preparation_authority_shape_validated", sql`
     (
       ${table.state} IN ('reserved', 'promoted', 'acknowledged')
       AND ${table.taskRef} IS NOT NULL
