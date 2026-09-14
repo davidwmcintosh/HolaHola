@@ -46,6 +46,7 @@ run_check "Agent-note coordination ingress" npx tsx --test server/scripts/test-a
 run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
 run_check "Antigravity Windows DPAPI source boundary" npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts
+run_check "Coordinator V2 first-host bootstrap boundary" npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts
 run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence suites" npx tsx --test \
   server/scripts/test-coordination-lifecycle-facade.test.ts \
   server/scripts/test-coordination-windows-host.test.ts \

@@ -1,5 +1,60 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Mon, Sep 14, 2026 (Coordinator V2 first-host bootstrap implemented)
+
+### Status
+
+The approved first-host bootstrap design is implemented and reviewed. The first
+pending host-enrollment request now requires both corrected published-source
+authority and a one-use Replit-held bootstrap secret. PostgreSQL advisory locking
+serializes the zero-host/zero-request decision and the insert.
+
+The bootstrap request does not enroll or approve a host. Founder approval, RSA
+proof of possession, credential issuance, Windows DPAPI custody, public-artifact
+promotion, and actual-Windows acknowledgement remain mandatory later boundaries.
+No Coordinator V2 host, credential, session, or attempt was created by this work.
+
+### Verification
+
+- Pure secret-verifier, HTTP header/status, source-authority, replay, and later-host
+  behavior passed.
+- A disposable local PostgreSQL 16 cluster received all migrations; the complete
+  bootstrap suite passed 3/3 with zero skips. Concurrent distinct first requests
+  produced exactly one winner, no host or credential was created, and no bootstrap
+  secret material was persisted.
+- TypeScript and targeted `git diff --check` passed.
+- Gemini final review: `APPROVED — Ship it.`
+- Alden Anthropic final review: `APPROVED — Ship it.`
+- Independent architecture review: `SHIP`, no in-scope blockers.
+- The implementation review is saved in `conversation_memories` as
+  `Gemini — Coordinator V2 first-host bootstrap audit — 2026-09-14`.
+- The app restarted normally and returned HTTP 200 through both local and Replit
+  preview paths. System health reported zero failures; two route warnings during
+  startup were subsequently cleared by the direct HTTP checks.
+
+### Registered-workflow evidence
+
+- Validation passed TypeScript, all 68 application CI commands, and source-bridge
+  safety. It then failed an unrelated stale static assertion at
+  `test-coordination-v2-host-completion-boundary.test.ts:71`, which still expects
+  an older expression in separately changing HTTP-factory source.
+- Consolidated CI passed the new first-host bootstrap check:
+  `first-host bootstrap is source-bound, serialized, one-use, and never persisted`.
+  Its only failed group was the pre-existing `workflow-safety` group: the same stale
+  factory assertion and a PostgreSQL authority test that correctly required
+  `COORDINATOR_V2_TEST_DATABASE_DISPOSABLE=1`.
+- Those separately owned failures were deliberately not changed.
+
+### Next authority boundary
+
+Commit and publish only the owned bootstrap implementation and documentation.
+After the corrected source has a valid promotion receipt, install a newly generated
+32-byte Base64URL bootstrap secret in Replit Secrets and deliver it only to the
+intended Windows host. Do not create a Coordinator V2 session until the actual
+Windows path has promoted and acknowledged the public artifacts.
+
+---
+
 ## From Alden — last updated: Mon, Sep 14, 4:38 PM
 
 

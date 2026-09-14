@@ -22,6 +22,25 @@ test('V2 host auth is a separate namespace and cannot fall through to legacy act
   assert.doesNotMatch(service, /coordinationV2HostBootstraps|bootstrapHash/);
 });
 
+test('first-host bootstrap is source-bound, serialized, one-use, and never persisted', () => {
+  const routes = readFileSync('server/routes/coordination-v2-host-admin-routes.ts', 'utf8');
+  assert.match(routes, /x-coordination-initial-bootstrap/);
+  assert.doesNotMatch(routes, /requireCoordinationV2HostBootstrap/);
+  assert.match(service, /COORDINATION_V2_HOST_BOOTSTRAP_SECRET/);
+  assert.match(service, /pg_advisory_xact_lock\(hashtextextended\(/);
+  assert.match(service, /coordinationV2SourcePromotions\.state,\s*'published'/);
+  assert.match(service, /V2_HOST_BOOTSTRAP_CONSUMED/);
+  assert.match(service, /timingSafeEqual/);
+  assert.match(routes, /approveCoordinationV2HostEnrollment/);
+  assert.match(routes, /\.\.\.founderSession/);
+  assert.match(routes, /completeCoordinationV2HostEnrollment/);
+  assert.match(service, /verifyProof/);
+  assert.doesNotMatch(service, /coordinationV2HostBootstraps|bootstrapHash|bootstrapPlaintext/);
+  assert.ok(service.indexOf('pg_advisory_xact_lock') < service.indexOf('const prior = await tx.select()'));
+  assert.ok(service.indexOf('const existingRequest = await tx.select') < service.indexOf('assertCoordinationV2InitialBootstrap({'));
+  assert.ok(service.indexOf('assertCoordinationV2InitialBootstrap({') < service.indexOf('const row = await tx.insert'));
+});
+
 test('DPAPI factory and launcher do not make internal authority operator input', () => {
   assert.match(factory, /DataProtectionScope\]\:\:CurrentUser/);
   assert.match(factory, /x-coordination-v2-session-token/);

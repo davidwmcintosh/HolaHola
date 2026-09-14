@@ -394,6 +394,7 @@ group_body_workflow_safety() {
   run test-source-reconciliation-service.ts
   run test-source-reconciliation-inspection.ts
   npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
+  npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts
   npx tsx --test \
     server/scripts/test-coordination-v2-e2e.test.ts \
     server/scripts/test-coordination-v2-fault-injection.test.ts \

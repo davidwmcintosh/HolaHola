@@ -1,10 +1,11 @@
-import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { createHash, createPublicKey, randomBytes, randomUUID, timingSafeEqual, verify } from 'node:crypto';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import {
   coordinationV2HostCredentials,
   coordinationV2HostEnrollmentRequests,
   coordinationV2HostEnrollments,
   coordinationV2HostProofChallenges,
+  coordinationV2SourcePromotions,
   coordinationV2SessionCredentials,
   coordinationV2Sessions,
   coordinationV2Attempts,
@@ -22,6 +23,8 @@ const CHALLENGE_TTL_MS = 2 * 60_000;
 const HOST_CREDENTIAL_TTL_MS = 24 * 60 * 60_000;
 const SESSION_CREDENTIAL_TTL_MS = 15 * 60_000;
 const HEX = /^[0-9a-f]{64}$/;
+const INITIAL_BOOTSTRAP_SECRET = /^[A-Za-z0-9_-]{43}$/;
+const INITIAL_BOOTSTRAP_LOCK = 'coordination-v2:first-host-bootstrap';
 
 export type CoordinationV2HostCapability = 'host:transport' | 'host:cleanup';
 export type HostAuthContext = {
@@ -45,6 +48,9 @@ export type V2HostAuthErrorCode =
   | 'V2_HOST_CREDENTIAL_INVALID' | 'V2_HOST_CREDENTIAL_EXPIRED'
   | 'V2_HOST_CREDENTIAL_REVOKED' | 'V2_HOST_CREDENTIAL_SCOPE_DENIED'
   | 'V2_HOST_PROTOCOL_MISMATCH' | 'V2_HOST_IDEMPOTENCY_CONFLICT'
+  | 'V2_HOST_BOOTSTRAP_REQUIRED' | 'V2_HOST_BOOTSTRAP_DENIED'
+  | 'V2_HOST_BOOTSTRAP_UNAVAILABLE' | 'V2_HOST_BOOTSTRAP_CONSUMED'
+  | 'V2_HOST_SOURCE_PROMOTION_REQUIRED'
   | 'V2_HOST_DATABASE_UNAVAILABLE';
 
 export class CoordinationV2HostAuthError extends Error {
@@ -91,9 +97,27 @@ function verifyProof(key: string, nonce: string, signature: string): boolean {
   catch { return false; }
 }
 
+export function assertCoordinationV2InitialBootstrap(input: {
+  providedSecret?: string;
+  configuredSecret?: string;
+}): void {
+  if (!INITIAL_BOOTSTRAP_SECRET.test(input.configuredSecret ?? '')) {
+    fail('V2_HOST_BOOTSTRAP_UNAVAILABLE');
+  }
+  if (input.providedSecret === undefined || input.providedSecret.length === 0) {
+    fail('V2_HOST_BOOTSTRAP_REQUIRED');
+  }
+  if (!INITIAL_BOOTSTRAP_SECRET.test(input.providedSecret)) {
+    fail('V2_HOST_BOOTSTRAP_DENIED');
+  }
+  const expected = createHash('sha256').update(input.configuredSecret!).digest();
+  const supplied = createHash('sha256').update(input.providedSecret).digest();
+  if (!timingSafeEqual(expected, supplied)) fail('V2_HOST_BOOTSTRAP_DENIED');
+}
+
 export async function submitCoordinationV2HostEnrollmentRequest(input: {
   requestKey: string; declaration: unknown; publicKey: string; keyFingerprint: string;
-  capabilities?: readonly string[]; now?: Date;
+  capabilities?: readonly string[]; bootstrapSecret?: string; now?: Date;
 }) {
   if (!bounded(input.requestKey) || !bounded(input.publicKey, 8192) || !HEX.test(input.keyFingerprint)) fail('V2_HOST_INVALID_REQUEST');
   const declaration = validateHostEnrollmentDeclaration(input.declaration, { now: input.now });
@@ -103,11 +127,30 @@ export async function submitCoordinationV2HostEnrollmentRequest(input: {
   const now = input.now ?? new Date();
   try {
     return await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${INITIAL_BOOTSTRAP_LOCK}, 0))
+      `);
       const prior = await tx.select().from(coordinationV2HostEnrollmentRequests)
         .where(eq(coordinationV2HostEnrollmentRequests.requestKey, input.requestKey)).for('update');
       if (prior[0]) {
         if (prior[0].declarationDigest !== declaration.declarationDigest) fail('V2_HOST_IDEMPOTENCY_CONFLICT');
         return { requestId: prior[0].id, status: prior[0].status, expiresAt: prior[0].expiresAt.toISOString(), created: false };
+      }
+      const enrolledHost = await tx.select({ id: coordinationV2HostEnrollments.id })
+        .from(coordinationV2HostEnrollments).limit(1);
+      if (!enrolledHost[0]) {
+        const existingRequest = await tx.select({ id: coordinationV2HostEnrollmentRequests.id })
+          .from(coordinationV2HostEnrollmentRequests).limit(1);
+        if (existingRequest[0]) fail('V2_HOST_BOOTSTRAP_CONSUMED');
+        const publishedSource = await tx.select({ id: coordinationV2SourcePromotions.id })
+          .from(coordinationV2SourcePromotions)
+          .where(eq(coordinationV2SourcePromotions.state, 'published'))
+          .limit(1);
+        if (!publishedSource[0]) fail('V2_HOST_SOURCE_PROMOTION_REQUIRED');
+        assertCoordinationV2InitialBootstrap({
+          providedSecret: input.bootstrapSecret,
+          configuredSecret: process.env.COORDINATION_V2_HOST_BOOTSTRAP_SECRET,
+        });
       }
       const row = await tx.insert(coordinationV2HostEnrollmentRequests).values({
         id: randomUUID(), hostKey: declaration.hostId, hostType: 'windows', displayName: declaration.hostId,

@@ -18,6 +18,7 @@ import { strictLimiter } from '../middleware/rate-limiter';
 
 export type CoordinationV2HostAdminRouteDependencies = {
   founderMiddleware?: readonly RequestHandler[];
+  submitEnrollmentRequest?: typeof submitCoordinationV2HostEnrollmentRequest;
 };
 
 function actor(req: Request): string {
@@ -31,10 +32,13 @@ function text(body: Record<string, unknown>, key: string): string {
 function replyError(res: Response, error: unknown): void {
   const code = error instanceof CoordinationV2HostAuthError ? error.code
     : error instanceof CoordinationHostEnrollmentError ? error.code : 'V2_HOST_DATABASE_UNAVAILABLE';
-  const status = code.endsWith('REQUIRED') ? 401
+  const status = code === 'V2_HOST_SOURCE_PROMOTION_REQUIRED' ? 409
+    : code === 'V2_HOST_BOOTSTRAP_UNAVAILABLE' ? 503
+      : code === 'V2_HOST_BOOTSTRAP_DENIED' ? 403
+        : code.endsWith('REQUIRED') ? 401
     : code.includes('NOT_FOUND') ? 404
       : code.includes('REVOKED') || code.includes('SCOPE') ? 403
-        : code.includes('CONFLICT') || code.includes('REPLAYED') ? 409
+        : code.includes('CONFLICT') || code.includes('REPLAYED') || code.includes('CONSUMED') ? 409
           : code.includes('DATABASE') ? 503 : 422;
   res.status(status).json({ error: { code } });
 }
@@ -46,13 +50,16 @@ export function registerCoordinationV2HostAdminRoutes(
   const founderSession = dependencies.founderMiddleware
     ? [...dependencies.founderMiddleware]
     : [isAuthenticated, loadAuthenticatedUser(storage), requireFounder];
+  const submitEnrollmentRequest = dependencies.submitEnrollmentRequest
+    ?? submitCoordinationV2HostEnrollmentRequest;
 
   app.post('/api/coordination/v2/host-enrollment-requests', strictLimiter, async (req: Request, res: Response) => {
     try {
       const body = (req.body ?? {}) as Record<string, unknown>;
-      const result = await submitCoordinationV2HostEnrollmentRequest({
+      const result = await submitEnrollmentRequest({
         requestKey: text(body, 'requestKey'), declaration: body.declaration,
         publicKey: text(body, 'publicKey'), keyFingerprint: text(body, 'keyFingerprint'),
+        bootstrapSecret: req.get('x-coordination-initial-bootstrap') || undefined,
         capabilities: Array.isArray(body.capabilities) ? body.capabilities.filter((v): v is string => typeof v === 'string') : undefined,
       });
       res.status(result.created ? 201 : 200).json(result);

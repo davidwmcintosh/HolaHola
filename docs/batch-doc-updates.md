@@ -1,3 +1,37 @@
+# Coordinator V2 first-host bootstrap boundary — 2026-09-14
+
+- Added the missing secure bootstrap for the first Coordinator V2 host-enrollment
+  request. While both the host and request tables are empty, enrollment requires
+  published source-promotion authority plus the Replit-held
+  `COORDINATION_V2_HOST_BOOTSTRAP_SECRET` supplied through
+  `x-coordination-initial-bootstrap`.
+- A PostgreSQL transaction advisory lock serializes the zero-row decision and
+  insert. The first pending request durably consumes bootstrap authority without
+  enrolling or approving a host; founder approval and RSA possession proof remain
+  mandatory. Exact request retries are idempotent, distinct concurrent requests
+  produce one winner, and later requests use the existing founder-approval path
+  after a host exists.
+- Secret comparison is strict and constant-time after equal-length validation.
+  Secret values are neither logged nor persisted; the database stores no plaintext
+  or digest of the bootstrap secret.
+- The isolated migrated PostgreSQL 16 suite passed 3/3 with zero skips, including
+  real concurrent transactions and proof that bootstrap creates no host or
+  credential. TypeScript, focused secret/HTTP/source tests, and diff checks passed.
+  The app was restarted and returned HTTP 200 through both local and Replit preview
+  paths. System health had zero failures; its two route warnings occurred during
+  restart and were resolved by the subsequent HTTP checks.
+- Gemini gave `APPROVED — Ship it.` after the added behavioral evidence. Alden
+  Anthropic also approved, and the independent architecture review verdict was
+  `SHIP`. The consultation record is stored in `conversation_memories`.
+- The registered Validation workflow passed its 68-command application suite and
+  source-bridge checks, then failed an unrelated stale static assertion in
+  `test-coordination-v2-host-completion-boundary.test.ts` against separately
+  changing HTTP-factory source. Consolidated CI passed the new first-host bootstrap
+  check and failed only the pre-existing `workflow-safety` group: the same stale
+  assertion plus a PostgreSQL suite that correctly refused the shared database
+  without its disposable-target flag. Those separately owned failures were not
+  modified or absorbed.
+
 # Coordinator V2 Milestone 14 host completion layer
 
 Added the real-Windows completion boundary for Coordinator V2: separate
