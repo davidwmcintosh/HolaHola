@@ -51,14 +51,16 @@ function assertStaticBoundaryProof(script: string): void {
   assert.match(register, /function\s+Register-HolaCoordinatorHost/);
   assert.match(register, /\$CurrentUserScope/);
   assert.match(register, /ProtectedData\]::Protect\s*\(/);
-  assert.equal((register.match(/ProtectedData\]::Protect\s*\(/g) ?? []).length, 3,
-    "only private-key, request, and host-material custody may call DPAPI Protect");
-  assert.doesNotMatch(register, /ProtectedData\]::Unprotect\s*\(/);
+  assert.equal((register.match(/ProtectedData\]::Protect\s*\(/g) ?? []).length, 4,
+    "only retry, private-key, confirmed-request, and host-material custody may call DPAPI Protect");
+  assert.equal((register.match(/ProtectedData\]::Unprotect\s*\(/g) ?? []).length, 1,
+    "only enrollment retry recovery may call DPAPI Unprotect");
   assert.doesNotMatch(register, /DataProtectionScope\]::(?:LocalMachine|Machine)/i);
-  assert.doesNotMatch(register, /Set-Clipboard|Out-File|Write-Host|Write-Output|Console\./i);
+  assert.match(register, /Set-Clipboard\s+-Value\s+\$null/);
+  assert.doesNotMatch(register, /Out-File|Write-Host|Write-Output|Console\./i);
   assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\$privatePath\s+-Bytes\s+\$protected/);
   assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\$requestPath\s+-Bytes\s+\$requestCipher/);
-  assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\(Join-Path\s+\$registrationRoot\s+'host-material\.dpapi'\)\s+-Bytes\s+\$materialCipher/);
+  assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\$materialPath\s+-Bytes\s+\$materialCipher/);
   assert.doesNotMatch(register, /manual|copy|credential output|plaintext/i);
 }
 

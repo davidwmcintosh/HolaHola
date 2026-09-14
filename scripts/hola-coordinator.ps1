@@ -3,6 +3,7 @@ param()
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Security
 
 $LauncherPath = $MyInvocation.MyCommand.Path
 $LauncherRoot = Split-Path -Parent $LauncherPath
@@ -225,80 +226,173 @@ function Register-HolaCoordinatorHost {
     New-Item -ItemType Directory -Path $registrationRoot -Force | Out-Null
     $privatePath = Join-Path $registrationRoot 'host-private-key.dpapi'
     $requestPath = Join-Path $registrationRoot 'enrollment-request.dpapi'
-    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider(2048)
+    $materialPath = Join-Path $registrationRoot 'host-material.dpapi'
+    $endpointBase = $Endpoint.TrimEnd('/')
+    $rsa = $null
     try {
-        $parameters = $rsa.ExportParameters($true)
         $b64url = {
             param([byte[]]$Bytes)
             ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
         }
+        if (Test-Path -LiteralPath $requestPath) {
+            $requestCipher = [Convert]::FromBase64String([IO.File]::ReadAllText($requestPath))
+            $requestBytes = [Security.Cryptography.ProtectedData]::Unprotect(
+                $requestCipher, $null, $CurrentUserScope)
+            $requestState = [Text.Encoding]::UTF8.GetString($requestBytes) | ConvertFrom-Json
+            if ([string]$requestState.endpoint -ne $endpointBase -or
+                [string]::IsNullOrWhiteSpace([string]$requestState.privateXml) -or
+                [string]::IsNullOrWhiteSpace([string]$requestState.body) -or
+                [string]::IsNullOrWhiteSpace([string]$requestState.requestKey) -or
+                [string]$requestState.fingerprint -notmatch '^[a-f0-9]{64}$') {
+                Fail-Safe 'enrollment_retry_authority_corrupted'
+            }
+            $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+            $rsa.FromXmlString([string]$requestState.privateXml)
+        } else {
+            if (Test-Path -LiteralPath $privatePath) {
+                Fail-Safe 'enrollment_retry_authority_missing'
+            }
+            $bootstrap = [string]$env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET
+            if ($bootstrap -notmatch '^[A-Za-z0-9_-]{43}$') {
+                Fail-Safe 'initial_bootstrap_unavailable'
+            }
+            $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider(2048)
+            $parameters = $rsa.ExportParameters($true)
+            $public = [ordered]@{
+                kty = 'RSA'; n = & $b64url $parameters.Modulus; e = & $b64url $parameters.Exponent
+            }
+            $publicJson = $public | ConvertTo-Json -Compress
+            $fingerprintBytes = [Text.Encoding]::UTF8.GetBytes(('{"e":"' + $public.e + '","kty":"RSA","n":"' + $public.n + '"}'))
+            $fingerprint = ([Security.Cryptography.SHA256]::Create().ComputeHash($fingerprintBytes) |
+                ForEach-Object { $_.ToString('x2') }) -join ''
+            $requestKey = [Guid]::NewGuid().ToString('N')
+            $hostJson = ([string][Environment]::MachineName | ConvertTo-Json -Compress)
+            $capabilitiesJson = '["host:cleanup","host:transport"]'
+            $declarationDigestInput = '{"capabilities":' + $capabilitiesJson + ',"hostId":' + $hostJson + ',"protocolVersion":1}'
+            $declarationDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+                [Text.Encoding]::UTF8.GetBytes($declarationDigestInput)) |
+                ForEach-Object { $_.ToString('x2') }) -join ''
+            $issuedAt = [DateTime]::UtcNow.ToString('o')
+            $expiresAt = [DateTime]::UtcNow.AddMinutes(15).ToString('o')
+            $payloadJson = '{"capabilities":' + $capabilitiesJson + ',"declarationDigest":"' + $declarationDigest + '","hostId":' + $hostJson + ',"protocolVersion":1}'
+            $envelopeBase = '{"correlationId":"' + $requestKey + '","expiresAt":"' + $expiresAt + '","issuedAt":"' + $issuedAt + '","kind":"enrollment_declaration","payload":' + $payloadJson + ',"protocolVersion":1,"requestId":"' + $requestKey + '"}'
+            $envelopeDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+                [Text.Encoding]::UTF8.GetBytes($envelopeBase)) |
+                ForEach-Object { $_.ToString('x2') }) -join ''
+            $declaration = [ordered]@{
+                protocolVersion = 1; kind = 'enrollment_declaration'; requestId = $requestKey
+                correlationId = $requestKey; issuedAt = $issuedAt; expiresAt = $expiresAt
+                payload = [ordered]@{
+                    hostId = [Environment]::MachineName; declarationDigest = $declarationDigest
+                    capabilities = @('host:cleanup', 'host:transport'); protocolVersion = 1
+                }; digest = $envelopeDigest
+            }
+            $body = [ordered]@{
+                requestKey = $requestKey; declaration = $declaration
+                publicKey = $publicJson; keyFingerprint = $fingerprint
+                capabilities = $declaration.payload.capabilities
+            } | ConvertTo-Json -Depth 5 -Compress
+            $requestState = [ordered]@{
+                endpoint = $endpointBase; requestId = ''; requestKey = $requestKey
+                fingerprint = $fingerprint; body = $body; privateXml = $rsa.ToXmlString($true)
+            }
+            $requestCipher = [Security.Cryptography.ProtectedData]::Protect(
+                [Text.Encoding]::UTF8.GetBytes(($requestState | ConvertTo-Json -Depth 5 -Compress)),
+                $null, $CurrentUserScope)
+            Write-DpapiBase64Atomic -Path $requestPath -Bytes $requestCipher
+        }
+
+        $parameters = $rsa.ExportParameters($false)
         $public = [ordered]@{
             kty = 'RSA'; n = & $b64url $parameters.Modulus; e = & $b64url $parameters.Exponent
         }
-        $publicJson = $public | ConvertTo-Json -Compress
-        $fingerprintBytes = [Text.Encoding]::UTF8.GetBytes(('{"e":"' + $public.e + '","kty":"RSA","n":"' + $public.n + '"}'))
-        $fingerprint = ([Security.Cryptography.SHA256]::Create().ComputeHash($fingerprintBytes) |
+        $derivedFingerprintBytes = [Text.Encoding]::UTF8.GetBytes(
+            ('{"e":"' + $public.e + '","kty":"RSA","n":"' + $public.n + '"}'))
+        $derivedFingerprint = ([Security.Cryptography.SHA256]::Create().ComputeHash($derivedFingerprintBytes) |
             ForEach-Object { $_.ToString('x2') }) -join ''
-        $requestKey = [Guid]::NewGuid().ToString('N')
-        $hostJson = ([string][Environment]::MachineName | ConvertTo-Json -Compress)
-        $capabilitiesJson = '["host:cleanup","host:transport"]'
-        $declarationDigestInput = '{"capabilities":' + $capabilitiesJson + ',"hostId":' + $hostJson + ',"protocolVersion":1}'
-        $declarationDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
-            [Text.Encoding]::UTF8.GetBytes($declarationDigestInput)) |
-            ForEach-Object { $_.ToString('x2') }) -join ''
-        $issuedAt = [DateTime]::UtcNow.ToString('o')
-        $expiresAt = [DateTime]::UtcNow.AddMinutes(15).ToString('o')
-        $payloadJson = '{"capabilities":' + $capabilitiesJson + ',"declarationDigest":"' + $declarationDigest + '","hostId":' + $hostJson + ',"protocolVersion":1}'
-        $envelopeBase = '{"correlationId":"' + $requestKey + '","expiresAt":"' + $expiresAt + '","issuedAt":"' + $issuedAt + '","kind":"enrollment_declaration","payload":' + $payloadJson + ',"protocolVersion":1,"requestId":"' + $requestKey + '"}'
-        $envelopeDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
-            [Text.Encoding]::UTF8.GetBytes($envelopeBase)) |
-            ForEach-Object { $_.ToString('x2') }) -join ''
-        $declaration = [ordered]@{
-            protocolVersion = 1; kind = 'enrollment_declaration'; requestId = $requestKey
-            correlationId = $requestKey; issuedAt = $issuedAt; expiresAt = $expiresAt
-            payload = [ordered]@{
-                hostId = [Environment]::MachineName; declarationDigest = $declarationDigest
-                capabilities = @('host:cleanup', 'host:transport'); protocolVersion = 1
-            }; digest = $envelopeDigest
+        $derivedPublicJson = $public | ConvertTo-Json -Compress
+        $parsedBody = [string]$requestState.body | ConvertFrom-Json
+        if ($derivedFingerprint -ne [string]$requestState.fingerprint -or
+            [string]$parsedBody.keyFingerprint -ne $derivedFingerprint -or
+            [string]$parsedBody.publicKey -ne $derivedPublicJson -or
+            [string]$parsedBody.requestKey -ne [string]$requestState.requestKey) {
+            Fail-Safe 'enrollment_retry_authority_corrupted'
         }
-        $body = [ordered]@{
-            requestKey = $requestKey; declaration = $declaration
-            publicKey = $publicJson; keyFingerprint = $fingerprint
-            capabilities = $declaration.payload.capabilities
-        } | ConvertTo-Json -Depth 5 -Compress
-        $request = Invoke-RestMethod -Method Post -Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host-enrollment-requests') `
-            -ContentType 'application/json' -Body $body -UseBasicParsing
+
         $privateXml = $rsa.ToXmlString($true)
         $protected = [Security.Cryptography.ProtectedData]::Protect(
             [Text.Encoding]::UTF8.GetBytes($privateXml), $null, $CurrentUserScope)
         Write-DpapiBase64Atomic -Path $privatePath -Bytes $protected
-        $requestState = @{ endpoint = $Endpoint.TrimEnd('/'); requestId = $request.requestId; fingerprint = $fingerprint }
-        $requestCipher = [Security.Cryptography.ProtectedData]::Protect(
-            [Text.Encoding]::UTF8.GetBytes(($requestState | ConvertTo-Json -Compress)), $null, $CurrentUserScope)
-        Write-DpapiBase64Atomic -Path $requestPath -Bytes $requestCipher
-        $approvalSeparator = if ($FounderApprovalUrl.Contains('?')) { '&' } else { '?' }
-        Start-Process ($FounderApprovalUrl + $approvalSeparator + 'requestId=' + [Uri]::EscapeDataString([string]$request.requestId)) | Out-Null
+
+        if ([string]::IsNullOrWhiteSpace([string]$requestState.requestId)) {
+            $bootstrap = [string]$env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET
+            if ($bootstrap -notmatch '^[A-Za-z0-9_-]{43}$') {
+                Fail-Safe 'initial_bootstrap_unavailable'
+            }
+            $request = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests') `
+                -Headers @{ 'x-coordination-initial-bootstrap' = $bootstrap } `
+                -ContentType 'application/json' -Body ([string]$requestState.body) -UseBasicParsing
+            if ([string]$request.requestId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+                Fail-Safe 'enrollment_response_invalid'
+            }
+            $requestState.requestId = [string]$request.requestId
+            $requestCipher = [Security.Cryptography.ProtectedData]::Protect(
+                [Text.Encoding]::UTF8.GetBytes(($requestState | ConvertTo-Json -Depth 5 -Compress)),
+                $null, $CurrentUserScope)
+            Write-DpapiBase64Atomic -Path $requestPath -Bytes $requestCipher
+            $env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET = $null
+            Remove-Item Env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET -ErrorAction SilentlyContinue
+            Set-Clipboard -Value $null -ErrorAction SilentlyContinue
+            return [ordered]@{
+                requestId = [string]$request.requestId
+                fingerprint = [string]$requestState.fingerprint
+                status = [string]$request.status
+                created = [bool]$request.created
+            }
+        }
+
+        $env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET = $null
+        Remove-Item Env:COORDINATION_V2_HOST_BOOTSTRAP_SECRET -ErrorAction SilentlyContinue
+        Set-Clipboard -Value $null -ErrorAction SilentlyContinue
+        $approvalFragment = ''
+        $approvalBase = $FounderApprovalUrl
+        $fragmentIndex = $FounderApprovalUrl.IndexOf('#')
+        if ($fragmentIndex -ge 0) {
+            $approvalFragment = $FounderApprovalUrl.Substring($fragmentIndex)
+            $approvalBase = $FounderApprovalUrl.Substring(0, $fragmentIndex)
+        }
+        $approvalSeparator = if ($approvalBase.Contains('?')) { '&' } else { '?' }
+        Start-Process ($approvalBase + $approvalSeparator + 'requestId=' +
+            [Uri]::EscapeDataString([string]$requestState.requestId) + $approvalFragment) | Out-Null
         $deadline = [DateTime]::UtcNow.AddMinutes(15)
         while ([DateTime]::UtcNow -lt $deadline) {
             Start-Sleep -Seconds 2
-            $status = Invoke-RestMethod -Method Get -Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host-enrollment-requests/' + $request.requestId + '/status?requestKey=' + [Uri]::EscapeDataString($requestKey)) -UseBasicParsing
+            $status = Invoke-RestMethod -Method Get -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/status?requestKey=' + [Uri]::EscapeDataString([string]$requestState.requestKey)) -UseBasicParsing
             if ($status.challenge) {
                 $challenge = $status.challenge
                 $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes([string]$challenge.nonce), [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
                 $proof = @{ challengeId = $challenge.id; nonce = $challenge.nonce; signature = [Convert]::ToBase64String($signature) } | ConvertTo-Json -Compress
-                $issued = Invoke-RestMethod -Method Post -Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host-enrollment-requests/' + $request.requestId + '/proof') `
+                $issued = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/proof') `
                     -ContentType 'application/json' -Body $proof -UseBasicParsing
-                $material = @{ endpoint = $Endpoint.TrimEnd('/'); accessToken = $issued.accessToken } | ConvertTo-Json -Compress
+                if ([string]$issued.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
+                    Fail-Safe 'host_credential_invalid'
+                }
+                $material = @{ endpoint = $endpointBase; accessToken = $issued.accessToken } | ConvertTo-Json -Compress
                 $materialCipher = [Security.Cryptography.ProtectedData]::Protect(
                     [Text.Encoding]::UTF8.GetBytes($material), $null, $CurrentUserScope)
-                Write-DpapiBase64Atomic -Path (Join-Path $registrationRoot 'host-material.dpapi') -Bytes $materialCipher
+                Write-DpapiBase64Atomic -Path $materialPath -Bytes $materialCipher
                 Remove-Item -LiteralPath $requestPath -Force -ErrorAction SilentlyContinue
-                return
+                return [ordered]@{
+                    requestId = [string]$requestState.requestId
+                    fingerprint = [string]$requestState.fingerprint
+                    status = 'completed'
+                    credentialProtected = $true
+                }
             }
         }
         Fail-Safe 'enrollment_approval_timeout'
     } finally {
-        $rsa.Dispose()
+        if ($null -ne $rsa) { $rsa.Dispose() }
     }
 }
 # END COORDINATION_REGISTER_BOUNDARY

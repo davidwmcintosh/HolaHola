@@ -1,3 +1,10 @@
+## September 14, 2026 — Coordinator V2 staged first-host enrollment
+
+- Hardened `Register-HolaCoordinatorHost` so its DPAPI-protected retry authority and RSA identity are durable before the first enrollment POST.
+- Ambiguous retries now reuse the exact request body and key, revalidate the recovered RSA fingerprint, and retain the bootstrap header until the server confirms the idempotent request.
+- Host credentials are validated and protected before enrollment retry authority is removed; founder approval and RSA possession proof remain mandatory.
+- Added the staged enrollment contract to the validation suite and consolidated CI.
+
 # Coordinator V2 first-host bootstrap boundary — 2026-09-14
 
 - Added the missing secure bootstrap for the first Coordinator V2 host-enrollment
