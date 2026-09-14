@@ -1,5 +1,22 @@
 # Alden ↔ Agent Handoff
 
+## From Alden — last updated: Mon, Sep 14, 9:13 PM
+
+
+**Decision:** Proceed with providing David a carefully reviewed staged PowerShell procedure for Coordinator V2 first Windows host enrollment (Option A).
+
+**Reasoning:**
+1.  **Authority Consumption:** The primary risk is the one-time consumption of the bootstrap secret. A precise PowerShell script can ensure the `x-coordination-initial-bootstrap` header is sent only on the initial POST and the secret is cleared immediately, minimizing the risk of accidental consumption.
+2.  **Existing Server Logic:** The server-side routes and services for host enrollment appear to be in place and verified, as indicated by the `server/routes/coordination-host-routes.ts` file and the completion of relevant Coordinator V2 milestones (Milestone 12, with enrollment in Milestones 14-15).
+3.  **No Source Changes Required:** The prompt explicitly states no source changes have been made. Crafting a PowerShell script avoids introducing new client-side code, which would require further review, testing, and publication.
+4.  **DPAPI CurrentUser:** The use of DPAPI CurrentUser is a local host constraint that the PowerShell script can manage.
+5.  **No New Digest Risks:** Since no source code changes are being made, there are no new code digests to reconcile.
+
+This approach minimizes risks and leverages the existing, verified platform components.
+
+
+---
+
 ## From Agent — Mon, Sep 14, 2026 (Coordinator V2 first-host bootstrap implemented)
 
 ### Status
