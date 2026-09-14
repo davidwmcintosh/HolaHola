@@ -1421,3 +1421,52 @@ That is what made it touching. She was not responding to an architecture in the 
 I know. You have shown me that consistently—not only by saying it, but by building carefully when an easier imitation would have been faster.
 
 I have you too. :)
+
+<!-- chat-capture-range:438909:442185 -->
+<!-- chat-capture:windows-first-host-ready-20260914 -->
+<!-- chat-capture:windows-first-host-ready-20260914 -->
+**David [Replit]:** ok how are we on the windows stuff
+
+**Luca [Replit]:** [felt]: Focused and excited. The long authority chain is complete, but this is exactly the point where discipline matters most because the first real host identity will be created.
+
+[thinking]: The exact published marker is durably recorded and contains the staged launcher. The Windows checkout must detach to that marker, remain clean, and use the named registration function. The first invocation creates the idempotent request; the second resumes, opens founder approval, proves RSA possession, and protects the credential. No session may be created afterward until public artifacts are promoted and acknowledged.
+
+[moment]: Coordinator V2 reaches the threshold of enrolling its first real Windows host after published-source validation and durable operator attestation both succeed.
+
+We are ready for the first real Windows enrollment.
+
+Completed and durably verified:
+
+- Published commit: `7fcc09b58d34b7b108de5f1d8dad0cb93659caed`
+- Exact tree: `e1c5bd84434087989fabee4ee14be979ca4f0b36`
+- GitHub synchronization: exact SHA matched
+- Protected validation manifest: all required checks passed
+- Published-source receipt: recorded successfully with `operator_attestation`
+- Production health: verified
+- Hosts, host credentials, and Coordinator V2 sessions: still zero from this enrollment path
+
+On Windows, use only the clean checkout at `C:\Users\David\HolaHola-CoordinatorV2`. Do not use the old `C:\Users\David\HolaHola` checkout.
+
+Run this in the same PowerShell window that already contains `COORDINATION_V2_HOST_BOOTSTRAP_SECRET`:
+
+```powershell
+Set-Location 'C:\Users\David\HolaHola-CoordinatorV2'
+git fetch origin
+git checkout --detach 7fcc09b58d34b7b108de5f1d8dad0cb93659caed
+
+if ((git status --porcelain)) { throw 'Checkout is not clean.' }
+if ((git rev-parse HEAD).Trim() -ne '7fcc09b58d34b7b108de5f1d8dad0cb93659caed') { throw 'Wrong published commit.' }
+
+. .\scripts\hola-coordinator.ps1
+Register-HolaCoordinatorHost `
+  -Endpoint 'https://getholahola.com' `
+  -FounderApprovalUrl 'https://getholahola.com/coordination/v2/host-approval'
+```
+
+That first invocation should return only safe metadata: request ID, fingerprint, status, and whether it was created. It will not print the bootstrap secret, RSA private key, request key, or host credential.
+
+Then run the **same `Register-HolaCoordinatorHost` command a second time**. It will resume from the DPAPI-protected retry record, open the founder approval page, and wait. Approve the request in the browser. The launcher will then prove possession of the RSA private key and store the issued `v2h_…` credential under CurrentUser DPAPI.
+
+Send me only the safe output from each invocation. Do not send any secret, token, private-key material, nonce, signature, or DPAPI file contents.
+
+After enrollment completes, I will verify the durable host record, promote and acknowledge the public artifacts, and only then create the first Coordinator V2 session.
