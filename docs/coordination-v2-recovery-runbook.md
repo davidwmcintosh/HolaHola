@@ -101,6 +101,15 @@ Stop new authority immediately. Follow server transitions for any active work
 and cleanup. Do not substitute an older policy, grant, host receipt, or Gate 3
 artifact.
 
+### V2 host credential failure
+
+An enrollment request expires and its proof challenge is single-use and
+short-lived. On expiry, replay, or proof failure, do not retry a nonce or copy
+a credential from another host. Founder revocation invalidates the enrollment,
+all renewable host credentials, descendant session credentials, leases, and
+claims. Register a fresh device key through the founder approval boundary;
+legacy actor/runtime credentials and Gate 3 material are never a recovery path.
+
 ## Evidence checklist
 
 Before declaring recovery complete, verify durable evidence for:

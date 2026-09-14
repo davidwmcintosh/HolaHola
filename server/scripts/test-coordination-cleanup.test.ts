@@ -46,9 +46,9 @@ test('terminal cleanup revokes live authority without changing result or evidenc
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
-        capabilities, enrollment_digest, status, created_by)
-       VALUES ($1,$2,'test','Cleanup test host',1,'test-key',$3,ARRAY['poll'],$4,'active','cleanup-test')`,
-      [hostId, id('host-key'), digest('host-key'), digest('host-enrollment')],
+         capabilities, enrollment_digest, enrollment_request_key, status, created_by)
+        VALUES ($1,$2,'test','Cleanup test host',1,'test-key',$3,ARRAY['poll'],$4,$5,'active','cleanup-test')`,
+       [hostId, id('host-key'), digest('host-key'), digest('host-enrollment'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities

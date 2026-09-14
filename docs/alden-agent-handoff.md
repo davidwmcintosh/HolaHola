@@ -1,3 +1,32 @@
+# Coordinator V2 Milestone 14 handoff
+
+## Revised device enrollment boundary
+
+The M14 host path uses separate `Register-HolaCoordinatorHost` setup. Windows
+generates and DPAPI-protects an asymmetric private key, submits a pending
+public-key declaration, waits for founder approval, signs a one-use nonce, and
+stores the renewable host credential locally. `Invoke-HolaCoordinator` never
+performs registration or accepts copied bootstrap material. Session credentials
+are issued only after preparation acknowledgement and are exact
+host/session/holder/protocol/capability scopes; terminal cleanup revokes them.
+
+The V2 host completion layer is additive and fail-closed. Review migration
+`0049_dizzy_mentor.sql`, `0050_true_black_knight.sql`, and
+`0051_opposite_marrow.sql` before any disposable Neon branch gate. The new
+host bootstrap and credential tables contain hashes, public identity,
+lineage, capability, protocol, scope, expiry, and revocation only; no bearer
+plaintext is persisted. `coordination-v2-host-auth-service.ts` is the only
+authority issuance/resolution path, and
+`coordination-v2-host-auth.ts` deliberately does not call legacy auth.
+
+The standalone CLI's default Windows composition reads DPAPI
+`CurrentUser`-protected local material through
+`coordination-v2-http-factory.ts`; operator input remains TaskRef plus
+optional Policy/Format. The launcher is relative-path based and rejects dirty
+or wrong-commit worktrees. M15 transport interruption acceptance is not part
+of this handoff. Pending gates: disposable Neon migration proof, migration
+review/application by the main agent, and real Windows PowerShell 5.1/DPAPI
+acceptance.
 ### Coordinator V2 Milestone 4 operation mapping
 
 | M4 operation | Existing grant action | Scope |

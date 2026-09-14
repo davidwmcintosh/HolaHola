@@ -114,6 +114,15 @@ Protocol validation uses:
 See [Coordinator V2 stable diagnostics](coordination-v2-error-codes.md) for the
 full catalog and retry classifications.
 
+Registration is separate from invocation: Windows submits a bounded public-key
+declaration, a founder approves it, and the host proves possession by signing a
+short-lived nonce. The resulting renewable host identity is stored under DPAPI
+`CurrentUser`; no token is manually copied. Host lifecycle setup uses
+`x-coordination-v2-host-token`, while session mutations use the separately
+issued `x-coordination-v2-session-token`, never the legacy
+`x-coordination-token` actor/runtime namespace. Replay, expiry, revocation,
+wrong protocol, capability, holder, or session scope all fail closed.
+
 ## Windows custody limitation
 
 The protected credential and fixed local paths are scoped to the Windows user

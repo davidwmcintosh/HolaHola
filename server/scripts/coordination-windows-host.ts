@@ -70,16 +70,79 @@ export type CoordinationWindowsPreparationInput = {
   root: string;
   activePointer: string;
   publicArtifacts: Record<string, Uint8Array | string>;
-  secretPlaintext: Uint8Array | string;
+  secretPlaintext?: Uint8Array | string;
   dependencies: LocalPreparationDependencies;
   acknowledgementRequestKey: string;
   safePromotionEvidenceDigest: string;
 };
 
-export type CoordinationWindowsLifecycleState = {
-  /** Opaque server/local state. It is never returned by the host. */
+export type CoordinationWindowsBoundState = {
+  readonly sessionId: string;
+  readonly reservationId: string;
+  readonly generationId: string;
+  readonly policyVersionId: string;
+  readonly attemptId: string;
+  readonly enrolledHostId: string;
+  readonly leaseId: string;
+  readonly leaseEpoch: number;
+  readonly holderInstanceId: string;
+  readonly binding: Record<string, unknown>;
+  readonly sessionToken: string;
+  readonly cleanupSessionToken: string;
+  readonly cleanupCredentialId: string;
+};
+export type CoordinationWindowsAcknowledgedState = {
+  readonly sessionId: string;
+  readonly reservationId: string;
+  readonly generationId: string;
+  readonly policyVersionId: string;
+  readonly attemptId: string;
+  readonly enrolledHostId: string;
+};
+export type CoordinationWindowsLifecycleState = CoordinationWindowsBoundState | {
+  /** Pre-acknowledgement opaque state; never returned by the host. */
   readonly [key: string]: unknown;
 };
+
+const ACKNOWLEDGED_STATE_KEYS = [
+  "sessionId", "reservationId", "generationId", "policyVersionId", "attemptId", "enrolledHostId",
+] as const;
+
+export function validateCoordinationWindowsAcknowledgedState(
+  value: unknown,
+): CoordinationWindowsAcknowledgedState {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.getPrototypeOf(value) !== Object.prototype) throw new Error("acknowledged_state_invalid");
+  const candidate = value as Record<string, unknown>;
+  const keys = Object.keys(candidate).sort();
+  const expectedKeys = [...ACKNOWLEDGED_STATE_KEYS].sort();
+  if (keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) {
+    throw new Error("acknowledged_state_invalid");
+  }
+  for (const key of ACKNOWLEDGED_STATE_KEYS) {
+    const field = candidate[key];
+    if (typeof field !== "string" || field.length === 0 || field.length > 256 || field.trim() !== field) {
+      throw new Error("acknowledged_state_invalid");
+    }
+  }
+  return candidate as CoordinationWindowsAcknowledgedState;
+}
+
+function boundState(value: unknown): CoordinationWindowsBoundState {
+  if (!value || typeof value !== "object") throw new Error("bound_state_missing");
+  const candidate = value as Record<string, unknown>;
+  const strings = ["sessionId", "reservationId", "generationId", "policyVersionId", "attemptId",
+    "enrolledHostId", "leaseId", "holderInstanceId", "sessionToken", "cleanupSessionToken", "cleanupCredentialId"];
+  if (strings.some((key) => typeof candidate[key] !== "string" || !(candidate[key] as string))) throw new Error("bound_state_invalid");
+  if (!Number.isSafeInteger(candidate.leaseEpoch) || (candidate.leaseEpoch as number) < 0
+    || !candidate.binding || typeof candidate.binding !== "object") throw new Error("bound_state_invalid");
+  return candidate as unknown as CoordinationWindowsBoundState;
+}
+
+function stateUpdate(current: CoordinationWindowsLifecycleState, update: unknown): CoordinationWindowsLifecycleState {
+  if (update === undefined) return current;
+  return boundState({ ...current, ...(update as Record<string, unknown>) });
+}
 
 export type CoordinationWindowsExecutionJournal = {
   /**
@@ -218,7 +281,20 @@ function validateStructuredResult(
   if (parsed.kind !== "structured_result") throw new Error("invalid_structured_result");
   const resultBinding = (parsed.payload as Record<string, unknown>).binding as HostBinding;
   const claimBinding = (claim.payload as Record<string, unknown>).binding as HostBinding;
-  assertHostBinding(resultBinding, claimBinding);
+  // Operation is intentionally per-envelope: a result cannot reuse the
+  // claim's operation/digest, while the authority lineage must remain exact.
+  assertHostBinding(resultBinding, {
+    policyVersionId: claimBinding.policyVersionId,
+    sessionId: claimBinding.sessionId,
+    attemptId: claimBinding.attemptId,
+    enrolledHostId: claimBinding.enrolledHostId,
+    transportLeaseId: claimBinding.transportLeaseId,
+    leaseEpoch: claimBinding.leaseEpoch,
+    holderInstanceId: claimBinding.holderInstanceId,
+  });
+  if (!resultBinding.operation || !resultBinding.operationDigest) {
+    throw new Error("invalid_result_operation_binding");
+  }
   return parsed as HostEnvelope<"structured_result">;
 }
 
@@ -264,11 +340,9 @@ export async function runCoordinationWindowsHost(
       const terminal = safeTerminal(started.terminalState);
       return finalizeTerminal(terminal, started.state ?? {}, dependencies, attempts);
     }
-    let state = started.state ?? {};
-
     if (started.preparation === null) return result({ state: "host_unavailable", cleanupAcknowledged: false });
     const hasPreparation = started.preparation !== undefined;
-    if (hasPreparation === (started.alreadyAcknowledged === true)) {
+    if (hasPreparation && started.alreadyAcknowledged === true) {
       return result({ state: "host_unavailable", cleanupAcknowledged: false });
     }
     if (hasPreparation) {
@@ -285,9 +359,31 @@ export async function runCoordinationWindowsHost(
         return result({ state: "failed", cleanupAcknowledged: false });
       }
     }
+    // Preparation acknowledgement and an unacknowledged lifecycle response
+    // never carry session authority. Re-read the lifecycle authority before
+    // leasing, rather than trusting any initial state-shaped value.
+    let acknowledgedState: unknown;
+    if (hasPreparation || started.alreadyAcknowledged !== true) {
+      const acknowledged = await retry(() => dependencies.transport.start(input), attempts);
+      if (acknowledged.alreadyAcknowledged !== true
+        || acknowledged.preparation !== undefined
+        || !acknowledged.state) {
+        return result({ state: "host_unavailable", cleanupAcknowledged: false });
+      }
+      acknowledgedState = acknowledged.state;
+    } else {
+      acknowledgedState = started.state;
+    }
+    let validatedState: CoordinationWindowsAcknowledgedState;
+    try {
+      validatedState = validateCoordinationWindowsAcknowledgedState(acknowledgedState);
+    } catch {
+      return result({ state: "host_unavailable", cleanupAcknowledged: false });
+    }
 
-    const leased = await retry(() => dependencies.transport.acquireLease({ state }), attempts);
-    state = leased.state ?? state;
+    const leased = await retry(() => dependencies.transport.acquireLease({ state: validatedState }), attempts);
+    let state: CoordinationWindowsLifecycleState;
+    try { state = boundState(leased.state); } catch { return result({ state: "host_unavailable", cleanupAcknowledged: false }); }
     if (leased.terminalState) {
       const terminal = safeTerminal(leased.terminalState);
       return finalizeTerminal(terminal, state, dependencies, attempts);
@@ -308,7 +404,7 @@ export async function runCoordinationWindowsHost(
         () => dependencies.transport.poll({ state, requestKey: pollKey }),
         attempts,
       );
-      state = polled.state ?? state;
+      try { state = stateUpdate(state, polled.state); } catch { return result({ state: "host_unavailable", cleanupAcknowledged: false }); }
       if (polled.terminalState) {
         const terminal = safeTerminal(polled.terminalState);
         return finalizeTerminal(terminal, state, dependencies, attempts);
@@ -319,7 +415,7 @@ export async function runCoordinationWindowsHost(
           () => dependencies.transport.renew!({ state, requestKey: `renew:${pollIndex}` }),
           attempts,
         );
-        state = renewed.state ?? state;
+        try { state = stateUpdate(state, renewed.state); } catch { return result({ state: "host_unavailable", cleanupAcknowledged: false }); }
         if (renewed.terminalState) {
           const terminal = safeTerminal(renewed.terminalState);
           return finalizeTerminal(terminal, state, dependencies, attempts);
@@ -339,7 +435,7 @@ export async function runCoordinationWindowsHost(
         }),
         attempts,
       );
-      state = claimed.state ?? state;
+      try { state = stateUpdate(state, claimed.state); } catch { return result({ state: "host_unavailable", cleanupAcknowledged: false }); }
       if (claimed.terminalState) {
         const terminal = safeTerminal(claimed.terminalState);
         return finalizeTerminal(terminal, state, dependencies, attempts);
@@ -417,7 +513,7 @@ export async function runCoordinationWindowsHost(
         }),
         attempts,
       );
-      state = submitted.state ?? state;
+      try { state = stateUpdate(state, submitted.state); } catch { return result({ state: "host_unavailable", cleanupAcknowledged: false }); }
       if (submitted.terminalState) {
         const terminal = safeTerminal(submitted.terminalState);
         return finalizeTerminal(terminal, state, dependencies, attempts);

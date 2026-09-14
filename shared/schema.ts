@@ -8545,6 +8545,32 @@ export const coordinationCredentialAuditEvents = pgTable("coordination_credentia
 
 // ===== Coordinator V2 control plane =====
 
+export const coordinationV2SourcePromotions = pgTable("coordination_v2_source_promotions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  repositoryIdentity: varchar("repository_identity", { length: 512 }).notNull(),
+  promotedCommitSha: varchar("promoted_commit_sha", { length: 40 }).notNull(),
+  exactTreeSha: varchar("exact_tree_sha", { length: 40 }).notNull(),
+  publicationReference: varchar("publication_reference", { length: 512 }).notNull(),
+  protectedValidationId: varchar("protected_validation_id", { length: 128 }).notNull(),
+  publishTriggerSha: varchar("publish_trigger_sha", { length: 40 }),
+  parentSha: varchar("parent_sha", { length: 40 }),
+  canonicalRecordDigest: varchar("canonical_record_digest", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("published"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  operationReceiptDigest: varchar("operation_receipt_digest", { length: 64 }).notNull(),
+  operationReceiptReference: varchar("operation_receipt_reference", { length: 512 }).notNull(),
+}, (table) => [
+  unique("uq_coordination_v2_source_promotion_identity").on(table.promotedCommitSha, table.exactTreeSha, table.publicationReference, table.protectedValidationId),
+  uniqueIndex("uq_coordination_v2_source_promotion_record_digest").on(table.canonicalRecordDigest),
+  uniqueIndex("uq_coordination_v2_source_promotion_receipt").on(table.operationReceiptDigest),
+  index("idx_coordination_v2_source_promotion_created").on(table.createdAt),
+  check("coordination_v2_source_promotion_state", sql`${table.state} = 'published'`),
+  check("coordination_v2_source_promotion_commit", sql`${table.promotedCommitSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_source_promotion_tree", sql`${table.exactTreeSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_source_promotion_digest", sql`${table.canonicalRecordDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_source_promotion_receipt_digest", sql`${table.operationReceiptDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
 export const coordinationV2HostEnrollments = pgTable("coordination_v2_host_enrollments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hostKey: varchar("host_key", { length: 128 }).notNull(),
@@ -8555,15 +8581,18 @@ export const coordinationV2HostEnrollments = pgTable("coordination_v2_host_enrol
   keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
   capabilities: text("capabilities").array().notNull(),
   enrollmentDigest: varchar("enrollment_digest", { length: 64 }).notNull(),
+  enrollmentRequestKey: varchar("enrollment_request_key", { length: 128 }).notNull(),
   status: varchar("status", { length: 16 }).notNull().default("active"),
   createdBy: varchar("created_by", { length: 128 }).notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   revokedAt: timestamp("revoked_at"),
+  revocationRequestKey: varchar("revocation_request_key", { length: 128 }),
 }, (table) => [
   uniqueIndex("uq_coordination_v2_host_key").on(table.hostKey),
   uniqueIndex("uq_coordination_v2_host_fingerprint").on(table.keyFingerprint),
+  uniqueIndex("uq_coordination_v2_host_enrollment_request").on(table.enrollmentRequestKey),
   index("idx_coordination_v2_host_status").on(table.status, table.updatedAt),
   check("coordination_v2_host_key_nonblank", sql`length(trim(${table.hostKey})) > 0`),
   check("coordination_v2_host_type_nonblank", sql`length(trim(${table.hostType})) > 0`),
@@ -8571,11 +8600,99 @@ export const coordinationV2HostEnrollments = pgTable("coordination_v2_host_enrol
   check("coordination_v2_host_protocol_version", sql`${table.protocolVersion} > 0`),
   check("coordination_v2_host_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
   check("coordination_v2_host_digest", sql`${table.enrollmentDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_request", sql`length(trim(${table.enrollmentRequestKey})) > 0`),
+  check("coordination_v2_host_revocation_request", sql`${table.revocationRequestKey} IS NULL OR length(trim(${table.revocationRequestKey})) > 0`),
   check("coordination_v2_host_status_value", sql`${table.status} IN ('active', 'revoked')`),
   check("coordination_v2_host_lifecycle", sql`
     (${table.status} = 'active' AND ${table.revokedAt} IS NULL)
     OR (${table.status} = 'revoked' AND ${table.revokedAt} IS NOT NULL)
   `),
+]);
+
+/**
+ * Host registration is device-style: the public declaration is pending until
+ * a founder approves it and the host proves possession of its private key.
+ * No bootstrap/plaintext transfer is persisted.
+ */
+export const coordinationV2HostEnrollmentRequests = pgTable("coordination_v2_host_enrollment_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostKey: varchar("host_key", { length: 128 }).notNull(),
+  hostType: varchar("host_type", { length: 40 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  declarationDigest: varchar("declaration_digest", { length: 64 }).notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  founderActor: varchar("founder_actor", { length: 128 }),
+  hostEnrollmentId: varchar("host_enrollment_id")
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  terminalReason: varchar("terminal_reason", { length: 128 }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  terminalAt: timestamp("terminal_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_host_enrollment_request_key").on(table.requestKey),
+  index("idx_coordination_v2_host_enrollment_request_status").on(table.status, table.expiresAt),
+  check("coordination_v2_host_enrollment_request_key", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_host_enrollment_request_digest", sql`${table.declarationDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_enrollment_request_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_enrollment_request_status", sql`${table.status} IN ('pending', 'approved', 'rejected', 'completed', 'expired')`),
+  check("coordination_v2_host_enrollment_request_expiry", sql`${table.expiresAt} > ${table.createdAt}`),
+]);
+
+export const coordinationV2HostProofChallenges = pgTable("coordination_v2_host_proof_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enrollmentRequestId: varchar("enrollment_request_id").notNull()
+    .references(() => coordinationV2HostEnrollmentRequests.id, { onDelete: "restrict" }),
+  nonce: varchar("nonce", { length: 128 }).notNull(),
+  nonceHash: varchar("nonce_hash", { length: 64 }).notNull(),
+  challengeDigest: varchar("challenge_digest", { length: 64 }).notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_host_challenge_request").on(table.enrollmentRequestId),
+  uniqueIndex("uq_coordination_v2_host_challenge_nonce").on(table.nonceHash),
+  check("coordination_v2_host_challenge_nonce", sql`${table.nonceHash} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_challenge_digest", sql`${table.challengeDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_challenge_expiry", sql`${table.expiresAt} > ${table.createdAt}`),
+  check("coordination_v2_host_challenge_consumed", sql`${table.consumedAt} IS NULL OR ${table.consumedAt} >= ${table.createdAt}`),
+]);
+
+export const coordinationV2HostCredentials = pgTable("coordination_v2_host_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  credentialDigest: varchar("credential_digest", { length: 64 }).notNull(),
+  lineageDigest: varchar("lineage_digest", { length: 64 }).notNull(),
+  capability: varchar("capability", { length: 80 }).notNull().default("host:transport"),
+  protocolVersion: integer("protocol_version").notNull(),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }),
+  proofKeyFingerprint: varchar("proof_key_fingerprint", { length: 64 }).notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("uq_coordination_v2_host_credential_scope").on(table.id, table.hostEnrollmentId),
+  uniqueIndex("uq_coordination_v2_host_credential_hash").on(table.tokenHash),
+  uniqueIndex("uq_coordination_v2_host_credential_digest").on(table.credentialDigest),
+  index("idx_coordination_v2_host_credential_active").on(table.hostEnrollmentId, table.expiresAt, table.revokedAt),
+  check("coordination_v2_host_credential_hash", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_digest", sql`${table.credentialDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_lineage", sql`${table.lineageDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_fingerprint", sql`${table.proofKeyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_capability", sql`${table.capability} IN ('host:transport', 'host:cleanup')`),
+  check("coordination_v2_host_credential_protocol", sql`${table.protocolVersion} > 0`),
+  check("coordination_v2_host_credential_holder", sql`${table.holderInstanceId} IS NULL OR length(trim(${table.holderInstanceId})) > 0`),
+  check("coordination_v2_host_credential_expiry", sql`${table.expiresAt} > ${table.issuedAt}`),
+  check("coordination_v2_host_credential_revocation", sql`${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.issuedAt}`),
 ]);
 
 export const coordinationV2PolicyIdentities = pgTable("coordination_v2_policy_identities", {
@@ -8765,12 +8882,15 @@ export const coordinationV2Sessions = pgTable("coordination_v2_sessions", {
   terminalReason: varchar("terminal_reason", { length: 128 }),
   terminalAt: timestamp("terminal_at"),
   idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  preparationReservationId: varchar("preparation_reservation_id"),
   sessionDigest: varchar("session_digest", { length: 64 }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("uq_coordination_v2_session_request").on(table.operatorActor, table.idempotencyKey),
   uniqueIndex("uq_coordination_v2_session_digest").on(table.sessionDigest),
+  uniqueIndex("uq_coordination_v2_session_preparation_reservation").on(table.preparationReservationId)
+    .where(sql`${table.preparationReservationId} IS NOT NULL`),
   // Also serves as the referenced key for preparation reservations: a
   // reservation may only ever bind a session to its enrolled host.
   unique("uq_coordination_v2_session_host_binding").on(table.id, table.enrolledHostId),
@@ -8811,11 +8931,23 @@ export const coordinationV2Sessions = pgTable("coordination_v2_sessions", {
  */
 export const coordinationV2PreparationReservations = pgTable("coordination_v2_preparation_reservations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").notNull()
+  sessionId: varchar("session_id")
     .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
   enrolledHostId: varchar("enrolled_host_id").notNull()
     .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
   generationId: varchar("generation_id", { length: 128 }).notNull(),
+  taskRef: varchar("task_ref", { length: 128 }),
+  taskArtifactSha256: varchar("task_artifact_sha256", { length: 64 }),
+  promotionRecordId: varchar("promotion_record_id"),
+  promotedCommitSha: varchar("promoted_commit_sha", { length: 40 }),
+  exactTreeSha: varchar("exact_tree_sha", { length: 40 }),
+  policyIdentityId: varchar("policy_identity_id"),
+  policyVersionId: varchar("policy_version_id"),
+  operatorGrantId: varchar("operator_grant_id"),
+  operatorActor: varchar("operator_actor", { length: 128 }),
+  budgetsDigest: varchar("budgets_digest", { length: 64 }),
+  completionCriteriaDigest: varchar("completion_criteria_digest", { length: 64 }),
+  validationCriteriaDigest: varchar("validation_criteria_digest", { length: 64 }),
   reservationDigest: varchar("reservation_digest", { length: 64 }).notNull(),
   publicMaterialDigest: varchar("public_material_digest", { length: 64 }).notNull(),
   protocolVersion: integer("protocol_version").notNull(),
@@ -8839,7 +8971,7 @@ export const coordinationV2PreparationReservations = pgTable("coordination_v2_pr
   abandonCode: varchar("abandon_code", { length: 128 }),
 }, (table) => [
   uniqueIndex("uq_coordination_v2_preparation_generation").on(table.generationId),
-  uniqueIndex("uq_coordination_v2_preparation_reserve_request").on(table.sessionId, table.reserveRequestKey),
+  uniqueIndex("uq_coordination_v2_preparation_reserve_request").on(table.reserveRequestKey),
   uniqueIndex("uq_coordination_v2_preparation_ack_request")
     .on(table.sessionId, table.acknowledgementRequestKey)
     .where(sql`${table.acknowledgementRequestKey} IS NOT NULL`),
@@ -8854,6 +8986,8 @@ export const coordinationV2PreparationReservations = pgTable("coordination_v2_pr
     foreignColumns: [coordinationV2Sessions.id, coordinationV2Sessions.enrolledHostId],
   }),
   check("coordination_v2_preparation_protocol_version", sql`${table.protocolVersion} = 1`),
+  check("coordination_v2_preparation_task_shape", sql`${table.taskRef} IS NULL OR (${table.taskRef} ~ '^[1-9][0-9]*$' AND ${table.taskArtifactSha256} ~ '^[0-9a-f]{64}$')`),
+  check("coordination_v2_preparation_promotion_shape", sql`${table.promotedCommitSha} IS NULL OR (${table.promotedCommitSha} ~ '^[0-9a-f]{40}$' AND ${table.exactTreeSha} ~ '^[0-9a-f]{40}$')`),
   check("coordination_v2_preparation_generation_nonblank", sql`length(trim(${table.generationId})) > 0`),
   check("coordination_v2_preparation_repository_nonblank", sql`length(trim(${table.repositoryIdentity})) > 0`),
   check("coordination_v2_preparation_branch", sql`length(trim(${table.branch})) > 0 AND ${table.branch} !~ '[[:cntrl:]]'`),
@@ -9350,6 +9484,67 @@ export const coordinationV2CleanupAcknowledgements = pgTable("coordination_v2_cl
   `),
 ]);
 
+export const coordinationV2SessionCredentials = pgTable("coordination_v2_session_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostCredentialId: varchar("host_credential_id").notNull()
+    .references(() => coordinationV2HostCredentials.id, { onDelete: "restrict" }),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id").notNull()
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  leaseEpoch: integer("lease_epoch").notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  credentialDigest: varchar("credential_digest", { length: 64 }).notNull(),
+  capability: varchar("capability", { length: 80 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_session_credential_hash").on(table.tokenHash),
+  uniqueIndex("uq_coordination_v2_session_credential_digest").on(table.credentialDigest),
+  index("idx_coordination_v2_session_credential_scope").on(table.sessionId, table.attemptId, table.leaseId, table.expiresAt, table.revokedAt),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_host_scope",
+    columns: [table.hostCredentialId, table.hostEnrollmentId],
+    foreignColumns: [coordinationV2HostCredentials.id, coordinationV2HostCredentials.hostEnrollmentId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_session_host",
+    columns: [table.sessionId, table.hostEnrollmentId],
+    foreignColumns: [coordinationV2Sessions.id, coordinationV2Sessions.enrolledHostId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_attempt_session",
+    columns: [table.sessionId, table.attemptId],
+    foreignColumns: [coordinationV2Attempts.sessionId, coordinationV2Attempts.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_lease_session",
+    columns: [table.sessionId, table.leaseId],
+    foreignColumns: [coordinationV2TransportLeases.sessionId, coordinationV2TransportLeases.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_lease_epoch",
+    columns: [table.leaseId, table.leaseEpoch],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.epoch],
+  }),
+  check("coordination_v2_session_credential_hash", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_credential_digest", sql`${table.credentialDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_credential_capability", sql`${table.capability} IN ('host:transport', 'host:cleanup')`),
+  check("coordination_v2_session_credential_protocol", sql`${table.protocolVersion} > 0`),
+  check("coordination_v2_session_credential_lease_epoch", sql`${table.leaseEpoch} > 0`),
+  check("coordination_v2_session_credential_expiry", sql`${table.expiresAt} > ${table.issuedAt}`),
+  check("coordination_v2_session_credential_revocation", sql`${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.issuedAt}`),
+]);
+
 export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
   id: true,
   state: true,
@@ -9374,6 +9569,11 @@ export type CoordinationRuntimeRegistration = typeof coordinationRuntimeRegistra
 export type CoordinationRuntimeCredential = typeof coordinationRuntimeCredentials.$inferSelect;
 export type CoordinationCredentialAuditEvent = typeof coordinationCredentialAuditEvents.$inferSelect;
 export type CoordinationV2HostEnrollment = typeof coordinationV2HostEnrollments.$inferSelect;
+export type CoordinationV2SourcePromotion = typeof coordinationV2SourcePromotions.$inferSelect;
+export type CoordinationV2HostEnrollmentRequest = typeof coordinationV2HostEnrollmentRequests.$inferSelect;
+export type CoordinationV2HostProofChallenge = typeof coordinationV2HostProofChallenges.$inferSelect;
+export type CoordinationV2HostCredential = typeof coordinationV2HostCredentials.$inferSelect;
+export type CoordinationV2SessionCredential = typeof coordinationV2SessionCredentials.$inferSelect;
 export type CoordinationV2PolicyIdentity = typeof coordinationV2PolicyIdentities.$inferSelect;
 export type CoordinationV2PolicyVersion = typeof coordinationV2PolicyVersions.$inferSelect;
 export type CoordinationV2FounderDecision = typeof coordinationV2FounderDecisions.$inferSelect;

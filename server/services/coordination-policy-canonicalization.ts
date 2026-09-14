@@ -221,7 +221,12 @@ export function canonicalizePolicy(input: unknown): CanonicalCoordinationPolicy 
   if (!isRecord(input) || Object.getPrototypeOf(input) !== Object.prototype) {
     throw new PolicyValidationError('policy_not_object');
   }
-  for (const key of Object.keys(input)) rejectSecretKey(key);
+  for (const key of Object.keys(input)) {
+    // These two exact, bounded authority fields are deliberately allowed even
+    // though their names contain credential terminology; arbitrary
+    // secret-shaped fields remain rejected below.
+    if (key !== 'credentialCapabilities' && key !== 'maxCredentialLifetimeMs') rejectSecretKey(key);
+  }
   const unknown = Object.keys(input).find((key) => !(POLICY_FIELDS as readonly string[]).includes(key));
   if (unknown) throw new PolicyValidationError('policy_unknown_field', unknown);
 

@@ -79,14 +79,15 @@ test('Express protocol binding mismatch reaches no durable work authority', asyn
   const hex = (label: string) => createHash('sha256').update(`${suffix}:${label}`).digest('hex');
   const hostId = id('host'); const identityId = id('identity'); const versionId = id('version');
   const grantId = id('grant'); const sessionId = id('session'); const attemptId = id('attempt');
+  let server: http.Server | undefined;
   try {
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
-        capabilities, enrollment_digest, status, created_by)
-       VALUES ($1,$2,'test','Host auth test',1,'test-key',$3,ARRAY['poll'],$4,'active','host-test')`,
-      [hostId, id('host-key'), hex('fingerprint'), hex('enrollment')],
+         capabilities, enrollment_digest, enrollment_request_key, status, created_by)
+        VALUES ($1,$2,'test','Host auth test',1,'test-key',$3,ARRAY['poll'],$4,$5,'active','host-test')`,
+       [hostId, id('host-key'), hex('fingerprint'), hex('enrollment'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities (id, policy_key, display_name, status, created_by)
@@ -102,8 +103,8 @@ test('Express protocol binding mismatch reaches no durable work authority', asyn
     await client.query(
       `INSERT INTO coordination_v2_operator_grants
        (id, policy_identity_id, operator_actor, actions, issued_by, expires_at, grant_digest, request_key)
-       VALUES ($1,$2,'host-test',ARRAY['launch','resume','terminate'],'founder',now()+interval '1 hour',$3,$4)`,
-      [grantId, identityId, hex('grant'), id('grant-key')],
+        VALUES ($1,$2,$3,ARRAY['launch','resume','terminate'],'founder',now()+interval '1 hour',$4,$5)`,
+       [grantId, identityId, hostId, hex('grant'), id('grant-key')],
     );
     await client.query(
       `INSERT INTO coordination_v2_sessions
@@ -111,9 +112,9 @@ test('Express protocol binding mismatch reaches no durable work authority', asyn
         repository_identity, starting_commit, enrolled_host_id, requested_providers, expires_at,
         attempt_budget, per_provider_budgets, required_validations, completion_criteria, state,
         idempotency_key, session_digest)
-       VALUES ($1,$2,$3,'host-test','1',$4,'repo/test',$5,$6,ARRAY['test'],
-               now()+interval '1 hour',5,'{}'::jsonb,ARRAY[]::text[],'{}'::jsonb,'ready',$7,$8)`,
-      [sessionId, versionId, grantId, hex('artifact'), '1'.repeat(40), hostId, id('session-key'), hex('session')],
+        VALUES ($1,$2,$3,$4,'1',$5,'repo/test',$6,$7,ARRAY['test'],
+                now()+interval '1 hour',5,'{}'::jsonb,ARRAY[]::text[],'{}'::jsonb,'ready',$8,$9)`,
+       [sessionId, versionId, grantId, hostId, hex('artifact'), '1'.repeat(40), hostId, id('session-key'), hex('session')],
     );
     await client.query(
       `INSERT INTO coordination_v2_attempts
@@ -125,21 +126,26 @@ test('Express protocol binding mismatch reaches no durable work authority', asyn
     await client.query('COMMIT');
 
     const lease = await acquireCoordinationTransportLease({
-      sessionId, holderInstanceId: 'host-holder', actorId: 'host-test',
+      sessionId, holderInstanceId: 'host-holder', actorId: hostId,
       requestKey: id('lease-request'), durationMs: 10_000,
     });
     const app = express();
     app.use(express.json());
     const auth: RequestHandler = (req, _res, next) => {
-      (req as any).coordinationActor = 'host-test';
+      (req as any).coordinationV2Host = {
+        credentialId: id('credential'), hostEnrollmentId: hostId,
+        capability: 'host:transport', protocolVersion: 1, sessionId: null,
+        holderInstanceId: null, lineageDigest: hex('lineage'),
+      };
       next();
     };
     registerCoordinationHostRoutes(app, { coordinationAuthMiddleware: auth });
-    const server = http.createServer(app);
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const port = (server.address() as { port: number }).port;
+    const activeServer = http.createServer(app);
+    server = activeServer;
+    await new Promise<void>((resolve) => activeServer.listen(0, '127.0.0.1', resolve));
+    const port = (activeServer.address() as { port: number }).port;
     const wrongBinding: HostBinding = {
-      policyVersionId: 'wrong-policy', sessionId, attemptId, enrolledHostId: hostId,
+      policyVersionId: id('alternate-policy-version'), sessionId, attemptId, enrolledHostId: hostId,
       transportLeaseId: lease.id, leaseEpoch: lease.epoch, holderInstanceId: 'host-holder',
       operation: 'claim', operationDigest: hex('operation'),
     };
@@ -151,9 +157,9 @@ test('Express protocol binding mismatch reaches no durable work authority', asyn
     const response = await fetch(`http://127.0.0.1:${port}/api/coordination/v2/host/sessions/${sessionId}/claim`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(envelope),
     });
-    assert.equal(response.status, 403);
-    assert.equal((await response.json()).error.code, 'LEASE_AUTHORIZATION_DENIED');
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    const responseBody = await response.json();
+    assert.equal(response.status, 403, JSON.stringify(responseBody));
+    assert.deepEqual(responseBody, { error: { code: 'LEASE_AUTHORIZATION_DENIED' } });
     const counts = await client.query(
       `SELECT
        (SELECT count(*) FROM coordination_v2_transport_work_claims WHERE session_id=$1) AS claims,
@@ -163,6 +169,9 @@ test('Express protocol binding mismatch reaches no durable work authority', asyn
     );
     assert.deepEqual(counts.rows[0], { claims: '0', results: '0', acknowledgements: '0' });
   } finally {
+    if (server?.listening) {
+      await new Promise<void>((resolve) => server!.close(() => resolve()));
+    }
     await client.query('BEGIN').catch(() => undefined);
     await client.query('DELETE FROM coordination_v2_transport_work_results WHERE session_id=$1', [sessionId]).catch(() => undefined);
     await client.query('DELETE FROM coordination_v2_transport_work_claims WHERE session_id=$1', [sessionId]).catch(() => undefined);

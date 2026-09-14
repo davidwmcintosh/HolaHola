@@ -359,6 +359,24 @@ function operationClaim(): HostEnvelope<"operation_claim"> {
   });
 }
 
+function transportLeaseState(): Record<string, unknown> {
+  return {
+    sessionId: "fault-session", reservationId: "fault-reservation", generationId: "fault-generation",
+    policyVersionId: "fault-policy", attemptId: "fault-attempt", enrolledHostId: "fault-host",
+    leaseId: "fault-lease", leaseEpoch: 1, holderInstanceId: "fault-holder",
+    binding: { sessionId: "fault-session", reservationId: "fault-reservation", generationId: "fault-generation" },
+    sessionToken: "fault-session-token", cleanupSessionToken: "fault-cleanup-token",
+    cleanupCredentialId: "fault-cleanup-credential",
+  };
+}
+
+function acknowledgedLifecycleState(): Record<string, string> {
+  return {
+    sessionId: "fault-session", reservationId: "fault-reservation", generationId: "fault-generation",
+    policyVersionId: "fault-policy", attemptId: "fault-attempt", enrolledHostId: "fault-host",
+  };
+}
+
 async function runHost(
   state: DurableCoordinatorState,
   faults: FailOnceFaultController,
@@ -391,8 +409,8 @@ async function runHost(
     },
   };
   const transport: CoordinationWindowsLifecycleTransport = {
-    start: async () => ({ state: {}, alreadyAcknowledged: true }),
-    acquireLease: async ({ state: current }) => ({ state: current }),
+    start: async () => ({ state: acknowledgedLifecycleState(), alreadyAcknowledged: true }),
+    acquireLease: async () => ({ state: transportLeaseState() }),
     poll: async ({ state: current }) => {
       return state.effects.has("result-persistence")
         ? { state: current, action: "renew" as const }
@@ -766,10 +784,10 @@ async function insertAuthoritativeFixture(client: pg.Client, suffix: string): Pr
   await client.query(
     `INSERT INTO coordination_v2_host_enrollments
      (id,host_key,host_type,display_name,protocol_version,public_key,key_fingerprint,
-      capabilities,enrollment_digest,status,created_by)
+      capabilities,enrollment_digest,enrollment_request_key,status,created_by)
      VALUES ($1,$2,'windows','Fault injection host',1,'fault-public-key',$3,
-             ARRAY['preflight','prepare','poll','claim','result'],$4,'active','fault-injection')`,
-    [hostId, id("host-key"), fixtureDigest(suffix, "fingerprint"), fixtureDigest(suffix, "enrollment")],
+              ARRAY['preflight','prepare','poll','claim','result'],$4,$5,'active','fault-injection')`,
+    [hostId, id("host-key"), fixtureDigest(suffix, "fingerprint"), fixtureDigest(suffix, "enrollment"), id("enrollment-request")],
   );
   await client.query(
     `INSERT INTO coordination_v2_policy_identities

@@ -257,10 +257,10 @@ test('Coordinator V2 terminal evidence stays complete and immutable through repl
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id,host_key,host_type,display_name,protocol_version,public_key,key_fingerprint,
-        capabilities,enrollment_digest,status,created_by)
+         capabilities,enrollment_digest,enrollment_request_key,status,created_by)
        VALUES ($1,$2,'test','Evidence integrity host',1,'evidence-public-key',$3,
-        ARRAY['poll','claim','result'],$4,'active','evidence-test')`,
-      [base.hostId, id('host-key'), hex('host-key'), hex('host-enrollment')],
+         ARRAY['poll','claim','result'],$4,$5,'active','evidence-test')`,
+       [base.hostId, id('host-key'), hex('host-key'), hex('host-enrollment'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities

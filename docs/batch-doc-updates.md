@@ -1,3 +1,15 @@
+# Coordinator V2 Milestone 14 host completion layer
+
+Added the real-Windows completion boundary for Coordinator V2: separate
+founder-approved device enrollment, asymmetric proof-of-possession, renewable
+hashed host credentials, exact session credentials, dedicated host middleware,
+and a concrete authenticated HTTP dependency factory backed by DPAPI
+`CurrentUser` custody. Legacy runtime/actor credentials remain outside this
+authority namespace. The PowerShell launcher now discovers its worktree and
+runtime relative to itself and checks clean exact-commit provenance, ACL,
+reparse, signature, and digest gates. M15 interruption/resume acceptance
+remains explicitly out of scope.
+
 # Gate 3 recovery provenance/current authority separation — 2026-09-11
 
 - The first published assignment attempt failed closed before any assignment,

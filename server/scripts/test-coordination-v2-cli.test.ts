@@ -61,6 +61,43 @@ function fakeOffer() {
   return Object.freeze({ offerId: "opaque-offer-cli", nonce: "server-fence-required" });
 }
 
+function cliBoundState() {
+  return {
+    sessionId: "session-cli", reservationId: "reservation-cli", generationId: "generation-cli",
+    policyVersionId: "policy", attemptId: "attempt-cli", enrolledHostId: "host",
+    leaseId: "lease", leaseEpoch: 1, holderInstanceId: "holder",
+    binding: { sessionId: "session-cli", reservationId: "reservation-cli", generationId: "generation-cli" },
+    sessionToken: "session-token", cleanupSessionToken: "cleanup-session-token",
+    cleanupCredentialId: "cleanup-credential",
+  };
+}
+
+function cliAcknowledgedState() {
+  return {
+    sessionId: "session-cli", reservationId: "reservation-cli", generationId: "generation-cli",
+    policyVersionId: "policy", attemptId: "attempt-cli", enrolledHostId: "host",
+  };
+}
+
+function cliPreparation() {
+  return {
+    reservation: {
+      id: "reservation-cli", sessionId: null, enrolledHostId: "host",
+      generationId: "generation-cli", state: "reserved", taskRef: "9001",
+      taskArtifactSha256: "a".repeat(64), promotionRecordId: "promotion-cli",
+      promotedCommitSha: "a".repeat(40), exactTreeSha: "b".repeat(40),
+      policyIdentityId: "policy-identity", policyVersionId: "policy",
+      operatorGrantId: "grant", operatorActor: "operator",
+      reservationDigest: "c".repeat(64), publicMaterialDigest: "d".repeat(64),
+      protocolVersion: 1,
+    },
+    root: "C:\\Coordinator", activePointer: "C:\\Coordinator\\active",
+    publicArtifacts: {}, secretPlaintext: new Uint8Array([1]),
+    dependencies: {}, acknowledgementRequestKey: "ack-cli",
+    safePromotionEvidenceDigest: "e".repeat(64),
+  };
+}
+
 test("CLI accepts only task reference, policy, and safe format", () => {
   assert.deepEqual(parseCoordinationV2CliArgs(["--task-ref", "9001"]), {
     taskRef: "9001", format: "text",
@@ -104,8 +141,13 @@ test("actual one-command composition runs fake host lifecycle through cleanup ac
     now: () => Date.parse("2026-01-01T00:01:00.000Z"),
   });
   const transport = {
-    start: async () => ({ state: { opaque: "server-state" }, preparation: {} as any }),
-    acquireLease: async ({ state }: { state: Record<string, unknown> }) => ({ state }),
+     start: (() => {
+       let starts = 0;
+       return async () => starts++ === 0
+         ? { state: { opaque: "server-state" }, preparation: cliPreparation() as any }
+         : { state: cliAcknowledgedState(), alreadyAcknowledged: true };
+     })(),
+     acquireLease: async () => ({ state: cliBoundState() }),
     poll: async ({ state }: { state: Record<string, unknown> }) => ({
       state, action: "operation_available" as const, offer: fakeOffer(),
     }),
@@ -158,8 +200,8 @@ test("exported entrypoint composes injected lifecycle dependencies and defaults 
       return {
         preflight: async () => ({ accepted: true } as any),
         transport: {
-          start: async () => ({ state: {}, alreadyAcknowledged: true }),
-          acquireLease: async ({ state }: any) => ({ state }),
+           start: async () => ({ state: cliAcknowledgedState(), alreadyAcknowledged: true }),
+           acquireLease: async () => ({ state: cliBoundState() }),
           poll: async ({ state }: any) => ({ state, action: "operation_available" as const, offer: fakeOffer() }),
           claim: async ({ state, offer }: any) => ({ state, claim: offer === undefined ? undefined : fakeClaim() }),
           result: async ({ state }: any) => ({ state, terminalState: "succeeded" }),

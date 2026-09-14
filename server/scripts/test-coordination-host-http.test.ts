@@ -29,13 +29,19 @@ test('Coordinator V2 host routes enforce authentication, strict envelopes, bindi
       res.status(401).json({ error: { code: 'COORDINATION_AUTH_REQUIRED' } });
       return;
     }
-    (req as any).coordinationActor = actor;
+    (req as any).coordinationV2Host = {
+      credentialId: 'credential-http', hostEnrollmentId: actor === 'operator' ? 'enrolled-host' : actor,
+      capability: 'host:transport', protocolVersion: 1, sessionId: null,
+      holderInstanceId: null, lineageDigest: 'a'.repeat(64),
+    };
     next();
   };
   let acquiredInput: Record<string, unknown> | undefined;
   registerCoordinationHostRoutes(app, {
     now: () => clock,
     coordinationAuthMiddleware: auth,
+    coordinationIdentityAuthMiddleware: auth,
+    issueSessionCredentials: false,
     services: {
       acquireCoordinationTransportLease: async (input) => {
         acquiredInput = input as Record<string, unknown>;
@@ -110,12 +116,12 @@ test('Coordinator V2 host routes enforce authentication, strict envelopes, bindi
     const acquired = await post('/api/coordination/v2/host/leases', validLease);
     assert.equal(acquired.status, 201);
     assert.equal((await acquired.json()).epoch, 1);
-    assert.equal(acquiredInput?.actorId, 'operator');
+    assert.equal(acquiredInput?.actorId, 'enrolled-host');
     assert.equal('enrolledHostId' in (acquiredInput ?? {}), false);
 
     const mismatch = await post('/api/coordination/v2/host/sessions/session-http/poll', poll(2, 'instance-a', 'other-session'));
-    assert.equal(mismatch.status, 422);
-    assert.deepEqual(await mismatch.json(), { error: { code: 'HOST_PROTOCOL_BINDING_MISMATCH' } });
+    assert.equal(mismatch.status, 403);
+    assert.deepEqual(await mismatch.json(), { error: { code: 'LEASE_AUTHORIZATION_DENIED' } });
 
     const stale = await post('/api/coordination/v2/host/sessions/session-http/poll', poll(1));
     assert.equal(stale.status, 409);

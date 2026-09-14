@@ -1,16 +1,14 @@
 [CmdletBinding()]
 param()
 
-# M9 is an operator boundary only. Server-issued identifiers and Windows
-# authority are deliberately not accepted here; those arrive through the
-# authenticated coordinator transport in a later milestone.
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$ApprovedWorktree = 'C:\Users\David\HolaHola-antigravity'
-$ApprovedNode = 'C:\Program Files\nodejs\node.exe'
-$ApprovedTsx = 'C:\Users\David\HolaHola-antigravity\node_modules\tsx\dist\cli.mjs'
-$CoordinatorScript = 'C:\Users\David\HolaHola-antigravity\server\scripts\coordination-v2-cli.ts'
+$LauncherPath = $MyInvocation.MyCommand.Path
+$LauncherRoot = Split-Path -Parent $LauncherPath
+$ApprovedWorktree = [System.IO.Path]::GetFullPath((Join-Path $LauncherRoot '..'))
+$ApprovedTsx = Join-Path $ApprovedWorktree 'node_modules\tsx\dist\cli.mjs'
+$CoordinatorScript = Join-Path $ApprovedWorktree 'server\scripts\coordination-v2-cli.ts'
 $CurrentUserScope = [System.Security.Cryptography.DataProtectionScope]::CurrentUser
 
 function Fail-Safe {
@@ -19,6 +17,25 @@ function Fail-Safe {
     $safeCode = $safeCode.Substring(0, [Math]::Min(80, $safeCode.Length))
     throw ('hola_coordinator_' + $safeCode)
 }
+
+function Resolve-ApprovedNode {
+    $candidates = @(
+        (Join-Path $ApprovedWorktree 'runtime\node.exe'),
+        (Join-Path $ApprovedWorktree '.runtime\node.exe')
+    )
+    $command = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($null -ne $command -and $command.Source) {
+        $candidates += $command.Source
+    }
+    foreach ($candidate in $candidates) {
+        if ($candidate -and [System.IO.File]::Exists($candidate)) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+    Fail-Safe 'approved_node_missing'
+}
+
+$ApprovedNode = Resolve-ApprovedNode
 
 function Assert-NoReparse {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -32,6 +49,31 @@ function Assert-ReadablePrivateAcl {
     param([Parameter(Mandatory = $true)][string]$Path)
     $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
     if ($null -eq $acl -or $acl.Access.Count -lt 1) { Fail-Safe 'acl_unavailable' }
+}
+
+function Assert-ApprovedRepository {
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if ($null -eq $git) { Fail-Safe 'git_missing' }
+    $clean = (& $git.Source -C $ApprovedWorktree status --porcelain 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $clean) { Fail-Safe 'repository_dirty' }
+    # Commit/tree/publication authority is supplied by the signed V2 preflight
+    # envelope. This launcher deliberately does not trust a local SHA artifact.
+}
+
+function Assert-ApprovedSignatureAndDigest {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
+    if ($signature.Status -ne 'Valid') { Fail-Safe 'signature_invalid' }
+    $digest = Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop
+    if ($null -eq $digest.Hash -or $digest.Hash.Length -ne 64) { Fail-Safe 'digest_unavailable' }
+}
+
+function Write-DpapiBase64Atomic {
+    param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][byte[]]$Bytes)
+    $encoded = [Convert]::ToBase64String($Bytes)
+    $temporary = $Path + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    [IO.File]::WriteAllText($temporary, $encoded, (New-Object Text.UTF8Encoding($false)))
+    Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
 
 function Test-SafeCliOutput {
@@ -54,7 +96,7 @@ function Test-SafeCliOutput {
         'preparing', 'ready', 'running', 'waiting_for_host', 'verifying',
         'succeeded', 'failed', 'exhausted', 'expired', 'revoked',
         'cleanup_pending', 'preflight_failed', 'host_unavailable',
-        'invalid_request'
+        'invalid_request', 'host_child_unclassified_exit'
     )
 
     # Text is intentionally checked against the same closed state vocabulary.
@@ -103,8 +145,14 @@ function Assert-Host {
     Assert-ReadablePrivateAcl -Path $ApprovedNode
     Assert-ReadablePrivateAcl -Path $ApprovedTsx
     Assert-ReadablePrivateAcl -Path $CoordinatorScript
+    Assert-ApprovedRepository
+    Assert-ApprovedSignatureAndDigest -Path $LauncherPath
+    Assert-ApprovedSignatureAndDigest -Path $ApprovedNode
+    Assert-ApprovedSignatureAndDigest -Path $ApprovedTsx
+    Assert-ApprovedSignatureAndDigest -Path $CoordinatorScript
 }
 
+# BEGIN COORDINATION_INVOKE_BOUNDARY
 function Invoke-HolaCoordinator {
     [CmdletBinding()]
     param(
@@ -127,8 +175,13 @@ function Invoke-HolaCoordinator {
     # Keep safe stdout from the CLI, but never surface a child native error
     # stream. Capture it so an unstructured nonzero child exit can be replaced
     # with a bounded, safe diagnostic.
-    $childOutput = @(& $ApprovedNode @arguments 2>$null)
-    $observedChildExit = [int64]$LASTEXITCODE
+    Push-Location $ApprovedWorktree
+    try {
+        $childOutput = @(& $ApprovedNode @arguments 2>$null)
+        $observedChildExit = [int64]$LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
     $childExit = $observedChildExit
     if (-not (Test-SafeCliOutput -Output $childOutput)) {
         # Native Windows exit status is a bounded signed integer. Do not
@@ -157,6 +210,98 @@ function Invoke-HolaCoordinator {
     $global:LASTEXITCODE = $childExit
     [Environment]::ExitCode = $childExit
 }
+# END COORDINATION_INVOKE_BOUNDARY
+
+# BEGIN COORDINATION_REGISTER_BOUNDARY
+function Register-HolaCoordinatorHost {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][ValidatePattern('^https://')][string]$Endpoint,
+        [Parameter(Mandatory = $true)][ValidatePattern('^https://')][string]$FounderApprovalUrl,
+        [Parameter(Mandatory = $false)][string]$DisplayName = $env:COMPUTERNAME
+    )
+    Assert-Host
+    $registrationRoot = Join-Path $env:LOCALAPPDATA 'HolaHola\CoordinatorV2'
+    New-Item -ItemType Directory -Path $registrationRoot -Force | Out-Null
+    $privatePath = Join-Path $registrationRoot 'host-private-key.dpapi'
+    $requestPath = Join-Path $registrationRoot 'enrollment-request.dpapi'
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider(2048)
+    try {
+        $parameters = $rsa.ExportParameters($true)
+        $b64url = {
+            param([byte[]]$Bytes)
+            ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
+        }
+        $public = [ordered]@{
+            kty = 'RSA'; n = & $b64url $parameters.Modulus; e = & $b64url $parameters.Exponent
+        }
+        $publicJson = $public | ConvertTo-Json -Compress
+        $fingerprintBytes = [Text.Encoding]::UTF8.GetBytes(('{"e":"' + $public.e + '","kty":"RSA","n":"' + $public.n + '"}'))
+        $fingerprint = ([Security.Cryptography.SHA256]::Create().ComputeHash($fingerprintBytes) |
+            ForEach-Object { $_.ToString('x2') }) -join ''
+        $requestKey = [Guid]::NewGuid().ToString('N')
+        $hostJson = ([string][Environment]::MachineName | ConvertTo-Json -Compress)
+        $capabilitiesJson = '["host:cleanup","host:transport"]'
+        $declarationDigestInput = '{"capabilities":' + $capabilitiesJson + ',"hostId":' + $hostJson + ',"protocolVersion":1}'
+        $declarationDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+            [Text.Encoding]::UTF8.GetBytes($declarationDigestInput)) |
+            ForEach-Object { $_.ToString('x2') }) -join ''
+        $issuedAt = [DateTime]::UtcNow.ToString('o')
+        $expiresAt = [DateTime]::UtcNow.AddMinutes(15).ToString('o')
+        $payloadJson = '{"capabilities":' + $capabilitiesJson + ',"declarationDigest":"' + $declarationDigest + '","hostId":' + $hostJson + ',"protocolVersion":1}'
+        $envelopeBase = '{"correlationId":"' + $requestKey + '","expiresAt":"' + $expiresAt + '","issuedAt":"' + $issuedAt + '","kind":"enrollment_declaration","payload":' + $payloadJson + ',"protocolVersion":1,"requestId":"' + $requestKey + '"}'
+        $envelopeDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+            [Text.Encoding]::UTF8.GetBytes($envelopeBase)) |
+            ForEach-Object { $_.ToString('x2') }) -join ''
+        $declaration = [ordered]@{
+            protocolVersion = 1; kind = 'enrollment_declaration'; requestId = $requestKey
+            correlationId = $requestKey; issuedAt = $issuedAt; expiresAt = $expiresAt
+            payload = [ordered]@{
+                hostId = [Environment]::MachineName; declarationDigest = $declarationDigest
+                capabilities = @('host:cleanup', 'host:transport'); protocolVersion = 1
+            }; digest = $envelopeDigest
+        }
+        $body = [ordered]@{
+            requestKey = $requestKey; declaration = $declaration
+            publicKey = $publicJson; keyFingerprint = $fingerprint
+            capabilities = $declaration.payload.capabilities
+        } | ConvertTo-Json -Depth 5 -Compress
+        $request = Invoke-RestMethod -Method Post -Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host-enrollment-requests') `
+            -ContentType 'application/json' -Body $body -UseBasicParsing
+        $privateXml = $rsa.ToXmlString($true)
+        $protected = [Security.Cryptography.ProtectedData]::Protect(
+            [Text.Encoding]::UTF8.GetBytes($privateXml), $null, $CurrentUserScope)
+        Write-DpapiBase64Atomic -Path $privatePath -Bytes $protected
+        $requestState = @{ endpoint = $Endpoint.TrimEnd('/'); requestId = $request.requestId; fingerprint = $fingerprint }
+        $requestCipher = [Security.Cryptography.ProtectedData]::Protect(
+            [Text.Encoding]::UTF8.GetBytes(($requestState | ConvertTo-Json -Compress)), $null, $CurrentUserScope)
+        Write-DpapiBase64Atomic -Path $requestPath -Bytes $requestCipher
+        $approvalSeparator = if ($FounderApprovalUrl.Contains('?')) { '&' } else { '?' }
+        Start-Process ($FounderApprovalUrl + $approvalSeparator + 'requestId=' + [Uri]::EscapeDataString([string]$request.requestId)) | Out-Null
+        $deadline = [DateTime]::UtcNow.AddMinutes(15)
+        while ([DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Seconds 2
+            $status = Invoke-RestMethod -Method Get -Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host-enrollment-requests/' + $request.requestId + '/status?requestKey=' + [Uri]::EscapeDataString($requestKey)) -UseBasicParsing
+            if ($status.challenge) {
+                $challenge = $status.challenge
+                $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes([string]$challenge.nonce), [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+                $proof = @{ challengeId = $challenge.id; nonce = $challenge.nonce; signature = [Convert]::ToBase64String($signature) } | ConvertTo-Json -Compress
+                $issued = Invoke-RestMethod -Method Post -Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host-enrollment-requests/' + $request.requestId + '/proof') `
+                    -ContentType 'application/json' -Body $proof -UseBasicParsing
+                $material = @{ endpoint = $Endpoint.TrimEnd('/'); accessToken = $issued.accessToken } | ConvertTo-Json -Compress
+                $materialCipher = [Security.Cryptography.ProtectedData]::Protect(
+                    [Text.Encoding]::UTF8.GetBytes($material), $null, $CurrentUserScope)
+                Write-DpapiBase64Atomic -Path (Join-Path $registrationRoot 'host-material.dpapi') -Bytes $materialCipher
+                Remove-Item -LiteralPath $requestPath -Force -ErrorAction SilentlyContinue
+                return
+            }
+        }
+        Fail-Safe 'enrollment_approval_timeout'
+    } finally {
+        $rsa.Dispose()
+    }
+}
+# END COORDINATION_REGISTER_BOUNDARY
 
 # No import-time lifecycle execution. Operators explicitly call
 # Invoke-HolaCoordinator -TaskRef <task reference>.

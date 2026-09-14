@@ -107,10 +107,10 @@ test('one command completes Coordinator V2 from preparation through terminal cle
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id,host_key,host_type,display_name,protocol_version,public_key,key_fingerprint,
-        capabilities,enrollment_digest,status,created_by)
+         capabilities,enrollment_digest,enrollment_request_key,status,created_by)
        VALUES ($1,$2,'windows','Coordinator V2 e2e host',1,'e2e-public-key',$3,
-               ARRAY['preflight','prepare','poll','claim','result'],$4,'active','e2e')`,
-      [hostId, id('host-key'), digest('fingerprint'), digest('enrollment')],
+                ARRAY['preflight','prepare','poll','claim','result'],$4,$5,'active','e2e')`,
+       [hostId, id('host-key'), digest('fingerprint'), digest('enrollment'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities

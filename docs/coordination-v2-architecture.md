@@ -136,6 +136,23 @@ a V2 policy, launch a V2 session, authorize a host operation, or be reused in
 real-Windows acceptance. Real authority must be created fresh after protected
 publication and production verification.
 
+## V2 host credential lineage
+
+V2 host registration is a separate precondition from `Invoke-HolaCoordinator`.
+Windows generates its asymmetric key locally, stores the private key under
+DPAPI CurrentUser, submits a bounded non-authoritative declaration, and polls
+until a founder approves it. Approval creates a short-lived proof challenge;
+the host signs that nonce and receives a renewable host credential over TLS.
+Only hashes, public identity, nonce/challenge evidence, and provenance are
+persisted. Session credentials are separately issued after preparation
+acknowledgement and bind exact host, session, holder, protocol, and capability.
+
+Legacy actor tokens, runtime credentials, Gate 3 receipts, and manual transfer
+material are not accepted by V2 host middleware. Founder revocation retires
+the enrollment, descendant session credentials, leases, and claims; ordinary
+terminal cleanup revokes session credentials while leaving the renewable host
+identity available.
+
 ## Related references
 
 - [Policy reference](coordination-v2-policy-reference.md)

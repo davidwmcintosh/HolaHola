@@ -34,9 +34,9 @@ test('bounded session create-or-resume converges concurrent identical launches',
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
-        capabilities, enrollment_digest, status, created_by)
-       VALUES ($1,$2,'linux','session test host',1,'public',$3,ARRAY['runner'],$4,'active','test')`,
-      [id('host'), id('host-key'), hex('a'), hex('b')],
+         capabilities, enrollment_digest, enrollment_request_key, status, created_by)
+        VALUES ($1,$2,'linux','session test host',1,'public',$3,ARRAY['runner'],$4,$5,'active','test')`,
+       [id('host'), id('host-key'), hex('a'), hex('b'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities (id,policy_key,display_name,status,created_by)

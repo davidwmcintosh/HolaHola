@@ -12,6 +12,7 @@ import {
 import { applyCoordinationProviderFailure } from "../services/coordination-lifecycle-facade-service";
 import {
   runCoordinationWindowsHost,
+  type CoordinationWindowsBoundState,
   type CoordinationWindowsExecutionJournal,
   type CoordinationWindowsLifecycleTransport,
 } from "./coordination-windows-host";
@@ -41,13 +42,43 @@ function offer(attemptId: string, operation = "execute") {
   return Object.freeze({ offerId: `offer-${attemptId}`, attemptId, operation });
 }
 
+function leasedState(extra: Record<string, unknown> = {}): CoordinationWindowsBoundState {
+  return {
+    sessionId: "session",
+    reservationId: "reservation",
+    generationId: "generation",
+    policyVersionId: "policy-version",
+    attemptId: "attempt-1",
+    enrolledHostId: "host",
+    leaseId: "lease",
+    leaseEpoch: 1,
+    holderInstanceId: "holder",
+    binding: {
+      sessionId: "session", reservationId: "reservation", generationId: "generation",
+      policyVersionId: "policy-version", attemptId: "attempt-1",
+      enrolledHostId: "host", leaseId: "lease", leaseEpoch: 1, holderInstanceId: "holder",
+    },
+    sessionToken: "session-token",
+    cleanupSessionToken: "cleanup-session-token",
+    cleanupCredentialId: "cleanup-credential",
+    ...extra,
+  };
+}
+
+function acknowledgedLifecycleState() {
+  return {
+    sessionId: "session", reservationId: "reservation", generationId: "generation",
+    policyVersionId: "policy-version", attemptId: "attempt-1", enrolledHostId: "host",
+  };
+}
+
 function transportFor(
   poll: CoordinationWindowsLifecycleTransport["poll"],
   result: CoordinationWindowsLifecycleTransport["result"],
 ): CoordinationWindowsLifecycleTransport {
   return {
-    start: async () => ({ state: { lineage: "same" }, alreadyAcknowledged: true }),
-    acquireLease: async ({ state }) => ({ state }),
+    start: async () => ({ state: acknowledgedLifecycleState(), alreadyAcknowledged: true }),
+    acquireLease: async () => ({ state: leasedState({ lineage: "same" }) }),
     poll,
     claim: async ({ state, offer: offered }) => {
       if (!offered || typeof offered !== "object" || Array.isArray(offered)
@@ -307,10 +338,14 @@ test("a locally manufactured poll envelope cannot execute without server claim f
 
 test("restart resumes transport-owned generation and lease lineage", async () => {
   const states: unknown[] = [];
-  const lineage = { generation: "generation-1", lease: "lease-lineage-1" };
+  const lifecycle = acknowledgedLifecycleState();
+  const lineage = leasedState({
+    generation: "generation-1", lease: "lease-lineage-1",
+    binding: { generation: "generation-1", lease: "lease-lineage-1" },
+  });
   const transport: CoordinationWindowsLifecycleTransport = {
-    start: async () => ({ state: lineage, alreadyAcknowledged: true }),
-    acquireLease: async ({ state }) => { states.push(state); return { state }; },
+    start: async () => ({ state: lifecycle, alreadyAcknowledged: true }),
+    acquireLease: async ({ state }) => { states.push(state); return { state: lineage }; },
     poll: async ({ state }) => ({ state, action: "renew" as const, terminalState: "succeeded" }),
     claim: async ({ state, offer }) => ({ state, claim: offer }),
     result: async ({ state }) => ({ state }),
@@ -318,10 +353,12 @@ test("restart resumes transport-owned generation and lease lineage", async () =>
   };
   await runCoordinationWindowsHost({ taskRef: "9001" }, { transport, preflight: acceptedPreflight, executionJournal: journal(), host: { execute: async () => ({}) } });
   await runCoordinationWindowsHost({ taskRef: "9001" }, { transport, preflight: acceptedPreflight, executionJournal: journal(), host: { execute: async () => ({}) } });
-  assert.equal(states[0], lineage);
-  assert.equal(states[1], lineage);
-  assert.equal(states[2], lineage);
-  assert.equal(states[3], lineage);
+  assert.deepEqual(states[0], lifecycle);
+  assert.deepEqual(states[1], lineage);
+  assert.deepEqual(states[2], lifecycle);
+  assert.deepEqual(states[3], lineage);
+  assert.equal((states[1] as CoordinationWindowsBoundState).leaseEpoch, 1);
+  assert.equal((states[1] as CoordinationWindowsBoundState).holderInstanceId, "holder");
 });
 
 test("all non-success server terminal outcomes clean up without changing outcome", async () => {
@@ -536,7 +573,10 @@ test("PowerShell boundary has fixed paths, CurrentUser DPAPI, and no internal co
   const source = readFileSync("scripts/hola-coordinator.ps1", "utf8");
   assert.match(source, /function Invoke-HolaCoordinator/);
   assert.match(source, /DataProtectionScope\]::CurrentUser/);
-  assert.match(source, /ApprovedTsx\s*=\s*'[^']+node_modules\\tsx\\dist\\cli\.mjs'/);
+  assert.match(source, /\$ApprovedWorktree\s*=\s*\[System\.IO\.Path\]::GetFullPath\(\(Join-Path \$LauncherRoot '\.\.'\)\)/);
+  assert.match(source, /\$ApprovedTsx\s*=\s*Join-Path \$ApprovedWorktree 'node_modules\\tsx\\dist\\cli\.mjs'/);
+  assert.match(source, /\$CoordinatorScript\s*=\s*Join-Path \$ApprovedWorktree 'server\\scripts\\coordination-v2-cli\.ts'/);
+  assert.doesNotMatch(source, /[A-Za-z]:\\Users\\|\/home\/[^/]+\/|HolaHola\\CoordinatorV2\\[^$]/);
   assert.match(source, /coordination-v2-cli\.ts/);
   assert.match(source, /\$arguments\s*=\s*@\(\$ApprovedTsx,\s*\$CoordinatorScript/);
   assert.doesNotMatch(source, /--import(?:\s|['"])/);
@@ -546,4 +586,13 @@ test("PowerShell boundary has fixed paths, CurrentUser DPAPI, and no internal co
   assert.match(source, /\[Environment\]::ExitCode\s*=\s*\$childExit/);
   assert.doesNotMatch(source, /\$Mode\b|\$Url\b|\$Provider\b|\$Credential\b/);
   assert.doesNotMatch(source, /Invoke-HolaCoordinator\s+-Mode/);
+});
+
+test("typed lease boundary mutation is rejected by lifecycle seam", () => {
+  const source = readFileSync("server/scripts/coordination-windows-host.ts", "utf8");
+  const required = /try \{ state = boundState\(leased\.state\); \} catch/;
+  assert.match(source, required);
+  const mutated = source.replace(required, "state = leased.state as CoordinationWindowsLifecycleState;");
+  assert.notEqual(mutated, source);
+  assert.doesNotMatch(mutated, required);
 });

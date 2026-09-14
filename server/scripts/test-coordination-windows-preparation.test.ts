@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { computeCoordinationPublicMaterialDigest, prepareCoordinationWindowsGeneration } from "./coordination-windows-prepare";
+import {
+  computeCoordinationPublicMaterialDigest,
+  isContainedPath,
+  prepareCoordinationWindowsGeneration,
+} from "./coordination-windows-prepare";
 
 function storage() {
   const files = new Map<string, Uint8Array>();
@@ -45,6 +49,26 @@ const reservation = {
   publicMaterialDigest: computeCoordinationPublicMaterialDigest(artifacts),
   protocolVersion: 1 as const,
 };
+
+test("path containment is flavor-aware for POSIX, drive, and UNC fixtures", () => {
+  const fixtures: Array<[string, string, boolean]> = [
+    ["/srv/coordinator", "/srv/coordinator/generation-1/active", true],
+    ["/srv/coordinator", "/srv/coordinator-other/active", false],
+    ["/srv/coordinator", "/srv/coordinator/../escape", false],
+    ["C:", "C:/Hola/Coordinator/generation-1/active", true],
+    ["C:\\Hola\\Coordinator", "C:\\Hola\\Coordinator\\generation-1\\active", true],
+    ["C:\\Hola\\Coordinator", "C:\\Hola\\Coordinator\\..\\escape", false],
+    ["C:\\Hola\\Coordinator", "D:\\Hola\\Coordinator\\generation-1", false],
+    ["\\\\server\\share\\Coordinator", "\\\\server\\share\\Coordinator\\generation-1", true],
+    ["\\\\server\\share\\Coordinator", "\\\\server\\other\\Coordinator\\generation-1", false],
+    ["/srv/coordinator", "/srv/coordinator\\..\\escape", false],
+  ];
+  for (const [root, candidate, expected] of fixtures) {
+    assert.equal(isContainedPath(root, candidate), expected, `${root} -> ${candidate}`);
+  }
+  assert.equal(isContainedPath("/srv/coordinator", "/srv/coordinator"), false);
+  assert.equal(isContainedPath("/srv/coordinator", "/srv/coordinator", true), true);
+});
 
 test("pre-promotion write fault removes staging and never changes active pointer", async () => {
   const fs = storage();

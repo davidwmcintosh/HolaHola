@@ -398,7 +398,15 @@ group_body_workflow_safety() {
     server/scripts/test-coordination-v2-e2e.test.ts \
     server/scripts/test-coordination-v2-fault-injection.test.ts \
     server/scripts/test-coordination-v2-provider-fallback.test.ts \
-    server/scripts/test-coordination-v2-evidence-integrity.test.ts
+    server/scripts/test-coordination-v2-evidence-integrity.test.ts \
+    server/scripts/test-coordination-v2-host-completion-boundary.test.ts \
+    server/scripts/test-coordination-v2-host-factory-route.test.ts \
+    server/scripts/test-coordination-v2-dpapi-contract.test.ts \
+    server/scripts/test-coordination-v2-authority-seams.test.ts \
+    server/scripts/test-coordination-v2-deferred-session.test.ts \
+    server/scripts/test-coordinator-v2-schema.test.ts \
+    server/scripts/test-coordinator-v2-schema-postgres.test.ts
+  npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts
   npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
   npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
   run test-capture-status-ordering.ts

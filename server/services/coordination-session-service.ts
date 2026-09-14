@@ -13,7 +13,7 @@ import {
   coordinationV2CleanupObligations,
   type CoordinationV2Session,
 } from '@shared/schema';
-import { canonicalJson } from './coordination-policy-canonicalization';
+import { canonicalJson, canonicalizePolicy } from './coordination-policy-canonicalization';
 import { transitionSession as reduceSession, type SessionCommand } from './coordination-session-state';
 import type { FailureClassification, SessionState, SessionStatus } from './coordination-v2-types';
 import { authorizeCoordinationLifecycleInTransaction, CoordinationLifecycleAuthorizationError } from './coordination-lifecycle-authorization';
@@ -221,7 +221,12 @@ export async function createOrResumeSession(
       const host = await lockById(tx, coordinationV2HostEnrollments, enrolledHostId);
       if (!host) fail('SESSION_HOST_NOT_FOUND');
       if (host.status !== 'active' || host.revokedAt) fail('SESSION_HOST_INACTIVE');
-      const policy = version.canonicalPolicy as Record<string, unknown>;
+       let policy: Record<string, unknown>;
+       try {
+         policy = canonicalizePolicy(version.canonicalPolicy) as Record<string, unknown>;
+       } catch {
+         fail('SESSION_POLICY_NOT_APPROVED');
+       }
       const policyProviders = Array.isArray(policyValue(policy, 'providerOrder'))
         ? policyValue(policy, 'providerOrder') as string[] : [];
       let cursor = -1;

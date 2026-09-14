@@ -37,7 +37,10 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
   const identityId = id("identity");
   const versionId = id("version");
   const grantId = id("grant");
-  const sessionId = id("session");
+   const operatorActor = id("operator");
+   const taskRef = `9${Date.now()}${Math.floor(Math.random() * 1000000)}`;
+   let sessionId: string;
+   const promotionId = id("promotion");
   const publicDigest = hex("public");
   const policy = canonicalizeAndHashPolicy({
     hostTypes: ["windows"],
@@ -60,9 +63,9 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id,host_key,host_type,display_name,protocol_version,public_key,key_fingerprint,
-        capabilities,enrollment_digest,status,created_by)
-        VALUES ($1,$2,'windows','generation test host',1,'test-key',$3,ARRAY['preflight','prepare'],$4,'active','generation-test')`,
-      [hostId, id("host-key"), hex("fingerprint"), hex("enrollment")],
+       capabilities,enrollment_digest,enrollment_request_key,status,created_by)
+        VALUES ($1,$2,'windows','generation test host',1,'test-key',$3,ARRAY['preflight','prepare'],$4,$5,'active','generation-test')`,
+      [hostId, id("host-key"), hex("fingerprint"), hex("enrollment"), id("enrollment-request")],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities
@@ -80,98 +83,94 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
     await client.query(
       `INSERT INTO coordination_v2_operator_grants
        (id,policy_identity_id,operator_actor,actions,issued_by,expires_at,grant_digest,request_key)
-       VALUES ($1,$2,'operator-test',ARRAY['launch','status'],'founder',
-               now()+interval '1 hour',$3,$4)`,
-      [grantId, identityId, hex("grant"), id("grant-key")],
+        VALUES ($1,$2,$3,ARRAY['launch','status'],'founder',
+                now()+interval '1 hour',$4,$5)`,
+       [grantId, identityId, operatorActor, hex("grant"), id("grant-key")],
     );
-    await client.query(
-      `INSERT INTO coordination_v2_sessions
-       (id,policy_version_id,operator_grant_id,operator_actor,task_ref,task_artifact_sha256,
-        repository_identity,starting_commit,enrolled_host_id,requested_providers,expires_at,
-        attempt_budget,per_provider_budgets,required_validations,completion_criteria,state,
-        idempotency_key,session_digest)
-       VALUES ($1,$2,$3,'operator-test','1',$4,'repo/test',$5,$6,ARRAY['test'],
-               now()+interval '20 minutes',2,'{}'::jsonb,ARRAY['typecheck'],'{}'::jsonb,
-               'preparing',$7,$8)`,
-      [sessionId, versionId, grantId, hex("artifact"), commit, hostId, id("session-key"), hex("session")],
-    );
+     await client.query(
+       `INSERT INTO coordination_v2_source_promotions
+        (id,repository_identity,promoted_commit_sha,exact_tree_sha,publication_reference,
+         protected_validation_id,canonical_record_digest,operation_receipt_digest,operation_receipt_reference,state)
+        VALUES ($1,'repo/test',$2,$3,$4,$5,$6,$7,$8,'published')`,
+       [promotionId, commit, "b".repeat(40), id("publication"), id("validation"),
+        hex("promotion-record"), hex("promotion-receipt"), id("receipt")],
+     );
     await client.query("COMMIT");
 
     const authority = await import("../services/coordination-windows-generation");
-    const base = {
-      sessionId, actorId: "operator-test",
-    };
     const firstKey = id("reserve-first");
+     const preSessionInput = {
+       taskRef, taskArtifactSha256: hex("artifact"), repositoryIdentity: "repo/test",
+       startingCommit: commit, enrolledHostId: hostId, policyIdentityId: identityId,
+       policyVersionId: versionId, operatorGrantId: grantId, operatorActor,
+       reserveRequestKey: firstKey, branch: "main", publicMaterialDigest: publicDigest,
+       promotionRecordId: promotionId, promotedCommitSha: commit, exactTreeSha: "b".repeat(40),
+     };
     const race = await Promise.all([
-      authority.reserveCoordinationWindowsPreparation({ ...base, reserveRequestKey: firstKey }),
-      authority.reserveCoordinationWindowsPreparation({ ...base, reserveRequestKey: firstKey }),
+       authority.reserveCoordinationWindowsPreparationBeforeSession(preSessionInput),
+       authority.reserveCoordinationWindowsPreparationBeforeSession(preSessionInput),
     ]);
     assert.equal(race[0].id, race[1].id);
     assert.equal(race[0].generationId, race[1].generationId);
+      const beforeAck = await client.query(
+        `SELECT count(*)::int AS count FROM coordination_v2_sessions
+         WHERE preparation_reservation_id = $1
+            OR (task_ref = $2 AND operator_actor = $3 AND enrolled_host_id = $4
+                AND policy_version_id = $5 AND operator_grant_id = $6)`,
+        [race[0].id, taskRef, operatorActor, hostId, versionId, grantId],
+      );
+     assert.equal(beforeAck.rows[0].count, 0);
     const count = await client.query(
-      "SELECT count(*)::int AS count FROM coordination_v2_preparation_reservations WHERE session_id=$1",
-      [sessionId],
+       "SELECT count(*)::int AS count FROM coordination_v2_preparation_reservations WHERE reserve_request_key=$1",
+       [firstKey],
     );
     assert.equal(count.rows[0].count, 1);
-    const sessionExpiry = await client.query("SELECT expires_at FROM coordination_v2_sessions WHERE id=$1", [sessionId]);
-    assert.ok(race[0].expiresAt <= sessionExpiry.rows[0].expires_at.toISOString());
     await assert.rejects(
-      authority.reserveCoordinationWindowsPreparation({
-        ...base,
-        reserveRequestKey: id("reserve-distinct"),
-      }),
-      (error: unknown) => (error as { code?: string }).code === "PREPARATION_CONFLICT",
+       authority.reserveCoordinationWindowsPreparationBeforeSession({
+         ...preSessionInput, taskArtifactSha256: hex("conflicting-artifact"),
+       }),
+       (error: unknown) => (error as { code?: string }).code === "PREPARATION_REPLAY_CONFLICT",
     );
-
-    await assert.rejects(
-      client.query(
-        `UPDATE coordination_v2_policy_versions
-         SET canonical_policy=$1::jsonb WHERE id=$2`,
-        [JSON.stringify({
-          ...policy.canonicalPolicy,
-          hostConstraints: { windowsRepositoryBranch: "release", windowsPublicMaterialDigest: publicDigest },
-        }), versionId],
-      ),
-    );
-    const exactReplay = await authority.reserveCoordinationWindowsPreparation({
-      ...base, reserveRequestKey: firstKey,
-    });
+     const exactReplay = await authority.reserveCoordinationWindowsPreparationBeforeSession(preSessionInput);
     assert.equal(exactReplay.id, race[0].id);
     assert.equal(exactReplay.generationId, race[0].generationId);
-    const active = await client.query(
-      `SELECT count(*)::int AS count FROM coordination_v2_preparation_reservations
-       WHERE session_id=$1 AND state IN ('reserved','promoted')`, [sessionId],
-    );
-    assert.equal(active.rows[0].count, 1);
-
-    const promoted = await authority.promoteCoordinationWindowsPreparation({
-      sessionId, actorId: "operator-test", reservationId: race[0].id, generationId: race[0].generationId,
-      publicMaterialDigest: publicDigest, safePromotionEvidenceDigest: hex("evidence"),
+     const promoted = await authority.promoteCoordinationWindowsPreparationBeforeSession({
+       reservationId: race[0].id, actorId: operatorActor, generationId: race[0].generationId,
+       publicMaterialDigest: publicDigest, safePromotionEvidenceDigest: hex("evidence"),
     });
-    const promotedReplay = await authority.promoteCoordinationWindowsPreparation({
-      sessionId, actorId: "operator-test", reservationId: race[0].id, generationId: race[0].generationId,
+     const promotedReplay = await authority.promoteCoordinationWindowsPreparationBeforeSession({
+       reservationId: race[0].id, actorId: operatorActor, generationId: race[0].generationId,
       publicMaterialDigest: publicDigest, safePromotionEvidenceDigest: hex("evidence"),
     });
     assert.equal(promotedReplay.promotedAt, promoted.promotedAt);
-    const acknowledged = await authority.acknowledgeCoordinationWindowsPreparation({
-      sessionId, actorId: "operator-test", reservationId: race[0].id, generationId: race[0].generationId,
-      publicMaterialDigest: publicDigest, protocolVersion: 1, acknowledgementRequestKey: id("ack"),
-      safePromotionEvidenceDigest: hex("evidence"),
-    });
-    const acknowledgedReplay = await authority.acknowledgeCoordinationWindowsPreparation({
-      sessionId, actorId: "operator-test", reservationId: race[0].id, generationId: race[0].generationId,
-      publicMaterialDigest: publicDigest, protocolVersion: 1, acknowledgementRequestKey: id("ack"),
-      safePromotionEvidenceDigest: hex("evidence"),
+     const acknowledgementRequestKey = id("ack");
+     const acknowledgementEvidence = hex("evidence");
+     const acknowledgements = await Promise.all([
+       authority.acknowledgeCoordinationWindowsPreparationBeforeSession({
+          reservationId: race[0].id, actorId: operatorActor, generationId: race[0].generationId,
+          publicMaterialDigest: publicDigest, acknowledgementRequestKey,
+         safePromotionEvidenceDigest: acknowledgementEvidence,
+       }),
+       authority.acknowledgeCoordinationWindowsPreparationBeforeSession({
+          reservationId: race[0].id, actorId: operatorActor, generationId: race[0].generationId,
+          publicMaterialDigest: publicDigest, acknowledgementRequestKey,
+         safePromotionEvidenceDigest: acknowledgementEvidence,
+       }),
+     ]);
+     const acknowledged = acknowledgements[0];
+     assert.equal(acknowledgements[1].sessionId, acknowledged.sessionId);
+     assert.equal(acknowledgements[1].acknowledgedAt, acknowledged.acknowledgedAt);
+     assert.ok(acknowledged.sessionId);
+     sessionId = acknowledged.sessionId;
+     const acknowledgedReplay = await authority.acknowledgeCoordinationWindowsPreparationBeforeSession({
+       reservationId: race[0].id, actorId: operatorActor, generationId: race[0].generationId,
+        publicMaterialDigest: publicDigest, acknowledgementRequestKey,
+       safePromotionEvidenceDigest: acknowledgementEvidence,
     });
     assert.equal(acknowledgedReplay.acknowledgedAt, acknowledged.acknowledgedAt);
-    await assert.rejects(
-      authority.acknowledgeCoordinationWindowsPreparation({
-        sessionId, actorId: "operator-test", reservationId: race[0].id, generationId: race[0].generationId,
-        publicMaterialDigest: publicDigest, protocolVersion: 1, acknowledgementRequestKey: id("ack-changed"),
-        safePromotionEvidenceDigest: hex("different-evidence"),
-      }),
-      (error: unknown) => (error as { code?: string }).code === "PREPARATION_REPLAY_CONFLICT",
-    );
+     const sessionExpiry = await client.query("SELECT expires_at FROM coordination_v2_sessions WHERE id=$1", [sessionId]);
+     assert.ok(race[0].expiresAt <= sessionExpiry.rows[0].expires_at.toISOString());
+     const base = { sessionId, actorId: operatorActor };
 
     const expiringSessionId = id("expiring-session");
     await client.query(
@@ -195,7 +194,7 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
     await new Promise((resolve) => setTimeout(resolve, 2_100));
     const recovered = await authority.recoverCoordinationWindowsPreparation({
       sessionId: expiringSessionId,
-      actorId: "operator-test",
+       actorId: operatorActor,
       reservationId: second.id,
       generationId: second.generationId,
     });
@@ -203,21 +202,21 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
     assert.ok(recovered.expiredAt);
     const recoveredReplay = await authority.recoverCoordinationWindowsPreparation({
       sessionId: expiringSessionId,
-      actorId: "operator-test",
+       actorId: operatorActor,
       reservationId: second.id,
       generationId: second.generationId,
     });
     assert.equal(recoveredReplay.expiredAt, recovered.expiredAt);
     const statusRead = await authority.readCoordinationWindowsPreparation({
       sessionId: expiringSessionId,
-      actorId: "operator-test",
+       actorId: operatorActor,
       reservationId: second.id,
     });
     assert.equal(statusRead?.id, second.id);
     await assert.rejects(
       authority.promoteCoordinationWindowsPreparation({
         sessionId: expiringSessionId,
-        actorId: "operator-test",
+        actorId: operatorActor,
         reservationId: second.id,
         generationId: race[0].generationId,
         publicMaterialDigest: publicDigest, safePromotionEvidenceDigest: hex("evidence"),
@@ -227,7 +226,7 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
     await assert.rejects(
       authority.acknowledgeCoordinationWindowsPreparation({
         sessionId: expiringSessionId,
-        actorId: "operator-test",
+        actorId: operatorActor,
         reservationId: second.id,
         generationId: second.generationId,
         publicMaterialDigest: publicDigest, protocolVersion: 1, acknowledgementRequestKey: id("bad-ack"),
@@ -236,22 +235,38 @@ test("Windows preparation authority transaction and lifecycle matrix", async (co
       (error: unknown) => (error as { code?: string }).code === "PREPARATION_CONFLICT",
     );
 
-    const events = await client.query(
-      `SELECT from_state,to_state,event_type,sequence FROM coordination_v2_session_events
+     const events = await client.query(
+       `SELECT from_state,to_state,event_type,sequence,created_at,metadata,request_key
+        FROM coordination_v2_session_events
        WHERE session_id=$1 ORDER BY sequence`, [sessionId],
     );
+     const reservationEvidence = await client.query(
+       `SELECT created_at,promoted_at,acknowledged_at,reserve_request_key,reserve_command_digest,
+               safe_promotion_evidence_digest,acknowledgement_request_key,ack_command_digest
+          FROM coordination_v2_preparation_reservations WHERE id=$1`, [race[0].id],
+     );
+     assert.equal(events.rowCount, 3, "duplicate acknowledgement must not duplicate preparation history");
     assert.deepEqual(
       events.rows.map((event) => event.event_type),
-      ["preparation_reserved", "preparation_promoted", "preparation_acknowledged"],
+       ["preparation_reserved", "preparation_promoted", "preparation_acknowledged"],
     );
-    assert.ok(events.rows.every((event) => event.from_state === "preparing" && event.to_state === "preparing"));
-    assert.deepEqual(events.rows.map((event) => event.sequence), [...events.rows.keys()].map((value) => value + 1));
+     const storedReservation = reservationEvidence.rows[0];
+     assert.equal(events.rows[0].created_at.getTime(), storedReservation.created_at.getTime());
+     assert.equal(events.rows[1].created_at.getTime(), storedReservation.promoted_at.getTime());
+     assert.equal(events.rows[2].created_at.getTime(), storedReservation.acknowledged_at.getTime());
+     assert.equal(events.rows[0].metadata.reserveRequestKey, storedReservation.reserve_request_key);
+     assert.equal(events.rows[0].metadata.reserveCommandDigest, storedReservation.reserve_command_digest);
+     assert.equal(events.rows[1].metadata.safePromotionEvidenceDigest, storedReservation.safe_promotion_evidence_digest);
+     assert.equal(events.rows[2].metadata.acknowledgementRequestKey, storedReservation.acknowledgement_request_key);
+     assert.equal(events.rows[2].metadata.ackCommandDigest, storedReservation.ack_command_digest);
+     assert.deepEqual(events.rows.map((event) => event.sequence), [1, 2, 3]);
+     assert.ok(events.rows.every((event) => event.from_state === "ready" && event.to_state === "ready"));
 
     const promotedRow = await authority.reserveCoordinationWindowsPreparation({
       ...base, reserveRequestKey: id("reserve-promoted"),
     });
     const promotedAuthority = await authority.promoteCoordinationWindowsPreparation({
-      sessionId, actorId: "operator-test", reservationId: promotedRow.id, generationId: promotedRow.generationId,
+       sessionId, actorId: operatorActor, reservationId: promotedRow.id, generationId: promotedRow.generationId,
       publicMaterialDigest: publicDigest, safePromotionEvidenceDigest: hex("promoted-evidence"),
     });
     assert.equal(promotedAuthority.state, "promoted");

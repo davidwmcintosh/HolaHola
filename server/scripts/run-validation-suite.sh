@@ -56,7 +56,15 @@ run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evide
   server/scripts/test-coordination-v2-e2e.test.ts \
   server/scripts/test-coordination-v2-fault-injection.test.ts \
   server/scripts/test-coordination-v2-provider-fallback.test.ts \
-  server/scripts/test-coordination-v2-evidence-integrity.test.ts
+  server/scripts/test-coordination-v2-evidence-integrity.test.ts \
+  server/scripts/test-coordination-v2-host-completion-boundary.test.ts \
+  server/scripts/test-coordination-v2-host-factory-route.test.ts \
+  server/scripts/test-coordination-v2-dpapi-contract.test.ts \
+  server/scripts/test-coordination-v2-authority-seams.test.ts \
+  server/scripts/test-coordination-v2-deferred-session.test.ts \
+  server/scripts/test-coordinator-v2-schema.test.ts \
+  server/scripts/test-coordinator-v2-schema-postgres.test.ts
+run_check "Coordinator V2 PowerShell enrollment object contract" npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.

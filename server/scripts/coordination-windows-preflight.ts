@@ -176,7 +176,9 @@ export async function runCoordinationWindowsPreflight(
     dpapi: { currentUserCapabilityPresent: dpapi === true },
     launcher: { approved: launcher.signatureValid === true && launcher.digest === options.launcherDigest, digest: safe(launcher.digest, 64) ?? null, signatureValid: launcher.signatureValid === true },
     runtime: { approved: runtime.signatureValid === true && runtime.digest === options.runtimeDigest, digest: safe(runtime.digest, 64) ?? null, signatureValid: runtime.signatureValid === true },
-    paths: { approved: installation.exists && installation.reparseFree && installation.aclSafe && worktree.exists && worktree.reparseFree && worktree.aclSafe, installation: safe(options.approvedInstallationPath, 1024) ?? null, worktree: safe(options.approvedWorktreePath, 1024) ?? null },
+    // Installation/worktree paths are authority inputs, never operator-safe
+    // output. Only the bounded approval boolean crosses this boundary.
+    paths: { approved: installation.exists && installation.reparseFree && installation.aclSafe && worktree.exists && worktree.reparseFree && worktree.aclSafe, installation: null, worktree: null },
     filesystem: { reparseFree: installation.reparseFree && worktree.reparseFree, aclSafe: installation.aclSafe && worktree.aclSafe },
     repository: { identity: safe(repo.identity, 255) ?? null, branch: safe(repo.branch, 255) ?? null, clean: repo.clean === true, startingCommit: safe(repo.startingCommit, 64) ?? null },
     generations: { active: activeGeneration, staged: stagedGenerations.slice(0, PREFLIGHT_MAX_PATHS).map((value) => value ?? "[redacted]") },

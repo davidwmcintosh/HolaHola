@@ -6,6 +6,7 @@ import {
   type CoordinationWindowsHostResult,
 } from "./coordination-windows-host";
 import type { CoordinationLifecycleSafeStatus } from "../services/coordination-lifecycle-facade-service";
+import { createCoordinationV2HttpDependencyFactory } from "./coordination-v2-http-factory";
 
 export type CoordinationV2CliFormat = "json" | "text";
 export type CoordinationV2CliInput = CoordinationWindowsOperatorInput & {
@@ -235,7 +236,13 @@ function writeSafeStatus(
 async function main(): Promise<void> {
   let run: Awaited<ReturnType<typeof runCoordinationV2Entrypoint>>;
   try {
-    run = await runCoordinationV2Entrypoint(process.argv.slice(2));
+    // The process boundary is the only default composition point.  Material
+    // is loaded from DPAPI CurrentUser custody; it is never an argv option or
+    // part of the safe operator output.
+    const dependencyFactory = process.platform === "win32"
+      ? await createCoordinationV2HttpDependencyFactory()
+      : undefined;
+    run = await runCoordinationV2Entrypoint(process.argv.slice(2), dependencyFactory);
   } catch {
     process.stdout.write('{"state":"invalid_request","cleanupAcknowledged":false}\n');
     process.exitCode = 64;

@@ -96,7 +96,9 @@ async function checkTables() {
     "coordination_runtime_executions", "coordination_runtime_completions",
     "coordination_runtime_verifications", "coordination_runtime_idempotency",
     // Coordinator V2 control plane
-    "coordination_v2_host_enrollments", "coordination_v2_policy_identities",
+    "coordination_v2_source_promotions",
+    "coordination_v2_host_enrollments", "coordination_v2_host_bootstraps",
+    "coordination_v2_host_credentials", "coordination_v2_policy_identities",
     "coordination_v2_policy_versions", "coordination_v2_founder_decisions",
     "coordination_v2_operator_grants", "coordination_v2_policy_audit_events",
     "coordination_v2_sessions",

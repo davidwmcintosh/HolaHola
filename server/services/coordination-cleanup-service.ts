@@ -1,17 +1,19 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import {
   coordinationV2Attempts,
   coordinationV2AttemptEvents,
   coordinationV2CleanupObligations,
   coordinationV2HostEnrollments,
+  coordinationV2SessionCredentials,
   coordinationV2OperatorGrants,
   coordinationV2PolicyIdentities,
   coordinationV2PolicyVersions,
   coordinationV2SessionEvents,
   coordinationV2Sessions,
   coordinationV2TransportLeases,
+  coordinationV2TransportWorkClaims,
   type CoordinationV2CleanupObligation,
   type CoordinationV2Attempt,
   type CoordinationV2Session,
@@ -207,13 +209,19 @@ export async function applyCoordinationCleanupAuthorityEffectInTransaction(
         endedAt: now,
       }).where(eq(coordinationV2TransportLeases.id, lease.id));
     }
+    await tx.update(coordinationV2TransportWorkClaims).set({ state: 'expired', terminalAt: now })
+      .where(and(eq(coordinationV2TransportWorkClaims.sessionId, sessionId), eq(coordinationV2TransportWorkClaims.state, 'active')));
     return;
   }
   if (obligation.kind === 'revoke_authority') {
     await revokeActiveAttemptAuthority(tx, sessionId, actorId, requestKey, now);
   }
-  // cleanup_generation and revoke_credentials have no present-day authority
-  // row. Acknowledge them without inventing credentials or host authority.
+  if (obligation.kind === 'revoke_credentials') {
+    await tx.update(coordinationV2SessionCredentials).set({ revokedAt: now })
+      .where(and(eq(coordinationV2SessionCredentials.sessionId, sessionId), isNull(coordinationV2SessionCredentials.revokedAt)));
+  }
+  // cleanup_generation has no present-day authority row. Acknowledge it
+  // without inventing credentials or deleting canonical evidence.
 }
 
 export type CompletionInput = {

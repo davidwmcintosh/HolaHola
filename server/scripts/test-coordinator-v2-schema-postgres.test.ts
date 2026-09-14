@@ -63,12 +63,31 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
     assert.equal(Number(nullKeys.rows[0].attempt_nulls), 0);
     await client.query("BEGIN");
     await client.query(
+      `INSERT INTO coordination_v2_source_promotions
+       (id, repository_identity, promoted_commit_sha, exact_tree_sha, publication_reference,
+        protected_validation_id, canonical_record_digest, operation_receipt_digest, operation_receipt_reference)
+       VALUES ($1, 'repo/schema-test', $2, $3, 'publication-test', $4, $5, $6, 'receipt-test')`,
+      [id("promotion"), "1".repeat(40), "2".repeat(40), id("validation"), digest("a"), digest("b")],
+    );
+    await rejectCode(
+      client,
+      "source_promotion_update",
+      () => client.query(`UPDATE coordination_v2_source_promotions SET repository_identity = 'mutated' WHERE id = $1`, [id("promotion")]),
+      "P0001",
+    );
+    await rejectCode(
+      client,
+      "source_promotion_delete",
+      () => client.query(`DELETE FROM coordination_v2_source_promotions WHERE id = $1`, [id("promotion")]),
+      "P0001",
+    );
+    await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
-        capabilities, enrollment_digest, status, created_by)
-       VALUES ($1, $2, 'windows', 'Disposable test host', 1, 'test-public-key', $3,
-        ARRAY['powershell'], $4, 'active', 'schema-test')`,
-      [id("host"), id("host-key"), digest("a"), digest("b")],
+         capabilities, enrollment_digest, enrollment_request_key, status, created_by)
+        VALUES ($1, $2, 'windows', 'Disposable test host', 1, 'test-public-key', $3,
+         ARRAY['powershell'], $4, $5, 'active', 'schema-test')`,
+       [id("host"), id("host-key"), digest("a"), digest("b"), id("enrollment-request")],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities
@@ -196,10 +215,10 @@ test("Coordinator V2 PostgreSQL authority constraints reject mutation and lease 
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
-        capabilities, enrollment_digest, status, created_by)
-       VALUES ($1, $2, 'windows', 'Second disposable host', 1, 'test-public-key-2', $3,
-        ARRAY['powershell'], $4, 'active', 'schema-test')`,
-      [id("host-two"), id("host-key-two"), digest("7"), digest("8")],
+         capabilities, enrollment_digest, enrollment_request_key, status, created_by)
+        VALUES ($1, $2, 'windows', 'Second disposable host', 1, 'test-public-key-2', $3,
+         ARRAY['powershell'], $4, $5, 'active', 'schema-test')`,
+       [id("host-two"), id("host-key-two"), digest("7"), digest("8"), id("enrollment-request-two")],
     );
     await client.query(
       `INSERT INTO coordination_v2_attempts

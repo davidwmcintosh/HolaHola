@@ -278,9 +278,9 @@ test('verified disposable PostgreSQL runs real attempt services across both prov
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id,host_key,host_type,display_name,protocol_version,public_key,key_fingerprint,
-        capabilities,enrollment_digest,status,created_by)
-       VALUES ($1,$2,'test','Provider fallback host',1,'test-key',$3,ARRAY['poll'],$4,'active','provider-fallback')`,
-      [hostId, id('host-key'), digest('host-fingerprint'), digest('host-enrollment')],
+         capabilities,enrollment_digest,enrollment_request_key,status,created_by)
+        VALUES ($1,$2,'test','Provider fallback host',1,'test-key',$3,ARRAY['poll'],$4,$5,'active','provider-fallback')`,
+       [hostId, id('host-key'), digest('host-fingerprint'), digest('host-enrollment'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities

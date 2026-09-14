@@ -12,6 +12,10 @@ import {
 } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { isAbsolute, join, resolve } from 'node:path';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../db';
+import { normalizeCoordinationRepositoryIdentity } from './coordination-repository-identity';
+import { coordinationV2SourcePromotions } from '@shared/schema';
 
 const execFile = promisify(nodeExecFile);
 
@@ -29,6 +33,17 @@ export const SOURCE_CONTROL_REQUIRED_CHECKS = [
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DEFAULT_LOCK_LEASE_MS = 10 * 60 * 1000;
+
+export function assertAuthenticatedRemoteCommitProof(
+  expectedSha: string,
+  proof: { sha: string; treeSha: string },
+  expectedTreeSha?: string,
+): void {
+  if (!SHA_PATTERN.test(expectedSha) || proof.sha !== expectedSha || !SHA_PATTERN.test(proof.treeSha)
+    || (expectedTreeSha !== undefined && proof.treeSha !== expectedTreeSha)) {
+    throw new Error('remote_commit_proof_mismatch');
+  }
+}
 
 export type SourceControlState =
   | 'disabled'
@@ -108,6 +123,22 @@ export interface SourceControlServiceOptions {
   uuid?: () => string;
   runCommand?: CommandRunner;
   validateCandidate?: (sha: string) => Promise<Record<string, unknown>>;
+  recordSourcePromotion?: (input: SourcePromotionRecordInput) => Promise<void>;
+  /** Protected remote proof hook. Production uses authenticated GitHub fetch. */
+  resolveRemoteCommit?: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
+}
+
+export interface SourcePromotionRecordInput {
+  repositoryIdentity: string;
+  promotedCommitSha: string;
+  exactTreeSha: string;
+  publicationReference: string;
+  protectedValidationId: string;
+  publishTriggerSha?: string;
+  parentSha?: string;
+  canonicalRecordDigest: string;
+  operationReceiptDigest: string;
+  operationReceiptReference: string;
 }
 
 function digest(value: string): string {
@@ -201,16 +232,19 @@ export class SourceControlService {
   private readonly rootDir: string;
   private readonly env: NodeJS.ProcessEnv;
   private readonly now: () => Date;
+  private readonly resolveRemoteCommit: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
   private readonly uuid: () => string;
   private readonly runCommand: CommandRunner;
   private readonly validateCandidate: (sha: string) => Promise<Record<string, unknown>>;
   private readonly branch: string;
   private readonly repoUrl: string;
+  private readonly repositoryIdentity: string;
   private readonly statusPath: string;
   private readonly summaryPath: string;
   private readonly lockPath: string;
   private readonly operationsDir: string;
   private readonly leaseMs: number;
+  private readonly recordSourcePromotion: (input: SourcePromotionRecordInput) => Promise<void>;
 
   constructor(options: SourceControlServiceOptions = {}) {
     this.rootDir = options.rootDir || process.cwd();
@@ -219,13 +253,16 @@ export class SourceControlService {
     this.uuid = options.uuid || randomUUID;
     this.runCommand = options.runCommand || defaultRunner;
     this.branch = this.env.SOURCE_BRIDGE_BRANCH || 'main';
-    this.repoUrl = this.env.GITHUB_REPO_URL || 'git@github.com:davidwmcintosh/HolaHola.git';
+    this.repoUrl = this.env.GITHUB_REPO_URL || 'git@github.com:davidwmcintosh/holahola.git';
+    this.repositoryIdentity = normalizeCoordinationRepositoryIdentity(this.repoUrl);
+    this.resolveRemoteCommit = options.resolveRemoteCommit ?? ((sha) => this.fetchRemoteCommitProof(sha));
     this.statusPath = this.resolvePath(this.env.SOURCE_BRIDGE_STATUS_FILE, '.local/source-bridge-status.json');
     this.summaryPath = this.resolvePath(this.env.SOURCE_BRIDGE_SUMMARY_FILE, '.local/source-bridge-status.md');
     this.lockPath = this.resolvePath(this.env.SOURCE_CONTROL_LOCK_FILE, '.local/source-control.lock');
     this.operationsDir = this.resolvePath(this.env.SOURCE_CONTROL_OPERATIONS_DIR, '.local/source-control-operations');
     this.leaseMs = Number(this.env.SOURCE_CONTROL_LOCK_LEASE_MS || DEFAULT_LOCK_LEASE_MS);
     this.validateCandidate = options.validateCandidate || ((sha) => this.runValidationManifest(sha));
+    this.recordSourcePromotion = options.recordSourcePromotion || ((input) => this.appendSourcePromotion(input));
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -462,6 +499,67 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error };
     }
+    if (!publicationReference) {
+      const error = 'Promotion recording requires a protected publication reference.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    try { await this.verifyConfiguredRepositoryIdentity(); } catch {
+      const error = 'Promotion recording refused because the configured and actual GitHub remotes differ.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    let remoteProof: { sha: string; treeSha: string; parentSha?: string };
+    try {
+      remoteProof = await this.resolveRemoteCommit(sha);
+    } catch {
+      const error = 'Promotion recording refused because the exact commit tree could not be resolved.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    try { assertAuthenticatedRemoteCommitProof(sha, remoteProof); } catch {
+      const error = 'Promotion recording refused because authenticated GitHub commit proof did not match the requested SHA/tree.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    const validationId = String(status.validation?.validationId || '');
+    if (!/^[0-9a-f]{64}$/.test(validationId)) {
+      const error = 'Promotion recording refused because protected validation identity is missing.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    const receiptReference = join(this.operationsDir, `promotion-${digest(operationId)}.json`);
+    const receipt = `${JSON.stringify({
+      operationId, actor, sha, treeSha: remoteProof.treeSha, publicationReference,
+      validationId, createdAt: this.now().toISOString(),
+    })}\n`;
+    try {
+      await this.writeImmutablePromotionReceipt(receiptReference, receipt);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Promotion receipt could not be preserved.';
+      await this.writeStatus('failed', message, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error: message };
+    }
+    try {
+      await this.recordSourcePromotion({
+        repositoryIdentity: this.repositoryIdentity,
+        promotedCommitSha: sha,
+        exactTreeSha: remoteProof.treeSha,
+        publicationReference,
+        protectedValidationId: validationId,
+        parentSha: remoteProof.parentSha,
+        canonicalRecordDigest: digest(JSON.stringify({
+          repositoryIdentity: this.repositoryIdentity, promotedCommitSha: sha, exactTreeSha: remoteProof.treeSha,
+          publicationReference, protectedValidationId: validationId,
+        })),
+        operationReceiptDigest: digest(receipt),
+        operationReceiptReference: receiptReference,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'V2 source promotion authority append failed.';
+      await this.writeStatus('failed', message, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error: message };
+    }
     await this.writeStatus('synced', 'Explicit Replit publish recorded for the current validated candidate.', actor, heads.local, heads.github, sha, status.validation, {
       promotedSha: sha,
       promotedBy: actor,
@@ -470,6 +568,54 @@ export class SourceControlService {
       publicationReference,
     });
     return { ok: true, state: 'synced', ...heads, candidateSha: sha };
+  }
+
+  private async writeImmutablePromotionReceipt(path: string, contents: string): Promise<void> {
+    try {
+      const existing = await readFile(path, 'utf8');
+      if (existing !== contents) throw new Error('Promotion receipt path already contains different bytes.');
+      return;
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    await mkdir(join(path, '..'), { recursive: true, mode: 0o700 });
+    const temp = `${path}.${this.uuid()}.tmp`;
+    await writeFile(temp, contents, { mode: 0o600 });
+    await rename(temp, path);
+  }
+
+  private async appendSourcePromotion(input: SourcePromotionRecordInput): Promise<void> {
+    const existing = await db.select({ id: coordinationV2SourcePromotions.id }).from(coordinationV2SourcePromotions).where(and(
+      eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
+      eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
+      eq(coordinationV2SourcePromotions.publicationReference, input.publicationReference),
+      eq(coordinationV2SourcePromotions.protectedValidationId, input.protectedValidationId),
+    )).limit(1);
+    if (existing.length) return;
+    try {
+      await db.insert(coordinationV2SourcePromotions).values({
+        repositoryIdentity: input.repositoryIdentity,
+        promotedCommitSha: input.promotedCommitSha,
+        exactTreeSha: input.exactTreeSha,
+        publicationReference: input.publicationReference,
+        protectedValidationId: input.protectedValidationId,
+        publishTriggerSha: input.publishTriggerSha,
+        parentSha: input.parentSha,
+        canonicalRecordDigest: input.canonicalRecordDigest,
+        state: 'published',
+        operationReceiptDigest: input.operationReceiptDigest,
+        operationReceiptReference: input.operationReceiptReference,
+      });
+    } catch (error: any) {
+      // A concurrent retry may have won the exact idempotency key.
+      const concurrent = await db.select({ id: coordinationV2SourcePromotions.id }).from(coordinationV2SourcePromotions).where(and(
+        eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
+        eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
+        eq(coordinationV2SourcePromotions.publicationReference, input.publicationReference),
+        eq(coordinationV2SourcePromotions.protectedValidationId, input.protectedValidationId),
+      )).limit(1);
+      if (!concurrent.length) throw error;
+    }
   }
 
   private async runValidationManifest(sha: string): Promise<Record<string, unknown>> {
@@ -519,6 +665,47 @@ export class SourceControlService {
       throw new Error('Could not resolve the current exact commit SHA.');
     }
     return result.stdout.trim();
+  }
+
+  private async fetchRemoteCommitProof(sha: string): Promise<{ sha: string; treeSha: string; parentSha?: string }> {
+    if (!SHA_PATTERN.test(sha)) throw new Error('invalid_remote_commit_sha');
+    // Fetch the immutable object by SHA, never a branch/ref. The pinned SSH
+    // host keys and protected deploy key are enforced by the existing runner.
+    const fetched = await this.runGit(['fetch', '--no-tags', '--filter=blob:none', this.repoUrl, sha]);
+    if (fetched.exitCode !== 0) throw new Error(`GitHub commit fetch failed: ${bounded(fetched.stderr || fetched.stdout)}`);
+    const received = await this.runGit(['rev-parse', '--verify', 'FETCH_HEAD^{commit}']);
+    if (received.exitCode !== 0 || received.stdout.trim() !== sha) throw new Error('remote_commit_sha_mismatch');
+    const tree = await this.runGit(['rev-parse', '--verify', `${sha}^{tree}`]);
+    if (tree.exitCode !== 0 || !SHA_PATTERN.test(tree.stdout.trim())) throw new Error('remote_tree_unresolved');
+    const parent = await this.runGit(['rev-parse', '--verify', `${sha}^`]);
+    return {
+      sha, treeSha: tree.stdout.trim(),
+      ...(parent.exitCode === 0 && SHA_PATTERN.test(parent.stdout.trim()) ? { parentSha: parent.stdout.trim() } : {}),
+    };
+  }
+
+  async verifyConfiguredRepositoryIdentity(): Promise<void> {
+    const actual = await this.runGit(['config', '--get', 'remote.origin.url']);
+    if (actual.exitCode !== 0) throw new Error('repository_remote_unavailable');
+    const actualIdentity = normalizeCoordinationRepositoryIdentity(actual.stdout.trim());
+    const configuredIdentity = normalizeCoordinationRepositoryIdentity(this.repoUrl);
+    if (actualIdentity !== configuredIdentity) throw new Error('repository_remote_mismatch');
+    const pinned = this.env.COORDINATION_V2_REPOSITORY_IDENTITY;
+    if (pinned && normalizeCoordinationRepositoryIdentity(pinned) !== actualIdentity) {
+      throw new Error('repository_identity_pin_mismatch');
+    }
+  }
+
+  /**
+   * Exposes only the authenticated immutable-object proof used by other
+   * authority services. It deliberately does not expose the command runner,
+   * local refs, or branch state.
+   */
+  async resolveProtectedRemoteCommitProof(
+    sha: string,
+  ): Promise<{ sha: string; treeSha: string; parentSha?: string }> {
+    await this.verifyConfiguredRepositoryIdentity();
+    return this.fetchRemoteCommitProof(sha);
   }
 
   private async fetchHeads(): Promise<{ local: string; github: string }> {

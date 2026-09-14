@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { lstat, readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { normalizeCoordinationRepositoryIdentity } from './coordination-repository-identity';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,6 +27,7 @@ export interface CoordinationTaskMetadataRegistry {
   resolve(taskRef: string): Promise<CoordinationTaskMetadata | undefined>
     | CoordinationTaskMetadata
     | undefined;
+  readArtifact?(taskRef: string): Promise<Uint8Array> | Uint8Array;
 }
 
 export type CoordinationGitProvenance = Readonly<{
@@ -60,17 +62,18 @@ function validateMetadata(value: CoordinationTaskMetadata | undefined, taskRef: 
   if (!value
     || value.taskRef !== taskRef
     || !/^[0-9a-f]{64}$/.test(value.taskArtifactSha256)
-    || typeof value.repositoryIdentity !== 'string'
-    || value.repositoryIdentity.length === 0
-    || value.repositoryIdentity.length > 255
-    || value.repositoryIdentity.trim() !== value.repositoryIdentity
+   || typeof value.repositoryIdentity !== 'string'
+   || value.repositoryIdentity.length > 255
     || !/^[0-9a-f]{40}$|^[0-9a-f]{64}$/.test(value.startingCommit)) {
     throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
   }
+  let repositoryIdentity: string;
+  try { repositoryIdentity = normalizeCoordinationRepositoryIdentity(value.repositoryIdentity); }
+  catch { throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED'); }
   return Object.freeze({
     taskRef,
     taskArtifactSha256: value.taskArtifactSha256,
-    repositoryIdentity: value.repositoryIdentity,
+    repositoryIdentity,
     startingCommit: value.startingCommit,
   });
 }
@@ -91,10 +94,17 @@ export async function resolveCoordinationTaskMetadata(
 
 export const resolveTaskMetadata = resolveCoordinationTaskMetadata;
 
-function validRepositoryIdentity(value: string): boolean {
-  // Accept canonical HTTPS and SCP-like SSH remotes, but not local paths.
-  return /^(?:https?:\/\/|ssh:\/\/)[^/\s]+\/[^?\s]+$/.test(value)
-    || /^[^@\s/:]+@[^:\s]+:[^/\s]+\/[^?\s]+$/.test(value);
+export async function resolveCoordinationTaskMetadataWithArtifact(
+  taskRef: string,
+  registry: CoordinationTaskMetadataRegistry = DEFAULT_COORDINATION_TASK_METADATA_REGISTRY,
+): Promise<{ metadata: CoordinationTaskMetadata; artifact: Uint8Array }> {
+  const metadata = await resolveCoordinationTaskMetadata(taskRef, { registry });
+  if (!registry.readArtifact) throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+  const artifact = await registry.readArtifact(taskRef);
+  if (createHash('sha256').update(artifact).digest('hex') !== metadata.taskArtifactSha256) {
+    throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+  }
+  return { metadata, artifact };
 }
 
 function defaultReaders(): CoordinationTaskMetadataReaders {
@@ -106,7 +116,15 @@ function defaultReaders(): CoordinationTaskMetadataReaders {
         const result = await execFileAsync('git', ['-C', rootDir, ...args], { shell: false });
         return result.stdout.trim();
       };
-      const repositoryIdentity = await run('remote', 'get-url', 'origin');
+       const repositoryIdentity = normalizeCoordinationRepositoryIdentity(await run('remote', 'get-url', 'origin'));
+       const configured = process.env.GITHUB_REPO_URL;
+       if (!configured || normalizeCoordinationRepositoryIdentity(configured) !== repositoryIdentity) {
+         throw new Error('repository_remote_mismatch');
+       }
+       if (process.env.COORDINATION_V2_REPOSITORY_IDENTITY
+         && normalizeCoordinationRepositoryIdentity(process.env.COORDINATION_V2_REPOSITORY_IDENTITY) !== repositoryIdentity) {
+         throw new Error('repository_identity_pin_mismatch');
+       }
       const startingCommit = await run('rev-parse', 'HEAD');
       const dirty = await run('status', '--porcelain=v1', '--untracked-files=all');
       return { repositoryIdentity, startingCommit, clean: dirty.length === 0 };
@@ -141,7 +159,10 @@ export class FixedRootCoordinationTaskMetadataRegistry implements CoordinationTa
       const bytes = await this.readers.readFile(taskPath);
       const provenance = await this.readers.git(root);
       if (!provenance.clean
-        || !validRepositoryIdentity(provenance.repositoryIdentity)
+        || (() => {
+          try { normalizeCoordinationRepositoryIdentity(provenance.repositoryIdentity); return false; }
+          catch { return true; }
+        })()
         || !/^[0-9a-f]{40}$|^[0-9a-f]{64}$/.test(provenance.startingCommit)) {
         throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
       }
@@ -156,6 +177,19 @@ export class FixedRootCoordinationTaskMetadataRegistry implements CoordinationTa
       throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
     }
   }
+
+  async readArtifact(taskRef: string): Promise<Uint8Array> {
+    const ref = validateTaskRef(taskRef);
+    const root = resolve(this.rootDir);
+    const taskPath = resolve(root, '.local', 'tasks', `task-${ref}.md`);
+    const relativePath = relative(root, taskPath);
+    if (relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath) || !taskPath.startsWith(`${root}${sep}`)) {
+      throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+    }
+    const stat = await this.readers.lstat(taskPath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+    return this.readers.readFile(taskPath);
+  }
 }
 
 export const DEFAULT_COORDINATION_TASK_METADATA_REGISTRY =
@@ -167,5 +201,15 @@ export class CoordinationTaskMetadataService {
 
   resolve(taskRef: string): Promise<CoordinationTaskMetadata> {
     return resolveCoordinationTaskMetadata(taskRef, { registry: this.registry });
+  }
+
+  async resolveWithArtifact(taskRef: string): Promise<{ metadata: CoordinationTaskMetadata; artifact: Uint8Array }> {
+    const metadata = await this.resolve(taskRef);
+    if (!this.registry.readArtifact) throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+    const artifact = await this.registry.readArtifact(taskRef);
+    if (createHash('sha256').update(artifact).digest('hex') !== metadata.taskArtifactSha256) {
+      throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+    }
+    return { metadata, artifact };
   }
 }

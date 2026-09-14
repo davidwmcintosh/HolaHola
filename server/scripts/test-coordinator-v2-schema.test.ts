@@ -150,3 +150,9 @@ test("Coordinator V2 relationships fail closed with restrictive foreign keys", (
     assert.match(foreignKey, /ON DELETE restrict/);
   }
 });
+
+test("source promotion authority is PostgreSQL append-only", () => {
+  const migration = readFileSync("migrations/0049_brainy_mikhail_rasputin.sql", "utf8");
+  assert.match(migration, /coordination_v2_reject_source_promotion_mutation/);
+  assert.match(migration, /BEFORE UPDATE OR DELETE ON "coordination_v2_source_promotions"/);
+});

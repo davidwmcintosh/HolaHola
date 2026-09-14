@@ -45,9 +45,9 @@ test('durable transport leases CAS, fence, replay, and reconciliation matrix', a
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id, host_key, host_type, display_name, protocol_version, public_key, key_fingerprint,
-        capabilities, enrollment_digest, status, created_by)
-       VALUES ($1,$2,'test','Lease test host',1,'test-key',$3,ARRAY['poll'],$4,'active','lease-test')`,
-      [hostId, id('host-key'), hex('a'), hex('b')],
+         capabilities, enrollment_digest, enrollment_request_key, status, created_by)
+        VALUES ($1,$2,'test','Lease test host',1,'test-key',$3,ARRAY['poll'],$4,$5,'active','lease-test')`,
+       [hostId, id('host-key'), hex('a'), hex('b'), id('enrollment-request')],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities

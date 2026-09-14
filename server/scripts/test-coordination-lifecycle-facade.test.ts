@@ -11,13 +11,26 @@ import {
   applyCoordinationProviderFailure,
 } from '../services/coordination-lifecycle-facade-service';
 import { mapProviderFailure } from '../services/coordination-provider-failure';
+import { normalizeCoordinationRepositoryIdentity } from '../services/coordination-repository-identity';
 
 const metadata = {
   taskRef: '9001',
   taskArtifactSha256: 'a'.repeat(64),
-  repositoryIdentity: 'repo/example',
+  repositoryIdentity: 'github:repo/example',
   startingCommit: 'b'.repeat(40),
 };
+
+test('repository identity canonicalizer accepts only equivalent GitHub remotes', () => {
+  for (const value of [
+    'github:owner/repo', 'git@github.com:owner/repo.git',
+    'ssh://git@github.com/owner/repo.git', 'https://github.com/owner/repo',
+  ]) assert.equal(normalizeCoordinationRepositoryIdentity(value), 'github:owner/repo');
+  for (const value of [
+    'github:Owner/Repo', 'https://evil.example/owner/repo', 'https://git@github.com/owner/repo',
+    'ssh://root@github.com/owner/repo', 'https://github.com/owner/../repo',
+    'https://github.com/owner/repo?x=1', '/tmp/repo',
+  ]) assert.throws(() => normalizeCoordinationRepositoryIdentity(value));
+});
 const policy = {
   providerOrder: ['fake'],
   totalAttemptBudget: 3,

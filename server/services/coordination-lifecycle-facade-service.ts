@@ -10,6 +10,7 @@ import {
   coordinationV2Sessions,
   coordinationV2PreparationReservations,
   coordinationV2Attempts,
+  coordinationV2SourcePromotions,
 } from '@shared/schema';
 import {
   createOrResumeSession,
@@ -48,6 +49,68 @@ import {
 } from './coordination-task-metadata-service';
 import type { AttemptCommand } from './coordination-attempt-state';
 import type { SessionCommand } from './coordination-session-state';
+import {
+  reserveCoordinationWindowsPreparationBeforeSession,
+  type PreparationReservationDto,
+} from './coordination-windows-generation';
+import { canonicalJson, canonicalizePolicy } from './coordination-policy-canonicalization';
+
+export async function reserveCoordinationLifecyclePreparation(
+  input: CoordinationLifecycleOperatorInput,
+  context: CoordinationLifecycleActorContext,
+  dependencies: CoordinationLifecycleFacadeDependencies = {},
+): Promise<{ reservation: PreparationReservationDto; policyVersionId: string }> {
+  invalid(input, context);
+  const [metadata, policy, host] = await Promise.all([
+    dependencies.resolveTaskMetadata
+      ? dependencies.resolveTaskMetadata(input.taskRef)
+      : resolveCoordinationTaskMetadata(input.taskRef),
+    (dependencies.resolvePolicy ?? defaultPolicy)(context, input.policySelector),
+    (dependencies.resolveHost ?? defaultHost)(context),
+  ]);
+  let canonicalPolicy: Record<string, unknown>;
+  try {
+    canonicalPolicy = canonicalizePolicy(policy.policy) as Record<string, unknown>;
+  } catch {
+    throw new CoordinationLifecycleFacadeError('LIFECYCLE_POLICY_UNAVAILABLE');
+  }
+  const constraints = canonicalPolicy.hostConstraints as Record<string, unknown> | undefined;
+  if (!constraints || typeof constraints !== 'object' || Array.isArray(constraints)
+    || typeof (constraints as Record<string, unknown>).windowsRepositoryBranch !== 'string'
+    || typeof (constraints as Record<string, unknown>).windowsPublicMaterialDigest !== 'string'
+    || !/^[0-9a-f]{64}$/.test((constraints as Record<string, unknown>).windowsPublicMaterialDigest as string)) {
+    throw new CoordinationLifecycleFacadeError('LIFECYCLE_POLICY_UNAVAILABLE');
+  }
+  const promotion = (await db.select().from(coordinationV2SourcePromotions)
+    .where(eq(coordinationV2SourcePromotions.state, 'published'))
+    .orderBy(desc(coordinationV2SourcePromotions.createdAt)).limit(1))[0];
+  if (!promotion || promotion.repositoryIdentity !== metadata.repositoryIdentity) {
+    throw new CoordinationLifecycleFacadeError('LIFECYCLE_HOST_UNAVAILABLE');
+  }
+  return {
+    reservation: await reserveCoordinationWindowsPreparationBeforeSession({
+      taskRef: metadata.taskRef, taskArtifactSha256: metadata.taskArtifactSha256,
+      repositoryIdentity: metadata.repositoryIdentity, startingCommit: metadata.startingCommit,
+      enrolledHostId: host.enrolledHostId, policyIdentityId: policy.policyIdentityId,
+      policyVersionId: policy.policyVersionId, operatorGrantId: policy.operatorGrantId,
+      operatorActor: context.actorId, reserveRequestKey: requestKey(input, context, dependencies),
+       branch: constraints.windowsRepositoryBranch as string,
+       publicMaterialDigest: constraints.windowsPublicMaterialDigest as string,
+      promotionRecordId: promotion.id, promotedCommitSha: promotion.promotedCommitSha, exactTreeSha: promotion.exactTreeSha,
+       budgetsDigest: createHash('sha256').update(canonicalJson({
+         totalAttemptBudget: canonicalPolicy.totalAttemptBudget,
+         perProviderAttemptBudgets: canonicalPolicy.perProviderAttemptBudgets ?? {},
+       })).digest('hex'),
+       validationCriteriaDigest: createHash('sha256').update(canonicalJson(
+         canonicalPolicy.requiredValidationCommands ?? [],
+       )).digest('hex'),
+       completionCriteriaDigest: createHash('sha256').update(canonicalJson(
+         canonicalPolicy.requiredCompletionEvidence ?? [],
+       )).digest('hex'),
+    }),
+    policyVersionId: policy.policyVersionId,
+  };
+}
 
 export type CoordinationLifecycleOperatorInput = Readonly<{
   taskRef: string;
@@ -86,6 +149,7 @@ export class CoordinationLifecycleFacadeError extends Error {
 }
 
 type ResolvedPolicy = Readonly<{
+  policyIdentityId: string;
   policyVersionId: string;
   operatorGrantId: string;
   policy: ProviderSelectionPolicy;
@@ -234,6 +298,7 @@ async function defaultPolicy(
       && (candidate.maxVersion === null || selected.version.version <= candidate.maxVersion));
   if (!grant) throw new CoordinationLifecycleFacadeError('LIFECYCLE_POLICY_UNAVAILABLE');
   return {
+    policyIdentityId: selected.identity.id,
     policyVersionId: selected.version.id,
     operatorGrantId: grant.id,
     policy: selected.version.canonicalPolicy as ProviderSelectionPolicy,
@@ -294,7 +359,7 @@ function selectionPolicy(value: Record<string, unknown>): ProviderSelectionPolic
     || typeof total !== 'number' || !Number.isInteger(total) || total <= 0) {
     return undefined;
   }
-  const budgets = value.providerAttemptBudgets;
+  const budgets = value.perProviderAttemptBudgets;
   if (budgets !== undefined && (typeof budgets !== 'object' || budgets === null || Array.isArray(budgets)
     || Object.values(budgets as Record<string, unknown>).some((budget) =>
       typeof budget !== 'number' || !Number.isInteger(budget) || budget <= 0))) {

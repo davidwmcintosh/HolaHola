@@ -1,14 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   coordinationV2PreparationReservations,
   coordinationV2SessionEvents,
   coordinationV2Sessions,
+  coordinationV2HostEnrollments,
+  coordinationV2PolicyVersions,
+  coordinationV2OperatorGrants,
+  coordinationV2SourcePromotions,
   type CoordinationV2PreparationReservation,
 } from "@shared/schema";
-import { canonicalJson } from "./coordination-policy-canonicalization";
+import { canonicalJson, canonicalizePolicy } from "./coordination-policy-canonicalization";
 import {
   authorizeCoordinationLifecycleInTransaction,
   CoordinationLifecycleAuthorizationError,
@@ -17,7 +21,12 @@ import {
 export const COORDINATION_PREPARATION_PROTOCOL_VERSION = 1 as const;
 const DIGEST = /^[0-9a-f]{64}$/;
 const COMMIT = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/;
+const TREE = /^[0-9a-f]{40}$/;
 const PREPARATION_RESERVATION_DURATION_MS = 15 * 60_000;
+const PREPARATION_UNIQUE_CONSTRAINTS = new Set([
+  "uq_coordination_v2_preparation_reserve_request",
+  "uq_coordination_v2_preparation_generation",
+]);
 // Fixed M8 enrollment capabilities; M9 transport capabilities are not accepted
 // or activated by this reservation service.
 const M8_REQUIRED_HOST_CAPABILITIES = ["preflight", "prepare"] as const;
@@ -31,9 +40,21 @@ export type PreparationReservationState =
 
 export type PreparationReservationDto = {
   id: string;
-  sessionId: string;
+  sessionId: string | null;
   enrolledHostId: string;
   generationId: string;
+  taskRef: string | null;
+  taskArtifactSha256: string | null;
+  promotionRecordId: string | null;
+  promotedCommitSha: string | null;
+  exactTreeSha: string | null;
+  policyIdentityId: string | null;
+  policyVersionId: string | null;
+  operatorGrantId: string | null;
+  operatorActor: string | null;
+  budgetsDigest: string | null;
+  completionCriteriaDigest: string | null;
+  validationCriteriaDigest: string | null;
   reservationDigest: string;
   publicMaterialDigest: string;
   protocolVersion: number;
@@ -93,20 +114,50 @@ function sha(value: unknown): string {
   return value as string;
 }
 
+export function isCoordinationPreparationUniqueConflict(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
+    const value = current as { code?: unknown; constraint?: unknown; cause?: unknown };
+    if (value.code === "23505" && typeof value.constraint === "string"
+      && PREPARATION_UNIQUE_CONSTRAINTS.has(value.constraint)) return true;
+    current = value.cause;
+  }
+  return false;
+}
+
 function postgresCode(error: unknown): string | undefined {
-  let current = error as { code?: unknown; cause?: unknown } | undefined;
-  for (let depth = 0; current && depth < 4; depth += 1) {
-    if (typeof current.code === "string") return current.code;
-    current = current.cause as { code?: unknown; cause?: unknown } | undefined;
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+    current = (current as { cause?: unknown }).cause;
   }
   return undefined;
 }
 
+export function validatePreparationReservationBinding(row: Pick<CoordinationV2PreparationReservation,
+  "sessionId" | "state" | "taskRef" | "taskArtifactSha256" | "promotionRecordId" | "promotedCommitSha"
+  | "exactTreeSha" | "policyIdentityId" | "policyVersionId" | "operatorGrantId" | "operatorActor">): boolean {
+  if (row.sessionId === null) {
+    return ["reserved", "promoted"].includes(row.state)
+      && !!row.taskRef && !!row.taskArtifactSha256 && !!row.promotionRecordId
+      && !!row.promotedCommitSha && !!row.exactTreeSha && !!row.policyIdentityId
+      && !!row.policyVersionId && !!row.operatorGrantId && !!row.operatorActor;
+  }
+  return row.state !== "acknowledged" || (!!row.policyVersionId && !!row.operatorGrantId);
+}
+
 function dto(row: CoordinationV2PreparationReservation): PreparationReservationDto {
+  if (!validatePreparationReservationBinding(row)) fail("PREPARATION_CONFLICT");
   const iso = (value: Date | null): string | null => value?.toISOString() ?? null;
   return {
     id: row.id, sessionId: row.sessionId, enrolledHostId: row.enrolledHostId,
-    generationId: row.generationId, reservationDigest: row.reservationDigest,
+    generationId: row.generationId, taskRef: row.taskRef, taskArtifactSha256: row.taskArtifactSha256,
+    promotionRecordId: row.promotionRecordId, promotedCommitSha: row.promotedCommitSha, exactTreeSha: row.exactTreeSha,
+    policyIdentityId: row.policyIdentityId, policyVersionId: row.policyVersionId, operatorGrantId: row.operatorGrantId,
+    operatorActor: row.operatorActor, budgetsDigest: row.budgetsDigest,
+    completionCriteriaDigest: row.completionCriteriaDigest, validationCriteriaDigest: row.validationCriteriaDigest,
+    reservationDigest: row.reservationDigest,
     publicMaterialDigest: row.publicMaterialDigest, protocolVersion: row.protocolVersion,
     repositoryIdentity: row.repositoryIdentity, branch: row.branch,
     startingCommit: row.startingCommit, state: row.state as PreparationReservationState,
@@ -130,8 +181,9 @@ async function databaseNow(tx: any): Promise<Date> {
 }
 
 async function appendEvent(tx: any, row: CoordinationV2PreparationReservation, requestKey: string,
-  eventType: string, actorId: string, now: Date, sessionState: string,
+  eventType: string, actorId: string, occurredAt: Date, sessionState: string,
   metadata: Record<string, unknown> = {}) {
+  if (!row.sessionId) return;
   const prior = await tx.select({ sequence: coordinationV2SessionEvents.sequence })
     .from(coordinationV2SessionEvents)
     .where(eq(coordinationV2SessionEvents.sessionId, row.sessionId))
@@ -142,8 +194,12 @@ async function appendEvent(tx: any, row: CoordinationV2PreparationReservation, r
     // authority, so both state columns preserve its locked state.
     fromState: sessionState, toState: sessionState, eventType, actorType: "operator",
     actorId, requestKey, metadata: { protocolVersion: 1, generationId: row.generationId, ...metadata },
-    createdAt: now,
+    createdAt: occurredAt,
   });
+}
+
+function preparationEventRequestKey(row: CoordinationV2PreparationReservation, phase: string, sourceRequestKey: string): string {
+  return `preparation:${phase}:${digest({ reservationId: row.id, sourceRequestKey })}`;
 }
 
 async function authorize(tx: any, input: { sessionId: string; actorId: string; action: "launch" | "terminate" | "status" },
@@ -177,13 +233,239 @@ export type ReservePreparationInput = {
   reserveRequestKey: string;
 };
 
+export type PreSessionPreparationInput = {
+  taskRef: string; taskArtifactSha256: string; repositoryIdentity: string; startingCommit: string;
+  enrolledHostId: string; policyIdentityId: string; policyVersionId: string; operatorGrantId: string;
+  operatorActor: string; reserveRequestKey: string; branch: string; publicMaterialDigest: string;
+  promotionRecordId?: string; promotedCommitSha?: string; exactTreeSha?: string;
+  budgetsDigest?: string; completionCriteriaDigest?: string; validationCriteriaDigest?: string;
+};
+
+export async function reserveCoordinationWindowsPreparationBeforeSession(input: PreSessionPreparationInput): Promise<PreparationReservationDto> {
+  const reserveRequestKey = text(input.reserveRequestKey, "reserveRequestKey");
+  text(input.repositoryIdentity, "repositoryIdentity", 255);
+  text(input.enrolledHostId, "enrolledHostId");
+  text(input.policyIdentityId, "policyIdentityId");
+  text(input.policyVersionId, "policyVersionId");
+  text(input.operatorGrantId, "operatorGrantId");
+  text(input.operatorActor, "operatorActor");
+  text(input.branch, "branch", 255);
+  text(input.taskRef, "taskRef");
+  text(input.taskArtifactSha256, "taskArtifactSha256");
+  text(input.startingCommit, "startingCommit");
+  text(input.publicMaterialDigest, "publicMaterialDigest");
+  if (!/^[1-9][0-9]*$/.test(input.taskRef) || !DIGEST.test(input.taskArtifactSha256)
+    || !COMMIT.test(input.startingCommit) || !DIGEST.test(input.publicMaterialDigest)) fail("PREPARATION_INVALID_REQUEST");
+  if (input.promotionRecordId !== undefined) text(input.promotionRecordId, "promotionRecordId");
+  if (input.promotedCommitSha !== undefined && !COMMIT.test(input.promotedCommitSha)) fail("PREPARATION_INVALID_REQUEST");
+  if (input.exactTreeSha !== undefined && !TREE.test(input.exactTreeSha)) fail("PREPARATION_INVALID_REQUEST");
+  for (const value of [input.budgetsDigest, input.completionCriteriaDigest, input.validationCriteriaDigest]) {
+    if (value !== undefined && !DIGEST.test(value)) fail("PREPARATION_INVALID_REQUEST");
+  }
+  const commandDigest = digest(input);
+  for (let collisionAttempt = 0; collisionAttempt < 2; collisionAttempt += 1) {
+    try {
+      return await db.transaction(async (tx) => {
+        const host = (await tx.select({ id: coordinationV2HostEnrollments.id }).from(coordinationV2HostEnrollments)
+          .where(and(eq(coordinationV2HostEnrollments.id, input.enrolledHostId), eq(coordinationV2HostEnrollments.status, "active"), isNull(coordinationV2HostEnrollments.revokedAt))).limit(1))[0];
+        const policy = (await tx.select({ id: coordinationV2PolicyVersions.id }).from(coordinationV2PolicyVersions)
+          .where(and(eq(coordinationV2PolicyVersions.id, input.policyVersionId), eq(coordinationV2PolicyVersions.approvalState, "approved"), isNull(coordinationV2PolicyVersions.revokedAt))).limit(1))[0];
+        const grant = (await tx.select({ id: coordinationV2OperatorGrants.id }).from(coordinationV2OperatorGrants)
+          .where(and(eq(coordinationV2OperatorGrants.id, input.operatorGrantId), eq(coordinationV2OperatorGrants.operatorActor, input.operatorActor),
+            gt(coordinationV2OperatorGrants.expiresAt, new Date()), isNull(coordinationV2OperatorGrants.revokedAt))).limit(1))[0];
+        if (!host || !policy || !grant) fail("PREPARATION_AUTHORIZATION_DENIED");
+        if (!input.promotionRecordId || !input.promotedCommitSha || !input.exactTreeSha) fail("PREPARATION_AUTHORIZATION_DENIED");
+        const promotion = (await tx.select({ id: coordinationV2SourcePromotions.id }).from(coordinationV2SourcePromotions)
+          .where(and(eq(coordinationV2SourcePromotions.id, input.promotionRecordId),
+            eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
+            eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
+            eq(coordinationV2SourcePromotions.repositoryIdentity, input.repositoryIdentity),
+            eq(coordinationV2SourcePromotions.state, "published"))).limit(1))[0];
+        if (!promotion) fail("PREPARATION_AUTHORIZATION_DENIED");
+        const prior = await tx.select().from(coordinationV2PreparationReservations)
+          .where(eq(coordinationV2PreparationReservations.reserveRequestKey, reserveRequestKey)).for("update");
+        if (prior[0]) {
+          const row = prior[0] as CoordinationV2PreparationReservation;
+          if (row.reserveCommandDigest !== commandDigest) fail("PREPARATION_REPLAY_CONFLICT");
+          return dto(row);
+        }
+        const generationId = randomUUID();
+        const reservationDigest = digest({
+          taskRef: input.taskRef, taskArtifactSha256: input.taskArtifactSha256, repositoryIdentity: input.repositoryIdentity,
+          startingCommit: input.startingCommit, enrolledHostId: input.enrolledHostId, policyVersionId: input.policyVersionId,
+          operatorGrantId: input.operatorGrantId, operatorActor: input.operatorActor, generationId,
+          publicMaterialDigest: input.publicMaterialDigest, reserveRequestKey,
+        });
+        const now = new Date();
+        const inserted = await tx.insert(coordinationV2PreparationReservations).values({
+          id: randomUUID(), sessionId: null, enrolledHostId: input.enrolledHostId, generationId,
+          taskRef: input.taskRef, taskArtifactSha256: input.taskArtifactSha256,
+          promotionRecordId: input.promotionRecordId, promotedCommitSha: input.promotedCommitSha, exactTreeSha: input.exactTreeSha,
+          policyIdentityId: input.policyIdentityId, policyVersionId: input.policyVersionId, operatorGrantId: input.operatorGrantId,
+          operatorActor: input.operatorActor, budgetsDigest: input.budgetsDigest,
+          completionCriteriaDigest: input.completionCriteriaDigest, validationCriteriaDigest: input.validationCriteriaDigest,
+          reservationDigest, publicMaterialDigest: input.publicMaterialDigest, protocolVersion: 1, repositoryIdentity: input.repositoryIdentity,
+          branch: input.branch, startingCommit: input.startingCommit, state: "reserved",
+          reserveRequestKey, reserveCommandDigest: commandDigest, createdAt: now,
+          expiresAt: new Date(now.getTime() + PREPARATION_RESERVATION_DURATION_MS),
+        }).returning();
+        return dto(inserted[0] as CoordinationV2PreparationReservation);
+      });
+    } catch (error) {
+      if (error instanceof CoordinationPreparationError) throw error;
+      const code = postgresCode(error);
+      if (code === "23505" && isCoordinationPreparationUniqueConflict(error)) {
+        for (let readAttempt = 0; readAttempt < 3; readAttempt += 1) {
+          const winner = await readReservationWinner(reserveRequestKey);
+          if (winner) {
+            if (winner.reserveCommandDigest !== commandDigest) fail("PREPARATION_REPLAY_CONFLICT");
+            return dto(winner);
+          }
+          if (readAttempt < 2) await boundedReservationBackoff(readAttempt);
+        }
+        if (collisionAttempt === 0) continue;
+        fail("PREPARATION_CONFLICT");
+      }
+      if (code === "23505") fail("PREPARATION_DATABASE_UNAVAILABLE");
+      if (code === "23514") fail("PREPARATION_INVALID_TRANSITION");
+      if (code === "40001" || code === "40P01") fail("PREPARATION_CONFLICT");
+      return fail("PREPARATION_DATABASE_UNAVAILABLE");
+    }
+  }
+  return fail("PREPARATION_CONFLICT");
+}
+
+export async function acknowledgeCoordinationWindowsPreparationBeforeSession(input: {
+  reservationId: string; actorId: string; generationId: string; publicMaterialDigest: string;
+  acknowledgementRequestKey: string; safePromotionEvidenceDigest: string;
+}): Promise<PreparationReservationDto> {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(coordinationV2PreparationReservations)
+      .where(eq(coordinationV2PreparationReservations.id, input.reservationId)).for("update");
+    const row = rows[0] as CoordinationV2PreparationReservation | undefined;
+    if (!row || row.operatorActor !== input.actorId || row.generationId !== input.generationId
+      || row.publicMaterialDigest !== input.publicMaterialDigest) fail("PREPARATION_CONFLICT");
+    const ackCommandDigest = digest(input);
+    if (row.state === "acknowledged" && row.sessionId) {
+      if (row.ackCommandDigest !== ackCommandDigest
+        || row.acknowledgementRequestKey !== input.acknowledgementRequestKey
+        || row.safePromotionEvidenceDigest !== input.safePromotionEvidenceDigest) {
+        fail("PREPARATION_REPLAY_CONFLICT");
+      }
+      return dto(row);
+    }
+    if (row.state !== "promoted" || row.expiresAt <= new Date()) fail("PREPARATION_INVALID_TRANSITION");
+    if (!row.promotedAt || !row.safePromotionEvidenceDigest
+      || row.safePromotionEvidenceDigest !== input.safePromotionEvidenceDigest) fail("PREPARATION_CONFLICT");
+    const acknowledgementNow = await databaseNow(tx);
+    const rawPolicy = (await tx.select({ canonicalPolicy: coordinationV2PolicyVersions.canonicalPolicy })
+      .from(coordinationV2PolicyVersions).where(eq(coordinationV2PolicyVersions.id, row.policyVersionId!)).limit(1))[0]?.canonicalPolicy as any;
+    let policy: Record<string, unknown>;
+    try {
+      policy = canonicalizePolicy(rawPolicy) as Record<string, unknown>;
+    } catch {
+      // A database row that no longer satisfies the canonical authority
+      // language must never receive a session or credentials.
+      fail("PREPARATION_AUTHORIZATION_DENIED");
+    }
+    const providerOrder = policy.providerOrder;
+    const totalAttemptBudget = policy.totalAttemptBudget;
+    const sessionDurationMs = policy.sessionDurationMs;
+    const perProviderBudgets = policy.perProviderAttemptBudgets ?? {};
+    const requiredValidations = policy.requiredValidationCommands ?? [];
+    const requiredCompletionEvidence = policy.requiredCompletionEvidence ?? [];
+    if (!Array.isArray(providerOrder) || providerOrder.length === 0
+      || typeof totalAttemptBudget !== "number" || !Number.isSafeInteger(totalAttemptBudget)
+      || typeof sessionDurationMs !== "number" || !Number.isSafeInteger(sessionDurationMs)
+      || !perProviderBudgets || typeof perProviderBudgets !== "object"
+      || !Array.isArray(requiredValidations) || !Array.isArray(requiredCompletionEvidence)) {
+      fail("PREPARATION_AUTHORIZATION_DENIED");
+    }
+    const sessionDigest = digest({ reservationId: row.id, taskRef: row.taskRef, taskArtifactSha256: row.taskArtifactSha256, generationId: row.generationId });
+    const sessionRows = await tx.insert(coordinationV2Sessions).values({
+      id: randomUUID(), preparationReservationId: row.id, policyVersionId: row.policyVersionId!,
+      operatorGrantId: row.operatorGrantId!, operatorActor: row.operatorActor!, taskRef: row.taskRef!,
+      taskArtifactSha256: row.taskArtifactSha256!, repositoryIdentity: row.repositoryIdentity,
+      startingCommit: row.startingCommit, enrolledHostId: row.enrolledHostId,
+      requestedProviders: providerOrder as string[],
+      expiresAt: new Date(acknowledgementNow.getTime() + sessionDurationMs),
+      attemptBudget: totalAttemptBudget as number,
+      perProviderBudgets: perProviderBudgets as Record<string, number>,
+      requiredValidations: requiredValidations as string[],
+      completionCriteria: { requiredCompletionEvidence },
+      state: "ready",
+      idempotencyKey: `${row.reserveRequestKey}:ack`, sessionDigest,
+      createdAt: acknowledgementNow, updatedAt: acknowledgementNow,
+    }).returning();
+    const session = sessionRows[0];
+    const updated = await tx.update(coordinationV2PreparationReservations).set({
+      sessionId: session.id, state: "acknowledged", acknowledgementRequestKey: input.acknowledgementRequestKey,
+      ackCommandDigest, safePromotionEvidenceDigest: input.safePromotionEvidenceDigest, acknowledgedAt: acknowledgementNow,
+    }).where(eq(coordinationV2PreparationReservations.id, row.id)).returning();
+    const eventRow = updated[0] as CoordinationV2PreparationReservation;
+    await appendEvent(tx, eventRow,
+      preparationEventRequestKey(eventRow, "reserved", eventRow.reserveRequestKey),
+      "preparation_reserved", eventRow.operatorActor!, eventRow.createdAt, "ready", {
+        reserveRequestKey: eventRow.reserveRequestKey,
+        reserveCommandDigest: eventRow.reserveCommandDigest,
+        reservationDigest: eventRow.reservationDigest,
+        publicMaterialDigest: eventRow.publicMaterialDigest,
+      });
+    await appendEvent(tx, eventRow,
+      preparationEventRequestKey(eventRow, "promoted", eventRow.reserveRequestKey),
+      "preparation_promoted", eventRow.operatorActor!, eventRow.promotedAt!, "ready", {
+        reserveRequestKey: eventRow.reserveRequestKey,
+        safePromotionEvidenceDigest: eventRow.safePromotionEvidenceDigest,
+      });
+    await appendEvent(tx, eventRow,
+      preparationEventRequestKey(eventRow, "acknowledged", eventRow.acknowledgementRequestKey!),
+      "preparation_acknowledged", input.actorId, acknowledgementNow, "ready", {
+        acknowledgementRequestKey: eventRow.acknowledgementRequestKey,
+        ackCommandDigest: eventRow.ackCommandDigest,
+        safePromotionEvidenceDigest: eventRow.safePromotionEvidenceDigest,
+      });
+    return dto(updated[0] as CoordinationV2PreparationReservation);
+  });
+}
+
+async function readReservationWinner(reserveRequestKey: string): Promise<CoordinationV2PreparationReservation | undefined> {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(coordinationV2PreparationReservations)
+      .where(eq(coordinationV2PreparationReservations.reserveRequestKey, reserveRequestKey))
+      .for("update");
+    return rows[0] as CoordinationV2PreparationReservation | undefined;
+  });
+}
+
+async function boundedReservationBackoff(attempt: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 5 : 15));
+}
+
+export async function promoteCoordinationWindowsPreparationBeforeSession(input: {
+  reservationId: string; actorId: string; generationId: string; publicMaterialDigest: string; safePromotionEvidenceDigest: string;
+}): Promise<PreparationReservationDto> {
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(coordinationV2PreparationReservations)
+      .where(eq(coordinationV2PreparationReservations.id, input.reservationId)).for("update");
+    const row = rows[0] as CoordinationV2PreparationReservation | undefined;
+    if (!row || row.operatorActor !== input.actorId || row.generationId !== input.generationId
+      || row.publicMaterialDigest !== input.publicMaterialDigest) fail("PREPARATION_CONFLICT");
+    if (row.state === "promoted" || row.state === "acknowledged") return dto(row);
+    if (row.state !== "reserved" || row.expiresAt <= new Date()) fail("PREPARATION_INVALID_TRANSITION");
+    const updated = await tx.update(coordinationV2PreparationReservations).set({
+      state: "promoted", promotedAt: new Date(), safePromotionEvidenceDigest: input.safePromotionEvidenceDigest,
+    }).where(eq(coordinationV2PreparationReservations.id, row.id)).returning();
+    return dto(updated[0] as CoordinationV2PreparationReservation);
+  });
+}
+
 export async function reserveCoordinationWindowsPreparation(input: ReservePreparationInput): Promise<PreparationReservationDto> {
   const reserveRequestKey = text(input.reserveRequestKey, "reserveRequestKey");
   for (let collisionAttempt = 0; collisionAttempt < 2; collisionAttempt += 1) {
     try {
       return await db.transaction(async (tx) => {
       const now = await databaseNow(tx);
-      const { session, host, version } = await authorize(tx, {
+      const { session, host, version, identity, grant } = await authorize(tx, {
         sessionId: input.sessionId, actorId: input.actorId, action: "launch",
       }, now);
       if (host.hostType.toLowerCase() !== "windows" || host.protocolVersion !== 1
@@ -230,6 +512,9 @@ export async function reserveCoordinationWindowsPreparation(input: ReservePrepar
       });
       const inserted = await tx.insert(coordinationV2PreparationReservations).values({
         id: randomUUID(), sessionId: session.id, enrolledHostId: host.id, generationId,
+        taskRef: session.taskRef, taskArtifactSha256: session.taskArtifactSha256,
+        policyIdentityId: identity.id, policyVersionId: version.id, operatorGrantId: grant.id,
+        operatorActor: session.operatorActor,
         reservationDigest, publicMaterialDigest,
         protocolVersion: COORDINATION_PREPARATION_PROTOCOL_VERSION,
         repositoryIdentity: session.repositoryIdentity, branch, startingCommit: session.startingCommit,
@@ -245,8 +530,20 @@ export async function reserveCoordinationWindowsPreparation(input: ReservePrepar
     } catch (error) {
       if (error instanceof CoordinationPreparationError) throw error;
       const code = postgresCode(error);
-      if (code === "23505" && collisionAttempt === 0) continue;
-      if (code === "23505") fail("PREPARATION_CONFLICT");
+      if (code === "23505" && isCoordinationPreparationUniqueConflict(error)) {
+        const commandDigest = digest(input);
+        for (let readAttempt = 0; readAttempt < 3; readAttempt += 1) {
+          const winner = await readReservationWinner(reserveRequestKey);
+          if (winner) {
+            if (winner.reserveCommandDigest !== commandDigest) fail("PREPARATION_REPLAY_CONFLICT");
+            return dto(winner);
+          }
+          if (readAttempt < 2) await boundedReservationBackoff(readAttempt);
+        }
+        if (collisionAttempt === 0) continue;
+        fail("PREPARATION_CONFLICT");
+      }
+      if (code === "23505") fail("PREPARATION_DATABASE_UNAVAILABLE");
       if (code === "23514") fail("PREPARATION_INVALID_TRANSITION");
       if (code === "40001" || code === "40P01") fail("PREPARATION_CONFLICT");
       return fail("PREPARATION_DATABASE_UNAVAILABLE");
