@@ -200,3 +200,17 @@ mtime_ms = 1789148663560
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/1f84e418-3785-4873-8b3a-e0ab63ded56b/5617301e-b8ce-4e62-8d7a-5859b2480f5c"
 storage_version_token = "1789148664733921"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "IImFOzHUUmvQH7aSY3ieH"
+uri = "file://attached_assets/publish-coordinator-v2-runtime.txt"
+type = "text"
+title = "Publish Coordinator V2 runtime release"
+description = "Founder-authenticated console command for the verified 61-artifact Node/tsx release. Contains no credentials."
+logical_id = "22ac878c-b83d-4b6c-b846-ef2c1cfef999"
+content_hash = "sha256:3606a9aca97466874d57e3feb0f734958b6b69cbfe2bb3b7dbb44eec56f6244a"
+size = 24414
+mtime_ms = 1789489276578
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/22ac878c-b83d-4b6c-b846-ef2c1cfef999/f68feb26-197b-4691-b6c1-105061c1b30d"
+storage_version_token = "1789489277825744"
+content_type = "text/plain"
