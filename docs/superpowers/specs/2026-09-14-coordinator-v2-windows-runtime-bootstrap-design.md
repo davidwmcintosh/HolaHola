@@ -441,6 +441,26 @@ This operator-only boundary:
 - writes the release and artifacts in one transaction;
 - never overwrites an existing release or object.
 
+Production intentionally excludes `.git` from the published image. Source
+verification therefore uses one protected remote snapshot rather than the
+deployment filesystem:
+
+- the source-promotion repository identity must equal the configured repository;
+- a temporary bare repository fetches only the exact promoted commit through
+  the exact `git@github.com:owner/repository.git` transport using the existing
+  deploy key and pinned GitHub SSH host keys; HTTPS and alternate transports
+  fail closed;
+- `FETCH_HEAD` must equal the requested commit and its tree must equal the
+  immutable source-promotion tree;
+- the bootstrap source members and `package-lock.json` are read as bounded,
+  binary-safe blobs from that same snapshot;
+- the accepted blob path set is closed, duplicate-free, and traversal-safe;
+- the temporary repository and temporary SSH material are removed on every
+  success or failure;
+- there is no fallback to mutable deployed files, a branch, a tag, local
+  tree-equivalence, caller-supplied source bytes, or publication-input test
+  dependencies.
+
 ### Issue a host-bound manifest
 
 ```text

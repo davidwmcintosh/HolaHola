@@ -158,6 +158,101 @@ async function main(): Promise<void> {
   });
   assert.equal((await production.sync('fixture')).state, 'disabled');
 
+  const snapshotCalls: Array<{ sha: string; fixedPaths: readonly string[] }> = [];
+  let resolverBlobs: Record<string, Buffer> = {};
+  const snapshotService = new SourceControlService({
+    rootDir: mkdtempSync(join(tmpdir(), 'source-control-snapshot-no-git-')),
+    env: {
+      NODE_ENV: 'production',
+      GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+    },
+    resolveRemoteSnapshot: async (sha, fixedPaths) => {
+      snapshotCalls.push({ sha, fixedPaths });
+      resolverBlobs = Object.fromEntries(fixedPaths.map((path) => [path, Buffer.from(path)]));
+      return {
+        sha,
+        treeSha: '4'.repeat(40),
+        blobs: resolverBlobs,
+      };
+    },
+  });
+  const snapshotPaths = [
+    'scripts/hola-coordinator.ps1',
+    'package-lock.json',
+    'server/scripts/coordination-v2-cli.ts',
+  ];
+  const snapshot = await snapshotService.resolveProtectedRemoteSnapshot({
+    sha: LOCAL_NEW,
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    fixedPaths: snapshotPaths,
+  });
+  assert.equal(snapshot.sha, LOCAL_NEW);
+  assert.equal(snapshot.treeSha, '4'.repeat(40));
+  assert.deepEqual(snapshotCalls, [{
+    sha: LOCAL_NEW,
+    fixedPaths: [...snapshotPaths].sort(),
+  }]);
+  assert.deepEqual(Object.keys(snapshot.blobs), [...snapshotPaths].sort());
+  snapshot.blobs['package-lock.json'][0] = 0;
+  assert.equal(resolverBlobs['package-lock.json'].toString('utf8'), 'package-lock.json');
+  assert.equal(snapshotCalls.length, 1, 'returned buffers must not alter resolver state');
+
+  await assert.rejects(() => snapshotService.resolveProtectedRemoteSnapshot({
+    sha: LOCAL_NEW,
+    repositoryIdentity: 'github.com/attacker/repository',
+    fixedPaths: snapshotPaths,
+  }), /protected_remote_snapshot_request_invalid/);
+  for (const badPath of [
+    '../package-lock.json',
+    '/package-lock.json',
+    'scripts\\hola-coordinator.ps1',
+    'scripts/hola:coordinator.ps1',
+    'scripts//hola-coordinator.ps1',
+  ]) {
+    await assert.rejects(() => snapshotService.resolveProtectedRemoteSnapshot({
+      sha: LOCAL_NEW,
+      repositoryIdentity: 'github:davidwmcintosh/holahola',
+      fixedPaths: [badPath],
+    }), /protected_remote_snapshot_request_invalid/);
+  }
+  const wrongShaService = new SourceControlService({
+    env: { GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git' },
+    resolveRemoteSnapshot: async (_sha, fixedPaths) => ({
+      sha: REMOTE_NEW,
+      treeSha: '4'.repeat(40),
+      blobs: Object.fromEntries(fixedPaths.map((path) => [path, Buffer.from(path)])),
+    }),
+  });
+  await assert.rejects(() => wrongShaService.resolveProtectedRemoteSnapshot({
+    sha: LOCAL_NEW,
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    fixedPaths: snapshotPaths,
+  }), /remote_commit_proof_mismatch/);
+  const shiftedPathsService = new SourceControlService({
+    env: { GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git' },
+    resolveRemoteSnapshot: async (sha) => ({
+      sha,
+      treeSha: '4'.repeat(40),
+      blobs: { 'package-lock.json': Buffer.from('{}'), 'extra.txt': Buffer.from('extra') },
+    }),
+  });
+  await assert.rejects(() => shiftedPathsService.resolveProtectedRemoteSnapshot({
+    sha: LOCAL_NEW,
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    fixedPaths: snapshotPaths,
+  }), /protected_remote_snapshot_paths_mismatch/);
+  const httpsService = new SourceControlService({
+    env: { GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git' },
+    resolveRemoteSnapshot: async () => {
+      throw new Error('HTTPS transport must be rejected before resolver use');
+    },
+  });
+  await assert.rejects(() => httpsService.resolveProtectedRemoteSnapshot({
+    sha: LOCAL_NEW,
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    fixedPaths: snapshotPaths,
+  }), /protected_remote_snapshot_request_invalid/);
+
   console.log('Source-control coordinator fixture checks passed.');
 }
 

@@ -2,6 +2,7 @@ import { execFile as nodeExecFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmod,
+  mkdtemp,
   mkdir,
   open,
   readFile,
@@ -14,7 +15,10 @@ import { promisify } from 'node:util';
 import { isAbsolute, join, resolve } from 'node:path';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
-import { normalizeCoordinationRepositoryIdentity } from './coordination-repository-identity';
+import {
+  normalizeCoordinationRepositoryIdentity,
+  sameCoordinationRepositoryIdentity,
+} from './coordination-repository-identity';
 import { coordinationV2SourcePromotions } from '@shared/schema';
 
 const execFile = promisify(nodeExecFile);
@@ -33,6 +37,15 @@ export const SOURCE_CONTROL_REQUIRED_CHECKS = [
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DEFAULT_LOCK_LEASE_MS = 10 * 60 * 1000;
+const PROTECTED_SNAPSHOT_MAX_PATHS = 16;
+const PROTECTED_SNAPSHOT_MAX_BLOB_BYTES = 2 * 1024 * 1024;
+const PROTECTED_SNAPSHOT_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
+export type ProtectedRemoteSnapshot = {
+  sha: string;
+  treeSha: string;
+  blobs: Record<string, Buffer>;
+};
 
 export function assertAuthenticatedRemoteCommitProof(
   expectedSha: string,
@@ -126,6 +139,11 @@ export interface SourceControlServiceOptions {
   recordSourcePromotion?: (input: SourcePromotionRecordInput) => Promise<void>;
   /** Protected remote proof hook. Production uses authenticated GitHub fetch. */
   resolveRemoteCommit?: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
+  /** Protected immutable snapshot hook. Production uses one authenticated bare-repository fetch. */
+  resolveRemoteSnapshot?: (
+    sha: string,
+    fixedPaths: readonly string[],
+  ) => Promise<ProtectedRemoteSnapshot>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -233,6 +251,10 @@ export class SourceControlService {
   private readonly env: NodeJS.ProcessEnv;
   private readonly now: () => Date;
   private readonly resolveRemoteCommit: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
+  private readonly resolveRemoteSnapshot: (
+    sha: string,
+    fixedPaths: readonly string[],
+  ) => Promise<ProtectedRemoteSnapshot>;
   private readonly uuid: () => string;
   private readonly runCommand: CommandRunner;
   private readonly validateCandidate: (sha: string) => Promise<Record<string, unknown>>;
@@ -256,6 +278,8 @@ export class SourceControlService {
     this.repoUrl = this.env.GITHUB_REPO_URL || 'git@github.com:davidwmcintosh/holahola.git';
     this.repositoryIdentity = normalizeCoordinationRepositoryIdentity(this.repoUrl);
     this.resolveRemoteCommit = options.resolveRemoteCommit ?? ((sha) => this.fetchRemoteCommitProof(sha));
+    this.resolveRemoteSnapshot = options.resolveRemoteSnapshot
+      ?? ((sha, fixedPaths) => this.fetchProtectedRemoteSnapshot(sha, fixedPaths));
     this.statusPath = this.resolvePath(this.env.SOURCE_BRIDGE_STATUS_FILE, '.local/source-bridge-status.json');
     this.summaryPath = this.resolvePath(this.env.SOURCE_BRIDGE_SUMMARY_FILE, '.local/source-bridge-status.md');
     this.lockPath = this.resolvePath(this.env.SOURCE_CONTROL_LOCK_FILE, '.local/source-control.lock');
@@ -708,6 +732,50 @@ export class SourceControlService {
     return this.fetchRemoteCommitProof(sha);
   }
 
+  /**
+   * Reads a closed set of immutable blobs from one authenticated exact-commit
+   * fetch. This works in production without a local checkout or .git directory.
+   */
+  async resolveProtectedRemoteSnapshot(input: {
+    sha: string;
+    repositoryIdentity: string;
+    fixedPaths: readonly string[];
+  }): Promise<ProtectedRemoteSnapshot> {
+    if (!/^git@github\.com:[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*\.git$/.test(this.repoUrl)
+      || !SHA_PATTERN.test(input.sha)
+      || !sameCoordinationRepositoryIdentity(input.repositoryIdentity, this.repositoryIdentity)
+      || !Array.isArray(input.fixedPaths)
+      || input.fixedPaths.length < 1
+      || input.fixedPaths.length > PROTECTED_SNAPSHOT_MAX_PATHS
+      || new Set(input.fixedPaths).size !== input.fixedPaths.length
+      || input.fixedPaths.some((path) =>
+        typeof path !== 'string'
+        || path.length > 512
+        || !PROTECTED_SNAPSHOT_PATH.test(path)
+        || path.includes('..')
+        || path.includes('\\')
+        || path.includes(':'))) {
+      throw new Error('protected_remote_snapshot_request_invalid');
+    }
+    const fixedPaths = [...input.fixedPaths].sort();
+    const snapshot = await this.resolveRemoteSnapshot(input.sha, fixedPaths);
+    assertAuthenticatedRemoteCommitProof(input.sha, snapshot);
+    if (!snapshot.blobs || Object.keys(snapshot.blobs).sort().join('\n') !== fixedPaths.join('\n')) {
+      throw new Error('protected_remote_snapshot_paths_mismatch');
+    }
+    const blobs: Record<string, Buffer> = {};
+    for (const path of fixedPaths) {
+      const value = snapshot.blobs[path];
+      if (!Buffer.isBuffer(value)
+        || value.length < 1
+        || value.length > PROTECTED_SNAPSHOT_MAX_BLOB_BYTES) {
+        throw new Error('protected_remote_snapshot_blob_invalid');
+      }
+      blobs[path] = Buffer.from(value);
+    }
+    return { sha: snapshot.sha, treeSha: snapshot.treeSha, blobs };
+  }
+
   private async fetchHeads(): Promise<{ local: string; github: string }> {
     const fetched = await this.runGit(['fetch', '--no-tags', '--filter=blob:none', this.repoUrl, this.branch]);
     if (fetched.exitCode !== 0) {
@@ -719,6 +787,69 @@ export class SourceControlService {
       throw new Error('Could not resolve the fetched GitHub commit SHA.');
     }
     return { local, github: remote.stdout.trim() };
+  }
+
+  private async fetchProtectedRemoteSnapshot(
+    sha: string,
+    fixedPaths: readonly string[],
+  ): Promise<ProtectedRemoteSnapshot> {
+    const root = await mkdtemp(join('/tmp', 'holahola-protected-snapshot-'));
+    const run = async (
+      args: string[],
+      env: NodeJS.ProcessEnv,
+      maxBuffer = 2 * 1024 * 1024,
+    ): Promise<Buffer> => {
+      try {
+        const result = await execFile('git', args, {
+          cwd: root,
+          env,
+          encoding: 'buffer',
+          maxBuffer,
+        });
+        return Buffer.from(result.stdout as Buffer);
+      } catch {
+        throw new Error('protected_remote_snapshot_git_failed');
+      }
+    };
+    try {
+      return await this.withSsh(async (env) => {
+        await run(['init', '--bare'], env);
+        await run(['remote', 'add', 'origin', this.repoUrl], env);
+        await run(['config', 'remote.origin.promisor', 'true'], env);
+        await run(['config', 'remote.origin.partialclonefilter', 'blob:none'], env);
+        await run([
+          '-c', 'protocol.version=2',
+          'fetch', '--no-tags', '--depth=1', '--filter=blob:none', 'origin', sha,
+        ], env);
+        const received = (await run(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], env, 1024))
+          .toString('utf8').trim();
+        const treeSha = (await run(['rev-parse', '--verify', `${received}^{tree}`], env, 1024))
+          .toString('utf8').trim();
+        assertAuthenticatedRemoteCommitProof(sha, { sha: received, treeSha });
+        const blobs: Record<string, Buffer> = {};
+        for (const path of fixedPaths) {
+          const object = `${received}:${path}`;
+          const sizeText = (await run(['cat-file', '-s', object], env, 1024))
+            .toString('utf8').trim();
+          const size = Number(sizeText);
+          if (!Number.isSafeInteger(size)
+            || size < 1
+            || size > PROTECTED_SNAPSHOT_MAX_BLOB_BYTES) {
+            throw new Error('protected_remote_snapshot_blob_invalid');
+          }
+          const bytes = await run(
+            ['cat-file', 'blob', object],
+            env,
+            PROTECTED_SNAPSHOT_MAX_BLOB_BYTES + 1,
+          );
+          if (bytes.length !== size) throw new Error('protected_remote_snapshot_blob_invalid');
+          blobs[path] = bytes;
+        }
+        return { sha: received, treeSha, blobs };
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   }
 
   private async isAncestor(ancestor: string, descendant: string): Promise<boolean> {

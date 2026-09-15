@@ -180,14 +180,72 @@ test('provenance node evidence and source blob mismatch are enforced', async () 
     ...RUNTIME_SOURCE_MEMBER_PATHS.map((path) => [path, Buffer.from(path)] as const),
     ['package-lock.json', Buffer.from('{}')] as const,
   ]);
+  let snapshotCalls = 0;
   await assert.rejects(() => deriveCoordinationV2RuntimeProvenance({
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
     promotedCommitSha: commit,
     exactTreeSha: 'd'.repeat(40),
     sourceMembers,
     artifacts: [nodeArtifact(), tsxArtifact('node_modules/tsx/index.mjs')],
     dependencies: {
-      gitTree: async () => 'd'.repeat(40),
-      gitBlob: async (_commit, path) => blobs.get(path)!,
+      sourceSnapshot: async (input) => {
+        snapshotCalls += 1;
+        assert.equal(input.repositoryIdentity, 'github:davidwmcintosh/holahola');
+        assert.equal(input.promotedCommitSha, commit);
+        assert.deepEqual(
+          [...input.fixedPaths].sort(),
+          [...RUNTIME_SOURCE_MEMBER_PATHS, 'package-lock.json'].sort(),
+        );
+        return {
+          sha: commit,
+          treeSha: 'd'.repeat(40),
+          blobs: Object.fromEntries([...blobs]),
+        };
+      },
     },
   }), /V2_RUNTIME_SOURCE_MEMBERS_MISMATCH/);
+  assert.equal(snapshotCalls, 1, 'tree and blobs must come from one snapshot call');
+});
+
+test('provenance snapshot rejects shifted identity, tree, and blob boundaries before network verification', async () => {
+  const commit = 'c'.repeat(40);
+  const tree = 'd'.repeat(40);
+  const fixedPaths = [...RUNTIME_SOURCE_MEMBER_PATHS, 'package-lock.json'];
+  const blobs = Object.fromEntries(fixedPaths.map((path) => [path, Buffer.from(path)]));
+  const input = {
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    promotedCommitSha: commit,
+    exactTreeSha: tree,
+    sourceMembers,
+    artifacts: [nodeArtifact(), tsxArtifact('node_modules/tsx/index.mjs')],
+  };
+  await assert.rejects(() => deriveCoordinationV2RuntimeProvenance({
+    ...input,
+    dependencies: {
+      sourceSnapshot: async () => ({ sha: 'e'.repeat(40), treeSha: tree, blobs }),
+    },
+  }), /V2_RUNTIME_SOURCE_TREE_MISMATCH/);
+  await assert.rejects(() => deriveCoordinationV2RuntimeProvenance({
+    ...input,
+    dependencies: {
+      sourceSnapshot: async () => ({ sha: commit, treeSha: 'e'.repeat(40), blobs }),
+    },
+  }), /V2_RUNTIME_SOURCE_TREE_MISMATCH/);
+  await assert.rejects(() => deriveCoordinationV2RuntimeProvenance({
+    ...input,
+    dependencies: {
+      sourceSnapshot: async () => ({
+        sha: commit,
+        treeSha: tree,
+        blobs: { ...blobs, 'extra.txt': Buffer.from('extra') },
+      }),
+    },
+  }), /V2_RUNTIME_SOURCE_SNAPSHOT_INVALID/);
+  const { ['package-lock.json']: _missing, ...missingLockfile } = blobs;
+  await assert.rejects(() => deriveCoordinationV2RuntimeProvenance({
+    ...input,
+    dependencies: {
+      sourceSnapshot: async () => ({ sha: commit, treeSha: tree, blobs: missingLockfile }),
+    },
+  }), /V2_RUNTIME_SOURCE_SNAPSHOT_INVALID/);
 });

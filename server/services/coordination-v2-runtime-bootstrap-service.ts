@@ -10,6 +10,10 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import type { Response } from 'express';
+import {
+  SourceControlService,
+  type ProtectedRemoteSnapshot,
+} from './source-control-service';
 import { sql } from 'drizzle-orm';
 import * as tar from 'tar';
 import { db } from '../db';
@@ -100,13 +104,15 @@ export type RuntimeReleaseInput = {
   artifacts: RuntimeArtifactInput[];
   sourceMembers: RuntimeSourceMembers;
   now?: Date;
-  provenanceDependencies?: RuntimeProvenanceDependencies;
 };
 
 export type RuntimeProvenanceDependencies = {
   boundedFetch?: (url: string, maxBytes: number) => Promise<Buffer>;
-  gitBlob?: (commit: string, fixedPath: string) => Promise<Buffer>;
-  gitTree?: (commit: string) => Promise<string>;
+  sourceSnapshot?: (input: {
+    repositoryIdentity: string;
+    promotedCommitSha: string;
+    fixedPaths: readonly string[];
+  }) => Promise<ProtectedRemoteSnapshot>;
   verifyGpgSignature?: (input: {
     keyring: Buffer;
     signature: Buffer;
@@ -215,27 +221,19 @@ async function defaultBoundedFetch(url: string, maxBytes: number): Promise<Buffe
   return Buffer.concat(chunks);
 }
 
-async function defaultGitBlob(commit: string, fixedPath: string): Promise<Buffer> {
+async function defaultSourceSnapshot(input: {
+  repositoryIdentity: string;
+  promotedCommitSha: string;
+  fixedPaths: readonly string[];
+}): Promise<ProtectedRemoteSnapshot> {
   try {
-    const result = await execFileAsync('git', ['cat-file', 'blob', `${commit}:${fixedPath}`], {
-      encoding: 'buffer',
-      maxBuffer: RUNTIME_MAX_METADATA_BYTES,
+    return await new SourceControlService().resolveProtectedRemoteSnapshot({
+      sha: input.promotedCommitSha,
+      repositoryIdentity: input.repositoryIdentity,
+      fixedPaths: input.fixedPaths,
     });
-    return Buffer.from(result.stdout as Buffer);
   } catch {
-    fail('V2_RUNTIME_SOURCE_BLOB_UNAVAILABLE');
-  }
-}
-
-async function defaultGitTree(commit: string): Promise<string> {
-  try {
-    const result = await execFileAsync('git', ['rev-parse', `${commit}^{tree}`], {
-      encoding: 'utf8',
-      maxBuffer: 1024,
-    });
-    return String(result.stdout).trim();
-  } catch {
-    fail('V2_RUNTIME_SOURCE_TREE_UNAVAILABLE');
+    fail('V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE');
   }
 }
 
@@ -420,6 +418,7 @@ async function verifyTarball(
 }
 
 export async function deriveCoordinationV2RuntimeProvenance(input: {
+  repositoryIdentity: string;
   promotedCommitSha: string;
   exactTreeSha: string;
   sourceMembers: RuntimeSourceMembers;
@@ -430,17 +429,36 @@ export async function deriveCoordinationV2RuntimeProvenance(input: {
     fail('V2_RUNTIME_SOURCE_INVALID');
   }
   const dependencies = input.dependencies ?? {};
-  const tree = await (dependencies.gitTree ?? defaultGitTree)(input.promotedCommitSha);
-  if (!SHA40.test(tree) || tree !== input.exactTreeSha) fail('V2_RUNTIME_SOURCE_TREE_MISMATCH');
-  const blobs = new Map<string, Buffer>();
-  for (const fixedPath of RUNTIME_SOURCE_MEMBER_PATHS) {
-    blobs.set(fixedPath, await (dependencies.gitBlob ?? defaultGitBlob)(
-      input.promotedCommitSha, fixedPath,
-    ));
+  const fixedPaths = [...RUNTIME_SOURCE_MEMBER_PATHS, 'package-lock.json'];
+  let snapshot: ProtectedRemoteSnapshot;
+  if (dependencies.sourceSnapshot) {
+    snapshot = await dependencies.sourceSnapshot({
+      repositoryIdentity: input.repositoryIdentity,
+      promotedCommitSha: input.promotedCommitSha,
+      fixedPaths,
+    });
+  } else {
+    snapshot = await defaultSourceSnapshot({
+      repositoryIdentity: input.repositoryIdentity,
+      promotedCommitSha: input.promotedCommitSha,
+      fixedPaths,
+    });
   }
-  const lockfileBytes = await (dependencies.gitBlob ?? defaultGitBlob)(
-    input.promotedCommitSha, 'package-lock.json',
+  if (snapshot.sha !== input.promotedCommitSha
+    || !SHA40.test(snapshot.treeSha)
+    || snapshot.treeSha !== input.exactTreeSha) {
+    fail('V2_RUNTIME_SOURCE_TREE_MISMATCH');
+  }
+  if (!snapshot.blobs
+    || Object.keys(snapshot.blobs).sort().join('\n') !== [...fixedPaths].sort().join('\n')
+    || fixedPaths.some((path) => !Buffer.isBuffer(snapshot.blobs[path]))) {
+    fail('V2_RUNTIME_SOURCE_SNAPSHOT_INVALID');
+  }
+  const blobs = new Map(
+    RUNTIME_SOURCE_MEMBER_PATHS.map((fixedPath) =>
+      [fixedPath, Buffer.from(snapshot.blobs[fixedPath])] as const),
   );
+  const lockfileBytes = Buffer.from(snapshot.blobs['package-lock.json']);
   const sourceMembers = validateCoordinationV2RuntimeSourceMembers(
     RUNTIME_SOURCE_MEMBER_PATHS.map((fixedPath) => ({
       fixedPath,
@@ -856,11 +874,11 @@ export async function publishCoordinationV2RuntimeRelease(input: RuntimeReleaseI
     if (!SHA40.test(String(source.promoted_commit_sha)) || !SHA40.test(String(source.exact_tree_sha))
       || !HEX64.test(String(source.canonical_record_digest))) fail('V2_RUNTIME_SOURCE_INVALID');
     const provenance = await deriveCoordinationV2RuntimeProvenance({
+      repositoryIdentity: String(source.repository_identity),
       promotedCommitSha: String(source.promoted_commit_sha),
       exactTreeSha: String(source.exact_tree_sha),
       sourceMembers,
       artifacts,
-      dependencies: input.provenanceDependencies,
     });
     const releaseDigest = computeCoordinationV2RuntimeReleaseDigest({
       sourcePromotionId: String(source.id),
