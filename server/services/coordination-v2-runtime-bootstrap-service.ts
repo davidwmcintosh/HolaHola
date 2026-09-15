@@ -69,6 +69,8 @@ export const RUNTIME_SOURCE_MEMBER_PATHS = [
 const FIXED_DESTINATIONS: Record<string, string> = {
   node_executable: 'runtime/node.exe',
 };
+const ESBUILD_WIN32_X64_PREFIX =
+  'node_modules/tsx/node_modules/@esbuild/win32-x64/';
 
 // Keep the service explicitly coupled to the reviewed runtime evidence schema.
 // Queries remain SQL so the publication transaction can verify object bytes
@@ -696,8 +698,12 @@ function exactKeys(value: Record<string, unknown>, allowed: readonly string[]): 
 function isSafeTsxDestination(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 512
     || !value.startsWith('node_modules/tsx/') || value.includes('\\')
+    || value.includes(':')
     || /[\u0000-\u001f\u007f]/.test(value)) return false;
-  const segments = value.slice('node_modules/tsx/'.length).split('/');
+  const relativePath = value.startsWith(ESBUILD_WIN32_X64_PREFIX)
+    ? value.slice(ESBUILD_WIN32_X64_PREFIX.length)
+    : value.slice('node_modules/tsx/'.length);
+  const segments = relativePath.split('/');
   return segments.length > 0 && segments.every((segment) =>
     segment.length > 0 && segment !== '.' && segment !== '..'
       && /^[A-Za-z0-9._-]+$/.test(segment));
