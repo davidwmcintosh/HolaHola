@@ -6712,3 +6712,22 @@ asymmetric marker race, malformed topology/content/reference, and local,
 remote, marker, expiry, and worktree drift. Typecheck passes, and the independent
 architect reviewer returned unconditional approval. No runtime release, Windows
 initialization, task, session, lease, or execution authority was created.
+
+Replit subsequently pushed a publication marker to GitHub `main` as well as
+creating it locally. The recorder again failed closed and wrote no promotion.
+An explicitly approved, exact-lease rollback was attempted, but GitHub branch
+protection refused the force-push and changed no state.
+
+The recorder now also accepts the pushed-marker topology without promoting the
+marker. Each head must be either the freshly validated parent or one shared
+marker; the local commit object must prove exact parent, tree, and subject; and
+a GitHub-side marker requires a second authenticated immutable-commit proof.
+Remote marker evidence is bound into the immutable receipt and canonical
+digest. Repository identity, both heads, marker proofs, validation expiry, and
+worktree cleanliness are all rechecked immediately before authority append.
+
+Adversarial fixtures cover local-only, remote-only, and both-side markers;
+different non-parent heads; initial and final parent/tree/SHA drift; repository
+identity drift; final head drift; malformed references; and dirty or expired
+state. The focused fixture, source-bridge suite, and typecheck pass, and the
+independent architect reviewer returned unconditional `APPROVED`.

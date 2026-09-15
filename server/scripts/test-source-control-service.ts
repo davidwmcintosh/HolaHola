@@ -141,7 +141,17 @@ async function recordPublicationMarkerFixture(overrides: {
   finalLocalHead?: string;
   finalRemoteHead?: string;
   finalDirty?: boolean;
+  finalMarkerResolvedSha?: string;
+  finalMarkerTree?: string;
+  finalMarkerParents?: string;
   finalMarkerSubject?: string;
+  finalConfiguredRemote?: string;
+  remoteMarkerResolvedSha?: string;
+  remoteMarkerTree?: string;
+  remoteMarkerParent?: string;
+  finalRemoteMarkerResolvedSha?: string;
+  finalRemoteMarkerTree?: string;
+  finalRemoteMarkerParent?: string;
   publicationReference?: string;
 } = {}): Promise<{
   result: Awaited<ReturnType<SourceControlService['recordPromotion']>>;
@@ -165,6 +175,8 @@ async function recordPublicationMarkerFixture(overrides: {
   let localHeadReadCount = 0;
   let statusCount = 0;
   let showCount = 0;
+  let remoteMarkerProofCount = 0;
+  let configCount = 0;
   writeFileSync(statusPath, `${JSON.stringify({
     schemaVersion: 3,
     state: 'ready_to_promote',
@@ -196,11 +208,23 @@ async function recordPublicationMarkerFixture(overrides: {
         let value = 0;
         return () => `marker-fixture-${++value}`;
       })(),
-      resolveRemoteCommit: async (sha) => ({
-        sha,
-        treeSha: CANDIDATE_TREE,
-        parentSha: LOCAL_OLD,
-      }),
+      resolveRemoteCommit: async (sha) => {
+        if (sha !== markerSha) {
+          return { sha, treeSha: CANDIDATE_TREE, parentSha: LOCAL_OLD };
+        }
+        remoteMarkerProofCount += 1;
+        return {
+          sha: remoteMarkerProofCount > 1
+            ? overrides.finalRemoteMarkerResolvedSha ?? overrides.remoteMarkerResolvedSha ?? sha
+            : overrides.remoteMarkerResolvedSha ?? sha,
+          treeSha: remoteMarkerProofCount > 1
+            ? overrides.finalRemoteMarkerTree ?? overrides.remoteMarkerTree ?? markerTree
+            : overrides.remoteMarkerTree ?? markerTree,
+          parentSha: remoteMarkerProofCount > 1
+            ? overrides.finalRemoteMarkerParent ?? overrides.remoteMarkerParent ?? LOCAL_NEW
+            : overrides.remoteMarkerParent ?? LOCAL_NEW,
+        };
+      },
       recordSourcePromotion: async (input) => {
         recorded.push(input);
       },
@@ -221,7 +245,16 @@ async function recordPublicationMarkerFixture(overrides: {
           return { exitCode: 0, stdout: '', stderr: '' };
         }
         if (operation === 'config') {
-          return { exitCode: 0, stdout: 'git@github.com:davidwmcintosh/holahola.git\n', stderr: '' };
+          configCount += 1;
+          return {
+            exitCode: 0,
+            stdout: `${
+              configCount > 1 && overrides.finalConfiguredRemote
+                ? overrides.finalConfiguredRemote
+                : 'git@github.com:davidwmcintosh/holahola.git'
+            }\n`,
+            stderr: '',
+          };
         }
         if (operation === 'rev-parse') {
           const remote = fetchCount > 1 ? finalRemoteHead : remoteHead;
@@ -235,10 +268,23 @@ async function recordPublicationMarkerFixture(overrides: {
         }
         if (operation === 'show') {
           showCount += 1;
+          const finalRead = showCount > 1;
           return {
             exitCode: 0,
-            stdout: `${args.at(-1)}\n${markerTree}\n${markerParents}\n${
-              showCount > 1 && overrides.finalMarkerSubject
+            stdout: `${
+              finalRead && overrides.finalMarkerResolvedSha
+                ? overrides.finalMarkerResolvedSha
+                : args.at(-1)
+            }\n${
+              finalRead && overrides.finalMarkerTree
+                ? overrides.finalMarkerTree
+                : markerTree
+            }\n${
+              finalRead && overrides.finalMarkerParents
+                ? overrides.finalMarkerParents
+                : markerParents
+            }\n${
+              finalRead && overrides.finalMarkerSubject
                 ? overrides.finalMarkerSubject
                 : markerSubject
             }\n`,
@@ -333,6 +379,56 @@ async function main(): Promise<void> {
   })).digest('hex');
   assert.equal(markerRecovery.recorded[0].canonicalRecordDigest, expectedMarkerCanonicalDigest);
 
+  const pushedMarkerRecovery = await recordPublicationMarkerFixture({
+    remoteHead: PUBLICATION_MARKER,
+    finalRemoteHead: PUBLICATION_MARKER,
+  });
+  assert.equal(pushedMarkerRecovery.result.state, 'synced');
+  assert.equal(pushedMarkerRecovery.recorded.length, 1);
+  assert.equal(pushedMarkerRecovery.recorded[0].promotedCommitSha, LOCAL_NEW);
+  assert.equal(pushedMarkerRecovery.recorded[0].publishTriggerSha, PUBLICATION_MARKER);
+  assert.deepEqual(pushedMarkerRecovery.receipt?.remotePublicationMarker, {
+    sha: PUBLICATION_MARKER,
+    treeSha: CANDIDATE_TREE,
+    parentSha: LOCAL_NEW,
+    subject: 'Published your App',
+  });
+  const expectedPushedMarkerCanonicalDigest = createHash('sha256').update(JSON.stringify({
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    promotedCommitSha: LOCAL_NEW,
+    exactTreeSha: CANDIDATE_TREE,
+    publicationReference: `replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}`,
+    protectedValidationId: manifest(LOCAL_NEW).validationId,
+    publishTriggerSha: PUBLICATION_MARKER,
+    publicationMarker: {
+      sha: PUBLICATION_MARKER,
+      treeSha: CANDIDATE_TREE,
+      parentSha: LOCAL_NEW,
+      subject: 'Published your App',
+    },
+    remotePublicationMarker: {
+      sha: PUBLICATION_MARKER,
+      treeSha: CANDIDATE_TREE,
+      parentSha: LOCAL_NEW,
+      subject: 'Published your App',
+    },
+  })).digest('hex');
+  assert.equal(
+    pushedMarkerRecovery.recorded[0].canonicalRecordDigest,
+    expectedPushedMarkerCanonicalDigest,
+  );
+
+  const remoteOnlyMarkerRecovery = await recordPublicationMarkerFixture({
+    localHead: LOCAL_NEW,
+    finalLocalHead: LOCAL_NEW,
+    remoteHead: PUBLICATION_MARKER,
+    finalRemoteHead: PUBLICATION_MARKER,
+  });
+  assert.equal(remoteOnlyMarkerRecovery.result.state, 'synced');
+  assert.equal(remoteOnlyMarkerRecovery.recorded.length, 1);
+  assert.equal(remoteOnlyMarkerRecovery.recorded[0].promotedCommitSha, LOCAL_NEW);
+  assert.equal(remoteOnlyMarkerRecovery.recorded[0].publishTriggerSha, PUBLICATION_MARKER);
+
   const exactHead = await recordPublicationMarkerFixture({
     localHead: LOCAL_NEW,
     markerSha: LOCAL_NEW,
@@ -349,19 +445,53 @@ async function main(): Promise<void> {
     { markerParents: LOCAL_OLD },
     { markerParents: `${LOCAL_NEW} ${LOCAL_OLD}` },
     { markerSubject: 'Published another App' },
-    { remoteHead: PUBLICATION_MARKER },
     { publicationReference: `replit-publish:${LOCAL_NEW}` },
     { publicationReference: `prefix:replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}` },
     { publicationReference: `replit-publish:${PUBLICATION_MARKER}:${LOCAL_NEW}` },
     { finalLocalHead: '7'.repeat(40) },
     { finalRemoteHead: '7'.repeat(40) },
     { finalDirty: true },
+    { finalMarkerResolvedSha: '7'.repeat(40) },
+    { finalMarkerTree: '7'.repeat(40) },
+    { finalMarkerParents: LOCAL_OLD },
     { finalMarkerSubject: 'Published another App' },
+    { finalConfiguredRemote: 'git@github.com:attacker/holahola.git' },
   ]) {
     const rejected = await recordPublicationMarkerFixture(invalidMarker);
     assert.equal(rejected.result.state, 'failed');
     assert.equal(rejected.recorded.length, 0);
   }
+
+  const splitMarkers = await recordPublicationMarkerFixture({
+    remoteHead: '9'.repeat(40),
+    finalRemoteHead: '9'.repeat(40),
+  });
+  assert.equal(splitMarkers.result.state, 'failed');
+  assert.equal(splitMarkers.recorded.length, 0);
+
+  for (const invalidPushedMarker of [
+    { remoteMarkerResolvedSha: '8'.repeat(40) },
+    { remoteMarkerTree: '6'.repeat(40) },
+    { remoteMarkerParent: LOCAL_OLD },
+    { finalRemoteMarkerResolvedSha: '8'.repeat(40) },
+    { finalRemoteMarkerTree: '6'.repeat(40) },
+    { finalRemoteMarkerParent: LOCAL_OLD },
+  ]) {
+    const rejected = await recordPublicationMarkerFixture({
+      remoteHead: PUBLICATION_MARKER,
+      finalRemoteHead: PUBLICATION_MARKER,
+      ...invalidPushedMarker,
+    });
+    assert.equal(rejected.result.state, 'failed');
+    assert.equal(rejected.recorded.length, 0);
+  }
+
+  const pushedMarkerHeadDrift = await recordPublicationMarkerFixture({
+    remoteHead: PUBLICATION_MARKER,
+    finalRemoteHead: LOCAL_NEW,
+  });
+  assert.equal(pushedMarkerHeadDrift.result.state, 'failed');
+  assert.equal(pushedMarkerHeadDrift.recorded.length, 0);
 
   const snapshotCalls: Array<{ sha: string; fixedPaths: readonly string[] }> = [];
   let resolverBlobs: Record<string, Buffer> = {};

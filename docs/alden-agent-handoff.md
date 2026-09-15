@@ -9252,3 +9252,29 @@ source-bridge suites plus typecheck pass. The independent architect reviewer
 returned unconditional approval. The next sequence is: create and synchronize
 the exact fix commit, prepare it, publish once, record its parent through the
 marker-aware path, then retry and verify the unchanged founder runtime payload.
+
+### Pushed-marker recovery extension
+
+The next Replit Publish also pushed its empty marker to GitHub `main`. The
+existing asymmetric-marker recorder correctly rejected that state and wrote no
+source promotion. David explicitly approved an exact force-with-lease rollback
+to the validated parent, but GitHub branch protection rejected the force-push;
+no ref changed.
+
+The approved extension preserves the same authority model while accepting
+Replit's pushed-marker behavior. Any non-candidate head must identify one shared
+marker. The local marker object proves its single validated parent, exact
+candidate tree, and exact `Published your App` subject. If GitHub is at the
+marker, the recorder additionally fetches that exact immutable commit through
+the authenticated pinned-SSH path and verifies SHA, tree, and parent. The
+immutable receipt and canonical digest bind this remote marker proof, while
+`promotedCommitSha` remains the validated parent and `publishTriggerSha`
+identifies the marker.
+
+Final-state verification now repeats repository-identity validation and checks
+both heads, local and authenticated remote marker proof, expiry, and worktree
+cleanliness immediately before append. Adversarial tests cover all permitted
+head combinations, split markers, configured-remote drift, final head drift,
+and local/remote marker SHA/tree/parent mutation. Focused verification,
+typecheck, and the source-bridge suite pass; the independent architect's second
+review returned unconditional `APPROVED`.

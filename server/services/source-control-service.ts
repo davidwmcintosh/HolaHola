@@ -610,7 +610,6 @@ export class SourceControlService {
     if (
       status?.state !== 'ready_to_promote'
       || status.candidateSha !== sha
-      || heads.github !== sha
       || !Number.isFinite(expiry)
       || expiry <= this.now().getTime()
       || !hasValidSourceControlManifest(status.validation, sha)
@@ -643,9 +642,17 @@ export class SourceControlService {
       return { ok: false, state: 'failed', ...heads, error };
     }
     let publicationMarker: LocalPublicationMarkerProof | undefined;
-    if (heads.local !== sha) {
+    let remotePublicationMarker: LocalPublicationMarkerProof | undefined;
+    if (heads.local !== sha || heads.github !== sha) {
+      const markerHeads = [...new Set([heads.local, heads.github].filter((head) => head !== sha))];
+      if (markerHeads.length !== 1) {
+        const error = 'Promotion recording refused because source heads do not identify one publication marker.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+      const markerSha = markerHeads[0];
       try {
-        publicationMarker = await this.resolveLocalPublicationMarker(heads.local);
+        publicationMarker = await this.resolveLocalPublicationMarker(markerSha);
       } catch {
         const error = 'Promotion recording refused because the local publication marker could not be verified.';
         await this.writeStatus('failed', error, actor, heads.local, heads.github);
@@ -659,6 +666,18 @@ export class SourceControlService {
         const error = 'Promotion recording refused because the local publication marker does not exactly match the validated candidate.';
         await this.writeStatus('failed', error, actor, heads.local, heads.github);
         return { ok: false, state: 'failed', ...heads, error };
+      }
+      if (heads.github === markerSha) {
+        try {
+          const proof = await this.resolveRemoteCommit(markerSha);
+          assertAuthenticatedRemoteCommitProof(markerSha, proof, remoteProof.treeSha);
+          if (proof.parentSha !== sha) throw new Error('remote_publication_marker_parent_mismatch');
+          remotePublicationMarker = publicationMarker;
+        } catch {
+          const error = 'Promotion recording refused because the authenticated GitHub publication marker did not match the validated candidate.';
+          await this.writeStatus('failed', error, actor, heads.local, heads.github);
+          return { ok: false, state: 'failed', ...heads, error };
+        }
       }
     }
     const validationId = String(status.validation?.validationId || '');
@@ -677,6 +696,7 @@ export class SourceControlService {
       publicationReference,
       validationId,
       ...(publicationMarker ? { publicationMarker } : {}),
+      ...(remotePublicationMarker ? { remotePublicationMarker } : {}),
       createdAt: this.now().toISOString(),
     })}\n`;
     try {
@@ -688,9 +708,23 @@ export class SourceControlService {
     }
     let finalHeads: { local: string; github: string };
     let finalMarker: LocalPublicationMarkerProof | undefined;
+    let finalRemoteMarker: LocalPublicationMarkerProof | undefined;
     try {
       finalHeads = await this.fetchHeads();
-      if (publicationMarker) finalMarker = await this.resolveLocalPublicationMarker(finalHeads.local);
+      await this.verifyConfiguredRepositoryIdentity();
+      if (publicationMarker) finalMarker = await this.resolveLocalPublicationMarker(publicationMarker.sha);
+      if (remotePublicationMarker) {
+        const proof = await this.resolveRemoteCommit(remotePublicationMarker.sha);
+        assertAuthenticatedRemoteCommitProof(
+          remotePublicationMarker.sha,
+          proof,
+          remotePublicationMarker.treeSha,
+        );
+        if (proof.parentSha !== remotePublicationMarker.parentSha) {
+          throw new Error('remote_publication_marker_parent_mismatch');
+        }
+        finalRemoteMarker = remotePublicationMarker;
+      }
     } catch {
       const error = 'Promotion recording refused because final publication state could not be verified.';
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
@@ -702,11 +736,18 @@ export class SourceControlService {
         && finalMarker.parentSha === publicationMarker.parentSha
         && finalMarker.subject === publicationMarker.subject
       : finalMarker === undefined;
+    const remoteMarkerUnchanged = remotePublicationMarker
+      ? finalRemoteMarker?.sha === remotePublicationMarker.sha
+        && finalRemoteMarker.treeSha === remotePublicationMarker.treeSha
+        && finalRemoteMarker.parentSha === remotePublicationMarker.parentSha
+        && finalRemoteMarker.subject === remotePublicationMarker.subject
+      : finalRemoteMarker === undefined;
     if (finalHeads.local !== heads.local
       || finalHeads.github !== heads.github
       || expiry <= this.now().getTime()
       || !(await this.isTrackedTreeClean())
-      || !markerUnchanged) {
+      || !markerUnchanged
+      || !remoteMarkerUnchanged) {
       const error = 'Promotion recording refused because source or publication evidence changed before the authority append.';
       await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
       return { ok: false, state: 'failed', ...finalHeads, error };
@@ -721,6 +762,7 @@ export class SourceControlService {
         ? {
             publishTriggerSha: publicationMarker.sha,
             publicationMarker,
+            ...(remotePublicationMarker ? { remotePublicationMarker } : {}),
           }
         : {}),
     };

@@ -22,13 +22,16 @@ The recorder will:
 1. Require a fresh protected validation manifest for the requested parent.
 2. Require clean local state and exact repository identity.
 3. Resolve the requested parent through authenticated GitHub commit proof.
-4. When either current head differs from the requested parent, require both
-   current heads to equal one marker SHA.
+4. When either current head differs from the requested parent, require every
+   non-parent head to equal one marker SHA. Each head may be the parent or that
+   marker, preserving the existing local-only marker path.
 5. Resolve that marker locally and through authenticated GitHub commit proof.
 6. Require exactly one parent, equal to the validated candidate; an exact tree
    match with the candidate; exact subject `Published your App`; and exact
    reference `replit-publish:<candidate>:<marker>`.
-7. Re-read both heads, cleanliness, expiry, and local and remote marker proofs
+7. When GitHub `main` is the marker, bind its authenticated remote proof into
+   the immutable receipt and canonical digest.
+8. Re-read both heads, cleanliness, expiry, and local and remote marker proofs
    immediately before appending authority.
 
 The canonical source-promotion row and digest will continue to use the
