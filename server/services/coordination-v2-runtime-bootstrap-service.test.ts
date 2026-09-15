@@ -39,7 +39,9 @@ function tsxArtifact(fixedDestination: string, byteLength = 1): RuntimeArtifactI
   return {
     role: 'tsx_runtime_module',
     fixedDestination,
-    objectKey: `coordination-v2/runtime/${digest}/${fixedDestination.slice('node_modules/tsx/'.length).replaceAll('/', '-')}`,
+    objectKey: `coordination-v2/runtime/${digest}/${fixedDestination
+      .slice('node_modules/tsx/'.length)
+      .replaceAll(/[^A-Za-z0-9._-]/g, '-')}`,
     objectDigest: digest,
     byteLength,
     mediaType: 'application/javascript',
@@ -52,8 +54,9 @@ test('runtime artifact validator accepts one node and individual tsx files', () 
     nodeArtifact(),
     tsxArtifact('node_modules/tsx/index.mjs'),
     tsxArtifact('node_modules/tsx/lib/cli.mjs'),
+    tsxArtifact('node_modules/tsx/node_modules/@esbuild/win32-x64/esbuild.exe'),
   ]);
-  assert.equal(artifacts.length, 3);
+  assert.equal(artifacts.length, 4);
 });
 
 test('runtime artifact validator rejects unsafe destinations and node role drift', () => {
@@ -62,6 +65,14 @@ test('runtime artifact validator rejects unsafe destinations and node role drift
     'node_modules/tsx/a:b.mjs',
     'node_modules/tsx\\escape.mjs',
     'node_modules/tsx/',
+    'node_modules/tsx/@esbuild/index.js',
+    'node_modules/tsx/node_modules/@attacker/package.json',
+    'node_modules/tsx/node_modules/@esbuild/linux-x64/esbuild',
+    'node_modules/tsx/node_modules/@esbuild/win32-x64/../../../escape.mjs',
+    'node_modules/tsx/node_modules/@esbuild/win32-x64/..',
+    'node_modules/tsx/node_modules/@esbuild/win32-x64/esbuild.exe:ads',
+    '//server/node_modules/tsx/node_modules/@esbuild/win32-x64/esbuild.exe',
+    'C:/node_modules/tsx/node_modules/@esbuild/win32-x64/esbuild.exe',
   ]) {
     assert.throws(() => validateCoordinationV2RuntimeArtifacts([
       nodeArtifact(), tsxArtifact(destination),
