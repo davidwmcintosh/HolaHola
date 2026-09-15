@@ -14,6 +14,13 @@ function extractBoundary(script: string, name: string): string {
   return script.slice(start, finish);
 }
 
+function extractFunction(script: string, name: string, nextName: string): string {
+  const start = script.indexOf(`function ${name}`);
+  const finish = script.indexOf(`function ${nextName}`, start + name.length);
+  assert.ok(start >= 0 && finish > start, `${name} and ${nextName} must be present and ordered`);
+  return script.slice(start, finish);
+}
+
 function assertStaticBoundaryProof(script: string): void {
   assert.match(script, /Set-StrictMode\s+-Version\s+2\.0/);
   assert.match(script, /DataProtectionScope\]::CurrentUser/);
@@ -77,6 +84,38 @@ test("PowerShell 5.1-safe CLI payload validation rejects every non-object shape"
   assert.doesNotMatch(source, /\n\s*-or\s+\$payload\s+-isnot\s+\[PSCustomObject\]/);
 });
 
+test("enrollment preflight is independent of post-enrollment runtime artifacts", () => {
+  const beforeAssertions = source.slice(0, source.indexOf("function Assert-EnrollmentHost"));
+  assert.doesNotMatch(beforeAssertions, /\$ApprovedNode\s*=\s*Resolve-ApprovedNode/);
+  assert.equal(
+    (source.match(/Resolve-ApprovedNode/g) ?? []).length,
+    2,
+    "Node resolution must appear only in its function declaration and the execution-only call",
+  );
+
+  const enrollment = extractFunction(source, "Assert-EnrollmentHost", "Assert-ExecutionHost");
+  assert.match(enrollment, /Assert-ApprovedRepository/);
+  assert.match(enrollment, /Assert-ApprovedDigest\s+-Path\s+\$LauncherPath/);
+  assert.match(enrollment, /Assert-ApprovedDigest\s+-Path\s+\$CoordinatorScript/);
+  assert.doesNotMatch(enrollment, /ApprovedNode|ApprovedTsx|Resolve-ApprovedNode/);
+  assert.doesNotMatch(enrollment, /Assert-ApprovedSignatureAndDigest/);
+
+  const execution = extractFunction(source, "Assert-ExecutionHost", "Invoke-HolaCoordinator");
+  assert.match(execution, /Assert-EnrollmentHost/);
+  assert.match(execution, /\$script:ApprovedNode\s*=\s*Resolve-ApprovedNode/);
+  assert.match(execution, /approved_node_missing/);
+  assert.match(execution, /approved_tsx_missing/);
+  assert.match(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$ApprovedNode/);
+  assert.match(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$ApprovedTsx/);
+
+  const invoke = extractBoundary(source, "INVOKE");
+  const register = extractBoundary(source, "REGISTER");
+  assert.match(invoke, /Assert-ExecutionHost/);
+  assert.match(register, /Assert-EnrollmentHost/);
+  assert.doesNotMatch(register, /Assert-ExecutionHost|Resolve-ApprovedNode|ApprovedTsx/);
+  assert.doesNotMatch(register, /promot|acknowledg|session creation/i);
+});
+
 test("static proof does not prove Windows/DPAPI execution", () => {
   assert.match(source, /windows_required/);
   assert.match(source, /dpapi_current_user_unavailable/);
@@ -98,8 +137,8 @@ test("Windows ACL inspection translates owner and ACE identities to SIDs and fai
 
 test("boundary mutation self-check rejects ProtectedData in Invoke", () => {
   const mutated = source.replace(
-    "    Assert-Host\n    $arguments =",
-    "    [Security.Cryptography.ProtectedData]::Protect($bytes, $null, $CurrentUserScope)\n    Assert-Host\n    $arguments =",
+    "    Assert-ExecutionHost\n    $arguments =",
+    "    [Security.Cryptography.ProtectedData]::Protect($bytes, $null, $CurrentUserScope)\n    Assert-ExecutionHost\n    $arguments =",
   );
   assert.notEqual(mutated, source);
   assert.throws(() => assertStaticBoundaryProof(mutated));

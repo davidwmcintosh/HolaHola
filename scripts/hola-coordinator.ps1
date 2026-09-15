@@ -11,6 +11,7 @@ $ApprovedWorktree = [System.IO.Path]::GetFullPath((Join-Path $LauncherRoot '..')
 $ApprovedTsx = Join-Path $ApprovedWorktree 'node_modules\tsx\dist\cli.mjs'
 $CoordinatorScript = Join-Path $ApprovedWorktree 'server\scripts\coordination-v2-cli.ts'
 $CurrentUserScope = [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+$ApprovedNode = $null
 
 function Fail-Safe {
     param([Parameter(Mandatory = $true)][string]$Code)
@@ -36,8 +37,6 @@ function Resolve-ApprovedNode {
     Fail-Safe 'approved_node_missing'
 }
 
-$ApprovedNode = Resolve-ApprovedNode
-
 function Assert-NoReparse {
     param([Parameter(Mandatory = $true)][string]$Path)
     $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
@@ -61,12 +60,17 @@ function Assert-ApprovedRepository {
     # envelope. This launcher deliberately does not trust a local SHA artifact.
 }
 
+function Assert-ApprovedDigest {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $digest = Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop
+    if ($null -eq $digest.Hash -or $digest.Hash.Length -ne 64) { Fail-Safe 'digest_unavailable' }
+}
+
 function Assert-ApprovedSignatureAndDigest {
     param([Parameter(Mandatory = $true)][string]$Path)
     $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
     if ($signature.Status -ne 'Valid') { Fail-Safe 'signature_invalid' }
-    $digest = Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop
-    if ($null -eq $digest.Hash -or $digest.Hash.Length -ne 64) { Fail-Safe 'digest_unavailable' }
+    Assert-ApprovedDigest -Path $Path
 }
 
 function Write-DpapiBase64Atomic {
@@ -122,14 +126,12 @@ function Test-SafeCliOutput {
         -and $propertyNames -contains 'cleanupAcknowledged'
 }
 
-function Assert-Host {
+function Assert-EnrollmentHost {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Fail-Safe 'windows_required' }
     if ($PSVersionTable.PSVersion.Major -lt 5 -or
         ($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -lt 1)) {
         Fail-Safe 'powershell_5_1_required'
     }
-    if (-not [System.IO.File]::Exists($ApprovedNode)) { Fail-Safe 'approved_node_missing' }
-    if (-not [System.IO.File]::Exists($ApprovedTsx)) { Fail-Safe 'approved_tsx_missing' }
     if (-not [System.IO.File]::Exists($CoordinatorScript)) { Fail-Safe 'coordinator_script_missing' }
     if (-not [System.IO.Directory]::Exists($ApprovedWorktree)) { Fail-Safe 'approved_worktree_missing' }
     if ($null -eq ('System.Security.Cryptography.ProtectedData' -as [type])) {
@@ -139,14 +141,25 @@ function Assert-Host {
         Fail-Safe 'dpapi_scope'
     }
     Assert-NoReparse -Path $ApprovedWorktree
-    Assert-NoReparse -Path $ApprovedNode
-    Assert-NoReparse -Path $ApprovedTsx
+    Assert-NoReparse -Path $LauncherPath
     Assert-NoReparse -Path $CoordinatorScript
     Assert-ReadablePrivateAcl -Path $ApprovedWorktree
-    Assert-ReadablePrivateAcl -Path $ApprovedNode
-    Assert-ReadablePrivateAcl -Path $ApprovedTsx
+    Assert-ReadablePrivateAcl -Path $LauncherPath
     Assert-ReadablePrivateAcl -Path $CoordinatorScript
     Assert-ApprovedRepository
+    Assert-ApprovedDigest -Path $LauncherPath
+    Assert-ApprovedDigest -Path $CoordinatorScript
+}
+
+function Assert-ExecutionHost {
+    Assert-EnrollmentHost
+    $script:ApprovedNode = Resolve-ApprovedNode
+    if (-not [System.IO.File]::Exists($ApprovedNode)) { Fail-Safe 'approved_node_missing' }
+    if (-not [System.IO.File]::Exists($ApprovedTsx)) { Fail-Safe 'approved_tsx_missing' }
+    Assert-NoReparse -Path $ApprovedNode
+    Assert-NoReparse -Path $ApprovedTsx
+    Assert-ReadablePrivateAcl -Path $ApprovedNode
+    Assert-ReadablePrivateAcl -Path $ApprovedTsx
     Assert-ApprovedSignatureAndDigest -Path $LauncherPath
     Assert-ApprovedSignatureAndDigest -Path $ApprovedNode
     Assert-ApprovedSignatureAndDigest -Path $ApprovedTsx
@@ -168,7 +181,7 @@ function Invoke-HolaCoordinator {
         [string]$Format = 'text'
     )
 
-    Assert-Host
+    Assert-ExecutionHost
     $arguments = @($ApprovedTsx, $CoordinatorScript, '--task-ref', $TaskRef, '--format', $Format)
     if ($PSBoundParameters.ContainsKey('Policy')) {
         $arguments += @('--policy', $Policy)
@@ -221,7 +234,7 @@ function Register-HolaCoordinatorHost {
         [Parameter(Mandatory = $true)][ValidatePattern('^https://')][string]$FounderApprovalUrl,
         [Parameter(Mandatory = $false)][string]$DisplayName = $env:COMPUTERNAME
     )
-    Assert-Host
+    Assert-EnrollmentHost
     $registrationRoot = Join-Path $env:LOCALAPPDATA 'HolaHola\CoordinatorV2'
     New-Item -ItemType Directory -Path $registrationRoot -Force | Out-Null
     $privatePath = Join-Path $registrationRoot 'host-private-key.dpapi'
