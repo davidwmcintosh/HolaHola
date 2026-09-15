@@ -110,8 +110,8 @@ function Test-SafeCliOutput {
     } catch {
         return $false
     }
-    if ($null -eq $payload -or $payload -is [System.Array]
-        -or $payload -isnot [PSCustomObject]) { return $false }
+    $isInvalidPayload = ($null -eq $payload) -or ($payload -is [System.Array]) -or ($payload -isnot [PSCustomObject])
+    if ($isInvalidPayload) { return $false }
     if ($payload.state -isnot [string] -or $safeStates -notcontains $payload.state) {
         return $false
     }

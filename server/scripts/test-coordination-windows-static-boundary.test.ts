@@ -68,6 +68,15 @@ test("PowerShell function-scoped boundary is explicit and narrow", () => {
   assertStaticBoundaryProof(source);
 });
 
+test("PowerShell 5.1-safe CLI payload validation rejects every non-object shape", () => {
+  assert.match(
+    source,
+    /\$isInvalidPayload\s*=\s*\(\$null\s*-eq\s*\$payload\)\s*-or\s*\(\$payload\s*-is\s*\[System\.Array\]\)\s*-or\s*\(\$payload\s*-isnot\s*\[PSCustomObject\]\)/,
+  );
+  assert.match(source, /if\s*\(\$isInvalidPayload\)\s*\{\s*return\s+\$false\s*\}/);
+  assert.doesNotMatch(source, /\n\s*-or\s+\$payload\s+-isnot\s+\[PSCustomObject\]/);
+});
+
 test("static proof does not prove Windows/DPAPI execution", () => {
   assert.match(source, /windows_required/);
   assert.match(source, /dpapi_current_user_unavailable/);
