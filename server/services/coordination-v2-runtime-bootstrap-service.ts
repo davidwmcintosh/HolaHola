@@ -177,6 +177,55 @@ export class CoordinationV2RuntimeError extends Error {
   }
 }
 
+export type RuntimeSourceSnapshotDiagnostic =
+  | 'deploy_key_missing'
+  | 'deploy_key_invalid'
+  | 'request_invalid'
+  | 'git_operation_failed'
+  | 'snapshot_validation_failed'
+  | 'filesystem_failed'
+  | 'unknown';
+
+export function classifyRuntimeSourceSnapshotFailure(error: unknown): RuntimeSourceSnapshotDiagnostic {
+  const message = error instanceof Error ? error.message : '';
+  if (message === 'HOLAHOLA_GITHUB_DEPLOY_KEY is unavailable.') return 'deploy_key_missing';
+  if (message === 'HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key.') {
+    return 'deploy_key_invalid';
+  }
+  if (message === 'protected_remote_snapshot_request_invalid') return 'request_invalid';
+  if (message === 'protected_remote_snapshot_git_failed') return 'git_operation_failed';
+  if ([
+    'remote_commit_proof_mismatch',
+    'protected_remote_snapshot_blob_invalid',
+    'protected_remote_snapshot_paths_mismatch',
+  ].includes(message)) {
+    return 'snapshot_validation_failed';
+  }
+  const code = record(error).code;
+  if (typeof code === 'string' && [
+    'EACCES',
+    'EEXIST',
+    'EMFILE',
+    'ENFILE',
+    'ENOENT',
+    'ENOSPC',
+    'EPERM',
+    'EROFS',
+  ].includes(code)) {
+    return 'filesystem_failed';
+  }
+  return 'unknown';
+}
+
+export function reportRuntimeSourceSnapshotFailure(
+  error: unknown,
+  warn: (message: string) => void = console.warn,
+): RuntimeSourceSnapshotDiagnostic {
+  const diagnostic = classifyRuntimeSourceSnapshotFailure(error);
+  warn(`[CoordinationV2Runtime] source snapshot unavailable: ${diagnostic}`);
+  return diagnostic;
+}
+
 function fail(code: string): never {
   throw new CoordinationV2RuntimeError(code);
 }
@@ -221,18 +270,32 @@ async function defaultBoundedFetch(url: string, maxBytes: number): Promise<Buffe
   return Buffer.concat(chunks);
 }
 
-async function defaultSourceSnapshot(input: {
+export async function resolveCoordinationV2RuntimeSourceSnapshot(input: {
   repositoryIdentity: string;
   promotedCommitSha: string;
   fixedPaths: readonly string[];
-}): Promise<ProtectedRemoteSnapshot> {
+}, dependencies: {
+  resolve?: (input: {
+    repositoryIdentity: string;
+    promotedCommitSha: string;
+    fixedPaths: readonly string[];
+  }) => Promise<ProtectedRemoteSnapshot>;
+  warn?: (message: string) => void;
+} = {}): Promise<ProtectedRemoteSnapshot> {
   try {
-    return await new SourceControlService().resolveProtectedRemoteSnapshot({
-      sha: input.promotedCommitSha,
+    const resolve = dependencies.resolve ?? ((snapshotInput) =>
+      new SourceControlService().resolveProtectedRemoteSnapshot({
+        sha: snapshotInput.promotedCommitSha,
+        repositoryIdentity: snapshotInput.repositoryIdentity,
+        fixedPaths: snapshotInput.fixedPaths,
+      }));
+    return await resolve({
       repositoryIdentity: input.repositoryIdentity,
+      promotedCommitSha: input.promotedCommitSha,
       fixedPaths: input.fixedPaths,
     });
-  } catch {
+  } catch (error) {
+    reportRuntimeSourceSnapshotFailure(error, dependencies.warn);
     fail('V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE');
   }
 }
@@ -438,7 +501,7 @@ export async function deriveCoordinationV2RuntimeProvenance(input: {
       fixedPaths,
     });
   } else {
-    snapshot = await defaultSourceSnapshot({
+    snapshot = await resolveCoordinationV2RuntimeSourceSnapshot({
       repositoryIdentity: input.repositoryIdentity,
       promotedCommitSha: input.promotedCommitSha,
       fixedPaths,

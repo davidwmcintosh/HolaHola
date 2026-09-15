@@ -15,11 +15,15 @@ import {
   verifyCoordinationV2RuntimeSri,
   deriveCoordinationV2RuntimeProvenance,
   RUNTIME_NODE_KEYRING_URL,
+  classifyRuntimeSourceSnapshotFailure,
+  reportRuntimeSourceSnapshotFailure,
+  resolveCoordinationV2RuntimeSourceSnapshot,
   type RuntimeArtifactInput,
   type RuntimeClosureFile,
 } from './coordination-v2-runtime-bootstrap-service';
 
 const serviceSource = readFileSync(new URL('./coordination-v2-runtime-bootstrap-service.ts', import.meta.url), 'utf8');
+const dotReplit = readFileSync(new URL('../../.replit', import.meta.url), 'utf8');
 const digest = 'a'.repeat(64);
 const sourceMembers = RUNTIME_SOURCE_MEMBER_PATHS.map((fixedPath) => ({ fixedPath, sha256: digest }));
 
@@ -248,4 +252,62 @@ test('provenance snapshot rejects shifted identity, tree, and blob boundaries be
       sourceSnapshot: async () => ({ sha: commit, treeSha: tree, blobs: missingLockfile }),
     },
   }), /V2_RUNTIME_SOURCE_SNAPSHOT_INVALID/);
+});
+
+test('source snapshot diagnostics use a closed classification without exposing raw errors', () => {
+  const cases: Array<[unknown, string]> = [
+    [new Error('HOLAHOLA_GITHUB_DEPLOY_KEY is unavailable.'), 'deploy_key_missing'],
+    [new Error('HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key.'), 'deploy_key_invalid'],
+    [new Error('protected_remote_snapshot_request_invalid'), 'request_invalid'],
+    [new Error('protected_remote_snapshot_git_failed'), 'git_operation_failed'],
+    [new Error('remote_commit_proof_mismatch'), 'snapshot_validation_failed'],
+    [new Error('protected_remote_snapshot_blob_invalid'), 'snapshot_validation_failed'],
+    [new Error('protected_remote_snapshot_paths_mismatch'), 'snapshot_validation_failed'],
+    [Object.assign(new Error('sensitive filesystem path'), { code: 'ENOENT' }), 'filesystem_failed'],
+    [new Error('secret raw command output'), 'unknown'],
+    [{ message: 'protected_remote_snapshot_git_failed' }, 'unknown'],
+  ];
+  for (const [error, expected] of cases) {
+    assert.equal(classifyRuntimeSourceSnapshotFailure(error), expected);
+  }
+
+  const messages: string[] = [];
+  const diagnostic = reportRuntimeSourceSnapshotFailure(
+    new Error('secret raw command output with /private/key/path'),
+    (message) => messages.push(message),
+  );
+  assert.equal(diagnostic, 'unknown');
+  assert.deepEqual(messages, ['[CoordinationV2Runtime] source snapshot unavailable: unknown']);
+  assert.doesNotMatch(messages[0], /secret|command output|private|key|path/);
+});
+
+test('production Nix runtime retains Git and OpenSSH for protected source snapshots', () => {
+  const nixSection = dotReplit.match(/^\[nix\]\s*\r?\n([\s\S]*?)(?=^\[)/m)?.[1];
+  assert.ok(nixSection, 'missing [nix] section');
+  const packagesJson = nixSection.match(/^packages\s*=\s*(\[.*\])\s*$/m)?.[1];
+  assert.ok(packagesJson, 'missing [nix].packages array');
+  const packages = JSON.parse(packagesJson) as unknown;
+  assert.ok(Array.isArray(packages), '[nix].packages must be an array');
+  assert.ok(packages.includes('git'), '[nix].packages must include git');
+  assert.ok(packages.includes('openssh'), '[nix].packages must include openssh');
+});
+
+test('default source snapshot wrapper logs only a closed label and preserves the generic error', async () => {
+  const messages: string[] = [];
+  await assert.rejects(
+    () => resolveCoordinationV2RuntimeSourceSnapshot({
+      repositoryIdentity: 'github:davidwmcintosh/holahola',
+      promotedCommitSha: 'c'.repeat(40),
+      fixedPaths: ['package-lock.json'],
+    }, {
+      resolve: async () => {
+        throw new Error('secret stderr with /private/key/path');
+      },
+      warn: (message) => messages.push(message),
+    }),
+    (error: unknown) => error instanceof Error
+      && error.message === 'V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE',
+  );
+  assert.deepEqual(messages, ['[CoordinationV2Runtime] source snapshot unavailable: unknown']);
+  assert.doesNotMatch(messages[0], /secret|stderr|private|key|path/);
 });
