@@ -589,11 +589,14 @@ export class SourceControlService {
     }
     const status = await this.getStatus();
     const expiry = Date.parse(status?.candidateExpiresAt || '');
+    const isLocalMarker = heads.local !== sha && await this.isPublishedAppMarker(heads.local, sha);
+    const isGitHubMarker = heads.github !== sha && await this.isPublishedAppMarker(heads.github, sha);
+
     if (
       status?.state !== 'ready_to_promote'
       || status.candidateSha !== sha
-      || heads.local !== sha
-      || heads.github !== sha
+      || (!(heads.local === sha || isLocalMarker))
+      || (!(heads.github === sha || isGitHubMarker))
       || !Number.isFinite(expiry)
       || expiry <= this.now().getTime()
       || !hasValidSourceControlManifest(status.validation, sha)
