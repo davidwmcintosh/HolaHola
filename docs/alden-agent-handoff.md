@@ -9228,3 +9228,27 @@ source-text shape, while its PostgreSQL constraint test fails closed without
 `COORDINATOR_V2_TEST_DATABASE_DISPOSABLE=1`. The HTTP-factory, authority-seam
 test, and PostgreSQL-test files involved are byte-identical to the
 pre-correction published commit and remain separately owned.
+
+## September 15, 2026 — Replit publication-marker recovery
+
+Two founder publishes exposed a deterministic source-promotion race: Replit
+appends an empty `Published your App` commit before the operator can acknowledge
+completion. The existing recorder correctly rejected the resulting local/GitHub
+head mismatch, and neither attempt wrote a source promotion.
+
+The approved recovery keeps the validated/deployed parent as the promoted
+commit. A local publication marker is evidence only and is accepted solely when
+GitHub still equals the validated candidate; the marker has exactly that one
+parent, the same authenticated tree, and the exact expected subject; the
+canonical publication reference names both full SHAs; validation remains fresh
+and SHA-bound; and both initial and immediate pre-append state are clean and
+unchanged. The immutable receipt and canonical digest bind the complete marker
+proof, while conflicting idempotency rows fail closed.
+
+The source-control fixture now covers successful recovery, receipt/digest
+contents, normal exact-head recording, malformed marker proofs, strict reference
+grammar, and final local, remote, worktree, and marker drift. Focused and full
+source-bridge suites plus typecheck pass. The independent architect reviewer
+returned unconditional approval. The next sequence is: create and synchronize
+the exact fix commit, prepare it, publish once, record its parent through the
+marker-aware path, then retry and verify the unchanged founder runtime payload.

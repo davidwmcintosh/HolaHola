@@ -21,6 +21,8 @@ import {
 const LOCAL_OLD = '1'.repeat(40);
 const LOCAL_NEW = '2'.repeat(40);
 const REMOTE_NEW = '3'.repeat(40);
+const PUBLICATION_MARKER = '4'.repeat(40);
+const CANDIDATE_TREE = '5'.repeat(40);
 const KEY = '-----BEGIN OPENSSH PRIVATE KEY-----\\ntest-material\\n-----END OPENSSH PRIVATE KEY-----';
 
 function manifest(sha: string): Record<string, unknown> {
@@ -129,6 +131,140 @@ async function withFixture(
   }
 }
 
+async function recordPublicationMarkerFixture(overrides: {
+  localHead?: string;
+  markerSha?: string;
+  markerTree?: string;
+  markerParents?: string;
+  markerSubject?: string;
+  remoteHead?: string;
+  finalLocalHead?: string;
+  finalRemoteHead?: string;
+  finalDirty?: boolean;
+  finalMarkerSubject?: string;
+  publicationReference?: string;
+} = {}): Promise<{
+  result: Awaited<ReturnType<SourceControlService['recordPromotion']>>;
+  recorded: import('../services/source-control-service').SourcePromotionRecordInput[];
+  receipt?: Record<string, unknown>;
+}> {
+  const rootDir = mkdtempSync(join(tmpdir(), 'source-control-marker-record-test-'));
+  const statusPath = join(rootDir, 'status.json');
+  const markerSha = overrides.markerSha ?? PUBLICATION_MARKER;
+  const markerTree = overrides.markerTree ?? CANDIDATE_TREE;
+  const markerParents = overrides.markerParents ?? LOCAL_NEW;
+  const markerSubject = overrides.markerSubject ?? 'Published your App';
+  const localHead = overrides.localHead ?? markerSha;
+  const remoteHead = overrides.remoteHead ?? LOCAL_NEW;
+  const finalLocalHead = overrides.finalLocalHead ?? localHead;
+  const finalRemoteHead = overrides.finalRemoteHead ?? remoteHead;
+  const publicationReference = overrides.publicationReference
+    ?? `replit-publish:${LOCAL_NEW}:${markerSha}`;
+  const recorded: import('../services/source-control-service').SourcePromotionRecordInput[] = [];
+  let fetchCount = 0;
+  let localHeadReadCount = 0;
+  let statusCount = 0;
+  let showCount = 0;
+  writeFileSync(statusPath, `${JSON.stringify({
+    schemaVersion: 3,
+    state: 'ready_to_promote',
+    origin: 'fixture',
+    replitSha: LOCAL_NEW,
+    githubSha: LOCAL_NEW,
+    candidateSha: LOCAL_NEW,
+    candidatePreparedAt: '2026-09-15T20:00:00.000Z',
+    candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+    validation: manifest(LOCAL_NEW),
+    consecutiveFailures: 0,
+    lastHeartbeatAt: '2026-09-15T20:00:00.000Z',
+    updatedAt: '2026-09-15T20:00:00.000Z',
+  })}\n`);
+  try {
+    const service = new SourceControlService({
+      rootDir,
+      env: {
+        NODE_ENV: 'development',
+        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
+        GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+        SOURCE_BRIDGE_STATUS_FILE: statusPath,
+        SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+        SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+        SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+      },
+      now: () => new Date('2026-09-15T21:00:00.000Z'),
+      uuid: (() => {
+        let value = 0;
+        return () => `marker-fixture-${++value}`;
+      })(),
+      resolveRemoteCommit: async (sha) => ({
+        sha,
+        treeSha: CANDIDATE_TREE,
+        parentSha: LOCAL_OLD,
+      }),
+      recordSourcePromotion: async (input) => {
+        recorded.push(input);
+      },
+      runCommand: async (command, args) => {
+        assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
+        const operation = args[0];
+        if (operation === 'branch') return { exitCode: 0, stdout: 'main\n', stderr: '' };
+        if (operation === 'status') {
+          statusCount += 1;
+          return {
+            exitCode: 0,
+            stdout: overrides.finalDirty && statusCount > 1 ? ' M changed-after-initial-check\n' : '',
+            stderr: '',
+          };
+        }
+        if (operation === 'fetch') {
+          fetchCount += 1;
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (operation === 'config') {
+          return { exitCode: 0, stdout: 'git@github.com:davidwmcintosh/holahola.git\n', stderr: '' };
+        }
+        if (operation === 'rev-parse') {
+          const remote = fetchCount > 1 ? finalRemoteHead : remoteHead;
+          const local = localHeadReadCount > 0 ? finalLocalHead : localHead;
+          if (!args.some((arg) => arg.includes('FETCH_HEAD'))) localHeadReadCount += 1;
+          return {
+            exitCode: 0,
+            stdout: `${args.some((arg) => arg.includes('FETCH_HEAD')) ? remote : local}\n`,
+            stderr: '',
+          };
+        }
+        if (operation === 'show') {
+          showCount += 1;
+          return {
+            exitCode: 0,
+            stdout: `${args.at(-1)}\n${markerTree}\n${markerParents}\n${
+              showCount > 1 && overrides.finalMarkerSubject
+                ? overrides.finalMarkerSubject
+                : markerSubject
+            }\n`,
+            stderr: '',
+          };
+        }
+        return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
+      },
+    });
+    const result = await service.recordPromotion(
+      LOCAL_NEW,
+      'fixture',
+      'marker-operation',
+      publicationReference,
+    );
+    const receiptName = readdirSync(join(rootDir, 'operations'))
+      .find((name) => name.startsWith('promotion-'));
+    const receipt = receiptName
+      ? JSON.parse(readFileSync(join(rootDir, 'operations', receiptName), 'utf8')) as Record<string, unknown>
+      : undefined;
+    return { result, recorded, receipt };
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   const equal = await withFixture('equal');
   assert.equal(equal.result.state, 'synced');
@@ -166,6 +302,66 @@ async function main(): Promise<void> {
     env: { NODE_ENV: 'production', HOLAHOLA_GITHUB_DEPLOY_KEY: KEY },
   });
   assert.equal((await production.sync('fixture')).state, 'disabled');
+
+  const markerRecovery = await recordPublicationMarkerFixture();
+  assert.equal(markerRecovery.result.state, 'synced');
+  assert.equal(markerRecovery.result.candidateSha, LOCAL_NEW);
+  assert.equal(markerRecovery.recorded.length, 1);
+  assert.equal(markerRecovery.recorded[0].promotedCommitSha, LOCAL_NEW);
+  assert.equal(markerRecovery.recorded[0].exactTreeSha, CANDIDATE_TREE);
+  assert.equal(markerRecovery.recorded[0].publishTriggerSha, PUBLICATION_MARKER);
+  assert.deepEqual(markerRecovery.receipt?.publicationMarker, {
+    sha: PUBLICATION_MARKER,
+    treeSha: CANDIDATE_TREE,
+    parentSha: LOCAL_NEW,
+    subject: 'Published your App',
+  });
+  assert.equal(markerRecovery.receipt?.repositoryIdentity, 'github:davidwmcintosh/holahola');
+  const expectedMarkerCanonicalDigest = createHash('sha256').update(JSON.stringify({
+    repositoryIdentity: 'github:davidwmcintosh/holahola',
+    promotedCommitSha: LOCAL_NEW,
+    exactTreeSha: CANDIDATE_TREE,
+    publicationReference: `replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}`,
+    protectedValidationId: manifest(LOCAL_NEW).validationId,
+    publishTriggerSha: PUBLICATION_MARKER,
+    publicationMarker: {
+      sha: PUBLICATION_MARKER,
+      treeSha: CANDIDATE_TREE,
+      parentSha: LOCAL_NEW,
+      subject: 'Published your App',
+    },
+  })).digest('hex');
+  assert.equal(markerRecovery.recorded[0].canonicalRecordDigest, expectedMarkerCanonicalDigest);
+
+  const exactHead = await recordPublicationMarkerFixture({
+    localHead: LOCAL_NEW,
+    markerSha: LOCAL_NEW,
+    publicationReference: 'protected-publication-reference',
+  });
+  assert.equal(exactHead.result.state, 'synced');
+  assert.equal(exactHead.recorded.length, 1);
+  assert.equal(exactHead.recorded[0].promotedCommitSha, LOCAL_NEW);
+  assert.equal(exactHead.recorded[0].publishTriggerSha, undefined);
+  assert.equal(exactHead.receipt?.publicationMarker, undefined);
+
+  for (const invalidMarker of [
+    { markerTree: '6'.repeat(40) },
+    { markerParents: LOCAL_OLD },
+    { markerParents: `${LOCAL_NEW} ${LOCAL_OLD}` },
+    { markerSubject: 'Published another App' },
+    { remoteHead: PUBLICATION_MARKER },
+    { publicationReference: `replit-publish:${LOCAL_NEW}` },
+    { publicationReference: `prefix:replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}` },
+    { publicationReference: `replit-publish:${PUBLICATION_MARKER}:${LOCAL_NEW}` },
+    { finalLocalHead: '7'.repeat(40) },
+    { finalRemoteHead: '7'.repeat(40) },
+    { finalDirty: true },
+    { finalMarkerSubject: 'Published another App' },
+  ]) {
+    const rejected = await recordPublicationMarkerFixture(invalidMarker);
+    assert.equal(rejected.result.state, 'failed');
+    assert.equal(rejected.recorded.length, 0);
+  }
 
   const snapshotCalls: Array<{ sha: string; fixedPaths: readonly string[] }> = [];
   let resolverBlobs: Record<string, Buffer> = {};

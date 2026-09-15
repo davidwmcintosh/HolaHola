@@ -6690,3 +6690,25 @@ self-check expects an outdated source-text shape, and its unchanged PostgreSQL
 constraint test requires a verified disposable database. Those three lifecycle
 files are byte-identical to the pre-correction published commit and are outside
 this source-snapshot change.
+
+## Coordinator V2 Replit publication-marker recovery — September 15, 2026
+
+Replit creates an empty `Published your App` commit immediately after a
+successful publish. That deterministic marker advanced local `main` before the
+operator acknowledgement could reach the source-promotion recorder, so the
+existing exact-head gate correctly failed closed twice.
+
+The recorder now preserves the validated and deployed parent as
+`promotedCommitSha` and accepts the local marker only as separate publication
+evidence. Recovery requires GitHub to remain exactly at the validated
+candidate, one exact marker parent, identical authenticated tree, the exact
+marker subject, a canonical reference naming both SHAs, fresh SHA-bound
+validation, a clean worktree, and a final state recheck immediately before the
+authority append. The complete marker proof is bound into the immutable attempt
+receipt and canonical digest; conflicting existing records fail closed.
+
+Focused and full source-bridge tests cover the normal exact-head path, the valid
+asymmetric marker race, malformed topology/content/reference, and local,
+remote, marker, expiry, and worktree drift. Typecheck passes, and the independent
+architect reviewer returned unconditional approval. No runtime release, Windows
+initialization, task, session, lease, or execution authority was created.

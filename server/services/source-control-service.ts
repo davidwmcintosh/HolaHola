@@ -238,6 +238,24 @@ export interface SourcePromotionRecordInput {
   operationReceiptReference: string;
 }
 
+type LocalPublicationMarkerProof = {
+  sha: string;
+  treeSha: string;
+  parentSha: string;
+  subject: string;
+};
+
+type CanonicalSourcePromotionFields = {
+  repositoryIdentity: string;
+  promotedCommitSha: string;
+  exactTreeSha: string;
+  publicationReference: string;
+  protectedValidationId: string;
+  publishTriggerSha: string | null;
+  parentSha: string | null;
+  canonicalRecordDigest: string;
+};
+
 function digest(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -589,14 +607,10 @@ export class SourceControlService {
     }
     const status = await this.getStatus();
     const expiry = Date.parse(status?.candidateExpiresAt || '');
-    const isLocalMarker = heads.local !== sha && await this.isPublishedAppMarker(heads.local, sha);
-    const isGitHubMarker = heads.github !== sha && await this.isPublishedAppMarker(heads.github, sha);
-
     if (
       status?.state !== 'ready_to_promote'
       || status.candidateSha !== sha
-      || (!(heads.local === sha || isLocalMarker))
-      || (!(heads.github === sha || isGitHubMarker))
+      || heads.github !== sha
       || !Number.isFinite(expiry)
       || expiry <= this.now().getTime()
       || !hasValidSourceControlManifest(status.validation, sha)
@@ -628,6 +642,25 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error };
     }
+    let publicationMarker: LocalPublicationMarkerProof | undefined;
+    if (heads.local !== sha) {
+      try {
+        publicationMarker = await this.resolveLocalPublicationMarker(heads.local);
+      } catch {
+        const error = 'Promotion recording refused because the local publication marker could not be verified.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+      const markerMatches = publicationMarker.parentSha === sha
+        && publicationMarker.treeSha === remoteProof.treeSha
+        && publicationMarker.subject === 'Published your App'
+        && publicationReference === `replit-publish:${sha}:${publicationMarker.sha}`;
+      if (!markerMatches) {
+        const error = 'Promotion recording refused because the local publication marker does not exactly match the validated candidate.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+    }
     const validationId = String(status.validation?.validationId || '');
     if (!/^[0-9a-f]{64}$/.test(validationId)) {
       const error = 'Promotion recording refused because protected validation identity is missing.';
@@ -636,8 +669,15 @@ export class SourceControlService {
     }
     const receiptReference = join(this.operationsDir, `promotion-${digest(operationId)}.json`);
     const receipt = `${JSON.stringify({
-      operationId, actor, sha, treeSha: remoteProof.treeSha, publicationReference,
-      validationId, createdAt: this.now().toISOString(),
+      operationId,
+      actor,
+      repositoryIdentity: this.repositoryIdentity,
+      sha,
+      treeSha: remoteProof.treeSha,
+      publicationReference,
+      validationId,
+      ...(publicationMarker ? { publicationMarker } : {}),
+      createdAt: this.now().toISOString(),
     })}\n`;
     try {
       await this.writeImmutablePromotionReceipt(receiptReference, receipt);
@@ -646,6 +686,44 @@ export class SourceControlService {
       await this.writeStatus('failed', message, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error: message };
     }
+    let finalHeads: { local: string; github: string };
+    let finalMarker: LocalPublicationMarkerProof | undefined;
+    try {
+      finalHeads = await this.fetchHeads();
+      if (publicationMarker) finalMarker = await this.resolveLocalPublicationMarker(finalHeads.local);
+    } catch {
+      const error = 'Promotion recording refused because final publication state could not be verified.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    const markerUnchanged = publicationMarker
+      ? finalMarker?.sha === publicationMarker.sha
+        && finalMarker.treeSha === publicationMarker.treeSha
+        && finalMarker.parentSha === publicationMarker.parentSha
+        && finalMarker.subject === publicationMarker.subject
+      : finalMarker === undefined;
+    if (finalHeads.local !== heads.local
+      || finalHeads.github !== heads.github
+      || expiry <= this.now().getTime()
+      || !(await this.isTrackedTreeClean())
+      || !markerUnchanged) {
+      const error = 'Promotion recording refused because source or publication evidence changed before the authority append.';
+      await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
+      return { ok: false, state: 'failed', ...finalHeads, error };
+    }
+    const canonicalRecord = {
+      repositoryIdentity: this.repositoryIdentity,
+      promotedCommitSha: sha,
+      exactTreeSha: remoteProof.treeSha,
+      publicationReference,
+      protectedValidationId: validationId,
+      ...(publicationMarker
+        ? {
+            publishTriggerSha: publicationMarker.sha,
+            publicationMarker,
+          }
+        : {}),
+    };
     try {
       await this.recordSourcePromotion({
         repositoryIdentity: this.repositoryIdentity,
@@ -653,11 +731,9 @@ export class SourceControlService {
         exactTreeSha: remoteProof.treeSha,
         publicationReference,
         protectedValidationId: validationId,
+        publishTriggerSha: publicationMarker?.sha,
         parentSha: remoteProof.parentSha,
-        canonicalRecordDigest: digest(JSON.stringify({
-          repositoryIdentity: this.repositoryIdentity, promotedCommitSha: sha, exactTreeSha: remoteProof.treeSha,
-          publicationReference, protectedValidationId: validationId,
-        })),
+        canonicalRecordDigest: digest(JSON.stringify(canonicalRecord)),
         operationReceiptDigest: digest(receipt),
         operationReceiptReference: receiptReference,
       });
@@ -670,7 +746,9 @@ export class SourceControlService {
       promotedSha: sha,
       promotedBy: actor,
       promotionRequestId: operationId,
-      promotionVerificationMode: 'operator_attestation',
+      promotionVerificationMode: publicationMarker
+        ? 'operator_attestation_with_replit_publication_marker'
+        : 'operator_attestation',
       publicationReference,
     });
     return { ok: true, state: 'synced', ...heads, candidateSha: sha };
@@ -691,13 +769,36 @@ export class SourceControlService {
   }
 
   private async appendSourcePromotion(input: SourcePromotionRecordInput): Promise<void> {
-    const existing = await db.select({ id: coordinationV2SourcePromotions.id }).from(coordinationV2SourcePromotions).where(and(
+    const selection = {
+      id: coordinationV2SourcePromotions.id,
+      repositoryIdentity: coordinationV2SourcePromotions.repositoryIdentity,
+      promotedCommitSha: coordinationV2SourcePromotions.promotedCommitSha,
+      exactTreeSha: coordinationV2SourcePromotions.exactTreeSha,
+      publicationReference: coordinationV2SourcePromotions.publicationReference,
+      protectedValidationId: coordinationV2SourcePromotions.protectedValidationId,
+      publishTriggerSha: coordinationV2SourcePromotions.publishTriggerSha,
+      parentSha: coordinationV2SourcePromotions.parentSha,
+      canonicalRecordDigest: coordinationV2SourcePromotions.canonicalRecordDigest,
+    };
+    const matchesInput = (existing: CanonicalSourcePromotionFields) =>
+      existing.repositoryIdentity === input.repositoryIdentity
+      && existing.promotedCommitSha === input.promotedCommitSha
+      && existing.exactTreeSha === input.exactTreeSha
+      && existing.publicationReference === input.publicationReference
+      && existing.protectedValidationId === input.protectedValidationId
+      && existing.publishTriggerSha === (input.publishTriggerSha ?? null)
+      && existing.parentSha === (input.parentSha ?? null)
+      && existing.canonicalRecordDigest === input.canonicalRecordDigest;
+    const existing = await db.select(selection).from(coordinationV2SourcePromotions).where(and(
       eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
       eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
       eq(coordinationV2SourcePromotions.publicationReference, input.publicationReference),
       eq(coordinationV2SourcePromotions.protectedValidationId, input.protectedValidationId),
     )).limit(1);
-    if (existing.length) return;
+    if (existing.length) {
+      if (!matchesInput(existing[0])) throw new Error('Existing source promotion does not match the complete canonical record.');
+      return;
+    }
     try {
       await db.insert(coordinationV2SourcePromotions).values({
         repositoryIdentity: input.repositoryIdentity,
@@ -714,13 +815,13 @@ export class SourceControlService {
       });
     } catch (error: any) {
       // A concurrent retry may have won the exact idempotency key.
-      const concurrent = await db.select({ id: coordinationV2SourcePromotions.id }).from(coordinationV2SourcePromotions).where(and(
+      const concurrent = await db.select(selection).from(coordinationV2SourcePromotions).where(and(
         eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
         eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
         eq(coordinationV2SourcePromotions.publicationReference, input.publicationReference),
         eq(coordinationV2SourcePromotions.protectedValidationId, input.protectedValidationId),
       )).limit(1);
-      if (!concurrent.length) throw error;
+      if (!concurrent.length || !matchesInput(concurrent[0])) throw error;
     }
   }
 
@@ -771,6 +872,23 @@ export class SourceControlService {
       throw new Error('Could not resolve the current exact commit SHA.');
     }
     return result.stdout.trim();
+  }
+
+  private async resolveLocalPublicationMarker(sha: string): Promise<LocalPublicationMarkerProof> {
+    if (!SHA_PATTERN.test(sha)) throw new Error('local_publication_marker_invalid');
+    const result = await this.runGit(['show', '-s', '--format=%H%n%T%n%P%n%s', sha]);
+    if (result.exitCode !== 0) throw new Error('local_publication_marker_unresolved');
+    const [resolvedSha, treeSha, parentsText, subject, ...extra] = result.stdout.trimEnd().split('\n');
+    const parents = parentsText?.split(' ').filter(Boolean) ?? [];
+    if (extra.length
+      || resolvedSha !== sha
+      || !SHA_PATTERN.test(treeSha || '')
+      || parents.length !== 1
+      || !SHA_PATTERN.test(parents[0] || '')
+      || typeof subject !== 'string') {
+      throw new Error('local_publication_marker_invalid');
+    }
+    return { sha: resolvedSha, treeSha, parentSha: parents[0], subject };
   }
 
   private async fetchRemoteCommitProof(sha: string): Promise<{ sha: string; treeSha: string; parentSha?: string }> {
