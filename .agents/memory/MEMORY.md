@@ -129,3 +129,4 @@
 - [PostgreSQL control checks and immutable expiry tests](postgres-control-and-expiry-tests.md) — use POSIX control classes; expire immutable authority through a short-lived parent bound.
 - [PostgreSQL wrapped structured errors](postgres-wrapped-structured-errors.md) — inspect a bounded cause chain; accept conflicts only for exact SQLSTATE and constraint allowlists.
 - [Composite-FK negative fixtures](composite-fk-negative-fixtures.md) — isolate all earlier unique dimensions or a negative test may prove the wrong constraint.
+- [Production Git source authority](production-git-source-authority.md) — published images omit .git; prove source through one authenticated exact-commit remote snapshot.

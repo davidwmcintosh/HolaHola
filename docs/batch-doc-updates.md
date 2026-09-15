@@ -6651,3 +6651,42 @@ PostgreSQL, service, HTTP, unit, guard, episode, and coordination-ledger suites
 passed. Migration `0052` was then applied successfully to shared Neon. No
 runtime release has yet been published and no Windows task/session authority
 has been activated.
+
+## Coordinator V2 production source snapshot — September 15, 2026
+
+The first founder-authenticated runtime-release request failed closed with
+`V2_RUNTIME_SOURCE_TREE_UNAVAILABLE`. Production intentionally excludes `.git`,
+so release provenance could not rely on local `git rev-parse` or `git cat-file`
+even though the promoted commit, artifacts, and external provenance were valid.
+
+Runtime publication now obtains one immutable remote source snapshot through
+the existing GitHub deploy key and pinned SSH host keys. The boundary accepts
+only the exact lowercase `git@github.com:owner/repository.git` transport,
+compares the immutable source-promotion repository identity, fetches the exact
+commit into a temporary bare repository, verifies `FETCH_HEAD` and its exact
+tree, and reads only the closed bootstrap source set plus `package-lock.json`
+as bounded binary blobs. It has no branch, tag, deployed-file, tree-equivalence,
+caller-byte, HTTPS, or publication-input dependency fallback.
+
+The registered source-control fixture now exercises the same bare-repository
+materialization mechanism with real Git and invalid-UTF-8 fixture data. It
+proves exact commit/tree resolution, binary `cat-file` fidelity, operation
+without a caller checkout, and exact temporary-directory cleanup after both
+success and a post-fetch missing-blob failure. Focused runtime tests, the
+registered source-bridge suite, typecheck, and system health all pass. Both
+Alden-Anthropic and the independent architect reviewer returned unconditional
+approval with no remaining blockers.
+
+The previously uploaded digest-addressed Node v20.20.0 and tsx 4.23.1 closure
+remains inert. The failed request wrote no runtime release. Windows
+initialization and all task, session, lease, and execution authority remain
+uncreated.
+
+The configured validation wrapper completed all 71 application-test commands,
+the complete authenticated runtime-bootstrap group, source-bridge safety, and
+all later registered checks successfully. Its only failed group was the
+pre-existing Coordinator V2 lifecycle aggregate: an unchanged wire-contract
+self-check expects an outdated source-text shape, and its unchanged PostgreSQL
+constraint test requires a verified disposable database. Those three lifecycle
+files are byte-identical to the pre-correction published commit and are outside
+this source-snapshot change.

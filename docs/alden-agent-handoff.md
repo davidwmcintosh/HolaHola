@@ -9179,3 +9179,52 @@ run and verify the first Windows initialization, and only then permit one
 `Invoke-HolaCoordinator`. No runtime release, Windows initialization, task,
 session, lease, or execution authority was created during implementation or
 migration.
+
+## September 15, 2026 — production runtime source snapshot correction
+
+The first founder-authenticated Milestone 14 release request failed closed with
+`V2_RUNTIME_SOURCE_TREE_UNAVAILABLE`. The published image intentionally omits
+`.git`; the prior runtime provenance default incorrectly assumed the deployed
+working directory could resolve the promoted tree and blobs locally.
+
+The corrected source authority is one authenticated immutable remote snapshot.
+`SourceControlService` requires the exact lowercase
+`git@github.com:owner/repository.git` transport, matches it to the immutable
+source-promotion repository identity, and uses the existing deploy key plus
+pinned GitHub SSH host keys. A temporary bare repository fetches only the exact
+promoted commit, verifies `FETCH_HEAD` and its exact tree, and reads only the
+three fixed bootstrap source members and `package-lock.json` with binary-safe,
+bounded `git cat-file` operations. Both the bare repository and temporary SSH
+material are removed on success or failure.
+
+Publication inputs can no longer carry provenance dependencies, and the legacy
+split `gitTree`/`gitBlob` seams and local `.git` defaults are removed. HTTPS
+remotes, alternate transports, branches, tags, local tree equivalence,
+deployed-file bytes, caller-supplied source bytes, missing/extra paths, shifted
+SHA/tree results, and oversized blobs fail closed.
+
+The existing registered source-control test now uses real Git against a
+hermetic repository and the same materialization helper production invokes
+inside the authenticated SSH boundary. It proves exact SHA/tree resolution,
+byte-exact invalid-UTF-8 binary reads, no caller-checkout dependency, and exact
+temporary-directory cleanup after success and a post-fetch missing-blob
+failure. Focused runtime tests, `npm run test:source-bridge`, typecheck, and the
+system-health verifier pass. Alden-Anthropic and the independent architect
+reviewer each returned unconditional approval with no blockers.
+
+The 61 verified digest-addressed artifacts remain uploaded but inert. The
+failed release request created no runtime release, and no Windows
+initialization, task, session, lease, or execution authority exists. After the
+corrected commit is fully validated, published, and recorded as the current
+source promotion, retry the same founder-authenticated release payload before
+proceeding to Windows.
+
+Validation evidence: all 71 application-test commands passed; the complete
+Coordinator V2 authenticated runtime-bootstrap group passed; source-bridge
+safety, typecheck, and system health passed; and every later wrapper check
+passed. The wrapper's sole failed group was the unchanged Coordinator V2
+lifecycle aggregate. Its wire-contract self-check expects an outdated
+source-text shape, while its PostgreSQL constraint test fails closed without
+`COORDINATOR_V2_TEST_DATABASE_DISPOSABLE=1`. The HTTP-factory, authority-seam
+test, and PostgreSQL-test files involved are byte-identical to the
+pre-correction published commit and remain separately owned.

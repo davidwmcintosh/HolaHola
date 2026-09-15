@@ -47,6 +47,85 @@ export type ProtectedRemoteSnapshot = {
   blobs: Record<string, Buffer>;
 };
 
+export type ProtectedSnapshotGitRunner = (
+  args: string[],
+  cwd: string,
+  maxBuffer: number,
+) => Promise<Buffer>;
+
+function validProtectedSnapshotPaths(fixedPaths: readonly string[]): boolean {
+  return Array.isArray(fixedPaths)
+    && fixedPaths.length >= 1
+    && fixedPaths.length <= PROTECTED_SNAPSHOT_MAX_PATHS
+    && new Set(fixedPaths).size === fixedPaths.length
+    && fixedPaths.every((path) =>
+      typeof path === 'string'
+      && path.length <= 512
+      && PROTECTED_SNAPSHOT_PATH.test(path)
+      && !path.includes('..')
+      && !path.includes('\\')
+      && !path.includes(':'));
+}
+
+/**
+ * Materializes one exact commit into a temporary bare repository using a Git
+ * runner whose authentication and host verification are supplied by the
+ * authority-owning caller.
+ */
+export async function materializeProtectedGitSnapshot(input: {
+  repoUrl: string;
+  sha: string;
+  fixedPaths: readonly string[];
+  runGit: ProtectedSnapshotGitRunner;
+  tempParent?: string;
+}): Promise<ProtectedRemoteSnapshot> {
+  if (!SHA_PATTERN.test(input.sha)
+    || typeof input.repoUrl !== 'string'
+    || input.repoUrl.length < 1
+    || !validProtectedSnapshotPaths(input.fixedPaths)) {
+    throw new Error('protected_remote_snapshot_request_invalid');
+  }
+  const root = await mkdtemp(join(input.tempParent ?? '/tmp', 'holahola-protected-snapshot-'));
+  const run = (args: string[], maxBuffer = 2 * 1024 * 1024) =>
+    input.runGit(args, root, maxBuffer);
+  try {
+    await run(['init', '--bare']);
+    await run(['remote', 'add', 'origin', input.repoUrl]);
+    await run(['config', 'remote.origin.promisor', 'true']);
+    await run(['config', 'remote.origin.partialclonefilter', 'blob:none']);
+    await run([
+      '-c', 'protocol.version=2',
+      'fetch', '--no-tags', '--depth=1', '--filter=blob:none', 'origin', input.sha,
+    ]);
+    const received = (await run(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], 1024))
+      .toString('utf8').trim();
+    const treeSha = (await run(['rev-parse', '--verify', `${received}^{tree}`], 1024))
+      .toString('utf8').trim();
+    assertAuthenticatedRemoteCommitProof(input.sha, { sha: received, treeSha });
+    const blobs: Record<string, Buffer> = {};
+    for (const path of [...input.fixedPaths].sort()) {
+      const object = `${received}:${path}`;
+      const sizeText = (await run(['cat-file', '-s', object], 1024))
+        .toString('utf8').trim();
+      const size = Number(sizeText);
+      if (!Number.isSafeInteger(size)
+        || size < 1
+        || size > PROTECTED_SNAPSHOT_MAX_BLOB_BYTES) {
+        throw new Error('protected_remote_snapshot_blob_invalid');
+      }
+      const bytes = await run(
+        ['cat-file', 'blob', object],
+        PROTECTED_SNAPSHOT_MAX_BLOB_BYTES + 1,
+      );
+      if (bytes.length !== size) throw new Error('protected_remote_snapshot_blob_invalid');
+      blobs[path] = bytes;
+    }
+    return { sha: received, treeSha, blobs };
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
 export function assertAuthenticatedRemoteCommitProof(
   expectedSha: string,
   proof: { sha: string; treeSha: string },
@@ -744,17 +823,7 @@ export class SourceControlService {
     if (!/^git@github\.com:[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*\.git$/.test(this.repoUrl)
       || !SHA_PATTERN.test(input.sha)
       || !sameCoordinationRepositoryIdentity(input.repositoryIdentity, this.repositoryIdentity)
-      || !Array.isArray(input.fixedPaths)
-      || input.fixedPaths.length < 1
-      || input.fixedPaths.length > PROTECTED_SNAPSHOT_MAX_PATHS
-      || new Set(input.fixedPaths).size !== input.fixedPaths.length
-      || input.fixedPaths.some((path) =>
-        typeof path !== 'string'
-        || path.length > 512
-        || !PROTECTED_SNAPSHOT_PATH.test(path)
-        || path.includes('..')
-        || path.includes('\\')
-        || path.includes(':'))) {
+      || !validProtectedSnapshotPaths(input.fixedPaths)) {
       throw new Error('protected_remote_snapshot_request_invalid');
     }
     const fixedPaths = [...input.fixedPaths].sort();
@@ -793,63 +862,24 @@ export class SourceControlService {
     sha: string,
     fixedPaths: readonly string[],
   ): Promise<ProtectedRemoteSnapshot> {
-    const root = await mkdtemp(join('/tmp', 'holahola-protected-snapshot-'));
-    const run = async (
-      args: string[],
-      env: NodeJS.ProcessEnv,
-      maxBuffer = 2 * 1024 * 1024,
-    ): Promise<Buffer> => {
-      try {
-        const result = await execFile('git', args, {
-          cwd: root,
-          env,
-          encoding: 'buffer',
-          maxBuffer,
-        });
-        return Buffer.from(result.stdout as Buffer);
-      } catch {
-        throw new Error('protected_remote_snapshot_git_failed');
-      }
-    };
-    try {
-      return await this.withSsh(async (env) => {
-        await run(['init', '--bare'], env);
-        await run(['remote', 'add', 'origin', this.repoUrl], env);
-        await run(['config', 'remote.origin.promisor', 'true'], env);
-        await run(['config', 'remote.origin.partialclonefilter', 'blob:none'], env);
-        await run([
-          '-c', 'protocol.version=2',
-          'fetch', '--no-tags', '--depth=1', '--filter=blob:none', 'origin', sha,
-        ], env);
-        const received = (await run(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], env, 1024))
-          .toString('utf8').trim();
-        const treeSha = (await run(['rev-parse', '--verify', `${received}^{tree}`], env, 1024))
-          .toString('utf8').trim();
-        assertAuthenticatedRemoteCommitProof(sha, { sha: received, treeSha });
-        const blobs: Record<string, Buffer> = {};
-        for (const path of fixedPaths) {
-          const object = `${received}:${path}`;
-          const sizeText = (await run(['cat-file', '-s', object], env, 1024))
-            .toString('utf8').trim();
-          const size = Number(sizeText);
-          if (!Number.isSafeInteger(size)
-            || size < 1
-            || size > PROTECTED_SNAPSHOT_MAX_BLOB_BYTES) {
-            throw new Error('protected_remote_snapshot_blob_invalid');
-          }
-          const bytes = await run(
-            ['cat-file', 'blob', object],
+    return this.withSsh((env) => materializeProtectedGitSnapshot({
+      repoUrl: this.repoUrl,
+      sha,
+      fixedPaths,
+      runGit: async (args, cwd, maxBuffer) => {
+        try {
+          const result = await execFile('git', args, {
+            cwd,
             env,
-            PROTECTED_SNAPSHOT_MAX_BLOB_BYTES + 1,
-          );
-          if (bytes.length !== size) throw new Error('protected_remote_snapshot_blob_invalid');
-          blobs[path] = bytes;
+            encoding: 'buffer',
+            maxBuffer,
+          });
+          return Buffer.from(result.stdout as Buffer);
+        } catch {
+          throw new Error('protected_remote_snapshot_git_failed');
         }
-        return { sha: received, treeSha, blobs };
-      });
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
+      },
+    }));
   }
 
   private async isAncestor(ancestor: string, descendant: string): Promise<boolean> {

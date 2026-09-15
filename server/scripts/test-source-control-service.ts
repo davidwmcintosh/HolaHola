@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -7,6 +15,7 @@ import {
   SOURCE_CONTROL_REQUIRED_CHECKS,
   SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
   SourceControlService,
+  materializeProtectedGitSnapshot,
 } from '../services/source-control-service';
 
 const LOCAL_OLD = '1'.repeat(40);
@@ -252,6 +261,50 @@ async function main(): Promise<void> {
     repositoryIdentity: 'github:davidwmcintosh/holahola',
     fixedPaths: snapshotPaths,
   }), /protected_remote_snapshot_request_invalid/);
+
+  const gitFixture = mkdtempSync(join(tmpdir(), 'protected-snapshot-git-test-'));
+  const sourceRepo = join(gitFixture, 'source');
+  const snapshotParent = join(gitFixture, 'snapshots');
+  mkdirSync(sourceRepo);
+  mkdirSync(snapshotParent);
+  const git = (args: string[], cwd = sourceRepo, maxBuffer = 4 * 1024 * 1024): Buffer =>
+    Buffer.from(execFileSync('git', args, { cwd, encoding: 'buffer', maxBuffer }));
+  try {
+    git(['init']);
+    git(['config', 'user.name', 'Snapshot Fixture']);
+    git(['config', 'user.email', 'snapshot-fixture@example.invalid']);
+    mkdirSync(join(sourceRepo, 'nested'));
+    const binary = Buffer.from([0x00, 0xff, 0x80, 0x0d, 0x0a, 0x41]);
+    writeFileSync(join(sourceRepo, 'nested', 'binary.dat'), binary);
+    writeFileSync(join(sourceRepo, 'source.txt'), 'exact source\n');
+    git(['add', '--', 'nested/binary.dat', 'source.txt']);
+    git(['commit', '-m', 'fixture']);
+    const sha = git(['rev-parse', 'HEAD']).toString('utf8').trim();
+    const treeSha = git(['rev-parse', 'HEAD^{tree}']).toString('utf8').trim();
+    const before = readdirSync(snapshotParent);
+    const materialized = await materializeProtectedGitSnapshot({
+      repoUrl: sourceRepo,
+      sha,
+      fixedPaths: ['source.txt', 'nested/binary.dat'],
+      tempParent: snapshotParent,
+      runGit: async (args, cwd, maxBuffer) => git(args, cwd, maxBuffer),
+    });
+    assert.equal(materialized.sha, sha);
+    assert.equal(materialized.treeSha, treeSha);
+    assert.deepEqual(materialized.blobs['nested/binary.dat'], binary);
+    assert.equal(materialized.blobs['source.txt'].toString('utf8'), 'exact source\n');
+    assert.deepEqual(readdirSync(snapshotParent), before, 'success must remove the bare snapshot');
+    await assert.rejects(() => materializeProtectedGitSnapshot({
+      repoUrl: sourceRepo,
+      sha,
+      fixedPaths: ['missing.txt'],
+      tempParent: snapshotParent,
+      runGit: async (args, cwd, maxBuffer) => git(args, cwd, maxBuffer),
+    }));
+    assert.deepEqual(readdirSync(snapshotParent), before, 'post-fetch failure must remove the bare snapshot');
+  } finally {
+    rmSync(gitFixture, { recursive: true, force: true });
+  }
 
   console.log('Source-control coordinator fixture checks passed.');
 }

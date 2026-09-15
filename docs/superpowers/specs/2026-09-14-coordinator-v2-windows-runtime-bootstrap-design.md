@@ -461,6 +461,13 @@ deployment filesystem:
   tree-equivalence, caller-supplied source bytes, or publication-input test
   dependencies.
 
+The source-control fixture must run the production bare-repository
+materialization mechanism against a hermetic local Git repository. It proves
+exact commit and tree resolution, byte-exact binary blob reads without a caller
+checkout, and exact temporary-directory cleanup after both success and a
+post-fetch missing-blob failure. Separate boundary tests prove that production
+accepts only the pinned SSH transport before this mechanism can run.
+
 ### Issue a host-bound manifest
 
 ```text
