@@ -110,6 +110,10 @@ async function checkTables() {
     "coordination_v2_transport_lease_reconciliations",
     "coordination_v2_cleanup_obligations", "coordination_v2_cleanup_acknowledgements",
     "coordination_v2_session_credentials",
+    "coordination_v2_runtime_releases", "coordination_v2_runtime_release_artifacts",
+    "coordination_v2_runtime_bootstrap_issues",
+    "coordination_v2_runtime_bootstrap_acknowledgements",
+    "coordination_v2_runtime_release_revocations",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];

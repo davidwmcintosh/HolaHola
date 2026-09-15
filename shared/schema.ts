@@ -12211,3 +12211,157 @@ export const coordinationGate3ProofGrants = pgTable("coordination_gate3_proof_gr
   check("coordination_gate3_grant_proof_digest", sql`${t.proofPayloadDigest} ~ '^[0-9a-f]{64}$'`),
   check("coordination_gate3_grant_lifecycle", sql`${t.expiresAt} > ${t.issuedAt} AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.issuedAt})`),
 ]);
+
+// Coordinator V2 runtime bootstrap evidence is intentionally independent from
+// task/session authority. These records are append-only; migration 0052 adds
+// database triggers to reject updates and deletes.
+export const coordinationV2RuntimeReleases = pgTable("coordination_v2_runtime_releases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  protocolVersion: integer("protocol_version").notNull(),
+  sourcePromotionId: varchar("source_promotion_id").notNull()
+    .references(() => coordinationV2SourcePromotions.id, { onDelete: "restrict" }),
+  repositoryIdentity: varchar("repository_identity", { length: 512 }).notNull(),
+  promotedCommitSha: varchar("promoted_commit_sha", { length: 40 }).notNull(),
+  exactTreeSha: varchar("exact_tree_sha", { length: 40 }).notNull(),
+  publicationReference: varchar("publication_reference", { length: 512 }).notNull(),
+  protectedValidationId: varchar("protected_validation_id", { length: 128 }).notNull(),
+  sourcePromotionRecordDigest: varchar("source_promotion_record_digest", { length: 64 }).notNull(),
+  releaseDigest: varchar("release_digest", { length: 64 }).notNull(),
+  manifestTemplateDigest: varchar("manifest_template_digest", { length: 64 }).notNull(),
+  nodeVersion: varchar("node_version", { length: 32 }).notNull(),
+  nodeReleaseKeyringCommit: varchar("node_release_keyring_commit", { length: 40 }).notNull(),
+  nodeReleaseKeyringDigest: varchar("node_release_keyring_digest", { length: 64 }).notNull(),
+  nodeShasumsDigest: varchar("node_shasums_digest", { length: 64 }).notNull(),
+  nodeSignatureDigest: varchar("node_signature_digest", { length: 64 }).notNull(),
+  nodeSignerFingerprint: varchar("node_signer_fingerprint", { length: 40 }).notNull(),
+  lockfileDigest: varchar("lockfile_digest", { length: 64 }).notNull(),
+  runtimeClosureDigest: varchar("runtime_closure_digest", { length: 64 }).notNull(),
+  provenanceDigest: varchar("provenance_digest", { length: 64 }).notNull(),
+  sourceMembers: jsonb("source_members")
+    .$type<Array<{ fixedPath: string; sha256: string }>>()
+    .notNull(),
+  publishedAt: timestamp("published_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_release_digest").on(table.releaseDigest),
+  index("idx_coordination_v2_runtime_release_published").on(table.publishedAt),
+  check("coordination_v2_runtime_release_protocol", sql`${table.protocolVersion} = 1`),
+  check("coordination_v2_runtime_release_commit", sql`${table.promotedCommitSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_runtime_release_tree", sql`${table.exactTreeSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_runtime_release_source_digest", sql`${table.sourcePromotionRecordDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_digest", sql`${table.releaseDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_manifest_template_digest", sql`${table.manifestTemplateDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_version", sql`length(trim(${table.nodeVersion})) > 0`),
+  check("coordination_v2_runtime_release_node_keyring_commit", sql`${table.nodeReleaseKeyringCommit} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_runtime_release_node_keyring_digest", sql`${table.nodeReleaseKeyringDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_shasums_digest", sql`${table.nodeShasumsDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_signature_digest", sql`${table.nodeSignatureDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_signer_fingerprint", sql`${table.nodeSignerFingerprint} ~ '^[0-9A-F]{40}$'`),
+  check("coordination_v2_runtime_release_lockfile_digest", sql`${table.lockfileDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_runtime_closure_digest", sql`${table.runtimeClosureDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_provenance_digest", sql`${table.provenanceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_source_members", sql`
+    jsonb_typeof(${table.sourceMembers}) = 'array'
+    AND jsonb_array_length(
+      CASE
+        WHEN jsonb_typeof(${table.sourceMembers}) = 'array' THEN ${table.sourceMembers}
+        ELSE '[]'::jsonb
+      END
+    ) > 0
+  `),
+]);
+
+export const coordinationV2RuntimeReleaseArtifacts = pgTable("coordination_v2_runtime_release_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runtimeReleaseId: varchar("runtime_release_id").notNull()
+    .references(() => coordinationV2RuntimeReleases.id, { onDelete: "restrict" }),
+  role: varchar("role", { length: 48 }).notNull(),
+  fixedDestination: varchar("fixed_destination", { length: 512 }).notNull(),
+  objectKey: varchar("object_key", { length: 1024 }).notNull(),
+  objectDigest: varchar("object_digest", { length: 64 }).notNull(),
+  byteLength: bigint("byte_length", { mode: "number" }).notNull(),
+  mediaType: varchar("media_type", { length: 128 }).notNull(),
+  requiresAuthenticode: boolean("requires_authenticode").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_artifact_destination").on(table.runtimeReleaseId, table.fixedDestination),
+  uniqueIndex("uq_coordination_v2_runtime_artifact_object").on(table.runtimeReleaseId, table.objectKey),
+  check("coordination_v2_runtime_artifact_role", sql`${table.role} IN ('node_executable', 'tsx_runtime_module')`),
+  check("coordination_v2_runtime_artifact_digest", sql`${table.objectDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_artifact_length", sql`${table.byteLength} > 0 AND ${table.byteLength} <= 268435456`),
+  check("coordination_v2_runtime_artifact_object_key", sql`${table.objectKey} ~ '^coordination-v2/runtime/[0-9a-f]{64}/[A-Za-z0-9._-]+$'`),
+]);
+
+export const coordinationV2RuntimeBootstrapIssues = pgTable("coordination_v2_runtime_bootstrap_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  runtimeReleaseId: varchar("runtime_release_id").notNull()
+    .references(() => coordinationV2RuntimeReleases.id, { onDelete: "restrict" }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  manifestDigest: varchar("manifest_digest", { length: 64 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_issue_request").on(table.hostEnrollmentId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_runtime_issue_manifest").on(table.manifestDigest),
+  unique("uq_coordination_v2_runtime_issue_lineage")
+    .on(table.id, table.hostEnrollmentId, table.runtimeReleaseId, table.requestKey, table.manifestDigest),
+  check("coordination_v2_runtime_issue_request_digest", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_issue_manifest_digest", sql`${table.manifestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_issue_expiry", sql`
+    ${table.expiresAt} > ${table.issuedAt}
+    AND ${table.expiresAt} <= ${table.issuedAt} + interval '5 minutes'
+  `),
+]);
+
+export const coordinationV2RuntimeBootstrapAcknowledgements = pgTable("coordination_v2_runtime_bootstrap_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull(),
+  runtimeReleaseId: varchar("runtime_release_id").notNull(),
+  issueId: varchar("issue_id").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  manifestDigest: varchar("manifest_digest", { length: 64 }).notNull(),
+  localEvidenceDigest: varchar("local_evidence_digest", { length: 64 }).notNull(),
+  acknowledgementDigest: varchar("acknowledgement_digest", { length: 64 }).notNull(),
+  hostSignatureDigest: varchar("host_signature_digest", { length: 64 }).notNull(),
+  acknowledgedAt: timestamp("acknowledged_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_ack_request").on(table.hostEnrollmentId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_runtime_ack_release").on(table.hostEnrollmentId, table.runtimeReleaseId),
+  foreignKey({
+    name: "fk_coordination_v2_runtime_ack_issue_lineage",
+    columns: [table.issueId, table.hostEnrollmentId, table.runtimeReleaseId, table.requestKey, table.manifestDigest],
+    foreignColumns: [
+      coordinationV2RuntimeBootstrapIssues.id,
+      coordinationV2RuntimeBootstrapIssues.hostEnrollmentId,
+      coordinationV2RuntimeBootstrapIssues.runtimeReleaseId,
+      coordinationV2RuntimeBootstrapIssues.requestKey,
+      coordinationV2RuntimeBootstrapIssues.manifestDigest,
+    ],
+  }),
+  check("coordination_v2_runtime_ack_manifest_digest", sql`${table.manifestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_ack_evidence_digest", sql`${table.localEvidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_ack_digest", sql`${table.acknowledgementDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_ack_signature_digest", sql`${table.hostSignatureDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationV2RuntimeReleaseRevocations = pgTable("coordination_v2_runtime_release_revocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runtimeReleaseId: varchar("runtime_release_id").notNull()
+    .references(() => coordinationV2RuntimeReleases.id, { onDelete: "restrict" }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  reasonCode: varchar("reason_code", { length: 128 }).notNull(),
+  revokedBy: varchar("revoked_by", { length: 128 }).notNull(),
+  revokedAt: timestamp("revoked_at").notNull(),
+  canonicalRecordDigest: varchar("canonical_record_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_revocation_release").on(table.runtimeReleaseId),
+  uniqueIndex("uq_coordination_v2_runtime_revocation_request").on(table.requestKey),
+  check("coordination_v2_runtime_revocation_reason", sql`${table.reasonCode} ~ '^[A-Z0-9_]{1,128}$'`),
+  check("coordination_v2_runtime_revocation_digest", sql`${table.canonicalRecordDigest} ~ '^[0-9a-f]{64}$'`),
+]);

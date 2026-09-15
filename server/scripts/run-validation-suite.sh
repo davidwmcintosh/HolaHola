@@ -67,6 +67,10 @@ run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evide
   server/scripts/test-coordinator-v2-schema-postgres.test.ts
 run_check "Coordinator V2 PowerShell enrollment object contract" npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts
 run_check "Coordinator V2 staged first-host enrollment contract" npx tsx --test server/scripts/test-coordination-v2-staged-enrollment-contract.test.ts
+run_check "Coordinator V2 authenticated runtime bootstrap" npx tsx --test \
+  server/services/coordination-v2-runtime-bootstrap-service.test.ts \
+  server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts \
+  server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.

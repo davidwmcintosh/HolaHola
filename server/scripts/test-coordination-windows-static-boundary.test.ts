@@ -106,7 +106,9 @@ test("enrollment preflight is independent of post-enrollment runtime artifacts",
   assert.match(execution, /approved_node_missing/);
   assert.match(execution, /approved_tsx_missing/);
   assert.match(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$ApprovedNode/);
-  assert.match(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$ApprovedTsx/);
+  assert.doesNotMatch(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$(?:ApprovedTsx|CoordinatorScript|LauncherPath)/);
+  assert.match(execution, /Assert-InstalledArtifactMembership\s+-Manifest\s+\$manifest/);
+  assert.match(execution, /Assert-SourceMemberHash\s+-Manifest\s+\$manifest/);
 
   const invoke = extractBoundary(source, "INVOKE");
   const register = extractBoundary(source, "REGISTER");

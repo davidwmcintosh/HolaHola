@@ -77,6 +77,9 @@ commands.splice(safetyInsertion, 0,
   'npx tsx --test --test-concurrency=1 server/scripts/test-coordination-gate3-assignment-window.test.ts',
   'npx tsx --test --test-concurrency=1 server/scripts/test-coordination-gate3-eol-cross-host.test.ts',
   'npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts',
+  'npx tsx --test server/services/coordination-v2-runtime-bootstrap-service.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts',
   'npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts',
 );
 

@@ -9149,3 +9149,33 @@ Milestone 12 is complete only after Alden's Anthropic and Gemini engines each
 review the actual bytes, all required corrections are applied, both return
 unconditional approval with no watch-outs, and the full validation gates remain
 green.
+
+## September 14, 2026 — Coordinator V2 Milestone 14 runtime bootstrap
+
+The approved separate Windows runtime-bootstrap channel is implemented and
+migrated. Founder publication now independently verifies promoted source bytes,
+package-lock v3, the exact tsx/esbuild/win32 dependency graph and npm SRI, the
+complete tar closure, and Node v20.20.0 through a pinned official keyring,
+`gpgv`, exact signer, and signed checksum. Host issue, signed manifest, artifact
+stream, acknowledgement, status, and revocation routes are authenticated and
+remain structurally separate from task/session authority.
+
+Windows initialization uses only `C:\Users\David\HolaHola-CoordinatorV2`, holds
+a per-current-user mutex across the complete critical section, proves strong
+ACL/reparse boundaries, uses bounded create-new downloads and atomic writes,
+verifies Node Authenticode and every signed manifest member after promotion,
+and recovers expired issues only for the exact generation. Local runtime,
+manifest, staging, and rollback paths remain ignored by Git preflight.
+
+The final disposable Neon gate returned `READY_TO_PROMOTE` after all focused
+runtime, Windows, service, HTTP, PostgreSQL, unit, guard, episode, and local
+coordination-ledger suites passed. Migration `0052` was then applied
+successfully to shared Neon. Dual-engine Alden review had already returned
+unconditional `APPROVED — Ship it.` from both engines.
+
+Remaining authorization sequence is strict: publish the exact source commit and
+tree, obtain release acknowledgement, publish the verified runtime artifacts,
+run and verify the first Windows initialization, and only then permit one
+`Invoke-HolaCoordinator`. No runtime release, Windows initialization, task,
+session, lease, or execution authority was created during implementation or
+migration.

@@ -6624,3 +6624,30 @@ Canonical references:
 - `docs/coordination-v2-provider-adapters.md`
 - `docs/coordination-v2-error-codes.md`
 - `docs/coordination-v2-recovery-runbook.md`
+
+## Coordinator V2 Milestone 14 runtime-bootstrap channel — September 14, 2026
+
+Implemented the separate authenticated Windows runtime-bootstrap authority
+boundary. It publishes immutable, source-bound runtime releases; issues
+host-authenticated signed manifests; streams only host-bound artifacts; records
+host-signed acknowledgements; exposes safe status; and records append-only
+revocations. The boundary imports no task, preparation, session, attempt, lease,
+operation, provider, or credential service and cannot create execution
+authority.
+
+Release publication independently verifies the promoted commit/tree and exact
+bootstrap source blobs, package-lock v3, tsx 4.23.1 with nested esbuild and
+win32-x64 0.28.1, npm SRI, the complete safe tar closure, and Node v20.20.0
+through a commit-pinned official keyring, pinned keyring digest, `gpgv`, exact
+signer, and signed checksum. Windows initialization uses the enrolled host
+credential, a per-current-user mutex, strong root/parent ACL and reparse checks,
+bounded create-new downloads, atomic promotion, complete post-promotion
+verification, Node Authenticode, and exact-generation expired-issue recovery.
+
+Migration `0052` adds immutable release, artifact, issue, acknowledgement, and
+revocation evidence with composite acknowledgement lineage. The final
+disposable Neon gate returned `READY_TO_PROMOTE`; all runtime, Windows,
+PostgreSQL, service, HTTP, unit, guard, episode, and coordination-ledger suites
+passed. Migration `0052` was then applied successfully to shared Neon. No
+runtime release has yet been published and no Windows task/session authority
+has been activated.

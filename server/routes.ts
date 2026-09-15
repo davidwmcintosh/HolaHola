@@ -18,6 +18,7 @@ import { registerCoordinationPolicyRoutes } from "./routes/coordination-policy-r
 import { registerCoordinationSessionRoutes } from "./routes/coordination-session-routes";
 import { registerCoordinationHostRoutes } from "./routes/coordination-host-routes";
 import { registerCoordinationV2HostAdminRoutes } from "./routes/coordination-v2-host-admin-routes";
+import { registerCoordinationV2RuntimeBootstrapRoutes } from "./routes/coordination-v2-runtime-bootstrap-routes";
 import { DEFAULT_COORDINATION_TASK_METADATA_REGISTRY } from "./services/coordination-task-metadata-service";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
@@ -659,6 +660,7 @@ export async function registerRoutes(app: Application): Promise<void> {
     lifecycle: { taskMetadataRegistry: DEFAULT_COORDINATION_TASK_METADATA_REGISTRY },
   });
   registerCoordinationV2HostAdminRoutes(app);
+  registerCoordinationV2RuntimeBootstrapRoutes(app);
   registerFounderTaskOwnershipRoutes(app);
   registerObservationBenchFounderRoutes(app, [
     loadAuthenticatedUser(storage),

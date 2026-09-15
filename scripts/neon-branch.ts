@@ -40,11 +40,21 @@ function requireEnv(name: string): string {
 
 function assertCoordinatorV2DatabaseGateGuard(): void {
   const source = readFileSync('server/scripts/test-coordination-transport-lease.test.ts', 'utf8');
+  const runtimeBootstrapSource = readFileSync(
+    'server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts',
+    'utf8',
+  );
   const requiredGuard = "COORDINATOR_V2_REQUIRE_DATABASE_TESTS === '1'";
   const forbiddenProof = 'COORDINATOR_V2_FORBIDDEN_SHARED_URL';
   const skipPath = "context.skip('run through the Neon migration gate')";
   if (!source.includes(requiredGuard) || !source.includes(forbiddenProof) || !source.includes(skipPath)) {
     throw new Error('Coordinator V2 transport test is missing the disposable-gate hard-fail guard');
+  }
+  if (!runtimeBootstrapSource.includes('COORDINATOR_V2_REQUIRE_DATABASE_TESTS')
+    || !runtimeBootstrapSource.includes('=== "1"')
+    || !runtimeBootstrapSource.includes(forbiddenProof)
+    || !runtimeBootstrapSource.includes('run through the Neon migration gate')) {
+    throw new Error('Coordinator V2 runtime-bootstrap test is missing the disposable-gate hard-fail guard');
   }
 }
 
@@ -388,6 +398,28 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 runtime-bootstrap PostgreSQL proofs against the branch...');
+    const runtimeBootstrapPostgres = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts',
+      branchEnv,
+    );
+    if (runtimeBootstrapPostgres.code !== 0) {
+      failureReason = `Coordinator V2 runtime-bootstrap PostgreSQL tests exited ${runtimeBootstrapPostgres.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 runtime-bootstrap service and HTTP proofs...');
+    const runtimeBootstrapService = await runCommand(
+      'npx tsx --test server/services/coordination-v2-runtime-bootstrap-service.test.ts server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts',
+      branchEnv,
+    );
+    if (runtimeBootstrapService.code !== 0) {
+      failureReason = `Coordinator V2 runtime-bootstrap service/HTTP tests exited ${runtimeBootstrapService.code}`;
+    }
+  }
+
+  if (!failureReason) {
     console.log('[gate] Running Coordinator V2 policy service transactional tests against the branch...');
     const policyServiceTests = await runCommand(
       'npx tsx --test server/scripts/test-coordination-policy-service.test.ts',
@@ -478,7 +510,7 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   if (!failureReason) {
     console.log('[gate] Running Coordinator V2 Windows preflight and atomic preparation tests...');
     const windowsPreparationTests = await runCommand(
-      'npx tsx --test server/scripts/test-coordination-windows-preflight.test.ts server/scripts/test-coordination-windows-preparation.test.ts server/scripts/test-coordination-windows-static-boundary.test.ts server/scripts/test-coordination-windows-generation.test.ts',
+      'npx tsx --test server/scripts/test-coordination-windows-preflight.test.ts server/scripts/test-coordination-windows-preparation.test.ts server/scripts/test-coordination-windows-static-boundary.test.ts server/scripts/test-coordination-windows-generation.test.ts server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts',
       branchEnv,
     );
     if (windowsPreparationTests.code !== 0) {

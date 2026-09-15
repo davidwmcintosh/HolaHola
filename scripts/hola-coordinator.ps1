@@ -10,6 +10,25 @@ $LauncherRoot = Split-Path -Parent $LauncherPath
 $ApprovedWorktree = [System.IO.Path]::GetFullPath((Join-Path $LauncherRoot '..'))
 $ApprovedTsx = Join-Path $ApprovedWorktree 'node_modules\tsx\dist\cli.mjs'
 $CoordinatorScript = Join-Path $ApprovedWorktree 'server\scripts\coordination-v2-cli.ts'
+$PinnedServerPublicKey = Join-Path $ApprovedWorktree 'scripts\coordination-v2-server-signing-public.pem'
+$RuntimeRoot = Join-Path $ApprovedWorktree 'runtime'
+$RuntimeNode = Join-Path $RuntimeRoot 'node.exe'
+$RuntimeTsxRoot = Join-Path $ApprovedWorktree 'node_modules\tsx'
+$RuntimeManifest = Join-Path $ApprovedWorktree '.coordination-v2-runtime-manifest.json'
+$RuntimeBootstrapRoot = Join-Path $env:LOCALAPPDATA 'HolaHola\CoordinatorV2'
+$RuntimeRequestPath = Join-Path $RuntimeBootstrapRoot 'runtime-bootstrap-request.dpapi'
+$RuntimeAckPath = Join-Path $RuntimeBootstrapRoot 'runtime-bootstrap-ack.dpapi'
+$PinnedServerPublicKeyPem = @'
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA4dQnolcXTJD7krRP6diTzmu7/Sqsqocq6HrX6pfBb1c=
+-----END PUBLIC KEY-----
+'@
+$ApprovedSourceMemberPaths = @(
+    'scripts/hola-coordinator.ps1',
+    'scripts/coordination-v2-server-signing-public.pem',
+    'server/scripts/coordination-v2-cli.ts'
+)
+$RuntimeTotalArtifactMaxBytes = [int64]268435456
 $CurrentUserScope = [System.Security.Cryptography.DataProtectionScope]::CurrentUser
 $ApprovedNode = $null
 
@@ -21,18 +40,8 @@ function Fail-Safe {
 }
 
 function Resolve-ApprovedNode {
-    $candidates = @(
-        (Join-Path $ApprovedWorktree 'runtime\node.exe'),
-        (Join-Path $ApprovedWorktree '.runtime\node.exe')
-    )
-    $command = Get-Command node.exe -ErrorAction SilentlyContinue
-    if ($null -ne $command -and $command.Source) {
-        $candidates += $command.Source
-    }
-    foreach ($candidate in $candidates) {
-        if ($candidate -and [System.IO.File]::Exists($candidate)) {
-            return [System.IO.Path]::GetFullPath($candidate)
-        }
+    if ([System.IO.File]::Exists($RuntimeNode)) {
+        return [System.IO.Path]::GetFullPath($RuntimeNode)
     }
     Fail-Safe 'approved_node_missing'
 }
@@ -49,6 +58,79 @@ function Assert-ReadablePrivateAcl {
     param([Parameter(Mandatory = $true)][string]$Path)
     $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
     if ($null -eq $acl -or $acl.Access.Count -lt 1) { Fail-Safe 'acl_unavailable' }
+}
+
+function Assert-SafePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+    $fullRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd('\')
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if ($fullPath -ne $fullRoot -and
+        -not $fullPath.StartsWith($fullRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        Fail-Safe 'path_escape'
+    }
+    $cursor = $fullPath
+    while ($null -ne $cursor -and $cursor.Length -ge $fullRoot.Length) {
+        if ([System.IO.File]::Exists($cursor) -or [System.IO.Directory]::Exists($cursor)) {
+            Assert-NoReparse -Path $cursor
+        }
+        if ($cursor -eq $fullRoot) { break }
+        $parent = [System.IO.Directory]::GetParent($cursor)
+        if ($null -eq $parent) { break }
+        $cursor = $parent.FullName
+    }
+    return $fullPath
+}
+
+function Convert-ToSidValue {
+    param([Parameter(Mandatory = $true)]$IdentityReference)
+    try {
+        if ($IdentityReference -is [System.Security.Principal.SecurityIdentifier]) {
+            return $IdentityReference.Value
+        }
+        return $IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
+    } catch {
+        Fail-Safe 'acl_identity_unresolvable'
+    }
+}
+
+function Assert-SidAcl {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
+    if ($null -eq $acl -or $null -eq $acl.Owner) { Fail-Safe 'acl_unavailable' }
+    $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $ownerSid = Convert-ToSidValue -IdentityReference $acl.Owner
+    $allowedOwners = @($currentSid, 'S-1-5-18', 'S-1-5-32-544')
+    if ($allowedOwners -notcontains $ownerSid) { Fail-Safe 'acl_owner_unsafe' }
+    $unsafeWriteMask = [int](
+        [System.Security.AccessControl.FileSystemRights]::Write `
+        -bor [System.Security.AccessControl.FileSystemRights]::Modify `
+        -bor [System.Security.AccessControl.FileSystemRights]::FullControl `
+        -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership `
+        -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions
+    )
+    foreach ($ace in @($acl.Access)) {
+        $sid = Convert-ToSidValue -IdentityReference $ace.IdentityReference
+        $rights = [int]$ace.FileSystemRights
+        if (($rights -band $unsafeWriteMask) -ne 0 -and $allowedOwners -notcontains $sid) {
+            Fail-Safe 'acl_write_unsafe'
+        }
+        if ($sid -eq 'S-1-1-0' -or $sid -eq 'S-1-5-32-545' -or
+            $sid -eq 'S-1-5-32-546' -or $sid -eq 'S-1-5-11') {
+            if (($rights -band $unsafeWriteMask) -ne 0) { Fail-Safe 'acl_untrusted_write' }
+        }
+    }
+}
+
+function Assert-PrivatePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+    Assert-SafePath -Path $Path -Root $Root | Out-Null
+    Assert-SidAcl -Path $Path
 }
 
 function Assert-ApprovedRepository {
@@ -68,8 +150,12 @@ function Assert-ApprovedDigest {
 
 function Assert-ApprovedSignatureAndDigest {
     param([Parameter(Mandatory = $true)][string]$Path)
-    $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
-    if ($signature.Status -ne 'Valid') { Fail-Safe 'signature_invalid' }
+    # Authenticode is a PE-only authority.  Script/module bytes are authorized
+    # by the signed runtime manifest and source-member hashes instead.
+    if ([System.IO.Path]::GetExtension($Path).ToLowerInvariant() -eq '.exe') {
+        $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
+        if ($signature.Status -ne 'Valid') { Fail-Safe 'signature_invalid' }
+    }
     Assert-ApprovedDigest -Path $Path
 }
 
@@ -80,6 +166,1064 @@ function Write-DpapiBase64Atomic {
     [IO.File]::WriteAllText($temporary, $encoded, (New-Object Text.UTF8Encoding($false)))
     Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
+
+function Write-DpapiJsonAtomic {
+    param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)]$Value)
+    $parent = Split-Path -Parent ([System.IO.Path]::GetFullPath($Path))
+    if (-not [IO.Directory]::Exists($parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    Assert-NoReparse -Path $parent
+    Assert-SidAcl -Path $parent
+    $json = $Value | ConvertTo-Json -Depth 30 -Compress
+    $cipher = [Security.Cryptography.ProtectedData]::Protect(
+        [Text.Encoding]::UTF8.GetBytes($json), $null, $CurrentUserScope)
+    Write-DpapiBase64Atomic -Path $Path -Bytes $cipher
+    Assert-NoReparse -Path $Path
+    Assert-SidAcl -Path $Path
+    Assert-NoReparse -Path $parent
+    Assert-SidAcl -Path $parent
+}
+
+function Write-InstalledManifestAtomic {
+    param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)]$Manifest)
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $parent = Split-Path -Parent $fullPath
+    if (-not [IO.Directory]::Exists($parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    Assert-NoReparse -Path $parent
+    Assert-SidAcl -Path $parent
+    $temporary = $fullPath + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    if ([IO.File]::Exists($fullPath)) {
+        Assert-NoReparse -Path $fullPath
+        Assert-SidAcl -Path $fullPath
+    }
+    if ([IO.Path]::GetPathRoot($temporary) -ine [IO.Path]::GetPathRoot($fullPath)) {
+        Fail-Safe 'runtime_manifest_volume_invalid'
+    }
+    try {
+        $json = $Manifest | ConvertTo-Json -Depth 30 -Compress
+        $bytes = [Text.Encoding]::UTF8.GetBytes($json)
+        $stream = New-Object -TypeName IO.FileStream -ArgumentList @(
+            $temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush($true)
+        } finally {
+            $stream.Dispose()
+        }
+        Assert-NoReparse -Path $temporary
+        Assert-SidAcl -Path $temporary
+        Move-Item -LiteralPath $temporary -Destination $fullPath -Force
+        Assert-NoReparse -Path $fullPath
+        Assert-SidAcl -Path $fullPath
+    } catch {
+        if ([IO.File]::Exists($temporary)) {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+        if ($_.Exception.Message -match '^hola_coordinator_') { throw }
+        Fail-Safe 'runtime_manifest_write_failed'
+    }
+}
+
+function Read-DpapiJson {
+    param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$FailureCode)
+    try {
+        $cipher = [Convert]::FromBase64String([IO.File]::ReadAllText($Path))
+        $plain = [Security.Cryptography.ProtectedData]::Unprotect($cipher, $null, $CurrentUserScope)
+        return ([Text.Encoding]::UTF8.GetString($plain) | ConvertFrom-Json -ErrorAction Stop)
+    } catch {
+        Fail-Safe $FailureCode
+    }
+}
+
+function Get-PropertyNames {
+    param([Parameter(Mandatory = $true)]$Value)
+    if ($null -eq $Value -or $Value -is [System.Array] -or $Value -isnot [PSCustomObject]) {
+        return @()
+    }
+    return @($Value.PSObject.Properties | ForEach-Object { $_.Name })
+}
+
+function Assert-ExactPropertySet {
+    param(
+        [Parameter(Mandatory = $true)]$Value,
+        [Parameter(Mandatory = $true)][string[]]$Names,
+        [Parameter(Mandatory = $true)][string]$FailureCode
+    )
+    $actual = @(Get-PropertyNames -Value $Value | Sort-Object)
+    $expected = @($Names | Sort-Object)
+    if ($actual.Count -ne $expected.Count) { Fail-Safe $FailureCode }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        if ($actual[$index] -cne $expected[$index]) { Fail-Safe $FailureCode }
+    }
+}
+
+function ConvertTo-CanonicalJson {
+    param([Parameter(Mandatory = $true)]$Value)
+    if ($null -eq $Value) { return 'null' }
+    if ($Value -is [bool]) { return $(if ($Value) { 'true' } else { 'false' }) }
+    if ($Value -is [string]) { return ($Value | ConvertTo-Json -Compress) }
+    if ($Value -is [byte] -or $Value -is [int16] -or $Value -is [int32] -or
+        $Value -is [int64] -or $Value -is [decimal] -or $Value -is [double]) {
+        return ([Convert]::ToString($Value, [Globalization.CultureInfo]::InvariantCulture))
+    }
+    if ($Value -is [System.Array]) {
+        $parts = @()
+        foreach ($item in $Value) { $parts += (ConvertTo-CanonicalJson -Value $item) }
+        return '[' + ($parts -join ',') + ']'
+    }
+    if ($Value -is [System.Collections.IDictionary]) {
+        $keys = @($Value.Keys | ForEach-Object { [string]$_ })
+        for ($outer = 1; $outer -lt $keys.Count; $outer++) {
+            $inner = $outer
+            while ($inner -gt 0 -and
+                [string]::CompareOrdinal($keys[$inner], $keys[$inner - 1]) -lt 0) {
+                $swap = $keys[$inner - 1]
+                $keys[$inner - 1] = $keys[$inner]
+                $keys[$inner] = $swap
+                $inner--
+            }
+        }
+        $parts = @()
+        foreach ($key in $keys) {
+            $parts += ((ConvertTo-CanonicalJson -Value $key) + ':' +
+                (ConvertTo-CanonicalJson -Value $Value[$key]))
+        }
+        return '{' + ($parts -join ',') + '}'
+    }
+    if ($Value -isnot [PSCustomObject]) { Fail-Safe 'canonical_value_invalid' }
+    $parts = @()
+    foreach ($property in @($Value.PSObject.Properties | Sort-Object Name)) {
+        $parts += ((ConvertTo-CanonicalJson -Value ([string]$property.Name)) + ':' +
+            (ConvertTo-CanonicalJson -Value $property.Value))
+    }
+    return '{' + ($parts -join ',') + '}'
+}
+
+function Get-RsaFingerprint {
+    param([Parameter(Mandatory = $true)]$Rsa)
+    $parameters = $Rsa.ExportParameters($false)
+    $b64url = {
+        param([byte[]]$Bytes)
+        ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
+    }
+    $public = '{"e":"' + (& $b64url $parameters.Exponent) + '","kty":"RSA","n":"' +
+        (& $b64url $parameters.Modulus) + '"}'
+    return (([Security.Cryptography.SHA256]::Create().ComputeHash(
+        [Text.Encoding]::UTF8.GetBytes($public)) | ForEach-Object { $_.ToString('x2') }) -join '')
+}
+
+function Get-HostBootstrapIdentity {
+    $materialPath = Join-Path $RuntimeBootstrapRoot 'host-material.dpapi'
+    $privatePath = Join-Path $RuntimeBootstrapRoot 'host-private-key.dpapi'
+    if (-not [IO.File]::Exists($materialPath) -or -not [IO.File]::Exists($privatePath)) {
+        Fail-Safe 'host_credential_missing'
+    }
+    $material = Read-DpapiJson -Path $materialPath -FailureCode 'host_credential_corrupted'
+    Assert-ExactPropertySet -Value $material -Names @('endpoint', 'accessToken') -FailureCode 'host_credential_shape'
+    if ([string]$material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
+        Fail-Safe 'host_credential_invalid'
+    }
+    $privateXml = [Text.Encoding]::UTF8.GetString(
+        [Security.Cryptography.ProtectedData]::Unprotect(
+            [Convert]::FromBase64String([IO.File]::ReadAllText($privatePath)),
+            $null, $CurrentUserScope))
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+    try { $rsa.FromXmlString($privateXml) } catch { $rsa.Dispose(); Fail-Safe 'host_key_invalid' }
+    return [ordered]@{
+        endpoint = [string]$material.endpoint
+        accessToken = [string]$material.accessToken
+        rsa = $rsa
+        fingerprint = Get-RsaFingerprint -Rsa $rsa
+    }
+}
+
+function Invoke-HostAuthenticatedRequest {
+    param(
+        [Parameter(Mandatory = $true)][string]$Method,
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Identity,
+        [AllowEmptyString()][string]$Body = ''
+    )
+    $signature = $Identity.rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes([string]$Identity.accessToken),
+        [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+    $headers = @{
+        'x-coordination-v2-host-token' = [string]$Identity.accessToken
+        'x-coordination-v2-host-proof' = [Convert]::ToBase64String($signature)
+    }
+    try {
+        return Invoke-RestMethod -Method $Method -Uri ($Endpoint.TrimEnd('/') + $Path) `
+            -Headers $headers -ContentType 'application/json' -Body $Body `
+            -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+    } catch {
+        Fail-Safe 'runtime_bootstrap_transport'
+    }
+}
+
+function Assert-ManifestPath {
+    param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$FailureCode)
+    $normalized = $Path.Replace('/', '\')
+    $segments = $normalized -split '\\'
+    if ([string]::IsNullOrWhiteSpace($Path) -or [IO.Path]::IsPathRooted($normalized) -or
+        $normalized.StartsWith('\') -or $normalized -match '^[A-Za-z]:' -or
+        $segments.Count -eq 0 -or ($segments | Where-Object { $_ -eq '' -or $_ -eq '.' -or $_ -eq '..' }).Count -gt 0 -or
+        $normalized -match '[:\x00-\x1f]' -or $normalized -match '[\x00-\x1f]' -or
+        $normalized -match '[\*?"<>|]') {
+        Fail-Safe $FailureCode
+    }
+    return $normalized
+}
+
+function Assert-StrictUuid {
+    param([Parameter(Mandatory = $true)][string]$Value, [Parameter(Mandatory = $true)][string]$FailureCode)
+    if ($Value -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$') {
+        Fail-Safe $FailureCode
+    }
+}
+
+function Assert-RuntimeManifestShape {
+    param([Parameter(Mandatory = $true)]$Envelope, [switch]$AllowExpired)
+    Assert-ExactPropertySet -Value $Envelope -Names @(
+        'payload', 'canonicalResponseDigest', 'signature', 'keyFingerprint'
+    ) -FailureCode 'runtime_manifest_response_shape'
+    if ([string]$Envelope.canonicalResponseDigest -notmatch '^[0-9a-f]{64}$' -or
+        [string]$Envelope.keyFingerprint -notmatch '^[0-9a-f]{64}$' -or
+        [string]::IsNullOrWhiteSpace([string]$Envelope.signature)) {
+        Fail-Safe 'runtime_manifest_response_shape'
+    }
+    $payload = $Envelope.payload
+    Assert-ExactPropertySet -Value $payload -Names @(
+        'protocolVersion', 'kind', 'issueId', 'requestKeyDigest', 'hostEnrollmentId',
+        'hostKeyFingerprint', 'runtimeReleaseId', 'runtimeReleaseDigest',
+        'sourcePromotionId', 'repositoryIdentity', 'promotedCommitSha', 'exactTreeSha',
+        'publicationReference', 'protectedValidationId', 'sourcePromotionRecordDigest',
+        'artifacts', 'sourceMembers', 'issuedAt', 'expiresAt', 'nonce'
+    ) -FailureCode 'runtime_manifest_payload_shape'
+    if ([int]$payload.protocolVersion -ne 1 -or [string]$payload.kind -cne 'runtime_bootstrap_manifest' -or
+        [string]$payload.issueId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' -or
+        [string]$payload.hostEnrollmentId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' -or
+        [string]$payload.runtimeReleaseId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' -or
+        [string]$payload.sourcePromotionId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' -or
+        [string]$payload.requestKeyDigest -notmatch '^[0-9a-f]{64}$' -or
+        [string]$payload.hostKeyFingerprint -notmatch '^[0-9a-f]{64}$' -or
+        [string]$payload.runtimeReleaseDigest -notmatch '^[0-9a-f]{64}$' -or
+        [string]$payload.sourcePromotionRecordDigest -notmatch '^[0-9a-f]{64}$' -or
+        [string]$payload.promotedCommitSha -notmatch '^[0-9a-f]{40}$' -or
+        [string]$payload.exactTreeSha -notmatch '^[0-9a-f]{40}$' -or
+        [string]$payload.issuedAt -notmatch '^\d{4}-\d{2}-\d{2}T' -or
+        [string]$payload.expiresAt -notmatch '^\d{4}-\d{2}-\d{2}T') {
+        Fail-Safe 'runtime_manifest_payload_invalid'
+    }
+    $issued = [DateTime]::Parse([string]$payload.issuedAt).ToUniversalTime()
+    $expires = [DateTime]::Parse([string]$payload.expiresAt).ToUniversalTime()
+    if ($expires -le $issued -or $expires -gt $issued.AddMinutes(5) -or
+        $issued -gt [DateTime]::UtcNow.AddMinutes(1) -or
+        (-not $AllowExpired -and $expires -le [DateTime]::UtcNow)) {
+        Fail-Safe 'runtime_manifest_expired'
+    }
+    if ($payload.artifacts -isnot [System.Array] -or $payload.artifacts.Count -lt 2 -or
+        $payload.artifacts.Count -gt 4096 -or $payload.sourceMembers -isnot [System.Array] -or
+        $payload.sourceMembers.Count -ne 3) {
+        Fail-Safe 'runtime_manifest_members_invalid'
+    }
+    $nodeCount = 0
+    $tsxCount = 0
+    $totalBytes = [int64]0
+    $seenDestinations = @{}
+    foreach ($artifact in @($payload.artifacts)) {
+        Assert-ExactPropertySet -Value $artifact -Names @(
+            'artifactId', 'role', 'fixedDestination', 'objectDigest', 'byteLength',
+            'mediaType', 'requiresAuthenticode'
+        ) -FailureCode 'runtime_artifact_shape'
+        if ([string]$artifact.role -notin @('node_executable', 'tsx_runtime_module') -or
+            [string]$artifact.artifactId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' -or
+            [string]$artifact.objectDigest -notmatch '^[0-9a-f]{64}$' -or
+            $artifact.requiresAuthenticode -isnot [bool] -or [int64]$artifact.byteLength -le 0 -or
+            [int64]$artifact.byteLength -gt $RuntimeTotalArtifactMaxBytes) {
+            Fail-Safe 'runtime_artifact_invalid'
+        }
+        $destination = Assert-ManifestPath -Path ([string]$artifact.fixedDestination) -FailureCode 'runtime_destination_invalid'
+        if ($seenDestinations.ContainsKey($destination.ToLowerInvariant())) {
+            Fail-Safe 'runtime_destination_duplicate'
+        }
+        $seenDestinations[$destination.ToLowerInvariant()] = $true
+        if (($artifact.role -eq 'node_executable' -and $destination -cne 'runtime\node.exe') -or
+            ($artifact.role -eq 'tsx_runtime_module' -and
+                -not $destination.StartsWith('node_modules\tsx\', [StringComparison]::OrdinalIgnoreCase)) -or
+            ($artifact.role -eq 'node_executable' -and $artifact.requiresAuthenticode -ne $true) -or
+            ($artifact.role -eq 'tsx_runtime_module' -and $artifact.requiresAuthenticode -ne $false)) {
+            Fail-Safe 'runtime_destination_invalid'
+        }
+        if ($artifact.role -eq 'node_executable') { $nodeCount++ } else { $tsxCount++ }
+        $totalBytes += [int64]$artifact.byteLength
+        if ($totalBytes -gt $RuntimeTotalArtifactMaxBytes) { Fail-Safe 'runtime_artifact_total_too_large' }
+    }
+    if ($nodeCount -ne 1 -or $tsxCount -lt 1 -or $tsxCount -gt 4095) {
+        Fail-Safe 'runtime_artifact_roles_invalid'
+    }
+    foreach ($member in @($payload.sourceMembers)) {
+        Assert-ExactPropertySet -Value $member -Names @('fixedPath', 'sha256') -FailureCode 'runtime_source_member_shape'
+        if ($ApprovedSourceMemberPaths -cnotcontains [string]$member.fixedPath) {
+            Fail-Safe 'runtime_source_path_invalid'
+        }
+        if ([string]$member.sha256 -notmatch '^[0-9a-f]{64}$') { Fail-Safe 'runtime_source_member_invalid' }
+    }
+    $sourcePaths = @($payload.sourceMembers | ForEach-Object { [string]$_.fixedPath })
+    if (@($sourcePaths | Sort-Object -Unique).Count -ne 3) {
+        Fail-Safe 'runtime_source_members_duplicate'
+    }
+}
+
+function Invoke-PinnedManifestVerifier {
+    param(
+        [Parameter(Mandatory = $true)][string]$NodePath,
+        [Parameter(Mandatory = $true)][string]$EnvelopePath,
+        [Parameter(Mandatory = $true)][string]$ExpectedHostEnrollmentId,
+        [Parameter(Mandatory = $true)][string]$StageRoot,
+        [Parameter(Mandatory = $true)][bool]$VerifyStagedFiles,
+        [switch]$AllowExpired
+    )
+    if (-not [IO.File]::Exists($PinnedServerPublicKey)) { Fail-Safe 'runtime_public_key_missing' }
+    $pinnedPem = $PinnedServerPublicKeyPem
+    if ([string]::IsNullOrWhiteSpace($pinnedPem) -or $pinnedPem -notmatch 'BEGIN PUBLIC KEY' -or
+        [IO.File]::ReadAllText($PinnedServerPublicKey).Trim() -cne $pinnedPem.Trim()) {
+        Fail-Safe 'runtime_public_key_invalid'
+    }
+    # This verifier is intentionally inline and fixed.  It is passed only to
+    # node.exe after Authenticode and the manifest hash have succeeded.  It
+    # never imports or executes any staged JavaScript.
+    $verifier = @'
+const fs = require("node:fs");
+const crypto = require("node:crypto");
+const envelope = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const expectedHost = process.argv[2];
+const stageRoot = process.argv[3];
+const verifyFiles = process.argv[4] === "1";
+const pinnedPem = process.argv[5];
+const allowExpired = process.argv[6] === "1";
+const own = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
+  && Object.getPrototypeOf(v) === Object.prototype;
+const exact = (v, keys) => own(v) && Object.keys(v).sort().join("\0") === [...keys].sort().join("\0");
+const digest = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
+const strictUuid = (v) => typeof v === "string"
+  && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+const normalizeRelative = (v) => {
+  if (typeof v !== "string" || v.length === 0) throw new Error("relative_path_invalid");
+  const normalized = v.replace(/\//g, "\\");
+  if (normalized.startsWith("\\") || /^[A-Za-z]:/.test(normalized)) throw new Error("relative_path_rooted");
+  const parts = normalized.split("\\");
+  if (parts.some((part) => part.length === 0 || part === "." || part === ".."
+    || /[\u0000-\u001f:*?"<>|]/.test(part))) throw new Error("relative_path_segment");
+  return normalized;
+};
+const canonical = (v) => {
+  if (v === null) return "null";
+  if (typeof v === "string") return JSON.stringify(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "number" && Number.isFinite(v)) return JSON.stringify(v);
+  if (Array.isArray(v)) return "[" + v.map(canonical).join(",") + "]";
+  if (own(v)) return "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canonical(v[k])).join(",") + "}";
+  throw new Error("manifest_canonical_value_invalid");
+};
+const fail = (code) => { process.stderr.write(code); process.exit(70); };
+try {
+  if (!exact(envelope, ["payload", "canonicalResponseDigest", "signature", "keyFingerprint"])) fail("response_shape");
+  const p = envelope.payload;
+  const payloadKeys = [
+    "protocolVersion", "kind", "issueId", "requestKeyDigest", "hostEnrollmentId",
+    "hostKeyFingerprint", "runtimeReleaseId", "runtimeReleaseDigest", "sourcePromotionId",
+    "repositoryIdentity", "promotedCommitSha", "exactTreeSha", "publicationReference",
+    "protectedValidationId", "sourcePromotionRecordDigest", "artifacts", "sourceMembers",
+    "issuedAt", "expiresAt", "nonce"
+  ];
+  if (!exact(p, payloadKeys) || p.protocolVersion !== 1 || p.kind !== "runtime_bootstrap_manifest"
+    || !strictUuid(p.issueId) || !strictUuid(p.hostEnrollmentId) || !strictUuid(p.runtimeReleaseId)
+    || !strictUuid(p.sourcePromotionId)
+    || p.hostEnrollmentId !== expectedHost || !/^[0-9a-f]{64}$/.test(p.requestKeyDigest)
+    || !/^[0-9a-f]{64}$/.test(p.hostKeyFingerprint) || !/^[0-9a-f]{64}$/.test(p.runtimeReleaseDigest)
+    || !/^[0-9a-f]{64}$/.test(p.sourcePromotionRecordDigest) || !/^[0-9a-f]{40}$/.test(p.promotedCommitSha)
+    || !/^[0-9a-f]{40}$/.test(p.exactTreeSha) || !Array.isArray(p.artifacts)
+    || p.artifacts.length < 2 || p.artifacts.length > 4096
+    || !Array.isArray(p.sourceMembers) || p.sourceMembers.length !== 3) fail("payload_shape");
+  const key = crypto.createPublicKey(pinnedPem);
+  if (key.asymmetricKeyType !== "ed25519") fail("public_key_type");
+  const keyFingerprint = crypto.createHash("sha256").update(key.export({ type: "spki", format: "der" })).digest("hex");
+  if (envelope.keyFingerprint !== keyFingerprint) fail("public_key_fingerprint");
+  const canonicalPayload = canonical(p);
+  if (crypto.createHash("sha256").update(canonicalPayload).digest("hex") !== envelope.canonicalResponseDigest
+    && envelope.canonicalResponseDigest !== digest(Buffer.from(canonicalPayload))) fail("canonical_digest");
+  if (!crypto.verify(null, Buffer.from(canonicalPayload), key, Buffer.from(envelope.signature, "base64"))) fail("manifest_signature");
+  const issued = Date.parse(p.issuedAt), expires = Date.parse(p.expiresAt), now = Date.now();
+  if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued > now + 60000
+    || (!allowExpired && expires <= now) || expires - issued > 300000) fail("manifest_expiry");
+  const path = require("node:path");
+  const stageAbsolute = path.resolve(stageRoot);
+  const seenDestinations = new Set();
+  let nodeCount = 0, tsxCount = 0, totalBytes = 0;
+  for (const a of p.artifacts) {
+    if (!exact(a, ["artifactId", "role", "fixedDestination", "objectDigest", "byteLength", "mediaType", "requiresAuthenticode"])
+      || (a.role !== "node_executable" && a.role !== "tsx_runtime_module")
+      || !strictUuid(a.artifactId) || !/^[0-9a-f]{64}$/.test(a.objectDigest)
+      || typeof a.requiresAuthenticode !== "boolean" || !Number.isSafeInteger(a.byteLength)
+      || a.byteLength <= 0 || a.byteLength > 268435456) fail("artifact_shape");
+    const destination = normalizeRelative(a.fixedDestination);
+    const destinationKey = destination.toLowerCase();
+    if (seenDestinations.has(destinationKey)) fail("artifact_destination_duplicate");
+    seenDestinations.add(destinationKey);
+    if ((a.role === "node_executable" && (destination !== "runtime\\node.exe" || a.requiresAuthenticode !== true))
+      || (a.role === "tsx_runtime_module"
+        && (!destination.toLowerCase().startsWith("node_modules\\tsx\\") || a.requiresAuthenticode !== false))) fail("artifact_path");
+    if (a.role === "node_executable") nodeCount++; else tsxCount++;
+    totalBytes += a.byteLength;
+    if (totalBytes > 268435456) fail("artifact_total_size");
+    if (verifyFiles) {
+      const target = path.resolve(stageAbsolute, destination);
+      if (target !== stageAbsolute && !target.startsWith(stageAbsolute + path.sep)) fail("artifact_containment");
+      const stat = fs.lstatSync(target);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size !== a.byteLength
+        || digest(fs.readFileSync(target)) !== a.objectDigest) fail("artifact_bytes");
+    }
+  }
+  if (nodeCount !== 1 || tsxCount < 1 || tsxCount > 4095) fail("artifact_roles");
+  const approvedSources = new Set([
+    "scripts/hola-coordinator.ps1",
+    "scripts/coordination-v2-server-signing-public.pem",
+    "server/scripts/coordination-v2-cli.ts"
+  ]);
+  const seenSources = new Set();
+  for (const member of p.sourceMembers) {
+    if (!exact(member, ["fixedPath", "sha256"]) || !/^[0-9a-f]{64}$/.test(member.sha256)
+      || !approvedSources.has(member.fixedPath) || seenSources.has(member.fixedPath)) fail("source_member_shape");
+    seenSources.add(member.fixedPath);
+  }
+  if (seenSources.size !== approvedSources.size) fail("source_member_set");
+} catch (e) { fail("manifest_verifier_failed"); }
+'@
+    $verifyFlag = if ($VerifyStagedFiles) { '1' } else { '0' }
+    try {
+        & $NodePath -e $verifier -- $EnvelopePath $ExpectedHostEnrollmentId $StageRoot `
+            $verifyFlag $pinnedPem $(if ($AllowExpired) { '1' } else { '0' }) 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail-Safe 'runtime_manifest_verification_failed' }
+    } catch {
+        Fail-Safe 'runtime_manifest_verification_failed'
+    }
+}
+
+function Get-ManifestArtifact {
+    param([Parameter(Mandatory = $true)]$Manifest, [Parameter(Mandatory = $true)][string]$Role)
+    $matches = @($Manifest.payload.artifacts | Where-Object { [string]$_.role -ceq $Role })
+    if ($matches.Count -ne 1) { Fail-Safe 'runtime_artifact_role_invalid' }
+    return $matches[0]
+}
+
+function Download-RuntimeArtifact {
+    param(
+        [Parameter(Mandatory = $true)]$Artifact,
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)][string]$IssueId,
+        [Parameter(Mandatory = $true)][string]$StageRoot,
+        [Parameter(Mandatory = $true)]$Identity
+    )
+    $destination = Assert-ManifestPath -Path ([string]$Artifact.fixedDestination) -FailureCode 'runtime_destination_invalid'
+    $target = Assert-SafePath -Path (Join-Path $StageRoot $destination) -Root $StageRoot
+    $parent = Split-Path -Parent $target
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    Assert-SafePath -Path $parent -Root $StageRoot | Out-Null
+    Assert-NoReparse -Path $parent
+    Assert-SidAcl -Path $parent
+    $path = '/api/coordination/v2/host/runtime-bootstrap/issues/' +
+        [Uri]::EscapeDataString([string]$IssueId) + '/artifacts/' +
+        [Uri]::EscapeDataString([string]$Artifact.artifactId)
+    $signature = $Identity.rsa.SignData(
+        [Text.Encoding]::UTF8.GetBytes([string]$Identity.accessToken),
+        [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+    $headers = @{
+        'x-coordination-v2-host-token' = [string]$Identity.accessToken
+        'x-coordination-v2-host-proof' = [Convert]::ToBase64String($signature)
+    }
+    $response = $null
+    $responseStream = $null
+    $targetStream = $null
+    $total = [int64]0
+    try {
+        # HttpWebRequest plus FileMode.CreateNew is used instead of
+        # Invoke-WebRequest -OutFile, which can overwrite a preexisting path.
+        $request = [Net.HttpWebRequest]::Create($Endpoint.TrimEnd('/') + $path)
+        $request.Method = 'GET'
+        $request.AllowAutoRedirect = $false
+        $request.Headers['x-coordination-v2-host-token'] = [string]$Identity.accessToken
+        $request.Headers['x-coordination-v2-host-proof'] = [Convert]::ToBase64String($signature)
+        $response = $request.GetResponse()
+        if ([int]$response.StatusCode -ne 200) { Fail-Safe 'runtime_artifact_http_status_invalid' }
+        if ($response.ContentLength -ne [int64]$Artifact.byteLength) {
+            Fail-Safe 'runtime_artifact_length_header_invalid'
+        }
+        $responseStream = $response.GetResponseStream()
+        $targetStream = New-Object -TypeName IO.FileStream -ArgumentList @(
+            $target, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        $buffer = New-Object byte[] 65536
+        while (($read = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $total += [int64]$read
+            if ($total -gt [int64]$Artifact.byteLength) {
+                Fail-Safe 'runtime_artifact_stream_too_large'
+            }
+            $targetStream.Write($buffer, 0, $read)
+        }
+        if ($total -ne [int64]$Artifact.byteLength) {
+            Fail-Safe 'runtime_artifact_length_invalid'
+        }
+        $targetStream.Flush($true)
+    } catch {
+        if ([IO.File]::Exists($target)) {
+            Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+        }
+        if ($_.Exception.Message -match '^hola_coordinator_') { throw }
+        Fail-Safe 'runtime_artifact_download_failed'
+    } finally {
+        if ($null -ne $targetStream) { $targetStream.Dispose() }
+        if ($null -ne $responseStream) { $responseStream.Dispose() }
+        if ($null -ne $response) { $response.Dispose() }
+    }
+    $length = (Get-Item -LiteralPath $target -Force -ErrorAction Stop).Length
+    $hash = (Get-FileHash -LiteralPath $target -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+    if ($length -ne [int64]$Artifact.byteLength -or $hash -cne [string]$Artifact.objectDigest) {
+        Fail-Safe 'runtime_artifact_digest_mismatch'
+    }
+    $digestHeader = [string]$response.Headers['Digest']
+    $expectedDigestHeader = 'sha-256=' + [string]$Artifact.objectDigest
+    if ($digestHeader -cne $expectedDigestHeader) { Fail-Safe 'runtime_artifact_digest_header_invalid' }
+    Assert-NoReparse -Path $target
+    Assert-SidAcl -Path $target
+    Assert-SidAcl -Path $parent
+}
+
+function Install-RuntimeGenerationAtomic {
+    param([Parameter(Mandatory = $true)][string]$StageRoot)
+    Assert-SafePath -Path $StageRoot -Root $ApprovedWorktree | Out-Null
+    $nodeStage = Join-Path $StageRoot 'runtime\node.exe'
+    $tsxStage = Join-Path $StageRoot 'node_modules\tsx'
+    if (-not [IO.File]::Exists($nodeStage) -or -not [IO.Directory]::Exists($tsxStage)) {
+        Fail-Safe 'runtime_generation_incomplete'
+    }
+    Assert-NoReparse -Path $nodeStage
+    Assert-NoReparse -Path $tsxStage
+    New-Item -ItemType Directory -Path $RuntimeRoot -Force | Out-Null
+    $tsxParent = Join-Path $ApprovedWorktree 'node_modules'
+    New-Item -ItemType Directory -Path $tsxParent -Force | Out-Null
+    Assert-PrivatePath -Path $RuntimeRoot -Root $ApprovedWorktree
+    Assert-PrivatePath -Path $tsxParent -Root $ApprovedWorktree
+    # All staging and destinations are beneath one approved volume.  Directory
+    # moves are the promotion boundary; active files are never edited in place.
+    $nodeBackup = Join-Path $ApprovedWorktree ('.runtime-bootstrap-old-' + [Guid]::NewGuid().ToString('N'))
+    $tsxDestination = Join-Path $tsxParent 'tsx'
+    $tsxBackup = Join-Path $ApprovedWorktree ('.runtime-bootstrap-old-tsx-' + [Guid]::NewGuid().ToString('N'))
+    $hadNode = [IO.File]::Exists($RuntimeNode)
+    $hadTsx = [IO.Directory]::Exists($tsxDestination)
+    $nodePromoted = $false
+    $tsxPromoted = $false
+    try {
+        if ($hadNode) { Move-Item -LiteralPath $RuntimeNode -Destination $nodeBackup -Force }
+        Move-Item -LiteralPath $nodeStage -Destination $RuntimeNode -Force
+        $nodePromoted = $true
+        if ($hadTsx) { Move-Item -LiteralPath $tsxDestination -Destination $tsxBackup -Force }
+        Move-Item -LiteralPath $tsxStage -Destination $tsxDestination -Force
+        $tsxPromoted = $true
+        Assert-PrivatePath -Path $RuntimeNode -Root $ApprovedWorktree
+        Assert-PrivatePath -Path $tsxDestination -Root $ApprovedWorktree
+    } catch {
+        # Promotion is a two-tree transaction.  A failure at either move or
+        # post-move proof restores both old destinations before failing closed.
+        try {
+            if ($nodePromoted -and [IO.File]::Exists($RuntimeNode)) {
+                Remove-Item -LiteralPath $RuntimeNode -Force -ErrorAction Stop
+            }
+            if ($tsxPromoted -and [IO.Directory]::Exists($tsxDestination)) {
+                Remove-Item -LiteralPath $tsxDestination -Recurse -Force -ErrorAction Stop
+            }
+            if ($hadNode -and [IO.File]::Exists($nodeBackup)) {
+                Move-Item -LiteralPath $nodeBackup -Destination $RuntimeNode -Force
+            }
+            if ($hadTsx -and [IO.Directory]::Exists($tsxBackup)) {
+                Move-Item -LiteralPath $tsxBackup -Destination $tsxDestination -Force
+            }
+        } catch {
+            Fail-Safe 'runtime_generation_restore_failed'
+        }
+        Fail-Safe 'runtime_generation_promotion_failed'
+    }
+    if ([IO.File]::Exists($nodeBackup)) { Remove-Item -LiteralPath $nodeBackup -Force -ErrorAction Stop }
+    if ([IO.Directory]::Exists($tsxBackup)) { Remove-Item -LiteralPath $tsxBackup -Recurse -Force -ErrorAction Stop }
+    if ([IO.File]::Exists($nodeBackup) -or [IO.Directory]::Exists($tsxBackup)) {
+        Fail-Safe 'runtime_generation_backup_cleanup_failed'
+    }
+}
+
+function Get-RuntimeSourceEvidence {
+    param([Parameter(Mandatory = $true)]$Manifest)
+    $evidence = [ordered]@{}
+    foreach ($member in @($Manifest.payload.sourceMembers)) {
+        $path = Assert-ManifestPath -Path ([string]$member.fixedPath) -FailureCode 'runtime_source_path_invalid'
+        $target = Assert-SafePath -Path (Join-Path $ApprovedWorktree $path) -Root $ApprovedWorktree
+        if (-not [IO.File]::Exists($target)) { Fail-Safe 'runtime_source_member_missing' }
+        Assert-NoReparse -Path $target
+        $hash = (Get-FileHash -LiteralPath $target -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+        if ($hash -cne [string]$member.sha256) { Fail-Safe 'runtime_source_member_mismatch' }
+        $evidence[$path] = $hash
+    }
+    return $evidence
+}
+
+function Get-RuntimeAcknowledgementResponse {
+    param([Parameter(Mandatory = $true)]$Response)
+    Assert-ExactPropertySet -Value $Response -Names @(
+        'created', 'acknowledgementId', 'acknowledgedAt', 'acknowledgementDigest'
+    ) -FailureCode 'runtime_ack_response_shape'
+    if ($Response.created -isnot [bool] -or
+        [string]::IsNullOrWhiteSpace([string]$Response.acknowledgementId) -or
+        [string]::IsNullOrWhiteSpace([string]$Response.acknowledgedAt) -or
+        [string]$Response.acknowledgementDigest -notmatch '^[0-9a-f]{64}$') {
+        Fail-Safe 'runtime_ack_response_invalid'
+    }
+    return $Response
+}
+
+function Assert-SourceMemberHash {
+    param([Parameter(Mandatory = $true)]$Manifest, [Parameter(Mandatory = $true)][string]$FixedPath)
+    $member = @($Manifest.payload.sourceMembers | Where-Object {
+        ([string]$_.fixedPath).Replace('/', '\') -ceq $FixedPath
+    })
+    if ($member.Count -ne 1) { Fail-Safe 'runtime_source_member_missing' }
+    $target = Assert-SafePath -Path (Join-Path $ApprovedWorktree $FixedPath) -Root $ApprovedWorktree
+    if (-not [IO.File]::Exists($target)) { Fail-Safe 'runtime_source_member_missing' }
+    Assert-NoReparse -Path $target
+    Assert-SidAcl -Path $target
+    $sourceParent = Split-Path -Parent $target
+    Assert-NoReparse -Path $sourceParent
+    Assert-SidAcl -Path $sourceParent
+    $digest = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($digest -cne [string]$member[0].sha256) { Fail-Safe 'runtime_source_member_mismatch' }
+}
+
+function Assert-InstalledArtifactMembership {
+    param([Parameter(Mandatory = $true)]$Manifest)
+    foreach ($artifact in @($Manifest.payload.artifacts)) {
+        $relative = Assert-ManifestPath -Path ([string]$artifact.fixedDestination) `
+            -FailureCode 'runtime_destination_invalid'
+        $target = Assert-SafePath -Path (Join-Path $ApprovedWorktree $relative) -Root $ApprovedWorktree
+        if (-not [IO.File]::Exists($target)) { Fail-Safe 'runtime_artifact_missing' }
+        Assert-NoReparse -Path $target
+        Assert-SidAcl -Path $target
+        $destinationParent = Split-Path -Parent $target
+        Assert-NoReparse -Path $destinationParent
+        Assert-SidAcl -Path $destinationParent
+        $item = Get-Item -LiteralPath $target -Force
+        $digest = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($item.Length -ne [int64]$artifact.byteLength -or
+            $digest -cne [string]$artifact.objectDigest) {
+            Fail-Safe 'runtime_artifact_membership_invalid'
+        }
+        if ([string]$artifact.role -ceq 'node_executable') {
+            Assert-ApprovedSignatureAndDigest -Path $target
+        }
+    }
+}
+
+function Test-RuntimeGenerationEvidenceEquivalent {
+    param(
+        [Parameter(Mandatory = $true)]$First,
+        [Parameter(Mandatory = $true)]$Second
+    )
+    foreach ($property in @(
+        'runtimeReleaseId', 'runtimeReleaseDigest', 'promotedCommitSha',
+        'exactTreeSha', 'sourcePromotionId', 'repositoryIdentity',
+        'publicationReference', 'protectedValidationId', 'sourcePromotionRecordDigest'
+    )) {
+        if ([string]$First.payload.$property -cne [string]$Second.payload.$property) {
+            return $false
+        }
+    }
+    return (ConvertTo-CanonicalJson -Value $First.payload.artifacts) -ceq
+        (ConvertTo-CanonicalJson -Value $Second.payload.artifacts) -and
+        (ConvertTo-CanonicalJson -Value $First.payload.sourceMembers) -ceq
+        (ConvertTo-CanonicalJson -Value $Second.payload.sourceMembers)
+}
+
+function Assert-FullyInstalledRuntimeGeneration {
+    param(
+        [Parameter(Mandatory = $true)]$Manifest,
+        [Parameter(Mandatory = $true)][string]$EnvelopePath,
+        [switch]$AllowExpired
+    )
+    Assert-RuntimeManifestShape -Envelope $Manifest -AllowExpired:$AllowExpired
+    try {
+        $envelopeManifest = [IO.File]::ReadAllText($EnvelopePath) |
+            ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        Fail-Safe 'runtime_installed_manifest_corrupted'
+    }
+    Assert-RuntimeManifestShape -Envelope $envelopeManifest -AllowExpired:$AllowExpired
+    if ([string]$envelopeManifest.canonicalResponseDigest -cne
+        [string]$Manifest.canonicalResponseDigest) {
+        Fail-Safe 'runtime_installed_manifest_binding_invalid'
+    }
+    Invoke-PinnedManifestVerifier -NodePath $RuntimeNode -EnvelopePath $EnvelopePath `
+        -ExpectedHostEnrollmentId ([string]$Manifest.payload.hostEnrollmentId) `
+        -StageRoot $ApprovedWorktree -VerifyStagedFiles $false `
+        -AllowExpired:$AllowExpired
+    Assert-InstalledArtifactMembership -Manifest $Manifest
+    foreach ($member in @($Manifest.payload.sourceMembers)) {
+        Assert-SourceMemberHash -Manifest $Manifest -FixedPath (
+            ([string]$member.fixedPath).Replace('/', '\'))
+    }
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if ($null -eq $git) { Fail-Safe 'git_missing' }
+    $head = [string](& $git.Source -C $ApprovedWorktree rev-parse HEAD 2>$null)
+    $tree = [string](& $git.Source -C $ApprovedWorktree rev-parse HEAD^{tree} 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $head.ToLowerInvariant() -cne [string]$Manifest.payload.promotedCommitSha -or
+        $tree.ToLowerInvariant() -cne [string]$Manifest.payload.exactTreeSha) {
+        Fail-Safe 'runtime_source_checkout_invalid'
+    }
+}
+
+function Get-InstalledRuntimeManifest {
+    if (-not [IO.File]::Exists($RuntimeManifest)) { Fail-Safe 'runtime_manifest_missing' }
+    Assert-PrivatePath -Path $RuntimeManifest -Root $ApprovedWorktree
+    try {
+        $manifest = [IO.File]::ReadAllText($RuntimeManifest) | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        Fail-Safe 'runtime_manifest_corrupted'
+    }
+    Assert-RuntimeManifestShape -Envelope $manifest
+    Invoke-PinnedManifestVerifier -NodePath $RuntimeNode -EnvelopePath $RuntimeManifest `
+        -ExpectedHostEnrollmentId ([string]$manifest.payload.hostEnrollmentId) `
+        -StageRoot $ApprovedWorktree -VerifyStagedFiles $false
+    return $manifest
+}
+
+function Get-ServerRuntimeStatus {
+    param([Parameter(Mandatory = $true)]$Identity)
+    $path = '/api/coordination/v2/host/runtime-bootstrap/status'
+    $response = Invoke-HostAuthenticatedRequest -Method 'GET' -Endpoint ([string]$Identity.endpoint) `
+        -Path $path -Identity $Identity -Body ''
+    $acknowledgedProperty = $response.PSObject.Properties['acknowledged']
+    $preflightProperty = $response.PSObject.Properties['executionPreflightMayProceed']
+    if ($null -eq $acknowledgedProperty -or $null -eq $preflightProperty) {
+        Fail-Safe 'runtime_status_response_shape'
+    }
+    if (-not [bool]$acknowledgedProperty.Value) {
+        Assert-ExactPropertySet -Value $response -Names @(
+            'acknowledged', 'executionPreflightMayProceed'
+        ) -FailureCode 'runtime_status_response_shape'
+        if ($response.executionPreflightMayProceed -isnot [bool]) { Fail-Safe 'runtime_status_invalid' }
+        return $response
+    }
+    Assert-ExactPropertySet -Value $response -Names @(
+        'acknowledged', 'runtimeReleaseId', 'runtimeReleaseDigest', 'sourceCommitSha',
+        'exactTreeSha', 'revoked', 'sourceCurrent', 'executionPreflightMayProceed'
+    ) -FailureCode 'runtime_status_response_shape'
+    if ([string]$response.runtimeReleaseId -notmatch '^[0-9a-fA-F-]{36}$' -or
+        [string]$response.runtimeReleaseDigest -notmatch '^[0-9a-f]{64}$' -or
+        [string]$response.sourceCommitSha -notmatch '^[0-9a-f]{40}$' -or
+        [string]$response.exactTreeSha -notmatch '^[0-9a-f]{40}$' -or
+        $response.acknowledged -isnot [bool] -or $response.revoked -isnot [bool] -or
+        $response.sourceCurrent -isnot [bool] -or $response.executionPreflightMayProceed -isnot [bool]) {
+        Fail-Safe 'runtime_status_invalid'
+    }
+    return $response
+}
+
+# BEGIN COORDINATION_RUNTIME_BOOTSTRAP_BOUNDARY
+function Initialize-HolaCoordinatorRuntime {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^https://')]
+        [string]$Endpoint
+    )
+    $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $mutexName = 'Local\HolaHola-CoordinatorV2-RuntimeBootstrap-' + $currentSid
+    $runtimeMutex = New-Object -TypeName System.Threading.Mutex -ArgumentList @($false, $mutexName)
+    $mutexAcquired = $false
+    $identity = $null
+    try {
+        $mutexAcquired = $runtimeMutex.WaitOne(0)
+        if (-not $mutexAcquired) { Fail-Safe 'runtime_bootstrap_busy' }
+        Assert-EnrollmentHost
+        Assert-NoReparse -Path $ApprovedWorktree
+        Assert-SidAcl -Path $ApprovedWorktree
+        $endpointBase = $Endpoint.TrimEnd('/')
+        New-Item -ItemType Directory -Path $RuntimeBootstrapRoot -Force | Out-Null
+        Assert-SidAcl -Path $RuntimeBootstrapRoot
+        $identity = Get-HostBootstrapIdentity
+        if ([string]$identity.endpoint -ne $endpointBase) { Fail-Safe 'runtime_endpoint_mismatch' }
+        $requestState = $null
+        $installedBaseline = $null
+        $reuseInstalledGeneration = $false
+        if ([IO.File]::Exists($RuntimeRequestPath)) {
+            $requestState = Read-DpapiJson -Path $RuntimeRequestPath -FailureCode 'runtime_request_corrupted'
+            Assert-ExactPropertySet -Value $requestState -Names @(
+                'endpoint', 'requestKey', 'issueId', 'manifest', 'installed',
+                'ackPayload', 'ackSignature'
+            ) -FailureCode 'runtime_request_shape'
+            if ([string]$requestState.endpoint -ne $endpointBase -or
+                [string]$requestState.requestKey -notmatch '^[0-9a-fA-F-]{36}$') {
+                Fail-Safe 'runtime_request_authority_corrupted'
+            }
+            if ([bool]$requestState.installed -and
+                -not [string]::IsNullOrWhiteSpace([string]$requestState.issueId)) {
+                try {
+                    $savedExpiry = [DateTime]::Parse(
+                        [string]$requestState.manifest.payload.expiresAt).ToUniversalTime()
+                } catch {
+                    Fail-Safe 'runtime_request_manifest_corrupted'
+                }
+                if ($savedExpiry -le [DateTime]::UtcNow) {
+                    $installedBaseline = $requestState.manifest
+                    # The old issue is expired, but the already-installed
+                    # generation remains eligible only after full local proof.
+                    Assert-FullyInstalledRuntimeGeneration -Manifest $installedBaseline `
+                        -EnvelopePath $RuntimeManifest -AllowExpired
+                    $requestState = [ordered]@{
+                        endpoint = $endpointBase
+                        requestKey = [Guid]::NewGuid().ToString()
+                        issueId = ''
+                        manifest = $null
+                        installed = $true
+                        ackPayload = $null
+                        ackSignature = ''
+                    }
+                    $reuseInstalledGeneration = $true
+                    Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+                }
+            } elseif (-not [bool]$requestState.installed -and
+                -not [string]::IsNullOrWhiteSpace([string]$requestState.issueId)) {
+                try {
+                    $savedExpiry = [DateTime]::Parse(
+                        [string]$requestState.manifest.payload.expiresAt).ToUniversalTime()
+                } catch {
+                    Fail-Safe 'runtime_request_manifest_corrupted'
+                }
+                if ($savedExpiry -le [DateTime]::UtcNow) {
+                    $expiredStage = Join-Path $ApprovedWorktree (
+                        '.runtime-bootstrap-staging-' + [string]$requestState.issueId)
+                    if ([IO.Directory]::Exists($expiredStage)) {
+                        Assert-PrivatePath -Path $expiredStage -Root $ApprovedWorktree
+                        Remove-Item -LiteralPath $expiredStage -Recurse -Force -ErrorAction Stop
+                    }
+                    # An expired issue can never authorize its staged bytes.
+                    # Rotate the request key and persist it before issuing again.
+                    $requestState = [ordered]@{
+                        endpoint = $endpointBase
+                        requestKey = [Guid]::NewGuid().ToString()
+                        issueId = ''
+                        manifest = $null
+                        installed = $false
+                        ackPayload = $null
+                        ackSignature = ''
+                    }
+                    Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+                }
+            }
+        } else {
+            if ([IO.File]::Exists($RuntimeAckPath)) {
+                $existingAck = Read-DpapiJson -Path $RuntimeAckPath -FailureCode 'runtime_ack_corrupted'
+                Assert-ExactPropertySet -Value $existingAck -Names @(
+                    'runtimeReleaseId', 'manifestDigest', 'sourceCommitSha', 'exactTreeSha',
+                    'status', 'credentialProtected'
+                ) -FailureCode 'runtime_ack_shape'
+            }
+            $requestState = [ordered]@{
+                endpoint = $endpointBase
+                requestKey = [Guid]::NewGuid().ToString()
+                issueId = ''
+                manifest = $null
+                installed = $false
+                ackPayload = $null
+                ackSignature = ''
+            }
+            # This is deliberately before the first network request.
+            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$requestState.issueId)) {
+            $issuePath = '/api/coordination/v2/host/runtime-bootstrap/issues'
+            $issueBody = ([ordered]@{
+                requestKey = [string]$requestState.requestKey
+                protocolVersion = 1
+            } | ConvertTo-Json -Compress)
+            $issueResponse = Invoke-HostAuthenticatedRequest -Method 'POST' -Endpoint $endpointBase `
+                -Path $issuePath -Identity $identity -Body $issueBody
+            Assert-RuntimeManifestShape -Envelope $issueResponse
+            if ([string]$issueResponse.payload.hostKeyFingerprint -cne [string]$identity.fingerprint) {
+                Fail-Safe 'runtime_manifest_binding_invalid'
+            }
+            $requestState.issueId = [string]$issueResponse.payload.issueId
+            $requestState.manifest = $issueResponse
+            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+            if ($reuseInstalledGeneration) {
+                if (Test-RuntimeGenerationEvidenceEquivalent -First $installedBaseline -Second $issueResponse) {
+                    $candidateEnvelope = Join-Path $RuntimeBootstrapRoot (
+                        'runtime-bootstrap-candidate-' + [Guid]::NewGuid().ToString('N') + '.json')
+                    try {
+                        $candidateJson = $issueResponse | ConvertTo-Json -Depth 30 -Compress
+                        $candidateBytes = [Text.Encoding]::UTF8.GetBytes($candidateJson)
+                        $candidateStream = New-Object -TypeName IO.FileStream -ArgumentList @(
+                            $candidateEnvelope, [IO.FileMode]::CreateNew,
+                            [IO.FileAccess]::Write, [IO.FileShare]::None)
+                        try {
+                            $candidateStream.Write($candidateBytes, 0, $candidateBytes.Length)
+                            $candidateStream.Flush($true)
+                        } finally {
+                            $candidateStream.Dispose()
+                        }
+                        Assert-NoReparse -Path $candidateEnvelope
+                        Assert-SidAcl -Path $candidateEnvelope
+                        Assert-FullyInstalledRuntimeGeneration -Manifest $issueResponse `
+                            -EnvelopePath $candidateEnvelope
+                        Write-InstalledManifestAtomic -Path $RuntimeManifest -Manifest $issueResponse
+                    } finally {
+                        if ([IO.File]::Exists($candidateEnvelope)) {
+                            Remove-Item -LiteralPath $candidateEnvelope -Force -ErrorAction SilentlyContinue
+                        }
+                    }
+                } else {
+                    # A fresh issue naming different evidence cannot reuse the
+                    # old bytes; fall through to a clean staged installation.
+                    $requestState.installed = $false
+                    $requestState.ackPayload = $null
+                    $requestState.ackSignature = ''
+                    Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+                }
+            }
+        }
+        $manifest = $requestState.manifest
+        Assert-RuntimeManifestShape -Envelope $manifest
+        if ([string]$manifest.payload.hostKeyFingerprint -cne [string]$identity.fingerprint) {
+            Fail-Safe 'runtime_manifest_host_binding_invalid'
+        }
+        $requestKeyDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+            [Text.Encoding]::UTF8.GetBytes([string]$requestState.requestKey)) |
+            ForEach-Object { $_.ToString('x2') }) -join ''
+        if ($requestKeyDigest -cne [string]$manifest.payload.requestKeyDigest) {
+            Fail-Safe 'runtime_manifest_request_binding_invalid'
+        }
+        $manifestCanonical = ConvertTo-CanonicalJson -Value $manifest.payload
+        $manifestDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+            [Text.Encoding]::UTF8.GetBytes($manifestCanonical)) |
+            ForEach-Object { $_.ToString('x2') }) -join ''
+        if ($manifestDigest -cne [string]$manifest.canonicalResponseDigest) {
+            Fail-Safe 'runtime_manifest_digest_invalid'
+        }
+        $stageRoot = Join-Path $ApprovedWorktree ('.runtime-bootstrap-staging-' + [string]$requestState.issueId)
+        Assert-SafePath -Path $stageRoot -Root $ApprovedWorktree | Out-Null
+        if (-not [bool]$requestState.installed) {
+            if ([IO.Directory]::Exists($stageRoot)) {
+                Remove-Item -LiteralPath $stageRoot -Recurse -Force -ErrorAction Stop
+            }
+            New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
+            Assert-PrivatePath -Path $stageRoot -Root $ApprovedWorktree
+            $envelopePath = Join-Path $stageRoot 'manifest-envelope.json'
+            [IO.File]::WriteAllText($envelopePath, ($manifest | ConvertTo-Json -Depth 30 -Compress),
+                (New-Object Text.UTF8Encoding($false)))
+            Assert-NoReparse -Path $envelopePath
+            # Download only the PE bootstrap artifact first.  Authenticode and
+            # the signed manifest are proven before any staged JavaScript is
+            # loaded or evaluated by this command.
+            $nodeArtifact = Get-ManifestArtifact -Manifest $manifest -Role 'node_executable'
+            Download-RuntimeArtifact -Artifact $nodeArtifact -Endpoint $endpointBase `
+                -IssueId ([string]$requestState.issueId) -StageRoot $stageRoot -Identity $identity
+            $stagedNode = Join-Path $stageRoot (Assert-ManifestPath -Path ([string]$nodeArtifact.fixedDestination) `
+                -FailureCode 'runtime_destination_invalid')
+            Assert-ApprovedSignatureAndDigest -Path $stagedNode
+            $nodeForVerification = $stagedNode
+            Invoke-PinnedManifestVerifier -NodePath $nodeForVerification -EnvelopePath $envelopePath `
+                -ExpectedHostEnrollmentId ([string]$manifest.payload.hostEnrollmentId) `
+                -StageRoot $stageRoot -VerifyStagedFiles $false
+            foreach ($artifact in @($manifest.payload.artifacts)) {
+                if ([string]$artifact.role -cne 'node_executable') {
+                    Download-RuntimeArtifact -Artifact $artifact -Endpoint $endpointBase `
+                        -IssueId ([string]$requestState.issueId) -StageRoot $stageRoot -Identity $identity
+                }
+            }
+            Invoke-PinnedManifestVerifier -NodePath $stagedNode -EnvelopePath $envelopePath `
+                -ExpectedHostEnrollmentId ([string]$manifest.payload.hostEnrollmentId) `
+                -StageRoot $stageRoot -VerifyStagedFiles $true
+            Install-RuntimeGenerationAtomic -StageRoot $stageRoot
+            Write-InstalledManifestAtomic -Path $RuntimeManifest -Manifest $manifest
+            $requestState.installed = $true
+            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+        }
+        # Never sign or submit an acknowledgement until the installed
+        # generation has been re-proven from the persisted signed envelope.
+        Assert-FullyInstalledRuntimeGeneration -Manifest $manifest -EnvelopePath $RuntimeManifest
+        if ($null -eq $requestState.ackPayload -or
+            [string]::IsNullOrWhiteSpace([string]$requestState.ackSignature)) {
+            Assert-PrivatePath -Path $RuntimeNode -Root $ApprovedWorktree
+            Assert-PrivatePath -Path $RuntimeTsxRoot -Root $ApprovedWorktree
+            $sourceEvidence = Get-RuntimeSourceEvidence -Manifest $manifest
+            $nodeDigest = (Get-FileHash -LiteralPath $RuntimeNode -Algorithm SHA256).Hash.ToLowerInvariant()
+            $localEvidence = [ordered]@{
+                nodePath = 'runtime\node.exe'
+                nodeSha256 = $nodeDigest
+                sourceMembers = $sourceEvidence
+                installedManifestDigest = [string]$manifest.canonicalResponseDigest
+            }
+            $evidenceDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
+                [Text.Encoding]::UTF8.GetBytes((ConvertTo-CanonicalJson -Value $localEvidence))) |
+                ForEach-Object { $_.ToString('x2') }) -join ''
+            $ackPayload = [ordered]@{
+                protocolVersion = 1
+                issueId = [string]$requestState.issueId
+                requestKey = [string]$requestState.requestKey
+                runtimeReleaseId = [string]$manifest.payload.runtimeReleaseId
+                manifestDigest = [string]$manifest.canonicalResponseDigest
+                localEvidenceDigest = $evidenceDigest
+            }
+            $ackCanonical = ConvertTo-CanonicalJson -Value $ackPayload
+            $ackSignature = [Convert]::ToBase64String($identity.rsa.SignData(
+                [Text.Encoding]::UTF8.GetBytes($ackCanonical),
+                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256')))
+            $requestState.ackPayload = $ackPayload
+            $requestState.ackSignature = $ackSignature
+            # Persist the exact signed retry authority before submitting it.
+            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+        }
+        $ackPath = '/api/coordination/v2/host/runtime-bootstrap/issues/' +
+            [Uri]::EscapeDataString([string]$requestState.issueId) + '/acknowledge'
+        $ackBody = ([ordered]@{
+            payload = $requestState.ackPayload
+            signature = [string]$requestState.ackSignature
+        } | ConvertTo-Json -Depth 20 -Compress)
+        $ackResponse = Invoke-HostAuthenticatedRequest -Method 'POST' -Endpoint $endpointBase `
+            -Path $ackPath -Identity $identity -Body $ackBody
+        $confirmed = Get-RuntimeAcknowledgementResponse -Response $ackResponse
+        $ackState = [ordered]@{
+            runtimeReleaseId = [string]$manifest.payload.runtimeReleaseId
+            manifestDigest = [string]$manifest.canonicalResponseDigest
+            sourceCommitSha = [string]$manifest.payload.promotedCommitSha
+            exactTreeSha = [string]$manifest.payload.exactTreeSha
+            status = 'acknowledged'
+            credentialProtected = $true
+        }
+        Write-DpapiJsonAtomic -Path $RuntimeAckPath -Value $ackState
+        Remove-Item -LiteralPath $RuntimeRequestPath -Force -ErrorAction SilentlyContinue
+        if ([IO.Directory]::Exists($stageRoot)) {
+            Remove-Item -LiteralPath $stageRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        return $ackState
+    } catch {
+        if ($_.Exception.Message -match '^hola_coordinator_') { throw }
+        Fail-Safe 'runtime_bootstrap_failed'
+    } finally {
+        if ($null -ne $identity -and $null -ne $identity.rsa) { $identity.rsa.Dispose() }
+        if ($mutexAcquired) { $runtimeMutex.ReleaseMutex() }
+        $runtimeMutex.Dispose()
+    }
+}
+# END COORDINATION_RUNTIME_BOOTSTRAP_BOUNDARY
 
 function Test-SafeCliOutput {
     [CmdletBinding()]
@@ -155,15 +1299,60 @@ function Assert-ExecutionHost {
     Assert-EnrollmentHost
     $script:ApprovedNode = Resolve-ApprovedNode
     if (-not [System.IO.File]::Exists($ApprovedNode)) { Fail-Safe 'approved_node_missing' }
-    if (-not [System.IO.File]::Exists($ApprovedTsx)) { Fail-Safe 'approved_tsx_missing' }
+    if (-not [System.IO.File]::Exists($ApprovedTsx) -or
+        -not [System.IO.Directory]::Exists($RuntimeTsxRoot)) { Fail-Safe 'approved_tsx_missing' }
     Assert-NoReparse -Path $ApprovedNode
+    Assert-NoReparse -Path $RuntimeTsxRoot
     Assert-NoReparse -Path $ApprovedTsx
     Assert-ReadablePrivateAcl -Path $ApprovedNode
-    Assert-ReadablePrivateAcl -Path $ApprovedTsx
-    Assert-ApprovedSignatureAndDigest -Path $LauncherPath
+    Assert-SidAcl -Path $ApprovedNode
+    Assert-SidAcl -Path $RuntimeTsxRoot
     Assert-ApprovedSignatureAndDigest -Path $ApprovedNode
-    Assert-ApprovedSignatureAndDigest -Path $ApprovedTsx
-    Assert-ApprovedSignatureAndDigest -Path $CoordinatorScript
+    # The tsx closure and all non-PE source files are authorized by exact
+    # signed-manifest membership and hashes, never by Authenticode.
+    if (-not [IO.File]::Exists($PinnedServerPublicKey)) { Fail-Safe 'runtime_public_key_missing' }
+    Assert-NoReparse -Path $PinnedServerPublicKey
+    Assert-SidAcl -Path $PinnedServerPublicKey
+    $manifest = Get-InstalledRuntimeManifest
+    Assert-InstalledArtifactMembership -Manifest $manifest
+    $ack = Read-DpapiJson -Path $RuntimeAckPath -FailureCode 'runtime_ack_missing'
+    Assert-ExactPropertySet -Value $ack -Names @(
+        'runtimeReleaseId', 'manifestDigest', 'sourceCommitSha', 'exactTreeSha',
+        'status', 'credentialProtected'
+    ) -FailureCode 'runtime_ack_shape'
+    if ([string]$ack.status -cne 'acknowledged' -or $ack.credentialProtected -isnot [bool] -or
+        -not $ack.credentialProtected -or
+        [string]$ack.runtimeReleaseId -cne [string]$manifest.payload.runtimeReleaseId -or
+        [string]$ack.manifestDigest -cne [string]$manifest.canonicalResponseDigest -or
+        [string]$ack.sourceCommitSha -cne [string]$manifest.payload.promotedCommitSha -or
+        [string]$ack.exactTreeSha -cne [string]$manifest.payload.exactTreeSha) {
+        Fail-Safe 'runtime_ack_binding_invalid'
+    }
+    Assert-SourceMemberHash -Manifest $manifest -FixedPath 'scripts\hola-coordinator.ps1'
+    Assert-SourceMemberHash -Manifest $manifest -FixedPath 'scripts\coordination-v2-server-signing-public.pem'
+    Assert-SourceMemberHash -Manifest $manifest -FixedPath 'server\scripts\coordination-v2-cli.ts'
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if ($null -eq $git) { Fail-Safe 'git_missing' }
+    $head = [string](& $git.Source -C $ApprovedWorktree rev-parse HEAD 2>$null)
+    $tree = [string](& $git.Source -C $ApprovedWorktree rev-parse HEAD^{tree} 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $head.ToLowerInvariant() -cne [string]$manifest.payload.promotedCommitSha -or
+        $tree.ToLowerInvariant() -cne [string]$manifest.payload.exactTreeSha) {
+        Fail-Safe 'runtime_source_checkout_invalid'
+    }
+    $identity = Get-HostBootstrapIdentity
+    try {
+        $status = Get-ServerRuntimeStatus -Identity $identity
+        if (-not $status.acknowledged -or $status.revoked -or
+            -not $status.sourceCurrent -or -not $status.executionPreflightMayProceed -or
+            [string]$status.runtimeReleaseId -cne [string]$ack.runtimeReleaseId -or
+            [string]$status.runtimeReleaseDigest -cne [string]$manifest.payload.runtimeReleaseDigest -or
+            [string]$status.sourceCommitSha -cne [string]$ack.sourceCommitSha -or
+            [string]$status.exactTreeSha -cne [string]$ack.exactTreeSha) {
+            Fail-Safe 'runtime_server_status_invalid'
+        }
+    } finally {
+        $identity.rsa.Dispose()
+    }
 }
 
 # BEGIN COORDINATION_INVOKE_BOUNDARY
@@ -381,8 +1570,15 @@ function Register-HolaCoordinatorHost {
         while ([DateTime]::UtcNow -lt $deadline) {
             Start-Sleep -Seconds 2
             $status = Invoke-RestMethod -Method Get -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/status?requestKey=' + [Uri]::EscapeDataString([string]$requestState.requestKey)) -UseBasicParsing
-            if ($status.challenge) {
-                $challenge = $status.challenge
+            $challengeProperty = $status.PSObject.Properties['challenge']
+            if ($null -ne $challengeProperty -and $null -ne $challengeProperty.Value) {
+                $challenge = $challengeProperty.Value
+                if ($challenge -isnot [PSCustomObject] -or
+                    [string]$challenge.id -notmatch '^[0-9a-fA-F-]{36}$' -or
+                    [string]::IsNullOrWhiteSpace([string]$challenge.nonce) -or
+                    [string]::IsNullOrWhiteSpace([string]$challenge.expiresAt)) {
+                    Fail-Safe 'host_challenge_invalid'
+                }
                 $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes([string]$challenge.nonce), [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
                 $proof = @{ challengeId = $challenge.id; nonce = $challenge.nonce; signature = [Convert]::ToBase64String($signature) } | ConvertTo-Json -Compress
                 $issued = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/proof') `

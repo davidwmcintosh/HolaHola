@@ -428,6 +428,13 @@ This operator-only boundary:
 
 - requires the existing protected operator authority;
 - verifies the exact current source-promotion record;
+- independently reads the promoted commit/tree and verifies the exact bootstrap
+  source blobs and package-lock v3 bytes;
+- verifies the pinned tsx 4.23.1, nested esbuild 0.28.1, and win32-x64 0.28.1
+  dependency graph, npm SRI, and the complete safe tar closure;
+- verifies Node v20.20.0 from the commit-pinned official release keyring using
+  its pinned digest, `gpgv`, the exact signer fingerprint, and the signed
+  `win-x64/node.exe` checksum;
 - verifies every object exists at its digest-addressed key with exact length and
   digest;
 - verifies the mechanically generated tsx closure against the lockfile;
@@ -607,7 +614,12 @@ signature is logged.
 - Failure before atomic promotion removes staging.
 - Failure after local promotion but before server acknowledgement retains the
   exact installed generation and DPAPI request record.
+- Before acknowledgement, the promoted generation is re-read and re-verifies
+  every manifest member, digest, length, destination, source binding, and Node
+  Authenticode requirement.
 - Ambiguous acknowledgement retries the same signed acknowledgement.
+- An expired issue rotates by exact issue generation only; unrelated or newer
+  issue state cannot authorize reuse of a staged or promoted generation.
 - A revocation is a new immutable record; release and acknowledgement history
   are never updated or deleted.
 - Execution preflight fails closed for a revoked release.
@@ -624,10 +636,18 @@ signature is logged.
 - five-minute issue expiry and seven-day first-install maximum age;
 - strict destination and object-key allowlists;
 - exact tsx dependency closure generation;
+- package-lock v3 graph and npm SRI verification for tsx, nested esbuild, and
+  win32-x64;
+- commit-pinned official Node keyring digest, `gpgv` signer, signed checksum,
+  and exact Node executable binding;
 - renamed, omitted, duplicated, or destination-shifted tsx closure members are
   rejected;
 - Node Authenticode remains required;
 - downloaded JavaScript cannot execute before manifest verification;
+- the complete initialization critical section is held by a per-current-user
+  mutex;
+- downloads use create-new bounded files under ACL-proven, non-reparse roots
+  and parents;
 - a PowerShell 5.1 strict-mode pending response with no `challenge` property
   completes another poll iteration without throwing or signing;
 - malformed present challenge fails before RSA signing;
@@ -642,6 +662,8 @@ On a disposable Neon branch:
 - duplicate issue/ack/revocation requests are idempotent;
 - conflicting idempotency reuse fails;
 - issue expiry and release revocation fail closed;
+- acknowledgements are composite-FK-bound to the exact issue, host, release,
+  request key, and manifest digest;
 - unrelated Coordinator V2 rows remain unchanged;
 - before and after row-count assertions prove runtime issue and acknowledgement
   create zero tasks, preparations, sessions, attempts, leases, operations, or
@@ -662,6 +684,8 @@ On a disposable Windows host fixture:
 - bad artifact length/hash rejection;
 - interrupted staging cleanup;
 - post-promotion acknowledgement recovery;
+- full promoted-generation re-verification before acknowledgement;
+- exact-generation expired-issue recovery under the initialization mutex;
 - safe output only.
 
 ### End-to-end first host
