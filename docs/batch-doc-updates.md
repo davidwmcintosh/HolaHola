@@ -6874,3 +6874,29 @@ Focused service tests pass 22/22, typecheck passes, and system health reports
 all checks passed. Both Alden engines returned unconditional
 `APPROVED — Ship it.` No runtime publication, Windows initialization, task,
 session, lease, or execution authority was created.
+
+## Windows ACL identity and signed-member EOL repair — September 16, 2026
+
+The first Windows initialization attempt reached the approved clean checkout
+and enrolled host but stopped before download with
+`hola_coordinator_acl_identity_unresolvable`. PowerShell returned the ACL owner
+as an account-name string while the launcher expected every non-SID value to
+expose `IdentityReference.Translate`. The same clean Windows checkout also
+showed that Git could transcode the three manifest-bound source members to CRLF,
+changing their protected byte digests.
+
+The launcher now converts SID objects directly, parses SID strings, translates
+account-name strings through `NTAccount`, and retains the same fail-closed error
+for malformed or unresolvable values. Owner and writer SID allowlists are
+unchanged. Repository attributes force LF for the complete three-member runtime
+source set. Focused static checks require both string conversion paths, the
+unchanged fail-safe catch, the unchanged owner allowlist, a mutation proof for
+account translation, and all three LF rules.
+
+The HTTP/static runtime suite passes 26/26 and typecheck passes. A direct
+PostgreSQL test correctly refused shared Neon because it requires a disposable
+test database; the protected validation suite owns that proof. The previously
+published runtime release has no bootstrap issue or acknowledgement and remains
+immutable, but it cannot authorize this corrected launcher. A new protected
+source promotion and runtime release are required before Windows initialization
+continues. No task, session, lease, operation, or invocation was created.

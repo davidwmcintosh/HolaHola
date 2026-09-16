@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync("scripts/hola-coordinator.ps1", "utf8");
+const attributes = readFileSync(".gitattributes", "utf8");
 
 function boundary(name: string): string {
   const startMarker = `# BEGIN COORDINATION_${name}_BOUNDARY`;
@@ -108,6 +109,50 @@ test("PowerShell 5.1 pending enrollment status uses property existence and exact
   assert.match(source, /\$challenge -isnot \[PSCustomObject\]/);
   assert.match(source, /host_challenge_invalid/);
   assert.doesNotMatch(source, /\n\s*if\s*\(\$status\.challenge\)\s*\{/);
+});
+
+test("ACL identity conversion accepts Windows owner strings without weakening fail-closed policy", () => {
+  const start = source.indexOf("function Convert-ToSidValue");
+  const end = source.indexOf("function Assert-SidAcl", start);
+  assert.ok(start >= 0 && end > start);
+  const converter = source.slice(start, end);
+  assert.match(converter, /\$IdentityReference -is \[System\.Security\.Principal\.SecurityIdentifier\]/);
+  assert.match(converter, /\$IdentityReference -is \[string\]/);
+  assert.match(converter, /StartsWith\(\s*'S-1-', \[System\.StringComparison\]::OrdinalIgnoreCase\)/);
+  assert.match(converter, /New-Object -TypeName System\.Security\.Principal\.SecurityIdentifier/);
+  assert.match(converter, /New-Object -TypeName System\.Security\.Principal\.NTAccount/);
+  assert.match(
+    converter,
+    /\$account\.Translate\(\[System\.Security\.Principal\.SecurityIdentifier\]\)\.Value/,
+  );
+  assert.match(converter, /catch\s*\{\s*Fail-Safe 'acl_identity_unresolvable'/);
+  assert.match(source, /\$allowedOwners = @\(\$currentSid, 'S-1-5-18', 'S-1-5-32-544'\)/);
+});
+
+test("mutation removing account-name SID translation is caught", () => {
+  const start = source.indexOf("function Convert-ToSidValue");
+  const end = source.indexOf("function Assert-SidAcl", start);
+  const converter = source.slice(start, end);
+  const mutated = converter.replace(
+    "New-Object -TypeName System.Security.Principal.NTAccount",
+    "New-Object -TypeName System.String",
+  );
+  assert.notEqual(mutated, converter);
+  assert.doesNotMatch(
+    mutated,
+    /New-Object -TypeName System\.Security\.Principal\.NTAccount/,
+  );
+});
+
+test("all runtime source members use exact LF checkout bytes", () => {
+  for (const fixedPath of [
+    "scripts/hola-coordinator.ps1",
+    "scripts/coordination-v2-server-signing-public.pem",
+    "server/scripts/coordination-v2-cli.ts",
+  ]) {
+    const escaped = fixedPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    assert.match(attributes, new RegExp(`^${escaped} text eol=lf$`, "m"));
+  }
 });
 
 test("manifest paths and closure are closed after forward-slash normalization", () => {

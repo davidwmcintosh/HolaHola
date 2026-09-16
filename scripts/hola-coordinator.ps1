@@ -91,15 +91,16 @@ function Convert-ToSidValue {
             return $IdentityReference.Value
         }
         if ($IdentityReference -is [string]) {
-            if ($IdentityReference.StartsWith('S-1-')) {
-                # Assume it's a SID string
-                $sid = New-Object System.Security.Principal.SecurityIdentifier($IdentityReference)
+            if ($IdentityReference.StartsWith(
+                'S-1-', [System.StringComparison]::OrdinalIgnoreCase)) {
+                # Malformed SID strings fail in the constructor and remain fail-closed.
+                $sid = New-Object -TypeName System.Security.Principal.SecurityIdentifier `
+                    -ArgumentList $IdentityReference
                 return $sid.Value
-            } else {
-                # Assume it's an account name string
-                $account = New-Object System.Security.Principal.NTAccount($IdentityReference)
-                return $account.Translate([System.Security.Principal.SecurityIdentifier]).Value
             }
+            $account = New-Object -TypeName System.Security.Principal.NTAccount `
+                -ArgumentList $IdentityReference
+            return $account.Translate([System.Security.Principal.SecurityIdentifier]).Value
         }
         return $IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
     } catch {

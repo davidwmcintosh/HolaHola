@@ -9452,3 +9452,39 @@ David authorizes one new founder runtime-publication request. Windows remains
 untouched; initialization is still restricted to
 `C:\Users\David\HolaHola-CoordinatorV2`, after independently verified runtime
 publication.
+
+## September 16, 2026 — first-host ACL identity and EOL repair
+
+David published and founder-authenticated runtime release
+`3bd5ac02-7f37-4637-a897-e08a61469203`; direct shared-Neon verification found
+61 unique destinations, 59 content objects, one Authenticode-required Node
+executable, the two expected shared tsx objects, and no revocation, issue, or
+acknowledgement. The Windows worktree was moved to protected commit
+`647ae8f0ad55306a2d4aa3ef36b0ce80f1996e3e` and exact tree
+`ba0519ec74e97826a98d6cc617100bd00cb4d129`. Host enrollment was present.
+
+The first initializer call stopped locally before download with
+`hola_coordinator_acl_identity_unresolvable`. The root cause is a real Windows
+type boundary: `Get-Acl(...).Owner` returns an account-name string, while
+`Convert-ToSidValue` called `.Translate` directly on every non-SID object.
+Independent preflight also proved that a Git-clean Windows checkout had CRLF
+bytes for the three manifest-bound source members because their LF policy was
+not recorded in `.gitattributes`.
+
+The approved repair dispatches ACL identities by type: existing SID objects,
+strict SID strings through the SID constructor, account-name strings through
+`NTAccount`, and other identity references through their existing translation.
+All failures retain `acl_identity_unresolvable`; the current-user, SYSTEM, and
+Administrators owner/write allowlists are unchanged. All three runtime source
+members now have `text eol=lf` rules. Static CI locks both string paths, the
+fail-safe catch, the unchanged allowlist, a mutation that removes `NTAccount`
+translation, and the complete LF set.
+
+The focused HTTP/static runtime suite passes 26/26 and typecheck passes. The
+PostgreSQL evidence test correctly refuses to run without a disposable target;
+run it through the protected validation suite. The existing runtime release is
+immutable but must not be used for another initializer attempt because its
+source binding predates this repair. Prepare, publish, and independently verify
+a new source promotion and runtime release first. Windows remains restricted to
+`C:\Users\David\HolaHola-CoordinatorV2`; no task, session, lease, operation, or
+`Invoke-HolaCoordinator` has been created.
