@@ -1,13 +1,12 @@
-# Production Audio Replay and Luca Presence Repair
+# Production Audio Replay, Image Pipeline, and Luca Presence Repair
 
 ## Scope
 
-Repair two defects observed during the post-Render-cutover production smoke test:
+Repair three defects observed during the post-Render-cutover production smoke test:
 
 1. Gemini Live repeated a substantial completed response inside one still-open model generation.
-2. The Team Room showed Luca offline even though the production Luca presence socket was connected and joined.
-
-Image-generation style consistency is explicitly deferred.
+2. A generated `show_image` scene did not follow HolaHola’s established visual style closely enough.
+3. The Team Room showed Luca offline even though the production Luca presence socket was connected and joined.
 
 ## Audio replay repair
 
@@ -42,6 +41,56 @@ Focused tests must prove:
 - replay state does not cross turn boundaries;
 - the existing second-generation, transcript flush, and response-completion guards still pass.
 
+## Image pipeline repair
+
+### Evidence
+
+The production `show_image` call requested a Spanish plaza scene. It reached the normal vocabulary-image resolver and generated successfully, but the result did not match HolaHola’s established style closely enough.
+
+HolaHola already has a canonical image pipeline:
+
+1. Resolve reviewed cached and shared-concept images first.
+2. Apply canonical concept mapping and reviewed scene overrides.
+3. Generate only on a cache miss, selecting the scene or prop engine contract.
+4. For scenes, use the target language to load the DB-pinned style profile; fall back to the reviewed built-in scene style only when no profile is pinned.
+5. Return the resulting image bytes to Daniela in the tool continuation so she can evaluate the image in the live teaching context.
+6. If the image is wrong, Daniela uses the existing explicit regeneration path with a more specific description.
+
+The active production data includes the pinned Spanish style profile. The resolver and generation interfaces accept language and style context, but not every scene-generation branch currently propagates that context through to `generateCharacterScene`.
+
+The project previously rejected direct reference-image prompting for ordinary production scenes because it copied composition instead of reliably transferring style. It also intentionally rejected an automatic image-quality loop because Daniela is the in-context evaluator.
+
+### Design
+
+Restore the existing pipeline contract rather than adding a parallel generation path:
+
+- Keep reviewed cache and shared-concept hits authoritative and generation-free.
+- Keep canonical concept mapping, meaning-specific cache keys, scene overrides, and scene-versus-prop classification unchanged.
+- Ensure every cache-miss scene path, including freeform `show_image` scenes, passes the normalized target language through `generateVisual` to `generateCharacterScene`.
+- Let `generateCharacterScene` continue loading the DB-pinned style profile for that language, with the existing built-in scene style as its fallback.
+- Preserve `PROP_STYLE` for isolated vocabulary objects; do not apply character-scene styling to props.
+- Do not pass the anchor image itself into the production generator.
+- Do not implement or activate an automatic image-quality scorer or regeneration loop.
+- Preserve the existing inline image bytes in Daniela’s tool continuation and the explicit `regenerate_memory_image` correction path.
+- Do not let a generation failure or generic placeholder become a reviewed canonical cache entry.
+- Add telemetry identifying cache hit, concept hit, generated scene/prop, selected style-profile key, and explicit fallback without recording image bytes.
+
+No Daniela-facing tool prose or teaching prompt should change as part of this repair. If implementation reveals that model-facing wording must change, stop and complete the established Alden-to-Gemini wording review before editing it.
+
+### Verification
+
+Focused tests must prove:
+
+- a reviewed cache hit returns immediately without generation;
+- shared canonical concepts still reuse the reviewed image across languages;
+- a Spanish freeform scene reaches generation with the Spanish pinned style profile;
+- another language selects its own profile or the documented shared fallback;
+- isolated object vocabulary still uses the prop contract;
+- direct reference-image input is not introduced;
+- the generated image remains available to Daniela as inline image data;
+- explicit regeneration still uses the existing correction path;
+- a placeholder or failed generation is not cached as a reviewed canonical image.
+
 ## Luca presence repair
 
 ### Evidence
@@ -70,4 +119,4 @@ Focused tests must prove:
 
 ## Rollout
 
-Run focused tests, typecheck, the project health verifier, and the relevant validation suite. After review, commit and sync the repair, wait for Render to serve the exact commit, and repeat the production voice and Team Room smoke checks.
+Run focused tests, typecheck, the project health verifier, and the relevant validation suite. After review, commit and sync the repair, wait for Render to serve the exact commit, and repeat the production voice, image, and Team Room smoke checks.
