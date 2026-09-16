@@ -26,3 +26,6 @@ but the record operation was blocked before its substantive proofs.
 **How to apply:** Preserve marker-backed readiness in the source-control state
 machine. Never promote the marker merely because its tree matches, and never
 repair the race by weakening the record gate or refreshing validation expiry.
+When authenticated immutable proofs are resolved with Git fetch in one checkout,
+serialize operations that read shared `FETCH_HEAD`; concurrent fetches can
+replace each other's proof even when both requested commits are valid.

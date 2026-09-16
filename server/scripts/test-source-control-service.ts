@@ -325,6 +325,7 @@ async function syncPublicationMarkerFixture(overrides: {
   finalLocalHead?: string;
   finalRemoteHead?: string;
   finalDirty?: boolean;
+  rejectConcurrentRemoteProofs?: boolean;
 } = {}): Promise<{
   result: Awaited<ReturnType<SourceControlService['sync']>>;
   status: any;
@@ -335,6 +336,7 @@ async function syncPublicationMarkerFixture(overrides: {
   const expiresAt = overrides.candidateExpiresAt ?? '2026-09-15T22:00:00.000Z';
   let fetchCount = 0;
   let statusCount = 0;
+  let activeRemoteProofs = 0;
   writeFileSync(statusPath, `${JSON.stringify({
     schemaVersion: 3,
     state: overrides.priorState ?? 'synced',
@@ -365,17 +367,28 @@ async function syncPublicationMarkerFixture(overrides: {
         let value = 0;
         return () => `sync-marker-fixture-${++value}`;
       })(),
-      resolveRemoteCommit: async (sha) => sha === LOCAL_NEW
-        ? {
-            sha,
-            treeSha: overrides.remoteCandidateTree ?? CANDIDATE_TREE,
-            parentSha: LOCAL_OLD,
+      resolveRemoteCommit: async (sha) => {
+        activeRemoteProofs += 1;
+        try {
+          if (overrides.rejectConcurrentRemoteProofs) {
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            if (activeRemoteProofs > 1) throw new Error('concurrent_remote_proof_resolution');
           }
-        : {
-            sha,
-            treeSha: overrides.remoteMarkerTree ?? CANDIDATE_TREE,
-            parentSha: overrides.remoteMarkerParent ?? LOCAL_NEW,
-          },
+          return sha === LOCAL_NEW
+            ? {
+                sha,
+                treeSha: overrides.remoteCandidateTree ?? CANDIDATE_TREE,
+                parentSha: LOCAL_OLD,
+              }
+            : {
+                sha,
+                treeSha: overrides.remoteMarkerTree ?? CANDIDATE_TREE,
+                parentSha: overrides.remoteMarkerParent ?? LOCAL_NEW,
+              };
+        } finally {
+          activeRemoteProofs -= 1;
+        }
+      },
       runCommand: async (command, args) => {
         assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
         const operation = args[0];
@@ -430,7 +443,10 @@ async function main(): Promise<void> {
   assert.equal(equal.result.state, 'synced');
 
   for (const priorState of ['synced', 'failed'] as const) {
-    const markerStatusRecovery = await syncPublicationMarkerFixture({ priorState });
+    const markerStatusRecovery = await syncPublicationMarkerFixture({
+      priorState,
+      rejectConcurrentRemoteProofs: true,
+    });
     assert.equal(markerStatusRecovery.result.state, 'ready_to_promote');
     assert.equal(markerStatusRecovery.result.candidateSha, LOCAL_NEW);
     assert.equal(markerStatusRecovery.status.state, 'ready_to_promote');

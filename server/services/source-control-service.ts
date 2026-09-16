@@ -867,10 +867,11 @@ export class SourceControlService {
       if (localMarker.sha !== markerSha
         || localMarker.parentSha !== candidateSha
         || localMarker.subject !== 'Published your App') return false;
-      const [candidateProof, markerProof] = await Promise.all([
-        this.resolveRemoteCommit(candidateSha),
-        this.resolveRemoteCommit(markerSha),
-      ]);
+      // The production resolver authenticates each immutable commit through
+      // Git's shared FETCH_HEAD. Keep these fetches sequential so one proof
+      // cannot overwrite the other's fetched commit before it is inspected.
+      const candidateProof = await this.resolveRemoteCommit(candidateSha);
+      const markerProof = await this.resolveRemoteCommit(markerSha);
       assertAuthenticatedRemoteCommitProof(candidateSha, candidateProof);
       assertAuthenticatedRemoteCommitProof(markerSha, markerProof, candidateProof.treeSha);
       return localMarker.treeSha === candidateProof.treeSha

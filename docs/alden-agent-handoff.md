@@ -9279,6 +9279,16 @@ and local/remote marker SHA/tree/parent mutation. Focused verification,
 typecheck, and the source-bridge suite pass; the independent architect's second
 review returned unconditional `APPROVED`.
 
+The first live use found that the recovery helper resolved candidate and marker
+proofs concurrently even though the production resolver uses the checkout's
+shared `FETCH_HEAD`. The two authenticated fetches could overwrite each other's
+proof and make an exact marker return false. The helper now resolves those
+immutable proofs sequentially; the record path was already sequential. A
+regression fixture refuses overlapping proof resolution, so restoring
+`Promise.all` fails the ready-state assertions. Focused source-control tests,
+typecheck, and system health pass, and both Alden engines returned unconditional
+`APPROVED — Ship it.`
+
 ## September 15, 2026 — runtime publication transaction correction
 
 The corrected source was successfully recorded as promotion

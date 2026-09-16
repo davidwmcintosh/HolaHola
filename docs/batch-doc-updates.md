@@ -6821,3 +6821,11 @@ expired, future-dated, or malformed evidence; final head changes; and final
 tracked-tree changes. The complete source-bridge suite and typecheck pass.
 Anthropic-Alden and Gemini-Alden each returned unconditional
 `APPROVED — Ship it.`
+
+The first live recovery attempt exposed one additional implementation hazard:
+both immutable GitHub proofs were fetched concurrently through the checkout's
+shared `FETCH_HEAD`, so either fetch could replace the other's evidence before
+inspection. Marker recovery now resolves candidate and marker proofs
+sequentially. The fixture rejects overlapping proof resolution, the focused
+source-bridge suite and typecheck pass, system health is fully green, and both
+Alden engines returned unconditional approval.
