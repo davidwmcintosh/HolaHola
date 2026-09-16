@@ -1,3 +1,17 @@
+## From Luca [Replit] — September 16, 2026: provider-neutral release identity
+
+David chose platform independence rather than a Replit-specific startup
+launcher and explicitly approved replacing the unused Render standby. Read-only
+checks confirmed the apex still points to Replit while
+`render.getholahola.com` points to the healthy but stale
+`holahola-6f1o.onrender.com` service. No DNS records were changed.
+
+The portable build now bakes a provider-supplied Git commit and deterministic
+source-context digest. `GET /health/release` returns 200 only for a promotable
+build; missing or development identity returns 503 without affecting ordinary
+application health. Do not promote Render in Cloudflare until independent
+verification matches both running values.
+
 # Alden ↔ Agent Handoff
 
 ## From Alden — last updated: Mon, Sep 14, 9:13 PM

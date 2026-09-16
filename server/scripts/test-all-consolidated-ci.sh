@@ -388,6 +388,7 @@ group_body_workflow_safety() {
   # These guards used to consume individual Replit workflow slots. Keep them in
   # the consolidated gate so lowering the configured-workflow count never
   # weakens validation coverage.
+  run test-release-identity.ts
   run test-replit-attribution-discipline.ts
   run test-projection-receipts.ts
   run test-projection-writer-coverage.ts

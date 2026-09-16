@@ -20,6 +20,7 @@ import { registerCoordinationHostRoutes } from "./routes/coordination-host-route
 import { registerCoordinationV2HostAdminRoutes } from "./routes/coordination-v2-host-admin-routes";
 import { registerCoordinationV2RuntimeBootstrapRoutes } from "./routes/coordination-v2-runtime-bootstrap-routes";
 import { DEFAULT_COORDINATION_TASK_METADATA_REGISTRY } from "./services/coordination-task-metadata-service";
+import { getReleaseIdentity } from "./services/release-identity";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
 import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
@@ -1022,11 +1023,14 @@ export async function registerRoutes(app: Application): Promise<void> {
   });
 
   app.get('/api/version', (_req: Request, res: Response) => {
+    const release = getReleaseIdentity();
     res.json({
       version: process.env.REPLIT_DEPLOYMENT_ID || 'development',
       buildTime: Date.now(),
-      commit: '11c11ad', // Voice chat error handling fix
-      fixes: ['voice-disconnect-on-stt-error', 'tts-error-recovery', 'greeting-error-recovery']
+      commit: release.commitSha,
+      sourceContextSha256: release.sourceContextSha256 || null,
+      authority: release.authority,
+      promotable: release.promotable,
     });
   });
 

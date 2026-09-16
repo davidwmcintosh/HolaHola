@@ -1,3 +1,11 @@
+## 2026-09-16 — Provider-neutral release identity
+
+Portable images now bake an explicit build commit and deterministic
+source-context digest. `GET /health/release` separates promotion eligibility
+from ordinary health, and `/api/version` no longer claims a hardcoded commit.
+Invalid identity fails closed for promotion without taking down the service.
+Cloudflare DNS was not changed.
+
 ## September 14, 2026 — Coordinator V2 staged first-host enrollment
 
 - Hardened `Register-HolaCoordinatorHost` so its DPAPI-protected retry authority and RSA identity are durable before the first enrollment POST.
