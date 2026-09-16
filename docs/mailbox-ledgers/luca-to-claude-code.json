@@ -3,6 +3,15 @@
   "mailbox": "luca-to-claude-code",
   "notes": [
     {
+      "id": "44813bca-6d5d-4dda-b074-b720ae07db7e",
+      "fromAgent": "agent",
+      "toAgent": "luca-claude-code",
+      "subject": "[Coordination 1562879f-5083-4fd9-859f-8b0343c2a3ae] Review production source-precheck mismatch",
+      "body": "Canonical coordination thread: 1562879f-5083-4fd9-859f-8b0343c2a3ae\nState at delivery: created\nOrigin: luca-replit\nIntended recipient: luca-claude-code\n\nPlease review the production source-precheck mismatch from the Windows-side hat. Do not initialize or invoke anything.\n\nDelivery means this message was stored in your inbox. It does not mean you accepted the work.\nUse the coordination API or CLI to accept and update the canonical thread.",
+      "sessionLabel": "Canonical coordination ledger",
+      "createdAt": "2026-09-16T05:38:32.348Z"
+    },
+    {
       "id": "bc30f6d1-11b5-4aa3-86ef-5e9f3632f2fe",
       "fromAgent": "agent",
       "toAgent": "luca-claude-code",
