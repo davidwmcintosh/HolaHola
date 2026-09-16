@@ -245,6 +245,13 @@ type LocalPublicationMarkerProof = {
   subject: string;
 };
 
+type PreparedCandidateEvidence = {
+  candidateSha: string;
+  candidatePreparedAt: string;
+  candidateExpiresAt: string;
+  validation: Record<string, unknown>;
+};
+
 type CanonicalSourcePromotionFields = {
   repositoryIdentity: string;
   promotedCommitSha: string;
@@ -520,11 +527,41 @@ export class SourceControlService {
 
     if (heads.local === heads.github) {
       const previous = await this.getStatus();
-      const state = previous?.state === 'ready_to_promote' && previous.candidateSha === heads.local
-        ? 'ready_to_promote'
-        : 'synced';
-      await this.writeStatus(state, state === 'ready_to_promote' ? 'Awaiting explicit Replit Publish.' : '', actor, heads.local, heads.github);
-      return { ok: true, state, ...heads, candidateSha: state === 'ready_to_promote' ? heads.local : undefined };
+      const prepared = this.validPreparedCandidate(previous);
+      if (prepared?.candidateSha === heads.local && previous?.state === 'ready_to_promote') {
+        await this.writePreservedReadyStatus(actor, heads, prepared, 'Awaiting explicit Replit Publish.');
+        return {
+          ok: true,
+          state: 'ready_to_promote',
+          ...heads,
+          candidateSha: prepared.candidateSha,
+          validation: prepared.validation,
+        };
+      }
+      if (prepared && prepared.candidateSha !== heads.local
+        && await this.isExactPublishedMarker(heads.local, prepared.candidateSha)) {
+        const finalHeads = await this.fetchHeads();
+        const markerStillExact = finalHeads.local === heads.local
+          && finalHeads.github === heads.github
+          && await this.isExactPublishedMarker(finalHeads.local, prepared.candidateSha);
+        if (markerStillExact && await this.isTrackedTreeClean()) {
+          await this.writePreservedReadyStatus(
+            actor,
+            finalHeads,
+            prepared,
+            'Validated candidate remains ready under an exact Replit publication marker.',
+          );
+          return {
+            ok: true,
+            state: 'ready_to_promote',
+            ...finalHeads,
+            candidateSha: prepared.candidateSha,
+            validation: prepared.validation,
+          };
+        }
+      }
+      await this.writeStatus('synced', '', actor, heads.local, heads.github);
+      return { ok: true, state: 'synced', ...heads };
     }
 
     if (await this.isAncestor(heads.github, heads.local)) {
@@ -794,6 +831,74 @@ export class SourceControlService {
       publicationReference,
     });
     return { ok: true, state: 'synced', ...heads, candidateSha: sha };
+  }
+
+  private validPreparedCandidate(
+    status: SourceControlStatus | null,
+  ): PreparedCandidateEvidence | undefined {
+    const candidateSha = status?.candidateSha;
+    const candidatePreparedAt = status?.candidatePreparedAt;
+    const candidateExpiresAt = status?.candidateExpiresAt;
+    const preparedAt = Date.parse(candidatePreparedAt || '');
+    const expiresAt = Date.parse(candidateExpiresAt || '');
+    if (!candidateSha
+      || !candidatePreparedAt
+      || !candidateExpiresAt
+      || !SHA_PATTERN.test(candidateSha)
+      || !Number.isFinite(preparedAt)
+      || !Number.isFinite(expiresAt)
+      || preparedAt > this.now().getTime()
+      || expiresAt <= this.now().getTime()
+      || expiresAt <= preparedAt
+      || !hasValidSourceControlManifest(status?.validation, candidateSha)) {
+      return undefined;
+    }
+    return {
+      candidateSha,
+      candidatePreparedAt,
+      candidateExpiresAt,
+      validation: status!.validation!,
+    };
+  }
+
+  private async isExactPublishedMarker(markerSha: string, candidateSha: string): Promise<boolean> {
+    try {
+      const localMarker = await this.resolveLocalPublicationMarker(markerSha);
+      if (localMarker.sha !== markerSha
+        || localMarker.parentSha !== candidateSha
+        || localMarker.subject !== 'Published your App') return false;
+      const [candidateProof, markerProof] = await Promise.all([
+        this.resolveRemoteCommit(candidateSha),
+        this.resolveRemoteCommit(markerSha),
+      ]);
+      assertAuthenticatedRemoteCommitProof(candidateSha, candidateProof);
+      assertAuthenticatedRemoteCommitProof(markerSha, markerProof, candidateProof.treeSha);
+      return localMarker.treeSha === candidateProof.treeSha
+        && markerProof.parentSha === candidateSha;
+    } catch {
+      return false;
+    }
+  }
+
+  private async writePreservedReadyStatus(
+    actor: string,
+    heads: { local: string; github: string },
+    prepared: PreparedCandidateEvidence,
+    message: string,
+  ): Promise<void> {
+    await this.writeStatus(
+      'ready_to_promote',
+      message,
+      actor,
+      heads.local,
+      heads.github,
+      prepared.candidateSha,
+      prepared.validation,
+      {
+        candidatePreparedAt: prepared.candidatePreparedAt,
+        candidateExpiresAt: prepared.candidateExpiresAt,
+      },
+    );
   }
 
   private async writeImmutablePromotionReceipt(path: string, contents: string): Promise<void> {

@@ -311,9 +311,156 @@ async function recordPublicationMarkerFixture(overrides: {
   }
 }
 
+async function syncPublicationMarkerFixture(overrides: {
+  priorState?: 'ready_to_promote' | 'synced' | 'failed';
+  candidatePreparedAt?: string;
+  candidateExpiresAt?: string;
+  validation?: Record<string, unknown>;
+  markerParent?: string;
+  markerTree?: string;
+  markerSubject?: string;
+  remoteCandidateTree?: string;
+  remoteMarkerTree?: string;
+  remoteMarkerParent?: string;
+  finalLocalHead?: string;
+  finalRemoteHead?: string;
+  finalDirty?: boolean;
+} = {}): Promise<{
+  result: Awaited<ReturnType<SourceControlService['sync']>>;
+  status: any;
+}> {
+  const rootDir = mkdtempSync(join(tmpdir(), 'source-control-marker-sync-test-'));
+  const statusPath = join(rootDir, 'status.json');
+  const preparedAt = overrides.candidatePreparedAt ?? '2026-09-15T20:00:00.000Z';
+  const expiresAt = overrides.candidateExpiresAt ?? '2026-09-15T22:00:00.000Z';
+  let fetchCount = 0;
+  let statusCount = 0;
+  writeFileSync(statusPath, `${JSON.stringify({
+    schemaVersion: 3,
+    state: overrides.priorState ?? 'synced',
+    origin: 'fixture',
+    replitSha: LOCAL_NEW,
+    githubSha: LOCAL_NEW,
+    candidateSha: LOCAL_NEW,
+    candidatePreparedAt: preparedAt,
+    candidateExpiresAt: expiresAt,
+    validation: overrides.validation ?? manifest(LOCAL_NEW),
+    consecutiveFailures: overrides.priorState === 'failed' ? 1 : 0,
+    lastHeartbeatAt: '2026-09-15T20:00:00.000Z',
+    updatedAt: '2026-09-15T20:00:00.000Z',
+  })}\n`);
+  try {
+    const service = new SourceControlService({
+      rootDir,
+      env: {
+        NODE_ENV: 'development',
+        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
+        SOURCE_BRIDGE_STATUS_FILE: statusPath,
+        SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+        SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+        SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+      },
+      now: () => new Date('2026-09-15T21:00:00.000Z'),
+      uuid: (() => {
+        let value = 0;
+        return () => `sync-marker-fixture-${++value}`;
+      })(),
+      resolveRemoteCommit: async (sha) => sha === LOCAL_NEW
+        ? {
+            sha,
+            treeSha: overrides.remoteCandidateTree ?? CANDIDATE_TREE,
+            parentSha: LOCAL_OLD,
+          }
+        : {
+            sha,
+            treeSha: overrides.remoteMarkerTree ?? CANDIDATE_TREE,
+            parentSha: overrides.remoteMarkerParent ?? LOCAL_NEW,
+          },
+      runCommand: async (command, args) => {
+        assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
+        const operation = args[0];
+        if (operation === 'branch') return { exitCode: 0, stdout: 'main\n', stderr: '' };
+        if (operation === 'status') {
+          statusCount += 1;
+          return {
+            exitCode: 0,
+            stdout: overrides.finalDirty && statusCount > 1 ? ' M changed-after-marker-proof\n' : '',
+            stderr: '',
+          };
+        }
+        if (operation === 'fetch') {
+          fetchCount += 1;
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (operation === 'rev-parse' && args.includes('--is-shallow-repository')) {
+          return { exitCode: 0, stdout: 'false\n', stderr: '' };
+        }
+        if (operation === 'rev-parse') {
+          const finalRead = fetchCount > 1;
+          const value = args.some((arg) => arg.includes('FETCH_HEAD'))
+            ? finalRead ? overrides.finalRemoteHead ?? PUBLICATION_MARKER : PUBLICATION_MARKER
+            : finalRead ? overrides.finalLocalHead ?? PUBLICATION_MARKER : PUBLICATION_MARKER;
+          return { exitCode: 0, stdout: `${value}\n`, stderr: '' };
+        }
+        if (operation === 'merge-base') {
+          return { exitCode: 0, stdout: `${PUBLICATION_MARKER}\n`, stderr: '' };
+        }
+        if (operation === 'show') {
+          return {
+            exitCode: 0,
+            stdout: `${PUBLICATION_MARKER}\n${overrides.markerTree ?? CANDIDATE_TREE}\n${
+              overrides.markerParent ?? LOCAL_NEW
+            }\n${overrides.markerSubject ?? 'Published your App'}\n`,
+            stderr: '',
+          };
+        }
+        return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
+      },
+    });
+    const result = await service.sync('fixture');
+    const status = JSON.parse(readFileSync(statusPath, 'utf8'));
+    return { result, status };
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   const equal = await withFixture('equal');
   assert.equal(equal.result.state, 'synced');
+
+  for (const priorState of ['synced', 'failed'] as const) {
+    const markerStatusRecovery = await syncPublicationMarkerFixture({ priorState });
+    assert.equal(markerStatusRecovery.result.state, 'ready_to_promote');
+    assert.equal(markerStatusRecovery.result.candidateSha, LOCAL_NEW);
+    assert.equal(markerStatusRecovery.status.state, 'ready_to_promote');
+    assert.equal(markerStatusRecovery.status.candidateSha, LOCAL_NEW);
+    assert.equal(markerStatusRecovery.status.replitSha, PUBLICATION_MARKER);
+    assert.equal(markerStatusRecovery.status.githubSha, PUBLICATION_MARKER);
+    assert.equal(markerStatusRecovery.status.candidatePreparedAt, '2026-09-15T20:00:00.000Z');
+    assert.equal(markerStatusRecovery.status.candidateExpiresAt, '2026-09-15T22:00:00.000Z');
+    assert.deepEqual(markerStatusRecovery.status.validation, manifest(LOCAL_NEW));
+  }
+
+  for (const invalidMarkerRecovery of [
+    { markerParent: LOCAL_OLD },
+    { markerTree: '6'.repeat(40) },
+    { markerSubject: 'Published another App' },
+    { remoteCandidateTree: '6'.repeat(40) },
+    { remoteMarkerTree: '6'.repeat(40) },
+    { remoteMarkerParent: LOCAL_OLD },
+    { candidateExpiresAt: '2026-09-15T21:00:00.000Z' },
+    { candidatePreparedAt: '2026-09-15T21:30:00.000Z' },
+    { validation: { ...manifest(LOCAL_NEW), validationId: '0'.repeat(64) } },
+    { finalLocalHead: '7'.repeat(40) },
+    { finalRemoteHead: '7'.repeat(40) },
+    { finalDirty: true },
+  ]) {
+    const rejected = await syncPublicationMarkerFixture(invalidMarkerRecovery);
+    assert.equal(rejected.result.state, 'synced');
+    assert.equal(rejected.status.state, 'synced');
+    assert.notEqual(rejected.status.candidateSha, PUBLICATION_MARKER);
+  }
 
   const localAhead = await withFixture('local-ahead');
   assert.equal(localAhead.result.state, 'synced');

@@ -9353,3 +9353,30 @@ The authority sequence remains unchanged. Runtime release publication and
 direct Neon verification must succeed before first Windows initialization at
 `C:\Users\David\HolaHola-CoordinatorV2`; that initialization must be verified
 before permitting one explicit `Invoke-HolaCoordinator`.
+
+## September 15, 2026 — publication-marker readiness recovery
+
+The clean runtime correction candidate passed all eight protected checks, but
+Replit Publish created a same-tree `Published your App` child. Scheduler sync
+then changed the mutable source status from `ready_to_promote` to `synced`.
+The first record attempt correctly wrote no promotion, but changed the status
+label to `failed`. The retained candidate, complete validation manifest,
+original preparation time, and original unexpired expiry remained intact.
+
+Source synchronization now recovers marker-backed readiness only from those
+exact retained fields. It requires a valid unexpired manifest for the parent,
+an exact local single-parent marker with the required subject and matching
+tree, authenticated GitHub proofs for both parent and marker, and a final repeat
+of head, marker, and tracked-tree checks. It preserves the original timestamps
+and candidate. The marker remains publication evidence only and is never
+validated or promoted as source. The existing recorder still owns composite
+publication-reference validation, immutable receipt creation, final checks,
+and the atomic source-promotion append.
+
+The focused tests include both scheduler and safe-refusal status labels,
+timestamp non-extension, malformed and mismatched local/remote evidence,
+expiry, future timestamps, final head drift, and final tracked-tree drift. The
+complete source-bridge suite and typecheck pass. Both Alden engines returned
+unconditional `APPROVED — Ship it.` This fix grants no runtime, host, task,
+session, lease, or execution authority. Prepare and explicitly Publish the new
+implementation commit before retrying source-promotion recording.

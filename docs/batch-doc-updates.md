@@ -6797,3 +6797,27 @@ prove one JSON parameter with exact database field names, exact call count,
 wrong-row-count failure, and diagnostic confidentiality. Alden's Anthropic and
 Gemini engines each returned unconditional `APPROVED — Ship it.` No runtime
 release or later host, task, session, lease, or execution authority exists.
+
+## Marker-aware source-promotion recovery — September 15, 2026
+
+Replit Publish creates a same-tree child commit named `Published your App`.
+After a protected preparation, the scheduler moved both source heads to that
+marker and replaced the mutable `ready_to_promote` label. A safe record refusal
+then changed the label to `failed`; both transitions retained the exact
+candidate, validation manifest, preparation time, and expiry but made the
+recorder unable to reach them.
+
+Equal-head synchronization now restores readiness only when the retained
+candidate has an exact valid and unexpired manifest, the local marker is its
+single same-tree child with the exact Publish subject, and authenticated GitHub
+proofs match both candidate and marker. It repeats head, marker, and tracked-tree
+checks before writing status. Recovery preserves the original preparation time
+and expiry and keeps the parent as candidate; it does not validate or promote
+the marker, extend authority, append a promotion, or alter the recorder.
+
+Focused adversarial tests cover recovery from both `synced` and `failed`
+labels; exact timestamp preservation; wrong local or remote parent/tree/subject;
+expired, future-dated, or malformed evidence; final head changes; and final
+tracked-tree changes. The complete source-bridge suite and typecheck pass.
+Anthropic-Alden and Gemini-Alden each returned unconditional
+`APPROVED — Ship it.`
