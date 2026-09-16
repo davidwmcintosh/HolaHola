@@ -242,3 +242,17 @@ mtime_ms = 1789544380285
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/99614923-6098-4677-bf30-a349ed67bc52/059ad152-f6b7-42f9-83bc-695bacf62817"
 storage_version_token = "1789544488865832"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "fi78aki1uJ0qGGR_GWD1w"
+uri = "file://attached_assets/publish-coordinator-v2-runtime-4b536b99.txt"
+type = "text"
+title = "Authorized Coordinator V2 runtime publication"
+description = "One founder-console POST for the independently verified source promotion. Running the command consumes the single authorization; do not retry."
+logical_id = "13547844-6022-4c26-b0fd-83d9c75dfa95"
+content_hash = "sha256:da1c5b08a25b83a73f5ece748b4ae3fd9ec9d8fbf75c7247f8b0fe451eb2c815"
+size = 24413
+mtime_ms = 1789569125951
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/13547844-6022-4c26-b0fd-83d9c75dfa95/d459aa3f-8d6e-4c62-92f2-249ab7579d58"
+storage_version_token = "1789569137247161"
+content_type = "text/plain"
