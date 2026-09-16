@@ -143,7 +143,22 @@ coordination-v2/runtime/<sha256>/<fixed-artifact-name>
 ```
 
 The database stores the exact object key, length, digest, role, and fixed
-destination. The server streams bytes through a host-authenticated route:
+destination.
+
+The artifact table is a manifest from a release's fixed destination to an
+immutable content object. Multiple fixed destinations may reference the same
+object key when their bytes, digest, length, media type, and verification
+requirements are identical. This is the intended many-destinations-to-one-object
+cardinality of content-addressed storage: bytes are uploaded once and each
+destination remains an independently authorized manifest entry.
+
+Uniqueness belongs to `(runtime_release_id, fixed_destination)`, not
+`(runtime_release_id, object_key)`. Reusing one object key does not weaken
+integrity because the service requires the digest embedded in the key to equal
+the recorded object digest, verifies the object before publication, and
+reinspects its length and SHA-256 before every authenticated download.
+
+The server streams bytes through a host-authenticated route:
 
 ```text
 GET /api/coordination/v2/host/runtime-bootstrap/issues/:issueId/artifacts/:artifactId
@@ -282,14 +297,42 @@ CREATE TABLE "coordination_v2_runtime_release_artifacts" (
 CREATE UNIQUE INDEX "uq_coordination_v2_runtime_artifact_destination"
   ON "coordination_v2_runtime_release_artifacts"
   ("runtime_release_id", "fixed_destination");
-CREATE UNIQUE INDEX "uq_coordination_v2_runtime_artifact_object"
-  ON "coordination_v2_runtime_release_artifacts"
-  ("runtime_release_id", "object_key");
 
 The two artifact roles are intentionally closed for protocol version 1. A new
 role requires a protocol-version change, schema constraint change, destination
 allowlist change, and new verification coverage; it is not data-driven
 extensibility.
+
+### Content-addressed artifact cardinality correction
+
+The initial migration created
+`uq_coordination_v2_runtime_artifact_object` on
+`(runtime_release_id, object_key)`. The first fully verified publication
+attempt exposed that this constraint contradicts the storage contract above:
+the real tsx closure contains distinct fixed destinations with byte-identical
+content, so a truthful upload-once manifest must allow those rows to reference
+one immutable object.
+
+A follow-up migration must drop only
+`uq_coordination_v2_runtime_artifact_object`. It must retain:
+
+- `uq_coordination_v2_runtime_artifact_destination`;
+- every role, digest, length, and object-key check;
+- release and source-promotion foreign keys;
+- append-only update/delete rejection triggers;
+- publication-time object length and SHA-256 verification; and
+- authenticated-download object length and SHA-256 reinspection.
+
+No artifact rows are rewritten and no object-store aliases are created. The
+correction changes only the invalid uniqueness cardinality. Migration
+acceptance requires all of the following:
+
+1. two different fixed destinations in one release can reference the same
+   verified object key;
+2. two rows in one release cannot use the same fixed destination;
+3. key/digest disagreement is rejected before any database append;
+4. artifact updates and deletes remain rejected; and
+5. a failed publication append remains fully rolled back.
 
 CREATE TABLE "coordination_v2_runtime_bootstrap_issues" (
   "id" varchar PRIMARY KEY DEFAULT gen_random_uuid(),
