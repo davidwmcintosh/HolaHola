@@ -214,3 +214,17 @@ mtime_ms = 1789535092573
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/22ac878c-b83d-4b6c-b846-ef2c1cfef999/fb20f184-88c6-44d4-9624-9fe24fdc3dba"
 storage_version_token = "1789535104984874"
 content_type = "text/plain"
+
+[[outputs]]
+id = "xOpJR7kcDtBudH7qrHLY4"
+uri = "file://attached_assets/publish-coordinator-v2-runtime-896222a.txt"
+type = "text"
+title = "Coordinator V2 runtime publication — source 896222a"
+description = "Founder-authenticated one-shot publication command with verified current source-promotion ID a1d7c139. No Windows, host, task, lease, or execution authority."
+logical_id = "c5e03922-5efb-4517-aa15-f13c1e689d55"
+content_hash = "sha256:936bb96c0b05a971d14b9dfd0fbddbb37b8c68014160b41e1c7cf009eec854a1"
+size = 24413
+mtime_ms = 1789542356436
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/c5e03922-5efb-4517-aa15-f13c1e689d55/da57c68d-df67-42da-9b06-d3b2c45d30c9"
+storage_version_token = "1789542357393201"
+content_type = "text/plain"
