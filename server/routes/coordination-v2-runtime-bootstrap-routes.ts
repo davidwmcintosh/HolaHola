@@ -6,6 +6,7 @@ import { requireCoordinationV2HostIdentityAuth, type CoordinationV2HostAuthentic
 import {
   acknowledgeCoordinationV2RuntimeBootstrap,
   CoordinationV2RuntimeError,
+  describeCoordinationV2RuntimePublicationFailure,
   getCoordinationV2RuntimeStatus,
   issueCoordinationV2RuntimeBootstrapManifest,
   publishCoordinationV2RuntimeRelease,
@@ -83,6 +84,7 @@ export function registerCoordinationV2RuntimeBootstrapRoutes(
   const revoke = dependencies.revoke ?? revokeCoordinationV2RuntimeRelease;
 
   app.post('/api/internal/coordination/v2/runtime-releases', ...founderMiddleware, async (req, res) => {
+    const startedAt = Date.now();
     try {
       const value = body(req);
       if (!onlyKeys(value, [
@@ -97,7 +99,16 @@ export function registerCoordinationV2RuntimeBootstrapRoutes(
           : [],
       });
       res.status(result.created ? 201 : 200).json(result);
-    } catch (error) { replyError(res, error); }
+    } catch (error) {
+      console.error(
+        '[CoordinationV2Runtime] Runtime release publication failed',
+        JSON.stringify(describeCoordinationV2RuntimePublicationFailure(
+          error,
+          Date.now() - startedAt,
+        )),
+      );
+      replyError(res, error);
+    }
   });
 
   app.post('/api/coordination/v2/host/runtime-bootstrap/issues', hostAuthMiddleware, async (req, res) => {

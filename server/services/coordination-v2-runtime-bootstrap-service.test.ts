@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import {
   RUNTIME_ARTIFACT_MAX_BYTES,
   RUNTIME_RELEASE_MAX_TOTAL_BYTES,
@@ -14,6 +15,7 @@ import {
   validateCoordinationV2RuntimeSourceMembers,
   verifyCoordinationV2RuntimeSri,
   deriveCoordinationV2RuntimeProvenance,
+  describeCoordinationV2RuntimePublicationFailure,
   computeCoordinationV2RuntimeManifestTemplateDigest,
   RUNTIME_NODE_KEYRING_URL,
   classifyRuntimeSourceSnapshotFailure,
@@ -95,16 +97,21 @@ function publicationInput() {
 function publicationDatabase(events: string[], options: {
   transactionSource?: Record<string, unknown>;
   transactionCurrent?: Record<string, unknown>;
+  queries?: unknown[];
 } = {}): NonNullable<RuntimeReleasePublicationDependencies['database']> {
   let outsideReads = 0;
   const transactionSource = options.transactionSource ?? publicationSource;
   const transactionCurrent = options.transactionCurrent ?? transactionSource;
   const transactionDb = {
-    execute: async () => {
+    execute: async (query: unknown) => {
+      options.queries?.push(query);
       const call = events.filter((event) => event.startsWith('transaction-sql-')).length + 1;
       events.push(`transaction-sql-${call}`);
       if (call === 1) return [transactionSource];
       if (call === 2) return [transactionCurrent];
+      if (call === 5) return publicationInput().artifacts.map((_, index) => ({
+        id: `runtime-artifact-fixture-${index + 1}`,
+      }));
       return [];
     },
   };
@@ -212,8 +219,9 @@ test('publication replay validates complete digests before persisted-release loo
 
 test('runtime publication completes external verification before opening its append transaction', async () => {
   const events: string[] = [];
+  const queries: unknown[] = [];
   const result = await publishCoordinationV2RuntimeRelease(publicationInput(), {
-    database: publicationDatabase(events),
+    database: publicationDatabase(events, { queries }),
     deriveProvenance: async () => {
       events.push('derive-provenance');
       return publicationProvenance;
@@ -237,6 +245,71 @@ test('runtime publication completes external verification before opening its app
     'outside-sql-2',
     'derive-provenance',
   ]);
+  assert.equal(
+    events.filter((event) => event.startsWith('transaction-sql-')).length,
+    5,
+    'publication must use source/current/replay reads plus one release and one artifact insert',
+  );
+  assert.match(serviceSource, /FROM jsonb_to_recordset\(\$\{JSON\.stringify\(artifactRows\)\}::jsonb\)/);
+  assert.doesNotMatch(serviceSource, /for \(const artifact of artifacts\) \{\s*await transactionDb\.execute/);
+  const artifactInsert = new PgDialect().sqlToQuery(queries[4] as Parameters<PgDialect['sqlToQuery']>[0]);
+  assert.equal(artifactInsert.params.length, 1, 'the complete artifact set must be one SQL parameter');
+  const parameterRows = JSON.parse(String(artifactInsert.params[0])) as Array<Record<string, unknown>>;
+  assert.deepEqual(parameterRows.map((row) => Object.keys(row).sort()), publicationInput().artifacts.map(() => [
+    'byte_length',
+    'fixed_destination',
+    'id',
+    'media_type',
+    'object_digest',
+    'object_key',
+    'requires_authenticode',
+    'role',
+    'runtime_release_id',
+  ]));
+  assert.deepEqual(parameterRows.map((row) => row.fixed_destination), publicationInput().artifacts
+    .map((artifact) => artifact.fixedDestination));
+});
+
+test('runtime publication fails closed when the set-based artifact insert returns the wrong row count', async () => {
+  const events: string[] = [];
+  const base = publicationDatabase(events);
+  await assert.rejects(() => publishCoordinationV2RuntimeRelease(publicationInput(), {
+    database: {
+      ...base,
+      transaction: async (callback) => base.transaction(async (transaction) => callback({
+        ...transaction,
+        execute: async (query) => {
+          const result = await transaction.execute(query);
+          return events.at(-1) === 'transaction-sql-5' ? [] : result;
+        },
+      } as typeof transaction)),
+    } as NonNullable<RuntimeReleasePublicationDependencies['database']>,
+    deriveProvenance: async () => publicationProvenance,
+    inspectArtifact: async () => ({ file: {} as never, length: 1, digest }),
+  }), /V2_RUNTIME_DATABASE_UNAVAILABLE/);
+});
+
+test('runtime publication diagnostics are bounded and retain phase without leaking arbitrary fields', async () => {
+  const hidden = { requestBody: 'must-not-log' };
+  const cause = Object.assign(new Error('inner'.repeat(200)), {
+    code: 'XX001',
+    constraint: 'constraint'.repeat(100),
+    hidden,
+  });
+  const failure = Object.assign(new Error('outer'), { cause });
+  await assert.rejects(() => publishCoordinationV2RuntimeRelease(publicationInput(), {
+    database: publicationDatabase([]),
+    deriveProvenance: async () => { throw failure; },
+  }), /outer/);
+  const described = describeCoordinationV2RuntimePublicationFailure(failure, 12.6);
+  assert.equal(described.phase, 'provenance_verification');
+  assert.equal(described.elapsedMs, 13);
+  assert.equal(described.causes.length, 2);
+  assert.equal(described.causes[0].message, 'unclassified_error');
+  assert.equal(described.causes[1].message, 'unclassified_error');
+  assert.equal(described.causes[1].constraint?.length, 256);
+  assert.equal(JSON.stringify(described).includes('must-not-log'), false);
+  assert.equal(JSON.stringify(described).includes('inner'), false);
 });
 
 test('runtime publication opens no transaction when provenance or object verification fails', async () => {

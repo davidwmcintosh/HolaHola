@@ -6762,3 +6762,38 @@ uniqueness recovery. Runtime service, HTTP boundary, Windows static, typecheck,
 and project checks pass. Alden's Anthropic and Gemini reviewers each returned
 unconditional approval. The change creates no host, task, session, lease, or
 execution authority.
+
+## Coordinator V2 batched runtime artifact append — September 15, 2026
+
+The founder retried the corrected two-phase runtime publisher against immutable
+source promotion `d92b851b-7a9e-4bcd-887f-5a35b9334c24`. Production again
+failed closed with `V2_RUNTIME_DATABASE_UNAVAILABLE`, this time after 33.704
+seconds. A direct shared-Neon read again proved zero release rows and zero
+artifact rows.
+
+No-write diagnostics using the real current source, authenticated provenance,
+and all 61 object checks reached the transaction boundary in 15.817 seconds.
+A second no-write run completed Phase 1 plus the transaction's
+source/current/replay reads in 13.183 seconds and stopped immediately before
+the first insert. The remaining production path performed one release insert
+and then 61 sequential artifact insert round trips.
+
+The approved correction keeps the two-phase boundary and every transaction
+recheck. It replaces the 61 artifact statements with one parameterized
+`jsonb_to_recordset` insert inside the same transaction. The server constructs
+the exact normalized snake-case rows, PostgreSQL inserts them as one set, and
+`RETURNING id` must return the exact expected count or the transaction fails and
+rolls back the release row. Exact named-constraint uniqueness recovery is
+unchanged.
+
+Unknown publication failures now carry a phase and elapsed time. Production
+logs expose only bounded error names, SQLSTATE codes, constraint names, and
+closed message categories. Raw Drizzle messages are excluded because they may
+contain SQL and parameter values. Client error codes are unchanged.
+
+Focused service/HTTP tests pass 26/26, Windows/runtime checks pass 24/24, and
+typecheck passes. The tests compile the real Drizzle artifact statement and
+prove one JSON parameter with exact database field names, exact call count,
+wrong-row-count failure, and diagnostic confidentiality. Alden's Anthropic and
+Gemini engines each returned unconditional `APPROVED — Ship it.` No runtime
+release or later host, task, session, lease, or execution authority exists.

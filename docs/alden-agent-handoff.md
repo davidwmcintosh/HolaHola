@@ -9310,3 +9310,46 @@ uniqueness recovery. Service, HTTP, Windows static, typecheck, and project check
 pass. Alden-Anthropic returned `APPROVED — Ship it.` and Alden-Gemini returned
 `APPROVED`. No runtime release has yet been created from this corrected path,
 and no host, task, session, lease, or execution authority has been granted.
+
+## September 15, 2026 — batched runtime artifact append
+
+David retried the two-phase founder command against current source promotion
+`d92b851b-7a9e-4bcd-887f-5a35b9334c24`. It returned
+`V2_RUNTIME_DATABASE_UNAVAILABLE` after 33.704 seconds. Direct shared-Neon
+postconditions again showed zero runtime releases and zero runtime artifacts
+for that source.
+
+Two no-write runs isolated the remaining delay. Full current-source,
+provenance, and 61-object verification reached the transaction boundary in
+15.817 seconds. The same work plus transaction source/current/replay reads
+reached the pre-insert boundary in 13.183 seconds. The only remaining
+production-scale operation was the release insert followed by 61 sequential
+artifact insert round trips.
+
+The approved implementation preserves all two-phase and transaction authority
+checks. It now inserts the exact normalized artifact set through one
+parameterized `jsonb_to_recordset` statement and requires `RETURNING id` to
+produce the exact expected count. Any SQL or count failure rolls back the
+release insert. Named release-digest conflict recovery still requires exact
+SQLSTATE, exact constraint, a new transaction, current-source revalidation,
+and complete persisted equivalence.
+
+Publication errors are annotated with their phase. Logs retain only elapsed
+time, bounded error names, SQLSTATE codes, constraint names, and closed message
+categories; raw error messages are not emitted because Drizzle can embed SQL
+parameters. Client-facing stable codes do not change.
+
+Verification currently complete: focused service/HTTP 26/26, Windows/runtime
+24/24, typecheck, diff check, system health, and unconditional dual-engine
+Alden approval. The registered full validation workflow completed every later
+group successfully; its sole failed aggregate remains the documented,
+unchanged Coordinator V2 baseline: one stale source-text assertion expects the
+old `work_poll` envelope shape, and the PostgreSQL authority test refuses to
+run without `COORDINATOR_V2_TEST_DATABASE_DISPOSABLE=1`. Neither failing file
+is modified by this patch. Do not publish or retry the founder command until
+the exact implementation commit passes the protected source-promotion gate.
+
+The authority sequence remains unchanged. Runtime release publication and
+direct Neon verification must succeed before first Windows initialization at
+`C:\Users\David\HolaHola-CoordinatorV2`; that initialization must be verified
+before permitting one explicit `Invoke-HolaCoordinator`.

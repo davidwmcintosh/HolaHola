@@ -77,8 +77,8 @@ const ESBUILD_WIN32_X64_PREFIX =
   'node_modules/tsx/node_modules/@esbuild/win32-x64/';
 
 // Keep the service explicitly coupled to the reviewed runtime evidence schema.
-// Queries remain SQL so the publication transaction can verify object bytes
-// before inserting its immutable rows.
+// Queries remain SQL so the short publication transaction can atomically append
+// the immutable rows after external source, provenance, and object verification.
 const RUNTIME_EVIDENCE_TABLES = [
   coordinationV2RuntimeReleases,
   coordinationV2RuntimeReleaseArtifacts,
@@ -112,6 +112,94 @@ export type RuntimeReleasePublicationDependencies = {
   inspectArtifact?: typeof inspectObject;
   uuid?: () => string;
 };
+
+type RuntimePublicationPhase =
+  | 'request_validation'
+  | 'source_precheck'
+  | 'provenance_verification'
+  | 'object_verification'
+  | 'append_transaction'
+  | 'uniqueness_recovery';
+
+const RUNTIME_PUBLICATION_PHASE = Symbol('coordinationV2RuntimePublicationPhase');
+
+function annotateRuntimePublicationFailure(error: unknown, phase: RuntimePublicationPhase): void {
+  if (!error || (typeof error !== 'object' && typeof error !== 'function')) return;
+  try {
+    Object.defineProperty(error, RUNTIME_PUBLICATION_PHASE, {
+      value: phase,
+      configurable: true,
+    });
+  } catch {
+    // Logging metadata must never replace or mask the original failure.
+  }
+}
+
+function runtimePublicationMessageCategory(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (/^V2_RUNTIME_[A-Z0-9_]+$/.test(value)) return value;
+  const normalized = value.toLowerCase();
+  if (normalized.includes('failed query')) return 'database_query_failed';
+  if (normalized.includes('timeout')) return 'database_timeout';
+  if (normalized.includes('connection') && normalized.includes('terminated')) {
+    return 'database_connection_terminated';
+  }
+  if (normalized.includes('connection') && normalized.includes('closed')) {
+    return 'database_connection_closed';
+  }
+  if (normalized.includes('socket') || normalized.includes('websocket')) {
+    return 'database_transport_failure';
+  }
+  return 'unclassified_error';
+}
+
+export function describeCoordinationV2RuntimePublicationFailure(
+  error: unknown,
+  elapsedMs: number,
+): {
+  phase: RuntimePublicationPhase | 'unknown';
+  elapsedMs: number;
+  causes: Array<{
+    name?: string;
+    code?: string;
+    constraint?: string;
+    message?: string;
+  }>;
+} {
+  const causes: Array<{
+    name?: string;
+    code?: string;
+    constraint?: string;
+    message?: string;
+  }> = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth += 1) {
+    const value = current as {
+      name?: unknown;
+      code?: unknown;
+      constraint?: unknown;
+      message?: unknown;
+      cause?: unknown;
+    };
+    causes.push({
+      ...(typeof value.name === 'string' ? { name: value.name.slice(0, 128) } : {}),
+      ...(typeof value.code === 'string' ? { code: value.code.slice(0, 128) } : {}),
+      ...(typeof value.constraint === 'string'
+        ? { constraint: value.constraint.slice(0, 256) } : {}),
+      ...(runtimePublicationMessageCategory(value.message)
+        ? { message: runtimePublicationMessageCategory(value.message) } : {}),
+    });
+    current = value.cause;
+  }
+  const phase = error && (typeof error === 'object' || typeof error === 'function')
+    ? (error as { [RUNTIME_PUBLICATION_PHASE]?: RuntimePublicationPhase })[RUNTIME_PUBLICATION_PHASE]
+    : undefined;
+  return {
+    phase: phase ?? 'unknown',
+    elapsedMs: Number.isFinite(elapsedMs) && elapsedMs >= 0 ? Math.round(elapsedMs) : 0,
+    causes,
+  };
+}
 
 export type RuntimeProvenanceDependencies = {
   boundedFetch?: (url: string, maxBytes: number) => Promise<Buffer>;
@@ -986,50 +1074,56 @@ export async function publishCoordinationV2RuntimeRelease(
   input: RuntimeReleaseInput,
   dependencies: RuntimeReleasePublicationDependencies = {},
 ) {
-  const sourcePromotionId = text(input.sourcePromotionId, 128);
-  if (!Array.isArray(input.sourceMembers)) {
-    fail('V2_RUNTIME_INVALID_REQUEST');
-  }
-  const artifacts = normalizeArtifacts(input.artifacts);
-  const sourceMembers = validateCoordinationV2RuntimeSourceMembers(input.sourceMembers);
-  const now = input.now ?? new Date();
-  const database = dependencies.database ?? db;
-  const deriveProvenance = dependencies.deriveProvenance
-    ?? deriveCoordinationV2RuntimeProvenance;
-  const inspectArtifact = dependencies.inspectArtifact ?? inspectObject;
-  const uuid = dependencies.uuid ?? randomUUID;
-  const verifiedSource = rowOf(await database.execute(sql`
+  let phase: RuntimePublicationPhase = 'request_validation';
+  try {
+    const sourcePromotionId = text(input.sourcePromotionId, 128);
+    if (!Array.isArray(input.sourceMembers)) {
+      fail('V2_RUNTIME_INVALID_REQUEST');
+    }
+    const artifacts = normalizeArtifacts(input.artifacts);
+    const sourceMembers = validateCoordinationV2RuntimeSourceMembers(input.sourceMembers);
+    const now = input.now ?? new Date();
+    const database = dependencies.database ?? db;
+    const deriveProvenance = dependencies.deriveProvenance
+      ?? deriveCoordinationV2RuntimeProvenance;
+    const inspectArtifact = dependencies.inspectArtifact ?? inspectObject;
+    const uuid = dependencies.uuid ?? randomUUID;
+    phase = 'source_precheck';
+    const verifiedSource = rowOf(await database.execute(sql`
     SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
       publication_reference, protected_validation_id, canonical_record_digest
     FROM coordination_v2_source_promotions WHERE id = ${sourcePromotionId}
       AND state = 'published' LIMIT 1
-  `));
-  const verifiedCurrent = await currentSource(database);
-  if (!verifiedSource || !sourceMatches(verifiedCurrent, verifiedSource)) {
-    fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
-  }
-  if (!SHA40.test(String(verifiedSource.promoted_commit_sha))
-    || !SHA40.test(String(verifiedSource.exact_tree_sha))
-    || !HEX64.test(String(verifiedSource.canonical_record_digest))) {
-    fail('V2_RUNTIME_SOURCE_INVALID');
-  }
-  const provenance = await deriveProvenance({
-    repositoryIdentity: String(verifiedSource.repository_identity),
-    promotedCommitSha: String(verifiedSource.promoted_commit_sha),
-    exactTreeSha: String(verifiedSource.exact_tree_sha),
-    sourceMembers,
-    artifacts,
-  });
-  for (const artifact of artifacts) {
-    const checked = await inspectArtifact(artifact.objectKey);
-    if (checked.length !== artifact.byteLength || checked.digest !== artifact.objectDigest) {
-      fail('V2_RUNTIME_OBJECT_DIGEST_MISMATCH');
+    `));
+    const verifiedCurrent = await currentSource(database);
+    if (!verifiedSource || !sourceMatches(verifiedCurrent, verifiedSource)) {
+      fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
     }
-  }
+    if (!SHA40.test(String(verifiedSource.promoted_commit_sha))
+      || !SHA40.test(String(verifiedSource.exact_tree_sha))
+      || !HEX64.test(String(verifiedSource.canonical_record_digest))) {
+      fail('V2_RUNTIME_SOURCE_INVALID');
+    }
+    phase = 'provenance_verification';
+    const provenance = await deriveProvenance({
+      repositoryIdentity: String(verifiedSource.repository_identity),
+      promotedCommitSha: String(verifiedSource.promoted_commit_sha),
+      exactTreeSha: String(verifiedSource.exact_tree_sha),
+      sourceMembers,
+      artifacts,
+    });
+    phase = 'object_verification';
+    for (const artifact of artifacts) {
+      const checked = await inspectArtifact(artifact.objectKey);
+      if (checked.length !== artifact.byteLength || checked.digest !== artifact.objectDigest) {
+        fail('V2_RUNTIME_OBJECT_DIGEST_MISMATCH');
+      }
+    }
 
-  let releaseDigest: string | undefined;
-  try {
-    return await database.transaction(async (tx) => {
+    let releaseDigest: string | undefined;
+    try {
+      phase = 'append_transaction';
+      return await database.transaction(async (tx) => {
       const transactionDb = tx as unknown as typeof db;
       const source = rowOf(await transactionDb.execute(sql`
         SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
@@ -1094,16 +1188,46 @@ export async function publishCoordinationV2RuntimeRelease(
           ${provenance.runtimeClosureDigest}, ${provenance.provenanceDigest},
           ${JSON.stringify(sourceMembers)}::jsonb, ${now})
       `);
-      for (const artifact of artifacts) {
-        await transactionDb.execute(sql`
-          INSERT INTO coordination_v2_runtime_release_artifacts
-            (id, runtime_release_id, role, fixed_destination, object_key,
-             object_digest, byte_length, media_type, requires_authenticode)
-          VALUES (${uuid()}, ${releaseId}, ${artifact.role},
-            ${artifact.fixedDestination}, ${artifact.objectKey},
-            ${artifact.objectDigest}, ${artifact.byteLength}, ${artifact.mediaType},
-            ${artifact.requiresAuthenticode})
-        `);
+      const artifactRows = artifacts.map((artifact) => ({
+        id: uuid(),
+        runtime_release_id: releaseId,
+        role: artifact.role,
+        fixed_destination: artifact.fixedDestination,
+        object_key: artifact.objectKey,
+        object_digest: artifact.objectDigest,
+        byte_length: artifact.byteLength,
+        media_type: artifact.mediaType,
+        requires_authenticode: artifact.requiresAuthenticode,
+      }));
+      const insertedArtifacts = rowsOf(await transactionDb.execute(sql`
+        INSERT INTO coordination_v2_runtime_release_artifacts
+          (id, runtime_release_id, role, fixed_destination, object_key,
+           object_digest, byte_length, media_type, requires_authenticode)
+        SELECT
+          artifact.id,
+          artifact.runtime_release_id,
+          artifact.role,
+          artifact.fixed_destination,
+          artifact.object_key,
+          artifact.object_digest,
+          artifact.byte_length,
+          artifact.media_type,
+          artifact.requires_authenticode
+        FROM jsonb_to_recordset(${JSON.stringify(artifactRows)}::jsonb) AS artifact(
+          id text,
+          runtime_release_id text,
+          role text,
+          fixed_destination text,
+          object_key text,
+          object_digest text,
+          byte_length bigint,
+          media_type text,
+          requires_authenticode boolean
+        )
+        RETURNING id
+      `));
+      if (insertedArtifacts.length !== artifacts.length) {
+        fail('V2_RUNTIME_DATABASE_UNAVAILABLE');
       }
       return {
         created: true,
@@ -1111,11 +1235,12 @@ export async function publishCoordinationV2RuntimeRelease(
         releaseDigest,
         publishedAt: now.toISOString(),
       };
-    });
-  } catch (error) {
-    if (!releaseDigest || !isReleaseDigestConflict(error)) throw error;
-    const conflictingReleaseDigest = releaseDigest;
-    return database.transaction(async (tx) => {
+      });
+    } catch (error) {
+      if (!releaseDigest || !isReleaseDigestConflict(error)) throw error;
+      const conflictingReleaseDigest = releaseDigest;
+      phase = 'uniqueness_recovery';
+      return database.transaction(async (tx) => {
       const transactionDb = tx as unknown as typeof db;
       const source = rowOf(await transactionDb.execute(sql`
         SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
@@ -1138,7 +1263,11 @@ export async function publishCoordinationV2RuntimeRelease(
       );
       if (!replay) throw error;
       return replay;
-    });
+      });
+    }
+  } catch (error) {
+    annotateRuntimePublicationFailure(error, phase);
+    throw error;
   }
 }
 
