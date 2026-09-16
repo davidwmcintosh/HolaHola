@@ -25,7 +25,10 @@ beforeEach(async () => {
   await run('git', ['-C', repo, 'config', 'user.email', 'test@example.invalid']);
   await run('git', ['-C', repo, 'config', 'user.name', 'test']);
   await writeFile(join(repo, 'seed'), 'seed');
-  await run('git', ['-C', repo, 'add', 'seed']);
+  // Keep the fixture hermetic. Replit's global Git excludes ignore `.local/`,
+  // but GitHub runners do not; production repositories carry this rule locally.
+  await writeFile(join(repo, '.gitignore'), '.local/\n');
+  await run('git', ['-C', repo, 'add', 'seed', '.gitignore']);
   await run('git', ['-C', repo, 'commit', '-m', 'seed']);
   commit = (await run('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim();
   root = join(parent, 'worktree');
