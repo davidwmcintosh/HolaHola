@@ -278,7 +278,9 @@ test("Coordinator V2 runtime bootstrap PostgreSQL evidence is lineage-bound and 
          ($1, $2, 'node_executable', 'runtime/node.exe',
           $3, $4, 4, 'application/vnd.microsoft.portable-executable', TRUE),
          ($5, $2, 'tsx_runtime_module', 'node_modules/tsx/index.mjs',
-          $6, $7, 4, 'text/javascript', FALSE)`,
+           $6, $7, 4, 'text/javascript', FALSE),
+          ($8, $2, 'tsx_runtime_module', 'node_modules/tsx/lib/cli.mjs',
+           $6, $7, 4, 'text/javascript', FALSE)`,
       [
         id("artifact-node"),
         releaseId,
@@ -287,6 +289,7 @@ test("Coordinator V2 runtime bootstrap PostgreSQL evidence is lineage-bound and 
         id("artifact-tsx"),
         `coordination-v2/runtime/${digest("3")}/tsx-index.mjs`,
         digest("3"),
+        id("artifact-tsx-shared-object"),
       ],
     );
     await insertIssue(client, issueId, hostId, releaseId, requestKey, manifestDigest);
@@ -330,7 +333,26 @@ test("Coordinator V2 runtime bootstrap PostgreSQL evidence is lineage-bound and 
     assert.deepEqual(artifacts.rows, [
       { role: "node_executable", fixed_destination: "runtime/node.exe" },
       { role: "tsx_runtime_module", fixed_destination: "node_modules/tsx/index.mjs" },
+      { role: "tsx_runtime_module", fixed_destination: "node_modules/tsx/lib/cli.mjs" },
     ]);
+    await expectCode(
+      client,
+      "runtime_artifact_duplicate_destination",
+      () => client.query(
+        `INSERT INTO coordination_v2_runtime_release_artifacts
+           (id, runtime_release_id, role, fixed_destination, object_key,
+            object_digest, byte_length, media_type, requires_authenticode)
+         VALUES ($1, $2, 'tsx_runtime_module', 'node_modules/tsx/index.mjs',
+                 $3, $4, 1, 'text/javascript', FALSE)`,
+        [
+          id("artifact-duplicate-destination"),
+          releaseId,
+          `coordination-v2/runtime/${digest("4")}/tsx-index-duplicate.mjs`,
+          digest("4"),
+        ],
+      ),
+      "23505",
+    );
 
     await expectCode(
       client,

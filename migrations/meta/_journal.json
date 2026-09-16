@@ -365,6 +365,13 @@
       "when": 1789439895228,
       "tag": "0052_strong_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789544665389,
+      "tag": "0053_chief_lady_ursula",
+      "breakpoints": true
     }
   ]
 }

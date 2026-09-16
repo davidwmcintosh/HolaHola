@@ -6850,3 +6850,27 @@ Focused service and HTTP tests pass 28/28, typecheck and system health pass, and
 both Alden engines returned unconditional `APPROVED — Ship it.` Missing-source
 and different-current-source paths are covered. No runtime, host, task, session,
 lease, or execution authority was created.
+
+## Runtime artifact content-addressing correction — September 16, 2026
+
+The first fully verified append attempt exposed a schema cardinality error:
+distinct tsx destinations with byte-identical content legitimately shared one
+immutable digest-addressed object key, but
+`uq_coordination_v2_runtime_artifact_object` rejected the second manifest row.
+The transaction rolled back, leaving no partial release or artifact rows.
+
+The artifact table is now explicitly modeled as a manifest from fixed
+destination to immutable content object. Migration 0053 drops only the
+per-release object-key uniqueness. Per-release destination uniqueness, key and
+digest checks, foreign keys, append-only triggers, publication-time object
+verification, and authenticated-download reinspection remain unchanged.
+
+The disposable Neon gate reached `READY_TO_PROMOTE` and deleted its branch
+before migration 0053 was applied to shared Neon. Live postconditions show only
+the primary key and destination unique index on the artifact table, with its
+immutability trigger still active. The focused PostgreSQL proof accepts two
+destinations sharing one object and still rejects a duplicate destination.
+Focused service tests pass 22/22, typecheck passes, and system health reports
+all checks passed. Both Alden engines returned unconditional
+`APPROVED — Ship it.` No runtime publication, Windows initialization, task,
+session, lease, or execution authority was created.

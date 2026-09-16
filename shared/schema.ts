@@ -12285,7 +12285,6 @@ export const coordinationV2RuntimeReleaseArtifacts = pgTable("coordination_v2_ru
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("uq_coordination_v2_runtime_artifact_destination").on(table.runtimeReleaseId, table.fixedDestination),
-  uniqueIndex("uq_coordination_v2_runtime_artifact_object").on(table.runtimeReleaseId, table.objectKey),
   check("coordination_v2_runtime_artifact_role", sql`${table.role} IN ('node_executable', 'tsx_runtime_module')`),
   check("coordination_v2_runtime_artifact_digest", sql`${table.objectDigest} ~ '^[0-9a-f]{64}$'`),
   check("coordination_v2_runtime_artifact_length", sql`${table.byteLength} > 0 AND ${table.byteLength} <= 268435456`),
@@ -12342,7 +12341,7 @@ export const coordinationV2RuntimeBootstrapAcknowledgements = pgTable("coordinat
       coordinationV2RuntimeBootstrapIssues.requestKey,
       coordinationV2RuntimeBootstrapIssues.manifestDigest,
     ],
-  }),
+  }).onDelete("restrict"),
   check("coordination_v2_runtime_ack_manifest_digest", sql`${table.manifestDigest} ~ '^[0-9a-f]{64}$'`),
   check("coordination_v2_runtime_ack_evidence_digest", sql`${table.localEvidenceDigest} ~ '^[0-9a-f]{64}$'`),
   check("coordination_v2_runtime_ack_digest", sql`${table.acknowledgementDigest} ~ '^[0-9a-f]{64}$'`),

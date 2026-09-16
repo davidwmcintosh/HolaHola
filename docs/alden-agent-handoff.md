@@ -9417,3 +9417,38 @@ group. Its sole failed aggregate is the documented unchanged baseline: the
 stale `work_poll` source assertion and the PostgreSQL authority test's required
 disposable-database refusal. This change grants no runtime, host, task, session,
 lease, or execution authority.
+
+## September 16, 2026 — runtime artifact cardinality correction
+
+The current runtime payload contains distinct tsx fixed destinations with
+byte-identical content. The first fully verified append reached PostgreSQL but
+failed on `uq_coordination_v2_runtime_artifact_object`; its transaction rolled
+back and left no partial release. Independent review confirmed that the artifact
+table is a destination-to-content manifest and that forcing one object key per
+destination contradicts the design's upload-once content addressing.
+
+The approved correction removes only
+`uq_coordination_v2_runtime_artifact_object`. Migration 0053 is one
+`DROP INDEX` statement. Destination uniqueness, all artifact checks, restrictive
+foreign keys, append-only triggers, source/current authority checks,
+publication-time object verification, authenticated-download reinspection, and
+transaction rollback behavior remain intact. The schema source also now states
+the acknowledgement lineage foreign key's already-live `ON DELETE RESTRICT`,
+preventing unrelated Drizzle migration churn.
+
+The disposable Neon gate reached `READY_TO_PROMOTE`, ran the full unit, guard,
+and episode groups, and deleted its branch. Migration 0053 then applied to
+shared Neon. Read-only live postconditions show only the artifact primary key
+and destination unique index, with the artifact immutability trigger still
+active. The PostgreSQL proof now accepts two fixed destinations sharing one
+object key and rejects a duplicate destination with SQLSTATE `23505`. Focused
+service tests pass 22/22, typecheck passes, and system health is fully green.
+Anthropic-Alden and Gemini-Alden each returned unconditional
+`APPROVED — Ship it.`
+
+Do not retry runtime publication yet. The correction must be committed,
+protected, published, and recorded as a new immutable source promotion before
+David authorizes one new founder runtime-publication request. Windows remains
+untouched; initialization is still restricted to
+`C:\Users\David\HolaHola-CoordinatorV2`, after independently verified runtime
+publication.

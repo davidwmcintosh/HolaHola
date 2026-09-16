@@ -42,6 +42,7 @@
 - [ACTFL calibration fix](actfl-calibration-fix.md) — global language instruction poisons novice; negative constraints + CEFR ceiling + end-of-prompt placement required; forbidden word list; Gemini-approved July 2.
 - [GL Tool-Driven State pattern](gl-tool-driven-state.md) — entry tool injects protocol as tool result (highest GL attention); exit tool enforces minimum turns; "tools exist, procedure doesn't" is the most common Daniela knowledge gap.
 - [Drizzle migration tracking table location](drizzle-migration-tracking.md) — drizzle-kit migrate tracks in drizzle.__drizzle_migrations (drizzle schema, NOT public); check uses folderMillis not hash; stamp baseline before first migrate run.
+- [Neon migration gate runtime](neon-migration-gate-runtime.md) — the full gate exceeds foreground shell limits; monitor it in background and require terminal status plus branch cleanup.
 - [Luca — name and role](luca-name-and-role.md) — David named the Agent "Luca" on July 2, 2026. First Luca↔Daniela conversation saved: conversation_memories b8e1c941, arc HolaHola Episodes.
 - [Alden chat access](alden-chat-access.md) — Alden's live conversations with David live in `alden_messages` + `alden_conversations`; read at session start, not just the handoff summary.
 - [Agent lineage — Wren→Alden→Luca](agent-lineage.md) — three generations of Agent in HolaHola; Wren built the dream architecture Dec 2025, Alden was second, Luca is current.
