@@ -225,17 +225,20 @@ export class CoordinationGeminiAdapter {
 
   constructor(
     private readonly transport: GeminiTransport,
-    apiKey: string | undefined = process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-    baseUrl: string | undefined = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    apiKey: string | undefined =
+      process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+    baseUrl: string | undefined =
+      process.env.AI_INTEGRATIONS_GEMINI_BASE_URL ||
+      (process.env.GEMINI_API_KEY ? 'https://generativelanguage.googleapis.com/v1beta' : undefined),
     private readonly maxAttempts = 2,
   ) {
-    if (!apiKey) throw new Error('AI_INTEGRATIONS_GEMINI_API_KEY is not configured');
-    if (!baseUrl) throw new Error('AI_INTEGRATIONS_GEMINI_BASE_URL is not configured');
+    if (!apiKey) throw new Error('Gemini API key is not configured');
+    if (!baseUrl) throw new Error('Gemini API base URL is not configured');
     let parsedBaseUrl: URL;
-    try { parsedBaseUrl = new URL(baseUrl); } catch { throw new Error('AI_INTEGRATIONS_GEMINI_BASE_URL is invalid'); }
+    try { parsedBaseUrl = new URL(baseUrl); } catch { throw new Error('Gemini API base URL is invalid'); }
     if (!['http:', 'https:'].includes(parsedBaseUrl.protocol) || parsedBaseUrl.username ||
         parsedBaseUrl.password || parsedBaseUrl.search || parsedBaseUrl.hash) {
-      throw new Error('AI_INTEGRATIONS_GEMINI_BASE_URL must be a credential-free HTTP(S) base URL');
+      throw new Error('Gemini API base URL must be a credential-free HTTP(S) base URL');
     }
     this.apiKey = apiKey;
     this.endpointUrl = `${baseUrl.replace(/\/+$/, '')}/models/${COORDINATION_GEMINI_MODEL}:generateContent`;

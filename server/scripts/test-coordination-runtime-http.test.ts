@@ -121,11 +121,11 @@ test('Gemini transport requires a credential-free configured HTTP(S) base URL', 
   const transport = async () => ({ status: 200, body: '{}' });
   assert.throws(
     () => new CoordinationGeminiAdapter(transport, 'test-key', ''),
-    /AI_INTEGRATIONS_GEMINI_BASE_URL is not configured/,
+    /Gemini API base URL is not configured/,
   );
   assert.throws(
     () => new CoordinationGeminiAdapter(transport, 'test-key', 'not-a-url'),
-    /AI_INTEGRATIONS_GEMINI_BASE_URL is invalid/,
+    /Gemini API base URL is invalid/,
   );
   for (const baseUrl of [
     'ftp://gemini-proxy.example.test',
@@ -137,6 +137,39 @@ test('Gemini transport requires a credential-free configured HTTP(S) base URL', 
       () => new CoordinationGeminiAdapter(transport, 'test-key', baseUrl),
       /credential-free HTTP\(S\) base URL/,
     );
+  }
+});
+
+test('Gemini transport uses direct credentials portably while retaining proxy precedence', () => {
+  const previousProxyKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const previousProxyBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const previousDirectKey = process.env.GEMINI_API_KEY;
+  try {
+    delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    process.env.GEMINI_API_KEY = 'portable-direct-key';
+    const adapter = new CoordinationGeminiAdapter(async () => ({ status: 200, body: '{}' }));
+    assert.equal((adapter as any).apiKey, 'portable-direct-key');
+    assert.equal(
+      (adapter as any).endpointUrl,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+    );
+
+    process.env.AI_INTEGRATIONS_GEMINI_API_KEY = 'replit-proxy-key';
+    process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = 'https://gemini-proxy.example.test';
+    const proxyAdapter = new CoordinationGeminiAdapter(async () => ({ status: 200, body: '{}' }));
+    assert.equal((proxyAdapter as any).apiKey, 'replit-proxy-key');
+    assert.equal(
+      (proxyAdapter as any).endpointUrl,
+      'https://gemini-proxy.example.test/models/gemini-3-flash-preview:generateContent',
+    );
+  } finally {
+    if (previousProxyKey === undefined) delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    else process.env.AI_INTEGRATIONS_GEMINI_API_KEY = previousProxyKey;
+    if (previousProxyBase === undefined) delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    else process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = previousProxyBase;
+    if (previousDirectKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousDirectKey;
   }
 });
 
