@@ -130,3 +130,4 @@
 - [PostgreSQL wrapped structured errors](postgres-wrapped-structured-errors.md) — inspect a bounded cause chain; accept conflicts only for exact SQLSTATE and constraint allowlists.
 - [Composite-FK negative fixtures](composite-fk-negative-fixtures.md) — isolate all earlier unique dimensions or a negative test may prove the wrong constraint.
 - [Production Git source authority](production-git-source-authority.md) — published images omit .git; prove source through one authenticated exact-commit remote snapshot.
+- [Two-phase external verification](two-phase-external-verification.md) — never hold an append transaction across remote provenance or object hashing; revalidate exact authority before atomic append.

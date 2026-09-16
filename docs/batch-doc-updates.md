@@ -6731,3 +6731,34 @@ different non-parent heads; initial and final parent/tree/SHA drift; repository
 identity drift; final head drift; malformed references; and dirty or expired
 state. The focused fixture, source-bridge suite, and typecheck pass, and the
 independent architect reviewer returned unconditional `APPROVED`.
+
+## Coordinator V2 two-phase runtime publication — September 15, 2026
+
+The corrected source candidate was published and recorded successfully as an
+immutable source promotion. The first founder-authenticated runtime-release
+request against that promotion then failed closed after approximately 30
+seconds with `V2_RUNTIME_DATABASE_UNAVAILABLE`. Production startup, migrations,
+Neon warmup, and ordinary database traffic were healthy, and the failed request
+wrote no runtime-release row.
+
+The release service had opened its append transaction before authenticated
+GitHub and package provenance work and before streaming and hashing all 61
+runtime objects. Production's database session expired while that transaction
+was idle during external I/O.
+
+Runtime publication now has two phases. It first reads and validates the current
+source promotion, derives all remote provenance, and verifies every object
+without a transaction. It then opens a short append transaction, re-reads the
+exact source and latest promotion, rejects current-source or source-field drift,
+computes the release digest from the transaction-fetched source, and performs
+the exact replay check and atomic release-plus-artifact insert. An exact
+release-digest uniqueness race is recovered only through the named PostgreSQL
+constraint and a second short transaction that repeats source/current and full
+persisted-release validation.
+
+Focused tests prove verification-before-transaction ordering, no transaction on
+provenance or object failure, source/current drift rejection, and exact
+uniqueness recovery. Runtime service, HTTP boundary, Windows static, typecheck,
+and project checks pass. Alden's Anthropic and Gemini reviewers each returned
+unconditional approval. The change creates no host, task, session, lease, or
+execution authority.

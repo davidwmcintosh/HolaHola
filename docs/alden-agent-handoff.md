@@ -9278,3 +9278,35 @@ head combinations, split markers, configured-remote drift, final head drift,
 and local/remote marker SHA/tree/parent mutation. Focused verification,
 typecheck, and the source-bridge suite pass; the independent architect's second
 review returned unconditional `APPROVED`.
+
+## September 15, 2026 — runtime publication transaction correction
+
+The corrected source was successfully recorded as promotion
+`c736f058-6ad0-4a33-8858-83d62ab856c8`. Its founder-authenticated runtime
+release request reached the production endpoint but returned
+`V2_RUNTIME_DATABASE_UNAVAILABLE` after 30.425 seconds. Production logs showed
+healthy Neon startup, migrations, warmup, and surrounding queries. A direct
+read confirmed that the failed request created no runtime release.
+
+Root cause was the runtime publisher holding a database transaction open while
+it resolved the authenticated GitHub snapshot, verified Node and npm
+provenance, and streamed and hashed 61 object-storage artifacts. The database
+session expired before the next SQL statement.
+
+The approved correction separates external verification from authority append.
+The service reads and validates the requested current source, derives all
+provenance, and verifies every object before opening a transaction. A short
+final transaction re-reads the exact source and latest promotion, requires exact
+equality with the source used for verification, computes the release digest
+from the transaction-fetched source, and atomically appends the release and all
+artifact rows. If an identical concurrent insert wins, recovery is allowed only
+for exact SQLSTATE `23505` plus
+`uq_coordination_v2_runtime_release_digest`; a second short transaction repeats
+source/current checks and complete persisted release/artifact equivalence.
+
+Focused behavioral tests cover transaction ordering, no transaction on
+external failure, source-field drift, current-source drift, and exact
+uniqueness recovery. Service, HTTP, Windows static, typecheck, and project checks
+pass. Alden-Anthropic returned `APPROVED — Ship it.` and Alden-Gemini returned
+`APPROVED`. No runtime release has yet been created from this corrected path,
+and no host, task, session, lease, or execution authority has been granted.

@@ -106,6 +106,13 @@ export type RuntimeReleaseInput = {
   now?: Date;
 };
 
+export type RuntimeReleasePublicationDependencies = {
+  database?: typeof db;
+  deriveProvenance?: typeof deriveCoordinationV2RuntimeProvenance;
+  inspectArtifact?: typeof inspectObject;
+  uuid?: () => string;
+};
+
 export type RuntimeProvenanceDependencies = {
   boundedFetch?: (url: string, maxBytes: number) => Promise<Buffer>;
   sourceSnapshot?: (input: {
@@ -876,6 +883,19 @@ function sourceMatches(current: Record<string, unknown> | undefined, source: Rec
     && String(current.canonical_record_digest) === String(source.canonical_record_digest);
 }
 
+function isReleaseDigestConflict(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth += 1) {
+    const value = current as { code?: unknown; constraint?: unknown; cause?: unknown };
+    if (value.code === '23505'
+      && value.constraint === 'uq_coordination_v2_runtime_release_digest') {
+      return true;
+    }
+    current = value.cause;
+  }
+  return false;
+}
+
 function persistedReleaseMatches(
   release: Record<string, unknown>,
   persistedArtifacts: Record<string, unknown>[],
@@ -917,7 +937,55 @@ function persistedReleaseMatches(
   return canonicalJson(canonicalArtifacts(persisted)) === canonicalJson(canonicalArtifacts(artifacts));
 }
 
-export async function publishCoordinationV2RuntimeRelease(input: RuntimeReleaseInput) {
+async function findRuntimeReleaseReplay(
+  database: typeof db,
+  releaseDigest: string,
+  source: Record<string, unknown>,
+  artifacts: RuntimeArtifactInput[],
+  sourceMembers: RuntimeSourceMembers,
+  provenance: RuntimeProvenanceEvidence,
+): Promise<{
+  created: false;
+  runtimeReleaseId: string;
+  releaseDigest: string;
+  publishedAt: string;
+} | undefined> {
+  const existing = rowOf(await database.execute(sql`
+    SELECT * FROM coordination_v2_runtime_releases
+    WHERE release_digest = ${releaseDigest} LIMIT 1
+  `));
+  if (!existing) return undefined;
+  const persistedArtifacts = rowsOf(await database.execute(sql`
+    SELECT role, fixed_destination, object_key, object_digest, byte_length,
+      media_type, requires_authenticode
+    FROM coordination_v2_runtime_release_artifacts
+    WHERE runtime_release_id = ${existing.id}
+    ORDER BY fixed_destination
+  `));
+  if (String(existing.manifest_template_digest)
+      !== computeCoordinationV2RuntimeManifestTemplateDigest(artifacts, sourceMembers)
+    || !persistedReleaseMatches(
+      existing,
+      persistedArtifacts,
+      source,
+      artifacts,
+      sourceMembers,
+      provenance,
+    )) {
+    fail('V2_RUNTIME_IDEMPOTENCY_CONFLICT');
+  }
+  return {
+    created: false,
+    runtimeReleaseId: String(existing.id),
+    releaseDigest: String(existing.release_digest),
+    publishedAt: iso(existing.published_at),
+  };
+}
+
+export async function publishCoordinationV2RuntimeRelease(
+  input: RuntimeReleaseInput,
+  dependencies: RuntimeReleasePublicationDependencies = {},
+) {
   const sourcePromotionId = text(input.sourcePromotionId, 128);
   if (!Array.isArray(input.sourceMembers)) {
     fail('V2_RUNTIME_INVALID_REQUEST');
@@ -925,104 +993,153 @@ export async function publishCoordinationV2RuntimeRelease(input: RuntimeReleaseI
   const artifacts = normalizeArtifacts(input.artifacts);
   const sourceMembers = validateCoordinationV2RuntimeSourceMembers(input.sourceMembers);
   const now = input.now ?? new Date();
-  return db.transaction(async (tx) => {
-    const source = rowOf(await tx.execute(sql`
-      SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
-        publication_reference, protected_validation_id, canonical_record_digest
-      FROM coordination_v2_source_promotions WHERE id = ${sourcePromotionId}
-        AND state = 'published' LIMIT 1
-    `));
-    const current = await currentSource(tx as unknown as typeof db);
-    if (!source || !sourceMatches(current, source)) fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
-    if (!SHA40.test(String(source.promoted_commit_sha)) || !SHA40.test(String(source.exact_tree_sha))
-      || !HEX64.test(String(source.canonical_record_digest))) fail('V2_RUNTIME_SOURCE_INVALID');
-    const provenance = await deriveCoordinationV2RuntimeProvenance({
-      repositoryIdentity: String(source.repository_identity),
-      promotedCommitSha: String(source.promoted_commit_sha),
-      exactTreeSha: String(source.exact_tree_sha),
-      sourceMembers,
-      artifacts,
-    });
-    const releaseDigest = computeCoordinationV2RuntimeReleaseDigest({
-      sourcePromotionId: String(source.id),
-      repositoryIdentity: String(source.repository_identity),
-      promotedCommitSha: String(source.promoted_commit_sha),
-      exactTreeSha: String(source.exact_tree_sha),
-      publicationReference: String(source.publication_reference),
-      protectedValidationId: String(source.protected_validation_id),
-      sourcePromotionRecordDigest: String(source.canonical_record_digest),
-      artifacts,
-      sourceMembers,
-      provenanceDigest: provenance.provenanceDigest,
-    });
-    const expectedTemplateDigest = computeCoordinationV2RuntimeManifestTemplateDigest(
-      artifacts,
-      sourceMembers,
-    );
-    const existing = rowOf(await tx.execute(sql`
-      SELECT * FROM coordination_v2_runtime_releases
-      WHERE release_digest = ${releaseDigest} LIMIT 1
-    `));
-    if (existing) {
-      const persistedArtifacts = rowsOf(await tx.execute(sql`
-        SELECT role, fixed_destination, object_key, object_digest, byte_length,
-          media_type, requires_authenticode
-        FROM coordination_v2_runtime_release_artifacts
-        WHERE runtime_release_id = ${existing.id}
-        ORDER BY fixed_destination
+  const database = dependencies.database ?? db;
+  const deriveProvenance = dependencies.deriveProvenance
+    ?? deriveCoordinationV2RuntimeProvenance;
+  const inspectArtifact = dependencies.inspectArtifact ?? inspectObject;
+  const uuid = dependencies.uuid ?? randomUUID;
+  const verifiedSource = rowOf(await database.execute(sql`
+    SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
+      publication_reference, protected_validation_id, canonical_record_digest
+    FROM coordination_v2_source_promotions WHERE id = ${sourcePromotionId}
+      AND state = 'published' LIMIT 1
+  `));
+  const verifiedCurrent = await currentSource(database);
+  if (!verifiedSource || !sourceMatches(verifiedCurrent, verifiedSource)) {
+    fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
+  }
+  if (!SHA40.test(String(verifiedSource.promoted_commit_sha))
+    || !SHA40.test(String(verifiedSource.exact_tree_sha))
+    || !HEX64.test(String(verifiedSource.canonical_record_digest))) {
+    fail('V2_RUNTIME_SOURCE_INVALID');
+  }
+  const provenance = await deriveProvenance({
+    repositoryIdentity: String(verifiedSource.repository_identity),
+    promotedCommitSha: String(verifiedSource.promoted_commit_sha),
+    exactTreeSha: String(verifiedSource.exact_tree_sha),
+    sourceMembers,
+    artifacts,
+  });
+  for (const artifact of artifacts) {
+    const checked = await inspectArtifact(artifact.objectKey);
+    if (checked.length !== artifact.byteLength || checked.digest !== artifact.objectDigest) {
+      fail('V2_RUNTIME_OBJECT_DIGEST_MISMATCH');
+    }
+  }
+
+  let releaseDigest: string | undefined;
+  try {
+    return await database.transaction(async (tx) => {
+      const transactionDb = tx as unknown as typeof db;
+      const source = rowOf(await transactionDb.execute(sql`
+        SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
+          publication_reference, protected_validation_id, canonical_record_digest
+        FROM coordination_v2_source_promotions WHERE id = ${sourcePromotionId}
+          AND state = 'published' LIMIT 1
       `));
-      if (String(existing.manifest_template_digest) !== expectedTemplateDigest
-        || !persistedReleaseMatches(existing, persistedArtifacts, source, artifacts, sourceMembers, provenance)) {
-        fail('V2_RUNTIME_IDEMPOTENCY_CONFLICT');
+      const current = await currentSource(transactionDb);
+      if (!source || !sourceMatches(current, source)) {
+        fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
+      }
+      if (!sourceMatches(source, verifiedSource)) fail('V2_RUNTIME_SOURCE_PROMOTION_CHANGED');
+      if (!SHA40.test(String(source.promoted_commit_sha))
+        || !SHA40.test(String(source.exact_tree_sha))
+        || !HEX64.test(String(source.canonical_record_digest))) {
+        fail('V2_RUNTIME_SOURCE_INVALID');
+      }
+      releaseDigest = computeCoordinationV2RuntimeReleaseDigest({
+        sourcePromotionId: String(source.id),
+        repositoryIdentity: String(source.repository_identity),
+        promotedCommitSha: String(source.promoted_commit_sha),
+        exactTreeSha: String(source.exact_tree_sha),
+        publicationReference: String(source.publication_reference),
+        protectedValidationId: String(source.protected_validation_id),
+        sourcePromotionRecordDigest: String(source.canonical_record_digest),
+        artifacts,
+        sourceMembers,
+        provenanceDigest: provenance.provenanceDigest,
+      });
+      const expectedTemplateDigest = computeCoordinationV2RuntimeManifestTemplateDigest(
+        artifacts,
+        sourceMembers,
+      );
+      const replay = await findRuntimeReleaseReplay(
+        transactionDb,
+        releaseDigest,
+        source,
+        artifacts,
+        sourceMembers,
+        provenance,
+      );
+      if (replay) return replay;
+      const releaseId = uuid();
+      await transactionDb.execute(sql`
+        INSERT INTO coordination_v2_runtime_releases
+          (id, protocol_version, source_promotion_id, repository_identity,
+           promoted_commit_sha, exact_tree_sha, publication_reference,
+           protected_validation_id, source_promotion_record_digest,
+           release_digest, manifest_template_digest, node_version,
+           node_release_keyring_commit, node_release_keyring_digest,
+           node_shasums_digest, node_signature_digest, node_signer_fingerprint,
+           lockfile_digest, runtime_closure_digest, provenance_digest,
+           source_members, published_at)
+        VALUES (${releaseId}, 1, ${source.id}, ${source.repository_identity},
+          ${source.promoted_commit_sha}, ${source.exact_tree_sha},
+          ${source.publication_reference}, ${source.protected_validation_id},
+          ${source.canonical_record_digest}, ${releaseDigest},
+          ${expectedTemplateDigest}, ${RUNTIME_NODE_VERSION},
+          ${RUNTIME_NODE_RELEASE_COMMIT}, ${provenance.keyringDigest},
+          ${provenance.shasumsDigest}, ${provenance.signatureDigest},
+          ${provenance.signerFingerprint}, ${provenance.lockfileDigest},
+          ${provenance.runtimeClosureDigest}, ${provenance.provenanceDigest},
+          ${JSON.stringify(sourceMembers)}::jsonb, ${now})
+      `);
+      for (const artifact of artifacts) {
+        await transactionDb.execute(sql`
+          INSERT INTO coordination_v2_runtime_release_artifacts
+            (id, runtime_release_id, role, fixed_destination, object_key,
+             object_digest, byte_length, media_type, requires_authenticode)
+          VALUES (${uuid()}, ${releaseId}, ${artifact.role},
+            ${artifact.fixedDestination}, ${artifact.objectKey},
+            ${artifact.objectDigest}, ${artifact.byteLength}, ${artifact.mediaType},
+            ${artifact.requiresAuthenticode})
+        `);
       }
       return {
-        created: false,
-        runtimeReleaseId: String(existing.id),
-        releaseDigest: String(existing.release_digest),
-        publishedAt: iso(existing.published_at),
+        created: true,
+        runtimeReleaseId: releaseId,
+        releaseDigest,
+        publishedAt: now.toISOString(),
       };
-    }
-    for (const artifact of artifacts) {
-      const checked = await inspectObject(artifact.objectKey);
-      if (checked.length !== artifact.byteLength || checked.digest !== artifact.objectDigest) {
-        fail('V2_RUNTIME_OBJECT_DIGEST_MISMATCH');
+    });
+  } catch (error) {
+    if (!releaseDigest || !isReleaseDigestConflict(error)) throw error;
+    const conflictingReleaseDigest = releaseDigest;
+    return database.transaction(async (tx) => {
+      const transactionDb = tx as unknown as typeof db;
+      const source = rowOf(await transactionDb.execute(sql`
+        SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
+          publication_reference, protected_validation_id, canonical_record_digest
+        FROM coordination_v2_source_promotions WHERE id = ${sourcePromotionId}
+          AND state = 'published' LIMIT 1
+      `));
+      const current = await currentSource(transactionDb);
+      if (!source || !sourceMatches(current, source)) {
+        fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
       }
-    }
-    const releaseId = randomUUID();
-    await tx.execute(sql`
-      INSERT INTO coordination_v2_runtime_releases
-        (id, protocol_version, source_promotion_id, repository_identity,
-         promoted_commit_sha, exact_tree_sha, publication_reference,
-         protected_validation_id, source_promotion_record_digest,
-         release_digest, manifest_template_digest, node_version,
-         node_release_keyring_commit, node_release_keyring_digest,
-         node_shasums_digest, node_signature_digest, node_signer_fingerprint,
-         lockfile_digest, runtime_closure_digest, provenance_digest,
-         source_members, published_at)
-      VALUES (${releaseId}, 1, ${source.id}, ${source.repository_identity},
-        ${source.promoted_commit_sha}, ${source.exact_tree_sha},
-        ${source.publication_reference}, ${source.protected_validation_id},
-        ${source.canonical_record_digest}, ${releaseDigest},
-        ${expectedTemplateDigest}, ${RUNTIME_NODE_VERSION},
-        ${RUNTIME_NODE_RELEASE_COMMIT}, ${provenance.keyringDigest},
-        ${provenance.shasumsDigest}, ${provenance.signatureDigest},
-        ${provenance.signerFingerprint}, ${provenance.lockfileDigest},
-        ${provenance.runtimeClosureDigest}, ${provenance.provenanceDigest},
-        ${JSON.stringify(sourceMembers)}::jsonb, ${now})
-    `);
-    for (const artifact of artifacts) {
-      await tx.execute(sql`
-        INSERT INTO coordination_v2_runtime_release_artifacts
-          (id, runtime_release_id, role, fixed_destination, object_key,
-           object_digest, byte_length, media_type, requires_authenticode)
-        VALUES (${randomUUID()}, ${releaseId}, ${artifact.role},
-          ${artifact.fixedDestination}, ${artifact.objectKey},
-          ${artifact.objectDigest}, ${artifact.byteLength}, ${artifact.mediaType},
-          ${artifact.requiresAuthenticode})
-      `);
-    }
-    return { created: true, runtimeReleaseId: releaseId, releaseDigest, publishedAt: now.toISOString() };
-  });
+      if (!sourceMatches(source, verifiedSource)) fail('V2_RUNTIME_SOURCE_PROMOTION_CHANGED');
+      const replay = await findRuntimeReleaseReplay(
+        transactionDb,
+        conflictingReleaseDigest,
+        source,
+        artifacts,
+        sourceMembers,
+        provenance,
+      );
+      if (!replay) throw error;
+      return replay;
+    });
+  }
 }
 
 async function releaseForIssue(tx: typeof db) {

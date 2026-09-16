@@ -14,12 +14,16 @@ import {
   validateCoordinationV2RuntimeSourceMembers,
   verifyCoordinationV2RuntimeSri,
   deriveCoordinationV2RuntimeProvenance,
+  computeCoordinationV2RuntimeManifestTemplateDigest,
   RUNTIME_NODE_KEYRING_URL,
   classifyRuntimeSourceSnapshotFailure,
   reportRuntimeSourceSnapshotFailure,
   resolveCoordinationV2RuntimeSourceSnapshot,
+  publishCoordinationV2RuntimeRelease,
   type RuntimeArtifactInput,
   type RuntimeClosureFile,
+  type RuntimeProvenanceEvidence,
+  type RuntimeReleasePublicationDependencies,
 } from './coordination-v2-runtime-bootstrap-service';
 
 const serviceSource = readFileSync(new URL('./coordination-v2-runtime-bootstrap-service.ts', import.meta.url), 'utf8');
@@ -51,6 +55,70 @@ function tsxArtifact(fixedDestination: string, byteLength = 1): RuntimeArtifactI
     mediaType: 'application/javascript',
     requiresAuthenticode: false,
   };
+}
+
+const publicationSource = {
+  id: 'runtime-source-one',
+  repository_identity: 'github:davidwmcintosh/holahola',
+  promoted_commit_sha: '1'.repeat(40),
+  exact_tree_sha: '2'.repeat(40),
+  publication_reference: 'replit-publish:runtime-source-one',
+  protected_validation_id: 'runtime-validation-one',
+  canonical_record_digest: '3'.repeat(64),
+};
+
+const publicationProvenance: RuntimeProvenanceEvidence = {
+  lockfileDigest: '4'.repeat(64),
+  runtimeClosureDigest: '5'.repeat(64),
+  provenanceDigest: '6'.repeat(64),
+  nodeChecksum: digest,
+  signerFingerprint: 'CC68F5A3106FF448322E48ED27F5E38D5B0A215F',
+  keyringDigest: '7'.repeat(64),
+  shasumsDigest: '8'.repeat(64),
+  signatureDigest: '9'.repeat(64),
+  sourceMembers,
+  closureFiles: [],
+};
+
+function publicationInput() {
+  return {
+    sourcePromotionId: publicationSource.id,
+    artifacts: [
+      nodeArtifact(),
+      tsxArtifact('node_modules/tsx/index.mjs'),
+    ],
+    sourceMembers,
+    now: new Date('2026-09-15T23:00:00.000Z'),
+  };
+}
+
+function publicationDatabase(events: string[], options: {
+  transactionSource?: Record<string, unknown>;
+  transactionCurrent?: Record<string, unknown>;
+} = {}): NonNullable<RuntimeReleasePublicationDependencies['database']> {
+  let outsideReads = 0;
+  const transactionSource = options.transactionSource ?? publicationSource;
+  const transactionCurrent = options.transactionCurrent ?? transactionSource;
+  const transactionDb = {
+    execute: async () => {
+      const call = events.filter((event) => event.startsWith('transaction-sql-')).length + 1;
+      events.push(`transaction-sql-${call}`);
+      if (call === 1) return [transactionSource];
+      if (call === 2) return [transactionCurrent];
+      return [];
+    },
+  };
+  return {
+    execute: async () => {
+      outsideReads += 1;
+      events.push(`outside-sql-${outsideReads}`);
+      return [publicationSource];
+    },
+    transaction: async (callback: (transaction: typeof transactionDb) => Promise<unknown>) => {
+      events.push('transaction-open');
+      return callback(transactionDb);
+    },
+  } as unknown as NonNullable<RuntimeReleasePublicationDependencies['database']>;
 }
 
 test('runtime artifact validator accepts one node and individual tsx files', () => {
@@ -128,9 +196,189 @@ test('source members are the closed v1 set and manifest ordering is destination-
 });
 
 test('publication replay validates complete digests before persisted-release lookup', () => {
-  assert.ok(serviceSource.indexOf('const releaseDigest = computeCoordinationV2RuntimeReleaseDigest') < serviceSource.indexOf('const existing'));
-  assert.ok(serviceSource.includes('persistedReleaseMatches(existing, persistedArtifacts, source, artifacts, sourceMembers, provenance)'));
+  const publicationFunction = serviceSource.slice(
+    serviceSource.indexOf('export async function publishCoordinationV2RuntimeRelease'),
+    serviceSource.indexOf('async function releaseForIssue'),
+  );
+  assert.ok(publicationFunction.indexOf('releaseDigest = computeCoordinationV2RuntimeReleaseDigest')
+    < publicationFunction.indexOf('const replay = await findRuntimeReleaseReplay'));
+  const replayHelper = serviceSource.slice(
+    serviceSource.indexOf('async function findRuntimeReleaseReplay'),
+    serviceSource.indexOf('export async function publishCoordinationV2RuntimeRelease'),
+  );
+  assert.match(replayHelper, /persistedReleaseMatches\(\s*existing,\s*persistedArtifacts,\s*source,\s*artifacts,\s*sourceMembers,\s*provenance,\s*\)/);
   assert.ok(serviceSource.includes('provenanceDigest: provenance.provenanceDigest'));
+});
+
+test('runtime publication completes external verification before opening its append transaction', async () => {
+  const events: string[] = [];
+  const result = await publishCoordinationV2RuntimeRelease(publicationInput(), {
+    database: publicationDatabase(events),
+    deriveProvenance: async () => {
+      events.push('derive-provenance');
+      return publicationProvenance;
+    },
+    inspectArtifact: async (objectKey) => {
+      events.push(`inspect:${objectKey}`);
+      return { file: {} as never, length: 1, digest };
+    },
+    uuid: (() => {
+      let next = 0;
+      return () => `runtime-release-fixture-${++next}`;
+    })(),
+  });
+  assert.equal(result.created, true);
+  const transactionOpen = events.indexOf('transaction-open');
+  assert.ok(transactionOpen > events.indexOf('derive-provenance'));
+  assert.ok(events.filter((event) => event.startsWith('inspect:'))
+    .every((event) => events.indexOf(event) < transactionOpen));
+  assert.deepEqual(events.slice(0, 3), [
+    'outside-sql-1',
+    'outside-sql-2',
+    'derive-provenance',
+  ]);
+});
+
+test('runtime publication opens no transaction when provenance or object verification fails', async () => {
+  for (const failure of ['provenance', 'object'] as const) {
+    const events: string[] = [];
+    await assert.rejects(() => publishCoordinationV2RuntimeRelease(publicationInput(), {
+      database: publicationDatabase(events),
+      deriveProvenance: async () => {
+        events.push('derive-provenance');
+        if (failure === 'provenance') throw new Error('fixture-provenance-failure');
+        return publicationProvenance;
+      },
+      inspectArtifact: async () => {
+        events.push('inspect-object');
+        if (failure === 'object') {
+          return { file: {} as never, length: 1, digest: 'f'.repeat(64) };
+        }
+        return { file: {} as never, length: 1, digest };
+      },
+    }), failure === 'provenance'
+      ? /fixture-provenance-failure/
+      : /V2_RUNTIME_OBJECT_DIGEST_MISMATCH/);
+    assert.ok(!events.includes('transaction-open'), `${failure} failure opened a transaction`);
+  }
+});
+
+test('runtime publication rejects source-field or current-source drift after verification', async () => {
+  const changedSource = {
+    ...publicationSource,
+    canonical_record_digest: 'b'.repeat(64),
+  };
+  const fieldDriftEvents: string[] = [];
+  await assert.rejects(() => publishCoordinationV2RuntimeRelease(publicationInput(), {
+    database: publicationDatabase(fieldDriftEvents, {
+      transactionSource: changedSource,
+      transactionCurrent: changedSource,
+    }),
+    deriveProvenance: async () => publicationProvenance,
+    inspectArtifact: async () => ({ file: {} as never, length: 1, digest }),
+  }), /V2_RUNTIME_SOURCE_PROMOTION_CHANGED/);
+
+  const currentDriftEvents: string[] = [];
+  await assert.rejects(() => publishCoordinationV2RuntimeRelease(publicationInput(), {
+    database: publicationDatabase(currentDriftEvents, {
+      transactionCurrent: { ...publicationSource, id: 'newer-source' },
+    }),
+    deriveProvenance: async () => publicationProvenance,
+    inspectArtifact: async () => ({ file: {} as never, length: 1, digest }),
+  }), /V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT/);
+});
+
+test('runtime publication resolves only the exact release-digest uniqueness race as a replay', async () => {
+  const events: string[] = [];
+  const artifacts = publicationInput().artifacts;
+  const releaseDigest = 'c'.repeat(64);
+  const existing = {
+    id: 'concurrent-runtime-release',
+    source_promotion_id: publicationSource.id,
+    repository_identity: publicationSource.repository_identity,
+    promoted_commit_sha: publicationSource.promoted_commit_sha,
+    exact_tree_sha: publicationSource.exact_tree_sha,
+    publication_reference: publicationSource.publication_reference,
+    protected_validation_id: publicationSource.protected_validation_id,
+    source_promotion_record_digest: publicationSource.canonical_record_digest,
+    release_digest: releaseDigest,
+    manifest_template_digest: computeCoordinationV2RuntimeManifestTemplateDigest(
+      artifacts,
+      sourceMembers,
+    ),
+    node_version: '20.20.0',
+    node_release_keyring_commit: '481637f813e912c4aa3622d7964ab426c97b8e8d',
+    node_release_keyring_digest: publicationProvenance.keyringDigest,
+    node_shasums_digest: publicationProvenance.shasumsDigest,
+    node_signature_digest: publicationProvenance.signatureDigest,
+    node_signer_fingerprint: publicationProvenance.signerFingerprint,
+    lockfile_digest: publicationProvenance.lockfileDigest,
+    runtime_closure_digest: publicationProvenance.runtimeClosureDigest,
+    provenance_digest: publicationProvenance.provenanceDigest,
+    source_members: sourceMembers,
+    published_at: new Date('2026-09-15T23:00:00.000Z'),
+  };
+  const persistedArtifacts = artifacts.map((artifact) => ({
+    role: artifact.role,
+    fixed_destination: artifact.fixedDestination,
+    object_key: artifact.objectKey,
+    object_digest: artifact.objectDigest,
+    byte_length: artifact.byteLength,
+    media_type: artifact.mediaType,
+    requires_authenticode: artifact.requiresAuthenticode,
+  }));
+  let outsideCall = 0;
+  let transactionAttempt = 0;
+  let appendCall = 0;
+  let recoveryCall = 0;
+  const appendDb = {
+    execute: async () => {
+      appendCall += 1;
+      if (appendCall === 1 || appendCall === 2) return [publicationSource];
+      if (appendCall === 3) return [];
+      throw Object.assign(new Error('wrapped uniqueness race'), {
+        cause: {
+          code: '23505',
+          constraint: 'uq_coordination_v2_runtime_release_digest',
+        },
+      });
+    },
+  };
+  const recoveryDb = {
+    execute: async () => {
+      recoveryCall += 1;
+      if (recoveryCall === 1 || recoveryCall === 2) return [publicationSource];
+      if (recoveryCall === 3) return [existing];
+      return persistedArtifacts;
+    },
+  };
+  const database = {
+    execute: async () => {
+      outsideCall += 1;
+      events.push(`outside-${outsideCall}`);
+      return [publicationSource];
+    },
+    transaction: async (
+      callback: (transaction: typeof appendDb | typeof recoveryDb) => Promise<unknown>,
+    ) => {
+      transactionAttempt += 1;
+      return callback(transactionAttempt === 1 ? appendDb : recoveryDb);
+    },
+  } as unknown as NonNullable<RuntimeReleasePublicationDependencies['database']>;
+  const result = await publishCoordinationV2RuntimeRelease(publicationInput(), {
+    database,
+    deriveProvenance: async () => publicationProvenance,
+    inspectArtifact: async () => ({ file: {} as never, length: 1, digest }),
+  });
+  assert.deepEqual(result, {
+    created: false,
+    runtimeReleaseId: existing.id,
+    releaseDigest,
+    publishedAt: '2026-09-15T23:00:00.000Z',
+  });
+  assert.equal(outsideCall, 2, 'external source verification should remain outside a transaction');
+  assert.equal(transactionAttempt, 2, 'uniqueness recovery must use a new short transaction');
+  assert.equal(recoveryCall, 4, 'recovery must revalidate source and the complete persisted release');
 });
 
 test('artifact streaming re-inspects object bytes before sending headers', () => {
