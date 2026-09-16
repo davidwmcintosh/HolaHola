@@ -114,6 +114,8 @@ async function checkTables() {
     "coordination_v2_runtime_bootstrap_issues",
     "coordination_v2_runtime_bootstrap_acknowledgements",
     "coordination_v2_runtime_release_revocations",
+    "coordination_v2_host_reauthorization_requests",
+    "coordination_v2_host_reauthorization_challenges",
     // neural / identity
     "daniela_self_reflections", "daniela_aspirations", "editor_insights",
   ];

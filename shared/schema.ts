@@ -8695,6 +8695,163 @@ export const coordinationV2HostCredentials = pgTable("coordination_v2_host_crede
   check("coordination_v2_host_credential_revocation", sql`${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.issuedAt}`),
 ]);
 
+/**
+ * An expired host credential has no renewal authority. Reauthorization is a
+ * separate founder-approved lifecycle bound to the existing enrolled key.
+ */
+export const coordinationV2HostReauthorizationRequests = pgTable("coordination_v2_host_reauthorization_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  requestGeneration: integer("request_generation").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  declarationDigest: varchar("declaration_digest", { length: 64 }).notNull(),
+  requestSignatureDigest: varchar("request_signature_digest", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("pending"),
+  founderActor: varchar("founder_actor", { length: 128 }),
+  approvedAt: timestamp("approved_at"),
+  resultCredentialId: varchar("result_credential_id"),
+  completedAt: timestamp("completed_at"),
+  terminalAt: timestamp("terminal_at"),
+  terminalReason: varchar("terminal_reason", { length: 128 }),
+  requestedAt: timestamp("requested_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("uq_coord_v2_host_reauth_request_lineage").on(
+    table.id,
+    table.hostEnrollmentId,
+    table.keyFingerprint,
+    table.protocolVersion,
+    table.requestGeneration,
+  ),
+  uniqueIndex("uq_coord_v2_host_reauth_request_key").on(table.requestKey),
+  uniqueIndex("uq_coord_v2_host_reauth_generation").on(
+    table.hostEnrollmentId,
+    table.requestGeneration,
+  ),
+  uniqueIndex("uq_coord_v2_host_reauth_nonterminal")
+    .on(table.hostEnrollmentId)
+    .where(sql`${table.state} IN ('pending', 'approved')`),
+  index("idx_coord_v2_host_reauth_state").on(table.state, table.expiresAt),
+  foreignKey({
+    name: "fk_coord_v2_host_reauth_result_credential",
+    columns: [table.resultCredentialId, table.hostEnrollmentId],
+    foreignColumns: [
+      coordinationV2HostCredentials.id,
+      coordinationV2HostCredentials.hostEnrollmentId,
+    ],
+  }).onDelete("restrict"),
+  check("coord_v2_host_reauth_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_protocol", sql`${table.protocolVersion} = 1`),
+  check("coord_v2_host_reauth_generation", sql`${table.requestGeneration} > 0`),
+  check("coord_v2_host_reauth_request_key", sql`length(trim(${table.requestKey})) > 0`),
+  check("coord_v2_host_reauth_declaration_digest", sql`${table.declarationDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_signature_digest", sql`${table.requestSignatureDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_state", sql`${table.state} IN ('pending', 'approved', 'completed', 'expired', 'rejected')`),
+  check("coord_v2_host_reauth_expiry", sql`
+    ${table.expiresAt} > ${table.requestedAt}
+    AND ${table.expiresAt} <= ${table.requestedAt} + interval '1 hour'
+  `),
+  check("coord_v2_host_reauth_lifecycle", sql`
+    (
+      ${table.state} = 'pending'
+      AND ${table.founderActor} IS NULL
+      AND ${table.approvedAt} IS NULL
+      AND ${table.resultCredentialId} IS NULL
+      AND ${table.completedAt} IS NULL
+      AND ${table.terminalAt} IS NULL
+      AND ${table.terminalReason} IS NULL
+    )
+    OR (
+      ${table.state} = 'approved'
+      AND ${table.founderActor} IS NOT NULL
+      AND ${table.approvedAt} IS NOT NULL
+      AND ${table.resultCredentialId} IS NULL
+      AND ${table.completedAt} IS NULL
+      AND ${table.terminalAt} IS NULL
+      AND ${table.terminalReason} IS NULL
+    )
+    OR (
+      ${table.state} = 'completed'
+      AND ${table.founderActor} IS NOT NULL
+      AND ${table.approvedAt} IS NOT NULL
+      AND ${table.resultCredentialId} IS NOT NULL
+      AND ${table.completedAt} IS NOT NULL
+      AND ${table.terminalAt} IS NULL
+      AND ${table.terminalReason} IS NULL
+    )
+    OR (
+      ${table.state} IN ('expired', 'rejected')
+      AND ${table.resultCredentialId} IS NULL
+      AND ${table.completedAt} IS NULL
+      AND ${table.terminalAt} IS NOT NULL
+      AND length(trim(${table.terminalReason})) > 0
+    )
+  `),
+  check("coord_v2_host_reauth_approval_time", sql`
+    ${table.approvedAt} IS NULL OR ${table.approvedAt} >= ${table.requestedAt}
+  `),
+  check("coord_v2_host_reauth_completion_time", sql`
+    ${table.completedAt} IS NULL OR ${table.completedAt} >= ${table.requestedAt}
+  `),
+  check("coord_v2_host_reauth_terminal_time", sql`
+    ${table.terminalAt} IS NULL OR ${table.terminalAt} >= ${table.requestedAt}
+  `),
+]);
+
+export const coordinationV2HostReauthorizationChallenges = pgTable("coordination_v2_host_reauthorization_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").notNull(),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  requestGeneration: integer("request_generation").notNull(),
+  nonceDigest: varchar("nonce_digest", { length: 64 }).notNull(),
+  challengeDigest: varchar("challenge_digest", { length: 64 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_v2_host_reauth_challenge_nonce").on(table.nonceDigest),
+  uniqueIndex("uq_coord_v2_host_reauth_challenge_live")
+    .on(table.requestId)
+    .where(sql`${table.consumedAt} IS NULL`),
+  index("idx_coord_v2_host_reauth_challenge_expiry").on(table.expiresAt, table.consumedAt),
+  foreignKey({
+    name: "fk_coord_v2_host_reauth_challenge_lineage",
+    columns: [
+      table.requestId,
+      table.hostEnrollmentId,
+      table.keyFingerprint,
+      table.protocolVersion,
+      table.requestGeneration,
+    ],
+    foreignColumns: [
+      coordinationV2HostReauthorizationRequests.id,
+      coordinationV2HostReauthorizationRequests.hostEnrollmentId,
+      coordinationV2HostReauthorizationRequests.keyFingerprint,
+      coordinationV2HostReauthorizationRequests.protocolVersion,
+      coordinationV2HostReauthorizationRequests.requestGeneration,
+    ],
+  }).onDelete("restrict"),
+  check("coord_v2_host_reauth_challenge_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_challenge_protocol", sql`${table.protocolVersion} = 1`),
+  check("coord_v2_host_reauth_challenge_generation", sql`${table.requestGeneration} > 0`),
+  check("coord_v2_host_reauth_challenge_nonce", sql`${table.nonceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_challenge_digest", sql`${table.challengeDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_challenge_expiry", sql`
+    ${table.expiresAt} > ${table.issuedAt}
+    AND ${table.expiresAt} <= ${table.issuedAt} + interval '2 minutes'
+  `),
+  check("coord_v2_host_reauth_challenge_consumed", sql`
+    ${table.consumedAt} IS NULL OR ${table.consumedAt} >= ${table.issuedAt}
+  `),
+]);
+
 export const coordinationV2PolicyIdentities = pgTable("coordination_v2_policy_identities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   policyKey: varchar("policy_key", { length: 128 }).notNull(),
@@ -9583,6 +9740,8 @@ export type CoordinationV2SourcePromotion = typeof coordinationV2SourcePromotion
 export type CoordinationV2HostEnrollmentRequest = typeof coordinationV2HostEnrollmentRequests.$inferSelect;
 export type CoordinationV2HostProofChallenge = typeof coordinationV2HostProofChallenges.$inferSelect;
 export type CoordinationV2HostCredential = typeof coordinationV2HostCredentials.$inferSelect;
+export type CoordinationV2HostReauthorizationRequest = typeof coordinationV2HostReauthorizationRequests.$inferSelect;
+export type CoordinationV2HostReauthorizationChallenge = typeof coordinationV2HostReauthorizationChallenges.$inferSelect;
 export type CoordinationV2SessionCredential = typeof coordinationV2SessionCredentials.$inferSelect;
 export type CoordinationV2PolicyIdentity = typeof coordinationV2PolicyIdentities.$inferSelect;
 export type CoordinationV2PolicyVersion = typeof coordinationV2PolicyVersions.$inferSelect;

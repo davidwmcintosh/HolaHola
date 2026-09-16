@@ -372,6 +372,13 @@
       "when": 1789544665389,
       "tag": "0053_chief_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789580681601,
+      "tag": "0054_organic_tarantula",
+      "breakpoints": true
     }
   ]
 }

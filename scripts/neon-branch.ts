@@ -44,6 +44,10 @@ function assertCoordinatorV2DatabaseGateGuard(): void {
     'server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts',
     'utf8',
   );
+  const hostReauthorizationSource = readFileSync(
+    'server/scripts/test-coordinator-v2-host-reauthorization-postgres.test.ts',
+    'utf8',
+  );
   const requiredGuard = "COORDINATOR_V2_REQUIRE_DATABASE_TESTS === '1'";
   const forbiddenProof = 'COORDINATOR_V2_FORBIDDEN_SHARED_URL';
   const skipPath = "context.skip('run through the Neon migration gate')";
@@ -55,6 +59,12 @@ function assertCoordinatorV2DatabaseGateGuard(): void {
     || !runtimeBootstrapSource.includes(forbiddenProof)
     || !runtimeBootstrapSource.includes('run through the Neon migration gate')) {
     throw new Error('Coordinator V2 runtime-bootstrap test is missing the disposable-gate hard-fail guard');
+  }
+  if (!hostReauthorizationSource.includes('COORDINATOR_V2_REQUIRE_DATABASE_TESTS')
+    || !hostReauthorizationSource.includes('=== "1"')
+    || !hostReauthorizationSource.includes(forbiddenProof)
+    || !hostReauthorizationSource.includes('run through the Neon migration gate')) {
+    throw new Error('Coordinator V2 host-reauthorization test is missing the disposable-gate hard-fail guard');
   }
 }
 
@@ -405,6 +415,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (runtimeBootstrapPostgres.code !== 0) {
       failureReason = `Coordinator V2 runtime-bootstrap PostgreSQL tests exited ${runtimeBootstrapPostgres.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 host-reauthorization PostgreSQL proofs against the branch...');
+    const hostReauthorizationPostgres = await runCommand(
+      'npx tsx --test server/scripts/test-coordinator-v2-host-reauthorization-postgres.test.ts',
+      branchEnv,
+    );
+    if (hostReauthorizationPostgres.code !== 0) {
+      failureReason = `Coordinator V2 host-reauthorization PostgreSQL tests exited ${hostReauthorizationPostgres.code}`;
     }
   }
 

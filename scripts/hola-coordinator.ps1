@@ -334,7 +334,24 @@ function Get-HostBootstrapIdentity {
         Fail-Safe 'host_credential_missing'
     }
     $material = Read-DpapiJson -Path $materialPath -FailureCode 'host_credential_corrupted'
-    Assert-ExactPropertySet -Value $material -Names @('endpoint', 'accessToken') -FailureCode 'host_credential_shape'
+    $materialNames = @(Get-PropertyNames -Value $material)
+    if ($materialNames.Count -eq 2 -and $materialNames -contains 'endpoint' -and
+        $materialNames -contains 'accessToken') {
+        # Legacy material is useful only to the explicit recovery command.  The
+        # runtime must not spend the expired token as an authority.
+        Fail-Safe 'host_credential_reauthorization_required'
+    }
+    Assert-ExactPropertySet -Value $material -Names @('endpoint', 'accessToken', 'expiresAt') -FailureCode 'host_credential_shape'
+    if ([string]$material.expiresAt -notmatch '^\d{4}-\d{2}-\d{2}T') {
+        Fail-Safe 'host_credential_invalid'
+    }
+    try {
+        if ([DateTime]::Parse([string]$material.expiresAt).ToUniversalTime() -le [DateTime]::UtcNow) {
+            Fail-Safe 'host_credential_reauthorization_required'
+        }
+    } catch {
+        Fail-Safe 'host_credential_invalid'
+    }
     if ([string]$material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
         Fail-Safe 'host_credential_invalid'
     }
@@ -347,6 +364,7 @@ function Get-HostBootstrapIdentity {
     return [ordered]@{
         endpoint = [string]$material.endpoint
         accessToken = [string]$material.accessToken
+        expiresAt = [string]$material.expiresAt
         rsa = $rsa
         fingerprint = Get-RsaFingerprint -Rsa $rsa
     }
@@ -1598,7 +1616,22 @@ function Register-HolaCoordinatorHost {
                 if ([string]$issued.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
                     Fail-Safe 'host_credential_invalid'
                 }
-                $material = @{ endpoint = $endpointBase; accessToken = $issued.accessToken } | ConvertTo-Json -Compress
+                $credentialProperty = $issued.PSObject.Properties['credential']
+                $issuedExpiry = if ($null -ne $credentialProperty -and $null -ne $credentialProperty.Value) {
+                    [string]$credentialProperty.Value.expiresAt
+                } else {
+                    [string]$issued.expiresAt
+                }
+                if ($issuedExpiry -notmatch '^\d{4}-\d{2}-\d{2}T') {
+                    Fail-Safe 'host_credential_expiry_invalid'
+                }
+                if ([DateTime]::Parse($issuedExpiry).ToUniversalTime() -le [DateTime]::UtcNow) {
+                    Fail-Safe 'host_credential_expiry_invalid'
+                }
+                $material = [ordered]@{
+                    endpoint = $endpointBase; accessToken = [string]$issued.accessToken
+                    expiresAt = $issuedExpiry
+                } | ConvertTo-Json -Compress
                 $materialCipher = [Security.Cryptography.ProtectedData]::Protect(
                     [Text.Encoding]::UTF8.GetBytes($material), $null, $CurrentUserScope)
                 Write-DpapiBase64Atomic -Path $materialPath -Bytes $materialCipher
@@ -1617,6 +1650,280 @@ function Register-HolaCoordinatorHost {
     }
 }
 # END COORDINATION_REGISTER_BOUNDARY
+
+# BEGIN COORDINATION_REAUTHORIZATION_BOUNDARY
+function Restore-HolaCoordinatorHostCredential {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^https://')]
+        [string]$Endpoint
+    )
+    # This is deliberately a separate lifecycle.  It never invokes the
+    # initializer or coordinator, and accepts no caller-supplied identity.
+    $root = $RuntimeBootstrapRoot
+    $materialPath = Join-Path $root 'host-material.dpapi'
+    $privatePath = Join-Path $root 'host-private-key.dpapi'
+    $requestPath = Join-Path $root 'host-reauthorization-request.dpapi'
+    Assert-SafePath -Path $root -Root (Join-Path $env:LOCALAPPDATA 'HolaHola') | Out-Null
+    Assert-NoReparse -Path $root
+    Assert-SidAcl -Path $root
+    if (-not [IO.File]::Exists($materialPath) -or -not [IO.File]::Exists($privatePath)) {
+        Fail-Safe 'host_credential_missing'
+    }
+    $material = Read-DpapiJson -Path $materialPath -FailureCode 'host_credential_corrupted'
+    $materialNames = @(Get-PropertyNames -Value $material)
+    if ($materialNames.Count -ne 2 -or $materialNames -notcontains 'endpoint' -or
+        $materialNames -notcontains 'accessToken') {
+        # A completed three-field record is runtime authority, not recovery
+        # input.  Recovery cannot overwrite it without a new explicit request.
+        if ($materialNames.Count -eq 3) { Fail-Safe 'host_credential_reauthorization_not_required' }
+        Fail-Safe 'host_credential_shape'
+    }
+    if ([string]$material.endpoint -notmatch '^https://') { Fail-Safe 'host_endpoint_invalid' }
+    if ([string]$material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
+        Fail-Safe 'host_credential_invalid'
+    }
+    $endpointBase = $Endpoint.TrimEnd('/')
+    if ([string]$material.endpoint -ne $endpointBase) { Fail-Safe 'runtime_endpoint_mismatch' }
+    $privateXml = [Text.Encoding]::UTF8.GetString(
+        [Security.Cryptography.ProtectedData]::Unprotect(
+            [Convert]::FromBase64String([IO.File]::ReadAllText($privatePath)),
+            $null, $CurrentUserScope))
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+    try {
+        $rsa.FromXmlString($privateXml)
+        $fingerprint = Get-RsaFingerprint -Rsa $rsa
+        $hostId = [Environment]::MachineName
+        $state = $null
+        if ([IO.File]::Exists($requestPath)) {
+            $state = Read-DpapiJson -Path $requestPath -FailureCode 'host_reauthorization_state_corrupted'
+            Assert-ExactPropertySet -Value $state -Names @(
+                'endpoint', 'requestKey', 'requestId', 'generation', 'hostId',
+                'fingerprint', 'declaration', 'body', 'terminal', 'completionAmbiguous'
+            ) -FailureCode 'host_reauthorization_state_shape'
+            if ([string]$state.endpoint -ne $endpointBase -or
+                [string]$state.hostId -ne $hostId -or [string]$state.fingerprint -ne $fingerprint) {
+                Fail-Safe 'host_reauthorization_state_mismatch'
+            }
+        } else {
+            $requestKey = [Guid]::NewGuid().ToString()
+            $issuedAt = [DateTime]::UtcNow.ToString('o')
+            $requestExpiry = [DateTime]::UtcNow.AddHours(1).ToString('o')
+            $declaration = [ordered]@{
+                kind = 'host_credential_reauthorization'
+                requestKey = $requestKey
+                issuedAt = $issuedAt
+                expiresAt = $requestExpiry
+                protocolVersion = 1
+                hostId = $hostId
+                keyFingerprint = $fingerprint
+                requestGeneration = 1
+            }
+            $parameters = $rsa.ExportParameters($false)
+            $b64url = {
+                param([byte[]]$Bytes)
+                ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
+            }
+            $publicKey = [ordered]@{
+                kty = 'RSA'; n = & $b64url $parameters.Modulus; e = & $b64url $parameters.Exponent
+            }
+            $canonicalDeclaration = ConvertTo-CanonicalJson -Value $declaration
+            $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes($canonicalDeclaration),
+                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+            $bodyObject = [ordered]@{
+                declaration = $declaration
+                publicKey = ($publicKey | ConvertTo-Json -Compress)
+                keyFingerprint = $fingerprint
+                signature = [Convert]::ToBase64String($signature)
+            }
+            $state = [ordered]@{
+                endpoint = $endpointBase; requestKey = $requestKey; requestId = ''
+                generation = 1; hostId = $hostId; fingerprint = $fingerprint
+                terminal = $false; completionAmbiguous = $false
+                declaration = $declaration
+                body = ($bodyObject | ConvertTo-Json -Depth 8 -Compress)
+            }
+            # Persist request authority, including the exact generation, before
+            # the first network call.  No decrypted material is emitted.
+            Write-DpapiJsonAtomic -Path $requestPath -Value $state
+        }
+        if ([bool]$state.terminal) {
+            $nextGeneration = [int]$state.generation + 1
+            if ($nextGeneration -le 0) { Fail-Safe 'host_reauthorization_generation_invalid' }
+            $requestKey = [Guid]::NewGuid().ToString()
+            $issuedAt = [DateTime]::UtcNow.ToString('o')
+            $requestExpiry = [DateTime]::UtcNow.AddHours(1).ToString('o')
+            $declaration = [ordered]@{
+                kind = 'host_credential_reauthorization'; requestKey = $requestKey
+                issuedAt = $issuedAt; expiresAt = $requestExpiry; protocolVersion = 1
+                hostId = $hostId; keyFingerprint = $fingerprint
+                requestGeneration = $nextGeneration
+            }
+            $oldBody = [string]$state.body | ConvertFrom-Json
+            $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes(
+                (ConvertTo-CanonicalJson -Value $declaration)),
+                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+            $bodyObject = [ordered]@{
+                declaration = $declaration
+                publicKey = [string]$oldBody.publicKey; keyFingerprint = $fingerprint
+                signature = [Convert]::ToBase64String($signature)
+            }
+            $state = [ordered]@{
+                endpoint = $endpointBase; requestKey = $requestKey; requestId = ''
+                generation = $nextGeneration; hostId = $hostId; fingerprint = $fingerprint
+                declaration = $declaration; terminal = $false; completionAmbiguous = $false
+                body = ($bodyObject | ConvertTo-Json -Depth 8 -Compress)
+            }
+            Write-DpapiJsonAtomic -Path $requestPath -Value $state
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$state.requestId)) {
+            try {
+                $request = Invoke-RestMethod -Method Post -Uri (
+                $endpointBase + '/api/coordination/v2/host/reauthorization-requests') `
+                -ContentType 'application/json' -Body ([string]$state.body) -UseBasicParsing `
+                -MaximumRedirection 0 -ErrorAction Stop
+            } catch { Fail-Safe 'host_reauthorization_transport' }
+            Assert-ExactPropertySet -Value $request -Names @(
+                'requestId', 'status', 'approvalUrl'
+            ) -FailureCode 'host_reauthorization_response_shape'
+            Assert-StrictUuid -Value ([string]$request.requestId) -FailureCode 'host_reauthorization_response_invalid'
+            if ([string]$request.status -notin @('pending', 'approved')) {
+                Fail-Safe 'host_reauthorization_status_invalid'
+            }
+            if ([string]$request.approvalUrl -notmatch '^https://' -or
+                [string]$request.approvalUrl -match [regex]::Escape([string]$state.requestKey)) {
+                Fail-Safe 'host_reauthorization_approval_url_invalid'
+            }
+            $state.requestId = [string]$request.requestId
+            Write-DpapiJsonAtomic -Path $requestPath -Value $state
+            return [ordered]@{
+                requestId = [string]$state.requestId; generation = [int]$state.generation
+                status = [string]$request.status; approvalUrl = [string]$request.approvalUrl
+                fingerprint = [string]$state.fingerprint
+            }
+        }
+        try {
+            $status = Invoke-RestMethod -Method Get -Uri (
+            $endpointBase + '/api/coordination/v2/host/reauthorization-requests/' +
+                [Uri]::EscapeDataString([string]$state.requestId) + '/status') `
+                -Headers @{ 'x-hola-reauthorization-key' = [string]$state.requestKey } -UseBasicParsing `
+            -MaximumRedirection 0 -ErrorAction Stop
+        } catch { Fail-Safe 'host_reauthorization_transport' }
+        Assert-StrictUuid -Value ([string]$status.requestId) -FailureCode 'host_reauthorization_status_invalid'
+        if ([string]$status.requestId -ne [string]$state.requestId) {
+            Fail-Safe 'host_reauthorization_status_mismatch'
+        }
+        if ([string]$status.status -ne 'approved') {
+            Assert-ExactPropertySet -Value $status -Names @('requestId', 'status') `
+                -FailureCode 'host_reauthorization_status_shape'
+            if ([string]$status.status -notin @('pending', 'challenge_unavailable', 'completed', 'expired', 'rejected')) {
+                Fail-Safe 'host_reauthorization_status_invalid'
+            }
+            if ([string]$status.status -in @('completed', 'expired', 'rejected')) {
+                $state.terminal = $true
+                Write-DpapiJsonAtomic -Path $requestPath -Value $state
+            }
+            return [ordered]@{
+                requestId = [string]$state.requestId; generation = [int]$state.generation
+                status = [string]$status.status; fingerprint = [string]$state.fingerprint
+            }
+        }
+        Assert-ExactPropertySet -Value $status -Names @(
+            'status', 'requestId', 'requestKey', 'challenge'
+        ) -FailureCode 'host_reauthorization_status_shape'
+        $challenge = $status.challenge
+        Assert-ExactPropertySet -Value $challenge -Names @(
+            'challengeId', 'nonce', 'issuedAt', 'expiresAt', 'requestId',
+            'requestKey', 'hostEnrollmentId', 'keyFingerprint', 'protocolVersion',
+            'requestGeneration'
+        ) -FailureCode 'host_reauthorization_challenge_shape'
+        if ([string]$status.requestKey -ne [string]$state.requestKey -or
+            [string]$challenge.challengeId -notmatch '^[0-9a-fA-F-]{36}$' -or
+            [string]$challenge.nonce -notmatch '^[A-Za-z0-9_-]{32,}$' -or
+            [string]$challenge.hostEnrollmentId -notmatch '^[0-9a-fA-F-]{36}$' -or
+            [string]$challenge.keyFingerprint -notmatch '^[0-9a-f]{64}$' -or
+            [string]$challenge.issuedAt -notmatch '^\d{4}-\d{2}-\d{2}T' -or
+            [string]$challenge.expiresAt -notmatch '^\d{4}-\d{2}-\d{2}T' -or
+            [string]$challenge.requestId -ne [string]$state.requestId -or
+            [string]$challenge.requestKey -ne [string]$state.requestKey -or
+            [string]$challenge.keyFingerprint -ne $fingerprint -or
+            [int]$challenge.protocolVersion -ne 1 -or
+            [int]$challenge.requestGeneration -ne [int]$state.generation) {
+            Fail-Safe 'host_reauthorization_challenge_mismatch'
+        }
+        try {
+            $challengeIssued = [DateTime]::Parse([string]$challenge.issuedAt).ToUniversalTime()
+            $challengeExpires = [DateTime]::Parse([string]$challenge.expiresAt).ToUniversalTime()
+        } catch { Fail-Safe 'host_reauthorization_challenge_invalid' }
+        if ($challengeExpires -le $challengeIssued -or
+            $challengeExpires -gt $challengeIssued.AddMinutes(2) -or
+            $challengeExpires -le [DateTime]::UtcNow) {
+            Fail-Safe 'host_reauthorization_challenge_expired'
+        }
+        $challengeValue = [ordered]@{
+            kind = 'host_credential_reauthorization_challenge'
+            requestId = [string]$challenge.requestId; requestKey = [string]$challenge.requestKey
+            challengeId = [string]$challenge.challengeId; nonce = [string]$challenge.nonce
+            hostEnrollmentId = [string]$challenge.hostEnrollmentId
+            keyFingerprint = [string]$challenge.keyFingerprint
+            protocolVersion = [int]$challenge.protocolVersion
+            requestGeneration = [int]$challenge.requestGeneration
+            issuedAt = [string]$challenge.issuedAt; expiresAt = [string]$challenge.expiresAt
+        }
+        $proofSignature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes(
+            (ConvertTo-CanonicalJson -Value $challengeValue)),
+            [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+        $proof = [ordered]@{
+            requestKey = [string]$state.requestKey
+            challengeId = [string]$challenge.challengeId
+            nonce = [string]$challenge.nonce
+            signature = [Convert]::ToBase64String($proofSignature)
+        } | ConvertTo-Json -Compress
+        # A lost completion response is ambiguous because the token is
+        # returned once. Mark completion ambiguous before networking so a
+        # retry polls the same request rather than blindly repeating proof.
+        $state.completionAmbiguous = $true
+        Write-DpapiJsonAtomic -Path $requestPath -Value $state
+        try {
+            $issued = Invoke-RestMethod -Method Post -Uri (
+            $endpointBase + '/api/coordination/v2/host/reauthorization-requests/' +
+            [Uri]::EscapeDataString([string]$state.requestId) + '/proof') `
+            -ContentType 'application/json' -Body $proof -UseBasicParsing `
+            -MaximumRedirection 0 -ErrorAction Stop
+        } catch { Fail-Safe 'host_reauthorization_transport' }
+        Assert-ExactPropertySet -Value $issued -Names @('accessToken', 'expiresAt') `
+            -FailureCode 'host_reauthorization_credential_shape'
+        if ([string]$issued.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
+            Fail-Safe 'host_credential_invalid'
+        }
+        $newMaterial = [ordered]@{
+            endpoint = $endpointBase; accessToken = [string]$issued.accessToken
+            expiresAt = [string]$issued.expiresAt
+        }
+        if ([DateTime]::Parse([string]$newMaterial.expiresAt).ToUniversalTime() -le [DateTime]::UtcNow) {
+            Fail-Safe 'host_credential_expiry_invalid'
+        }
+        Write-DpapiJsonAtomic -Path $materialPath -Value $newMaterial
+        $verified = Read-DpapiJson -Path $materialPath -FailureCode 'host_credential_replacement_corrupted'
+        Assert-ExactPropertySet -Value $verified -Names @('endpoint', 'accessToken', 'expiresAt') `
+            -FailureCode 'host_credential_replacement_shape'
+        if ([string]$verified.endpoint -ne $endpointBase -or
+            [string]$verified.accessToken -ne [string]$newMaterial.accessToken -or
+            [string]$verified.expiresAt -ne [string]$newMaterial.expiresAt) {
+            Fail-Safe 'host_credential_replacement_mismatch'
+        }
+        Remove-Item -LiteralPath $requestPath -Force -ErrorAction Stop
+        return [ordered]@{
+            requestId = [string]$state.requestId; generation = [int]$state.generation
+            status = 'completed'; expiresAt = [string]$verified.expiresAt
+            fingerprint = [string]$state.fingerprint
+        }
+    } finally {
+        if ($null -ne $rsa) { $rsa.Dispose() }
+    }
+}
+# END COORDINATION_REAUTHORIZATION_BOUNDARY
 
 # No import-time lifecycle execution. Operators explicitly call
 # Invoke-HolaCoordinator -TaskRef <task reference>.
