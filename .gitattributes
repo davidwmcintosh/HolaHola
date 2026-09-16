@@ -32,3 +32,6 @@ exports/holahola-complete-main.bundle.lock filter=lfs diff=lfs merge=lfs -text
 # shebang breaks execution on checkout there.
 *.sh text eol=lf
 server/templates/task-1448.md text eol=lf
+scripts/hola-coordinator.ps1 text eol=lf
+server/scripts/coordination-v2-cli.ts text eol=lf
+scripts/coordination-v2-server-signing-public.pem text eol=lf

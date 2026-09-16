@@ -90,6 +90,17 @@ function Convert-ToSidValue {
         if ($IdentityReference -is [System.Security.Principal.SecurityIdentifier]) {
             return $IdentityReference.Value
         }
+        if ($IdentityReference -is [string]) {
+            if ($IdentityReference.StartsWith('S-1-')) {
+                # Assume it's a SID string
+                $sid = New-Object System.Security.Principal.SecurityIdentifier($IdentityReference)
+                return $sid.Value
+            } else {
+                # Assume it's an account name string
+                $account = New-Object System.Security.Principal.NTAccount($IdentityReference)
+                return $account.Translate([System.Security.Principal.SecurityIdentifier]).Value
+            }
+        }
         return $IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
     } catch {
         Fail-Safe 'acl_identity_unresolvable'
