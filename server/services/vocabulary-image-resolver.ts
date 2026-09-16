@@ -3199,7 +3199,7 @@ export async function resolveVocabularyImage(
 
   try {
     const { generateVisual } = await import('./visual-content-service');
-    const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, anchorImageUrl);
+    const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, anchorImageUrl, language);
 
     try {
       await storage.cacheImage({
@@ -3420,7 +3420,7 @@ export async function previewRefetchImage(request: {
   const generationType = isSceneConcept(effectiveWord, concept) ? 'infographic' : 'image';
 
   const { generateVisual } = await import('./visual-content-service');
-  const result = await generateVisual(concept, generationType);
+  const result = await generateVisual(concept, generationType, undefined, undefined, undefined, language);
 
   // Archive to permanent storage so URL doesn't expire during review
   const { archiveImageToPermanentStorage } = await import('./image-storage');

@@ -15,6 +15,17 @@
 
 import { generateCharacterScene, generatePropImage } from './google-image-service';
 
+/**
+ * Style profiles are keyed by the canonical lower-case language name. Keep
+ * normalization at this boundary so every scene caller (including older
+ * callers that pass "Spanish" or surrounding whitespace) selects the same
+ * DB-pinned profile.
+ */
+export function normalizeTargetLanguage(language?: string): string | undefined {
+  const normalized = language?.trim().toLowerCase();
+  return normalized || undefined;
+}
+
 export interface VisualGenerationRequest {
   concept: string;
   type: 'image' | 'infographic';
@@ -112,7 +123,14 @@ export async function generateVisual(
   anchorImageUrl?: string,
   language?: string,
 ): Promise<VisualGenerationResult> {
-  const request: VisualGenerationRequest = { concept, type, data, style, anchorImageUrl, targetLanguage: language };
+  const request: VisualGenerationRequest = {
+    concept,
+    type,
+    data,
+    style,
+    anchorImageUrl,
+    targetLanguage: normalizeTargetLanguage(language),
+  };
   let imageUrl: string;
   let provider: string;
 
@@ -155,7 +173,14 @@ export async function generateVisualBatch(
   for (let i = 0; i < requests.length; i += batchSize) {
     const batch = requests.slice(i, i + batchSize);
     const batchResults = await Promise.all(
-      batch.map(req => generateVisual(req.concept, req.type, req.data, req.style, req.anchorImageUrl)),
+      batch.map(req => generateVisual(
+        req.concept,
+        req.type,
+        req.data,
+        req.style,
+        req.anchorImageUrl,
+        req.targetLanguage,
+      )),
     );
     results.push(...batchResults);
   }

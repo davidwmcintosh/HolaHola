@@ -34,6 +34,7 @@ import {
   type LiveServerMessage,
 } from '@google/genai';
 import type { FunctionDeclaration } from '@google/genai';
+import { findImmediateSubstantialReplay } from './gemini-live-replay-detector';
 import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
 import { advanceCompletedExchangeForEpoch } from './voice-exchange-accounting';
@@ -976,6 +977,14 @@ export class GeminiLiveSession {
   // the saved message. Once outputTranscription arrives, it becomes the sole source and
   // any part.text accumulation from earlier in the same turn is discarded.
   private usingOutputTranscription = false;
+  // Turn-local semantic replay guard. Transport chunk IDs are not useful here:
+  // GL can replay the same paragraph using fresh, unique chunks.
+  private substantialReplaySuppressedThisTurn = false;
+  private replayAudioQuarantineArmed = false;
+  private replayAudioQuarantine: Array<{ audio: Buffer; durationMs: number }> = [];
+  private replayQuarantineDroppedMs = 0;
+  private replayQuarantineChunks = 0;
+  private replayQuarantineArmedAt = 0;
   private lastUserText = '';             // Last completed user turn — for enrichment context
   private enrichment: PostResponseEnrichmentService;
   private transcriptFlushTimer: NodeJS.Timeout | null = null;
@@ -1890,6 +1899,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.isGenerationDone = false;
     this.pendingPlaybackEndedLift = false;
     this.usingOutputTranscription = false;
+    this.substantialReplaySuppressedThisTurn = false;
+    this.replayAudioQuarantineArmed = false;
+    this.replayAudioQuarantine = [];
+    this.replayQuarantineDroppedMs = 0;
+    this.replayQuarantineChunks = 0;
+    this.replayQuarantineArmedAt = 0;
     // Student actively interrupted — their audio is arriving, so count it as input.
     this.hasStudentInputSinceLastResponse = true;
     // Reset response-flushed guard so the next generation is not spuriously suppressed.
@@ -1898,6 +1913,58 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
     this.suppressNextProcessingPending = false;
     console.log(`[GeminiLive] Interrupted — advancing to turnId ${this.currentTurnId}`);
+  }
+
+  /**
+   * Append one output-transcription chunk, dropping only a detected immediate
+   * substantial replay. The factual stream callback remains upstream, so this
+   * repair does not change telemetry.
+   */
+  private appendOutputTranscriptChunk(text: string): string {
+    if (this.substantialReplaySuppressedThisTurn) return '';
+    const prior = this.pendingOutputTranscript;
+    const candidate = prior + text;
+    const replayAt = findImmediateSubstantialReplay(candidate);
+    if (replayAt === null) {
+      this.pendingOutputTranscript = candidate;
+      return text;
+    }
+
+    this.pendingOutputTranscript = candidate.slice(0, replayAt);
+    this.substantialReplaySuppressedThisTurn = true;
+    this.replayAudioQuarantineArmed = false;
+    this.replayQuarantineDroppedMs += this.replayAudioQuarantine.reduce((sum, item) => sum + item.durationMs, 0);
+    this.replayQuarantineChunks += this.replayAudioQuarantine.length;
+    this.replayAudioQuarantine = [];
+    console.warn(`[GeminiLive] Suppressed immediate substantial output replay (turnId: ${this.currentTurnId}, replayAt: ${replayAt})`);
+    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_substantial_replay_suppressed', {
+      turnId: this.currentTurnId,
+      replayAt,
+      matchedTokens: 20,
+      droppedPcmChunks: this.replayQuarantineChunks,
+      droppedPcmDurationMs: this.replayQuarantineDroppedMs,
+      orderingLagMs: this.replayQuarantineArmedAt ? Date.now() - this.replayQuarantineArmedAt : 0,
+    });
+    return this.pendingOutputTranscript.slice(prior.length);
+  }
+
+  private routeReplayGuardedAudio(audio: Buffer): boolean {
+    if (this.substantialReplaySuppressedThisTurn) return false;
+    const tokenCount = this.pendingOutputTranscript.trim().split(/\s+/).filter(Boolean).length;
+    if (!this.replayAudioQuarantineArmed && tokenCount >= 20) {
+      this.replayAudioQuarantineArmed = true;
+      this.replayQuarantineArmedAt = Date.now();
+    }
+    if (!this.replayAudioQuarantineArmed) return true;
+    const durationMs = audio.length / 2 / AUDIO_OUTPUT_SAMPLE_RATE * 1000;
+    this.replayAudioQuarantine.push({ audio, durationMs });
+    // Keep this bounded: normal speech is delayed by at most this small tail,
+    // and old chunks are released if transcript ordering lags.
+    if (this.replayAudioQuarantine.length > 12) {
+      this.replayAudioQuarantine.shift();
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -2898,15 +2965,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
           const pcm16Buffer = Buffer.from(part.inlineData.data, 'base64');
           const f32leBuffer = pcm16ToF32le(pcm16Buffer);
+           const replayAudioHeld = !this.routeReplayGuardedAudio(pcm16Buffer);
 
           // ── Karaoke tap ────────────────────────────────────────────────
           // Feed the raw PCM16 to Deepgram in parallel so it can return
           // word-level timestamps while audio plays on the client.
-          this.karaokeTracker?.sendAudioChunk(
-            pcm16Buffer,
-            this.currentSentenceIndex,
-            this.currentTurnId,
-          );
+           if (!replayAudioHeld) {
+             this.karaokeTracker?.sendAudioChunk(
+               pcm16Buffer,
+               this.currentSentenceIndex,
+               this.currentTurnId,
+             );
+           }
 
           // Mark that audio has started for this turn — prevents late outputTranscription
           // chunks from firing a spurious processing_pending AFTER audio has played.
@@ -3016,16 +3086,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               hasTargetContent: true,
             });
           }
-          this.sendWsMessage(this.session.ws, {
-            type: 'audio_chunk',
-            audio: f32leBuffer.toString('base64'),
-            audioFormat: 'pcm_f32le',
-            sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-            turnId: this.currentTurnId,
-            sentenceIndex: this.currentSentenceIndex,
-            chunkIndex: this.currentChunkIndex++,
-            isLast: false,
-          });
+           if (!replayAudioHeld) {
+             this.sendWsMessage(this.session.ws, {
+               type: 'audio_chunk',
+               audio: f32leBuffer.toString('base64'),
+               audioFormat: 'pcm_f32le',
+               sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+               turnId: this.currentTurnId,
+               sentenceIndex: this.currentSentenceIndex,
+               chunkIndex: this.currentChunkIndex++,
+               isLast: false,
+             });
+           }
         }
 
         // ── Thought parts (includeThoughts: true) ────────────────────────────
@@ -3732,8 +3804,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
           this.pendingOutputTranscript = '';
           this.usingOutputTranscription = true;
+          this.substantialReplaySuppressedThisTurn = false;
+          this.replayAudioQuarantineArmed = false;
+          this.replayAudioQuarantine = [];
+          this.replayQuarantineDroppedMs = 0;
+          this.replayQuarantineChunks = 0;
+          this.replayQuarantineArmedAt = 0;
         }
-        this.pendingOutputTranscript += isFirstOutputChunk ? text.trimStart() : text;
+        const acceptedText = this.appendOutputTranscriptChunk(isFirstOutputChunk ? text.trimStart() : text);
+        // Use the accepted text for client subtitles and downstream hard-wall
+        // checks; the factual stream callback above remains untouched.
+        const acceptedTranscriptText = acceptedText;
+        if (acceptedTranscriptText) {
         // Hard wall: watch for memory assertion phrases without Archive access mid-output.
         // Flag for post-turn correction injection at generationComplete.
         if (!this.hardWallTriggered && this.pendingOutputTranscript.length > 20) {
@@ -3765,9 +3847,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.sendWsMessage(this.session.ws, {
           type: 'daniela_transcript',
-          text,
+          text: acceptedTranscriptText,
           turnId: this.currentTurnId,
         });
+        }
       }
       } // end else (not ghost transcription)
     }

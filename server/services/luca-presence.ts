@@ -17,7 +17,7 @@ import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { getSharedDb } from "../db";
 import { teamRooms } from "../../shared/schema";
 import { desc, eq } from "drizzle-orm";
-import { emitToRoom } from "./team-room-ws-broker";
+import { emitToRoom, registerLucaPresenceStateReader } from "./team-room-ws-broker";
 import { respondToNudge } from "./luca-responder";
 import { getCurrentSessionSnapshot, startLucaObserver } from "./luca-observer";
 import { getAgentCredential } from "./agent-auth";
@@ -54,6 +54,8 @@ let _state: LucaPresenceState = {
   reconnectAttempts: 0,
   socketId: null,
 };
+
+registerLucaPresenceStateReader(() => getLucaPresenceState());
 
 // Nudge ring-buffer: messages directed @luca from the Team Room
 let _nudgeBuffer: NudgeEntry[] = [];

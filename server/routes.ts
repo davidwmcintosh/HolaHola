@@ -13829,7 +13829,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
       // Generate fresh candidate image (bypasses cache — always new)
       const { generateVisual } = await import('./services/visual-content-service');
-      const result = await generateVisual(fullConcept, generationType, undefined, undefined, anchorImageUrl);
+      const result = await generateVisual(fullConcept, generationType, undefined, undefined, anchorImageUrl, language);
 
       // Store under preview key (temporary — not the real cache key)
       await storage.cacheImage({
