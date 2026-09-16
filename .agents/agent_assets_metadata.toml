@@ -256,3 +256,17 @@ mtime_ms = 1789569125951
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/13547844-6022-4c26-b0fd-83d9c75dfa95/d459aa3f-8d6e-4c62-92f2-249ab7579d58"
 storage_version_token = "1789569137247161"
 content_type = "text/plain"
+
+[[outputs]]
+id = "5grcYxxrO_teKhEZztTqd"
+uri = "file://attached_assets/founder-runtime-one-shot-corrected.txt"
+type = "text"
+title = "Corrected founder runtime one-shot"
+description = "Copy the entire one-line command into the signed-in getholahola.com browser console and run it exactly once."
+logical_id = "7aa39ed2-d7bc-4cad-81c8-a9efd3344aa7"
+content_hash = "sha256:471e8aa79077a2371e1761b6dacfbc1d9ce20a573863e697e83a5bc5245cd44e"
+size = 5914
+mtime_ms = 1789579537100
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/7aa39ed2-d7bc-4cad-81c8-a9efd3344aa7/00057210-171a-44dd-ae5b-95f55debf811"
+storage_version_token = "1789579538367523"
+content_type = "text/plain"
