@@ -95,6 +95,8 @@ function publicationInput() {
 }
 
 function publicationDatabase(events: string[], options: {
+  precheckSource?: Record<string, unknown> | null;
+  precheckCurrent?: Record<string, unknown> | null;
   transactionSource?: Record<string, unknown>;
   transactionCurrent?: Record<string, unknown>;
   queries?: unknown[];
@@ -119,7 +121,15 @@ function publicationDatabase(events: string[], options: {
     execute: async () => {
       outsideReads += 1;
       events.push(`outside-sql-${outsideReads}`);
-      return [publicationSource];
+      if (outsideReads === 1) {
+        return options.precheckSource === null
+          ? []
+          : [options.precheckSource ?? publicationSource];
+      }
+      const current = options.precheckCurrent === undefined
+        ? options.precheckSource ?? publicationSource
+        : options.precheckCurrent;
+      return current === null ? [] : [current];
     },
     transaction: async (callback: (transaction: typeof transactionDb) => Promise<unknown>) => {
       events.push('transaction-open');
@@ -310,6 +320,61 @@ test('runtime publication diagnostics are bounded and retain phase without leaki
   assert.equal(described.causes[1].constraint?.length, 256);
   assert.equal(JSON.stringify(described).includes('must-not-log'), false);
   assert.equal(JSON.stringify(described).includes('inner'), false);
+});
+
+test('runtime source-precheck diagnostics identify mismatch without logging raw authority values', async () => {
+  const requestedId = String(publicationSource.id);
+  const currentId = 'newer-source';
+  let failure: unknown;
+  try {
+    await publishCoordinationV2RuntimeRelease(publicationInput(), {
+      database: publicationDatabase([], {
+        precheckCurrent: {
+          ...publicationSource,
+          id: currentId,
+          database_name: 'coordinator',
+          schema_name: 'public',
+          server_address: '192.0.2.10',
+        },
+      }),
+    });
+  } catch (error) {
+    failure = error;
+  }
+  assert.match(String(failure), /V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT/);
+  const described = describeCoordinationV2RuntimePublicationFailure(failure, 4);
+  assert.equal(described.phase, 'source_precheck');
+  assert.equal(described.sourcePrecheck?.requestedSourceFound, true);
+  assert.deepEqual(described.sourcePrecheck?.mismatchedFields, ['id']);
+  assert.match(described.sourcePrecheck?.requestedSourceIdHash ?? '', /^[0-9a-f]{64}$/);
+  assert.match(described.sourcePrecheck?.currentSourceIdHash ?? '', /^[0-9a-f]{64}$/);
+  assert.match(described.sourcePrecheck?.databaseIdentityHash ?? '', /^[0-9a-f]{64}$/);
+  const serialized = JSON.stringify(described);
+  assert.equal(serialized.includes(requestedId), false);
+  assert.equal(serialized.includes(currentId), false);
+  assert.equal(serialized.includes('coordinator'), false);
+  assert.equal(serialized.includes('192.0.2.10'), false);
+});
+
+test('runtime source-precheck diagnostics remain bounded when the requested source is absent', async () => {
+  let failure: unknown;
+  try {
+    await publishCoordinationV2RuntimeRelease(publicationInput(), {
+      database: publicationDatabase([], {
+        precheckSource: null,
+        precheckCurrent: null,
+      }),
+    });
+  } catch (error) {
+    failure = error;
+  }
+  const described = describeCoordinationV2RuntimePublicationFailure(failure, 2);
+  assert.equal(described.phase, 'source_precheck');
+  assert.equal(described.sourcePrecheck?.requestedSourceFound, false);
+  assert.deepEqual(described.sourcePrecheck?.mismatchedFields, []);
+  assert.equal(described.sourcePrecheck?.currentSourceIdHash, undefined);
+  assert.equal(described.sourcePrecheck?.databaseIdentityHash, undefined);
+  assert.match(described.sourcePrecheck?.requestedSourceIdHash ?? '', /^[0-9a-f]{64}$/);
 });
 
 test('runtime publication opens no transaction when provenance or object verification fails', async () => {

@@ -9390,3 +9390,27 @@ complete source-bridge suite and typecheck pass. Both Alden engines returned
 unconditional `APPROVED — Ship it.` This fix grants no runtime, host, task,
 session, lease, or execution authority. Prepare and explicitly Publish the new
 implementation commit before retrying source-promotion recording.
+
+## September 15, 2026 — bounded runtime source-precheck diagnostics
+
+The founder ran the runtime-release command twice against source promotion
+`8947e0d7-6520-481c-b12d-e2567bd0f7f4`. Production returned
+`V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT` during `source_precheck` after 83 ms
+and 81 ms. Direct shared-Neon HTTP and pooled reads both showed that promotion
+as the latest published row by more than three hours. Both failed calls wrote
+zero runtime-release rows. Stop retries until a diagnostic build is published.
+
+The approved diagnostic change preserves the same source-current comparison and
+same client-facing 409. On that initial precheck failure only, server logs now
+include whether the requested row existed, SHA-256 fingerprints of requested
+and current promotion IDs, a fingerprint of the database name/schema/server
+address returned by PostgreSQL, and the allowlisted names of differing canonical
+fields. It never logs the raw IDs, database identity, connection URL, SQL
+parameters, or request body.
+
+Focused service and HTTP tests pass 28/28. They cover both a different current
+source and a missing requested source and prove raw values are absent from the
+serialized diagnostic. Typecheck and system health pass. Anthropic-Alden and
+Gemini-Alden each returned unconditional `APPROVED — Ship it.` The registered
+validation suite is still running at handoff time. This change grants no
+runtime, host, task, session, lease, or execution authority.

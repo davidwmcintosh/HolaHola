@@ -122,6 +122,15 @@ type RuntimePublicationPhase =
   | 'uniqueness_recovery';
 
 const RUNTIME_PUBLICATION_PHASE = Symbol('coordinationV2RuntimePublicationPhase');
+const RUNTIME_SOURCE_PRECHECK_DIAGNOSTIC = Symbol('coordinationV2RuntimeSourcePrecheckDiagnostic');
+
+type RuntimeSourcePrecheckDiagnostic = {
+  requestedSourceFound: boolean;
+  requestedSourceIdHash: string;
+  currentSourceIdHash?: string;
+  databaseIdentityHash?: string;
+  mismatchedFields: string[];
+};
 
 function annotateRuntimePublicationFailure(error: unknown, phase: RuntimePublicationPhase): void {
   if (!error || (typeof error !== 'object' && typeof error !== 'function')) return;
@@ -133,6 +142,47 @@ function annotateRuntimePublicationFailure(error: unknown, phase: RuntimePublica
   } catch {
     // Logging metadata must never replace or mask the original failure.
   }
+}
+
+function sourcePrecheckDiagnostic(
+  requestedSourceId: string,
+  requested: Record<string, unknown> | undefined,
+  current: Record<string, unknown> | undefined,
+): RuntimeSourcePrecheckDiagnostic {
+  const comparableFields = [
+    'id',
+    'repository_identity',
+    'promoted_commit_sha',
+    'exact_tree_sha',
+    'publication_reference',
+    'protected_validation_id',
+    'canonical_record_digest',
+  ] as const;
+  const databaseIdentity = current
+    ? [
+        current.database_name,
+        current.schema_name,
+        current.server_address,
+      ].map((value) => String(value ?? '')).join('|')
+    : '';
+  return {
+    requestedSourceFound: Boolean(requested),
+    requestedSourceIdHash: digest(requestedSourceId),
+    ...(current?.id ? { currentSourceIdHash: digest(String(current.id)) } : {}),
+    ...(databaseIdentity ? { databaseIdentityHash: digest(databaseIdentity) } : {}),
+    mismatchedFields: requested && current
+      ? comparableFields.filter((field) => String(requested[field]) !== String(current[field]))
+      : [],
+  };
+}
+
+function sourcePrecheckFailure(diagnostic: RuntimeSourcePrecheckDiagnostic): never {
+  const error = new CoordinationV2RuntimeError('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
+  Object.defineProperty(error, RUNTIME_SOURCE_PRECHECK_DIAGNOSTIC, {
+    value: diagnostic,
+    configurable: true,
+  });
+  throw error;
 }
 
 function runtimePublicationMessageCategory(value: unknown): string | undefined {
@@ -165,6 +215,7 @@ export function describeCoordinationV2RuntimePublicationFailure(
     constraint?: string;
     message?: string;
   }>;
+  sourcePrecheck?: RuntimeSourcePrecheckDiagnostic;
 } {
   const causes: Array<{
     name?: string;
@@ -194,10 +245,16 @@ export function describeCoordinationV2RuntimePublicationFailure(
   const phase = error && (typeof error === 'object' || typeof error === 'function')
     ? (error as { [RUNTIME_PUBLICATION_PHASE]?: RuntimePublicationPhase })[RUNTIME_PUBLICATION_PHASE]
     : undefined;
+  const sourcePrecheck = error && (typeof error === 'object' || typeof error === 'function')
+    ? (error as {
+        [RUNTIME_SOURCE_PRECHECK_DIAGNOSTIC]?: RuntimeSourcePrecheckDiagnostic;
+      })[RUNTIME_SOURCE_PRECHECK_DIAGNOSTIC]
+    : undefined;
   return {
     phase: phase ?? 'unknown',
     elapsedMs: Number.isFinite(elapsedMs) && elapsedMs >= 0 ? Math.round(elapsedMs) : 0,
     causes,
+    ...(sourcePrecheck ? { sourcePrecheck } : {}),
   };
 }
 
@@ -952,7 +1009,8 @@ async function currentSource(tx: typeof db): Promise<Record<string, unknown> | u
   const result = await tx.execute(sql`
     SELECT id, repository_identity, promoted_commit_sha, exact_tree_sha,
       publication_reference, protected_validation_id, canonical_record_digest,
-      created_at
+      created_at, current_database() AS database_name,
+      current_schema() AS schema_name, inet_server_addr()::text AS server_address
     FROM coordination_v2_source_promotions
     WHERE state = 'published'
     ORDER BY created_at DESC
@@ -1097,7 +1155,11 @@ export async function publishCoordinationV2RuntimeRelease(
     `));
     const verifiedCurrent = await currentSource(database);
     if (!verifiedSource || !sourceMatches(verifiedCurrent, verifiedSource)) {
-      fail('V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT');
+      sourcePrecheckFailure(sourcePrecheckDiagnostic(
+        sourcePromotionId,
+        verifiedSource,
+        verifiedCurrent,
+      ));
     }
     if (!SHA40.test(String(verifiedSource.promoted_commit_sha))
       || !SHA40.test(String(verifiedSource.exact_tree_sha))

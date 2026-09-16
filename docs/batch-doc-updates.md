@@ -6829,3 +6829,24 @@ inspection. Marker recovery now resolves candidate and marker proofs
 sequentially. The fixture rejects overlapping proof resolution, the focused
 source-bridge suite and typecheck pass, system health is fully green, and both
 Alden engines returned unconditional approval.
+
+## Runtime current-source mismatch diagnostics — September 15, 2026
+
+The founder-authenticated runtime publication request failed closed twice with
+`V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT`. Both attempts stopped during the
+initial source precheck and wrote no runtime release. Direct HTTP and pooled
+reads of the canonical shared Neon database agreed that the requested promotion
+was the latest published source, so retries were stopped.
+
+The runtime publisher now attaches bounded evidence to that existing failure.
+Server logs record whether the requested row was found, SHA-256 fingerprints of
+the requested and current promotion IDs, a fingerprint derived from
+PostgreSQL's non-secret database identity, and only the allowlisted names of
+canonical fields that differ. Raw authority values, database identity, SQL,
+parameters, and credentials remain excluded. The public response and all
+source-current checks are unchanged.
+
+Focused service and HTTP tests pass 28/28, typecheck and system health pass, and
+both Alden engines returned unconditional `APPROVED — Ship it.` Missing-source
+and different-current-source paths are covered. No runtime, host, task, session,
+lease, or execution authority was created.
