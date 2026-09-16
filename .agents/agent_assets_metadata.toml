@@ -228,3 +228,17 @@ mtime_ms = 1789542356436
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/c5e03922-5efb-4517-aa15-f13c1e689d55/da57c68d-df67-42da-9b06-d3b2c45d30c9"
 storage_version_token = "1789542357393201"
 content_type = "text/plain"
+
+[[outputs]]
+id = "wsjOWRsDiGEDC0qRBRDxm"
+uri = "file://docs/superpowers/specs/2026-09-14-coordinator-v2-windows-runtime-bootstrap-design.md"
+type = "text"
+title = "Coordinator V2 Windows Runtime Bootstrap Design"
+description = "Approved-design candidate with the content-addressed artifact cardinality correction. Review the Artifact storage and Content-addressed artifact cardinality correction sections."
+logical_id = "99614923-6098-4677-bf30-a349ed67bc52"
+content_hash = "sha256:202b4c638be3cc01a28ad0c766c75ea8274b2013ffc59e7195b6102e4ce2e60d"
+size = 32714
+mtime_ms = 1789544380285
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/99614923-6098-4677-bf30-a349ed67bc52/059ad152-f6b7-42f9-83bc-695bacf62817"
+storage_version_token = "1789544488865832"
+content_type = "text/markdown"
