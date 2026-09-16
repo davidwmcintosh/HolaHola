@@ -9412,5 +9412,8 @@ Focused service and HTTP tests pass 28/28. They cover both a different current
 source and a missing requested source and prove raw values are absent from the
 serialized diagnostic. Typecheck and system health pass. Anthropic-Alden and
 Gemini-Alden each returned unconditional `APPROVED — Ship it.` The registered
-validation suite is still running at handoff time. This change grants no
-runtime, host, task, session, lease, or execution authority.
+validation suite also passed this 28/28 runtime-bootstrap group and every later
+group. Its sole failed aggregate is the documented unchanged baseline: the
+stale `work_poll` source assertion and the PostgreSQL authority test's required
+disposable-database refusal. This change grants no runtime, host, task, session,
+lease, or execution authority.
