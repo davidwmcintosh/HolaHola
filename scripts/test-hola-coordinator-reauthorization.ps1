@@ -14,7 +14,7 @@ function Assert-Test {
 $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider 2048
 $originalRuntimeBootstrapRoot = $RuntimeBootstrapRoot
 $originalDeclarationHelper = (Get-Item Function:\New-InternalHolaCoordinatorReauthorizationDeclaration).ScriptBlock
-$existingInvokeRestFunction = Get-Item Function:\Invoke-RestMethod -ErrorAction SilentlyContinue
+$existingInvokeRestFunction = Get-Item Function:\script:Invoke-RestMethod -ErrorAction SilentlyContinue
 $testRoot = $null
 try {
     $fingerprint = Get-RsaFingerprint -Rsa $rsa
@@ -174,10 +174,12 @@ try {
     Set-Item Function:\New-InternalHolaCoordinatorReauthorizationDeclaration `
         -Value $originalDeclarationHelper
     $global:ReauthorizationTestBody = $null
-    Set-Item Function:\Invoke-RestMethod -Value {
+    Set-Item Function:\script:Invoke-RestMethod -Value {
+        [CmdletBinding()]
         param(
-            $Method, $Uri, $ContentType, $Body, $UseBasicParsing,
-            $MaximumRedirection, $ErrorAction, $Headers
+            $Method, $Uri, $ContentType, $Body,
+            [switch]$UseBasicParsing,
+            $MaximumRedirection, $Headers
         )
         $global:ReauthorizationTestBody = [string]$Body
         return [pscustomobject]@{
@@ -186,6 +188,15 @@ try {
             approvalUrl = '/coordination/v2/host-reauthorization-approval?requestId=55555555-5555-4555-8555-555555555555'
         }
     }
+    $mockCommand = Get-Command Invoke-RestMethod -CommandType Function -ErrorAction Stop
+    Assert-Test ([string]$mockCommand.Name -ceq 'Invoke-RestMethod') `
+        'Script-scoped Invoke-RestMethod mock was not selected'
+    Invoke-RestMethod -Method Post -Uri ($endpoint + '/test-binding') `
+        -ContentType 'application/json' -Body '{}' -UseBasicParsing `
+        -MaximumRedirection 0 -ErrorAction Stop | Out-Null
+    Assert-Test ([string]$global:ReauthorizationTestBody -ceq '{}') `
+        'PowerShell 5.1 production-shaped mock binding did not capture the body'
+    $global:ReauthorizationTestBody = $null
     $result = Restore-HolaCoordinatorHostCredential -Endpoint $endpoint
     Assert-Test ([int]$result.generation -eq 2) 'Restore did not advance to generation 2'
     Assert-Test ([string]$result.status -ceq 'pending') 'Restore did not return pending'
@@ -223,9 +234,9 @@ try {
     Set-Item Function:\New-InternalHolaCoordinatorReauthorizationDeclaration `
         -Value $originalDeclarationHelper
     if ($null -ne $existingInvokeRestFunction) {
-        Set-Item Function:\Invoke-RestMethod -Value $existingInvokeRestFunction.ScriptBlock
+        Set-Item Function:\script:Invoke-RestMethod -Value $existingInvokeRestFunction.ScriptBlock
     } else {
-        Remove-Item Function:\Invoke-RestMethod -ErrorAction SilentlyContinue
+        Remove-Item Function:\script:Invoke-RestMethod -ErrorAction SilentlyContinue
     }
     $RuntimeBootstrapRoot = $originalRuntimeBootstrapRoot
     $global:ReauthorizationTestBody = $null
