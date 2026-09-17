@@ -40,6 +40,21 @@ export const SOURCE_CONTROL_REQUIRED_CHECKS = [
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const RENDER_RELEASE_REFERENCE_PATTERN = /^render-release:([0-9a-f]{40}):([0-9a-f]{64})$/;
+
+// A freshly prepared candidate must never inherit a prior candidate
+// generation's promotion-completion evidence. writeStatus() otherwise
+// carries promotedSha (and related promotion metadata) forward from the
+// previous status so it survives incidental synced/dirty/failed writes;
+// pass this alongside every ready_to_promote write that starts a new
+// candidate window so validPreparedCandidate() cannot mistake a brand-new
+// candidate for one already recorded as promoted.
+const FRESH_CANDIDATE_STATUS_EXTRA = {
+  promotedSha: undefined,
+  promotedBy: undefined,
+  promotionRequestId: undefined,
+  promotionVerificationMode: undefined,
+  publicationReference: undefined,
+} as const;
 const DEFAULT_LOCK_LEASE_MS = 10 * 60 * 1000;
 const DEFAULT_RELEASE_HEALTH_TIMEOUT_MS = 10_000;
 const MAX_RELEASE_HEALTH_BYTES = 64 * 1024;
@@ -766,7 +781,16 @@ export class SourceControlService {
         await this.writeStatus('failed', error, actor, verified.local, verified.github);
         return { ok: false, state: 'failed', ...verified, error };
       }
-      await this.writeStatus('ready_to_promote', 'Received GitHub source passed validation; publish remains explicit.', actor, verified.local, verified.github, received, validation);
+      await this.writeStatus(
+        'ready_to_promote',
+        'Received GitHub source passed validation; publish remains explicit.',
+        actor,
+        verified.local,
+        verified.github,
+        received,
+        validation,
+        FRESH_CANDIDATE_STATUS_EXTRA,
+      );
       return { ok: true, state: 'ready_to_promote', ...verified, candidateSha: received, validation };
     }
 
@@ -795,7 +819,16 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, verified.local, verified.github);
       return { ok: false, state: 'failed', ...verified, error };
     }
-    await this.writeStatus('ready_to_promote', 'Validation passed. Use Replit Publish explicitly.', actor, verified.local, verified.github, verified.local, validation);
+    await this.writeStatus(
+      'ready_to_promote',
+      'Validation passed. Use Replit Publish explicitly.',
+      actor,
+      verified.local,
+      verified.github,
+      verified.local,
+      validation,
+      FRESH_CANDIDATE_STATUS_EXTRA,
+    );
     return { ok: true, state: 'ready_to_promote', ...verified, candidateSha: verified.local, validation };
   }
 
@@ -1084,7 +1117,8 @@ export class SourceControlService {
       || preparedAt > this.now().getTime()
       || expiresAt <= this.now().getTime()
       || expiresAt <= preparedAt
-      || !hasValidSourceControlManifest(status?.validation, candidateSha)) {
+      || !hasValidSourceControlManifest(status?.validation, candidateSha)
+      || status?.promotedSha === candidateSha) {
       return undefined;
     }
     return {
@@ -1562,6 +1596,18 @@ export class SourceControlService {
       consecutiveFailures: successful ? 0 : (previous?.consecutiveFailures || 0) + 1,
       lastHeartbeatAt: now,
       updatedAt: now,
+      // Promotion-completion evidence must survive incidental writes (a
+      // later `dirty`/`failed`/plain `synced` sync) the same way candidate
+      // evidence does. Otherwise a completed promotion's `promotedSha` marker
+      // disappears after exactly one unrelated status write, and a later
+      // sync tick can no longer tell a just-promoted candidate apart from
+      // one still awaiting promotion. `extra` below still wins when a caller
+      // explicitly sets or clears these fields.
+      promotedSha: previous?.promotedSha,
+      promotedBy: previous?.promotedBy,
+      promotionRequestId: previous?.promotionRequestId,
+      promotionVerificationMode: previous?.promotionVerificationMode,
+      publicationReference: previous?.publicationReference,
       ...extra,
     };
     await mkdir(join(this.statusPath, '..'), { recursive: true });

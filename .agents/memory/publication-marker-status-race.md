@@ -31,12 +31,20 @@ serialize operations that read shared `FETCH_HEAD`; concurrent fetches can
 replace each other's proof even when both requested commits are valid.
 
 Marker recognition intentionally does not gate on the previous operational
-`state` (e.g. `synced`/`failed`/`dirty`). Candidate evidence fields persist
-across state writes independent of `state` itself, and recovery must key off
-the evidence (unexpired timestamps, valid manifest, freshly re-authenticated
-marker parent/tree/subject against GitHub) — not off what the last sync
-happened to write. Adding a `previous.state === 'ready_to_promote'` guard here
-looks like a safety improvement but breaks intended, tested recovery from a
-transient non-ready state; if a negative test for that guard seems needed,
-check whether the existing test suite already codifies the opposite
-expectation before trusting the hypothetical over it.
+`state` (e.g. `synced`/`failed`/`dirty`) — evidence (unexpired timestamps,
+valid manifest, freshly re-authenticated marker parent/tree/subject) is the
+recovery key, not what the last sync happened to write. A
+`previous.state === 'ready_to_promote'` guard here looks like a safety
+improvement but breaks intended, tested recovery from a transient non-ready
+state; check whether the test suite already codifies the opposite expectation
+before trusting a hypothetical negative case over it.
+
+Evidence persistence must still distinguish *pending* from *terminal*: once a
+candidate has been recorded as promoted, that completion is itself evidence
+and must exclude the candidate from future "still pending" recognition, or a
+later sync can re-arm an already-finished promotion and a repeat record
+attempt collides with the append's own uniqueness guarantee. Any field used
+to mark terminal completion needs the same persistence discipline as the
+pending-candidate evidence (survive incidental non-terminal writes) and must
+be reset when a genuinely new candidate generation begins — otherwise a fresh
+candidate can inherit a prior generation's completion marker.

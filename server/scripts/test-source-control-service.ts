@@ -628,6 +628,9 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
   recorded: import('../services/source-control-service').SourcePromotionRecordInput[];
   statusAfterSync: any;
   statusAfterRecord: any;
+  syncAfterRecordResult: Awaited<ReturnType<SourceControlService['sync']>>;
+  statusAfterSyncAfterRecord: any;
+  recordAfterSyncResult: Awaited<ReturnType<SourceControlService['recordPromotion']>>;
 }> {
   const rootDir = mkdtempSync(join(tmpdir(), 'source-control-sync-then-record-test-'));
   const statusPath = join(rootDir, 'status.json');
@@ -706,7 +709,24 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
     const statusAfterSync = JSON.parse(readFileSync(statusPath, 'utf8'));
     const recordResult = await service.recordPromotion(candidateSha, 'operator', 'record-after-sync', publicationReference);
     const statusAfterRecord = JSON.parse(readFileSync(statusPath, 'utf8'));
-    return { syncResult, recordResult, recorded, statusAfterSync, statusAfterRecord };
+    // The scheduler keeps polling on its own cadence. The same "Published
+    // your App" marker is still the head, and the just-promoted candidate's
+    // evidence (sha/validation/expiry) is untouched by recordPromotion. A
+    // completed promotion must never be re-armed to ready_to_promote, or a
+    // later scheduler tick would let an operator attempt to record it again.
+    const syncAfterRecordResult = await service.sync('scheduler');
+    const statusAfterSyncAfterRecord = JSON.parse(readFileSync(statusPath, 'utf8'));
+    const recordAfterSyncResult = await service.recordPromotion(candidateSha, 'operator', 'record-after-second-sync', publicationReference);
+    return {
+      syncResult,
+      recordResult,
+      recorded,
+      statusAfterSync,
+      statusAfterRecord,
+      syncAfterRecordResult,
+      statusAfterSyncAfterRecord,
+      recordAfterSyncResult,
+    };
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }
@@ -1087,6 +1107,17 @@ async function main(): Promise<void> {
   assert.equal(syncThenRecord.recorded[0].publishTriggerSha, PUBLICATION_MARKER);
   assert.equal(syncThenRecord.statusAfterRecord.state, 'synced');
   assert.equal(syncThenRecord.statusAfterRecord.promotedSha, LOCAL_NEW);
+  // A completed promotion must stay completed. The same publication marker
+  // is still the head on the next scheduler tick, but the candidate it
+  // points at has already been recorded -- recognizing the marker again
+  // must not re-arm ready_to_promote and must not allow a second append.
+  assert.equal(syncThenRecord.syncAfterRecordResult.state, 'synced');
+  assert.equal(syncThenRecord.statusAfterSyncAfterRecord.state, 'synced');
+  assert.equal(syncThenRecord.statusAfterSyncAfterRecord.candidateSha, LOCAL_NEW);
+  assert.equal(syncThenRecord.statusAfterSyncAfterRecord.promotedSha, LOCAL_NEW);
+  assert.equal(syncThenRecord.recordAfterSyncResult.ok, false);
+  assert.equal(syncThenRecord.recordAfterSyncResult.state, 'failed');
+  assert.equal(syncThenRecord.recorded.length, 1);
 
   // Every fail-closed variant must still land on `synced` (never
   // `ready_to_promote`) and must never extend the original candidate window.
