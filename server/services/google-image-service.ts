@@ -245,23 +245,41 @@ export async function generateCharacterSceneWithMetadata(
  *                    its extracted style description overrides ENV_STYLE.
  */
 export async function generateEnvironmentScene(concept: string, profileKey: string = 'environment'): Promise<string> {
-  let styleBlock = ENV_STYLE;
+  const result = await generateEnvironmentSceneWithMetadata(concept, profileKey);
+  return result.imageUrl;
+}
 
-  const locked = await getLockedStyleProfile(profileKey);
+export async function generateEnvironmentSceneWithMetadata(
+  concept: string,
+  profileKey: string = 'environment',
+  excludePeople = false,
+): Promise<CharacterSceneGenerationResult> {
+  let styleBlock = ENV_STYLE;
+  const profile = await getLockedStyleProfileDetails(profileKey);
+  const locked = profile.styleDescription;
+
   if (locked) {
     console.log(`[GoogleImage] Using pinned style profile for environment (key: ${profileKey})`);
     styleBlock =
       `ILLUSTRATION STYLE TO MATCH (extracted from reference):\n${locked}\n\n` +
       `FRAMING: wide establishing shot — fill the entire canvas edge to edge, ` +
-      `no white borders or padding; no people or figures unless the concept explicitly includes them; ` +
+      `no white borders or padding; ` +
       `absolutely no text, letters, numbers or typography in the image.`;
   }
 
-  const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${styleBlock}`;
+  const peopleRule = excludePeople
+    ? 'COMPOSITION REQUIREMENT: empty environment only; no people, tutors, characters, silhouettes, or human figures.'
+    : 'Do not add people or figures unless the concept explicitly includes them.';
+  const prompt = `Square 1:1 format. Illustrated scene: ${concept}. ${peopleRule} ${styleBlock}`;
   console.log('[GoogleImage] Environment scene (ENV_STYLE):', prompt.substring(0, 200));
   const buf = await callGemini(prompt);
   const filename = `scene-env-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-  return uploadPublicBuffer(filename, buf, 'image/jpeg');
+  return {
+    imageUrl: await uploadPublicBuffer(filename, buf, 'image/jpeg'),
+    styleProfileUsed: Boolean(locked),
+    styleProfileKey: profileKey,
+    styleProfileLookupFailed: profile.lookupFailed,
+  };
 }
 
 /**

@@ -133,3 +133,5 @@
 - [Production Git source authority](production-git-source-authority.md) — published images omit .git; prove source through one authenticated exact-commit remote snapshot.
 - [Two-phase external verification](two-phase-external-verification.md) — never hold an append transaction across remote provenance or object hashing; revalidate exact authority before atomic append.
 - [Publication-marker status race](publication-marker-status-race.md) — scheduler sync may hide valid readiness after Publish; preserve the validated parent and exact marker evidence.
+- [Image intent and people policy](image-intent-people-policy.md) — settings default to empty environments; people require explicit evidence, and live tutor identity comes from the active session.
+- [Socket room supersession](socket-room-supersession.md) — Socket.IO membership belongs to socket+room, not join attempt; stale same-room completion must never leave the winning room.

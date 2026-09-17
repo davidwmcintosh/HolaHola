@@ -135,14 +135,20 @@ test("actual async join validates rooms and replays only for an authorized late 
   ws.connect(browser);
   await browser.on;
   // Recreate the connection handler's event registration with an observable socket.
-  const handlers: Record<string, (room: string) => Promise<void>> = {};
-  browser.on = (event: string, handler: (room: string) => Promise<void>) => { handlers[event] = handler; };
+  const handlers: Record<string, (room: string, acknowledge?: (result: unknown) => void) => Promise<void>> = {};
+  browser.on = (event: string, handler: (room: string, acknowledge?: (result: unknown) => void) => Promise<void>) => { handlers[event] = handler; };
   ws.connect(browser);
-  await handlers.join_room("room-late");
-  await handlers.join_room("missing-room");
-  await handlers.join_room("bad room");
+  const acknowledgements: unknown[] = [];
+  await handlers.join_room("room-late", result => acknowledgements.push(result));
+  await handlers.join_room("missing-room", result => acknowledgements.push(result));
+  await handlers.join_room("bad room", result => acknowledgements.push(result));
   assert.deepEqual(joined, ["room:room-late"]);
   assert.deepEqual(emitted, [{ online: true, connectedAt: connectedInRoom.connectedAt }]);
+  assert.deepEqual(acknowledgements, [
+    { ok: true, roomId: "room-late" },
+    { ok: false, roomId: "missing-room", error: "room-not-found" },
+    { ok: false, roomId: "bad room", error: "invalid-room" },
+  ]);
 
   const wrongRoom = socket(cookieFor("founder"));
   const wrongEvents: unknown[] = [];
@@ -150,8 +156,8 @@ test("actual async join validates rooms and replays only for an authorized late 
   wrongRoom.join = (room: string) => joined.push(room);
   assert.equal(await ws.authenticate(wrongRoom), undefined);
   ws.connect(wrongRoom);
-  const wrongHandlers: Record<string, (room: string) => Promise<void>> = {};
-  wrongRoom.on = (event: string, handler: (room: string) => Promise<void>) => { wrongHandlers[event] = handler; };
+  const wrongHandlers: Record<string, (room: string, acknowledge?: (result: unknown) => void) => Promise<void>> = {};
+  wrongRoom.on = (event: string, handler: (room: string, acknowledge?: (result: unknown) => void) => Promise<void>) => { wrongHandlers[event] = handler; };
   ws.connect(wrongRoom);
   await wrongHandlers.join_room("another-room");
   assert.deepEqual(wrongEvents, [{ online: false, connectedAt: connectedInRoom.connectedAt }]);
@@ -162,8 +168,8 @@ test("actual async join validates rooms and replays only for an authorized late 
   luca.emit = (_event: string, value: unknown) => lucaEvents.push(value);
   assert.equal(await ws.authenticate(luca), undefined);
   ws.connect(luca);
-  const lucaHandlers: Record<string, (room: string) => Promise<void>> = {};
-  luca.on = (event: string, handler: (room: string) => Promise<void>) => { lucaHandlers[event] = handler; };
+  const lucaHandlers: Record<string, (room: string, acknowledge?: (result: unknown) => void) => Promise<void>> = {};
+  luca.on = (event: string, handler: (room: string, acknowledge?: (result: unknown) => void) => Promise<void>) => { lucaHandlers[event] = handler; };
   ws.connect(luca);
   await lucaHandlers.join_room("room-late");
   assert.deepEqual(lucaEvents, []);
@@ -173,4 +179,89 @@ test("presence online predicate requires both connection and matching room", () 
   assert.equal(isLucaOnlineInRoom("room-late", connectedInRoom), true);
   assert.equal(isLucaOnlineInRoom("room-late", { ...connectedInRoom, connected: false }), false);
   assert.equal(isLucaOnlineInRoom("another-room", connectedInRoom), false);
+});
+
+test("versioned Luca joins reject a superseded room before membership", async () => {
+  process.env.COORDINATION_LUCA_REPLIT_TOKEN = TOKEN;
+  let resolveOld!: (exists: boolean) => void;
+  const oldExists = new Promise<boolean>(resolve => { resolveOld = resolve; });
+  configureTeamRoomWSAuth({
+    roomExists: async (roomId) => roomId === "room-old" ? oldExists : roomId === "room-new",
+  });
+  const ws = setupNamespace();
+  const luca = socket(undefined, { agentToken: TOKEN });
+  const joined: string[] = [];
+  luca.join = (room: string) => { joined.push(room); };
+  assert.equal(await ws.authenticate(luca), undefined);
+  const handlers: Record<string, (request: any, acknowledge?: (result: unknown) => void) => Promise<void>> = {};
+  luca.on = (event: string, handler: (request: any, acknowledge?: (result: unknown) => void) => Promise<void>) => {
+    handlers[event] = handler;
+  };
+  ws.connect(luca);
+
+  const acknowledgements: unknown[] = [];
+  const oldJoin = handlers.join_room(
+    { roomId: "room-old", requestId: "1" },
+    result => acknowledgements.push(result),
+  );
+  await handlers.join_room(
+    { roomId: "room-new", requestId: "2" },
+    result => acknowledgements.push(result),
+  );
+  resolveOld(true);
+  await oldJoin;
+
+  assert.deepEqual(joined, ["room:room-new"]);
+  assert.deepEqual(acknowledgements, [
+    { ok: true, roomId: "room-new", requestId: "2" },
+    { ok: false, roomId: "room-old", requestId: "1", error: "superseded" },
+  ]);
+});
+
+test("a superseded same-room join cannot remove the winning membership", async () => {
+  process.env.COORDINATION_LUCA_REPLIT_TOKEN = TOKEN;
+  configureTeamRoomWSAuth({ roomExists: async () => true });
+  const ws = setupNamespace();
+  const luca = socket(undefined, { agentToken: TOKEN });
+  const memberships = new Set<string>();
+  const left: string[] = [];
+  let resolveOldJoin!: () => void;
+  let joinCount = 0;
+  luca.join = async (room: string) => {
+    joinCount += 1;
+    if (joinCount === 1) {
+      await new Promise<void>(resolve => { resolveOldJoin = resolve; });
+    }
+    memberships.add(room);
+  };
+  luca.leave = async (room: string) => {
+    left.push(room);
+    memberships.delete(room);
+  };
+  assert.equal(await ws.authenticate(luca), undefined);
+  const handlers: Record<string, (request: any, acknowledge?: (result: unknown) => void) => Promise<void>> = {};
+  luca.on = (event: string, handler: (request: any, acknowledge?: (result: unknown) => void) => Promise<void>) => {
+    handlers[event] = handler;
+  };
+  ws.connect(luca);
+
+  const acknowledgements: unknown[] = [];
+  const oldJoin = handlers.join_room(
+    { roomId: "room-same", requestId: "1" },
+    result => acknowledgements.push(result),
+  );
+  await new Promise(resolve => setImmediate(resolve));
+  await handlers.join_room(
+    { roomId: "room-same", requestId: "2" },
+    result => acknowledgements.push(result),
+  );
+  resolveOldJoin();
+  await oldJoin;
+
+  assert.deepEqual([...memberships], ["room:room-same"]);
+  assert.deepEqual(left, []);
+  assert.deepEqual(acknowledgements, [
+    { ok: true, roomId: "room-same", requestId: "2" },
+    { ok: false, roomId: "room-same", requestId: "1", error: "superseded" },
+  ]);
 });

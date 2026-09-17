@@ -15,6 +15,7 @@
 
 import {
   generateCharacterSceneWithMetadata,
+  generateEnvironmentSceneWithMetadata,
   generatePropImage,
 } from './google-image-service';
 
@@ -50,7 +51,7 @@ export async function cacheGeneratedVisual(
 
 export interface VisualGenerationRequest {
   concept: string;
-  type: 'image' | 'infographic';
+  type: 'image' | 'infographic' | 'environment';
   data?: Record<string, unknown>;
   style?: string;
   targetLanguage?: string;
@@ -74,6 +75,12 @@ export interface VisualGenerationResult {
     generatedAt: string;
     dimensions: { width: number; height: number };
     educationalLevel?: string;
+    contentKind?: 'environment' | 'character' | 'prop';
+    peoplePolicy?: 'excluded' | 'explicit';
+    generatorRoute?: 'environment' | 'character' | 'prop';
+    styleProfileKey?: string | null;
+    styleProfileUsed?: boolean;
+    styleProfileLookupFailed?: boolean;
   };
 }
 
@@ -86,7 +93,15 @@ const EDUCATIONAL_TAG_CATEGORIES = [
 
 async function generateWithModel(
   request: VisualGenerationRequest,
+  peoplePolicy?: 'excluded' | 'explicit',
 ): Promise<{ imageUrl: string; styleProfileUsed?: boolean; styleProfileKey?: string | null; styleProfileLookupFailed?: boolean }> {
+  if (request.type === 'environment') {
+    return generateEnvironmentSceneWithMetadata(
+      request.concept,
+      request.targetLanguage || 'environment',
+      peoplePolicy === 'excluded',
+    );
+  }
   const isScene = request.type === 'infographic';
   if (isScene) return generateCharacterSceneWithMetadata(request.concept, request.targetLanguage);
   return { imageUrl: await generatePropImage(request.concept) };
@@ -137,11 +152,13 @@ function generateAccessibilityDescription(concept: string, type: string, data?: 
  */
 export async function generateVisual(
   concept: string,
-  type: 'image' | 'infographic',
+  type: 'image' | 'infographic' | 'environment',
   data?: Record<string, unknown>,
   style?: string,
   anchorImageUrl?: string,
   language?: string,
+  contentKind?: 'environment' | 'character' | 'prop',
+  peoplePolicy?: 'excluded' | 'explicit',
 ): Promise<VisualGenerationResult> {
   const request: VisualGenerationRequest = {
     concept,
@@ -153,23 +170,30 @@ export async function generateVisual(
   };
   let imageUrl: string;
   let provider: string;
+  let styleProfileKey: string | null | undefined;
+  let styleProfileUsed = false;
+  let styleProfileLookupFailed = false;
 
   try {
-    const result = await generateWithModel(request);
+    const result = await generateWithModel(request, peoplePolicy);
     imageUrl = result.imageUrl;
     provider = 'gemini-base';
+    styleProfileKey = result.styleProfileKey;
+    styleProfileUsed = Boolean(result.styleProfileUsed);
+    styleProfileLookupFailed = Boolean(result.styleProfileLookupFailed);
     console.log(
-      `[VisualTelemetry] generated kind=${type === 'infographic' ? 'scene' : 'prop'} ` +
+      `[VisualTelemetry] generated kind=${contentKind ?? (type === 'environment' ? 'environment' : type === 'infographic' ? 'character' : 'prop')} ` +
       `language=${request.targetLanguage ?? 'none'} ` +
-      `styleProfileKey=${type === 'infographic' ? (result.styleProfileKey ?? 'none') : 'none'} ` +
-      `styleProfileUsed=${type === 'infographic' ? Boolean(result.styleProfileUsed) : false} ` +
-      `styleProfileLookupFailed=${type === 'infographic' ? Boolean(result.styleProfileLookupFailed) : false}`,
+      `styleProfileKey=${result.styleProfileKey ?? 'none'} ` +
+      `styleProfileUsed=${Boolean(result.styleProfileUsed)} ` +
+      `styleProfileLookupFailed=${Boolean(result.styleProfileLookupFailed)} ` +
+      `peoplePolicy=${peoplePolicy ?? 'unknown'}`,
     );
   } catch (error) {
     console.warn('[VisualContent] image generation failed, falling back to placeholder:', error);
     console.warn(
-      `[VisualTelemetry] generation_fallback kind=${type === 'infographic' ? 'scene' : 'prop'} ` +
-      `language=${request.targetLanguage ?? 'none'}`,
+      `[VisualTelemetry] generation_fallback kind=${contentKind ?? (type === 'environment' ? 'environment' : type === 'infographic' ? 'character' : 'prop')} ` +
+      `language=${request.targetLanguage ?? 'none'} peoplePolicy=${peoplePolicy ?? 'unknown'}`,
     );
     imageUrl = generatePlaceholderImage(request).imageUrl;
     provider = 'placeholder';
@@ -188,7 +212,13 @@ export async function generateVisual(
     metadata: {
       provider,
       generatedAt: new Date().toISOString(),
-      dimensions: type === 'infographic' ? { width: 1024, height: 1024 } : { width: 1024, height: 1024 },
+      dimensions: { width: 1024, height: 1024 },
+      contentKind,
+      peoplePolicy,
+      generatorRoute: contentKind ?? (type === 'environment' ? 'environment' : type === 'infographic' ? 'character' : 'prop'),
+      styleProfileKey,
+      styleProfileUsed,
+      styleProfileLookupFailed,
     },
   };
 }

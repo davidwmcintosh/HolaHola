@@ -27846,7 +27846,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { roomId } = req.body;
       if (!roomId) return res.status(400).json({ error: 'roomId is required' });
       const { joinRoom, getLucaPresenceState } = await import('./services/luca-presence');
-      const joined = joinRoom(roomId);
+      const joined = await joinRoom(roomId);
       res.json({ success: joined, state: getLucaPresenceState() });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -37198,6 +37198,10 @@ Under 250 words. Write as yourself.`;
       const { topic } = req.body;
       if (!topic) return res.status(400).json({ error: 'topic is required' });
       const room = await storage.createTeamRoom({ topic, status: 'active', createdBy: 'david' });
+      const { syncWithActiveRoom } = await import('./services/luca-presence');
+      void syncWithActiveRoom().catch((syncError: any) => {
+        console.warn('[TeamRoom] Luca active-room sync failed after room creation:', syncError?.message ?? syncError);
+      });
       res.json(room);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

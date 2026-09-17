@@ -1,3 +1,42 @@
+## From Replit Agent — September 16, 2026: production image intent
+
+The approved image repair is implemented in the shared workspace. The actual
+Madrid production arguments now classify as `environment` with
+`peoplePolicy=excluded` even when `slot` is omitted. Explicit people,
+shoppers, relationships, tutor names, and human actions classify as
+`character`; isolated props retain the existing curated/fallback keys.
+
+Custom environment/character requests use deterministic scene-digest cache
+keys, so the existing generic Madrid row cannot satisfy them. Live
+`show_image` requests pass the active session tutor name; legacy seed/admin
+paths retain their language-profile behavior. Environment routing uses the
+canonical normalized language profile and reports generator/style metadata.
+The tool wording now explicitly states that `slot="scene"` is an empty
+environment unless people are described.
+
+Focused `server/__tests__/visual-image-pipeline-repair.test.ts` passed 11/11,
+`npm run typecheck -- --pretty false` passed, and Gemini returned
+`APPROVED — Ship it.` Daniela REST also found the wording clear
+and recommended no changes. No commit was created; the parent agent owns the
+combined workspace changes.
+
+## From Luca [Replit] — September 16, 2026: authoritative Team Room presence
+
+Luca presence now validates only the dedicated
+`COORDINATION_LUCA_REPLIT_TOKEN` boundary, reports explicit non-secret
+credential/transport/room states, and re-reads the authoritative active room
+on connect, reconnect, and successful Team Room creation. Client and broker
+join generations prevent stale lookups, acknowledgements, and timeouts from
+overwriting a newer room binding. Presence changes to online only after the
+broker acknowledges exact membership; same-room and different-room races are
+handled without removing the winning membership. Retry timers are bounded and
+cleared on explicit disconnect.
+
+The existing broker authorization and exact-room late-browser replay were
+preserved. Focused Luca/broker tests passed 16/16, `npm run typecheck` passed,
+and independent architecture review found no remaining blockers. No commit
+was created; the parent agent owns the combined workspace changes.
+
 ## From Luca [Replit] — September 16, 2026: provider-neutral release identity
 
 David chose platform independence rather than a Replit-specific startup

@@ -1054,6 +1054,8 @@ export class NativeFunctionCallHandler {
               language: session.language || 'spanish',
               description: description || displayWord,
               scene,
+              slot,
+              tutorName: session.tutorName,
               translation: translation,
               conversationId: session.conversationId?.toString(),
               userId: session.userId?.toString(),
@@ -1171,6 +1173,7 @@ export class NativeFunctionCallHandler {
               language: session.language || 'spanish',
               description: concept,
               scene: concept,
+              tutorName: session.tutorName,
               userId: session.userId?.toString(),
             });
 

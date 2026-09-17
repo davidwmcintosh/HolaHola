@@ -67,6 +67,17 @@ export function isLucaOnlineInRoom(
   return state.connected && state.currentRoomId === roomId;
 }
 
+export type TeamRoomJoinAck =
+  | { ok: true; roomId: string; requestId?: string }
+  | {
+      ok: false;
+      roomId: string;
+      requestId?: string;
+      error: "invalid-room" | "room-not-found" | "lookup-failed" | "superseded";
+    };
+
+type TeamRoomJoinRequest = string | { roomId: string; requestId: string };
+
 async function readSessionFromStore(sessionId: string): Promise<SessionRecord | null> {
   const [row] = await getSharedDb()
     .select({ sess: sessions.sess, expire: sessions.expire })
@@ -103,7 +114,7 @@ async function verifyBrowserSessionFromConfiguredReaders(cookieHeader: string | 
 function isAgentTokenAuth(socket: Socket): boolean {
   const agentToken = (socket.handshake.auth as Record<string, unknown>)?.agentToken;
   if (typeof agentToken !== 'string') return false;
-  const dedicated = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
+  const dedicated = process.env.COORDINATION_LUCA_REPLIT_TOKEN?.trim();
   return Boolean(
     dedicated &&
     dedicated.length >= 32 &&
@@ -150,16 +161,65 @@ export function initializeTeamRoomWS(io: SocketIOServer) {
 
   teamRoomNamespace.on("connection", (socket: Socket) => {
     console.log(`[TeamRoomWS] Client connected: ${socket.id}`);
+    let latestLucaJoinRequest: { requestId: string; roomId: string } | null = null;
 
-    socket.on("join_room", async (roomId: string) => {
-      if (!isValidRoomId(roomId)) return;
-      try {
-        if (!(await roomExists(roomId))) return;
-      } catch {
+    socket.on("join_room", async (
+      request: TeamRoomJoinRequest,
+      acknowledge?: (result: TeamRoomJoinAck) => void,
+    ) => {
+      const roomId = typeof request === "string" ? request : request?.roomId;
+      const requestId = typeof request === "string" ? undefined : request?.requestId;
+      const isVersionedLucaJoin =
+        socket.data.identity === "luca" &&
+        typeof requestId === "string" &&
+        requestId.length > 0 &&
+        requestId.length <= 64;
+      if (isVersionedLucaJoin && typeof roomId === "string") {
+        latestLucaJoinRequest = { requestId, roomId };
+      }
+
+      if (!isValidRoomId(roomId)) {
+        acknowledge?.({
+          ok: false,
+          roomId: String(roomId ?? ""),
+          ...(requestId ? { requestId } : {}),
+          error: "invalid-room",
+        });
         return;
       }
-      socket.join(`room:${roomId}`);
+      try {
+        if (!(await roomExists(roomId))) {
+          acknowledge?.({
+            ok: false,
+            roomId,
+            ...(requestId ? { requestId } : {}),
+            error: "room-not-found",
+          });
+          return;
+        }
+      } catch {
+        acknowledge?.({
+          ok: false,
+          roomId,
+          ...(requestId ? { requestId } : {}),
+          error: "lookup-failed",
+        });
+        return;
+      }
+      if (isVersionedLucaJoin && latestLucaJoinRequest?.requestId !== requestId) {
+        acknowledge?.({ ok: false, roomId, requestId, error: "superseded" });
+        return;
+      }
+      await socket.join(`room:${roomId}`);
+      if (isVersionedLucaJoin && latestLucaJoinRequest?.requestId !== requestId) {
+        if (latestLucaJoinRequest?.roomId !== roomId) {
+          await socket.leave(`room:${roomId}`);
+        }
+        acknowledge?.({ ok: false, roomId, requestId, error: "superseded" });
+        return;
+      }
       console.log(`[TeamRoomWS] ${socket.id} joined room:${roomId}`);
+      acknowledge?.({ ok: true, roomId, ...(requestId ? { requestId } : {}) });
 
       // A browser joining after Luca's initial broadcast still needs the
       // current snapshot. Luca's own socket is excluded: it is the source

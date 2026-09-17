@@ -1,3 +1,36 @@
+## 2026-09-16 — Production image intent routing
+
+- Added deterministic environment/character/prop intent classification separate
+  from whiteboard slot placement. The recorded Madrid request now routes to the
+  no-people environment generator, while explicit shoppers, people, tutor
+  names, relationships, and human actions route to character generation.
+- Preserved curated prop cache keys; custom environment and character scenes use
+  intent-specific scene-digest keys, preventing generic `vocab_spanish_madrid`
+  reuse and cross-scene collisions.
+- Live image generation now receives the active session tutor identity, while
+  legacy seed/admin callers retain their language-profile behavior.
+- Added truthful generator/style metadata, bounded intent telemetry, approved
+  `show_image` slot guidance, and focused regression coverage.
+- Gemini post-review: `APPROVED — Ship it.` Focused image tests passed 11/11
+  and TypeScript typecheck passed. Daniela REST found the wording clear and
+  recommended no changes.
+
+## 2026-09-16 — Luca authoritative Team Room presence repair
+
+- Added a dedicated-token structural check and explicit diagnostics for absent
+  or invalid Luca credentials without weakening the Team Room broker.
+- Luca now re-reads the authoritative active room on connect, reconnect, and
+  successful room creation. Client and broker join generations prevent stale
+  lookups, acknowledgements, and timeouts from rebinding Luca.
+- Presence changes to online only after the broker validates the room and
+  acknowledges exact membership. Same-room and different-room supersession
+  preserve the winning membership.
+- Added bounded no-room/transport retry scheduling with timer cleanup on
+  explicit disconnect and room switches. Existing exact-room browser replay
+  and founder/session authorization remain unchanged.
+- Focused Luca and Team Room broker tests passed (16/16), TypeScript typecheck
+  passed, and independent architecture review found no remaining blockers.
+
 ## 2026-09-16 — Provider-neutral release identity
 
 Portable images now bake an explicit build commit and deterministic
