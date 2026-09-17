@@ -119,6 +119,10 @@ services:
       - key: REPLIT_AGENT_TOKEN
         sync: false
 
+      # ── Protected GitHub source snapshots ──
+      - key: HOLAHOLA_GITHUB_DEPLOY_KEY
+        sync: false
+
       # ── Coordination ledger (agent-to-agent auth — server validates
       # x-coordination-token against these; each caller only holds its own) ──
       - key: COORDINATION_LUCA_REPLIT_TOKEN

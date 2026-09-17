@@ -30,6 +30,7 @@ ENV NODE_ENV=production
 # used by Alden's browser-automation tool). Drop this block and the
 # `npx playwright install` line below if that tool isn't needed in this environment.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git openssh-client \
     libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdbus-1-3 \
     libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
     libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \

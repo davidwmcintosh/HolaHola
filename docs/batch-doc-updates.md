@@ -7012,3 +7012,24 @@ live canonical-capture health route, which received `ECONNREFUSED` while the
 application workflow was stopped. After normal application startup, that exact
 live route check passed. The mandatory HolaHola system-health verifier then
 reported all checks passed.
+
+## Render runtime protected-snapshot prerequisites — September 17, 2026
+
+The first founder runtime-publication request for the Render-backed source
+promotion failed closed with `V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE`. Direct
+shared-Neon postconditions showed zero runtime-release and runtime-artifact
+rows. The source promotion itself remained current and immutable.
+
+Render's production image omitted both `git` and an SSH client, while its
+blueprint did not declare the private GitHub deploy-key secret required by the
+existing exact-commit snapshot resolver. The runtime Docker stage now installs
+`git` and `openssh-client`, and `render.yaml` declares
+`HOLAHOLA_GITHUB_DEPLOY_KEY` with `sync: false`; no secret value is stored in
+source.
+
+The registered source-control service test now locks both production
+prerequisites. The source authority remains unchanged: exact private GitHub SSH
+transport, pinned host keys, exact promoted commit and tree, a closed source
+path set, bounded blobs, and no deployed-filesystem or HTTPS fallback. A fresh
+Render deployment and immutable source promotion are required before one new
+founder runtime-publication request. Windows authority remains untouched.

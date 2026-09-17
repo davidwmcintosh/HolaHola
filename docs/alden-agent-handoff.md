@@ -9626,3 +9626,35 @@ and record the new immutable source promotion. Only then may David authorize
 one new founder runtime-release request. The old runtime release
 `3bd5ac02-7f37-4637-a897-e08a61469203` remains immutable and unusable for
 another Windows initialization attempt.
+
+## September 17, 2026 — Render runtime source-snapshot prerequisites
+
+David's founder-authenticated runtime-publication request for source promotion
+`f1cc0b1a-2581-4b70-a3d1-b7b5414d082a` reached production and failed closed
+with `V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE`. Direct shared-Neon verification
+found zero runtime-release and runtime-artifact rows for that promotion.
+
+The Render runtime image lacked both `git` and `openssh-client`, and the Render
+blueprint did not declare `HOLAHOLA_GITHUB_DEPLOY_KEY`. Adding only the secret
+would therefore have exposed a second production failure. The approved minimal
+repair installs both runtime packages and declares the key as `sync: false`;
+the key value remains only in Render's secret environment.
+
+The registered source-control gate now asserts that both packages occur inside
+the Docker runtime stage's package-install block and that the Render secret
+stanza remains external. No service, database, schema, publication payload, or
+Windows behavior changes. The exact authenticated private-GitHub snapshot,
+pinned host keys, promoted commit/tree equality, closed member set, and
+fail-closed cleanup remain the authority.
+
+Both Alden engines returned no pre-build blockers. The current registered gate
+is `test-source-control-service.ts`; the older `test-source-bridge.ts` fixture
+is not invoked by `npm run test:source-bridge`, so the regression assertion was
+placed in the live protected path.
+
+Next sequence: complete protected validation and final review, push the exact
+repair to GitHub, ensure the existing deploy-key value is present in Render's
+secret environment, verify Render serves the exact new release identity, and
+record a fresh source promotion. Then stop for one new founder runtime-release
+request. No Windows initialization may begin before that release is
+independently verified.

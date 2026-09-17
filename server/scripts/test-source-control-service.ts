@@ -39,6 +39,25 @@ const VALID_RENDER_EVIDENCE: RenderReleaseEvidence = {
 };
 const KEY = '-----BEGIN OPENSSH PRIVATE KEY-----\\ntest-material\\n-----END OPENSSH PRIVATE KEY-----';
 
+function assertRenderRuntimeSourceSnapshotPrerequisites(): void {
+  const dockerfile = readFileSync(join(process.cwd(), 'Dockerfile'), 'utf8');
+  const runtimeStage = dockerfile.slice(dockerfile.indexOf(' AS runtime'));
+  const runtimeInstallBlocks = [...runtimeStage.matchAll(
+    /apt-get install -y --no-install-recommends\s+([\s\S]*?)&&\s*rm -rf \/var\/lib\/apt\/lists\/\*/g,
+  )].map((match) => match[1]);
+  assert.ok(
+    runtimeInstallBlocks.some((block) => /\bgit\b/.test(block) && /\bopenssh-client\b/.test(block)),
+    'Render Docker runtime stage must install git and openssh-client for protected source snapshots',
+  );
+
+  const renderBlueprint = readFileSync(join(process.cwd(), 'render.yaml'), 'utf8');
+  assert.match(
+    renderBlueprint,
+    /- key: HOLAHOLA_GITHUB_DEPLOY_KEY\s*\n\s+sync: false(?:\s*\n|$)/,
+    'Render must declare HOLAHOLA_GITHUB_DEPLOY_KEY as an external secret',
+  );
+}
+
 function manifest(sha: string): Record<string, unknown> {
   const checks = Object.fromEntries(SOURCE_CONTROL_REQUIRED_CHECKS.map((name) => [name, 'passed']));
   const sourceContextAlgorithm = 'sha256(path-nul-kind-nul-bytes-nul-v1)';
@@ -476,6 +495,8 @@ async function syncPublicationMarkerFixture(overrides: {
 }
 
 async function main(): Promise<void> {
+  assertRenderRuntimeSourceSnapshotPrerequisites();
+
   const equal = await withFixture('equal');
   assert.equal(equal.result.state, 'synced');
 
