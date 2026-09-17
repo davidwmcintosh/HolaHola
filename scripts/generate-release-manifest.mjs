@@ -44,9 +44,11 @@ export async function generateReleaseManifest({
         : 'unavailable';
 
   const buildInput = commitSource === 'release-build-input' || commitSource === 'render-build-input';
-  const matchesVisibleGit = Boolean(gitCommit && gitCommit === commitSha);
+  const matchesVisibleGit = !gitCommit || gitCommit === commitSha;
   const source = buildInput && matchesVisibleGit
-    ? await hashGitCommitSourceContext(root, commitSha)
+    ? gitCommit
+      ? await hashGitCommitSourceContext(root, commitSha)
+      : await hashSourceContext(root)
     : await hashSourceContext(root);
   if (!SHA256.test(source.digest)) throw new Error('source_context_digest_invalid');
 

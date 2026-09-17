@@ -6990,9 +6990,12 @@ Protected validation manifest v3 binds the exact candidate commit, complete
 check set, and source-context digest and file count derived from that Git
 commit's recursive tree.
 
-Promotable Render release manifests use the same shared Git-tree digest
-implementation and require a visible Git commit matching the build-supplied
-commit. Recording requires a strict commit-and-digest reference, a pinned HTTPS
+Promotable Render release manifests use the same explicit source-selection
+policy as protected Git-tree validation. Render's Docker context omits Git
+metadata and 269 archived assets by policy; its filesystem digest is accepted
+only when promotion matches it to the independently Git-derived protected
+digest. If Git is visible, its commit must match the build-supplied commit.
+Recording requires a strict commit-and-digest reference, a pinned HTTPS
 `/health/release`, HTTP 200, build authority, promotable state, and exact commit
 and digest agreement. Evidence is read twice; the final read occurs after final
 Git, expiry, marker, and cleanliness checks and before the immutable append.

@@ -14,13 +14,20 @@ const EXCLUDED_TOP_LEVEL = new Set([
   'node_modules',
 ]);
 
+function isExcludedSourcePath(relative) {
+  if (EXCLUDED_TOP_LEVEL.has(relative.split('/')[0])) return true;
+  return /^attached_assets\/.*\.(?:pdf|zip)$/.test(relative)
+    || /^attached_assets\/Pasted-/.test(relative)
+    || relative === 'attached_assets/output_1789235726963.png';
+}
+
 async function collectFiles(root, current = root) {
   const entries = await readdir(current, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
     const absolute = path.join(current, entry.name);
     const relative = path.relative(root, absolute).split(path.sep).join('/');
-    if (EXCLUDED_TOP_LEVEL.has(relative.split('/')[0])) continue;
+    if (isExcludedSourcePath(relative)) continue;
     if (entry.isDirectory()) {
       files.push(...await collectFiles(root, absolute));
     } else if (entry.isFile() || entry.isSymbolicLink()) {
@@ -69,7 +76,7 @@ export async function hashGitCommitSourceContext(root, sha) {
     })
     .filter((entry) =>
       entry.type === 'blob'
-      && !EXCLUDED_TOP_LEVEL.has(entry.path.split('/')[0]))
+      && !isExcludedSourcePath(entry.path))
     .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   if (entries.length < 1 || entries.length > 100_000) {
     throw new Error('source_context_file_count_invalid');

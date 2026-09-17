@@ -9593,8 +9593,11 @@ operation, or invocation authority was created while resolving that mismatch.
 The corrected path upgrades protected validation to manifest v3. Its identity
 binds the exact candidate SHA, complete validation checks, and a recursive
 source-context digest and file count calculated from the exact Git commit tree.
-The promotable Render release manifest uses the same shared implementation and
-fails closed without a visible Git commit matching the build-supplied commit.
+The promotable Render release manifest uses the same explicit source-selection
+policy as protected Git-tree validation. Render's Docker context omits `.git`
+and 269 archived assets; its filesystem digest is not authority by itself and
+must match the independently Git-derived protected digest during promotion.
+If Git is visible, its commit must match the build-supplied commit.
 
 Render recording requires a strict commit-and-digest publication reference and
 one operator-pinned HTTPS `/health/release` endpoint. Non-HTTPS URLs,

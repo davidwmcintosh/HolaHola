@@ -48,6 +48,20 @@ assert.notEqual(
   'a nested-file-only change must change the exact Git source-context digest',
 );
 
+const renderRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'release-identity-render-'));
+fs.writeFileSync(path.join(renderRoot, 'app.txt'), 'render build context\n');
+fs.mkdirSync(path.join(renderRoot, 'dist'));
+const renderWithoutGit = await generateReleaseManifest({
+  root: renderRoot,
+  output: path.join(renderRoot, 'dist', 'release-manifest.json'),
+  env: { RENDER_GIT_COMMIT: commit },
+});
+assert.equal(renderWithoutGit.authority, 'build');
+assert.equal(renderWithoutGit.promotable, true);
+assert.equal(renderWithoutGit.commitSha, commit);
+assert.equal(renderWithoutGit.dirtyWorktree, null);
+fs.rmSync(renderRoot, { recursive: true, force: true });
+
 const development = await generateReleaseManifest({
   root,
   output,
