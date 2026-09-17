@@ -1,3 +1,26 @@
+# Implementation outcome — September 16, 2026
+
+Implemented as specified, with two safety clarifications discovered during
+independent review:
+
+- The replay guard begins once on whichever Gemini stream arrives first
+  (output transcription or model-turn/PCM). First PCM never resets
+  transcription-first state. Suppression remains latched until a genuine
+  completion, interruption, or reconnect boundary.
+- Team Room presence replay is emitted only after signed session-store
+  validation, founder authorization, and existing-room validation. The replay
+  omits Luca's socket ID.
+
+Image telemetry now reports actual image-engine style selection rather than
+assuming that a normalized language means its pinned profile was available.
+Provider placeholders are explicit non-canonical results and cannot be written
+through the changed generated/reviewed cache sinks.
+
+Gemini 3 Flash reviewed the final voice implementation and returned
+`APPROVED — Ship it.` Final independent architecture review returned PASS.
+Focused behavioral tests, typecheck, system health, and the registered full
+validation suite all pass.
+
 # Production Audio Replay, Image Pipeline, and Luca Presence Repair
 
 ## Scope

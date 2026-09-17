@@ -2684,8 +2684,9 @@ export async function resolveChapterCoverImage(
   const { generateVisual } = await import('./visual-content-service');
   const result = await generateVisual(scene, 'infographic');
 
+  const { cacheGeneratedVisual } = await import('./visual-content-service');
   try {
-    await storage.cacheImage({
+    await cacheGeneratedVisual(result, async () => { await storage.cacheImage({
       url: result.imageUrl,
       filename: `chapter_cover_${chapterType}.png`,
       mimeType: 'image/png',
@@ -2697,7 +2698,7 @@ export async function resolveChapterCoverImage(
       description: scene.slice(0, 200),
       language: 'shared',
       targetWord: conceptKey,
-    });
+    }); });
   } catch (_) { /* non-fatal */ }
 
   return { imageUrl: result.imageUrl, source: 'generated' };
@@ -3041,10 +3042,10 @@ export async function resolveVocabularyImage(
     }
 
     try {
-      const { generateVisual } = await import('./visual-content-service');
+      const { generateVisual, shouldCacheVisualResult } = await import('./visual-content-service');
       const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, undefined, language);
 
-      try {
+      if (shouldCacheVisualResult(result)) try {
         await storage.cacheImage({
           url: result.imageUrl,
           filename: `vocab_concept_${conceptKey}_${Date.now()}.jpg`,
@@ -3198,10 +3199,10 @@ export async function resolveVocabularyImage(
   }
 
   try {
-    const { generateVisual } = await import('./visual-content-service');
+    const { generateVisual, shouldCacheVisualResult } = await import('./visual-content-service');
     const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, anchorImageUrl, language);
 
-    try {
+    if (shouldCacheVisualResult(result)) try {
       await storage.cacheImage({
         url: result.imageUrl,
         filename: `vocab_ai_${primaryKey}_${Date.now()}.jpg`,

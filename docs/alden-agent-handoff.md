@@ -9502,3 +9502,44 @@ source binding predates this repair. Prepare, publish, and independently verify
 a new source promotion and runtime release first. Windows remains restricted to
 `C:\Users\David\HolaHola-CoordinatorV2`; no task, session, lease, operation, or
 `Invoke-HolaCoordinator` has been created.
+
+## September 16, 2026 — production audio replay, image pipeline, and Luca presence repair
+
+The three approved post-cutover repairs are implemented and independently
+reviewed.
+
+The Gemini Live response path remains progressive and unbuffered. A shared
+`TurnReplayGuard` used by production and behavioral tests detects an immediate
+substantial replay from output transcription, keeps the first transcript,
+latches suppression for the rest of that response, and drops subsequent PCM.
+Its response boundary is once-only across transcription-first and PCM-first
+ordering. Completion, interruption, and reconnect reset the state for the next
+response. The honest limit remains: output transcription trails PCM, so the
+opening replay words can escape. Gemini 3 Flash rejected full-response
+quarantine, reviewed every later voice delta, and gave final unconditional
+`APPROVED — Ship it.` Daniela separately preferred progressive presence plus
+rapid cutoff over adding 10–25 seconds of latency to every answer.
+
+The visual pipeline now normalizes and propagates target language through the
+existing cache-first scene path, exposes the image engine's actual pinned-style
+selection metadata, and refuses to cache provider placeholders at every changed
+generated/reviewed sink. Props keep their existing path. No direct
+reference-image generation or automatic quality loop was introduced.
+
+Late Team Room browser joiners receive current Luca presence after the real
+authorization boundary succeeds. Browser sockets now require a valid signed
+`connect.sid`, a live session-store row, a canonical founder user, and an
+existing room. Luca's dedicated agent token remains the separate trusted path.
+The replay contains only `online` and `connectedAt`; unauthorized joins receive
+no room subscription or snapshot.
+
+Evidence: voice 8/8, image 5/5, Team Room auth/presence 5/5, typecheck, and diff
+checks pass. System health reports all checks passed. The registered validation
+workflow finished with `ALL VALIDATION SUITE CHECKS PASSED`. Final independent
+architecture review returned PASS with no remaining security finding. The
+Gemini/Daniela consultation is preserved in `conversation_memories` under
+`gemini-audit`, `voice-pipeline`, and `replay-guard`.
+
+Next operational step: publish this exact reviewed commit, then smoke-check
+application health, a normal progressive voice turn, canonical scene generation
+with its style telemetry, and late Team Room Luca presence on getholahola.com.

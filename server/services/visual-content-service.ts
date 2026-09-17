@@ -13,7 +13,10 @@
  * See docs/visual-asset-roadmap.md → "Final Engine Assignment" for full decision log.
  */
 
-import { generateCharacterScene, generatePropImage } from './google-image-service';
+import {
+  generateCharacterSceneWithMetadata,
+  generatePropImage,
+} from './google-image-service';
 
 /**
  * Style profiles are keyed by the canonical lower-case language name. Keep
@@ -24,6 +27,25 @@ import { generateCharacterScene, generatePropImage } from './google-image-servic
 export function normalizeTargetLanguage(language?: string): string | undefined {
   const normalized = language?.trim().toLowerCase();
   return normalized || undefined;
+}
+
+/** Only real provider output may be promoted into a curated image cache. */
+export function shouldCacheVisualResult(result: VisualGenerationResult): boolean {
+  return result.metadata.provider !== 'placeholder' && Boolean(result.imageUrl);
+}
+
+/**
+ * Cache a provider result only when generation succeeded. Keeping this small
+ * callback-based boundary makes the failure invariant testable without
+ * invoking Gemini or touching storage.
+ */
+export async function cacheGeneratedVisual(
+  result: VisualGenerationResult,
+  save: () => Promise<void>,
+): Promise<boolean> {
+  if (!shouldCacheVisualResult(result)) return false;
+  await save();
+  return true;
 }
 
 export interface VisualGenerationRequest {
@@ -64,12 +86,10 @@ const EDUCATIONAL_TAG_CATEGORIES = [
 
 async function generateWithModel(
   request: VisualGenerationRequest,
-): Promise<{ imageUrl: string }> {
+): Promise<{ imageUrl: string; styleProfileUsed?: boolean; styleProfileKey?: string | null; styleProfileLookupFailed?: boolean }> {
   const isScene = request.type === 'infographic';
-  const imageUrl = isScene
-    ? await generateCharacterScene(request.concept, request.targetLanguage)
-    : await generatePropImage(request.concept);
-  return { imageUrl };
+  if (isScene) return generateCharacterSceneWithMetadata(request.concept, request.targetLanguage);
+  return { imageUrl: await generatePropImage(request.concept) };
 }
 
 function generatePlaceholderImage(request: VisualGenerationRequest): { imageUrl: string } {
@@ -138,8 +158,19 @@ export async function generateVisual(
     const result = await generateWithModel(request);
     imageUrl = result.imageUrl;
     provider = 'gemini-base';
+    console.log(
+      `[VisualTelemetry] generated kind=${type === 'infographic' ? 'scene' : 'prop'} ` +
+      `language=${request.targetLanguage ?? 'none'} ` +
+      `styleProfileKey=${type === 'infographic' ? (result.styleProfileKey ?? 'none') : 'none'} ` +
+      `styleProfileUsed=${type === 'infographic' ? Boolean(result.styleProfileUsed) : false} ` +
+      `styleProfileLookupFailed=${type === 'infographic' ? Boolean(result.styleProfileLookupFailed) : false}`,
+    );
   } catch (error) {
     console.warn('[VisualContent] image generation failed, falling back to placeholder:', error);
+    console.warn(
+      `[VisualTelemetry] generation_fallback kind=${type === 'infographic' ? 'scene' : 'prop'} ` +
+      `language=${request.targetLanguage ?? 'none'}`,
+    );
     imageUrl = generatePlaceholderImage(request).imageUrl;
     provider = 'placeholder';
   }

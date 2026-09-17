@@ -6908,3 +6908,43 @@ published runtime release has no bootstrap issue or acknowledgement and remains
 immutable, but it cannot authorize this corrected launcher. A new protected
 source promotion and runtime release are required before Windows initialization
 continues. No task, session, lease, operation, or invocation was created.
+
+## Production voice replay, visual generation, and Luca presence stabilization — September 16, 2026
+
+The post-cutover stabilization repair closes three production failures without
+changing the established product contracts.
+
+Gemini Live keeps progressive, zero-buffer playback. A production-used
+turn-local guard now detects an exact substantial replay of the response
+beginning from output transcription, truncates the duplicate transcript, and
+drops all later PCM for that response. The guard begins once whether
+transcription or PCM arrives first and resets only at genuine interruption,
+reconnect, or completed-response boundaries. Because transcription trails PCM,
+the first repeated words may still escape; preventing those words would require
+buffering every response, which Gemini and Daniela both rejected. Gemini 3
+Flash reviewed each voice revision, including the final transcript-first race
+repair, and returned unconditional `APPROVED — Ship it.`
+
+Generated scenes now carry normalized target language through the canonical
+cache-first image pipeline. The image engine reports whether a DB-pinned style
+profile was actually used, which profile key was selected, and whether lookup
+failed; telemetry no longer infers profile use from language alone. Provider
+failures may return an explicit placeholder to the caller, but centralized
+cache guards prevent that placeholder from entering generated or reviewed
+asset caches. Props remain on the existing prop path, and neither direct
+reference-image prompting nor automatic quality scoring was added.
+
+Late Team Room browser joiners now receive Luca's current same-room presence
+immediately. The repair also replaces the namespace's pre-existing cookie-text
+check with signed `connect.sid` verification against the live session store,
+canonical founder authorization, and existing-room validation. Luca's dedicated
+agent-token authority remains separate. Browser replay exposes only online
+state and connection time, and unauthorized or nonexistent-room joins receive
+nothing.
+
+Behavioral checks pass 8/8 for the voice guard, 5/5 for the image pipeline, and
+5/5 for Team Room authentication/presence. Typecheck and diff checks pass, the
+HolaHola system-health verifier reports all checks passed, the registered
+validation workflow reports `ALL VALIDATION SUITE CHECKS PASSED`, and final
+independent architecture review returned PASS. The Gemini/Daniela consultation
+record is stored in `conversation_memories` under the voice-pipeline audit tags.

@@ -155,6 +155,32 @@ async function getLockedStyleProfile(profileKey: string): Promise<string | null>
   }
 }
 
+export interface CharacterSceneGenerationResult {
+  imageUrl: string;
+  styleProfileUsed: boolean;
+  styleProfileKey: string | null;
+  styleProfileLookupFailed: boolean;
+}
+
+async function getLockedStyleProfileDetails(profileKey: string): Promise<{
+  styleDescription: string | null;
+  lookupFailed: boolean;
+}> {
+  try {
+    const titleKey = `style_profile:${profileKey}`;
+    const result = await getUserDb().execute(drizzleSql`
+      SELECT content FROM editor_insights
+      WHERE category = 'tools' AND title = ${titleKey}
+      LIMIT 1
+    `);
+    const row = result.rows[0] as any;
+    if (!row?.content) return { styleDescription: null, lookupFailed: false };
+    return { styleDescription: JSON.parse(row.content).styleDescription ?? null, lookupFailed: false };
+  } catch {
+    return { styleDescription: null, lookupFailed: true };
+  }
+}
+
 /**
  * CHARACTER SCENE — Daniela/character scenes and live-session freeform.
  * Uses SCENE_STYLE (warm saturated watercolor, wide framing).
@@ -166,12 +192,26 @@ async function getLockedStyleProfile(profileKey: string): Promise<string | null>
  *                  giving consistent character design across all generations.
  */
 export async function generateCharacterScene(concept: string, language?: string): Promise<string> {
+  const result = await generateCharacterSceneWithMetadata(concept, language);
+  return result.imageUrl;
+}
+
+export async function generateCharacterSceneWithMetadata(
+  concept: string,
+  language?: string,
+): Promise<CharacterSceneGenerationResult> {
   const hint = COMPOSITION_VARIANTS[Math.floor(Math.random() * COMPOSITION_VARIANTS.length)];
 
   let styleBlock = SCENE_STYLE;
+  let styleProfileUsed = false;
+  let styleProfileLookupFailed = false;
+  const styleProfileKey = language || null;
   if (language) {
-    const locked = await getLockedStyleProfile(language);
+    const profile = await getLockedStyleProfileDetails(language);
+    styleProfileLookupFailed = profile.lookupFailed;
+    const locked = profile.styleDescription;
     if (locked) {
+      styleProfileUsed = true;
       console.log(`[GoogleImage] Using pinned style profile for ${language}`);
       styleBlock =
         `ILLUSTRATION STYLE TO MATCH (extracted from reference):\n${locked}\n\n` +
@@ -185,7 +225,12 @@ export async function generateCharacterScene(concept: string, language?: string)
   console.log('[GoogleImage] Character scene:', prompt.substring(0, 200));
   const buf = await callGemini(prompt);
   const filename = `scene-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-  return uploadPublicBuffer(filename, buf, 'image/jpeg');
+  return {
+    imageUrl: await uploadPublicBuffer(filename, buf, 'image/jpeg'),
+    styleProfileUsed,
+    styleProfileKey,
+    styleProfileLookupFailed,
+  };
 }
 
 /**

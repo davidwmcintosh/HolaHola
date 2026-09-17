@@ -2,10 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { normalizeTargetLanguage } from '../services/visual-content-service';
+import {
+  cacheGeneratedVisual,
+  normalizeTargetLanguage,
+  shouldCacheVisualResult,
+} from '../services/visual-content-service';
 
 const visualService = readFileSync('server/services/visual-content-service.ts', 'utf8');
 const resolver = readFileSync('server/services/vocabulary-image-resolver.ts', 'utf8');
+const googleImageService = readFileSync('server/services/google-image-service.ts', 'utf8');
 
 describe('canonical vocabulary image pipeline repair', () => {
   it('normalizes target language before selecting a pinned scene profile', () => {
@@ -19,7 +24,7 @@ describe('canonical vocabulary image pipeline repair', () => {
     assert.match(visualService, /targetLanguage:\s*normalizeTargetLanguage\(language\)/);
     assert.match(
       visualService,
-      /generateCharacterScene\(request\.concept,\s*request\.targetLanguage\)/,
+      /generateCharacterSceneWithMetadata\(request\.concept,\s*request\.targetLanguage\)/,
     );
     assert.match(
       visualService,
@@ -29,6 +34,8 @@ describe('canonical vocabulary image pipeline repair', () => {
       resolver,
       /generateVisual\(conceptForGeneration, generationType, undefined, undefined, anchorImageUrl, language\)/,
     );
+    assert.match(googleImageService, /generateCharacterSceneWithMetadata/);
+    assert.match(visualService, /styleProfileUsed=[\s\S]*styleProfileLookupFailed/);
   });
 
   it('keeps prop generation on the prop pipeline and does not pass language into it', () => {
@@ -50,5 +57,28 @@ describe('canonical vocabulary image pipeline repair', () => {
     assert.ok(cacheIndex >= 0 && generationIndex > cacheIndex);
     assert.match(resolver, /export async function refetchImage/);
     assert.match(resolver, /bustVocabImageCache\(\[primaryKey\]\)/);
+  });
+
+  it('does not call storage cacheImage for a failed provider result', async () => {
+    let cacheCalls = 0;
+    const failed = {
+      imageUrl: 'https://picsum.photos/seed/fallback/800/450',
+      altText: 'fallback',
+      semanticTags: ['infographic'],
+      accessibilityDescription: 'fallback',
+      conceptAlignment: 0.5,
+      metadata: {
+        provider: 'placeholder',
+        generatedAt: new Date().toISOString(),
+        dimensions: { width: 1024, height: 1024 },
+      },
+    };
+
+    assert.equal(shouldCacheVisualResult(failed), false);
+    assert.equal(
+      await cacheGeneratedVisual(failed, async () => { cacheCalls += 1; }),
+      false,
+    );
+    assert.equal(cacheCalls, 0);
   });
 });

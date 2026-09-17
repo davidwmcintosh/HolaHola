@@ -13828,11 +13828,11 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       }
 
       // Generate fresh candidate image (bypasses cache — always new)
-      const { generateVisual } = await import('./services/visual-content-service');
+      const { generateVisual, shouldCacheVisualResult } = await import('./services/visual-content-service');
       const result = await generateVisual(fullConcept, generationType, undefined, undefined, anchorImageUrl, language);
 
       // Store under preview key (temporary — not the real cache key)
-      await storage.cacheImage({
+      if (shouldCacheVisualResult(result)) await storage.cacheImage({
         url: result.imageUrl,
         filename: `vocab_preview_${cacheKey}_${Date.now()}.jpg`,
         mimeType: 'image/jpeg',
@@ -22143,7 +22143,7 @@ Current conversation context:
       if (!concept?.trim()) {
         return res.status(400).json({ error: "Concept is required" });
       }
-      const { generateVisual } = await import('./services/visual-content-service');
+      const { generateVisual, shouldCacheVisualResult } = await import('./services/visual-content-service');
       const { archiveImageToPermanentStorage } = await import('./services/image-storage');
       const crypto = await import('crypto');
       const result = await generateVisual(
@@ -22152,6 +22152,9 @@ Current conversation context:
         {},
         style || 'warm, friendly illustration, educational'
       );
+      if (!shouldCacheVisualResult(result)) {
+        return res.status(502).json({ error: 'Image generation returned a placeholder; asset was not cached' });
+      }
       const hash = crypto.createHash('md5').update('admin_visual_' + concept + Date.now()).digest('hex');
       const permanentUrl = await archiveImageToPermanentStorage(result.imageUrl, `${hash}.jpg`);
       const mediaFile = await storage.cacheImage({

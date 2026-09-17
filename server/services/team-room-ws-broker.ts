@@ -1,6 +1,12 @@
 import type { Server as SocketIOServer, Namespace, Socket } from "socket.io";
 import type { IncomingMessage } from "http";
 import crypto from "node:crypto";
+import { parse as parseCookie } from "cookie";
+import signature from "cookie-signature";
+import { eq } from "drizzle-orm";
+import { getSharedDb } from "../db";
+import { sessions, teamRooms, users } from "../../shared/schema";
+import { isFounder } from "../middleware/rbac";
 
 let teamRoomNamespace: Namespace | null = null;
 type LucaPresenceSnapshot = {
@@ -10,10 +16,37 @@ type LucaPresenceSnapshot = {
   socketId: string | null;
 };
 let readLucaPresenceState: (() => LucaPresenceSnapshot) | null = null;
+type BrowserAuthResult = { userId: string; isFounder: boolean };
+type SessionRecord = { sess: unknown; expire: Date };
+type TeamRoomAuthDependencies = {
+  verifyBrowserSession?: (cookieHeader: string | undefined) => Promise<BrowserAuthResult | null>;
+  readSession?: (sessionId: string) => Promise<SessionRecord | null>;
+  readUser?: (userId: string) => Promise<any | null>;
+  roomExists?: (roomId: string) => Promise<boolean>;
+};
+
+let verifyBrowserSession: (cookieHeader: string | undefined) => Promise<BrowserAuthResult | null> =
+  verifyBrowserSessionFromConfiguredReaders;
+let readSession: (sessionId: string) => Promise<SessionRecord | null> = readSessionFromStore;
+let readUser: (userId: string) => Promise<any | null> = readUserFromStore;
+let roomExists: (roomId: string) => Promise<boolean> = async (roomId) => {
+  const [room] = await getSharedDb().select({ id: teamRooms.id }).from(teamRooms).where(eq(teamRooms.id, roomId)).limit(1);
+  return Boolean(room);
+};
 
 /** Register Luca's live state accessor without creating a second state cache. */
 export function registerLucaPresenceStateReader(reader: () => LucaPresenceSnapshot): void {
   readLucaPresenceState = reader;
+}
+
+export function configureTeamRoomWSAuth(dependencies: TeamRoomAuthDependencies): void {
+  readSession = dependencies.readSession ?? readSessionFromStore;
+  readUser = dependencies.readUser ?? readUserFromStore;
+  verifyBrowserSession = dependencies.verifyBrowserSession ?? verifyBrowserSessionFromConfiguredReaders;
+  roomExists = dependencies.roomExists ?? (async (roomId) => {
+    const [room] = await getSharedDb().select({ id: teamRooms.id }).from(teamRooms).where(eq(teamRooms.id, roomId)).limit(1);
+    return Boolean(room);
+  });
 }
 
 /**
@@ -34,10 +67,36 @@ export function isLucaOnlineInRoom(
   return state.connected && state.currentRoomId === roomId;
 }
 
-function extractSessionFromRequest(req: IncomingMessage): boolean {
-  const cookie = req.headers.cookie;
-  if (!cookie) return false;
-  return cookie.includes("connect.sid=") || cookie.includes("replit:authed=");
+async function readSessionFromStore(sessionId: string): Promise<SessionRecord | null> {
+  const [row] = await getSharedDb()
+    .select({ sess: sessions.sess, expire: sessions.expire })
+    .from(sessions)
+    .where(eq(sessions.sid, sessionId))
+    .limit(1);
+  return row ? { sess: row.sess, expire: row.expire } : null;
+}
+
+async function readUserFromStore(userId: string): Promise<any | null> {
+  const [user] = await getSharedDb().select().from(users).where(eq(users.id, userId)).limit(1);
+  return user ?? null;
+}
+
+async function verifyBrowserSessionFromConfiguredReaders(cookieHeader: string | undefined): Promise<BrowserAuthResult | null> {
+  if (!cookieHeader || !process.env.SESSION_SECRET) return null;
+  const sessionCookie = parseCookie(cookieHeader)["connect.sid"];
+  if (!sessionCookie || !sessionCookie.startsWith("s:")) return null;
+  const sessionId = signature.unsign(sessionCookie.slice(2), process.env.SESSION_SECRET);
+  if (sessionId === false) return null;
+
+  const row = await readSession(sessionId);
+  if (!row || row.expire <= new Date()) return null;
+  const sessionData = row.sess as any;
+  const userId = sessionData?.userId ?? sessionData?.passport?.user?.claims?.sub;
+  if (typeof userId !== "string" || !userId) return null;
+
+  const user = await readUser(userId);
+  if (!user || !isFounder(user)) return null;
+  return { userId, isFounder: true };
 }
 
 /** Returns true when the socket presents a valid agent token (Luca's identity). */
@@ -53,27 +112,52 @@ function isAgentTokenAuth(socket: Socket): boolean {
   );
 }
 
+function hasAgentToken(socket: Socket): boolean {
+  return typeof (socket.handshake.auth as Record<string, unknown>)?.agentToken === "string";
+}
+
+function isValidRoomId(roomId: unknown): roomId is string {
+  return typeof roomId === "string" && roomId.length > 0 && roomId.length <= 128 && /^[A-Za-z0-9_-]+$/.test(roomId);
+}
+
 export function initializeTeamRoomWS(io: SocketIOServer) {
   teamRoomNamespace = io.of("/team-room");
 
-  teamRoomNamespace.use((socket, next) => {
+  teamRoomNamespace.use(async (socket, next) => {
     // Accept Luca's server-side connection (agent token) OR a browser session cookie
     if (isAgentTokenAuth(socket)) {
       (socket.data as Record<string, unknown>).identity = "luca";
       next();
-    } else if (extractSessionFromRequest(socket.request)) {
-      next();
     } else {
-      console.log(`[TeamRoomWS] Rejected unauthenticated connection: ${socket.id}`);
-      next(new Error("Authentication required"));
+      if (hasAgentToken(socket)) {
+        return next(new Error("Authentication required"));
+      }
+      let browserAuth: BrowserAuthResult | null = null;
+      try {
+        browserAuth = await verifyBrowserSession(socket.request.headers.cookie);
+      } catch {
+        browserAuth = null;
+      }
+      if (!browserAuth) {
+        console.log(`[TeamRoomWS] Rejected unauthenticated connection: ${socket.id}`);
+        return next(new Error("Authentication required"));
+      }
+      (socket.data as Record<string, unknown>).identity = "browser";
+      (socket.data as Record<string, unknown>).userId = browserAuth.userId;
+      next();
     }
   });
 
   teamRoomNamespace.on("connection", (socket: Socket) => {
     console.log(`[TeamRoomWS] Client connected: ${socket.id}`);
 
-    socket.on("join_room", (roomId: string) => {
-      if (!roomId || typeof roomId !== "string") return;
+    socket.on("join_room", async (roomId: string) => {
+      if (!isValidRoomId(roomId)) return;
+      try {
+        if (!(await roomExists(roomId))) return;
+      } catch {
+        return;
+      }
       socket.join(`room:${roomId}`);
       console.log(`[TeamRoomWS] ${socket.id} joined room:${roomId}`);
 
@@ -90,7 +174,6 @@ export function initializeTeamRoomWS(io: SocketIOServer) {
         socket.emit("luca_presence", {
           online: isLucaOnlineInRoom(roomId, state),
           connectedAt: state.connectedAt,
-          socketId: state.socketId,
         });
       }
     });
