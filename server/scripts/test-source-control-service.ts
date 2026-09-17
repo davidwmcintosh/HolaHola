@@ -494,6 +494,224 @@ async function syncPublicationMarkerFixture(overrides: {
   }
 }
 
+type SyncMarkerFixtureOverrides = {
+  previousState?: string;
+  candidateExpiresAt?: string;
+  brokenValidation?: boolean;
+  head?: string;
+  localHead?: string;
+  githubHead?: string;
+  candidateRemoteSha?: string;
+  candidateRemoteTree?: string;
+  markerRemoteSha?: string;
+  markerRemoteTree?: string;
+  markerRemoteParent?: string;
+  markerLocalResolvedSha?: string;
+  markerLocalTree?: string;
+  markerLocalParents?: string;
+  markerLocalSubject?: string;
+  dirty?: boolean;
+};
+
+async function syncPublicationMarkerFailClosedFixture(overrides: SyncMarkerFixtureOverrides = {}): Promise<{ result: Awaited<ReturnType<SourceControlService['sync']>>; status: any }> {
+  const rootDir = mkdtempSync(join(tmpdir(), 'source-control-sync-marker-test-'));
+  const statusPath = join(rootDir, 'status.json');
+  const candidateSha = LOCAL_NEW;
+  const candidateTree = CANDIDATE_TREE;
+  const head = overrides.head ?? PUBLICATION_MARKER;
+  const localHead = overrides.localHead ?? head;
+  const githubHead = overrides.githubHead ?? head;
+  const preparedAt = '2026-09-15T20:00:00.000Z';
+  const expiresAt = overrides.candidateExpiresAt ?? '2026-09-15T22:00:00.000Z';
+  const validation = overrides.brokenValidation
+    ? { ...manifest(candidateSha), checks: {} }
+    : manifest(candidateSha);
+  writeFileSync(statusPath, `${JSON.stringify({
+    schemaVersion: 3,
+    state: overrides.previousState ?? 'ready_to_promote',
+    origin: 'fixture',
+    replitSha: candidateSha,
+    githubSha: candidateSha,
+    candidateSha,
+    candidatePreparedAt: preparedAt,
+    candidateExpiresAt: expiresAt,
+    validation,
+    consecutiveFailures: 0,
+    lastHeartbeatAt: preparedAt,
+    updatedAt: preparedAt,
+  })}\n`);
+  try {
+    const service = new SourceControlService({
+      rootDir,
+      env: {
+        NODE_ENV: 'development',
+        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
+        GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+        SOURCE_BRIDGE_STATUS_FILE: statusPath,
+        SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+        SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+        SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+      },
+      now: () => new Date('2026-09-15T21:00:00.000Z'),
+      uuid: (() => {
+        let value = 0;
+        return () => `sync-marker-fixture-${++value}`;
+      })(),
+      validateCandidate: async (sha) => manifest(sha),
+      resolveRemoteCommit: async (sha) => {
+        if (sha === candidateSha) {
+          return {
+            sha: overrides.candidateRemoteSha ?? sha,
+            treeSha: overrides.candidateRemoteTree ?? candidateTree,
+            parentSha: LOCAL_OLD,
+          };
+        }
+        return {
+          sha: overrides.markerRemoteSha ?? sha,
+          treeSha: overrides.markerRemoteTree ?? candidateTree,
+          parentSha: overrides.markerRemoteParent ?? candidateSha,
+        };
+      },
+      runCommand: async (command, args) => {
+        assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
+        const operation = args[0];
+        if (operation === 'branch') return { exitCode: 0, stdout: 'main\n', stderr: '' };
+        if (operation === 'status') {
+          return { exitCode: 0, stdout: overrides.dirty ? ' M tracked-file\n' : '', stderr: '' };
+        }
+        if (operation === 'fetch') return { exitCode: 0, stdout: '', stderr: '' };
+        if (operation === 'rev-parse' && args.includes('--is-shallow-repository')) {
+          return { exitCode: 0, stdout: 'false\n', stderr: '' };
+        }
+        if (operation === 'rev-parse') {
+          const isRemote = args.some((arg) => arg.includes('FETCH_HEAD'));
+          return { exitCode: 0, stdout: `${isRemote ? githubHead : localHead}\n`, stderr: '' };
+        }
+        if (operation === 'merge-base' && args[1] !== '--is-ancestor') {
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (operation === 'show') {
+          return {
+            exitCode: 0,
+            stdout: `${overrides.markerLocalResolvedSha ?? head}\n${
+              overrides.markerLocalTree ?? candidateTree
+            }\n${overrides.markerLocalParents ?? candidateSha}\n${
+              overrides.markerLocalSubject ?? 'Published your App'
+            }\n`,
+            stderr: '',
+          };
+        }
+        return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
+      },
+    });
+    const result = await service.sync('fixture');
+    const status = JSON.parse(readFileSync(statusPath, 'utf8'));
+    return { result, status };
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * End-to-end reproduction of the publish-then-scheduler race: a validated
+ * candidate is prepared, Replit Publish creates an authenticated same-tree
+ * "Published your App" marker on both Replit and GitHub, the scheduler's
+ * `sync()` runs (as it does automatically after publish), and only then does
+ * the operator call `recordPromotion()` for the original candidate. Before
+ * the fix, `sync()` would have already overwritten the status file to
+ * `synced`, so `recordPromotion()` would refuse because the status no longer
+ * showed `ready_to_promote`. This proves the full lifecycle now succeeds.
+ */
+async function syncThenRecordPublicationMarkerFixture(): Promise<{
+  syncResult: Awaited<ReturnType<SourceControlService['sync']>>;
+  recordResult: Awaited<ReturnType<SourceControlService['recordPromotion']>>;
+  recorded: import('../services/source-control-service').SourcePromotionRecordInput[];
+  statusAfterSync: any;
+  statusAfterRecord: any;
+}> {
+  const rootDir = mkdtempSync(join(tmpdir(), 'source-control-sync-then-record-test-'));
+  const statusPath = join(rootDir, 'status.json');
+  const candidateSha = LOCAL_NEW;
+  const candidateTree = CANDIDATE_TREE;
+  const head = PUBLICATION_MARKER;
+  const preparedAt = '2026-09-15T20:00:00.000Z';
+  const expiresAt = '2026-09-15T22:00:00.000Z';
+  const publicationReference = `replit-publish:${candidateSha}:${head}`;
+  writeFileSync(statusPath, `${JSON.stringify({
+    schemaVersion: 3,
+    state: 'ready_to_promote',
+    origin: 'fixture',
+    replitSha: candidateSha,
+    githubSha: candidateSha,
+    candidateSha,
+    candidatePreparedAt: preparedAt,
+    candidateExpiresAt: expiresAt,
+    validation: manifest(candidateSha),
+    consecutiveFailures: 0,
+    lastHeartbeatAt: preparedAt,
+    updatedAt: preparedAt,
+  })}\n`);
+  const recorded: import('../services/source-control-service').SourcePromotionRecordInput[] = [];
+  try {
+    const service = new SourceControlService({
+      rootDir,
+      env: {
+        NODE_ENV: 'development',
+        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
+        GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+        SOURCE_BRIDGE_STATUS_FILE: statusPath,
+        SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+        SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+        SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+      },
+      now: () => new Date('2026-09-15T21:00:00.000Z'),
+      uuid: (() => {
+        let value = 0;
+        return () => `sync-then-record-fixture-${++value}`;
+      })(),
+      validateCandidate: async (sha) => manifest(sha),
+      resolveRemoteCommit: async (sha) => (sha === candidateSha
+        ? { sha, treeSha: candidateTree, parentSha: LOCAL_OLD }
+        : { sha, treeSha: candidateTree, parentSha: candidateSha }),
+      recordSourcePromotion: async (input) => {
+        recorded.push(input);
+      },
+      runCommand: async (command, args) => {
+        assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
+        const operation = args[0];
+        if (operation === 'branch') return { exitCode: 0, stdout: 'main\n', stderr: '' };
+        if (operation === 'status') return { exitCode: 0, stdout: '', stderr: '' };
+        if (operation === 'fetch') return { exitCode: 0, stdout: '', stderr: '' };
+        if (operation === 'config') {
+          return { exitCode: 0, stdout: 'git@github.com:davidwmcintosh/holahola.git\n', stderr: '' };
+        }
+        if (operation === 'rev-parse' && args.includes('--is-shallow-repository')) {
+          return { exitCode: 0, stdout: 'false\n', stderr: '' };
+        }
+        if (operation === 'rev-parse') return { exitCode: 0, stdout: `${head}\n`, stderr: '' };
+        if (operation === 'merge-base' && args[1] !== '--is-ancestor') {
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (operation === 'show') {
+          return {
+            exitCode: 0,
+            stdout: `${head}\n${candidateTree}\n${candidateSha}\nPublished your App\n`,
+            stderr: '',
+          };
+        }
+        return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
+      },
+    });
+    const syncResult = await service.sync('scheduler');
+    const statusAfterSync = JSON.parse(readFileSync(statusPath, 'utf8'));
+    const recordResult = await service.recordPromotion(candidateSha, 'operator', 'record-after-sync', publicationReference);
+    const statusAfterRecord = JSON.parse(readFileSync(statusPath, 'utf8'));
+    return { syncResult, recordResult, recorded, statusAfterSync, statusAfterRecord };
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   assertRenderRuntimeSourceSnapshotPrerequisites();
 
@@ -836,6 +1054,72 @@ async function main(): Promise<void> {
   });
   assert.equal(pushedMarkerHeadDrift.result.state, 'failed');
   assert.equal(pushedMarkerHeadDrift.recorded.length, 0);
+
+  // A publish-then-scheduler race: Replit Publish creates an authenticated
+  // same-tree "Published your App" marker over the still-unexpired validated
+  // candidate. The scheduler's next sync must recognize the marker and
+  // preserve `ready_to_promote` instead of downgrading to `synced`.
+  const syncMarkerReadiness = await syncPublicationMarkerFailClosedFixture();
+  assert.equal(syncMarkerReadiness.result.state, 'ready_to_promote');
+  assert.equal(syncMarkerReadiness.result.candidateSha, LOCAL_NEW);
+  assert.equal(syncMarkerReadiness.status.state, 'ready_to_promote');
+  assert.equal(syncMarkerReadiness.status.candidateSha, LOCAL_NEW);
+  assert.notEqual(syncMarkerReadiness.status.candidateSha, PUBLICATION_MARKER);
+  assert.equal(syncMarkerReadiness.status.replitSha, PUBLICATION_MARKER);
+  assert.equal(syncMarkerReadiness.status.githubSha, PUBLICATION_MARKER);
+  assert.equal(syncMarkerReadiness.status.candidatePreparedAt, '2026-09-15T20:00:00.000Z');
+  assert.equal(syncMarkerReadiness.status.candidateExpiresAt, '2026-09-15T22:00:00.000Z');
+  assert.deepEqual(syncMarkerReadiness.status.validation, manifest(LOCAL_NEW));
+
+  // Full lifecycle: prepare -> publish creates a marker -> scheduler sync
+  // preserves readiness -> the operator's record call succeeds using the
+  // original candidate. This reproduces the publish-then-scheduler race and
+  // proves the operator is no longer blocked from recording a valid publish.
+  const syncThenRecord = await syncThenRecordPublicationMarkerFixture();
+  assert.equal(syncThenRecord.syncResult.state, 'ready_to_promote');
+  assert.equal(syncThenRecord.syncResult.candidateSha, LOCAL_NEW);
+  assert.equal(syncThenRecord.statusAfterSync.state, 'ready_to_promote');
+  assert.equal(syncThenRecord.statusAfterSync.candidateSha, LOCAL_NEW);
+  assert.equal(syncThenRecord.recordResult.state, 'synced');
+  assert.equal(syncThenRecord.recordResult.ok, true);
+  assert.equal(syncThenRecord.recorded.length, 1);
+  assert.equal(syncThenRecord.recorded[0].promotedCommitSha, LOCAL_NEW);
+  assert.equal(syncThenRecord.recorded[0].publishTriggerSha, PUBLICATION_MARKER);
+  assert.equal(syncThenRecord.statusAfterRecord.state, 'synced');
+  assert.equal(syncThenRecord.statusAfterRecord.promotedSha, LOCAL_NEW);
+
+  // Every fail-closed variant must still land on `synced` (never
+  // `ready_to_promote`) and must never extend the original candidate window.
+  const syncMarkerRejections: Array<[string, SyncMarkerFixtureOverrides]> = [
+    ['no parents (malformed marker)', { markerLocalParents: '' }],
+    ['two parents (malformed marker)', { markerLocalParents: `${LOCAL_NEW} ${LOCAL_OLD}` }],
+    ['wrong parent', { markerLocalParents: LOCAL_OLD }],
+    ['wrong local tree', { markerLocalTree: '6'.repeat(40) }],
+    ['wrong subject', { markerLocalSubject: 'Published another App' }],
+    ['candidate remote sha mismatch', { candidateRemoteSha: '7'.repeat(40) }],
+    ['candidate remote tree mismatch (marker tree now orphaned)', { candidateRemoteTree: '8'.repeat(40) }],
+    ['marker remote sha mismatch', { markerRemoteSha: '9'.repeat(40) }],
+    ['marker remote tree mismatch', { markerRemoteTree: '6'.repeat(40) }],
+    ['marker remote parent mismatch', { markerRemoteParent: LOCAL_OLD }],
+    ['expired candidate', { candidateExpiresAt: '2020-01-01T00:00:00.000Z' }],
+    ['broken validation manifest', { brokenValidation: true }],
+  ];
+  for (const [label, overrides] of syncMarkerRejections) {
+    const rejected = await syncPublicationMarkerFailClosedFixture(overrides);
+    assert.equal(rejected.result.state, 'synced', `expected synced for: ${label}`);
+    assert.equal(rejected.status.state, 'synced', `expected synced status for: ${label}`);
+    assert.equal(
+      rejected.status.candidateExpiresAt,
+      overrides.candidateExpiresAt ?? '2026-09-15T22:00:00.000Z',
+      `must not extend candidate expiry for: ${label}`,
+    );
+  }
+
+  // A dirty tree short-circuits before the marker is ever inspected.
+  const syncMarkerDirty = await syncPublicationMarkerFailClosedFixture({ dirty: true });
+  assert.equal(syncMarkerDirty.result.state, 'dirty');
+  assert.equal(syncMarkerDirty.status.state, 'dirty');
+  assert.notEqual(syncMarkerDirty.status.state, 'ready_to_promote');
 
   const snapshotCalls: Array<{ sha: string; fixedPaths: readonly string[] }> = [];
   let resolverBlobs: Record<string, Buffer> = {};

@@ -483,31 +483,49 @@ export function hasValidSourceControlManifest(
 
 export class SourceControlService {
   private readonly rootDir: string;
+
   private readonly env: NodeJS.ProcessEnv;
+
   private readonly now: () => Date;
+
   private readonly resolveRemoteCommit: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
+
   private readonly resolveRemoteSnapshot: (
     sha: string,
     fixedPaths: readonly string[],
   ) => Promise<ProtectedRemoteSnapshot>;
+
   private readonly resolveRenderReleaseEvidence: (
     expectedSha: string,
     expectedSourceContextSha256: string,
   ) => Promise<RenderReleaseEvidence>;
+
   private readonly resolveCandidateSourceContext: (
     sha: string,
   ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
+
   private readonly uuid: () => string;
+
   private readonly runCommand: CommandRunner;
+
   private readonly validateCandidate: (sha: string) => Promise<Record<string, unknown>>;
+
   private readonly branch: string;
+
   private readonly repoUrl: string;
+
   private readonly repositoryIdentity: string;
+
   private readonly statusPath: string;
+
   private readonly summaryPath: string;
+
   private readonly lockPath: string;
+
   private readonly operationsDir: string;
+
   private readonly leaseMs: number;
+
   private readonly recordSourcePromotion: (input: SourcePromotionRecordInput) => Promise<void>;
 
   constructor(options: SourceControlServiceOptions = {}) {
@@ -1233,7 +1251,6 @@ export class SourceControlService {
       checks,
     };
   }
-
 
   private commandEnv(): NodeJS.ProcessEnv {
     return { ...this.env, GIT_TERMINAL_PROMPT: '0' };
