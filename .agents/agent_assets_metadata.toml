@@ -284,3 +284,17 @@ mtime_ms = 1789621378067
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/3823afa6-c449-4420-be3c-37b4c4d45ae5/27a95e15-8ede-415e-9136-5ccb1ee52448"
 storage_version_token = "1789621396054911"
 content_type = "text/plain"
+
+[[outputs]]
+id = "XgypGwF8I0UyGgnRthNNY"
+uri = "file://.local/founder-runtime-publication-command.html"
+type = "text"
+title = "Founder runtime publication command"
+description = "Copy-only page for the one authorized production request bound to source promotion 4b7d09ec-9e3b-400f-a1cc-156dbd4ce5fa."
+logical_id = "54e2f1a0-926e-4770-a53d-f05163984748"
+content_hash = "sha256:05e27fa68fa8671cb1a11bda00a7bd26356c93186e1d8574cc493ef57a1e40d4"
+size = 25393
+mtime_ms = 1789663435723
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/54e2f1a0-926e-4770-a53d-f05163984748/66b3867d-68f7-4811-a704-7201f3ab2b92"
+storage_version_token = "1789663436776147"
+content_type = "text/html"
