@@ -16,6 +16,9 @@ import {
   SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
   SourceControlService,
   materializeProtectedGitSnapshot,
+  resolveRenderReleaseEvidenceFromHealth,
+  validateRenderReleaseEvidence,
+  type RenderReleaseEvidence,
 } from '../services/source-control-service';
 
 const LOCAL_OLD = '1'.repeat(40);
@@ -23,18 +26,37 @@ const LOCAL_NEW = '2'.repeat(40);
 const REMOTE_NEW = '3'.repeat(40);
 const PUBLICATION_MARKER = '4'.repeat(40);
 const CANDIDATE_TREE = '5'.repeat(40);
+const SOURCE_CONTEXT_SHA256 = 'c'.repeat(64);
+const VALID_RENDER_EVIDENCE: RenderReleaseEvidence = {
+  schemaVersion: 1,
+  authority: 'build',
+  promotable: true,
+  commitSha: LOCAL_NEW,
+  sourceContextSha256: SOURCE_CONTEXT_SHA256,
+  sourceContextAlgorithm: 'sha256(path-nul-kind-nul-bytes-nul-v1)',
+  sourceFileCount: 321,
+  dirtyWorktree: null,
+};
 const KEY = '-----BEGIN OPENSSH PRIVATE KEY-----\\ntest-material\\n-----END OPENSSH PRIVATE KEY-----';
 
 function manifest(sha: string): Record<string, unknown> {
   const checks = Object.fromEntries(SOURCE_CONTROL_REQUIRED_CHECKS.map((name) => [name, 'passed']));
+  const sourceContextAlgorithm = 'sha256(path-nul-kind-nul-bytes-nul-v1)';
+  const sourceFileCount = 321;
   return {
     manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
     candidateSha: sha,
+    sourceContextSha256: SOURCE_CONTEXT_SHA256,
+    sourceContextAlgorithm,
+    sourceFileCount,
     checks,
     validationId: createHash('sha256')
       .update(JSON.stringify({
         manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
         candidateSha: sha,
+        sourceContextSha256: SOURCE_CONTEXT_SHA256,
+        sourceContextAlgorithm,
+        sourceFileCount,
         checks,
       }))
       .digest('hex'),
@@ -153,10 +175,13 @@ async function recordPublicationMarkerFixture(overrides: {
   finalRemoteMarkerTree?: string;
   finalRemoteMarkerParent?: string;
   publicationReference?: string;
+  finalRenderEvidence?: RenderReleaseEvidence;
+  renderEvidenceFailureAt?: number;
 } = {}): Promise<{
   result: Awaited<ReturnType<SourceControlService['recordPromotion']>>;
   recorded: import('../services/source-control-service').SourcePromotionRecordInput[];
   receipt?: Record<string, unknown>;
+  renderEvidenceCalls: number;
 }> {
   const rootDir = mkdtempSync(join(tmpdir(), 'source-control-marker-record-test-'));
   const statusPath = join(rootDir, 'status.json');
@@ -177,6 +202,7 @@ async function recordPublicationMarkerFixture(overrides: {
   let showCount = 0;
   let remoteMarkerProofCount = 0;
   let configCount = 0;
+  let renderEvidenceCalls = 0;
   writeFileSync(statusPath, `${JSON.stringify({
     schemaVersion: 3,
     state: 'ready_to_promote',
@@ -224,6 +250,17 @@ async function recordPublicationMarkerFixture(overrides: {
             ? overrides.finalRemoteMarkerParent ?? overrides.remoteMarkerParent ?? LOCAL_NEW
             : overrides.remoteMarkerParent ?? LOCAL_NEW,
         };
+      },
+      resolveRenderReleaseEvidence: async (expectedSha, expectedSourceContextSha256) => {
+        renderEvidenceCalls += 1;
+        if (overrides.renderEvidenceFailureAt === renderEvidenceCalls) {
+          throw new Error('render_evidence_fixture_failure');
+        }
+        assert.equal(expectedSha, LOCAL_NEW);
+        assert.equal(expectedSourceContextSha256, SOURCE_CONTEXT_SHA256);
+        return renderEvidenceCalls > 1 && overrides.finalRenderEvidence
+          ? overrides.finalRenderEvidence
+          : VALID_RENDER_EVIDENCE;
       },
       recordSourcePromotion: async (input) => {
         recorded.push(input);
@@ -305,7 +342,7 @@ async function recordPublicationMarkerFixture(overrides: {
     const receipt = receiptName
       ? JSON.parse(readFileSync(join(rootDir, 'operations', receiptName), 'utf8')) as Record<string, unknown>
       : undefined;
-    return { result, recorded, receipt };
+    return { result, recorded, receipt, renderEvidenceCalls };
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }
@@ -595,13 +632,136 @@ async function main(): Promise<void> {
   const exactHead = await recordPublicationMarkerFixture({
     localHead: LOCAL_NEW,
     markerSha: LOCAL_NEW,
-    publicationReference: 'protected-publication-reference',
+    publicationReference: `render-release:${LOCAL_NEW}:${SOURCE_CONTEXT_SHA256}`,
   });
   assert.equal(exactHead.result.state, 'synced');
   assert.equal(exactHead.recorded.length, 1);
   assert.equal(exactHead.recorded[0].promotedCommitSha, LOCAL_NEW);
   assert.equal(exactHead.recorded[0].publishTriggerSha, undefined);
   assert.equal(exactHead.receipt?.publicationMarker, undefined);
+  assert.deepEqual(exactHead.receipt?.renderReleaseEvidence, VALID_RENDER_EVIDENCE);
+  assert.equal(exactHead.renderEvidenceCalls, 2);
+
+  const changedRenderEvidence = await recordPublicationMarkerFixture({
+    localHead: LOCAL_NEW,
+    markerSha: LOCAL_NEW,
+    publicationReference: `render-release:${LOCAL_NEW}:${SOURCE_CONTEXT_SHA256}`,
+    finalRenderEvidence: { ...VALID_RENDER_EVIDENCE, sourceFileCount: 322 },
+  });
+  assert.equal(changedRenderEvidence.result.state, 'failed');
+  assert.equal(changedRenderEvidence.recorded.length, 0);
+  assert.equal(changedRenderEvidence.renderEvidenceCalls, 2);
+
+  const failedFinalRenderEvidence = await recordPublicationMarkerFixture({
+    localHead: LOCAL_NEW,
+    markerSha: LOCAL_NEW,
+    publicationReference: `render-release:${LOCAL_NEW}:${SOURCE_CONTEXT_SHA256}`,
+    renderEvidenceFailureAt: 2,
+  });
+  assert.equal(failedFinalRenderEvidence.result.state, 'failed');
+  assert.equal(failedFinalRenderEvidence.recorded.length, 0);
+  assert.equal(failedFinalRenderEvidence.renderEvidenceCalls, 2);
+
+  const arbitraryExactHead = await recordPublicationMarkerFixture({
+    localHead: LOCAL_NEW,
+    markerSha: LOCAL_NEW,
+    publicationReference: 'protected-publication-reference',
+  });
+  assert.equal(arbitraryExactHead.result.state, 'failed');
+  assert.equal(arbitraryExactHead.recorded.length, 0);
+
+  const validReleaseDocument = {
+    ...VALID_RENDER_EVIDENCE,
+    commitSource: 'render-build',
+  };
+  assert.deepEqual(
+    validateRenderReleaseEvidence(validReleaseDocument, LOCAL_NEW, SOURCE_CONTEXT_SHA256),
+    VALID_RENDER_EVIDENCE,
+  );
+  for (const invalidReleaseDocument of [
+    { ...validReleaseDocument, authority: 'development', promotable: false },
+    { ...validReleaseDocument, commitSha: LOCAL_OLD },
+    { ...validReleaseDocument, sourceContextSha256: 'd'.repeat(64) },
+    { ...validReleaseDocument, sourceContextAlgorithm: 'sha256(other)' },
+    { ...validReleaseDocument, sourceFileCount: 0 },
+  ]) {
+    assert.throws(() => validateRenderReleaseEvidence(
+      invalidReleaseDocument,
+      LOCAL_NEW,
+      SOURCE_CONTEXT_SHA256,
+    ));
+  }
+  const releaseHealthEnv = {
+    SOURCE_RELEASE_HEALTH_URL: 'https://getholahola.com/health/release',
+  };
+  const fetchCalls: Array<{ url: string; redirect: RequestRedirect | undefined }> = [];
+  const resolvedReleaseEvidence = await resolveRenderReleaseEvidenceFromHealth(
+    releaseHealthEnv,
+    LOCAL_NEW,
+    SOURCE_CONTEXT_SHA256,
+    (async (input, init) => {
+      fetchCalls.push({ url: String(input), redirect: init?.redirect });
+      return new Response(JSON.stringify(validReleaseDocument), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch,
+  );
+  assert.deepEqual(resolvedReleaseEvidence, VALID_RENDER_EVIDENCE);
+  assert.deepEqual(fetchCalls, [{
+    url: 'https://getholahola.com/health/release',
+    redirect: 'manual',
+  }]);
+  for (const invalidUrl of [
+    undefined,
+    'http://getholahola.com/health/release',
+    'https://user:password@getholahola.com/health/release',
+    'https://getholahola.com/health/release?candidate=1',
+    'https://getholahola.com/other',
+  ]) {
+    await assert.rejects(resolveRenderReleaseEvidenceFromHealth(
+      { SOURCE_RELEASE_HEALTH_URL: invalidUrl },
+      LOCAL_NEW,
+      SOURCE_CONTEXT_SHA256,
+      (async () => { throw new Error('fetch_must_not_run'); }) as typeof fetch,
+    ));
+  }
+  await assert.rejects(resolveRenderReleaseEvidenceFromHealth(
+    releaseHealthEnv,
+    LOCAL_NEW,
+    SOURCE_CONTEXT_SHA256,
+    (async () => new Response('{}', { status: 503 })) as typeof fetch,
+  ));
+  await assert.rejects(resolveRenderReleaseEvidenceFromHealth(
+    releaseHealthEnv,
+    LOCAL_NEW,
+    SOURCE_CONTEXT_SHA256,
+    (async () => new Response('', {
+      status: 302,
+      headers: { location: 'https://example.invalid/health/release' },
+    })) as typeof fetch,
+  ));
+  await assert.rejects(resolveRenderReleaseEvidenceFromHealth(
+    releaseHealthEnv,
+    LOCAL_NEW,
+    SOURCE_CONTEXT_SHA256,
+    (async () => new Response('x'.repeat(65 * 1024), { status: 200 })) as typeof fetch,
+  ));
+  await assert.rejects(resolveRenderReleaseEvidenceFromHealth(
+    releaseHealthEnv,
+    LOCAL_NEW,
+    SOURCE_CONTEXT_SHA256,
+    (async () => new Response('{', { status: 200 })) as typeof fetch,
+  ));
+  await assert.rejects(resolveRenderReleaseEvidenceFromHealth(
+    releaseHealthEnv,
+    LOCAL_NEW,
+    SOURCE_CONTEXT_SHA256,
+    (async () => new Response(JSON.stringify({
+      ...validReleaseDocument,
+      commitSha: LOCAL_OLD,
+    }), { status: 200 })) as typeof fetch,
+  ));
 
   for (const invalidMarker of [
     { markerTree: '6'.repeat(40) },

@@ -11,13 +11,19 @@ Publish markers, while production now runs on Render.
 - Keep the existing protected validation manifest, clean-worktree check,
   authenticated GitHub commit/tree proof, immutable receipt, and append-only
   source-promotion record.
+- Upgrade the protected validation manifest so its identity includes the
+  source-context digest and file count derived from the exact candidate Git
+  commit tree. Caller input and Render's self-report are not source authority.
+- Promotable release manifests use that same shared Git-tree digest
+  implementation. A build without a visible matching Git commit fails closed
+  as non-promotable.
 - Accept Render evidence only through
   `render-release:<commit-sha>:<source-context-sha256>`.
 - Resolve one operator-pinned HTTPS `/health/release` endpoint with redirects
   disabled and a bounded timeout.
 - Require HTTP 200 and the existing release-identity schema.
 - Require `authority=build`, `promotable=true`, the exact candidate commit, and
-  the exact source-context digest.
+  the exact source-context digest already bound into protected validation.
 - Verify the same release identity again after final Git/source checks and
   before the authority append.
 - Store only sanitized release identity in the immutable operation receipt and

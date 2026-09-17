@@ -1,19 +1,13 @@
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { lstat, readFile, readdir, readlink, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  hashGitCommitSourceContext,
+  hashSourceContext,
+} from './source-context-digest.mjs';
 
 const SHA40 = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const EXCLUDED_TOP_LEVEL = new Set([
-  '.cache',
-  '.config',
-  '.git',
-  '.local',
-  'dist',
-  'exports',
-  'node_modules',
-]);
 
 function normalizeCommit(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -29,50 +23,6 @@ function git(root, args) {
   } catch {
     return '';
   }
-}
-
-async function collectFiles(root, current = root) {
-  const entries = await readdir(current, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    const absolute = path.join(current, entry.name);
-    const relative = path.relative(root, absolute).split(path.sep).join('/');
-    const topLevel = relative.split('/')[0];
-    if (EXCLUDED_TOP_LEVEL.has(topLevel)) continue;
-
-    if (entry.isDirectory()) {
-      files.push(...await collectFiles(root, absolute));
-      continue;
-    }
-
-    if (entry.isFile() || entry.isSymbolicLink()) files.push(relative);
-  }
-
-  return files;
-}
-
-async function hashSourceContext(root) {
-  const hash = createHash('sha256');
-  const files = (await collectFiles(root)).sort();
-  if (files.length === 0) throw new Error('source_context_empty');
-
-  for (const relative of files) {
-    const absolute = path.join(root, ...relative.split('/'));
-    const stat = await lstat(absolute);
-    hash.update(relative);
-    hash.update('\0');
-    if (stat.isSymbolicLink()) {
-      hash.update('symlink\0');
-      hash.update(await readlink(absolute));
-    } else {
-      hash.update('file\0');
-      hash.update(await readFile(absolute));
-    }
-    hash.update('\0');
-  }
-
-  return { digest: hash.digest('hex'), fileCount: files.length };
 }
 
 export async function generateReleaseManifest({
@@ -93,11 +43,13 @@ export async function generateReleaseManifest({
         ? 'git-worktree'
         : 'unavailable';
 
-  const source = await hashSourceContext(root);
+  const buildInput = commitSource === 'release-build-input' || commitSource === 'render-build-input';
+  const matchesVisibleGit = Boolean(gitCommit && gitCommit === commitSha);
+  const source = buildInput && matchesVisibleGit
+    ? await hashGitCommitSourceContext(root, commitSha)
+    : await hashSourceContext(root);
   if (!SHA256.test(source.digest)) throw new Error('source_context_digest_invalid');
 
-  const buildInput = commitSource === 'release-build-input' || commitSource === 'render-build-input';
-  const matchesVisibleGit = !gitCommit || gitCommit === commitSha;
   const promotable = Boolean(commitSha && buildInput && dirty !== true && matchesVisibleGit);
   const manifest = {
     schemaVersion: 1,

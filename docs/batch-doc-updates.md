@@ -6981,3 +6981,31 @@ HolaHola system-health verifier reports all checks passed, the registered
 validation workflow reports `ALL VALIDATION SUITE CHECKS PASSED`, and final
 independent architecture review returned PASS. The Gemini/Daniela consultation
 record is stored in `conversation_memories` under the voice-pipeline audit tags.
+
+## Render-backed source-promotion evidence — September 16, 2026
+
+Coordinator V2 source promotion now has an explicit Render publication path
+instead of relying on permissive operator prose intended for Replit Publish.
+Protected validation manifest v3 binds the exact candidate commit, complete
+check set, and source-context digest and file count derived from that Git
+commit's recursive tree.
+
+Promotable Render release manifests use the same shared Git-tree digest
+implementation and require a visible Git commit matching the build-supplied
+commit. Recording requires a strict commit-and-digest reference, a pinned HTTPS
+`/health/release`, HTTP 200, build authority, promotable state, and exact commit
+and digest agreement. Evidence is read twice; the final read occurs after final
+Git, expiry, marker, and cleanliness checks and before the immutable append.
+Responses are bounded, redirects and arbitrary exact-head attestations fail,
+and exact Replit publication-marker proof remains unchanged.
+
+Focused source-control, source-promotion API, release-identity, and type checks
+pass. A nested-file-only regression proves the recursive Git digest changes.
+Independent review initially caught the missing recursive tree flag; after
+correction, it returned PASS with no blockers.
+
+The registered validation suite completed with every check passing except the
+live canonical-capture health route, which received `ECONNREFUSED` while the
+application workflow was stopped. After normal application startup, that exact
+live route check passed. The mandatory HolaHola system-health verifier then
+reported all checks passed.

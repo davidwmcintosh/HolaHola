@@ -21,10 +21,11 @@ import {
 } from './coordination-repository-identity';
 import { parseReleaseIdentity } from './release-identity';
 import { coordinationV2SourcePromotions } from '@shared/schema';
+import { hashGitCommitSourceContext } from '../../scripts/source-context-digest.mjs';
 
 const execFile = promisify(nodeExecFile);
 
-export const SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION = 2;
+export const SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION = 3;
 export const SOURCE_CONTROL_REQUIRED_CHECKS = [
   'typecheck',
   'build',
@@ -41,6 +42,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const RENDER_RELEASE_REFERENCE_PATTERN = /^render-release:([0-9a-f]{40}):([0-9a-f]{64})$/;
 const DEFAULT_LOCK_LEASE_MS = 10 * 60 * 1000;
 const DEFAULT_RELEASE_HEALTH_TIMEOUT_MS = 10_000;
+const MAX_RELEASE_HEALTH_BYTES = 64 * 1024;
 const PROTECTED_SNAPSHOT_MAX_PATHS = 16;
 const PROTECTED_SNAPSHOT_MAX_BLOB_BYTES = 2 * 1024 * 1024;
 const PROTECTED_SNAPSHOT_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
@@ -232,6 +234,10 @@ export interface SourceControlServiceOptions {
     expectedSha: string,
     expectedSourceContextSha256: string,
   ) => Promise<RenderReleaseEvidence>;
+  /** Protected candidate source-context hook. Production hashes the exact local Git commit tree. */
+  resolveCandidateSourceContext?: (
+    sha: string,
+  ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -292,6 +298,71 @@ export function validateRenderReleaseEvidence(
     sourceFileCount: identity.sourceFileCount,
     dirtyWorktree: identity.dirtyWorktree,
   };
+}
+
+export async function resolveRenderReleaseEvidenceFromHealth(
+  env: NodeJS.ProcessEnv,
+  expectedSha: string,
+  expectedSourceContextSha256: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RenderReleaseEvidence> {
+  if (!SHA_PATTERN.test(expectedSha) || !SHA256_PATTERN.test(expectedSourceContextSha256)) {
+    throw new Error('render_release_expectation_invalid');
+  }
+  const configured = env.SOURCE_RELEASE_HEALTH_URL;
+  if (!configured) throw new Error('render_release_health_url_missing');
+  const url = new URL(configured);
+  if (
+    url.protocol !== 'https:'
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+    || url.pathname !== '/health/release'
+  ) {
+    throw new Error('render_release_health_url_invalid');
+  }
+  const configuredTimeout = Number(env.SOURCE_RELEASE_HEALTH_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? Math.min(configuredTimeout, 30_000)
+    : DEFAULT_RELEASE_HEALTH_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(url, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: controller.signal,
+      headers: { accept: 'application/json' },
+    });
+    if (response.status !== 200) throw new Error('render_release_health_status_invalid');
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_RELEASE_HEALTH_BYTES) {
+      throw new Error('render_release_health_body_too_large');
+    }
+    if (!response.body) throw new Error('render_release_health_body_missing');
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      total += chunk.value.byteLength;
+      if (total > MAX_RELEASE_HEALTH_BYTES) {
+        await reader.cancel();
+        throw new Error('render_release_health_body_too_large');
+      }
+      chunks.push(chunk.value);
+    }
+    const body = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8');
+    return validateRenderReleaseEvidence(
+      JSON.parse(body),
+      expectedSha,
+      expectedSourceContextSha256,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 type PreparedCandidateEvidence = {
@@ -381,10 +452,18 @@ export function hasValidSourceControlManifest(
   expectedSha: string,
 ): boolean {
   const checks = validation?.checks as Record<string, unknown> | undefined;
+  const sourceContextSha256 = validation?.sourceContextSha256;
+  const sourceFileCount = validation?.sourceFileCount;
+  const sourceContextAlgorithm = validation?.sourceContextAlgorithm;
   if (
     validation?.manifestVersion !== SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION
     || validation?.candidateSha !== expectedSha
     || !checks
+    || typeof sourceContextSha256 !== 'string'
+    || !SHA256_PATTERN.test(sourceContextSha256)
+    || sourceContextAlgorithm !== 'sha256(path-nul-kind-nul-bytes-nul-v1)'
+    || !Number.isInteger(sourceFileCount)
+    || Number(sourceFileCount) < 1
     || Object.keys(checks).length !== SOURCE_CONTROL_REQUIRED_CHECKS.length
     || SOURCE_CONTROL_REQUIRED_CHECKS.some((name) => checks[name] !== 'passed')
   ) return false;
@@ -394,6 +473,9 @@ export function hasValidSourceControlManifest(
   const expectedId = digest(JSON.stringify({
     manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
     candidateSha: expectedSha,
+    sourceContextSha256,
+    sourceContextAlgorithm,
+    sourceFileCount,
     checks: canonicalChecks,
   }));
   return validation.validationId === expectedId;
@@ -412,6 +494,9 @@ export class SourceControlService {
     expectedSha: string,
     expectedSourceContextSha256: string,
   ) => Promise<RenderReleaseEvidence>;
+  private readonly resolveCandidateSourceContext: (
+    sha: string,
+  ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
   private readonly uuid: () => string;
   private readonly runCommand: CommandRunner;
   private readonly validateCandidate: (sha: string) => Promise<Record<string, unknown>>;
@@ -438,7 +523,19 @@ export class SourceControlService {
     this.resolveRemoteSnapshot = options.resolveRemoteSnapshot
       ?? ((sha, fixedPaths) => this.fetchProtectedRemoteSnapshot(sha, fixedPaths));
     this.resolveRenderReleaseEvidence = options.resolveRenderReleaseEvidence
-      ?? ((sha, sourceContextSha256) => this.fetchRenderReleaseEvidence(sha, sourceContextSha256));
+      ?? ((sha, sourceContextSha256) => resolveRenderReleaseEvidenceFromHealth(
+        this.env,
+        sha,
+        sourceContextSha256,
+      ));
+    this.resolveCandidateSourceContext = options.resolveCandidateSourceContext
+      ?? (async (sha) => {
+        const source = await hashGitCommitSourceContext(this.rootDir, sha);
+        return {
+          sourceContextSha256: source.digest,
+          sourceFileCount: source.fileCount,
+        };
+      });
     this.statusPath = this.resolvePath(this.env.SOURCE_BRIDGE_STATUS_FILE, '.local/source-bridge-status.json');
     this.summaryPath = this.resolvePath(this.env.SOURCE_BRIDGE_SUMMARY_FILE, '.local/source-bridge-status.md');
     this.lockPath = this.resolvePath(this.env.SOURCE_CONTROL_LOCK_FILE, '.local/source-control.lock');
@@ -726,6 +823,14 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error };
     }
+    if (
+      renderReference
+      && renderReference[2] !== status.validation?.sourceContextSha256
+    ) {
+      const error = 'Promotion recording refused because Render evidence does not match the protected candidate source context.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
     try { await this.verifyConfiguredRepositoryIdentity(); } catch {
       const error = 'Promotion recording refused because the configured and actual GitHub remotes differ.';
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
@@ -845,9 +950,6 @@ export class SourceControlService {
         }
         finalRemoteMarker = remotePublicationMarker;
       }
-      if (renderReleaseEvidence && renderReference) {
-        finalRenderReleaseEvidence = await this.resolveRenderReleaseEvidence(sha, renderReference[2]);
-      }
     } catch {
       const error = 'Promotion recording refused because final publication state could not be verified.';
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
@@ -865,19 +967,29 @@ export class SourceControlService {
         && finalRemoteMarker.parentSha === remotePublicationMarker.parentSha
         && finalRemoteMarker.subject === remotePublicationMarker.subject
       : finalRemoteMarker === undefined;
-    const renderEvidenceUnchanged = renderReleaseEvidence
-      ? JSON.stringify(finalRenderReleaseEvidence) === JSON.stringify(renderReleaseEvidence)
-      : finalRenderReleaseEvidence === undefined;
     if (finalHeads.local !== heads.local
       || finalHeads.github !== heads.github
       || expiry <= this.now().getTime()
       || !(await this.isTrackedTreeClean())
       || !markerUnchanged
-      || !remoteMarkerUnchanged
-      || !renderEvidenceUnchanged) {
+      || !remoteMarkerUnchanged) {
       const error = 'Promotion recording refused because source or publication evidence changed before the authority append.';
       await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
       return { ok: false, state: 'failed', ...finalHeads, error };
+    }
+    if (renderReleaseEvidence && renderReference) {
+      try {
+        finalRenderReleaseEvidence = await this.resolveRenderReleaseEvidence(sha, renderReference[2]);
+      } catch {
+        const error = 'Promotion recording refused because final Render release evidence could not be verified.';
+        await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
+        return { ok: false, state: 'failed', ...finalHeads, error };
+      }
+      if (JSON.stringify(finalRenderReleaseEvidence) !== JSON.stringify(renderReleaseEvidence)) {
+        const error = 'Promotion recording refused because Render release evidence changed before the authority append.';
+        await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
+        return { ok: false, state: 'failed', ...finalHeads, error };
+      }
     }
     const canonicalRecord = {
       repositoryIdentity: this.repositoryIdentity,
@@ -935,50 +1047,6 @@ export class SourceControlService {
       },
     );
     return { ok: true, state: 'synced', ...heads, candidateSha: sha };
-  }
-
-  private async fetchRenderReleaseEvidence(
-    expectedSha: string,
-    expectedSourceContextSha256: string,
-  ): Promise<RenderReleaseEvidence> {
-    if (!SHA_PATTERN.test(expectedSha) || !SHA256_PATTERN.test(expectedSourceContextSha256)) {
-      throw new Error('render_release_expectation_invalid');
-    }
-    const configured = this.env.SOURCE_RELEASE_HEALTH_URL;
-    if (!configured) throw new Error('render_release_health_url_missing');
-    const url = new URL(configured);
-    if (
-      url.protocol !== 'https:'
-      || url.username
-      || url.password
-      || url.search
-      || url.hash
-      || url.pathname !== '/health/release'
-    ) {
-      throw new Error('render_release_health_url_invalid');
-    }
-    const configuredTimeout = Number(this.env.SOURCE_RELEASE_HEALTH_TIMEOUT_MS);
-    const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
-      ? Math.min(configuredTimeout, 30_000)
-      : DEFAULT_RELEASE_HEALTH_TIMEOUT_MS;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        redirect: 'manual',
-        signal: controller.signal,
-        headers: { accept: 'application/json' },
-      });
-      if (response.status !== 200) throw new Error('render_release_health_status_invalid');
-      return validateRenderReleaseEvidence(
-        await response.json(),
-        expectedSha,
-        expectedSourceContextSha256,
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
   }
 
   private validPreparedCandidate(
@@ -1138,18 +1206,34 @@ export class SourceControlService {
         throw new Error(`${command} ${args.join(' ')} failed validation: ${bounded(result.stderr || result.stdout)}`);
       }
     }
+    const sourceContext = await this.resolveCandidateSourceContext(sha);
+    if (
+      !SHA256_PATTERN.test(sourceContext.sourceContextSha256)
+      || !Number.isInteger(sourceContext.sourceFileCount)
+      || sourceContext.sourceFileCount < 1
+    ) {
+      throw new Error('Protected candidate source context is invalid.');
+    }
     const checks = Object.fromEntries(SOURCE_CONTROL_REQUIRED_CHECKS.map((name) => [name, 'passed']));
+    const sourceContextAlgorithm = 'sha256(path-nul-kind-nul-bytes-nul-v1)';
     return {
       manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
       validationId: digest(JSON.stringify({
         manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
         candidateSha: sha,
+        sourceContextSha256: sourceContext.sourceContextSha256,
+        sourceContextAlgorithm,
+        sourceFileCount: sourceContext.sourceFileCount,
         checks,
       })),
       candidateSha: sha,
+      sourceContextSha256: sourceContext.sourceContextSha256,
+      sourceContextAlgorithm,
+      sourceFileCount: sourceContext.sourceFileCount,
       checks,
     };
   }
+
 
   private commandEnv(): NodeJS.ProcessEnv {
     return { ...this.env, GIT_TERMINAL_PROMPT: '0' };

@@ -28,7 +28,9 @@ function writeBridgeStatus(path: string, value: Record<string, unknown>): void {
 }
 
 function validManifest(sha: string): Record<string, unknown> {
-  const manifestVersion = 2;
+  const manifestVersion = 3;
+  const sourceContextAlgorithm = 'sha256(path-nul-kind-nul-bytes-nul-v1)';
+  const sourceFileCount = 321;
   const checks = {
     typecheck: 'passed',
     build: 'passed',
@@ -42,9 +44,19 @@ function validManifest(sha: string): Record<string, unknown> {
   return {
     manifestVersion,
     candidateSha: sha,
+    sourceContextSha256: SOURCE_CONTEXT_SHA256,
+    sourceContextAlgorithm,
+    sourceFileCount,
     checks,
     validationId: createHash('sha256')
-      .update(JSON.stringify({ manifestVersion, candidateSha: sha, checks }))
+      .update(JSON.stringify({
+        manifestVersion,
+        candidateSha: sha,
+        sourceContextSha256: SOURCE_CONTEXT_SHA256,
+        sourceContextAlgorithm,
+        sourceFileCount,
+        checks,
+      }))
       .digest('hex'),
   };
 }

@@ -15,7 +15,7 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const ACTOR_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
-const VALIDATION_MANIFEST_VERSION = 2;
+const VALIDATION_MANIFEST_VERSION = 3;
 const REQUIRED_VALIDATION_CHECKS = [
   'typecheck',
   'build',
@@ -158,10 +158,18 @@ export function hasValidSourcePromotionManifest(
 ): boolean {
   const validation = bridge.validation as Record<string, unknown> | undefined;
   const checks = validation?.checks as Record<string, unknown> | undefined;
+  const sourceContextSha256 = validation?.sourceContextSha256;
+  const sourceContextAlgorithm = validation?.sourceContextAlgorithm;
+  const sourceFileCount = validation?.sourceFileCount;
   if (
     validation?.manifestVersion !== VALIDATION_MANIFEST_VERSION
     || validation?.candidateSha !== expectedSha
     || !checks
+    || typeof sourceContextSha256 !== 'string'
+    || !SHA256_PATTERN.test(sourceContextSha256)
+    || sourceContextAlgorithm !== 'sha256(path-nul-kind-nul-bytes-nul-v1)'
+    || !Number.isInteger(sourceFileCount)
+    || Number(sourceFileCount) < 1
     || Object.keys(checks).length !== REQUIRED_VALIDATION_CHECKS.length
     || REQUIRED_VALIDATION_CHECKS.some((name) => checks[name] !== 'passed')
   ) return false;
@@ -171,6 +179,9 @@ export function hasValidSourcePromotionManifest(
   const expectedValidationId = digest(JSON.stringify({
     manifestVersion: VALIDATION_MANIFEST_VERSION,
     candidateSha: expectedSha,
+    sourceContextSha256,
+    sourceContextAlgorithm,
+    sourceFileCount,
     checks: canonicalChecks,
   }));
   return validation.validationId === expectedValidationId;

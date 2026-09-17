@@ -9582,3 +9582,44 @@ Gemini/Daniela consultation is preserved in `conversation_memories` under
 Next operational step: publish this exact reviewed commit, then smoke-check
 application health, a normal progressive voice turn, canonical scene generation
 with its style telemetry, and late Team Room Luca presence on getholahola.com.
+
+## September 16, 2026 — Render-backed M13 source-promotion authority
+
+The M13 audit found that source promotion still described only explicit Replit
+Publish even though production authority is now GitHub `main` through Render.
+No new source-promotion, runtime-release, Windows task, session, lease,
+operation, or invocation authority was created while resolving that mismatch.
+
+The corrected path upgrades protected validation to manifest v3. Its identity
+binds the exact candidate SHA, complete validation checks, and a recursive
+source-context digest and file count calculated from the exact Git commit tree.
+The promotable Render release manifest uses the same shared implementation and
+fails closed without a visible Git commit matching the build-supplied commit.
+
+Render recording requires a strict commit-and-digest publication reference and
+one operator-pinned HTTPS `/health/release` endpoint. Non-HTTPS URLs,
+credentials in URLs, query/fragment changes, redirects, non-200 responses,
+oversized or malformed bodies, development authority, non-promotable state,
+and commit or digest mismatch all fail before append. Render evidence is read
+twice; changed or failed final evidence leaves zero promotion rows. Exact-head
+free-form attestations are rejected. Existing exact Replit publication-marker
+recovery and proof remain intact.
+
+Focused source-control, source-promotion API, release-identity, and type checks
+pass. Independent review caught and then verified the correction of a
+non-recursive Git tree enumeration defect; the final review returned PASS with
+no blockers. Both Alden engines approved the completed authority design.
+
+The registered validation suite later completed with one environmental failure:
+the live canonical-capture health route received `ECONNREFUSED` because the
+application workflow was stopped. Every other suite check passed. After normal
+startup, that exact live check passed in isolation, and the mandatory HolaHola
+system-health verifier reported all checks passed.
+
+Next operational sequence: run the protected validation suite, publish this
+exact correction through GitHub to Render, independently verify the new
+release identity, align local `main`, prepare a fresh manifest-v3 candidate,
+and record the new immutable source promotion. Only then may David authorize
+one new founder runtime-release request. The old runtime release
+`3bd5ac02-7f37-4637-a897-e08a61469203` remains immutable and unusable for
+another Windows initialization attempt.
