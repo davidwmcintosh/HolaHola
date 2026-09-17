@@ -1652,6 +1652,97 @@ function Register-HolaCoordinatorHost {
 # END COORDINATION_REGISTER_BOUNDARY
 
 # BEGIN COORDINATION_REAUTHORIZATION_BOUNDARY
+function New-InternalHolaCoordinatorReauthorizationDeclaration {
+    param(
+        [Parameter(Mandatory = $true)][string]$RequestKey,
+        [Parameter(Mandatory = $true)][string]$HostId,
+        [Parameter(Mandatory = $true)][string]$Fingerprint,
+        [Parameter(Mandatory = $true)][int]$Generation,
+        [DateTime]$Now = [DateTime]::UtcNow
+    )
+    $capturedAt = $Now.ToUniversalTime()
+    return [ordered]@{
+        kind = 'host_credential_reauthorization'
+        requestKey = $RequestKey
+        issuedAt = $capturedAt.ToString('o')
+        expiresAt = $capturedAt.AddHours(1).ToString('o')
+        protocolVersion = 1
+        hostId = $HostId
+        keyFingerprint = $Fingerprint
+        requestGeneration = $Generation
+    }
+}
+
+function Test-InternalHolaCoordinatorLegacyTwoClockRequest {
+    param(
+        [Parameter(Mandatory = $true)]$State,
+        [Parameter(Mandatory = $true)]
+        [Security.Cryptography.RSACryptoServiceProvider]$Rsa,
+        [Parameter(Mandatory = $true)][string]$HostId,
+        [Parameter(Mandatory = $true)][string]$Fingerprint,
+        [DateTime]$Now = [DateTime]::UtcNow
+    )
+    $hashAlgorithm = $null
+    try {
+        if (-not [string]::IsNullOrWhiteSpace([string]$State.requestId) -or
+            [bool]$State.terminal -or [bool]$State.completionAmbiguous) {
+            return $false
+        }
+        $body = [string]$State.body | ConvertFrom-Json
+        if ((@(Get-PropertyNames -Value $body | Sort-Object) -join ',') -cne
+            'declaration,keyFingerprint,publicKey,signature') {
+            return $false
+        }
+        $declaration = $body.declaration
+        if ((@(Get-PropertyNames -Value $declaration | Sort-Object) -join ',') -cne
+            'expiresAt,hostId,issuedAt,keyFingerprint,kind,protocolVersion,requestGeneration,requestKey') {
+            return $false
+        }
+        if ([string]$declaration.kind -cne 'host_credential_reauthorization' -or
+            [string]$declaration.requestKey -cne [string]$State.requestKey -or
+            [string]$declaration.hostId -cne $HostId -or
+            [string]$declaration.keyFingerprint -cne $Fingerprint -or
+            [string]$body.keyFingerprint -cne $Fingerprint -or
+            [int]$declaration.protocolVersion -ne 1 -or
+            [int]$declaration.requestGeneration -ne [int]$State.generation) {
+            return $false
+        }
+        $canonicalDeclaration = ConvertTo-CanonicalJson -Value $declaration
+        if ($canonicalDeclaration -cne (ConvertTo-CanonicalJson -Value $State.declaration)) {
+            return $false
+        }
+        $issuedAt = [DateTime]::Parse([string]$declaration.issuedAt).ToUniversalTime()
+        $expiresAt = [DateTime]::Parse([string]$declaration.expiresAt).ToUniversalTime()
+        $signedLifetimeMs = ($expiresAt - $issuedAt).TotalMilliseconds
+        if ($signedLifetimeMs -le 3600000 -or $signedLifetimeMs -gt 3660000 -or
+            $expiresAt -ge $Now.ToUniversalTime()) {
+            return $false
+        }
+        $publicKeyValue = [string]$body.publicKey | ConvertFrom-Json
+        if ((@(Get-PropertyNames -Value $publicKeyValue | Sort-Object) -join ',') -cne 'e,kty,n' -or
+            [string]$publicKeyValue.kty -cne 'RSA') {
+            return $false
+        }
+        $hashAlgorithm = [Security.Cryptography.SHA256]::Create()
+        $publicKeyDigest = -join @($hashAlgorithm.ComputeHash(
+            [Text.Encoding]::UTF8.GetBytes((ConvertTo-CanonicalJson -Value $publicKeyValue))) |
+            ForEach-Object { $_.ToString('x2') })
+        if ($publicKeyDigest -cne $Fingerprint -or
+            (Get-RsaFingerprint -Rsa $Rsa) -cne $Fingerprint) {
+            return $false
+        }
+        $signature = [Convert]::FromBase64String([string]$body.signature)
+        return [bool]$Rsa.VerifyData(
+            [Text.Encoding]::UTF8.GetBytes($canonicalDeclaration),
+            [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'),
+            $signature)
+    } catch {
+        return $false
+    } finally {
+        if ($null -ne $hashAlgorithm) { $hashAlgorithm.Dispose() }
+    }
+}
+
 function Restore-HolaCoordinatorHostCredential {
     [CmdletBinding()]
     param(
@@ -1706,20 +1797,17 @@ function Restore-HolaCoordinatorHostCredential {
                 [string]$state.hostId -ne $hostId -or [string]$state.fingerprint -ne $fingerprint) {
                 Fail-Safe 'host_reauthorization_state_mismatch'
             }
+            if (Test-InternalHolaCoordinatorLegacyTwoClockRequest -State $state -Rsa $rsa `
+                -HostId $hostId -Fingerprint $fingerprint -Now ([DateTime]::UtcNow)) {
+                # The legacy request can never pass the protocol's exact
+                # one-hour TTL check. Preserve it as terminal before rollover.
+                $state.terminal = $true
+                Write-DpapiJsonAtomic -Path $requestPath -Value $state
+            }
         } else {
             $requestKey = [Guid]::NewGuid().ToString()
-            $issuedAt = [DateTime]::UtcNow.ToString('o')
-            $requestExpiry = [DateTime]::UtcNow.AddHours(1).ToString('o')
-            $declaration = [ordered]@{
-                kind = 'host_credential_reauthorization'
-                requestKey = $requestKey
-                issuedAt = $issuedAt
-                expiresAt = $requestExpiry
-                protocolVersion = 1
-                hostId = $hostId
-                keyFingerprint = $fingerprint
-                requestGeneration = 1
-            }
+            $declaration = New-InternalHolaCoordinatorReauthorizationDeclaration `
+                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint -Generation 1
             $parameters = $rsa.ExportParameters($false)
             $b64url = {
                 param([byte[]]$Bytes)
@@ -1752,14 +1840,9 @@ function Restore-HolaCoordinatorHostCredential {
             $nextGeneration = [int]$state.generation + 1
             if ($nextGeneration -le 0) { Fail-Safe 'host_reauthorization_generation_invalid' }
             $requestKey = [Guid]::NewGuid().ToString()
-            $issuedAt = [DateTime]::UtcNow.ToString('o')
-            $requestExpiry = [DateTime]::UtcNow.AddHours(1).ToString('o')
-            $declaration = [ordered]@{
-                kind = 'host_credential_reauthorization'; requestKey = $requestKey
-                issuedAt = $issuedAt; expiresAt = $requestExpiry; protocolVersion = 1
-                hostId = $hostId; keyFingerprint = $fingerprint
-                requestGeneration = $nextGeneration
-            }
+            $declaration = New-InternalHolaCoordinatorReauthorizationDeclaration `
+                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint `
+                -Generation $nextGeneration
             $oldBody = [string]$state.body | ConvertFrom-Json
             $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes(
                 (ConvertTo-CanonicalJson -Value $declaration)),
@@ -1791,15 +1874,17 @@ function Restore-HolaCoordinatorHostCredential {
             if ([string]$request.status -notin @('pending', 'approved')) {
                 Fail-Safe 'host_reauthorization_status_invalid'
             }
-            if ([string]$request.approvalUrl -notmatch '^https://' -or
-                [string]$request.approvalUrl -match [regex]::Escape([string]$state.requestKey)) {
+            $expectedApprovalPath = '/coordination/v2/host-reauthorization-approval?requestId=' +
+                [Uri]::EscapeDataString([string]$request.requestId)
+            if ([string]$request.approvalUrl -cne $expectedApprovalPath) {
                 Fail-Safe 'host_reauthorization_approval_url_invalid'
             }
+            $approvalUrl = $endpointBase + $expectedApprovalPath
             $state.requestId = [string]$request.requestId
             Write-DpapiJsonAtomic -Path $requestPath -Value $state
             return [ordered]@{
                 requestId = [string]$state.requestId; generation = [int]$state.generation
-                status = [string]$request.status; approvalUrl = [string]$request.approvalUrl
+                status = [string]$request.status; approvalUrl = $approvalUrl
                 fingerprint = [string]$state.fingerprint
             }
         }

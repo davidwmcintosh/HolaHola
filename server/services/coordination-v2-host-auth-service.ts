@@ -54,7 +54,9 @@ export type V2HostAuthErrorCode =
   | 'V2_HOST_BOOTSTRAP_REQUIRED' | 'V2_HOST_BOOTSTRAP_DENIED'
   | 'V2_HOST_BOOTSTRAP_UNAVAILABLE' | 'V2_HOST_BOOTSTRAP_CONSUMED'
   | 'V2_HOST_SOURCE_PROMOTION_REQUIRED'
-  | 'V2_HOST_REAUTH_INVALID' | 'V2_HOST_REAUTH_REPLAYED'
+  | 'V2_HOST_REAUTH_INVALID' | 'V2_HOST_REAUTH_DECLARATION_INVALID'
+  | 'V2_HOST_REAUTH_PUBLIC_KEY_INVALID' | 'V2_HOST_REAUTH_SIGNATURE_INVALID'
+  | 'V2_HOST_REAUTH_REPLAYED'
   | 'V2_HOST_REAUTH_NOT_APPROVED' | 'V2_HOST_REAUTH_ENROLLMENT_MISMATCH'
   | 'V2_HOST_DATABASE_UNAVAILABLE';
 
@@ -115,28 +117,48 @@ const REAUTH_CHALLENGE_KEYS = ['kind', 'requestId', 'requestKey', 'challengeId',
   'hostEnrollmentId', 'keyFingerprint', 'protocolVersion', 'requestGeneration', 'issuedAt', 'expiresAt'] as const;
 
 function reauthDeclaration(value: unknown, now: Date) {
-  if (!exactObject(value, REAUTH_DECLARATION_KEYS)) fail('V2_HOST_REAUTH_INVALID');
+  if (!exactObject(value, REAUTH_DECLARATION_KEYS)) fail('V2_HOST_REAUTH_DECLARATION_INVALID');
   const v = value as Record<string, unknown>;
   if (v.kind !== 'host_credential_reauthorization' || v.protocolVersion !== HOST_PROTOCOL_VERSION
     || !bounded(v.requestKey) || !bounded(v.hostId)
     || !HEX.test(String(v.keyFingerprint)) || !Number.isInteger(v.requestGeneration) || (v.requestGeneration as number) < 1
-    || typeof v.issuedAt !== 'string' || typeof v.expiresAt !== 'string') fail('V2_HOST_REAUTH_INVALID');
+    || typeof v.issuedAt !== 'string' || typeof v.expiresAt !== 'string')
+    fail('V2_HOST_REAUTH_DECLARATION_INVALID');
   const issued = new Date(v.issuedAt), expiry = new Date(v.expiresAt);
   if (Number.isNaN(issued.valueOf()) || Number.isNaN(expiry.valueOf())
     || issued > now || expiry <= issued || expiry.getTime() - issued.getTime() > REAUTH_REQUEST_TTL_MS
-    || Math.abs(now.getTime() - issued.getTime()) > REAUTH_REQUEST_TTL_MS) fail('V2_HOST_REAUTH_INVALID');
+    || Math.abs(now.getTime() - issued.getTime()) > REAUTH_REQUEST_TTL_MS)
+    fail('V2_HOST_REAUTH_DECLARATION_INVALID');
   return { value: v, issued, expiry, declarationDigest: digest(value) };
+}
+
+export function validateCoordinationV2HostReauthorizationSubmission(input: {
+  declaration: unknown; signature: string; publicKey: string; keyFingerprint: string; now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  if (!bounded(input.signature, 8192)) fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+  if (!bounded(input.publicKey, 8192) || !HEX.test(input.keyFingerprint))
+    fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  const declaration = reauthDeclaration(input.declaration, now);
+  if (declaration.value.keyFingerprint !== input.keyFingerprint || declaration.value.requestKey === '')
+    fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  try {
+    publicKey(input.publicKey);
+    if (publicKeyFingerprint(input.publicKey) !== input.keyFingerprint)
+      fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  } catch {
+    fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  }
+  if (!verifyCanonical(input.publicKey, declaration.value, input.signature))
+    fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+  return declaration;
 }
 
 export async function submitCoordinationV2HostReauthorizationRequest(input: {
   declaration: unknown; signature: string; publicKey: string; keyFingerprint: string; now?: Date;
 }) {
   const now = input.now ?? new Date();
-  if (!bounded(input.signature, 8192) || !bounded(input.publicKey, 8192) || !HEX.test(input.keyFingerprint))
-    fail('V2_HOST_REAUTH_INVALID');
-  const declaration = reauthDeclaration(input.declaration, now);
-  if (declaration.value.keyFingerprint !== input.keyFingerprint || declaration.value.requestKey === '') fail('V2_HOST_REAUTH_INVALID');
-  if (publicKeyFingerprint(input.publicKey) !== input.keyFingerprint) fail('V2_HOST_REAUTH_INVALID');
+  const declaration = validateCoordinationV2HostReauthorizationSubmission({ ...input, now });
   try {
     const result = await db.transaction(async (tx) => {
       const hosts = await tx.select().from(coordinationV2HostEnrollments)
@@ -149,7 +171,8 @@ export async function submitCoordinationV2HostReauthorizationRequest(input: {
         || publicKeyFingerprint(host.publicKey) !== input.keyFingerprint
         || !host.capabilities.includes('host:transport') || !host.capabilities.includes('host:cleanup'))
         fail('V2_HOST_REAUTH_ENROLLMENT_MISMATCH');
-      if (!verifyCanonical(host.publicKey, declaration.value, input.signature)) fail('V2_HOST_REAUTH_INVALID');
+      if (!verifyCanonical(host.publicKey, declaration.value, input.signature))
+        fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
       const prior = await tx.select().from(coordinationV2HostReauthorizationRequests)
         .where(eq(coordinationV2HostReauthorizationRequests.requestKey, String(declaration.value.requestKey))).for('update');
       if (prior[0]) {

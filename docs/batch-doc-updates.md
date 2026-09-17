@@ -7033,3 +7033,54 @@ transport, pinned host keys, exact promoted commit and tree, a closed source
 path set, bounded blobs, and no deployed-filesystem or HTTPS fallback. A fresh
 Render deployment and immutable source promotion are required before one new
 founder runtime-publication request. Windows authority remains untouched.
+
+## Windows host reauthorization TTL compatibility repair — September 17, 2026
+
+The first real `LITTLENEMO` credential-reauthorization request repeatedly
+returned HTTP 422 `V2_HOST_REAUTH_INVALID` before database append. A bounded
+local probe proved that wire shape, declaration types, declaration round-trip,
+public-key fingerprint, RSA key lineage, and canonical signature all passed.
+Only the signed time window failed.
+
+The PowerShell launcher had derived `issuedAt` and `expiresAt` from two
+independent `UtcNow` reads. The resulting signed lifetime was always slightly
+greater than the server's exact one-hour maximum. New declarations now capture
+one UTC instant and derive both timestamps from it.
+
+The already-persisted malformed generation is not edited, re-signed, deleted,
+or reused. A fail-closed detector may mark it terminal only after it has
+expired and only when the request has no server ID, is nonterminal and
+nonambiguous, has the exact legacy lifetime overshoot, has identical stored and
+wire declarations, and passes exact fingerprint, key-lineage, and RSA
+signature checks. The existing crash-safe rollover then creates a fresh
+request key and next generation.
+
+Pre-insert server validation now reports distinct bounded declaration,
+public-key, and signature codes while preserving HTTP 422 and returning no
+supplied values. Canonical signature validation occurs before any database
+transaction and is repeated against the enrolled key inside the locked
+transaction.
+
+Independent review also found that the server returns an origin-relative
+founder approval path while the client required an absolute URL. The client now
+requires the exact relative path bound to the validated response request ID,
+then prepends its already-validated HTTPS endpoint only for presentation.
+Arbitrary origins, paths, query additions, fragments, and request keys remain
+rejected.
+
+Focused Linux checks pass 16/16, typecheck passes, diff checks pass, and the CI
+workflow parses. A new Windows PowerShell aggregate-CI job executes the real
+restore lifecycle against isolated DPAPI files, forces a crash after terminal
+persistence, resumes generation rollover, and sends the exact synthetic wire
+bytes to Node for canonical fingerprint and signature verification. Its first
+GitHub run remains pending.
+
+The full disposable Neon gate passed, deleted its temporary branch, returned
+`READY_TO_PROMOTE`, and exited 0. The registered validation workflow reported
+`ALL VALIDATION SUITE CHECKS PASSED`, the mandatory system-health verifier
+reported `All checks passed — safe to mark done`, and the same independent
+architect reviewer returned an unconditional PASS with no blocker.
+
+No production source, runtime release,
+reauthorization row, approval, replacement credential, runtime initialization,
+session, or execution authority has been created by this repair.

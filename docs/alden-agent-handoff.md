@@ -9658,3 +9658,65 @@ secret environment, verify Render serves the exact new release identity, and
 record a fresh source promotion. Then stop for one new founder runtime-release
 request. No Windows initialization may begin before that release is
 independently verified.
+
+## September 17, 2026 — Windows reauthorization two-clock repair
+
+Real Windows diagnosis is complete. The exact DPAPI-persisted generation-1
+reauthorization POST returned HTTP 422 `V2_HOST_REAUTH_INVALID` and created no
+database row. A bounded local probe on `LITTLENEMO` returned true for top-level
+shape, declaration shape/types, declaration round-trip, public-key
+fingerprint, RSA key lineage, and local canonical signature; only the time
+window returned false.
+
+The root cause is deterministic: request creation read `UtcNow` once for
+`issuedAt` and again for `expiresAt` before adding one hour. The signed
+`expiresAt - issuedAt` interval therefore exceeded the server's exact one-hour
+limit from the moment of creation.
+
+The approved repair captures one timestamp for both fields. It does not mutate
+or reuse the malformed request. Once that request is expired, a narrow
+cryptographic detector can persist it as terminal only if `requestId` is
+blank, completion is unambiguous, the stored and wire declarations match, the
+signed lifetime is in `(1 hour, 1 hour + 1 minute]`, and the public-key
+fingerprint, local key lineage, and RSA signature all verify. The existing
+terminal rollover then creates a fresh request key and next generation.
+Alden-Anthropic required the expired-request condition; David approved that
+amendment.
+
+Server pre-insert validation now has closed declaration, public-key, and
+signature error stages. The submitted fingerprint-bound key verifies the
+canonical signature before `db.transaction`; the enrolled key verifies it
+again inside the locked transaction. No alternate canonical form or TTL
+tolerance was introduced.
+
+The first implementation review also found an adjacent live blocker: the
+service returns an origin-relative founder approval path, but the PowerShell
+client required absolute HTTPS. The client now requires the one exact relative
+path formed from the already validated response request ID and prepends its
+validated endpoint only for presentation. The Windows lifecycle test uses the
+real server response form and asserts the resulting absolute presentation URL.
+
+The local behavioral/static suite passes 16/16, typecheck passes, diff checks
+pass, and CI YAML parses. The new Windows PowerShell CI job uses an isolated
+DPAPI root to execute the real restore function, force a crash after malformed
+terminal persistence, verify the old generation survives unchanged, resume
+into generation 2 with a new request key, and pass the exact submitted
+synthetic body to Node for canonical fingerprint and signature verification.
+The job remains under the single aggregate `CI / test` branch-protection
+status.
+
+The full disposable Neon gate passed every migration and data-operation group,
+deleted its temporary branch, returned `READY_TO_PROMOTE`, and exited 0. The
+registered validation workflow reported `ALL VALIDATION SUITE CHECKS PASSED`;
+the mandatory system-health verifier reported `All checks passed — safe to mark
+done`. The same independent architect reviewer then returned an unconditional
+PASS with no security, authority-boundary, PowerShell 5.1, transaction-ordering,
+or test-adequacy blocker.
+
+Current stop: commit and push this exact reviewed diff, then require the first
+real GitHub Windows PowerShell aggregate-CI pass. Do not run the live restore
+command, approve a request, initialize the runtime, register the host, delete
+DPAPI state, or invoke a task. After GitHub validation, publish and independently
+verify a fresh protected source/runtime release, update `LITTLENEMO` to its exact
+commit, and then replay the existing local state so the launcher retires
+malformed generation 1 and submits generation 2.

@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
+import { createHash, generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import test from "node:test";
 import pg from "pg";
+import {
+  CoordinationV2HostAuthError,
+  submitCoordinationV2HostReauthorizationRequest,
+} from "../services/coordination-v2-host-auth-service";
+import { canonicalJson } from "../services/coordination-policy-canonicalization";
+import { closeDbConnections } from "../db";
 
 function disposableTarget(): string | undefined {
   const shared = process.env.NEON_SHARED_DATABASE_URL;
@@ -188,5 +195,153 @@ test("migration 0054 enforces host credential reauthorization lineage and replay
     );
     assert.equal(unrelatedAfter.rows[0].count, unrelatedBefore);
     await client.end();
+  }
+});
+
+test("reauthorization service is idempotent and pre-insert failures append nothing", async (context) => {
+  const url = disposableTarget();
+  if (!url) {
+    context.skip("run through the Neon migration gate");
+    return;
+  }
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+
+  const hostEnrollmentId = randomUUID();
+  const hostId = `reauth-service-${randomUUID()}`;
+  const enrollmentRequestKey = `reauth-enrollment-${randomUUID()}`;
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: "jwk" });
+  const publicKeyJson = JSON.stringify(jwk);
+  const fingerprint = createHash("sha256").update(canonicalJson(jwk)).digest("hex");
+  const now = new Date("2026-09-17T12:00:00.000Z");
+  const requestKey = randomUUID();
+  const declaration = {
+    kind: "host_credential_reauthorization",
+    requestKey,
+    issuedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + 60 * 60_000).toISOString(),
+    protocolVersion: 1,
+    hostId,
+    keyFingerprint: fingerprint,
+    requestGeneration: 1,
+  };
+  const requestSignature = sign(
+    "RSA-SHA256",
+    Buffer.from(canonicalJson(declaration)),
+    privateKey,
+  ).toString("base64");
+  const submission = {
+    declaration,
+    signature: requestSignature,
+    publicKey: publicKeyJson,
+    keyFingerprint: fingerprint,
+    now,
+  };
+
+  try {
+    await client.query(
+      `INSERT INTO coordination_v2_host_enrollments
+        (id, host_key, host_type, display_name, protocol_version, public_key,
+         key_fingerprint, capabilities, enrollment_digest, enrollment_request_key,
+         status, created_by)
+       VALUES ($1, $2, 'windows', 'Reauthorization service test', 1, $3,
+               $4, ARRAY['host:cleanup','host:transport'], $5, $6,
+               'active', 'reauth-service-test')`,
+      [
+        hostEnrollmentId,
+        hostId,
+        publicKeyJson,
+        fingerprint,
+        createHash("sha256").update(hostId).digest("hex"),
+        enrollmentRequestKey,
+      ],
+    );
+
+    const first = await submitCoordinationV2HostReauthorizationRequest(submission);
+    const repeated = await submitCoordinationV2HostReauthorizationRequest(submission);
+    assert.equal(repeated.requestId, first.requestId);
+    assert.equal(repeated.status, first.status);
+    assert.equal(
+      repeated.approvalUrl,
+      `/coordination/v2/host-reauthorization-approval?requestId=${encodeURIComponent(first.requestId)}`,
+    );
+    assert.equal(Number((await client.query(
+      `SELECT count(*)::integer AS count
+         FROM coordination_v2_host_reauthorization_requests
+        WHERE host_enrollment_id = $1`,
+      [hostEnrollmentId],
+    )).rows[0].count), 1);
+
+    const countBeforeFailures = Number((await client.query(
+      "SELECT count(*)::integer AS count FROM coordination_v2_host_reauthorization_requests",
+    )).rows[0].count);
+    const expectServiceCode = async (
+      value: Parameters<typeof submitCoordinationV2HostReauthorizationRequest>[0],
+      code: string,
+    ) => {
+      await assert.rejects(
+        submitCoordinationV2HostReauthorizationRequest(value),
+        (error: unknown) => error instanceof CoordinationV2HostAuthError && error.code === code,
+      );
+      assert.equal(Number((await client.query(
+        "SELECT count(*)::integer AS count FROM coordination_v2_host_reauthorization_requests",
+      )).rows[0].count), countBeforeFailures);
+    };
+
+    const overlong = {
+      ...declaration,
+      requestKey: randomUUID(),
+      expiresAt: new Date(now.getTime() + 60 * 60_000 + 1).toISOString(),
+      requestGeneration: 2,
+    };
+    await expectServiceCode({
+      declaration: overlong,
+      signature: sign("RSA-SHA256", Buffer.from(canonicalJson(overlong)), privateKey).toString("base64"),
+      publicKey: publicKeyJson,
+      keyFingerprint: fingerprint,
+      now,
+    }, "V2_HOST_REAUTH_DECLARATION_INVALID");
+
+    const malformedJwk = { kty: "RSA", n: 1, e: "AQAB" };
+    const malformedFingerprint = createHash("sha256")
+      .update(canonicalJson(malformedJwk)).digest("hex");
+    const malformedKeyDeclaration = {
+      ...declaration,
+      requestKey: randomUUID(),
+      keyFingerprint: malformedFingerprint,
+      requestGeneration: 2,
+    };
+    await expectServiceCode({
+      declaration: malformedKeyDeclaration,
+      signature: requestSignature,
+      publicKey: JSON.stringify(malformedJwk),
+      keyFingerprint: malformedFingerprint,
+      now,
+    }, "V2_HOST_REAUTH_PUBLIC_KEY_INVALID");
+
+    const changedAfterSigning = {
+      ...declaration,
+      requestKey: randomUUID(),
+      requestGeneration: 2,
+    };
+    await expectServiceCode({
+      declaration: changedAfterSigning,
+      signature: requestSignature,
+      publicKey: publicKeyJson,
+      keyFingerprint: fingerprint,
+      now,
+    }, "V2_HOST_REAUTH_SIGNATURE_INVALID");
+  } finally {
+    await client.query(
+      "DELETE FROM coordination_v2_host_reauthorization_requests WHERE host_enrollment_id = $1",
+      [hostEnrollmentId],
+    ).catch(() => undefined);
+    await client.query(
+      "DELETE FROM coordination_v2_host_enrollments WHERE id = $1",
+      [hostEnrollmentId],
+    ).catch(() => undefined);
+    await client.end();
+    await closeDbConnections();
   }
 });

@@ -32,8 +32,23 @@ test("request state is persisted before submission and resumes exact generation"
   assert.match(recovery, /terminal = \$false/);
   assert.match(recovery, /completionAmbiguous = \$false/);
   assert.match(recovery, /nextGeneration = \[int\]\$state\.generation \+ 1/);
-  assert.match(recovery, /requestGeneration = 1/);
+  assert.match(recovery, /requestGeneration = \$Generation/);
+  assert.match(recovery, /-Generation 1/);
   assert.match(recovery, /\[int\]\$challenge\.requestGeneration -ne \[int\]\$state\.generation/);
+});
+
+test("request timestamps share one captured instant and legacy rollover is exact", () => {
+  assert.match(recovery, /\$capturedAt = \$Now\.ToUniversalTime\(\)/);
+  assert.match(recovery, /issuedAt = \$capturedAt\.ToString\('o'\)/);
+  assert.match(recovery, /expiresAt = \$capturedAt\.AddHours\(1\)\.ToString\('o'\)/);
+  assert.doesNotMatch(recovery, /\[DateTime\]::UtcNow\.AddHours\(1\)/);
+  assert.match(recovery, /Test-InternalHolaCoordinatorLegacyTwoClockRequest/);
+  assert.match(recovery, /IsNullOrWhiteSpace\(\[string\]\$State\.requestId\)/);
+  assert.match(recovery, /\$signedLifetimeMs -le 3600000/);
+  assert.match(recovery, /\$signedLifetimeMs -gt 3660000/);
+  assert.match(recovery, /\$expiresAt -ge \$Now\.ToUniversalTime\(\)/);
+  assert.match(recovery, /\$Rsa\.VerifyData/);
+  assert.match(recovery, /\$state\.terminal = \$true[\s\S]*Write-DpapiJsonAtomic -Path \$requestPath -Value \$state/);
 });
 
 test("challenge proof and replacement use exact bounded shapes", () => {
@@ -72,6 +87,7 @@ test("wire declarations and status branches are exact and terminal-safe", () => 
 });
 
 test("reauthorization body and status transport keep request keys out of URLs and results", () => {
+  const restore = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   const bodyStarts = [...recovery.matchAll(/\$bodyObject = \[ordered\]@\{/g)].map((m) => m.index as number);
   assert.equal(bodyStarts.length, 2);
   for (const bodyStart of bodyStarts) {
@@ -82,7 +98,10 @@ test("reauthorization body and status transport keep request keys out of URLs an
   }
   assert.doesNotMatch(recovery, /reauthorization-requests\/[^']*\/status\?requestKey=/);
   assert.match(recovery, /x-hola-reauthorization-key/);
-  assert.doesNotMatch(recovery, /return[\s\S]{0,300}requestKey\s*=/);
+  assert.match(recovery, /expectedApprovalPath = '\/coordination\/v2\/host-reauthorization-approval\?requestId='/);
+  assert.match(recovery, /\$approvalUrl = \$endpointBase \+ \$expectedApprovalPath/);
+  assert.doesNotMatch(recovery, /request\.approvalUrl -notmatch '\^https:\/\//);
+  assert.doesNotMatch(restore, /return[\s\S]{0,300}requestKey\s*=/);
 });
 
 test("recovery never starts runtime lifecycle and never emits secrets", () => {

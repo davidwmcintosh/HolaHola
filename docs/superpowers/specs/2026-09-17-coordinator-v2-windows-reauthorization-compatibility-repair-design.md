@@ -1,7 +1,7 @@
 # Coordinator V2 Windows Reauthorization Compatibility Repair
 
 **Date:** September 17, 2026  
-**Status:** Approved design; implementation pending  
+**Status:** Implemented and validated; protected publication pending
 **Approved by:** David  
 
 ## Incident
@@ -78,8 +78,9 @@ because it requires an additional protected publication cycle.
 2. The existing RSA private key and DPAPI files remain the only local identity
    source.
 3. The persisted request key, declaration, signature, and generation remain
-   unchanged until the server accepts that exact request or returns a terminal
-   protocol result.
+   unchanged unless the exact legacy two-clock defect is proven locally after
+   the malformed request has expired. That request is marked terminal before a
+   fresh request key and next generation are created.
 4. No diagnostic prints or persists a token, private key, request key, nonce,
    signature, decrypted DPAPI record, public-key bytes, or request body.
 5. An expired credential grants no reauthorization, runtime, session, task, or
@@ -145,6 +146,56 @@ The implementation location is determined by the local proof:
 No correction may verify a signature over raw transport bytes as a fallback
 after canonical verification fails.
 
+### Proven two-clock defect
+
+The bounded Windows probe proved that request shape, JSON types, declaration
+round-trip, public-key fingerprint, key lineage, and canonical RSA signature
+all pass. Only the time window fails.
+
+The affected launcher reads `UtcNow` once for `issuedAt` and a second time for
+`expiresAt`, then adds one hour to the second value. The signed span is
+therefore always slightly greater than the server's exact one-hour maximum.
+
+New requests must capture one UTC timestamp and derive both fields from that
+single value.
+
+### Expired malformed-generation rollover
+
+The malformed persisted generation must not be edited, re-signed, or reused.
+The launcher may mark it terminal and use the existing next-generation path
+only when every condition below passes:
+
+- `requestId` is empty;
+- stored and wire declarations canonicalize identically;
+- exact state, declaration, body, host identity, fingerprint, and key lineage
+  checks pass;
+- the stored RSA signature verifies over the canonical declaration;
+- the signed span is greater than one hour and no more than one hour plus one
+  minute;
+- `expiresAt` is earlier than the current UTC time.
+
+The terminal marker is persisted before rollover so a crash cannot return to
+the invalid generation. Rollover creates a fresh request key and increments
+the generation. The old request remains protected historical evidence.
+
+This amendment was approved by David after the live bounded probe. Alden's
+Anthropic architecture review required the expired-request condition; it is
+authoritative for this code-side safety decision.
+
+### Approval-path contract correction
+
+Independent implementation review found an adjacent first-submission mismatch:
+the server deliberately returns an origin-relative `approvalUrl`, while the
+PowerShell client required an absolute HTTPS URL. A valid generation would
+therefore append successfully but fail locally before `requestId` persistence,
+and every retry would repeat that failure.
+
+The client must require the exact relative path
+`/coordination/v2/host-reauthorization-approval?requestId=<validated requestId>`
+with no alternate origin, path, query, or fragment. Only after exact comparison
+may it prepend the already validated HTTPS endpoint for founder presentation.
+The request key remains absent from both forms.
+
 ## Verification
 
 Add a test that executes the supported PowerShell path and generates a fresh
@@ -164,6 +215,14 @@ cross-runtime proof.
 
 Run the focused reauthorization tests, the complete Coordinator V2 validation,
 the project typecheck, and the system-health verifier before publication.
+
+Final evidence: the focused suite passes 16/16; the disposable Neon gate deleted
+its temporary branch, returned `READY_TO_PROMOTE`, and exited 0; the registered
+validation workflow reported `ALL VALIDATION SUITE CHECKS PASSED`; the mandatory
+system-health verifier reported `All checks passed — safe to mark done`; and the
+same independent architect reviewer returned an unconditional PASS with no
+remaining blocker. The real Windows PowerShell 5.1 proof remains intentionally
+pending until this exact commit is pushed and the aggregate GitHub CI job runs.
 
 ## Protected Publication and Founder Stops
 

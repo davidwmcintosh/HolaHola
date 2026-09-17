@@ -20,6 +20,20 @@ test('reauthorization wire contract is isolated and exact', () => {
   assert.match(service, /return \{ accessToken: token, expiresAt: credential\.expiresAt\.toISOString\(\) \}/);
 });
 
+test('pre-insert reauthorization failures use bounded validation stages', () => {
+  assert.match(service, /V2_HOST_REAUTH_DECLARATION_INVALID/);
+  assert.match(service, /V2_HOST_REAUTH_PUBLIC_KEY_INVALID/);
+  assert.match(service, /V2_HOST_REAUTH_SIGNATURE_INVALID/);
+  const declaration = service.indexOf("fail('V2_HOST_REAUTH_DECLARATION_INVALID')");
+  const publicKey = service.indexOf("fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID')");
+  const signature = service.indexOf("fail('V2_HOST_REAUTH_SIGNATURE_INVALID')", publicKey);
+  const validationCall = service.indexOf('validateCoordinationV2HostReauthorizationSubmission({ ...input, now })');
+  const transaction = service.indexOf('db.transaction', validationCall);
+  const insert = service.indexOf('coordinationV2HostReauthorizationRequests).values');
+  assert.ok(declaration >= 0 && publicKey > declaration && signature > publicKey);
+  assert.ok(validationCall > signature && transaction > validationCall && insert > transaction);
+});
+
 test('reauthorization has no runtime/task/session authority dependencies', () => {
   assert.doesNotMatch(service, /runtime-bootstrap|task-service|session-service|Initialize-HolaCoordinatorRuntime|Invoke-HolaCoordinator/);
 });
