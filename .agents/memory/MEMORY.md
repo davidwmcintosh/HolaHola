@@ -138,3 +138,4 @@
 - [Task-ownership guard scope gap](task-ownership-guard-scope.md) — unknown_stop gates file edits only; a blocked task's direct external API calls (DNS, deploy) can still go live.
 - [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
+- [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
