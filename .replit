@@ -146,6 +146,7 @@ DEFAULT_OBJECT_STORAGE_BUCKET_ID = "holaholar2bucket"
 PRIVATE_OBJECT_DIR = "/holaholar2bucket/.private"
 PUBLIC_OBJECT_SEARCH_PATHS = "/holaholar2bucket/public"
 SOURCE_PROMOTION_API_ENABLED = "true"
+SOURCE_RELEASE_HEALTH_URL = "https://getholahola.com/health/release"
 
 [userenv.development]
 SYNC_PEER_URL = "https://getholahola.com"
