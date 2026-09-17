@@ -298,3 +298,17 @@ mtime_ms = 1789663435723
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/54e2f1a0-926e-4770-a53d-f05163984748/66b3867d-68f7-4811-a704-7201f3ab2b92"
 storage_version_token = "1789663436776147"
 content_type = "text/html"
+
+[[outputs]]
+id = "KJHg1oTXc5h8Fuy9JK-eK"
+uri = "file://.local/founder-runtime-publication-command.txt"
+type = "text"
+title = "Plain-text founder runtime publication command"
+description = "One line beginning with fetch('/api/. Open as plain text and copy the entire line into the production browser console exactly once."
+logical_id = "c9616106-1661-4226-8753-00210c3b4565"
+content_hash = "sha256:aa4fdcce541d639e6a5d22640c90c29eab7c5d95378b29b33359a9286bc67f9b"
+size = 23474
+mtime_ms = 1789666298143
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/c9616106-1661-4226-8753-00210c3b4565/e05658f3-338e-4f36-8257-6c37ee50beb3"
+storage_version_token = "1789666427459807"
+content_type = "text/plain"
