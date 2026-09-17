@@ -150,6 +150,17 @@ const selectedCommands = commands.slice(selectedRange.start, selectedRange.end +
 // test its own process in CI.
 const ISOLATED_TEST_FILE = 'server/__tests__/global-pool-conversation-leak-guard.test.ts';
 
+// A leaked handle (e.g. an unclosed database pool) can keep a spawned
+// command's Node process alive indefinitely even after every assertion in it
+// has already passed. Bound every command so this runner always reaches a
+// terminal state instead of hanging the whole suite forever on one child.
+const DEFAULT_STEP_TIMEOUT_MS = 10 * 60 * 1000;
+const configuredStepTimeoutMs = Number(process.env.CI_TEST_STEP_TIMEOUT_MS);
+const STEP_TIMEOUT_MS = Number.isFinite(configuredStepTimeoutMs) && configuredStepTimeoutMs > 0
+  ? configuredStepTimeoutMs
+  : DEFAULT_STEP_TIMEOUT_MS;
+const FORCE_KILL_GRACE_MS = 10_000;
+
 function run(command) {
   return new Promise((resolveRun) => {
     const child = spawn(command, {
@@ -157,10 +168,45 @@ function run(command) {
       env: process.env,
       shell: true,
       stdio: 'inherit',
+      // POSIX only: makes the child the leader of its own process group so a
+      // hung command's whole group can be terminated, not just the shell
+      // wrapping it (npx/tsx often nest an extra process under the shell).
+      detached: process.platform !== 'win32',
     });
 
-    child.on('error', (error) => resolveRun({ code: 1, error }));
-    child.on('close', (code, signal) => resolveRun({ code, signal }));
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutTimer);
+      resolveRun(result);
+    };
+
+    function killChild(signal) {
+      try {
+        if (process.platform !== 'win32') {
+          process.kill(-child.pid, signal);
+        } else {
+          child.kill(signal);
+        }
+      } catch {
+        // Process (or group) may already be gone -- nothing further to do.
+      }
+    }
+
+    const timeoutTimer = setTimeout(() => {
+      console.error(
+        `[ci:test] Command exceeded ${STEP_TIMEOUT_MS}ms with no exit -- terminating: ${command}`,
+      );
+      killChild('SIGTERM');
+      const forceKillTimer = setTimeout(() => killChild('SIGKILL'), FORCE_KILL_GRACE_MS);
+      forceKillTimer.unref();
+      settle({ code: 1, error: new Error(`timed out after ${STEP_TIMEOUT_MS}ms with no exit`) });
+    }, STEP_TIMEOUT_MS);
+    timeoutTimer.unref();
+
+    child.on('error', (error) => settle({ code: 1, error }));
+    child.on('close', (code, signal) => settle({ code, signal }));
   });
 }
 
