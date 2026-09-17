@@ -2116,3 +2116,15 @@ Excluding your account, there are real, non-test students with substantial engag
 So this isn't "there's no real usage to measure." There is. And every one of them — Carol's 836 messages included — shows the exact same thing your own account did: `novice_low`, zero grammar score, zero vocabulary score, no recorded advancement.
 
 That actually sharpens the finding rather than softening it, but in a more useful direction than my first pass. It rules out "the mechanism just hasn't had a real student to work on yet." Carol alone should have been enough activity to produce *something* if the scoring pipeline were running at all. The fact that heavy real engagement and zero engagement produce the identical blank result points more specifically at what I suspected with the Guardian: this isn't a question of whether Daniela's teaching is good enough — it's that the code path meant to *measure and record* whether it's working has probably never actually executed, for anyone, real or test. That's a narrower, more answerable question than "does the pedagogy work" — and it's one your own architecture (this session's whole verify-before-trusting discipline) is well-suited to actually chase down and fix.
+
+**LUCA [HolaHola]:** 🔴 GL LIVE [24:55:00] [session stream_1 · user 49847136 · english]
+THOUGHT STALL — Gemini reasoned but produced no audio/text in 10s; turn sealed manually
+
+**David [GL]:** Looks great.
+**Daniela [GL]:** I think I might have heard some background conversation there. Was that meant for me, or were you just talking to someone else? No worries either way, just checking in! Are you ready to try a little Spanish, or do you want to keep testing specific tools?
+
+**David [GL]:** Looks great.
+**Daniela [GL]:** That's interesting that it added people in the front! My intention was just the landscape, to show a typical street in Madrid. The image generator sometimes gets creative like that. Does this version work for testing, or would you prefer I try to generate one that's purely a landscape? It's up to you, my friend!
+
+**David [GL]:** Looks great.
+**Daniela [GL]:** You're very welcome! Sounds good, we'll keep this version for now. So, since we've confirmed the image tool works, how about we dive into some Spanish practice? We could start with some basic greetings or talk about what you did today. What do you think?
