@@ -12,6 +12,7 @@ import { SourceControlService } from './source-control-service';
 const REQUEST_SCHEMA_VERSION = 1;
 const MAX_CAPTURE_BYTES = 8_192;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const ACTOR_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
 const VALIDATION_MANIFEST_VERSION = 2;
@@ -56,7 +57,7 @@ export interface SourcePromotionRequest {
   status: SourcePromotionRequestStatus;
   requestedSha?: string;
   publicationReference?: string;
-  verificationMode?: 'operator_attestation';
+  verificationMode?: 'operator_attestation' | 'render_release_health';
   bootId: string;
   createdAt: string;
   startedAt?: string;
@@ -242,10 +243,20 @@ export class SourcePromotionService {
     idempotencyKey: string;
     actor: string;
     sha: string;
+    sourceContextSha256?: string;
     publicationReference?: string;
   }): Promise<{ request: SourcePromotionRequest; replayed: boolean }> {
     const sha = validateSourcePromotionSha(input.sha);
-    const publicationReference = input.publicationReference?.trim() || undefined;
+    const sourceContextSha256 = input.sourceContextSha256?.trim() || undefined;
+    if (sourceContextSha256 && !SHA256_PATTERN.test(sourceContextSha256)) {
+      throw new SourcePromotionInputError('sourceContextSha256 must be an exact lowercase 64-character SHA-256 digest.');
+    }
+    if (sourceContextSha256 && input.publicationReference) {
+      throw new SourcePromotionInputError('Use sourceContextSha256 for Render evidence or publicationReference for Replit evidence, not both.');
+    }
+    const publicationReference = sourceContextSha256
+      ? `render-release:${sha}:${sourceContextSha256}`
+      : input.publicationReference?.trim() || undefined;
     if (publicationReference && publicationReference.length > 200) {
       throw new SourcePromotionInputError('publicationReference must be 200 characters or fewer.');
     }
@@ -286,7 +297,11 @@ export class SourcePromotionService {
       status: 'accepted',
       requestedSha: payload.sha,
       publicationReference: payload.publicationReference,
-      verificationMode: action === 'record' ? 'operator_attestation' : undefined,
+      verificationMode: action === 'record'
+        ? payload.publicationReference?.startsWith('render-release:')
+          ? 'render_release_health'
+          : 'operator_attestation'
+        : undefined,
       bootId: this.bootId,
       createdAt: now,
     };

@@ -19,6 +19,7 @@ import {
 
 const SHA = 'a'.repeat(40);
 const OTHER_SHA = 'b'.repeat(40);
+const SOURCE_CONTEXT_SHA256 = 'c'.repeat(64);
 const TOKEN = 'promotion-test-token';
 const NOW = new Date('2026-08-27T18:00:00.000Z');
 
@@ -69,7 +70,7 @@ async function main(): Promise<void> {
     uuid: () => `test-id-${++uuidCounter}`,
     execBridge: async (args, options) => {
       executions += 1;
-      assert.equal(options.env.SOURCE_PROMOTION_VERIFICATION_MODE, args[0] === 'record-promotion' ? 'operator_attestation' : '');
+      assert.equal(options.env.SOURCE_PROMOTION_VERIFICATION_MODE, args[0] === 'record-promotion' ? 'render_release_health' : '');
       if (args[0] === 'prepare-promotion') {
         writeBridgeStatus(bridgeStatusPath, {
           schemaVersion: 2,
@@ -164,11 +165,15 @@ async function main(): Promise<void> {
       idempotencyKey: 'record-valid-00001',
       actor: 'claude-code',
       sha: SHA,
-      publicationReference: 'Replit Publish confirmed by operator',
+      sourceContextSha256: SOURCE_CONTEXT_SHA256,
     });
     const recorded = await service.waitForRequest(record.request.requestId);
     assert.equal(recorded?.status, 'succeeded');
-    assert.equal(recorded?.verificationMode, 'operator_attestation');
+    assert.equal(recorded?.verificationMode, 'render_release_health');
+    assert.equal(
+      recorded?.publicationReference,
+      `render-release:${SHA}:${SOURCE_CONTEXT_SHA256}`,
+    );
     assert.equal(executions, 2);
 
     await assert.rejects(
@@ -176,6 +181,25 @@ async function main(): Promise<void> {
         idempotencyKey: 'record-invalid-sha',
         actor: 'claude-code',
         sha: 'main',
+      }),
+      SourcePromotionInputError,
+    );
+    await assert.rejects(
+      service.record({
+        idempotencyKey: 'record-invalid-digest',
+        actor: 'claude-code',
+        sha: SHA,
+        sourceContextSha256: 'not-a-digest',
+      }),
+      SourcePromotionInputError,
+    );
+    await assert.rejects(
+      service.record({
+        idempotencyKey: 'record-ambiguous-evidence',
+        actor: 'claude-code',
+        sha: SHA,
+        sourceContextSha256: SOURCE_CONTEXT_SHA256,
+        publicationReference: 'replit-publish:fixture',
       }),
       SourcePromotionInputError,
     );
@@ -227,7 +251,11 @@ async function main(): Promise<void> {
       assert.equal(authorized.status, 200);
       const body = await authorized.json() as any;
       assert.equal(body.publishBoundary.programmaticPublishSupported, false);
-      assert.equal(body.publishBoundary.recordVerification, 'operator_attestation');
+      assert.deepEqual(
+        body.publishBoundary.modes,
+        ['render_release_health', 'explicit_replit_publish'],
+      );
+      assert.equal(body.publishBoundary.recordVerification, 'exact_release_identity_or_replit_marker');
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
       if (previousToken === undefined) delete process.env.SOURCE_PROMOTION_TOKEN;
