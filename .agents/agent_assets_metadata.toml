@@ -270,3 +270,17 @@ mtime_ms = 1789579537100
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/7aa39ed2-d7bc-4cad-81c8-a9efd3344aa7/00057210-171a-44dd-ae5b-95f55debf811"
 storage_version_token = "1789579538367523"
 content_type = "text/plain"
+
+[[outputs]]
+id = "_gcS37NQ_AwSwCa1jN2Jo"
+uri = "file://exports/m13-runtime-publication-command.txt"
+type = "text"
+title = "M13 founder runtime publication command"
+description = "Exact browser-console command for source promotion f1cc0b1a-2581-4b70-a3d1-b7b5414d082a. Run once while signed into getholahola.com as founder."
+logical_id = "3823afa6-c449-4420-be3c-37b4c4d45ae5"
+content_hash = "sha256:9126dbc0ef88c788a076df44582491277510c2fc0e36cb97b8f4d1369bee6150"
+size = 25128
+mtime_ms = 1789621378067
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/3823afa6-c449-4420-be3c-37b4c4d45ae5/27a95e15-8ede-415e-9136-5ccb1ee52448"
+storage_version_token = "1789621396054911"
+content_type = "text/plain"
