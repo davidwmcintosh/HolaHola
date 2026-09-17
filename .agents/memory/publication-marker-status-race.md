@@ -29,3 +29,14 @@ repair the race by weakening the record gate or refreshing validation expiry.
 When authenticated immutable proofs are resolved with Git fetch in one checkout,
 serialize operations that read shared `FETCH_HEAD`; concurrent fetches can
 replace each other's proof even when both requested commits are valid.
+
+Marker recognition intentionally does not gate on the previous operational
+`state` (e.g. `synced`/`failed`/`dirty`). Candidate evidence fields persist
+across state writes independent of `state` itself, and recovery must key off
+the evidence (unexpired timestamps, valid manifest, freshly re-authenticated
+marker parent/tree/subject against GitHub) — not off what the last sync
+happened to write. Adding a `previous.state === 'ready_to_promote'` guard here
+looks like a safety improvement but breaks intended, tested recovery from a
+transient non-ready state; if a negative test for that guard seems needed,
+check whether the existing test suite already codifies the opposite
+expectation before trusting the hypothetical over it.
