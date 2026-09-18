@@ -149,6 +149,34 @@ test('source guard requires a rebuilt child environment and bootstrap removal', 
   }
 });
 
+test('every real child process is detached from the launcher console with no output piped through the parent', async () => {
+  const source = await read(launcherPath);
+  const bounded = (startMarker: string, endMarker: string) => {
+    const start = source.indexOf(startMarker);
+    const end = source.indexOf(endMarker, start);
+    assert.ok(start >= 0 && end > start, `${startMarker} must have a bounded source section`);
+    return source.slice(start, end);
+  };
+  const newChild = bounded('function New-ApprovedChild', 'function Add-RequiredRunEnvironment');
+  const plainChild = bounded('function Start-PlainChild', 'function Install-ApprovedBundle');
+
+  for (const [name, section] of [['New-ApprovedChild', newChild], ['Start-PlainChild', plainChild]] as const) {
+    assert.match(section, /\$startInfo\.UseShellExecute = \$false/, `${name} must not use shell execution`);
+    assert.match(
+      section,
+      /\$startInfo\.CreateNoWindow = \$true/,
+      `${name}'s child must not inherit the launcher console, or closing/reusing the hosting terminal window kills it with no trace`,
+    );
+    assert.doesNotMatch(section, /\$startInfo\.CreateNoWindow = \$false/, `${name} must not revert to console inheritance`);
+  }
+
+  // A killed launcher closes its own managed pipe handles; redirecting a
+  // detached child's stdout/stderr through those pipes would silently
+  // reintroduce the exact parent-lifetime coupling this detachment removes.
+  assert.doesNotMatch(source, /RedirectStandardOutput\s*=\s*\$true/);
+  assert.doesNotMatch(source, /RedirectStandardError\s*=\s*\$true/);
+});
+
 test('source guard permits only fixed non-secret output statements', async () => {
   const source = await read(launcherPath);
   const outputLines = source.match(/Write-(?:Output|Host|Verbose|Information|Warning|Error)[^\r\n]*/g) ?? [];

@@ -229,7 +229,10 @@ function Start-PlainChild {
     $startInfo.Arguments = $Arguments
     $startInfo.WorkingDirectory = $WorkingDirectory
     $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $false
+    # Same console-detachment reasoning as the approved Gate 3 child below:
+    # a bundle build should not die silently just because the terminal that
+    # started `initialize` was closed or reused mid-build.
+    $startInfo.CreateNoWindow = $true
     $startInfo.EnvironmentVariables.Clear()
     Add-AllowedParentEnvironment -StartInfo $startInfo
     $process = New-Object System.Diagnostics.Process
@@ -413,7 +416,19 @@ function New-ApprovedChild {
     $startInfo.Arguments = $Arguments
     $startInfo.WorkingDirectory = $ApprovedWorktree
     $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $false
+    # The child must not inherit the launcher's console. Windows delivers
+    # CTRL_CLOSE_EVENT (and Ctrl+C/Ctrl+Break) to every process attached to a
+    # console when that console's window is closed or reused; a console child
+    # with no custom handler terminates by default on receiving it. Setting
+    # CreateNoWindow gives this child its own hidden console instead of
+    # sharing the launcher's, so closing or reusing the terminal that started
+    # this script can no longer silently kill an in-progress Gate 3 run.
+    # Deliberately not paired with output redirection: piping the child's
+    # stdout/stderr back through the launcher's own managed pipes would
+    # recreate the same coupling this removes (a killed parent closes its
+    # pipe handles out from under the child). The launcher already reports
+    # only fixed, non-secret event names, not raw child output.
+    $startInfo.CreateNoWindow = $true
     $startInfo.EnvironmentVariables.Clear()
     Add-AllowedParentEnvironment -StartInfo $startInfo
     $startInfo.EnvironmentVariables['COORDINATION_RUNTIME_BOOTSTRAP_TOKEN'] = $Bootstrap
