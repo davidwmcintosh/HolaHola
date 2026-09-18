@@ -145,3 +145,4 @@
 - [Git LFS pre-push SSH hang](git-lfs-prepush-ssh-hang.md) — a repo's LFS pre-push hook can hang on an SSH host-key prompt even during an explicit HTTPS push; use --no-verify + non-interactive git env guards.
 - [shared-spec files resist plain edits](shared-spec-filesystem-immutability.md) — docs/superpowers/specs/*.md already published via shared-spec get silently reverted to the approved revision; use the CLI lifecycle instead.
 - [GitHub App token field omission](github-app-token-field-omission.md) — a GitHub App token can 200 yet omit fields (e.g. ruleset bypass_actors) a differently-scoped credential would see; verify field presence, not just status.
+- [GitHub Actions secrets require manual add](github-actions-secrets-manual-add.md) — no project credential (personal PAT or GitHub App token) can create/rotate an Actions secret via API; a fine-grained PAT's repo `permissions` field isn't proof of its real scope.
