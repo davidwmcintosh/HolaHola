@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { SourceControlService } from './source-control-service';
+import type { SourceControlService } from './source-control-service';
 import {
   assertMailboxPaths,
   MAILBOX_PATHS,
@@ -120,12 +120,12 @@ function truncateUtf8(value: string, limit: number): { text: string; truncated: 
 export class SourceReconciliationService {
   private readonly root: string;
   private readonly run: NonNullable<ReconciliationOptions['run']>;
-  private readonly sourceControl: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>;
+  private sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>;
   private readonly validateCandidate: (cwd: string) => Promise<Record<string, string>>;
   constructor(options: ReconciliationOptions = {}) {
     this.root = options.rootDir || process.cwd();
-    this.sourceControl = options.sourceControl || new SourceControlService({ rootDir: this.root });
-    this.run = options.run || ((args, cwd = this.root) => this.sourceControl.runReconciliationGit(args, cwd));
+    this.sourceControl = options.sourceControl;
+    this.run = options.run || ((args, cwd = this.root) => this.getSourceControl().then((sourceControl) => sourceControl.runReconciliationGit(args, cwd)));
     this.validateCandidate = options.validateCandidate || (async (cwd) => {
       const validationHome = join(this.root, '.local', 'reconciliation-validation-home');
       await mkdir(validationHome, { recursive: true, mode: 0o700 });
@@ -166,6 +166,22 @@ export class SourceReconciliationService {
       }
       return checks;
     });
+  }
+
+  /**
+   * Constructing the concrete SourceControlService pulls in the app's full
+   * DB module graph (it needs `db` for promotion bookkeeping), which this
+   * module's static imports deliberately avoid (see file header). Load the
+   * concrete class lazily, only when no lighter-weight `sourceControl` was
+   * injected — tests always inject one, so this never fires under test and
+   * the hermetic self-check stays free of any live database dependency.
+   */
+  private async getSourceControl(): Promise<Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>> {
+    if (!this.sourceControl) {
+      const { SourceControlService: ConcreteSourceControlService } = await import('./source-control-service');
+      this.sourceControl = new ConcreteSourceControlService({ rootDir: this.root });
+    }
+    return this.sourceControl;
   }
 
   async preflight(localSha: string, remote = 'origin', remoteBranch = 'main'): Promise<ReconciliationResult> {
@@ -356,7 +372,7 @@ export class SourceReconciliationService {
     let intentWritten = false;
     const packet = await this.readPacket(packetPath);
     if (!packet) return this.failure('protected_path_proof_failed', 'Packet digest envelope is invalid.');
-    const lease = await this.sourceControl.acquireReconciliationLease();
+    const lease = await (await this.getSourceControl()).acquireReconciliationLease();
     if (!lease) return this.failure('lease_contended', 'Another source-control operation holds the mutation lease.');
     const finish = async (
       state: ReconciliationState,
