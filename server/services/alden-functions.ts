@@ -24,11 +24,15 @@ import { aldenActivity } from "./alden-activity-emitter";
 import { getMonitoringSnapshots, analyzePatterns } from "./monitoring-service";
 import { workspaceResolution } from "./workspace-root";
 
-// Was hardcoded to '/home/runner/workspace' -- a Replit-only path that broke
-// every file/shell tool (read_file, list_directory, search_code, run_shell)
-// once production moved off Replit. workspaceResolution already handles this
-// portably (HOLAHOLA_WORKSPACE_ROOT env -> REPL_HOME -> cwd) and validates the
-// result is a real HolaHola checkout instead of failing silently.
+// Was hardcoded to '/home/runner/workspace' -- a Replit-only container path.
+// Once production ran on Render (post-DNS-swap), every file/shell tool here
+// (read_file, list_directory, search_code, run_shell) broke: read/list saw
+// "Directory not found", and execSync with a nonexistent cwd surfaced as the
+// misleading "spawnSync /bin/sh ENOENT" (Node reports a missing cwd as if the
+// shell binary itself were missing). workspaceResolution is the same portable
+// root resolver the canonical capture system uses: explicit env override ->
+// REPL_HOME (Replit) -> process.cwd() (Render's /app, Docker WORKDIR)
+// -- with a loud startup assertion instead of a silent wrong guess.
 const WORKSPACE_ROOT = workspaceResolution.root;
 
 function safePath(filePath: string): string {
