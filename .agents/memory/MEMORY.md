@@ -140,6 +140,7 @@
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
 - [GitHub App auth migration](github-app-auth-migration.md) — git-push creds live in 3 separate stores (Replit, Render, GitHub Actions); migrate all three or a bypass path remains.
+- [GitHub branch protection layering](github-branch-protection-layering.md) — classic protection and rulesets both gate the same branch independently; a ruleset bypass_actor doesn't bypass classic protection at all.
 - [GitHub App permission approval](github-app-permission-approval.md) — editing an App's declared permissions needs a separate installation-level approval before a token actually carries it.
 - [Git LFS pre-push SSH hang](git-lfs-prepush-ssh-hang.md) — a repo's LFS pre-push hook can hang on an SSH host-key prompt even during an explicit HTTPS push; use --no-verify + non-interactive git env guards.
 - [shared-spec files resist plain edits](shared-spec-filesystem-immutability.md) — docs/superpowers/specs/*.md already published via shared-spec get silently reverted to the approved revision; use the CLI lifecycle instead.

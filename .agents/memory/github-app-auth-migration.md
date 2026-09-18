@@ -24,13 +24,29 @@ path:**
    own read-only exact-commit snapshot fetch (Render's image omits `.git`).
 3. GitHub Actions repository secrets (a store separate from both of the
    above) — consumed by `.github/workflows/cross-tool-promote.yml`'s "Fast-forward
-   main and push" step. As of Sep 17 2026 this is migrated too (PR open,
-   pending merge): the step now mints an installation token via
-   `scripts/print-github-app-token.ts` and pushes over HTTPS instead of the
-   SSH deploy key. Until that PR merges, the old key is still technically
-   live in this one workflow — don't swap the ruleset's bypass_actor or
-   revoke the old deploy key until it's merged (or David explicitly accepts
-   the residual risk).
+   main and push" step. Migrated and merged Sep 17 2026 (PR #21): the step
+   mints an installation token via `scripts/print-github-app-token.ts` and
+   pushes over HTTPS instead of the SSH deploy key.
+
+**Migration complete as of Sep 17 2026** for the *push* path: both git-push
+call sites (Replit coordinator, GitHub Actions) use the GitHub App. The
+repository ruleset's bypass_actors was narrowed to exactly one entry (the App's
+Integration id) — the old unscoped `DeployKey` bypass_actor entry was removed.
+See [GitHub branch protection layering](github-branch-protection-layering.md)
+for the classic-vs-ruleset conflict that had to be resolved first before the
+bypass would actually take effect.
+
+**The old `HOLAHOLA_GITHUB_DEPLOY_KEY` was deliberately NOT revoked.** It
+remains registered and is still load-bearing for a *separate, read-only*
+purpose unrelated to pushing: Render's production runtime uses it (or is
+being wired to use it — see
+`docs/superpowers/specs/2026-09-17-render-runtime-source-snapshot-design.md`)
+to fetch an authenticated exact-commit source snapshot over SSH, since its
+container image omits `.git`; `scripts/github-release-ssh.sh` /
+`scripts/github-ssh-env.sh` are older tooling with the same dependency. None
+of that is a bypass path — read-only fetch isn't gated by branch protection —
+so removing the key's *bypass* privilege (done, above) fully closed the
+original security hole without needing to revoke the credential itself.
 
 **Separate gotcha hit migrating this third store:** a GitHub App pushing to
 `.github/workflows/*` needs the App's "Workflows" permission specifically —
