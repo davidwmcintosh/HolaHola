@@ -153,3 +153,4 @@
 - [Main divergence needs explicit reconciliation](main-divergence-explicit-reconciliation.md) — GitHub main can diverge from local outside the scheduler's own push path; trust source-bridge-status.json's state, not git's own remote-tracking ref.
 - [Reconciliation auth and landing procedure](reconciliation-git-auth-and-landing.md) — GitHub App token (not SSH) auths reconcile's git calls; named remote required; ff-merge candidate then normal `sync` to land on real main.
 - [Reconciliation hermetic env import coupling](reconciliation-hermetic-env-import-coupling.md) — any eager value-import of a DB-touching module breaks the self-check under its deliberately stripped validation env; use type-only + lazy import.
+- [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
