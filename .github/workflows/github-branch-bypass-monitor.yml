@@ -52,11 +52,11 @@ jobs:
 
       - name: Run branch bypass surface guard
         env:
-          # Stored under this name because GitHub rejects any Actions secret
-          # name starting with the reserved "GITHUB_" prefix. The script
-          # itself still reads GITHUB_RULESET_MONITOR_TOKEN (same value,
-          # same variable name it uses everywhere else) — only the secret
-          # store's entry name differs.
+          # RULESET_MONITOR_TOKEN_GITHUB — same name in this Actions secret
+          # store and in the script's process.env read, so there is no name
+          # mapping to track here (unlike ACTIONS_DISPATCH_TOKEN below, whose
+          # env var conventionally carries a "GITHUB_" prefix that Actions
+          # secret names are not allowed to start with).
           #
           # This is a dedicated fine-grained PAT scoped to only this repo
           # with only the "Administration: Read and write" permission — not
@@ -64,7 +64,7 @@ jobs:
           # cross-tool-promote.ts). See the credential note in
           # server/scripts/test-github-branch-bypass-guard.ts for why no
           # narrower (read-only) tier is possible for this specific check.
-          GITHUB_RULESET_MONITOR_TOKEN: ${{ secrets.RULESET_MONITOR_TOKEN }}
+          RULESET_MONITOR_TOKEN_GITHUB: ${{ secrets.RULESET_MONITOR_TOKEN_GITHUB }}
         run: |
           npx tsx server/scripts/test-github-branch-bypass-guard.ts
           npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check

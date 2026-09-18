@@ -29,7 +29,7 @@
  *     2. Classic branch protection has not reappeared on `main` (its
  *        `protection.enabled` flag on the branch resource).
  *
- * Credential note — why GITHUB_RULESET_MONITOR_TOKEN and not the GitHub App:
+ * Credential note — why RULESET_MONITOR_TOKEN_GITHUB and not the GitHub App:
  *   The obvious choice was the coordinator's own GitHub App installation
  *   token (server/services/github-app-auth.ts) — it authenticates the same
  *   way the real push does. Verified empirically that it does NOT work here:
@@ -57,7 +57,7 @@
  *   "Administration: Read and write" repository permission (the minimum
  *   tier GitHub allows for this visibility) and nothing else — not David's
  *   full personal identity, and not shared with any other job. That's
- *   GITHUB_RULESET_MONITOR_TOKEN. If it ever leaks, the blast radius is
+ *   RULESET_MONITOR_TOKEN_GITHUB. If it ever leaks, the blast radius is
  *   "can rewrite this repo's branch protection/ruleset config" (bad, but
  *   recoverable) instead of "has David's full admin identity on the repo."
  *
@@ -84,7 +84,7 @@
  * bypass hole on production `main` to "prove" the check works is not an
  * acceptable trade, unlike mutating a local source file and restoring it.
  *
- * Skips (exit 0) when GITHUB_ACTIONS_DISPATCH_TOKEN is not present in the
+ * Skips (exit 0) when RULESET_MONITOR_TOKEN_GITHUB is not present in the
  * environment, e.g. an isolated task-agent worktree that does not inherit
  * this secret.
  */
@@ -119,7 +119,7 @@ interface BranchState {
 }
 
 function hasCredentials(): boolean {
-  return Boolean(process.env.GITHUB_RULESET_MONITOR_TOKEN);
+  return Boolean(process.env.RULESET_MONITOR_TOKEN_GITHUB);
 }
 
 function assertRulesetBypass(ruleset: RulesetState): string[] {
@@ -150,7 +150,7 @@ function assertNoClassicProtection(branch: BranchState): string[] {
 }
 
 async function fetchLiveState(): Promise<{ ruleset: RulesetState; branch: BranchState }> {
-  const token = process.env.GITHUB_RULESET_MONITOR_TOKEN!;
+  const token = process.env.RULESET_MONITOR_TOKEN_GITHUB!;
   const headers = {
     authorization: `Bearer ${token}`,
     accept: 'application/vnd.github+json',
@@ -165,7 +165,7 @@ async function fetchLiveState(): Promise<{ ruleset: RulesetState; branch: Branch
   const ruleset = await rulesetRes.json() as RulesetState;
   if (!Array.isArray(ruleset.bypass_actors)) {
     throw new Error(
-      `Ruleset ${RULESET_ID} response did not include a bypass_actors array — GITHUB_RULESET_MONITOR_TOKEN may have lost the Administration permission this check relies on to see it (current_user_can_bypass was "${(ruleset as { current_user_can_bypass?: string }).current_user_can_bypass}"). Fix the credential before trusting this check's result.`,
+      `Ruleset ${RULESET_ID} response did not include a bypass_actors array — RULESET_MONITOR_TOKEN_GITHUB may have lost the Administration permission this check relies on to see it (current_user_can_bypass was "${(ruleset as { current_user_can_bypass?: string }).current_user_can_bypass}"). Fix the credential before trusting this check's result.`,
     );
   }
 
@@ -192,7 +192,7 @@ async function runRealCheck(): Promise<void> {
   sep();
 
   if (!hasCredentials()) {
-    console.log(`  ${B('SKIP')}: GITHUB_ACTIONS_DISPATCH_TOKEN not set in this environment.`);
+    console.log(`  ${B('SKIP')}: RULESET_MONITOR_TOKEN_GITHUB not set in this environment.`);
     process.exit(0);
     return;
   }
@@ -221,7 +221,7 @@ async function selfCheck(): Promise<void> {
   sep();
 
   if (!hasCredentials()) {
-    console.log(`  ${B('SKIP')}: GITHUB_ACTIONS_DISPATCH_TOKEN not set in this environment.`);
+    console.log(`  ${B('SKIP')}: RULESET_MONITOR_TOKEN_GITHUB not set in this environment.`);
     process.exit(0);
     return;
   }
