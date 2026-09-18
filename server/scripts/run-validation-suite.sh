@@ -103,6 +103,7 @@ run_check "Raw-window capture alignment" npx tsx server/scripts/test-raw-window-
 run_check "Memory-decay startup schema guard" bash -c 'npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts && npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts --self-check'
 run_check "Application startup recovery" bash server/scripts/test-start-application-recovery.sh
 run_check "Application startup recovery self-check" bash server/scripts/test-start-application-recovery.sh --self-check
+run_check "Infra-mutation ownership guard (Cloudflare DNS)" npx tsx --test server/scripts/test-infra-mutation-ownership-guard.test.ts
 echo ""
 echo "════════════════════════════════════════════════════════════"
 if [[ ${#FAILED[@]} -eq 0 ]]; then
