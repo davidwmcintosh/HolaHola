@@ -54,10 +54,17 @@ jobs:
         env:
           # Stored under this name because GitHub rejects any Actions secret
           # name starting with the reserved "GITHUB_" prefix. The script
-          # itself still reads GITHUB_ACTIONS_DISPATCH_TOKEN (same value,
+          # itself still reads GITHUB_RULESET_MONITOR_TOKEN (same value,
           # same variable name it uses everywhere else) — only the secret
           # store's entry name differs.
-          GITHUB_ACTIONS_DISPATCH_TOKEN: ${{ secrets.ACTIONS_DISPATCH_TOKEN }}
+          #
+          # This is a dedicated fine-grained PAT scoped to only this repo
+          # with only the "Administration: Read and write" permission — not
+          # the broad GITHUB_ACTIONS_DISPATCH_TOKEN used elsewhere (e.g.
+          # cross-tool-promote.ts). See the credential note in
+          # server/scripts/test-github-branch-bypass-guard.ts for why no
+          # narrower (read-only) tier is possible for this specific check.
+          GITHUB_RULESET_MONITOR_TOKEN: ${{ secrets.RULESET_MONITOR_TOKEN }}
         run: |
           npx tsx server/scripts/test-github-branch-bypass-guard.ts
           npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check

@@ -29,7 +29,7 @@
  *     2. Classic branch protection has not reappeared on `main` (its
  *        `protection.enabled` flag on the branch resource).
  *
- * Credential note — why GITHUB_ACTIONS_DISPATCH_TOKEN and not the GitHub App:
+ * Credential note — why GITHUB_RULESET_MONITOR_TOKEN and not the GitHub App:
  *   The obvious choice was the coordinator's own GitHub App installation
  *   token (server/services/github-app-auth.ts) — it authenticates the same
  *   way the real push does. Verified empirically that it does NOT work here:
@@ -37,10 +37,31 @@
  *   NO `bypass_actors` field at all (not even `[]`) — only a self-referential
  *   `current_user_can_bypass` convenience field, which answers "can *this*
  *   token bypass" but can't reveal whether a second, rogue actor was also
- *   added. `GITHUB_ACTIONS_DISPATCH_TOKEN` (already used the same way by
- *   scripts/cross-tool-promote.ts) does receive the full `bypass_actors`
- *   array, so it's the only currently-available credential that can actually
- *   detect an added bypass actor. Both tokens 403 on the dedicated
+ *   added.
+ *
+ * Credential note — why not GITHUB_ACTIONS_DISPATCH_TOKEN either (Sep 18 2026):
+ *   This check originally reused GITHUB_ACTIONS_DISPATCH_TOKEN (David's own
+ *   personal PAT, shared with scripts/cross-tool-promote.ts and carrying full
+ *   admin on the repo) because it was the only credential on hand that could
+ *   see `bypass_actors`. GitHub's own docs for this endpoint explain why the
+ *   App token couldn't:
+ *
+ *     "To prevent leaking sensitive information, the bypass_actors property
+ *     is only returned if the user making the API request has write access
+ *     to the ruleset."
+ *
+ *   There is no read-only permission tier that can ever see `bypass_actors`
+ *   — that's a hard platform constraint, not a scoping choice. So the
+ *   narrowest credential that can still run this check is a *dedicated*
+ *   fine-grained PAT, scoped to only this repo, granted only the
+ *   "Administration: Read and write" repository permission (the minimum
+ *   tier GitHub allows for this visibility) and nothing else — not David's
+ *   full personal identity, and not shared with any other job. That's
+ *   GITHUB_RULESET_MONITOR_TOKEN. If it ever leaks, the blast radius is
+ *   "can rewrite this repo's branch protection/ruleset config" (bad, but
+ *   recoverable) instead of "has David's full admin identity on the repo."
+ *
+ *   Both this token and the App token 403 on the dedicated
  *   `/branches/{branch}/protection` endpoint ("Resource not accessible");
  *   both can read the plain `/branches/{branch}` resource, whose nested
  *   `protection.enabled` field reflects classic-protection state without
@@ -98,7 +119,7 @@ interface BranchState {
 }
 
 function hasCredentials(): boolean {
-  return Boolean(process.env.GITHUB_ACTIONS_DISPATCH_TOKEN);
+  return Boolean(process.env.GITHUB_RULESET_MONITOR_TOKEN);
 }
 
 function assertRulesetBypass(ruleset: RulesetState): string[] {
@@ -129,7 +150,7 @@ function assertNoClassicProtection(branch: BranchState): string[] {
 }
 
 async function fetchLiveState(): Promise<{ ruleset: RulesetState; branch: BranchState }> {
-  const token = process.env.GITHUB_ACTIONS_DISPATCH_TOKEN!;
+  const token = process.env.GITHUB_RULESET_MONITOR_TOKEN!;
   const headers = {
     authorization: `Bearer ${token}`,
     accept: 'application/vnd.github+json',
@@ -144,7 +165,7 @@ async function fetchLiveState(): Promise<{ ruleset: RulesetState; branch: Branch
   const ruleset = await rulesetRes.json() as RulesetState;
   if (!Array.isArray(ruleset.bypass_actors)) {
     throw new Error(
-      `Ruleset ${RULESET_ID} response did not include a bypass_actors array — GITHUB_ACTIONS_DISPATCH_TOKEN may have lost the permission this check relies on to see it (current_user_can_bypass was "${(ruleset as { current_user_can_bypass?: string }).current_user_can_bypass}"). Fix the credential before trusting this check's result.`,
+      `Ruleset ${RULESET_ID} response did not include a bypass_actors array — GITHUB_RULESET_MONITOR_TOKEN may have lost the Administration permission this check relies on to see it (current_user_can_bypass was "${(ruleset as { current_user_can_bypass?: string }).current_user_can_bypass}"). Fix the credential before trusting this check's result.`,
     );
   }
 
