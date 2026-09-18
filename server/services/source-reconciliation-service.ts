@@ -117,6 +117,36 @@ function truncateUtf8(value: string, limit: number): { text: string; truncated: 
   return { text: bytes.subarray(0, limit).toString('utf8').replace(/\uFFFD$/, ''), truncated: true };
 }
 
+/**
+ * The exact subprocess env `validateCandidate` uses for candidate checks:
+ * PATH and a scratch HOME only -- no database credentials or other secrets.
+ * Reconciliation must never need them (see file header). Exported so
+ * test-source-reconciliation-hermetic-env.ts exercises this literal object
+ * instead of a hand-copied duplicate that could silently drift out of sync
+ * with what candidate validation actually runs.
+ */
+export function reconciliationHermeticEnv(home: string): NodeJS.ProcessEnv {
+  return {
+    PATH: process.env.PATH,
+    HOME: home,
+    CI: '1',
+    NODE_ENV: 'test',
+    GIT_TERMINAL_PROMPT: '0',
+  };
+}
+
+/**
+ * The exact command `validateCandidate` runs to exercise this service's own
+ * self-check. Exported for the same reason as `reconciliationHermeticEnv`.
+ */
+export function reconciliationSelfCheckCommand(root: string): { executable: string; args: string[]; cwd: string } {
+  return {
+    executable: resolve(root, 'node_modules/.bin/tsx'),
+    args: [resolve(root, 'server/scripts/test-source-reconciliation-service.ts')],
+    cwd: root,
+  };
+}
+
 export class SourceReconciliationService {
   private readonly root: string;
   private readonly run: NonNullable<ReconciliationOptions['run']>;
@@ -129,13 +159,7 @@ export class SourceReconciliationService {
     this.validateCandidate = options.validateCandidate || (async (cwd) => {
       const validationHome = join(this.root, '.local', 'reconciliation-validation-home');
       await mkdir(validationHome, { recursive: true, mode: 0o700 });
-      const env: NodeJS.ProcessEnv = {
-        PATH: process.env.PATH,
-        HOME: validationHome,
-        CI: '1',
-        NODE_ENV: 'test',
-        GIT_TERMINAL_PROMPT: '0',
-      };
+      const env = reconciliationHermeticEnv(validationHome);
       const checks: Record<string, string> = {};
       const commands: Array<{ name: string; executable: string; args: string[]; cwd: string }> = [
         {
@@ -146,9 +170,7 @@ export class SourceReconciliationService {
         },
         {
           name: 'source-reconciliation',
-          executable: resolve(this.root, 'node_modules/.bin/tsx'),
-          args: [resolve(this.root, 'server/scripts/test-source-reconciliation-service.ts')],
-          cwd: this.root,
+          ...reconciliationSelfCheckCommand(this.root),
         },
       ];
       for (const command of commands) {
