@@ -129,6 +129,21 @@ jobs:
           HOLAHOLA_GITHUB_APP_INSTALLATION_ID: ${{ secrets.HOLAHOLA_GITHUB_APP_INSTALLATION_ID }}
           HOLAHOLA_GITHUB_APP_PRIVATE_KEY: ${{ secrets.HOLAHOLA_GITHUB_APP_PRIVATE_KEY }}
         run: |
+          # actions/checkout (default persist-credentials: true) leaves a
+          # `http.https://github.com/.extraheader` config entry in this
+          # job's local .git/config, carrying the default GITHUB_TOKEN. It's
+          # scoped to the same "https://github.com/" prefix as the push URL
+          # below, and curl/git send an already-configured Authorization
+          # header instead of the one implied by URL-embedded credentials --
+          # a userinfo credential does not replace it. Left in place, this
+          # push silently authenticates as github-actions[bot] (the default
+          # token's identity) instead of the GitHub App installation, and
+          # branch protection on main denies github-actions[bot] with a 403
+          # (observed in run 35378467309 / job 105708715641). The earlier
+          # "Refuse if main is not an ancestor" step still needs that
+          # persisted credential for its own read-only fetch, so it's only
+          # removed here, right before the push that must use the App token.
+          git config --unset-all http.https://github.com/.extraheader || true
           GH_APP_TOKEN="$(npx tsx scripts/print-github-app-token.ts)"
           echo "::add-mask::$GH_APP_TOKEN"
           git push "https://x-access-token:${GH_APP_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/main"
