@@ -24,12 +24,19 @@ path:**
    own read-only exact-commit snapshot fetch (Render's image omits `.git`).
 3. GitHub Actions repository secrets (a store separate from both of the
    above) — consumed by `.github/workflows/cross-tool-promote.yml`'s "Fast-forward
-   main and push" step, which as of Sep 17 2026 **still used the old SSH
-   deploy key** via `scripts/github-release-ssh.sh`. That is the one
-   remaining write path that can push straight to `main` without going
-   through GitHub App auth — do not swap the ruleset's bypass_actor or
-   revoke the old deploy key until this one is migrated too (or David
-   explicitly accepts the residual risk).
+   main and push" step. As of Sep 17 2026 this is migrated too (PR open,
+   pending merge): the step now mints an installation token via
+   `scripts/print-github-app-token.ts` and pushes over HTTPS instead of the
+   SSH deploy key. Until that PR merges, the old key is still technically
+   live in this one workflow — don't swap the ruleset's bypass_actor or
+   revoke the old deploy key until it's merged (or David explicitly accepts
+   the residual risk).
+
+**Separate gotcha hit migrating this third store:** a GitHub App pushing to
+`.github/workflows/*` needs the App's "Workflows" permission specifically —
+see [GitHub App permission approval](github-app-permission-approval.md).
+Also see [Git LFS pre-push SSH hang](git-lfs-prepush-ssh-hang.md) for a
+push-hang red herring encountered along the way.
 
 **Why:** each store belongs to a different execution environment (Replit
 workspace, Render's deployed container, GitHub's own Actions runners); none
