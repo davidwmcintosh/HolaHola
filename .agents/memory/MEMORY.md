@@ -149,3 +149,6 @@
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
 - [Windows console child-process lifetime](windows-console-child-lifetime.md) — closing/reusing the launcher console sends CTRL_CLOSE_EVENT to inherited children; fix is CreateNoWindow=true, not output redirection.
 - [GitHub Actions checkout token shadowing](github-actions-checkout-token-shadowing.md) — checkout's persisted default-token extraheader silently wins over a later URL-embedded push token; unset it right before the push.
+- [SSH host-key hang and pre-trust](ssh-hostkey-pretrust.md) — an SSH-transport git fetch hangs forever on an untrusted github.com host key; GIT_TERMINAL_PROMPT=0 doesn't help; pre-trust via ssh-keyscan.
+- [Reconciliation service auth gap](reconciliation-service-auth-gap.md) — source-reconciliation-service.ts has no credential injection; its fetches need a working ambient git auth path that may not exist.
+- [Main divergence needs explicit reconciliation](main-divergence-explicit-reconciliation.md) — GitHub main can diverge from local outside the scheduler's own push path; trust source-bridge-status.json's state, not git's own remote-tracking ref.
