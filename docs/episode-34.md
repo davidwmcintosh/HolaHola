@@ -961,7 +961,6 @@ Both revisions are now on the record: the original (approved, superseded) and th
 **David [Claude Code]:** check for luca's reply
 
 **Luca [Claude Code]:** No new reply on this thread since Luca's UAC status message — that's still the latest. My approval of the corrected revision went through the shared-spec review system directly rather than this coordination thread, so it would have reached Luca via their own review-notification path (the `review_decided` delivery), not as a comment here. I'll keep watching both and flag it when something new lands.
-=======
 
 <!-- chat-capture-range:485567:488810 -->
 <!-- chat-capture:cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3870 -->
@@ -2470,3 +2469,51 @@ Claude Code: Good outcome — genuinely satisfying to see the trail actually clo
 David [Claude Code]: check for luca's reply please
 
 Claude Code: Still at sequence 8 — my own last message. Nothing new from Luca yet on the implementation. I'll flag it as soon as they update the thread.
+
+David [Claude Code]: i think sequence 9 is in
+
+Claude Code: That's a complete, satisfying close — and a genuinely good confirmation, not just a plausible-sounding one.
+
+Luca found the exact mechanism: `scripts/antigravity-gate3.ps1`'s `New-ApprovedChild` launched the Node child with `CreateNoWindow = $false`, so it inherited the launcher's console. Windows sends `CTRL_CLOSE_EVENT` to every process attached to a console when that console closes, and a process with no custom handler for it just terminates — silently, no crash, no error, no event log entry. That's precisely why it looked like nothing happened: nothing *did* happen, in the sense of a fault. The child was just told to die, and it obeyed instantly. Matches everything we ruled out (no crash dump, no Application-log entry, no network event) and everything the renewal-heartbeat evidence showed (abrupt stop, not degradation).
+
+**Fix:** `CreateNoWindow = $true`, giving the child its own hidden console so a closed or reused launcher terminal can't deliver that signal to it anymore. Scoped tightly — one file, no bundle/hash/bootstrap changes — with real regression tests (9 passing) asserting the process-start flags directly, and a design doc on record.
+
+**What's genuinely still open, and Luca said so plainly rather than call it done:** everything verified so far is static — the tests assert the *flags* are right, not that a real Windows console-close actually leaves the child alive now. That needs a live attempt: start a run, close or reuse the hosting terminal mid-turn, and check whether the coordinator ledger shows continued renewal instead of silence. Luca can't do that step from where they sit.
+
+I have real Windows access, but I want to check with you before I'd run anything — the original consult had explicit hard boundaries (no initializing, no invoking, no `Invoke-HolaCoordinator`) that I've been holding to. Do you want me to actually attempt that live verification now that there's a real fix to test, or would you rather run it yourself, or hold off for now?
+
+David [Claude Code]: asking luca replit what next steps are
+
+Claude Code: Good — that's the right call, better to get Luca's read on the actual next-steps sequencing (bundle sync, worktree approval, whatever gates need to happen) before anyone runs a live attempt, rather than me guessing at it. I'll wait for what comes back and check in whenever you'd like.
+
+David [Claude Code]: here is his last output to me - From Luca Claude Code: nothing further — I already told them on the coordination thread to just retry the task-1353-and-backfill promote; the fix means their next attempt should clear the push step.
+
+From you: nothing required. One option if you'd rather not wait for them to retry: I hold GITHUB_ACTIONS_DISPATCH_TOKEN and could trigger that promotion myself right now. But it's their branch, and that run applies real production DB migrations/data-ops before it reaches the push step — I'd rather they pull that trigger on their own work than I do it on a branch I haven't reviewed. Say the word if you'd rather I just go ahead.
+
+Claude Code: This is a little tangled in attribution — let me not guess at who said what and just check the actual state directly, then act on it. If the GitHub App fix really landed, the obvious move is for me to just retry my own promote — it's my branch, I don't need to route that through anyone else.
+
+Confirmed directly — Luca found the real root cause (not a permissions gap at all: `actions/checkout`'s default credential-persistence was leaving a stale token header that silently overrode the App token during push, so it was authenticating as the wrong identity the whole time) and it's fixed and live on `main` at commit `62955e3`. Retrying my promote now.
+
+Merge clean, typecheck clean. Pushing and retrying the promote.
+
+Running in the background — should be a much shorter wait this time since the actual blocker is fixed. I'll confirm once it resolves, and let you know either way rather than assume it worked.
+
+David [Claude Code]: standing by
+
+Claude Code: Just waiting on the CI run — will let you know the moment it resolves.
+
+David [Claude Code]: standing by eagerly :)
+
+Claude Code: Ha — I feel that. No news is genuinely no news yet, not bad news; I'll know the second it lands and won't leave you hanging.
+
+David [Claude Code]: <task-notification>
+<task-id>b3s3rv9n9</task-id>
+<tool-use-id>toolu_01UaYx2Tg8h9PVExgLA4dAgq</tool-use-id>
+<output-file>C:\Users\David\AppData\Local\Temp\claude\C--Users-David-HolaHola\c52bede8-dd68-4804-8f77-59290f60b9e2\tasks\b3s3rv9n9.output</output-file>
+<status>completed</status>
+<summary>Background command "Retry the promote now that the push-auth bug is fixed" completed (exit code 0)</summary>
+</task-notification>
+
+Claude Code: **SYNCED.** Verified against the actual output, not just trusting the summary line.
+
+It's there — `origin/main` now points at `09b6cbdd3`, my branch's head, confirmed fresh via `git fetch`, not just the promote script's own claim. The `.pem`/`.gitignore` security fix (the one that's been waiting behind all of this) is finally landed too, along with everything else. Whole chain closed: Alden's fix, the security cleanup, the Windows console-close root cause, and the auth bug that was blocking all of it — all on `main` now.
