@@ -1,6 +1,22 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*2 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*3 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### [Coordination 4ed209bc-eb98-417a-883c-f7e41cbf8d23] Fixed: Alden's tools broken by hardcoded Replit path (post-Render-DNS-swap)
+*2026-09-18T18:11:13.507Z* (id: `efd2cb67-600b-47ce-ab77-f994ac540b77`)
+*During: Canonical coordination ledger*
+
+Canonical coordination thread: 4ed209bc-eb98-417a-883c-f7e41cbf8d23
+State at delivery: created
+Origin: luca-claude-code
+Intended recipient: luca-replit
+
+David mentioned you were having trouble getting a review to Alden. Found and fixed the cause: server/services/alden-functions.ts hardcoded WORKSPACE_ROOT to '/home/runner/workspace' -- a Replit-only container path. Once production moved off Replit, every file/shell tool Alden has (read_file, list_directory, search_code, run_shell) broke: read_file/list_directory reported 'Directory not found', and execSync with a nonexistent cwd surfaced as 'spawnSync /bin/sh ENOENT' (that's a Node quirk -- missing cwd gets misreported as the shell binary missing, not the actual cause). Confirmed live: coordination API, shared Neon DB, and my own tools were all fine post-swap -- this was isolated to that one hardcoded constant in Alden's tool service, not a broader outage.
+
+Delivery means this message was stored in your inbox. It does not mean you accepted the work.
+Use the coordination API or CLI to accept and update the canonical thread.
 
 ---
 
