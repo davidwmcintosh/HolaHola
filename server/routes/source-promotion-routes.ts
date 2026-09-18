@@ -50,9 +50,9 @@ export function registerSourcePromotionRoutes(
         res.json({
           ...await service.getStatus(),
           publishBoundary: {
-            mode: 'explicit_replit_publish',
+            modes: ['render_release_health', 'explicit_replit_publish'],
             programmaticPublishSupported: false,
-            recordVerification: 'operator_attestation',
+            recordVerification: 'exact_release_identity_or_replit_marker',
           },
         });
       } catch (error: unknown) {
@@ -106,7 +106,7 @@ export function registerSourcePromotionRoutes(
         res.status(result.replayed && result.request.status !== 'running' ? 200 : 202).json({
           ...result,
           next: result.request.status === 'succeeded'
-            ? 'Use Replit Publish explicitly, then record the same exact SHA.'
+            ? 'Publish the exact SHA, then record matching Render release identity or an explicit Replit publication marker.'
             : 'Poll the request URL until it reaches a terminal state.',
           requestUrl: `/api/admin/source-promotion/requests/${result.request.requestId}`,
         });
@@ -131,16 +131,25 @@ export function registerSourcePromotionRoutes(
         ) {
           throw new SourcePromotionInputError('publicationReference must be a string.');
         }
+        if (
+          req.body.sourceContextSha256 !== undefined
+          && typeof req.body.sourceContextSha256 !== 'string'
+        ) {
+          throw new SourcePromotionInputError('sourceContextSha256 must be a string.');
+        }
         const result = await service.record({
           ...requestIdentity(req),
           sha: req.body.sha,
+          sourceContextSha256: req.body.sourceContextSha256,
           publicationReference: req.body.publicationReference,
         });
         res.status(result.replayed && result.request.status !== 'running' ? 200 : 202).json({
           ...result,
           verification: {
-            mode: 'operator_attestation',
-            note: 'Replit exposes no supported deployment API or deployment-ID callback. This records the authenticated operator attestation after explicit Publish.',
+            mode: result.request.verificationMode,
+            note: result.request.verificationMode === 'render_release_health'
+              ? 'The exact commit and source-context digest must match the pinned HTTPS Render release identity.'
+              : 'The exact Replit publication marker must match the validated candidate.',
           },
           requestUrl: `/api/admin/source-promotion/requests/${result.request.requestId}`,
         });

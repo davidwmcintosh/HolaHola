@@ -1,0 +1,3 @@
+ALTER TABLE "coordination_v2_preparation_reservations"
+  RENAME CONSTRAINT "coordination_v2_preparation_authority_shape"
+  TO "coordination_v2_preparation_authority_shape_validated";

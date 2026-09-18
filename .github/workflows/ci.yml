@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: ["**"]
 
-# The three test jobs are intentionally independent so a late failure in one
+# The test jobs are intentionally independent so a late failure in one
 # group does not wait for the other groups to finish. The `test` job below is
 # the single aggregate status to keep required branch protection unchanged.
 jobs:
@@ -196,12 +196,29 @@ jobs:
       - name: Run episode and North Star checks
         run: npm run test:ci:episodes
 
+  test-windows-powershell:
+    name: Windows PowerShell authority checks
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      - name: Run Coordinator V2 Windows reauthorization checks
+        shell: powershell
+        run: .\scripts\test-hola-coordinator-reauthorization.ps1
+
   test:
     if: ${{ always() }}
     needs:
       - test-unit
       - test-guards
       - test-episodes
+      - test-windows-powershell
     runs-on: ubuntu-latest
 
     steps:
@@ -210,14 +227,17 @@ jobs:
           UNIT_RESULT: ${{ needs.test-unit.result }}
           GUARDS_RESULT: ${{ needs.test-guards.result }}
           EPISODES_RESULT: ${{ needs.test-episodes.result }}
+          WINDOWS_POWERSHELL_RESULT: ${{ needs.test-windows-powershell.result }}
         run: |
           echo "[ci] unit tests: ${UNIT_RESULT}"
           echo "[ci] guard checks: ${GUARDS_RESULT}"
           echo "[ci] episode and North Star checks: ${EPISODES_RESULT}"
+          echo "[ci] Windows PowerShell authority checks: ${WINDOWS_POWERSHELL_RESULT}"
 
           if [[ "${UNIT_RESULT}" != "success" ||
                 "${GUARDS_RESULT}" != "success" ||
-                "${EPISODES_RESULT}" != "success" ]]; then
+                "${EPISODES_RESULT}" != "success" ||
+                "${WINDOWS_POWERSHELL_RESULT}" != "success" ]]; then
             echo "[ci] one or more test groups failed; see the named group job for the exact command"
             exit 1
           fi

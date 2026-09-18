@@ -1,0 +1,28 @@
+Checkpoint made
+15 minutes ago
+1453 - holding. This needs one of two things before it can move: either the target commit stops moving long enough to attest and cut over to a specific SHA, or someone explicitly names the commit that should be considered "the verified release" at cutover time. Let me know when either is true.
+
+10 minutes ago
+Clarifying release criteria
+
+Clarifying release criteria
+
+Worked for 1 minute
+about this one I really don't know. maybe it has to do with milestones 13, and 14 that we have been working on? - One thing I want your read on rather than guessing: is "Render redeploys on every push regardless of content" already something you're tracking? There's a dense run of specs in docs/superpowers/specs/ from this week specifically about promotion races and publication markers — this might already be scoped somewhere I haven't read, and I didn't want to file a guessed duplicate. New information, or already on someone's plate?
+
+8 minutes ago
+
+9 actions
+Milestones 13 and 14 don't cover this — they're not a duplicate, and this is genuinely new information.
+
+What M13/M14 actually are (docs/superpowers/plans/2026-09-12-coordinator-v2-control-plane-implementation-plan.md):
+
+M13 — "Publish implementation before Windows authority": promote the reviewed Coordinator V2 implementation, confirm main matches it, publish, verify health, then resolve the exact starting commit. It's a one-time release-and-verify sequence for that rollout.
+M14 — "Real-Windows one-command acceptance": actually run the Windows coordinator once end-to-end against a clean worktree at that published commit.
+Neither is about deploy cadence. I also checked the two related Render specs already in the queue: the Sep 16 one (render-source-promotion-evidence-design.md) re-verifies the release identity right before it appends authority — a narrow fix for one code path's race window, not a general freeze. The Sep 17 one (render-runtime-source-snapshot-design.md, today's) fixes a different problem entirely: Render's runtime container can't git-fetch its own source because it's missing git/ssh and the deploy key. Neither one stops an unrelated commit from superseding an already-verified release while someone's mid-decision.
+
+I also checked the three tasks that just appeared (#1457–#1459) — those restrict what a blocked task can do (DB branches, merges, GitHub sync). Different axis: the behavior I found affects any ordinary, legitimate, unblocked commit, which is what actually happened with my memory-only edit.
+
+So this is a real, untracked gap, not a duplicate. I filed it as task #1460: give whoever is attesting a release for a cutover a way to either freeze deploys during that window or pin an explicit "this exact commit is the attested release" marker that cutover logic reads instead of re-querying live status mid-decision.
+
+Task #1453 itself is unchanged — still on hold, still waiting on you for either a frozen commit or a named verified release. Nothing for me to act on there until you report one of those is true.

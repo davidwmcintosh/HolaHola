@@ -22,6 +22,7 @@ import { warmupNeonPool } from "./neon-db";
 import { runProxyStartupChecks } from "./services/proxy-startup-check";
 import { healthProbeGuardMiddleware } from "./health-probe-guard";
 import { createStartupReadinessGate } from "./startup-readiness-gate";
+import { releaseIdentityHandler } from "./services/release-identity";
 import {
   startSourceControlScheduler,
   stopSourceControlScheduler,
@@ -46,6 +47,7 @@ let unifiedWss: ReturnType<typeof setupUnifiedWebSocketHandler> | null = null;
 // from /health: deployment probes need a fast 200 while the process starts,
 // while the monitor must wait for the application to become fully usable.
 app.get('/health/readiness', startupReadiness.readinessHandler);
+app.get('/health/release', releaseIdentityHandler);
 
 // CRITICAL: Bind the HTTP port before awaited initialization begins. While the
 // application is starting, only the deployment probe endpoints are available;

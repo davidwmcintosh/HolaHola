@@ -743,7 +743,7 @@ Examples of when 'scene' is REQUIRED:
 
 STUDIO ZONES — use 'slot' to place images precisely:
 • No slot (default): vocabulary/standalone images — replaces all current images on the whiteboard (most common)
-• slot="scene": large background scene that sets the environment for a roleplay or lesson context. Replaces only the previous scene image. Use when you want to show WHERE the action is happening (a market, a café, an airport).
+ • slot="scene": Large background scene setting the environment. IMPORTANT: Images in this slot are treated as empty environments (landscapes, streets, rooms). They will NOT contain people or tutors unless you explicitly describe them in the scene parameter. Use this for "Where are we?" requests. Replaces only the previous scene image.
 • slot="context": small contextual detail shown in a side strip alongside the main scene. Use for supporting details like weather, time of day, or mood. Always include 'category' so same-type context images replace each other instead of stacking.
 
 CONTEXT CATEGORIES (slot="context" only):

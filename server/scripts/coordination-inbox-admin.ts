@@ -63,11 +63,15 @@ export async function runCoordinationInboxAdmin(argv = process.argv.slice(2)) {
 
 if (process.argv[1]?.includes('coordination-inbox-admin')) {
   runCoordinationInboxAdmin()
-    .then((result) => console.log(JSON.stringify(result, null, 2)))
+    .then((result) => {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`, () => {
+        process.exit(process.exitCode ?? 0);
+      });
+    })
     .catch((error) => {
       console.error(JSON.stringify({
         error: error instanceof Error ? error.message : String(error),
       }, null, 2));
-      process.exitCode = 1;
+      process.exit(1);
     });
 }

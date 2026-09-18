@@ -184,6 +184,33 @@ rules. Keep this file free of secrets, credentials, and private user data.
   separate external notification channel (Slack, email, a GitHub issue)
   for this; the calling agent's own turn is the notification.
 
+## Task Ownership — `unknown_stop`
+
+- `task-ownership-cli.ts` (and anything calling `TaskOwnershipService.probe()`)
+  can return `unknown_stop`. That is the probe working correctly, not a bug
+  and not an ambiguous permission question — it means ownership could not be
+  proven from verifiable evidence. Never answer a prompt asking to bypass it
+  with a bare "yes" / "proceed" / "go ahead in this checkout anyway." That is
+  exactly the "operator flag any agent could invoke" the design explicitly
+  forbids (`docs/superpowers/specs/2026-09-04-task-ownership-and-protected-git-inspection-design.md`,
+  `2026-09-10-task-agent-ownership-bootstrap-repair-design.md`).
+- The sanctioned unblock path is self-serve, not a human bypass in chat:
+  1. The blocked process runs `npx tsx server/scripts/task-ownership-cli.ts
+     begin --task-ref <ref> --actor <actor> --app-url $APP_URL` (actor is one
+     of `luca-replit` / `luca-claude-code` / `luca-gemini` / `luca-holahola`;
+     needs that actor's `COORDINATION_*_TOKEN`).
+  2. The founder approves the resulting challenge in the Task Ownership tab
+     of the admin Command Center
+     (`client/src/components/admin/TaskOwnershipTab.tsx`) — this requires a
+     real founder browser session; no token, CLI flag, or chat message can
+     substitute.
+  3. The same process runs `prove --receipt-id <id>` to turn the approval
+     into a verified `isolated_agent` receipt, then proceeds.
+- If a process asks whether to proceed despite `unknown_stop` instead of
+  running `begin` itself, that question is the gap to close, not a decision
+  to make in chat — point it at the three steps above rather than approving
+  or rejecting the bypass directly.
+
 ## Local dev / agent login (DEV_AUTH_BYPASS retired 2026-09-03)
 
 `DEV_AUTH_BYPASS` no longer exists — it used to skip auth entirely in local

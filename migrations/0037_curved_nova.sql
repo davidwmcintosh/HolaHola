@@ -1,0 +1,1 @@
+ALTER TABLE "coordination_runtime_claims" ADD CONSTRAINT "uq_coord_runtime_claim_id_epoch_constraint" UNIQUE("id","epoch");

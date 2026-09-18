@@ -11,12 +11,18 @@
 
 import { storage } from '../storage';
 import { lookupCanonicalConcept, type Language as CanonicalLanguage } from '../data/canonical-vocabulary';
+import { createHash } from 'node:crypto';
+
+export type ContentKind = 'environment' | 'character' | 'prop';
+export type PeoplePolicy = 'excluded' | 'explicit';
 
 export interface VocabImageRequest {
   word: string;
   language: string;
   description?: string;
   scene?: string;       // Rich generation prompt when no library image exists
+  slot?: 'scene' | 'context';
+  tutorName?: string;   // Live-session tutor identity; legacy seeders omit this
   translation?: string; // English meaning — used as generation hint for non-English words
   conversationId?: string;
   userId?: string;
@@ -53,6 +59,10 @@ export interface VocabImageResult {
   source: 'cache' | 'ai' | 'placeholder';
   word: string;
   description: string;
+  contentKind?: ContentKind;
+  peoplePolicy?: PeoplePolicy;
+  cacheKey?: string;
+  generatorRoute?: ContentKind;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -2684,8 +2694,9 @@ export async function resolveChapterCoverImage(
   const { generateVisual } = await import('./visual-content-service');
   const result = await generateVisual(scene, 'infographic');
 
+  const { cacheGeneratedVisual } = await import('./visual-content-service');
   try {
-    await storage.cacheImage({
+    await cacheGeneratedVisual(result, async () => { await storage.cacheImage({
       url: result.imageUrl,
       filename: `chapter_cover_${chapterType}.png`,
       mimeType: 'image/png',
@@ -2697,7 +2708,7 @@ export async function resolveChapterCoverImage(
       description: scene.slice(0, 200),
       language: 'shared',
       targetWord: conceptKey,
-    });
+    }); });
   } catch (_) { /* non-fatal */ }
 
   return { imageUrl: result.imageUrl, source: 'generated' };
@@ -2822,12 +2833,112 @@ export function isSceneConcept(word: string, scene?: string): boolean {
   return sceneWords.some(w => normalized.includes(w));
 }
 
+const EXPLICIT_PEOPLE_TERMS = [
+  'person', 'people', 'woman', 'women', 'man', 'men', 'boy', 'girl', 'child',
+  'children', 'crowd', 'crowded', 'shoppers', 'shopper', 'teacher', 'student',
+  'tutor', 'family', 'mother', 'father', 'brother', 'sister', 'couple',
+  'friends', 'friend', 'someone', 'pedestrian', 'pedestrians', 'vendor',
+  'vendors', 'waiter', 'waitress', 'daniela', 'cindy', 'sophie', 'anna',
+  'giulia', 'marco', 'luca',
+];
+
+const HUMAN_ACTION_TERMS = [
+  'running', 'walking', 'eating', 'holding', 'talking', 'standing', 'smiling',
+  'sitting', 'teaching', 'drinking', 'wearing', 'looking', 'dancing', 'playing',
+  'reading', 'cooking', 'pointing', 'waving', 'hugging', 'facing', 'run', 'walk',
+  'eat', 'hold', 'talk', 'stand', 'smile', 'sit', 'teach', 'drink', 'wear',
+  'dance', 'play', 'read', 'cook', 'point', 'wave', 'hug', 'face',
+];
+
+const ENVIRONMENT_TERMS = [
+  'street', 'streets', 'city', 'cities', 'landscape', 'background',
+  'living room', 'dining room', 'classroom', 'hotel room', 'room interior',
+  'inside a room',
+  'interior', 'exterior', 'plaza', 'square', 'road', 'avenue', 'alley',
+  'neighborhood', 'building', 'buildings', 'cafe', 'cafes', 'restaurant',
+  'airport', 'station', 'park', 'beach', 'forest', 'market', 'school',
+  'hospital', 'store', 'kitchen', 'bedroom', 'bathroom', 'office', 'garden',
+  'patio', 'countryside', 'desert', 'jungle', 'ocean', 'sunset', 'sunrise',
+  'calle', 'ciudad', 'paisaje', 'fondo', 'habitacion', 'plaza', 'carretera',
+  'edificio', 'edificios', 'restaurante', 'aeropuerto', 'estacion', 'parque',
+  'playa', 'bosque', 'mercado', 'escuela', 'hospital', 'tienda', 'cocina',
+  'dormitorio', 'bano', 'oficina', 'jardin',
+];
+
+const EXPLICIT_PROP_FRAMING_TERMS = [
+  'isolated', 'white background', 'plain background', 'single object',
+  'close-up', 'close up', 'still life', 'studio lighting',
+];
+
+function containsTerm(text: string, terms: string[]): boolean {
+  return terms.some(term => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text));
+}
+
+/**
+ * Determine what the image contains independently of whiteboard placement.
+ * Explicit people always win over environmental words (e.g. "Madrid street
+ * with shoppers"), while a setting description defaults to an empty
+ * environment rather than injecting the language's default tutor.
+ */
+export function classifyImageIntent(
+  word: string,
+  scene?: string,
+  slot?: 'scene' | 'context',
+  tutorName?: string,
+): { contentKind: ContentKind; peoplePolicy: PeoplePolicy } {
+  const text = `${word} ${scene ?? ''}`.trim();
+  const activeTutorIsNamed = Boolean(
+    tutorName?.trim() &&
+    containsTerm(text, [tutorName.trim().split(/\s+/)[0]]),
+  );
+  if (
+    activeTutorIsNamed ||
+    containsTerm(text, EXPLICIT_PEOPLE_TERMS) ||
+    containsTerm(text, HUMAN_ACTION_TERMS)
+  ) {
+    return { contentKind: 'character', peoplePolicy: 'explicit' };
+  }
+  if (
+    slot !== 'scene' &&
+    scene &&
+    containsTerm(scene, EXPLICIT_PROP_FRAMING_TERMS)
+  ) {
+    return { contentKind: 'prop', peoplePolicy: 'excluded' };
+  }
+  if (
+    slot === 'scene' ||
+    containsTerm(`${word} ${scene ?? ''}`, ENVIRONMENT_TERMS) ||
+    (!scene && isSceneConcept(word))
+  ) {
+    return { contentKind: 'environment', peoplePolicy: 'excluded' };
+  }
+  return { contentKind: 'prop', peoplePolicy: 'excluded' };
+}
+
+export function generateIntentCacheKey(
+  word: string,
+  language: string,
+  contentKind: ContentKind,
+  scene?: string,
+  meaning?: string,
+  tutorName?: string,
+): string {
+  const intent = [scene ?? '', meaning ?? '', contentKind === 'character' ? (tutorName ?? 'legacy') : '']
+    .join('\u0000');
+  const digest = createHash('sha256').update(intent).digest('hex').slice(0, 16);
+  return `vocab_${normalizeWord(language)}_${normalizeWord(word)}_${contentKind}_${digest}`;
+}
+
 // ── main resolver ─────────────────────────────────────────────────────────────
 
 export async function resolveVocabularyImage(
   request: VocabImageRequest,
 ): Promise<VocabImageResult> {
-  const { word, language, description = word, scene, translation, userId, seederMode, libraryOnly, meaning } = request;
+  const {
+    word, language, description = word, scene, slot, tutorName,
+    translation, userId, seederMode, libraryOnly, meaning,
+  } = request;
+  const hasCustomScene = Boolean(scene?.trim());
 
   // ── TOP-LEVEL seeder guard ────────────────────────────────────────────────
   // During batch seeding, non-Spanish words MUST NOT trigger DALL-E.
@@ -2882,8 +2993,9 @@ export async function resolveVocabularyImage(
   // Check the canonical registry FIRST so that any word defined in the
   // 27-unit canonical vocabulary immediately resolves to its shared concept
   // key — no need for the word to also appear in CONCEPT_KEY_MAP.
-  let conceptKey: string | null =
-    lookupCanonicalConcept(word, language as CanonicalLanguage) ?? null;
+  let conceptKey: string | null = hasCustomScene
+    ? null
+    : lookupCanonicalConcept(word, language as CanonicalLanguage) ?? null;
   // Track whether the concept key came from the canonical registry so the
   // enforcement guard below can prevent generic auto-generation for these words.
   let isCanonicalKey = false;
@@ -2896,7 +3008,7 @@ export async function resolveVocabularyImage(
   // Check if this word maps to a shared cross-language concept key
   const normalizedForConcept = normalizeWord(word);
   let strippedBase: string | null = null;
-  if (!conceptKey) {
+  if (!conceptKey && !hasCustomScene) {
     // Try direct lookup first; fall back to pronoun-stripped form if no hit.
     conceptKey = CONCEPT_KEY_MAP[normalizedForConcept] ?? null;
     if (!conceptKey) {
@@ -3041,10 +3153,10 @@ export async function resolveVocabularyImage(
     }
 
     try {
-      const { generateVisual } = await import('./visual-content-service');
+      const { generateVisual, shouldCacheVisualResult } = await import('./visual-content-service');
       const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, undefined, language);
 
-      try {
+      if (shouldCacheVisualResult(result)) try {
         await storage.cacheImage({
           url: result.imageUrl,
           filename: `vocab_concept_${conceptKey}_${Date.now()}.jpg`,
@@ -3082,20 +3194,6 @@ export async function resolveVocabularyImage(
   const primaryKey = generateCacheKey(word, language) + meaningSlug;
   console.log(`[VocabImage] Resolving "${word}" (${language})${meaning ? ` [sense: ${meaning}]` : ''}, primary key: ${primaryKey}`);
 
-  // ── 1. Library cache lookup with fallback variants ───────────────────────
-  // When a meaning is scoped, only check the exact scoped key — never fall back
-  // to the generic ambiguous key, which would return the wrong sense image.
-  const keysToTry = meaning ? [primaryKey] : getFallbackCacheKeys(word, language);
-  for (const key of keysToTry) {
-    const cached = await storage.getCachedStockImage(key);
-    if (cached?.url) {
-      const matchType = key === primaryKey ? 'exact' : 'fallback';
-      console.log(`[VocabImage] Cache hit (${matchType}) for "${word}" → key "${key}"`);
-      await storage.incrementImageUsage(cached.id);
-      return { imageUrl: cached.url, source: 'cache', word, description };
-    }
-  }
-
   // ── 1b. If no scene was passed by the caller, look up SCENE_OVERRIDES automatically.
   // On-demand generation (e.g. textbook viewing) doesn't pass a scene, so without this
   // a cache miss would produce a generic random-person image from just the word text.
@@ -3112,6 +3210,31 @@ export async function resolveVocabularyImage(
         console.log(`[VocabImage] Scene override auto-applied for "${word}" (${language})`);
       }
     } catch (_) { /* scene overrides unavailable — proceed with word-based generation */ }
+  }
+
+  const intent = classifyImageIntent(word, effectiveScene, slot, tutorName);
+  const cacheKey = intent.contentKind === 'prop'
+    ? primaryKey
+    : generateIntentCacheKey(word, language, intent.contentKind, effectiveScene, meaning, tutorName);
+  const keysToTry = intent.contentKind === 'prop'
+    ? (meaning ? [primaryKey] : getFallbackCacheKeys(word, language))
+    : [cacheKey];
+  console.log(
+    `[VocabImageTelemetry] kind=${intent.contentKind} peoplePolicy=${intent.peoplePolicy} ` +
+    `cacheKey=${cacheKey} cacheLookup=${keysToTry.length}`,
+  );
+  for (const key of keysToTry) {
+    const cached = await storage.getCachedStockImage(key);
+    if (cached?.url) {
+      const matchType = key === primaryKey ? 'exact' : 'intent';
+      console.log(`[VocabImage] Cache hit (${matchType}) for "${word}" → "${key}"`);
+      await storage.incrementImageUsage(cached.id);
+      return {
+        imageUrl: cached.url, source: 'cache', word, description,
+        contentKind: intent.contentKind, peoplePolicy: intent.peoplePolicy,
+        cacheKey, generatorRoute: intent.contentKind,
+      };
+    }
   }
 
   // ── 1c. Function/grammar word check ─────────────────────────────────────
@@ -3140,7 +3263,10 @@ export async function resolveVocabularyImage(
           targetWord: word,
         });
       } catch (_) { /* cache save failure is non-fatal */ }
-      return { imageUrl: svgUrl, source: 'ai', word, description: displayTranslation };
+      return {
+        imageUrl: svgUrl, source: 'ai', word, description: displayTranslation,
+        contentKind: 'prop', peoplePolicy: 'excluded', cacheKey, generatorRoute: 'prop',
+      };
     }
   }
 
@@ -3165,15 +3291,25 @@ export async function resolveVocabularyImage(
   const generationDescription = meaning
     ? `${description} — specifically depicting: ${meaning}`
     : description;
-  const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
-  const conceptForGeneration = buildGenerationConcept(word, effectiveScene, generationDescription, translation, language, characterIntro);
-  const generationType = isSceneConcept(word, conceptForGeneration) ? 'infographic' : 'image';
+  const legacyCharacterIntro = !tutorName && intent.contentKind === 'character' && language
+    ? LANGUAGE_CHARACTER_INTROS[language]
+    : undefined;
+  const characterIdentity = tutorName && intent.contentKind === 'character'
+    ? `${tutorName}, the active language tutor,`
+    : legacyCharacterIntro;
+  const conceptForGeneration = buildGenerationConcept(
+    word, effectiveScene, generationDescription, translation, language, characterIdentity,
+    Boolean(tutorName && intent.contentKind === 'character'),
+  );
+  const generationType = intent.contentKind === 'environment'
+    ? 'environment'
+    : intent.contentKind === 'character' ? 'infographic' : 'image';
 
   // Resolve anchor image URL for scene generations — gives gpt-image-1 a visual
   // reference for the character's face and illustration style.  Only applied to
   // scene/character images; prop images don't need character consistency.
   let anchorImageUrl: string | undefined;
-  if (generationType === 'infographic' && language) {
+  if (generationType === 'infographic' && language && !tutorName) {
     const anchorKey = LANGUAGE_ANCHOR_CACHE_KEYS[language];
     if (anchorKey) {
       try {
@@ -3190,7 +3326,10 @@ export async function resolveVocabularyImage(
     }
   }
 
-  console.log(`[VocabImage] Cache miss — generating (${generationType}${anchorImageUrl ? ', anchored' : ''}) for: "${conceptForGeneration}"`);
+  console.log(
+    `[VocabImageTelemetry] kind=${intent.contentKind} peoplePolicy=${intent.peoplePolicy} ` +
+    `generator=${generationType} cacheKey=${cacheKey} cache=miss tutor=${tutorName ?? 'none'}`,
+  );
 
   if (libraryOnly) {
     console.log(`[VocabImage] Library-only mode — skipping DALL-E for "${word}"`);
@@ -3198,17 +3337,20 @@ export async function resolveVocabularyImage(
   }
 
   try {
-    const { generateVisual } = await import('./visual-content-service');
-    const result = await generateVisual(conceptForGeneration, generationType, undefined, undefined, anchorImageUrl);
+    const { generateVisual, shouldCacheVisualResult } = await import('./visual-content-service');
+    const result = await generateVisual(
+      conceptForGeneration, generationType, undefined, undefined, anchorImageUrl, language,
+      intent.contentKind, intent.peoplePolicy,
+    );
 
-    try {
+    if (shouldCacheVisualResult(result)) try {
       await storage.cacheImage({
         url: result.imageUrl,
-        filename: `vocab_ai_${primaryKey}_${Date.now()}.jpg`,
+        filename: `vocab_ai_${cacheKey}_${Date.now()}.jpg`,
         mimeType: 'image/jpeg',
         mediaType: 'image',
         imageSource: 'ai_generated',
-        searchQuery: primaryKey,
+        searchQuery: cacheKey,
         uploadedBy: userId ?? null,
         title: word,
         description: generationDescription,
@@ -3216,19 +3358,27 @@ export async function resolveVocabularyImage(
         language,
         targetWord: word,
       });
-      console.log(`[VocabImage] Generated image saved to cache as "${primaryKey}"`);
+      console.log(`[VocabImage] Generated image saved to cache as "${cacheKey}"`);
     } catch (saveErr: any) {
       console.warn('[VocabImage] Cache save skipped:', saveErr.message);
     }
 
-    return { imageUrl: result.imageUrl, source: 'ai', word, description };
+    return {
+      imageUrl: result.imageUrl, source: 'ai', word, description,
+      contentKind: intent.contentKind, peoplePolicy: intent.peoplePolicy,
+      cacheKey, generatorRoute: intent.contentKind,
+    };
   } catch (genErr: any) {
     console.error('[VocabImage] DALL-E generation failed:', genErr.message);
   }
 
   // ── 3. Placeholder fallback ──────────────────────────────────────────────
   console.log(`[VocabImage] Using placeholder for "${word}"`);
-  return { imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description };
+    return {
+      imageUrl: getPlaceholderUrl(word), source: 'placeholder', word, description,
+      contentKind: intent.contentKind, peoplePolicy: intent.peoplePolicy,
+      cacheKey, generatorRoute: intent.contentKind,
+    };
 }
 
 /**
@@ -3270,6 +3420,7 @@ export function buildGenerationConcept(
   translation?: string,
   language?: string,
   characterIntro?: string,
+  forceCharacterIdentity = false,
 ): string {
   // Derive the core concept from the scene override, translation, description, or word itself
   let concept = '';
@@ -3307,6 +3458,11 @@ export function buildGenerationConcept(
   // NOTE: Static prop descriptions (e.g. "a tall glass of horchata with ice...") 
   // that are intentionally character-free will also return true from looksLikeActionOrPhrase
   // (many words), so those should be phrased as PROP descriptions and tested carefully.
+  if (characterIntro && concept && forceCharacterIdentity) {
+    const alreadyUsesIdentity = concept.toLowerCase().includes(characterIntro.split(',')[0].toLowerCase());
+    return alreadyUsesIdentity ? concept : `${characterIntro} ${concept}`;
+  }
+
   if (characterIntro && concept && looksLikeActionOrPhrase(concept)) {
     // Only inject a character if the scene is a CHARACTER ACTION, not a PROP/still-life:
     //   PROP: starts with "a ", "an ", "the " → it's a noun phrase describing an object.
@@ -3420,7 +3576,7 @@ export async function previewRefetchImage(request: {
   const generationType = isSceneConcept(effectiveWord, concept) ? 'infographic' : 'image';
 
   const { generateVisual } = await import('./visual-content-service');
-  const result = await generateVisual(concept, generationType);
+  const result = await generateVisual(concept, generationType, undefined, undefined, undefined, language);
 
   // Archive to permanent storage so URL doesn't expire during review
   const { archiveImageToPermanentStorage } = await import('./image-storage');

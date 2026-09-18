@@ -1,0 +1,7 @@
+antigravity_gate3_path_missing
+At C:\Users\David\HolaHola-antigravity\scripts\antigravity-gate3.ps1:33 char:5
++     throw "antigravity_gate3_$Code"
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (antigravity_gate3_path_missing:String) [], RuntimeException
+    + FullyQualifiedErrorId : antigravity_gate3_path_missing
+ 

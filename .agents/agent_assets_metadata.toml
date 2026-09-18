@@ -186,3 +186,129 @@ mtime_ms = 1788984629051
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/9a4927a3-c31f-4edc-9a5a-09889285f6c0/919e11f0-a2e7-4e2b-9400-0d9468d2cb4d"
 storage_version_token = "1788984633897521"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "DDctpFYZb2oxlazgTp2ow"
+uri = "file://attached_assets/luca-product-runtime-onboarding-draft.md"
+type = "text"
+title = "Luca — Unified Multi-LLM Agent Coordinator"
+description = "Exact review copy of shared-spec revision 6bf8db26-d802-41ae-9e14-655d3e33585f. Hybrid product vision and provider-neutral runtime onboarding contract."
+logical_id = "1f84e418-3785-4873-8b3a-e0ab63ded56b"
+content_hash = "sha256:971ae04c08acb1caa3b396a6eb607b41a36f4142cb7f1d44d5586b740e841e4e"
+size = 16363
+mtime_ms = 1789148663560
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/1f84e418-3785-4873-8b3a-e0ab63ded56b/5617301e-b8ce-4e62-8d7a-5859b2480f5c"
+storage_version_token = "1789148664733921"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "IImFOzHUUmvQH7aSY3ieH"
+uri = "file://attached_assets/publish-coordinator-v2-runtime.txt"
+type = "text"
+title = "Publish Coordinator V2 runtime"
+description = "Founder-authenticated browser-console command for the verified source promotion. Publishes the Node 20.20.0 and tsx 4.23.1 runtime release only; it grants no host or execution authority."
+logical_id = "22ac878c-b83d-4b6c-b846-ef2c1cfef999"
+content_hash = "sha256:c627c7ca890d359a20d5e90c69b35196aacd3f7ac9781c36bbecb0b28faf505e"
+size = 24413
+mtime_ms = 1789535092573
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/22ac878c-b83d-4b6c-b846-ef2c1cfef999/fb20f184-88c6-44d4-9624-9fe24fdc3dba"
+storage_version_token = "1789535104984874"
+content_type = "text/plain"
+
+[[outputs]]
+id = "xOpJR7kcDtBudH7qrHLY4"
+uri = "file://attached_assets/publish-coordinator-v2-runtime-896222a.txt"
+type = "text"
+title = "Coordinator V2 runtime publication — source 896222a"
+description = "Founder-authenticated one-shot publication command with verified current source-promotion ID a1d7c139. No Windows, host, task, lease, or execution authority."
+logical_id = "c5e03922-5efb-4517-aa15-f13c1e689d55"
+content_hash = "sha256:936bb96c0b05a971d14b9dfd0fbddbb37b8c68014160b41e1c7cf009eec854a1"
+size = 24413
+mtime_ms = 1789542356436
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/c5e03922-5efb-4517-aa15-f13c1e689d55/da57c68d-df67-42da-9b06-d3b2c45d30c9"
+storage_version_token = "1789542357393201"
+content_type = "text/plain"
+
+[[outputs]]
+id = "wsjOWRsDiGEDC0qRBRDxm"
+uri = "file://docs/superpowers/specs/2026-09-14-coordinator-v2-windows-runtime-bootstrap-design.md"
+type = "text"
+title = "Coordinator V2 Windows Runtime Bootstrap Design"
+description = "Approved-design candidate with the content-addressed artifact cardinality correction. Review the Artifact storage and Content-addressed artifact cardinality correction sections."
+logical_id = "99614923-6098-4677-bf30-a349ed67bc52"
+content_hash = "sha256:202b4c638be3cc01a28ad0c766c75ea8274b2013ffc59e7195b6102e4ce2e60d"
+size = 32714
+mtime_ms = 1789544380285
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/99614923-6098-4677-bf30-a349ed67bc52/059ad152-f6b7-42f9-83bc-695bacf62817"
+storage_version_token = "1789544488865832"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "fi78aki1uJ0qGGR_GWD1w"
+uri = "file://attached_assets/publish-coordinator-v2-runtime-4b536b99.txt"
+type = "text"
+title = "Authorized Coordinator V2 runtime publication"
+description = "One founder-console POST for the independently verified source promotion. Running the command consumes the single authorization; do not retry."
+logical_id = "13547844-6022-4c26-b0fd-83d9c75dfa95"
+content_hash = "sha256:da1c5b08a25b83a73f5ece748b4ae3fd9ec9d8fbf75c7247f8b0fe451eb2c815"
+size = 24413
+mtime_ms = 1789569125951
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/13547844-6022-4c26-b0fd-83d9c75dfa95/d459aa3f-8d6e-4c62-92f2-249ab7579d58"
+storage_version_token = "1789569137247161"
+content_type = "text/plain"
+
+[[outputs]]
+id = "5grcYxxrO_teKhEZztTqd"
+uri = "file://attached_assets/founder-runtime-one-shot-corrected.txt"
+type = "text"
+title = "Corrected founder runtime one-shot"
+description = "Copy the entire one-line command into the signed-in getholahola.com browser console and run it exactly once."
+logical_id = "7aa39ed2-d7bc-4cad-81c8-a9efd3344aa7"
+content_hash = "sha256:471e8aa79077a2371e1761b6dacfbc1d9ce20a573863e697e83a5bc5245cd44e"
+size = 5914
+mtime_ms = 1789579537100
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/7aa39ed2-d7bc-4cad-81c8-a9efd3344aa7/00057210-171a-44dd-ae5b-95f55debf811"
+storage_version_token = "1789579538367523"
+content_type = "text/plain"
+
+[[outputs]]
+id = "_gcS37NQ_AwSwCa1jN2Jo"
+uri = "file://exports/m13-runtime-publication-command.txt"
+type = "text"
+title = "M13 founder runtime publication command"
+description = "Exact browser-console command for source promotion f1cc0b1a-2581-4b70-a3d1-b7b5414d082a. Run once while signed into getholahola.com as founder."
+logical_id = "3823afa6-c449-4420-be3c-37b4c4d45ae5"
+content_hash = "sha256:9126dbc0ef88c788a076df44582491277510c2fc0e36cb97b8f4d1369bee6150"
+size = 25128
+mtime_ms = 1789621378067
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/3823afa6-c449-4420-be3c-37b4c4d45ae5/27a95e15-8ede-415e-9136-5ccb1ee52448"
+storage_version_token = "1789621396054911"
+content_type = "text/plain"
+
+[[outputs]]
+id = "XgypGwF8I0UyGgnRthNNY"
+uri = "file://.local/founder-runtime-publication-command.html"
+type = "text"
+title = "Founder runtime publication command"
+description = "Copy-only page for the one authorized production request bound to source promotion 4b7d09ec-9e3b-400f-a1cc-156dbd4ce5fa."
+logical_id = "54e2f1a0-926e-4770-a53d-f05163984748"
+content_hash = "sha256:05e27fa68fa8671cb1a11bda00a7bd26356c93186e1d8574cc493ef57a1e40d4"
+size = 25393
+mtime_ms = 1789663435723
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/54e2f1a0-926e-4770-a53d-f05163984748/66b3867d-68f7-4811-a704-7201f3ab2b92"
+storage_version_token = "1789663436776147"
+content_type = "text/html"
+
+[[outputs]]
+id = "KJHg1oTXc5h8Fuy9JK-eK"
+uri = "file://.local/founder-runtime-publication-command.txt"
+type = "text"
+title = "Plain-text founder runtime publication command"
+description = "One line beginning with fetch('/api/. Open as plain text and copy the entire line into the production browser console exactly once."
+logical_id = "c9616106-1661-4226-8753-00210c3b4565"
+content_hash = "sha256:aa4fdcce541d639e6a5d22640c90c29eab7c5d95378b29b33359a9286bc67f9b"
+size = 23474
+mtime_ms = 1789666298143
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/c9616106-1661-4226-8753-00210c3b4565/e05658f3-338e-4f36-8257-6c37ee50beb3"
+storage_version_token = "1789666427459807"
+content_type = "text/plain"

@@ -119,6 +119,16 @@ services:
       - key: REPLIT_AGENT_TOKEN
         sync: false
 
+      # ── Protected GitHub source snapshots (GitHub App installation auth —
+      #    same narrowly-scoped App used by the Replit-side source-control
+      #    coordinator; tokens are minted per request and expire within the hour) ──
+      - key: HOLAHOLA_GITHUB_APP_ID
+        sync: false
+      - key: HOLAHOLA_GITHUB_APP_INSTALLATION_ID
+        sync: false
+      - key: HOLAHOLA_GITHUB_APP_PRIVATE_KEY
+        sync: false
+
       # ── Coordination ledger (agent-to-agent auth — server validates
       # x-coordination-token against these; each caller only holds its own) ──
       - key: COORDINATION_LUCA_REPLIT_TOKEN

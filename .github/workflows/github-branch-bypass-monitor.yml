@@ -1,0 +1,70 @@
+name: GitHub branch bypass monitor
+
+# Scheduled and independent of push/PR activity on purpose: the ruleset
+# bypass_actors list and classic branch protection on `main` can drift from a
+# direct GitHub UI action that never touches a commit (e.g. someone editing
+# the ruleset by hand), so a per-PR check would miss that class of drift
+# entirely. See server/scripts/test-github-branch-bypass-guard.ts and
+# .agents/memory/github-branch-protection-layering.md for the incident this
+# guards against.
+#
+# Not part of the required "test" status check (see ci.yml) — this verifies
+# live GitHub account state, not the code in any given PR, so it runs on its
+# own schedule instead of gating merges.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: github-branch-bypass-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Verify bypass surface has not drifted
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Validate package lock registry URLs
+        run: npm run test:package-lock-registry
+
+      - name: Install dependencies
+        # `tsx` is a development dependency; the check must use this
+        # checked-in toolchain instead of letting npx download an unrelated
+        # temporary version.
+        run: npm ci --include=dev
+
+      - name: Verify local test runtime dependencies
+        run: test -x node_modules/.bin/tsx
+
+      - name: Run branch bypass surface guard
+        env:
+          # RULESET_MONITOR_TOKEN_GITHUB — same name in this Actions secret
+          # store and in the script's process.env read, so there is no name
+          # mapping to track here (unlike ACTIONS_DISPATCH_TOKEN below, whose
+          # env var conventionally carries a "GITHUB_" prefix that Actions
+          # secret names are not allowed to start with).
+          #
+          # This is a dedicated fine-grained PAT scoped to only this repo
+          # with only the "Administration: Read and write" permission — not
+          # the broad GITHUB_ACTIONS_DISPATCH_TOKEN used elsewhere (e.g.
+          # cross-tool-promote.ts). See the credential note in
+          # server/scripts/test-github-branch-bypass-guard.ts for why no
+          # narrower (read-only) tier is possible for this specific check.
+          RULESET_MONITOR_TOKEN_GITHUB: ${{ secrets.RULESET_MONITOR_TOKEN_GITHUB }}
+        run: |
+          npx tsx server/scripts/test-github-branch-bypass-guard.ts
+          npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check

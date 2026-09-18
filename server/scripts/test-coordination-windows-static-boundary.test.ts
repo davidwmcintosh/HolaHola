@@ -1,0 +1,154 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const source = readFileSync("scripts/hola-coordinator.ps1", "utf8");
+const factorySource = readFileSync("server/scripts/coordination-v2-http-factory.ts", "utf8");
+
+function extractBoundary(script: string, name: string): string {
+  const begin = `# BEGIN COORDINATION_${name}_BOUNDARY`;
+  const end = `# END COORDINATION_${name}_BOUNDARY`;
+  const start = script.indexOf(begin);
+  const finish = script.indexOf(end, start + begin.length);
+  assert.ok(start >= 0 && finish > start, `${name} boundary markers must be present and ordered`);
+  return script.slice(start, finish);
+}
+
+function extractFunction(script: string, name: string, nextName: string): string {
+  const start = script.indexOf(`function ${name}`);
+  const finish = script.indexOf(`function ${nextName}`, start + name.length);
+  assert.ok(start >= 0 && finish > start, `${name} and ${nextName} must be present and ordered`);
+  return script.slice(start, finish);
+}
+
+function assertStaticBoundaryProof(script: string): void {
+  assert.match(script, /Set-StrictMode\s+-Version\s+2\.0/);
+  assert.match(script, /DataProtectionScope\]::CurrentUser/);
+
+  const invoke = extractBoundary(script, "INVOKE");
+  assert.match(invoke, /function\s+Invoke-HolaCoordinator/);
+  assert.match(invoke, /ValidatePattern\('\^\[1-9\]\[0-9\]\*\$'\)/);
+  assert.match(invoke, /ValidateSet\('text',\s*'json'\)/);
+  assert.doesNotMatch(invoke, /ProtectedData|DataProtectionScope|CurrentUserScope/i);
+  assert.doesNotMatch(invoke, /credential|secret|token|private[-_ ]?key/i);
+  assert.doesNotMatch(invoke, /Register-HolaCoordinatorHost|host-enrollment|Invoke-RestMethod/i);
+  assert.doesNotMatch(invoke, /Write-DpapiBase64Atomic|Start-Process|New-Item/i);
+  assert.match(invoke, /ApprovedNode/);
+  assert.match(invoke, /ApprovedTsx/);
+  assert.match(invoke, /CoordinatorScript/);
+  assert.match(invoke, /ApprovedWorktree/);
+  assert.match(invoke, /@\(ApprovedTsx,\s*\$CoordinatorScript|'--task-ref'/);
+  assert.match(invoke, /Test-SafeCliOutput/);
+  assert.match(invoke, /host_child_unclassified_exit/);
+  assert.match(invoke, /executableRole\s*=\s*'coordinator_cli'/);
+  assert.match(invoke, /exitStatus\s*=\s*\$observedChildExit/);
+  assert.match(invoke, /if\s*\(\$observedChildExit\s*-eq\s*0\)\s*\{\s*\$childExit\s*=\s*70\s*\}/);
+  assert.doesNotMatch(invoke, /\$childExit\s*-ne\s*0\s*-and\s*-not\s*\(Test-SafeCliOutput/);
+  assert.match(invoke, /ConvertTo-Json\s+-Compress/);
+  assert.match(invoke, /2>\$null/);
+  assert.doesNotMatch(invoke, /stderr\s*=/i);
+  assert.doesNotMatch(invoke, /--import/);
+  assert.doesNotMatch(invoke, /\$Mode\b|\$Url\b|\$Provider\b|\$Credential\b/);
+  assert.doesNotMatch(invoke, /COORDINATION_RUNTIME_BOOTSTRAP_TOKEN/);
+  assert.doesNotMatch(invoke, /--token|--secret|--password|--credential/i);
+  assert.doesNotMatch(invoke, /Register-ScheduledTask|while\s*\(/i);
+  assert.match(script, /ConvertFrom-Json/);
+
+  const register = extractBoundary(script, "REGISTER");
+  assert.match(register, /function\s+Register-HolaCoordinatorHost/);
+  assert.match(register, /\$CurrentUserScope/);
+  assert.match(register, /ProtectedData\]::Protect\s*\(/);
+  assert.equal((register.match(/ProtectedData\]::Protect\s*\(/g) ?? []).length, 4,
+    "only retry, private-key, confirmed-request, and host-material custody may call DPAPI Protect");
+  assert.equal((register.match(/ProtectedData\]::Unprotect\s*\(/g) ?? []).length, 1,
+    "only enrollment retry recovery may call DPAPI Unprotect");
+  assert.doesNotMatch(register, /DataProtectionScope\]::(?:LocalMachine|Machine)/i);
+  assert.match(register, /Set-Clipboard\s+-Value\s+\$null/);
+  assert.doesNotMatch(register, /Out-File|Write-Host|Write-Output|Console\./i);
+  assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\$privatePath\s+-Bytes\s+\$protected/);
+  assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\$requestPath\s+-Bytes\s+\$requestCipher/);
+  assert.match(register, /Write-DpapiBase64Atomic\s+-Path\s+\$materialPath\s+-Bytes\s+\$materialCipher/);
+  assert.doesNotMatch(register, /manual|copy|credential output|plaintext/i);
+}
+
+test("PowerShell function-scoped boundary is explicit and narrow", () => {
+  assertStaticBoundaryProof(source);
+});
+
+test("PowerShell 5.1-safe CLI payload validation rejects every non-object shape", () => {
+  assert.match(
+    source,
+    /\$isInvalidPayload\s*=\s*\(\$null\s*-eq\s*\$payload\)\s*-or\s*\(\$payload\s*-is\s*\[System\.Array\]\)\s*-or\s*\(\$payload\s*-isnot\s*\[PSCustomObject\]\)/,
+  );
+  assert.match(source, /if\s*\(\$isInvalidPayload\)\s*\{\s*return\s+\$false\s*\}/);
+  assert.doesNotMatch(source, /\n\s*-or\s+\$payload\s+-isnot\s+\[PSCustomObject\]/);
+});
+
+test("enrollment preflight is independent of post-enrollment runtime artifacts", () => {
+  const beforeAssertions = source.slice(0, source.indexOf("function Assert-EnrollmentHost"));
+  assert.doesNotMatch(beforeAssertions, /\$ApprovedNode\s*=\s*Resolve-ApprovedNode/);
+  assert.equal(
+    (source.match(/Resolve-ApprovedNode/g) ?? []).length,
+    2,
+    "Node resolution must appear only in its function declaration and the execution-only call",
+  );
+
+  const enrollment = extractFunction(source, "Assert-EnrollmentHost", "Assert-ExecutionHost");
+  assert.match(enrollment, /Assert-ApprovedRepository/);
+  assert.match(enrollment, /Assert-ApprovedDigest\s+-Path\s+\$LauncherPath/);
+  assert.match(enrollment, /Assert-ApprovedDigest\s+-Path\s+\$CoordinatorScript/);
+  assert.doesNotMatch(enrollment, /ApprovedNode|ApprovedTsx|Resolve-ApprovedNode/);
+  assert.doesNotMatch(enrollment, /Assert-ApprovedSignatureAndDigest/);
+
+  const execution = extractFunction(source, "Assert-ExecutionHost", "Invoke-HolaCoordinator");
+  assert.match(execution, /Assert-EnrollmentHost/);
+  assert.match(execution, /\$script:ApprovedNode\s*=\s*Resolve-ApprovedNode/);
+  assert.match(execution, /approved_node_missing/);
+  assert.match(execution, /approved_tsx_missing/);
+  assert.match(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$ApprovedNode/);
+  assert.doesNotMatch(execution, /Assert-ApprovedSignatureAndDigest\s+-Path\s+\$(?:ApprovedTsx|CoordinatorScript|LauncherPath)/);
+  assert.match(execution, /Assert-InstalledArtifactMembership\s+-Manifest\s+\$manifest/);
+  assert.match(execution, /Assert-SourceMemberHash\s+-Manifest\s+\$manifest/);
+
+  const invoke = extractBoundary(source, "INVOKE");
+  const register = extractBoundary(source, "REGISTER");
+  assert.match(invoke, /Assert-ExecutionHost/);
+  assert.match(register, /Assert-EnrollmentHost/);
+  assert.doesNotMatch(register, /Assert-ExecutionHost|Resolve-ApprovedNode|ApprovedTsx/);
+  assert.doesNotMatch(register, /promot|acknowledg|session creation/i);
+});
+
+test("static proof does not prove Windows/DPAPI execution", () => {
+  assert.match(source, /windows_required/);
+  assert.match(source, /dpapi_current_user_unavailable/);
+  assert.match(source, /ProtectedData\]::Protect\s*\(/);
+  assert.match(source, /DataProtectionScope\]::CurrentUser/);
+});
+
+test("Windows ACL inspection translates owner and ACE identities to SIDs and fails closed", () => {
+  assert.match(factorySource, /WindowsIdentity\]\:\:GetCurrent\(\)\.User/);
+  assert.match(factorySource, /NTAccount/);
+  assert.match(factorySource, /Translate\(\[Security\.Principal\.SecurityIdentifier\]\)/);
+  assert.match(factorySource, /S-1-5-18/);
+  assert.match(factorySource, /S-1-5-32-544/);
+  assert.match(factorySource, /S-1-1-0/);
+  assert.match(factorySource, /reparseFree/);
+  assert.match(factorySource, /return \{ exists: false, reparseFree: false, aclSafe: false \}/);
+  assert.doesNotMatch(factorySource, /aclSafe:\s*true/);
+});
+
+test("boundary mutation self-check rejects ProtectedData in Invoke", () => {
+  const mutated = source.replace(
+    "    Assert-ExecutionHost\n    $arguments =",
+    "    [Security.Cryptography.ProtectedData]::Protect($bytes, $null, $CurrentUserScope)\n    Assert-ExecutionHost\n    $arguments =",
+  );
+  assert.notEqual(mutated, source);
+  assert.throws(() => assertStaticBoundaryProof(mutated));
+});
+
+test("boundary mutation self-check rejects weakened Register custody", () => {
+  const mutated = source
+    .replace(/\$CurrentUserScope/g, "[System.Security.Cryptography.DataProtectionScope]::LocalMachine")
+    .replace(/ProtectedData\]::Protect/g, "NotProtectedData]::Protect");
+  assert.throws(() => assertStaticBoundaryProof(mutated));
+});

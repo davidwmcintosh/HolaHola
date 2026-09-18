@@ -1,9 +1,61 @@
-# Direct coordination clients
+# Coordination clients
+
+## Coordinator V2 operator path
+
+For a founder-approved policy, active operator grant, compatible enrolled host,
+and prepared same-user Windows credential, the complete Coordinator V2
+lifecycle starts with:
+
+```powershell
+Invoke-HolaCoordinator -TaskRef <task reference>
+```
+
+`-Policy` may select an already approved policy. `-Format text|json` changes
+output only. The operator does not supply or transfer preparation, session,
+attempt, lease, claim, challenge, receipt, digest, provider, host, path,
+command, or credential identifiers. PostgreSQL creates and reconciles all
+authority from the task reference and approved policy.
+
+Founder policy approval is separate from operator launch. Launch cannot approve
+or amend policy, expand an operator grant, choose providers, change retry or
+fallback order, or broaden the host boundary. Exit `0` requires both session
+state `succeeded` and durable cleanup acknowledgement.
+
+Provider/model/adapter, host/lease/holder, repository, and Git provenance are
+one execution lineage for Luca. They describe how and where the work ran; they
+do not split Luca's identity by provider or runtime.
+
+The current Windows launcher uses DPAPI `CurrentUser`, so its protected local
+credential is usable only by the same Windows user who prepared it. It does not
+protect against malicious software already running as that user.
+
+All earlier Gate 3 challenges, receipts, windows, claims, digests, grants,
+bootstrap exchanges, and acceptance evidence are historical and
+non-authorizing for Coordinator V2. Internal identifiers may be inspected in
+authorized diagnostics but must never be copied into a launch or manually
+transferred between hosts.
+
+Canonical references:
+
+- [Architecture](coordination-v2-architecture.md)
+- [Policy](coordination-v2-policy-reference.md)
+- [Host protocol](coordination-v2-host-protocol.md)
+- [Provider adapters](coordination-v2-provider-adapters.md)
+- [Stable diagnostics](coordination-v2-error-codes.md)
+- [Recovery](coordination-v2-recovery-runbook.md)
+
+## Direct coordination ledger clients
 
 The canonical coordination ledger is available to Alden, Daniela, and Luca
 [HolaHola] without routing through Luca [Replit]. All three use
 `server/services/coordination-actor-client.ts`; operators can invoke the same
 client through `server/scripts/coordination-cli.ts`.
+
+Historical Gate 3 trusted Phase B provisioning used one transaction in registration
+→ profile → receipt → challenge row order, with full rollback on ownership
+failure. Protected executor/verifier mutations acquire the credential advisory
+lock and then hold registration → profile → credential → receipt → challenge
+→ grant.
 
 The server derives identity only from `x-coordination-token`. The client does
 not accept a token argument and does not read `COORDINATION_API_TOKEN`,
@@ -11,11 +63,18 @@ not accept a token argument and does not read `COORDINATION_API_TOKEN`,
 
 ## Scoped credential broker
 
-**Selected vault:** 1Password Secrets Automation. It is cross-runtime, supports
+**Default cross-runtime vault:** 1Password Secrets Automation. It supports
 separate service accounts and vault ACLs, and lets operators revoke one runtime
 without exposing the other actors' items. 1Password holds bootstrap credentials;
 HolaHola remains the authority for runtime registration, actor binding,
 capabilities, and short-lived coordination credentials.
+
+The historical bounded Windows Antigravity Gate 3 path used Windows DPAPI `CurrentUser`
+instead because its approved operator does not have 1Password. The fixed-action
+launcher in `scripts/antigravity-gate3.ps1` generates the bootstrap internally,
+stores only ciphertext outside the repository, and atomically consumes it on
+the first bounded launch. This changes the local credential source only; it
+does not change broker, actor, capability, founder-approval, or task authority.
 
 Each runtime registration has exactly one immutable actor, one bootstrap hash,
 an allowlisted capability set, and a token TTL from 60 to 3,600 seconds
@@ -150,9 +209,10 @@ token; the prior token is revoked. A restart exchanges the bootstrap again.
 - **Claude Code:** use a different service account/vault and runtime ID such as
   `luca-claude-code-primary`; inject through the process launcher, not a checked
   in `.env`.
-- **Antigravity/Gemini:** register actor `luca-gemini` with a runtime ID such as
-  `luca-gemini-antigravity-primary` and its own service account/vault. Never
-  reuse Replit or Claude Code's registration or bootstrap.
+- **Antigravity/Gemini Gate 3 on Windows:** register actor `luca-gemini` with a
+  runtime ID such as `luca-gemini-antigravity-primary`. Use the documented
+  DPAPI launcher under the approved Windows user; never reuse Replit or Claude
+  Code's registration or bootstrap.
 - **Future runtimes:** add an explicit actor if attribution is distinct, create
   a new registration and service account, and grant only capabilities required
   by that runtime's documented operations.

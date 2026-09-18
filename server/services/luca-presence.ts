@@ -17,7 +17,11 @@ import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { getSharedDb } from "../db";
 import { teamRooms } from "../../shared/schema";
 import { desc, eq } from "drizzle-orm";
-import { emitToRoom } from "./team-room-ws-broker";
+import {
+  emitToRoom,
+  registerLucaPresenceStateReader,
+  type TeamRoomJoinAck,
+} from "./team-room-ws-broker";
 import { respondToNudge } from "./luca-responder";
 import { getCurrentSessionSnapshot, startLucaObserver } from "./luca-observer";
 import { getAgentCredential } from "./agent-auth";
@@ -25,6 +29,9 @@ import { getAgentCredential } from "./agent-auth";
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const NUDGE_BUFFER_LIMIT = 200;
+const MIN_AGENT_TOKEN_LENGTH = 32;
+const ROOM_SYNC_RETRY_DELAYS_MS = [1_000, 5_000, 15_000, 30_000, 60_000] as const;
+const DEFAULT_ROOM_JOIN_ACK_TIMEOUT_MS = 10_000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +54,12 @@ export interface NudgeEntry {
 // ── In-memory state ───────────────────────────────────────────────────────────
 
 let _socket: ClientSocket | null = null;
+let _roomSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let _roomSyncRetryAttempt = 0;
+let _roomSyncGeneration = 0;
+let _transportRetryAttempt = 0;
+let _roomJoinAckTimeoutMs = DEFAULT_ROOM_JOIN_ACK_TIMEOUT_MS;
+let _confirmedRoomIds = new Set<string>();
 let _state: LucaPresenceState = {
   connected: false,
   currentRoomId: null,
@@ -54,6 +67,8 @@ let _state: LucaPresenceState = {
   reconnectAttempts: 0,
   socketId: null,
 };
+
+registerLucaPresenceStateReader(() => getLucaPresenceState());
 
 // Nudge ring-buffer: messages directed @luca from the Team Room
 let _nudgeBuffer: NudgeEntry[] = [];
@@ -85,6 +100,104 @@ async function getActiveRoomId(): Promise<string | null> {
     return rooms[0]?.id ?? null;
   } catch {
     return null;
+  }
+}
+
+let _activeRoomLookup: () => Promise<string | null> = getActiveRoomId;
+
+/** The broker requires the dedicated Luca token and rejects short/missing values. */
+export function isValidLucaCredential(token: string | null | undefined): token is string {
+  return typeof token === "string" && token.trim().length >= MIN_AGENT_TOKEN_LENGTH;
+}
+
+function clearRoomSyncTimer(): void {
+  if (_roomSyncTimer) {
+    clearTimeout(_roomSyncTimer);
+    _roomSyncTimer = null;
+  }
+}
+
+function scheduleRoomSyncRetry(reason: "no-active-room" | "transport"): void {
+  if (_roomSyncTimer) return;
+  const delay = ROOM_SYNC_RETRY_DELAYS_MS[_roomSyncRetryAttempt];
+  if (delay === undefined) {
+    console.warn(`[LucaPresence] Retry exhausted (${reason})`);
+    return;
+  }
+
+  _roomSyncRetryAttempt += 1;
+  console.warn(`[LucaPresence] Retry scheduled (${reason}) in ${delay}ms`);
+  _roomSyncTimer = setTimeout(() => {
+    _roomSyncTimer = null;
+    if (reason === "transport") {
+      connectLucaToTeamRoom();
+    } else {
+      void syncWithActiveRoom();
+    }
+  }, delay);
+  _roomSyncTimer.unref?.();
+}
+
+async function requestConfirmedRoomJoin(
+  socket: ClientSocket,
+  roomId: string,
+  generation: number,
+): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      console.warn(`[LucaPresence] Room join acknowledgement timed out: ${roomId}`);
+      if (generation === _roomSyncGeneration && socket === _socket) {
+        // A current timed-out acknowledgement leaves membership unknowable.
+        // Reconnect so Socket.IO clears all server-side rooms before retry.
+        socket.disconnect();
+        socket.connect();
+      }
+      resolve(false);
+    }, _roomJoinAckTimeoutMs);
+
+    const requestId = String(generation);
+    socket.emit("join_room", { roomId, requestId }, (ack: TeamRoomJoinAck) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (!ack?.ok || ack.roomId !== roomId || ack.requestId !== requestId) {
+        console.warn(
+          `[LucaPresence] Room join rejected: ${roomId} (${ack?.ok === false ? ack.error : "invalid-ack"})`,
+        );
+        resolve(false);
+        return;
+      }
+      _confirmedRoomIds.add(roomId);
+      resolve(true);
+    });
+  });
+}
+
+function applyConfirmedRoomBinding(socket: ClientSocket, roomId: string): void {
+  const previousRoomId = _state.currentRoomId;
+  for (const confirmedRoomId of _confirmedRoomIds) {
+    if (confirmedRoomId !== roomId) {
+      socket.emit("leave_room", confirmedRoomId);
+      _confirmedRoomIds.delete(confirmedRoomId);
+    }
+  }
+  if (previousRoomId && previousRoomId !== roomId) {
+    broadcastPresence(previousRoomId, false);
+  }
+  _confirmedRoomIds.add(roomId);
+  _state.currentRoomId = roomId;
+  broadcastPresence(roomId, true);
+}
+
+function cleanUnboundConfirmedRooms(socket: ClientSocket): void {
+  for (const roomId of _confirmedRoomIds) {
+    if (roomId !== _state.currentRoomId) {
+      socket.emit("leave_room", roomId);
+      _confirmedRoomIds.delete(roomId);
+    }
   }
 }
 
@@ -124,21 +237,93 @@ export function clearNudgeBuffer() {
  * Switch Luca into a specific room (joins it and broadcasts presence there).
  * Safe to call from routes that know the room ID.
  */
-export function joinRoom(roomId: string): boolean {
+export async function joinRoom(roomId: string): Promise<boolean> {
   if (!_socket?.connected) return false;
-  if (_state.currentRoomId && _state.currentRoomId !== roomId) {
-    _socket.emit("leave_room", _state.currentRoomId);
-    broadcastPresence(_state.currentRoomId, false);
+  const socket = _socket;
+  const generation = ++_roomSyncGeneration;
+  clearRoomSyncTimer();
+  _roomSyncRetryAttempt = 0;
+  const joined = await requestConfirmedRoomJoin(socket, roomId, generation);
+  if (
+    !joined ||
+    generation !== _roomSyncGeneration ||
+    socket !== _socket ||
+    !socket.connected
+  ) {
+    cleanUnboundConfirmedRooms(socket);
+    return false;
   }
-  _socket.emit("join_room", roomId);
-  _state.currentRoomId = roomId;
-  broadcastPresence(roomId, true);
+  applyConfirmedRoomBinding(socket, roomId);
   console.log(`[LucaPresence] Switched to room: ${roomId}`);
   return true;
 }
 
+/**
+ * Re-read the authoritative active room and bind Luca to it.
+ *
+ * The generation check is intentionally performed after the database read and
+ * before any socket mutation: an older, slower lookup can never overwrite a
+ * newer room selection.
+ */
+export async function syncWithActiveRoom(): Promise<void> {
+  const socket = _socket;
+  if (!socket?.connected) {
+    scheduleRoomSyncRetry("transport");
+    return;
+  }
+
+  const generation = ++_roomSyncGeneration;
+  const roomId = await _activeRoomLookup();
+  if (
+    generation !== _roomSyncGeneration ||
+    socket !== _socket ||
+    !socket.connected
+  ) {
+    return;
+  }
+
+  if (!roomId) {
+    console.log("[LucaPresence] Connected with no active room");
+    scheduleRoomSyncRetry("no-active-room");
+    return;
+  }
+
+  clearRoomSyncTimer();
+  _roomSyncRetryAttempt = 0;
+  _transportRetryAttempt = 0;
+  if (_state.currentRoomId === roomId) {
+    console.log(`[LucaPresence] Already joined authoritative room: ${roomId}`);
+    return;
+  }
+
+  const joined = await requestConfirmedRoomJoin(socket, roomId, generation);
+  if (
+    generation !== _roomSyncGeneration ||
+    socket !== _socket ||
+    !socket.connected
+  ) {
+    if (joined && _state.currentRoomId && _state.currentRoomId !== roomId) {
+      socket.emit("leave_room", roomId);
+      _confirmedRoomIds.delete(roomId);
+    }
+    return;
+  }
+  if (!joined) {
+    cleanUnboundConfirmedRooms(socket);
+    scheduleRoomSyncRetry("no-active-room");
+    return;
+  }
+  applyConfirmedRoomBinding(socket, roomId);
+  console.log(`[LucaPresence] Joined authoritative room: ${roomId}`);
+}
+
 /** Gracefully disconnect Luca's presence socket. */
 export function disconnectLuca(): void {
+  _roomSyncGeneration += 1;
+  clearRoomSyncTimer();
+  _roomSyncRetryAttempt = 0;
+  _transportRetryAttempt = 0;
+  _confirmedRoomIds.clear();
   if (_state.currentRoomId) {
     broadcastPresence(_state.currentRoomId, false);
   }
@@ -165,9 +350,11 @@ export function connectLucaToTeamRoom(): void {
 
   const agentToken = getAgentCredential();
   if (!agentToken) {
-    console.warn(
-      "[LucaPresence] Luca agent credential not set — Luca presence unavailable"
-    );
+    console.warn("[LucaPresence] Credential absent — Luca presence unavailable");
+    return;
+  }
+  if (!isValidLucaCredential(agentToken)) {
+    console.warn("[LucaPresence] Credential structurally invalid — Luca presence unavailable");
     return;
   }
 
@@ -195,18 +382,9 @@ export function connectLucaToTeamRoom(): void {
     _state.connectedAt = new Date().toISOString();
     _state.socketId = _socket!.id ?? null;
     _state.reconnectAttempts = 0;
+    _transportRetryAttempt = 0;
     console.log(`[LucaPresence] Connected to Team Room (socket: ${_socket!.id})`);
-
-    // Auto-join the currently active room
-    const roomId = await getActiveRoomId();
-    if (roomId) {
-      _socket!.emit("join_room", roomId);
-      _state.currentRoomId = roomId;
-      broadcastPresence(roomId, true);
-      console.log(`[LucaPresence] Joined room: ${roomId}`);
-    } else {
-      console.log("[LucaPresence] No active room found — will join when a room is created");
-    }
+    await syncWithActiveRoom();
   });
 
   // Listen for all room messages to capture nudges directed at Luca
@@ -250,14 +428,23 @@ export function connectLucaToTeamRoom(): void {
     if (prevConnected && _state.currentRoomId) {
       broadcastPresence(_state.currentRoomId, false);
     }
+    _state.currentRoomId = null;
+    _confirmedRoomIds.clear();
+    if (reason !== "io client disconnect") {
+      scheduleRoomSyncRetry("transport");
+    }
   });
 
   _socket.on("connect_error", (err) => {
     _state.reconnectAttempts++;
+    _transportRetryAttempt += 1;
     if (_state.reconnectAttempts <= 3 || _state.reconnectAttempts % 10 === 0) {
       console.warn(
         `[LucaPresence] Connection error (attempt ${_state.reconnectAttempts}): ${err.message}`
       );
+    }
+    if (_transportRetryAttempt >= 5) {
+      scheduleRoomSyncRetry("transport");
     }
   });
 
@@ -267,12 +454,37 @@ export function connectLucaToTeamRoom(): void {
     _state.connectedAt = new Date().toISOString();
     _state.socketId = _socket?.id ?? null;
 
-    // Re-join the active room on reconnect
-    const roomId = _state.currentRoomId ?? (await getActiveRoomId());
-    if (roomId) {
-      _socket!.emit("join_room", roomId);
-      _state.currentRoomId = roomId;
-      broadcastPresence(roomId, true);
-    }
+    await syncWithActiveRoom();
   });
 }
+
+export const __lucaPresenceTest = {
+  setSocket(socket: ClientSocket | null): void {
+    _socket = socket;
+    _state.connected = Boolean(socket?.connected);
+    _state.socketId = socket?.id ?? null;
+  },
+  setActiveRoomLookup(lookup: () => Promise<string | null>): void {
+    _activeRoomLookup = lookup;
+  },
+  setJoinAckTimeoutMs(timeoutMs: number): void {
+    _roomJoinAckTimeoutMs = timeoutMs;
+  },
+  reset(): void {
+    clearRoomSyncTimer();
+    _socket = null;
+    _activeRoomLookup = getActiveRoomId;
+    _roomJoinAckTimeoutMs = DEFAULT_ROOM_JOIN_ACK_TIMEOUT_MS;
+    _roomSyncRetryAttempt = 0;
+    _roomSyncGeneration += 1;
+    _transportRetryAttempt = 0;
+    _confirmedRoomIds.clear();
+    _state = {
+      connected: false,
+      currentRoomId: null,
+      connectedAt: null,
+      reconnectAttempts: 0,
+      socketId: null,
+    };
+  },
+};

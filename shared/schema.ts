@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, bigserial, index, unique, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check, customType, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { RESOLUTION_TYPE_VALUES } from "./absence-types";
@@ -1114,6 +1114,7 @@ export const actflProgress = pgTable("actfl_progress", {
   currentActflLevel: text("current_actfl_level").default('novice_low'),
   readyForAdvancement: boolean("ready_for_advancement").default(false), // AI recommendation
   advancementReason: text("advancement_reason"), // Why student is/isn't ready
+  operationReceipts: jsonb("operation_receipts").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -3880,6 +3881,289 @@ export const danielaAspirations = pgTable("daniela_aspirations", {
 export const insertDanielaAspirationSchema = createInsertSchema(danielaAspirations).omit({ id: true, createdAt: true });
 export type InsertDanielaAspiration = z.infer<typeof insertDanielaAspirationSchema>;
 export type DanielaAspiration = typeof danielaAspirations.$inferSelect;
+
+// ─── Coordination runtime evidence (Gate 2) ─────────────────────────────────
+// These tables intentionally form an append-oriented evidence graph.  Runtime
+// and credential identity remains owned by the broker tables below; the
+// varchar keys here are therefore deliberate (they are not UUIDs).
+export const COORDINATION_RUNTIME_PROFILE_STATUSES = ["active", "superseded", "closed"] as const;
+export const COORDINATION_RUNTIME_OUTCOMES = [
+  "consumed",
+  "safety_blocked",
+  "refused",
+  "context_limit",
+  "interrupted",
+  "empty_response",
+  "malformed_function_call",
+  "unsupported_provider_outcome",
+  "retryable_provider_error",
+  "terminal_provider_error",
+] as const;
+export const coordinationRuntimeProfileStatusEnum = pgEnum(
+  "coordination_runtime_profile_status",
+  COORDINATION_RUNTIME_PROFILE_STATUSES,
+);
+export const coordinationRuntimeProfiles = pgTable("coordination_runtime_profiles", {
+  id: varchar("id").primaryKey(),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: "restrict" }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  provider: varchar("provider", { length: 80 }).notNull(),
+  model: varchar("model", { length: 160 }).notNull(),
+  adapterVersion: varchar("adapter_version", { length: 80 }).notNull(),
+  repositoryLabel: varchar("repository_label", { length: 160 }).notNull(),
+  worktreeLabel: varchar("worktree_label", { length: 160 }).notNull(),
+  worktreeRealpathDigest: varchar("worktree_realpath_digest", { length: 64 }).notNull(),
+  branch: varchar("branch", { length: 255 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  status: coordinationRuntimeProfileStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_profiles_active_registration").on(table.runtimeRegistrationId)
+    .where(sql`status = 'active'`),
+  index("idx_coord_runtime_profiles_actor").on(table.actor),
+  check("coord_runtime_profile_worktree_digest_hex", sql`${table.worktreeRealpathDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_profile_starting_commit_hex", sql`${table.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationRuntimePackets = pgTable("coordination_runtime_packets", {
+  id: varchar("id").primaryKey(),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  version: integer("version").notNull(),
+  assignmentEventId: varchar("assignment_event_id").notNull(),
+  assignmentTaskId: varchar("assignment_task_id").notNull(),
+  assignmentThreadId: varchar("assignment_thread_id").notNull().references(() => coordinationThreads.id),
+  assignmentAuthor: varchar("assignment_author").notNull(),
+  expectedSequence: integer("expected_sequence").notNull(),
+  supersedesClaimId: varchar("supersedes_claim_id"),
+  windowId: varchar("window_id").notNull().references(() => coordinationRuntimeInboxWindows.id),
+  windowDigest: varchar("window_digest", { length: 64 }).notNull(),
+  orderedInboxItemIds: text("ordered_inbox_item_ids").array().notNull(),
+  orderedEventIds: text("ordered_event_ids").array().notNull(),
+  orderedThreadIds: text("ordered_thread_ids").array().notNull(),
+  inheritedPayload: jsonb("inherited_payload").notNull(),
+  envelope: jsonb("envelope").notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  digest: varchar("digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_packet_assignment_version").on(table.assignmentEventId, table.version),
+  index("idx_coord_runtime_packets_thread").on(table.assignmentThreadId),
+  check("coord_runtime_packet_digest_hex", sql`${table.digest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_packet_window_digest_hex", sql`${table.windowDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_packet_version_positive", sql`${table.version} > 0`),
+]);
+
+export const coordinationRuntimeInboxWindows = pgTable("coordination_runtime_inbox_windows", {
+  id: varchar("id").primaryKey(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id),
+  afterExclusive: integer("after_exclusive").notNull(),
+  throughInclusive: integer("through_inclusive").notNull(),
+  boundaryToken: text("boundary_token").notNull(),
+  orderedItemIds: text("ordered_item_ids").array().notNull(),
+  boundaryDigest: varchar("boundary_digest", { length: 64 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_window_boundary").on(table.threadId, table.throughInclusive, table.boundaryDigest),
+  check("coord_runtime_window_bounds", sql`after_exclusive < through_inclusive`),
+  check("coord_runtime_window_digest_hex", sql`${table.boundaryDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_window_item_ids_nonempty", sql`cardinality(${table.orderedItemIds}) > 0`),
+]);
+export const coordinationRuntimeInboxWindowItems = pgTable("coordination_runtime_inbox_window_items", {
+  windowId: varchar("window_id"),
+  itemId: varchar("item_id").notNull(),
+  eventId: varchar("event_id").notNull(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id),
+  taskId: varchar("task_id").notNull(),
+  sequence: integer("sequence").notNull(),
+  payload: jsonb("payload").notNull(),
+  itemDigest: varchar("item_digest", { length: 64 }).notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_window_item").on(table.windowId, table.itemId),
+  uniqueIndex("uq_coord_runtime_window_sequence").on(table.windowId, table.sequence),
+  uniqueIndex("uq_coord_runtime_source_item").on(table.itemId),
+  check("coord_runtime_window_item_digest", sql`${table.itemDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_window_item_sequence_positive", sql`${table.sequence} > 0`),
+]);
+
+export const coordinationRuntimeInteractions = pgTable("coordination_runtime_interactions", {
+  id: varchar("id").primaryKey(),
+  packetId: varchar("packet_id").notNull().references(() => coordinationRuntimePackets.id),
+  assignmentEventId: varchar("assignment_event_id").notNull(),
+  assignmentTaskId: varchar("assignment_task_id").notNull(),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  turn: integer("turn").notNull(),
+  attempt: integer("attempt").notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  responseDigest: varchar("response_digest", { length: 64 }).notNull(),
+  outcome: varchar("outcome", { length: 40 }).notNull(),
+  retryLineage: varchar("retry_lineage").references((): any => coordinationRuntimeInteractions.id),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_interaction_packet_slot").on(table.packetId, table.turn, table.attempt),
+  uniqueIndex("uq_coord_runtime_interaction_assignment_slot").on(table.assignmentEventId, table.assignmentTaskId, table.turn, table.attempt),
+  check("coord_runtime_interaction_digests_hex", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$' AND ${table.responseDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_interaction_turn_attempt_bounds", sql`${table.turn} BETWEEN 1 AND 4 AND ${table.attempt} BETWEEN 1 AND 2`),
+  check("coord_runtime_interaction_outcome_allowed", sql`${table.outcome} IN (
+    'consumed', 'safety_blocked', 'refused', 'context_limit', 'interrupted',
+    'empty_response', 'malformed_function_call', 'unsupported_provider_outcome',
+    'retryable_provider_error', 'terminal_provider_error'
+  )`),
+  index("idx_coord_runtime_interactions_packet").on(table.packetId),
+]);
+
+export const coordinationRuntimeReceipts = pgTable("coordination_runtime_receipts", {
+  id: varchar("id").primaryKey(),
+  packetId: varchar("packet_id").notNull().references(() => coordinationRuntimePackets.id),
+  interactionId: varchar("interaction_id").notNull().references(() => coordinationRuntimeInteractions.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  packetDigest: varchar("packet_digest", { length: 64 }).notNull(),
+  outcome: varchar("outcome", { length: 40 }).notNull(),
+  canonicalEnvelope: jsonb("canonical_envelope").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_receipt_runtime_packet").on(table.runtimeRegistrationId, table.packetId),
+  check("coord_runtime_receipt_packet_digest_hex", sql`${table.packetDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_receipt_outcome_allowed", sql`${table.outcome} IN (
+    'consumed', 'safety_blocked', 'refused', 'context_limit', 'interrupted',
+    'empty_response', 'malformed_function_call', 'unsupported_provider_outcome',
+    'retryable_provider_error', 'terminal_provider_error'
+  )`),
+]);
+
+export const coordinationRuntimeClaimStatusEnum = pgEnum("coordination_runtime_claim_status", ["active", "expired", "completed", "violated"]);
+export const coordinationRuntimeClaimEventKindEnum = pgEnum("coordination_runtime_claim_event_kind", ["acquired", "renewed", "expired", "violated"]);
+export const coordinationRuntimeClaims = pgTable("coordination_runtime_claims", {
+  id: varchar("id").primaryKey(),
+  threadId: varchar("thread_id").notNull().references(() => coordinationThreads.id),
+  packetId: varchar("packet_id").notNull().references(() => coordinationRuntimePackets.id),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  priorClaimId: varchar("prior_claim_id").references((): any => coordinationRuntimeClaims.id),
+  epoch: integer("epoch").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  status: coordinationRuntimeClaimStatusEnum("status").notNull(),
+  terminalAt: timestamp("terminal_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_claim_active_thread").on(table.threadId)
+    .where(sql`status = 'active'`),
+  uniqueIndex("uq_coord_runtime_claim_thread_epoch").on(table.threadId, table.epoch),
+  uniqueIndex("uq_coord_runtime_claim_id_epoch").on(table.id, table.epoch),
+  unique("uq_coord_runtime_claim_id_epoch_constraint").on(table.id, table.epoch),
+  check("coord_runtime_claim_epoch_positive", sql`${table.epoch} > 0`),
+  check("coord_runtime_claim_terminal_timestamp", sql`(status = 'active' AND terminal_at IS NULL) OR (status <> 'active' AND terminal_at IS NOT NULL)`),
+]);
+export const coordinationRuntimeClaimEvents = pgTable("coordination_runtime_claim_events", {
+  id: varchar("id").primaryKey(),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  epoch: integer("epoch").notNull(),
+  kind: coordinationRuntimeClaimEventKindEnum("kind").notNull(),
+  reason: text("reason"),
+  priorClaimId: varchar("prior_claim_id").references(() => coordinationRuntimeClaims.id),
+  occurredAt: timestamp("occurred_at").notNull(),
+}, (table) => [
+  index("idx_coord_runtime_claim_events_claim").on(table.claimId, table.occurredAt),
+  check("coord_runtime_claim_event_epoch_positive", sql`${table.epoch} > 0`),
+]);
+
+export const coordinationRuntimeExecutions = pgTable("coordination_runtime_executions", {
+  id: varchar("id").primaryKey(),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  claimEpoch: integer("claim_epoch").notNull(),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  envelope: jsonb("envelope").notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  executionDigest: varchar("execution_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_execution_claim_epoch").on(table.claimId, table.claimEpoch),
+  check("coord_runtime_execution_digest_hex", sql`${table.executionDigest} ~ '^[0-9a-f]{64}$'`),
+  foreignKey({
+    name: "fk_coord_runtime_execution_claim_epoch",
+    columns: [table.claimId, table.claimEpoch],
+    foreignColumns: [coordinationRuntimeClaims.id, coordinationRuntimeClaims.epoch],
+  }),
+]);
+export const coordinationRuntimeToolResultOutcomes = ["succeeded", "rejected"] as const;
+export const coordinationRuntimeToolResults = pgTable("coordination_runtime_tool_results", {
+  id: varchar("id").primaryKey(),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  claimEpoch: integer("claim_epoch").notNull(),
+  claimEventId: varchar("claim_event_id").notNull().references(() => coordinationRuntimeClaimEvents.id),
+  interactionId: varchar("interaction_id").notNull().references(() => coordinationRuntimeInteractions.id),
+  callId: varchar("call_id").notNull(),
+  runtimeRegistrationId: varchar("runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id),
+  validatedIntentDigest: varchar("validated_intent_digest", { length: 64 }).notNull(),
+  toolName: varchar("tool_name", { length: 80 }).notNull(),
+  outcome: varchar("outcome", { length: 20 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  resultDigest: varchar("result_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_tool_result_claim_epoch_interaction_call")
+    .on(table.claimId, table.claimEpoch, table.interactionId, table.callId),
+  check("coord_runtime_tool_result_intent_digest_hex", sql`${table.validatedIntentDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_tool_result_digest_hex", sql`${table.resultDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_tool_result_outcome_allowed", sql`${table.outcome} IN ('succeeded', 'rejected')`),
+]);
+export const coordinationRuntimeCompletions = pgTable("coordination_runtime_completions", {
+  id: varchar("id").primaryKey(),
+  executionId: varchar("execution_id").notNull().references(() => coordinationRuntimeExecutions.id),
+  claimId: varchar("claim_id").notNull().references(() => coordinationRuntimeClaims.id),
+  claimEpoch: integer("claim_epoch").notNull(),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_completion_execution").on(table.executionId),
+  check("coord_runtime_completion_evidence_digest_hex", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  foreignKey({
+    name: "fk_coord_runtime_completion_claim_epoch",
+    columns: [table.claimId, table.claimEpoch],
+    foreignColumns: [coordinationRuntimeClaims.id, coordinationRuntimeClaims.epoch],
+  }),
+]);
+export const coordinationRuntimeVerifications = pgTable("coordination_runtime_verifications", {
+  id: varchar("id").primaryKey(),
+  completionId: varchar("completion_id").notNull().references(() => coordinationRuntimeCompletions.id),
+  verifierActor: varchar("verifier_actor").notNull(),
+  verifierRuntimeRegistrationId: varchar("verifier_runtime_registration_id").notNull().references(() => coordinationRuntimeRegistrations.id),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }).notNull(),
+  patchDigest: varchar("patch_digest", { length: 64 }),
+  decision: varchar("decision", { length: 20 }).notNull(),
+  canonicalPayload: jsonb("canonical_payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_verification_completion").on(table.completionId),
+  check("coord_runtime_verification_evidence_digest_hex", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_verification_actor_allowed", sql`${table.verifierActor} IN ('luca-replit', 'luca-claude-code')`),
+  check("coord_runtime_verification_decision_allowed", sql`${table.decision} IN ('approved', 'rejected')`),
+  check("coord_runtime_verification_patch_digest_hex", sql`${table.patchDigest} IS NULL OR ${table.patchDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+export const coordinationRuntimeIdempotency = pgTable("coordination_runtime_idempotency", {
+  scope: varchar("scope").notNull(),
+  idempotencyKey: varchar("idempotency_key").notNull(),
+  payloadDigest: varchar("payload_digest", { length: 64 }).notNull(),
+  resultKind: varchar("result_kind").notNull(),
+  resultId: varchar("result_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_idempotency_scope_key").on(table.scope, table.idempotencyKey),
+  check("coord_runtime_idempotency_payload_digest_hex", sql`${table.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+]);
 
 // ─── Daniela Character Candidates ────────────────────────────────────────────
 // Staging table for the slow-tier stewardship conversation. When Daniela
@@ -7991,6 +8275,7 @@ export const COORDINATION_CREDENTIAL_CAPABILITIES = [
   'coordination:inbox:ack',
   'coordination:credential:renew',
   'coordination:credential:revoke',
+  'observation:read',
 ] as const;
 export type CoordinationCredentialCapability = typeof COORDINATION_CREDENTIAL_CAPABILITIES[number];
 
@@ -8258,6 +8543,1175 @@ export const coordinationCredentialAuditEvents = pgTable("coordination_credentia
   index("idx_coordination_credential_audit_failures").on(table.success, table.createdAt),
 ]);
 
+// ===== Coordinator V2 control plane =====
+
+export const coordinationV2SourcePromotions = pgTable("coordination_v2_source_promotions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  repositoryIdentity: varchar("repository_identity", { length: 512 }).notNull(),
+  promotedCommitSha: varchar("promoted_commit_sha", { length: 40 }).notNull(),
+  exactTreeSha: varchar("exact_tree_sha", { length: 40 }).notNull(),
+  publicationReference: varchar("publication_reference", { length: 512 }).notNull(),
+  protectedValidationId: varchar("protected_validation_id", { length: 128 }).notNull(),
+  publishTriggerSha: varchar("publish_trigger_sha", { length: 40 }),
+  parentSha: varchar("parent_sha", { length: 40 }),
+  canonicalRecordDigest: varchar("canonical_record_digest", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("published"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  operationReceiptDigest: varchar("operation_receipt_digest", { length: 64 }).notNull(),
+  operationReceiptReference: varchar("operation_receipt_reference", { length: 512 }).notNull(),
+}, (table) => [
+  unique("uq_coordination_v2_source_promotion_identity").on(table.promotedCommitSha, table.exactTreeSha, table.publicationReference, table.protectedValidationId),
+  uniqueIndex("uq_coordination_v2_source_promotion_record_digest").on(table.canonicalRecordDigest),
+  uniqueIndex("uq_coordination_v2_source_promotion_receipt").on(table.operationReceiptDigest),
+  index("idx_coordination_v2_source_promotion_created").on(table.createdAt),
+  check("coordination_v2_source_promotion_state", sql`${table.state} = 'published'`),
+  check("coordination_v2_source_promotion_commit", sql`${table.promotedCommitSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_source_promotion_tree", sql`${table.exactTreeSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_source_promotion_digest", sql`${table.canonicalRecordDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_source_promotion_receipt_digest", sql`${table.operationReceiptDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationV2HostEnrollments = pgTable("coordination_v2_host_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostKey: varchar("host_key", { length: 128 }).notNull(),
+  hostType: varchar("host_type", { length: 40 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  enrollmentDigest: varchar("enrollment_digest", { length: 64 }).notNull(),
+  enrollmentRequestKey: varchar("enrollment_request_key", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("active"),
+  createdBy: varchar("created_by", { length: 128 }).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+  revocationRequestKey: varchar("revocation_request_key", { length: 128 }),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_host_key").on(table.hostKey),
+  uniqueIndex("uq_coordination_v2_host_fingerprint").on(table.keyFingerprint),
+  uniqueIndex("uq_coordination_v2_host_enrollment_request").on(table.enrollmentRequestKey),
+  index("idx_coordination_v2_host_status").on(table.status, table.updatedAt),
+  check("coordination_v2_host_key_nonblank", sql`length(trim(${table.hostKey})) > 0`),
+  check("coordination_v2_host_type_nonblank", sql`length(trim(${table.hostType})) > 0`),
+  check("coordination_v2_host_name_nonblank", sql`length(trim(${table.displayName})) > 0`),
+  check("coordination_v2_host_protocol_version", sql`${table.protocolVersion} > 0`),
+  check("coordination_v2_host_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_digest", sql`${table.enrollmentDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_request", sql`length(trim(${table.enrollmentRequestKey})) > 0`),
+  check("coordination_v2_host_revocation_request", sql`${table.revocationRequestKey} IS NULL OR length(trim(${table.revocationRequestKey})) > 0`),
+  check("coordination_v2_host_status_value", sql`${table.status} IN ('active', 'revoked')`),
+  check("coordination_v2_host_lifecycle", sql`
+    (${table.status} = 'active' AND ${table.revokedAt} IS NULL)
+    OR (${table.status} = 'revoked' AND ${table.revokedAt} IS NOT NULL)
+  `),
+]);
+
+/**
+ * Host registration is device-style: the public declaration is pending until
+ * a founder approves it and the host proves possession of its private key.
+ * No bootstrap/plaintext transfer is persisted.
+ */
+export const coordinationV2HostEnrollmentRequests = pgTable("coordination_v2_host_enrollment_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostKey: varchar("host_key", { length: 128 }).notNull(),
+  hostType: varchar("host_type", { length: 40 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  declarationDigest: varchar("declaration_digest", { length: 64 }).notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  founderActor: varchar("founder_actor", { length: 128 }),
+  hostEnrollmentId: varchar("host_enrollment_id")
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  terminalReason: varchar("terminal_reason", { length: 128 }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  terminalAt: timestamp("terminal_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_host_enrollment_request_key").on(table.requestKey),
+  index("idx_coordination_v2_host_enrollment_request_status").on(table.status, table.expiresAt),
+  check("coordination_v2_host_enrollment_request_key", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_host_enrollment_request_digest", sql`${table.declarationDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_enrollment_request_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_enrollment_request_status", sql`${table.status} IN ('pending', 'approved', 'rejected', 'completed', 'expired')`),
+  check("coordination_v2_host_enrollment_request_expiry", sql`${table.expiresAt} > ${table.createdAt}`),
+]);
+
+export const coordinationV2HostProofChallenges = pgTable("coordination_v2_host_proof_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enrollmentRequestId: varchar("enrollment_request_id").notNull()
+    .references(() => coordinationV2HostEnrollmentRequests.id, { onDelete: "restrict" }),
+  nonce: varchar("nonce", { length: 128 }).notNull(),
+  nonceHash: varchar("nonce_hash", { length: 64 }).notNull(),
+  challengeDigest: varchar("challenge_digest", { length: 64 }).notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_host_challenge_request").on(table.enrollmentRequestId),
+  uniqueIndex("uq_coordination_v2_host_challenge_nonce").on(table.nonceHash),
+  check("coordination_v2_host_challenge_nonce", sql`${table.nonceHash} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_challenge_digest", sql`${table.challengeDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_challenge_expiry", sql`${table.expiresAt} > ${table.createdAt}`),
+  check("coordination_v2_host_challenge_consumed", sql`${table.consumedAt} IS NULL OR ${table.consumedAt} >= ${table.createdAt}`),
+]);
+
+export const coordinationV2HostCredentials = pgTable("coordination_v2_host_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  credentialDigest: varchar("credential_digest", { length: 64 }).notNull(),
+  lineageDigest: varchar("lineage_digest", { length: 64 }).notNull(),
+  capability: varchar("capability", { length: 80 }).notNull().default("host:transport"),
+  protocolVersion: integer("protocol_version").notNull(),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }),
+  proofKeyFingerprint: varchar("proof_key_fingerprint", { length: 64 }).notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("uq_coordination_v2_host_credential_scope").on(table.id, table.hostEnrollmentId),
+  uniqueIndex("uq_coordination_v2_host_credential_hash").on(table.tokenHash),
+  uniqueIndex("uq_coordination_v2_host_credential_digest").on(table.credentialDigest),
+  index("idx_coordination_v2_host_credential_active").on(table.hostEnrollmentId, table.expiresAt, table.revokedAt),
+  check("coordination_v2_host_credential_hash", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_digest", sql`${table.credentialDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_lineage", sql`${table.lineageDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_fingerprint", sql`${table.proofKeyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_host_credential_capability", sql`${table.capability} IN ('host:transport', 'host:cleanup')`),
+  check("coordination_v2_host_credential_protocol", sql`${table.protocolVersion} > 0`),
+  check("coordination_v2_host_credential_holder", sql`${table.holderInstanceId} IS NULL OR length(trim(${table.holderInstanceId})) > 0`),
+  check("coordination_v2_host_credential_expiry", sql`${table.expiresAt} > ${table.issuedAt}`),
+  check("coordination_v2_host_credential_revocation", sql`${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.issuedAt}`),
+]);
+
+/**
+ * An expired host credential has no renewal authority. Reauthorization is a
+ * separate founder-approved lifecycle bound to the existing enrolled key.
+ */
+export const coordinationV2HostReauthorizationRequests = pgTable("coordination_v2_host_reauthorization_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  requestGeneration: integer("request_generation").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  declarationDigest: varchar("declaration_digest", { length: 64 }).notNull(),
+  requestSignatureDigest: varchar("request_signature_digest", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("pending"),
+  founderActor: varchar("founder_actor", { length: 128 }),
+  approvedAt: timestamp("approved_at"),
+  resultCredentialId: varchar("result_credential_id"),
+  completedAt: timestamp("completed_at"),
+  terminalAt: timestamp("terminal_at"),
+  terminalReason: varchar("terminal_reason", { length: 128 }),
+  requestedAt: timestamp("requested_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("uq_coord_v2_host_reauth_request_lineage").on(
+    table.id,
+    table.hostEnrollmentId,
+    table.keyFingerprint,
+    table.protocolVersion,
+    table.requestGeneration,
+  ),
+  uniqueIndex("uq_coord_v2_host_reauth_request_key").on(table.requestKey),
+  uniqueIndex("uq_coord_v2_host_reauth_generation").on(
+    table.hostEnrollmentId,
+    table.requestGeneration,
+  ),
+  uniqueIndex("uq_coord_v2_host_reauth_nonterminal")
+    .on(table.hostEnrollmentId)
+    .where(sql`${table.state} IN ('pending', 'approved')`),
+  index("idx_coord_v2_host_reauth_state").on(table.state, table.expiresAt),
+  foreignKey({
+    name: "fk_coord_v2_host_reauth_result_credential",
+    columns: [table.resultCredentialId, table.hostEnrollmentId],
+    foreignColumns: [
+      coordinationV2HostCredentials.id,
+      coordinationV2HostCredentials.hostEnrollmentId,
+    ],
+  }).onDelete("restrict"),
+  check("coord_v2_host_reauth_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_protocol", sql`${table.protocolVersion} = 1`),
+  check("coord_v2_host_reauth_generation", sql`${table.requestGeneration} > 0`),
+  check("coord_v2_host_reauth_request_key", sql`length(trim(${table.requestKey})) > 0`),
+  check("coord_v2_host_reauth_declaration_digest", sql`${table.declarationDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_signature_digest", sql`${table.requestSignatureDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_state", sql`${table.state} IN ('pending', 'approved', 'completed', 'expired', 'rejected')`),
+  check("coord_v2_host_reauth_expiry", sql`
+    ${table.expiresAt} > ${table.requestedAt}
+    AND ${table.expiresAt} <= ${table.requestedAt} + interval '1 hour'
+  `),
+  check("coord_v2_host_reauth_lifecycle", sql`
+    (
+      ${table.state} = 'pending'
+      AND ${table.founderActor} IS NULL
+      AND ${table.approvedAt} IS NULL
+      AND ${table.resultCredentialId} IS NULL
+      AND ${table.completedAt} IS NULL
+      AND ${table.terminalAt} IS NULL
+      AND ${table.terminalReason} IS NULL
+    )
+    OR (
+      ${table.state} = 'approved'
+      AND ${table.founderActor} IS NOT NULL
+      AND ${table.approvedAt} IS NOT NULL
+      AND ${table.resultCredentialId} IS NULL
+      AND ${table.completedAt} IS NULL
+      AND ${table.terminalAt} IS NULL
+      AND ${table.terminalReason} IS NULL
+    )
+    OR (
+      ${table.state} = 'completed'
+      AND ${table.founderActor} IS NOT NULL
+      AND ${table.approvedAt} IS NOT NULL
+      AND ${table.resultCredentialId} IS NOT NULL
+      AND ${table.completedAt} IS NOT NULL
+      AND ${table.terminalAt} IS NULL
+      AND ${table.terminalReason} IS NULL
+    )
+    OR (
+      ${table.state} IN ('expired', 'rejected')
+      AND ${table.resultCredentialId} IS NULL
+      AND ${table.completedAt} IS NULL
+      AND ${table.terminalAt} IS NOT NULL
+      AND length(trim(${table.terminalReason})) > 0
+    )
+  `),
+  check("coord_v2_host_reauth_approval_time", sql`
+    ${table.approvedAt} IS NULL OR ${table.approvedAt} >= ${table.requestedAt}
+  `),
+  check("coord_v2_host_reauth_completion_time", sql`
+    ${table.completedAt} IS NULL OR ${table.completedAt} >= ${table.requestedAt}
+  `),
+  check("coord_v2_host_reauth_terminal_time", sql`
+    ${table.terminalAt} IS NULL OR ${table.terminalAt} >= ${table.requestedAt}
+  `),
+]);
+
+export const coordinationV2HostReauthorizationChallenges = pgTable("coordination_v2_host_reauthorization_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").notNull(),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  requestGeneration: integer("request_generation").notNull(),
+  nonceDigest: varchar("nonce_digest", { length: 64 }).notNull(),
+  challengeDigest: varchar("challenge_digest", { length: 64 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_v2_host_reauth_challenge_nonce").on(table.nonceDigest),
+  uniqueIndex("uq_coord_v2_host_reauth_challenge_live")
+    .on(table.requestId)
+    .where(sql`${table.consumedAt} IS NULL`),
+  index("idx_coord_v2_host_reauth_challenge_expiry").on(table.expiresAt, table.consumedAt),
+  foreignKey({
+    name: "fk_coord_v2_host_reauth_challenge_lineage",
+    columns: [
+      table.requestId,
+      table.hostEnrollmentId,
+      table.keyFingerprint,
+      table.protocolVersion,
+      table.requestGeneration,
+    ],
+    foreignColumns: [
+      coordinationV2HostReauthorizationRequests.id,
+      coordinationV2HostReauthorizationRequests.hostEnrollmentId,
+      coordinationV2HostReauthorizationRequests.keyFingerprint,
+      coordinationV2HostReauthorizationRequests.protocolVersion,
+      coordinationV2HostReauthorizationRequests.requestGeneration,
+    ],
+  }).onDelete("restrict"),
+  check("coord_v2_host_reauth_challenge_fingerprint", sql`${table.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_challenge_protocol", sql`${table.protocolVersion} = 1`),
+  check("coord_v2_host_reauth_challenge_generation", sql`${table.requestGeneration} > 0`),
+  check("coord_v2_host_reauth_challenge_nonce", sql`${table.nonceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_challenge_digest", sql`${table.challengeDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coord_v2_host_reauth_challenge_expiry", sql`
+    ${table.expiresAt} > ${table.issuedAt}
+    AND ${table.expiresAt} <= ${table.issuedAt} + interval '2 minutes'
+  `),
+  check("coord_v2_host_reauth_challenge_consumed", sql`
+    ${table.consumedAt} IS NULL OR ${table.consumedAt} >= ${table.issuedAt}
+  `),
+]);
+
+export const coordinationV2PolicyIdentities = pgTable("coordination_v2_policy_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyKey: varchar("policy_key", { length: 128 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 16 }).notNull().default("active"),
+  createdBy: varchar("created_by", { length: 128 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_policy_key").on(table.policyKey),
+  index("idx_coordination_v2_policy_status").on(table.status, table.updatedAt),
+  check("coordination_v2_policy_key_nonblank", sql`length(trim(${table.policyKey})) > 0`),
+  check("coordination_v2_policy_name_nonblank", sql`length(trim(${table.displayName})) > 0`),
+  check("coordination_v2_policy_identity_status", sql`${table.status} IN ('active', 'revoked')`),
+  check("coordination_v2_policy_identity_lifecycle", sql`
+    (${table.status} = 'active' AND ${table.revokedAt} IS NULL)
+    OR (${table.status} = 'revoked' AND ${table.revokedAt} IS NOT NULL)
+  `),
+]);
+
+export const coordinationV2PolicyVersions = pgTable("coordination_v2_policy_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyIdentityId: varchar("policy_identity_id").notNull()
+    .references(() => coordinationV2PolicyIdentities.id, { onDelete: "restrict" }),
+  version: integer("version").notNull(),
+  canonicalPolicy: jsonb("canonical_policy").$type<Record<string, unknown>>().notNull(),
+  policyDigest: varchar("policy_digest", { length: 64 }).notNull(),
+  approvalState: varchar("approval_state", { length: 16 }).notNull().default("draft"),
+  createdBy: varchar("created_by", { length: 128 }).notNull(),
+  approvedBy: varchar("approved_by", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  revokedAt: timestamp("revoked_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_policy_version").on(table.policyIdentityId, table.version),
+  uniqueIndex("uq_coordination_v2_policy_version_identity").on(table.id, table.policyIdentityId),
+  uniqueIndex("uq_coordination_v2_policy_digest").on(table.policyIdentityId, table.policyDigest),
+  index("idx_coordination_v2_policy_version_state").on(table.policyIdentityId, table.approvalState),
+  check("coordination_v2_policy_version_positive", sql`${table.version} > 0`),
+  check("coordination_v2_policy_version_digest", sql`${table.policyDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_policy_approval_state", sql`
+    ${table.approvalState} IN ('draft', 'approved', 'rejected', 'revoked')
+  `),
+  check("coordination_v2_policy_version_lifecycle", sql`
+    (${table.approvalState} = 'draft'
+      AND ${table.approvedAt} IS NULL AND ${table.approvedBy} IS NULL AND ${table.revokedAt} IS NULL)
+    OR (${table.approvalState} = 'approved'
+      AND ${table.approvedAt} IS NOT NULL AND ${table.approvedBy} IS NOT NULL AND ${table.revokedAt} IS NULL)
+    OR (${table.approvalState} = 'rejected'
+      AND ${table.approvedAt} IS NULL AND ${table.approvedBy} IS NULL AND ${table.revokedAt} IS NOT NULL)
+    OR (${table.approvalState} = 'revoked'
+      AND ${table.approvedAt} IS NOT NULL AND ${table.approvedBy} IS NOT NULL AND ${table.revokedAt} IS NOT NULL)
+  `),
+]);
+
+export const coordinationV2FounderDecisions = pgTable("coordination_v2_founder_decisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyVersionId: varchar("policy_version_id").notNull()
+    .references(() => coordinationV2PolicyVersions.id, { onDelete: "restrict" }),
+  decision: varchar("decision", { length: 16 }).notNull(),
+  founderActor: varchar("founder_actor", { length: 128 }).notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  policyDigest: varchar("policy_digest", { length: 64 }).notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_founder_request").on(table.policyVersionId, table.requestKey),
+  index("idx_coordination_v2_founder_decision").on(table.policyVersionId, table.createdAt),
+  check("coordination_v2_founder_decision_value", sql`${table.decision} IN ('approved', 'rejected', 'revoked')`),
+  check("coordination_v2_founder_actor_nonblank", sql`length(trim(${table.founderActor})) > 0`),
+  check("coordination_v2_founder_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_founder_policy_digest", sql`${table.policyDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationV2PolicyAuditEvents = pgTable("coordination_v2_policy_audit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyIdentityId: varchar("policy_identity_id").notNull()
+    .references(() => coordinationV2PolicyIdentities.id, { onDelete: "restrict" }),
+  policyVersionId: varchar("policy_version_id")
+    .references(() => coordinationV2PolicyVersions.id, { onDelete: "restrict" }),
+  operatorGrantId: varchar("operator_grant_id")
+    .references(() => coordinationV2OperatorGrants.id, { onDelete: "restrict" }),
+  actorType: varchar("actor_type", { length: 32 }).notNull(),
+  actorId: varchar("actor_id", { length: 128 }).notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  reason: text("reason"),
+  success: boolean("success").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_policy_audit_request")
+    .on(table.policyIdentityId, table.action, table.requestKey),
+  index("idx_coordination_v2_policy_audit_version").on(table.policyVersionId, table.createdAt),
+  index("idx_coordination_v2_policy_audit_grant").on(table.operatorGrantId, table.createdAt),
+  index("idx_coordination_v2_policy_audit_actor").on(table.actorId, table.createdAt),
+  check("coordination_v2_policy_audit_actor_type", sql`${table.actorType} IN ('founder', 'operator', 'system')`),
+  check("coordination_v2_policy_audit_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_policy_audit_action", sql`${table.action} IN (
+    'draft_created', 'policy_approved', 'policy_rejected', 'policy_revoked',
+    'grant_issued', 'grant_revoked', 'authorization_denied'
+  )`),
+  check("coordination_v2_policy_audit_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_policy_audit_digest", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_policy_audit_metadata_size", sql`length(${table.metadata}::text) <= 16384`),
+  check("coordination_v2_policy_audit_action_shape", sql`
+    (
+      ${table.action} IN ('draft_created', 'policy_approved', 'policy_rejected', 'policy_revoked')
+      AND ${table.policyVersionId} IS NOT NULL
+      AND ${table.operatorGrantId} IS NULL
+      AND ${table.actorType} = 'founder'
+      AND ${table.success} = TRUE
+    )
+    OR (
+      ${table.action} IN ('grant_issued', 'grant_revoked')
+      AND ${table.policyVersionId} IS NULL
+      AND ${table.operatorGrantId} IS NOT NULL
+      AND ${table.actorType} = 'founder'
+      AND ${table.success} = TRUE
+    )
+    OR (
+      ${table.action} = 'authorization_denied'
+      AND ${table.actorType} = 'operator'
+      AND ${table.success} = FALSE
+    )
+  `),
+]);
+
+export const coordinationV2OperatorGrants = pgTable("coordination_v2_operator_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyIdentityId: varchar("policy_identity_id").notNull()
+    .references(() => coordinationV2PolicyIdentities.id, { onDelete: "restrict" }),
+  operatorActor: varchar("operator_actor", { length: 128 }).notNull(),
+  minVersion: integer("min_version"),
+  maxVersion: integer("max_version"),
+  actions: text("actions").array().notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  grantDigest: varchar("grant_digest", { length: 64 }).notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_operator_grant_request")
+    .on(table.policyIdentityId, table.operatorActor, table.requestKey),
+  uniqueIndex("uq_coordination_v2_operator_grant_identity").on(table.id, table.policyIdentityId),
+  index("idx_coordination_v2_operator_grant_actor").on(table.operatorActor, table.expiresAt),
+  index("idx_coordination_v2_operator_grant_policy").on(table.policyIdentityId, table.expiresAt),
+  check("coordination_v2_operator_actor_nonblank", sql`length(trim(${table.operatorActor})) > 0`),
+  check("coordination_v2_operator_grant_versions", sql`
+    (${table.minVersion} IS NULL OR ${table.minVersion} > 0)
+    AND (${table.maxVersion} IS NULL OR ${table.maxVersion} > 0)
+    AND (${table.minVersion} IS NULL OR ${table.maxVersion} IS NULL OR ${table.minVersion} <= ${table.maxVersion})
+  `),
+  check("coordination_v2_operator_grant_digest", sql`${table.grantDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_operator_grant_lifecycle", sql`
+    ${table.expiresAt} > ${table.issuedAt}
+    AND (${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.issuedAt})
+  `),
+]);
+
+export const coordinationV2Sessions = pgTable("coordination_v2_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyVersionId: varchar("policy_version_id").notNull()
+    .references(() => coordinationV2PolicyVersions.id, { onDelete: "restrict" }),
+  operatorGrantId: varchar("operator_grant_id").notNull()
+    .references(() => coordinationV2OperatorGrants.id, { onDelete: "restrict" }),
+  operatorActor: varchar("operator_actor", { length: 128 }).notNull(),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  taskArtifactSha256: varchar("task_artifact_sha256", { length: 64 }).notNull(),
+  repositoryIdentity: varchar("repository_identity", { length: 255 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  requestedProviders: text("requested_providers").array().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  attemptBudget: integer("attempt_budget").notNull(),
+  perProviderBudgets: jsonb("per_provider_budgets").$type<Record<string, number>>().notNull().default(sql`'{}'::jsonb`),
+  requiredValidations: text("required_validations").array().notNull(),
+  completionCriteria: jsonb("completion_criteria").$type<Record<string, unknown>>().notNull(),
+  state: varchar("state", { length: 32 }).notNull().default("preparing"),
+  terminalReason: varchar("terminal_reason", { length: 128 }),
+  terminalAt: timestamp("terminal_at"),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  preparationReservationId: varchar("preparation_reservation_id"),
+  sessionDigest: varchar("session_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_session_request").on(table.operatorActor, table.idempotencyKey),
+  uniqueIndex("uq_coordination_v2_session_digest").on(table.sessionDigest),
+  uniqueIndex("uq_coordination_v2_session_preparation_reservation").on(table.preparationReservationId)
+    .where(sql`${table.preparationReservationId} IS NOT NULL`),
+  // Also serves as the referenced key for preparation reservations: a
+  // reservation may only ever bind a session to its enrolled host.
+  unique("uq_coordination_v2_session_host_binding").on(table.id, table.enrolledHostId),
+  index("idx_coordination_v2_session_policy_state").on(table.policyVersionId, table.state),
+  index("idx_coordination_v2_session_host_state").on(table.enrolledHostId, table.state),
+  index("idx_coordination_v2_session_expiry").on(table.expiresAt, table.state),
+  check("coordination_v2_session_task_ref", sql`${table.taskRef} ~ '^[1-9][0-9]*$'`),
+  check("coordination_v2_session_artifact_digest", sql`${table.taskArtifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_starting_commit", sql`${table.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_repository_nonblank", sql`length(trim(${table.repositoryIdentity})) > 0`),
+  check("coordination_v2_session_attempt_budget", sql`${table.attemptBudget} > 0 AND ${table.attemptBudget} <= 100`),
+  check("coordination_v2_session_digest", sql`${table.sessionDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_state", sql`
+    ${table.state} IN (
+      'preparing', 'ready', 'running', 'waiting_for_host', 'verifying',
+      'succeeded', 'failed', 'exhausted', 'expired', 'revoked'
+    )
+  `),
+  check("coordination_v2_session_lifecycle", sql`
+    (
+      ${table.state} IN ('succeeded', 'failed', 'exhausted', 'expired', 'revoked')
+      AND ${table.terminalAt} IS NOT NULL AND ${table.terminalReason} IS NOT NULL
+    )
+    OR (
+      ${table.state} IN ('preparing', 'ready', 'running', 'waiting_for_host', 'verifying')
+      AND ${table.terminalAt} IS NULL AND ${table.terminalReason} IS NULL
+    )
+  `),
+  check("coordination_v2_session_expiration", sql`${table.expiresAt} > ${table.createdAt}`),
+]);
+
+/**
+ * A server-owned, one-generation preparation authority.  This table contains
+ * identifiers and digests only: local paths, artifact bytes, ciphertext, and
+ * credentials never cross this boundary. The migration trigger makes these
+ * rows durable authority: identity, promoted evidence, and terminal rows are
+ * immutable, and deletion is forbidden.
+ */
+export const coordinationV2PreparationReservations = pgTable("coordination_v2_preparation_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id")
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  generationId: varchar("generation_id", { length: 128 }).notNull(),
+  taskRef: varchar("task_ref", { length: 128 }),
+  taskArtifactSha256: varchar("task_artifact_sha256", { length: 64 }),
+  promotionRecordId: varchar("promotion_record_id"),
+  promotedCommitSha: varchar("promoted_commit_sha", { length: 40 }),
+  exactTreeSha: varchar("exact_tree_sha", { length: 40 }),
+  policyIdentityId: varchar("policy_identity_id"),
+  policyVersionId: varchar("policy_version_id"),
+  operatorGrantId: varchar("operator_grant_id"),
+  operatorActor: varchar("operator_actor", { length: 128 }),
+  budgetsDigest: varchar("budgets_digest", { length: 64 }),
+  completionCriteriaDigest: varchar("completion_criteria_digest", { length: 64 }),
+  validationCriteriaDigest: varchar("validation_criteria_digest", { length: 64 }),
+  reservationDigest: varchar("reservation_digest", { length: 64 }).notNull(),
+  publicMaterialDigest: varchar("public_material_digest", { length: 64 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  repositoryIdentity: varchar("repository_identity", { length: 255 }).notNull(),
+  branch: varchar("branch", { length: 255 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("reserved"),
+  reserveRequestKey: varchar("reserve_request_key", { length: 128 }).notNull(),
+  reserveCommandDigest: varchar("reserve_command_digest", { length: 64 }).notNull(),
+  acknowledgementRequestKey: varchar("acknowledgement_request_key", { length: 128 }),
+  ackCommandDigest: varchar("ack_command_digest", { length: 64 }),
+  safePromotionEvidenceDigest: varchar("safe_promotion_evidence_digest", { length: 64 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  promotedAt: timestamp("promoted_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  expiredAt: timestamp("expired_at"),
+  failedAt: timestamp("failed_at"),
+  abandonedAt: timestamp("abandoned_at"),
+  failureCode: varchar("failure_code", { length: 128 }),
+  abandonCode: varchar("abandon_code", { length: 128 }),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_preparation_generation").on(table.generationId),
+  uniqueIndex("uq_coordination_v2_preparation_reserve_request").on(table.reserveRequestKey),
+  uniqueIndex("uq_coordination_v2_preparation_ack_request")
+    .on(table.sessionId, table.acknowledgementRequestKey)
+    .where(sql`${table.acknowledgementRequestKey} IS NOT NULL`),
+  uniqueIndex("uq_coordination_v2_preparation_active_session")
+    .on(table.sessionId)
+    .where(sql`${table.state} IN ('reserved', 'promoted')`),
+  index("idx_coordination_v2_preparation_host_state").on(table.enrolledHostId, table.state),
+  index("idx_coordination_v2_preparation_expiry").on(table.expiresAt, table.state),
+  foreignKey({
+    name: "fk_coordination_v2_preparation_session_host",
+    columns: [table.sessionId, table.enrolledHostId],
+    foreignColumns: [coordinationV2Sessions.id, coordinationV2Sessions.enrolledHostId],
+  }),
+  check("coordination_v2_preparation_protocol_version", sql`${table.protocolVersion} = 1`),
+  check("coordination_v2_preparation_task_shape", sql`${table.taskRef} IS NULL OR (${table.taskRef} ~ '^[1-9][0-9]*$' AND ${table.taskArtifactSha256} ~ '^[0-9a-f]{64}$')`),
+  check("coordination_v2_preparation_promotion_shape", sql`${table.promotedCommitSha} IS NULL OR (${table.promotedCommitSha} ~ '^[0-9a-f]{40}$' AND ${table.exactTreeSha} ~ '^[0-9a-f]{40}$')`),
+  check("coordination_v2_preparation_authority_shape_validated", sql`
+    (
+      ${table.state} IN ('reserved', 'promoted', 'acknowledged')
+      AND ${table.taskRef} IS NOT NULL
+      AND ${table.policyVersionId} IS NOT NULL
+      AND ${table.operatorGrantId} IS NOT NULL
+      AND ${table.operatorActor} IS NOT NULL
+    )
+    OR ${table.state} IN ('failed', 'expired', 'abandoned')
+  `),
+  check("coordination_v2_preparation_generation_nonblank", sql`length(trim(${table.generationId})) > 0`),
+  check("coordination_v2_preparation_repository_nonblank", sql`length(trim(${table.repositoryIdentity})) > 0`),
+  check("coordination_v2_preparation_branch", sql`length(trim(${table.branch})) > 0 AND ${table.branch} !~ '[[:cntrl:]]'`),
+  check("coordination_v2_preparation_starting_commit", sql`${table.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_reservation_digest", sql`${table.reservationDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_public_digest", sql`${table.publicMaterialDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_reserve_digest", sql`${table.reserveCommandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_ack_digest", sql`${table.ackCommandDigest} IS NULL OR ${table.ackCommandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_evidence_digest", sql`${table.safePromotionEvidenceDigest} IS NULL OR ${table.safePromotionEvidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_preparation_request_key", sql`length(trim(${table.reserveRequestKey})) > 0 AND ${table.reserveRequestKey} !~ '[[:cntrl:]]'`),
+  check("coordination_v2_preparation_ack_key", sql`${table.acknowledgementRequestKey} IS NULL OR (length(trim(${table.acknowledgementRequestKey})) > 0 AND ${table.acknowledgementRequestKey} !~ '[[:cntrl:]]')`),
+  check("coordination_v2_preparation_expiry", sql`${table.expiresAt} > ${table.createdAt}`),
+  check("coordination_v2_preparation_state", sql`${table.state} IN ('reserved', 'promoted', 'acknowledged', 'failed', 'expired', 'abandoned')`),
+  check("coordination_v2_preparation_failure_code", sql`
+    (${table.failureCode} IS NULL OR (length(trim(${table.failureCode})) > 0 AND ${table.failureCode} !~ '[[:cntrl:]]'))
+    AND (${table.abandonCode} IS NULL OR (length(trim(${table.abandonCode})) > 0 AND ${table.abandonCode} !~ '[[:cntrl:]]'))
+  `),
+  check("coordination_v2_preparation_lifecycle", sql`
+    (${table.state} = 'reserved'
+      AND ${table.promotedAt} IS NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NULL AND ${table.abandonedAt} IS NULL
+      AND ${table.acknowledgementRequestKey} IS NULL AND ${table.ackCommandDigest} IS NULL
+      AND ${table.safePromotionEvidenceDigest} IS NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'promoted'
+      AND ${table.promotedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NULL AND ${table.abandonedAt} IS NULL
+      AND ${table.acknowledgementRequestKey} IS NULL AND ${table.ackCommandDigest} IS NULL
+      AND ${table.safePromotionEvidenceDigest} IS NOT NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'acknowledged'
+      AND ${table.promotedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NOT NULL
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NULL AND ${table.abandonedAt} IS NULL
+      AND ${table.acknowledgementRequestKey} IS NOT NULL AND ${table.ackCommandDigest} IS NOT NULL
+      AND ${table.safePromotionEvidenceDigest} IS NOT NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'failed'
+      AND ${table.expiredAt} IS NULL AND ${table.failedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.abandonedAt} IS NULL AND ${table.failureCode} IS NOT NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'expired'
+      AND ${table.expiredAt} IS NOT NULL AND ${table.failedAt} IS NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.abandonedAt} IS NULL AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NULL)
+    OR (${table.state} = 'abandoned'
+      AND ${table.expiredAt} IS NULL AND ${table.abandonedAt} IS NOT NULL AND ${table.acknowledgedAt} IS NULL
+      AND ${table.failureCode} IS NULL AND ${table.abandonCode} IS NOT NULL)
+  `),
+  check("coordination_v2_preparation_timestamp_order", sql`
+    (${table.promotedAt} IS NULL OR ${table.promotedAt} >= ${table.createdAt})
+    AND (${table.acknowledgedAt} IS NULL OR (${table.promotedAt} IS NOT NULL AND ${table.acknowledgedAt} >= ${table.promotedAt}))
+    AND (${table.failedAt} IS NULL OR ${table.failedAt} >= ${table.createdAt})
+    AND (${table.expiredAt} IS NULL OR ${table.expiredAt} >= ${table.createdAt})
+    AND (${table.abandonedAt} IS NULL OR ${table.abandonedAt} >= ${table.createdAt})
+  `),
+]);
+
+export const coordinationV2SessionEvents = pgTable("coordination_v2_session_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  sequence: integer("sequence").notNull(),
+  fromState: varchar("from_state", { length: 32 }),
+  toState: varchar("to_state", { length: 32 }).notNull(),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  actorType: varchar("actor_type", { length: 32 }).notNull(),
+  actorId: varchar("actor_id", { length: 128 }).notNull(),
+  reasonCode: varchar("reason_code", { length: 128 }),
+  safeMessage: text("safe_message"),
+  evidenceRef: varchar("evidence_ref", { length: 255 }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_session_event_sequence").on(table.sessionId, table.sequence),
+  uniqueIndex("uq_coordination_v2_session_event_request").on(table.sessionId, table.requestKey)
+    .where(sql`${table.requestKey} IS NOT NULL`),
+  index("idx_coordination_v2_session_event_created").on(table.sessionId, table.createdAt),
+  check("coordination_v2_session_event_sequence", sql`${table.sequence} > 0`),
+  check("coordination_v2_session_event_type_nonblank", sql`length(trim(${table.eventType})) > 0`),
+  check("coordination_v2_session_event_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_session_event_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+]);
+
+export const coordinationV2Attempts = pgTable("coordination_v2_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptGeneration: varchar("attempt_generation", { length: 128 }).notNull(),
+  provider: varchar("provider", { length: 80 }).notNull(),
+  model: varchar("model", { length: 160 }).notNull(),
+  adapterVersion: varchar("adapter_version", { length: 80 }).notNull(),
+  sessionOrdinal: integer("session_ordinal").notNull(),
+  providerOrdinal: integer("provider_ordinal").notNull(),
+  previousAttemptId: varchar("previous_attempt_id")
+    .references((): any => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  packetId: varchar("packet_id").references(() => coordinationRuntimePackets.id, { onDelete: "restrict" }),
+  executionId: varchar("execution_id").references(() => coordinationRuntimeExecutions.id, { onDelete: "restrict" }),
+  state: varchar("state", { length: 32 }).notNull().default("created"),
+  failureClassification: varchar("failure_classification", { length: 40 }),
+  resultCode: varchar("result_code", { length: 128 }),
+  attemptDigest: varchar("attempt_digest", { length: 64 }).notNull(),
+  deadlineAt: timestamp("deadline_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  terminalAt: timestamp("terminal_at"),
+}, (table) => [
+  unique("uq_coordination_v2_attempt_session_id").on(table.sessionId, table.id),
+  uniqueIndex("uq_coordination_v2_attempt_generation").on(table.attemptGeneration),
+  uniqueIndex("uq_coordination_v2_attempt_session_ordinal").on(table.sessionId, table.sessionOrdinal),
+  uniqueIndex("uq_coordination_v2_attempt_provider_ordinal")
+    .on(table.sessionId, table.provider, table.providerOrdinal),
+  index("idx_coordination_v2_attempt_session_state").on(table.sessionId, table.state),
+  index("idx_coordination_v2_attempt_provider_state").on(table.provider, table.state),
+  check("coordination_v2_attempt_ordinals", sql`${table.sessionOrdinal} > 0 AND ${table.providerOrdinal} > 0`),
+  check("coordination_v2_attempt_provider_nonblank", sql`length(trim(${table.provider})) > 0`),
+  check("coordination_v2_attempt_model_nonblank", sql`length(trim(${table.model})) > 0`),
+  check("coordination_v2_attempt_adapter_nonblank", sql`length(trim(${table.adapterVersion})) > 0`),
+  check("coordination_v2_attempt_digest", sql`${table.attemptDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_attempt_deadline", sql`${table.deadlineAt} > ${table.createdAt}`),
+  check("coordination_v2_attempt_state", sql`
+    ${table.state} IN (
+      'created', 'provider_active', 'intent_ready', 'waiting_for_host',
+      'host_active', 'result_ready', 'provider_continuation', 'completed',
+      'retryable_failed', 'terminal_failed', 'cancelled'
+    )
+  `),
+  check("coordination_v2_attempt_failure_classification", sql`
+    ${table.failureClassification} IS NULL OR ${table.failureClassification} IN (
+      'resume_transport', 'fresh_attempt_same_provider', 'fresh_attempt_next_provider',
+      'terminal_failure', 'terminal_success', 'cleanup_repair'
+    )
+  `),
+  check("coordination_v2_attempt_lifecycle", sql`
+    (
+      ${table.state} IN ('completed', 'retryable_failed', 'terminal_failed', 'cancelled')
+      AND ${table.terminalAt} IS NOT NULL AND ${table.resultCode} IS NOT NULL
+    )
+    OR (
+      ${table.state} IN (
+        'created', 'provider_active', 'intent_ready', 'waiting_for_host',
+        'host_active', 'result_ready', 'provider_continuation'
+      )
+      AND ${table.terminalAt} IS NULL AND ${table.resultCode} IS NULL
+    )
+  `),
+]);
+
+export const coordinationV2AttemptEvents = pgTable("coordination_v2_attempt_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  sequence: integer("sequence").notNull(),
+  fromState: varchar("from_state", { length: 32 }),
+  toState: varchar("to_state", { length: 32 }).notNull(),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  actorType: varchar("actor_type", { length: 32 }).notNull(),
+  actorId: varchar("actor_id", { length: 128 }).notNull(),
+  failureClassification: varchar("failure_classification", { length: 40 }),
+  resultCode: varchar("result_code", { length: 128 }),
+  evidenceRef: varchar("evidence_ref", { length: 255 }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_attempt_event_sequence").on(table.attemptId, table.sequence),
+  uniqueIndex("uq_coordination_v2_attempt_event_request").on(table.attemptId, table.requestKey)
+    .where(sql`${table.requestKey} IS NOT NULL`),
+  index("idx_coordination_v2_attempt_event_created").on(table.attemptId, table.createdAt),
+  check("coordination_v2_attempt_event_sequence", sql`${table.sequence} > 0`),
+  check("coordination_v2_attempt_event_type_nonblank", sql`length(trim(${table.eventType})) > 0`),
+  check("coordination_v2_attempt_event_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_attempt_event_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+]);
+
+export const coordinationV2TransportLeases = pgTable("coordination_v2_transport_leases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  predecessorLeaseId: varchar("predecessor_lease_id")
+    .references((): any => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  state: varchar("state", { length: 16 }).notNull().default("active"),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("uq_coordination_v2_lease_session_id").on(table.sessionId, table.id),
+  unique("uq_coordination_v2_lease_id_epoch").on(table.id, table.epoch),
+  unique("uq_coordination_v2_lease_id_host").on(table.id, table.enrolledHostId),
+  uniqueIndex("uq_coordination_v2_lease_epoch").on(table.sessionId, table.epoch),
+  uniqueIndex("uq_coordination_v2_lease_active").on(table.sessionId)
+    .where(sql`${table.state} = 'active'`),
+  index("idx_coordination_v2_lease_holder").on(table.holderInstanceId, table.state),
+  index("idx_coordination_v2_lease_expiry").on(table.sessionId, table.expiresAt),
+  check("coordination_v2_lease_epoch_positive", sql`${table.epoch} > 0`),
+  check("coordination_v2_lease_holder_nonblank", sql`length(trim(${table.holderInstanceId})) > 0`),
+  check("coordination_v2_lease_state", sql`${table.state} IN ('active', 'released', 'expired', 'superseded')`),
+  check("coordination_v2_lease_expiration", sql`${table.expiresAt} > ${table.issuedAt}`),
+  check("coordination_v2_lease_lifecycle", sql`
+    (${table.state} = 'active' AND ${table.endedAt} IS NULL)
+    OR (${table.state} IN ('released', 'expired', 'superseded') AND ${table.endedAt} IS NOT NULL)
+  `),
+]);
+
+/**
+ * Transport request receipts are separate from authority state so retries
+ * cannot grow a lease row's mutable JSON under concurrent host delivery.
+ */
+export const coordinationV2TransportLeaseReceipts = pgTable("coordination_v2_transport_lease_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  operation: varchar("operation", { length: 24 }).notNull(),
+  actorId: varchar("actor_id", { length: 128 }).notNull(),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  commandDigest: varchar("command_digest", { length: 64 }).notNull(),
+  responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_lease_receipt_request").on(table.sessionId, table.requestKey),
+  index("idx_coordination_v2_transport_lease_receipt_session").on(table.sessionId, table.createdAt),
+  check("coordination_v2_transport_lease_receipt_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_transport_lease_receipt_actor_nonblank", sql`length(trim(${table.actorId})) > 0`),
+  check("coordination_v2_transport_lease_receipt_operation", sql`
+    ${table.operation} IN ('acquire', 'renew', 'release', 'expire', 'takeover', 'poll', 'claim', 'result', 'ack', 'cleanup')
+  `),
+  check("coordination_v2_transport_lease_receipt_digest", sql`${table.commandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_transport_lease_receipt_snapshot_size", sql`length(${table.responseSnapshot}::text) <= 32768`),
+]);
+
+/**
+ * V2 work evidence cannot safely use the legacy runtime claim identity:
+ * those rows require provider/runtime credentials and thread provenance that a
+ * host lease does not possess. These narrow tables preserve V2 session,
+ * attempt, lease, holder, and epoch provenance without granting new policy
+ * vocabulary or authority.
+ */
+export const coordinationV2TransportWorkClaims = pgTable("coordination_v2_transport_work_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id").notNull()
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  commandDigest: varchar("command_digest", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  terminalAt: timestamp("terminal_at"),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_work_claim_request").on(table.sessionId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_transport_work_claim_active_attempt").on(table.attemptId)
+    .where(sql`${table.state} = 'active'`),
+  unique("uq_coordination_v2_transport_work_claim_provenance").on(table.id, table.sessionId, table.attemptId, table.leaseId, table.epoch),
+  index("idx_coordination_v2_transport_work_claim_session").on(table.sessionId, table.createdAt),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_attempt_session",
+    columns: [table.sessionId, table.attemptId],
+    foreignColumns: [coordinationV2Attempts.sessionId, coordinationV2Attempts.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_lease_session",
+    columns: [table.sessionId, table.leaseId],
+    foreignColumns: [coordinationV2TransportLeases.sessionId, coordinationV2TransportLeases.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_lease_host",
+    columns: [table.leaseId, table.enrolledHostId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.enrolledHostId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_claim_lease_epoch",
+    columns: [table.leaseId, table.epoch],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.epoch],
+  }),
+  check("coordination_v2_transport_work_claim_epoch", sql`${table.epoch} > 0`),
+  check("coordination_v2_transport_work_claim_state", sql`${table.state} IN ('active', 'completed', 'expired')`),
+  check("coordination_v2_transport_work_claim_lifecycle", sql`
+    (${table.state} = 'active' AND ${table.terminalAt} IS NULL)
+    OR (${table.state} IN ('completed', 'expired') AND ${table.terminalAt} IS NOT NULL)
+  `),
+  check("coordination_v2_transport_work_claim_digest", sql`${table.commandDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationV2TransportWorkResults = pgTable("coordination_v2_transport_work_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  claimId: varchar("claim_id").notNull()
+    .references(() => coordinationV2TransportWorkClaims.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id").notNull()
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  resultDigest: varchar("result_digest", { length: 64 }).notNull(),
+  result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_work_result_request").on(table.sessionId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_transport_work_result_claim").on(table.claimId),
+  index("idx_coordination_v2_transport_work_result_attempt").on(table.attemptId, table.createdAt),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_claim_provenance",
+    columns: [table.claimId, table.sessionId, table.attemptId, table.leaseId, table.epoch],
+    foreignColumns: [
+      coordinationV2TransportWorkClaims.id,
+      coordinationV2TransportWorkClaims.sessionId,
+      coordinationV2TransportWorkClaims.attemptId,
+      coordinationV2TransportWorkClaims.leaseId,
+      coordinationV2TransportWorkClaims.epoch,
+    ],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_attempt_session",
+    columns: [table.sessionId, table.attemptId],
+    foreignColumns: [coordinationV2Attempts.sessionId, coordinationV2Attempts.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_lease_session",
+    columns: [table.sessionId, table.leaseId],
+    foreignColumns: [coordinationV2TransportLeases.sessionId, coordinationV2TransportLeases.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_work_result_lease_host",
+    columns: [table.leaseId, table.enrolledHostId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.enrolledHostId],
+  }),
+  check("coordination_v2_transport_work_result_epoch", sql`${table.epoch} > 0`),
+  check("coordination_v2_transport_work_result_digest", sql`${table.resultDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_transport_work_result_size", sql`length(${table.result}::text) <= 32768`),
+]);
+
+/**
+ * Stale hosts may report bounded evidence, but this ledger is never an
+ * authority source and cannot grant work or mutate the current lease.
+ */
+export const coordinationV2TransportLeaseReconciliations = pgTable("coordination_v2_transport_lease_reconciliations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id")
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  epoch: integer("epoch").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }).notNull(),
+  evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_transport_lease_reconciliation_request").on(table.sessionId, table.requestKey),
+  index("idx_coordination_v2_transport_lease_reconciliation_session").on(table.sessionId, table.createdAt),
+  check("coordination_v2_transport_lease_reconciliation_epoch", sql`${table.epoch} > 0`),
+  check("coordination_v2_transport_lease_reconciliation_request_nonblank", sql`length(trim(${table.requestKey})) > 0`),
+  check("coordination_v2_transport_lease_reconciliation_holder_nonblank", sql`length(trim(${table.holderInstanceId})) > 0`),
+  check("coordination_v2_transport_lease_reconciliation_digest", sql`${table.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_transport_lease_reconciliation_size", sql`length(${table.evidence}::text) <= 8192`),
+]);
+
+export const coordinationV2CleanupObligations = pgTable("coordination_v2_cleanup_obligations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  kind: varchar("kind", { length: 64 }).notNull(),
+  state: varchar("state", { length: 24 }).notNull().default("pending"),
+  terminalOutcome: varchar("terminal_outcome", { length: 16 }).notNull(),
+  terminalReason: varchar("terminal_reason", { length: 128 }).notNull(),
+  required: boolean("required").notNull().default(true),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  deadlineAt: timestamp("deadline_at"),
+  completedAt: timestamp("completed_at"),
+  lastErrorCode: varchar("last_error_code", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  operationReceipts: jsonb("operation_receipts").$type<Record<string, {
+    commandDigest: string;
+    snapshot: Record<string, unknown>;
+  }>>().notNull().default(sql`'{}'::jsonb`),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_cleanup_kind").on(table.sessionId, table.kind),
+  uniqueIndex("uq_coordination_v2_cleanup_request").on(table.sessionId, table.idempotencyKey),
+  unique("uq_coordination_v2_cleanup_id_session").on(table.id, table.sessionId),
+  index("idx_coordination_v2_cleanup_state").on(table.state, table.requestedAt),
+  check("coordination_v2_cleanup_kind_value", sql`
+    ${table.kind} IN ('revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials')
+  `),
+  check("coordination_v2_cleanup_state_value", sql`
+    ${table.state} IN ('pending', 'in_progress', 'acknowledged', 'repair_required')
+  `),
+  check("coordination_v2_cleanup_terminal_outcome", sql`
+    ${table.terminalOutcome} IN ('succeeded', 'failed', 'exhausted', 'expired', 'revoked')
+  `),
+  check("coordination_v2_cleanup_terminal_reason_nonblank", sql`
+    length(trim(${table.terminalReason})) > 0
+  `),
+  check("coordination_v2_cleanup_attempt_count", sql`${table.attemptCount} >= 0`),
+  check("coordination_v2_cleanup_deadline", sql`
+    ${table.deadlineAt} IS NULL OR ${table.deadlineAt} >= ${table.requestedAt}
+  `),
+  check("coordination_v2_cleanup_lifecycle", sql`
+    (${table.state} = 'acknowledged' AND ${table.completedAt} IS NOT NULL)
+    OR (${table.state} <> 'acknowledged' AND ${table.completedAt} IS NULL)
+  `),
+  check("coordination_v2_cleanup_operation_receipts_size", sql`length(${table.operationReceipts}::text) <= 16384`),
+]);
+
+export const coordinationV2CleanupAcknowledgements = pgTable("coordination_v2_cleanup_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  obligationId: varchar("obligation_id").notNull()
+    .references(() => coordinationV2CleanupObligations.id, { onDelete: "restrict" }),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  enrolledHostId: varchar("enrolled_host_id")
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  actorId: varchar("actor_id", { length: 128 }),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }),
+  transportLeaseId: varchar("transport_lease_id")
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  transportLeaseEpoch: integer("transport_lease_epoch"),
+  acknowledgementKey: varchar("acknowledgement_key", { length: 128 }).notNull(),
+  commandDigest: varchar("command_digest", { length: 64 }).notNull().default(sql`repeat('0', 64)`),
+  responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  outcome: varchar("outcome", { length: 16 }).notNull(),
+  evidenceDigest: varchar("evidence_digest", { length: 64 }),
+  safeMessage: text("safe_message"),
+  errorCode: varchar("error_code", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_cleanup_ack").on(table.obligationId, table.acknowledgementKey),
+  index("idx_coordination_v2_cleanup_ack_session").on(table.sessionId, table.createdAt),
+  index("idx_coordination_v2_cleanup_ack_obligation").on(table.obligationId, table.createdAt),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_obligation_session",
+    columns: [table.obligationId, table.sessionId],
+    foreignColumns: [coordinationV2CleanupObligations.id, coordinationV2CleanupObligations.sessionId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_lease_session",
+    columns: [table.transportLeaseId, table.sessionId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.sessionId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_lease_epoch",
+    columns: [table.transportLeaseId, table.transportLeaseEpoch],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.epoch],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_cleanup_ack_lease_host",
+    columns: [table.transportLeaseId, table.enrolledHostId],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.enrolledHostId],
+  }),
+  check("coordination_v2_cleanup_ack_outcome", sql`${table.outcome} IN ('acknowledged', 'rejected')`),
+  check("coordination_v2_cleanup_ack_digest", sql`
+    ${table.evidenceDigest} IS NULL OR ${table.evidenceDigest} ~ '^[0-9a-f]{64}$'
+  `),
+  check("coordination_v2_cleanup_ack_command_digest", sql`${table.commandDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_cleanup_ack_snapshot_size", sql`length(${table.responseSnapshot}::text) <= 32768`),
+  check("coordination_v2_cleanup_ack_actor_nonblank", sql`
+    ${table.actorId} IS NULL OR length(trim(${table.actorId})) > 0
+  `),
+  check("coordination_v2_cleanup_ack_holder_nonblank", sql`
+    ${table.holderInstanceId} IS NULL OR length(trim(${table.holderInstanceId})) > 0
+  `),
+  check("coordination_v2_cleanup_ack_m5_provenance", sql`
+    (${table.commandDigest} = repeat('0', 64)
+      AND ${table.actorId} IS NULL
+      AND ${table.holderInstanceId} IS NULL
+      AND ${table.transportLeaseId} IS NULL
+      AND ${table.transportLeaseEpoch} IS NULL)
+    OR (${table.commandDigest} <> repeat('0', 64)
+      AND ${table.actorId} IS NOT NULL
+      AND ${table.holderInstanceId} IS NOT NULL
+      AND ${table.transportLeaseId} IS NOT NULL
+      AND ${table.transportLeaseEpoch} IS NOT NULL)
+  `),
+  check("coordination_v2_cleanup_ack_lifecycle", sql`
+    (${table.outcome} = 'acknowledged' AND ${table.evidenceDigest} IS NOT NULL AND ${table.errorCode} IS NULL)
+    OR (${table.outcome} = 'rejected' AND ${table.errorCode} IS NOT NULL)
+  `),
+]);
+
+export const coordinationV2SessionCredentials = pgTable("coordination_v2_session_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostCredentialId: varchar("host_credential_id").notNull()
+    .references(() => coordinationV2HostCredentials.id, { onDelete: "restrict" }),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  sessionId: varchar("session_id").notNull()
+    .references(() => coordinationV2Sessions.id, { onDelete: "restrict" }),
+  attemptId: varchar("attempt_id").notNull()
+    .references(() => coordinationV2Attempts.id, { onDelete: "restrict" }),
+  leaseId: varchar("lease_id").notNull()
+    .references(() => coordinationV2TransportLeases.id, { onDelete: "restrict" }),
+  leaseEpoch: integer("lease_epoch").notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  credentialDigest: varchar("credential_digest", { length: 64 }).notNull(),
+  capability: varchar("capability", { length: 80 }).notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  holderInstanceId: varchar("holder_instance_id", { length: 128 }).notNull(),
+  issuedBy: varchar("issued_by", { length: 128 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_session_credential_hash").on(table.tokenHash),
+  uniqueIndex("uq_coordination_v2_session_credential_digest").on(table.credentialDigest),
+  index("idx_coordination_v2_session_credential_scope").on(table.sessionId, table.attemptId, table.leaseId, table.expiresAt, table.revokedAt),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_host_scope",
+    columns: [table.hostCredentialId, table.hostEnrollmentId],
+    foreignColumns: [coordinationV2HostCredentials.id, coordinationV2HostCredentials.hostEnrollmentId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_session_host",
+    columns: [table.sessionId, table.hostEnrollmentId],
+    foreignColumns: [coordinationV2Sessions.id, coordinationV2Sessions.enrolledHostId],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_attempt_session",
+    columns: [table.sessionId, table.attemptId],
+    foreignColumns: [coordinationV2Attempts.sessionId, coordinationV2Attempts.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_lease_session",
+    columns: [table.sessionId, table.leaseId],
+    foreignColumns: [coordinationV2TransportLeases.sessionId, coordinationV2TransportLeases.id],
+  }),
+  foreignKey({
+    name: "fk_coordination_v2_session_credential_lease_epoch",
+    columns: [table.leaseId, table.leaseEpoch],
+    foreignColumns: [coordinationV2TransportLeases.id, coordinationV2TransportLeases.epoch],
+  }),
+  check("coordination_v2_session_credential_hash", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_credential_digest", sql`${table.credentialDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_session_credential_capability", sql`${table.capability} IN ('host:transport', 'host:cleanup')`),
+  check("coordination_v2_session_credential_protocol", sql`${table.protocolVersion} > 0`),
+  check("coordination_v2_session_credential_lease_epoch", sql`${table.leaseEpoch} > 0`),
+  check("coordination_v2_session_credential_expiry", sql`${table.expiresAt} > ${table.issuedAt}`),
+  check("coordination_v2_session_credential_revocation", sql`${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.issuedAt}`),
+]);
+
 export const insertCoordinationThreadSchema = createInsertSchema(coordinationThreads).omit({
   id: true,
   state: true,
@@ -8281,6 +9735,30 @@ export type CoordinationInboxActivation = typeof coordinationInboxActivation.$in
 export type CoordinationRuntimeRegistration = typeof coordinationRuntimeRegistrations.$inferSelect;
 export type CoordinationRuntimeCredential = typeof coordinationRuntimeCredentials.$inferSelect;
 export type CoordinationCredentialAuditEvent = typeof coordinationCredentialAuditEvents.$inferSelect;
+export type CoordinationV2HostEnrollment = typeof coordinationV2HostEnrollments.$inferSelect;
+export type CoordinationV2SourcePromotion = typeof coordinationV2SourcePromotions.$inferSelect;
+export type CoordinationV2HostEnrollmentRequest = typeof coordinationV2HostEnrollmentRequests.$inferSelect;
+export type CoordinationV2HostProofChallenge = typeof coordinationV2HostProofChallenges.$inferSelect;
+export type CoordinationV2HostCredential = typeof coordinationV2HostCredentials.$inferSelect;
+export type CoordinationV2HostReauthorizationRequest = typeof coordinationV2HostReauthorizationRequests.$inferSelect;
+export type CoordinationV2HostReauthorizationChallenge = typeof coordinationV2HostReauthorizationChallenges.$inferSelect;
+export type CoordinationV2SessionCredential = typeof coordinationV2SessionCredentials.$inferSelect;
+export type CoordinationV2PolicyIdentity = typeof coordinationV2PolicyIdentities.$inferSelect;
+export type CoordinationV2PolicyVersion = typeof coordinationV2PolicyVersions.$inferSelect;
+export type CoordinationV2FounderDecision = typeof coordinationV2FounderDecisions.$inferSelect;
+export type CoordinationV2OperatorGrant = typeof coordinationV2OperatorGrants.$inferSelect;
+export type CoordinationV2Session = typeof coordinationV2Sessions.$inferSelect;
+export type CoordinationV2SessionEvent = typeof coordinationV2SessionEvents.$inferSelect;
+export type CoordinationV2PreparationReservation = typeof coordinationV2PreparationReservations.$inferSelect;
+export type CoordinationV2Attempt = typeof coordinationV2Attempts.$inferSelect;
+export type CoordinationV2AttemptEvent = typeof coordinationV2AttemptEvents.$inferSelect;
+export type CoordinationV2TransportLease = typeof coordinationV2TransportLeases.$inferSelect;
+export type CoordinationV2TransportLeaseReceipt = typeof coordinationV2TransportLeaseReceipts.$inferSelect;
+export type CoordinationV2TransportLeaseReconciliation = typeof coordinationV2TransportLeaseReconciliations.$inferSelect;
+export type CoordinationV2TransportWorkClaim = typeof coordinationV2TransportWorkClaims.$inferSelect;
+export type CoordinationV2TransportWorkResult = typeof coordinationV2TransportWorkResults.$inferSelect;
+export type CoordinationV2CleanupObligation = typeof coordinationV2CleanupObligations.$inferSelect;
+export type CoordinationV2CleanupAcknowledgement = typeof coordinationV2CleanupAcknowledgements.$inferSelect;
 
 // ===== Agent's Record of David =====
 // Who I'm working with. Not a user profile — the person, as I understand him.
@@ -10757,3 +12235,291 @@ export const sophiaMessages = pgTable("sophia_messages", {
 export const insertSophiaMessageSchema = createInsertSchema(sophiaMessages).omit({ id: true, createdAt: true });
 export type InsertSophiaMessage = z.infer<typeof insertSophiaMessageSchema>;
 export type SophiaMessage = typeof sophiaMessages.$inferSelect;
+
+// Founder-attested task ownership.  Challenge/receipt/nonce rows are the only
+// mutable state; decision and proof rows are append-only evidence.
+export const taskOwnershipChallenges = pgTable("task_ownership_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+  intendedActor: varchar("intended_actor", { length: 128 }).notNull(),
+  coordinationActor: varchar("coordination_actor", { length: 128 }).notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 128 }).notNull(),
+  contextDigest: varchar("context_digest", { length: 128 }),
+  serverNonce: varchar("server_nonce", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  decidedAt: timestamp("decided_at"),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+}, (t) => [
+  uniqueIndex("uq_task_ownership_challenge_nonce").on(t.serverNonce),
+  uniqueIndex("uq_task_ownership_challenge_idempotency").on(t.coordinationActor, t.idempotencyKey),
+  index("idx_task_ownership_challenge_status").on(t.status, t.expiresAt),
+  check("task_ownership_challenge_task_ref", sql`${t.taskRef} ~ '^[1-9][0-9]*$'`),
+  check("task_ownership_challenge_artifact_sha256", sql`${t.artifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_fingerprint_sha256", sql`${t.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_context_digest", sql`${t.contextDigest} IS NULL OR ${t.contextDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_request_digest", sql`${t.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_challenge_actor_match", sql`${t.intendedActor} = ${t.coordinationActor}`),
+  check("task_ownership_challenge_status", sql`${t.status} IN ('pending','approved','rejected','expired')`),
+  check("task_ownership_challenge_lifecycle", sql`${t.expiresAt} > ${t.createdAt} AND ((${t.status} = 'pending' AND ${t.decidedAt} IS NULL) OR (${t.status} <> 'pending' AND ${t.decidedAt} IS NOT NULL))`),
+]);
+
+export const taskOwnershipReceipts = pgTable("task_ownership_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull().references(() => taskOwnershipChallenges.id),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+  intendedActor: varchar("intended_actor", { length: 128 }).notNull(),
+  publicKey: text("public_key").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 128 }).notNull(),
+  contextDigest: varchar("context_digest", { length: 128 }),
+  approvedBy: varchar("approved_by").notNull(),
+  approvedAt: timestamp("approved_at").notNull().defaultNow(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  version: integer("version").notNull().default(1),
+  payloadDigest: varchar("payload_digest", { length: 128 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("active"),
+  revokedAt: timestamp("revoked_at"),
+}, (t) => [
+  uniqueIndex("uq_task_ownership_receipt_challenge").on(t.challengeId),
+  uniqueIndex("uq_task_ownership_active_task").on(t.taskRef).where(sql`${t.status} = 'active'`),
+  index("idx_task_ownership_receipt_task").on(t.taskRef, t.status),
+  check("task_ownership_receipt_task_ref", sql`${t.taskRef} ~ '^[1-9][0-9]*$'`),
+  check("task_ownership_receipt_artifact_sha256", sql`${t.artifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_fingerprint_sha256", sql`${t.keyFingerprint} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_context_digest", sql`${t.contextDigest} IS NULL OR ${t.contextDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_payload_digest", sql`${t.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+  check("task_ownership_receipt_version", sql`${t.version} = 1`),
+  check("task_ownership_receipt_status", sql`${t.status} IN ('active','revoked','expired')`),
+  check("task_ownership_receipt_lifecycle", sql`${t.expiresAt} > ${t.issuedAt} AND ((${t.status} = 'active' AND ${t.revokedAt} IS NULL) OR (${t.status} <> 'active' AND ${t.revokedAt} IS NOT NULL))`),
+]);
+
+export const taskOwnershipProofNonces = pgTable("task_ownership_proof_nonces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptId: varchar("receipt_id").notNull().references(() => taskOwnershipReceipts.id),
+  nonce: varchar("nonce", { length: 128 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_task_ownership_proof_nonce").on(t.nonce),
+  check("task_ownership_proof_nonce_lifecycle", sql`${t.expiresAt} > ${t.createdAt} AND (${t.consumedAt} IS NULL OR ${t.consumedAt} >= ${t.createdAt})`),
+]);
+
+export const taskOwnershipDecisionEvents = pgTable("task_ownership_decision_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  challengeId: varchar("challenge_id").notNull().references(() => taskOwnershipChallenges.id),
+  receiptId: varchar("receipt_id").references(() => taskOwnershipReceipts.id),
+  decision: varchar("decision", { length: 16 }).notNull(),
+  actorId: varchar("actor_id").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  check("task_ownership_decision_event_decision", sql`${t.decision} IN ('approved','rejected','revoked','expired')`),
+  check("task_ownership_decision_event_actor", sql`length(trim(${t.actorId})) > 0`),
+]);
+
+export const taskOwnershipProofAttempts = pgTable("task_ownership_proof_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nonceId: varchar("nonce_id").notNull().references(() => taskOwnershipProofNonces.id),
+  receiptId: varchar("receipt_id").notNull().references(() => taskOwnershipReceipts.id),
+  success: boolean("success").notNull(),
+  errorCode: varchar("error_code", { length: 64 }),
+  payloadDigest: varchar("payload_digest", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  check("task_ownership_proof_attempt_outcome", sql`(${t.success} AND ${t.errorCode} IS NULL) OR (NOT ${t.success} AND ${t.errorCode} IS NOT NULL)`),
+  check("task_ownership_proof_attempt_digest", sql`${t.payloadDigest} IS NULL OR ${t.payloadDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+// Gate 3 is a durable capability: it is only valid while every authority row
+// it names remains valid.  All values are copied from locked source rows at
+// issuance time so validation never trusts request-supplied task metadata.
+export const coordinationGate3ProofGrants = pgTable("coordination_gate3_proof_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receiptId: varchar("receipt_id").notNull().references(() => taskOwnershipReceipts.id, { onDelete: "restrict" }),
+  credentialId: varchar("credential_id").notNull().references(() => coordinationRuntimeCredentials.id, { onDelete: "restrict" }),
+  runtimeRegistrationId: varchar("runtime_registration_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: "restrict" }),
+  profileId: varchar("profile_id").notNull().references(() => coordinationRuntimeProfiles.id, { onDelete: "restrict" }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  taskRef: varchar("task_ref", { length: 128 }).notNull(),
+  artifactSha256: varchar("artifact_sha256", { length: 64 }).notNull(),
+  contextDigest: varchar("context_digest", { length: 64 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  proofPayloadDigest: varchar("proof_payload_digest", { length: 64 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_coordination_gate3_grant_bindings")
+    .on(t.receiptId, t.credentialId, t.runtimeRegistrationId, t.profileId),
+  index("idx_coordination_gate3_grants_credential").on(t.credentialId, t.expiresAt),
+  index("idx_coordination_gate3_grants_runtime_profile").on(t.runtimeRegistrationId, t.profileId, t.expiresAt),
+  check("coordination_gate3_grant_actor", sql`${t.actor} = 'luca-gemini'`),
+  check("coordination_gate3_grant_task_ref", sql`${t.taskRef} = '1448'`),
+  check("coordination_gate3_grant_artifact_sha256", sql`${t.artifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_context_digest", sql`${t.contextDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_starting_commit", sql`${t.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_proof_digest", sql`${t.proofPayloadDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_gate3_grant_lifecycle", sql`${t.expiresAt} > ${t.issuedAt} AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.issuedAt})`),
+]);
+
+// Coordinator V2 runtime bootstrap evidence is intentionally independent from
+// task/session authority. These records are append-only; migration 0052 adds
+// database triggers to reject updates and deletes.
+export const coordinationV2RuntimeReleases = pgTable("coordination_v2_runtime_releases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  protocolVersion: integer("protocol_version").notNull(),
+  sourcePromotionId: varchar("source_promotion_id").notNull()
+    .references(() => coordinationV2SourcePromotions.id, { onDelete: "restrict" }),
+  repositoryIdentity: varchar("repository_identity", { length: 512 }).notNull(),
+  promotedCommitSha: varchar("promoted_commit_sha", { length: 40 }).notNull(),
+  exactTreeSha: varchar("exact_tree_sha", { length: 40 }).notNull(),
+  publicationReference: varchar("publication_reference", { length: 512 }).notNull(),
+  protectedValidationId: varchar("protected_validation_id", { length: 128 }).notNull(),
+  sourcePromotionRecordDigest: varchar("source_promotion_record_digest", { length: 64 }).notNull(),
+  releaseDigest: varchar("release_digest", { length: 64 }).notNull(),
+  manifestTemplateDigest: varchar("manifest_template_digest", { length: 64 }).notNull(),
+  nodeVersion: varchar("node_version", { length: 32 }).notNull(),
+  nodeReleaseKeyringCommit: varchar("node_release_keyring_commit", { length: 40 }).notNull(),
+  nodeReleaseKeyringDigest: varchar("node_release_keyring_digest", { length: 64 }).notNull(),
+  nodeShasumsDigest: varchar("node_shasums_digest", { length: 64 }).notNull(),
+  nodeSignatureDigest: varchar("node_signature_digest", { length: 64 }).notNull(),
+  nodeSignerFingerprint: varchar("node_signer_fingerprint", { length: 40 }).notNull(),
+  lockfileDigest: varchar("lockfile_digest", { length: 64 }).notNull(),
+  runtimeClosureDigest: varchar("runtime_closure_digest", { length: 64 }).notNull(),
+  provenanceDigest: varchar("provenance_digest", { length: 64 }).notNull(),
+  sourceMembers: jsonb("source_members")
+    .$type<Array<{ fixedPath: string; sha256: string }>>()
+    .notNull(),
+  publishedAt: timestamp("published_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_release_digest").on(table.releaseDigest),
+  index("idx_coordination_v2_runtime_release_published").on(table.publishedAt),
+  check("coordination_v2_runtime_release_protocol", sql`${table.protocolVersion} = 1`),
+  check("coordination_v2_runtime_release_commit", sql`${table.promotedCommitSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_runtime_release_tree", sql`${table.exactTreeSha} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_runtime_release_source_digest", sql`${table.sourcePromotionRecordDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_digest", sql`${table.releaseDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_manifest_template_digest", sql`${table.manifestTemplateDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_version", sql`length(trim(${table.nodeVersion})) > 0`),
+  check("coordination_v2_runtime_release_node_keyring_commit", sql`${table.nodeReleaseKeyringCommit} ~ '^[0-9a-f]{40}$'`),
+  check("coordination_v2_runtime_release_node_keyring_digest", sql`${table.nodeReleaseKeyringDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_shasums_digest", sql`${table.nodeShasumsDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_signature_digest", sql`${table.nodeSignatureDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_node_signer_fingerprint", sql`${table.nodeSignerFingerprint} ~ '^[0-9A-F]{40}$'`),
+  check("coordination_v2_runtime_release_lockfile_digest", sql`${table.lockfileDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_runtime_closure_digest", sql`${table.runtimeClosureDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_provenance_digest", sql`${table.provenanceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_release_source_members", sql`
+    jsonb_typeof(${table.sourceMembers}) = 'array'
+    AND jsonb_array_length(
+      CASE
+        WHEN jsonb_typeof(${table.sourceMembers}) = 'array' THEN ${table.sourceMembers}
+        ELSE '[]'::jsonb
+      END
+    ) > 0
+  `),
+]);
+
+export const coordinationV2RuntimeReleaseArtifacts = pgTable("coordination_v2_runtime_release_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runtimeReleaseId: varchar("runtime_release_id").notNull()
+    .references(() => coordinationV2RuntimeReleases.id, { onDelete: "restrict" }),
+  role: varchar("role", { length: 48 }).notNull(),
+  fixedDestination: varchar("fixed_destination", { length: 512 }).notNull(),
+  objectKey: varchar("object_key", { length: 1024 }).notNull(),
+  objectDigest: varchar("object_digest", { length: 64 }).notNull(),
+  byteLength: bigint("byte_length", { mode: "number" }).notNull(),
+  mediaType: varchar("media_type", { length: 128 }).notNull(),
+  requiresAuthenticode: boolean("requires_authenticode").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_artifact_destination").on(table.runtimeReleaseId, table.fixedDestination),
+  check("coordination_v2_runtime_artifact_role", sql`${table.role} IN ('node_executable', 'tsx_runtime_module')`),
+  check("coordination_v2_runtime_artifact_digest", sql`${table.objectDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_artifact_length", sql`${table.byteLength} > 0 AND ${table.byteLength} <= 268435456`),
+  check("coordination_v2_runtime_artifact_object_key", sql`${table.objectKey} ~ '^coordination-v2/runtime/[0-9a-f]{64}/[A-Za-z0-9._-]+$'`),
+]);
+
+export const coordinationV2RuntimeBootstrapIssues = pgTable("coordination_v2_runtime_bootstrap_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull()
+    .references(() => coordinationV2HostEnrollments.id, { onDelete: "restrict" }),
+  runtimeReleaseId: varchar("runtime_release_id").notNull()
+    .references(() => coordinationV2RuntimeReleases.id, { onDelete: "restrict" }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  requestDigest: varchar("request_digest", { length: 64 }).notNull(),
+  manifestDigest: varchar("manifest_digest", { length: 64 }).notNull(),
+  issuedAt: timestamp("issued_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_issue_request").on(table.hostEnrollmentId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_runtime_issue_manifest").on(table.manifestDigest),
+  unique("uq_coordination_v2_runtime_issue_lineage")
+    .on(table.id, table.hostEnrollmentId, table.runtimeReleaseId, table.requestKey, table.manifestDigest),
+  check("coordination_v2_runtime_issue_request_digest", sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_issue_manifest_digest", sql`${table.manifestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_issue_expiry", sql`
+    ${table.expiresAt} > ${table.issuedAt}
+    AND ${table.expiresAt} <= ${table.issuedAt} + interval '5 minutes'
+  `),
+]);
+
+export const coordinationV2RuntimeBootstrapAcknowledgements = pgTable("coordination_v2_runtime_bootstrap_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hostEnrollmentId: varchar("host_enrollment_id").notNull(),
+  runtimeReleaseId: varchar("runtime_release_id").notNull(),
+  issueId: varchar("issue_id").notNull(),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  manifestDigest: varchar("manifest_digest", { length: 64 }).notNull(),
+  localEvidenceDigest: varchar("local_evidence_digest", { length: 64 }).notNull(),
+  acknowledgementDigest: varchar("acknowledgement_digest", { length: 64 }).notNull(),
+  hostSignatureDigest: varchar("host_signature_digest", { length: 64 }).notNull(),
+  acknowledgedAt: timestamp("acknowledged_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_ack_request").on(table.hostEnrollmentId, table.requestKey),
+  uniqueIndex("uq_coordination_v2_runtime_ack_release").on(table.hostEnrollmentId, table.runtimeReleaseId),
+  foreignKey({
+    name: "fk_coordination_v2_runtime_ack_issue_lineage",
+    columns: [table.issueId, table.hostEnrollmentId, table.runtimeReleaseId, table.requestKey, table.manifestDigest],
+    foreignColumns: [
+      coordinationV2RuntimeBootstrapIssues.id,
+      coordinationV2RuntimeBootstrapIssues.hostEnrollmentId,
+      coordinationV2RuntimeBootstrapIssues.runtimeReleaseId,
+      coordinationV2RuntimeBootstrapIssues.requestKey,
+      coordinationV2RuntimeBootstrapIssues.manifestDigest,
+    ],
+  }).onDelete("restrict"),
+  check("coordination_v2_runtime_ack_manifest_digest", sql`${table.manifestDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_ack_evidence_digest", sql`${table.localEvidenceDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_ack_digest", sql`${table.acknowledgementDigest} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_runtime_ack_signature_digest", sql`${table.hostSignatureDigest} ~ '^[0-9a-f]{64}$'`),
+]);
+
+export const coordinationV2RuntimeReleaseRevocations = pgTable("coordination_v2_runtime_release_revocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runtimeReleaseId: varchar("runtime_release_id").notNull()
+    .references(() => coordinationV2RuntimeReleases.id, { onDelete: "restrict" }),
+  requestKey: varchar("request_key", { length: 128 }).notNull(),
+  reasonCode: varchar("reason_code", { length: 128 }).notNull(),
+  revokedBy: varchar("revoked_by", { length: 128 }).notNull(),
+  revokedAt: timestamp("revoked_at").notNull(),
+  canonicalRecordDigest: varchar("canonical_record_digest", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_runtime_revocation_release").on(table.runtimeReleaseId),
+  uniqueIndex("uq_coordination_v2_runtime_revocation_request").on(table.requestKey),
+  check("coordination_v2_runtime_revocation_reason", sql`${table.reasonCode} ~ '^[A-Z0-9_]{1,128}$'`),
+  check("coordination_v2_runtime_revocation_digest", sql`${table.canonicalRecordDigest} ~ '^[0-9a-f]{64}$'`),
+]);

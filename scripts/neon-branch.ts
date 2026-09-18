@@ -17,7 +17,7 @@
  * @neondatabase/serverless directly instead of wrapping a CLI.
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 // Replit/Codespace inject secrets directly into the process environment, no
 // .env file involved. A local checkout (this repo's own convention, see
@@ -36,6 +36,36 @@ function requireEnv(name: string): string {
     throw new Error(`Missing ${name} — add it to .env (see .env.template) before running scripts/neon-branch.ts`);
   }
   return value;
+}
+
+function assertCoordinatorV2DatabaseGateGuard(): void {
+  const source = readFileSync('server/scripts/test-coordination-transport-lease.test.ts', 'utf8');
+  const runtimeBootstrapSource = readFileSync(
+    'server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts',
+    'utf8',
+  );
+  const hostReauthorizationSource = readFileSync(
+    'server/scripts/test-coordinator-v2-host-reauthorization-postgres.test.ts',
+    'utf8',
+  );
+  const requiredGuard = "COORDINATOR_V2_REQUIRE_DATABASE_TESTS === '1'";
+  const forbiddenProof = 'COORDINATOR_V2_FORBIDDEN_SHARED_URL';
+  const skipPath = "context.skip('run through the Neon migration gate')";
+  if (!source.includes(requiredGuard) || !source.includes(forbiddenProof) || !source.includes(skipPath)) {
+    throw new Error('Coordinator V2 transport test is missing the disposable-gate hard-fail guard');
+  }
+  if (!runtimeBootstrapSource.includes('COORDINATOR_V2_REQUIRE_DATABASE_TESTS')
+    || !runtimeBootstrapSource.includes('=== "1"')
+    || !runtimeBootstrapSource.includes(forbiddenProof)
+    || !runtimeBootstrapSource.includes('run through the Neon migration gate')) {
+    throw new Error('Coordinator V2 runtime-bootstrap test is missing the disposable-gate hard-fail guard');
+  }
+  if (!hostReauthorizationSource.includes('COORDINATOR_V2_REQUIRE_DATABASE_TESTS')
+    || !hostReauthorizationSource.includes('=== "1"')
+    || !hostReauthorizationSource.includes(forbiddenProof)
+    || !hostReauthorizationSource.includes('run through the Neon migration gate')) {
+    throw new Error('Coordinator V2 host-reauthorization test is missing the disposable-gate hard-fail guard');
+  }
 }
 
 // The database and role names are never assumed. A past incident (see the
@@ -284,6 +314,7 @@ async function cmdDelete(positional: string[], flags: Record<string, string | bo
 // both pass and fail — nothing ephemeral survives past this run except
 // through the --expires-at backstop, in case the process is killed mid-way.
 async function cmdGate(flags: Record<string, string | boolean>) {
+  assertCoordinatorV2DatabaseGateGuard();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const branchName = `test/migration-${timestamp}`;
   const expiresAt = parseExpiresAt((flags['expires-at'] as string) ?? '6h');
@@ -299,6 +330,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     ...process.env,
     NEON_SHARED_DATABASE_URL: directUrl,
     COORDINATION_INBOX_DISPOSABLE_BRANCH_ID: branch.id,
+    COORDINATION_RUNTIME_TEST_DATABASE_URL: directUrl,
+    COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE: '1',
+    COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS: '1',
+    COORDINATION_RUNTIME_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL: directUrl,
+    FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE: '1',
+    FOUNDER_TASK_OWNERSHIP_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    COORDINATOR_V2_TEST_DATABASE_URL: directUrl,
+    COORDINATOR_V2_TEST_DATABASE_DISPOSABLE: '1',
+    COORDINATOR_V2_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    COORDINATOR_V2_REQUIRE_DATABASE_TESTS: '1',
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -329,6 +371,182 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     );
     if (inboxRepair.code !== 0) {
       failureReason = `coordination inbox repair exited ${inboxRepair.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running persisted coordination-runtime parity against the branch...');
+    const runtimeParity = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-runtime-postgres-repository.test.ts',
+      branchEnv,
+    );
+    if (runtimeParity.code !== 0) {
+      failureReason = `coordination runtime PostgreSQL parity exited ${runtimeParity.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running persisted founder task-ownership protocol parity against the branch...');
+    const ownershipParity = await runCommand(
+      'npx tsx --test server/scripts/test-founder-task-ownership-postgres.test.ts',
+      branchEnv,
+    );
+    if (ownershipParity.code !== 0) {
+      failureReason = `founder task-ownership PostgreSQL parity exited ${ownershipParity.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 PostgreSQL constraint parity against the branch...');
+    const coordinatorV2Parity = await runCommand(
+      'npx tsx --test server/scripts/test-coordinator-v2-schema-postgres.test.ts',
+      branchEnv,
+    );
+    if (coordinatorV2Parity.code !== 0) {
+      failureReason = `Coordinator V2 PostgreSQL parity exited ${coordinatorV2Parity.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 runtime-bootstrap PostgreSQL proofs against the branch...');
+    const runtimeBootstrapPostgres = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts',
+      branchEnv,
+    );
+    if (runtimeBootstrapPostgres.code !== 0) {
+      failureReason = `Coordinator V2 runtime-bootstrap PostgreSQL tests exited ${runtimeBootstrapPostgres.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 host-reauthorization PostgreSQL proofs against the branch...');
+    const hostReauthorizationPostgres = await runCommand(
+      'npx tsx --test server/scripts/test-coordinator-v2-host-reauthorization-postgres.test.ts',
+      branchEnv,
+    );
+    if (hostReauthorizationPostgres.code !== 0) {
+      failureReason = `Coordinator V2 host-reauthorization PostgreSQL tests exited ${hostReauthorizationPostgres.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 runtime-bootstrap service and HTTP proofs...');
+    const runtimeBootstrapService = await runCommand(
+      'npx tsx --test server/services/coordination-v2-runtime-bootstrap-service.test.ts server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts',
+      branchEnv,
+    );
+    if (runtimeBootstrapService.code !== 0) {
+      failureReason = `Coordinator V2 runtime-bootstrap service/HTTP tests exited ${runtimeBootstrapService.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 policy service transactional tests against the branch...');
+    const policyServiceTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-policy-service.test.ts',
+      branchEnv,
+    );
+    if (policyServiceTests.code !== 0) {
+      failureReason = `Coordinator V2 policy service tests exited ${policyServiceTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 policy HTTP tests against the branch...');
+    const policyHttpTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-policy-http.test.ts',
+      branchEnv,
+    );
+    if (policyHttpTests.code !== 0) {
+      failureReason = `Coordinator V2 policy HTTP tests exited ${policyHttpTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 bounded session/attempt PostgreSQL tests against the branch...');
+    const sessionServiceTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-session-service.test.ts',
+      branchEnv,
+    );
+    if (sessionServiceTests.code !== 0) {
+      failureReason = `Coordinator V2 session service tests exited ${sessionServiceTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 session HTTP middleware tests...');
+    const sessionHttpTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-session-http.test.ts',
+      branchEnv,
+    );
+    if (sessionHttpTests.code !== 0) {
+      failureReason = `Coordinator V2 session HTTP tests exited ${sessionHttpTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 durable transport lease tests...');
+    const transportLeaseTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-transport-lease.test.ts',
+      branchEnv,
+    );
+    if (transportLeaseTests.code !== 0) {
+      failureReason = `Coordinator V2 transport lease tests exited ${transportLeaseTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 host HTTP tests...');
+    const hostHttpTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-host-http.test.ts',
+      branchEnv,
+    );
+    if (hostHttpTests.code !== 0) {
+      failureReason = `Coordinator V2 host HTTP tests exited ${hostHttpTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 provider contract and Gemini adapter tests...');
+    const providerAdapterTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-provider-contract.test.ts server/scripts/test-coordination-provider-gemini.test.ts',
+      branchEnv,
+    );
+    if (providerAdapterTests.code !== 0) {
+      failureReason = `Coordinator V2 provider adapter tests exited ${providerAdapterTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 host protocol and authorization contract tests...');
+    const hostContractTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-host-contract.test.ts server/scripts/test-coordination-host-authorization.test.ts',
+      branchEnv,
+    );
+    if (hostContractTests.code !== 0) {
+      failureReason = `Coordinator V2 host contract tests exited ${hostContractTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 Windows preflight and atomic preparation tests...');
+    const windowsPreparationTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-windows-preflight.test.ts server/scripts/test-coordination-windows-preparation.test.ts server/scripts/test-coordination-windows-static-boundary.test.ts server/scripts/test-coordination-windows-generation.test.ts server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts',
+      branchEnv,
+    );
+    if (windowsPreparationTests.code !== 0) {
+      failureReason = `Coordinator V2 Windows preparation tests exited ${windowsPreparationTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 lifecycle, diagnostics, cleanup, fault, fallback, and evidence tests...');
+    const windowsHostLifecycleTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-lifecycle-facade.test.ts server/scripts/test-coordination-windows-host.test.ts server/scripts/test-coordination-v2-cli.test.ts server/scripts/test-coordination-errors.test.ts server/scripts/test-coordination-session-status.test.ts server/scripts/test-coordination-cleanup.test.ts server/scripts/test-coordination-v2-e2e.test.ts server/scripts/test-coordination-v2-fault-injection.test.ts server/scripts/test-coordination-v2-provider-fallback.test.ts server/scripts/test-coordination-v2-evidence-integrity.test.ts',
+      branchEnv,
+    );
+    if (windowsHostLifecycleTests.code !== 0) {
+      failureReason = `Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence tests exited ${windowsHostLifecycleTests.code}`;
     }
   }
 

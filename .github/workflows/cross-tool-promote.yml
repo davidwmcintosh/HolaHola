@@ -9,8 +9,11 @@ name: Cross-Tool Promote
 # Isolated execution venue, deliberately NOT run on the Replit process
 # serving live Daniela/David traffic. Runs the same validation any human PR
 # gets (typecheck, build, the three test:ci:* groups) plus the
-# ephemeral-Neon-branch gate, then fast-forwards main using the same deploy
-# key scripts/source-bridge.sh already trusts, over SSH.
+# ephemeral-Neon-branch gate, then fast-forwards main over HTTPS using a
+# short-lived GitHub App installation token (minted by
+# server/services/github-app-auth.ts via scripts/print-github-app-token.ts) —
+# the same mechanism server/services/source-control-service.ts uses for its
+# own fast-forward push. No long-lived SSH deploy key in this path.
 # See docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md.
 #
 # A branch-clone gate pass IS the trust boundary here, the same way a green
@@ -87,6 +90,15 @@ jobs:
       - name: Validate package lock registry URLs
         run: npm run test:package-lock-registry
 
+      - name: Install PostgreSQL test binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql
+          POSTGRES_BINDIR="$(pg_config --bindir)"
+          test -x "$POSTGRES_BINDIR/initdb"
+          test -x "$POSTGRES_BINDIR/postgres"
+          echo "$POSTGRES_BINDIR" >> "$GITHUB_PATH"
+
       - name: Install dependencies
         run: npm ci --include=dev
 
@@ -113,9 +125,10 @@ jobs:
 
       - name: Fast-forward main and push
         env:
-          HOLAHOLA_GITHUB_DEPLOY_KEY: ${{ secrets.HOLAHOLA_GITHUB_DEPLOY_KEY }}
+          HOLAHOLA_GITHUB_APP_ID: ${{ secrets.HOLAHOLA_GITHUB_APP_ID }}
+          HOLAHOLA_GITHUB_APP_INSTALLATION_ID: ${{ secrets.HOLAHOLA_GITHUB_APP_INSTALLATION_ID }}
+          HOLAHOLA_GITHUB_APP_PRIVATE_KEY: ${{ secrets.HOLAHOLA_GITHUB_APP_PRIVATE_KEY }}
         run: |
-          source scripts/github-release-ssh.sh
-          prepare_github_ssh "$HOLAHOLA_GITHUB_DEPLOY_KEY"
-          trap cleanup_github_ssh EXIT
-          git push "$GITHUB_REPO_URL" "HEAD:refs/heads/main"
+          GH_APP_TOKEN="$(npx tsx scripts/print-github-app-token.ts)"
+          echo "::add-mask::$GH_APP_TOKEN"
+          git push "https://x-access-token:${GH_APP_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/main"

@@ -32,6 +32,7 @@ import { CurriculumEnrichmentTab } from "@/components/CurriculumEnrichmentTab";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
 import { MenuImageGeneratorContent } from "@/pages/admin/MenuImageGenerator";
 import { OnboardingTesterContent } from "@/pages/admin/OnboardingTester";
+import { TaskOwnershipTab } from "@/components/admin/TaskOwnershipTab";
 import { 
   LayoutDashboard,
   Users,
@@ -121,6 +122,7 @@ import {
   Bot,
   Layers,
   UserX,
+  KeyRound,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -2417,6 +2419,7 @@ export default function CommandCenter() {
         { id: "voice-intelligence", label: "Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
         { id: "voip-console", label: "VoIP Console", icon: Phone, roles: ['admin'] },
         { id: "sync-control", label: "Sync", icon: Database, roles: ['founder'] },
+        { id: "task-ownership", label: "Ownership", icon: KeyRound, roles: ['founder'] },
         { id: "memory-migration", label: "Migration", icon: Brain, roles: ['developer'] },
         { id: "personal-facts", label: "Memories", icon: BookOpen, roles: ['admin', 'developer'] },
         { id: "pricing", label: "Pricing", icon: Tags, roles: ['admin'] },
@@ -2724,6 +2727,10 @@ export default function CommandCenter() {
 
           <TabsContent value="sync-control" className="space-y-4">
             <SyncControlCenterContent />
+          </TabsContent>
+
+          <TabsContent value="task-ownership" className="space-y-4">
+            <TaskOwnershipTab />
           </TabsContent>
 
           <TabsContent value="voip-console" className="space-y-4">

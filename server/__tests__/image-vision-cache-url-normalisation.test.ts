@@ -33,7 +33,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { sql } from 'drizzle-orm';
-import { getUserDb } from '../db';
+import { getUserDb, closeDbConnections } from '../db';
 import { normalizeImageUrl } from '../services/image-storage';
 import { getImageVision, getCachedDescription } from '../services/image-vision-service';
 import type { StreamingSession } from '../services/streaming-session-types';
@@ -237,4 +237,15 @@ describe('C — normalizeImageUrl(): GCS → proxy conversion (pure)', () => {
   it('leaves the proxy URL unchanged (idempotent)', () => {
     assert.equal(normalizeImageUrl(PROXY_URL), PROXY_URL);
   });
+});
+
+// ── Teardown ──────────────────────────────────────────────────────────────────
+// getUserDb() opens a process-wide pg/Neon pool (server/db.ts) that never
+// closes itself. Node's test runner spawns each test file in its own child
+// process, and an open pool keeps that child's event loop alive forever even
+// after every assertion above has already passed. Closing it here is what
+// lets this file's own process exit; see server/__tests__/absence-history-order.test.ts
+// and server/__tests__/spotlight-server-guard.test.ts for the same pattern.
+after(async () => {
+  await closeDbConnections();
 });

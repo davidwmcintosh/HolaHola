@@ -4,6 +4,26 @@ Scope: what to do if Replit becomes unavailable and production (`getholahola.com
 needs to run somewhere else. Separate from and does not block Phase 10
 (deleting `server/replitAuth.ts`) — see `replit.md`.
 
+## Provider-neutral release identity
+
+Runtime health is necessary but does not prove which source is running. Every
+portable production image must expose `GET /health/release` with the exact Git
+commit supplied at build time and a deterministic SHA-256 of the source context
+copied into the image.
+
+Render supplies `RENDER_GIT_COMMIT` as a Docker build argument. Other OCI build
+systems may supply `RELEASE_COMMIT_SHA`. The manifest is baked into `dist/`
+during the image build; mutable runtime environment values never override it.
+
+A missing or malformed manifest keeps the service available for diagnosis, but
+`/health/release` returns 503 and `promotable: false`. Never move Cloudflare DNS
+until this endpoint returns 200 and an independent verifier matches the commit
+and source digest.
+
+The current Render origin is `holahola-6f1o.onrender.com`, with
+`render.getholahola.com` as its Cloudflare CNAME. Do not infer provider
+hostnames from service names.
+
 Prior audit found the app already portable in every place that matters:
 object storage (S3/R2, the old Replit GCS sidecar is fully retired), the
 session store (Postgres via `connect-pg-simple`), migrations (run on plain

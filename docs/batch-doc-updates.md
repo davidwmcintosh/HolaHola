@@ -1,3 +1,248 @@
+## 2026-09-16 — Production image intent routing
+
+- Added deterministic environment/character/prop intent classification separate
+  from whiteboard slot placement. The recorded Madrid request now routes to the
+  no-people environment generator, while explicit shoppers, people, tutor
+  names, relationships, and human actions route to character generation.
+- Preserved curated prop cache keys; custom environment and character scenes use
+  intent-specific scene-digest keys, preventing generic `vocab_spanish_madrid`
+  reuse and cross-scene collisions.
+- Live image generation now receives the active session tutor identity, while
+  legacy seed/admin callers retain their language-profile behavior.
+- Added truthful generator/style metadata, bounded intent telemetry, approved
+  `show_image` slot guidance, and focused regression coverage.
+- Gemini post-review: `APPROVED — Ship it.` Focused image tests passed 11/11
+  and TypeScript typecheck passed. Daniela REST found the wording clear and
+  recommended no changes.
+
+## 2026-09-16 — Luca authoritative Team Room presence repair
+
+- Added a dedicated-token structural check and explicit diagnostics for absent
+  or invalid Luca credentials without weakening the Team Room broker.
+- Luca now re-reads the authoritative active room on connect, reconnect, and
+  successful room creation. Client and broker join generations prevent stale
+  lookups, acknowledgements, and timeouts from rebinding Luca.
+- Presence changes to online only after the broker validates the room and
+  acknowledges exact membership. Same-room and different-room supersession
+  preserve the winning membership.
+- Added bounded no-room/transport retry scheduling with timer cleanup on
+  explicit disconnect and room switches. Existing exact-room browser replay
+  and founder/session authorization remain unchanged.
+- Focused Luca and Team Room broker tests passed (16/16), TypeScript typecheck
+  passed, and independent architecture review found no remaining blockers.
+
+## 2026-09-16 — Provider-neutral release identity
+
+Portable images now bake an explicit build commit and deterministic
+source-context digest. `GET /health/release` separates promotion eligibility
+from ordinary health, and `/api/version` no longer claims a hardcoded commit.
+Invalid identity fails closed for promotion without taking down the service.
+Cloudflare DNS was not changed.
+
+## September 14, 2026 — Coordinator V2 staged first-host enrollment
+
+- Hardened `Register-HolaCoordinatorHost` so its DPAPI-protected retry authority and RSA identity are durable before the first enrollment POST.
+- Ambiguous retries now reuse the exact request body and key, revalidate the recovered RSA fingerprint, and retain the bootstrap header until the server confirms the idempotent request.
+- Host credentials are validated and protected before enrollment retry authority is removed; founder approval and RSA possession proof remain mandatory.
+- Added the staged enrollment contract to the validation suite and consolidated CI.
+
+# Coordinator V2 first-host bootstrap boundary — 2026-09-14
+
+- Added the missing secure bootstrap for the first Coordinator V2 host-enrollment
+  request. While both the host and request tables are empty, enrollment requires
+  published source-promotion authority plus the Replit-held
+  `COORDINATION_V2_HOST_BOOTSTRAP_SECRET` supplied through
+  `x-coordination-initial-bootstrap`.
+- A PostgreSQL transaction advisory lock serializes the zero-row decision and
+  insert. The first pending request durably consumes bootstrap authority without
+  enrolling or approving a host; founder approval and RSA possession proof remain
+  mandatory. Exact request retries are idempotent, distinct concurrent requests
+  produce one winner, and later requests use the existing founder-approval path
+  after a host exists.
+- Secret comparison is strict and constant-time after equal-length validation.
+  Secret values are neither logged nor persisted; the database stores no plaintext
+  or digest of the bootstrap secret.
+- The isolated migrated PostgreSQL 16 suite passed 3/3 with zero skips, including
+  real concurrent transactions and proof that bootstrap creates no host or
+  credential. TypeScript, focused secret/HTTP/source tests, and diff checks passed.
+  The app was restarted and returned HTTP 200 through both local and Replit preview
+  paths. System health had zero failures; its two route warnings occurred during
+  restart and were resolved by the subsequent HTTP checks.
+- Gemini gave `APPROVED — Ship it.` after the added behavioral evidence. Alden
+  Anthropic also approved, and the independent architecture review verdict was
+  `SHIP`. The consultation record is stored in `conversation_memories`.
+- The registered Validation workflow passed its 68-command application suite and
+  source-bridge checks, then failed an unrelated stale static assertion in
+  `test-coordination-v2-host-completion-boundary.test.ts` against separately
+  changing HTTP-factory source. Consolidated CI passed the new first-host bootstrap
+  check and failed only the pre-existing `workflow-safety` group: the same stale
+  assertion plus a PostgreSQL suite that correctly refused the shared database
+  without its disposable-target flag. Those separately owned failures were not
+  modified or absorbed.
+
+# Coordinator V2 Milestone 14 host completion layer
+
+Added the real-Windows completion boundary for Coordinator V2: separate
+founder-approved device enrollment, asymmetric proof-of-possession, renewable
+hashed host credentials, exact session credentials, dedicated host middleware,
+and a concrete authenticated HTTP dependency factory backed by DPAPI
+`CurrentUser` custody. Legacy runtime/actor credentials remain outside this
+authority namespace. The PowerShell launcher now discovers its worktree and
+runtime relative to itself and checks clean exact-commit provenance, ACL,
+reparse, signature, and digest gates. M15 interruption/resume acceptance
+remains explicitly out of scope.
+
+# Gate 3 recovery provenance/current authority separation — 2026-09-11
+
+- The first published assignment attempt failed closed before any assignment,
+  window, credential exchange, or Windows execution because the producer
+  incorrectly required a historical recovery audit to name the new assignment
+  receipt and challenge.
+- Recovery provenance and current authority are now independent, jointly
+  required proofs. Historical recovery remains bound to the bundle, allowed
+  lineage, and current registration bootstrap hash. Fresh authority remains
+  bound to task, actor, artifact, public key, fingerprint, bundle, status, and
+  the ten-minute-thirty-second lease margin.
+- The disposable PostgreSQL fixture now executes the real initial-consumption,
+  replacement-bootstrap recovery, fresh-authority replay, and assignment
+  lifecycle. It proves replay leaves exactly one unchanged recovery audit and
+  explicitly covers recovery metadata, current binding, challenge expiry, and
+  insufficient lease failures.
+- The focused suite passes 15/15 with zero skips. TypeScript and
+  `git diff --check` pass. Alden Anthropic, Alden Gemini, and the independent
+  architecture reviewer gave unconditional approval with no watch-outs.
+- Another fresh founder challenge is required only after this correction is
+  republished. Task 1448 Windows execution remains pending; task 1449 remains
+  cancelled.
+
+# Gate 3 assignment/window producer — 2026-09-11
+
+- Added the trusted, non-HTTP assignment producer for task 1448. It validates the
+  public bundle within a 1 MiB bound, takes ordered runtime/attempt advisory
+  locks, verifies exact founder/recovery lineage, and atomically creates the
+  canonical ledger event, ordinary inbox item, frozen one-item runtime window,
+  and non-secret audit.
+- Exact completed attempts replay by verified IDs without writes; changed
+  bindings and all authority failures use stable public error codes. The
+  dedicated CLI emits only the public result allowlist and closes its pool.
+- Final hardening makes the persisted canonical event the sole projection
+  source, validates every fixed thread/event/payload binding after the ledger
+  write, and fails closed if an incompatible writer wins the precheck/create
+  race. Replay also rejects coherently re-digested runtime data that diverges
+  from its canonical event.
+- TypeScript and `git diff --check` passed. A fresh disposable PostgreSQL run
+  passed 15/15 with zero skips, including all rollback boundaries, concurrent
+  first-write convergence, receipt/recovery/live-authority blockers, packet
+  history, canonical/runtime corruption, strict CLI output, and the competing
+  ledger-writer race. Alden Anthropic, Alden Gemini, and an independent
+  architecture reviewer gave unconditional approval with no watch-outs.
+- No public route, schema change, Windows execution, bootstrap consumption, or
+  task 1449 behavior was added.
+
+# Windows PowerShell 5.1 DPAPI assembly compatibility — 2026-09-11
+
+- Genuine Windows PowerShell 5.1 reached the fixed-action launcher but returned
+  `antigravity_gate3_dpapi_unavailable` before inspecting or modifying any
+  credential state.
+- Diagnosis proved `ProtectedData` was unresolved until Windows PowerShell 5.1
+  loaded the exact `System.Security` GAC assembly. The launcher now performs
+  that terminating load only on PowerShell 5.x, maps load failure to
+  `dpapi_unavailable`, and then applies the universal `ProtectedData` type check.
+  PowerShell 7 retains its native on-demand assembly resolution.
+- The focused DPAPI source/bundle suite passed 8/8, TypeScript passed,
+  `git diff --check` passed, system health passed, and both Alden engines gave
+  unconditional approval. The registered workflows then reported exact
+  `ALL VALIDATION SUITE CHECKS PASSED` and
+  `ALL CONSOLIDATED CI CHECKS PASSED`.
+- This repairs the diagnosed compatibility boundary; genuine DPAPI round-trip,
+  ACL, cross-user denial, one-time consumption, and task 1448 execution remain
+  unclaimed until approved-host evidence exists.
+
+# Windows-native Antigravity Gate 3 credential source — 2026-09-11
+
+- Replaced the Windows-only 1Password dependency with a fixed-action Windows
+  PowerShell 5.1 launcher using DPAPI `CurrentUser`.
+- Initialization generates the bootstrap internally and stores only ciphertext
+  under `LOCALAPPDATA`; bounded execution atomically consumes it before launch.
+- The launcher rejects fixed Gemini actor-token aliases, validates full reparse
+  chains and current-user ACLs, pins an absolute signed Node executable, and
+  runs only reproducible hash-pinned bundles built before credential generation.
+- Production preparation now removes the bootstrap from its process environment
+  before any Git subprocess can inherit it.
+- The cross-platform source guard rebuilds and executes both approved bundles
+  but explicitly does not claim Windows DPAPI execution. The focused combined
+  suite passes 22/22, both independent source reviews and both Alden engines
+  returned unconditional approval, the registered Validation suite and
+  Consolidated CI passed their exact final markers, system health passed, and
+  `git diff --check` passed.
+- Protected promotion returned exact `SYNCED` in GitHub run `34617755993`;
+  GitHub `main` and the source branch then exactly matched
+  `032cd12009ad286819315ff8fc81cb8adb609c35`.
+- Genuine PowerShell 5.1, DPAPI, ACL, and atomic-consumption evidence remains an
+  approved-host step.
+
+# Gate 3 coordinator final local proof — 2026-09-11
+
+- Phase B now documents and implements one transaction in registration →
+  profile → receipt → challenge order, with full rollback on ownership failure.
+- Protected executor/verifier mutations hold registration → profile →
+  credential → receipt → challenge → grant after the credential advisory lock.
+- The final source tree passed the registered Validation suite, Consolidated
+  CI, system health, 14/14 focused Gate 3 tests, 67/67 disposable-PostgreSQL
+  coordination tests, `git diff --check`, and protected GitHub-main ancestry.
+- Deep security scanning found no changed-file Gate 3 credential exposure. A
+  pre-existing log that printed an eight-character `GEMINI_API_KEY` prefix now
+  logs only the model; the corresponding HoundDog finding is gone.
+- Core protected promotion returned exact `SYNCED` in GitHub run `34580846499`;
+  GitHub `main` then exactly matched
+  `0cff9ae351d0d1c7c3299699cd3f170eb0eed566`. The docs-only correction later
+  returned exact `SYNCED` in run `34582429395`, and GitHub `main` exactly matched
+  `6204c4db5ecaf7fbdf88fc3fe6cda126af0fe78e`. Real Windows/Antigravity task
+  1448 execution still requires separate evidence.
+
+# Persisted Gemini runtime authority model — 2026-09-10
+
+# Gate 3 server Gemini boundary — 2026-09-10
+
+### Portable Windows Antigravity Gate 3 driver
+
+Added `server/scripts/coordination-runtime-antigravity.ts`, an injectable
+HTTP/spawn/filesystem driver for the approved Windows worktree. It uses only
+the broker exchange/renewal routes and current packet, receipt, claim,
+intent, continuation, execution, and completion routes; credentials stay in
+memory and child environments are explicitly allowlisted. Fixed target/path,
+argv, write-size, turn, attempt, and elapsed-time bounds fail closed. The
+operator runbook is `docs/antigravity-gate3-runbook.md`; bootstrap generation
+is intentionally not yet available.
+
+- Added a project-owned, injectable non-streaming Gemini adapter pinned to
+  `gemini-3-flash-preview`. It canonicalizes packet-bound requests, keeps the
+  integration key in a protected header, normalizes safety/refusal/context,
+  malformed, unsupported, transport, authentication, rate, empty, and retry
+  outcomes, and retains only hashes for non-zero candidates.
+- Added coordinator orchestration that persists every provider attempt and
+  derives requests from immutable packets. Continuation turns require an
+  active claim belonging to the authenticated runtime/profile; intent results
+  are therefore not exposed before claim authority exists.
+
+- Gate 2 adds dedicated PostgreSQL records for execution profiles, frozen inbox
+  windows, inheritance packets, model interactions, outcome receipts, claims
+  and claim events, executions, completions, verifications, and idempotency.
+- Database constraints and triggers enforce actor/runtime/profile/credential
+  lineage, one active claim per thread, claim epochs, assignment-wide model
+  slots, replacement-packet ordering, controlled claim transitions, and
+  append-only evidence.
+- The PostgreSQL adapter uses transaction-local executors with no in-memory
+  fallback. The disposable parity test proves the full persisted lifecycle,
+  exact replay, fresh-repository reload, changed-payload rejection, and direct
+  immutable-table mutation rejection.
+- Migration `0035_absent_franklin_storm.sql` passed the canonical disposable
+  Neon gate, including all unit, coordination, guard, and episode groups, and
+  was applied to shared Neon. System health confirms all twelve protocol tables.
+- Both Alden engines returned unconditional approval with no remaining
+  authority or evidence blocker. The exact approved shared-spec bytes are
+  exported to the declared repository path.
+
 # Reproducible local coordination validation — 2026-09-09
 
 - `npm run test:coordination-ledger` now creates a disposable local PostgreSQL
@@ -5530,3 +5775,1312 @@ make the race test fail, and the broker source is restored byte-for-byte.
 
 Disposable PostgreSQL baseline and mutation runs, TypeScript, system health,
 and Alden review passed.
+
+## Luca observer route integration boundary — September 9, 2026
+
+The Luca observation endpoint is now registered from a focused route module
+rather than embedded in the application-wide route file. The extraction keeps
+the existing founder fallback, exact Luca actor allowlist, `observation:read`
+capability check, database access, and response contract unchanged. An unused
+Gemini Live import was removed so route checks do not initialize unrelated
+voice-provider resources.
+
+The canonical coordination suite now executes the real Express route against
+disposable PostgreSQL. It proves fixed Luca access, non-Luca denial, fail-closed
+handling for an invalid presented credential, founder fallback only when no
+coordination credential is present, exact requested-conversation selection,
+the full DB-only Guardian evidence contract, bounded legacy fallback, and
+event isolation between two sessions that share one conversation.
+
+The disposable suite passed 56/56 with no skips, the credential-broker
+self-check passed, TypeScript passed, and independent review returned
+unconditional approval with no correctness or security blocker.
+
+## Gemini coding runtime Gate 1 — September 9, 2026
+
+The provider-neutral coordination core now has a hermetic in-memory repository
+and adversarial protocol suite. Repository-owned frozen inbox windows and
+server-owned execution envelopes produce immutable, digest-bound inheritance
+packets. Authenticated runtime/profile ownership governs model evidence,
+consumption receipts, claims, renewal, execution, completion, and independent
+verification.
+
+The protocol stores every normalized provider outcome while allowing only a
+consumed receipt to authorize a claim. Claims have exclusive epochs, stable
+transition errors, durable violation evidence, and explicit prior-claim
+lineage. Replacement packets cannot be precomputed: they must name the latest
+terminal claim, follow its terminal timestamp, and use newly consumed evidence.
+Model turns and attempts are bounded across every packet version for the same
+assignment.
+
+The focused suite passes 14/14 and TypeScript passes. Independent architecture
+review returned an unconditional PASS with no Gate 1 authority, evidence, or
+security blocker. This gate is intentionally persistence-neutral; schema and
+database integration belong to Gate 2.
+
+## Founder-attested task ownership bootstrap — September 10, 2026
+
+Task-agent ownership can now be established without treating Git checkout shape,
+workspace paths, or historical task artifacts as assignment authority. A Luca
+runtime creates or reuses a task-specific Ed25519 key under protected `/tmp`
+custody, submits the exact task-artifact digest through coordination
+authentication, waits for an explicit founder decision, and proves fresh
+private-key possession with a single-use server nonce. Lost key state, expired
+challenges, revoked receipts, actor mismatch, replay, ambiguous credentials, and
+contradictory retries all fail closed.
+
+Founder decisions use the authenticated browser session and are exposed in the
+Command Center through a founder-only Ownership tab. The surface shows the full
+artifact digest, key fingerprint, optional context digest, lifecycle state, and
+the explicit boundary: approval authorizes the key-holding process for the exact
+task; it does not independently attest Replit's sandbox identity. Replit
+provides the isolated runtime boundary. Git shape remains corroborating context
+only.
+
+Migration `0036_polite_harrier.sql` adds challenge, receipt, proof-nonce,
+decision-event, and proof-attempt records with controlled lifecycle triggers,
+single-active-receipt enforcement, and immutable evidence. The migration was
+proved on a disposable Neon branch before application to shared Neon. The final
+branch gate returned exact `READY_TO_PROMOTE`, including concurrent no-context
+challenge convergence, concurrent founder decisions, valid and invalid
+Ed25519 proofs, nonce replay, revocation, expiry, transition rejection, the full
+63-command CI suite, and automatic branch deletion.
+
+The Gemini Code credential name is an explicit alias for the Luca Gemini actor.
+If legacy and current aliases are both configured with different values,
+authentication fails closed; duplicate-token ambiguity protections remain
+active. TypeScript, focused tests, system health, independent architecture
+review, and both Alden engines passed. Both Alden engines returned
+`APPROVED — Ship it`.
+
+This is one assignment adapter within the provider-neutral Luca coordinator.
+Claude Code, Gemini/Antigravity, OpenAI, Replit, and future runtimes must all
+enter through the same centralized grounding, memory, identity, task-authority,
+attribution, evidence, and closure workflow. Provider integrations translate
+transport and capabilities; they do not create separate Lucas or bypass the
+shared control plane.
+
+### Publish schema dependency repair
+
+The first publish attempt failed before a new build was created because Replit's
+schema-diff migration attempted the runtime completion composite foreign key
+before creating its supporting standalone unique index. The canonical ordered
+Drizzle migration had worked on Neon, but the publish diff was free to reorder
+indexes and foreign keys.
+
+The claims table now declares an additive PostgreSQL unique constraint on
+`(id, epoch)` while retaining the existing unique index. Migration
+`0037_curved_nova.sql` contains only that constraint. The full disposable Neon
+gate returned exact `READY_TO_PROMOTE`; the migration was then applied to shared
+Neon. Live catalog verification confirms the unique constraint and both
+execution/completion composite foreign keys are present.
+
+### Ownership founder-session repair
+
+The first production ownership-page request returned 401 even for the signed-in
+founder because the ownership routes were mounted before Replit and Google
+authentication middleware. The routes now mount after both auth setups and use
+the standard authenticated-user then founder authorization sequence. A
+regression test locks the registration order.
+
+### Gemini runtime Gate 3 HTTP boundary
+
+Added the injected `registerCoordinationRuntimeRoutes` factory and hermetic
+HTTP/adapter coverage. The runtime routes resolve broker credentials only,
+look up one active Gemini profile server-side, hide initial intents until an
+active claim, bind continuations to claim epochs and intent call IDs, and
+derive completion evidence from the persisted execution record. Tests use an
+in-memory repository and fake transport; they do not provision credentials,
+mutate shared Neon, or execute server commands.
+## Observer route authorization and session-isolation harness — September 9, 2026
+
+The disposable coordination database suite now exercises the real
+`GET /api/admin/luca/observe` Express endpoint. It proves founder browser
+identity still reaches the route, expired and revoked broker credentials are
+denied with durable audit rows, and observer authorization does not widen
+adjacent founder-only or agent-only routes. The adjacent founder-only denial
+reuses the same valid `observation:read` broker credential that succeeds on the
+observer endpoint, so the assertion proves route isolation rather than generic
+invalid-token rejection.
+
+The same harness creates two active voice sessions under one conversation and
+proves both DB-only recovery and active in-memory observation return Guardian
+evidence for the exact selected session only. DB-only assertions cover the full
+authoritative event contract, derived summary state, discrepancy object, and
+recent event identity.
+
+## Gate 3 protected promotion and Gemini proxy transport — September 10, 2026
+
+The protected Gate 3 workflow completed its isolated-Neon gate, applied the
+gate-approved migrations to shared Neon, fast-forwarded GitHub `main`, and
+returned exact `SYNCED`. Read-only catalog checks confirmed all sixteen runtime
+tables plus the non-null claim-event tool-result binding, no-action foreign key,
+and update/delete immutability triggers. The application restarted cleanly and
+system health reported all checks passed.
+
+A first real, synthetic, non-executable adapter request then found that the
+server was sending the Replit integration key to Google's public endpoint. The
+Replit base URL already includes provider routing and, like the existing SDK
+configuration with an empty API version, expects
+`/models/gemini-3-flash-preview:generateContent` rather than `/v1beta/models/...`.
+The adapter now requires and validates the configured base URL, rejects
+credential-bearing or non-HTTP(S) forms, strips trailing slashes, and keeps the
+key in the request header only. The corrected live request returned HTTP 200
+with `STOP` and usage metadata. No runtime, bootstrap, claim, tool execution, or
+credential was created; provisioning stays paused until this correction passes
+the same protected promotion path.
+
+## Gate 3 same-runtime bootstrap recovery — September 11, 2026
+
+Implemented the founder-approved recovery path for the fixed Antigravity
+runtime after a fail-closed Windows launch consumes its local bootstrap. Phase
+B now validates and locks the complete founder authority chain before mutation,
+preserves the exact runtime and active profile, rejects live credentials,
+grants, any packet history, digest collisions, metadata drift, and unproven
+consumption state, and records non-secret old/new digest lineage.
+
+Broker exchange now enforces server-side one-time consumption. It atomically
+replaces the approved public digest with a deterministic consumed tombstone
+before issuing a credential, locks both digest states in sorted order, and
+audits only public digests. Phase B recognizes the consumed tombstone as an
+idempotent replay without restoring exchange authority. A bounded, auditable
+legacy path supports the single credential issued before tombstoning existed.
+
+The focused broker/provisioning suite passed 4/4 with no skips on a fresh
+disposable PostgreSQL database. TypeScript and system health passed. Alden's
+Anthropic and Gemini engines and the independent architecture reviewer all
+returned unconditional approval. Windows Gate 3 remains paused until this
+recovery is committed and published, a fresh founder challenge is approved,
+Phase B returns `recovered`, and a fresh task assignment/window is created.
+
+## Gate 3 Phase A fresh-attempt idempotency — September 11, 2026
+
+After the recovery publish, Phase A correctly preserved immutable challenge
+evidence but returned the prior expired challenge because its idempotency key
+contained only the unchanged bundle digest. Phase A now requires an explicit
+non-secret lowercase UUID attempt ID. Retries with the same UUID converge;
+a new intentional attempt uses a new UUID and creates fresh founder authority
+without changing the public bundle, Windows artifact, bootstrap, or Phase B
+bindings.
+
+The CLI closes its own database pool after printing success or failure.
+Expanded disposable-PostgreSQL coverage proves invalid IDs create zero rows,
+the real CLI rejects missing/malformed/oversized IDs, a valid CLI invocation
+returns its attempt ID, Phase B does not consume the ID, an expired immutable
+challenge remains unchanged, and the fresh row preserves every founder
+authority binding. The focused suite passed 4/4 with zero skips. TypeScript and
+system health passed. Both Alden engines and the independent architecture
+reviewer returned unconditional approval.
+
+## Gate 3 Windows npm-shim launch repair — September 11, 2026
+
+The first bounded Windows attempt proved the authority path through bootstrap
+exchange, packet consumption, and claim renewal, then failed before local test
+execution. Canonical evidence records one accepted `run_test` intent followed
+by a `rejected_tool_result` claim violation and no execution row. The runtime
+was attempting to start `npx.cmd` directly with Node `shell: false`, which is
+not a valid Windows batch-shim launch path.
+
+After exact logical allowlist validation, the Windows host adapter now invokes
+the fixed system command processor with `/d /s /c` and fixed
+`npx.cmd tsx server/scripts/test-coordination-runtime.test.ts` arguments.
+Node's shell option remains disabled, and logical evidence remains the exact
+approved `npx tsx ...` command. Non-Windows behavior and all credential
+boundaries are unchanged.
+
+The corrected runtime bundle hash is pinned in the PowerShell launcher.
+Regression coverage adds the two required same-runtime/different-profile claim
+denials. The bounded runtime/launcher/bundle suite passed 22/22, the exact
+task-1448 suite passed 15/15, TypeScript passed, and both Alden engines plus the
+independent reviewer issued unconditional approval. The failed authority chain
+must not be reused; the retry requires a new published source snapshot and full
+fresh provisioning cycle.
+
+## Gate 3 bounded replacement and durable rejection repair — September 12, 2026
+
+The frozen Gate 3 assignment now carries the exact approved
+`server/templates/task-1448.md` UTF-8 text and its SHA-256 inside the immutable
+assignment payload. The coordinator reads that fixed no-follow file before
+opening the database transaction, rejects non-regular files, invalid UTF-8, and
+digest drift, and validates the same bytes during replay. An approved bundle can
+therefore no longer authorize a generic task description that omits the exact
+Windows edit.
+
+The model-facing and Windows execution boundary now exposes `replace_once`
+instead of whole-file `write_file`. The only writable target remains
+`server/scripts/test-coordination-runtime.test.ts`. Replacement requires exactly
+one non-empty `oldText` and one different `newText`, a combined UTF-8 size no
+greater than 40,960 bytes, and exactly one occurrence including overlapping
+matches. Zero, multiple, overlapping, malformed, oversized, non-UTF-8, symlink,
+and reparse cases fail before mutation. Gemini arguments are no longer passed
+through the former 20,000-character normalizer, and the adapter reuses the
+runtime validator before emitting executable intent evidence.
+
+The continuation route now shares the PostgreSQL repository's exact transaction
+executor with the proof-grant lock boundary. A durably recorded
+`malformed_function_call` or `model_call_limit_exceeded` returns an internal
+tagged result so rejected interaction evidence, claim violation, idempotency,
+and that request's submitted tool-result batch commit before the same public
+error is returned. Unexpected coordinator or database errors still escape and
+roll back the complete continuation request. Malformed initial responses remain
+durable non-authorizing receipts and expose no execution intent.
+
+Focused verification passed 53/53 across core runtime, HTTP, Windows driver,
+end-to-end, assignment-window, PostgreSQL parity/transaction, and provisioning
+suites. The database-backed checks ran with zero skips against a fresh temporary
+localhost PostgreSQL cluster initialized from committed migrations. TypeScript,
+diff checks, and system health also passed. The independent architect, Gemini 3,
+and both Alden engines issued unconditional approval over the complete code
+diff.
+
+Shared-spec document `13b48fed-5f5e-46f8-a1f7-82f853e45afa`, revision
+`f9ec70d9-4993-4384-a4ae-a3940ae02c7a`, review
+`3d997fc9-d87b-4d79-aa05-64a4b2ca60c0`, and content hash
+`1d1b323df1a889c78f6fd2a6e3c821c5d91183e02e379be7328712915141d2a1`
+form the exact independently approved record. The exported bytes are published
+unchanged at
+`docs/superpowers/specs/2026-09-12-gate3-bounded-replacement-repair-design.md`.
+No Windows generation, bootstrap, credential, packet, claim, or execution was
+created. The failed generation remains permanently retired; tasks 1449 and 1450
+remain untouched.
+
+Source publication is verified at GitHub `main` commit
+`23e51df9f7f73d32f4d9075219f56a0f655869d5`, with the approved spec bytes
+unchanged. Canonical PostgreSQL postconditions prove the most recent failed
+Windows generation's credential and claim leases are both expired. Its
+immutable evidence remains intact: two consumed interactions, acquired plus two
+renewal claim events, zero executions, and zero completions. The database claim
+label remains `active`, but the expired lease has no authority. No fresh
+generation has been prepared or authorized.
+
+## Gate 3 task-artifact materialization repair — September 12, 2026
+
+A real fresh Windows preparation exposed a contract mismatch that the prior
+assignment fixtures had masked. Windows replaced the task template's single
+starting-commit placeholder before hashing, while the server hashed the raw
+template. The assignment producer correctly failed closed before creating any
+assignment or frozen window.
+
+The server now reads the canonical template from one no-follow file handle
+through EOF with a 64 KiB plus one-byte bound, strictly decodes UTF-8, requires
+exactly one case-sensitive starting-commit placeholder, substitutes the
+bundle's validated commit, and hashes the resulting bytes. The same captured
+materialized text and digest are used for the canonical event, inbox projection,
+replay validation, and audit binding. Caller-supplied task bytes remain
+forbidden.
+
+Regression coverage now proves raw-template hashes are rejected, different
+starting commits produce different accepted artifacts, zero or multiple
+placeholders fail before database mutation, and growth of the same opened inode
+after metadata inspection is read through EOF and rejected rather than allowing
+a stale prefix.
+
+The affected disposable-PostgreSQL suite passes 19/19. Core runtime passes
+15/15, HTTP runtime passes 5/5, adjacent coordination validation passes 67/67,
+and TypeScript and diff checks pass. The independent architect found the
+stale-prefix race in the first repair draft, then issued unconditional approval
+after the EOF-bound fix. Gemini 3 returned exact `APPROVED — Ship it.`
+
+The failed fresh chain used runtime
+`luca-gemini-antigravity-f48d08043a29a23a2621e8a7`, founder challenge
+`164d49e4-d611-4ee9-a1fc-f9c11dc9f114`, and receipt
+`deec7037-264e-4502-807b-55d37f3509c7`. The assignment attempt failed before
+mutation with `artifact_digest_mismatch`; its receipt was then canonically
+revoked. No bootstrap exchange, runtime credential, assignment, window, packet,
+claim, execution, or completion was created. The Windows bootstrap and task key
+must be deleted and never reused before another fully fresh generation.
+
+Canonical PostgreSQL postconditions later confirmed exact zero counts for
+credentials, assignment events, windows, window items, packets, interactions,
+runtime receipts, claims, executions, and completions for that runtime and
+bundle. System health passed with no red failures, and the application restarted
+cleanly with no browser-console error. Startup separately restored
+`docs/episode-34.md` from its larger canonical database record; that episode
+mirror is not part of this Gate 3 repair.
+
+GitHub `main` now contains the final reviewed tree at
+`6b90b24897cbe790cfd39fc90e36f13127c9efce`. The uploaded approval screenshot
+is absent from the current Git tree and explicitly excluded from deployment
+packaging. Production was republished successfully to
+`https://getholahola.com`; Replit reports a successful public autoscale build,
+and the live homepage returns HTTP 200. No new Windows authority has been
+created.
+
+## Gate 3 cross-host canonical LF repair — September 12, 2026
+
+A second entirely fresh Windows generation exposed a second producer/consumer
+byte mismatch. Windows materialized the task artifact with CRLF bytes and
+reported SHA-256
+`432d600cc3038dbaddbfbbe37ba9df8d8936cd5bae6f6f3c3e4df516542bf48a`;
+Replit materialized the same logical text with LF bytes and reported
+`b547dec52f1dcf549449721fb0d938355e55f5228009fe9995706d65217b4f3b`.
+The assignment failed closed with
+`gate3_assignment_window_artifact_digest_mismatch`. Its founder receipt was
+revoked, all downstream PostgreSQL authority counts were verified at zero, and
+Windows returned to `ANTIGRAVITY_GATE3_UNINITIALIZED`. No identifier,
+credential, challenge, receipt, attempt, packet, claim, key, runtime, profile,
+or generation from either failed run may be reused.
+
+The approved repair defines one canonical artifact representation independent
+of checkout policy: accept LF and CRLF input, reject any lone carriage return,
+normalize CRLF to LF, strictly decode UTF-8, require exactly one case-sensitive
+starting-commit placeholder, encode once, and hash, write, and persist those
+exact canonical bytes. Source and output are each bounded at 64 KiB. Windows
+preparation and server assignment share the same pure materializer; assignment
+retains the no-follow handle and bounded read-through-EOF behavior. The
+`.gitattributes` LF rule is defense-in-depth only.
+
+The first integrated regression used an expected value derived from the live
+template. The independent architect rejected that circular oracle. The final
+proof uses a separately authored LF template, deterministic Git commit
+`7e5f42a7cb85297a6af38b31dc84db4d4cb52517`, fixed canonical SHA-256
+`713ddd918ee6ce578b2d204b6baf7f63fbcbdc855f0e0bd953e9130c24e6e6d1`,
+real CRLF preparation, a distinct LF assignment fixture, and PostgreSQL
+canonical-event/runtime-window assertions. It is isolated from the original
+production-template assignment suite so synthetic authority cannot contaminate
+later checks.
+
+Final focused verification passes: materializer 4/4, preparation 5/5,
+assignment-window 20/20 against fresh disposable PostgreSQL, isolated
+cross-host proof 1/1 against fresh disposable PostgreSQL, and Windows DPAPI
+source-boundary 8/8. TypeScript and diff checks pass. The changed preparation
+and runtime bundle bytes were independently rebuilt and their public SHA-256
+pins refreshed in the PowerShell launcher. The same architect issued
+unconditional approval with no watch-outs, and Gemini 3 returned exact
+`APPROVED — Ship it.` No third Windows generation has been prepared or
+authorized.
+
+## Gate 3 fixed-target provider-echo repair — September 12, 2026
+
+The first post-canonicalization Windows generation passed the cross-host digest
+gate, founder approval, Phase B, bootstrap exchange, credential issuance, and
+packet creation. Its first Gemini turn returned `read_file` with the exact fixed
+target as a redundant `path` argument. The public tool schema intentionally had
+no properties, and the server rejected the non-empty argument object as
+`malformed_function_call` before claim acquisition or host execution.
+
+The one-time Windows bootstrap was consumed, so the generation was permanently
+retired. Founder receipt `cbb4ba5e-84b7-4264-b721-001caf74bd0b`, runtime
+`luca-gemini-antigravity-913d918eccd2564fdaa5a41a`, and its only issued
+credential are revoked. PostgreSQL preserves one packet, one malformed
+interaction, and one non-authorizing runtime receipt; it has zero claims,
+executions, tool results, or completions.
+
+The selected repair keeps the public `read_file` schema empty and the executor
+target hardcoded. One shared policy accepts only `{}` or the exact redundant
+echo `{ path: "server/scripts/test-coordination-runtime.test.ts" }`. Every
+different path, non-string value, extra key, array, null, or non-plain record
+fails closed. Raw malformed argument shapes remain in immutable normalized
+evidence instead of being spread or coerced.
+
+Focused verification passes: runtime policy 16/16, Gemini adapter/HTTP 6/6,
+Windows executor 12/12, Windows DPAPI boundary 8/8, TypeScript, and diff checks.
+The final runtime bundle was independently rebuilt and pinned at
+`ea68ed35dd87e3d5f341cef93839e0dc08cce337a294f3404d5bd8ec053d6818`.
+The architect first identified empty-array coercion and missing negative and
+persistence proof; after those fixes it issued unconditional approval with no
+watch-outs. Gemini 3 returned exact `APPROVED — Ship it.`
+
+Do not create another Windows generation until this repair is committed,
+published to GitHub, republished to production, and live health is verified.
+Any later generation must use entirely fresh identifiers and authority
+artifacts. Task 1449 remains cancelled; task 1450 remains independently owned.
+
+## Gate 3 replacement EOL canonicalization repair — September 12, 2026
+
+The next fresh Windows generation reached two consumed Gemini turns. Its fixed
+read succeeded and preserved a CRLF checkout file. Gemini then returned the
+approved bounded `replace_once` content with LF line endings. Raw exact matching
+found zero occurrences and the child exited before mutation. PostgreSQL
+preserves two interactions, one claim, and one successful read tool result,
+with zero executions or completions.
+
+That one-time generation is permanently retired. Founder receipt
+`14205386-1c00-419f-a03e-06d1272eea80`, runtime
+`luca-gemini-antigravity-0ae663a46d884a159d11aed9`, and its issued credential
+are revoked. Windows confirmed `ANTIGRAVITY_GATE3_UNINITIALIZED`.
+
+The executor now classifies source and replacement text as no-EOL, LF, or CRLF,
+rejects mixed line endings and lone carriage returns, matches exactly once in
+canonical LF space, and serializes the result using the source file's style.
+The fixed path, UTF-8 boundary, size bounds, symlink/reparse checks, and raw
+provider evidence remain unchanged. Successful replacement results carry a
+strict, non-sensitive EOL metadata object accepted only by the shared server
+schema.
+
+The first post-build architect review caught that the new metadata was not yet
+allowed by the strict server validator, that output style was inferred rather
+than measured, and that several explicit rejection proofs were missing. Those
+were repaired. HTTP coverage now proves metadata persistence and raw argument
+immutability. Executor coverage replays the captured failed replacement and
+proves LF/CRLF combinations, same-style behavior, malformed-EOL rejection,
+overlapping canonical matches, and output-limit no-mutation.
+
+Final focused verification passes: runtime policy 16/16, Gemini adapter/HTTP
+7/7, Windows executor 15/15, and Windows DPAPI boundary 8/8. The final runtime
+bundle rebuilds to launcher pin
+`93f6edbfca3b027962af8ced7a72d5b365169ab6981b04b8a7e6c2dcfe1ca227`.
+The architect and Gemini 3 both returned exact `APPROVED — Ship it.`
+
+Do not create another Windows generation until this tree is committed,
+published to GitHub, republished to production, and live health is verified.
+The next generation must use entirely fresh authority and identifiers. Task
+1449 remains cancelled; task 1450 remains independently owned.
+
+## Coordinator V2 persistence and pure state machines — September 12, 2026
+
+Coordinator V2 now has an additive PostgreSQL control-plane foundation for
+enrolled hosts, immutable versioned policies and founder decisions, bounded
+operator grants and sessions, fresh logical attempts, append-only transition
+events, epoch-based transport leases, and cleanup obligations and
+acknowledgements. Existing coordination runtime evidence remains separate and
+is referenced restrictively; no legacy Gate 3 authority was reused.
+
+Migration 0041 established the twelve-table model, restrictive foreign keys,
+partial single-active-lease uniqueness, append-only evidence triggers, and
+post-decision policy immutability. Dual-engine review then found that cleanup
+obligations did not persist the terminal session outcome promised by the pure
+cleanup state. Additive migration 0042 repaired that contract with non-null,
+constrained, immutable terminal outcome and reason fields. The same review
+found and fixed the stable duplicate-approval rejection code.
+
+The migration gate now includes a real disposable PostgreSQL V2 parity test.
+It proves cleanup terminal provenance cannot be rewritten, session events are
+append-only, and a second active lease for one session is rejected. The
+definitive gate passed that proof and all 68 configured CI commands, deleted
+its branch, and returned `READY_TO_PROMOTE` before each migration was applied
+to shared Neon. Live catalog checks confirm both cleanup columns, both checks,
+and the immutability trigger. Focused schema tests pass 6/6, pure state tests
+pass 7/7, TypeScript passes, and system health reports all checks passed.
+Both Alden engines issued unconditional approval after the repair.
+
+The next implementation boundary is transactional policy/session authority
+services. They must persist cleanup terminal outcome and reason at creation,
+enforce all cross-row authorization and budget rules under row locks, and
+remain provider- and host-neutral. No real Windows generation or authority may
+be created during that work.
+
+## Coordinator V2 trust-policy and operator authority — September 12, 2026
+
+Plan Milestone 3 is complete. Strict canonical policy documents now receive
+deterministic SHA-256 identities; concurrent identical drafts converge under
+database locks; founder approval, rejection, and revocation bind the actor,
+normalized reason, policy digest, and request key. Operator grants use canonical
+sorted action sets, approved-version and lifetime bounds, exact replay
+semantics, and authenticated coordination actors rather than body-supplied
+identity.
+
+Migration 0043 adds an append-only policy audit ledger with restrictive foreign
+keys, action-shape and size constraints, action-scoped idempotency, and
+insert-time cross-identity provenance validation. It also repairs the original
+policy-version trigger so immutable approved policy content may make exactly
+one approved-to-revoked lifecycle transition while retaining approval
+provenance. Authorization rechecks the active identity, approved version,
+version range, grant lifetime, revocation, actor, and action; distinct denial
+envelopes remain distinct immutable evidence.
+
+The definitive disposable Neon gate applied 0043, passed V2 PostgreSQL parity,
+the 4/4 transactional policy suite, the 1/1 real Express HTTP authority suite,
+and all 68 established CI commands. It deleted the branch and returned
+`READY_TO_PROMOTE`. Migration 0043 was then applied to shared Neon. Live catalog
+verification confirms the restrictive foreign keys, unique index, provenance
+and immutability triggers, and zero V2 host, policy, grant, audit, session, or
+attempt rows. System health is green. Both Alden engines returned exact
+`APPROVED — Ship it.`
+
+Milestone 4 session orchestration remains separate. Do not create or rerun
+Windows generation or authority. Cancelled task 1449 remains cancelled, and
+Alden-owned task 1450 remains untouched.
+
+Plan Milestone 4 adds transactional bounded-session create/resume, durable
+attempt consumption, same-attempt transport recovery, fresh-attempt lineage,
+atomic terminal cleanup obligations, and real Express routes. Launch envelopes
+are hashed canonically in the existing `session_digest`; no session counter
+table or process-local authority was added. Migration 0044 only hardens event
+request-key nullability and request checks.
+
+The definitive disposable Neon gate applied migration 0044, executed all eight
+named bounded-session and fresh-attempt database cases with zero skips, passed
+the real HTTP boundary, and passed all 68 established CI commands. The branch
+was deleted and the gate returned `READY_TO_PROMOTE`. Migration 0044 was then
+applied to shared Neon. Live verification found 45 migration-ledger rows, zero
+V2 sessions, attempts, or cleanup obligations, required event request keys, and
+the bounded cleanup operation-receipt column. The application restarted and an
+unauthenticated session launch returned HTTP 401. Both Alden engines returned
+unconditional `APPROVED — Ship it.`
+
+Milestone 5 remains separate: durable transport leases may now be implemented,
+but no real Windows authority may be created before the plan's explicit Windows
+acceptance milestones. Cancelled task 1449 remains cancelled, and Alden-owned
+task 1450 remains untouched.
+
+## Coordinator V2 durable transport lease implementation — September 12, 2026
+
+Milestone 5 implementation adds PostgreSQL-backed CAS transport leases using
+the existing `coordination_v2_transport_leases` table and pure lease reducer.
+Acquisition, renewal, release, expiry, and takeover bind session, enrolled
+host, holder instance, epoch, and predecessor lineage. Lease operation receipts
+and a bounded stale-holder reconciliation ledger are dedicated additive tables;
+reconciliation evidence never mutates authority. Host protocol routes derive
+host identity from the locked session and transactionally persist current-epoch
+poll, claim, result, acknowledgement, and cleanup evidence. Dedicated bounded
+V2 work provenance is used where legacy runtime IDs cannot preserve session
+identity; holder instances remain ephemeral lease CAS identifiers.
+
+Migration 0045 is a narrowly additive, generated-and-reviewed artifact. The
+definitive disposable gate applied it from the live 0044 baseline, passed all
+seven durable lease cases with zero skips, passed the host HTTP suite and all
+68 established CI commands, deleted the branch, and returned
+`READY_TO_PROMOTE`. Both Alden engines then returned unconditional
+`APPROVED — Ship it.`
+
+Migration 0045 is applied to shared Neon. The live ledger contains 46
+migrations; all new lease, receipt, claim, result, and reconciliation tables
+remain empty. The one-active-lease index, claim epoch fence, result provenance
+constraint, and cleanup host-provenance trigger are installed. The application
+restarted cleanly, `/api/health` returned 200, and an unauthenticated lease
+request returned 401. No host was provisioned, no credential was generated,
+and no Windows workflow was run.
+
+## Coordinator V2 provider contract and Gemini adapter — September 12, 2026
+
+Milestone 6 adds a provider-neutral adapter vocabulary, exact descriptor
+registry, stable provider-failure mapping, and full-history retry/fallback
+selection. Only the exact Gemini model and adapter version are registered in
+production. Claude and OpenAI remain opaque contract fixtures and cannot be
+selected for a live session or fresh attempt.
+
+Gemini-native request construction, response decoding, finish/status mapping,
+bounded retries, raw function-argument evidence, and candidate hashing now live
+behind the provider adapter module. The historical Gemini coordinator module is
+a compatibility consumer and preserves task-1448 command bounds. Raw arguments
+carry canonical UTF-8 and SHA-256 evidence; oversized arguments persist only an
+explicit bounded marker with full digest and byte length. Malformed or
+disallowed calls remain immutable evidence with `executionEligible: false` and
+never reach policy validation, claim acquisition, tool execution, or completion
+requirements. Both server-derived `read_file {}` and the exact fixed-path echo
+remain eligible; no other path is accepted.
+
+Session launch now fails closed unless every requested provider has a
+policy-allowed registered descriptor. Fresh-attempt creation resolves the exact
+provider/model/adapter version against the locked canonical policy before any
+new attempt or event is written. The existing multi-provider state-machine test
+uses an explicit synthetic registry; production remains Gemini-only. Database
+tests prove rejected production descriptors create zero session and attempt
+rows.
+
+No schema migration, provider table, provider route, host provisioning,
+credential generation, PowerShell, DPAPI, or Windows authority was added. The
+definitive disposable Neon gate passed the session/attempt suite 9/9, session
+HTTP 1/1, transport lease 7/7, host HTTP 1/1, provider contract/Gemini 15/15,
+and all 68 established CI commands. It deleted the branch and returned
+`READY_TO_PROMOTE`; there was no shared schema change to apply. Both Alden
+engines returned unconditional `APPROVED — Ship it.` after the gate-discovered
+exact-descriptor repair.
+
+Next boundary: Milestone 7 host protocol and fake-host contract. Keep task 1449
+cancelled, leave Alden-owned task 1450 untouched, and create no real Windows
+authority before Milestones 14–15.
+
+## Coordinator V2 host protocol and adapter boundary — September 12, 2026
+
+Milestone 7 replaces the provisional unversioned host payloads with a strict
+protocol-v1 contract. Closed envelopes carry canonical SHA-256 evidence,
+bounded bytes, issued/expiry times, request and correlation IDs, and complete
+policy/session/attempt/host/lease/epoch/holder/operation bindings. Unknown
+versions and kinds, extra keys, malformed payloads, digest mismatches, future
+skew, expiry, and binding mismatches fail closed. PostgreSQL remains the only
+authority for lease time, identity, current attempts, claims, results, cleanup,
+and replay; the existing receipt command digest remains the single replay
+ledger.
+
+Host routes preserve their URLs and authentication boundary but now accept only
+v1 envelopes. URL identity and locked database rows are authoritative. The
+transport service compares every host protocol binding against locked policy,
+session, enrollment, lease, current attempt, logical operation, and
+server-derived operation digest before mutation. Exact duplicate requests still
+converge through the existing immutable receipts. Host input cannot choose a
+provider, retry/fallback, path, command, tool, capability, or operation.
+Requested lease duration remains capped by the locked session policy.
+
+A deterministic in-process fake host consumes only server-issued logical
+operation envelopes and returns strict result evidence through the normal
+persistence path. The generic host operation interface contains no Windows
+paths or commands. Existing Antigravity Windows translation is isolated behind
+an injected adapter; no Windows process, workflow, credential, or authority was
+created. The enrollment boundary is pure validation and read-only compatibility
+only. It has no database mutation or public provisioning route; actual
+enrollment remains deferred to Milestones 14–15.
+
+The definitive disposable Neon gate passed host protocol and authorization
+5/5 with zero skips, host HTTP 1/1, transport leases 7/7, provider contracts
+15/15, bounded sessions and attempts 9/9, and all 68 established CI commands.
+The branch was deleted and the gate returned `READY_TO_PROMOTE`. No migration
+or shared database change was required. Both Alden engines returned
+unconditional `APPROVED — Ship it.`
+
+Next boundary: Milestone 8 only. Keep task 1449 cancelled, leave Alden-owned
+task 1450 untouched, and create no real Windows authority before Milestones
+14–15.
+
+## Coordinator V2 Windows preflight and atomic preparation — September 13, 2026
+
+Milestone 8 adds a read-only Windows preflight, durable PostgreSQL preparation
+reservations, and local atomic generation staging behind a thin PowerShell 5.1
+boundary. Canonical branch and public-material identity come only from the
+approved policy's legal host constraints. Reservation lifetime is fixed
+server-side, capped by the locked session expiry using the database clock, and
+requires an active protocol-v1 Windows host with `preflight` and `prepare`
+capabilities. Identical concurrent reserves converge through one bounded retry;
+different active request identities fail closed.
+
+Migration 0046 adds the preparation-reservation authority table, scoped unique
+indexes, restrictive foreign keys, lifecycle checks, and an immutability
+trigger. PostgreSQL stores identifiers, digests, bounded codes, and timestamps
+only—never local paths, artifact bytes, plaintext, ciphertext, credentials, or
+Windows commands. Identity, promotion evidence, and terminal rows are
+immutable; deletion and `promoted → expired` are forbidden so acknowledgement
+loss remains recoverable.
+
+Local preparation writes bounded public artifacts and an opaque protected blob
+to staging, records a local-only protected-blob digest in the manifest, renames
+the completed generation, and atomically replaces the active pointer. Exact
+retry rejects protected-blob tampering. Secret and protected buffers are zeroed.
+DPAPI remains an injected protection boundary and was not executed; transport,
+provisioning, credentials, scheduled tasks, and real Windows authority remain
+absent.
+
+The definitive disposable Neon gate applied 0046, ran the Milestone 8 database
+matrix with zero skips, passed the preflight/preparation/static tests and every
+established gate suite, deleted the branch, returned `READY_TO_PROMOTE`, and
+exited 0. Both Alden engines returned exact `APPROVED FOR SHARED MIGRATION`.
+Migration 0046 was then applied to shared Neon. Live verification confirms the
+exact migration hash, 21 constraints, 7 indexes, the reservation guard trigger,
+and zero preparation-reservation rows.
+
+Next boundary: Milestone 9 transport activation only. Keep task 1449 cancelled,
+leave Alden-owned task 1450 untouched, and create no real Windows authority
+before Milestones 14–15.
+
+## Coordinator V2 one-command host lifecycle — September 13, 2026
+
+Milestone 9 adds a server-owned lifecycle facade and one narrow operator
+command. The operator supplies only a numeric task reference, an optional
+policy selector, and a safe output format. The server resolves the fixed task
+artifact, exact bytes and digest, Git repository identity, starting commit,
+clean-worktree provenance, approved policy and grant, active host, provider
+descriptor, session, attempt, lease, and cleanup state. The lifecycle HTTP
+route derives actor authority from coordination middleware and rejects extra
+body fields.
+
+Preparation remains a durable acknowledgement gate: a preparing session does
+not create an attempt or lease until its newest exact reservation is
+acknowledged. Logical provider retry and policy-approved fallback create fresh
+deterministic attempt generations with prior-attempt lineage. Transport
+recovery preserves the current attempt. Provider classification, retry,
+fallback, and next-provider selection are resolved from locked server state;
+the host cannot supply or choose them.
+
+Host polling returns only an opaque offer. A mandatory server claim fence
+returns the executable operation. Before execution, an injected durable journal
+atomically records `started`; a completed entry replays its exact result, and a
+started but incomplete entry must reconcile authoritatively or fail closed. It
+is never blindly executed again. Every terminal outcome invokes cleanup.
+Success exits zero only after cleanup acknowledgement; failed, exhausted,
+expired, and revoked outcomes preserve their original nonzero state even when
+cleanup remains pending.
+
+The PowerShell 5.1 host uses fixed Node, TSX, and coordinator-script paths,
+checks reparse points and readable ACLs, declares DPAPI `CurrentUser`, suppresses
+raw child stderr, and emits only safe text or JSON. The executable CLI defaults
+to `host_unavailable` until the authenticated Windows transport and protected
+journal are activated in Milestones 14–15. No real Windows authority,
+credential, provisioning flow, scheduled task, DPAPI operation, or host
+execution was created.
+
+The definitive disposable Neon gate passed the registered Milestone 9
+one-command lifecycle suite 30/30 with zero skips, then passed all 68
+established CI commands. It deleted the branch, exited 0, and returned
+`READY_TO_PROMOTE`; no migration or shared-database change was required.
+Focused local verification passed 32/32 tests, TypeScript, the executable
+closed-default CLI check, and `git diff --check`. System health passed with zero
+failures. Anthropic-Alden returned `APPROVED TO COMMIT MILESTONE 9`,
+Gemini-Alden returned the same approval, and the independent
+`gemini-3-flash-preview` review returned `APPROVED — SHIP MILESTONE 9`.
+
+Next boundary: Milestone 10 diagnostics only. Keep real Windows transport,
+credentials, provisioning, DPAPI protection, scheduled execution, and
+host-authority activation deferred to Milestones 14–15.
+
+## Coordinator V2 structured diagnostics and automatic cleanup — September 13, 2026
+
+Milestone 10 adds a stable lifecycle error catalog and safe status projection.
+Every service error now maps to a fixed operator message, lifecycle phase,
+retry classification, evidence reference, and closed bounded provenance.
+`host_child_unclassified_exit` records only the executable role and a signed
+32-bit exit status. Raw child stderr remains evidence-only and cannot enter
+operator text, JSON, or provenance. The PowerShell wrapper validates child
+stdout on every exit path, including a malformed zero-exit response, and fails
+closed with a nonzero wrapper exit.
+
+Terminal session transitions now revoke present-day execution authority inside
+the same PostgreSQL transaction as the terminal state. Live attempts are
+cancelled and active transport leases are released before the terminal call
+returns. Reusable policy grants and enrolled hosts remain unchanged. Cleanup
+obligations remain separate, independently retryable, and idempotent; cleanup
+repair cannot overwrite the original terminal result, reason, or evidence.
+
+Historical reads and exact replay no longer depend on mutable execution
+authority. Terminal status binds to the immutable session operator actor.
+Exact attempt creation, attempt transition, and transport receipt replay occur
+before current grant, host, expiry, or terminal-state authorization. New
+mutations still require current authorization. Terminal cleanup
+acknowledgement requires the immutable session actor, an explicit lease ID, the
+exact latest released lease lineage, and a terminal session. A second receipt
+lookup after acquiring the serialization locks makes concurrent identical
+acknowledgements return the same canonical snapshot.
+
+Status exposes only canonical state, the current lease holder, the last
+transition, the next action, the blocking reason, and cleanup state. It does
+not leak credentials, raw stderr, authority internals, or host/provider control
+inputs. No real Windows transport, credentials, provisioning, DPAPI operation,
+scheduled execution, or host authority was created.
+
+Focused local verification passed TypeScript, 16 runnable assertions with the
+two database suites correctly skipped outside a verified disposable database,
+PowerShell static boundaries, and `git diff --check`. The definitive disposable
+Neon gate then ran the combined one-command lifecycle, diagnostics, and cleanup
+bundle 39/39 with zero skips, including concurrent identical cleanup
+acknowledgements and the transport lease matrix 7/7. All 68 established CI
+commands passed. The gate deleted its branch, exited 0, and returned
+`READY_TO_PROMOTE`; no migration or shared-database mutation was required.
+System health passed with zero failures.
+
+The final review packet included the actual tracked diff and the new production
+source files. Anthropic-Alden, Gemini-Alden, and the independent cold
+`gemini-3-flash-preview` review each returned unconditional
+`APPROVED — SHIP MILESTONE 10` with no required changes, suggestions, or
+remaining watch-outs.
+
+Next boundary: Milestone 11 only. Keep real Windows transport, credentials,
+provisioning, DPAPI protection, scheduled execution, and host-authority
+activation deferred to Milestones 14–15.
+
+## Coordinator V2 end-to-end recovery, fallback, and evidence proof — September 13, 2026
+
+Milestone 11 adds four focused suites:
+
+- `server/scripts/test-coordination-v2-e2e.test.ts`;
+- `server/scripts/test-coordination-v2-fault-injection.test.ts`;
+- `server/scripts/test-coordination-v2-provider-fallback.test.ts`; and
+- `server/scripts/test-coordination-v2-evidence-integrity.test.ts`.
+
+The end-to-end suite drives the production Coordinator V2 services from
+preparation through attempt creation, transport recovery, host claim and
+result, provider continuation, completion acceptance, terminal cleanup, and
+canonical evidence inspection. The fault suite injects interruption before and
+after session reservation, local promotion, attempt creation, provider
+response persistence, host claim, host mutation, result persistence, provider
+continuation, and completion acceptance, plus interruption during server
+revocation and local cleanup. Each recovery is classified as same-attempt
+transport resume, fresh same-provider attempt, fresh next-provider attempt,
+terminal failure, terminal success, or cleanup repair. Confirmed host mutation
+and provider continuation never repeat, logical retries never reuse attempt
+authority, fallback remains inside policy order and budgets, and at most one
+completion is accepted.
+
+Mutation cases use only an explicitly disposable PostgreSQL target. The
+production-service suites bind `NEON_SHARED_DATABASE_URL` to the already
+verified disposable branch and remove the CI localhost selectors before
+loading the service graph; they reject an absent disposable marker, an invalid
+PostgreSQL URL, or the forbidden shared Neon URL. The local fault seams use
+disposable in-process storage for filesystem, host, journal, and transport
+effects, while its authoritative matrix uses the real production services on
+the disposable PostgreSQL branch. No shared Neon database is used by the
+mutation suites.
+
+The provider suite proves that transport interruption resumes the same attempt,
+logical provider failure creates a fresh same-provider attempt, and a
+policy-eligible failure creates a fresh next-provider attempt with immutable
+lineage and new authority. Provider order, fallback eligibility, per-provider
+budgets, total budget, terminal classifications, and the registered descriptor
+are authoritative; the two-provider registry is a synthetic test policy and
+does not broaden the production provider registry. The evidence suite proves
+exact request replay, changed-payload replay conflicts, complete claim/result/
+lease/session/attempt evidence, one-winner concurrent completion, and
+unchanged terminal outcome, reason, event evidence, result digest, and attempt
+state through cleanup failure and repair.
+
+All four suites are registered in the established validation registry,
+`server/scripts/test-all-consolidated-ci.sh`, and the disposable Neon gate in
+`scripts/neon-branch.ts`; the gate does not create a duplicate workflow.
+`COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS=1` is injected by the Neon gate,
+so a database suite fails closed when its verified disposable target is absent
+instead of silently skipping. Outside that gate, the focused local run reports
+only the expected database skips.
+
+Verified proof: `npm run typecheck` is clean; focused local verification
+reported 3 passed, 4 expected database skips, and 0 failures; system health
+reported all checks passed. The definitive disposable Neon gate passed all 46
+Milestone 11 tests with zero skips, then the repository-wide gate returned
+`READY_TO_PROMOTE`; the disposable branch was deleted and shared Neon was left
+untouched.
+
+No real Windows authority was activated. Milestones 12–15 remain: independent
+documentation/review, publish-before-authority, real-Windows one-command
+acceptance, and real-Windows transport-resume acceptance.
+
+## Coordinator V2 operator guidance — September 13, 2026
+
+The canonical operator path now begins every Coordinator V2 reference:
+
+```powershell
+Invoke-HolaCoordinator -TaskRef <task reference>
+```
+
+The documentation separates immutable founder policy approval from bounded
+operator launch; defines the canonical policy, session, attempt, lease, and
+cleanup states; and uses the implemented recovery classifications
+`resume_transport`, `fresh_attempt_same_provider`,
+`fresh_attempt_next_provider`, `terminal_failure`, and `cleanup_repair`.
+
+Operators may inspect internal identifiers through authorized diagnostics but
+must never manually transfer them or supply them to a launch. PostgreSQL owns
+preparation, attempts, provider fallback, host leases, terminal results, and
+cleanup. Provider/model/adapter and host/repository/Git provenance describe one
+Luca execution lineage rather than separate identities.
+
+The Windows launcher is explicitly limited to the same Windows user because its
+credential uses DPAPI `CurrentUser`; it does not protect against malicious
+software already running as that user. Earlier Gate 3 evidence remains
+historical and non-authorizing. Cancelled legacy activation work remains
+cancelled, separately owned work remains untouched, and no real Windows
+authority was activated during documentation.
+
+Canonical references:
+
+- `docs/coordination-v2-architecture.md`
+- `docs/coordination-v2-policy-reference.md`
+- `docs/coordination-v2-host-protocol.md`
+- `docs/coordination-v2-provider-adapters.md`
+- `docs/coordination-v2-error-codes.md`
+- `docs/coordination-v2-recovery-runbook.md`
+
+## Coordinator V2 Milestone 14 runtime-bootstrap channel — September 14, 2026
+
+Implemented the separate authenticated Windows runtime-bootstrap authority
+boundary. It publishes immutable, source-bound runtime releases; issues
+host-authenticated signed manifests; streams only host-bound artifacts; records
+host-signed acknowledgements; exposes safe status; and records append-only
+revocations. The boundary imports no task, preparation, session, attempt, lease,
+operation, provider, or credential service and cannot create execution
+authority.
+
+Release publication independently verifies the promoted commit/tree and exact
+bootstrap source blobs, package-lock v3, tsx 4.23.1 with nested esbuild and
+win32-x64 0.28.1, npm SRI, the complete safe tar closure, and Node v20.20.0
+through a commit-pinned official keyring, pinned keyring digest, `gpgv`, exact
+signer, and signed checksum. Windows initialization uses the enrolled host
+credential, a per-current-user mutex, strong root/parent ACL and reparse checks,
+bounded create-new downloads, atomic promotion, complete post-promotion
+verification, Node Authenticode, and exact-generation expired-issue recovery.
+
+Migration `0052` adds immutable release, artifact, issue, acknowledgement, and
+revocation evidence with composite acknowledgement lineage. The final
+disposable Neon gate returned `READY_TO_PROMOTE`; all runtime, Windows,
+PostgreSQL, service, HTTP, unit, guard, episode, and coordination-ledger suites
+passed. Migration `0052` was then applied successfully to shared Neon. No
+runtime release has yet been published and no Windows task/session authority
+has been activated.
+
+## Coordinator V2 production source snapshot — September 15, 2026
+
+The first founder-authenticated runtime-release request failed closed with
+`V2_RUNTIME_SOURCE_TREE_UNAVAILABLE`. Production intentionally excludes `.git`,
+so release provenance could not rely on local `git rev-parse` or `git cat-file`
+even though the promoted commit, artifacts, and external provenance were valid.
+
+Runtime publication now obtains one immutable remote source snapshot through
+the existing GitHub deploy key and pinned SSH host keys. The boundary accepts
+only the exact lowercase `git@github.com:owner/repository.git` transport,
+compares the immutable source-promotion repository identity, fetches the exact
+commit into a temporary bare repository, verifies `FETCH_HEAD` and its exact
+tree, and reads only the closed bootstrap source set plus `package-lock.json`
+as bounded binary blobs. It has no branch, tag, deployed-file, tree-equivalence,
+caller-byte, HTTPS, or publication-input dependency fallback.
+
+The registered source-control fixture now exercises the same bare-repository
+materialization mechanism with real Git and invalid-UTF-8 fixture data. It
+proves exact commit/tree resolution, binary `cat-file` fidelity, operation
+without a caller checkout, and exact temporary-directory cleanup after both
+success and a post-fetch missing-blob failure. Focused runtime tests, the
+registered source-bridge suite, typecheck, and system health all pass. Both
+Alden-Anthropic and the independent architect reviewer returned unconditional
+approval with no remaining blockers.
+
+The previously uploaded digest-addressed Node v20.20.0 and tsx 4.23.1 closure
+remains inert. The failed request wrote no runtime release. Windows
+initialization and all task, session, lease, and execution authority remain
+uncreated.
+
+The configured validation wrapper completed all 71 application-test commands,
+the complete authenticated runtime-bootstrap group, source-bridge safety, and
+all later registered checks successfully. Its only failed group was the
+pre-existing Coordinator V2 lifecycle aggregate: an unchanged wire-contract
+self-check expects an outdated source-text shape, and its unchanged PostgreSQL
+constraint test requires a verified disposable database. Those three lifecycle
+files are byte-identical to the pre-correction published commit and are outside
+this source-snapshot change.
+
+## Coordinator V2 Replit publication-marker recovery — September 15, 2026
+
+Replit creates an empty `Published your App` commit immediately after a
+successful publish. That deterministic marker advanced local `main` before the
+operator acknowledgement could reach the source-promotion recorder, so the
+existing exact-head gate correctly failed closed twice.
+
+The recorder now preserves the validated and deployed parent as
+`promotedCommitSha` and accepts the local marker only as separate publication
+evidence. Recovery requires GitHub to remain exactly at the validated
+candidate, one exact marker parent, identical authenticated tree, the exact
+marker subject, a canonical reference naming both SHAs, fresh SHA-bound
+validation, a clean worktree, and a final state recheck immediately before the
+authority append. The complete marker proof is bound into the immutable attempt
+receipt and canonical digest; conflicting existing records fail closed.
+
+Focused and full source-bridge tests cover the normal exact-head path, the valid
+asymmetric marker race, malformed topology/content/reference, and local,
+remote, marker, expiry, and worktree drift. Typecheck passes, and the independent
+architect reviewer returned unconditional approval. No runtime release, Windows
+initialization, task, session, lease, or execution authority was created.
+
+Replit subsequently pushed a publication marker to GitHub `main` as well as
+creating it locally. The recorder again failed closed and wrote no promotion.
+An explicitly approved, exact-lease rollback was attempted, but GitHub branch
+protection refused the force-push and changed no state.
+
+The recorder now also accepts the pushed-marker topology without promoting the
+marker. Each head must be either the freshly validated parent or one shared
+marker; the local commit object must prove exact parent, tree, and subject; and
+a GitHub-side marker requires a second authenticated immutable-commit proof.
+Remote marker evidence is bound into the immutable receipt and canonical
+digest. Repository identity, both heads, marker proofs, validation expiry, and
+worktree cleanliness are all rechecked immediately before authority append.
+
+Adversarial fixtures cover local-only, remote-only, and both-side markers;
+different non-parent heads; initial and final parent/tree/SHA drift; repository
+identity drift; final head drift; malformed references; and dirty or expired
+state. The focused fixture, source-bridge suite, and typecheck pass, and the
+independent architect reviewer returned unconditional `APPROVED`.
+
+## Coordinator V2 two-phase runtime publication — September 15, 2026
+
+The corrected source candidate was published and recorded successfully as an
+immutable source promotion. The first founder-authenticated runtime-release
+request against that promotion then failed closed after approximately 30
+seconds with `V2_RUNTIME_DATABASE_UNAVAILABLE`. Production startup, migrations,
+Neon warmup, and ordinary database traffic were healthy, and the failed request
+wrote no runtime-release row.
+
+The release service had opened its append transaction before authenticated
+GitHub and package provenance work and before streaming and hashing all 61
+runtime objects. Production's database session expired while that transaction
+was idle during external I/O.
+
+Runtime publication now has two phases. It first reads and validates the current
+source promotion, derives all remote provenance, and verifies every object
+without a transaction. It then opens a short append transaction, re-reads the
+exact source and latest promotion, rejects current-source or source-field drift,
+computes the release digest from the transaction-fetched source, and performs
+the exact replay check and atomic release-plus-artifact insert. An exact
+release-digest uniqueness race is recovered only through the named PostgreSQL
+constraint and a second short transaction that repeats source/current and full
+persisted-release validation.
+
+Focused tests prove verification-before-transaction ordering, no transaction on
+provenance or object failure, source/current drift rejection, and exact
+uniqueness recovery. Runtime service, HTTP boundary, Windows static, typecheck,
+and project checks pass. Alden's Anthropic and Gemini reviewers each returned
+unconditional approval. The change creates no host, task, session, lease, or
+execution authority.
+
+## Coordinator V2 batched runtime artifact append — September 15, 2026
+
+The founder retried the corrected two-phase runtime publisher against immutable
+source promotion `d92b851b-7a9e-4bcd-887f-5a35b9334c24`. Production again
+failed closed with `V2_RUNTIME_DATABASE_UNAVAILABLE`, this time after 33.704
+seconds. A direct shared-Neon read again proved zero release rows and zero
+artifact rows.
+
+No-write diagnostics using the real current source, authenticated provenance,
+and all 61 object checks reached the transaction boundary in 15.817 seconds.
+A second no-write run completed Phase 1 plus the transaction's
+source/current/replay reads in 13.183 seconds and stopped immediately before
+the first insert. The remaining production path performed one release insert
+and then 61 sequential artifact insert round trips.
+
+The approved correction keeps the two-phase boundary and every transaction
+recheck. It replaces the 61 artifact statements with one parameterized
+`jsonb_to_recordset` insert inside the same transaction. The server constructs
+the exact normalized snake-case rows, PostgreSQL inserts them as one set, and
+`RETURNING id` must return the exact expected count or the transaction fails and
+rolls back the release row. Exact named-constraint uniqueness recovery is
+unchanged.
+
+Unknown publication failures now carry a phase and elapsed time. Production
+logs expose only bounded error names, SQLSTATE codes, constraint names, and
+closed message categories. Raw Drizzle messages are excluded because they may
+contain SQL and parameter values. Client error codes are unchanged.
+
+Focused service/HTTP tests pass 26/26, Windows/runtime checks pass 24/24, and
+typecheck passes. The tests compile the real Drizzle artifact statement and
+prove one JSON parameter with exact database field names, exact call count,
+wrong-row-count failure, and diagnostic confidentiality. Alden's Anthropic and
+Gemini engines each returned unconditional `APPROVED — Ship it.` No runtime
+release or later host, task, session, lease, or execution authority exists.
+
+## Marker-aware source-promotion recovery — September 15, 2026
+
+Replit Publish creates a same-tree child commit named `Published your App`.
+After a protected preparation, the scheduler moved both source heads to that
+marker and replaced the mutable `ready_to_promote` label. A safe record refusal
+then changed the label to `failed`; both transitions retained the exact
+candidate, validation manifest, preparation time, and expiry but made the
+recorder unable to reach them.
+
+Equal-head synchronization now restores readiness only when the retained
+candidate has an exact valid and unexpired manifest, the local marker is its
+single same-tree child with the exact Publish subject, and authenticated GitHub
+proofs match both candidate and marker. It repeats head, marker, and tracked-tree
+checks before writing status. Recovery preserves the original preparation time
+and expiry and keeps the parent as candidate; it does not validate or promote
+the marker, extend authority, append a promotion, or alter the recorder.
+
+Focused adversarial tests cover recovery from both `synced` and `failed`
+labels; exact timestamp preservation; wrong local or remote parent/tree/subject;
+expired, future-dated, or malformed evidence; final head changes; and final
+tracked-tree changes. The complete source-bridge suite and typecheck pass.
+Anthropic-Alden and Gemini-Alden each returned unconditional
+`APPROVED — Ship it.`
+
+The first live recovery attempt exposed one additional implementation hazard:
+both immutable GitHub proofs were fetched concurrently through the checkout's
+shared `FETCH_HEAD`, so either fetch could replace the other's evidence before
+inspection. Marker recovery now resolves candidate and marker proofs
+sequentially. The fixture rejects overlapping proof resolution, the focused
+source-bridge suite and typecheck pass, system health is fully green, and both
+Alden engines returned unconditional approval.
+
+## Runtime current-source mismatch diagnostics — September 15, 2026
+
+The founder-authenticated runtime publication request failed closed twice with
+`V2_RUNTIME_SOURCE_PROMOTION_NOT_CURRENT`. Both attempts stopped during the
+initial source precheck and wrote no runtime release. Direct HTTP and pooled
+reads of the canonical shared Neon database agreed that the requested promotion
+was the latest published source, so retries were stopped.
+
+The runtime publisher now attaches bounded evidence to that existing failure.
+Server logs record whether the requested row was found, SHA-256 fingerprints of
+the requested and current promotion IDs, a fingerprint derived from
+PostgreSQL's non-secret database identity, and only the allowlisted names of
+canonical fields that differ. Raw authority values, database identity, SQL,
+parameters, and credentials remain excluded. The public response and all
+source-current checks are unchanged.
+
+Focused service and HTTP tests pass 28/28, typecheck and system health pass, and
+both Alden engines returned unconditional `APPROVED — Ship it.` Missing-source
+and different-current-source paths are covered. No runtime, host, task, session,
+lease, or execution authority was created.
+
+## Runtime artifact content-addressing correction — September 16, 2026
+
+The first fully verified append attempt exposed a schema cardinality error:
+distinct tsx destinations with byte-identical content legitimately shared one
+immutable digest-addressed object key, but
+`uq_coordination_v2_runtime_artifact_object` rejected the second manifest row.
+The transaction rolled back, leaving no partial release or artifact rows.
+
+The artifact table is now explicitly modeled as a manifest from fixed
+destination to immutable content object. Migration 0053 drops only the
+per-release object-key uniqueness. Per-release destination uniqueness, key and
+digest checks, foreign keys, append-only triggers, publication-time object
+verification, and authenticated-download reinspection remain unchanged.
+
+The disposable Neon gate reached `READY_TO_PROMOTE` and deleted its branch
+before migration 0053 was applied to shared Neon. Live postconditions show only
+the primary key and destination unique index on the artifact table, with its
+immutability trigger still active. The focused PostgreSQL proof accepts two
+destinations sharing one object and still rejects a duplicate destination.
+Focused service tests pass 22/22, typecheck passes, and system health reports
+all checks passed. Both Alden engines returned unconditional
+`APPROVED — Ship it.` No runtime publication, Windows initialization, task,
+session, lease, or execution authority was created.
+
+## Windows ACL identity and signed-member EOL repair — September 16, 2026
+
+The first Windows initialization attempt reached the approved clean checkout
+and enrolled host but stopped before download with
+`hola_coordinator_acl_identity_unresolvable`. PowerShell returned the ACL owner
+as an account-name string while the launcher expected every non-SID value to
+expose `IdentityReference.Translate`. The same clean Windows checkout also
+showed that Git could transcode the three manifest-bound source members to CRLF,
+changing their protected byte digests.
+
+The launcher now converts SID objects directly, parses SID strings, translates
+account-name strings through `NTAccount`, and retains the same fail-closed error
+for malformed or unresolvable values. Owner and writer SID allowlists are
+unchanged. Repository attributes force LF for the complete three-member runtime
+source set. Focused static checks require both string conversion paths, the
+unchanged fail-safe catch, the unchanged owner allowlist, a mutation proof for
+account translation, and all three LF rules.
+
+The HTTP/static runtime suite passes 26/26 and typecheck passes. A direct
+PostgreSQL test correctly refused shared Neon because it requires a disposable
+test database; the protected validation suite owns that proof. The previously
+published runtime release has no bootstrap issue or acknowledgement and remains
+immutable, but it cannot authorize this corrected launcher. A new protected
+source promotion and runtime release are required before Windows initialization
+continues. No task, session, lease, operation, or invocation was created.
+
+## Production voice replay, visual generation, and Luca presence stabilization — September 16, 2026
+
+The post-cutover stabilization repair closes three production failures without
+changing the established product contracts.
+
+Gemini Live keeps progressive, zero-buffer playback. A production-used
+turn-local guard now detects an exact substantial replay of the response
+beginning from output transcription, truncates the duplicate transcript, and
+drops all later PCM for that response. The guard begins once whether
+transcription or PCM arrives first and resets only at genuine interruption,
+reconnect, or completed-response boundaries. Because transcription trails PCM,
+the first repeated words may still escape; preventing those words would require
+buffering every response, which Gemini and Daniela both rejected. Gemini 3
+Flash reviewed each voice revision, including the final transcript-first race
+repair, and returned unconditional `APPROVED — Ship it.`
+
+Generated scenes now carry normalized target language through the canonical
+cache-first image pipeline. The image engine reports whether a DB-pinned style
+profile was actually used, which profile key was selected, and whether lookup
+failed; telemetry no longer infers profile use from language alone. Provider
+failures may return an explicit placeholder to the caller, but centralized
+cache guards prevent that placeholder from entering generated or reviewed
+asset caches. Props remain on the existing prop path, and neither direct
+reference-image prompting nor automatic quality scoring was added.
+
+Late Team Room browser joiners now receive Luca's current same-room presence
+immediately. The repair also replaces the namespace's pre-existing cookie-text
+check with signed `connect.sid` verification against the live session store,
+canonical founder authorization, and existing-room validation. Luca's dedicated
+agent-token authority remains separate. Browser replay exposes only online
+state and connection time, and unauthorized or nonexistent-room joins receive
+nothing.
+
+Behavioral checks pass 8/8 for the voice guard, 5/5 for the image pipeline, and
+5/5 for Team Room authentication/presence. Typecheck and diff checks pass, the
+HolaHola system-health verifier reports all checks passed, the registered
+validation workflow reports `ALL VALIDATION SUITE CHECKS PASSED`, and final
+independent architecture review returned PASS. The Gemini/Daniela consultation
+record is stored in `conversation_memories` under the voice-pipeline audit tags.
+
+## Render-backed source-promotion evidence — September 16, 2026
+
+Coordinator V2 source promotion now has an explicit Render publication path
+instead of relying on permissive operator prose intended for Replit Publish.
+Protected validation manifest v3 binds the exact candidate commit, complete
+check set, and source-context digest and file count derived from that Git
+commit's recursive tree.
+
+Promotable Render release manifests use the same explicit source-selection
+policy as protected Git-tree validation. Render's Docker context omits Git
+metadata and 269 archived assets by policy; its filesystem digest is accepted
+only when promotion matches it to the independently Git-derived protected
+digest. If Git is visible, its commit must match the build-supplied commit.
+Recording requires a strict commit-and-digest reference, a pinned HTTPS
+`/health/release`, HTTP 200, build authority, promotable state, and exact commit
+and digest agreement. Evidence is read twice; the final read occurs after final
+Git, expiry, marker, and cleanliness checks and before the immutable append.
+Responses are bounded, redirects and arbitrary exact-head attestations fail,
+and exact Replit publication-marker proof remains unchanged.
+
+Focused source-control, source-promotion API, release-identity, and type checks
+pass. A nested-file-only regression proves the recursive Git digest changes.
+Independent review initially caught the missing recursive tree flag; after
+correction, it returned PASS with no blockers.
+
+The registered validation suite completed with every check passing except the
+live canonical-capture health route, which received `ECONNREFUSED` while the
+application workflow was stopped. After normal application startup, that exact
+live route check passed. The mandatory HolaHola system-health verifier then
+reported all checks passed.
+
+## Render runtime protected-snapshot prerequisites — September 17, 2026
+
+The first founder runtime-publication request for the Render-backed source
+promotion failed closed with `V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE`. Direct
+shared-Neon postconditions showed zero runtime-release and runtime-artifact
+rows. The source promotion itself remained current and immutable.
+
+Render's production image omitted both `git` and an SSH client, while its
+blueprint did not declare the private GitHub deploy-key secret required by the
+existing exact-commit snapshot resolver. The runtime Docker stage now installs
+`git` and `openssh-client`, and `render.yaml` declares
+`HOLAHOLA_GITHUB_DEPLOY_KEY` with `sync: false`; no secret value is stored in
+source.
+
+The registered source-control service test now locks both production
+prerequisites. The source authority remains unchanged: exact private GitHub SSH
+transport, pinned host keys, exact promoted commit and tree, a closed source
+path set, bounded blobs, and no deployed-filesystem or HTTPS fallback. A fresh
+Render deployment and immutable source promotion are required before one new
+founder runtime-publication request. Windows authority remains untouched.
+
+## Windows host reauthorization TTL compatibility repair — September 17, 2026
+
+The first real `LITTLENEMO` credential-reauthorization request repeatedly
+returned HTTP 422 `V2_HOST_REAUTH_INVALID` before database append. A bounded
+local probe proved that wire shape, declaration types, declaration round-trip,
+public-key fingerprint, RSA key lineage, and canonical signature all passed.
+Only the signed time window failed.
+
+The PowerShell launcher had derived `issuedAt` and `expiresAt` from two
+independent `UtcNow` reads. The resulting signed lifetime was always slightly
+greater than the server's exact one-hour maximum. New declarations now capture
+one UTC instant and derive both timestamps from it.
+
+The already-persisted malformed generation is not edited, re-signed, deleted,
+or reused. A fail-closed detector may mark it terminal only after it has
+expired and only when the request has no server ID, is nonterminal and
+nonambiguous, has the exact legacy lifetime overshoot, has identical stored and
+wire declarations, and passes exact fingerprint, key-lineage, and RSA
+signature checks. The existing crash-safe rollover then creates a fresh
+request key and next generation.
+
+Pre-insert server validation now reports distinct bounded declaration,
+public-key, and signature codes while preserving HTTP 422 and returning no
+supplied values. Canonical signature validation occurs before any database
+transaction and is repeated against the enrolled key inside the locked
+transaction.
+
+Independent review also found that the server returns an origin-relative
+founder approval path while the client required an absolute URL. The client now
+requires the exact relative path bound to the validated response request ID,
+then prepends its already-validated HTTPS endpoint only for presentation.
+Arbitrary origins, paths, query additions, fragments, and request keys remain
+rejected.
+
+Focused Linux checks pass 16/16, typecheck passes, diff checks pass, and the CI
+workflow parses. A new Windows PowerShell aggregate-CI job executes the real
+restore lifecycle against isolated DPAPI files, forces a crash after terminal
+persistence, resumes generation rollover, and sends the exact synthetic wire
+bytes to Node for canonical fingerprint and signature verification. Its first
+GitHub run remains pending.
+
+The full disposable Neon gate passed, deleted its temporary branch, returned
+`READY_TO_PROMOTE`, and exited 0. The registered validation workflow reported
+`ALL VALIDATION SUITE CHECKS PASSED`, the mandatory system-health verifier
+reported `All checks passed — safe to mark done`, and the same independent
+architect reviewer returned an unconditional PASS with no blocker.
+
+No production source, runtime release,
+reauthorization row, approval, replacement credential, runtime initialization,
+session, or execution authority has been created by this repair.

@@ -1,0 +1,1 @@
+DROP INDEX "uq_coordination_v2_runtime_artifact_object";

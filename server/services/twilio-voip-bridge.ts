@@ -397,7 +397,11 @@ async function endBridge(state: BridgeState): Promise<void> {
   state.isEnded = true;
   if (state.maxDurationTimer) { clearTimeout(state.maxDurationTimer); state.maxDurationTimer = null; }
   if (state.callSid) activeBridges.delete(state.callSid);
-  try { state.glSession?.stop(); } catch (_) {}
+  try {
+    await state.glSession?.stop();
+  } catch (err) {
+    console.warn('[TwilioVoipBridge] Gemini teardown summary error:', err);
+  }
   state.glSession = null;
 
   if (!state.queueId || !state.streamStartedAt) return;

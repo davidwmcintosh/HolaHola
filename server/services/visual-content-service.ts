@@ -13,11 +13,45 @@
  * See docs/visual-asset-roadmap.md → "Final Engine Assignment" for full decision log.
  */
 
-import { generateCharacterScene, generatePropImage } from './google-image-service';
+import {
+  generateCharacterSceneWithMetadata,
+  generateEnvironmentSceneWithMetadata,
+  generatePropImage,
+} from './google-image-service';
+
+/**
+ * Style profiles are keyed by the canonical lower-case language name. Keep
+ * normalization at this boundary so every scene caller (including older
+ * callers that pass "Spanish" or surrounding whitespace) selects the same
+ * DB-pinned profile.
+ */
+export function normalizeTargetLanguage(language?: string): string | undefined {
+  const normalized = language?.trim().toLowerCase();
+  return normalized || undefined;
+}
+
+/** Only real provider output may be promoted into a curated image cache. */
+export function shouldCacheVisualResult(result: VisualGenerationResult): boolean {
+  return result.metadata.provider !== 'placeholder' && Boolean(result.imageUrl);
+}
+
+/**
+ * Cache a provider result only when generation succeeded. Keeping this small
+ * callback-based boundary makes the failure invariant testable without
+ * invoking Gemini or touching storage.
+ */
+export async function cacheGeneratedVisual(
+  result: VisualGenerationResult,
+  save: () => Promise<void>,
+): Promise<boolean> {
+  if (!shouldCacheVisualResult(result)) return false;
+  await save();
+  return true;
+}
 
 export interface VisualGenerationRequest {
   concept: string;
-  type: 'image' | 'infographic';
+  type: 'image' | 'infographic' | 'environment';
   data?: Record<string, unknown>;
   style?: string;
   targetLanguage?: string;
@@ -41,6 +75,12 @@ export interface VisualGenerationResult {
     generatedAt: string;
     dimensions: { width: number; height: number };
     educationalLevel?: string;
+    contentKind?: 'environment' | 'character' | 'prop';
+    peoplePolicy?: 'excluded' | 'explicit';
+    generatorRoute?: 'environment' | 'character' | 'prop';
+    styleProfileKey?: string | null;
+    styleProfileUsed?: boolean;
+    styleProfileLookupFailed?: boolean;
   };
 }
 
@@ -53,12 +93,18 @@ const EDUCATIONAL_TAG_CATEGORIES = [
 
 async function generateWithModel(
   request: VisualGenerationRequest,
-): Promise<{ imageUrl: string }> {
+  peoplePolicy?: 'excluded' | 'explicit',
+): Promise<{ imageUrl: string; styleProfileUsed?: boolean; styleProfileKey?: string | null; styleProfileLookupFailed?: boolean }> {
+  if (request.type === 'environment') {
+    return generateEnvironmentSceneWithMetadata(
+      request.concept,
+      request.targetLanguage || 'environment',
+      peoplePolicy === 'excluded',
+    );
+  }
   const isScene = request.type === 'infographic';
-  const imageUrl = isScene
-    ? await generateCharacterScene(request.concept, request.targetLanguage)
-    : await generatePropImage(request.concept);
-  return { imageUrl };
+  if (isScene) return generateCharacterSceneWithMetadata(request.concept, request.targetLanguage);
+  return { imageUrl: await generatePropImage(request.concept) };
 }
 
 function generatePlaceholderImage(request: VisualGenerationRequest): { imageUrl: string } {
@@ -106,22 +152,49 @@ function generateAccessibilityDescription(concept: string, type: string, data?: 
  */
 export async function generateVisual(
   concept: string,
-  type: 'image' | 'infographic',
+  type: 'image' | 'infographic' | 'environment',
   data?: Record<string, unknown>,
   style?: string,
   anchorImageUrl?: string,
   language?: string,
+  contentKind?: 'environment' | 'character' | 'prop',
+  peoplePolicy?: 'excluded' | 'explicit',
 ): Promise<VisualGenerationResult> {
-  const request: VisualGenerationRequest = { concept, type, data, style, anchorImageUrl, targetLanguage: language };
+  const request: VisualGenerationRequest = {
+    concept,
+    type,
+    data,
+    style,
+    anchorImageUrl,
+    targetLanguage: normalizeTargetLanguage(language),
+  };
   let imageUrl: string;
   let provider: string;
+  let styleProfileKey: string | null | undefined;
+  let styleProfileUsed = false;
+  let styleProfileLookupFailed = false;
 
   try {
-    const result = await generateWithModel(request);
+    const result = await generateWithModel(request, peoplePolicy);
     imageUrl = result.imageUrl;
     provider = 'gemini-base';
+    styleProfileKey = result.styleProfileKey;
+    styleProfileUsed = Boolean(result.styleProfileUsed);
+    styleProfileLookupFailed = Boolean(result.styleProfileLookupFailed);
+    console.log(
+      `[VisualTelemetry] generated kind=${contentKind ?? (type === 'environment' ? 'environment' : type === 'infographic' ? 'character' : 'prop')} ` +
+      `language=${request.targetLanguage ?? 'none'} ` +
+      `styleProfileKey=${result.styleProfileKey ?? 'none'} ` +
+      `styleProfileUsed=${Boolean(result.styleProfileUsed)} ` +
+      `styleProfileLookupFailed=${Boolean(result.styleProfileLookupFailed)} ` +
+      `peoplePolicy=${peoplePolicy ?? 'unknown'}`,
+    );
   } catch (error) {
     console.warn('[VisualContent] image generation failed, falling back to placeholder:', error);
+    console.warn(
+      `[VisualTelemetry] generation_fallback kind=${contentKind ?? (type === 'environment' ? 'environment' : type === 'infographic' ? 'character' : 'prop')} ` +
+      `language=${request.targetLanguage ?? 'none'} peoplePolicy=${peoplePolicy ?? 'unknown'}`,
+    );
     imageUrl = generatePlaceholderImage(request).imageUrl;
     provider = 'placeholder';
   }
@@ -139,7 +212,13 @@ export async function generateVisual(
     metadata: {
       provider,
       generatedAt: new Date().toISOString(),
-      dimensions: type === 'infographic' ? { width: 1024, height: 1024 } : { width: 1024, height: 1024 },
+      dimensions: { width: 1024, height: 1024 },
+      contentKind,
+      peoplePolicy,
+      generatorRoute: contentKind ?? (type === 'environment' ? 'environment' : type === 'infographic' ? 'character' : 'prop'),
+      styleProfileKey,
+      styleProfileUsed,
+      styleProfileLookupFailed,
     },
   };
 }
@@ -155,7 +234,14 @@ export async function generateVisualBatch(
   for (let i = 0; i < requests.length; i += batchSize) {
     const batch = requests.slice(i, i + batchSize);
     const batchResults = await Promise.all(
-      batch.map(req => generateVisual(req.concept, req.type, req.data, req.style, req.anchorImageUrl)),
+      batch.map(req => generateVisual(
+        req.concept,
+        req.type,
+        req.data,
+        req.style,
+        req.anchorImageUrl,
+        req.targetLanguage,
+      )),
     );
     results.push(...batchResults);
   }

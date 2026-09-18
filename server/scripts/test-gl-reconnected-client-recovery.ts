@@ -75,7 +75,7 @@ check(
 );
 check(
   GLS,
-  /stop\(\): void \{[\s\S]{0,350}?clearTimeout\(this\.reconnectTimer\)/,
+  /(?:async )?stop\(\): (?:void|Promise<void>) \{[\s\S]{0,350}?clearTimeout\(this\.reconnectTimer\)/,
   'server: intentional stop cancels a scheduled failed-start retry',
 );
 

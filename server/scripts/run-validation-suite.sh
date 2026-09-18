@@ -35,6 +35,7 @@ run_check() {
 # Fast project checks. Full consolidated CI is intentionally a separate named
 # validation workflow so neither command can exceed Replit's validation timeout.
 run_check "TypeScript typecheck" npm run typecheck
+run_check "Provider-neutral release identity" npx tsx server/scripts/test-release-identity.ts
 # Use the same command-by-command runner as GitHub CI so validation exercises
 # the precise test execution path and identifies the failing command.
 run_check "Application test suite" npm run test:ci
@@ -45,6 +46,36 @@ run_check "Source reconciliation safety" npm run test:source-reconciliation
 run_check "Agent-note coordination ingress" npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
 run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
+run_check "GitHub main-branch bypass surface guard" bash -c 'npx tsx server/scripts/test-github-branch-bypass-guard.ts && npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check'
+run_check "Antigravity Windows DPAPI source boundary" npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts
+run_check "Coordinator V2 first-host bootstrap boundary" npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts
+run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence suites" npx tsx --test \
+  server/scripts/test-coordination-lifecycle-facade.test.ts \
+  server/scripts/test-coordination-windows-host.test.ts \
+  server/scripts/test-coordination-v2-cli.test.ts \
+  server/scripts/test-coordination-errors.test.ts \
+  server/scripts/test-coordination-session-status.test.ts \
+  server/scripts/test-coordination-cleanup.test.ts \
+  server/scripts/test-coordination-v2-e2e.test.ts \
+  server/scripts/test-coordination-v2-fault-injection.test.ts \
+  server/scripts/test-coordination-v2-provider-fallback.test.ts \
+  server/scripts/test-coordination-v2-evidence-integrity.test.ts \
+  server/scripts/test-coordination-v2-host-completion-boundary.test.ts \
+  server/scripts/test-coordination-v2-host-factory-route.test.ts \
+  server/scripts/test-coordination-v2-dpapi-contract.test.ts \
+  server/scripts/test-coordination-v2-authority-seams.test.ts \
+  server/scripts/test-coordination-v2-deferred-session.test.ts \
+  server/scripts/test-coordinator-v2-schema.test.ts
+run_check "Coordinator V2 PowerShell enrollment object contract" npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts
+run_check "Coordinator V2 staged first-host enrollment contract" npx tsx --test server/scripts/test-coordination-v2-staged-enrollment-contract.test.ts
+run_check "Coordinator V2 authenticated runtime bootstrap" npx tsx --test \
+  server/services/coordination-v2-runtime-bootstrap-service.test.ts \
+  server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts \
+  server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts
+run_check "Coordinator V2 host credential reauthorization" npx tsx --test \
+  server/services/coordination-v2-host-reauthorization-contract.test.ts \
+  server/services/coordination-v2-host-reauthorization-validation.test.ts \
+  server/scripts/test-coordination-v2-host-reauthorization-static.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.
@@ -72,6 +103,7 @@ run_check "Raw-window capture alignment" npx tsx server/scripts/test-raw-window-
 run_check "Memory-decay startup schema guard" bash -c 'npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts && npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts --self-check'
 run_check "Application startup recovery" bash server/scripts/test-start-application-recovery.sh
 run_check "Application startup recovery self-check" bash server/scripts/test-start-application-recovery.sh --self-check
+run_check "Infra-mutation ownership guard (Cloudflare DNS)" npx tsx --test server/scripts/test-infra-mutation-ownership-guard.test.ts
 echo ""
 echo "════════════════════════════════════════════════════════════"
 if [[ ${#FAILED[@]} -eq 0 ]]; then

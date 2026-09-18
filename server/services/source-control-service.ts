@@ -2,6 +2,7 @@ import { execFile as nodeExecFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmod,
+  mkdtemp,
   mkdir,
   open,
   readFile,
@@ -12,10 +13,20 @@ import {
 } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { isAbsolute, join, resolve } from 'node:path';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../db';
+import {
+  normalizeCoordinationRepositoryIdentity,
+  sameCoordinationRepositoryIdentity,
+} from './coordination-repository-identity';
+import { parseReleaseIdentity } from './release-identity';
+import { encodeGithubAppGitCredential, fetchGithubInstallationToken } from './github-app-auth';
+import { coordinationV2SourcePromotions } from '@shared/schema';
+import { hashGitCommitSourceContext } from '../../scripts/source-context-digest.mjs';
 
 const execFile = promisify(nodeExecFile);
 
-export const SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION = 2;
+export const SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION = 3;
 export const SOURCE_CONTROL_REQUIRED_CHECKS = [
   'typecheck',
   'build',
@@ -28,7 +39,125 @@ export const SOURCE_CONTROL_REQUIRED_CHECKS = [
 ] as const;
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const RENDER_RELEASE_REFERENCE_PATTERN = /^render-release:([0-9a-f]{40}):([0-9a-f]{64})$/;
+
+// A freshly prepared candidate must never inherit a prior candidate
+// generation's promotion-completion evidence. writeStatus() otherwise
+// carries promotedSha (and related promotion metadata) forward from the
+// previous status so it survives incidental synced/dirty/failed writes;
+// pass this alongside every ready_to_promote write that starts a new
+// candidate window so validPreparedCandidate() cannot mistake a brand-new
+// candidate for one already recorded as promoted.
+const FRESH_CANDIDATE_STATUS_EXTRA = {
+  promotedSha: undefined,
+  promotedBy: undefined,
+  promotionRequestId: undefined,
+  promotionVerificationMode: undefined,
+  publicationReference: undefined,
+} as const;
 const DEFAULT_LOCK_LEASE_MS = 10 * 60 * 1000;
+const DEFAULT_RELEASE_HEALTH_TIMEOUT_MS = 10_000;
+const MAX_RELEASE_HEALTH_BYTES = 64 * 1024;
+const PROTECTED_SNAPSHOT_MAX_PATHS = 16;
+const PROTECTED_SNAPSHOT_MAX_BLOB_BYTES = 2 * 1024 * 1024;
+const PROTECTED_SNAPSHOT_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
+export type ProtectedRemoteSnapshot = {
+  sha: string;
+  treeSha: string;
+  blobs: Record<string, Buffer>;
+};
+
+export type ProtectedSnapshotGitRunner = (
+  args: string[],
+  cwd: string,
+  maxBuffer: number,
+) => Promise<Buffer>;
+
+function validProtectedSnapshotPaths(fixedPaths: readonly string[]): boolean {
+  return Array.isArray(fixedPaths)
+    && fixedPaths.length >= 1
+    && fixedPaths.length <= PROTECTED_SNAPSHOT_MAX_PATHS
+    && new Set(fixedPaths).size === fixedPaths.length
+    && fixedPaths.every((path) =>
+      typeof path === 'string'
+      && path.length <= 512
+      && PROTECTED_SNAPSHOT_PATH.test(path)
+      && !path.includes('..')
+      && !path.includes('\\')
+      && !path.includes(':'));
+}
+
+/**
+ * Materializes one exact commit into a temporary bare repository using a Git
+ * runner whose authentication and host verification are supplied by the
+ * authority-owning caller.
+ */
+export async function materializeProtectedGitSnapshot(input: {
+  repoUrl: string;
+  sha: string;
+  fixedPaths: readonly string[];
+  runGit: ProtectedSnapshotGitRunner;
+  tempParent?: string;
+}): Promise<ProtectedRemoteSnapshot> {
+  if (!SHA_PATTERN.test(input.sha)
+    || typeof input.repoUrl !== 'string'
+    || input.repoUrl.length < 1
+    || !validProtectedSnapshotPaths(input.fixedPaths)) {
+    throw new Error('protected_remote_snapshot_request_invalid');
+  }
+  const root = await mkdtemp(join(input.tempParent ?? '/tmp', 'holahola-protected-snapshot-'));
+  const run = (args: string[], maxBuffer = 2 * 1024 * 1024) =>
+    input.runGit(args, root, maxBuffer);
+  try {
+    await run(['init', '--bare']);
+    await run(['remote', 'add', 'origin', input.repoUrl]);
+    await run(['config', 'remote.origin.promisor', 'true']);
+    await run(['config', 'remote.origin.partialclonefilter', 'blob:none']);
+    await run([
+      '-c', 'protocol.version=2',
+      'fetch', '--no-tags', '--depth=1', '--filter=blob:none', 'origin', input.sha,
+    ]);
+    const received = (await run(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], 1024))
+      .toString('utf8').trim();
+    const treeSha = (await run(['rev-parse', '--verify', `${received}^{tree}`], 1024))
+      .toString('utf8').trim();
+    assertAuthenticatedRemoteCommitProof(input.sha, { sha: received, treeSha });
+    const blobs: Record<string, Buffer> = {};
+    for (const path of [...input.fixedPaths].sort()) {
+      const object = `${received}:${path}`;
+      const sizeText = (await run(['cat-file', '-s', object], 1024))
+        .toString('utf8').trim();
+      const size = Number(sizeText);
+      if (!Number.isSafeInteger(size)
+        || size < 1
+        || size > PROTECTED_SNAPSHOT_MAX_BLOB_BYTES) {
+        throw new Error('protected_remote_snapshot_blob_invalid');
+      }
+      const bytes = await run(
+        ['cat-file', 'blob', object],
+        PROTECTED_SNAPSHOT_MAX_BLOB_BYTES + 1,
+      );
+      if (bytes.length !== size) throw new Error('protected_remote_snapshot_blob_invalid');
+      blobs[path] = bytes;
+    }
+    return { sha: received, treeSha, blobs };
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+export function assertAuthenticatedRemoteCommitProof(
+  expectedSha: string,
+  proof: { sha: string; treeSha: string },
+  expectedTreeSha?: string,
+): void {
+  if (!SHA_PATTERN.test(expectedSha) || proof.sha !== expectedSha || !SHA_PATTERN.test(proof.treeSha)
+    || (expectedTreeSha !== undefined && proof.treeSha !== expectedTreeSha)) {
+    throw new Error('remote_commit_proof_mismatch');
+  }
+}
 
 export type SourceControlState =
   | 'disabled'
@@ -108,7 +237,169 @@ export interface SourceControlServiceOptions {
   uuid?: () => string;
   runCommand?: CommandRunner;
   validateCandidate?: (sha: string) => Promise<Record<string, unknown>>;
+  recordSourcePromotion?: (input: SourcePromotionRecordInput) => Promise<void>;
+  /** Protected remote proof hook. Production uses authenticated GitHub fetch. */
+  resolveRemoteCommit?: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
+  /** Protected immutable snapshot hook. Production uses one authenticated bare-repository fetch. */
+  resolveRemoteSnapshot?: (
+    sha: string,
+    fixedPaths: readonly string[],
+  ) => Promise<ProtectedRemoteSnapshot>;
+  /** Protected Render release proof hook. Production resolves one pinned HTTPS health document. */
+  resolveRenderReleaseEvidence?: (
+    expectedSha: string,
+    expectedSourceContextSha256: string,
+  ) => Promise<RenderReleaseEvidence>;
+  /** Protected candidate source-context hook. Production hashes the exact local Git commit tree. */
+  resolveCandidateSourceContext?: (
+    sha: string,
+  ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
+  /** GitHub App installation-token hook. Production mints a fresh RS256 JWT and exchanges it. */
+  fetchInstallationToken?: () => Promise<{ token: string }>;
 }
+
+export interface SourcePromotionRecordInput {
+  repositoryIdentity: string;
+  promotedCommitSha: string;
+  exactTreeSha: string;
+  publicationReference: string;
+  protectedValidationId: string;
+  publishTriggerSha?: string;
+  parentSha?: string;
+  canonicalRecordDigest: string;
+  operationReceiptDigest: string;
+  operationReceiptReference: string;
+}
+
+type LocalPublicationMarkerProof = {
+  sha: string;
+  treeSha: string;
+  parentSha: string;
+  subject: string;
+};
+
+export type RenderReleaseEvidence = {
+  schemaVersion: 1;
+  authority: 'build';
+  promotable: true;
+  commitSha: string;
+  sourceContextSha256: string;
+  sourceContextAlgorithm: 'sha256(path-nul-kind-nul-bytes-nul-v1)';
+  sourceFileCount: number;
+  dirtyWorktree: boolean | null;
+};
+
+export function validateRenderReleaseEvidence(
+  raw: unknown,
+  expectedSha: string,
+  expectedSourceContextSha256: string,
+): RenderReleaseEvidence {
+  if (!SHA_PATTERN.test(expectedSha) || !SHA256_PATTERN.test(expectedSourceContextSha256)) {
+    throw new Error('render_release_expectation_invalid');
+  }
+  const identity = parseReleaseIdentity(raw);
+  if (
+    identity.authority !== 'build'
+    || identity.promotable !== true
+    || identity.commitSha !== expectedSha
+    || identity.sourceContextSha256 !== expectedSourceContextSha256
+  ) {
+    throw new Error('render_release_identity_mismatch');
+  }
+  return {
+    schemaVersion: 1,
+    authority: 'build',
+    promotable: true,
+    commitSha: identity.commitSha,
+    sourceContextSha256: identity.sourceContextSha256,
+    sourceContextAlgorithm: 'sha256(path-nul-kind-nul-bytes-nul-v1)',
+    sourceFileCount: identity.sourceFileCount,
+    dirtyWorktree: identity.dirtyWorktree,
+  };
+}
+
+export async function resolveRenderReleaseEvidenceFromHealth(
+  env: NodeJS.ProcessEnv,
+  expectedSha: string,
+  expectedSourceContextSha256: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RenderReleaseEvidence> {
+  if (!SHA_PATTERN.test(expectedSha) || !SHA256_PATTERN.test(expectedSourceContextSha256)) {
+    throw new Error('render_release_expectation_invalid');
+  }
+  const configured = env.SOURCE_RELEASE_HEALTH_URL;
+  if (!configured) throw new Error('render_release_health_url_missing');
+  const url = new URL(configured);
+  if (
+    url.protocol !== 'https:'
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+    || url.pathname !== '/health/release'
+  ) {
+    throw new Error('render_release_health_url_invalid');
+  }
+  const configuredTimeout = Number(env.SOURCE_RELEASE_HEALTH_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? Math.min(configuredTimeout, 30_000)
+    : DEFAULT_RELEASE_HEALTH_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(url, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: controller.signal,
+      headers: { accept: 'application/json' },
+    });
+    if (response.status !== 200) throw new Error('render_release_health_status_invalid');
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_RELEASE_HEALTH_BYTES) {
+      throw new Error('render_release_health_body_too_large');
+    }
+    if (!response.body) throw new Error('render_release_health_body_missing');
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      total += chunk.value.byteLength;
+      if (total > MAX_RELEASE_HEALTH_BYTES) {
+        await reader.cancel();
+        throw new Error('render_release_health_body_too_large');
+      }
+      chunks.push(chunk.value);
+    }
+    const body = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8');
+    return validateRenderReleaseEvidence(
+      JSON.parse(body),
+      expectedSha,
+      expectedSourceContextSha256,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+type PreparedCandidateEvidence = {
+  candidateSha: string;
+  candidatePreparedAt: string;
+  candidateExpiresAt: string;
+  validation: Record<string, unknown>;
+};
+
+type CanonicalSourcePromotionFields = {
+  repositoryIdentity: string;
+  promotedCommitSha: string;
+  exactTreeSha: string;
+  publicationReference: string;
+  protectedValidationId: string;
+  publishTriggerSha: string | null;
+  parentSha: string | null;
+  canonicalRecordDigest: string;
+};
 
 function digest(value: string): string {
   return createHash('sha256').update(value).digest('hex');
@@ -117,31 +408,6 @@ function digest(value: string): string {
 function bounded(value: string): string {
   return value.length <= 8192 ? value : `${value.slice(0, 8192)}\n[truncated]`;
 }
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function normalizePrivateKey(value: string): string {
-  let normalized = value.replaceAll('\r', '').replaceAll('\\n', '\n').replaceAll('\\r', '');
-  if (!normalized.includes('\n')) {
-    for (const keyType of ['OPENSSH', 'RSA', 'EC', 'DSA', '']) {
-      const begin = `-----BEGIN ${keyType ? `${keyType} ` : ''}PRIVATE KEY-----`;
-      const end = `-----END ${keyType ? `${keyType} ` : ''}PRIVATE KEY-----`;
-      normalized = normalized.replaceAll(begin, `${begin}\n`).replaceAll(end, `\n${end}`);
-    }
-  }
-  if (!normalized.includes('PRIVATE KEY-----')) {
-    throw new Error('HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key.');
-  }
-  return normalized;
-}
-
-const PINNED_GITHUB_HOST_KEYS = [
-  'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl',
-  'github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=',
-  'github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=',
-];
 
 function defaultRunner(command: string, args: string[], options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<CommandResult> {
   return execFile(command, args, {
@@ -179,10 +445,18 @@ export function hasValidSourceControlManifest(
   expectedSha: string,
 ): boolean {
   const checks = validation?.checks as Record<string, unknown> | undefined;
+  const sourceContextSha256 = validation?.sourceContextSha256;
+  const sourceFileCount = validation?.sourceFileCount;
+  const sourceContextAlgorithm = validation?.sourceContextAlgorithm;
   if (
     validation?.manifestVersion !== SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION
     || validation?.candidateSha !== expectedSha
     || !checks
+    || typeof sourceContextSha256 !== 'string'
+    || !SHA256_PATTERN.test(sourceContextSha256)
+    || sourceContextAlgorithm !== 'sha256(path-nul-kind-nul-bytes-nul-v1)'
+    || !Number.isInteger(sourceFileCount)
+    || Number(sourceFileCount) < 1
     || Object.keys(checks).length !== SOURCE_CONTROL_REQUIRED_CHECKS.length
     || SOURCE_CONTROL_REQUIRED_CHECKS.some((name) => checks[name] !== 'passed')
   ) return false;
@@ -192,6 +466,9 @@ export function hasValidSourceControlManifest(
   const expectedId = digest(JSON.stringify({
     manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
     candidateSha: expectedSha,
+    sourceContextSha256,
+    sourceContextAlgorithm,
+    sourceFileCount,
     checks: canonicalChecks,
   }));
   return validation.validationId === expectedId;
@@ -199,18 +476,52 @@ export function hasValidSourceControlManifest(
 
 export class SourceControlService {
   private readonly rootDir: string;
+
   private readonly env: NodeJS.ProcessEnv;
+
   private readonly now: () => Date;
+
+  private readonly resolveRemoteCommit: (sha: string) => Promise<{ sha: string; treeSha: string; parentSha?: string }>;
+
+  private readonly resolveRemoteSnapshot: (
+    sha: string,
+    fixedPaths: readonly string[],
+  ) => Promise<ProtectedRemoteSnapshot>;
+
+  private readonly resolveRenderReleaseEvidence: (
+    expectedSha: string,
+    expectedSourceContextSha256: string,
+  ) => Promise<RenderReleaseEvidence>;
+
+  private readonly resolveCandidateSourceContext: (
+    sha: string,
+  ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
+
   private readonly uuid: () => string;
+
   private readonly runCommand: CommandRunner;
+
   private readonly validateCandidate: (sha: string) => Promise<Record<string, unknown>>;
+
   private readonly branch: string;
+
   private readonly repoUrl: string;
+
+  private readonly repositoryIdentity: string;
+
   private readonly statusPath: string;
+
   private readonly summaryPath: string;
+
   private readonly lockPath: string;
+
   private readonly operationsDir: string;
+
   private readonly leaseMs: number;
+
+  private readonly recordSourcePromotion: (input: SourcePromotionRecordInput) => Promise<void>;
+
+  private readonly fetchInstallationToken: () => Promise<{ token: string }>;
 
   constructor(options: SourceControlServiceOptions = {}) {
     this.rootDir = options.rootDir || process.cwd();
@@ -219,13 +530,41 @@ export class SourceControlService {
     this.uuid = options.uuid || randomUUID;
     this.runCommand = options.runCommand || defaultRunner;
     this.branch = this.env.SOURCE_BRIDGE_BRANCH || 'main';
-    this.repoUrl = this.env.GITHUB_REPO_URL || 'git@github.com:davidwmcintosh/HolaHola.git';
+    this.repoUrl = this.env.GITHUB_REPO_URL || 'https://github.com/davidwmcintosh/holahola.git';
+    this.repositoryIdentity = normalizeCoordinationRepositoryIdentity(this.repoUrl);
+    this.resolveRemoteCommit = options.resolveRemoteCommit ?? ((sha) => this.fetchRemoteCommitProof(sha));
+    this.resolveRemoteSnapshot = options.resolveRemoteSnapshot
+      ?? ((sha, fixedPaths) => this.fetchProtectedRemoteSnapshot(sha, fixedPaths));
+    this.resolveRenderReleaseEvidence = options.resolveRenderReleaseEvidence
+      ?? ((sha, sourceContextSha256) => resolveRenderReleaseEvidenceFromHealth(
+        this.env,
+        sha,
+        sourceContextSha256,
+      ));
+    this.resolveCandidateSourceContext = options.resolveCandidateSourceContext
+      ?? (async (sha) => {
+        const source = await hashGitCommitSourceContext(this.rootDir, sha);
+        return {
+          sourceContextSha256: source.digest,
+          sourceFileCount: source.fileCount,
+        };
+      });
     this.statusPath = this.resolvePath(this.env.SOURCE_BRIDGE_STATUS_FILE, '.local/source-bridge-status.json');
     this.summaryPath = this.resolvePath(this.env.SOURCE_BRIDGE_SUMMARY_FILE, '.local/source-bridge-status.md');
     this.lockPath = this.resolvePath(this.env.SOURCE_CONTROL_LOCK_FILE, '.local/source-control.lock');
     this.operationsDir = this.resolvePath(this.env.SOURCE_CONTROL_OPERATIONS_DIR, '.local/source-control-operations');
     this.leaseMs = Number(this.env.SOURCE_CONTROL_LOCK_LEASE_MS || DEFAULT_LOCK_LEASE_MS);
     this.validateCandidate = options.validateCandidate || ((sha) => this.runValidationManifest(sha));
+    this.recordSourcePromotion = options.recordSourcePromotion || ((input) => this.appendSourcePromotion(input));
+    this.fetchInstallationToken = options.fetchInstallationToken ?? (() => {
+      const appId = this.env.HOLAHOLA_GITHUB_APP_ID;
+      const installationId = this.env.HOLAHOLA_GITHUB_APP_INSTALLATION_ID;
+      const privateKey = this.env.HOLAHOLA_GITHUB_APP_PRIVATE_KEY;
+      if (!appId) throw new Error('HOLAHOLA_GITHUB_APP_ID is unavailable.');
+      if (!installationId) throw new Error('HOLAHOLA_GITHUB_APP_INSTALLATION_ID is unavailable.');
+      if (!privateKey) throw new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY is unavailable.');
+      return fetchGithubInstallationToken({ appId, installationId, privateKey, now: this.now });
+    });
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -276,7 +615,7 @@ export class SourceControlService {
     args: string[],
     cwd = this.rootDir,
   ): Promise<{ code: number; stdout: string; stderr: string }> {
-    const result = await this.withSsh((env) => this.runCommand('git', args, { cwd, env }));
+    const result = await this.withGithubAppAuth((env) => this.runCommand('git', args, { cwd, env }));
     return { code: result.exitCode, stdout: result.stdout, stderr: result.stderr };
   }
 
@@ -362,11 +701,41 @@ export class SourceControlService {
 
     if (heads.local === heads.github) {
       const previous = await this.getStatus();
-      const state = previous?.state === 'ready_to_promote' && previous.candidateSha === heads.local
-        ? 'ready_to_promote'
-        : 'synced';
-      await this.writeStatus(state, state === 'ready_to_promote' ? 'Awaiting explicit Replit Publish.' : '', actor, heads.local, heads.github);
-      return { ok: true, state, ...heads, candidateSha: state === 'ready_to_promote' ? heads.local : undefined };
+      const prepared = this.validPreparedCandidate(previous);
+      if (prepared?.candidateSha === heads.local && previous?.state === 'ready_to_promote') {
+        await this.writePreservedReadyStatus(actor, heads, prepared, 'Awaiting explicit Replit Publish.');
+        return {
+          ok: true,
+          state: 'ready_to_promote',
+          ...heads,
+          candidateSha: prepared.candidateSha,
+          validation: prepared.validation,
+        };
+      }
+      if (prepared && prepared.candidateSha !== heads.local
+        && await this.isExactPublishedMarker(heads.local, prepared.candidateSha)) {
+        const finalHeads = await this.fetchHeads();
+        const markerStillExact = finalHeads.local === heads.local
+          && finalHeads.github === heads.github
+          && await this.isExactPublishedMarker(finalHeads.local, prepared.candidateSha);
+        if (markerStillExact && await this.isTrackedTreeClean()) {
+          await this.writePreservedReadyStatus(
+            actor,
+            finalHeads,
+            prepared,
+            'Validated candidate remains ready under an exact Replit publication marker.',
+          );
+          return {
+            ok: true,
+            state: 'ready_to_promote',
+            ...finalHeads,
+            candidateSha: prepared.candidateSha,
+            validation: prepared.validation,
+          };
+        }
+      }
+      await this.writeStatus('synced', '', actor, heads.local, heads.github);
+      return { ok: true, state: 'synced', ...heads };
     }
 
     if (await this.isAncestor(heads.github, heads.local)) {
@@ -401,7 +770,16 @@ export class SourceControlService {
         await this.writeStatus('failed', error, actor, verified.local, verified.github);
         return { ok: false, state: 'failed', ...verified, error };
       }
-      await this.writeStatus('ready_to_promote', 'Received GitHub source passed validation; publish remains explicit.', actor, verified.local, verified.github, received, validation);
+      await this.writeStatus(
+        'ready_to_promote',
+        'Received GitHub source passed validation; publish remains explicit.',
+        actor,
+        verified.local,
+        verified.github,
+        received,
+        validation,
+        FRESH_CANDIDATE_STATUS_EXTRA,
+      );
       return { ok: true, state: 'ready_to_promote', ...verified, candidateSha: received, validation };
     }
 
@@ -430,7 +808,16 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, verified.local, verified.github);
       return { ok: false, state: 'failed', ...verified, error };
     }
-    await this.writeStatus('ready_to_promote', 'Validation passed. Use Replit Publish explicitly.', actor, verified.local, verified.github, verified.local, validation);
+    await this.writeStatus(
+      'ready_to_promote',
+      'Validation passed. Use Replit Publish explicitly.',
+      actor,
+      verified.local,
+      verified.github,
+      verified.local,
+      validation,
+      FRESH_CANDIDATE_STATUS_EXTRA,
+    );
     return { ok: true, state: 'ready_to_promote', ...verified, candidateSha: verified.local, validation };
   }
 
@@ -452,8 +839,6 @@ export class SourceControlService {
     if (
       status?.state !== 'ready_to_promote'
       || status.candidateSha !== sha
-      || heads.local !== sha
-      || heads.github !== sha
       || !Number.isFinite(expiry)
       || expiry <= this.now().getTime()
       || !hasValidSourceControlManifest(status.validation, sha)
@@ -462,14 +847,387 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error };
     }
-    await this.writeStatus('synced', 'Explicit Replit publish recorded for the current validated candidate.', actor, heads.local, heads.github, sha, status.validation, {
+    if (!publicationReference) {
+      const error = 'Promotion recording requires a protected publication reference.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    const renderReference = RENDER_RELEASE_REFERENCE_PATTERN.exec(publicationReference);
+    if (publicationReference.startsWith('render-release:') && !renderReference) {
+      const error = 'Promotion recording refused because the Render publication reference is malformed.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    if (renderReference && renderReference[1] !== sha) {
+      const error = 'Promotion recording refused because the Render publication reference names a different commit.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    if (
+      renderReference
+      && renderReference[2] !== status.validation?.sourceContextSha256
+    ) {
+      const error = 'Promotion recording refused because Render evidence does not match the protected candidate source context.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    try { await this.verifyConfiguredRepositoryIdentity(); } catch {
+      const error = 'Promotion recording refused because the configured and actual GitHub remotes differ.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    let remoteProof: { sha: string; treeSha: string; parentSha?: string };
+    try {
+      remoteProof = await this.resolveRemoteCommit(sha);
+    } catch {
+      const error = 'Promotion recording refused because the exact commit tree could not be resolved.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    try { assertAuthenticatedRemoteCommitProof(sha, remoteProof); } catch {
+      const error = 'Promotion recording refused because authenticated GitHub commit proof did not match the requested SHA/tree.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    let publicationMarker: LocalPublicationMarkerProof | undefined;
+    let remotePublicationMarker: LocalPublicationMarkerProof | undefined;
+    if (heads.local !== sha || heads.github !== sha) {
+      const markerHeads = [...new Set([heads.local, heads.github].filter((head) => head !== sha))];
+      if (markerHeads.length !== 1) {
+        const error = 'Promotion recording refused because source heads do not identify one publication marker.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+      const markerSha = markerHeads[0];
+      try {
+        publicationMarker = await this.resolveLocalPublicationMarker(markerSha);
+      } catch {
+        const error = 'Promotion recording refused because the local publication marker could not be verified.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+      const markerMatches = publicationMarker.parentSha === sha
+        && publicationMarker.treeSha === remoteProof.treeSha
+        && publicationMarker.subject === 'Published your App'
+        && publicationReference === `replit-publish:${sha}:${publicationMarker.sha}`;
+      if (!markerMatches) {
+        const error = 'Promotion recording refused because the local publication marker does not exactly match the validated candidate.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+      if (heads.github === markerSha) {
+        try {
+          const proof = await this.resolveRemoteCommit(markerSha);
+          assertAuthenticatedRemoteCommitProof(markerSha, proof, remoteProof.treeSha);
+          if (proof.parentSha !== sha) throw new Error('remote_publication_marker_parent_mismatch');
+          remotePublicationMarker = publicationMarker;
+        } catch {
+          const error = 'Promotion recording refused because the authenticated GitHub publication marker did not match the validated candidate.';
+          await this.writeStatus('failed', error, actor, heads.local, heads.github);
+          return { ok: false, state: 'failed', ...heads, error };
+        }
+      }
+    }
+    if (!publicationMarker && !renderReference) {
+      const error = 'Promotion recording refused because exact-head publication requires verified Render release evidence.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    let renderReleaseEvidence: RenderReleaseEvidence | undefined;
+    if (renderReference) {
+      try {
+        renderReleaseEvidence = await this.resolveRenderReleaseEvidence(sha, renderReference[2]);
+      } catch {
+        const error = 'Promotion recording refused because Render release evidence could not be verified.';
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+    }
+    const validationId = String(status.validation?.validationId || '');
+    if (!/^[0-9a-f]{64}$/.test(validationId)) {
+      const error = 'Promotion recording refused because protected validation identity is missing.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    const receiptReference = join(this.operationsDir, `promotion-${digest(operationId)}.json`);
+    const receipt = `${JSON.stringify({
+      operationId,
+      actor,
+      repositoryIdentity: this.repositoryIdentity,
+      sha,
+      treeSha: remoteProof.treeSha,
+      publicationReference,
+      validationId,
+      ...(renderReleaseEvidence ? { renderReleaseEvidence } : {}),
+      ...(publicationMarker ? { publicationMarker } : {}),
+      ...(remotePublicationMarker ? { remotePublicationMarker } : {}),
+      createdAt: this.now().toISOString(),
+    })}\n`;
+    try {
+      await this.writeImmutablePromotionReceipt(receiptReference, receipt);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Promotion receipt could not be preserved.';
+      await this.writeStatus('failed', message, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error: message };
+    }
+    let finalHeads: { local: string; github: string };
+    let finalMarker: LocalPublicationMarkerProof | undefined;
+    let finalRemoteMarker: LocalPublicationMarkerProof | undefined;
+    let finalRenderReleaseEvidence: RenderReleaseEvidence | undefined;
+    try {
+      finalHeads = await this.fetchHeads();
+      await this.verifyConfiguredRepositoryIdentity();
+      if (publicationMarker) finalMarker = await this.resolveLocalPublicationMarker(publicationMarker.sha);
+      if (remotePublicationMarker) {
+        const proof = await this.resolveRemoteCommit(remotePublicationMarker.sha);
+        assertAuthenticatedRemoteCommitProof(
+          remotePublicationMarker.sha,
+          proof,
+          remotePublicationMarker.treeSha,
+        );
+        if (proof.parentSha !== remotePublicationMarker.parentSha) {
+          throw new Error('remote_publication_marker_parent_mismatch');
+        }
+        finalRemoteMarker = remotePublicationMarker;
+      }
+    } catch {
+      const error = 'Promotion recording refused because final publication state could not be verified.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    const markerUnchanged = publicationMarker
+      ? finalMarker?.sha === publicationMarker.sha
+        && finalMarker.treeSha === publicationMarker.treeSha
+        && finalMarker.parentSha === publicationMarker.parentSha
+        && finalMarker.subject === publicationMarker.subject
+      : finalMarker === undefined;
+    const remoteMarkerUnchanged = remotePublicationMarker
+      ? finalRemoteMarker?.sha === remotePublicationMarker.sha
+        && finalRemoteMarker.treeSha === remotePublicationMarker.treeSha
+        && finalRemoteMarker.parentSha === remotePublicationMarker.parentSha
+        && finalRemoteMarker.subject === remotePublicationMarker.subject
+      : finalRemoteMarker === undefined;
+    if (finalHeads.local !== heads.local
+      || finalHeads.github !== heads.github
+      || expiry <= this.now().getTime()
+      || !(await this.isTrackedTreeClean())
+      || !markerUnchanged
+      || !remoteMarkerUnchanged) {
+      const error = 'Promotion recording refused because source or publication evidence changed before the authority append.';
+      await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
+      return { ok: false, state: 'failed', ...finalHeads, error };
+    }
+    if (renderReleaseEvidence && renderReference) {
+      try {
+        finalRenderReleaseEvidence = await this.resolveRenderReleaseEvidence(sha, renderReference[2]);
+      } catch {
+        const error = 'Promotion recording refused because final Render release evidence could not be verified.';
+        await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
+        return { ok: false, state: 'failed', ...finalHeads, error };
+      }
+      if (JSON.stringify(finalRenderReleaseEvidence) !== JSON.stringify(renderReleaseEvidence)) {
+        const error = 'Promotion recording refused because Render release evidence changed before the authority append.';
+        await this.writeStatus('failed', error, actor, finalHeads.local, finalHeads.github);
+        return { ok: false, state: 'failed', ...finalHeads, error };
+      }
+    }
+    const canonicalRecord = {
+      repositoryIdentity: this.repositoryIdentity,
+      promotedCommitSha: sha,
+      exactTreeSha: remoteProof.treeSha,
+      publicationReference,
+      protectedValidationId: validationId,
+      ...(publicationMarker
+        ? {
+            publishTriggerSha: publicationMarker.sha,
+            publicationMarker,
+            ...(remotePublicationMarker ? { remotePublicationMarker } : {}),
+          }
+        : {}),
+      ...(renderReleaseEvidence ? { renderReleaseEvidence } : {}),
+    };
+    try {
+      await this.recordSourcePromotion({
+        repositoryIdentity: this.repositoryIdentity,
+        promotedCommitSha: sha,
+        exactTreeSha: remoteProof.treeSha,
+        publicationReference,
+        protectedValidationId: validationId,
+        publishTriggerSha: publicationMarker?.sha,
+        parentSha: remoteProof.parentSha,
+        canonicalRecordDigest: digest(JSON.stringify(canonicalRecord)),
+        operationReceiptDigest: digest(receipt),
+        operationReceiptReference: receiptReference,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'V2 source promotion authority append failed.';
+      await this.writeStatus('failed', message, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error: message };
+    }
+    await this.writeStatus(
+      'synced',
+      renderReleaseEvidence
+        ? 'Verified Render release identity recorded for the current validated candidate.'
+        : 'Explicit Replit publish recorded for the current validated candidate.',
+      actor,
+      heads.local,
+      heads.github,
+      sha,
+      status.validation,
+      {
       promotedSha: sha,
       promotedBy: actor,
       promotionRequestId: operationId,
-      promotionVerificationMode: 'operator_attestation',
+      promotionVerificationMode: renderReleaseEvidence
+        ? publicationMarker
+          ? 'render_release_health_with_replit_publication_marker'
+          : 'render_release_health'
+        : 'operator_attestation_with_replit_publication_marker',
       publicationReference,
-    });
+      },
+    );
     return { ok: true, state: 'synced', ...heads, candidateSha: sha };
+  }
+
+  private validPreparedCandidate(
+    status: SourceControlStatus | null,
+  ): PreparedCandidateEvidence | undefined {
+    const candidateSha = status?.candidateSha;
+    const candidatePreparedAt = status?.candidatePreparedAt;
+    const candidateExpiresAt = status?.candidateExpiresAt;
+    const preparedAt = Date.parse(candidatePreparedAt || '');
+    const expiresAt = Date.parse(candidateExpiresAt || '');
+    if (!candidateSha
+      || !candidatePreparedAt
+      || !candidateExpiresAt
+      || !SHA_PATTERN.test(candidateSha)
+      || !Number.isFinite(preparedAt)
+      || !Number.isFinite(expiresAt)
+      || preparedAt > this.now().getTime()
+      || expiresAt <= this.now().getTime()
+      || expiresAt <= preparedAt
+      || !hasValidSourceControlManifest(status?.validation, candidateSha)
+      || status?.promotedSha === candidateSha) {
+      return undefined;
+    }
+    return {
+      candidateSha,
+      candidatePreparedAt,
+      candidateExpiresAt,
+      validation: status!.validation!,
+    };
+  }
+
+  private async isExactPublishedMarker(markerSha: string, candidateSha: string): Promise<boolean> {
+    try {
+      const localMarker = await this.resolveLocalPublicationMarker(markerSha);
+      if (localMarker.sha !== markerSha
+        || localMarker.parentSha !== candidateSha
+        || localMarker.subject !== 'Published your App') return false;
+      // The production resolver authenticates each immutable commit through
+      // Git's shared FETCH_HEAD. Keep these fetches sequential so one proof
+      // cannot overwrite the other's fetched commit before it is inspected.
+      const candidateProof = await this.resolveRemoteCommit(candidateSha);
+      const markerProof = await this.resolveRemoteCommit(markerSha);
+      assertAuthenticatedRemoteCommitProof(candidateSha, candidateProof);
+      assertAuthenticatedRemoteCommitProof(markerSha, markerProof, candidateProof.treeSha);
+      return localMarker.treeSha === candidateProof.treeSha
+        && markerProof.parentSha === candidateSha;
+    } catch {
+      return false;
+    }
+  }
+
+  private async writePreservedReadyStatus(
+    actor: string,
+    heads: { local: string; github: string },
+    prepared: PreparedCandidateEvidence,
+    message: string,
+  ): Promise<void> {
+    await this.writeStatus(
+      'ready_to_promote',
+      message,
+      actor,
+      heads.local,
+      heads.github,
+      prepared.candidateSha,
+      prepared.validation,
+      {
+        candidatePreparedAt: prepared.candidatePreparedAt,
+        candidateExpiresAt: prepared.candidateExpiresAt,
+      },
+    );
+  }
+
+  private async writeImmutablePromotionReceipt(path: string, contents: string): Promise<void> {
+    try {
+      const existing = await readFile(path, 'utf8');
+      if (existing !== contents) throw new Error('Promotion receipt path already contains different bytes.');
+      return;
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    await mkdir(join(path, '..'), { recursive: true, mode: 0o700 });
+    const temp = `${path}.${this.uuid()}.tmp`;
+    await writeFile(temp, contents, { mode: 0o600 });
+    await rename(temp, path);
+  }
+
+  private async appendSourcePromotion(input: SourcePromotionRecordInput): Promise<void> {
+    const selection = {
+      id: coordinationV2SourcePromotions.id,
+      repositoryIdentity: coordinationV2SourcePromotions.repositoryIdentity,
+      promotedCommitSha: coordinationV2SourcePromotions.promotedCommitSha,
+      exactTreeSha: coordinationV2SourcePromotions.exactTreeSha,
+      publicationReference: coordinationV2SourcePromotions.publicationReference,
+      protectedValidationId: coordinationV2SourcePromotions.protectedValidationId,
+      publishTriggerSha: coordinationV2SourcePromotions.publishTriggerSha,
+      parentSha: coordinationV2SourcePromotions.parentSha,
+      canonicalRecordDigest: coordinationV2SourcePromotions.canonicalRecordDigest,
+    };
+    const matchesInput = (existing: CanonicalSourcePromotionFields) =>
+      existing.repositoryIdentity === input.repositoryIdentity
+      && existing.promotedCommitSha === input.promotedCommitSha
+      && existing.exactTreeSha === input.exactTreeSha
+      && existing.publicationReference === input.publicationReference
+      && existing.protectedValidationId === input.protectedValidationId
+      && existing.publishTriggerSha === (input.publishTriggerSha ?? null)
+      && existing.parentSha === (input.parentSha ?? null)
+      && existing.canonicalRecordDigest === input.canonicalRecordDigest;
+    const existing = await db.select(selection).from(coordinationV2SourcePromotions).where(and(
+      eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
+      eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
+      eq(coordinationV2SourcePromotions.publicationReference, input.publicationReference),
+      eq(coordinationV2SourcePromotions.protectedValidationId, input.protectedValidationId),
+    )).limit(1);
+    if (existing.length) {
+      if (!matchesInput(existing[0])) throw new Error('Existing source promotion does not match the complete canonical record.');
+      return;
+    }
+    try {
+      await db.insert(coordinationV2SourcePromotions).values({
+        repositoryIdentity: input.repositoryIdentity,
+        promotedCommitSha: input.promotedCommitSha,
+        exactTreeSha: input.exactTreeSha,
+        publicationReference: input.publicationReference,
+        protectedValidationId: input.protectedValidationId,
+        publishTriggerSha: input.publishTriggerSha,
+        parentSha: input.parentSha,
+        canonicalRecordDigest: input.canonicalRecordDigest,
+        state: 'published',
+        operationReceiptDigest: input.operationReceiptDigest,
+        operationReceiptReference: input.operationReceiptReference,
+      });
+    } catch (error: any) {
+      // A concurrent retry may have won the exact idempotency key.
+      const concurrent = await db.select(selection).from(coordinationV2SourcePromotions).where(and(
+        eq(coordinationV2SourcePromotions.promotedCommitSha, input.promotedCommitSha),
+        eq(coordinationV2SourcePromotions.exactTreeSha, input.exactTreeSha),
+        eq(coordinationV2SourcePromotions.publicationReference, input.publicationReference),
+        eq(coordinationV2SourcePromotions.protectedValidationId, input.protectedValidationId),
+      )).limit(1);
+      if (!concurrent.length || !matchesInput(concurrent[0])) throw error;
+    }
   }
 
   private async runValidationManifest(sha: string): Promise<Record<string, unknown>> {
@@ -489,15 +1247,30 @@ export class SourceControlService {
         throw new Error(`${command} ${args.join(' ')} failed validation: ${bounded(result.stderr || result.stdout)}`);
       }
     }
+    const sourceContext = await this.resolveCandidateSourceContext(sha);
+    if (
+      !SHA256_PATTERN.test(sourceContext.sourceContextSha256)
+      || !Number.isInteger(sourceContext.sourceFileCount)
+      || sourceContext.sourceFileCount < 1
+    ) {
+      throw new Error('Protected candidate source context is invalid.');
+    }
     const checks = Object.fromEntries(SOURCE_CONTROL_REQUIRED_CHECKS.map((name) => [name, 'passed']));
+    const sourceContextAlgorithm = 'sha256(path-nul-kind-nul-bytes-nul-v1)';
     return {
       manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
       validationId: digest(JSON.stringify({
         manifestVersion: SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
         candidateSha: sha,
+        sourceContextSha256: sourceContext.sourceContextSha256,
+        sourceContextAlgorithm,
+        sourceFileCount: sourceContext.sourceFileCount,
         checks,
       })),
       candidateSha: sha,
+      sourceContextSha256: sourceContext.sourceContextSha256,
+      sourceContextAlgorithm,
+      sourceFileCount: sourceContext.sourceFileCount,
       checks,
     };
   }
@@ -521,6 +1294,98 @@ export class SourceControlService {
     return result.stdout.trim();
   }
 
+  private async resolveLocalPublicationMarker(sha: string): Promise<LocalPublicationMarkerProof> {
+    if (!SHA_PATTERN.test(sha)) throw new Error('local_publication_marker_invalid');
+    const result = await this.runGit(['show', '-s', '--format=%H%n%T%n%P%n%s', sha]);
+    if (result.exitCode !== 0) throw new Error('local_publication_marker_unresolved');
+    const [resolvedSha, treeSha, parentsText, subject, ...extra] = result.stdout.trimEnd().split('\n');
+    const parents = parentsText?.split(' ').filter(Boolean) ?? [];
+    if (extra.length
+      || resolvedSha !== sha
+      || !SHA_PATTERN.test(treeSha || '')
+      || parents.length !== 1
+      || !SHA_PATTERN.test(parents[0] || '')
+      || typeof subject !== 'string') {
+      throw new Error('local_publication_marker_invalid');
+    }
+    return { sha: resolvedSha, treeSha, parentSha: parents[0], subject };
+  }
+
+  private async fetchRemoteCommitProof(sha: string): Promise<{ sha: string; treeSha: string; parentSha?: string }> {
+    if (!SHA_PATTERN.test(sha)) throw new Error('invalid_remote_commit_sha');
+    // Fetch the immutable object by SHA, never a branch/ref. The pinned SSH
+    // host keys and protected deploy key are enforced by the existing runner.
+    const fetched = await this.runGit(['fetch', '--no-tags', '--filter=blob:none', this.repoUrl, sha]);
+    if (fetched.exitCode !== 0) throw new Error(`GitHub commit fetch failed: ${bounded(fetched.stderr || fetched.stdout)}`);
+    const received = await this.runGit(['rev-parse', '--verify', 'FETCH_HEAD^{commit}']);
+    if (received.exitCode !== 0 || received.stdout.trim() !== sha) throw new Error('remote_commit_sha_mismatch');
+    const tree = await this.runGit(['rev-parse', '--verify', `${sha}^{tree}`]);
+    if (tree.exitCode !== 0 || !SHA_PATTERN.test(tree.stdout.trim())) throw new Error('remote_tree_unresolved');
+    const parent = await this.runGit(['rev-parse', '--verify', `${sha}^`]);
+    return {
+      sha, treeSha: tree.stdout.trim(),
+      ...(parent.exitCode === 0 && SHA_PATTERN.test(parent.stdout.trim()) ? { parentSha: parent.stdout.trim() } : {}),
+    };
+  }
+
+  async verifyConfiguredRepositoryIdentity(): Promise<void> {
+    const actual = await this.runGit(['config', '--get', 'remote.origin.url']);
+    if (actual.exitCode !== 0) throw new Error('repository_remote_unavailable');
+    const actualIdentity = normalizeCoordinationRepositoryIdentity(actual.stdout.trim());
+    const configuredIdentity = normalizeCoordinationRepositoryIdentity(this.repoUrl);
+    if (actualIdentity !== configuredIdentity) throw new Error('repository_remote_mismatch');
+    const pinned = this.env.COORDINATION_V2_REPOSITORY_IDENTITY;
+    if (pinned && normalizeCoordinationRepositoryIdentity(pinned) !== actualIdentity) {
+      throw new Error('repository_identity_pin_mismatch');
+    }
+  }
+
+  /**
+   * Exposes only the authenticated immutable-object proof used by other
+   * authority services. It deliberately does not expose the command runner,
+   * local refs, or branch state.
+   */
+  async resolveProtectedRemoteCommitProof(
+    sha: string,
+  ): Promise<{ sha: string; treeSha: string; parentSha?: string }> {
+    await this.verifyConfiguredRepositoryIdentity();
+    return this.fetchRemoteCommitProof(sha);
+  }
+
+  /**
+   * Reads a closed set of immutable blobs from one authenticated exact-commit
+   * fetch. This works in production without a local checkout or .git directory.
+   */
+  async resolveProtectedRemoteSnapshot(input: {
+    sha: string;
+    repositoryIdentity: string;
+    fixedPaths: readonly string[];
+  }): Promise<ProtectedRemoteSnapshot> {
+    if (!/^https:\/\/github\.com\/[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*\.git$/.test(this.repoUrl)
+      || !SHA_PATTERN.test(input.sha)
+      || !sameCoordinationRepositoryIdentity(input.repositoryIdentity, this.repositoryIdentity)
+      || !validProtectedSnapshotPaths(input.fixedPaths)) {
+      throw new Error('protected_remote_snapshot_request_invalid');
+    }
+    const fixedPaths = [...input.fixedPaths].sort();
+    const snapshot = await this.resolveRemoteSnapshot(input.sha, fixedPaths);
+    assertAuthenticatedRemoteCommitProof(input.sha, snapshot);
+    if (!snapshot.blobs || Object.keys(snapshot.blobs).sort().join('\n') !== fixedPaths.join('\n')) {
+      throw new Error('protected_remote_snapshot_paths_mismatch');
+    }
+    const blobs: Record<string, Buffer> = {};
+    for (const path of fixedPaths) {
+      const value = snapshot.blobs[path];
+      if (!Buffer.isBuffer(value)
+        || value.length < 1
+        || value.length > PROTECTED_SNAPSHOT_MAX_BLOB_BYTES) {
+        throw new Error('protected_remote_snapshot_blob_invalid');
+      }
+      blobs[path] = Buffer.from(value);
+    }
+    return { sha: snapshot.sha, treeSha: snapshot.treeSha, blobs };
+  }
+
   private async fetchHeads(): Promise<{ local: string; github: string }> {
     const fetched = await this.runGit(['fetch', '--no-tags', '--filter=blob:none', this.repoUrl, this.branch]);
     if (fetched.exitCode !== 0) {
@@ -532,6 +1397,30 @@ export class SourceControlService {
       throw new Error('Could not resolve the fetched GitHub commit SHA.');
     }
     return { local, github: remote.stdout.trim() };
+  }
+
+  private async fetchProtectedRemoteSnapshot(
+    sha: string,
+    fixedPaths: readonly string[],
+  ): Promise<ProtectedRemoteSnapshot> {
+    return this.withGithubAppAuth((env) => materializeProtectedGitSnapshot({
+      repoUrl: this.repoUrl,
+      sha,
+      fixedPaths,
+      runGit: async (args, cwd, maxBuffer) => {
+        try {
+          const result = await execFile('git', args, {
+            cwd,
+            env,
+            encoding: 'buffer',
+            maxBuffer,
+          });
+          return Buffer.from(result.stdout as Buffer);
+        } catch {
+          throw new Error('protected_remote_snapshot_git_failed');
+        }
+      },
+    }));
   }
 
   private async isAncestor(ancestor: string, descendant: string): Promise<boolean> {
@@ -567,28 +1456,24 @@ export class SourceControlService {
   }
 
   private async runGit(args: string[]): Promise<CommandResult> {
-    return this.withSsh((env) => this.runCommand('git', args, { cwd: this.rootDir, env }));
+    return this.withGithubAppAuth((env) => this.runCommand('git', args, { cwd: this.rootDir, env }));
   }
 
-  private async withSsh<T>(operation: (env: NodeJS.ProcessEnv) => Promise<T>): Promise<T> {
-    const raw = this.env.HOLAHOLA_GITHUB_DEPLOY_KEY;
-    if (!raw) throw new Error('HOLAHOLA_GITHUB_DEPLOY_KEY is unavailable.');
-    const tempDir = join('/tmp', `holahola-source-control-${this.uuid()}`);
-    const keyPath = join(tempDir, 'deploy-key');
-    const knownHostsPath = join(tempDir, 'known-hosts');
-    await mkdir(tempDir, { recursive: true, mode: 0o700 });
-    try {
-      await writeFile(keyPath, `${normalizePrivateKey(raw)}\n`, { mode: 0o600 });
-      await writeFile(knownHostsPath, `${PINNED_GITHUB_HOST_KEYS.join('\n')}\n`, { mode: 0o600 });
-      await chmod(keyPath, 0o600);
-      await chmod(knownHostsPath, 0o600);
-      return await operation({
-        ...this.commandEnv(),
-        GIT_SSH_COMMAND: `ssh -i ${shellQuote(keyPath)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${shellQuote(knownHostsPath)}`,
-      });
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
-    }
+  /**
+   * Authenticates as the sole GitHub App installation permitted to bypass
+   * branch protection on this repository, rather than a repo-wide SSH
+   * deploy key. A fresh installation token (GitHub expires these within an
+   * hour) is minted per call and passed via `http.extraheader` env vars so
+   * it never appears in argv or on disk.
+   */
+  private async withGithubAppAuth<T>(operation: (env: NodeJS.ProcessEnv) => Promise<T>): Promise<T> {
+    const { token } = await this.fetchInstallationToken();
+    return operation({
+      ...this.commandEnv(),
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'http.extraheader',
+      GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${encodeGithubAppGitCredential(token)}`,
+    });
   }
 
   private async acquireLease(): Promise<{ release: () => Promise<void> } | null> {
@@ -696,6 +1581,18 @@ export class SourceControlService {
       consecutiveFailures: successful ? 0 : (previous?.consecutiveFailures || 0) + 1,
       lastHeartbeatAt: now,
       updatedAt: now,
+      // Promotion-completion evidence must survive incidental writes (a
+      // later `dirty`/`failed`/plain `synced` sync) the same way candidate
+      // evidence does. Otherwise a completed promotion's `promotedSha` marker
+      // disappears after exactly one unrelated status write, and a later
+      // sync tick can no longer tell a just-promoted candidate apart from
+      // one still awaiting promotion. `extra` below still wins when a caller
+      // explicitly sets or clears these fields.
+      promotedSha: previous?.promotedSha,
+      promotedBy: previous?.promotedBy,
+      promotionRequestId: previous?.promotionRequestId,
+      promotionVerificationMode: previous?.promotionVerificationMode,
+      publicationReference: previous?.publicationReference,
       ...extra,
     };
     await mkdir(join(this.statusPath, '..'), { recursive: true });

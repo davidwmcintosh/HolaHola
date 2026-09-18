@@ -23,6 +23,7 @@ const TOKEN_ENVIRONMENT = {
   COORDINATION_LUCA_HOLAHOLA_TOKEN: TOKENS['luca-holahola'],
   COORDINATION_ALDEN_TOKEN: TOKENS.alden,
   COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
+  COORDINATION_INBOX_TOKEN_SECRET: 'route-inbox-signing-secret-'.repeat(2),
 } as const;
 
 const testPrefix = `coordination-route-auth-${Date.now()}`;
