@@ -148,3 +148,4 @@
 - [GitHub Actions secrets require manual add](github-actions-secrets-manual-add.md) — no project credential (personal PAT or GitHub App token) can create/rotate an Actions secret via API; a fine-grained PAT's repo `permissions` field isn't proof of its real scope.
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
 - [Windows console child-process lifetime](windows-console-child-lifetime.md) — closing/reusing the launcher console sends CTRL_CLOSE_EVENT to inherited children; fix is CreateNoWindow=true, not output redirection.
+- [GitHub Actions checkout token shadowing](github-actions-checkout-token-shadowing.md) — checkout's persisted default-token extraheader silently wins over a later URL-embedded push token; unset it right before the push.
