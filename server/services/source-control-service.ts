@@ -20,6 +20,7 @@ import {
   sameCoordinationRepositoryIdentity,
 } from './coordination-repository-identity';
 import { parseReleaseIdentity } from './release-identity';
+import { encodeGithubAppGitCredential, fetchGithubInstallationToken } from './github-app-auth';
 import { coordinationV2SourcePromotions } from '@shared/schema';
 import { hashGitCommitSourceContext } from '../../scripts/source-context-digest.mjs';
 
@@ -253,6 +254,8 @@ export interface SourceControlServiceOptions {
   resolveCandidateSourceContext?: (
     sha: string,
   ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
+  /** GitHub App installation-token hook. Production mints a fresh RS256 JWT and exchanges it. */
+  fetchInstallationToken?: () => Promise<{ token: string }>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -406,31 +409,6 @@ function bounded(value: string): string {
   return value.length <= 8192 ? value : `${value.slice(0, 8192)}\n[truncated]`;
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function normalizePrivateKey(value: string): string {
-  let normalized = value.replaceAll('\r', '').replaceAll('\\n', '\n').replaceAll('\\r', '');
-  if (!normalized.includes('\n')) {
-    for (const keyType of ['OPENSSH', 'RSA', 'EC', 'DSA', '']) {
-      const begin = `-----BEGIN ${keyType ? `${keyType} ` : ''}PRIVATE KEY-----`;
-      const end = `-----END ${keyType ? `${keyType} ` : ''}PRIVATE KEY-----`;
-      normalized = normalized.replaceAll(begin, `${begin}\n`).replaceAll(end, `\n${end}`);
-    }
-  }
-  if (!normalized.includes('PRIVATE KEY-----')) {
-    throw new Error('HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key.');
-  }
-  return normalized;
-}
-
-const PINNED_GITHUB_HOST_KEYS = [
-  'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl',
-  'github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=',
-  'github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=',
-];
-
 function defaultRunner(command: string, args: string[], options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<CommandResult> {
   return execFile(command, args, {
     cwd: options.cwd,
@@ -543,6 +521,8 @@ export class SourceControlService {
 
   private readonly recordSourcePromotion: (input: SourcePromotionRecordInput) => Promise<void>;
 
+  private readonly fetchInstallationToken: () => Promise<{ token: string }>;
+
   constructor(options: SourceControlServiceOptions = {}) {
     this.rootDir = options.rootDir || process.cwd();
     this.env = options.env || process.env;
@@ -550,7 +530,7 @@ export class SourceControlService {
     this.uuid = options.uuid || randomUUID;
     this.runCommand = options.runCommand || defaultRunner;
     this.branch = this.env.SOURCE_BRIDGE_BRANCH || 'main';
-    this.repoUrl = this.env.GITHUB_REPO_URL || 'git@github.com:davidwmcintosh/holahola.git';
+    this.repoUrl = this.env.GITHUB_REPO_URL || 'https://github.com/davidwmcintosh/holahola.git';
     this.repositoryIdentity = normalizeCoordinationRepositoryIdentity(this.repoUrl);
     this.resolveRemoteCommit = options.resolveRemoteCommit ?? ((sha) => this.fetchRemoteCommitProof(sha));
     this.resolveRemoteSnapshot = options.resolveRemoteSnapshot
@@ -576,6 +556,15 @@ export class SourceControlService {
     this.leaseMs = Number(this.env.SOURCE_CONTROL_LOCK_LEASE_MS || DEFAULT_LOCK_LEASE_MS);
     this.validateCandidate = options.validateCandidate || ((sha) => this.runValidationManifest(sha));
     this.recordSourcePromotion = options.recordSourcePromotion || ((input) => this.appendSourcePromotion(input));
+    this.fetchInstallationToken = options.fetchInstallationToken ?? (() => {
+      const appId = this.env.HOLAHOLA_GITHUB_APP_ID;
+      const installationId = this.env.HOLAHOLA_GITHUB_APP_INSTALLATION_ID;
+      const privateKey = this.env.HOLAHOLA_GITHUB_APP_PRIVATE_KEY;
+      if (!appId) throw new Error('HOLAHOLA_GITHUB_APP_ID is unavailable.');
+      if (!installationId) throw new Error('HOLAHOLA_GITHUB_APP_INSTALLATION_ID is unavailable.');
+      if (!privateKey) throw new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY is unavailable.');
+      return fetchGithubInstallationToken({ appId, installationId, privateKey, now: this.now });
+    });
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -626,7 +615,7 @@ export class SourceControlService {
     args: string[],
     cwd = this.rootDir,
   ): Promise<{ code: number; stdout: string; stderr: string }> {
-    const result = await this.withSsh((env) => this.runCommand('git', args, { cwd, env }));
+    const result = await this.withGithubAppAuth((env) => this.runCommand('git', args, { cwd, env }));
     return { code: result.exitCode, stdout: result.stdout, stderr: result.stderr };
   }
 
@@ -1372,7 +1361,7 @@ export class SourceControlService {
     repositoryIdentity: string;
     fixedPaths: readonly string[];
   }): Promise<ProtectedRemoteSnapshot> {
-    if (!/^git@github\.com:[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*\.git$/.test(this.repoUrl)
+    if (!/^https:\/\/github\.com\/[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*\.git$/.test(this.repoUrl)
       || !SHA_PATTERN.test(input.sha)
       || !sameCoordinationRepositoryIdentity(input.repositoryIdentity, this.repositoryIdentity)
       || !validProtectedSnapshotPaths(input.fixedPaths)) {
@@ -1414,7 +1403,7 @@ export class SourceControlService {
     sha: string,
     fixedPaths: readonly string[],
   ): Promise<ProtectedRemoteSnapshot> {
-    return this.withSsh((env) => materializeProtectedGitSnapshot({
+    return this.withGithubAppAuth((env) => materializeProtectedGitSnapshot({
       repoUrl: this.repoUrl,
       sha,
       fixedPaths,
@@ -1467,28 +1456,24 @@ export class SourceControlService {
   }
 
   private async runGit(args: string[]): Promise<CommandResult> {
-    return this.withSsh((env) => this.runCommand('git', args, { cwd: this.rootDir, env }));
+    return this.withGithubAppAuth((env) => this.runCommand('git', args, { cwd: this.rootDir, env }));
   }
 
-  private async withSsh<T>(operation: (env: NodeJS.ProcessEnv) => Promise<T>): Promise<T> {
-    const raw = this.env.HOLAHOLA_GITHUB_DEPLOY_KEY;
-    if (!raw) throw new Error('HOLAHOLA_GITHUB_DEPLOY_KEY is unavailable.');
-    const tempDir = join('/tmp', `holahola-source-control-${this.uuid()}`);
-    const keyPath = join(tempDir, 'deploy-key');
-    const knownHostsPath = join(tempDir, 'known-hosts');
-    await mkdir(tempDir, { recursive: true, mode: 0o700 });
-    try {
-      await writeFile(keyPath, `${normalizePrivateKey(raw)}\n`, { mode: 0o600 });
-      await writeFile(knownHostsPath, `${PINNED_GITHUB_HOST_KEYS.join('\n')}\n`, { mode: 0o600 });
-      await chmod(keyPath, 0o600);
-      await chmod(knownHostsPath, 0o600);
-      return await operation({
-        ...this.commandEnv(),
-        GIT_SSH_COMMAND: `ssh -i ${shellQuote(keyPath)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${shellQuote(knownHostsPath)}`,
-      });
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
-    }
+  /**
+   * Authenticates as the sole GitHub App installation permitted to bypass
+   * branch protection on this repository, rather than a repo-wide SSH
+   * deploy key. A fresh installation token (GitHub expires these within an
+   * hour) is minted per call and passed via `http.extraheader` env vars so
+   * it never appears in argv or on disk.
+   */
+  private async withGithubAppAuth<T>(operation: (env: NodeJS.ProcessEnv) => Promise<T>): Promise<T> {
+    const { token } = await this.fetchInstallationToken();
+    return operation({
+      ...this.commandEnv(),
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'http.extraheader',
+      GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${encodeGithubAppGitCredential(token)}`,
+    });
   }
 
   private async acquireLease(): Promise<{ release: () => Promise<void> } | null> {

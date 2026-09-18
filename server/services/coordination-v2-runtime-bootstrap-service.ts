@@ -330,8 +330,8 @@ export class CoordinationV2RuntimeError extends Error {
 }
 
 export type RuntimeSourceSnapshotDiagnostic =
-  | 'deploy_key_missing'
-  | 'deploy_key_invalid'
+  | 'github_app_credentials_missing'
+  | 'github_app_credentials_invalid'
   | 'request_invalid'
   | 'git_operation_failed'
   | 'snapshot_validation_failed'
@@ -340,9 +340,25 @@ export type RuntimeSourceSnapshotDiagnostic =
 
 export function classifyRuntimeSourceSnapshotFailure(error: unknown): RuntimeSourceSnapshotDiagnostic {
   const message = error instanceof Error ? error.message : '';
-  if (message === 'HOLAHOLA_GITHUB_DEPLOY_KEY is unavailable.') return 'deploy_key_missing';
-  if (message === 'HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key.') {
-    return 'deploy_key_invalid';
+  if ([
+    'HOLAHOLA_GITHUB_APP_ID is unavailable.',
+    'HOLAHOLA_GITHUB_APP_INSTALLATION_ID is unavailable.',
+    'HOLAHOLA_GITHUB_APP_PRIVATE_KEY is unavailable.',
+  ].includes(message)) {
+    return 'github_app_credentials_missing';
+  }
+  if ([
+    'HOLAHOLA_GITHUB_APP_PRIVATE_KEY does not contain an armored private key.',
+    'HOLAHOLA_GITHUB_APP_PRIVATE_KEY header and footer do not match.',
+    'HOLAHOLA_GITHUB_APP_PRIVATE_KEY body is not valid base64 text.',
+    'HOLAHOLA_GITHUB_APP_PRIVATE_KEY could not be parsed as a private key.',
+    'HOLAHOLA_GITHUB_APP_PRIVATE_KEY must be an RSA private key.',
+    'HOLAHOLA_GITHUB_APP_ID must be numeric.',
+    'HOLAHOLA_GITHUB_APP_INSTALLATION_ID must be numeric.',
+  ].includes(message) || message.startsWith('GitHub installation token request failed')
+    || message === 'GitHub installation token response was malformed.'
+    || message === 'GitHub installation token response had an invalid expiry.') {
+    return 'github_app_credentials_invalid';
   }
   if (message === 'protected_remote_snapshot_request_invalid') return 'request_invalid';
   if (message === 'protected_remote_snapshot_git_failed') return 'git_operation_failed';

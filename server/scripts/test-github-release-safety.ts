@@ -1,17 +1,32 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createVerify, generateKeyPairSync } from 'node:crypto';
+import {
+  encodeGithubAppGitCredential,
+  fetchGithubInstallationToken,
+  loadGithubAppPrivateKey,
+  mintGithubAppJwt,
+  normalizeGithubAppPrivateKeyPem,
+} from '../services/github-app-auth';
 
 const root = process.cwd();
 const coordinator = readFileSync(join(root, 'server/services/source-control-service.ts'), 'utf8');
 
-assert.match(coordinator, /HOLAHOLA_GITHUB_DEPLOY_KEY/, 'coordinator must require the repository deploy key');
-assert.match(coordinator, /PINNED_GITHUB_HOST_KEYS/, 'coordinator must pin GitHub host keys');
-assert.match(coordinator, /StrictHostKeyChecking=yes/, 'coordinator must require pinned-host verification');
-assert.match(coordinator, /mode: 0o600/, 'temporary credentials must be owner-only');
-assert.match(coordinator, /await rm\(tempDir, \{ recursive: true, force: true \}\)/, 'temporary credentials must be cleaned in finally');
+assert.match(coordinator, /HOLAHOLA_GITHUB_APP_ID/, 'coordinator must require the GitHub App id');
+assert.match(coordinator, /HOLAHOLA_GITHUB_APP_INSTALLATION_ID/, 'coordinator must require the GitHub App installation id');
+assert.match(coordinator, /HOLAHOLA_GITHUB_APP_PRIVATE_KEY/, 'coordinator must require the GitHub App private key');
+assert.match(
+  coordinator,
+  /GIT_CONFIG_KEY_0: 'http\.extraheader'/,
+  'coordinator must inject the bearer credential via git config env vars, never argv or the remote URL',
+);
+assert.doesNotMatch(
+  coordinator,
+  /https?:\/\/[^'" \n]*:[^'" \n]*@/,
+  'the installation token must never be embedded directly in a remote URL',
+);
 assert.match(coordinator, /\['fetch', '--no-tags'/, 'coordinator must fetch before source decisions');
 assert.match(coordinator, /\['merge', '--ff-only', 'FETCH_HEAD'\]/, 'receive must be fast-forward-only');
 assert.match(coordinator, /\['push', this\.repoUrl/, 'push must use the fixed repository target');
@@ -24,93 +39,155 @@ for (const script of ['scripts/sync-to-github.sh', 'scripts/sync-from-github.sh'
   assert.match(`${result.stdout}${result.stderr}`, /coordinator/i);
 }
 
-const sshHelper = join(root, 'scripts/github-release-ssh.sh');
-const tempDir = mkdtempSync(join(tmpdir(), 'holahola-release-safety-'));
-const testKeyPath = join(tempDir, 'test-key');
+// --- GitHub App auth transport (server/services/github-app-auth.ts) ---
+// This replaces the retired SSH deploy-key transport: the coordinator's only
+// remote-mutating operation now authenticates as one narrowly scoped GitHub
+// App installation whose tokens expire automatically, rather than a
+// repo-wide SSH key. These checks prove the module's normalize/mint/fetch
+// behavior directly, using a locally generated disposable test keypair —
+// never real credentials.
 
-try {
-  const generated = spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', testKeyPath], {
-    encoding: 'utf8',
-  });
-  assert.equal(generated.status, 0, `test key generation failed: ${generated.stderr}`);
+const { publicKey: testPublicKeyPem, privateKey: testPrivateKeyPem } = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
+});
 
-  const multilineKey = readFileSync(testKeyPath, 'utf8');
-  const validSerializations = [
-    ['multiline', multilineKey],
-    ['literal-newline', multilineKey.replace(/\n/g, '\\n')],
-    ['space-flattened', multilineKey.replace(/\n/g, ' ')],
-    ['fully-flattened', multilineKey.replace(/\s/g, '')],
-    ['base64-wrapped', Buffer.from(multilineKey, 'utf8').toString('base64')],
-  ] as const;
-
-  const prepareAndCleanup = `
-set -euo pipefail
-source "$1"
-prepare_github_ssh "$TEST_KEY"
-key_file="$GITHUB_SSH_KEY_FILE"
-hosts_file="$GITHUB_KNOWN_HOSTS_FILE"
-test -f "$key_file"
-test -f "$hosts_file"
-ssh-keygen -y -f "$key_file" >/dev/null 2>&1
-cleanup_github_ssh
-test ! -e "$key_file"
-test ! -e "$hosts_file"
-`;
-
-  for (const [label, serializedKey] of validSerializations) {
-    const result = spawnSync('bash', ['-c', prepareAndCleanup, 'bash', sshHelper], {
-      cwd: root,
-      encoding: 'utf8',
-      env: { ...process.env, TEST_KEY: serializedKey },
-    });
-    assert.equal(
-      result.status,
-      0,
-      `${label} deploy-key serialization must normalize and clean up: ${result.stderr}`,
-    );
-  }
-
-  const invalidSerializations = [
-    ['empty', '', /not set/i],
-    [
-      'invalid-payload-alphabet',
-      '-----BEGIN OPENSSH PRIVATE KEY-----\nnot@base64\n-----END OPENSSH PRIVATE KEY-----',
-      /invalid armored payload/i,
-    ],
-    [
-      'mismatched-armor',
-      '-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----',
-      /supported armored private key/i,
-    ],
-    [
-      'parse-invalid',
-      '-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----',
-      /could not be parsed/i,
-    ],
-  ] as const;
-
-  const rejectAndProveCleanup = `
-set -uo pipefail
-source "$1"
-if prepare_github_ssh "$TEST_KEY"; then
-  exit 90
-fi
-test -z "\${GITHUB_SSH_KEY_FILE:-}"
-test -z "\${GITHUB_KNOWN_HOSTS_FILE:-}"
-`;
-
-  for (const [label, serializedKey, expectedError] of invalidSerializations) {
-    const result = spawnSync('bash', ['-c', rejectAndProveCleanup, 'bash', sshHelper], {
-      cwd: root,
-      encoding: 'utf8',
-      env: { ...process.env, TEST_KEY: serializedKey },
-    });
-    assert.equal(result.status, 0, `${label} deploy-key input must fail closed and clean up`);
-    assert.match(result.stderr, expectedError, `${label} must report a safe actionable error`);
-    assert.doesNotMatch(result.stderr, /BEGIN .*PRIVATE KEY/, `${label} must not log key material`);
-  }
-} finally {
-  rmSync(tempDir, { recursive: true, force: true });
+function verifyJwtSignature(jwt: string): Record<string, unknown> {
+  const [headerB64, payloadB64, signatureB64] = jwt.split('.');
+  assert.ok(headerB64 && payloadB64 && signatureB64, 'JWT must have header, payload, and signature segments');
+  const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+  assert.equal(header.alg, 'RS256', 'JWT must be signed with RS256');
+  const verifier = createVerify('RSA-SHA256');
+  verifier.update(`${headerB64}.${payloadB64}`);
+  assert.ok(
+    verifier.verify(testPublicKeyPem, Buffer.from(signatureB64, 'base64url')),
+    'JWT signature must verify against the source key\u2019s public half',
+  );
+  return JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
 }
+
+const validSerializations = [
+  ['multiline', testPrivateKeyPem],
+  ['literal-newline', testPrivateKeyPem.replace(/\n/g, '\\n')],
+  ['space-flattened', testPrivateKeyPem.replace(/\n/g, ' ')],
+  ['fully-flattened', testPrivateKeyPem.replace(/\n/g, '')],
+] as const;
+
+for (const [label, serializedKey] of validSerializations) {
+  const normalized = normalizeGithubAppPrivateKeyPem(serializedKey);
+  assert.match(normalized, /^-----BEGIN RSA PRIVATE KEY-----\n/, `${label} must normalize to an armored PEM`);
+  assert.match(normalized, /\n-----END RSA PRIVATE KEY-----\n$/, `${label} must normalize with a matching footer`);
+
+  const key = loadGithubAppPrivateKey(serializedKey);
+  assert.equal(key.asymmetricKeyType, 'rsa', `${label} must parse as an RSA key`);
+
+  const fixedNow = () => new Date('2026-09-17T12:00:00.000Z');
+  const jwt = mintGithubAppJwt('123456', key, fixedNow);
+  const payload = verifyJwtSignature(jwt);
+  assert.equal(payload.iss, '123456', `${label} JWT must carry the numeric app id as issuer`);
+  const iat = Number(payload.iat);
+  const exp = Number(payload.exp);
+  assert.ok(exp > iat, `${label} JWT must expire after it was issued`);
+  assert.ok(exp - iat <= 600, `${label} JWT must respect GitHub's 10-minute expiry ceiling`);
+  assert.ok(Math.floor(fixedNow().getTime() / 1000) - iat <= 120, `${label} JWT must back-date iat only for small clock-skew tolerance`);
+}
+
+assert.throws(() => mintGithubAppJwt('not-numeric', loadGithubAppPrivateKey(testPrivateKeyPem)), /must be numeric/i);
+
+const invalidPrivateKeyInputs: Array<[string, string, RegExp]> = [
+  ['empty', '', /does not contain an armored private key/i],
+  ['no-armor', 'this is not a key at all', /does not contain an armored private key/i],
+  [
+    'mismatched-armor',
+    '-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----',
+    /header and footer do not match/i,
+  ],
+  [
+    'invalid-base64-body',
+    '-----BEGIN RSA PRIVATE KEY-----\nnot@base64!!\n-----END RSA PRIVATE KEY-----',
+    /not valid base64 text/i,
+  ],
+  [
+    'unparseable-body',
+    '-----BEGIN RSA PRIVATE KEY-----\nQUFBQQ==\n-----END RSA PRIVATE KEY-----',
+    /could not be parsed as a private key/i,
+  ],
+];
+
+for (const [label, input, expectedError] of invalidPrivateKeyInputs) {
+  assert.throws(
+    () => loadGithubAppPrivateKey(input),
+    (error: unknown) => {
+      assert.ok(error instanceof Error, `${label} must throw an Error`);
+      assert.match(error.message, expectedError, `${label} must report a safe, actionable error`);
+      assert.doesNotMatch(error.message, /BEGIN .*PRIVATE KEY/, `${label} must not log key material`);
+      assert.doesNotMatch(error.message, new RegExp(testPrivateKeyPem.slice(40, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} must not echo real key bytes`);
+      return true;
+    },
+  );
+}
+
+// An RSA key that GitHub's App auth explicitly rejects (must be RSA, not EC).
+// PKCS8 (not SEC1) so the PEM carries the generic "PRIVATE KEY" armor our
+// regex accepts, exercising the asymmetricKeyType check rather than the
+// armor-matching check.
+const { privateKey: ecPrivateKeyPem } = generateKeyPairSync('ec', {
+  namedCurve: 'P-256',
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+});
+assert.throws(() => loadGithubAppPrivateKey(ecPrivateKeyPem), /must be an RSA private key/i);
+
+// --- Installation token exchange (fetchGithubInstallationToken) ---
+
+const baseTokenRequest = {
+  appId: '123456',
+  installationId: '987654',
+  privateKey: testPrivateKeyPem,
+  now: () => new Date('2026-09-17T12:00:00.000Z'),
+};
+
+const successToken = await fetchGithubInstallationToken({
+  ...baseTokenRequest,
+  fetchImpl: (async (url: string | URL | Request, init?: RequestInit) => {
+    assert.equal(String(url), 'https://api.github.com/app/installations/987654/access_tokens');
+    assert.equal(init?.method, 'POST');
+    const headers = init?.headers as Record<string, string>;
+    assert.match(headers.authorization, /^Bearer /, 'installation token request must present the App JWT as a bearer token');
+    verifyJwtSignature(headers.authorization.replace(/^Bearer /, ''));
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({ token: 'ghs_faketoken123', expires_at: '2026-09-17T13:00:00Z' }),
+    } as Response;
+  }) as typeof fetch,
+});
+assert.equal(successToken.token, 'ghs_faketoken123');
+assert.equal(successToken.expiresAt.toISOString(), '2026-09-17T13:00:00.000Z');
+
+const credential = encodeGithubAppGitCredential(successToken.token);
+assert.equal(Buffer.from(credential, 'base64').toString('utf8'), 'x-access-token:ghs_faketoken123');
+
+await assert.rejects(() => fetchGithubInstallationToken({
+  ...baseTokenRequest,
+  fetchImpl: (async () => ({ ok: false, status: 401, text: async () => 'Bad credentials' })) as unknown as typeof fetch,
+}), /GitHub installation token request failed \(401\)/);
+
+await assert.rejects(() => fetchGithubInstallationToken({
+  ...baseTokenRequest,
+  fetchImpl: (async () => ({ ok: true, json: async () => ({ token: 123 }) })) as unknown as typeof fetch,
+}), /malformed/i);
+
+await assert.rejects(() => fetchGithubInstallationToken({
+  ...baseTokenRequest,
+  fetchImpl: (async () => ({ ok: true, json: async () => ({ token: 'ghs_x', expires_at: 'not-a-date' }) })) as unknown as typeof fetch,
+}), /invalid expiry/i);
+
+await assert.rejects(() => fetchGithubInstallationToken({
+  ...baseTokenRequest,
+  installationId: 'not-numeric',
+  fetchImpl: (async () => { throw new Error('must not be called'); }) as unknown as typeof fetch,
+}), /must be numeric/i);
 
 console.log('GitHub release transport safety checks passed.');

@@ -642,8 +642,12 @@ test('provenance snapshot rejects shifted identity, tree, and blob boundaries be
 
 test('source snapshot diagnostics use a closed classification without exposing raw errors', () => {
   const cases: Array<[unknown, string]> = [
-    [new Error('HOLAHOLA_GITHUB_DEPLOY_KEY is unavailable.'), 'deploy_key_missing'],
-    [new Error('HOLAHOLA_GITHUB_DEPLOY_KEY does not contain an armored private key.'), 'deploy_key_invalid'],
+    [new Error('HOLAHOLA_GITHUB_APP_ID is unavailable.'), 'github_app_credentials_missing'],
+    [new Error('HOLAHOLA_GITHUB_APP_INSTALLATION_ID is unavailable.'), 'github_app_credentials_missing'],
+    [new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY is unavailable.'), 'github_app_credentials_missing'],
+    [new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY does not contain an armored private key.'), 'github_app_credentials_invalid'],
+    [new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY must be an RSA private key.'), 'github_app_credentials_invalid'],
+    [new Error('GitHub installation token request failed (401): bad credentials'), 'github_app_credentials_invalid'],
     [new Error('protected_remote_snapshot_request_invalid'), 'request_invalid'],
     [new Error('protected_remote_snapshot_git_failed'), 'git_operation_failed'],
     [new Error('remote_commit_proof_mismatch'), 'snapshot_validation_failed'],

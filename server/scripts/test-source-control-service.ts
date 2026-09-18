@@ -37,7 +37,6 @@ const VALID_RENDER_EVIDENCE: RenderReleaseEvidence = {
   sourceFileCount: 321,
   dirtyWorktree: null,
 };
-const KEY = '-----BEGIN OPENSSH PRIVATE KEY-----\\ntest-material\\n-----END OPENSSH PRIVATE KEY-----';
 
 function assertRenderRuntimeSourceSnapshotPrerequisites(): void {
   const dockerfile = readFileSync(join(process.cwd(), 'Dockerfile'), 'utf8');
@@ -46,16 +45,18 @@ function assertRenderRuntimeSourceSnapshotPrerequisites(): void {
     /apt-get install -y --no-install-recommends\s+([\s\S]*?)&&\s*rm -rf \/var\/lib\/apt\/lists\/\*/g,
   )].map((match) => match[1]);
   assert.ok(
-    runtimeInstallBlocks.some((block) => /\bgit\b/.test(block) && /\bopenssh-client\b/.test(block)),
-    'Render Docker runtime stage must install git and openssh-client for protected source snapshots',
+    runtimeInstallBlocks.some((block) => /\bgit\b/.test(block)),
+    'Render Docker runtime stage must install git for protected source snapshots',
   );
 
   const renderBlueprint = readFileSync(join(process.cwd(), 'render.yaml'), 'utf8');
-  assert.match(
-    renderBlueprint,
-    /- key: HOLAHOLA_GITHUB_DEPLOY_KEY\s*\n\s+sync: false(?:\s*\n|$)/,
-    'Render must declare HOLAHOLA_GITHUB_DEPLOY_KEY as an external secret',
-  );
+  for (const key of ['HOLAHOLA_GITHUB_APP_ID', 'HOLAHOLA_GITHUB_APP_INSTALLATION_ID', 'HOLAHOLA_GITHUB_APP_PRIVATE_KEY']) {
+    assert.match(
+      renderBlueprint,
+      new RegExp(`- key: ${key}\\s*\\n\\s+sync: false(?:\\s*\\n|$)`),
+      `Render must declare ${key} as an external secret`,
+    );
+  }
 }
 
 function manifest(sha: string): Record<string, unknown> {
@@ -97,7 +98,6 @@ async function withFixture(
   try {
     const env = {
       NODE_ENV: 'development',
-      HOLAHOLA_GITHUB_DEPLOY_KEY: options.missingKey ? undefined : KEY,
       SOURCE_BRIDGE_STATUS_FILE: join(rootDir, 'status.json'),
       SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
       SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
@@ -113,6 +113,7 @@ async function withFixture(
     const service = new SourceControlService({
       rootDir,
       env,
+      fetchInstallationToken: options.missingKey ? undefined : async () => ({ token: 'fixture-token' }),
       uuid: (() => {
         let value = 0;
         return () => `fixture-${++value}`;
@@ -241,13 +242,13 @@ async function recordPublicationMarkerFixture(overrides: {
       rootDir,
       env: {
         NODE_ENV: 'development',
-        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
-        GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+        GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git',
         SOURCE_BRIDGE_STATUS_FILE: statusPath,
         SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
         SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
         SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
       },
+      fetchInstallationToken: async () => ({ token: 'fixture-token' }),
       now: () => new Date('2026-09-15T21:00:00.000Z'),
       uuid: (() => {
         let value = 0;
@@ -307,7 +308,7 @@ async function recordPublicationMarkerFixture(overrides: {
             stdout: `${
               configCount > 1 && overrides.finalConfiguredRemote
                 ? overrides.finalConfiguredRemote
-                : 'git@github.com:davidwmcintosh/holahola.git'
+                : 'https://github.com/davidwmcintosh/holahola.git'
             }\n`,
             stderr: '',
           };
@@ -412,12 +413,12 @@ async function syncPublicationMarkerFixture(overrides: {
       rootDir,
       env: {
         NODE_ENV: 'development',
-        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
         SOURCE_BRIDGE_STATUS_FILE: statusPath,
         SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
         SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
         SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
       },
+      fetchInstallationToken: async () => ({ token: 'fixture-token' }),
       now: () => new Date('2026-09-15T21:00:00.000Z'),
       uuid: (() => {
         let value = 0;
@@ -545,13 +546,13 @@ async function syncPublicationMarkerFailClosedFixture(overrides: SyncMarkerFixtu
       rootDir,
       env: {
         NODE_ENV: 'development',
-        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
-        GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+        GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git',
         SOURCE_BRIDGE_STATUS_FILE: statusPath,
         SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
         SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
         SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
       },
+      fetchInstallationToken: async () => ({ token: 'fixture-token' }),
       now: () => new Date('2026-09-15T21:00:00.000Z'),
       uuid: (() => {
         let value = 0;
@@ -660,13 +661,13 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
       rootDir,
       env: {
         NODE_ENV: 'development',
-        HOLAHOLA_GITHUB_DEPLOY_KEY: KEY,
-        GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+        GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git',
         SOURCE_BRIDGE_STATUS_FILE: statusPath,
         SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
         SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
         SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
       },
+      fetchInstallationToken: async () => ({ token: 'fixture-token' }),
       now: () => new Date('2026-09-15T21:00:00.000Z'),
       uuid: (() => {
         let value = 0;
@@ -686,7 +687,7 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
         if (operation === 'status') return { exitCode: 0, stdout: '', stderr: '' };
         if (operation === 'fetch') return { exitCode: 0, stdout: '', stderr: '' };
         if (operation === 'config') {
-          return { exitCode: 0, stdout: 'git@github.com:davidwmcintosh/holahola.git\n', stderr: '' };
+          return { exitCode: 0, stdout: 'https://github.com/davidwmcintosh/holahola.git\n', stderr: '' };
         }
         if (operation === 'rev-parse' && args.includes('--is-shallow-repository')) {
           return { exitCode: 0, stdout: 'false\n', stderr: '' };
@@ -800,11 +801,11 @@ async function main(): Promise<void> {
 
   const invalidCredentials = await withFixture('equal', { missingKey: true });
   assert.equal(invalidCredentials.result.state, 'failed');
-  assert.match(invalidCredentials.result.error || '', /deploy[_ ]key/i);
+  assert.match(invalidCredentials.result.error || '', /HOLAHOLA_GITHUB_APP_ID/);
 
   const production = new SourceControlService({
     rootDir: process.cwd(),
-    env: { NODE_ENV: 'production', HOLAHOLA_GITHUB_DEPLOY_KEY: KEY },
+    env: { NODE_ENV: 'production' },
   });
   assert.equal((await production.sync('fixture')).state, 'disabled');
 
@@ -1158,7 +1159,7 @@ async function main(): Promise<void> {
     rootDir: mkdtempSync(join(tmpdir(), 'source-control-snapshot-no-git-')),
     env: {
       NODE_ENV: 'production',
-      GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git',
+      GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git',
     },
     resolveRemoteSnapshot: async (sha, fixedPaths) => {
       snapshotCalls.push({ sha, fixedPaths });
@@ -1210,7 +1211,7 @@ async function main(): Promise<void> {
     }), /protected_remote_snapshot_request_invalid/);
   }
   const wrongShaService = new SourceControlService({
-    env: { GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git' },
+    env: { GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git' },
     resolveRemoteSnapshot: async (_sha, fixedPaths) => ({
       sha: REMOTE_NEW,
       treeSha: '4'.repeat(40),
@@ -1223,7 +1224,7 @@ async function main(): Promise<void> {
     fixedPaths: snapshotPaths,
   }), /remote_commit_proof_mismatch/);
   const shiftedPathsService = new SourceControlService({
-    env: { GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git' },
+    env: { GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git' },
     resolveRemoteSnapshot: async (sha) => ({
       sha,
       treeSha: '4'.repeat(40),
@@ -1235,13 +1236,13 @@ async function main(): Promise<void> {
     repositoryIdentity: 'github:davidwmcintosh/holahola',
     fixedPaths: snapshotPaths,
   }), /protected_remote_snapshot_paths_mismatch/);
-  const httpsService = new SourceControlService({
-    env: { GITHUB_REPO_URL: 'https://github.com/davidwmcintosh/holahola.git' },
+  const sshService = new SourceControlService({
+    env: { GITHUB_REPO_URL: 'git@github.com:davidwmcintosh/holahola.git' },
     resolveRemoteSnapshot: async () => {
-      throw new Error('HTTPS transport must be rejected before resolver use');
+      throw new Error('SSH transport must be rejected before resolver use');
     },
   });
-  await assert.rejects(() => httpsService.resolveProtectedRemoteSnapshot({
+  await assert.rejects(() => sshService.resolveProtectedRemoteSnapshot({
     sha: LOCAL_NEW,
     repositoryIdentity: 'github:davidwmcintosh/holahola',
     fixedPaths: snapshotPaths,

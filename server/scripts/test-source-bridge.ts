@@ -220,7 +220,6 @@ function runBridge(options: {
       FAKE_NPM_MUTATE_ON_CHECK: options.validationMovesHead ? '1' : '0',
       SOURCE_BRIDGE_RETRY_DELAY_SECONDS: '0',
       SOURCE_BRIDGE_RETRY_MAX: '2',
-      HOLAHOLA_GITHUB_DEPLOY_KEY: '-----BEGIN OPENSSH PRIVATE KEY-----\\\\nprivate-test-material\\\\n-----END OPENSSH PRIVATE KEY-----',
     },
   });
   const calls = existsSync(callsPath) ? readFileSync(callsPath, 'utf8') : '';

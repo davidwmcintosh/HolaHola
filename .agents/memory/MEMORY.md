@@ -139,3 +139,5 @@
 - [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
+- [GitHub App auth migration](github-app-auth-migration.md) — git-push creds live in 3 separate stores (Replit, Render, GitHub Actions); migrate all three or a bypass path remains.
+- [shared-spec files resist plain edits](shared-spec-filesystem-immutability.md) — docs/superpowers/specs/*.md already published via shared-spec get silently reverted to the approved revision; use the CLI lifecycle instead.
