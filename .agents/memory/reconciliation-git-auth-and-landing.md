@@ -1,0 +1,14 @@
+---
+name: Reconciliation auth mechanism and candidate landing procedure
+description: How source-reconciliation-service.ts authenticates Git operations and the exact sequence to land a validated candidate as GitHub's real main.
+---
+
+**Auth mechanism (corrects an earlier wrong note that claimed no auth wiring existed):** `SourceReconciliationService`'s git calls go through `SourceControlService.runReconciliationGit()` → `withGithubAppAuth()`, which mints a fresh GitHub App installation token per call and injects it via `http.extraheader` env vars (HTTPS only). This is the documented preferred mechanism over a repo-wide SSH deploy key — don't wire up SSH for reconciliation; the token path already works and is exercised by the normal scheduler sync too.
+
+**`preflight --remote` must be a named git remote, not a raw URL.** `candidate`'s packet validation uses a `ref`-style regex that rejects `://`, so passing an HTTPS URL directly as `--remote` makes `preflight` succeed but guarantees `candidate` fails with "Packet digest envelope is invalid." Add a named remote (`git remote add <name> <https-url>`) and pass its name instead.
+
+**Landing a successful candidate onto GitHub's real main:** once `candidate` reaches `state: candidate_ready` (branch `refs/heads/reconcile/candidate-<fingerprint>`), fast-forward the primary `main` onto that branch (`git merge --ff-only refs/heads/reconcile/candidate-<fingerprint>`) — valid because the candidate is a 2-parent merge whose parents are local's old tip and remote's tip, making it a fast-forward descendant of both. Then run the normal `sync` CLI action (not a raw `git push`): it detects GitHub's tip is now an ancestor of local and pushes fast-forward via the same GitHub App token path, verifying exact equality afterward. Confirm independently with `git ls-remote <remote> refs/heads/main` rather than trusting only the tool's self-reported status.
+
+**Watch for live tracked-file writes mid-reconciliation:** episode markdown files (e.g. `docs/episode-*.md`) are actively appended by a running app's autosave/capture watcher. A candidate built cleanly can go stale seconds later if such a file changes underneath it — `sync`'s dirty-tree check will correctly refuse to push until the new content is committed. Never discard or stash that content; commit it as its own normal change (it only grows) and retry.
+
+**Why:** worked out during a real diverged-history reconciliation (Sep 2026) where an earlier memory note wrongly assumed no auth wiring existed and speculated about needing the SSH deploy key; reading the actual code (and the `withGithubAppAuth` doc comment) corrected this.
