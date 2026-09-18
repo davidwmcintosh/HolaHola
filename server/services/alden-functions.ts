@@ -22,8 +22,14 @@ import * as path from "path";
 import { execSync, spawn } from "child_process";
 import { aldenActivity } from "./alden-activity-emitter";
 import { getMonitoringSnapshots, analyzePatterns } from "./monitoring-service";
+import { workspaceResolution } from "./workspace-root";
 
-const WORKSPACE_ROOT = path.resolve('/home/runner/workspace');
+// Was hardcoded to '/home/runner/workspace' -- a Replit-only path that broke
+// every file/shell tool (read_file, list_directory, search_code, run_shell)
+// once production moved off Replit. workspaceResolution already handles this
+// portably (HOLAHOLA_WORKSPACE_ROOT env -> REPL_HOME -> cwd) and validates the
+// result is a real HolaHola checkout instead of failing silently.
+const WORKSPACE_ROOT = workspaceResolution.root;
 
 function safePath(filePath: string): string {
   const resolved = path.resolve(WORKSPACE_ROOT, filePath.replace(/^\//, ''));
