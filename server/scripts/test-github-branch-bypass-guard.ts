@@ -67,6 +67,7 @@
  * environment, e.g. an isolated task-agent worktree that does not inherit
  * this secret.
  */
+export {};
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
