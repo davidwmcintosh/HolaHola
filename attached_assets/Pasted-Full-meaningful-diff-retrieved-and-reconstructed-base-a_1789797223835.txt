@@ -1,0 +1,648 @@
+Full meaningful diff retrieved and reconstructed (base a2cfdc1 → HEAD de4e7ad, all 2,153 lines, with migrations/meta/0056_snapshot.json excluded — see note at the end). This is valid git diff output; save it to a file and git apply it, or patch -p1 <file.
+
+diff --git a/.agents/memory/MEMORY.md b/.agents/memory/MEMORY.md
+index 8fe8a34..a5080d6 100644
+--- a/.agents/memory/MEMORY.md
++++ b/.agents/memory/MEMORY.md
+@@ -97,7 +97,7 @@
+ - [Unmerged task-agent database drift](unmerged-task-agent-database-drift.md) — stalled merges may have already changed the shared DB; inspect live schema and migration ledger before reconstructing code.
+ - [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.
+ - [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
+-- [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge-budget failures can persist without visible tasks; reconstruct critical fixes in main instead of waiting indefinitely.
++- [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge/completion failures (budget or auth) need a real alternate path, not blind retries; check for a reconciliation-bridge status file before a manual push.
+ - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
+ - [Chat capture two-boundary cursors](capture-cursor-two-boundaries.md) — DB progress may pass retries; strict acknowledgement advances after mirror success or evidence-audited invalid destination.
+ - [Divergent migration reconciliation](divergent-migration-reconciliation.md) — preserve SQL bytes recorded by the shared DB; linearize colliding metadata without invalidating ledger hashes.
+@@ -138,3 +138,6 @@
+ - [Task-ownership guard scope gap](task-ownership-guard-scope.md) — unknown_stop gates file edits only; a blocked task's direct external API calls (DNS, deploy) can still go live.
+ - [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
+ - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
++- [Release cutover attestation](release-cutover-attestation.md) — attestation record chosen over deploy freeze/pin; multi-actor pushes make a freeze false safety.
++- [Backgrounding a local disposable Postgres](local-disposable-postgres-test-verification.md) — `pg_ctl start` dies when backgrounded in this sandbox; run the `postgres` binary itself as the background task instead.
++- [Main-repl sync authentication boundary](mainrepl-sync-auth-boundary.md) — markTaskComplete's rebase step auths to Replit's own ssh.janeway.replit.dev, not GitHub; no task-agent-accessible credential exists for it, so GitHub deploy-key fixes don't apply.
+diff --git a/.agents/memory/local-disposable-postgres-test-verification.md b/.agents/memory/local-disposable-postgres-test-verification.md
+new file mode 100644
+index 0000000..86a4410
+--- /dev/null
++++ b/.agents/memory/local-disposable-postgres-test-verification.md
+@@ -0,0 +1,10 @@
++---
++name: Backgrounding a local disposable Postgres for real DB-test verification
++description: Why `pg_ctl start` silently dies in this sandbox's background shell tasks, and what to run instead so a throwaway local Postgres survives across tool calls.
++---
++
++A throwaway local Postgres (binaries already on PATH in this Nix environment) is useful for getting real, fast DB-lifecycle test coverage without waiting on the slower Neon branch gate. The one non-obvious failure mode: `pg_ctl start` forks a detached server and exits once it confirms startup -- but in this sandbox, wrapping `pg_ctl start` in a `run_in_background: true` shell task does not keep the actual server process alive. The wrapping task's own process group is torn down once it exits (immediately after `pg_ctl start` returns), which kills the detached child too, even though `pg_ctl` designed it to outlive its launcher.
++
++**Why:** confirmed twice in one session -- `pg_ctl start` logged "server started" and the server accepted a connection immediately afterward, but was gone (`pg_ctl status` → "no server running") by the next tool call.
++
++**How to apply:** run the `postgres` binary itself in the foreground as the `run_in_background: true` task (e.g. `postgres -D <datadir> -p <port> -k /tmp`), not `pg_ctl start`. That way the tracked background task IS the server process and survives across calls until explicitly killed. Everything else about using it (creating a database, which env vars satisfy `getVerifiedCiDatabaseUrl()`, the test-registration conventions) is in the current code (`server/ci-database.ts`, `scripts/run-ci-test-steps.mjs`, `scripts/neon-branch.ts`) -- read those directly rather than trusting a memorized recipe.
+diff --git a/.agents/memory/mainrepl-sync-auth-boundary.md b/.agents/memory/mainrepl-sync-auth-boundary.md
+new file mode 100644
+index 0000000..2b3f762
+--- /dev/null
++++ b/.agents/memory/mainrepl-sync-auth-boundary.md
+@@ -0,0 +1,12 @@
++---
++name: Main-repl sync authentication boundary
++description: markTaskComplete's internal rebase-onto-main-repl step authenticates to Replit's own ssh.janeway.replit.dev host, not GitHub; task-agent sandboxes have no credential for it.
++---
++
++markTaskComplete's completion flow includes an internal "rebase onto main repl" step that fetches from a git remote literally named `main-repl` (URL `git+ssh://git@ssh.janeway.replit.dev:/home/runner/workspace`). This is Replit's own repl-to-repl sync channel, separate from `origin` (GitHub) and from the many `subrepl-*` remotes that accumulate from past task-agent sessions in the same repo (all pointing at the same janeway host).
++
++A failure here reports as `Rebase onto the main repl failed (UNAUTHENTICATED): {"command":"git fetch ... 'main-repl' ...","code":128,"error":"UNAUTHENTICATED"}`. This looks superficially similar to a GitHub SSH `Permission denied (publickey)` failure (both are git-over-SSH auth failures) but is a different host and a different credential entirely -- don't assume a GitHub deploy-key problem explains it without checking which remote the failing `command` field actually names.
++
++**Why:** confirmed empirically -- no `~/.ssh` key, no SSH agent (`SSH_AUTH_SOCK` unset), and no `~/.ssh/config` entry for `ssh.janeway.replit.dev` exist anywhere in the task-agent shell sandbox. A manual `git fetch` against `main-repl` from that shell just hangs on an interactive password prompt. Rotating `HOLAHOLA_GITHUB_DEPLOY_KEY` (a real, user-managed GitHub secret) fixed real GitHub SSH access but had zero effect on this failure, because the two hosts don't share a credential. The internal `markTaskComplete` process likely runs with different, platform-injected credentials than the task-agent's own shell, so a manual shell reproduction cannot fully validate or fix this path -- two consecutive identical failures with no local change is evidence of a stable platform-side condition, not something to keep retrying blindly.
++
++**How to apply:** when `markTaskComplete`'s rebase/merge step fails with an SSH or auth error, read the `command` field in the structured error first and check which remote it names. `origin` (github.com) failures may be fixable via the repo's own deploy-key secret. `main-repl` (or `subrepl-*`, same host) failures are Replit-internal infrastructure with no task-agent-accessible fix -- stop after confirming there's no local credential for that host, and report it as a platform-level blocker rather than continuing to iterate on GitHub credentials.
+diff --git a/.agents/memory/release-cutover-attestation.md b/.agents/memory/release-cutover-attestation.md
+new file mode 100644
+index 0000000..09fa9ad
+--- /dev/null
++++ b/.agents/memory/release-cutover-attestation.md
+@@ -0,0 +1,12 @@
++---
++name: Release cutover attestation
++description: Why an immutable attestation record was chosen over a deploy freeze/pin to keep "the verified release" stable during a cutover decision.
++---
++
++Render republishes `main` on every push regardless of content (confirmed empirically — a memory-only commit reached production within about an hour with no explicit deploy step). This makes live `/health/release` a moving target for any code that needs to attest a specific commit and then act on it later (a DNS cutover, a Windows-authority grant, etc.).
++
++Chose: an explicit, bounded-TTL attestation record (`release_cutover_attestations` table, `ReleaseCutoverAttestationService`) that a human-facing decision reads once and quotes, and that the code executing the actual cutover re-verifies against live evidence immediately before acting (fail-closed) — not a deploy freeze/pin on `render.yaml`'s `autoDeploy`.
++
++**Why:** Multiple independent coordination actors (agents and humans) can push to `main` at any time. A freeze/pin would have to be coordinated across all of them to be honest safety; in practice it would either block legitimate unrelated work or get silently bypassed, becoming false safety. An attestation record makes no claim about what deploys — only about what a specific decision was told and what it must re-check before acting.
++
++**How to apply:** Any new code that needs to present "the current verified release" to a human before a delayed action, or that executes a cutover/promotion decision, should attest via this service (or its CLI `server/scripts/release-attestation-cli.ts`) rather than re-querying `/health/release` directly at decision time. See `docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md` and the "Release Cutover Attestation" section in `docs/agent-workflows.md`.
+diff --git a/.agents/memory/task-agent-merge-budget-fallback.md b/.agents/memory/task-agent-merge-budget-fallback.md
+index 17bb4b5..77cb6b2 100644
+--- a/.agents/memory/task-agent-merge-budget-fallback.md
++++ b/.agents/memory/task-agent-merge-budget-fallback.md
+@@ -1,17 +1,27 @@
+ ---
+ name: Task-agent merge budget fallback
+-description: How to respond when a completed task-agent change repeatedly cannot merge despite no visible concurrent work.
++description: How to respond when a completed task-agent change repeatedly cannot merge or complete despite no visible concurrent work.
+ ---
+ 
+-Treat a repeated `MERGE_BUDGET_EXHAUSTED` result as an unavailable delivery
+-path, not evidence that the underlying fix is optional.
++Treat a repeated merge/completion failure (e.g. `MERGE_BUDGET_EXHAUSTED`, or
++`markTaskComplete`'s internal rebase-onto-main-repl step failing
++`UNAUTHENTICATED`) as an unavailable delivery path, not evidence that the
++underlying fix is optional.
+ 
+-**Why:** Replit documents background-task concurrency but does not document the
+-merge-budget status or a reliable reset interval. A completed isolated change
+-can remain unapplied after long waits even when no other task is visibly
+-running.
++**Why:** Replit documents background-task concurrency but does not document
++the merge-budget status, a reliable reset interval, or how a task agent
++should recover if its own internal completion plumbing (e.g. the `main-repl`
++git remote) is unauthenticated. A completed, isolated, fully-verified change
++can remain unapplied after repeated retries even when no other task is
++visibly running.
+ 
+-**How to apply:** Do not ask the user to keep retrying or judge conflicts. For a
+-critical fix, inspect the current main workspace, reconstruct the smallest
+-verified change directly there, and close the task only after focused
+-validation. Keep the blocked task until the replacement is proven.
+\ No newline at end of file
++**How to apply:** Do not just ask the user to keep retrying, and do not
++assume a manual push to the project's own GitHub remote is a safe fallback.
++Some projects run dedicated Replit-to-GitHub reconciliation infrastructure
++(a supervised bridge, a scheduler tracking divergence, candidate validation)
++-- check for a status file such as `.local/source-bridge-status.md` before
++pushing or opening a PR manually; a recorded "diverged" state means the
++project's own history reconciliation is already a known, separate,
++pre-existing condition, and an improvised manual push risks colliding with
++it. Surface the concrete tradeoffs to the user rather than picking a
++workaround unilaterally when the failure touches shared git history.
+\ No newline at end of file
+diff --git a/.env.template b/.env.template
+deleted file mode 100644
+index f47117a..0000000
+--- a/.env.template
++++ /dev/null
+@@ -1,136 +0,0 @@
+-# Copy this to .env and fill in values from Replit Secrets panel
+-# Run: cp .env.template .env
+-
+-# ── Database (Neon PostgreSQL) ────────────────────────────────────────────────
+-# Both point to the same Neon connection string — copy from Neon dashboard
+-# or from Replit Secrets panel under NEON_SHARED_DATABASE_URL
+-NEON_SHARED_DATABASE_URL=
+-DATABASE_URL=
+-
+-# Need an isolated database instead of the shared one above (exploratory
+-# testing, a Codespace/sandbox environment, anything that shouldn't touch
+-# shared production data)? Don't add a static variable here — run
+-# `npm run db:branch -- create <name>` and point NEON_SHARED_DATABASE_URL at
+-# the branch it prints, for that environment only. See
+-# .agents/skills/neon-branch/SKILL.md. (A static NEON_TEST_DATABASE_URL used
+-# to live here; retired 2026-08-30 — see
+-# docs/superpowers/specs/2026-08-26-claude-code-test-environment-design.md's
+-# Amendment for why.)
+-
+-# Neon Management API — used only by scripts/neon-branch.ts to create/list/
+-# delete branches (see docs/superpowers/specs/2026-08-30-neon-branch-migration-workflow-design.md).
+-# NEON_API_KEY can create and delete branches; it cannot read table data and
+-# is never itself a Postgres connection string. Get it from the Neon console
+-# under Account Settings > API Keys, scoped to the minimum role available.
+-# NEON_PROJECT_ID is the project slug shown in the Neon console URL/Settings —
+-# not a secret, but still project-specific.
+-NEON_API_KEY=
+-NEON_PROJECT_ID=
+-
+-# Note: PGHOST / PGPORT / PGUSER / PGPASSWORD / PGDATABASE are auto-injected
+-# by Replit's infrastructure — they do NOT appear in the Secrets panel and
+-# you do NOT need to set them locally. Use the two variables above instead.
+-
+-# ── Cross-tool promotion (external callers, not Replit's own dev checkout) ────
+-# One shared way for any tool that isn't Replit's own dev checkout (Claude
+-# Code, Cursor, Antigravity, a human) to get a committed branch onto main
+-# safely — see .agents/skills/cross-tool-promote/SKILL.md and
+-# docs/superpowers/specs/2026-08-26-unified-source-promote-endpoint-design.md.
+-# Replit's own dev checkout has a separate, differently-scoped entry point
+-# (server/services/source-control-service.ts) — not a duplicate, see that
+-# design doc's "Two entry points" note.
+-# scripts/cross-tool-promote.ts calls the GitHub Actions API directly (no
+-# HolaHola server involved — nothing to host, nothing to keep up). Needed by
+-# anyone running that script: a GitHub fine-grained personal access token,
+-# scoped to this repo only, with "Actions: Read and write" permission and
+-# nothing else. Triggers/polls the .github/workflows/cross-tool-promote.yml run
+-# that does the actual validation and push — never used to push code
+-# directly, never holds repo-write access.
+-GITHUB_ACTIONS_DISPATCH_TOKEN=
+-
+-# REPLIT_AGENT_TOKEN authenticates internal agent-to-server endpoints
+-# (x-agent-token header) — including record-exchange.ts's --remote mode,
+-# which POSTs to a live server's /api/internal/canonical-conversation-exchange
+-# instead of writing a local .chat_capture file that nothing would drain on a
+-# machine with no autosave worker running. Same value the server itself
+-# checks requests against; never generated by a caller.
+-REPLIT_AGENT_TOKEN=
+-
+-# Coordination runtimes should normally receive only their own bootstrap
+-# credential from a dedicated 1Password service account/vault item. The broker
+-# exchanges it for an in-memory, short-lived token. Never commit or share these
+-# values between runtimes. See docs/coordination-clients.md.
+-COORDINATION_API_URL=
+-COORDINATION_ACTOR=
+-COORDINATION_RUNTIME_ID=
+-COORDINATION_RUNTIME_BOOTSTRAP_TOKEN=
+-
+-# Server-only key (32+ characters) for HMAC-pseudonymizing source IP addresses
+-# in coordination credential audit events. If absent, no IP-derived value is
+-# stored. Do not expose this to coordination clients.
+-COORDINATION_AUDIT_HMAC_KEY=
+-
+-# Optional override for record-exchange.ts --remote's target server. Defaults
+-# to https://getholahola.com (production — the one place guaranteed to be
+-# running the autosave worker that actually drains captured exchanges).
+-# HOLAHOLA_REMOTE_URL=
+-
+-# ── AI providers ─────────────────────────────────────────────────────────────
+-# Single OpenAI key used everywhere (embeddings, TTS fallback, Realtime API,
+-# pronunciation analysis). On Replit, AI_INTEGRATIONS_OPENAI_API_KEY is the
+-# proxy key (set automatically); outside Replit only OPENAI_API_KEY is needed.
+-OPENAI_API_KEY=
+-AI_INTEGRATIONS_OPENAI_API_KEY=
+-AI_INTEGRATIONS_OPENAI_BASE_URL=
+-AI_INTEGRATIONS_ANTHROPIC_API_KEY=
+-AI_INTEGRATIONS_ANTHROPIC_BASE_URL=
+-AI_INTEGRATIONS_GEMINI_API_KEY=
+-AI_INTEGRATIONS_GEMINI_BASE_URL=
+-
+-# ── Voice (Deepgram live STT) ─────────────────────────────────────────────────
+-DEEPGRAM_API_KEY=
+-
+-# ── Object storage (S3-compatible) ───────────────────────────────────────────
+-AWS_S3_ENDPOINT=
+-AWS_S3_ACCESS_KEY_ID=
+-AWS_S3_SECRET_ACCESS_KEY=
+-# Primary application/read-path bucket. The legacy name remains active for R2.
+-DEFAULT_OBJECT_STORAGE_BUCKET_ID=
+-# Archive/migration destination; may intentionally match the primary bucket.
+-AWS_S3_DESTINATION_BUCKET=
+-PRIVATE_OBJECT_DIR=
+-PUBLIC_OBJECT_SEARCH_PATHS=
+-
+-# ── Reconciliation replica ────────────────────────────────────────────────────
+-RECONCILIATION_REPLICA_ENDPOINT=
+-RECONCILIATION_REPLICA_BUCKET=
+-RECONCILIATION_REPLICA_REGION=
+-RECONCILIATION_REPLICA_ACCESS_KEY_ID=
+-RECONCILIATION_REPLICA_SECRET_ACCESS_KEY=
+-
+-# ── Session / auth ────────────────────────────────────────────────────────────
+-SESSION_SECRET=
+-SYNC_SHARED_SECRET=
+-
+-# ── Source promotion API (disabled by default) ────────────────────────────────
+-# Set the flag only after storing a dedicated SOURCE_PROMOTION_TOKEN in Replit
+-# Secrets. This API prepares and records an explicit Replit Publish; it cannot
+-# publish programmatically.
+-SOURCE_PROMOTION_API_ENABLED=false
+-SOURCE_PROMOTION_TOKEN=
+-
+-# ── Twilio ────────────────────────────────────────────────────────────────────
+-TWILIO_ACCOUNT_SID=
+-TWILIO_AUTH_TOKEN=
+-TWILIO_FROM_NUMBER=
+-
+-# ── Misc ──────────────────────────────────────────────────────────────────────
+-RAW_WINDOW_RECEIPT_PRIVATE_KEY=
+-RAW_WINDOW_RECEIPT_PRIVATE_KEY_B64=
+-
+-# ── Dev/test agent login ──────────────────────────────────────────────────────
+-# Password for the shared seeded account (scripts/data-ops/seed-dev-test-account.ts)
+-# that agents/CI log into via POST /api/auth/password/login instead of a bypass.
+-# The account is founder-equivalent for requireFounder-gated routes, but ONLY
+-# outside NODE_ENV=production (see server/middleware/rbac.ts's isFounderId()).
+-DEV_TEST_ACCOUNT_PASSWORD=
+diff --git a/docs/agent-workflows.md b/docs/agent-workflows.md
+index 70aa438..4659002 100644
+--- a/docs/agent-workflows.md
++++ b/docs/agent-workflows.md
+@@ -433,6 +433,39 @@ now exist and nothing distinguishes which one is current — that ambiguity,
+ not the old path's continued existence, is the actual failure.
+ ---
+ 
++## Release Cutover Attestation
++
++Render republishes `main` on every push (`autoDeploy: true` in `render.yaml`),
++so `/health/release` always answers "what is live right now" — a value that
++keeps moving on Render's own schedule, independent of any pending decision.
++Code presenting a cutover decision (a DNS flip, a Windows-authority grant, or
++similar) must not attest a commit by re-reading that live value mid-decision
++and trusting it to still be true by the time the decision is acted on. Use
++`ReleaseCutoverAttestationService`
++(`server/services/release-cutover-attestation-service.ts`; CLI at
++`server/scripts/release-attestation-cli.ts`; routes under
++`/api/admin/release-attestation/*`) instead:
++
++1. Before presenting a cutover decision to a human, call `attest()` (or
++   `release-attestation-cli.ts attest`) and quote the returned `decisionRef`,
++   `commitSha`, `sourceContextSha256`, and each target's agreement in the
++   prompt. This is "the verified release" claim from that point forward, not
++   a live value that can move while it is being read.
++2. If the human takes long enough that the attestation expires (bounded TTL,
++   24h ceiling) or is invalidated, the honest move is a fresh `attest()` and
++   a fresh prompt — never silently reuse stale evidence, never silently
++   substitute whatever is live now for what was shown.
++3. Whatever code executes the actual cutover must call `consume()`
++   immediately before acting and stop if it throws. `consume()` re-verifies
++   live evidence against every operator-pinned target before transitioning
++   the attestation, so it still fails closed if `main` moved during the
++   decision window — with one attributable reason ("attested release is no
++   longer live; re-attest") instead of an unnoticed race.
++
++See `docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md`
++for the full design and rationale, including why a deploy freeze/pin was
++rejected in favor of this attestation record.
++
+ ## Key File Map
+ 
+ | Purpose | File |
+diff --git a/docs/disaster-recovery-runbook.md b/docs/disaster-recovery-runbook.md
+index 93c4f64..4a3d551 100644
+--- a/docs/disaster-recovery-runbook.md
++++ b/docs/disaster-recovery-runbook.md
+@@ -147,6 +147,19 @@ gives you a free, API-driven DNS layer without transferring the domain itself.
+ 
+ ## Phase 2 — Cutover (only if Replit is actually down)
+ 
++0. Before flipping DNS, run
++   `npx tsx server/scripts/release-attestation-cli.ts attest --decision-ref
++   <ref> --actor <coordination-actor-id> --reason "disaster recovery
++   cutover"` (actor is one of the `COORDINATION_ACTOR_IDS` in
++   `shared/schema.ts`, e.g. `david` or `alden`) and record the printed
++   `commitSha` and `sourceContextSha256` in the incident notes. Render
++   republishes `main` on every push, so a live `/health/release` re-check at
++   decision time is not reliable evidence of what will still be live once the
++   decision is acted on — see
++   `docs/superpowers/specs/2026-09-17-render-runtime-source-snapshot-design.md`.
++   Whatever step actually flips DNS should call the CLI's `consume` action
++   (`consume --decision-ref <ref> --actor <coordination-actor-id> --action
++   "dns-cutover"`) immediately before acting, and stop if it fails.
+ 1. In Cloudflare's DNS tab, change the A/CNAME record for `getholahola.com`
+    (and `www`) from Replit's target to Render's provided hostname.
+ 2. Because DNS now lives on Cloudflare instead of Network Solutions, this
+diff --git a/docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md b/docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md
+new file mode 100644
+index 0000000..5416509
+--- /dev/null
++++ b/docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md
+@@ -0,0 +1,188 @@
++# Release Cutover Attestation
++
++## Problem
++
++Render's `autoDeploy: true` rebuilds and republishes on every push to `main`,
++regardless of content. Confirmed empirically 2026-09-17: a commit touching
++only `.agents/memory/` became the exact commit reported by `/health/release`
++on `getholahola.com`, `render.getholahola.com`, and the raw
++`holahola-6f1o.onrender.com` origin within about an hour, with no explicit
++deploy step run by anyone.
++
++`/health/release` therefore always answers "what is live right now" — a value
++that keeps moving on its own schedule, independent of any human decision
++cadence. A cutover decision (attest commit X as the verified release, then
++act on it) needs that answer to hold still for the length of a decision loop
++(minutes to hours). Re-querying `/health/release` live at each step of that
++loop cannot do this by construction. Task #1453 hit exactly this: by the time
++its prompt was read, the live commit had already moved past both options it
++presented.
++
++This is a different failure than the two existing Render specs already fix.
++The 2026-09-16 evidence design re-verifies release identity immediately
++before appending source-promotion authority — a correct, narrow fix for that
++one code path's own sub-second race; it must stay exactly as is. The
++2026-09-17 snapshot design fixes Render's inability to fetch its own source.
++Neither holds an answer still across a human-paced window, and neither should
++be changed to try.
++
++## Design: Release Cutover Attestation
++
++An explicit, immutable-until-consumed record answering "what did every
++independently-checked release endpoint agree the live commit was, at the
++moment someone captured it, for this specific decision" — captured once, then
++read by both the human-facing decision text and the eventual cutover action,
++instead of either re-querying `/health/release` live. This is option (b) from
++task #1460: a marker that cutover logic reads instead of re-querying mid
++decision.
++
++Option (a), pinning/freezing deploys, is rejected. `source-control-scheduler.ts`
++is only the Replit-to-GitHub sync path; this project's coordination
++architecture has multiple independent actors (`COORDINATION_ACTOR_IDS`:
++`luca-holahola`, `luca-replit`, `luca-claude-code`, `luca-gemini`, `alden`,
++`daniela`, `david`) that can plausibly advance `main` through other channels.
++A freeze scoped to one scheduler would be a false sense of safety, and a
++repo-wide freeze (branch protection, pausing Render) is a bigger, riskier
++lever than this gap needs. An attestation is correct regardless of how many
++paths can move `main`.
++
++### Data model
++
++New table `release_cutover_attestations` (`shared/schema.ts`), alongside
++`coordinationV2SourcePromotions`:
++
++- `id` uuid pk
++- `decisionRef` varchar(128) — bounded free-form identifier for the decision
++  this attestation exists for (e.g. `task-1453`)
++- `capturedByActorId` varchar — one of `COORDINATION_ACTOR_IDS`
++- `targets` jsonb — array of `{ label, url, commitSha, sourceContextSha256 }`,
++  one entry per independently-checked endpoint
++- `commitSha` char(40) hex — required identical across every `targets` entry
++- `sourceContextSha256` char(64) hex — required identical across every entry
++- `reason` text, bounded length — why this attestation exists
++- `capturedAt`, `expiresAt` timestamptz — bounded TTL (default 2h, hard
++  ceiling 24h)
++- `state` varchar(16): `active` | `invalidated` | `consumed`
++- `invalidatedAt` / `invalidatedByActorId` / `invalidationReason` — nullable,
++  set only on `active` → `invalidated`
++- `consumedAt` / `consumedByActorId` / `consumedForAction` — nullable, set
++  only on `active` → `consumed`
++
++Constraints: hex-format checks on `commitSha` / `sourceContextSha256`;
++`expiresAt > capturedAt`; `expiresAt - capturedAt <= interval '24 hours'`;
++`state` enum check; a partial unique index on `decisionRef` `WHERE state =
++'active'` — at most one live attestation per decision, so re-attesting
++requires explicitly invalidating the previous row first instead of silently
++overwriting it.
++
++### Service — `server/services/release-cutover-attestation-service.ts`
++
++- `attest({ actor, decisionRef, reason, ttlMs? })` — fetches every
++  operator-pinned target URL now: HTTPS only, `redirect: 'manual'`, bounded
++  timeout, bounded response size, `parseReleaseIdentity` schema validation
++  (same safety properties as `resolveRenderReleaseEvidenceFromHealth`, applied
++  per-target instead of against one expected value). Requires every target to
++  answer `200`, `authority: 'build'`, `promotable: true`, and the exact same
++  `commitSha` + `sourceContextSha256` as every other target. Any disagreement,
++  timeout, or malformed response fails closed with no row written — a live
++  rollout in progress across hosts must not produce a false attestation.
++  Refuses if an `active` row already exists for `decisionRef`. TTL is clamped
++  to the hard ceiling regardless of what the caller requests.
++- `getActive(decisionRef)` — returns the row plus a computed `expired`
++  boolean from `expiresAt`; never mutates state.
++- `verifyStillLive(decisionRef)` — re-fetches the same operator-pinned targets
++  right now and compares against the stored attestation. Fails closed (no
++  match) if the row is missing, expired, invalidated, consumed, or if live
++  evidence disagrees with the stored commit/digest or with itself across
++  targets.
++- `invalidate(decisionRef, actor, reason)` — `active` → `invalidated` only;
++  idempotent on an already-invalidated row with the same actor and reason.
++- `consume(decisionRef, actor, actionLabel)` — calls `verifyStillLive`
++  internally first and requires a match; only then transitions `active` →
++  `consumed`. This is the mandatory checkpoint: any code that actually
++  executes a cutover (DNS change, Windows-authority grant, etc.) must call
++  `consume()` immediately before acting and abort if it throws. This mirrors
++  the existing "verify identity again immediately before appending authority"
++  pattern in `recordLocked()`, applied at decision-timescale instead of
++  request-timescale.
++
++### Target endpoints
++
++The checked target list is a hardcoded `const` array in the service file —
++`getholahola.com`, `render.getholahola.com`, and the raw
++`holahola-6f1o.onrender.com` origin (all `/health/release`, HTTPS, no
++credentials) — never sourced from an environment variable, request body, or
++database row. The only way to use a different list is direct constructor
++dependency injection in a test file; no runtime code path lets a caller or
++config value influence which URLs get fetched. This is the SSRF boundary:
++fixed source code is the only origin of target URLs.
++
++### Surfaces
++
++- CLI `server/scripts/release-attestation-cli.ts`: `attest | get | verify |
++  invalidate | consume`, machine-readable JSON output, mirrors
++  `source-control-cli.ts` conventions.
++- HTTP routes `server/routes/release-cutover-attestation-routes.ts` under
++  `/api/admin/release-attestation/*`, gated with `requireCoordinationAuth`
++  (`x-coordination-token`) plus the shared `mutationLimiter` rate limit on
++  mutating endpoints. No bespoke token scheme and no idempotency-key ledger:
++  `attest`/`invalidate`/`consume` are each already idempotent at the service
++  layer (matching `decisionRef` + actor/action replays return the existing
++  row instead of erroring), so a request-tracking layer would duplicate
++  that guarantee. Synchronous — no polling layer, because each operation is
++  one bounded HTTP fetch plus one DB read/write, unlike the multi-minute
++  validation pipeline `SourcePromotionService` wraps.
++
++### Usage convention
++
++Documented in `docs/disaster-recovery-runbook.md` Phase 2 and
++`docs/agent-workflows.md`:
++
++1. Before presenting a cutover decision to a human, call `attest()` and quote
++   the returned `decisionRef`, `commitSha`, `sourceContextSha256`, and each
++   target's agreement in the prompt. The claim about "the verified release"
++   is now the attestation, not a live value that can move while it is read.
++2. If the human takes long enough that the attestation expires or is
++   invalidated, the honest move is a fresh `attest()` and a fresh prompt —
++   never silently reusing stale evidence, never silently substituting
++   whatever is live now for what was shown.
++3. Whatever code executes the actual cutover must call `consume()`
++   immediately before acting and stop if it throws. This still fails closed
++   exactly like the existing promotion-recording code if `main` moved during
++   the decision window; the difference is one clear, attributable reason
++   ("attested release is no longer live; re-attest") instead of an unnoticed
++   race.
++
++### Explicitly out of scope
++
++- `render.yaml` `autoDeploy` and any deploy-pause/freeze mechanism (rejected
++  above).
++- `SourceControlService`'s append-time re-verification — unchanged.
++- Building the DNS-flip or Windows-authority-grant automation itself; those
++  remain separate and must adopt the `consume()` checkpoint when built.
++- Restricting a *blocked* task's actions (#1457-#1459's axis) — this applies
++  to ordinary, unblocked commits.
++
++## Release Sequence
++
++1. Update `shared/schema.ts`, run `npx drizzle-kit generate`, review the SQL,
++   run `npm run db:branch -- gate`.
++2. Implement the service, CLI, and routes; add focused tests (TTL bounds,
++   target disagreement, expiry, invalidate/consume transitions, unique-active-
++   per-`decisionRef`).
++3. Run `npm run typecheck`, the validation suite, and consolidated CI.
++4. Obtain Alden's unconditional design and implementation review.
++5. Apply the migration for real (`npx drizzle-kit migrate`).
++6. Document the usage convention in the disaster-recovery runbook and agent
++   workflow doc.
++
++## Error handling and postconditions
++
++- A failed `attest()` (disagreement, timeout, malformed evidence, existing
++  active row) writes no row.
++- `verifyStillLive()` / `consume()` never trust the stored row alone — always
++  re-fetch and compare live.
++- No secret, token, or credential is stored in `targets` or the row; only
++  sanitized commit, digest, label, and URL.
++- Every target URL is operator-pinned configuration, never caller-supplied,
++  to prevent SSRF through this endpoint.
+diff --git a/migrations/0056_wooden_maginty.sql b/migrations/0056_wooden_maginty.sql
+new file mode 100644
+index 0000000..3c8b03e
+--- /dev/null
++++ b/migrations/0056_wooden_maginty.sql
+@@ -0,0 +1,61 @@
++CREATE TABLE "release_cutover_attestations" (
++	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
++	"decision_ref" varchar(128) NOT NULL,
++	"captured_by_actor_id" varchar(32) NOT NULL,
++	"targets" jsonb NOT NULL,
++	"commit_sha" varchar(40) NOT NULL,
++	"source_context_sha256" varchar(64) NOT NULL,
++	"reason" text NOT NULL,
++	"captured_at" timestamp DEFAULT now() NOT NULL,
++	"expires_at" timestamp NOT NULL,
++	"state" varchar(16) DEFAULT 'active' NOT NULL,
++	"invalidated_at" timestamp,
++	"invalidated_by_actor_id" varchar(32),
++	"invalidation_reason" text,
++	"consumed_at" timestamp,
++	"consumed_by_actor_id" varchar(32),
++	"consumed_for_action" text,
++	CONSTRAINT "release_cutover_attestation_decision_ref" CHECK (
++    length(trim("release_cutover_attestations"."decision_ref")) > 0 AND length("release_cutover_attestations"."decision_ref") <= 128
++  ),
++	CONSTRAINT "release_cutover_attestation_captured_by_nonblank" CHECK (length(trim("release_cutover_attestations"."captured_by_actor_id")) > 0),
++	CONSTRAINT "release_cutover_attestation_commit" CHECK ("release_cutover_attestations"."commit_sha" ~ '^[0-9a-f]{40}$'),
++	CONSTRAINT "release_cutover_attestation_source_digest" CHECK ("release_cutover_attestations"."source_context_sha256" ~ '^[0-9a-f]{64}$'),
++	CONSTRAINT "release_cutover_attestation_reason_bounded" CHECK (
++    length(trim("release_cutover_attestations"."reason")) > 0 AND length("release_cutover_attestations"."reason") <= 4000
++  ),
++	CONSTRAINT "release_cutover_attestation_state" CHECK ("release_cutover_attestations"."state" IN ('active', 'invalidated', 'consumed')),
++	CONSTRAINT "release_cutover_attestation_targets_shape" CHECK (
++    jsonb_typeof("release_cutover_attestations"."targets") = 'array'
++    AND jsonb_array_length(
++      CASE WHEN jsonb_typeof("release_cutover_attestations"."targets") = 'array' THEN "release_cutover_attestations"."targets" ELSE '[]'::jsonb END
++    ) BETWEEN 1 AND 8
++  ),
++	CONSTRAINT "release_cutover_attestation_expiry_bounds" CHECK (
++    "release_cutover_attestations"."expires_at" > "release_cutover_attestations"."captured_at"
++    AND "release_cutover_attestations"."expires_at" <= "release_cutover_attestations"."captured_at" + interval '24 hours'
++  ),
++	CONSTRAINT "release_cutover_attestation_invalidation_consistency" CHECK (
++    ("release_cutover_attestations"."state" = 'invalidated') = (
++      "release_cutover_attestations"."invalidated_at" IS NOT NULL
++      AND "release_cutover_attestations"."invalidated_by_actor_id" IS NOT NULL
++      AND length(trim("release_cutover_attestations"."invalidation_reason")) > 0
++    )
++  ),
++	CONSTRAINT "release_cutover_attestation_consumption_consistency" CHECK (
++    ("release_cutover_attestations"."state" = 'consumed') = (
++      "release_cutover_attestations"."consumed_at" IS NOT NULL
++      AND "release_cutover_attestations"."consumed_by_actor_id" IS NOT NULL
++      AND length(trim("release_cutover_attestations"."consumed_for_action")) > 0
++    )
++  ),
++	CONSTRAINT "release_cutover_attestation_invalidated_after_captured" CHECK (
++    "release_cutover_attestations"."invalidated_at" IS NULL OR "release_cutover_attestations"."invalidated_at" >= "release_cutover_attestations"."captured_at"
++  ),
++	CONSTRAINT "release_cutover_attestation_consumed_after_captured" CHECK (
++    "release_cutover_attestations"."consumed_at" IS NULL OR "release_cutover_attestations"."consumed_at" >= "release_cutover_attestations"."captured_at"
++  )
++);
++--> statement-breakpoint
++CREATE UNIQUE INDEX "uq_release_cutover_attestation_active_decision" ON "release_cutover_attestations" USING btree ("decision_ref") WHERE "release_cutover_attestations"."state" = 'active';--> statement-breakpoint
++CREATE INDEX "idx_release_cutover_attestation_expiry" ON "release_cutover_attestations" USING btree ("expires_at","state");
+\ No newline at end of file
+diff --git a/migrations/meta/_journal.json b/migrations/meta/_journal.json
+index 380eace..5b6e007 100644
+--- a/migrations/meta/_journal.json
++++ b/migrations/meta/_journal.json
+@@ -386,6 +386,13 @@
+       "when": 1789596594474,
+       "tag": "0055_repair_actfl_operation_receipts",
+       "breakpoints": true
++    },
++    {
++      "idx": 56,
++      "version": "7",
++      "when": 1789681828425,
++      "tag": "0056_wooden_maginty",
++      "breakpoints": true
+     }
+   ]
+ }
+\ No newline at end of file
+diff --git a/run-migration-temp.ts b/run-migration-temp.ts
+deleted file mode 100644
+index 4bcf533..0000000
+--- a/run-migration-temp.ts
++++ /dev/null
+@@ -1,115 +0,0 @@
+-import { db } from './server/db';
+-import { conversations, messages, hiveSnapshots } from './shared/schema';
+-import { eq, and, sql, asc, desc } from 'drizzle-orm';
+-import { callGemini, GEMINI_MODELS } from './server/gemini-utils';
+-import { studentLearningService, PERSONAL_FACT_TYPES } from './server/services/student-learning-service';
+-
+-const BATCH_SIZE = 10;
+-const USER_ID = '49847136';
+-
+-async function runBatch() {
+-  console.log(`Running migration for user: ${USER_ID}`);
+-  
+-  // Get longer conversations first (more likely to have personal content)
+-  const convs = await db
+-    .select({
+-      id: conversations.id,
+-      createdAt: conversations.createdAt,
+-      language: conversations.language,
+-      messageCount: conversations.messageCount,
+-    })
+-    .from(conversations)
+-    .where(
+-      and(
+-        eq(conversations.userId, USER_ID),
+-        eq(conversations.conversationType, 'learning'),
+-        sql`message_count > 5`,
+-        sql`NOT EXISTS (
+-          SELECT 1 FROM hive_snapshots 
+-          WHERE conversation_id = ${conversations.id}
+-          AND metadata->>'migr **…**
+_This response is too long to display in full._
+
