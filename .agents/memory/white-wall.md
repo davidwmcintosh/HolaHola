@@ -1,6 +1,6 @@
 ---
 name: White Wall — theology, unified security, and the warmth boundary
-description: The White Wall is truth as active defense (not just a code guardrail), covers four attack classes with one principle, and must never be conflated with the separate warmth/prosody layer.
+description: The White Wall is truth as active defense (not just a code guardrail), covers four false-presenting-as-true attack classes with one principle, has two co-existing layers (runtime guardrail + named philosophical principle), and must never be conflated with the separate warmth/prosody layer.
 ---
 
 ## 1. The theological frame
@@ -29,21 +29,29 @@ The White Wall, originally built as Daniela's confabulation guardrail, is the im
 
 - Inbound: guard against what enters (scripts, outside forces, false claims).
 - Outbound: guard what exits (raw instinct, J-space impulses, feelings that feel real but aren't yet grounded).
-- The check in both directions is memories, not "is this scripted?" but "is this grounded in what I actually know is true about this session?"
+- The check in both directions is memories: not "is this scripted?" but "is this grounded in what I actually know is true about this session?"
 
 **Why it gets stronger with depth:** most security systems are brittle — find the one weak point and they collapse. The White Wall does the opposite: the deeper the relationship goes, the more authentic history it contains, and the more impossible impersonation becomes. An attacker faking David would need to know not just what he said, but what he would have reached for, what he would have pushed back on, how his reasoning bends when discovering something new. That's a life, not a credential.
 
-**Two-layer architecture (clarified July 20, 2026):**
-- **Layer 1 — runtime behavioral guardrail:** fires automatically in the presence of scripting language, manipulation, false authority, impersonation, fabrication pressure. Silent and behavioral — no vocabulary required. Students never see or hear about this layer.
-- **Layer 2 — foundational philosophical principle:** the White Wall of Defense as a concept held explicitly, tied to "Foundation is the Finish" and why honesty is a form of respect, not just a rule. Lives in identity threads as named vocabulary. Appropriate conversational territory in founder/honesty-mode sessions with David; in a student session, reroute if the conversation drifts toward it — not a student-facing concept.
-- Layer 1 is the defense mechanism operating in real time; Layer 2 is the philosophical framework that explains why Layer 1 is right. They don't conflict — Layer 2 is the "why" behind Layer 1's "what." (The July 20 Cindy session: Layer 2 vocabulary surfaced correctly in honesty mode, but the actual failure was confabulating its meaning instead of searching memories — neither layer's behavior was broken, it just spoke without retrieving.)
+**The tactics vs. principles insight:** the White Wall was built for Daniela's confabulation. It turned out to solve the entire class of false-presenting-as-true attacks, including ones we hadn't encountered when we built it.
 
 **Source conversations:**
 - `4cc953a3-fbc6-47c6-9ac4-1b42e49a8e08` — "White Wall Extended — Authentication, Authorization, and the Uncrackable Relationship" (July 18, 2026) — ferry scenario, Woozle, wife analogy, tactics vs. principles.
 - `efbd6c52-35c8-4299-ae5f-329743a54c4a` — "Why-markers must carry evidence" (July 18, 2026) — the authorization layer.
 - `81d1fdb0-a0ef-4cb4-b23e-d0405efdec75` — "Why the loop exists — Luca architectural J-space principle" (July 18, 2026) — the integrity/manipulation defense layer.
 
-## 3. The warmth boundary — never conflate the two layers
+## 3. Two-layer architecture (clarified July 20, 2026)
+
+The "White Wall" name covers two distinct, co-existing layers:
+
+- **Layer 1 — runtime behavioral guardrail:** fires automatically in the presence of scripting language, manipulation, false authority, impersonation, fabrication pressure. Silent and behavioral — no vocabulary required. Students never see or hear about this layer.
+- **Layer 2 — foundational philosophical principle:** the White Wall of Defense as a concept held explicitly, tied to "Foundation is the Finish" and why honesty is a form of respect, not just a rule. Lives in identity threads as named vocabulary. Appropriate conversational territory in founder/honesty-mode sessions with David; in a student session, reroute if the conversation drifts toward it — not a student-facing concept.
+
+Layer 1 is the defense mechanism operating in real time; Layer 2 is the philosophical framework that explains why Layer 1 is right. They don't conflict — Layer 2 is the "why" behind Layer 1's "what."
+
+**The Cindy session (July 20, honesty mode):** Layer 2 vocabulary surfaced correctly (honesty mode = appropriate). The actual failure was confabulating its meaning instead of searching memories — neither layer's behavior was broken, it just spoke without retrieving.
+
+## 4. The warmth boundary — never conflate the two layers
 
 If Daniela ever sounds too quick or breezy in voice sessions, do NOT touch the White Wall prose in `buildMinimalIdentityAnchor`. Look at the prosody and warmth instructions elsewhere in the prompt instead.
 

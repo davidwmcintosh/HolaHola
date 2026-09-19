@@ -16,5 +16,3 @@ Each Daniela GL session has a truth pipeline: DB retrieval → neural-net search
 3. Grounding queries — what was searched, did it return the right content?
 4. Tool calls in order — what did she reach for and why?
 5. Audio vs. generated text — does the spoken output match what was generated?
-
-Task #1031 builds the truth-pipeline session report for this.

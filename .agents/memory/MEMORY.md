@@ -14,8 +14,7 @@
 - [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026.
 - [Episode sync — HTTP driver required](episode-sync-http.md) — all episode syncs must use neon() HTTP driver; getSharedDb() WebSocket and neon() HTTP read different state; CI uses HTTP; always sync via HTTP or CI will report stale content.
 - [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
-- [GEMINI_REQUIRED.md — approval bar](gemini-required-file.md) — "approved with no further comments" is the bar; docs/GEMINI_REQUIRED.md is the protected-file list; null guard bug was the trigger. July 31 2026.
-- [Gemini approval gates](gemini-approval-gates.md) — any change to prompt context injection (system-prompt.ts, pre-session-synthesis, classroom block) or the neural network requires Gemini approval before shipping. July 22 2026.
+- [Gemini approval — gates and protected-file mechanics](gemini-approval.md) — when Gemini approval is mandatory (context injection, neural net) plus how GEMINI_REQUIRED.md's protected-file list and approval bar work.
 - [Friction signal inverted threshold](friction-signal-inverted-threshold.md) — CLEAN/LOW friction on a memory-request turn = slide ran unimpeded (model gave up); SMOOTH SLIDE path fires Guardian; HIGH friction = model is grappling (healthy). July 23 2026.
 - [Ask-why lens — generation grounding principle](ask-why-lens.md) — text that sounds true ≠ text checked against what's known; every generation point is a drift risk; SOURCE FIDELITY is the codified form of asking why before generating.
 - [Daniela — Archive vs Muse](daniela-archive-vs-muse.md) — confabulation = Muse wearing Archive's face; fix is grounding not hedging; David's diagnosis: presence over performance.
@@ -107,21 +106,6 @@
 - [Publish composite-FK ordering](publish-composite-fk-ordering.md) — declare referenced column pairs as table-level unique constraints; standalone unique indexes may be reordered after FKs.
 - [Gate 3 host isolation](gate3-host-isolation.md) — task-agent worktree isolation is insufficient when project secrets are inherited; execution authority requires a secret-minimal host.
 - [Coordinator product opportunity](coordinator-product-opportunity.md) — the provider-neutral coordinator may be a standalone multi-LLM coding control plane.
-- [Cross-host artifact digests](cross-host-artifact-digests.md) — bind authority to identically materialized target bytes; line endings and placeholder substitution both affect hashes.
-- [Immutable challenge attempt IDs](immutable-challenge-attempt-ids.md) — stable payload identity needs an explicit attempt generation so expired immutable challenges do not block renewal.
-- [Canonical projection race](canonical-projection-race.md) — after an idempotent ledger call, validate the persisted record before projecting; another writer may win after a precheck.
-- [Historical provenance vs current authority](historical-provenance-current-authority.md) — require both proofs, but do not force a historical transition receipt to equal fresh action authority.
-- [Bounded assignment baseline deltas](bounded-assignment-baseline-deltas.md) — state the exact missing delta; a green baseline can otherwise consume a one-time generation and end in a correct zero-patch refusal.
-- [Fixed-target provider echoes](fixed-target-provider-echo.md) — empty tool schemas do not prevent echoed prompt paths; tolerate only exact fixed values and preserve raw malformed shapes.
-- [Cross-host exact text replacement](cross-host-exact-text-replacement.md) — compare valid text in canonical LF space, preserve source EOL style, and keep raw provider arguments as evidence.
-- [PostgreSQL lease clocks](postgresql-lease-clocks.md) — lease decisions need an advancing database clock; transaction-start timestamps can make valid expiry tests and takeovers inconsistent.
-- [Database CLI termination](database-cli-termination.md) — one-shot database CLIs must flush output and terminate explicitly when shared pools keep the event loop alive.
-- [PostgreSQL control checks and immutable expiry tests](postgres-control-and-expiry-tests.md) — use POSIX control classes; expire immutable authority through a short-lived parent bound.
-- [PostgreSQL wrapped structured errors](postgres-wrapped-structured-errors.md) — inspect a bounded cause chain; accept conflicts only for exact SQLSTATE and constraint allowlists.
-- [Composite-FK negative fixtures](composite-fk-negative-fixtures.md) — isolate all earlier unique dimensions or a negative test may prove the wrong constraint.
-- [Production Git source authority](production-git-source-authority.md) — published images omit .git; prove source through one authenticated exact-commit remote snapshot.
-- [Two-phase external verification](two-phase-external-verification.md) — never hold an append transaction across remote provenance or object hashing; revalidate exact authority before atomic append.
-- [Publication-marker status race](publication-marker-status-race.md) — scheduler sync may hide valid readiness after Publish; preserve the validated parent and exact marker evidence.
 - [Image intent and people policy](image-intent-people-policy.md) — settings default to empty environments; people require explicit evidence, and live tutor identity comes from the active session.
 - [Socket room supersession](socket-room-supersession.md) — Socket.IO membership belongs to socket+room, not join attempt; stale same-room completion must never leave the winning room.
 - [Task-ownership guard scope gap](task-ownership-guard-scope.md) — unknown_stop gates file edits only by default; verify a guard's proof source truly exists and is fully checked in production, not just in dev/tests.
@@ -146,3 +130,5 @@
 - [Antigravity MCP integration surface](antigravity-mcp-integration.md) — bearer-token-only remote MCP (no OAuth); needs a real protocol adapter, not a raw REST pointer; verify antigravity/coordinator-v2 status via code not doc-count.
 - [Wiring new DB-backed tests into CI](ci-wiring-db-test-scripts.md) — use run-ci-test-steps.mjs's splice list, not test-all-consolidated-ci.sh; neon-branch.ts is a separate migration-gate allowlist.
 - [Local disposable Postgres in the Replit sandbox](local-disposable-postgres-sandbox.md) — pg_ctl start inside a foreground ShellExec dies when that call returns; use run_in_background instead.
+- [Coordination V2 cross-host verification lessons](coordination-v2-cross-host-verification.md) — 10 gotchas: canonical bytes, idempotency keys, projection races, baseline deltas, provider echoes, EOL text edits, publication markers, provenance vs authority, transaction boundaries, Git source proof.
+- [PostgreSQL hermetic testing gotchas](postgres-hermetic-testing-gotchas.md) — POSIX regex vs JS escapes, immutable expiry, wrapped driver errors, lease clocks, CLI termination, composite-FK negative fixtures.

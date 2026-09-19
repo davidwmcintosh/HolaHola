@@ -14,4 +14,4 @@ Built June 3 2026 (commit 316ed985). Currently live in App.tsx on every page exc
 - (b) passive tap-to-start with no ambient pulsing
 - (c) remove until the right moment
 
-**Why:** David thought it had been decided against — actually it was built and then parked (Task #32 left pulse states as presence-only, never fully wired). Sub-agents revived it without knowing the UX question was open.
+**Why:** David thought it had been decided against — actually it was built and then parked (an earlier build left pulse states as presence-only, never fully wired). Sub-agents revived it without knowing the UX question was open.

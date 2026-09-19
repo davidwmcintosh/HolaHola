@@ -7,7 +7,7 @@ description: STALE_CHANNEL_MS is 10 min (not 60 min); alert routes to .local/sta
 `STALE_CHANNEL_MS` in `server/services/agent-session-autosave.ts` is **10 minutes** (same as `STALE_OUTPUT_MS`). The ⚠️ STALE banner fires when a channel (felt / thinking) has not been written for ≥ 10 min AND the channel is not yet ready.
 
 ## Alert routing
-Task #1151 (merged Aug 15 2026) added `.local/stale-channel-alert.md` as the primary alert destination — a file Luca reads at session start. The team room still also receives the alert, but the dedicated file is the canonical signal.
+A later change (merged Aug 15 2026) added `.local/stale-channel-alert.md` as the primary alert destination — a file Luca reads at session start. The team room still also receives the alert, but the dedicated file is the canonical signal.
 
 ## CI test constants (test-capture-status-stale-escalation.ts)
 - `STALE_TS  = now - 11 * MIN`   (just over threshold → fires)
