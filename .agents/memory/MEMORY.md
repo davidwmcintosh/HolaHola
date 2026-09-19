@@ -154,3 +154,6 @@
 - [Reconciliation auth and landing procedure](reconciliation-git-auth-and-landing.md) — GitHub App token (not SSH) auths reconcile's git calls; named remote required; ff-merge candidate then normal `sync` to land on real main.
 - [Reconciliation hermetic env import coupling](reconciliation-hermetic-env-import-coupling.md) — any eager value-import of a DB-touching module breaks the self-check under its deliberately stripped validation env; use type-only + lazy import.
 - [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
+- [Coordinator V2 vs legacy Gate3 task-ownership](coordinator-v2-vs-gate3-ownership.md) — Command Center Ownership tab is a separate legacy system; V2 launch needs policy+grant, not task-ownership receipts.
+- [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment done, source-promotion recording is a real manual API call, but windowsPublicMaterialDigest requires an impossible SHA-256 fixed point as coded.
+- [Compacted-summary reverification](compacted-summary-reverification.md) — milestone labels/status claims carried in a post-compaction summary are unverified leads, not facts; re-check before repeating them.
