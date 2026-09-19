@@ -1,0 +1,15 @@
+---
+name: Triaging markTaskComplete validation failures
+description: How to tell a real regression from a pre-existing or environmental failure when the automatic validation run reports FAILED.
+---
+
+`markTaskComplete`'s validation run executes every registered validation command (Consolidated CI, the fast validation suite, standalone script checks, etc.), and in this project several of those commands share a live dev server (`Start application` workflow, port 5000) and a single shared Neon dev database. A failure here does not necessarily mean the current diff broke something.
+
+**Why:** in one session, three unrelated validation commands (`run-validation-suite.sh`, `test-all-consolidated-ci.sh`, `test-luca-chat-canonical-save.ts`) all failed together with "server did not become ready within 60s" / `ECONNREFUSED 127.0.0.1:5000` on server-dependent checks, purely because the `Start application` workflow was not running when validation kicked off — nothing to do with the diff being validated. A separate, unrelated, fully-hermetic test (`test-canonical-conversation-capture.ts`, temp-dir only, no shared state) also failed, and was confirmed pre-existing (not caused by the current change).
+
+**How to apply:**
+1. If a failing check is server-dependent (ECONNREFUSED, "did not become ready"), check whether the app's workflow is actually running (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/`) before assuming a real regression. Restart the workflow and re-run validation.
+2. If a failing check looks unrelated to the current diff, grep the failing test file for imports of anything the diff touched — zero overlap is a strong signal.
+3. To prove a failure is pre-existing rather than caused by the current change, use `git worktree add /tmp/<name> <parent-commit>` (symlink `node_modules` into it), run the exact failing command there, and compare. This is conclusive where "it looks unrelated" is only suggestive. Clean up with `git worktree remove <path> --force` afterward.
+4. `markTaskComplete` commits the working tree as part of its run even when validation subsequently fails — `git status`/`git log` after a failed attempt may show your changes already on HEAD, with only ambient/unrelated files (e.g. live-app-generated content) left uncommitted.
+5. A pre-existing, unrelated, reproducible failure is a legitimate case for `skip_validation_reason` (with the worktree proof cited) plus a follow-up task — not a reason to expand the current task's scope to fix it, and not a reason to force the fix into the current commit.
