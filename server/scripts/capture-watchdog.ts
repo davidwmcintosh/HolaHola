@@ -183,13 +183,21 @@ export function appendToEpisode(
   episode: { id: string; filename: string },
   eventId?: string,
 ): Promise<void> {
+  // Claude Code (speaker) is its own bare assistant identity, distinct from
+  // Luca authoring through the Claude Code interface (source) -- see
+  // formatChatCaptureSpeakerLabel in transcript-parser.ts for the full model.
+  // This drain path duplicates that formatter's decision (kept separate so a
+  // watchdog-only regression can never touch the primary autosave path), so
+  // any change here must be mirrored there and vice versa.
   const lines = turns
     .map(t => {
       const label = t.speaker === 'DAVID'
         ? '**David:**'
-        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
-          ? '**LUCA [Claude Code]:**'
-          : '**LUCA [Replit]:**';
+        : t.speaker === 'CLAUDE_CODE'
+          ? '**Claude Code:**'
+          : t.source === 'claude-code'
+            ? '**LUCA [Claude Code]:**'
+            : '**LUCA [Replit]:**';
       return `${label} ${t.text}`;
     })
     .join('\n\n');
@@ -246,23 +254,49 @@ async function writeToDb(
     ...sourceTags,
     ...(captureIdentityTag ? [captureIdentityTag] : []),
   ];
-  const participants = sources.includes('claude-code') ? ['david', 'luca-claude-code'] : ['david', 'luca'];
-  const title = sources.includes('claude-code')
-    ? `David ↔ Luca [Claude Code] — ${today}: per-turn capture`
-    : `David ↔ Luca — ${today}: per-turn capture`;
+  // Row-level participants/title are derived from the SAME per-turn identity
+  // as the rendered body (content, below) -- via one shared `turnKinds` array
+  // -- so the two can never disagree. `speaker` is checked first (WHO
+  // authored the turn: David, Luca, or the bare Claude Code assistant
+  // itself); `source` only ever picks the interface suffix for a David/Luca
+  // turn and never promotes a Luca turn into Claude Code or vice versa.
+  // Mirrors formatChatCaptureSpeakerLabel's model in transcript-parser.ts
+  // (duplicated here, not imported, so a watchdog-only regression can never
+  // touch the primary autosave path -- see appendToEpisode above); keep both
+  // in sync if either changes. Deriving participants/title from `sources`
+  // (which `source` values appear ANYWHERE in the batch) instead of from
+  // `speaker` was the actual bug: a genuine Claude Code turn (source
+  // claude-code) made the whole row claim "Luca [Claude Code]" in
+  // participants/title while its own body correctly said "Claude Code".
+  type AssistantKind = 'claude-code' | 'luca-claude-code' | 'luca';
+  function turnAssistantKind(t: Pick<DialogueTurn, 'speaker' | 'source'>): AssistantKind | 'david' {
+    if (t.speaker === 'DAVID') return 'david';
+    if (t.speaker === 'CLAUDE_CODE') return 'claude-code';
+    return t.source === 'claude-code' ? 'luca-claude-code' : 'luca';
+  }
+  const CONTENT_LABEL: Record<AssistantKind | 'david', string> = {
+    david: 'David',
+    'claude-code': 'Claude Code',
+    'luca-claude-code': 'LUCA [Claude Code]',
+    luca: 'LUCA [Replit]',
+  };
+  const ASSISTANT_TITLE_LABEL: Record<AssistantKind, string> = {
+    'claude-code': 'Claude Code',
+    'luca-claude-code': 'Luca [Claude Code]',
+    luca: 'Luca',
+  };
+  const turnKinds = turns.map(turnAssistantKind);
+  const assistantKinds = [...new Set(turnKinds.filter((k): k is AssistantKind => k !== 'david'))];
+  const participants = ['david', ...assistantKinds];
+  const title = assistantKinds.length > 0
+    ? `David ↔ ${assistantKinds.map(k => ASSISTANT_TITLE_LABEL[k]).join(' + ')} — ${today}: per-turn capture`
+    : `David — ${today}: per-turn capture`;
   const summary =
     `Watchdog canonical drain: ${davidCount} David + ${lucaCount} assistant turns. ` +
     `Sources: ${sources.join(', ') || 'legacy'}. Bytes ${cursorFrom}–${cursorTo}.` +
     (captureIdentityTag ? ` Capture identity: ${captureIdentityTag}.` : '');
-  const content    = turns
-    .map(t => {
-      const speakerLabel = t.speaker === 'DAVID'
-        ? 'David'
-        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
-          ? 'LUCA [Claude Code]'
-          : 'LUCA [Replit]';
-      return `**${speakerLabel}:** ${t.text}`;
-    })
+  const content = turns
+    .map((t, i) => `**${CONTENT_LABEL[turnKinds[i]]}:** ${t.text}`)
     .join('\n\n');
 
   const existing = captureIdentityTag

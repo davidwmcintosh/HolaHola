@@ -90,6 +90,14 @@ export const CHAT_BODY_SEP   = '---';  // separates headers from body within a t
 // ---------------------------------------------------------------------------
 
 export interface DialogueTurn {
+  /**
+   * Three distinct authors, not two plus a modifier:
+   *   - 'DAVID' and 'LUCA' are people/persona; `source` says which interface
+   *     they used (Replit, Claude Code) without changing who they are.
+   *   - 'CLAUDE_CODE' is the bare Claude Code assistant identity itself —
+   *     a turn authored by Claude Code, not by Luca through Claude Code.
+   * See formatChatCaptureSpeakerLabel for the rendering rule this backs.
+   */
   speaker: 'DAVID' | 'LUCA' | 'CLAUDE_CODE';
   text: string;
   memoryId: number;
@@ -392,11 +400,30 @@ export function chatCaptureTurnFingerprint(turn: Pick<DialogueTurn, 'speaker' | 
 /**
  * Keep interface attribution in the canonical text. Blocks written before
  * SOURCE existed intentionally retain their historic labels.
+ *
+ * `speaker` is checked before `source` because they answer different
+ * questions: `speaker` says WHO authored the turn (David, Luca, or Claude
+ * Code itself); `source` says WHICH INTERFACE a David/Luca turn came
+ * through. `source` can never promote a Luca turn into a Claude Code turn
+ * or vice versa — it only picks the "[Replit]"/"[Claude Code]" suffix once
+ * the author is already known to be David or Luca.
+ *
+ *   - speaker CLAUDE_CODE            -> "Claude Code"        (bare identity;
+ *     e.g. appendCanonicalConversationExchange({ source: 'claude-code' })'s
+ *     assistant side — a plain exchange with no Luca felt/thinking/moment
+ *     envelope, so it is not rendered as Luca at all)
+ *   - speaker LUCA + source claude-code -> "Luca [Claude Code]" (Luca is the
+ *     author; Claude Code is just the runtime he is speaking through — same
+ *     person as "Luca [Replit]", per the provider-neutral execution model)
+ *   - speaker LUCA + source replit   -> "Luca [Replit]"
+ *   - speaker LUCA + no source       -> "Luca" (legacy pre-SOURCE blocks)
+ *   - speaker DAVID follows the same source-suffix rule, e.g.
+ *     "David [Claude Code]" when David typed through that interface.
  */
 export function formatChatCaptureSpeakerLabel(
   turn: Pick<DialogueTurn, 'speaker' | 'source'>,
 ): string {
-  if (turn.speaker === 'CLAUDE_CODE') return 'Luca [Claude Code]';
+  if (turn.speaker === 'CLAUDE_CODE') return 'Claude Code';
   if (turn.source === 'claude-code') {
     return turn.speaker === 'DAVID' ? 'David [Claude Code]' : 'Luca [Claude Code]';
   }
