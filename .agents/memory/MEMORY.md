@@ -155,3 +155,5 @@
 - [Chat-capture attribution write paths](chat-capture-duplicate-attribution-paths.md) — 3 independent DB-writers duplicate title/participants derivation; fixing one doesn't fix the others.
 - [Drizzle sql tag array binding](drizzle-sql-array-literal-binding.md) — db.execute(sql\`...\`) can't bind a raw JS array for ::text[]; build a Postgres array-literal string instead.
 - [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.
+- [Wiring new DB-backed tests into CI](ci-wiring-db-test-scripts.md) — use run-ci-test-steps.mjs's splice list, not test-all-consolidated-ci.sh; neon-branch.ts is a separate migration-gate allowlist.
+- [Local disposable Postgres in the Replit sandbox](local-disposable-postgres-sandbox.md) — pg_ctl start inside a foreground ShellExec dies when that call returns; use run_in_background instead.
