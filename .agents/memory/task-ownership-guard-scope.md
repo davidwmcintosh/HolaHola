@@ -25,3 +25,19 @@ state directly (query the relevant provider) before assuming a blocked task
 hasn't already taken its highest-stakes action. A follow-up task tracks
 closing this gap by routing external infra calls through the same ownership
 check file edits already get.
+
+**Confirmed gap — GitHubSpecPublisher:** `GitHubSpecPublisher.publish()`
+(`server/services/github-spec-publisher.ts`) executes real GitHub REST calls
+(branch create, file PUT, PR open) using a token baked into the instance at
+construction, with no actor/task identity check anywhere in the call path. A
+blocked task whose process still holds a constructed publisher (or the
+underlying token) can still push a branch and open a real PR. Not a
+single-parameter fix — possession of the object is authority to act today;
+there's no actor/task identity threaded through `SpecPublicationProvider` or
+its callers to check against `TaskOwnershipService.probe()`. Needs an
+actor/capability-model decision (publish-time ownership check, or credential
+scoping/revocation), not a quick patch.
+
+**Ruled out (not gaps):** the source-control scheduler's wake-file poller and
+Alden's code-review sync are not reachable with a task-held credential, so
+they don't need the same gating.
