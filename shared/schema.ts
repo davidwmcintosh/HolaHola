@@ -8571,6 +8571,88 @@ export const coordinationV2SourcePromotions = pgTable("coordination_v2_source_pr
   check("coordination_v2_source_promotion_receipt_digest", sql`${table.operationReceiptDigest} ~ '^[0-9a-f]{64}$'`),
 ]);
 
+// ===== Release Cutover Attestation =====
+// An explicit, immutable-until-consumed record of what every independently
+// checked release endpoint agreed the live commit was, at the moment someone
+// captured it, for one specific human cutover decision. Exists because
+// Render's autoDeploy republishes on every push to `main`: `/health/release`
+// always answers "what is live right now", a value that keeps moving on its
+// own schedule, so it cannot hold still for a decision that takes minutes to
+// hours. See docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md.
+export const RELEASE_CUTOVER_ATTESTATION_STATES = ["active", "invalidated", "consumed"] as const;
+export type ReleaseCutoverAttestationState = typeof RELEASE_CUTOVER_ATTESTATION_STATES[number];
+
+export interface ReleaseCutoverAttestationTarget {
+  label: string;
+  url: string;
+  commitSha: string;
+  sourceContextSha256: string;
+}
+
+export const releaseCutoverAttestations = pgTable("release_cutover_attestations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionRef: varchar("decision_ref", { length: 128 }).notNull(),
+  capturedByActorId: varchar("captured_by_actor_id", { length: 32 }).notNull(),
+  targets: jsonb("targets").$type<ReleaseCutoverAttestationTarget[]>().notNull(),
+  commitSha: varchar("commit_sha", { length: 40 }).notNull(),
+  sourceContextSha256: varchar("source_context_sha256", { length: 64 }).notNull(),
+  reason: text("reason").notNull(),
+  capturedAt: timestamp("captured_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  state: varchar("state", { length: 16 }).notNull().default("active"),
+  invalidatedAt: timestamp("invalidated_at"),
+  invalidatedByActorId: varchar("invalidated_by_actor_id", { length: 32 }),
+  invalidationReason: text("invalidation_reason"),
+  consumedAt: timestamp("consumed_at"),
+  consumedByActorId: varchar("consumed_by_actor_id", { length: 32 }),
+  consumedForAction: text("consumed_for_action"),
+}, (table) => [
+  uniqueIndex("uq_release_cutover_attestation_active_decision")
+    .on(table.decisionRef)
+    .where(sql`${table.state} = 'active'`),
+  index("idx_release_cutover_attestation_expiry").on(table.expiresAt, table.state),
+  check("release_cutover_attestation_decision_ref", sql`
+    length(trim(${table.decisionRef})) > 0 AND length(${table.decisionRef}) <= 128
+  `),
+  check("release_cutover_attestation_captured_by_nonblank", sql`length(trim(${table.capturedByActorId})) > 0`),
+  check("release_cutover_attestation_commit", sql`${table.commitSha} ~ '^[0-9a-f]{40}$'`),
+  check("release_cutover_attestation_source_digest", sql`${table.sourceContextSha256} ~ '^[0-9a-f]{64}$'`),
+  check("release_cutover_attestation_reason_bounded", sql`
+    length(trim(${table.reason})) > 0 AND length(${table.reason}) <= 4000
+  `),
+  check("release_cutover_attestation_state", sql`${table.state} IN ('active', 'invalidated', 'consumed')`),
+  check("release_cutover_attestation_targets_shape", sql`
+    jsonb_typeof(${table.targets}) = 'array'
+    AND jsonb_array_length(
+      CASE WHEN jsonb_typeof(${table.targets}) = 'array' THEN ${table.targets} ELSE '[]'::jsonb END
+    ) BETWEEN 1 AND 8
+  `),
+  check("release_cutover_attestation_expiry_bounds", sql`
+    ${table.expiresAt} > ${table.capturedAt}
+    AND ${table.expiresAt} <= ${table.capturedAt} + interval '24 hours'
+  `),
+  check("release_cutover_attestation_invalidation_consistency", sql`
+    (${table.state} = 'invalidated') = (
+      ${table.invalidatedAt} IS NOT NULL
+      AND ${table.invalidatedByActorId} IS NOT NULL
+      AND length(trim(${table.invalidationReason})) > 0
+    )
+  `),
+  check("release_cutover_attestation_consumption_consistency", sql`
+    (${table.state} = 'consumed') = (
+      ${table.consumedAt} IS NOT NULL
+      AND ${table.consumedByActorId} IS NOT NULL
+      AND length(trim(${table.consumedForAction})) > 0
+    )
+  `),
+  check("release_cutover_attestation_invalidated_after_captured", sql`
+    ${table.invalidatedAt} IS NULL OR ${table.invalidatedAt} >= ${table.capturedAt}
+  `),
+  check("release_cutover_attestation_consumed_after_captured", sql`
+    ${table.consumedAt} IS NULL OR ${table.consumedAt} >= ${table.capturedAt}
+  `),
+]);
+
 /**
  * Task launch artifacts, keyed by task ref. `.local/tasks/task-<ref>.md` is
  * gitignored and is never present in a deployed build (every deploy target

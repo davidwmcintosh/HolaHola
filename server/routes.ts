@@ -24,6 +24,7 @@ import { getReleaseIdentity } from "./services/release-identity";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
 import { registerFounderTaskOwnershipRoutes } from "./routes/founder-task-ownership-routes";
+import { registerReleaseCutoverAttestationRoutes } from "./routes/release-cutover-attestation-routes";
 import { registerHolaHolaSharedSpecApi } from "./adapters/hola-hola-shared-spec-bootstrap";
 import {
   registerObservationBenchCoordinationRoutes,
@@ -668,6 +669,7 @@ export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationV2HostAdminRoutes(app);
   registerCoordinationV2RuntimeBootstrapRoutes(app);
   registerFounderTaskOwnershipRoutes(app);
+  registerReleaseCutoverAttestationRoutes(app);
   registerObservationBenchFounderRoutes(app, [
     loadAuthenticatedUser(storage),
     requireFounder,
