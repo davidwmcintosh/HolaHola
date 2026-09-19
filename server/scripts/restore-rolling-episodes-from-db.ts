@@ -13,8 +13,12 @@
  *     → always restores all rolling episodes (unconditional)
  *
  *   npx tsx server/scripts/restore-rolling-episodes-from-db.ts --check-shrinkage
- *     → only restores when .md is shorter than DB by > SHRINKAGE_THRESHOLD
- *       characters (normalized). Exits 0 in both cases. Used at startup.
+ *     → restores when .md and DB differ by more than SIZE_DELTA_THRESHOLD
+ *       normalized characters in EITHER direction: .md shorter than DB (a
+ *       stale task-agent overwrite) or .md longer than DB (content written
+ *       straight to the file, bypassing the DB-first path — the DB is always
+ *       canonical and the .md must never hold content the DB lacks). Exits 0
+ *       in both cases. Used at startup.
  *
  *   npx tsx server/scripts/restore-rolling-episodes-from-db.ts --force-push
  *     → unconditionally push ALL rolling .md files → DB, bypassing the
@@ -49,11 +53,18 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const W = (s: string) => `\x1b[33;1m${s}\x1b[0m`;
 
 /**
- * Minimum number of normalized characters by which the .md must be shorter
- * than the DB before we treat it as a stale overwrite. Tiny diffs (e.g. a
- * trailing newline) are ignored; real overwrites lose thousands of bytes.
+ * Minimum number of normalized characters by which the .md and the DB may
+ * differ before we treat it as a real integrity violation. Tiny diffs (e.g.
+ * a trailing newline) are ignored.
+ *
+ * The DB is always canonical, so drift in EITHER direction is a bug:
+ *   - .md shorter than DB (positive delta) → a stale task-agent overwrite
+ *     wiped content that should still be there.
+ *   - .md longer than DB (negative delta)  → something wrote content
+ *     directly into the .md, bypassing the DB-first append path. The .md is
+ *     a derived projection and must never contain content the DB lacks.
  */
-const SHRINKAGE_THRESHOLD = 200;
+const SIZE_DELTA_THRESHOLD = 200;
 
 const ARC_NAME = 'HolaHola Episodes';
 
@@ -231,21 +242,34 @@ async function checkAndRestore(
       if (checkShrinkageOnly) {
         const shrinkage = dbNorm.length - mdNorm.length;
 
-        if (shrinkage <= SHRINKAGE_THRESHOLD) {
+        if (Math.abs(shrinkage) <= SIZE_DELTA_THRESHOLD) {
           console.log(
-            G(`  ✓  No shrinkage detected (db=${dbNorm.length}, md=${mdNorm.length}, delta=${shrinkage}).`),
+            G(`  ✓  In sync (db=${dbNorm.length}, md=${mdNorm.length}, delta=${shrinkage}).`),
           );
-          console.log(G(`     ${mdPath} is at least as large as DB — no restore needed.`));
+          console.log(G(`     ${mdPath} matches DB within tolerance — no restore needed.`));
           return true; // no restore needed
         }
 
-        // Shrinkage exceeded threshold → overwrite detected
-        console.log('');
-        console.log(W('  ⚠  SHRINKAGE DETECTED — task-agent overwrite suspected'));
-        console.log(W(`     DB has ${dbNorm.length} chars; .md has ${mdNorm.length} chars`));
-        console.log(W(`     Delta: -${shrinkage} chars (threshold: ${SHRINKAGE_THRESHOLD})`));
-        console.log(W(`     Restoring ${mdPath} from DB canonical version...`));
-        console.log('');
+        if (shrinkage > 0) {
+          // .md shorter than DB by more than tolerance → overwrite detected
+          console.log('');
+          console.log(W('  ⚠  SHRINKAGE DETECTED — task-agent overwrite suspected'));
+          console.log(W(`     DB has ${dbNorm.length} chars; .md has ${mdNorm.length} chars`));
+          console.log(W(`     Delta: -${shrinkage} chars (threshold: ${SIZE_DELTA_THRESHOLD})`));
+          console.log(W(`     Restoring ${mdPath} from DB canonical version...`));
+          console.log('');
+        } else {
+          // .md LONGER than DB by more than tolerance → the .md holds content
+          // the DB doesn't have. The DB is always canonical — this must never
+          // happen. Restore from DB to remove whatever bypassed the DB-first
+          // write path.
+          console.log('');
+          console.log(W('  ⚠  GROWTH DETECTED — .md contains content the DB does not have'));
+          console.log(W(`     DB has ${dbNorm.length} chars; .md has ${mdNorm.length} chars`));
+          console.log(W(`     Delta: +${-shrinkage} chars (threshold: ${SIZE_DELTA_THRESHOLD})`));
+          console.log(W(`     The DB is canonical — restoring ${mdPath} from DB to remove the excess...`));
+          console.log('');
+        }
       }
     } catch (err: any) {
       console.error(R(`  ✗  Could not read .md file: ${err?.message ?? err} — will restore unconditionally`));

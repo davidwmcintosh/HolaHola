@@ -1555,6 +1555,19 @@ export class SourceControlService {
     extra: Partial<SourceControlStatus> = {},
   ): Promise<void> {
     const previous = await this.getStatus();
+    // Dirty tracked/untracked files are the quietest failure mode in this
+    // service: the scheduler deliberately excludes 'dirty' from its own
+    // console.warn (see source-control-scheduler.ts) because a dirty tree is
+    // common and often self-resolves within a poll or two. That silence can
+    // let a genuinely stuck dirty tree block sync for hours with no one
+    // told. Post once per dirty *episode* — on the transition into 'dirty',
+    // not on every repeated poll while it remains dirty — so a human
+    // actually sees it without being spammed.
+    if (state === 'dirty' && previous?.state !== 'dirty') {
+      void this.notifyDirtyTreeBlock(error, actor).catch((err: any) => {
+        console.warn('[SourceControl] Dirty-tree notification failed:', err?.message || err);
+      });
+    }
     const now = this.now().toISOString();
     const ready = state === 'ready_to_promote';
     const successful = state === 'synced' || ready;
@@ -1619,5 +1632,26 @@ export class SourceControlService {
     const summaryTemp = `${this.summaryPath}.${process.pid}.${this.uuid()}.tmp`;
     await writeFile(summaryTemp, summary, { mode: 0o600 });
     await rename(summaryTemp, this.summaryPath);
+  }
+
+  /** Posts a one-time Team Room notice when sync first becomes blocked by a
+   * dirty tree, so the block is actually visible instead of sitting silently
+   * in the status file. Fire-and-forget from the caller's side — a Team Room
+   * hiccup must never affect writeStatus's own completion. */
+  private async notifyDirtyTreeBlock(error: string, actor: string): Promise<void> {
+    const { storage } = await import('../storage');
+    const rooms = await storage.listTeamRooms(1);
+    if (!rooms.length) return;
+    const content = [
+      '**Source-control sync blocked — dirty tracked files**',
+      '',
+      error,
+      '',
+      `Triggered by: ${actor}`,
+      'The scheduler will keep retrying on its own schedule, but it cannot resolve this by itself — something needs to commit or discard the offending files.',
+    ].join('\n');
+    const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
+    const { emitNewMessage } = await import('./team-room-ws-broker');
+    emitNewMessage(rooms[0].id, message);
   }
 }
