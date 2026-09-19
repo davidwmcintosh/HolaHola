@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import { and, desc, eq } from 'drizzle-orm';
 import { coordinationV2PolicyVersions, coordinationV2SourcePromotions } from '@shared/schema';
 import { db } from '../db';
-import { canonicalJson, canonicalizePolicy } from './coordination-policy-canonicalization';
 import { issueCoordinationV2PreflightEnvelope } from './coordination-v2-preflight-envelope';
 import {
   resolveCoordinationTaskMetadataWithArtifact,
@@ -16,6 +15,7 @@ import {
 } from './coordination-task-metadata-service';
 import { SourceControlService } from './source-control-service';
 import { normalizeCoordinationRepositoryIdentity } from './coordination-repository-identity';
+import { buildCoordinationV2PublicConfig } from './coordination-v2-public-config';
 
 const exec = promisify(execFile);
 const sha = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
@@ -28,52 +28,13 @@ function publicDigest(artifacts: Record<string, Uint8Array>): string {
 }
 const MAX_ARTIFACT_BYTES = 256 * 1024;
 const MAX_CONFIG_BYTES = 64 * 1024;
-const CHILD_ROLES = ['coordinator-cli', 'gate3-executor'] as const;
-const OPERATION_KINDS = ['poll', 'claim', 'result', 'cleanup'] as const;
 
-/**
- * `hostConstraints.windowsPublicMaterialDigest` is the one policy field the
- * emitted config cannot carry: it is defined as the digest OF the task
- * artifact plus this config, so embedding its real value would make the
- * config's own hash a function of itself -- a SHA-256 preimage nobody could
- * ever satisfy. Strip it from the policy view that gets embedded/hashed here
- * so the config is well-defined; the real value is still fully enforced, just
- * as a separate pinned comparison at the reserve/prepare call sites (see
- * `coordination-lifecycle-facade-service.ts` and
- * `coordination-windows-generation.ts`), never as an input to the hash it is
- * compared against. The `policyDigest` returned by this function (identifying
- * *which* approved policy version this is) is unaffected -- it is still the
- * hash of the complete, real policy, matching what is stored at authoring
- * time in `coordinationV2PolicyVersions`.
- */
-function withoutSelfReferentialDigest(canonicalPolicy: Record<string, unknown>): Record<string, unknown> {
-  const constraints = canonicalPolicy.hostConstraints;
-  if (!constraints || typeof constraints !== 'object' || Array.isArray(constraints)
-    || !('windowsPublicMaterialDigest' in (constraints as Record<string, unknown>))) {
-    return canonicalPolicy;
-  }
-  const { windowsPublicMaterialDigest: _omit, ...operationalConstraints } = constraints as Record<string, unknown>;
-  return { ...canonicalPolicy, hostConstraints: operationalConstraints };
-}
-
-export function buildCoordinationV2PublicConfig(input: {
-  repositoryIdentity: string; promotedCommitSha: string; exactTreeSha: string;
-  policy: Record<string, unknown>;
-}): { config: string; canonicalPolicy: Record<string, unknown>; policyDigest: string } {
-  const canonicalPolicy = canonicalizePolicy(input.policy) as Record<string, unknown>;
-  const canonicalPolicyBytes = canonicalJson(canonicalPolicy);
-  const operationalPolicy = withoutSelfReferentialDigest(canonicalPolicy);
-  const operationalPolicyBytes = canonicalJson(operationalPolicy);
-  return {
-    canonicalPolicy,
-    policyDigest: sha(canonicalPolicyBytes),
-    config: canonicalJson({
-      protocolVersion: 1, childRoles: CHILD_ROLES, operationKinds: OPERATION_KINDS,
-      repositoryIdentity: input.repositoryIdentity, promotedCommitSha: input.promotedCommitSha,
-      exactTreeSha: input.exactTreeSha, policy: operationalPolicy, policyDigest: sha(operationalPolicyBytes),
-    }),
-  };
-}
+// `buildCoordinationV2PublicConfig` (and the self-referential-digest stripping
+// it relies on) lives in `coordination-v2-public-config.ts`, a module with no
+// `../db` import, so the offline founder-facing digest CLI
+// (`server/scripts/coordination-v2-public-material-digest.ts`) can reuse the
+// exact same computation without pulling in a live database connection.
+export { buildCoordinationV2PublicConfig } from './coordination-v2-public-config';
 
 export async function resolveCoordinationV2ProtectedRemoteCommit(
   sha: string,

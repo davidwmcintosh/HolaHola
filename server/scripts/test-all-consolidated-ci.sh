@@ -407,6 +407,7 @@ group_body_workflow_safety() {
     server/scripts/test-coordination-v2-host-factory-route.test.ts \
     server/scripts/test-coordination-v2-dpapi-contract.test.ts \
     server/scripts/test-coordination-v2-authority-seams.test.ts \
+    server/scripts/test-coordination-v2-public-material-digest.test.ts \
     server/scripts/test-coordination-v2-deferred-session.test.ts \
     server/scripts/test-coordinator-v2-schema.test.ts
   npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts

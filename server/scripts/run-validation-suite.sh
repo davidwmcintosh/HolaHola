@@ -65,6 +65,7 @@ run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evide
   server/scripts/test-coordination-v2-host-factory-route.test.ts \
   server/scripts/test-coordination-v2-dpapi-contract.test.ts \
   server/scripts/test-coordination-v2-authority-seams.test.ts \
+  server/scripts/test-coordination-v2-public-material-digest.test.ts \
   server/scripts/test-coordination-v2-deferred-session.test.ts \
   server/scripts/test-coordinator-v2-schema.test.ts
 run_check "Coordinator V2 PowerShell enrollment object contract" npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts

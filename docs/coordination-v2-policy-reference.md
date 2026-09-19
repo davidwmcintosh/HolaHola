@@ -89,6 +89,45 @@ Provider/model/adapter and host/repository/Git provenance belong to one
 execution lineage. They identify how and where Luca performed the work; they do
 not divide Luca's identity by runtime or provider.
 
+## Computing hostConstraints.windowsPublicMaterialDigest before authoring
+
+A Windows-host policy pins `hostConstraints.windowsPublicMaterialDigest` to the
+exact SHA-256 the server requires at preparation time
+(`issueCoordinationV2PreparationEnvelope`). Guessing it produces a bare
+`V2_PREPARATION_PUBLIC_DIGEST_MISMATCH` with no further detail. Compute it
+offline first:
+
+```bash
+npx tsx server/scripts/coordination-v2-public-material-digest.ts \
+  --task-ref <task reference> \
+  --promoted-commit-sha <40-hex commit sha of the published source promotion> \
+  --exact-tree-sha <40-hex tree sha of that same promotion> \
+  --policy <path to the policy JSON you intend to submit>
+```
+
+This reuses the same task-artifact resolution and public-config hashing the
+server applies at preparation time, so the printed digest is exactly the value
+the server will require. No live database connection is used. Any value (or no
+value) already at `hostConstraints.windowsPublicMaterialDigest` in the policy
+file is ignored — it is stripped before hashing precisely so it can never be an
+input to its own hash.
+
+End-to-end sequence:
+
+1. **Compute** — run the command above; it prints the real
+   `windowsPublicMaterialDigest`.
+2. **Author** — put that value in `hostConstraints.windowsPublicMaterialDigest`
+   and submit the policy with `createPolicyDraft`.
+3. **Approve** — a founder approves the exact policy version.
+4. **Grant** — issue an operator grant for that approved policy so an operator
+   can launch a session against it.
+
+`promotedCommitSha` and `exactTreeSha` identify the published source promotion
+(`coordinationV2SourcePromotions`, state `published`) the policy will run
+against. They are not derivable from a local checkout alone, so they remain
+required, explicit inputs. Run the command with `--help` for the full flag
+reference.
+
 ## Windows and historical limits
 
 The current Windows credential is protected with DPAPI `CurrentUser`, so only

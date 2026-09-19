@@ -56,15 +56,20 @@ is broken), and a founder-computed real digest (via `computeCoordinationPublicMa
 from `coordination-windows-prepare.ts`, run against the actual delivered config) round-trips
 correctly (proves a working value now exists and is stable).
 
-**Remaining real gap (not a bug, a missing tool):** there is still no supported way for a
-founder to *discover* the correct windowsPublicMaterialDigest value before authoring a
-policy — `issueCoordinationV2PreparationEnvelope` throws a bare
-`V2_PREPARATION_PUBLIC_DIGEST_MISMATCH` without revealing the expected value. Tracked as
-task #1474 ("Let a founder compute the real windowsPublicMaterialDigest instead of
-guessing") rather than folded into the digest fix itself, since it's a separate, optional
-usability tool, not a correctness bug.
+**Founder digest-discovery tool: now exists.** A founder no longer has to guess
+`windowsPublicMaterialDigest` and read `V2_PREPARATION_PUBLIC_DIGEST_MISMATCH` off server
+logs. `server/scripts/coordination-v2-public-material-digest.ts` takes `--task-ref`,
+`--promoted-commit-sha`, `--exact-tree-sha`, and `--policy <file>` and prints the exact
+value the server will require, using the same `buildCoordinationV2PublicConfig` +
+`computeCoordinationPublicMaterialDigest` computation as preparation time. It resolves the
+task artifact via the same DB-free `FixedRootCoordinationTaskMetadataRegistry` production
+already uses (requires a clean git tree and a matching `GITHUB_REPO_URL`, so it fails
+closed mid-edit or outside a real checkout — this is the same registry, not a CLI-only
+restriction). `--help` documents the full compute → author → approve → grant sequence.
 
-**How to apply:** the digest field is safe to author into a real policy now — compute it
-with `buildCoordinationV2PublicConfig` + `computeCoordinationPublicMaterialDigest` (or wait
-for task #1474's CLI helper) rather than guessing or hand-waving a placeholder into
-production policy rows.
+**How to apply:** the digest field is safe to author into a real policy now — run
+`coordination-v2-public-material-digest.ts` to get the value (or call
+`buildCoordinationV2PublicConfig` + `computeCoordinationPublicMaterialDigest` directly)
+rather than guessing or hand-waving a placeholder into production policy rows. Calling the
+founder-session-gated HTTP routes to actually create/approve/grant the policy is still the
+remaining real step — that part was already built, just needed the correct payload value.
