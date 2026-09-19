@@ -3,6 +3,9 @@ import { execFile } from 'node:child_process';
 import { lstat, readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { eq } from 'drizzle-orm';
+import { coordinationV2TaskArtifacts } from '@shared/schema';
+import { db } from '../db';
 import { normalizeCoordinationRepositoryIdentity } from './coordination-repository-identity';
 
 const execFileAsync = promisify(execFile);
@@ -192,8 +195,50 @@ export class FixedRootCoordinationTaskMetadataRegistry implements CoordinationTa
   }
 }
 
-export const DEFAULT_COORDINATION_TASK_METADATA_REGISTRY =
-  new FixedRootCoordinationTaskMetadataRegistry();
+/**
+ * Postgres-backed registry. Task artifacts are published here (see
+ * coordination-task-artifact-publication-service.ts and the
+ * `coordination-v2-publish-task-artifact` CLI script) from a workspace that
+ * has the real `.local/tasks/task-<ref>.md` file and clean git provenance;
+ * this registry then serves the same bytes/metadata from the shared Neon
+ * database, which every environment (dev and every deployed target) reads
+ * identically. This is what makes DEFAULT_COORDINATION_TASK_METADATA_REGISTRY
+ * usable in production: unlike FixedRootCoordinationTaskMetadataRegistry, it
+ * never depends on a gitignored local path being present on whichever server
+ * happens to be running.
+ */
+export class PostgresCoordinationTaskMetadataRegistry implements CoordinationTaskMetadataRegistry {
+  async resolve(taskRef: string): Promise<CoordinationTaskMetadata | undefined> {
+    const ref = validateTaskRef(taskRef);
+    const rows = await db.select({
+      taskRef: coordinationV2TaskArtifacts.taskRef,
+      taskArtifactSha256: coordinationV2TaskArtifacts.taskArtifactSha256,
+      repositoryIdentity: coordinationV2TaskArtifacts.repositoryIdentity,
+      startingCommit: coordinationV2TaskArtifacts.startingCommit,
+    }).from(coordinationV2TaskArtifacts)
+      .where(eq(coordinationV2TaskArtifacts.taskRef, ref)).limit(1);
+    const row = rows[0];
+    if (!row) return undefined;
+    return validateMetadata(row, ref);
+  }
+
+  async readArtifact(taskRef: string): Promise<Uint8Array> {
+    const ref = validateTaskRef(taskRef);
+    const rows = await db.select({ artifactBase64: coordinationV2TaskArtifacts.artifactBase64 })
+      .from(coordinationV2TaskArtifacts)
+      .where(eq(coordinationV2TaskArtifacts.taskRef, ref)).limit(1);
+    const row = rows[0];
+    if (!row) throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+    try {
+      return new Uint8Array(Buffer.from(row.artifactBase64, 'base64'));
+    } catch {
+      throw new CoordinationTaskMetadataError('TASK_METADATA_UNSUPPORTED');
+    }
+  }
+}
+
+export const DEFAULT_COORDINATION_TASK_METADATA_REGISTRY: CoordinationTaskMetadataRegistry =
+  new PostgresCoordinationTaskMetadataRegistry();
 
 /** Injectable object form for callers that keep server registries in a container. */
 export class CoordinationTaskMetadataService {

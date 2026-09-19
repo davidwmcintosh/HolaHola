@@ -156,3 +156,20 @@ test("source promotion authority is PostgreSQL append-only", () => {
   assert.match(migration, /coordination_v2_reject_source_promotion_mutation/);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON "coordination_v2_source_promotions"/);
 });
+
+test("task artifacts are a shared-database registry, not a gitignored local path", () => {
+  const taskArtifactMigration = readFileSync("migrations/0056_cold_silhouette.sql", "utf8");
+  assert.match(schema, /pgTable\("coordination_v2_task_artifacts"/);
+  assert.match(taskArtifactMigration, /CREATE TABLE "coordination_v2_task_artifacts"/);
+  assert.match(taskArtifactMigration, /"task_ref" varchar\(32\) NOT NULL/);
+  assert.match(taskArtifactMigration, /"artifact_base64" text NOT NULL/);
+  assert.match(taskArtifactMigration, /coordination_v2_task_artifact_sha.*task_artifact_sha256.*\^\[0-9a-f\]\{64\}\$/);
+  assert.match(taskArtifactMigration, /CREATE UNIQUE INDEX "uq_coordination_v2_task_artifact_ref"/);
+  const service = readFileSync("server/services/coordination-task-metadata-service.ts", "utf8");
+  assert.match(service, /class PostgresCoordinationTaskMetadataRegistry/);
+  assert.match(
+    service,
+    /DEFAULT_COORDINATION_TASK_METADATA_REGISTRY[\s\S]{0,120}new PostgresCoordinationTaskMetadataRegistry/,
+    "the default registry must be the Postgres-backed one so production resolves task artifacts without a gitignored local path",
+  );
+});

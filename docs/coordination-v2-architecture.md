@@ -153,6 +153,45 @@ the enrollment, descendant session credentials, leases, and claims; ordinary
 terminal cleanup revokes session credentials while leaving the renewable host
 identity available.
 
+## Task artifact registry
+
+Preparation needs the exact bytes of the task being launched, plus their
+SHA-256, to compute `publicMaterialDigest` and to embed the artifact in host
+work (see `resolveCoordinationTaskMetadataWithArtifact` and
+`issueCoordinationV2PreparationEnvelope`). The registry that answers that
+lookup is server configuration, never operator input.
+
+`DEFAULT_COORDINATION_TASK_METADATA_REGISTRY` is
+`PostgresCoordinationTaskMetadataRegistry`: it reads a `coordinationV2TaskArtifacts`
+row (one per task ref) from the same shared Neon database every environment
+already uses. This is deliberate -- `.local/tasks/task-<ref>.md` is gitignored,
+so it is never present in a deployed build (Replit and the Dockerfile-based
+production target both build from a source checkout that never includes
+gitignored paths). A registry that read from local disk could only ever work
+in a workspace that happened to have the file, never in a deployed server.
+
+A task artifact is published from a workspace that has the real local file:
+
+```
+npx tsx server/scripts/coordination-v2-publish-task-artifact.ts <taskRef> [publishedBy]
+```
+
+This reuses `FixedRootCoordinationTaskMetadataRegistry` unchanged to read and
+validate the local file (clean git tree, non-symlinked file, configured/pinned
+repository identity) before writing its bytes and metadata to the database.
+Republishing a task (e.g. after revising the local file) upserts the existing
+row in place; there is one current row per task ref, not a version history --
+the artifact is a workflow input being moved off disk, not governed policy.
+`FixedRootCoordinationTaskMetadataRegistry` itself is unchanged and still
+available for callers that explicitly construct it (e.g. the publish script),
+but it is no longer the default production registry.
+
+Every hash/digest check downstream of resolution is unaffected by where the
+bytes came from: `resolveCoordinationTaskMetadataWithArtifact` still rejects
+any artifact whose SHA-256 does not match the resolved metadata, and
+`issueCoordinationV2PreparationEnvelope` still requires the resulting
+`publicMaterialDigest` to match the caller's reservation.
+
 ## Related references
 
 - [Policy reference](coordination-v2-policy-reference.md)

@@ -408,6 +408,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running Coordinator V2 task-artifact registry PostgreSQL proofs against the branch...');
+    const taskArtifactRegistryTests = await runCommand(
+      'npx tsx --test server/scripts/test-coordination-task-artifact-registry-postgres.test.ts',
+      branchEnv,
+    );
+    if (taskArtifactRegistryTests.code !== 0) {
+      failureReason = `Coordinator V2 task-artifact registry PostgreSQL tests exited ${taskArtifactRegistryTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
     console.log('[gate] Running Coordinator V2 runtime-bootstrap PostgreSQL proofs against the branch...');
     const runtimeBootstrapPostgres = await runCommand(
       'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts',
