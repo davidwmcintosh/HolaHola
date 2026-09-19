@@ -76,6 +76,14 @@ export async function issueCoordinationV2PreparationEnvelope(input: {
   publicMaterialDigest: string;
   policyVersionId: string;
   repositoryRoot?: string;
+  /**
+   * Falls back to the DB-free default (a gitignored local path) when
+   * omitted. The real production call site (coordination-host-routes.ts's
+   * `/api/coordination/v2/host/lifecycle`) always passes the Postgres-backed
+   * registry explicitly (see server/routes.ts wiring) so preparation can
+   * resolve a task's artifact on a deployed server, which never has that
+   * local path.
+   */
   taskMetadataRegistry?: CoordinationTaskMetadataRegistry;
   nonce?: string;
   /** Hermetic proof seam; production uses SourceControlService's protected fetch. */

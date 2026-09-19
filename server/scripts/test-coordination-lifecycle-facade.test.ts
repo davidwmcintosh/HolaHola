@@ -7,6 +7,7 @@ import {
 } from '../services/coordination-task-metadata-service';
 import {
   launchOrResumeCoordinationLifecycle,
+  reserveCoordinationLifecyclePreparation,
   CoordinationLifecycleFacadeError,
   applyCoordinationProviderFailure,
 } from '../services/coordination-lifecycle-facade-service';
@@ -146,6 +147,21 @@ test('facade closes operator input and returns cleanup-safe status only', async 
   assert.equal(attempts[0].attemptGeneration, attempts[1].attemptGeneration);
   assert.equal(leases[0].holderInstanceId, leases[1].holderInstanceId);
   assert.equal(Object.keys(result).some((key) => /id|digest|receipt|lease/i.test(key)), false);
+});
+
+test('reserveCoordinationLifecyclePreparation honors an explicit taskMetadataRegistry override instead of silently using the default', async () => {
+  await assert.rejects(
+    () => reserveCoordinationLifecyclePreparation(
+      { taskRef: '9001' },
+      { actorId: 'operator', requestKey: 'request-registry-override' },
+      {
+        taskMetadataRegistry: { resolve: async () => { throw new Error('registry-override-invoked'); } },
+        resolvePolicy: async () => ({ policyIdentityId: 'i', policyVersionId: 'p', operatorGrantId: 'g', policy }),
+        resolveHost: async () => ({ enrolledHostId: 'h' }),
+      },
+    ),
+    /registry-override-invoked/,
+  );
 });
 
 test('unacknowledged preparation remains preparing without lifecycle mutation', async () => {

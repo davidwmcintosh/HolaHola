@@ -8571,6 +8571,37 @@ export const coordinationV2SourcePromotions = pgTable("coordination_v2_source_pr
   check("coordination_v2_source_promotion_receipt_digest", sql`${table.operationReceiptDigest} ~ '^[0-9a-f]{64}$'`),
 ]);
 
+/**
+ * Task launch artifacts, keyed by task ref. `.local/tasks/task-<ref>.md` is
+ * gitignored and is never present in a deployed build (every deploy target
+ * builds from a git checkout) -- this table is the durable, shared-Neon
+ * source that PostgresCoordinationTaskMetadataRegistry reads from, so
+ * preparation can resolve a task's bytes in production the same way it does
+ * in development. One row per taskRef; republishing a task (e.g. after
+ * editing the local file) updates the row in place rather than versioning it
+ * -- the artifact is a workflow input being transported off disk, not a
+ * governed policy that needs its own draft/approve/audit lifecycle.
+ */
+export const coordinationV2TaskArtifacts = pgTable("coordination_v2_task_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskRef: varchar("task_ref", { length: 32 }).notNull(),
+  artifactBase64: text("artifact_base64").notNull(),
+  taskArtifactSha256: varchar("task_artifact_sha256", { length: 64 }).notNull(),
+  repositoryIdentity: varchar("repository_identity", { length: 512 }).notNull(),
+  startingCommit: varchar("starting_commit", { length: 64 }).notNull(),
+  publishedBy: varchar("published_by", { length: 128 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coordination_v2_task_artifact_ref").on(table.taskRef),
+  check("coordination_v2_task_artifact_ref_format", sql`${table.taskRef} ~ '^[1-9][0-9]*$'`),
+  check("coordination_v2_task_artifact_sha", sql`${table.taskArtifactSha256} ~ '^[0-9a-f]{64}$'`),
+  check("coordination_v2_task_artifact_commit", sql`${table.startingCommit} ~ '^[0-9a-f]{40}$|^[0-9a-f]{64}$'`),
+  check("coordination_v2_task_artifact_repo_nonblank", sql`length(trim(${table.repositoryIdentity})) > 0`),
+  check("coordination_v2_task_artifact_publisher_nonblank", sql`length(trim(${table.publishedBy})) > 0`),
+  check("coordination_v2_task_artifact_base64_nonblank", sql`length(${table.artifactBase64}) > 0`),
+]);
+
 export const coordinationV2HostEnrollments = pgTable("coordination_v2_host_enrollments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hostKey: varchar("host_key", { length: 128 }).notNull(),

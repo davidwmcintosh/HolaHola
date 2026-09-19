@@ -16,13 +16,20 @@ import { PolicyValidationError } from '../services/coordination-policy-canonical
  * submitting it for approval, instead of guessing and reading
  * `V2_PREPARATION_PUBLIC_DIGEST_MISMATCH` off server logs.
  *
- * This reuses the *same* task-artifact resolution
- * (`resolveCoordinationTaskMetadataWithArtifact` with the default,
- * filesystem+git registry -- no database) and the *same* public-config
- * hashing (`buildCoordinationV2PublicConfig` +
- * `computeCoordinationPublicMaterialDigest`) that
- * `issueCoordinationV2PreparationEnvelope` applies at preparation time, so a
- * digest printed here is exactly the value the server will require.
+ * This reuses the *same* public-config hashing
+ * (`buildCoordinationV2PublicConfig` + `computeCoordinationPublicMaterialDigest`)
+ * that `issueCoordinationV2PreparationEnvelope` applies at preparation time.
+ * The task artifact itself is resolved locally via the default,
+ * filesystem+git registry (`resolveCoordinationTaskMetadataWithArtifact` with
+ * `DEFAULT_COORDINATION_TASK_METADATA_REGISTRY` -- no database) -- the same
+ * bytes `coordination-v2-publish-task-artifact.ts` reads to publish into the
+ * shared database. A production launch resolves the task artifact from that
+ * published Postgres row instead of this local file (see
+ * `coordination-task-metadata-postgres-registry.ts`), so the digest printed
+ * here is exactly the value the server will require *provided the task
+ * artifact has already been published with these same bytes* -- publish
+ * first (or republish after editing the task file) if you want this digest
+ * to match what production actually enforces.
  *
  * `promotedCommitSha` and `exactTreeSha` identify the published source
  * promotion (`coordinationV2SourcePromotions`, state `published`) this policy
@@ -194,18 +201,24 @@ Usage:
     [--format text|json]
 
 What this does:
-  Reuses the exact task-artifact resolution and public-config hashing that
+  Reuses the exact public-config hashing that
   issueCoordinationV2PreparationEnvelope applies at preparation time
-  (coordination-task-metadata-service.ts + coordination-v2-public-config.ts
-  + coordination-windows-prepare.ts), so the digest printed here is exactly
-  the value the server will require. No database connection is used.
+  (coordination-v2-public-config.ts + coordination-windows-prepare.ts). No
+  database connection is used: the task artifact is read from your local
+  .local/tasks/task-<ref>.md, the same bytes
+  coordination-v2-publish-task-artifact.ts publishes into the shared
+  database for production to read from. The digest printed here is exactly
+  the value the server will require provided that file has already been
+  published with these bytes -- publish (or republish after editing the
+  task file) before relying on this digest, or production will enforce
+  whatever it last published instead.
 
 Options:
   --task-ref             Task reference whose .local/tasks/task-<ref>.md
-                          bytes are the task artifact. Resolved with the same
-                          registry the server uses at preparation time: the
-                          local git checkout must be clean and its origin
-                          remote must match the configured GITHUB_REPO_URL.
+                          bytes are the task artifact. Resolved locally via
+                          the filesystem+git registry: the local git checkout
+                          must be clean and its origin remote must match the
+                          configured GITHUB_REPO_URL.
   --promoted-commit-sha   The commit sha of the published source promotion
                           (coordinationV2SourcePromotions, state "published")
                           this policy will run against. Not derivable from a

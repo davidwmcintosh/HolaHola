@@ -148,7 +148,8 @@
 - [Triaging markTaskComplete validation failures](validation-failure-triage.md) — check the live server/workflow first, and prove pre-existing-vs-caused-by-me with a git worktree at the parent commit before treating a failure as a regression.
 - [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
 - [Coordinator V2 vs legacy Gate3 task-ownership](coordinator-v2-vs-gate3-ownership.md) — Command Center Ownership tab is a separate legacy system; V2 launch needs policy+grant, not task-ownership receipts.
-- [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment + source-promotion done; digest bug fixed and a founder CLI now computes it; calling the policy-authoring HTTP routes is the remaining real step.
+- [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment, digest fix, and Postgres task-artifact resolution done; policy authoring remains.
+- [Verification suite parallel fixture race](verification-suite-parallel-fixture-race.md) — validation-suite.sh + consolidated-ci.sh can race on shared docs/ fixtures if run concurrently.
 - [Coordination V2 standalone-CLI testing](coordination-v2-standalone-cli-testing.md) — strip NEON_SHARED_DATABASE_URL/CI_DATABASE_URL/CI to prove no live-DB import; canonicalization treats an absent key differently from an empty object.
 - [Compacted-summary reverification](compacted-summary-reverification.md) — milestone labels/status claims carried in a post-compaction summary are unverified leads, not facts; re-check before repeating them.
 - [Chat-capture attribution write paths](chat-capture-duplicate-attribution-paths.md) — 3 independent DB-writers duplicate title/participants derivation; fixing one doesn't fix the others.

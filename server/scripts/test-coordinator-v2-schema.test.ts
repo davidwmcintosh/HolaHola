@@ -156,3 +156,44 @@ test("source promotion authority is PostgreSQL append-only", () => {
   assert.match(migration, /coordination_v2_reject_source_promotion_mutation/);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON "coordination_v2_source_promotions"/);
 });
+
+test("task artifacts are a shared-database registry, not a gitignored local path", () => {
+  const taskArtifactMigration = readFileSync("migrations/0056_cold_silhouette.sql", "utf8");
+  assert.match(schema, /pgTable\("coordination_v2_task_artifacts"/);
+  assert.match(taskArtifactMigration, /CREATE TABLE "coordination_v2_task_artifacts"/);
+  assert.match(taskArtifactMigration, /"task_ref" varchar\(32\) NOT NULL/);
+  assert.match(taskArtifactMigration, /"artifact_base64" text NOT NULL/);
+  assert.match(taskArtifactMigration, /coordination_v2_task_artifact_sha.*task_artifact_sha256.*\^\[0-9a-f\]\{64\}\$/);
+  assert.match(taskArtifactMigration, /CREATE UNIQUE INDEX "uq_coordination_v2_task_artifact_ref"/);
+  // The Postgres-backed registry lives in its own file -- not inline in
+  // coordination-task-metadata-service.ts -- because that base module (and
+  // its DEFAULT_COORDINATION_TASK_METADATA_REGISTRY) must stay importable
+  // with no database connection available: it backs the offline
+  // founder-facing digest CLI (coordination-v2-public-material-digest.ts),
+  // which test-coordination-v2-public-material-digest.test.ts proves runs
+  // with no database connection available. Production instead wires the
+  // Postgres registry in explicitly at its real call sites.
+  const service = readFileSync("server/services/coordination-task-metadata-service.ts", "utf8");
+  assert.doesNotMatch(
+    service,
+    /from\s+['"]\.\.\/db['"]/,
+    "coordination-task-metadata-service.ts must stay importable with no database connection available",
+  );
+  const postgresRegistry = readFileSync("server/services/coordination-task-metadata-postgres-registry.ts", "utf8");
+  assert.match(postgresRegistry, /class PostgresCoordinationTaskMetadataRegistry/);
+  assert.match(
+    postgresRegistry,
+    /export const POSTGRES_COORDINATION_TASK_METADATA_REGISTRY[\s\S]{0,120}new PostgresCoordinationTaskMetadataRegistry/,
+  );
+  const routes = readFileSync("server/routes.ts", "utf8");
+  assert.match(
+    routes,
+    /registerCoordinationSessionRoutes\(app,\s*\{[\s\S]{0,160}POSTGRES_COORDINATION_TASK_METADATA_REGISTRY/,
+    "session-route wiring must resolve task artifacts without a gitignored local path",
+  );
+  assert.match(
+    routes,
+    /registerCoordinationHostRoutes\(app,\s*\{[\s\S]{0,160}POSTGRES_COORDINATION_TASK_METADATA_REGISTRY/,
+    "host-route wiring must resolve task artifacts without a gitignored local path",
+  );
+});

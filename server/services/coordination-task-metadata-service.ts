@@ -5,6 +5,25 @@ import { promisify } from 'node:util';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { normalizeCoordinationRepositoryIdentity } from './coordination-repository-identity';
 
+/**
+ * This module -- including its default export,
+ * `DEFAULT_COORDINATION_TASK_METADATA_REGISTRY` -- must never import the live
+ * database module (`../db`), directly or transitively. It is imported by the
+ * offline founder-facing digest CLI
+ * (`server/scripts/coordination-v2-public-material-digest.ts`), which has a
+ * hard "runs with no database connection available" contract enforced by
+ * `test-coordination-v2-public-material-digest.test.ts`. `../db` throws
+ * synchronously at import time when no database URL is configured, so even
+ * an unused top-level import here would crash that CLI.
+ *
+ * The Postgres-backed registry that production servers actually use to
+ * resolve task artifacts (`PostgresCoordinationTaskMetadataRegistry`) lives
+ * in the sibling file `coordination-task-metadata-postgres-registry.ts`
+ * *because* of this constraint -- see that file's doc comment. Production
+ * call sites wire it in explicitly (as a `taskMetadataRegistry` dependency
+ * override); they do not get it by relying on the default exported here.
+ */
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -51,14 +70,16 @@ export class CoordinationTaskMetadataError extends Error {
   }
 }
 
-function validateTaskRef(taskRef: unknown): string {
+/** Exported so sibling registries (e.g. the Postgres-backed one) can reuse the same validation. */
+export function validateTaskRef(taskRef: unknown): string {
   if (typeof taskRef !== 'string' || !/^[1-9][0-9]*$/.test(taskRef)) {
     throw new CoordinationTaskMetadataError('TASK_METADATA_INVALID_REQUEST');
   }
   return taskRef;
 }
 
-function validateMetadata(value: CoordinationTaskMetadata | undefined, taskRef: string): CoordinationTaskMetadata {
+/** Exported so sibling registries (e.g. the Postgres-backed one) can reuse the same validation. */
+export function validateMetadata(value: CoordinationTaskMetadata | undefined, taskRef: string): CoordinationTaskMetadata {
   if (!value
     || value.taskRef !== taskRef
     || !/^[0-9a-f]{64}$/.test(value.taskArtifactSha256)
@@ -192,7 +213,20 @@ export class FixedRootCoordinationTaskMetadataRegistry implements CoordinationTa
   }
 }
 
-export const DEFAULT_COORDINATION_TASK_METADATA_REGISTRY =
+/**
+ * Deliberately DB-free (see the module-level comment above). Every function
+ * in this file that takes an optional registry -- and every DB-free caller,
+ * including the offline digest CLI -- falls back to this filesystem+git
+ * registry when no explicit override is supplied.
+ *
+ * Production server code that must resolve a task's artifact without a
+ * gitignored local path (see `coordination-task-metadata-postgres-registry.ts`)
+ * depends on an *explicit* `taskMetadataRegistry` override at its real call
+ * sites (`server/routes.ts`'s wiring into
+ * `registerCoordinationSessionRoutes`/`registerCoordinationHostRoutes`); it
+ * does not get Postgres resolution by relying on this default.
+ */
+export const DEFAULT_COORDINATION_TASK_METADATA_REGISTRY: CoordinationTaskMetadataRegistry =
   new FixedRootCoordinationTaskMetadataRegistry();
 
 /** Injectable object form for callers that keep server registries in a container. */

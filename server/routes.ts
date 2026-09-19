@@ -19,7 +19,7 @@ import { registerCoordinationSessionRoutes } from "./routes/coordination-session
 import { registerCoordinationHostRoutes } from "./routes/coordination-host-routes";
 import { registerCoordinationV2HostAdminRoutes } from "./routes/coordination-v2-host-admin-routes";
 import { registerCoordinationV2RuntimeBootstrapRoutes } from "./routes/coordination-v2-runtime-bootstrap-routes";
-import { DEFAULT_COORDINATION_TASK_METADATA_REGISTRY } from "./services/coordination-task-metadata-service";
+import { POSTGRES_COORDINATION_TASK_METADATA_REGISTRY } from "./services/coordination-task-metadata-postgres-registry";
 import { getReleaseIdentity } from "./services/release-identity";
 import { registerAgentNoteReplyRoute } from "./routes/agent-note-reply-route";
 import { registerLucaObserverRoute } from "./routes/luca-observer-route";
@@ -654,11 +654,16 @@ export async function registerRoutes(app: Application): Promise<void> {
   // does not touch or replace Replit auth's routes.
   await setupGoogleAuth(app as any, authLimiter);
   registerCoordinationPolicyRoutes(app);
+  // Explicit Postgres wiring, not the DB-free default exported from
+  // coordination-task-metadata-service.ts: production must resolve a task's
+  // artifact bytes without depending on the gitignored .local/tasks/ path
+  // being present in a deployed build. See
+  // coordination-task-metadata-postgres-registry.ts's doc comment.
   registerCoordinationSessionRoutes(app, {
-    lifecycle: { taskMetadataRegistry: DEFAULT_COORDINATION_TASK_METADATA_REGISTRY },
+    lifecycle: { taskMetadataRegistry: POSTGRES_COORDINATION_TASK_METADATA_REGISTRY },
   });
   registerCoordinationHostRoutes(app, {
-    lifecycle: { taskMetadataRegistry: DEFAULT_COORDINATION_TASK_METADATA_REGISTRY },
+    lifecycle: { taskMetadataRegistry: POSTGRES_COORDINATION_TASK_METADATA_REGISTRY },
   });
   registerCoordinationV2HostAdminRoutes(app);
   registerCoordinationV2RuntimeBootstrapRoutes(app);

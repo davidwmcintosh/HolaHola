@@ -73,3 +73,29 @@ restriction). `--help` documents the full compute → author → approve → gra
 rather than guessing or hand-waving a placeholder into production policy rows. Calling the
 founder-session-gated HTTP routes to actually create/approve/grant the policy is still the
 remaining real step — that part was already built, just needed the correct payload value.
+
+**Task-artifact production resolution: FIXED (Sep 19 2026, was blocking every launch).**
+`FixedRootCoordinationTaskMetadataRegistry` reads `.local/tasks/task-<ref>.md` from local
+disk with `process.cwd()` as root. `.local/` is gitignored, so that file never exists on any
+deployed server's filesystem — every production launch failed task-artifact resolution
+(`TASK_METADATA_UNSUPPORTED`) regardless of how many times the app was republished. Fix: a
+new `PostgresCoordinationTaskMetadataRegistry` (own file, `../db`-importing, kept out of the
+DB-free `coordination-task-metadata-service.ts` so the offline digest CLI above keeps working
+with no database connection available) is now the registry every real production call site
+uses via an explicit `taskMetadataRegistry` dependency override — both host-lifecycle and
+session-lifecycle routes, wired in `server/routes.ts`. Same hash/digest verification as
+before (sha256 artifact check, public-material-digest check) applies unchanged; the Postgres
+registry is a drop-in implementation of the same registry interface. A real pre-existing bug
+was found and fixed alongside this: `reserveCoordinationLifecyclePreparation` (the
+host-lifecycle reservation path) silently ignored a `taskMetadataRegistry` override and always
+used the DB-free default — the Postgres wiring in `routes.ts` would have had zero effect on
+the live host route without that fix.
+
+**Remaining real step for this blocker specifically:** the Postgres table only has rows for
+tasks someone has explicitly published into it. Publishing still goes through the *existing*
+`coordination-v2-publish-task-artifact.ts` CLI (unchanged) from a workspace that has the real
+`.local/tasks/task-<ref>.md` file and a clean, matching git tree — that CLI writes the bytes
+into the shared DB once, from an authorized workspace, rather than requiring every deployed
+server to have the file locally. This is a real per-task, one-time, post-merge operator action,
+not something a code change can automate away (the whole point is that the artifact's
+authenticity is tied to an authorized workspace producing it under clean git provenance).

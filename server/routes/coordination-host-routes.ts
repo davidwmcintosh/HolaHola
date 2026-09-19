@@ -204,6 +204,11 @@ export function registerCoordinationHostRoutes(
         taskRef: body.taskRef, hostEnrollmentId: req.coordinationV2Host!.hostEnrollmentId,
         preparationGeneration: deferred.reservation.generationId, reservationId: deferred.reservation.id,
         publicMaterialDigest: deferred.reservation.publicMaterialDigest, policyVersionId: deferred.policyVersionId,
+        // Same override this route already passes into reserveLifecycle() above --
+        // production wires in the Postgres-backed registry here (see
+        // server/routes.ts) so this resolves the task artifact without a
+        // gitignored local path.
+        taskMetadataRegistry: dependencies.lifecycle?.taskMetadataRegistry,
       });
       let opaqueState: Record<string, unknown> | undefined;
       if (deferred.reservation.state === 'acknowledged') {

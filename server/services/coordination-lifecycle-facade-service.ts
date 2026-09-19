@@ -64,7 +64,9 @@ export async function reserveCoordinationLifecyclePreparation(
   const [metadata, policy, host] = await Promise.all([
     dependencies.resolveTaskMetadata
       ? dependencies.resolveTaskMetadata(input.taskRef)
-      : resolveCoordinationTaskMetadata(input.taskRef),
+      : resolveCoordinationTaskMetadata(input.taskRef, {
+        registry: dependencies.taskMetadataRegistry ?? DEFAULT_COORDINATION_TASK_METADATA_REGISTRY,
+      }),
     (dependencies.resolvePolicy ?? defaultPolicy)(context, input.policySelector),
     (dependencies.resolveHost ?? defaultHost)(context),
   ]);
