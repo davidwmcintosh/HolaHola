@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
+import { closeDbConnections } from '../db';
 import {
   DEFAULT_ATTESTATION_TTL_MS,
   MAX_ATTESTATION_TTL_MS,
@@ -33,6 +34,19 @@ function disposableTarget(): string | undefined {
   }
   return url;
 }
+// Every persistence-backed test below runs its queries through the app-wide
+// `db` pool (server/db.ts), imported transitively via
+// release-cutover-attestation-service's default `dbClient`. That pool sets
+// idleTimeoutMillis but not `allowExitOnIdle`, so node-postgres (pg-pool)
+// leaves a referenced eviction timer plus a referenced idle-client socket
+// open after the last query. Without an explicit close, `node --test` waits
+// out the full 2-minute idle timeout before the process can exit, adding
+// ~2 minutes of wall time that no individual test reports (each subtest
+// still finishes in milliseconds). Same pattern and fix already used by
+// test-coordination-ledger.test.ts and other DB-backed *.test.ts files.
+after(async () => {
+  await closeDbConnections();
+});
 const OWN_SOURCE = readFileSync(fileURLToPath(import.meta.url), 'utf8');
 test('this file hard-fails under the gate instead of silently skipping DB coverage', () => {
   assert.ok(OWN_SOURCE.includes("RELEASE_CUTOVER_ATTESTATION_REQUIRE_DATABASE_TESTS === '1'"));
