@@ -11,6 +11,8 @@ import { verifyCoordinationV2PreflightEnvelope } from './coordination-v2-preflig
 import { readFileSync } from 'node:fs';
 import { loadServerSigningPrivateKey } from '../services/coordination-v2-signing';
 import { buildCoordinationV2PublicConfig } from '../services/coordination-v2-preparation-material-service';
+import { canonicalizeAndHashPolicy } from '../services/coordination-policy-canonicalization';
+import { computeCoordinationPublicMaterialDigest } from './coordination-windows-prepare';
 
 test('fixture Ed25519 preflight is nonce-bound, public-only, and rejects replay/mutation', async () => {
   assert.throws(() => loadServerSigningPrivateKey({}), /COORDINATION_V2_SERVER_SIGNING_KEY_MISSING/);
@@ -83,6 +85,56 @@ test('public material contains the complete canonical policy object and digest',
   assert.deepEqual(parsed.policy, built.canonicalPolicy);
   assert.equal(parsed.policyDigest, built.policyDigest);
   assert.equal(built.policyDigest, createHash('sha256').update(canonicalJson(built.canonicalPolicy)).digest('hex'));
+});
+
+test('windowsPublicMaterialDigest is excluded from the hashed config, breaking the fixed-point cycle', () => {
+  const baseInput = {
+    repositoryIdentity: 'github:owner/repo', promotedCommitSha: 'a'.repeat(40), exactTreeSha: 'b'.repeat(40),
+  };
+  const policyFields = {
+    hostTypes: ['windows'], providerOrder: ['gemini'], sessionDurationMs: 900_000, totalAttemptBudget: 2,
+  };
+
+  // Two policies that differ only in the pinned digest value must still
+  // produce byte-identical config -- proof the config's hash no longer
+  // depends on the field it is meant to certify.
+  const placeholderPolicy = {
+    ...policyFields,
+    hostConstraints: { windowsRepositoryBranch: 'main', windowsPublicMaterialDigest: '0'.repeat(64) },
+  };
+  const builtWithPlaceholder = buildCoordinationV2PublicConfig({ ...baseInput, policy: placeholderPolicy });
+  const parsedPlaceholder = JSON.parse(builtWithPlaceholder.config) as { policy: { hostConstraints: Record<string, unknown> } };
+  assert.equal('windowsPublicMaterialDigest' in parsedPlaceholder.policy.hostConstraints, false);
+  assert.equal(parsedPlaceholder.policy.hostConstraints.windowsRepositoryBranch, 'main');
+
+  const artifact = new TextEncoder().encode('{"task":"fixture"}');
+  const realDigest = computeCoordinationPublicMaterialDigest({
+    'task-artifact': artifact,
+    'coordinator-config.json': new TextEncoder().encode(builtWithPlaceholder.config),
+  });
+
+  const pinnedPolicy = {
+    ...policyFields,
+    hostConstraints: { windowsRepositoryBranch: 'main', windowsPublicMaterialDigest: realDigest },
+  };
+  const builtWithRealPin = buildCoordinationV2PublicConfig({ ...baseInput, policy: pinnedPolicy });
+
+  // The hashed config is unaffected by which value is pinned...
+  assert.equal(builtWithRealPin.config, builtWithPlaceholder.config);
+  // ...so the digest a founder pins now has an achievable, stable answer:
+  // recomputing over the actual delivered config still matches it exactly.
+  const recomputed = computeCoordinationPublicMaterialDigest({
+    'task-artifact': artifact,
+    'coordinator-config.json': new TextEncoder().encode(builtWithRealPin.config),
+  });
+  assert.equal(recomputed, realDigest);
+
+  // The policy-identity digest (what coordination-policy-service.ts stores at
+  // authoring time) is untouched by the redaction: it still hashes the
+  // complete, real policy, so the authoring/preparation consistency check
+  // (`policyRow.policyDigest !== materialConfig.policyDigest`) keeps working.
+  assert.equal(builtWithRealPin.policyDigest, canonicalizeAndHashPolicy(pinnedPolicy).policyDigest);
+  assert.notEqual(builtWithRealPin.policyDigest, JSON.parse(builtWithRealPin.config).policyDigest);
 });
 
 test('source promotion authority is append-only and DB idempotent by exact identity', () => {
