@@ -155,3 +155,5 @@
 - [Chat-capture attribution write paths](chat-capture-duplicate-attribution-paths.md) — 3 independent DB-writers duplicate title/participants derivation; fixing one doesn't fix the others.
 - [Drizzle sql tag array binding](drizzle-sql-array-literal-binding.md) — db.execute(sql\`...\`) can't bind a raw JS array for ::text[]; build a Postgres array-literal string instead.
 - [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.
+- [Source-control dirty-tree block](source-control-dirty-tree-block.md) — sync never auto-commits; a dirty tracked tree blocks until an actor runs git commit, then wake-file nudge or next poll resolves it.
+- [Antigravity MCP integration surface](antigravity-mcp-integration.md) — bearer-token-only remote MCP (no OAuth); needs a real protocol adapter, not a raw REST pointer; verify antigravity/coordinator-v2 status via code not doc-count.
