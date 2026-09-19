@@ -47,3 +47,16 @@ in-process scheduler pushes via `source-control-service.ts`'s `withGithubAppAuth
 `main` while this in-process path succeeded moments later on the same repo/branch.
 A failure report about one path is not evidence the other is also broken —
 verify each independently before assuming a blanket GitHub App permission outage.
+
+**A third, separate path: the platform's own task-agent merge.** A task agent's
+`markTaskComplete` uses Replit's own built-in rebase/merge-to-main mechanism —
+neither of the two GitHub-push paths above. Ordinary code-change tasks land fine
+through it. But it can fail on a Replit-internal credential specifically for a
+task touching deploy-cadence/protected-surface files (e.g. `render.yaml`), while
+unrelated tasks keep merging fine in the same window — that's a narrow,
+path-specific failure, not a blanket outage. Don't force a manual `git push`/PR
+around it as a workaround: that reintroduces exactly the uncoordinated write this
+project's whole reconciliation apparatus (dirty-tree check, single scheduler
+writer, GitHub App auth) exists to prevent, especially on deploy-sensitive files.
+Land the change through the same in-process scheduler path everything else
+legitimate uses instead.
