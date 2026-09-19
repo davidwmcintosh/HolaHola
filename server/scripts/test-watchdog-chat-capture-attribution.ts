@@ -100,12 +100,18 @@ async function withEpisodeLiveFlag<T>(fn: () => Promise<T>): Promise<T> {
   setChatCapturePathsForTest({ capture: capturePath, cursor: cursorPath });
 
   // ── Scenario A: a multi-capture backlog in ONE drain() call ───────────────
-  // Two distinct real exchanges (Claude Code, then Replit) plus one legacy
-  // pair with no captureId at all, all sitting in the gap at once -- the
-  // exact "burst recovery" shape that caused the incident. Must produce
-  // three separate canonical rows (one per capture identity), each with
-  // correct attribution and tags, and the cursor must reach the full end
-  // offset in this single call -- not get stuck on the first group forever.
+  // Three distinct real exchanges -- bare Claude Code, Luca via the Claude
+  // Code interface, and Luca via Replit -- plus one legacy pair with no
+  // captureId at all, all sitting in the gap at once. This is both the
+  // original "burst recovery" shape that caused the 2026-09-04 incident AND
+  // the three-way assistant-identity distinction from the 2026-09-19
+  // follow-up incident, where a row's body correctly said "Claude Code" but
+  // its title/participants metadata still said "Luca [Claude Code]" because
+  // that metadata was derived from `source` alone instead of per-turn
+  // `speaker`. Must produce four separate canonical rows (one per capture
+  // identity), each with correct attribution in BOTH its body and its
+  // title/participants, and the cursor must reach the full end offset in
+  // this single call -- not get stuck on the first group forever.
   await withEpisodeLiveFlag(async () => {
     const scratchFilename = `test-watchdog-attribution-ci-${Date.now()}.md`;
     const scratchPath = path.join(WORKSPACE, 'docs', scratchFilename);
@@ -119,17 +125,20 @@ async function withEpisodeLiveFlag<T>(fn: () => Promise<T>): Promise<T> {
           { speaker: 'Claude Code', text: 'first exchange, Claude Code reply', captureId: 'backfill-attr-00', source: 'claude-code' },
           { speaker: 'David', text: 'second exchange, David', captureId: 'backfill-attr-01', source: 'replit' },
           { speaker: 'Luca', text: 'second exchange, Replit reply', captureId: 'backfill-attr-01', source: 'replit' },
+          { speaker: 'David', text: 'third exchange, David', captureId: 'backfill-attr-02', source: 'claude-code' },
+          { speaker: 'Luca', text: 'third exchange, Luca via Claude Code reply', captureId: 'backfill-attr-02', source: 'claude-code' },
           { speaker: 'David', text: 'a legacy turn with no capture id at all' },
         ],
         capturePath,
       );
       await drain();
 
-      check('exactly three chat rows created in one drain() call (one per capture group)',
-        chatInserts.length === 3, `got ${chatInserts.length}`);
+      check('exactly four chat rows created in one drain() call (one per capture group)',
+        chatInserts.length === 4, `got ${chatInserts.length}`);
 
       const cidA = chatInserts.find(r => r.tags.includes('capture-id:backfill-attr-00'));
       const cidB = chatInserts.find(r => r.tags.includes('capture-id:backfill-attr-01'));
+      const cidC = chatInserts.find(r => r.tags.includes('capture-id:backfill-attr-02'));
       const legacy = chatInserts.find(r => !r.tags.some(t => t.startsWith('capture-id:')));
 
       check('capture-id:backfill-attr-00 group exists with only its own two turns',
@@ -140,18 +149,49 @@ async function withEpisodeLiveFlag<T>(fn: () => Promise<T>): Promise<T> {
         cidA?.content.includes('**Claude Code:** first exchange, Claude Code reply') ?? false, cidA?.content);
       check('capture-id:backfill-attr-01 group attributed correctly in its own row',
         cidB?.content.includes('**LUCA [Replit]:** second exchange, Replit reply') ?? false, cidB?.content);
-      check('the two real capture-id groups were NOT merged into one row',
-        cidA !== cidB && !!cidA && !!cidB);
+      check('capture-id:backfill-attr-02 (Luca via Claude Code) group attributed correctly in its own row',
+        cidC?.content.includes('**LUCA [Claude Code]:** third exchange, Luca via Claude Code reply') ?? false, cidC?.content);
+      check('the three real capture-id groups were NOT merged into one row',
+        !!cidA && !!cidB && !!cidC && new Set([cidA, cidB, cidC]).size === 3);
+
+      // The 2026-09-19 follow-up bug: row-level title/participants were
+      // derived from whether `source: 'claude-code'` appeared ANYWHERE in
+      // the batch, not from actual per-turn `speaker`. That made a bare
+      // Claude Code row's metadata say "Luca [Claude Code]" even though its
+      // body (asserted above) correctly said "Claude Code". Assert both
+      // sides of all three rows so body and metadata can never silently
+      // diverge again.
+      check('bare Claude Code row: participants name claude-code, not luca-claude-code',
+        JSON.stringify(cidA?.participants) === JSON.stringify(['david', 'claude-code']),
+        JSON.stringify(cidA?.participants));
+      check('bare Claude Code row: title names "Claude Code" and does not mention "Luca"',
+        (cidA?.title.includes('Claude Code') ?? false) && !(cidA?.title.includes('Luca') ?? true),
+        cidA?.title);
+      check('Luca-via-Replit row: participants name luca, not claude-code',
+        JSON.stringify(cidB?.participants) === JSON.stringify(['david', 'luca']),
+        JSON.stringify(cidB?.participants));
+      check('Luca-via-Replit row: title names "Luca" with no "Claude Code" mention',
+        (cidB?.title.includes('Luca') ?? false) && !(cidB?.title.includes('Claude Code') ?? true),
+        cidB?.title);
+      check('Luca-via-Claude-Code row: participants name luca-claude-code, not bare claude-code',
+        JSON.stringify(cidC?.participants) === JSON.stringify(['david', 'luca-claude-code']),
+        JSON.stringify(cidC?.participants));
+      check('Luca-via-Claude-Code row: title names "Luca [Claude Code]"',
+        cidC?.title.includes('Luca [Claude Code]') ?? false,
+        cidC?.title);
+
       check('legacy (no-captureId) turn landed in its own row, not merged into a captured group',
         legacy?.content.includes('a legacy turn with no capture id at all') ?? false);
       check('legacy row carries no capture-id tag', !legacy?.tags.some(t => t.startsWith('capture-id:')));
 
-      check('episode content includes all three groups in order',
+      check('episode content includes all four groups in order',
         episodeContent.indexOf('first exchange, Claude Code reply') <
         episodeContent.indexOf('second exchange, Replit reply') &&
         episodeContent.indexOf('second exchange, Replit reply') <
+        episodeContent.indexOf('third exchange, Luca via Claude Code reply') &&
+        episodeContent.indexOf('third exchange, Luca via Claude Code reply') <
         episodeContent.indexOf('a legacy turn with no capture id at all'));
-      check('episode .md replica matches DB exactly (byte-for-byte) after all three groups',
+      check('episode .md replica matches DB exactly (byte-for-byte) after all four groups',
         fs.readFileSync(scratchPath, 'utf8') === episodeContent);
 
       // The real proof against the old bug: re-draining now (nothing new
